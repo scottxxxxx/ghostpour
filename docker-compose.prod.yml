@@ -1,0 +1,21 @@
+version: "3.8"
+services:
+  cloudzap:
+    image: ghcr.io/scottguida/cloudzap:latest
+    container_name: cloudzap
+    restart: unless-stopped
+    expose:
+      - "8000"
+    volumes:
+      - cloudzap-data:/app/data
+    env_file:
+      - .env.prod
+    networks:
+      - proxy-tier
+
+volumes:
+  cloudzap-data:
+
+networks:
+  proxy-tier:
+    external: true

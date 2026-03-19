@@ -1,0 +1,119 @@
+providers:
+  openai:
+    display_name: "OpenAI"
+    api_format: "openai"
+    base_url: "https://api.openai.com/v1/chat/completions"
+    auth_header: "Authorization"
+    auth_prefix: "Bearer "
+    extra_headers: {}
+    env_key: "openai_api_key"
+    models:
+      - id: "gpt-5.2"
+        supports_vision: true
+        max_tokens_default: 4096
+      - id: "gpt-5-mini"
+        supports_vision: true
+        max_tokens_default: 4096
+      - id: "gpt-5-nano"
+        supports_vision: false
+        max_tokens_default: 4096
+
+  anthropic:
+    display_name: "Anthropic"
+    api_format: "anthropic"
+    base_url: "https://api.anthropic.com/v1/messages"
+    auth_header: "x-api-key"
+    auth_prefix: ""
+    extra_headers:
+      anthropic-version: "2023-06-01"
+    env_key: "anthropic_api_key"
+    models:
+      - id: "claude-sonnet-4-6"
+        supports_vision: true
+        max_tokens_default: 4096
+      - id: "claude-opus-4-6"
+        supports_vision: true
+        max_tokens_default: 4096
+      - id: "claude-haiku-4-5-20251001"
+        supports_vision: true
+        max_tokens_default: 4096
+
+  google:
+    display_name: "Google Gemini"
+    api_format: "gemini"
+    base_url: "https://generativelanguage.googleapis.com/v1beta/models"
+    auth_header: "x-goog-api-key"
+    auth_prefix: ""
+    extra_headers: {}
+    env_key: "google_api_key"
+    models:
+      - id: "gemini-3.1-pro-preview"
+        supports_vision: true
+        max_tokens_default: 4096
+      - id: "gemini-3-flash-preview"
+        supports_vision: true
+        max_tokens_default: 4096
+
+  xai:
+    display_name: "xAI (Grok)"
+    api_format: "openai"
+    base_url: "https://api.x.ai/v1/chat/completions"
+    auth_header: "Authorization"
+    auth_prefix: "Bearer "
+    extra_headers: {}
+    env_key: "xai_api_key"
+    models:
+      - id: "grok-4"
+        supports_vision: true
+        max_tokens_default: 4096
+      - id: "grok-4-1-fast-reasoning"
+        supports_vision: true
+        max_tokens_default: 4096
+
+  deepseek:
+    display_name: "DeepSeek"
+    api_format: "openai"
+    base_url: "https://api.deepseek.com/chat/completions"
+    auth_header: "Authorization"
+    auth_prefix: "Bearer "
+    extra_headers: {}
+    env_key: "deepseek_api_key"
+    models:
+      - id: "deepseek-chat"
+        supports_vision: false
+        max_tokens_default: 4096
+      - id: "deepseek-reasoner"
+        supports_vision: false
+        max_tokens_default: 4096
+
+  kimi:
+    display_name: "Kimi (Moonshot)"
+    api_format: "openai"
+    base_url: "https://kimi-k2.ai/api/v1/chat/completions"
+    auth_header: "Authorization"
+    auth_prefix: "Bearer "
+    extra_headers: {}
+    env_key: "kimi_api_key"
+    models:
+      - id: "kimi-k2.5"
+        supports_vision: true
+        max_tokens_default: 4096
+      - id: "kimi-k2-0905-preview"
+        supports_vision: true
+        max_tokens_default: 4096
+
+  qwen:
+    display_name: "Qwen (Alibaba)"
+    api_format: "openai"
+    base_url: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions"
+    auth_header: "Authorization"
+    auth_prefix: "Bearer "
+    extra_headers: {}
+    env_key: "qwen_api_key"
+    models:
+      - id: "qwen3.5-plus"
+        supports_vision: true
+        max_tokens_default: 4096
+      - id: "qwen3.5-flash"
+        supports_vision: true
+        max_tokens_default: 4096

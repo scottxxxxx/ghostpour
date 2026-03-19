@@ -1,0 +1,40 @@
+tiers:
+  free:
+    display_name: "Free"
+    daily_token_limit: 50000
+    requests_per_minute: 5
+    allowed_providers:
+      - "openai"
+      - "anthropic"
+      - "google"
+    allowed_models:
+      - "gpt-5-nano"
+      - "claude-haiku-4-5-20251001"
+      - "gemini-3-flash-preview"
+    max_images_per_request: 0
+
+  subscriber:
+    display_name: "Subscriber"
+    daily_token_limit: 500000
+    requests_per_minute: 30
+    allowed_providers:
+      - "openai"
+      - "anthropic"
+      - "google"
+      - "xai"
+      - "deepseek"
+      - "kimi"
+      - "qwen"
+    allowed_models:
+      - "*"
+    max_images_per_request: 5
+
+  admin:
+    display_name: "Admin"
+    daily_token_limit: -1
+    requests_per_minute: 120
+    allowed_providers:
+      - "*"
+    allowed_models:
+      - "*"
+    max_images_per_request: 10
