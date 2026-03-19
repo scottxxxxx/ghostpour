@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "sqlite+aiosqlite:///./data/cloudzap.db"
 
+    # Pricing
+    pricing_source_url: str = (
+        "https://raw.githubusercontent.com/BerriAI/litellm/main/"
+        "model_prices_and_context_window.json"
+    )
+    pricing_refresh_seconds: int = 86400  # 24 hours
+
     # Config file paths
     tier_config_path: str = "config/tiers.yml"
     provider_config_path: str = "config/providers.yml"

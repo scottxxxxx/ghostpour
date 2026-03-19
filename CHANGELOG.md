@@ -12,6 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `metadata` JSON column in `usage_log` table for complete provider telemetry
 - Dot-path field extraction (`response_mappings`) and automatic usage flattening for nested provider responses
 - Provider config template in `providers.yml` with inline documentation
+- Pricing service: fetches LLM model costs from LiteLLM's JSON (configurable via `CZ_PRICING_SOURCE_URL`)
+- Cost breakdown in every `/v1/chat` response: `input_cost`, `output_cost`, `cached_savings`, `total_cost`, `billable_input_tokens`
+- Cached token handling: subtracts cached tokens from billable count (OpenAI, Anthropic, Gemini patterns)
+- Reasoning token cost support (OpenAI o-series, DeepSeek reasoner)
+- Daily cost limit per tier (`daily_cost_limit_usd` in `tiers.yml`)
+- `estimated_cost_usd` now populated in usage_log from pricing data
+- Health endpoint shows pricing status (loaded, model count, source URL)
 
 ## [0.1.0] - 2026-03-18
 

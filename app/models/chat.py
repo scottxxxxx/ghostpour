@@ -17,6 +17,7 @@ class ChatResponse(BaseModel):
     model: str
     provider: str
     usage: dict | None = None
+    cost: dict | None = None
     raw_request_json: str | None = None
     raw_response_json: str | None = None
 

@@ -10,6 +10,7 @@ class TierDefinition(BaseModel):
     allowed_providers: list[str]
     allowed_models: list[str]
     max_images_per_request: int
+    daily_cost_limit_usd: float = -1  # -1 = unlimited, uses token limit instead
 
 
 class TierConfig(BaseModel):

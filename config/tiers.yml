@@ -2,6 +2,7 @@ tiers:
   free:
     display_name: "Free"
     daily_token_limit: 50000
+    daily_cost_limit_usd: 0.10
     requests_per_minute: 5
     allowed_providers:
       - "openai"
@@ -16,6 +17,7 @@ tiers:
   subscriber:
     display_name: "Subscriber"
     daily_token_limit: 500000
+    daily_cost_limit_usd: 5.00
     requests_per_minute: 30
     allowed_providers:
       - "openai"

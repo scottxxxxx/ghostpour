@@ -23,6 +23,7 @@ async def chat(
     provider_router = request.app.state.provider_router
     rate_limiter = request.app.state.rate_limiter
     usage_tracker = request.app.state.usage_tracker
+    pricing = request.app.state.pricing
 
     # 1. Look up tier
     tier = tier_config.tiers.get(user.tier)
@@ -47,7 +48,7 @@ async def chat(
             },
         )
 
-    # 4. Token quota
+    # 4. Token + cost quota
     await usage_tracker.check_quota(db, user, tier)
 
     # 5. Route to provider
@@ -63,7 +64,18 @@ async def chat(
 
     elapsed_ms = int((time.monotonic() - start) * 1000)
 
-    # 6. Log usage
+    # 6. Calculate cost from pricing data
+    if pricing.is_loaded:
+        cost = pricing.calculate_cost(
+            provider=body.provider,
+            model=body.model,
+            usage=response.usage,
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+        )
+        response.cost = cost
+
+    # 7. Log usage
     await usage_tracker.log_usage(db, user.id, body, response, elapsed_ms)
 
     return response

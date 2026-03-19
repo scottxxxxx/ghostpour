@@ -12,6 +12,7 @@ from app.models.tier import load_tier_config
 from app.routers import auth, chat, health, webhooks
 from app.services.apple_auth import AppleAuthVerifier
 from app.services.jwt_service import JWTService
+from app.services.pricing import PricingService
 from app.services.provider_router import ProviderRouter
 from app.services.rate_limiter import RateLimiter
 from app.services.usage_tracker import UsageTracker
@@ -46,7 +47,16 @@ async def lifespan(app: FastAPI):
     app.state.rate_limiter = RateLimiter()
     app.state.usage_tracker = UsageTracker()
 
+    pricing = PricingService(
+        source_url=settings.pricing_source_url,
+        refresh_interval=settings.pricing_refresh_seconds,
+    )
+    await pricing.start()
+    app.state.pricing = pricing
+
     yield
+
+    await pricing.stop()
 
 
 app = FastAPI(

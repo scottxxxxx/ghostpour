@@ -66,32 +66,57 @@ class UsageTracker:
         user: UserRecord,
         tier: TierDefinition,
     ) -> None:
-        """Raise 429 if daily token quota exceeded."""
-        if tier.daily_token_limit == -1:
-            return
-
+        """Raise 429 if daily token or cost quota exceeded."""
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        cursor = await db.execute(
-            """SELECT COALESCE(SUM(COALESCE(input_tokens, 0)), 0)
-                    + COALESCE(SUM(COALESCE(output_tokens, 0)), 0)
-               FROM usage_log
-               WHERE user_id = ? AND request_timestamp >= ? AND status = 'success'""",
-            (user.id, today),
-        )
-        row = await cursor.fetchone()
-        used = row[0] if row else 0
 
-        if used >= tier.daily_token_limit:
-            raise HTTPException(
-                status_code=429,
-                detail={
-                    "code": "quota_exceeded",
-                    "message": (
-                        f"Daily token quota exceeded "
-                        f"({used}/{tier.daily_token_limit})"
-                    ),
-                },
+        # Check token limit
+        if tier.daily_token_limit != -1:
+            cursor = await db.execute(
+                """SELECT COALESCE(SUM(COALESCE(input_tokens, 0)), 0)
+                        + COALESCE(SUM(COALESCE(output_tokens, 0)), 0)
+                   FROM usage_log
+                   WHERE user_id = ? AND request_timestamp >= ?
+                     AND status = 'success'""",
+                (user.id, today),
             )
+            row = await cursor.fetchone()
+            used_tokens = row[0] if row else 0
+
+            if used_tokens >= tier.daily_token_limit:
+                raise HTTPException(
+                    status_code=429,
+                    detail={
+                        "code": "quota_exceeded",
+                        "message": (
+                            f"Daily token quota exceeded "
+                            f"({used_tokens}/{tier.daily_token_limit})"
+                        ),
+                    },
+                )
+
+        # Check cost limit
+        if tier.daily_cost_limit_usd != -1:
+            cursor = await db.execute(
+                """SELECT COALESCE(SUM(COALESCE(estimated_cost_usd, 0)), 0)
+                   FROM usage_log
+                   WHERE user_id = ? AND request_timestamp >= ?
+                     AND status = 'success'""",
+                (user.id, today),
+            )
+            row = await cursor.fetchone()
+            used_cost = row[0] if row else 0.0
+
+            if used_cost >= tier.daily_cost_limit_usd:
+                raise HTTPException(
+                    status_code=429,
+                    detail={
+                        "code": "quota_exceeded",
+                        "message": (
+                            f"Daily cost quota exceeded "
+                            f"(${used_cost:.4f}/${tier.daily_cost_limit_usd:.2f})"
+                        ),
+                    },
+                )
 
     async def log_usage(
         self,
@@ -103,10 +128,19 @@ class UsageTracker:
         status: str = "success",
         error_msg: str | None = None,
     ) -> None:
-        # Serialize the full usage metadata as JSON
-        metadata_json = None
+        # Build metadata from usage + cost dicts
+        metadata: dict = {}
         if response and response.usage:
-            metadata_json = json.dumps(response.usage, ensure_ascii=False)
+            metadata["usage"] = response.usage
+        if response and response.cost:
+            metadata["cost"] = response.cost
+
+        metadata_json = json.dumps(metadata, ensure_ascii=False) if metadata else None
+
+        # Extract estimated cost
+        estimated_cost = None
+        if response and response.cost:
+            estimated_cost = response.cost.get("total_cost")
 
         await db.execute(
             """INSERT INTO usage_log
@@ -121,7 +155,7 @@ class UsageTracker:
                 request.model,
                 response.input_tokens if response else None,
                 response.output_tokens if response else None,
-                None,  # Cost estimation deferred to v0.2
+                estimated_cost,
                 datetime.now(timezone.utc).isoformat(),
                 response_time_ms,
                 status,
