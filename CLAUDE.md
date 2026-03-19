@@ -1,6 +1,6 @@
 # CLAUDE.md — CloudZap
 
-> **Last updated:** March 18, 2026
+> **Last updated:** March 19, 2026
 
 ## Project Overview
 
@@ -57,7 +57,9 @@ pytest tests/ -v
 
 ## Key Architecture Decisions
 
-- **3 adapter classes cover 7 providers**: OpenAICompatAdapter handles OpenAI/xAI/DeepSeek/Kimi/Qwen (all use OpenAI format). AnthropicAdapter and GeminiAdapter handle the two custom formats.
+- **3 built-in adapters + 1 generic**: OpenAICompatAdapter (OpenAI/xAI/DeepSeek/Kimi/Qwen), AnthropicAdapter, GeminiAdapter, plus GenericAdapter for adding providers via YAML alone.
+- **Pricing from LiteLLM**: Fetches model costs on startup from LiteLLM's JSON (configurable URL via `CZ_PRICING_SOURCE_URL`). Computes billable tokens (subtracts cached), cost breakdown per request, daily cost limit enforcement.
+- **Full usage passthrough**: All provider metadata captured in flexible `usage` dict — cached tokens, reasoning tokens, finish reason, etc. No hardcoded fields.
 - **SQLite + single uvicorn worker**: SQLite doesn't handle concurrent writes well. Single worker is sufficient for MVP load. Migration path: swap to asyncpg + Postgres, increase workers.
 - **YAML config, not database config**: Tier definitions and provider catalogs change infrequently and should be version-controlled.
 - **In-memory rate limiter**: Single worker means in-memory state is consistent. Resets on restart (acceptable — window is 60s).
@@ -81,7 +83,7 @@ All prefixed with `CZ_`. Secrets (API keys, JWT secret, admin key) are ONLY in e
 3 tables, raw SQL (no ORM):
 - **users**: `id`, `apple_sub`, `email`, `tier`, timestamps
 - **refresh_tokens**: `id`, `user_id`, `token_hash`, `expires_at`, `revoked`
-- **usage_log**: `id`, `user_id`, `provider`, `model`, token counts, latency, status
+- **usage_log**: `id`, `user_id`, `provider`, `model`, token counts, `estimated_cost_usd`, latency, status, `metadata` (JSON blob with full usage + cost)
 
 ## API Endpoints
 
@@ -100,7 +102,7 @@ All prefixed with `CZ_`. Secrets (API keys, JWT secret, admin key) are ONLY in e
 pytest tests/ -v
 ```
 
-Tests cover: JWT creation/verification, tier enforcement (provider/model/image gating), provider request building, base64 redaction, rate limiting.
+41 tests covering: JWT creation/verification, tier enforcement (provider/model/image gating), provider request building, base64 redaction, rate limiting, generic adapter (dot-path extraction, usage flattening, URL templates), pricing (cost calculation, cached tokens, reasoning tokens, Anthropic/OpenAI/Gemini patterns).
 
 ## Related Projects
 
