@@ -22,7 +22,7 @@ async def health(request: Request):
     }
 
 
-@router.get("/v1/pricing")
+@router.get("/v1/model-pricing")
 async def pricing(request: Request):
     """Serve the cached pricing data.
 
