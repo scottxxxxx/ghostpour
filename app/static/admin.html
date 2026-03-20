@@ -197,8 +197,26 @@
   <div id="tab-users" class="section">
     <h3>All Users</h3>
     <div class="table-wrap"><table id="user-table"><thead><tr>
-      <th>Email</th><th>Tier</th><th>Requests</th><th>Tokens</th><th>Cost</th><th>Last Active</th>
+      <th>Email</th><th>Tier</th><th>Requests</th><th>Tokens</th><th>Cost</th><th>Last Active</th><th></th>
     </tr></thead><tbody></tbody></table></div>
+
+    <!-- User detail panel (shown when clicking a user) -->
+    <div id="user-detail" style="display:none">
+      <h3 id="user-detail-title">User Detail</h3>
+      <div class="cards" id="user-budget-cards"></div>
+      <h3>Usage by Query Type</h3>
+      <div class="table-wrap"><table id="call-type-table"><thead><tr>
+        <th>Type</th><th>Requests</th><th>Input Tokens</th><th>Output Tokens</th><th>Cached</th><th>Images</th><th>Cost</th><th>Avg Latency</th>
+      </tr></thead><tbody></tbody></table></div>
+      <h3>Usage by Prompt Mode</h3>
+      <div class="table-wrap"><table id="prompt-mode-table"><thead><tr>
+        <th>Mode</th><th>Requests</th><th>Tokens</th><th>Cost</th><th>Avg Latency</th>
+      </tr></thead><tbody></tbody></table></div>
+      <h3>Usage by Model</h3>
+      <div class="table-wrap"><table id="user-model-table"><thead><tr>
+        <th>Provider</th><th>Model</th><th>Requests</th><th>Input</th><th>Output</th><th>Cost</th><th>Latency</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
   </div>
 
   <!-- Tiers -->
@@ -327,7 +345,8 @@ async function refresh() {
     <td><span class="badge ${u.tier}">${u.tier}</span></td>
     <td>${fmt(u.total_requests)}</td><td>${fmt(u.total_tokens)}</td>
     <td>${fmtCost(u.total_cost_usd)}</td><td>${timeAgo(u.last_request)}</td>
-  </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text-dim)">No users yet</td></tr>';
+    <td><button class="refresh-btn" onclick="showUserDetail('${u.id}','${u.email||"User"}')">Detail</button></td>
+  </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-dim)">No users yet</td></tr>';
 
   // Latency percentiles
   const lp = dash.latency_percentiles || {};
@@ -384,6 +403,51 @@ function renderTiers(tiers) {
       </button>
     </div>`;
   }).join('');
+}
+
+async function showUserDetail(userId, email) {
+  const days = document.getElementById('period').value;
+  const data = await fetch(`${BASE}/webhooks/admin/user/${userId}?days=${days}`, {
+    headers: {'X-Admin-Key': adminKey}
+  }).then(r => r.json());
+
+  document.getElementById('user-detail').style.display = 'block';
+  document.getElementById('user-detail-title').textContent = `${email} (${data.user.tier})`;
+
+  // Budget cards
+  const b = data.budget;
+  const budgetCards = document.getElementById('user-budget-cards');
+  const pct = b.percent_used;
+  const pctColor = pct > 80 ? 'red' : pct > 50 ? 'orange' : 'green';
+  budgetCards.innerHTML =
+    card('Monthly Budget', b.monthly_limit_usd === -1 ? 'Unlimited' : '$' + b.monthly_limit_usd.toFixed(2), 'accent') +
+    card('Used', fmtCost(b.monthly_used_usd), pctColor, `${pct}% of budget`) +
+    card('Remaining', b.monthly_remaining_usd === -1 ? 'Unlimited' : fmtCost(b.monthly_remaining_usd), 'green') +
+    card('Requests', fmt(b.this_month.requests), '') +
+    card('Input Tokens', fmt(b.this_month.input_tokens), '') +
+    card('Output Tokens', fmt(b.this_month.output_tokens), '') +
+    card('Cached Tokens', fmt(b.this_month.cached_tokens), 'purple', 'Saved from billing');
+
+  // Call type table
+  document.querySelector('#call-type-table tbody').innerHTML = data.by_call_type.map(r => `<tr>
+    <td><span class="badge ${r.call_type === 'summary' ? 'subscriber' : r.call_type === 'query' ? 'admin' : 'free'}">${r.call_type}</span></td>
+    <td>${fmt(r.requests)}</td><td>${fmt(r.input_tokens)}</td><td>${fmt(r.output_tokens)}</td>
+    <td>${fmt(r.cached_tokens)}</td><td>${fmt(r.total_images)}</td>
+    <td>${fmtCost(r.cost)}</td><td>${fmtMs(r.avg_latency_ms)}</td>
+  </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--text-dim)">No data</td></tr>';
+
+  // Prompt mode table
+  document.querySelector('#prompt-mode-table tbody').innerHTML = data.by_prompt_mode.map(r => `<tr>
+    <td>${r.prompt_mode}</td><td>${fmt(r.requests)}</td><td>${fmt(r.total_tokens)}</td>
+    <td>${fmtCost(r.cost)}</td><td>${fmtMs(r.avg_latency_ms)}</td>
+  </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-dim)">No data</td></tr>';
+
+  // User model table
+  document.querySelector('#user-model-table tbody').innerHTML = data.by_model.map(r => `<tr>
+    <td>${r.provider}</td><td class="mono">${r.model}</td><td>${fmt(r.requests)}</td>
+    <td>${fmt(r.input_tokens)}</td><td>${fmt(r.output_tokens)}</td>
+    <td>${fmtCost(r.cost)}</td><td>${fmtMs(r.avg_latency_ms)}</td>
+  </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-dim)">No data</td></tr>';
 }
 
 async function simulateTier(tierName) {

@@ -8,6 +8,10 @@ class ChatRequest(BaseModel):
     user_content: str
     images: list[str] | None = None
     max_tokens: int | None = None
+    call_type: str | None = None        # "query", "summary", "follow_up", "analysis"
+    prompt_mode: str | None = None       # "Assist", "Summarize", "Action Items", "Coach", etc.
+    image_count: int | None = None       # Explicit count (in case images not sent through gateway)
+    session_duration_sec: int | None = None  # How long the meeting session has been running
 
 
 class ChatResponse(BaseModel):

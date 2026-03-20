@@ -42,6 +42,11 @@ CREATE TABLE IF NOT EXISTS usage_log (
     response_time_ms INTEGER,
     status TEXT NOT NULL DEFAULT 'success',
     error_message TEXT,
+    call_type TEXT,
+    prompt_mode TEXT,
+    image_count INTEGER DEFAULT 0,
+    session_duration_sec INTEGER,
+    cached_tokens INTEGER,
     metadata TEXT
 );
 
@@ -50,8 +55,14 @@ CREATE INDEX IF NOT EXISTS idx_usage_user_date ON usage_log(user_id, request_tim
 
 
 MIGRATIONS = [
-    # v1: Add metadata column to usage_log (added after initial deployment)
+    # v1: Add metadata column to usage_log
     "ALTER TABLE usage_log ADD COLUMN metadata TEXT",
+    # v2: Add query tracking columns to usage_log
+    "ALTER TABLE usage_log ADD COLUMN call_type TEXT",
+    "ALTER TABLE usage_log ADD COLUMN prompt_mode TEXT",
+    "ALTER TABLE usage_log ADD COLUMN image_count INTEGER DEFAULT 0",
+    "ALTER TABLE usage_log ADD COLUMN session_duration_sec INTEGER",
+    "ALTER TABLE usage_log ADD COLUMN cached_tokens INTEGER",
 ]
 
 
