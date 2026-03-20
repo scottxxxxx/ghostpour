@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import aiosqlite
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
@@ -27,7 +27,14 @@ async def set_tier(
     db: aiosqlite.Connection = Depends(get_db),
     x_admin_key: str = Header(...),
 ):
-    """Manually set a user's subscription tier. Protected by admin key."""
+    """Set a user's subscription tier with dollar-value carryover on upgrade.
+
+    On upgrade: unused allocation from the old tier is converted to dollar
+    value and added to the new tier's allocation. monthly_used_usd resets to 0.
+
+    On downgrade: allocation resets to the new tier's limit. No carryover
+    (downgrades take effect at period end in production via StoreKit).
+    """
     _verify_admin(request, x_admin_key)
 
     tier_config = request.app.state.tier_config
@@ -37,17 +44,66 @@ async def set_tier(
             detail=f"Unknown tier: {body.tier}. Available: {list(tier_config.tiers.keys())}",
         )
 
-    now = datetime.now(timezone.utc).isoformat()
+    new_tier = tier_config.tiers[body.tier]
+
+    # Read current user state
     cursor = await db.execute(
-        "UPDATE users SET tier = ?, updated_at = ? WHERE id = ?",
-        (body.tier, now, body.user_id),
+        "SELECT tier, monthly_used_usd, monthly_cost_limit_usd, overage_balance_usd FROM users WHERE id = ?",
+        (body.user_id,),
+    )
+    row = await cursor.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    old_tier_name = row["tier"]
+    old_used = float(row["monthly_used_usd"] or 0)
+    old_limit = float(row["monthly_cost_limit_usd"] or 0)
+    overage = float(row["overage_balance_usd"] or 0)
+
+    # Calculate carryover
+    carryover = 0.0
+    carryover_detail = "none"
+
+    old_tier = tier_config.tiers.get(old_tier_name)
+    if old_tier and old_limit > 0 and new_tier.monthly_cost_limit_usd > old_limit:
+        # Upgrade: carry forward unused dollar value
+        unused = max(0, old_limit - old_used)
+        carryover = unused
+        carryover_detail = f"${unused:.4f} unused from {old_tier.display_name}"
+
+    # Apply tier change
+    now = datetime.now(timezone.utc)
+    new_limit = new_tier.monthly_cost_limit_usd
+    # Reset period: 30 days from now
+    resets_at = (now + timedelta(days=30)).isoformat()
+
+    # New monthly_used starts at 0, but carryover effectively increases the limit
+    # We model this by adding carryover to overage balance (simplest, same economic effect)
+    new_overage = overage + carryover
+
+    await db.execute(
+        """UPDATE users SET
+            tier = ?,
+            monthly_cost_limit_usd = ?,
+            monthly_used_usd = 0,
+            overage_balance_usd = ?,
+            allocation_resets_at = ?,
+            updated_at = ?
+           WHERE id = ?""",
+        (body.tier, new_limit, new_overage, resets_at, now.isoformat(), body.user_id),
     )
     await db.commit()
 
-    if cursor.rowcount == 0:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    return {"status": "ok", "user_id": body.user_id, "tier": body.tier}
+    return {
+        "status": "ok",
+        "user_id": body.user_id,
+        "old_tier": old_tier_name,
+        "new_tier": body.tier,
+        "monthly_limit_usd": new_limit,
+        "overage_balance_usd": round(new_overage, 4),
+        "carryover": carryover_detail,
+        "allocation_resets_at": resets_at,
+    }
 
 
 @router.get("/admin/dashboard")
