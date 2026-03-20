@@ -4,9 +4,12 @@
 
 ## Project Overview
 
-**CloudZap** is an open-source LLM API gateway built with FastAPI. It sits between client apps and LLM providers, handling auth, routing, rate limiting, and usage tracking. The first customer is Shoulder Surf (iOS meeting copilot).
+**CloudZap** is an open-source LLM API gateway built with FastAPI. It sits between client apps and LLM providers, handling auth, routing, rate limiting, usage tracking, and subscription-based access control. The first customer is Shoulder Surf (iOS meeting copilot).
 
 **Live deployment:** `https://cz.shouldersurf.com`
+**Admin dashboard:** `https://cz.shouldersurf.com/admin`
+**GitHub:** `https://github.com/scottxxxxx/cloudzap`
+**Planning docs:** `shouldersurf-proxy-claude-code-plan.docx`, `Server side proxy-claude-code-plan.docx` (in repo root)
 
 ## Tech Stack
 
@@ -15,6 +18,7 @@
 - **PyJWT** — HS256 JWT access/refresh tokens
 - **httpx** — async HTTP client for provider calls
 - **Docker** — deployment on GCP VM behind Nginx Proxy Manager
+- **LiteLLM pricing JSON** — model cost data fetched on startup, refreshed daily
 
 ## Project Structure
 
@@ -22,18 +26,24 @@
 app/
 ├── main.py              # FastAPI app factory, lifespan, middleware
 ├── config.py            # pydantic-settings with CZ_ env prefix
-├── database.py          # aiosqlite init + schema (3 tables)
+├── database.py          # aiosqlite init + schema + migrations
 ├── dependencies.py      # get_current_user (JWT verification)
 ├── models/              # Pydantic request/response models
-├── routers/             # auth, chat, health, webhooks
+├── routers/
+│   ├── auth.py          # POST /auth/apple, POST /auth/refresh
+│   ├── chat.py          # POST /v1/chat (with auto model routing)
+│   ├── health.py        # GET /health, GET /admin, GET /v1/model-pricing
+│   └── webhooks.py      # Admin endpoints (dashboard, users, tiers, set-tier)
 ├── services/
 │   ├── apple_auth.py    # Apple JWKS token verification
 │   ├── jwt_service.py   # JWT create/verify
+│   ├── pricing.py       # LiteLLM pricing fetch, cost calculation, cached token handling
 │   ├── provider_router.py  # Dispatches to correct adapter
-│   ├── providers/       # OpenAI-compat, Anthropic, Gemini adapters
+│   ├── providers/       # OpenAI-compat, Anthropic, Gemini, Generic adapters
 │   ├── rate_limiter.py  # In-memory token bucket
 │   └── usage_tracker.py # SQLite usage logging + quota check
-└── middleware/           # Request logging
+├── middleware/           # Request logging
+└── static/admin.html    # Web-based admin dashboard
 config/
 ├── tiers.yml            # Subscription tier definitions
 └── providers.yml        # Provider registry (URLs, auth, models)
@@ -55,46 +65,141 @@ docker compose up --build
 pytest tests/ -v
 ```
 
+## Subscription Tiers
+
+5 subscription tiers + admin, configured in `config/tiers.yml`.
+
+**Model assignment is server-controlled.** When client sends `model: "auto"`, the gateway substitutes the tier's `default_model`. The client never chooses the model for subscription users.
+
+| Tier | Price | Hours/mo | Model | Summary Mode | RPM |
+|------|-------|----------|-------|-------------|-----|
+| free | $0.05 credit | ~1 session | Haiku 4.5 | Delta only | 5 |
+| standard | $2.99/mo | 25 hrs | Haiku 4.5 | Delta only | 15 |
+| pro | $4.99/mo | 50 hrs | Haiku 4.5 | Delta only | 20 |
+| ultra | $9.99/mo | 25 hrs | Sonnet 4.6 | Full or Delta | 30 |
+| ultra_max | $19.99/mo | 50 hrs | Sonnet 4.6 | Full or Delta | 30 |
+| admin | — | Unlimited | Sonnet 4.6 | All | 120 |
+
+**Pricing basis (2x markup on average user cost):**
+- Haiku 4.5: ~$0.05/hr average, ~$0.10/hr power user (10-min auto-summary interval)
+- Sonnet 4.6: ~$0.19/hr average, ~$0.38/hr power user (15-min auto-summary interval)
+- Apple takes 15% (Small Business Program)
+
+**Overage credit packs** (in-app purchase, never expire):
+- Credits deducted at the user's tier model rate after monthly allocation runs out
+- Same per-hour rate as subscription (no penalty markup)
+- When overage balance also exhausted: fallback to on-device Apple Intelligence (not a hard block)
+
+**StoreKit Product IDs:**
+- `com.shouldersurf.standard.monthly`
+- `com.shouldersurf.pro.monthly`
+- `com.shouldersurf.ultra.monthly`
+- `com.shouldersurf.ultramax.monthly`
+
+### Allocation tracking (TODO — next implementation phase)
+
+- `monthly_cost_limit_usd` per tier (derived from hours × model cost)
+- `monthly_used_usd` tracked per user, resets on subscription renewal date
+- `overage_balance_usd` per user (purchased credit packs)
+- Usage priority: monthly allocation → overage balance → on-device fallback
+- `X-Allocation-Percent` and `X-Allocation-Warning` headers on every chat response
+- `GET /v1/usage/me` endpoint for authenticated users to check their allocation
+
+### JWT design rule
+
+**Never encode tier in JWT.** Always read tier from the database on every request. This ensures tier changes (upgrades, downgrades, admin overrides) take effect immediately without waiting for token expiry.
+
+## Auto Model Routing
+
+When the iOS app sends `provider: "auto", model: "auto"`, the chat endpoint:
+1. Looks up the user's tier from the database
+2. Reads `default_model` from the tier config (e.g., `"anthropic/claude-sonnet-4-6"`)
+3. Splits into provider + model
+4. Routes to the correct upstream provider
+
+This means subscribers never choose a model — CloudZap picks the best one for their tier.
+
+## iOS Settings Locks (for CloudZap users)
+
+When the iOS app's provider is set to CloudZap, these settings are locked:
+
+| Setting | BYOK (own key) | CloudZap managed |
+|---------|---------------|-----------------|
+| Auto-summary interval | User choice (2-15 min) | Locked: 10 min (Haiku tiers) / 15 min (Sonnet tiers) |
+| Summary mode | User choice | Locked: Delta (Free/Standard/Pro), User choice (Ultra/Ultra Max) |
+| Model selection | User choice | Locked: Auto |
+| Max images per query | 5 | 3 (Haiku tiers) / 5 (Sonnet tiers) |
+
 ## Key Architecture Decisions
 
 - **3 built-in adapters + 1 generic**: OpenAICompatAdapter (OpenAI/xAI/DeepSeek/Kimi/Qwen), AnthropicAdapter, GeminiAdapter, plus GenericAdapter for adding providers via YAML alone.
-- **Pricing from LiteLLM**: Fetches model costs on startup from LiteLLM's JSON (configurable URL via `CZ_PRICING_SOURCE_URL`). Computes billable tokens (subtracts cached), cost breakdown per request, daily cost limit enforcement.
+- **Pricing from LiteLLM**: Fetches model costs on startup (configurable URL via `CZ_PRICING_SOURCE_URL`). Computes billable tokens (subtracts cached), cost breakdown per request.
 - **Full usage passthrough**: All provider metadata captured in flexible `usage` dict — cached tokens, reasoning tokens, finish reason, etc. No hardcoded fields.
-- **SQLite + single uvicorn worker**: SQLite doesn't handle concurrent writes well. Single worker is sufficient for MVP load. Migration path: swap to asyncpg + Postgres, increase workers.
-- **YAML config, not database config**: Tier definitions and provider catalogs change infrequently and should be version-controlled.
-- **In-memory rate limiter**: Single worker means in-memory state is consistent. Resets on restart (acceptable — window is 60s).
-- **HS256 JWT**: Symmetric signing is simpler for a single-service architecture. RS256 only matters when multiple services verify tokens.
+- **SQLite + single uvicorn worker**: SQLite doesn't handle concurrent writes well. Single worker sufficient for MVP. Migration path: asyncpg + Postgres.
+- **YAML config, not database config**: Tier definitions and provider catalogs are version-controlled.
+- **In-memory rate limiter**: Single worker means in-memory state is consistent. Resets on restart.
+- **Content never stored**: Prompts and responses are never persisted on the server — only token counts, costs, and metadata.
+- **Anthropic-only at launch**: Subscription users get Anthropic models only. BYOK users retain full multi-provider access in the iOS app.
 
 ## Environment Variables
 
-All prefixed with `CZ_`. Secrets (API keys, JWT secret, admin key) are ONLY in env vars, never in code or config files. See `.env.example` for the full list.
+All prefixed with `CZ_`. Secrets are ONLY in env vars, never in code or config files. See `.env.example` for the full list.
+
+Key variables:
+- `CZ_JWT_SECRET` — JWT signing secret
+- `CZ_APPLE_BUNDLE_ID` — iOS app bundle ID (`com.shouldersurf.ShoulderSurf`)
+- `CZ_ANTHROPIC_API_KEY` — Anthropic API key (only provider configured currently)
+- `CZ_ADMIN_KEY` — Admin dashboard/API key
+- `CZ_PRICING_SOURCE_URL` — LiteLLM pricing JSON URL (default: GitHub raw)
+- `CZ_JWT_ACCESS_TOKEN_EXPIRE_MINUTES` — JWT lifetime (currently 1440 = 24h)
 
 ## Deployment
 
-- **GCP VM**: `35.239.227.192` (<redacted-project>, e2-medium)
+- **GCP VM**: `35.239.227.192` (<redacted-project>, e2-medium, ~$25/mo)
 - **Container**: `cloudzap` on `proxy-tier` Docker network
 - **Routing**: Nginx Proxy Manager routes `cz.shouldersurf.com` → `cloudzap:8000`
 - **CI/CD**: Push to `main` → GitHub Actions builds image → pushes to GHCR → SSH deploys
 - **Data**: SQLite DB persisted in `cloudzap-data` Docker volume at `/app/data/`
 - **Server config**: `/opt/cloudzap/.env.prod` + `/opt/cloudzap/docker-compose.prod.yml`
+- **Manual deploy**: SSH in, `docker login ghcr.io`, `docker compose pull && up -d --force-recreate`
 
 ## Database
 
-3 tables, raw SQL (no ORM):
+3 tables, raw SQL (no ORM), with migration support for schema changes:
 - **users**: `id`, `apple_sub`, `email`, `tier`, timestamps
 - **refresh_tokens**: `id`, `user_id`, `token_hash`, `expires_at`, `revoked`
-- **usage_log**: `id`, `user_id`, `provider`, `model`, token counts, `estimated_cost_usd`, latency, status, `metadata` (JSON blob with full usage + cost)
+- **usage_log**: `id`, `user_id`, `provider`, `model`, token counts, `estimated_cost_usd`, latency, status, `metadata` (JSON)
+
+**Planned additions** (next implementation phase):
+- `monthly_used_usd`, `overage_balance_usd`, `allocation_resets_at` on users table
 
 ## API Endpoints
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| GET | `/health` | None | Health check |
+| GET | `/health` | None | Health check + pricing status |
+| GET | `/admin` | None (key in UI) | Admin dashboard web UI |
 | POST | `/auth/apple` | None | Apple Sign In → JWT |
 | POST | `/auth/refresh` | None | Refresh token rotation |
-| POST | `/v1/chat` | Bearer JWT | Proxied LLM request |
-| POST | `/webhooks/admin/set-tier` | X-Admin-Key | Manual tier control |
+| POST | `/v1/chat` | Bearer JWT | Proxied LLM request (auto model routing) |
+| GET | `/v1/model-pricing` | None | Cached LiteLLM pricing JSON |
+| GET | `/webhooks/admin/dashboard` | X-Admin-Key | Usage stats, latency, top users |
+| GET | `/webhooks/admin/users` | X-Admin-Key | User list with lifetime stats |
+| GET | `/webhooks/admin/tiers` | X-Admin-Key | Tier config viewer |
+| POST | `/webhooks/admin/set-tier` | X-Admin-Key | Manual tier assignment |
 | GET | `/docs` | None | Swagger UI |
+
+**Planned endpoints:**
+- `GET /v1/usage/me` — Authenticated user's allocation, overage, usage stats
+- `POST /v1/add-credits` — Add overage credits after StoreKit purchase verification
+
+## Reserved Route Namespaces
+
+- `/auth/*` — Sign in with Apple, JWT (shared with future Context Quilt)
+- `/v1/*` — Chat, pricing, usage
+- `/webhooks/*` — Admin, Apple webhooks
+- `/memory/*` — Reserved for future Context Quilt
+- `/quilt/*` — Reserved for future Context Quilt
 
 ## Testing
 
@@ -102,7 +207,18 @@ All prefixed with `CZ_`. Secrets (API keys, JWT secret, admin key) are ONLY in e
 pytest tests/ -v
 ```
 
-41 tests covering: JWT creation/verification, tier enforcement (provider/model/image gating), provider request building, base64 redaction, rate limiting, generic adapter (dot-path extraction, usage flattening, URL templates), pricing (cost calculation, cached tokens, reasoning tokens, Anthropic/OpenAI/Gemini patterns).
+41 tests covering: JWT, tier enforcement, provider routing, base64 redaction, rate limiting, generic adapter, pricing/cost calculation.
+
+## Admin Dashboard
+
+Web UI at `/admin` with tabs:
+- **Overview**: Today's stats, period summary, user counts by tier
+- **Models**: Usage by provider/model (requests, tokens, cost, latency)
+- **Users**: All users with tier badges, lifetime stats
+- **Tiers**: Tier config cards with simulate button (switch your account to test any tier)
+- **Latency**: Response time percentiles (p50/p75/p90/p95/p99)
+
+Admin key: stored in `CZ_ADMIN_KEY` env var, persisted in browser localStorage.
 
 ## Related Projects
 
