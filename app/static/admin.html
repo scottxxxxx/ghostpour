@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CloudZap Admin</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --red: #f85149;
+    --orange: #d29922;
+    --purple: #bc8cff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 24px; margin-bottom: 4px; }
+  h2 { font-size: 16px; color: var(--text-dim); margin-bottom: 20px; font-weight: 400; }
+  h3 { font-size: 14px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+
+  /* Auth screen */
+  #auth-screen {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 60vh; gap: 16px;
+  }
+  #auth-screen input {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 12px 16px; border-radius: 8px; width: 320px; font-size: 15px;
+  }
+  #auth-screen button {
+    background: var(--accent); color: #fff; border: none; padding: 12px 32px;
+    border-radius: 8px; font-size: 15px; cursor: pointer; font-weight: 600;
+  }
+  #auth-screen button:hover { opacity: 0.9; }
+  #auth-error { color: var(--red); font-size: 13px; }
+
+  /* Dashboard */
+  #dashboard { display: none; }
+  .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+  .header-row .meta { font-size: 12px; color: var(--text-dim); }
+  .refresh-btn {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text-dim);
+    padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Cards */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 28px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px;
+  }
+  .card .label { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+  .card .value { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .card .sub { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+  .card .value.green { color: var(--green); }
+  .card .value.orange { color: var(--orange); }
+  .card .value.red { color: var(--red); }
+  .card .value.accent { color: var(--accent); }
+  .card .value.purple { color: var(--purple); }
+
+  /* Tables */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 28px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 10px 14px; color: var(--text-dim); font-weight: 500; border-bottom: 1px solid var(--border); font-size: 12px; }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(88,166,255,0.04); }
+  .mono { font-family: 'SF Mono', Menlo, monospace; font-size: 12px; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+  }
+  .badge.admin { background: rgba(188,140,255,0.15); color: var(--purple); }
+  .badge.subscriber { background: rgba(63,185,80,0.15); color: var(--green); }
+  .badge.free { background: rgba(139,148,158,0.15); color: var(--text-dim); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+  .tab {
+    padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;
+    background: transparent; border: 1px solid transparent; color: var(--text-dim);
+  }
+  .tab.active { background: var(--surface); border-color: var(--border); color: var(--text); }
+  .tab:hover { color: var(--text); }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* Latency bar */
+  .latency-bar { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+  .latency-bar .bar { height: 6px; border-radius: 3px; background: var(--accent); }
+  .latency-bar .label { font-size: 11px; color: var(--text-dim); min-width: 28px; }
+  .latency-bar .val { font-size: 12px; min-width: 50px; text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* Period selector */
+  .period-select {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 6px 10px; border-radius: 6px; font-size: 13px;
+  }
+
+  @media (max-width: 600px) {
+    .cards { grid-template-columns: repeat(2, 1fr); }
+    body { padding: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Auth Screen -->
+<div id="auth-screen">
+  <h1>CloudZap Admin</h1>
+  <input type="password" id="admin-key" placeholder="Admin Key" autocomplete="off">
+  <button onclick="login()">Sign In</button>
+  <div id="auth-error"></div>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard">
+  <div class="header-row">
+    <div>
+      <h1>CloudZap</h1>
+      <h2 id="dash-subtitle">Admin Dashboard</h2>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <select class="period-select" id="period" onchange="refresh()">
+        <option value="1">Today</option>
+        <option value="7" selected>Last 7 days</option>
+        <option value="30">Last 30 days</option>
+        <option value="90">Last 90 days</option>
+      </select>
+      <button class="refresh-btn" onclick="refresh()">Refresh</button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('overview')">Overview</div>
+    <div class="tab" onclick="switchTab('models')">Models</div>
+    <div class="tab" onclick="switchTab('users')">Users</div>
+    <div class="tab" onclick="switchTab('latency')">Latency</div>
+  </div>
+
+  <!-- Overview -->
+  <div id="tab-overview" class="section active">
+    <h3>Today</h3>
+    <div class="cards" id="today-cards"></div>
+    <h3 id="period-label">Last 7 Days</h3>
+    <div class="cards" id="period-cards"></div>
+    <h3>Users</h3>
+    <div class="cards" id="user-cards"></div>
+  </div>
+
+  <!-- Models -->
+  <div id="tab-models" class="section">
+    <h3>Usage by Model</h3>
+    <div class="table-wrap"><table id="model-table"><thead><tr>
+      <th>Provider</th><th>Model</th><th>Requests</th><th>Input Tokens</th><th>Output Tokens</th><th>Cost</th><th>Avg Latency</th>
+    </tr></thead><tbody></tbody></table></div>
+  </div>
+
+  <!-- Users -->
+  <div id="tab-users" class="section">
+    <h3>All Users</h3>
+    <div class="table-wrap"><table id="user-table"><thead><tr>
+      <th>Email</th><th>Tier</th><th>Requests</th><th>Tokens</th><th>Cost</th><th>Last Active</th>
+    </tr></thead><tbody></tbody></table></div>
+  </div>
+
+  <!-- Latency -->
+  <div id="tab-latency" class="section">
+    <h3>Response Time Percentiles</h3>
+    <div class="card" style="max-width:500px;" id="latency-card"></div>
+  </div>
+</div>
+
+<script>
+let adminKey = '';
+const BASE = '';
+
+function login() {
+  adminKey = document.getElementById('admin-key').value;
+  if (!adminKey) return;
+  fetch(`${BASE}/webhooks/admin/dashboard?days=7`, {headers: {'X-Admin-Key': adminKey}})
+    .then(r => { if (!r.ok) throw new Error('Invalid key'); return r.json(); })
+    .then(() => {
+      localStorage.setItem('cz_admin_key', adminKey);
+      document.getElementById('auth-screen').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      refresh();
+    })
+    .catch(() => { document.getElementById('auth-error').textContent = 'Invalid admin key'; });
+}
+
+// Auto-login from saved key
+(function() {
+  const saved = localStorage.getItem('cz_admin_key');
+  if (saved) { adminKey = saved; document.getElementById('admin-key').value = saved; login(); }
+})();
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', t.textContent.toLowerCase().includes(name.slice(0,4))));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+function fmt(n) { return n == null ? '-' : n.toLocaleString(); }
+function fmtCost(n) { return n == null ? '-' : '$' + n.toFixed(4); }
+function fmtMs(n) { return n == null ? '-' : (n > 1000 ? (n/1000).toFixed(1) + 's' : n + 'ms'); }
+function timeAgo(iso) {
+  if (!iso) return 'Never';
+  const d = new Date(iso), now = new Date(), diff = (now - d) / 1000;
+  if (diff < 60) return 'Just now';
+  if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+  return Math.floor(diff/86400) + 'd ago';
+}
+
+function card(label, value, cls, sub) {
+  return `<div class="card"><div class="label">${label}</div><div class="value ${cls||''}">${value}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>`;
+}
+
+async function refresh() {
+  const days = document.getElementById('period').value;
+  const [dash, users] = await Promise.all([
+    fetch(`${BASE}/webhooks/admin/dashboard?days=${days}`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
+    fetch(`${BASE}/webhooks/admin/users`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
+  ]);
+
+  const u = dash.usage, t = dash.today;
+  document.getElementById('period-label').textContent = days == 1 ? 'Today (detailed)' : `Last ${days} Days`;
+
+  // Today cards
+  document.getElementById('today-cards').innerHTML =
+    card('Requests Today', fmt(t.requests), 'accent') +
+    card('Tokens Today', fmt(t.tokens), '') +
+    card('Cost Today', fmtCost(t.cost_usd), 'green');
+
+  // Period cards
+  const errRate = u.total_requests > 0 ? ((u.errors||0)/u.total_requests*100).toFixed(1)+'%' : '0%';
+  document.getElementById('period-cards').innerHTML =
+    card('Total Requests', fmt(u.total_requests), 'accent', `${fmt(u.successful)} OK / ${fmt(u.errors||0)} errors`) +
+    card('Total Tokens', fmt(u.total_tokens), '', `${fmt(u.total_input_tokens)} in / ${fmt(u.total_output_tokens)} out`) +
+    card('Total Cost', fmtCost(u.total_cost_usd), 'green') +
+    card('Avg Latency', fmtMs(u.avg_latency_ms), 'orange', `Min ${fmtMs(u.min_latency_ms)} / Max ${fmtMs(u.max_latency_ms)}`) +
+    card('Error Rate', errRate, (parseFloat(errRate) > 5 ? 'red' : 'green'));
+
+  // User summary cards
+  document.getElementById('user-cards').innerHTML =
+    card('Total Users', fmt(dash.users.total), 'accent') +
+    card('Active Users', fmt(dash.users.active), 'green') +
+    Object.entries(dash.users.by_tier||{}).map(([t,c]) => card(t.charAt(0).toUpperCase()+t.slice(1), fmt(c), 'purple')).join('');
+
+  // Model table
+  const mtbody = document.querySelector('#model-table tbody');
+  mtbody.innerHTML = dash.by_model.map(m => `<tr>
+    <td>${m.provider}</td><td class="mono">${m.model}</td><td>${fmt(m.requests)}</td>
+    <td>${fmt(m.input_tokens)}</td><td>${fmt(m.output_tokens)}</td>
+    <td>${fmtCost(m.cost_usd)}</td><td>${fmtMs(m.avg_latency_ms)}</td>
+  </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-dim)">No usage data yet</td></tr>';
+
+  // User table
+  const utbody = document.querySelector('#user-table tbody');
+  utbody.innerHTML = users.users.map(u => `<tr>
+    <td>${u.email||'<span style="color:var(--text-dim)">Private relay</span>'}</td>
+    <td><span class="badge ${u.tier}">${u.tier}</span></td>
+    <td>${fmt(u.total_requests)}</td><td>${fmt(u.total_tokens)}</td>
+    <td>${fmtCost(u.total_cost_usd)}</td><td>${timeAgo(u.last_request)}</td>
+  </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text-dim)">No users yet</td></tr>';
+
+  // Latency percentiles
+  const lp = dash.latency_percentiles || {};
+  const maxP = Math.max(...Object.values(lp), 1);
+  document.getElementById('latency-card').innerHTML = Object.keys(lp).length
+    ? Object.entries(lp).map(([k,v]) =>
+      `<div class="latency-bar"><div class="label">${k}</div><div class="bar" style="width:${v/maxP*280}px"></div><div class="val">${fmtMs(v)}</div></div>`
+    ).join('')
+    : '<div style="padding:20px;color:var(--text-dim);text-align:center">No latency data yet</div>';
+
+  document.getElementById('dash-subtitle').textContent = `Updated ${new Date().toLocaleTimeString()}`;
+}
+</script>
+</body>
+</html>
