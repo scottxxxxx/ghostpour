@@ -62,7 +62,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="CloudZap",
     description="Open-source LLM API gateway with auth, rate limiting, and multi-provider routing.",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
