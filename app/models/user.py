@@ -9,6 +9,10 @@ class UserRecord(BaseModel):
     created_at: str
     updated_at: str
     is_active: bool = True
+    monthly_cost_limit_usd: float | None = None
+    monthly_used_usd: float = 0
+    overage_balance_usd: float = 0
+    allocation_resets_at: str | None = None
 
 
 class UserPublic(BaseModel):

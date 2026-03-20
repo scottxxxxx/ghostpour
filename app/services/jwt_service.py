@@ -18,11 +18,11 @@ class JWTService:
         self.access_expire = timedelta(minutes=access_expire_minutes)
         self.refresh_expire = timedelta(days=refresh_expire_days)
 
-    def create_access_token(self, user_id: str, tier: str) -> str:
+    def create_access_token(self, user_id: str) -> str:
+        """Create a JWT. Tier is NOT encoded — always read from DB."""
         now = datetime.now(timezone.utc)
         payload = {
             "sub": user_id,
-            "tier": tier,
             "iat": now,
             "exp": now + self.access_expire,
             "type": "access",

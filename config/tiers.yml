@@ -1,41 +1,116 @@
+# =============================================================================
+# CloudZap Subscription Tiers
+#
+# Pricing basis: 2x markup on average user cost
+#   Haiku 4.5:  ~$0.05/hr avg, ~$0.10/hr power user (10-min auto-summary)
+#   Sonnet 4.6: ~$0.19/hr avg, ~$0.38/hr power user (15-min auto-summary)
+#   Apple takes 15% (Small Business Program)
+#
+# monthly_cost_limit_usd: calculated from hours × raw model cost (not markup)
+#   This is our ACTUAL spend limit per user per month.
+#   Standard: 25 hrs × $0.05 = $1.25
+#   Pro:      50 hrs × $0.05 = $2.50
+#   Ultra:    25 hrs × $0.19 = $4.75
+#   Ultra Max:50 hrs × $0.19 = $9.50
+#
+# On tier upgrade: unused allocation carries forward as dollar value (Option D)
+# =============================================================================
+
 tiers:
   free:
     display_name: "Free"
-    daily_token_limit: 50000
-    daily_cost_limit_usd: 0.10
-    requests_per_minute: 5
     default_model: "anthropic/claude-haiku-4-5-20251001"
+    monthly_cost_limit_usd: 0.05
+    daily_cost_limit_usd: -1
+    daily_token_limit: -1
+    requests_per_minute: 5
+    summary_mode: "delta"
+    summary_interval_minutes: 10
     allowed_providers:
       - "anthropic"
     allowed_models:
       - "claude-haiku-4-5-20251001"
     max_images_per_request: 0
+    storekit_product_id: ""
 
-  subscriber:
-    display_name: "Subscriber"
-    daily_token_limit: 500000
-    daily_cost_limit_usd: 5.00
-    requests_per_minute: 30
-    default_model: "anthropic/claude-sonnet-4-6"
+  standard:
+    display_name: "Standard"
+    default_model: "anthropic/claude-haiku-4-5-20251001"
+    monthly_cost_limit_usd: 1.25
+    daily_cost_limit_usd: -1
+    daily_token_limit: -1
+    requests_per_minute: 15
+    summary_mode: "delta"
+    summary_interval_minutes: 10
     allowed_providers:
-      - "openai"
       - "anthropic"
-      - "google"
-      - "xai"
-      - "deepseek"
-      - "kimi"
-      - "qwen"
     allowed_models:
-      - "*"
+      - "claude-haiku-4-5-20251001"
+    max_images_per_request: 3
+    storekit_product_id: "com.shouldersurf.standard.monthly"
+
+  pro:
+    display_name: "Pro"
+    default_model: "anthropic/claude-haiku-4-5-20251001"
+    monthly_cost_limit_usd: 2.50
+    daily_cost_limit_usd: -1
+    daily_token_limit: -1
+    requests_per_minute: 20
+    summary_mode: "delta"
+    summary_interval_minutes: 10
+    allowed_providers:
+      - "anthropic"
+    allowed_models:
+      - "claude-haiku-4-5-20251001"
+    max_images_per_request: 3
+    storekit_product_id: "com.shouldersurf.pro.monthly"
+
+  ultra:
+    display_name: "Ultra"
+    default_model: "anthropic/claude-sonnet-4-6"
+    monthly_cost_limit_usd: 4.75
+    daily_cost_limit_usd: -1
+    daily_token_limit: -1
+    requests_per_minute: 30
+    summary_mode: "choice"
+    summary_interval_minutes: 15
+    allowed_providers:
+      - "anthropic"
+    allowed_models:
+      - "claude-sonnet-4-6"
+      - "claude-haiku-4-5-20251001"
     max_images_per_request: 5
+    storekit_product_id: "com.shouldersurf.ultra.monthly"
+
+  ultra_max:
+    display_name: "Ultra Max"
+    default_model: "anthropic/claude-sonnet-4-6"
+    monthly_cost_limit_usd: 9.50
+    daily_cost_limit_usd: -1
+    daily_token_limit: -1
+    requests_per_minute: 30
+    summary_mode: "choice"
+    summary_interval_minutes: 15
+    allowed_providers:
+      - "anthropic"
+    allowed_models:
+      - "claude-sonnet-4-6"
+      - "claude-haiku-4-5-20251001"
+    max_images_per_request: 5
+    storekit_product_id: "com.shouldersurf.ultramax.monthly"
 
   admin:
     display_name: "Admin"
+    default_model: "anthropic/claude-sonnet-4-6"
+    monthly_cost_limit_usd: -1
+    daily_cost_limit_usd: -1
     daily_token_limit: -1
     requests_per_minute: 120
-    default_model: "anthropic/claude-sonnet-4-6"
+    summary_mode: "choice"
+    summary_interval_minutes: 10
     allowed_providers:
       - "*"
     allowed_models:
       - "*"
     max_images_per_request: 10
+    storekit_product_id: ""

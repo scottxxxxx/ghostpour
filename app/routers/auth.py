@@ -24,7 +24,7 @@ async def _build_auth_response(
     email: str | None,
 ) -> AuthResponse:
     """Create access + refresh tokens and return AuthResponse."""
-    access_token = jwt_service.create_access_token(user_id, tier)
+    access_token = jwt_service.create_access_token(user_id)
     raw_refresh, refresh_hash, refresh_expires = jwt_service.create_refresh_token()
 
     now = datetime.now(timezone.utc).isoformat()

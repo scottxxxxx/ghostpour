@@ -14,6 +14,10 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     is_active INTEGER NOT NULL DEFAULT 1,
+    monthly_cost_limit_usd REAL,
+    monthly_used_usd REAL NOT NULL DEFAULT 0,
+    overage_balance_usd REAL NOT NULL DEFAULT 0,
+    allocation_resets_at TEXT,
     metadata TEXT
 );
 
@@ -63,6 +67,11 @@ MIGRATIONS = [
     "ALTER TABLE usage_log ADD COLUMN image_count INTEGER DEFAULT 0",
     "ALTER TABLE usage_log ADD COLUMN session_duration_sec INTEGER",
     "ALTER TABLE usage_log ADD COLUMN cached_tokens INTEGER",
+    # v3: Add monthly allocation tracking to users
+    "ALTER TABLE users ADD COLUMN monthly_cost_limit_usd REAL",
+    "ALTER TABLE users ADD COLUMN monthly_used_usd REAL DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN overage_balance_usd REAL DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN allocation_resets_at TEXT",
 ]
 
 
