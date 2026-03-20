@@ -34,6 +34,9 @@ Thumbs.db
 # Docker
 docker-compose.override.yml
 
+# Planning docs (internal, not open-source)
+*.docx
+
 # pytest
 .pytest_cache/
 htmlcov/
