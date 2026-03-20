@@ -65,58 +65,89 @@ class UsageTracker:
         db: aiosqlite.Connection,
         user: UserRecord,
         tier: TierDefinition,
+    ) -> tuple[float, float]:
+        """Check monthly allocation + overage. Returns (monthly_used, overage_balance).
+
+        Raises 429 if both monthly allocation and overage are exhausted.
+        Returns the current values so chat router can set response headers.
+        """
+        if tier.monthly_cost_limit_usd == -1:
+            return 0.0, 0.0  # Unlimited (admin)
+
+        # Read user's allocation state
+        cursor = await db.execute(
+            "SELECT monthly_used_usd, overage_balance_usd FROM users WHERE id = ?",
+            (user.id,),
+        )
+        row = await cursor.fetchone()
+        monthly_used = float(row["monthly_used_usd"] or 0) if row else 0.0
+        overage_balance = float(row["overage_balance_usd"] or 0) if row else 0.0
+
+        # Monthly allocation exhausted?
+        if monthly_used >= tier.monthly_cost_limit_usd:
+            # Check overage balance
+            if overage_balance <= 0:
+                raise HTTPException(
+                    status_code=429,
+                    detail={
+                        "code": "allocation_exhausted",
+                        "message": (
+                            f"Monthly allocation exhausted "
+                            f"(${monthly_used:.4f}/${tier.monthly_cost_limit_usd:.2f}). "
+                            f"Purchase overage credits or upgrade your plan."
+                        ),
+                        "details": {
+                            "monthly_used": monthly_used,
+                            "monthly_limit": tier.monthly_cost_limit_usd,
+                            "overage_balance": overage_balance,
+                            "fallback": "on_device",
+                        },
+                    },
+                )
+
+        return monthly_used, overage_balance
+
+    async def record_cost(
+        self,
+        db: aiosqlite.Connection,
+        user_id: str,
+        cost: float,
+        tier: TierDefinition,
     ) -> None:
-        """Raise 429 if daily token or cost quota exceeded."""
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        """Deduct cost from monthly allocation or overage balance."""
+        if tier.monthly_cost_limit_usd == -1 or cost <= 0:
+            return
 
-        # Check token limit
-        if tier.daily_token_limit != -1:
-            cursor = await db.execute(
-                """SELECT COALESCE(SUM(COALESCE(input_tokens, 0)), 0)
-                        + COALESCE(SUM(COALESCE(output_tokens, 0)), 0)
-                   FROM usage_log
-                   WHERE user_id = ? AND request_timestamp >= ?
-                     AND status = 'success'""",
-                (user.id, today),
+        cursor = await db.execute(
+            "SELECT monthly_used_usd, overage_balance_usd FROM users WHERE id = ?",
+            (user_id,),
+        )
+        row = await cursor.fetchone()
+        monthly_used = float(row["monthly_used_usd"] or 0)
+        overage_balance = float(row["overage_balance_usd"] or 0)
+
+        remaining_allocation = tier.monthly_cost_limit_usd - monthly_used
+
+        if cost <= remaining_allocation:
+            # Fully covered by monthly allocation
+            await db.execute(
+                "UPDATE users SET monthly_used_usd = monthly_used_usd + ? WHERE id = ?",
+                (cost, user_id),
             )
-            row = await cursor.fetchone()
-            used_tokens = row[0] if row else 0
+        else:
+            # Partially or fully from overage
+            from_allocation = max(0, remaining_allocation)
+            from_overage = cost - from_allocation
 
-            if used_tokens >= tier.daily_token_limit:
-                raise HTTPException(
-                    status_code=429,
-                    detail={
-                        "code": "quota_exceeded",
-                        "message": (
-                            f"Daily token quota exceeded "
-                            f"({used_tokens}/{tier.daily_token_limit})"
-                        ),
-                    },
-                )
-
-        # Check cost limit
-        if tier.daily_cost_limit_usd != -1:
-            cursor = await db.execute(
-                """SELECT COALESCE(SUM(COALESCE(estimated_cost_usd, 0)), 0)
-                   FROM usage_log
-                   WHERE user_id = ? AND request_timestamp >= ?
-                     AND status = 'success'""",
-                (user.id, today),
+            await db.execute(
+                """UPDATE users SET
+                    monthly_used_usd = monthly_used_usd + ?,
+                    overage_balance_usd = MAX(0, overage_balance_usd - ?)
+                   WHERE id = ?""",
+                (from_allocation, from_overage, user_id),
             )
-            row = await cursor.fetchone()
-            used_cost = row[0] if row else 0.0
 
-            if used_cost >= tier.daily_cost_limit_usd:
-                raise HTTPException(
-                    status_code=429,
-                    detail={
-                        "code": "quota_exceeded",
-                        "message": (
-                            f"Daily cost quota exceeded "
-                            f"(${used_cost:.4f}/${tier.daily_cost_limit_usd:.2f})"
-                        ),
-                    },
-                )
+        await db.commit()
 
     async def log_usage(
         self,

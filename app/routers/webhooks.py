@@ -223,12 +223,14 @@ async def get_tiers(
         tiers[name] = {
             "display_name": tier.display_name,
             "default_model": tier.default_model,
-            "daily_token_limit": tier.daily_token_limit,
-            "daily_cost_limit_usd": tier.daily_cost_limit_usd,
+            "monthly_cost_limit_usd": tier.monthly_cost_limit_usd,
             "requests_per_minute": tier.requests_per_minute,
+            "summary_mode": tier.summary_mode,
+            "summary_interval_minutes": tier.summary_interval_minutes,
             "allowed_providers": tier.allowed_providers,
             "allowed_models": tier.allowed_models,
             "max_images_per_request": tier.max_images_per_request,
+            "storekit_product_id": tier.storekit_product_id,
         }
 
     return {"tiers": tiers}

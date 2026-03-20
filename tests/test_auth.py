@@ -18,10 +18,10 @@ def jwt_service():
 
 
 def test_create_and_verify_access_token(jwt_service: JWTService):
-    token = jwt_service.create_access_token("user-123", "subscriber")
+    token = jwt_service.create_access_token("user-123")
     payload = jwt_service.verify_access_token(token)
     assert payload["sub"] == "user-123"
-    assert payload["tier"] == "subscriber"
+    assert "tier" not in payload  # Tier must NOT be in JWT
     assert payload["type"] == "access"
 
 
@@ -30,7 +30,7 @@ def test_expired_token_raises():
         secret="test-secret",
         access_expire_minutes=0,  # Immediate expiry
     )
-    token = service.create_access_token("user-123", "free")
+    token = service.create_access_token("user-123")
     time.sleep(1)
     with pytest.raises(Exception):  # pyjwt.ExpiredSignatureError
         service.verify_access_token(token)
@@ -51,6 +51,6 @@ def test_refresh_token_hash():
 def test_different_secrets_fail():
     service1 = JWTService(secret="secret-1")
     service2 = JWTService(secret="secret-2")
-    token = service1.create_access_token("user-1", "free")
+    token = service1.create_access_token("user-1")
     with pytest.raises(Exception):
         service2.verify_access_token(token)
