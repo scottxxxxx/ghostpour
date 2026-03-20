@@ -1,7 +1,8 @@
 import time
+from pathlib import Path
 
 from fastapi import APIRouter, Request
-from fastapi.responses import ORJSONResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 router = APIRouter()
 
@@ -20,6 +21,13 @@ async def health(request: Request):
             "source": pricing.source_url,
         },
     }
+
+
+@router.get("/admin")
+async def admin_ui():
+    """Serve the admin dashboard."""
+    html_path = Path(__file__).parent.parent / "static" / "admin.html"
+    return FileResponse(html_path, media_type="text/html")
 
 
 @router.get("/v1/model-pricing")
