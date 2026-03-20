@@ -142,12 +142,25 @@ class UsageTracker:
         if response and response.cost:
             estimated_cost = response.cost.get("total_cost")
 
+        # Extract cached tokens from usage metadata
+        cached_tokens = None
+        if response and response.usage:
+            u = response.usage
+            cached_tokens = (
+                u.get("prompt_tokens_details.cached_tokens")  # OpenAI
+                or u.get("cache_read_input_tokens")  # Anthropic
+                or u.get("cachedContentTokenCount")  # Gemini
+            )
+            if cached_tokens is not None:
+                cached_tokens = int(cached_tokens)
+
         await db.execute(
             """INSERT INTO usage_log
                (id, user_id, provider, model, input_tokens, output_tokens,
                 estimated_cost_usd, request_timestamp, response_time_ms,
-                status, error_message, metadata)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                status, error_message, call_type, prompt_mode,
+                image_count, session_duration_sec, cached_tokens, metadata)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 str(uuid.uuid4()),
                 user_id,
@@ -160,6 +173,11 @@ class UsageTracker:
                 response_time_ms,
                 status,
                 error_msg,
+                request.call_type,
+                request.prompt_mode,
+                request.image_count or (len(request.images) if request.images else 0),
+                request.session_duration_sec,
+                cached_tokens,
                 metadata_json,
             ),
         )
