@@ -30,7 +30,7 @@ tiers:
       - "anthropic"
     allowed_models:
       - "claude-haiku-4-5-20251001"
-    max_images_per_request: 0
+    max_images_per_request: 1
     storekit_product_id: ""
 
   standard:
