@@ -9,7 +9,8 @@
 **Live deployment:** `https://cz.shouldersurf.com`
 **Admin dashboard:** `https://cz.shouldersurf.com/admin`
 **GitHub:** `https://github.com/scottxxxxx/cloudzap`
-**Planning docs:** `shouldersurf-proxy-claude-code-plan.docx`, `Server side proxy-claude-code-plan.docx` (in repo root)
+**Subscription spec:** `/Users/scottguida/ShoulderSurf/Subscription_Tiers.md` — full tier details, pricing, allocation, carryover, StoreKit config
+**Planning docs:** `shouldersurf-proxy-claude-code-plan.docx`, `Server side proxy-claude-code-plan.docx` (in repo root, gitignored)
 
 ## Tech Stack
 
@@ -67,34 +68,11 @@ pytest tests/ -v
 
 ## Subscription Tiers
 
-5 subscription tiers + admin, configured in `config/tiers.yml`.
+See **`/Users/scottguida/ShoulderSurf/Subscription_Tiers.md`** for the full tier specification.
 
-**Model assignment is server-controlled.** When client sends `model: "auto"`, the gateway substitutes the tier's `default_model`. The client never chooses the model for subscription users.
+5 tiers + admin, configured in `config/tiers.yml`. Model assignment is server-controlled — client sends `model: "auto"`, gateway substitutes the tier's `default_model`.
 
-| Tier | Price | Hours/mo | Model | Summary Mode | RPM |
-|------|-------|----------|-------|-------------|-----|
-| free | $0.05 credit | ~1 session | Haiku 4.5 | Delta only | 5 |
-| standard | $2.99/mo | 25 hrs | Haiku 4.5 | Delta only | 15 |
-| pro | $4.99/mo | 50 hrs | Haiku 4.5 | Delta only | 20 |
-| ultra | $9.99/mo | 25 hrs | Sonnet 4.6 | Full or Delta | 30 |
-| ultra_max | $19.99/mo | 50 hrs | Sonnet 4.6 | Full or Delta | 30 |
-| admin | — | Unlimited | Sonnet 4.6 | All | 120 |
-
-**Pricing basis (2x markup on average user cost):**
-- Haiku 4.5: ~$0.05/hr average, ~$0.10/hr power user (10-min auto-summary interval)
-- Sonnet 4.6: ~$0.19/hr average, ~$0.38/hr power user (15-min auto-summary interval)
-- Apple takes 15% (Small Business Program)
-
-**Overage credit packs** (in-app purchase, never expire):
-- Credits deducted at the user's tier model rate after monthly allocation runs out
-- Same per-hour rate as subscription (no penalty markup)
-- When overage balance also exhausted: fallback to on-device Apple Intelligence (not a hard block)
-
-**StoreKit Product IDs:**
-- `com.shouldersurf.standard.monthly`
-- `com.shouldersurf.pro.monthly`
-- `com.shouldersurf.ultra.monthly`
-- `com.shouldersurf.ultramax.monthly`
+Summary: free ($0.05), standard ($2.99), pro ($4.99), ultra ($9.99), ultra_max ($19.99). Haiku for free/standard/pro, Sonnet for ultra/ultra_max. 2x markup on avg user cost. Monthly cost-based allocation with overage credits at same rate. Dollar-value carryover on upgrade.
 
 ### Allocation tracking (TODO — next implementation phase)
 
