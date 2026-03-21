@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-03-21
+
+### Added
+- **5 subscription tiers** — free, standard ($2.99), pro ($4.99), ultra ($9.99), ultra_max ($19.99) with per-tier default models, summary modes, image limits, and StoreKit product IDs
+- **Monthly allocation tracking** — `monthly_used_usd`, `overage_balance_usd`, `allocation_resets_at` on users table
+- **Dollar-value carryover** on tier upgrade (Option D) — unused allocation converts to overage balance
+- **`POST /v1/verify-receipt`** — StoreKit 2 receipt verification, maps product ID to tier with carryover
+- **`GET /v1/usage/me`** — authenticated user's allocation, hours, overage, and usage stats
+- **Allocation headers** — `X-Allocation-Percent`, `X-Allocation-Warning`, `X-Monthly-Used`, `X-Monthly-Limit`, `X-Overage-Balance` on every chat response
+- **Per-user detail view** in admin dashboard — monthly budget, usage by query type/prompt mode/model
+- **Query analytics** — `call_type`, `prompt_mode`, `image_count`, `session_duration_sec`, `cached_tokens` tracked per request (no content stored)
+- **Tiers tab** in admin dashboard with simulate button for testing any tier
+- **Image limits per tier** — Free: 0, Standard: 1, Pro: 2, Ultra: 3, Ultra Max: 5
+
+### Changed
+- **JWT no longer contains tier** — always read from database for immediate upgrade/downgrade effect
+- Tier config expanded with `monthly_cost_limit_usd`, `summary_mode`, `summary_interval_minutes`, `storekit_product_id`
+- Daily cost/token limits replaced by monthly allocation system
+
 ## [0.2.0] - 2026-03-19
 
 ### Added

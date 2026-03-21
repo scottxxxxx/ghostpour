@@ -13,7 +13,7 @@ async def health(request: Request):
     pricing = request.app.state.pricing
     return {
         "status": "ok",
-        "version": "0.2.0",
+        "version": "0.3.0",
         "uptime_seconds": int(uptime),
         "pricing": {
             "loaded": pricing.is_loaded,
