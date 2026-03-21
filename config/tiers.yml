@@ -46,7 +46,7 @@ tiers:
       - "anthropic"
     allowed_models:
       - "claude-haiku-4-5-20251001"
-    max_images_per_request: 3
+    max_images_per_request: 1
     storekit_product_id: "com.shouldersurf.standard.monthly"
 
   pro:
@@ -62,7 +62,7 @@ tiers:
       - "anthropic"
     allowed_models:
       - "claude-haiku-4-5-20251001"
-    max_images_per_request: 3
+    max_images_per_request: 2
     storekit_product_id: "com.shouldersurf.pro.monthly"
 
   ultra:
@@ -79,7 +79,7 @@ tiers:
     allowed_models:
       - "claude-sonnet-4-6"
       - "claude-haiku-4-5-20251001"
-    max_images_per_request: 5
+    max_images_per_request: 3
     storekit_product_id: "com.shouldersurf.ultra.monthly"
 
   ultra_max:
