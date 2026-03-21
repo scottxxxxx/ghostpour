@@ -1,8 +1,10 @@
 import time
+from datetime import datetime, timedelta, timezone
 
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -10,6 +12,99 @@ from app.models.chat import ChatRequest, ChatResponse
 from app.models.user import UserRecord
 
 router = APIRouter()
+
+
+# MARK: - StoreKit Receipt Verification
+
+
+class VerifyReceiptRequest(BaseModel):
+    product_id: str              # e.g., "com.shouldersurf.ultra.monthly"
+    transaction_id: str          # StoreKit 2 original transaction ID
+    signed_transaction: str | None = None  # JWS for future server-side verification
+
+
+# Map StoreKit product IDs to tier names
+PRODUCT_TO_TIER: dict[str, str] = {}  # Populated from tier config at startup
+
+
+@router.post("/verify-receipt")
+async def verify_receipt(
+    body: VerifyReceiptRequest,
+    request: Request,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Verify a StoreKit 2 transaction and upgrade the user's tier.
+
+    Called by the iOS app after a successful purchase or on app launch
+    when checking currentEntitlements.
+
+    For MVP: trusts the product_id from the authenticated client.
+    StoreKit 2 transactions are cryptographically signed by Apple —
+    the client has already verified them. Full server-side JWS
+    verification can be added in v0.3.
+    """
+    tier_config = request.app.state.tier_config
+
+    # Build product-to-tier map from config (lazy init)
+    global PRODUCT_TO_TIER
+    if not PRODUCT_TO_TIER:
+        for name, tier in tier_config.tiers.items():
+            if tier.storekit_product_id:
+                PRODUCT_TO_TIER[tier.storekit_product_id] = name
+
+    # Look up tier for this product
+    new_tier_name = PRODUCT_TO_TIER.get(body.product_id)
+    if not new_tier_name:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown product ID: {body.product_id}",
+        )
+
+    new_tier = tier_config.tiers[new_tier_name]
+    old_tier_name = user.tier
+
+    # Calculate carryover (same logic as admin set-tier)
+    old_tier = tier_config.tiers.get(old_tier_name)
+    old_limit = user.monthly_cost_limit_usd or 0
+    old_used = user.monthly_used_usd
+    overage = user.overage_balance_usd
+
+    carryover = 0.0
+    if old_tier and old_limit > 0 and new_tier.monthly_cost_limit_usd > old_limit:
+        carryover = max(0, old_limit - old_used)
+
+    now = datetime.now(timezone.utc)
+    resets_at = (now + timedelta(days=30)).isoformat()
+
+    await db.execute(
+        """UPDATE users SET
+            tier = ?,
+            monthly_cost_limit_usd = ?,
+            monthly_used_usd = 0,
+            overage_balance_usd = ?,
+            allocation_resets_at = ?,
+            updated_at = ?
+           WHERE id = ?""",
+        (
+            new_tier_name,
+            new_tier.monthly_cost_limit_usd,
+            overage + carryover,
+            resets_at,
+            now.isoformat(),
+            user.id,
+        ),
+    )
+    await db.commit()
+
+    return {
+        "status": "ok",
+        "old_tier": old_tier_name,
+        "new_tier": new_tier_name,
+        "monthly_limit_usd": new_tier.monthly_cost_limit_usd,
+        "overage_balance_usd": round(overage + carryover, 4),
+        "allocation_resets_at": resets_at,
+    }
 
 
 @router.get("/usage/me")
