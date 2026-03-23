@@ -53,17 +53,35 @@ class PricingService:
             except asyncio.CancelledError:
                 pass
 
+    # Max reasonable price per token (USD). Anything above this is bad data.
+    # $100/M tokens = $0.0001 per token. W&B entries have $0.071/token = $71,000/M.
+    MAX_COST_PER_TOKEN = 0.0001  # $100/M tokens
+
     async def _fetch(self) -> None:
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.get(self.source_url)
                 resp.raise_for_status()
-                self._prices = resp.json()
+                raw_data = resp.json()
+
+                # Filter out entries with absurd pricing (bad upstream data)
+                filtered = {}
+                rejected = 0
+                for model_id, info in raw_data.items():
+                    inp = info.get("input_cost_per_token") or 0
+                    out = info.get("output_cost_per_token") or 0
+                    if inp > self.MAX_COST_PER_TOKEN or out > self.MAX_COST_PER_TOKEN:
+                        rejected += 1
+                        continue
+                    filtered[model_id] = info
+
+                self._prices = filtered
                 self._last_fetch = time.monotonic()
                 logger.info(
-                    "Loaded pricing data: %d models from %s",
+                    "Loaded pricing data: %d models from %s (%d rejected for bad pricing)",
                     len(self._prices),
                     self.source_url,
+                    rejected,
                 )
         except Exception as e:
             logger.warning("Failed to fetch pricing data: %s", e)
