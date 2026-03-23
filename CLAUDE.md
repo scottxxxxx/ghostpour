@@ -1,6 +1,6 @@
 # CLAUDE.md — CloudZap
 
-> **Last updated:** March 19, 2026
+> **Last updated:** March 22, 2026
 
 ## Project Overview
 
@@ -42,7 +42,8 @@ app/
 │   ├── provider_router.py  # Dispatches to correct adapter
 │   ├── providers/       # OpenAI-compat, Anthropic, Gemini, Generic adapters
 │   ├── rate_limiter.py  # In-memory token bucket
-│   └── usage_tracker.py # SQLite usage logging + quota check
+│   ├── usage_tracker.py # SQLite usage logging + quota check
+│   └── context_quilt.py # CQ recall + capture integration
 ├── middleware/           # Request logging
 └── static/admin.html    # Web-based admin dashboard
 config/
@@ -198,7 +199,36 @@ Web UI at `/admin` with tabs:
 
 Admin key: stored in `CZ_ADMIN_KEY` env var, persisted in browser localStorage.
 
+## Context Quilt Integration
+
+CloudZap integrates with Context Quilt when `context_quilt: true` is in the ChatRequest.
+
+**Recall (pre-route, synchronous):**
+- Calls `POST {CQ_BASE_URL}/v1/recall` with the user's query text
+- 200ms timeout — skips gracefully on timeout or error
+- Injects returned context into `system_prompt` (replaces `{{context_quilt}}` placeholder, or prepends)
+
+**Capture (post-response, async):**
+- Fires background `POST {CQ_BASE_URL}/v1/memory` with query, LLM response, and metadata
+- Never blocks the response to the user
+- Includes `meeting_id`, `project`, `call_type`, `prompt_mode` in metadata
+
+**Response headers (for ShoulderSurf UI indicator):**
+- `X-CQ-Matched`: number of entities matched (e.g., "3")
+- `X-CQ-Entities`: comma-separated entity names (e.g., "Bob Martinez,Widget 2.0")
+
+**ChatRequest fields:**
+- `context_quilt: bool` — enable CQ for this request (default: false)
+- `meeting_id: str | None` — meeting UUID for CQ queue grouping
+- `project: str | None` — project name for CQ metadata
+
+**Config:**
+- `CZ_CQ_BASE_URL` — CQ endpoint (e.g., `https://cq.shouldersurf.com`)
+- `CZ_CQ_APP_ID` — app identifier for CQ auth (default: `cloudzap`)
+- `CZ_CQ_RECALL_TIMEOUT_MS` — max wait for recall (default: 200)
+
 ## Related Projects
 
 - **Shoulder Surf** (`/Users/scottguida/ShoulderSurf/`) — iOS meeting copilot, first CloudZap customer
-- **GCP Proxy** (`/Users/scottguida/GCP Proxy for My sites/`) — Nginx Proxy Manager infrastructure docs
+- **Context Quilt** (`/Users/scottguida/contextquilt/`) — persistent AI memory layer, live at `cq.shouldersurf.com`
+- **Project Bifrost** (`/Users/scottguida/bifrost/`) — Nginx Proxy Manager on shared GCP VM
