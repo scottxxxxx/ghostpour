@@ -10,6 +10,7 @@
 **Admin dashboard:** `https://cz.shouldersurf.com/admin`
 **GitHub:** `https://github.com/scottxxxxx/cloudzap`
 **Subscription spec:** `/Users/scottguida/ShoulderSurf/Subscription_Tiers.md` — full tier details, pricing, allocation, carryover, StoreKit config
+**Subscription system doc:** `docs/subscription-system.md` — full-stack guide to how ShoulderSurf + StoreKit + CloudZap handle subscriptions, allocation, and enforcement
 **Planning docs:** `shouldersurf-proxy-claude-code-plan.docx`, `Server side proxy-claude-code-plan.docx` (in repo root, gitignored)
 
 ## Tech Stack

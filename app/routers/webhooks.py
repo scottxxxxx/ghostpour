@@ -62,41 +62,22 @@ async def set_tier(
         raise HTTPException(status_code=404, detail="User not found")
 
     old_tier_name = row["tier"]
-    old_used = float(row["monthly_used_usd"] or 0)
-    old_limit = float(row["monthly_cost_limit_usd"] or 0)
-    overage = float(row["overage_balance_usd"] or 0)
 
-    # Calculate carryover
-    carryover = 0.0
-    carryover_detail = "none"
-
-    old_tier = tier_config.tiers.get(old_tier_name)
-    if old_tier and old_limit > 0 and new_tier.monthly_cost_limit_usd > old_limit:
-        # Upgrade: carry forward unused dollar value
-        unused = max(0, old_limit - old_used)
-        carryover = unused
-        carryover_detail = f"${unused:.4f} unused from {old_tier.display_name}"
-
-    # Apply tier change
+    # Apply tier change — reset allocation to the new tier's limit, no carryover
     now = datetime.now(timezone.utc)
     new_limit = new_tier.monthly_cost_limit_usd
-    # Reset period: 30 days from now
     resets_at = (now + timedelta(days=30)).isoformat()
-
-    # New monthly_used starts at 0, but carryover effectively increases the limit
-    # We model this by adding carryover to overage balance (simplest, same economic effect)
-    new_overage = overage + carryover
 
     await db.execute(
         """UPDATE users SET
             tier = ?,
             monthly_cost_limit_usd = ?,
             monthly_used_usd = 0,
-            overage_balance_usd = ?,
+            overage_balance_usd = 0,
             allocation_resets_at = ?,
             updated_at = ?
            WHERE id = ?""",
-        (body.tier, new_limit, new_overage, resets_at, now.isoformat(), body.user_id),
+        (body.tier, new_limit, resets_at, now.isoformat(), body.user_id),
     )
     await db.commit()
 
@@ -106,8 +87,6 @@ async def set_tier(
         "old_tier": old_tier_name,
         "new_tier": body.tier,
         "monthly_limit_usd": new_limit,
-        "overage_balance_usd": round(new_overage, 4),
-        "carryover": carryover_detail,
         "allocation_resets_at": resets_at,
     }
 
@@ -548,34 +527,63 @@ async def list_users(
     """List all users with their usage stats."""
     _verify_admin(request, x_admin_key)
 
+    tier_config = request.app.state.tier_config
+
     cursor = await db.execute(
         """SELECT u.id, u.apple_sub, u.email, u.tier, u.created_at, u.is_active,
             u.simulated_tier, u.simulated_exhausted,
+            u.monthly_used_usd, u.monthly_cost_limit_usd, u.allocation_resets_at,
+            u.is_trial, u.trial_end,
             (SELECT COUNT(*) FROM usage_log l WHERE l.user_id = u.id AND l.status = 'success') as total_requests,
-            (SELECT COALESCE(SUM(COALESCE(l2.input_tokens,0)) + SUM(COALESCE(l2.output_tokens,0)), 0)
-             FROM usage_log l2 WHERE l2.user_id = u.id AND l2.status = 'success') as total_tokens,
+            (SELECT COALESCE(SUM(COALESCE(l2.input_tokens,0)), 0)
+             FROM usage_log l2 WHERE l2.user_id = u.id AND l2.status = 'success') as total_input_tokens,
+            (SELECT COALESCE(SUM(COALESCE(l2.output_tokens,0)), 0)
+             FROM usage_log l2 WHERE l2.user_id = u.id AND l2.status = 'success') as total_output_tokens,
             (SELECT COALESCE(SUM(l3.estimated_cost_usd), 0)
              FROM usage_log l3 WHERE l3.user_id = u.id AND l3.status = 'success') as total_cost_usd,
             (SELECT MAX(l4.request_timestamp) FROM usage_log l4 WHERE l4.user_id = u.id) as last_request
            FROM users u
            ORDER BY u.created_at DESC"""
     )
-    users = [
-        {
-            "id": r[0],
-            "apple_sub": r[1][:8] + "..." if r[1] else None,
-            "email": r[2],
-            "tier": r[3],
-            "created_at": r[4],
-            "is_active": bool(r[5]),
-            "simulated_tier": r[6],
-            "simulated_exhausted": bool(r[7]),
-            "total_requests": r[8],
-            "total_tokens": r[9],
-            "total_cost_usd": round(r[10], 4) if r[10] else 0,
-            "last_request": r[11],
-        }
-        for r in await cursor.fetchall()
-    ]
+    users = []
+    for r in await cursor.fetchall():
+        monthly_used = float(r["monthly_used_usd"] or 0)
+        monthly_limit = float(r["monthly_cost_limit_usd"] or 0)
+        tier_name = r["tier"]
+        tier_def = tier_config.tiers.get(tier_name)
+
+        # Convert cost to hours for display
+        model_cost_per_hour = 0.19 if tier_def and "sonnet" in (tier_def.default_model or "") else 0.05
+        hours_used = monthly_used / model_cost_per_hour if model_cost_per_hour > 0 else 0
+        hours_limit = monthly_limit / model_cost_per_hour if monthly_limit > 0 else -1
+        percent_used = round(monthly_used / monthly_limit * 100, 1) if monthly_limit > 0 else 0
+
+        users.append({
+            "id": r["id"],
+            "apple_sub": r["apple_sub"][:8] + "..." if r["apple_sub"] else None,
+            "email": r["email"],
+            "tier": tier_name,
+            "tier_display_name": tier_def.display_name if tier_def else tier_name,
+            "created_at": r["created_at"],
+            "is_active": bool(r["is_active"]),
+            "simulated_tier": r["simulated_tier"],
+            "simulated_exhausted": bool(r["simulated_exhausted"]),
+            "is_trial": bool(r["is_trial"]),
+            "trial_end": r["trial_end"],
+            # Current month allocation
+            "monthly_used_usd": round(monthly_used, 4),
+            "monthly_limit_usd": round(monthly_limit, 4),
+            "percent_used": percent_used,
+            "hours_used": round(hours_used, 1),
+            "hours_limit": round(hours_limit, 1) if hours_limit != -1 else -1,
+            "allocation_resets_at": r["allocation_resets_at"],
+            # Lifetime totals
+            "total_requests": r["total_requests"],
+            "total_input_tokens": r["total_input_tokens"],
+            "total_output_tokens": r["total_output_tokens"],
+            "total_tokens": r["total_input_tokens"] + r["total_output_tokens"],
+            "total_cost_usd": round(r["total_cost_usd"], 4) if r["total_cost_usd"] else 0,
+            "last_request": r["last_request"],
+        })
 
     return {"users": users, "count": len(users)}

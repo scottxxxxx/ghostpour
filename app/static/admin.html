@@ -197,12 +197,15 @@
   <div id="tab-users" class="section">
     <h3>All Users</h3>
     <div class="table-wrap"><table id="user-table"><thead><tr>
-      <th>Email</th><th>Tier</th><th>Requests</th><th>Tokens</th><th>Cost</th><th>Last Active</th><th></th>
+      <th>Email</th><th>Tier</th><th>Hours Used</th><th>Allocation</th><th>Resets</th><th>Lifetime Cost</th><th>Last Active</th><th></th>
     </tr></thead><tbody></tbody></table></div>
 
     <!-- User detail panel (shown when clicking a user) -->
     <div id="user-detail" style="display:none">
-      <h3 id="user-detail-title">User Detail</h3>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 id="user-detail-title" style="margin:0">User Detail</h3>
+        <button class="refresh-btn" onclick="document.getElementById('user-detail').style.display='none'" style="font-size:1.1em;padding:4px 12px">Close</button>
+      </div>
       <div class="cards" id="user-budget-cards"></div>
       <h3>Usage by Query Type</h3>
       <div class="table-wrap"><table id="call-type-table"><thead><tr>
@@ -357,13 +360,29 @@ async function refresh() {
 
   // User table
   const utbody = document.querySelector('#user-table tbody');
-  utbody.innerHTML = users.users.map(u => `<tr>
+  utbody.innerHTML = users.users.map(u => {
+    const tierLabel = u.tier_display_name || u.tier;
+    const trialBadge = u.is_trial ? ' <span style="color:var(--accent);font-size:0.75em">TRIAL</span>' : '';
+    const hrsUsed = u.hours_used != null ? u.hours_used.toFixed(1) : '0';
+    const hrsLimit = u.hours_limit === -1 ? '&infin;' : (u.hours_limit != null ? u.hours_limit.toFixed(1) : '?');
+    const pct = u.percent_used || 0;
+    const pctColor = pct >= 90 ? 'red' : pct >= 70 ? 'orange' : 'green';
+    const barWidth = Math.min(100, pct);
+    const allocBar = `<div style="display:flex;align-items:center;gap:6px">` +
+      `<div style="width:60px;height:6px;background:var(--bg-card);border-radius:3px;overflow:hidden">` +
+      `<div style="width:${barWidth}%;height:100%;background:${pctColor};border-radius:3px"></div></div>` +
+      `<span style="font-size:0.85em">${pct.toFixed(0)}%</span></div>`;
+    const resets = u.allocation_resets_at ? timeAgo(u.allocation_resets_at) : '—';
+    return `<tr>
     <td>${u.email||'<span style="color:var(--text-dim)">Private relay</span>'}</td>
-    <td><span class="badge ${u.tier}">${u.tier}</span></td>
-    <td>${fmt(u.total_requests)}</td><td>${fmt(u.total_tokens)}</td>
+    <td><span class="badge ${u.tier}">${tierLabel}</span>${trialBadge}</td>
+    <td>${hrsUsed} / ${hrsLimit} hrs</td>
+    <td>${allocBar}</td>
+    <td>${resets}</td>
     <td>${fmtCost(u.total_cost_usd)}</td><td>${timeAgo(u.last_request)}</td>
     <td><button class="refresh-btn" onclick="showUserDetail('${u.id}','${u.email||"User"}')">Detail</button></td>
-  </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-dim)">No users yet</td></tr>';
+  </tr>`;
+  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--text-dim)">No users yet</td></tr>';
 
   // Latency percentiles
   const lp = dash.latency_percentiles || {};
@@ -445,8 +464,10 @@ async function showUserDetail(userId, email) {
     headers: {'X-Admin-Key': adminKey}
   }).then(r => r.json());
 
-  document.getElementById('user-detail').style.display = 'block';
+  const detailEl = document.getElementById('user-detail');
+  detailEl.style.display = 'block';
   document.getElementById('user-detail-title').textContent = `${email} (${data.user.tier})`;
+  detailEl.scrollIntoView({behavior: 'smooth', block: 'start'});
 
   // Budget cards
   const b = data.budget;
