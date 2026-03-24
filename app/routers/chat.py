@@ -74,16 +74,6 @@ async def verify_receipt(
         and (body.offer_price is None or body.offer_price == 0)
     )
 
-    # Calculate carryover (same logic as admin set-tier)
-    old_tier = tier_config.tiers.get(old_tier_name)
-    old_limit = user.monthly_cost_limit_usd or 0
-    old_used = user.monthly_used_usd
-    overage = user.overage_balance_usd
-
-    carryover = 0.0
-    if old_tier and old_limit > 0 and new_tier.monthly_cost_limit_usd > old_limit:
-        carryover = max(0, old_limit - old_used)
-
     now = datetime.now(timezone.utc)
 
     if is_trial:
@@ -97,7 +87,7 @@ async def verify_receipt(
                 tier = ?,
                 monthly_cost_limit_usd = ?,
                 monthly_used_usd = 0,
-                overage_balance_usd = ?,
+                overage_balance_usd = 0,
                 allocation_resets_at = ?,
                 updated_at = ?,
                 simulated_tier = NULL,
@@ -109,7 +99,6 @@ async def verify_receipt(
             (
                 new_tier_name,
                 trial_limit,
-                overage + carryover,
                 resets_at,
                 now.isoformat(),
                 now.isoformat(),
@@ -126,7 +115,6 @@ async def verify_receipt(
             "is_trial": True,
             "trial_end": trial_end,
             "monthly_limit_usd": trial_limit,
-            "overage_balance_usd": round(overage + carryover, 4),
             "allocation_resets_at": resets_at,
         }
 
@@ -138,7 +126,7 @@ async def verify_receipt(
             tier = ?,
             monthly_cost_limit_usd = ?,
             monthly_used_usd = 0,
-            overage_balance_usd = ?,
+            overage_balance_usd = 0,
             allocation_resets_at = ?,
             updated_at = ?,
             simulated_tier = NULL,
@@ -150,7 +138,6 @@ async def verify_receipt(
         (
             new_tier_name,
             new_tier.monthly_cost_limit_usd,
-            overage + carryover,
             resets_at,
             now.isoformat(),
             user.id,
@@ -164,7 +151,6 @@ async def verify_receipt(
         "new_tier": new_tier_name,
         "is_trial": False,
         "monthly_limit_usd": new_tier.monthly_cost_limit_usd,
-        "overage_balance_usd": round(overage + carryover, 4),
         "allocation_resets_at": resets_at,
     }
 
@@ -204,15 +190,14 @@ async def sync_subscription(
             """UPDATE users SET
                 tier = 'free',
                 monthly_cost_limit_usd = ?,
-                monthly_used_usd = 0,
+                monthly_used_usd = ?,
                 overage_balance_usd = 0,
-                allocation_resets_at = ?,
                 is_trial = 0,
                 trial_start = NULL,
                 trial_end = NULL,
                 updated_at = ?
                WHERE id = ?""",
-            (free_limit, (now + timedelta(days=30)).isoformat(), now.isoformat(), user.id),
+            (free_limit, free_limit, now.isoformat(), user.id),
         )
         await db.commit()
 
@@ -246,24 +231,52 @@ async def sync_subscription(
     else:
         limit = new_tier.monthly_cost_limit_usd
 
-    await db.execute(
-        """UPDATE users SET
-            tier = ?,
-            monthly_cost_limit_usd = ?,
-            is_trial = ?,
-            updated_at = ?
-           WHERE id = ?""",
-        (expected_tier, limit, 1 if body.is_trial else 0, now.isoformat(), user.id),
-    )
+    # Trial-to-paid conversion: reset allocation for the first paid month.
+    # The user was on a reduced trial allocation — now they're paying,
+    # so they get a fresh full-month allocation.
+    trial_converted = user.is_trial and not body.is_trial
+
+    if trial_converted:
+        resets_at = (now + timedelta(days=30)).isoformat()
+        await db.execute(
+            """UPDATE users SET
+                tier = ?,
+                monthly_cost_limit_usd = ?,
+                monthly_used_usd = 0,
+                overage_balance_usd = 0,
+                allocation_resets_at = ?,
+                is_trial = 0,
+                trial_start = NULL,
+                trial_end = NULL,
+                updated_at = ?
+               WHERE id = ?""",
+            (expected_tier, limit, resets_at, now.isoformat(), user.id),
+        )
+    else:
+        await db.execute(
+            """UPDATE users SET
+                tier = ?,
+                monthly_cost_limit_usd = ?,
+                is_trial = ?,
+                updated_at = ?
+               WHERE id = ?""",
+            (expected_tier, limit, 1 if body.is_trial else 0, now.isoformat(), user.id),
+        )
+
     await db.commit()
 
-    return {
+    result = {
         "status": "ok",
         "action": "updated",
         "old_tier": user.tier,
         "new_tier": expected_tier,
         "is_trial": body.is_trial,
     }
+    if trial_converted:
+        result["trial_converted"] = True
+        result["monthly_limit_usd"] = limit
+        result["allocation_resets_at"] = resets_at
+    return result
 
 
 @router.get("/usage/me")
@@ -289,17 +302,14 @@ async def usage_me(
 
     if sim_exhausted:
         monthly_used = monthly_limit
-        overage_balance = 0.0
     else:
         # Read allocation state
         cursor = await db.execute(
-            """SELECT monthly_used_usd, overage_balance_usd, allocation_resets_at
-               FROM users WHERE id = ?""",
+            "SELECT monthly_used_usd FROM users WHERE id = ?",
             (user.id,),
         )
         row = await cursor.fetchone()
         monthly_used = float(row["monthly_used_usd"] or 0)
-        overage_balance = float(row["overage_balance_usd"] or 0)
 
     # Read resets_at regardless (always from real data)
     cursor = await db.execute(
@@ -328,8 +338,6 @@ async def usage_me(
     model_cost_per_hour = 0.05 if "haiku" in (tier.default_model or "") else 0.19
     hours_used = monthly_used / model_cost_per_hour if model_cost_per_hour > 0 else 0
     hours_limit = monthly_limit / model_cost_per_hour if monthly_limit > 0 else -1
-    overage_hours = overage_balance / model_cost_per_hour if model_cost_per_hour > 0 else 0
-
     result = {
         "tier": effective_tier_name,
         "tier_display_name": tier.display_name if tier else effective_tier_name,
@@ -346,8 +354,8 @@ async def usage_me(
             "remaining": round(max(0, hours_limit - hours_used), 1) if hours_limit != -1 else -1,
         },
         "overage": {
-            "balance_usd": round(overage_balance, 4),
-            "balance_hours": round(overage_hours, 1),
+            "balance_usd": 0,
+            "balance_hours": 0,
         },
         "this_month": {
             "requests": stats["requests"],
@@ -591,7 +599,6 @@ async def chat(
             json_response.headers["X-Allocation-Warning"] = "true"
         json_response.headers["X-Monthly-Used"] = f"{new_monthly_used:.4f}"
         json_response.headers["X-Monthly-Limit"] = f"{effective_limit:.2f}"
-        json_response.headers["X-Overage-Balance"] = f"{overage_balance:.4f}"
 
     # Feature response headers — generic pattern for any gated feature
     matched = cq_result.get("matched_entities", [])
