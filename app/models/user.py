@@ -15,6 +15,9 @@ class UserRecord(BaseModel):
     allocation_resets_at: str | None = None
     simulated_tier: str | None = None
     simulated_exhausted: bool = False
+    is_trial: bool = False
+    trial_start: str | None = None
+    trial_end: str | None = None
 
     @property
     def effective_tier(self) -> str:

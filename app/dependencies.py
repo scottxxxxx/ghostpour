@@ -50,6 +50,9 @@ async def get_current_user(
         allocation_resets_at=row["allocation_resets_at"],
         simulated_tier=row["simulated_tier"],
         simulated_exhausted=bool(row["simulated_exhausted"]),
+        is_trial=bool(row["is_trial"]),
+        trial_start=row["trial_start"],
+        trial_end=row["trial_end"],
     )
 
     if not user.is_active:

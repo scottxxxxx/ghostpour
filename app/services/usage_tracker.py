@@ -71,7 +71,12 @@ class UsageTracker:
         Raises 429 if both monthly allocation and overage are exhausted.
         Returns the current values so chat router can set response headers.
         """
-        if tier.monthly_cost_limit_usd == -1:
+        # Determine effective limit (trial cap overrides monthly limit)
+        effective_limit = tier.monthly_cost_limit_usd
+        if user.is_trial and tier.trial_cost_limit_usd is not None:
+            effective_limit = tier.trial_cost_limit_usd
+
+        if effective_limit == -1:
             return 0.0, 0.0  # Unlimited (admin)
 
         # Simulation: force allocation exhausted
@@ -82,12 +87,12 @@ class UsageTracker:
                     "code": "allocation_exhausted",
                     "message": (
                         f"Monthly allocation exhausted "
-                        f"(${tier.monthly_cost_limit_usd:.2f}/${tier.monthly_cost_limit_usd:.2f}). "
+                        f"(${effective_limit:.2f}/${effective_limit:.2f}). "
                         f"Purchase overage credits or upgrade your plan."
                     ),
                     "details": {
-                        "monthly_used": tier.monthly_cost_limit_usd,
-                        "monthly_limit": tier.monthly_cost_limit_usd,
+                        "monthly_used": effective_limit,
+                        "monthly_limit": effective_limit,
                         "overage_balance": 0.0,
                         "fallback": "on_device",
                         "simulated": True,
@@ -105,7 +110,7 @@ class UsageTracker:
         overage_balance = float(row["overage_balance_usd"] or 0) if row else 0.0
 
         # Monthly allocation exhausted?
-        if monthly_used >= tier.monthly_cost_limit_usd:
+        if monthly_used >= effective_limit:
             # Check overage balance
             if overage_balance <= 0:
                 raise HTTPException(
@@ -114,12 +119,12 @@ class UsageTracker:
                         "code": "allocation_exhausted",
                         "message": (
                             f"Monthly allocation exhausted "
-                            f"(${monthly_used:.4f}/${tier.monthly_cost_limit_usd:.2f}). "
+                            f"(${monthly_used:.4f}/${effective_limit:.2f}). "
                             f"Purchase overage credits or upgrade your plan."
                         ),
                         "details": {
                             "monthly_used": monthly_used,
-                            "monthly_limit": tier.monthly_cost_limit_usd,
+                            "monthly_limit": effective_limit,
                             "overage_balance": overage_balance,
                             "fallback": "on_device",
                         },
@@ -134,9 +139,14 @@ class UsageTracker:
         user_id: str,
         cost: float,
         tier: TierDefinition,
+        user: UserRecord | None = None,
     ) -> None:
         """Deduct cost from monthly allocation or overage balance."""
-        if tier.monthly_cost_limit_usd == -1 or cost <= 0:
+        effective_limit = tier.monthly_cost_limit_usd
+        if user and user.is_trial and tier.trial_cost_limit_usd is not None:
+            effective_limit = tier.trial_cost_limit_usd
+
+        if effective_limit == -1 or cost <= 0:
             return
 
         cursor = await db.execute(
@@ -147,7 +157,7 @@ class UsageTracker:
         monthly_used = float(row["monthly_used_usd"] or 0)
         overage_balance = float(row["overage_balance_usd"] or 0)
 
-        remaining_allocation = tier.monthly_cost_limit_usd - monthly_used
+        remaining_allocation = effective_limit - monthly_used
 
         if cost <= remaining_allocation:
             # Fully covered by monthly allocation

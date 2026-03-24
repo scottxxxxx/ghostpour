@@ -8,6 +8,7 @@ class TierDefinition(BaseModel):
     description: str = ""
     default_model: str = ""
     monthly_cost_limit_usd: float = -1  # -1 = unlimited
+    trial_cost_limit_usd: float | None = None  # Cap during free trial period
     daily_cost_limit_usd: float = -1    # -1 = unlimited
     daily_token_limit: int = -1         # -1 = unlimited
     requests_per_minute: int = 10

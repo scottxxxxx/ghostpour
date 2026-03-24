@@ -75,6 +75,10 @@ MIGRATIONS = [
     # v4: Add tier simulation columns
     "ALTER TABLE users ADD COLUMN simulated_tier TEXT",
     "ALTER TABLE users ADD COLUMN simulated_exhausted INTEGER DEFAULT 0",
+    # v5: Add trial tracking columns
+    "ALTER TABLE users ADD COLUMN is_trial INTEGER DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN trial_start TEXT",
+    "ALTER TABLE users ADD COLUMN trial_end TEXT",
 ]
 
 

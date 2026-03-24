@@ -57,6 +57,7 @@ tiers:
     description: "Monthly AI meeting assistance for regular use."
     default_model: "anthropic/claude-haiku-4-5-20251001"
     monthly_cost_limit_usd: 1.25
+    trial_cost_limit_usd: 0.50        # Cap during 7-day free trial (~10 hrs Haiku)
     daily_cost_limit_usd: -1
     daily_token_limit: -1
     requests_per_minute: 15
@@ -68,14 +69,15 @@ tiers:
       - "claude-haiku-4-5-20251001"
     max_images_per_request: 1
     hours_per_month: 25
-    storekit_product_id: "com.shouldersurf.standard.monthly"
+    storekit_product_id: "com.weirtech.shouldersurf.sub.standard.monthly"
     features:
       context_quilt: "teaser"
     feature_bullets:
       - "25 hours/month of AI assistance"
       - "Claude Haiku — fast and capable"
-      - "Auto-summaries every 10 min"
+      - "Auto-summaries every 10 minutes"
       - "1 image per query"
+      - "Meeting memory available with Pro"
 
   pro:
     display_name: "Pro"
@@ -93,15 +95,15 @@ tiers:
       - "claude-haiku-4-5-20251001"
     max_images_per_request: 2
     hours_per_month: 50
-    storekit_product_id: "com.shouldersurf.pro.monthly"
+    storekit_product_id: "com.weirtech.shouldersurf.sub.pro.monthly"
     features:
       context_quilt: "enabled"
     feature_bullets:
       - "50 hours/month of AI assistance"
       - "Claude Haiku — fast and capable"
-      - "Auto-summaries every 10 min"
+      - "Auto-summaries every 10 minutes"
       - "2 images per query"
-      - "Context Quilt — cross-meeting memory"
+      - "Context Quilt — AI remembers past meetings"
 
   ultra:
     display_name: "Ultra"
@@ -120,7 +122,7 @@ tiers:
       - "claude-haiku-4-5-20251001"
     max_images_per_request: 3
     hours_per_month: 25
-    storekit_product_id: "com.shouldersurf.ultra.monthly"
+    storekit_product_id: "com.weirtech.shouldersurf.sub.ultra.monthly"
     features:
       context_quilt: "enabled"
     feature_bullets:
@@ -128,7 +130,7 @@ tiers:
       - "Claude Sonnet — our smartest model"
       - "Full or delta summaries (your choice)"
       - "3 images per query"
-      - "Context Quilt — cross-meeting memory"
+      - "Context Quilt — AI remembers past meetings"
 
   ultra_max:
     display_name: "Ultra Max"
@@ -147,7 +149,7 @@ tiers:
       - "claude-haiku-4-5-20251001"
     max_images_per_request: 5
     hours_per_month: 50
-    storekit_product_id: "com.shouldersurf.ultramax.monthly"
+    storekit_product_id: "com.weirtech.shouldersurf.sub.ultramax.monthly"
     features:
       context_quilt: "enabled"
     feature_bullets:
@@ -155,7 +157,7 @@ tiers:
       - "Claude Sonnet — our smartest model"
       - "Full or delta summaries (your choice)"
       - "5 images per query"
-      - "Context Quilt — cross-meeting memory"
+      - "Context Quilt — AI remembers past meetings"
 
   admin:
     display_name: "Admin"

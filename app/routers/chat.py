@@ -20,9 +20,11 @@ router = APIRouter()
 
 
 class VerifyReceiptRequest(BaseModel):
-    product_id: str              # e.g., "com.shouldersurf.ultra.monthly"
+    product_id: str              # e.g., "com.weirtech.shouldersurf.sub.ultra.monthly"
     transaction_id: str          # StoreKit 2 original transaction ID
     signed_transaction: str | None = None  # JWS for future server-side verification
+    offer_type: str | None = None  # "introductory" for free trial, None for paid
+    offer_price: float | None = None  # 0.00 for free trial
 
 
 # Map StoreKit product IDs to tier names
@@ -66,6 +68,12 @@ async def verify_receipt(
     new_tier = tier_config.tiers[new_tier_name]
     old_tier_name = user.tier
 
+    # Detect free trial: introductory offer with price 0
+    is_trial = (
+        body.offer_type == "introductory"
+        and (body.offer_price is None or body.offer_price == 0)
+    )
+
     # Calculate carryover (same logic as admin set-tier)
     old_tier = tier_config.tiers.get(old_tier_name)
     old_limit = user.monthly_cost_limit_usd or 0
@@ -77,6 +85,52 @@ async def verify_receipt(
         carryover = max(0, old_limit - old_used)
 
     now = datetime.now(timezone.utc)
+
+    if is_trial:
+        # Trial: use trial_cost_limit_usd, 7-day period
+        trial_limit = new_tier.trial_cost_limit_usd or new_tier.monthly_cost_limit_usd
+        resets_at = (now + timedelta(days=7)).isoformat()
+        trial_end = resets_at
+
+        await db.execute(
+            """UPDATE users SET
+                tier = ?,
+                monthly_cost_limit_usd = ?,
+                monthly_used_usd = 0,
+                overage_balance_usd = ?,
+                allocation_resets_at = ?,
+                updated_at = ?,
+                simulated_tier = NULL,
+                simulated_exhausted = 0,
+                is_trial = 1,
+                trial_start = ?,
+                trial_end = ?
+               WHERE id = ?""",
+            (
+                new_tier_name,
+                trial_limit,
+                overage + carryover,
+                resets_at,
+                now.isoformat(),
+                now.isoformat(),
+                trial_end,
+                user.id,
+            ),
+        )
+        await db.commit()
+
+        return {
+            "status": "ok",
+            "old_tier": old_tier_name,
+            "new_tier": new_tier_name,
+            "is_trial": True,
+            "trial_end": trial_end,
+            "monthly_limit_usd": trial_limit,
+            "overage_balance_usd": round(overage + carryover, 4),
+            "allocation_resets_at": resets_at,
+        }
+
+    # Paid subscription (or trial-to-paid conversion)
     resets_at = (now + timedelta(days=30)).isoformat()
 
     await db.execute(
@@ -88,7 +142,10 @@ async def verify_receipt(
             allocation_resets_at = ?,
             updated_at = ?,
             simulated_tier = NULL,
-            simulated_exhausted = 0
+            simulated_exhausted = 0,
+            is_trial = 0,
+            trial_start = NULL,
+            trial_end = NULL
            WHERE id = ?""",
         (
             new_tier_name,
@@ -105,6 +162,7 @@ async def verify_receipt(
         "status": "ok",
         "old_tier": old_tier_name,
         "new_tier": new_tier_name,
+        "is_trial": False,
         "monthly_limit_usd": new_tier.monthly_cost_limit_usd,
         "overage_balance_usd": round(overage + carryover, 4),
         "allocation_resets_at": resets_at,
@@ -122,7 +180,11 @@ async def usage_me(
     effective_tier_name = user.effective_tier
     tier = tier_config.tiers.get(effective_tier_name)
 
-    monthly_limit = tier.monthly_cost_limit_usd if tier else -1
+    # Use trial limit during active trial
+    if tier and user.is_trial and tier.trial_cost_limit_usd is not None:
+        monthly_limit = tier.trial_cost_limit_usd
+    else:
+        monthly_limit = tier.monthly_cost_limit_usd if tier else -1
 
     # When simulating exhausted, override allocation values
     is_simulated = user.simulated_tier is not None
@@ -210,6 +272,11 @@ async def usage_me(
             "real_tier": user.tier,
             "exhausted": sim_exhausted,
         }
+
+    # Trial state
+    if user.is_trial and user.trial_end:
+        result["is_trial"] = True
+        result["trial_end"] = user.trial_end
 
     return result
 
@@ -392,7 +459,7 @@ async def chat(
         request_cost = cost.get("total_cost", 0.0)
 
     # 8. Record cost against allocation/overage
-    await usage_tracker.record_cost(db, user.id, request_cost, tier)
+    await usage_tracker.record_cost(db, user.id, request_cost, tier, user=user)
 
     # 9. Log usage
     await usage_tracker.log_usage(db, user.id, body, response, elapsed_ms)
@@ -414,14 +481,19 @@ async def chat(
     response_data = response.model_dump()
     json_response = JSONResponse(content=response_data)
 
-    if tier.monthly_cost_limit_usd != -1:
+    # Use trial limit for allocation headers during active trial
+    effective_limit = tier.monthly_cost_limit_usd
+    if user.is_trial and tier.trial_cost_limit_usd is not None:
+        effective_limit = tier.trial_cost_limit_usd
+
+    if effective_limit != -1:
         new_monthly_used = monthly_used + request_cost
-        percent = min(100, new_monthly_used / tier.monthly_cost_limit_usd * 100)
+        percent = min(100, new_monthly_used / effective_limit * 100)
         json_response.headers["X-Allocation-Percent"] = f"{percent:.1f}"
         if percent >= 80:
             json_response.headers["X-Allocation-Warning"] = "true"
         json_response.headers["X-Monthly-Used"] = f"{new_monthly_used:.4f}"
-        json_response.headers["X-Monthly-Limit"] = f"{tier.monthly_cost_limit_usd:.2f}"
+        json_response.headers["X-Monthly-Limit"] = f"{effective_limit:.2f}"
         json_response.headers["X-Overage-Balance"] = f"{overage_balance:.4f}"
 
     # Feature response headers — generic pattern for any gated feature
