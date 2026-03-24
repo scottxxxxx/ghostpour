@@ -102,36 +102,32 @@ class UsageTracker:
 
         # Read user's allocation state
         cursor = await db.execute(
-            "SELECT monthly_used_usd, overage_balance_usd FROM users WHERE id = ?",
+            "SELECT monthly_used_usd FROM users WHERE id = ?",
             (user.id,),
         )
         row = await cursor.fetchone()
         monthly_used = float(row["monthly_used_usd"] or 0) if row else 0.0
-        overage_balance = float(row["overage_balance_usd"] or 0) if row else 0.0
 
         # Monthly allocation exhausted?
         if monthly_used >= effective_limit:
-            # Check overage balance
-            if overage_balance <= 0:
-                raise HTTPException(
-                    status_code=429,
-                    detail={
-                        "code": "allocation_exhausted",
-                        "message": (
-                            f"Monthly allocation exhausted "
-                            f"(${monthly_used:.4f}/${effective_limit:.2f}). "
-                            f"Purchase overage credits or upgrade your plan."
-                        ),
-                        "details": {
-                            "monthly_used": monthly_used,
-                            "monthly_limit": effective_limit,
-                            "overage_balance": overage_balance,
-                            "fallback": "on_device",
-                        },
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "code": "allocation_exhausted",
+                    "message": (
+                        f"Monthly allocation exhausted "
+                        f"(${monthly_used:.4f}/${effective_limit:.2f}). "
+                        f"Upgrade your plan for more hours."
+                    ),
+                    "details": {
+                        "monthly_used": monthly_used,
+                        "monthly_limit": effective_limit,
+                        "fallback": "on_device",
                     },
-                )
+                },
+            )
 
-        return monthly_used, overage_balance
+        return monthly_used, 0.0
 
     async def record_cost(
         self,
@@ -149,35 +145,10 @@ class UsageTracker:
         if effective_limit == -1 or cost <= 0:
             return
 
-        cursor = await db.execute(
-            "SELECT monthly_used_usd, overage_balance_usd FROM users WHERE id = ?",
-            (user_id,),
+        await db.execute(
+            "UPDATE users SET monthly_used_usd = monthly_used_usd + ? WHERE id = ?",
+            (cost, user_id),
         )
-        row = await cursor.fetchone()
-        monthly_used = float(row["monthly_used_usd"] or 0)
-        overage_balance = float(row["overage_balance_usd"] or 0)
-
-        remaining_allocation = effective_limit - monthly_used
-
-        if cost <= remaining_allocation:
-            # Fully covered by monthly allocation
-            await db.execute(
-                "UPDATE users SET monthly_used_usd = monthly_used_usd + ? WHERE id = ?",
-                (cost, user_id),
-            )
-        else:
-            # Partially or fully from overage
-            from_allocation = max(0, remaining_allocation)
-            from_overage = cost - from_allocation
-
-            await db.execute(
-                """UPDATE users SET
-                    monthly_used_usd = monthly_used_usd + ?,
-                    overage_balance_usd = MAX(0, overage_balance_usd - ?)
-                   WHERE id = ?""",
-                (from_allocation, from_overage, user_id),
-            )
-
         await db.commit()
 
     async def log_usage(
