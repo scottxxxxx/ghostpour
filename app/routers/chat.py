@@ -169,6 +169,103 @@ async def verify_receipt(
     }
 
 
+class SyncSubscriptionRequest(BaseModel):
+    """Sent by iOS app on launch to reconcile subscription state."""
+    active_product_id: str | None = None  # Current entitlement, or null if none
+    is_trial: bool = False
+
+
+@router.post("/sync-subscription")
+async def sync_subscription(
+    body: SyncSubscriptionRequest,
+    request: Request,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Reconcile the user's tier with their current StoreKit entitlement.
+
+    Called by the iOS app on every launch. Handles:
+    - Subscription cancelled: active_product_id is null → downgrade to free
+    - Subscription active: active_product_id set → verify tier matches
+    - Trial state: is_trial flag from StoreKit
+    """
+    tier_config = request.app.state.tier_config
+    now = datetime.now(timezone.utc)
+
+    if body.active_product_id is None:
+        # No active subscription — downgrade to free if not already
+        if user.tier == "free":
+            return {"status": "ok", "action": "none", "tier": "free"}
+
+        free_tier = tier_config.tiers.get("free")
+        free_limit = free_tier.monthly_cost_limit_usd if free_tier else 0.05
+
+        await db.execute(
+            """UPDATE users SET
+                tier = 'free',
+                monthly_cost_limit_usd = ?,
+                monthly_used_usd = 0,
+                overage_balance_usd = 0,
+                allocation_resets_at = ?,
+                is_trial = 0,
+                trial_start = NULL,
+                trial_end = NULL,
+                updated_at = ?
+               WHERE id = ?""",
+            (free_limit, (now + timedelta(days=30)).isoformat(), now.isoformat(), user.id),
+        )
+        await db.commit()
+
+        return {
+            "status": "ok",
+            "action": "downgraded",
+            "old_tier": user.tier,
+            "new_tier": "free",
+        }
+
+    # Active subscription — build product-to-tier map
+    global PRODUCT_TO_TIER
+    if not PRODUCT_TO_TIER:
+        for name, tier in tier_config.tiers.items():
+            if tier.storekit_product_id:
+                PRODUCT_TO_TIER[tier.storekit_product_id] = name
+
+    expected_tier = PRODUCT_TO_TIER.get(body.active_product_id)
+    if not expected_tier:
+        return {"status": "ok", "action": "none", "tier": user.tier,
+                "warning": f"Unknown product: {body.active_product_id}"}
+
+    # Check if tier needs updating
+    if user.tier == expected_tier and user.is_trial == body.is_trial:
+        return {"status": "ok", "action": "none", "tier": user.tier}
+
+    # Tier mismatch — update (e.g., trial ended and converted to paid)
+    new_tier = tier_config.tiers[expected_tier]
+    if body.is_trial and new_tier.trial_cost_limit_usd is not None:
+        limit = new_tier.trial_cost_limit_usd
+    else:
+        limit = new_tier.monthly_cost_limit_usd
+
+    await db.execute(
+        """UPDATE users SET
+            tier = ?,
+            monthly_cost_limit_usd = ?,
+            is_trial = ?,
+            updated_at = ?
+           WHERE id = ?""",
+        (expected_tier, limit, 1 if body.is_trial else 0, now.isoformat(), user.id),
+    )
+    await db.commit()
+
+    return {
+        "status": "ok",
+        "action": "updated",
+        "old_tier": user.tier,
+        "new_tier": expected_tier,
+        "is_trial": body.is_trial,
+    }
+
+
 @router.get("/usage/me")
 async def usage_me(
     request: Request,
