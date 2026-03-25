@@ -79,6 +79,8 @@ MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN is_trial INTEGER DEFAULT 0",
     "ALTER TABLE users ADD COLUMN trial_start TEXT",
     "ALTER TABLE users ADD COLUMN trial_end TEXT",
+    # v6: Add display_name for CQ user identity passthrough
+    "ALTER TABLE users ADD COLUMN display_name TEXT",
 ]
 
 

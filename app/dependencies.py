@@ -40,6 +40,7 @@ async def get_current_user(
         id=row["id"],
         apple_sub=row["apple_sub"],
         email=row["email"],
+        display_name=row["display_name"],
         tier=row["tier"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
