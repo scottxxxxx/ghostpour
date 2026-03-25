@@ -34,7 +34,8 @@ app/
 │   ├── feature.py       # FeatureState enum, FeatureDefinition, FeatureConfig, load_feature_config()
 ├── routers/
 │   ├── auth.py          # POST /auth/apple, POST /auth/refresh
-│   ├── chat.py          # POST /v1/chat (with auto model routing)
+│   ├── chat.py          # POST /v1/chat (with auto model routing), POST /v1/capture-transcript
+│   ├── config.py        # GET /v1/config/{name} (remote config for iOS app)
 │   ├── health.py        # GET /health, GET /admin, GET /v1/model-pricing
 │   └── webhooks.py      # Admin endpoints (dashboard, users, tiers, set-tier)
 ├── services/
@@ -51,7 +52,12 @@ app/
 config/
 ├── tiers.yml            # Subscription tier definitions (features dict, feature_bullets, descriptions)
 ├── features.yml         # Feature definitions with display metadata (display_name, description, teaser_description, upgrade_cta, category, service_module)
-└── providers.yml        # Provider registry (URLs, auth, models)
+├── providers.yml        # Provider registry (URLs, auth, models)
+└── remote/              # iOS remote config JSON files (served via GET /v1/config/{name})
+    ├── idle-tips.json         # Orb idle tip messages
+    ├── protected-prompts.json # System prompts, summary prompts, default prompt modes
+    ├── llm-providers.json     # Provider endpoints and model lists (update without app release)
+    └── model-capabilities.json # Per-model context slots, token limits, CQ readiness
 ```
 
 ## Build & Run
@@ -165,7 +171,7 @@ Key variables:
 ## Database
 
 3 tables, raw SQL (no ORM), with migration support for schema changes:
-- **users**: `id`, `apple_sub`, `email`, `tier`, timestamps
+- **users**: `id`, `apple_sub`, `email`, `display_name`, `tier`, timestamps
 - **refresh_tokens**: `id`, `user_id`, `token_hash`, `expires_at`, `revoked`
 - **usage_log**: `id`, `user_id`, `provider`, `model`, token counts, `estimated_cost_usd`, latency, status, `metadata` (JSON)
 
@@ -181,6 +187,8 @@ Key variables:
 | POST | `/auth/apple` | None | Apple Sign In → JWT |
 | POST | `/auth/refresh` | None | Refresh token rotation |
 | POST | `/v1/chat` | Bearer JWT | Proxied LLM request (auto model routing, generic feature gating) |
+| POST | `/v1/capture-transcript` | Bearer JWT | End-of-meeting transcript capture for Context Quilt |
+| GET | `/v1/config/{name}` | None | Remote config for iOS app (idle-tips, protected-prompts, llm-providers, model-capabilities) |
 | GET | `/v1/tiers` | None | Public tier catalog with features dict, feature_bullets, descriptions, and feature_definitions metadata (server-driven subscription UI) |
 | GET | `/v1/model-pricing` | None | Cached LiteLLM pricing JSON |
 | GET | `/webhooks/admin/dashboard` | X-Admin-Key | Usage stats, latency, top users |
@@ -284,6 +292,31 @@ CloudZap integrates with Context Quilt as the first feature using the generic fe
 - `CZ_CQ_BASE_URL` — CQ endpoint (e.g., `https://cq.shouldersurf.com`)
 - `CZ_CQ_APP_ID` — app identifier for CQ auth (default: `cloudzap`)
 - `CZ_CQ_RECALL_TIMEOUT_MS` — max wait for recall (default: 200)
+
+## Remote Config (iOS App)
+
+CloudZap serves JSON config files to the ShoulderSurf iOS app via `GET /v1/config/{name}`. This allows updating prompts, model lists, and capabilities without App Store releases.
+
+**How it works:**
+1. JSON files live in `config/remote/{slug}.json`, each with a top-level `"version"` integer
+2. All configs are loaded at startup into `app.state.remote_configs`
+3. iOS app calls `GET /v1/config/{slug}` on every launch
+4. If client sends `X-Config-Version: N` and server version matches, returns **304 Not Modified**
+5. Otherwise returns **200** with full JSON and `X-Config-Version` response header
+6. Unknown slugs return **404**
+
+**Available configs:**
+
+| Slug | File | Purpose |
+|------|------|---------|
+| `idle-tips` | `config/remote/idle-tips.json` | Orb idle tip messages |
+| `protected-prompts` | `config/remote/protected-prompts.json` | System prompts, summary prompts, default prompt modes |
+| `llm-providers` | `config/remote/llm-providers.json` | Provider endpoints and model lists |
+| `model-capabilities` | `config/remote/model-capabilities.json` | Per-model context slots, token limits, CQ readiness |
+
+**To update a config:** edit the JSON in `config/remote/`, bump the `version` integer, and redeploy. The iOS app picks up changes on next launch.
+
+**To add a new config:** drop a `.json` file with a `"version"` field into `config/remote/` and restart. The slug is the filename without `.json`.
 
 ## Related Projects
 

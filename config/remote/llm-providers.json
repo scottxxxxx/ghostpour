@@ -1,0 +1,387 @@
+{
+  "version": 1,
+  "providers": [
+    {
+      "id": "cloudzap",
+      "displayName": "Shoulder Surf AI",
+      "apiFormat": "cloudzap",
+      "baseURL": "https://cz.shouldersurf.com/v1/chat",
+      "authHeaderName": "Authorization",
+      "authHeaderPrefix": "Bearer ",
+      "extraHeaders": {},
+      "requiresAPIKey": true,
+      "supportsVision": true,
+      "maxTokensDefault": 4096,
+      "temperatureDefault": 0.7,
+      "models": [
+        {
+          "id": "auto",
+          "displayName": "Managed by Shoulder Surf AI",
+          "description": "We select the best AI model for your subscription tier. No configuration needed.",
+          "isDefault": true,
+          "supportsVision": true,
+          "contextWindow": 200000
+        }
+      ],
+      "notes": "Shoulder Surf's managed AI service. Sign in with Apple, subscribe, and we handle the rest.",
+      "keyURL": "https://cz.shouldersurf.com/docs"
+    },
+    {
+      "id": "onDevice",
+      "displayName": "On-Device (Apple)",
+      "apiFormat": "apple",
+      "baseURL": "",
+      "authHeaderName": "",
+      "authHeaderPrefix": "",
+      "extraHeaders": {},
+      "requiresAPIKey": false,
+      "supportsVision": false,
+      "maxTokensDefault": 1024,
+      "temperatureDefault": 0.7,
+      "models": [
+        {
+          "id": "foundation-models",
+          "displayName": "Apple Intelligence",
+          "description": "Free on-device model. Private, works offline. Requires iPhone 15 Pro or later with Apple Intelligence enabled.",
+          "isDefault": true,
+          "supportsVision": false,
+          "contextWindow": 4096,
+          "inputCostPerMillion": 0,
+          "outputCostPerMillion": 0
+        }
+      ],
+      "notes": "Free, private, works offline. Powered by Apple Intelligence.",
+      "keyURL": ""
+    },
+    {
+      "id": "openai",
+      "displayName": "OpenAI",
+      "apiFormat": "openai",
+      "baseURL": "https://api.openai.com/v1/chat/completions",
+      "authHeaderName": "Authorization",
+      "authHeaderPrefix": "Bearer ",
+      "extraHeaders": {},
+      "requiresAPIKey": true,
+      "supportsVision": true,
+      "maxTokensDefault": 1024,
+      "temperatureDefault": 0.7,
+      "models": [
+        {
+          "id": "gpt-5.2",
+          "displayName": "GPT-5.2",
+          "description": "Top general-purpose model; strongest for reasoning, knowledge work, document analysis, and agentic tasks.",
+          "isDefault": true,
+          "supportsVision": true,
+          "contextWindow": 400000,
+          "inputCostPerMillion": 1.75,
+          "outputCostPerMillion": 14.0,
+          "litellmKey": "gpt-5.2"
+        },
+        {
+          "id": "gpt-5-mini",
+          "displayName": "GPT-5 Mini",
+          "description": "Faster, cost-efficient GPT-5 for well-defined tasks and precise prompts.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 400000,
+          "inputCostPerMillion": 0.25,
+          "outputCostPerMillion": 1.25,
+          "litellmKey": "gpt-5-mini"
+        },
+        {
+          "id": "gpt-5-nano",
+          "displayName": "GPT-5 Nano",
+          "description": "Fastest, cheapest GPT-5 variant; great for summarization and classification.",
+          "isDefault": false,
+          "supportsVision": false,
+          "contextWindow": 400000,
+          "inputCostPerMillion": 0.05,
+          "outputCostPerMillion": 0.4,
+          "litellmKey": "gpt-5-nano"
+        }
+      ],
+      "notes": "OpenAI cloud models.",
+      "keyURL": "https://platform.openai.com/api-keys"
+    },
+    {
+      "id": "anthropic",
+      "displayName": "Anthropic",
+      "apiFormat": "anthropic",
+      "baseURL": "https://api.anthropic.com/v1/messages",
+      "authHeaderName": "x-api-key",
+      "authHeaderPrefix": "",
+      "extraHeaders": {
+        "anthropic-version": "2023-06-01"
+      },
+      "requiresAPIKey": true,
+      "supportsVision": true,
+      "maxTokensDefault": 1024,
+      "temperatureDefault": 0.7,
+      "models": [
+        {
+          "id": "claude-opus-4-6",
+          "displayName": "Claude Opus 4.6",
+          "description": "Latest flagship; state-of-the-art coding, agents, long context, and professional work.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 200000,
+          "inputCostPerMillion": 5.0,
+          "outputCostPerMillion": 25.0,
+          "litellmKey": "claude-opus-4-6"
+        },
+        {
+          "id": "claude-sonnet-4-6",
+          "displayName": "Claude Sonnet 4.6",
+          "description": "Approaches Opus-level intelligence at lower cost; strong coding and computer use.",
+          "isDefault": true,
+          "supportsVision": true,
+          "contextWindow": 200000,
+          "inputCostPerMillion": 3.0,
+          "outputCostPerMillion": 15.0,
+          "litellmKey": "claude-sonnet-4-6"
+        },
+        {
+          "id": "claude-haiku-4-5-20251001",
+          "displayName": "Claude Haiku 4.5",
+          "description": "Lightweight Claude model; cheapest and fastest in the Claude family.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 200000,
+          "inputCostPerMillion": 0.8,
+          "outputCostPerMillion": 4.0,
+          "litellmKey": "claude-haiku-4-5-20251001"
+        }
+      ],
+      "notes": "Anthropic cloud models. Opus 4.6 and Sonnet 4.6 support 1M context in beta.",
+      "keyURL": "https://console.anthropic.com/settings/keys"
+    },
+    {
+      "id": "google",
+      "displayName": "Google Gemini",
+      "apiFormat": "gemini",
+      "baseURL": "https://generativelanguage.googleapis.com/v1beta/models",
+      "authHeaderName": "x-goog-api-key",
+      "authHeaderPrefix": "",
+      "extraHeaders": {},
+      "requiresAPIKey": true,
+      "supportsVision": true,
+      "maxTokensDefault": 1024,
+      "temperatureDefault": 0.7,
+      "models": [
+        {
+          "id": "gemini-3.1-pro-preview",
+          "displayName": "Gemini 3.1 Pro",
+          "description": "Latest top-tier reasoning model; 1M context, strong agentic and coding performance.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 1048576,
+          "inputCostPerMillion": 2.0,
+          "outputCostPerMillion": 10.0,
+          "litellmKey": "gemini/gemini-3.1-pro-preview"
+        },
+        {
+          "id": "gemini-3-flash-preview",
+          "displayName": "Gemini 3 Flash",
+          "description": "Flash variant offering Pro-grade reasoning at much lower latency and cost.",
+          "isDefault": true,
+          "supportsVision": true,
+          "contextWindow": 1048576,
+          "inputCostPerMillion": 0.15,
+          "outputCostPerMillion": 0.6,
+          "litellmKey": "gemini/gemini-3-flash-preview"
+        },
+        {
+          "id": "gemini-2.5-flash-lite",
+          "displayName": "Gemini 2.5 Flash Lite",
+          "description": "Lightweight, fast variant optimized for high-volume, cost-sensitive tasks.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 1048576,
+          "inputCostPerMillion": 0.1,
+          "outputCostPerMillion": 0.4,
+          "litellmKey": "gemini/gemini-2.5-flash-lite"
+        }
+      ],
+      "notes": "Google Gemini models.",
+      "keyURL": "https://aistudio.google.com/apikey"
+    },
+    {
+      "id": "xai",
+      "displayName": "xAI (Grok)",
+      "apiFormat": "openai",
+      "baseURL": "https://api.x.ai/v1/chat/completions",
+      "authHeaderName": "Authorization",
+      "authHeaderPrefix": "Bearer ",
+      "extraHeaders": {},
+      "requiresAPIKey": true,
+      "supportsVision": true,
+      "maxTokensDefault": 1024,
+      "temperatureDefault": 0.7,
+      "models": [
+        {
+          "id": "grok-4",
+          "displayName": "Grok 4",
+          "description": "Most intelligent Grok model; native tool use, reasoning, real-time search integration.",
+          "isDefault": true,
+          "supportsVision": true,
+          "contextWindow": 256000,
+          "inputCostPerMillion": 3.0,
+          "outputCostPerMillion": 15.0,
+          "litellmKey": "xai/grok-4"
+        },
+        {
+          "id": "grok-4.1-fast",
+          "displayName": "Grok 4.1 Fast",
+          "description": "Fast variant of Grok 4 optimized for speed with agent tool support; 2M context.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 2000000,
+          "inputCostPerMillion": 0.2,
+          "outputCostPerMillion": 0.5,
+          "litellmKey": "xai/grok-4.1-fast"
+        }
+      ],
+      "notes": "xAI Grok models. Grok 4 is reasoning-only.",
+      "keyURL": "https://console.x.ai"
+    },
+    {
+      "id": "deepseek",
+      "displayName": "DeepSeek",
+      "apiFormat": "openai",
+      "baseURL": "https://api.deepseek.com/chat/completions",
+      "authHeaderName": "Authorization",
+      "authHeaderPrefix": "Bearer ",
+      "extraHeaders": {},
+      "requiresAPIKey": true,
+      "supportsVision": false,
+      "maxTokensDefault": 1024,
+      "temperatureDefault": 0.7,
+      "models": [
+        {
+          "id": "deepseek-reasoner",
+          "displayName": "DeepSeek R1 (Reasoner)",
+          "description": "V3.2 thinking mode; chain-of-thought reasoning (R1 lineage), strong math and logic.",
+          "isDefault": false,
+          "supportsVision": false,
+          "contextWindow": 131072,
+          "inputCostPerMillion": 0.55,
+          "outputCostPerMillion": 2.19,
+          "litellmKey": "deepseek/deepseek-reasoner"
+        },
+        {
+          "id": "deepseek-chat",
+          "displayName": "DeepSeek V3.2",
+          "description": "V3.2 non-thinking mode; general-purpose chat, tool calling, JSON output.",
+          "isDefault": true,
+          "supportsVision": false,
+          "contextWindow": 131072,
+          "inputCostPerMillion": 0.27,
+          "outputCostPerMillion": 1.1,
+          "litellmKey": "deepseek/deepseek-chat"
+        }
+      ],
+      "notes": "DeepSeek cloud models. Text-only.",
+      "keyURL": "https://platform.deepseek.com/api_keys"
+    },
+    {
+      "id": "kimi",
+      "displayName": "Kimi (Moonshot)",
+      "apiFormat": "openai",
+      "baseURL": "https://kimi-k2.ai/api/v1/chat/completions",
+      "authHeaderName": "Authorization",
+      "authHeaderPrefix": "Bearer ",
+      "extraHeaders": {},
+      "requiresAPIKey": true,
+      "supportsVision": true,
+      "maxTokensDefault": 1024,
+      "temperatureDefault": 0.6,
+      "models": [
+        {
+          "id": "kimi-k2.5",
+          "displayName": "Kimi K2.5",
+          "description": "Flagship multimodal agentic model; 1T MoE, vision + video, strong tool use.",
+          "isDefault": true,
+          "supportsVision": true,
+          "contextWindow": 262144,
+          "inputCostPerMillion": 0.6,
+          "outputCostPerMillion": 2.5,
+          "litellmKey": "moonshot/kimi-k2.5"
+        },
+        {
+          "id": "kimi-k2-thinking",
+          "displayName": "Kimi K2 Thinking",
+          "description": "Deep reasoning model; technical discussions, strategic insight, multi-step problem solving.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 262144,
+          "inputCostPerMillion": 0.6,
+          "outputCostPerMillion": 2.5,
+          "litellmKey": "moonshot/kimi-k2-thinking"
+        },
+        {
+          "id": "kimi-k2-turbo-preview",
+          "displayName": "Kimi K2 Turbo",
+          "description": "Fastest Kimi model; quick summarization, basic cleanup, routine meeting review.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 262144,
+          "inputCostPerMillion": 0.3,
+          "outputCostPerMillion": 1.2,
+          "litellmKey": "moonshot/kimi-k2-turbo-preview"
+        }
+      ],
+      "notes": "Kimi models. All models support vision and video.",
+      "keyURL": "https://kimi-k2.ai"
+    },
+    {
+      "id": "qwen",
+      "displayName": "Qwen (Alibaba)",
+      "apiFormat": "openai",
+      "baseURL": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
+      "authHeaderName": "Authorization",
+      "authHeaderPrefix": "Bearer ",
+      "extraHeaders": {},
+      "requiresAPIKey": true,
+      "supportsVision": true,
+      "maxTokensDefault": 1024,
+      "temperatureDefault": 0.7,
+      "models": [
+        {
+          "id": "qwen-max",
+          "displayName": "Qwen Max",
+          "description": "Complex reasoning, enterprise workflows, high-stakes tasks.",
+          "isDefault": true,
+          "supportsVision": true,
+          "contextWindow": 262144,
+          "inputCostPerMillion": 1.2,
+          "outputCostPerMillion": 6.0,
+          "litellmKey": "qwen/qwen-max"
+        },
+        {
+          "id": "qwen-plus",
+          "displayName": "Qwen Plus",
+          "description": "General-purpose apps, balanced latency/quality, most production workloads.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 1048576,
+          "inputCostPerMillion": 0.4,
+          "outputCostPerMillion": 2.4,
+          "litellmKey": "qwen/qwen-plus"
+        },
+        {
+          "id": "qwen-flash",
+          "displayName": "Qwen Flash",
+          "description": "High-volume simple tasks, chatbots, rapid prototyping, cost-sensitive apps.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 1048576,
+          "inputCostPerMillion": 0.1,
+          "outputCostPerMillion": 0.4,
+          "litellmKey": "qwen/qwen-flash"
+        }
+      ],
+      "notes": "Alibaba Qwen models.",
+      "keyURL": "https://bailian.console.alibabacloud.com/#/model-market"
+    }
+  ]
+}

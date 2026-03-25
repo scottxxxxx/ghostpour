@@ -10,7 +10,7 @@ from app.database import init_db
 from app.middleware.request_logging import RequestLoggingMiddleware
 from app.models.feature import load_feature_config
 from app.models.tier import load_tier_config
-from app.routers import auth, chat, health, webhooks
+from app.routers import auth, chat, config, health, webhooks
 from app.services.apple_auth import AppleAuthVerifier
 from app.services.jwt_service import JWTService
 from app.services.pricing import PricingService
@@ -49,6 +49,8 @@ async def lifespan(app: FastAPI):
     app.state.rate_limiter = RateLimiter()
     app.state.usage_tracker = UsageTracker()
 
+    app.state.remote_configs = config.load_remote_configs()
+
     pricing = PricingService(
         source_url=settings.pricing_source_url,
         refresh_interval=settings.pricing_refresh_seconds,
@@ -80,4 +82,5 @@ app.add_middleware(RequestLoggingMiddleware)
 app.include_router(health.router, tags=["health"])
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(chat.router, prefix="/v1", tags=["chat"])
+app.include_router(config.router, tags=["config"])
 app.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
