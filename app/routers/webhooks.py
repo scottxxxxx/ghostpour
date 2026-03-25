@@ -291,11 +291,7 @@ async def update_key(
     request: Request,
     x_admin_key: str = Header(...),
 ):
-    """Update a provider API key at runtime (in-memory, takes effect immediately).
-
-    Does NOT persist to .env file — will revert on container restart.
-    To persist, also update the .env.prod file on the server.
-    """
+    """Update a provider API key — takes effect immediately and persists to .env file."""
     _verify_admin(request, x_admin_key)
     settings = request.app.state.settings
 
@@ -313,13 +309,58 @@ async def update_key(
     # Update in-memory (pydantic-settings model is frozen, so use object.__setattr__)
     object.__setattr__(settings, env_key, body.api_key)
 
+    # Persist to .env file so it survives container restarts
+    env_var_name = f"CZ_{env_key.upper()}"
+    persisted = _persist_env_var(env_var_name, body.api_key)
+
     masked = f"...{body.api_key[-4:]}" if len(body.api_key) > 4 else "***"
     return {
         "status": "ok",
         "provider": body.provider,
         "key_masked": masked,
-        "note": "Key updated in memory. Will revert on container restart unless .env.prod is also updated.",
+        "persisted": persisted,
     }
+
+
+def _persist_env_var(name: str, value: str) -> bool:
+    """Update or add an env var in the .env file. Returns True if successful."""
+    import os
+
+    # Try common .env file locations
+    env_paths = [".env.prod", ".env", "/app/.env.prod", "/app/.env"]
+    env_path = None
+    for p in env_paths:
+        if os.path.exists(p):
+            env_path = p
+            break
+
+    if not env_path:
+        return False
+
+    try:
+        # Read existing file
+        with open(env_path) as f:
+            lines = f.readlines()
+
+        # Replace existing key or append
+        found = False
+        new_lines = []
+        for line in lines:
+            if line.strip().startswith(f"{name}="):
+                new_lines.append(f"{name}={value}\n")
+                found = True
+            else:
+                new_lines.append(line)
+
+        if not found:
+            new_lines.append(f"{name}={value}\n")
+
+        with open(env_path, "w") as f:
+            f.writelines(new_lines)
+
+        return True
+    except Exception:
+        return False
 
 
 @router.get("/admin/dashboard")

@@ -255,7 +255,7 @@
   <div id="tab-providers" class="section">
     <h3>API Provider Status</h3>
     <p style="font-size:13px;color:var(--text-dim);margin-bottom:16px;">
-      Check credit balances and update API keys. Key changes take effect immediately but revert on container restart.
+      Check credit balances and update API keys. Changes take effect immediately and are saved to disk.
     </p>
     <div id="provider-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;"></div>
   </div>
@@ -624,7 +624,7 @@ async function loadProviders() {
 }
 
 async function promptUpdateKey(provider, displayName) {
-  const newKey = prompt(`Enter new API key for ${displayName}:\n\n(Takes effect immediately, reverts on restart)`);
+  const newKey = prompt(`Enter new API key for ${displayName}:`);
   if (!newKey) return;
 
   const resp = await fetch(`${BASE}/webhooks/admin/update-key`, {
@@ -635,7 +635,8 @@ async function promptUpdateKey(provider, displayName) {
 
   if (resp.ok) {
     const data = await resp.json();
-    alert(`Key updated for ${displayName} (${data.key_masked})\n\nNote: ${data.note}`);
+    const saved = data.persisted ? 'Saved to disk — survives restarts.' : 'Active in memory only — could not write to .env file.';
+    alert(`Key updated for ${displayName} (${data.key_masked})\n\n${saved}`);
     loadProviders();
   } else {
     const err = await resp.json();
