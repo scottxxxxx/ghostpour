@@ -580,6 +580,8 @@ async def chat(
             project=body.project,
             call_type=body.call_type,
             prompt_mode=body.prompt_mode,
+            display_name=user.display_name,
+            email=user.email,
         ))
 
     # 10. Build response with allocation headers
@@ -615,3 +617,36 @@ async def chat(
             json_response.headers["X-CQ-Entities"] = ",".join(matched[:10])
 
     return json_response
+
+
+# MARK: - End-of-Meeting Transcript Capture
+
+
+class TranscriptCaptureRequest(BaseModel):
+    transcript: str
+    meeting_id: str | None = None
+    project: str | None = None
+
+
+@router.post("/v1/capture-transcript")
+async def capture_transcript(
+    body: TranscriptCaptureRequest,
+    user: UserRecord = Depends(get_current_user),
+):
+    """
+    End-of-meeting transcript capture for Context Quilt.
+
+    ShoulderSurf calls this at session end to send the full raw transcript.
+    CQ extracts traits, preferences, and durable facts from the raw dialogue
+    that would otherwise be lost in per-query summarization.
+    """
+    asyncio.create_task(cq.capture(
+        user_id=user.id,
+        interaction_type="meeting_transcript",
+        content=body.transcript,
+        meeting_id=body.meeting_id,
+        project=body.project,
+        display_name=user.display_name,
+        email=user.email,
+    ))
+    return {"status": "queued"}

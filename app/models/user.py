@@ -5,6 +5,7 @@ class UserRecord(BaseModel):
     id: str
     apple_sub: str
     email: str | None = None
+    display_name: str | None = None
     tier: str = "free"
     created_at: str
     updated_at: str

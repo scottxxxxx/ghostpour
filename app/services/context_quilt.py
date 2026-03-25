@@ -94,6 +94,8 @@ async def capture(
     project: str | None = None,
     call_type: str | None = None,
     prompt_mode: str | None = None,
+    display_name: str | None = None,
+    email: str | None = None,
 ):
     """
     Send query+response to Context Quilt for learning. Fire-and-forget (async).
@@ -123,6 +125,10 @@ async def capture(
         metadata["call_type"] = call_type
     if prompt_mode:
         metadata["prompt_mode"] = prompt_mode
+    if display_name:
+        metadata["display_name"] = display_name
+    if email:
+        metadata["email"] = email
     if metadata:
         body["metadata"] = metadata
 

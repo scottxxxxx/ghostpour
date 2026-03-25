@@ -60,6 +60,8 @@ async def apple_auth(
 
     apple_sub = claims["sub"]
     email = claims.get("email")
+    # Apple sends full_name only on first sign-in; iOS app forwards it
+    display_name = body.full_name
 
     # Upsert user
     cursor = await db.execute(
@@ -72,19 +74,31 @@ async def apple_auth(
     if row:
         user_id = row["id"]
         tier = row["tier"]
+        # Update email and display_name when available (idempotent)
+        updates = []
+        params = []
         if email:
+            updates.append("email = ?")
+            params.append(email)
+        if display_name:
+            updates.append("display_name = ?")
+            params.append(display_name)
+        if updates:
+            updates.append("updated_at = ?")
+            params.append(now)
+            params.append(user_id)
             await db.execute(
-                "UPDATE users SET email = ?, updated_at = ? WHERE id = ?",
-                (email, now, user_id),
+                f"UPDATE users SET {', '.join(updates)} WHERE id = ?",
+                params,
             )
             await db.commit()
     else:
         user_id = str(uuid.uuid4())
         tier = "free"
         await db.execute(
-            """INSERT INTO users (id, apple_sub, email, tier, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (user_id, apple_sub, email, tier, now, now),
+            """INSERT INTO users (id, apple_sub, email, display_name, tier, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (user_id, apple_sub, email, display_name, tier, now, now),
         )
         await db.commit()
 
