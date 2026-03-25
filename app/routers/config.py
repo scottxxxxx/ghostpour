@@ -1,8 +1,11 @@
 """Remote config endpoints for iOS app config sync.
 
 The iOS app calls GET /v1/config/{name} with an X-Config-Version header.
-If the local version matches, we return 304 Not Modified.
-Otherwise, we return the full JSON payload.
+If the local version matches, we return 200 with {"changed": false}.
+Otherwise, we return the full JSON payload with {"changed": true}.
+
+Note: We avoid HTTP 304 because Nginx Proxy Manager mangles bare 304
+responses (no cached body to serve) into 404s for downstream clients.
 """
 
 import json
@@ -10,7 +13,7 @@ import logging
 from pathlib import Path
 
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +51,7 @@ def load_remote_configs() -> dict[str, dict]:
 
 @router.get("/v1/config/{name}")
 async def get_config(name: str, request: Request):
-    """Return a remote config JSON, or 304 if the client already has the current version."""
+    """Return a remote config JSON, or a slim 'not changed' response."""
     configs: dict[str, dict] = request.app.state.remote_configs
 
     if name not in configs:
@@ -62,7 +65,10 @@ async def get_config(name: str, request: Request):
     if client_version is not None:
         try:
             if int(client_version) >= server_version:
-                return Response(status_code=304)
+                return JSONResponse(
+                    content={"changed": False, "version": server_version},
+                    headers={"X-Config-Version": str(server_version)},
+                )
         except (ValueError, TypeError):
             pass  # Invalid header value — just return the full payload
 
