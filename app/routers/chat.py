@@ -3,10 +3,12 @@ import time
 from datetime import datetime, timedelta, timezone
 
 import aiosqlite
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from app.config import get_settings
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.chat import ChatRequest, ChatResponse
@@ -653,3 +655,66 @@ async def capture_transcript(
         email=user.email,
     ))
     return {"status": "queued"}
+
+
+# MARK: - Context Quilt Proxy
+# iOS routes all requests through GhostPour. These proxy the quilt management
+# endpoints to the Context Quilt service at CZ_CQ_BASE_URL.
+
+
+async def _cq_proxy(method: str, path: str, body: dict | None = None) -> JSONResponse:
+    """Forward a request to Context Quilt and return its response."""
+    settings = get_settings()
+    if not settings.cq_base_url:
+        raise HTTPException(status_code=503, detail="Context Quilt not configured")
+
+    async with httpx.AsyncClient(base_url=settings.cq_base_url, timeout=10.0) as client:
+        resp = await client.request(
+            method,
+            path,
+            json=body,
+            headers={"X-App-ID": settings.cq_app_id},
+        )
+    return JSONResponse(status_code=resp.status_code, content=resp.json())
+
+
+@router.get("/v1/quilt/{user_id}")
+async def get_quilt(
+    user_id: str,
+    user: UserRecord = Depends(get_current_user),
+):
+    """Proxy: fetch user's quilt patches from Context Quilt."""
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot access another user's quilt")
+    return await _cq_proxy("GET", f"/v1/quilt/{user_id}")
+
+
+class PatchUpdateRequest(BaseModel):
+    fact: str | None = None
+    patch_type: str | None = None
+
+
+@router.patch("/v1/quilt/{user_id}/patches/{patch_id}")
+async def update_quilt_patch(
+    user_id: str,
+    patch_id: str,
+    body: PatchUpdateRequest,
+    user: UserRecord = Depends(get_current_user),
+):
+    """Proxy: update a quilt patch."""
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
+    payload = {k: v for k, v in body.model_dump().items() if v is not None}
+    return await _cq_proxy("PATCH", f"/v1/quilt/{user_id}/patches/{patch_id}", payload)
+
+
+@router.delete("/v1/quilt/{user_id}/patches/{patch_id}")
+async def delete_quilt_patch(
+    user_id: str,
+    patch_id: str,
+    user: UserRecord = Depends(get_current_user),
+):
+    """Proxy: delete a quilt patch."""
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
+    return await _cq_proxy("DELETE", f"/v1/quilt/{user_id}/patches/{patch_id}")
