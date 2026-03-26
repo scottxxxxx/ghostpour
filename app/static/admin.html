@@ -592,7 +592,7 @@ async function showUserDetail(userId, email) {
 
   const detailEl = document.getElementById('user-detail');
   detailEl.style.display = 'block';
-  document.getElementById('user-detail-title').textContent = `${email} (${data.user.tier})`;
+  document.getElementById('user-detail-title').innerHTML = `${email} (${data.user.tier}) <span class="mono" style="font-size:11px;color:var(--text-dim);margin-left:8px">${data.user.id}</span>`;
   detailEl.scrollIntoView({behavior: 'smooth', block: 'start'});
 
   // Budget cards
