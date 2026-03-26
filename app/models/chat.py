@@ -15,7 +15,8 @@ class ChatRequest(BaseModel):
     # Context Quilt integration
     context_quilt: bool = False          # Enable CQ recall + capture for this request
     meeting_id: str | None = None        # Meeting UUID for CQ queue grouping
-    project: str | None = None           # Project name for CQ metadata
+    project: str | None = None           # Project display name for CQ metadata
+    project_id: str | None = None        # Project UUID (iOS Project.id) for CQ patch grouping
     # Generic feature gating
     skip_teasers: list[str] | None = None  # Feature names to skip teaser checks for
 
