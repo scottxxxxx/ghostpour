@@ -1,6 +1,6 @@
 # Deployment
 
-> **Last updated:** March 25, 2026
+> **Last updated:** March 26, 2026
 
 ## Infrastructure
 
@@ -22,10 +22,12 @@ docker compose pull && up -d --force-recreate
 ## Admin Dashboard
 
 Web UI at `/admin` with tabs:
-- **Overview**: Today's stats, period summary, user counts by tier
+- **Overview**: Today's stats, period summary, user counts by tier, allocation alerts (users >80%), trial funnel, cache savings, daily trend chart
 - **Models**: Usage by provider/model (requests, tokens, cost, latency)
-- **Users**: All users with tier badges, lifetime stats
-- **Tiers**: Tier config cards with simulate button (switch your account to test any tier)
+- **Users**: All users with tier badges, lifetime stats, inline set-tier dropdown, drill-down detail
+- **Tiers**: Tier config cards with simulate button, per-feature state toggles (enabled/teaser/disabled)
 - **Latency**: Response time percentiles (p50/p75/p90/p95/p99)
+- **Providers**: API key management, credit balance checks
+- **Errors**: Error summary by status/provider, recent error log table
 
 Admin key: stored in `CZ_ADMIN_KEY` env var, persisted in browser localStorage.

@@ -1,6 +1,6 @@
 # Feature Gating System
 
-> **Last updated:** March 25, 2026
+> **Last updated:** March 26, 2026
 
 Features have **three states per tier**, configured in `config/tiers.yml`:
 
@@ -64,7 +64,8 @@ GhostPour integrates with Context Quilt as the first feature using the generic f
 **ChatRequest fields:**
 - `context_quilt: bool` — enable CQ for this request (default: false)
 - `meeting_id: str | None` — meeting UUID for CQ queue grouping
-- `project: str | None` — project name for CQ metadata
+- `project: str | None` — project display name for CQ metadata
+- `project_id: str | None` — project UUID (iOS `Project.id`) for CQ patch grouping and project rename support
 - `skip_teasers: list[str] | None` — client-side opt-out for teaser features (e.g., `["context_quilt"]`)
 
 **Config:**

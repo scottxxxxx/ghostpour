@@ -1,6 +1,6 @@
 # CLAUDE.md — GhostPour
 
-> **Last updated:** March 25, 2026
+> **Last updated:** March 26, 2026
 > **Formerly:** CloudZap. Env vars still use `CZ_` prefix and some identifiers retain "cloudzap" for backwards compatibility with deployed clients.
 
 ## Project Overview
@@ -49,7 +49,7 @@ app/
 │   ├── chat.py          # /v1/chat, /v1/usage/me, /v1/tiers, /v1/verify-receipt, /v1/sync-subscription, /v1/capture-transcript
 │   ├── config.py        # GET /v1/config/{name} (remote config for iOS app)
 │   ├── health.py        # GET /health, GET /admin, GET /v1/model-pricing
-│   └── webhooks.py      # Admin endpoints (dashboard, users, user detail, tiers, set-tier, simulate-tier, provider-status, update-key)
+│   └── webhooks.py      # Admin endpoints (dashboard, users, tiers, errors, simulate-tier, feature-state, capture-transcript, provider-status, update-key)
 ├── services/
 │   ├── apple_auth.py    # Apple JWKS token verification
 │   ├── jwt_service.py   # JWT create/verify
