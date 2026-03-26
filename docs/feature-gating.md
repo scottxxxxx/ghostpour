@@ -49,6 +49,13 @@ GhostPour integrates with Context Quilt as the first feature using the generic f
 - Never blocks the response to the user
 - Includes `meeting_id`, `project`, `call_type`, `prompt_mode` in metadata
 
+**Quilt management (proxy):**
+- `GET /v1/quilt/{user_id}` → proxies to `GET {CQ_BASE_URL}/v1/quilt/{user_id}` (fetch patches)
+- `PATCH /v1/quilt/{user_id}/patches/{patch_id}` → proxies to CQ (update patch)
+- `DELETE /v1/quilt/{user_id}/patches/{patch_id}` → proxies to CQ (delete patch)
+- All require Bearer JWT; users can only access their own quilt
+- iOS `QuiltService` routes through GhostPour rather than calling CQ directly
+
 **Response headers (for ShoulderSurf UI indicator):**
 - `X-CQ-Matched`: number of entities matched (e.g., "3")
 - `X-CQ-Entities`: comma-separated entity names (e.g., "Bob Martinez,Widget 2.0")

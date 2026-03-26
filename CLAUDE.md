@@ -171,6 +171,9 @@ Key variables:
 | POST | `/auth/refresh` | None | Refresh token rotation |
 | POST | `/v1/chat` | Bearer JWT | Proxied LLM request (auto model routing, feature gating) |
 | POST | `/v1/capture-transcript` | Bearer JWT | End-of-meeting transcript capture for Context Quilt |
+| GET | `/v1/quilt/{user_id}` | Bearer JWT | Proxy: fetch user's quilt patches from Context Quilt |
+| PATCH | `/v1/quilt/{user_id}/patches/{patch_id}` | Bearer JWT | Proxy: update a quilt patch |
+| DELETE | `/v1/quilt/{user_id}/patches/{patch_id}` | Bearer JWT | Proxy: delete a quilt patch |
 | POST | `/v1/verify-receipt` | Bearer JWT | StoreKit receipt verification |
 | POST | `/v1/sync-subscription` | Bearer JWT | Subscription state sync from iOS |
 | GET | `/v1/usage/me` | Bearer JWT | User's allocation, overage, usage stats, features |
@@ -181,8 +184,11 @@ Key variables:
 | GET | `/webhooks/admin/users` | X-Admin-Key | User list with lifetime stats |
 | GET | `/webhooks/admin/user/{user_id}` | X-Admin-Key | Single user detail |
 | GET | `/webhooks/admin/tiers` | X-Admin-Key | Tier config viewer |
+| GET | `/webhooks/admin/errors` | X-Admin-Key | Recent error log |
 | POST | `/webhooks/admin/set-tier` | X-Admin-Key | Manual tier assignment |
 | POST | `/webhooks/admin/simulate-tier` | X-Admin-Key | Tier simulation for testing |
+| POST | `/webhooks/admin/update-feature-state` | X-Admin-Key | Override feature state for a tier |
+| POST | `/webhooks/admin/capture-transcript` | X-Admin-Key | Send transcript to CQ on behalf of a user |
 | GET | `/webhooks/admin/provider-status` | X-Admin-Key | Provider health check |
 | POST | `/webhooks/admin/update-key` | X-Admin-Key | Update provider API key |
 | GET | `/docs` | None | Swagger UI |
@@ -193,10 +199,9 @@ Key variables:
 ## Reserved Route Namespaces
 
 - `/auth/*` — Sign in with Apple, JWT (shared with future Context Quilt)
-- `/v1/*` — Chat, pricing, usage
+- `/v1/*` — Chat, pricing, usage, Context Quilt proxy
 - `/webhooks/*` — Admin, Apple webhooks
 - `/memory/*` — Reserved for future Context Quilt
-- `/quilt/*` — Reserved for future Context Quilt
 
 ## Testing
 

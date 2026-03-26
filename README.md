@@ -48,6 +48,12 @@ curl http://localhost:8000/health
 | POST | `/auth/apple` | None | Exchange Apple identity token for JWT |
 | POST | `/auth/refresh` | None | Refresh access token |
 | POST | `/v1/chat` | Bearer JWT | Proxied LLM request |
+| POST | `/v1/capture-transcript` | Bearer JWT | End-of-meeting transcript capture for Context Quilt |
+| GET | `/v1/quilt/{user_id}` | Bearer JWT | Fetch user's quilt patches (proxy to Context Quilt) |
+| PATCH | `/v1/quilt/{user_id}/patches/{patch_id}` | Bearer JWT | Update a quilt patch |
+| DELETE | `/v1/quilt/{user_id}/patches/{patch_id}` | Bearer JWT | Delete a quilt patch |
+| GET | `/v1/usage/me` | Bearer JWT | Allocation, overage, usage stats |
+| GET | `/v1/tiers` | None | Public tier catalog |
 | POST | `/webhooks/admin/set-tier` | X-Admin-Key | Manual tier assignment |
 
 ### POST /v1/chat

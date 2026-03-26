@@ -668,14 +668,23 @@ async def _cq_proxy(method: str, path: str, body: dict | None = None) -> JSONRes
     if not settings.cq_base_url:
         raise HTTPException(status_code=503, detail="Context Quilt not configured")
 
-    async with httpx.AsyncClient(base_url=settings.cq_base_url, timeout=10.0) as client:
-        resp = await client.request(
-            method,
-            path,
-            json=body,
-            headers={"X-App-ID": settings.cq_app_id},
-        )
-    return JSONResponse(status_code=resp.status_code, content=resp.json())
+    try:
+        async with httpx.AsyncClient(base_url=settings.cq_base_url, timeout=10.0) as client:
+            resp = await client.request(
+                method,
+                path,
+                json=body,
+                headers={"X-App-ID": settings.cq_app_id},
+            )
+        try:
+            content = resp.json()
+        except Exception:
+            content = {"detail": resp.text or "Context Quilt error"}
+        return JSONResponse(status_code=resp.status_code, content=content)
+    except httpx.TimeoutException:
+        return JSONResponse(status_code=504, content={"detail": "Context Quilt timeout"})
+    except Exception as e:
+        return JSONResponse(status_code=502, content={"detail": f"Context Quilt unreachable: {e}"})
 
 
 @router.get("/quilt/{user_id}")
