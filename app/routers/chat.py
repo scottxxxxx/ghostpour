@@ -678,7 +678,7 @@ async def _cq_proxy(method: str, path: str, body: dict | None = None) -> JSONRes
     return JSONResponse(status_code=resp.status_code, content=resp.json())
 
 
-@router.get("/v1/quilt/{user_id}")
+@router.get("/quilt/{user_id}")
 async def get_quilt(
     user_id: str,
     user: UserRecord = Depends(get_current_user),
@@ -694,7 +694,7 @@ class PatchUpdateRequest(BaseModel):
     patch_type: str | None = None
 
 
-@router.patch("/v1/quilt/{user_id}/patches/{patch_id}")
+@router.patch("/quilt/{user_id}/patches/{patch_id}")
 async def update_quilt_patch(
     user_id: str,
     patch_id: str,
@@ -708,7 +708,7 @@ async def update_quilt_patch(
     return await _cq_proxy("PATCH", f"/v1/quilt/{user_id}/patches/{patch_id}", payload)
 
 
-@router.delete("/v1/quilt/{user_id}/patches/{patch_id}")
+@router.delete("/quilt/{user_id}/patches/{patch_id}")
 async def delete_quilt_patch(
     user_id: str,
     patch_id: str,
