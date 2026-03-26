@@ -29,6 +29,13 @@ class SimulateTierRequest(BaseModel):
     exhausted: bool = True
 
 
+class AdminCaptureTranscriptRequest(BaseModel):
+    user_id: str
+    transcript: str
+    meeting_id: str | None = None
+    project: str | None = None
+
+
 class UpdateFeatureStateRequest(BaseModel):
     tier: str
     feature: str
@@ -215,6 +222,49 @@ async def update_feature_state(
         "feature": body.feature,
         "old_state": old_state,
         "new_state": body.state,
+    }
+
+
+# --- Admin Transcript Capture ---
+
+
+@router.post("/admin/capture-transcript")
+async def admin_capture_transcript(
+    body: AdminCaptureTranscriptRequest,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+):
+    """Send a transcript to Context Quilt on behalf of a user. Admin-only."""
+    _verify_admin(request, x_admin_key)
+
+    import asyncio
+    from app.services import context_quilt as cq
+
+    # Look up user for display_name and email
+    cursor = await db.execute(
+        "SELECT id, email, display_name FROM users WHERE id = ?",
+        (body.user_id,),
+    )
+    row = await cursor.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    asyncio.create_task(cq.capture(
+        user_id=row["id"],
+        interaction_type="meeting_transcript",
+        content=body.transcript,
+        meeting_id=body.meeting_id,
+        project=body.project,
+        display_name=row["display_name"],
+        email=row["email"],
+    ))
+
+    return {
+        "status": "queued",
+        "user_id": body.user_id,
+        "project": body.project,
+        "transcript_length": len(body.transcript),
     }
 
 
