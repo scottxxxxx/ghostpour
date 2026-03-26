@@ -27,7 +27,7 @@ What actually happened. Include error messages or response bodies.
 
 ## Environment
 
-- CloudZap version: [e.g., 0.1.0]
+- GhostPour version: [e.g., 0.1.0]
 - Deployment: [Docker / local / other]
 - Python version: [e.g., 3.12]
 - OS: [e.g., Ubuntu 22.04]

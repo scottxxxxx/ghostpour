@@ -1,5 +1,5 @@
 # =============================================================================
-# CloudZap Subscription Tiers — SINGLE SOURCE OF TRUTH
+# GhostPour Subscription Tiers — SINGLE SOURCE OF TRUTH
 #
 # This file drives:
 #   1. Server-side enforcement (model access, rate limits, quotas)

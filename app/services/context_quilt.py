@@ -1,5 +1,5 @@
 """
-Context Quilt integration for CloudZap.
+Context Quilt integration for GhostPour.
 
 Handles two flows:
   1. Recall: Before sending a query to the LLM, fetch relevant context from CQ

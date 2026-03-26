@@ -1,5 +1,5 @@
 # =============================================================================
-# CloudZap Provider Registry
+# GhostPour Provider Registry
 #
 # To add a new provider:
 #   1. If it uses the OpenAI chat completions format, just add it here with

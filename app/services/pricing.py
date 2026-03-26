@@ -1,7 +1,7 @@
 """Pricing service that fetches and caches LLM model costs from an external source.
 
 Default source: LiteLLM's model_prices_and_context_window.json
-Users can override via CZ_PRICING_SOURCE_URL to point at any compatible JSON.
+Users can override via CZ_PRICING_SOURCE_URL (legacy prefix) to point at any compatible JSON.
 
 The JSON format expected is a dict keyed by model ID, where each value contains:
   - input_cost_per_token (float, USD)
@@ -17,7 +17,7 @@ import time
 
 import httpx
 
-logger = logging.getLogger("cloudzap.pricing")
+logger = logging.getLogger("ghostpour.pricing")
 
 DEFAULT_PRICING_URL = (
     "https://raw.githubusercontent.com/BerriAI/litellm/main/"

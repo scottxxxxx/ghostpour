@@ -1,8 +1,8 @@
-# Subscription System: ShoulderSurf + StoreKit + CloudZap
+# Subscription System: ShoulderSurf + StoreKit + GhostPour
 
 > **Last updated:** March 24, 2026
 >
-> This document describes how subscriptions are purchased, synced, enforced, and displayed across the full stack. Reference this from both the ShoulderSurf and CloudZap `CLAUDE.md` files.
+> This document describes how subscriptions are purchased, synced, enforced, and displayed across the full stack. Reference this from both the ShoulderSurf and GhostPour `CLAUDE.md` files.
 
 ---
 
@@ -27,7 +27,7 @@ Three systems collaborate to manage subscriptions:
 
 ```
 +------------------+        +------------------+        +------------------+
-|  Apple App Store |        |   ShoulderSurf   |        |     CloudZap     |
+|  Apple App Store |        |   ShoulderSurf   |        |    GhostPour     |
 |    (StoreKit 2)  |        |    (iOS app)     |        |   (API gateway)  |
 +--------+---------+        +--------+---------+        +--------+---------+
          |                           |                           |
@@ -58,9 +58,9 @@ Three systems collaborate to manage subscriptions:
 |---------|-------|
 | Payment processing, receipts, trials, renewals | Apple (StoreKit 2) |
 | Purchase UI, entitlement detection, fallback UX | ShoulderSurf (iOS) |
-| Tier state, allocation tracking, model routing, quota enforcement | CloudZap (server) |
+| Tier state, allocation tracking, model routing, quota enforcement | GhostPour (server) |
 
-**Key principle:** CloudZap is the source of truth for the user's tier and allocation. The iOS app tells CloudZap what StoreKit says, and CloudZap decides what the user gets.
+**Key principle:** GhostPour is the source of truth for the user's tier and allocation. The iOS app tells GhostPour what StoreKit says, and GhostPour decides what the user gets.
 
 ---
 
@@ -85,7 +85,7 @@ Configured in `config/tiers.yml`. Five purchasable tiers plus admin:
 - Haiku tiers: `$0.05/hour` (so $1.25 limit = 25 hours)
 - Sonnet tiers: `$0.19/hour` (so $4.75 limit = 25 hours)
 
-**Why summary interval varies by tier:** Auto-summaries are full chat requests that consume allocation. Every summary burns tokens. Sonnet is ~4x more expensive per token than Haiku, so Sonnet tiers default to 15-minute intervals instead of 10 to prevent users from burning through hours unexpectedly. This is a per-tier setting in `tiers.yml` (`summary_interval_minutes`) that the iOS app reads from `/v1/usage/me` and locks when using CloudZap.
+**Why summary interval varies by tier:** Auto-summaries are full chat requests that consume allocation. Every summary burns tokens. Sonnet is ~4x more expensive per token than Haiku, so Sonnet tiers default to 15-minute intervals instead of 10 to prevent users from burning through hours unexpectedly. This is a per-tier setting in `tiers.yml` (`summary_interval_minutes`) that the iOS app reads from `/v1/usage/me` and locks when using GhostPour.
 
 **StoreKit product IDs** (mapped in `tiers.yml`):
 - `com.weirtech.shouldersurf.sub.standard.monthly`
@@ -118,7 +118,7 @@ Configured in `config/tiers.yml`. Five purchasable tiers plus admin:
             | { product_id, transaction_id, offer_type, offer_price }
             v
    +-------------------------------+
-   | CloudZap: purchase endpoint   |
+   | GhostPour: purchase endpoint  |
    | 1. Map product_id -> tier     |
    | 2. Detect trial (offer=intro, |
    |    price=0)                   |
@@ -175,7 +175,7 @@ When a user upgrades (e.g., Standard -> Pro):
 
 1. StoreKit processes the purchase (Apple prorates the charge)
 2. iOS calls `POST /v1/verify-receipt` with the new product ID
-3. CloudZap sets the new tier and **resets allocation to the new tier's full limit**
+3. GhostPour sets the new tier and **resets allocation to the new tier's full limit**
 4. `monthly_used_usd` resets to 0 -- the user gets a fresh allocation
 5. No carryover of unused hours from the old tier
 
@@ -186,7 +186,7 @@ When a user upgrades (e.g., Standard -> Pro):
 1. Apple stops renewing the subscription
 2. On next app launch, `currentEntitlements` returns empty
 3. iOS calls `POST /v1/sync-subscription` with `active_product_id: null`
-4. CloudZap downgrades to free tier, resets allocation to $0.05
+4. GhostPour downgrades to free tier, resets allocation to $0.05
 
 ### Trial flow
 
@@ -201,7 +201,7 @@ When a user upgrades (e.g., Standard -> Pro):
    { product_id: "...standard...", offer_type: "introductory", offer_price: 0 }
         |
         v
-   CloudZap: detect trial
+   GhostPour: detect trial
    - tier = "standard"
    - is_trial = true
    - monthly_cost_limit_usd = $0.50 (trial cap, NOT $1.25)
@@ -224,7 +224,7 @@ When a user upgrades (e.g., Standard -> Pro):
         |   { active_product_id: "...standard...", is_trial: false }
         |       |
         |       v
-        |   CloudZap detects trial-to-paid conversion:
+        |   GhostPour detects trial-to-paid conversion:
         |   - is_trial was true, now false
         |   - Reset: monthly_used_usd = 0  (fresh start)
         |   - Upgrade: monthly_cost_limit_usd = $1.25  (full limit)
@@ -240,7 +240,7 @@ When a user upgrades (e.g., Standard -> Pro):
             { active_product_id: null }
                 |
                 v
-            CloudZap downgrades to free:
+            GhostPour downgrades to free:
             - tier = "free"
             - monthly_cost_limit_usd = $0.05
             - monthly_used_usd = 0
@@ -248,7 +248,7 @@ When a user upgrades (e.g., Standard -> Pro):
 
 **Why the trial cap exists:** Without it, a user could subscribe to a 7-day free trial, burn through all 25 hours of Standard in 3 days, then cancel before Apple charges them. The trial cap ($0.50 = 10 hours) limits our exposure during the unpaid period.
 
-**StoreKit does not push to CloudZap.** Apple doesn't notify our server when a trial converts to paid. We only find out when the iOS app launches and calls `sync-subscription`. The conversion is detected by comparing `user.is_trial` (true in our DB) against `body.is_trial` (false from StoreKit). This means the user's allocation upgrade happens on their next app launch after day 7, not at the exact moment of conversion.
+**StoreKit does not push to GhostPour.** Apple doesn't notify our server when a trial converts to paid. We only find out when the iOS app launches and calls `sync-subscription`. The conversion is detected by comparing `user.is_trial` (true in our DB) against `body.is_trial` (false from StoreKit). This means the user's allocation upgrade happens on their next app launch after day 7, not at the exact moment of conversion.
 
 ---
 
@@ -417,11 +417,11 @@ Server-driven subscription UI. The iOS app renders tier cards from this data ins
 
 ## Tier-Locked Settings
 
-When the iOS app's provider is set to CloudZap, these settings are server-controlled:
+When the iOS app's provider is set to GhostPour (legacy ID: "cloudzap"), these settings are server-controlled:
 
 ```
 +-------------------------+------------------+---------------------+
-| Setting                 | BYOK (own key)   | CloudZap managed    |
+| Setting                 | BYOK (own key)   | GhostPour managed   |
 +-------------------------+------------------+---------------------+
 | Model selection         | User choice      | Locked: "auto"      |
 |                         |                  | (server picks)      |
@@ -462,7 +462,7 @@ When allocation is exhausted, the iOS app offers a graceful fallback:
         +-- User taps "Continue with on-device AI"
                 |
                 v
-            Switch provider from CloudZap to Apple Intelligence
+            Switch provider from GhostPour to Apple Intelligence
             - No API key needed
             - Works offline
             - Subsequent queries use on-device model
@@ -579,13 +579,13 @@ monthly_allocation --> overage_balance --> 429 fallback to on-device
 
 | File | Project | Purpose |
 |------|---------|---------|
-| `config/tiers.yml` | CloudZap | Tier definitions, limits, features, StoreKit IDs |
-| `config/features.yml` | CloudZap | Feature display metadata |
-| `app/routers/chat.py` | CloudZap | verify-receipt, sync-subscription, usage/me, chat |
-| `app/services/usage_tracker.py` | CloudZap | check_quota, record_cost, model access |
-| `app/routers/webhooks.py` | CloudZap | Admin set-tier, simulate-tier |
-| `app/models/user.py` | CloudZap | UserRecord with allocation fields |
-| `app/database.py` | CloudZap | Users table schema + migrations |
+| `config/tiers.yml` | GhostPour | Tier definitions, limits, features, StoreKit IDs |
+| `config/features.yml` | GhostPour | Feature display metadata |
+| `app/routers/chat.py` | GhostPour | verify-receipt, sync-subscription, usage/me, chat |
+| `app/services/usage_tracker.py` | GhostPour | check_quota, record_cost, model access |
+| `app/routers/webhooks.py` | GhostPour | Admin set-tier, simulate-tier |
+| `app/models/user.py` | GhostPour | UserRecord with allocation fields |
+| `app/database.py` | GhostPour | Users table schema + migrations |
 | `SubscriptionManager.swift` | ShoulderSurf | StoreKit purchase, entitlement check, verify-receipt call |
 | `CloudZapAuthManager.swift` | ShoulderSurf | JWT auth, fetchUsageConfig(), tier constraint properties |
 | `CloudZapProvider.swift` | ShoulderSurf | Chat requests, response header parsing |

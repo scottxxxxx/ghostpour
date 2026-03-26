@@ -1,4 +1,6 @@
-# CloudZap
+# GhostPour
+
+> *Formerly CloudZap. The pour you never see.*
 
 [![Tests](https://github.com/scottxxxxx/cloudzap/actions/workflows/test.yml/badge.svg)](https://github.com/scottxxxxx/cloudzap/actions/workflows/test.yml)
 [![Deploy](https://github.com/scottxxxxx/cloudzap/actions/workflows/deploy.yml/badge.svg)](https://github.com/scottxxxxx/cloudzap/actions/workflows/deploy.yml)
@@ -7,7 +9,9 @@
 
 Open-source LLM API gateway with authentication, multi-provider routing, subscription-based access control, and usage tracking.
 
-CloudZap sits between your mobile/web app and LLM providers (OpenAI, Anthropic, Google Gemini, xAI, DeepSeek, Kimi, Qwen). It keeps API keys server-side, authenticates users via Sign in with Apple, enforces tier-based rate limits and token quotas, and logs all usage.
+GhostPour sits between your mobile/web app and LLM providers (OpenAI, Anthropic, Google Gemini, xAI, DeepSeek, Kimi, Qwen). It keeps API keys server-side, authenticates users via Sign in with Apple, enforces tier-based rate limits and token quotas, and logs all usage.
+
+> **Note:** Environment variables still use the `CZ_` prefix and some internal identifiers retain the "cloudzap" name for backwards compatibility with deployed clients.
 
 ## Features
 
@@ -116,7 +120,7 @@ Register LLM providers with their API formats, endpoints, and model catalogs. Se
 
 ## Deployment
 
-CloudZap deploys as a Docker container behind any reverse proxy (Nginx, Traefik, Nginx Proxy Manager, etc.).
+GhostPour deploys as a Docker container behind any reverse proxy (Nginx, Traefik, Nginx Proxy Manager, etc.).
 
 ### Production Docker Compose
 
