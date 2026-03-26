@@ -511,6 +511,8 @@ async def chat(
         cq_metadata = {}
         if body.project:
             cq_metadata["project"] = body.project
+        if body.project_id:
+            cq_metadata["project_id"] = body.project_id
         cq_result = await cq.recall(
             user_id=user.id,
             text=body.user_content,
@@ -532,6 +534,8 @@ async def chat(
         cq_metadata = {}
         if body.project:
             cq_metadata["project"] = body.project
+        if body.project_id:
+            cq_metadata["project_id"] = body.project_id
         cq_result = await cq.recall(
             user_id=user.id,
             text=body.user_content,
@@ -583,6 +587,7 @@ async def chat(
             response=response.text,
             meeting_id=body.meeting_id,
             project=body.project,
+            project_id=body.project_id,
             call_type=body.call_type,
             prompt_mode=body.prompt_mode,
             display_name=user.display_name,
@@ -631,6 +636,7 @@ class TranscriptCaptureRequest(BaseModel):
     transcript: str
     meeting_id: str | None = None
     project: str | None = None
+    project_id: str | None = None
 
 
 @router.post("/v1/capture-transcript")
@@ -651,6 +657,7 @@ async def capture_transcript(
         content=body.transcript,
         meeting_id=body.meeting_id,
         project=body.project,
+        project_id=body.project_id,
         display_name=user.display_name,
         email=user.email,
     ))

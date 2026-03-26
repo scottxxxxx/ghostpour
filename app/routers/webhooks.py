@@ -34,6 +34,7 @@ class AdminCaptureTranscriptRequest(BaseModel):
     transcript: str
     meeting_id: str | None = None
     project: str | None = None
+    project_id: str | None = None
 
 
 class UpdateFeatureStateRequest(BaseModel):
@@ -256,6 +257,7 @@ async def admin_capture_transcript(
         content=body.transcript,
         meeting_id=body.meeting_id,
         project=body.project,
+        project_id=body.project_id,
         display_name=row["display_name"],
         email=row["email"],
     ))

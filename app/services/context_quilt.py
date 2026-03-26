@@ -92,6 +92,7 @@ async def capture(
     response: str | None = None,
     meeting_id: str | None = None,
     project: str | None = None,
+    project_id: str | None = None,
     call_type: str | None = None,
     prompt_mode: str | None = None,
     display_name: str | None = None,
@@ -121,6 +122,8 @@ async def capture(
         metadata["meeting_id"] = meeting_id
     if project:
         metadata["project"] = project
+    if project_id:
+        metadata["project_id"] = project_id
     if call_type:
         metadata["call_type"] = call_type
     if prompt_mode:
