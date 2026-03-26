@@ -64,7 +64,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="CloudZap",
+    title="GhostPour",
     description="Open-source LLM API gateway with auth, rate limiting, and multi-provider routing.",
     version="0.3.1",
     lifespan=lifespan,

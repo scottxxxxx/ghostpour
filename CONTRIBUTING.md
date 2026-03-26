@@ -1,4 +1,4 @@
-# Contributing to CloudZap
+# Contributing to GhostPour
 
 Thanks for your interest in contributing! This guide will help you get started.
 

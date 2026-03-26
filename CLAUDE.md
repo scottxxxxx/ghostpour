@@ -1,16 +1,17 @@
-# CLAUDE.md — CloudZap
+# CLAUDE.md — GhostPour
 
-> **Last updated:** March 23, 2026
+> **Last updated:** March 25, 2026
+> **Formerly:** CloudZap. Env vars still use `CZ_` prefix and some identifiers retain "cloudzap" for backwards compatibility with deployed clients.
 
 ## Project Overview
 
-**CloudZap** is an open-source LLM API gateway built with FastAPI. It sits between client apps and LLM providers, handling auth, routing, rate limiting, usage tracking, and subscription-based access control. The first customer is Shoulder Surf (iOS meeting copilot).
+**GhostPour** is an open-source LLM API gateway built with FastAPI. It sits between client apps and LLM providers, handling auth, routing, rate limiting, usage tracking, and subscription-based access control. The first customer is Shoulder Surf (iOS meeting copilot).
 
 **Live deployment:** `https://cz.shouldersurf.com`
 **Admin dashboard:** `https://cz.shouldersurf.com/admin`
 **GitHub:** `https://github.com/scottxxxxx/cloudzap`
 **Subscription spec:** `/Users/scottguida/ShoulderSurf/Subscription_Tiers.md` — full tier details, pricing, allocation, carryover, StoreKit config
-**Subscription system doc:** `docs/subscription-system.md` — full-stack guide to how ShoulderSurf + StoreKit + CloudZap handle subscriptions, allocation, and enforcement
+**Subscription system doc:** `docs/subscription-system.md` — full-stack guide to how ShoulderSurf + StoreKit + GhostPour handle subscriptions, allocation, and enforcement
 **Planning docs:** `shouldersurf-proxy-claude-code-plan.docx`, `Server side proxy-claude-code-plan.docx` (in repo root, gitignored)
 
 ## Tech Stack
@@ -121,13 +122,13 @@ When the iOS app sends `provider: "auto", model: "auto"`, the chat endpoint:
 3. Splits into provider + model
 4. Routes to the correct upstream provider
 
-This means subscribers never choose a model — CloudZap picks the best one for their tier.
+This means subscribers never choose a model — GhostPour picks the best one for their tier.
 
-## iOS Settings Locks (for CloudZap users)
+## iOS Settings Locks (for GhostPour users)
 
-When the iOS app's provider is set to CloudZap, these settings are locked:
+When the iOS app's provider is set to GhostPour (legacy ID: "cloudzap"), these settings are locked:
 
-| Setting | BYOK (own key) | CloudZap managed |
+| Setting | BYOK (own key) | GhostPour managed |
 |---------|---------------|-----------------|
 | Auto-summary interval | User choice (2-15 min) | Locked: 10 min (Haiku tiers) / 15 min (Sonnet tiers) |
 | Summary mode | User choice | Locked: Delta (Free/Standard/Pro), User choice (Ultra/Ultra Max) |
@@ -260,7 +261,7 @@ Change a feature from `teaser` → `disabled` in `tiers.yml` and restart. No cod
 
 ## Context Quilt Integration
 
-CloudZap integrates with Context Quilt as the first feature using the generic feature gating system. CQ runs when `context_quilt: true` is in the ChatRequest **and** the user's tier has CQ in `enabled` or `teaser` state.
+GhostPour integrates with Context Quilt as the first feature using the generic feature gating system. CQ runs when `context_quilt: true` is in the ChatRequest **and** the user's tier has CQ in `enabled` or `teaser` state.
 
 **3-state behavior:**
 - **enabled**: recall → inject context into system_prompt → capture query+response after LLM responds
@@ -295,7 +296,7 @@ CloudZap integrates with Context Quilt as the first feature using the generic fe
 
 ## Remote Config (iOS App)
 
-CloudZap serves JSON config files to the ShoulderSurf iOS app via `GET /v1/config/{name}`. This allows updating prompts, model lists, and capabilities without App Store releases.
+GhostPour serves JSON config files to the ShoulderSurf iOS app via `GET /v1/config/{name}`. This allows updating prompts, model lists, and capabilities without App Store releases.
 
 **How it works:**
 1. JSON files live in `config/remote/{slug}.json`, each with a top-level `"version"` integer
@@ -320,6 +321,6 @@ CloudZap serves JSON config files to the ShoulderSurf iOS app via `GET /v1/confi
 
 ## Related Projects
 
-- **Shoulder Surf** (`/Users/scottguida/ShoulderSurf/`) — iOS meeting copilot, first CloudZap customer
+- **Shoulder Surf** (`/Users/scottguida/ShoulderSurf/`) — iOS meeting copilot, first GhostPour customer
 - **Context Quilt** (`/Users/scottguida/contextquilt/`) — persistent AI memory layer, live at `cq.shouldersurf.com`
 - **Project Bifrost** (`/Users/scottguida/bifrost/`) — Nginx Proxy Manager on shared GCP VM

@@ -1,6 +1,6 @@
 """Config-driven generic adapter for providers not covered by built-in adapters.
 
-Users define response_mappings in providers.yml to tell CloudZap how to extract
+Users define response_mappings in providers.yml to tell GhostPour how to extract
 text, tokens, and usage from any provider's response JSON. No code changes needed.
 
 Example providers.yml entry:

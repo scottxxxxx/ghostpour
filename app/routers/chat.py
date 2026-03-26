@@ -437,7 +437,7 @@ async def chat(
     user: UserRecord = Depends(get_current_user),
     db: aiosqlite.Connection = Depends(get_db),
 ):
-    """Proxy an LLM request through CloudZap with auth, tier, and rate enforcement."""
+    """Proxy an LLM request through GhostPour with auth, tier, and rate enforcement."""
     tier_config = request.app.state.tier_config
     provider_router = request.app.state.provider_router
     rate_limiter = request.app.state.rate_limiter

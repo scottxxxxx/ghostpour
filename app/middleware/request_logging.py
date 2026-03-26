@@ -5,7 +5,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import Response
 
-logger = logging.getLogger("cloudzap")
+logger = logging.getLogger("ghostpour")
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):

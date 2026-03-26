@@ -49,7 +49,7 @@ async def apple_auth(
     request: Request,
     db: aiosqlite.Connection = Depends(get_db),
 ):
-    """Exchange an Apple identity token for CloudZap access + refresh tokens."""
+    """Exchange an Apple identity token for GhostPour access + refresh tokens."""
     apple_verifier = request.app.state.apple_verifier
     jwt_service = request.app.state.jwt_service
 

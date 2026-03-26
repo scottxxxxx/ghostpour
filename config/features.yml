@@ -1,5 +1,5 @@
 # =============================================================================
-# CloudZap Feature Definitions
+# GhostPour Feature Definitions
 #
 # Each feature can be in one of three states per tier (set in tiers.yml):
 #   enabled  — Feature is fully active (run + apply results)
