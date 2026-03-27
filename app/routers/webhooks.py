@@ -271,6 +271,80 @@ async def admin_capture_transcript(
     }
 
 
+# --- Remote Config Management ---
+
+
+@router.get("/admin/configs")
+async def list_configs(
+    request: Request,
+    x_admin_key: str = Header(...),
+):
+    """List all remote config files with their versions and sizes."""
+    _verify_admin(request, x_admin_key)
+    configs: dict[str, dict] = request.app.state.remote_configs
+
+    result = []
+    for slug, data in sorted(configs.items()):
+        result.append({
+            "slug": slug,
+            "version": data.get("version"),
+            "keys": list(data.keys()),
+            "size": len(json.dumps(data)),
+        })
+    return {"configs": result}
+
+
+@router.get("/admin/config/{slug}")
+async def get_config_detail(
+    slug: str,
+    request: Request,
+    x_admin_key: str = Header(...),
+):
+    """Get the full JSON content of a remote config."""
+    _verify_admin(request, x_admin_key)
+    configs: dict[str, dict] = request.app.state.remote_configs
+
+    if slug not in configs:
+        raise HTTPException(status_code=404, detail=f"Config '{slug}' not found")
+    return {"slug": slug, "data": configs[slug]}
+
+
+class UpdateConfigRequest(BaseModel):
+    data: dict
+
+
+@router.put("/admin/config/{slug}")
+async def update_config(
+    slug: str,
+    body: UpdateConfigRequest,
+    request: Request,
+    x_admin_key: str = Header(...),
+):
+    """Update a remote config. Writes to disk and hot-reloads into memory."""
+    _verify_admin(request, x_admin_key)
+
+    if "version" not in body.data:
+        raise HTTPException(status_code=400, detail="Config must have a 'version' field")
+
+    from app.routers.config import CONFIG_DIR, load_remote_configs
+
+    config_path = CONFIG_DIR / f"{slug}.json"
+    if not config_path.exists() and slug not in request.app.state.remote_configs:
+        raise HTTPException(status_code=404, detail=f"Config '{slug}' not found")
+
+    # Write to disk
+    config_path.write_text(json.dumps(body.data, indent=2, ensure_ascii=False) + "\n")
+
+    # Hot-reload all configs
+    request.app.state.remote_configs = load_remote_configs()
+
+    return {
+        "status": "updated",
+        "slug": slug,
+        "version": body.data["version"],
+    }
+
+
 # --- Provider Status & Key Management ---
 
 # Providers we can check balance/status for

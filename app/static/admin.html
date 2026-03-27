@@ -177,6 +177,7 @@
     <div class="tab" onclick="switchTab('latency')">Latency</div>
     <div class="tab" onclick="switchTab('providers')">Providers</div>
     <div class="tab" onclick="switchTab('errors')">Errors</div>
+    <div class="tab" onclick="switchTab('configs')">Configs</div>
   </div>
 
   <!-- Overview -->
@@ -305,6 +306,23 @@
     <div id="provider-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;"></div>
   </div>
 
+  <!-- Remote Configs -->
+  <div id="tab-configs" class="section">
+    <h3>Remote Configs</h3>
+    <p style="color:var(--text-dim);margin-bottom:12px">JSON files served to ShoulderSurf via <code style="color:var(--accent)">GET /v1/config/{name}</code>. Edit and save to hot-reload.</p>
+    <div id="config-list" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px"></div>
+    <div id="config-editor-wrap" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <h3 id="config-editor-title" style="margin:0"></h3>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span id="config-editor-status" style="font-size:12px;color:var(--text-dim)"></span>
+          <button class="refresh-btn" onclick="saveConfig()" style="background:var(--green);color:#000;font-weight:600">Save</button>
+        </div>
+      </div>
+      <textarea id="config-editor" style="width:100%;min-height:500px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:'SF Mono',Menlo,monospace;font-size:13px;resize:vertical;tab-size:2" spellcheck="false"></textarea>
+    </div>
+  </div>
+
   <!-- Errors -->
   <div id="tab-errors" class="section">
     <h3>Error Summary</h3>
@@ -346,6 +364,7 @@ function switchTab(name) {
   document.getElementById('tab-' + name).classList.add('active');
   if (name === 'providers') loadProviders();
   if (name === 'errors') loadErrors();
+  if (name === 'configs') loadConfigs();
 }
 
 function fmt(n) { return n == null ? '-' : n.toLocaleString(); }
@@ -914,6 +933,73 @@ async function toggleFeature(tierName, featureName, newState) {
     const err = await resp.json();
     alert('Failed: ' + (err.detail || 'Unknown error'));
     refresh();
+  }
+}
+
+// --- Remote Configs ---
+
+let currentConfigSlug = null;
+
+async function loadConfigs() {
+  const data = await fetch(`${BASE}/webhooks/admin/configs`, {
+    headers: {'X-Admin-Key': adminKey}
+  }).then(r => r.json());
+
+  const listEl = document.getElementById('config-list');
+  listEl.innerHTML = data.configs.map(c => `
+    <div onclick="openConfig('${c.slug}')" style="cursor:pointer;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;min-width:200px;transition:border-color 0.2s"
+         onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div class="mono" style="color:var(--accent);font-size:14px;margin-bottom:4px">${c.slug}</div>
+      <div style="color:var(--text-dim);font-size:12px">v${c.version} &middot; ${(c.size/1024).toFixed(1)} KB</div>
+      <div style="color:var(--text-dim);font-size:11px;margin-top:4px">${c.keys.filter(k => k !== 'version').join(', ')}</div>
+    </div>
+  `).join('');
+}
+
+async function openConfig(slug) {
+  currentConfigSlug = slug;
+  const data = await fetch(`${BASE}/webhooks/admin/config/${slug}`, {
+    headers: {'X-Admin-Key': adminKey}
+  }).then(r => r.json());
+
+  document.getElementById('config-editor-wrap').style.display = 'block';
+  document.getElementById('config-editor-title').textContent = slug + '.json';
+  document.getElementById('config-editor-status').textContent = `v${data.data.version}`;
+  document.getElementById('config-editor').value = JSON.stringify(data.data, null, 2);
+}
+
+async function saveConfig() {
+  if (!currentConfigSlug) return;
+  const editor = document.getElementById('config-editor');
+  const statusEl = document.getElementById('config-editor-status');
+
+  let parsed;
+  try {
+    parsed = JSON.parse(editor.value);
+  } catch (e) {
+    statusEl.textContent = 'Invalid JSON: ' + e.message;
+    statusEl.style.color = 'var(--red)';
+    return;
+  }
+
+  statusEl.textContent = 'Saving...';
+  statusEl.style.color = 'var(--orange)';
+
+  const resp = await fetch(`${BASE}/webhooks/admin/config/${currentConfigSlug}`, {
+    method: 'PUT',
+    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
+    body: JSON.stringify({data: parsed}),
+  });
+
+  if (resp.ok) {
+    const result = await resp.json();
+    statusEl.textContent = `Saved! v${result.version}`;
+    statusEl.style.color = 'var(--green)';
+    loadConfigs();
+  } else {
+    const err = await resp.json();
+    statusEl.textContent = 'Error: ' + (err.detail || 'Save failed');
+    statusEl.style.color = 'var(--red)';
   }
 }
 </script>
