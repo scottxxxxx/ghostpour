@@ -991,6 +991,65 @@ async def user_detail(
     }
 
 
+@router.get("/admin/user/{user_id}/queries")
+async def user_queries(
+    user_id: str,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    days: int = Query(7, ge=1, le=90),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+):
+    """List individual queries for a user with raw request/response JSON."""
+    _verify_admin(request, x_admin_key)
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
+    # Get total count for pagination
+    count_row = await (await db.execute(
+        "SELECT COUNT(*) as cnt FROM usage_log WHERE user_id = ? AND request_timestamp >= ?",
+        (user_id, cutoff),
+    )).fetchone()
+    total = count_row["cnt"] if count_row else 0
+
+    cursor = await db.execute(
+        """SELECT id, provider, model, input_tokens, output_tokens, cached_tokens,
+                  estimated_cost_usd, response_time_ms, status, error_message,
+                  call_type, prompt_mode, image_count, request_timestamp, metadata
+           FROM usage_log
+           WHERE user_id = ? AND request_timestamp >= ?
+           ORDER BY request_timestamp DESC
+           LIMIT ? OFFSET ?""",
+        (user_id, cutoff, limit, offset),
+    )
+    rows = await cursor.fetchall()
+
+    queries = []
+    for row in rows:
+        meta = json.loads(row["metadata"]) if row["metadata"] else {}
+        queries.append({
+            "id": row["id"],
+            "provider": row["provider"],
+            "model": row["model"],
+            "input_tokens": row["input_tokens"],
+            "output_tokens": row["output_tokens"],
+            "cached_tokens": row["cached_tokens"],
+            "cost": row["estimated_cost_usd"],
+            "latency_ms": row["response_time_ms"],
+            "status": row["status"],
+            "error": row["error_message"],
+            "call_type": row["call_type"],
+            "prompt_mode": row["prompt_mode"],
+            "image_count": row["image_count"],
+            "timestamp": row["request_timestamp"],
+            "raw_request": meta.get("raw_request"),
+            "raw_response": meta.get("raw_response"),
+        })
+
+    return {"queries": queries, "total": total, "limit": limit, "offset": offset}
+
+
 @router.get("/admin/users")
 async def list_users(
     request: Request,

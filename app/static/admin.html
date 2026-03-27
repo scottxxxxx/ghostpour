@@ -238,6 +238,33 @@
       <div class="table-wrap"><table id="user-model-table"><thead><tr>
         <th>Provider</th><th>Model</th><th>Requests</th><th>Input</th><th>Output</th><th>Cost</th><th>Latency</th>
       </tr></thead><tbody></tbody></table></div>
+
+      <h3 style="margin-top:20px">Query Log</h3>
+      <div class="table-wrap"><table id="query-log-table"><thead><tr>
+        <th>Time</th><th>Type</th><th>Mode</th><th>Model</th><th>In</th><th>Out</th><th>Cost</th><th>Latency</th><th>Status</th><th></th>
+      </tr></thead><tbody></tbody></table></div>
+      <div id="query-log-pagination" style="margin-top:8px;display:flex;gap:8px;align-items:center"></div>
+
+      <!-- Query detail modal -->
+      <div id="query-detail-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:100;overflow:auto;padding:40px 20px">
+        <div style="max-width:1000px;margin:0 auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <h3 id="query-detail-title" style="margin:0">Query Detail</h3>
+            <button class="refresh-btn" onclick="document.getElementById('query-detail-modal').style.display='none'" style="font-size:1.1em;padding:4px 12px">Close</button>
+          </div>
+          <div class="cards" id="query-detail-meta"></div>
+          <div style="display:flex;gap:16px;margin-top:16px;flex-wrap:wrap">
+            <div style="flex:1;min-width:400px">
+              <h4 style="margin-bottom:8px;color:var(--accent)">Request JSON</h4>
+              <pre id="query-detail-request" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;overflow:auto;max-height:600px;font-size:12px;white-space:pre-wrap;word-break:break-all"></pre>
+            </div>
+            <div style="flex:1;min-width:400px">
+              <h4 style="margin-bottom:8px;color:var(--green)">Response JSON</h4>
+              <pre id="query-detail-response" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;overflow:auto;max-height:600px;font-size:12px;white-space:pre-wrap;word-break:break-all"></pre>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -629,6 +656,73 @@ async function showUserDetail(userId, email) {
     <td>${fmt(r.input_tokens)}</td><td>${fmt(r.output_tokens)}</td>
     <td>${fmtCost(r.cost)}</td><td>${fmtMs(r.avg_latency_ms)}</td>
   </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-dim)">No data</td></tr>';
+
+  // Query log
+  loadQueryLog(userId, 0);
+}
+
+let queryLogCache = [];
+
+async function loadQueryLog(userId, offset) {
+  const days = document.getElementById('period').value;
+  const data = await fetch(`${BASE}/webhooks/admin/user/${userId}/queries?days=${days}&limit=50&offset=${offset}`, {
+    headers: {'X-Admin-Key': adminKey}
+  }).then(r => r.json());
+
+  queryLogCache = data.queries;
+
+  const tbody = document.querySelector('#query-log-table tbody');
+  tbody.innerHTML = data.queries.map((q, i) => {
+    const ts = new Date(q.timestamp);
+    const timeStr = ts.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const dateStr = ts.toLocaleDateString([], {month:'short',day:'numeric'});
+    const statusCls = q.status === 'success' ? 'green' : 'red';
+    const hasDetail = q.raw_request || q.raw_response;
+    return `<tr style="cursor:${hasDetail ? 'pointer' : 'default'}" onclick="${hasDetail ? `showQueryDetail(${i})` : ''}">
+      <td class="mono" style="font-size:11px">${dateStr} ${timeStr}</td>
+      <td><span class="badge ${q.call_type === 'summary' ? 'subscriber' : q.call_type === 'query' ? 'admin' : 'free'}">${q.call_type || '—'}</span></td>
+      <td style="font-size:12px">${q.prompt_mode || '—'}</td>
+      <td class="mono" style="font-size:11px">${(q.model || '').split('/').pop()}</td>
+      <td>${fmt(q.input_tokens)}</td><td>${fmt(q.output_tokens)}</td>
+      <td>${fmtCost(q.cost)}</td><td>${fmtMs(q.latency_ms)}</td>
+      <td style="color:var(--${statusCls})">${q.status}</td>
+      <td>${hasDetail ? '🔍' : ''}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--text-dim)">No queries found (raw data only stored for new queries)</td></tr>';
+
+  // Pagination
+  const pagEl = document.getElementById('query-log-pagination');
+  const showing = Math.min(offset + data.limit, data.total);
+  pagEl.innerHTML = `
+    <span style="color:var(--text-dim);font-size:13px">Showing ${offset + 1}–${showing} of ${data.total}</span>
+    ${offset > 0 ? `<button class="refresh-btn" onclick="loadQueryLog('${userId}', ${offset - 50})">← Prev</button>` : ''}
+    ${offset + data.limit < data.total ? `<button class="refresh-btn" onclick="loadQueryLog('${userId}', ${offset + 50})">Next →</button>` : ''}
+  `;
+}
+
+function showQueryDetail(index) {
+  const q = queryLogCache[index];
+  if (!q) return;
+
+  const modal = document.getElementById('query-detail-modal');
+  modal.style.display = 'block';
+
+  const ts = new Date(q.timestamp);
+  document.getElementById('query-detail-title').textContent =
+    `${q.call_type || 'query'} · ${q.prompt_mode || ''} · ${ts.toLocaleString()}`;
+
+  document.getElementById('query-detail-meta').innerHTML =
+    card('Model', q.model || '—', '') +
+    card('Input', fmt(q.input_tokens), '') +
+    card('Output', fmt(q.output_tokens), '') +
+    card('Cost', fmtCost(q.cost), '') +
+    card('Latency', fmtMs(q.latency_ms), '') +
+    card('Status', q.status, q.status === 'success' ? 'green' : 'red');
+
+  document.getElementById('query-detail-request').textContent =
+    q.raw_request || '(not stored — only available for queries made after this feature was deployed)';
+  document.getElementById('query-detail-response').textContent =
+    q.raw_response || '(not stored — only available for queries made after this feature was deployed)';
 }
 
 async function simulateTier(tierName, exhausted) {

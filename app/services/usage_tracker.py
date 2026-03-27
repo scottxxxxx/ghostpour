@@ -161,12 +161,16 @@ class UsageTracker:
         status: str = "success",
         error_msg: str | None = None,
     ) -> None:
-        # Build metadata from usage + cost dicts
+        # Build metadata from usage + cost dicts + raw request/response
         metadata: dict = {}
         if response and response.usage:
             metadata["usage"] = response.usage
         if response and response.cost:
             metadata["cost"] = response.cost
+        if response and response.raw_request_json:
+            metadata["raw_request"] = response.raw_request_json
+        if response and response.raw_response_json:
+            metadata["raw_response"] = response.raw_response_json
 
         metadata_json = json.dumps(metadata, ensure_ascii=False) if metadata else None
 
