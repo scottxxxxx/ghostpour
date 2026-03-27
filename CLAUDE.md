@@ -46,10 +46,10 @@ app/
 │   └── user.py          # UserRecord model
 ├── routers/
 │   ├── auth.py          # POST /auth/apple, POST /auth/refresh
-│   ├── chat.py          # /v1/chat, /v1/usage/me, /v1/tiers, /v1/verify-receipt, /v1/sync-subscription, /v1/capture-transcript
+│   ├── chat.py          # /v1/chat, /v1/usage/me, /v1/tiers, /v1/verify-receipt, /v1/sync-subscription, /v1/capture-transcript, /v1/quilt/* proxy
 │   ├── config.py        # GET /v1/config/{name} (remote config for iOS app)
 │   ├── health.py        # GET /health, GET /admin, GET /v1/model-pricing
-│   └── webhooks.py      # Admin endpoints (dashboard, users, tiers, errors, simulate-tier, feature-state, capture-transcript, provider-status, update-key)
+│   └── webhooks.py      # Admin endpoints (dashboard, users, user queries, tiers, errors, configs, simulate-tier, feature-state, capture-transcript, provider-status, update-key)
 ├── services/
 │   ├── apple_auth.py    # Apple JWKS token verification
 │   ├── jwt_service.py   # JWT create/verify
@@ -134,7 +134,7 @@ When the iOS app's provider is set to GhostPour (legacy ID: "cloudzap"), these s
 - **SQLite + single uvicorn worker**: SQLite doesn't handle concurrent writes well. Single worker sufficient for MVP. Migration path: asyncpg + Postgres.
 - **YAML config, not database config**: Tier definitions, provider catalogs, and feature definitions are version-controlled. Feature states are per-tier in `tiers.yml`; feature metadata lives in `features.yml`.
 - **In-memory rate limiter**: Single worker means in-memory state is consistent. Resets on restart.
-- **Content never stored**: Prompts and responses are never persisted on the server — only token counts, costs, and metadata.
+- **Raw request/response stored for debugging**: Provider request/response JSON is stored in usage_log metadata for admin query log inspection. Viewable in the admin dashboard Query Log.
 - **Anthropic-only at launch**: Subscription users get Anthropic models only. BYOK users retain full multi-provider access in the iOS app.
 
 ## Environment Variables
@@ -189,6 +189,10 @@ Key variables:
 | POST | `/webhooks/admin/simulate-tier` | X-Admin-Key | Tier simulation for testing |
 | POST | `/webhooks/admin/update-feature-state` | X-Admin-Key | Override feature state for a tier |
 | POST | `/webhooks/admin/capture-transcript` | X-Admin-Key | Send transcript to CQ on behalf of a user |
+| GET | `/webhooks/admin/user/{user_id}/queries` | X-Admin-Key | Paginated query log with raw request/response JSON |
+| GET | `/webhooks/admin/configs` | X-Admin-Key | List remote config files |
+| GET | `/webhooks/admin/config/{slug}` | X-Admin-Key | Get full config JSON |
+| PUT | `/webhooks/admin/config/{slug}` | X-Admin-Key | Update config (auto-increments version, hot-reloads) |
 | GET | `/webhooks/admin/provider-status` | X-Admin-Key | Provider health check |
 | POST | `/webhooks/admin/update-key` | X-Admin-Key | Update provider API key |
 | GET | `/docs` | None | Swagger UI |
