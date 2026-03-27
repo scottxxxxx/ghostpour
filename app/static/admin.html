@@ -995,6 +995,8 @@ async function saveConfig() {
     const result = await resp.json();
     statusEl.textContent = `Saved! v${result.version}`;
     statusEl.style.color = 'var(--green)';
+    // Re-fetch to show the auto-incremented version in the editor
+    await openConfig(currentConfigSlug);
     loadConfigs();
   } else {
     const err = await resp.json();

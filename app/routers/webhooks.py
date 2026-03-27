@@ -332,6 +332,12 @@ async def update_config(
     if not config_path.exists() and slug not in request.app.state.remote_configs:
         raise HTTPException(status_code=404, detail=f"Config '{slug}' not found")
 
+    # Auto-increment version if content changed
+    old_data = request.app.state.remote_configs.get(slug, {})
+    old_version = old_data.get("version", 0)
+    if body.data["version"] <= old_version:
+        body.data["version"] = old_version + 1
+
     # Write to disk
     config_path.write_text(json.dumps(body.data, indent=2, ensure_ascii=False) + "\n")
 
