@@ -1,6 +1,6 @@
 # CLAUDE.md — GhostPour
 
-> **Last updated:** March 29, 2026
+> **Last updated:** March 30, 2026
 > **Formerly:** CloudZap. Env vars still use `CZ_` prefix and some identifiers retain "cloudzap" for backwards compatibility with deployed clients.
 
 ## Project Overview

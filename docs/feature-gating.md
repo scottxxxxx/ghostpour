@@ -1,6 +1,6 @@
 # Feature Gating System
 
-> **Last updated:** March 29, 2026
+> **Last updated:** March 30, 2026
 
 Features have **three states per tier**, configured in `config/tiers.yml`:
 
@@ -48,6 +48,16 @@ GhostPour integrates with Context Quilt as the first feature using the generic f
 - Fires background `POST {CQ_BASE_URL}/v1/memory` with query, LLM response, and metadata
 - Never blocks the response to the user
 - Includes `meeting_id`, `project`, `call_type`, `prompt_mode` in metadata
+- **Capture skip list** — capture is suppressed for modes that consume or derive from existing quilt data (avoids echo/circular data). Capture only fires when ALL conditions are met:
+  1. `cq_state == "enabled"`
+  2. `context_quilt == true` in the request
+  3. `prompt_mode` not in: `PostMeetingChat`, `ProjectChat`, `AutoSummary`, `PostSessionAnalysis`
+  4. `session_duration_sec` is `None` (not an active recording — live transcripts are captured at session end via `/v1/capture-transcript`)
+- **Why each mode is skipped:**
+  - `PostMeetingChat` — user is querying the quilt, not generating new content
+  - `ProjectChat` — output is AI-synthesized from content CQ already has
+  - `AutoSummary` — machine-generated summary derived from transcript already captured
+  - `PostSessionAnalysis` — machine-generated classification (sentiment/urgency/tags) from an already-captured transcript
 
 **Quilt management (proxy):**
 - `GET /v1/quilt/{user_id}` → proxies to `GET {CQ_BASE_URL}/v1/quilt/{user_id}` (fetch patches)
