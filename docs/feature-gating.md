@@ -1,6 +1,6 @@
 # Feature Gating System
 
-> **Last updated:** March 26, 2026
+> **Last updated:** March 29, 2026
 
 Features have **three states per tier**, configured in `config/tiers.yml`:
 
@@ -53,6 +53,7 @@ GhostPour integrates with Context Quilt as the first feature using the generic f
 - `GET /v1/quilt/{user_id}` → proxies to `GET {CQ_BASE_URL}/v1/quilt/{user_id}` (fetch patches)
 - `PATCH /v1/quilt/{user_id}/patches/{patch_id}` → proxies to CQ (update patch)
 - `DELETE /v1/quilt/{user_id}/patches/{patch_id}` → proxies to CQ (delete patch)
+- `GET /v1/quilt/{user_id}/graph?format=svg` → proxies to CQ (graph visualization, returns `image/svg+xml` or `image/png`)
 - All require Bearer JWT; users can only access their own quilt
 - iOS `QuiltService` routes through GhostPour rather than calling CQ directly
 

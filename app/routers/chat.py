@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 import aiosqlite
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
 from app.config import get_settings
@@ -740,3 +740,43 @@ async def delete_quilt_patch(
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
     return await _cq_proxy("DELETE", f"/v1/quilt/{user_id}/patches/{patch_id}")
+
+
+@router.get("/quilt/{user_id}/graph")
+async def get_quilt_graph(
+    user_id: str,
+    format: str = "svg",
+    user: UserRecord = Depends(get_current_user),
+):
+    """Proxy: fetch user's quilt graph visualization from Context Quilt."""
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot access another user's quilt")
+    if format not in ("svg", "png"):
+        raise HTTPException(status_code=400, detail="Format must be 'svg' or 'png'")
+
+    settings = get_settings()
+    if not settings.cq_base_url:
+        raise HTTPException(status_code=503, detail="Context Quilt not configured")
+
+    try:
+        async with httpx.AsyncClient(base_url=settings.cq_base_url, timeout=15.0) as client:
+            resp = await client.get(
+                f"/v1/quilt/{user_id}/graph",
+                params={"format": format},
+                headers={"X-App-ID": settings.cq_app_id},
+            )
+        if resp.status_code != 200:
+            try:
+                detail = resp.json().get("detail", resp.text)
+            except Exception:
+                detail = resp.text or "Context Quilt error"
+            raise HTTPException(status_code=resp.status_code, detail=detail)
+
+        content_type = "image/svg+xml" if format == "svg" else "image/png"
+        return Response(content=resp.content, media_type=content_type)
+    except HTTPException:
+        raise
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Context Quilt timeout")
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Context Quilt unreachable: {e}")

@@ -1,6 +1,6 @@
 # CLAUDE.md — GhostPour
 
-> **Last updated:** March 26, 2026
+> **Last updated:** March 29, 2026
 > **Formerly:** CloudZap. Env vars still use `CZ_` prefix and some identifiers retain "cloudzap" for backwards compatibility with deployed clients.
 
 ## Project Overview
@@ -174,6 +174,7 @@ Key variables:
 | GET | `/v1/quilt/{user_id}` | Bearer JWT | Proxy: fetch user's quilt patches from Context Quilt |
 | PATCH | `/v1/quilt/{user_id}/patches/{patch_id}` | Bearer JWT | Proxy: update a quilt patch |
 | DELETE | `/v1/quilt/{user_id}/patches/{patch_id}` | Bearer JWT | Proxy: delete a quilt patch |
+| GET | `/v1/quilt/{user_id}/graph` | Bearer JWT | Proxy: CQ graph visualization (svg/png) |
 | POST | `/v1/verify-receipt` | Bearer JWT | StoreKit receipt verification |
 | POST | `/v1/sync-subscription` | Bearer JWT | Subscription state sync from iOS |
 | GET | `/v1/usage/me` | Bearer JWT | User's allocation, overage, usage stats, features |
@@ -213,7 +214,7 @@ Key variables:
 pytest tests/ -v
 ```
 
-41 tests covering: JWT, tier enforcement, provider routing, base64 redaction, rate limiting, generic adapter, pricing/cost calculation.
+50 tests covering: JWT, tier enforcement, provider routing, base64 redaction, rate limiting, generic adapter, pricing/cost calculation, CQ graph proxy.
 
 ## Related Projects
 
