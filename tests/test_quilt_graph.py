@@ -1,4 +1,4 @@
-"""Tests for the quilt graph proxy endpoint (GET /v1/quilt/{user_id}/graph)."""
+"""Tests for quilt proxy endpoints (graph visualization, prewarm)."""
 
 from unittest.mock import AsyncMock, patch
 
@@ -229,3 +229,53 @@ def test_graph_cq_returns_404(mock_settings, client):
         )
 
     assert resp.status_code == 404
+
+
+# --- Prewarm endpoint ---
+
+
+@patch("app.routers.chat.get_settings")
+def test_prewarm_success(mock_settings, client):
+    mock_settings.return_value.cq_base_url = "http://cq-mock"
+    mock_settings.return_value.cq_app_id = "cloudzap"
+
+    mock_resp = httpx.Response(
+        status_code=200,
+        json={"status": "warm", "profile": True, "entities": 42},
+        request=httpx.Request("POST", "http://cq-mock/v1/prewarm"),
+    )
+
+    with patch("httpx.AsyncClient") as MockClient:
+        instance = AsyncMock()
+        instance.__aenter__ = AsyncMock(return_value=instance)
+        instance.__aexit__ = AsyncMock(return_value=False)
+        instance.request = AsyncMock(return_value=mock_resp)
+        MockClient.return_value = instance
+
+        resp = client.post(
+            f"/v1/quilt/{TEST_USER_ID}/prewarm",
+            headers={"Authorization": "Bearer fake"},
+        )
+
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "warm"
+    assert resp.json()["entities"] == 42
+
+
+def test_prewarm_wrong_user_returns_403(wrong_user_client):
+    resp = wrong_user_client.post(
+        f"/v1/quilt/{TEST_USER_ID}/prewarm",
+        headers={"Authorization": "Bearer fake"},
+    )
+    assert resp.status_code == 403
+
+
+@patch("app.routers.chat.get_settings")
+def test_prewarm_cq_not_configured(mock_settings, client):
+    mock_settings.return_value.cq_base_url = ""
+
+    resp = client.post(
+        f"/v1/quilt/{TEST_USER_ID}/prewarm",
+        headers={"Authorization": "Bearer fake"},
+    )
+    assert resp.status_code == 503

@@ -742,6 +742,17 @@ async def delete_quilt_patch(
     return await _cq_proxy("DELETE", f"/v1/quilt/{user_id}/patches/{patch_id}")
 
 
+@router.post("/quilt/{user_id}/prewarm")
+async def prewarm_quilt(
+    user_id: str,
+    user: UserRecord = Depends(get_current_user),
+):
+    """Proxy: pre-warm CQ's Redis cache for this user at session start."""
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot access another user's quilt")
+    return await _cq_proxy("POST", "/v1/prewarm", {"user_id": user_id})
+
+
 @router.get("/quilt/{user_id}/graph")
 async def get_quilt_graph(
     user_id: str,

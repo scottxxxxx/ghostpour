@@ -64,6 +64,7 @@ GhostPour integrates with Context Quilt as the first feature using the generic f
 - `PATCH /v1/quilt/{user_id}/patches/{patch_id}` → proxies to CQ (update patch)
 - `DELETE /v1/quilt/{user_id}/patches/{patch_id}` → proxies to CQ (delete patch)
 - `GET /v1/quilt/{user_id}/graph?format=svg` → proxies to CQ (graph visualization, returns `image/svg+xml` or `image/png`)
+- `POST /v1/quilt/{user_id}/prewarm` → proxies to `POST {CQ_BASE_URL}/v1/prewarm` (warm Redis cache at session start, <50ms)
 - All require Bearer JWT; users can only access their own quilt
 - iOS `QuiltService` routes through GhostPour rather than calling CQ directly
 

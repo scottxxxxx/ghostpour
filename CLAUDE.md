@@ -175,6 +175,7 @@ Key variables:
 | PATCH | `/v1/quilt/{user_id}/patches/{patch_id}` | Bearer JWT | Proxy: update a quilt patch |
 | DELETE | `/v1/quilt/{user_id}/patches/{patch_id}` | Bearer JWT | Proxy: delete a quilt patch |
 | GET | `/v1/quilt/{user_id}/graph` | Bearer JWT | Proxy: CQ graph visualization (svg/png) |
+| POST | `/v1/quilt/{user_id}/prewarm` | Bearer JWT | Proxy: warm CQ Redis cache at session start |
 | POST | `/v1/verify-receipt` | Bearer JWT | StoreKit receipt verification |
 | POST | `/v1/sync-subscription` | Bearer JWT | Subscription state sync from iOS |
 | GET | `/v1/usage/me` | Bearer JWT | User's allocation, overage, usage stats, features |
@@ -214,7 +215,7 @@ Key variables:
 pytest tests/ -v
 ```
 
-50 tests covering: JWT, tier enforcement, provider routing, base64 redaction, rate limiting, generic adapter, pricing/cost calculation, CQ graph proxy.
+53 tests covering: JWT, tier enforcement, provider routing, base64 redaction, rate limiting, generic adapter, pricing/cost calculation, CQ graph proxy, CQ prewarm proxy.
 
 ## Related Projects
 
