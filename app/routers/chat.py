@@ -1,6 +1,9 @@
 import asyncio
+import logging
 import time
 from datetime import datetime, timedelta, timezone
+
+logger = logging.getLogger(__name__)
 
 import aiosqlite
 import httpx
@@ -784,7 +787,13 @@ async def get_quilt_graph(
             raise HTTPException(status_code=resp.status_code, detail=detail)
 
         content_type = "image/svg+xml" if format == "svg" else "image/png"
-        return Response(content=resp.content, media_type=content_type)
+        size = len(resp.content)
+        logger.info("quilt_graph_proxy", extra={"user_id": user_id, "format": format, "bytes": size})
+        return Response(
+            content=resp.content,
+            media_type=content_type,
+            headers={"Content-Length": str(size), "X-Graph-Bytes": str(size)},
+        )
     except HTTPException:
         raise
     except httpx.TimeoutException:
