@@ -20,7 +20,7 @@ GhostPour serves JSON config files to the ShoulderSurf iOS app via `GET /v1/conf
 | Slug | File | Purpose |
 |------|------|---------|
 | `idle-tips` | `config/remote/idle-tips.json` | Orb idle tip messages |
-| `ProtectedPrompts` | `config/remote/ProtectedPrompts.json` | System prompts, summary prompts, default prompt modes |
+| `protected-prompts` | `config/remote/protected-prompts.json` | System prompts, summary prompts, default prompt modes |
 | `llm-providers` | `config/remote/llm-providers.json` | Provider endpoints and model lists |
 | `model-capabilities` | `config/remote/model-capabilities.json` | Per-model context slots, token limits, CQ readiness |
 
