@@ -49,6 +49,14 @@ English (`en`) is the default — no `.en.json` suffix needed.
 |------------|------------------|
 | `protected-prompts` | `es` (Spanish) |
 
+## Multi-app convention
+
+For deployments serving multiple client apps, prefix config slugs with the app name to avoid collisions:
+- `myapp-prompts` instead of `prompts`
+- `myapp-providers` instead of `providers`
+
+This is a naming convention, not enforced by code. Single-app deployments can use unprefixed slugs.
+
 ## To add a new config
 
 Drop a `.json` file with a `"version"` field into `config/remote/` and restart. The slug is the filename without `.json`.

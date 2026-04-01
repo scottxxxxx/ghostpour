@@ -58,8 +58,9 @@ async def verify_receipt(
     global PRODUCT_TO_TIER
     if not PRODUCT_TO_TIER:
         for name, tier in tier_config.tiers.items():
-            if tier.storekit_product_id:
-                PRODUCT_TO_TIER[tier.storekit_product_id] = name
+            for product_id in tier.all_product_ids.values():
+                if product_id:
+                    PRODUCT_TO_TIER[product_id] = name
 
     # Look up tier for this product
     new_tier_name = PRODUCT_TO_TIER.get(body.product_id)
@@ -216,8 +217,9 @@ async def sync_subscription(
     global PRODUCT_TO_TIER
     if not PRODUCT_TO_TIER:
         for name, tier in tier_config.tiers.items():
-            if tier.storekit_product_id:
-                PRODUCT_TO_TIER[tier.storekit_product_id] = name
+            for product_id in tier.all_product_ids.values():
+                if product_id:
+                    PRODUCT_TO_TIER[product_id] = name
 
     expected_tier = PRODUCT_TO_TIER.get(body.active_product_id)
     if not expected_tier:
@@ -369,6 +371,13 @@ async def usage_me(
             "cached_tokens": stats["cached_tokens"],
             "cost_usd": round(stats["cost"], 4),
         },
+        # App-specific tier constraints (nested for new clients, top-level for backwards compat)
+        "app_config": {
+            "summary_mode": tier.summary_mode if tier else "delta",
+            "summary_interval_minutes": tier.summary_interval_minutes if tier else 10,
+            "max_images_per_request": tier.max_images_per_request if tier else 0,
+        },
+        # Backwards compat: keep top-level fields for existing clients
         "summary_mode": tier.summary_mode if tier else "delta",
         "summary_interval_minutes": tier.summary_interval_minutes if tier else 10,
         "max_images_per_request": tier.max_images_per_request if tier else 0,

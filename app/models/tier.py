@@ -18,11 +18,21 @@ class TierDefinition(BaseModel):
     allowed_models: list[str] = []
     max_images_per_request: int = 0
     hours_per_month: int = -1           # -1 = unlimited, display only
-    storekit_product_id: str = ""
+    storekit_product_id: str = ""       # DEPRECATED: use app_product_ids
+    app_product_ids: dict[str, str] = {}  # app_name -> StoreKit product ID
     # Generic feature gating: feature_name -> "enabled" | "teaser" | "disabled"
     features: dict[str, str] = {}
     # Display bullets for subscription UI
     feature_bullets: list[str] = []
+
+    @property
+    def all_product_ids(self) -> dict[str, str]:
+        """All product IDs across apps. Falls back to storekit_product_id."""
+        if self.app_product_ids:
+            return self.app_product_ids
+        if self.storekit_product_id:
+            return {"default": self.storekit_product_id}
+        return {}
 
     def feature_state(self, feature_name: str) -> str:
         """Get the state of a feature for this tier. Defaults to 'disabled'."""
