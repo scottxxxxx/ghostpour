@@ -1,109 +1,73 @@
 # Security Hardening Guide
 
-> **Created:** April 1, 2026
+> **Last updated:** April 1, 2026
 
 Post-public-repo security measures for the GhostPour + ShoulderSurf + Context Quilt stack.
 
-## Current Security Model (already solid)
+## Current Security Model
 
-| Protection | How It Works |
-|-----------|-------------|
-| **Server-side tier enforcement** | JWT contains only `user_id` — tier is always read from DB. No way to "upgrade yourself" by modifying requests. |
-| **Apple Sign In bundle check** | `/auth/apple` verifies identity tokens against Apple JWKS and checks `com.shouldersurf.ShoulderSurf` bundle ID. A different app's tokens are rejected. |
-| **API keys never leave server** | Anthropic key stays in GhostPour's env vars. Clients never see upstream credentials. |
-| **Server-side cost tracking** | Every request deducts from allocation. Replaying requests still costs the attacker their own quota. |
-| **JWT secret server-side** | Attackers can't mint tokens. |
-| **HTTPS enforced** | NPM redirects HTTP → HTTPS via Let's Encrypt. |
+| Protection | Status | How It Works |
+|-----------|--------|-------------|
+| **Server-side tier enforcement** | Active | JWT contains only `user_id` — tier is always read from DB. No way to "upgrade yourself" by modifying requests. |
+| **Apple Sign In bundle check** | Active | `/auth/apple` verifies identity tokens against Apple JWKS and checks bundle ID. A different app's tokens are rejected. |
+| **API keys never leave server** | Active | Anthropic key stays in GhostPour's env vars. Clients never see upstream credentials. |
+| **Server-side cost tracking** | Active | Every request deducts from allocation. Replaying requests still costs the attacker their own quota. |
+| **JWT secret server-side** | Active | Attackers can't mint tokens. |
+| **HTTPS enforced** | Active | NPM redirects HTTP → HTTPS via Let's Encrypt. |
+| **SSL certificate pinning** | Active | SS iOS pins Let's Encrypt intermediate + ISRG Root X1 on all GhostPour calls. Blocks MITM proxy tools. |
+| **CQ JWT auth** | Active | GhostPour authenticates to CQ with JWT bearer tokens (UUID app `930824d3`). Legacy `X-App-ID` string fallback is disabled. |
+| **CQ enforce_auth** | Active | CQ requires JWT for all requests from GhostPour's registered app. X-App-ID-only access is rejected. |
 
-## Recommended Hardening
+## Hardening Measures (all deployed)
 
-### 1. SSL Certificate Pinning (ShoulderSurf iOS)
+### 1. SSL Certificate Pinning (ShoulderSurf iOS) — DEPLOYED
 
-**What:** Pin the Let's Encrypt intermediate CA public key in SS's `URLSession` configuration. This prevents MITM proxy tools (Charles, Proxyman, mitmproxy) from intercepting GhostPour API traffic, even on jailbroken devices.
+SS iOS app (build 1.0.6+) pins the Let's Encrypt intermediate CA and ISRG Root X1 public keys on all GhostPour API calls. This prevents MITM proxy tools (Charles, Proxyman, mitmproxy) from intercepting traffic, even on jailbroken devices.
 
-**Why not pin the leaf cert:** Let's Encrypt certs auto-renew every 90 days. Pinning the leaf cert would break the app on renewal. Pinning the intermediate CA survives renewals.
+**Pinned services (SS side):**
+- CloudZapAuthManager (auth/token refresh)
+- CloudZapProvider (LLM queries)
+- QuiltService (Context Quilt API)
+- RemoteConfigManager (config sync)
+- SubscriptionManager (receipt verification)
+- TierCatalog (tier catalog fetch)
+
+**NOT pinned (intentionally):**
+- BYOK direct API calls (OpenAI, Anthropic, Google)
+- LiteLLM pricing fetch (GitHub)
+- Apple frameworks (StoreKit, CloudKit)
 
 **SPKI Hashes (SHA-256, base64):**
 
 | Certificate | Subject | Hash |
 |------------|---------|------|
 | Leaf (rotates every 90 days) | `CN=cz.shouldersurf.com` | `yAn+9RntePRrBk83oKSUhzd+brP6oYTCWqFYbIgnpGs=` |
-| **Intermediate (pin this)** | `C=US, O=Let's Encrypt, CN=E8` | `iFvwVyJSxnQdyaUvUERIf+8qk7gRze3612JMwoO3zdU=` |
-| **Root (backup pin)** | `C=US, O=ISRG, CN=ISRG Root X1` | `C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=` |
-
-**Implementation (SS team):**
-
-Pin both the intermediate AND root for redundancy. If Let's Encrypt rotates their intermediate CA, the root pin keeps the app working.
-
-```swift
-// In your URLSession delegate or networking layer:
-class PinningDelegate: NSObject, URLSessionDelegate {
-    // Let's Encrypt E8 intermediate + ISRG Root X1
-    private let pinnedHashes: Set<String> = [
-        "iFvwVyJSxnQdyaUvUERIf+8qk7gRze3612JMwoO3zdU=",  // E8 intermediate
-        "C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=",  // ISRG Root X1
-    ]
-
-    func urlSession(
-        _ session: URLSession,
-        didReceive challenge: URLAuthenticationChallenge,
-        completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
-    ) {
-        guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
-              let serverTrust = challenge.protectionSpace.serverTrust else {
-            completionHandler(.cancelAuthenticationChallenge, nil)
-            return
-        }
-
-        // Check each certificate in the chain
-        let certCount = SecTrustGetCertificateCount(serverTrust)
-        for i in 0..<certCount {
-            guard let cert = SecTrustCopyCertificateChain(serverTrust)?[i] as! SecCertificate?,
-                  let publicKey = SecCertificateCopyKey(cert) else { continue }
-
-            var error: Unmanaged<CFError>?
-            guard let publicKeyData = SecKeyCopyExternalRepresentation(publicKey, &error) as Data? else { continue }
-
-            let hash = Data(SHA256.hash(data: publicKeyData)).base64EncodedString()
-            if pinnedHashes.contains(hash) {
-                completionHandler(.useCredential, URLCredential(trust: serverTrust))
-                return
-            }
-        }
-
-        // No pin matched — reject the connection
-        completionHandler(.cancelAuthenticationChallenge, nil)
-    }
-}
-```
-
-**Applies to:** All GhostPour API calls (`cz.shouldersurf.com` and eventually `api.ghostpour.com`). Does NOT apply to Apple's servers, App Store, or other third-party URLs.
-
-**GhostPour/Bifrost changes required:** None. This is purely an iOS-side check.
+| **Intermediate (pinned)** | `C=US, O=Let's Encrypt, CN=E8` | `iFvwVyJSxnQdyaUvUERIf+8qk7gRze3612JMwoO3zdU=` |
+| **Root (pinned, backup)** | `C=US, O=ISRG, CN=ISRG Root X1` | `C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=` |
 
 **Risks:**
-- If Let's Encrypt retires BOTH the E8 intermediate AND ISRG Root X1, pinning breaks. This would be a major internet event with years of notice.
-- During development, MITM debugging tools won't work with pinning enabled. Add a debug-only bypass (disabled in release builds).
+- If Let's Encrypt retires BOTH E8 intermediate AND ISRG Root X1, pinning breaks. This would be a major internet event with years of notice.
+- Debug builds should bypass pinning for development (disabled in release).
 
-### 2. Strict Auth on Context Quilt
+### 2. CQ JWT Auth + enforce_auth — DEPLOYED
 
-**What:** Enable `enforce_auth: true` on the CQ app registration. This forces JWT validation on every CQ request, so knowing the `X-App-ID` string alone isn't enough.
+GhostPour registered as a proper CQ app (UUID: `930824d3-2ccb-4869-b3f0-0ed2693f183f`) and authenticates with JWT bearer tokens. The legacy `X-App-ID: cloudzap` string ID is now blocked by CQ.
 
-**Why:** The `X-App-ID: cloudzap` header is a simple string that's visible in the public repo. With strict auth, CQ also validates the JWT, so an attacker can't call CQ directly even if they know the app ID.
+**How it works:**
+1. GhostPour obtains a JWT from `POST /v1/auth/token` using its `app_id` (UUID) and `client_secret`
+2. Tokens are cached and auto-refreshed 30 seconds before expiry
+3. All CQ calls (recall, capture, proxy endpoints, graph) use `Authorization: Bearer {token}`
+4. If token fetch fails, falls back to `X-App-ID` header (which CQ now rejects for enforced apps)
 
-**Action (CQ team):**
-```bash
-PATCH /v1/auth/apps/{app_uuid}
-Body: {"enforce_auth": true}
-```
+**Config:**
+- `CZ_CQ_APP_ID` — UUID app identifier (not the legacy string)
+- `CZ_CQ_CLIENT_SECRET` — client secret for token exchange (env var only, never in code)
 
-**GhostPour impact:** None. GhostPour already sends JWTs to CQ via the `Authorization` header in proxy requests. This change just tells CQ to stop accepting the `X-App-ID` fallback.
-
-### 3. Shorter JWT Lifetimes (optional)
+### 3. Shorter JWT Lifetimes — RECOMMENDED
 
 **Current:** 24 hours (`CZ_JWT_ACCESS_TOKEN_EXPIRE_MINUTES=1440`)
 
-**Recommended:** 60 minutes. Reduces the window for a stolen token. SS already has refresh token rotation, so the UX impact is minimal — the app silently refreshes.
+**Recommended:** 60 minutes. Reduces the window for a stolen token. SS already has refresh token rotation, so the UX impact is minimal.
 
 **Change:** Update `CZ_JWT_ACCESS_TOKEN_EXPIRE_MINUTES=60` in `.env.prod` on the GCP VM.
 
