@@ -28,7 +28,8 @@ class Settings(BaseSettings):
 
     # Context Quilt integration
     cq_base_url: str = ""              # e.g., "https://cq.shouldersurf.com"
-    cq_app_id: str = "cloudzap"        # App identifier for CQ
+    cq_app_id: str = "cloudzap"        # App identifier for CQ (UUID or legacy string)
+    cq_client_secret: str = ""         # Client secret for CQ JWT auth (empty = use X-App-ID fallback)
     cq_recall_timeout_ms: int = 200    # Max wait for CQ recall (ms)
 
     # Database

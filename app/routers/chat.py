@@ -685,12 +685,13 @@ async def _cq_proxy(method: str, path: str, body: dict | None = None) -> JSONRes
         raise HTTPException(status_code=503, detail="Context Quilt not configured")
 
     try:
+        auth_headers = await cq._get_auth_headers()
         async with httpx.AsyncClient(base_url=settings.cq_base_url, timeout=10.0) as client:
             resp = await client.request(
                 method,
                 path,
                 json=body,
-                headers={"X-App-ID": settings.cq_app_id},
+                headers=auth_headers,
             )
         try:
             content = resp.json()
@@ -798,11 +799,12 @@ async def get_quilt_graph(
         raise HTTPException(status_code=503, detail="Context Quilt not configured")
 
     try:
+        auth_headers = await cq._get_auth_headers()
         async with httpx.AsyncClient(base_url=settings.cq_base_url, timeout=15.0) as client:
             resp = await client.get(
                 f"/v1/quilt/{user_id}/graph",
                 params={"format": format},
-                headers={"X-App-ID": settings.cq_app_id},
+                headers=auth_headers,
             )
         if resp.status_code != 200:
             try:

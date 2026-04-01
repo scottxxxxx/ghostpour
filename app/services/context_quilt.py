@@ -6,10 +6,13 @@ Handles two flows:
   2. Capture: After the LLM responds, send query+response to CQ for learning
 
 Both flows are controlled by the `context_quilt: true` flag in ChatRequest.
+
+Auth: If CQ_CLIENT_SECRET is set, uses JWT bearer tokens (auto-refreshing).
+Otherwise falls back to X-App-ID header (legacy, for backwards compat).
 """
 
-import asyncio
 import logging
+import time
 from typing import Any
 
 import httpx
@@ -21,6 +24,10 @@ logger = logging.getLogger(__name__)
 # Shared HTTP client (created on first use)
 _client: httpx.AsyncClient | None = None
 
+# JWT token cache
+_token: str | None = None
+_token_expires_at: float = 0
+
 
 def _get_client() -> httpx.AsyncClient:
     global _client
@@ -31,6 +38,44 @@ def _get_client() -> httpx.AsyncClient:
             timeout=httpx.Timeout(5.0),  # General timeout; recall uses its own
         )
     return _client
+
+
+async def _get_auth_headers() -> dict[str, str]:
+    """Get auth headers for CQ requests. Uses JWT if configured, else X-App-ID."""
+    global _token, _token_expires_at
+
+    settings = get_settings()
+
+    if not settings.cq_client_secret:
+        # Legacy fallback: X-App-ID header
+        return {"X-App-ID": settings.cq_app_id}
+
+    # JWT auth: refresh token if expired or about to expire (30s buffer)
+    if _token and time.time() < _token_expires_at - 30:
+        return {"Authorization": f"Bearer {_token}"}
+
+    # Fetch new token
+    try:
+        client = _get_client()
+        resp = await client.post(
+            "/v1/auth/token",
+            data={
+                "username": settings.cq_app_id,
+                "password": settings.cq_client_secret,
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        resp.raise_for_status()
+        token_data = resp.json()
+        _token = token_data["access_token"]
+        _token_expires_at = time.time() + token_data.get("expires_in", 3600)
+        logger.info("cq_token_refreshed", extra={"expires_in": token_data.get("expires_in")})
+        return {"Authorization": f"Bearer {_token}"}
+
+    except Exception as e:
+        logger.warning("cq_token_error", extra={"error": str(e)})
+        # Fall back to X-App-ID if token fetch fails
+        return {"X-App-ID": settings.cq_app_id}
 
 
 async def recall(user_id: str, text: str, metadata: dict | None = None) -> dict:
@@ -60,10 +105,11 @@ async def recall(user_id: str, text: str, metadata: dict | None = None) -> dict:
         if metadata:
             body["metadata"] = metadata
 
+        auth_headers = await _get_auth_headers()
         resp = await client.post(
             "/v1/recall",
             json=body,
-            headers={"X-App-ID": settings.cq_app_id},
+            headers=auth_headers,
             timeout=httpx.Timeout(timeout_sec),
         )
         resp.raise_for_status()
@@ -137,10 +183,11 @@ async def capture(
 
     try:
         client = _get_client()
+        auth_headers = await _get_auth_headers()
         resp = await client.post(
             "/v1/memory",
             json=body,
-            headers={"X-App-ID": settings.cq_app_id},
+            headers=auth_headers,
         )
         resp.raise_for_status()
         logger.info("cq_capture_ok", extra={"type": interaction_type})
