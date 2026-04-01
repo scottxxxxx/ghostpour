@@ -540,6 +540,14 @@ async def chat(
                     "system_prompt": f"[CONTEXT FROM PREVIOUS MEETINGS]\n{cq_context}\n\n{body.system_prompt}"
                 })
 
+        # Inject communication style for chat modes only
+        if cq_result.get("communication_style") and body.get_meta("prompt_mode") in (
+            "ProjectChat", "PostMeetingChat"
+        ):
+            body = body.model_copy(update={
+                "system_prompt": body.system_prompt + f"\n\n{cq_result['communication_style']}"
+            })
+
     elif cq_state == "teaser" and "context_quilt" not in skip_teasers:
         # Teaser: recall for metadata only, don't inject into prompt
         cq_metadata = {}
