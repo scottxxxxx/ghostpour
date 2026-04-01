@@ -762,7 +762,7 @@ async def assign_meeting_project(
         raise HTTPException(status_code=403, detail="Cannot modify another user's meetings")
     payload = {"project_id": body.project_id}
     if body.project is not None:
-        payload["project"] = body.project
+        payload["project_name"] = body.project
     return await _cq_proxy(
         "POST",
         f"/v1/meetings/{user_id}/{meeting_id}/assign-project",
