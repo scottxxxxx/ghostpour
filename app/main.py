@@ -84,3 +84,8 @@ app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(chat.router, prefix="/v1", tags=["chat"])
 app.include_router(config.router, tags=["config"])
 app.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
+
+# Context Quilt proxy routes — only included when CQ is configured
+if get_settings().cq_base_url:
+    from app.routers import cq_proxy
+    app.include_router(cq_proxy.router, prefix="/v1", tags=["context-quilt"])
