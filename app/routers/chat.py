@@ -745,6 +745,31 @@ async def delete_quilt_patch(
     return await _cq_proxy("DELETE", f"/v1/quilt/{user_id}/patches/{patch_id}")
 
 
+class AssignProjectRequest(BaseModel):
+    project_id: str
+    project: str | None = None  # Display name, optional
+
+
+@router.post("/meetings/{user_id}/{meeting_id}/assign-project")
+async def assign_meeting_project(
+    user_id: str,
+    meeting_id: str,
+    body: AssignProjectRequest,
+    user: UserRecord = Depends(get_current_user),
+):
+    """Proxy: reassign a meeting's patches to a different project in Context Quilt."""
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify another user's meetings")
+    payload = {"project_id": body.project_id}
+    if body.project is not None:
+        payload["project"] = body.project
+    return await _cq_proxy(
+        "POST",
+        f"/v1/meetings/{user_id}/{meeting_id}/assign-project",
+        payload,
+    )
+
+
 @router.post("/quilt/{user_id}/prewarm")
 async def prewarm_quilt(
     user_id: str,

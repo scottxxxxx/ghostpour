@@ -279,3 +279,54 @@ def test_prewarm_cq_not_configured(mock_settings, client):
         headers={"Authorization": "Bearer fake"},
     )
     assert resp.status_code == 503
+
+
+# --- Assign meeting project endpoint ---
+
+TEST_MEETING_ID = "meeting-abc-456"
+
+
+@patch("app.routers.chat.get_settings")
+def test_assign_project_success(mock_settings, client):
+    mock_settings.return_value.cq_base_url = "http://cq-mock"
+    mock_settings.return_value.cq_app_id = "cloudzap"
+
+    mock_resp = httpx.Response(
+        status_code=200,
+        json={"status": "ok", "patches_updated": 5},
+        request=httpx.Request("POST", "http://cq-mock/v1/meetings/test/assign"),
+    )
+
+    with patch("httpx.AsyncClient") as MockClient:
+        instance = AsyncMock()
+        instance.__aenter__ = AsyncMock(return_value=instance)
+        instance.__aexit__ = AsyncMock(return_value=False)
+        instance.request = AsyncMock(return_value=mock_resp)
+        MockClient.return_value = instance
+
+        resp = client.post(
+            f"/v1/meetings/{TEST_USER_ID}/{TEST_MEETING_ID}/assign-project",
+            json={"project_id": "proj-new-789", "project": "New Project"},
+            headers={"Authorization": "Bearer fake"},
+        )
+
+    assert resp.status_code == 200
+    assert resp.json()["patches_updated"] == 5
+
+
+def test_assign_project_wrong_user_returns_403(wrong_user_client):
+    resp = wrong_user_client.post(
+        f"/v1/meetings/{TEST_USER_ID}/{TEST_MEETING_ID}/assign-project",
+        json={"project_id": "proj-new-789"},
+        headers={"Authorization": "Bearer fake"},
+    )
+    assert resp.status_code == 403
+
+
+def test_assign_project_missing_project_id_returns_422(client):
+    resp = client.post(
+        f"/v1/meetings/{TEST_USER_ID}/{TEST_MEETING_ID}/assign-project",
+        json={},
+        headers={"Authorization": "Bearer fake"},
+    )
+    assert resp.status_code == 422
