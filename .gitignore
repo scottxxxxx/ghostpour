@@ -37,6 +37,10 @@ docker-compose.override.yml
 # Planning docs (internal, not open-source)
 *.docx
 
+# Claude Code (private dev context)
+CLAUDE.md
+RENAMING_STRATEGY.md
+
 # pytest
 .pytest_cache/
 htmlcov/

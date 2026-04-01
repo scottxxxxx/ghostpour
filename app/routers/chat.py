@@ -25,7 +25,7 @@ router = APIRouter()
 
 
 class VerifyReceiptRequest(BaseModel):
-    product_id: str              # e.g., "com.weirtech.shouldersurf.sub.ultra.monthly"
+    product_id: str              # e.g., "com.example.myapp.sub.ultra.monthly"
     transaction_id: str          # StoreKit 2 original transaction ID
     signed_transaction: str | None = None  # JWS for future server-side verification
     offer_type: str | None = None  # "introductory" for free trial, None for paid
@@ -656,7 +656,7 @@ async def capture_transcript(
     """
     End-of-meeting transcript capture for Context Quilt.
 
-    ShoulderSurf calls this at session end to send the full raw transcript.
+    Called by the client app at session end to send the full raw transcript.
     CQ extracts traits, preferences, and durable facts from the raw dialogue
     that would otherwise be lost in per-query summarization.
     """

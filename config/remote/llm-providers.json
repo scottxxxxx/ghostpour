@@ -3,9 +3,9 @@
   "providers": [
     {
       "id": "cloudzap",
-      "displayName": "Shoulder Surf AI",
+      "displayName": "Managed AI",
       "apiFormat": "cloudzap",
-      "baseURL": "https://cz.shouldersurf.com/v1/chat",
+      "baseURL": "https://api.example.com/v1/chat",
       "authHeaderName": "Authorization",
       "authHeaderPrefix": "Bearer ",
       "extraHeaders": {},
@@ -16,15 +16,15 @@
       "models": [
         {
           "id": "auto",
-          "displayName": "Managed by Shoulder Surf AI",
+          "displayName": "Managed by GhostPour",
           "description": "We select the best AI model for your subscription tier. No configuration needed.",
           "isDefault": true,
           "supportsVision": true,
           "contextWindow": 200000
         }
       ],
-      "notes": "Shoulder Surf's managed AI service. Sign in with Apple, subscribe, and we handle the rest.",
-      "keyURL": "https://cz.shouldersurf.com/docs"
+      "notes": "GhostPour managed AI service. Sign in with Apple, subscribe, and we handle the rest.",
+      "keyURL": "https://api.example.com/docs"
     },
     {
       "id": "onDevice",

@@ -68,7 +68,7 @@ GhostPour integrates with Context Quilt as the first feature using the generic f
 - All require Bearer JWT; users can only access their own quilt
 - iOS `QuiltService` routes through GhostPour rather than calling CQ directly
 
-**Response headers (for ShoulderSurf UI indicator):**
+**Response headers (for the client app UI indicator):**
 - `X-CQ-Matched`: number of entities matched (e.g., "3")
 - `X-CQ-Entities`: comma-separated entity names (e.g., "Bob Martinez,Widget 2.0")
 - `X-CQ-Gated`: `"true"` when CQ is in teaser mode (ran recall but didn't inject)
@@ -81,6 +81,6 @@ GhostPour integrates with Context Quilt as the first feature using the generic f
 - `skip_teasers: list[str] | None` — client-side opt-out for teaser features (e.g., `["context_quilt"]`)
 
 **Config:**
-- `CZ_CQ_BASE_URL` — CQ endpoint (e.g., `https://cq.shouldersurf.com`)
+- `CZ_CQ_BASE_URL` — CQ endpoint (e.g., `https://cq.example.com`)
 - `CZ_CQ_APP_ID` — app identifier for CQ auth (default: `cloudzap`)
 - `CZ_CQ_RECALL_TIMEOUT_MS` — max wait for recall (default: 200)
