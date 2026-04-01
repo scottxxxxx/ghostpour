@@ -49,6 +49,7 @@ async def lifespan(app: FastAPI):
     app.state.rate_limiter = RateLimiter()
     app.state.usage_tracker = UsageTracker()
 
+    config.seed_remote_configs()
     app.state.remote_configs = config.load_remote_configs()
 
     pricing = PricingService(

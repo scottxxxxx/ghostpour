@@ -10,6 +10,7 @@ responses (no cached body to serve) into 404s for downstream clients.
 
 import json
 import logging
+import shutil
 from pathlib import Path
 
 from fastapi import APIRouter, Request
@@ -19,12 +20,36 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Map URL slug → filename in config/remote/
-CONFIG_DIR = Path(__file__).parent.parent.parent / "config" / "remote"
+# Baked-in configs shipped with the image (read-only baseline)
+_BUNDLED_DIR = Path(__file__).parent.parent.parent / "config" / "remote"
+
+# Persistent directory for live configs (inside the mounted data volume).
+# Dashboard edits write here and survive container restarts.
+CONFIG_DIR = Path(__file__).parent.parent.parent / "data" / "remote-config"
+
+
+def seed_remote_configs() -> None:
+    """Copy any missing bundled configs into the persistent directory.
+
+    Called once at startup. Bundled files that already exist in the persistent
+    directory are left untouched — dashboard edits take precedence over the
+    baked-in baseline.
+    """
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+
+    if not _BUNDLED_DIR.is_dir():
+        logger.warning("Bundled config directory not found: %s", _BUNDLED_DIR)
+        return
+
+    for src in _BUNDLED_DIR.glob("*.json"):
+        dest = CONFIG_DIR / src.name
+        if not dest.exists():
+            shutil.copy2(src, dest)
+            logger.info("Seeded remote config from bundle: %s", src.name)
 
 
 def load_remote_configs() -> dict[str, dict]:
-    """Load all JSON files from config/remote/ into a slug→data dict.
+    """Load all JSON files from the persistent config directory into a slug→data dict.
 
     Each JSON file must have a top-level "version" integer.
     The slug is the filename without .json (e.g., idle-tips.json → idle-tips).
@@ -78,16 +103,28 @@ async def get_config(name: str, request: Request):
     configs: dict[str, dict] = request.app.state.remote_configs
 
     # Resolve locale-specific config with fallback
-    locale = _parse_accept_language(request.headers.get("Accept-Language"))
+    accept_lang = request.headers.get("Accept-Language")
+    locale = _parse_accept_language(accept_lang)
     localized_name = f"{name}.{locale}" if locale else None
+
+    logger.info(
+        "Config request: name=%s, Accept-Language=%r, parsed_locale=%s, "
+        "trying=%s, available=[%s]",
+        name, accept_lang, locale or "en",
+        localized_name or name,
+        ", ".join(sorted(configs.keys())),
+    )
 
     if localized_name and localized_name in configs:
         data = configs[localized_name]
         resolved_name = localized_name
+        logger.info("Resolved to localized config: %s", resolved_name)
     elif name in configs:
         data = configs[name]
         resolved_name = name
+        logger.info("Resolved to base config: %s (no localized version found)", resolved_name)
     else:
+        logger.warning("Config not found: %s (tried %s)", name, localized_name or name)
         return JSONResponse(status_code=404, content={"error": f"Unknown config: {name}"})
 
     server_version = data["version"]
@@ -102,6 +139,7 @@ async def get_config(name: str, request: Request):
                     headers={
                         "X-Config-Version": str(server_version),
                         "X-Config-Locale": locale or "en",
+                        "X-Config-Resolved": resolved_name,
                     },
                 )
         except (ValueError, TypeError):
@@ -112,6 +150,7 @@ async def get_config(name: str, request: Request):
         headers={
             "X-Config-Version": str(server_version),
             "X-Config-Locale": locale or "en",
+            "X-Config-Resolved": resolved_name,
             "Cache-Control": "public, max-age=300",
         },
     )

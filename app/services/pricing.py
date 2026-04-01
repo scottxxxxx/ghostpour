@@ -64,25 +64,35 @@ class PricingService:
                 resp.raise_for_status()
                 raw_data = resp.json()
 
-                # Filter out entries with absurd pricing (bad upstream data)
+                # Filter out entries with absurd pricing (bad upstream data).
+                # Models with bad prices keep their last known good value.
                 filtered = {}
-                rejected = 0
+                carried = 0
                 for model_id, info in raw_data.items():
                     inp = info.get("input_cost_per_token") or 0
                     out = info.get("output_cost_per_token") or 0
                     if inp > self.MAX_COST_PER_TOKEN or out > self.MAX_COST_PER_TOKEN:
-                        rejected += 1
+                        if model_id in self._prices:
+                            filtered[model_id] = self._prices[model_id]
+                            carried += 1
                         continue
                     filtered[model_id] = info
 
                 self._prices = filtered
                 self._last_fetch = time.monotonic()
-                logger.info(
-                    "Loaded pricing data: %d models from %s (%d rejected for bad pricing)",
-                    len(self._prices),
-                    self.source_url,
-                    rejected,
-                )
+                if carried:
+                    logger.info(
+                        "Loaded pricing data: %d models from %s (%d kept previous good price)",
+                        len(self._prices),
+                        self.source_url,
+                        carried,
+                    )
+                else:
+                    logger.info(
+                        "Loaded pricing data: %d models from %s",
+                        len(self._prices),
+                        self.source_url,
+                    )
         except Exception as e:
             logger.warning("Failed to fetch pricing data: %s", e)
             # Keep stale data if we have it
