@@ -171,7 +171,7 @@ async def prewarm_quilt(
     """Proxy: pre-warm CQ's Redis cache for this user at session start."""
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot access another user's quilt")
-    return await _cq_proxy("POST", "/v1/prewarm", {"user_id": user_id})
+    return await _cq_proxy("POST", f"/v1/prewarm?user_id={user_id}")
 
 
 # --- Graph visualization ---
