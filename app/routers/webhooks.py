@@ -329,8 +329,15 @@ async def update_config(
     from app.routers.config import CONFIG_DIR, load_remote_configs
 
     config_path = CONFIG_DIR / f"{slug}.json"
-    if not config_path.exists() and slug not in request.app.state.remote_configs:
-        raise HTTPException(status_code=404, detail=f"Config '{slug}' not found")
+    is_new = not config_path.exists() and slug not in request.app.state.remote_configs
+
+    # Allow creating new locale variants (e.g., protected-prompts.es)
+    # but block creating entirely new base configs via PUT
+    if is_new:
+        parts = slug.rsplit(".", 1)
+        is_locale_variant = len(parts) == 2 and len(parts[1]) == 2 and parts[0] in request.app.state.remote_configs
+        if not is_locale_variant:
+            raise HTTPException(status_code=404, detail=f"Config '{slug}' not found")
 
     # Auto-increment version if content changed
     old_data = request.app.state.remote_configs.get(slug, {})
