@@ -49,15 +49,47 @@ def load_remote_configs() -> dict[str, dict]:
     return configs
 
 
+def _parse_accept_language(header: str | None) -> str | None:
+    """Extract the primary language code from an Accept-Language header.
+
+    Examples:
+        "es" → "es"
+        "es-MX,es;q=0.9,en;q=0.8" → "es"
+        "en-US" → "en"
+        None → None
+    """
+    if not header:
+        return None
+    # Take the first (highest priority) language tag
+    first = header.split(",")[0].strip().split(";")[0].strip()
+    # Extract just the language code (before any region subtag)
+    lang = first.split("-")[0].lower()
+    return lang if lang and lang != "en" else None
+
+
 @router.get("/v1/config/{name}")
 async def get_config(name: str, request: Request):
-    """Return a remote config JSON, or a slim 'not changed' response."""
+    """Return a remote config JSON, or a slim 'not changed' response.
+
+    Supports localization via Accept-Language header. If the client sends
+    Accept-Language: es, the server looks for a "{name}.es" config first,
+    falling back to the base "{name}" config. English is the default.
+    """
     configs: dict[str, dict] = request.app.state.remote_configs
 
-    if name not in configs:
+    # Resolve locale-specific config with fallback
+    locale = _parse_accept_language(request.headers.get("Accept-Language"))
+    localized_name = f"{name}.{locale}" if locale else None
+
+    if localized_name and localized_name in configs:
+        data = configs[localized_name]
+        resolved_name = localized_name
+    elif name in configs:
+        data = configs[name]
+        resolved_name = name
+    else:
         return JSONResponse(status_code=404, content={"error": f"Unknown config: {name}"})
 
-    data = configs[name]
     server_version = data["version"]
 
     # Check if client already has this version
@@ -67,7 +99,10 @@ async def get_config(name: str, request: Request):
             if int(client_version) >= server_version:
                 return JSONResponse(
                     content={"changed": False, "version": server_version},
-                    headers={"X-Config-Version": str(server_version)},
+                    headers={
+                        "X-Config-Version": str(server_version),
+                        "X-Config-Locale": locale or "en",
+                    },
                 )
         except (ValueError, TypeError):
             pass  # Invalid header value — just return the full payload
@@ -76,6 +111,7 @@ async def get_config(name: str, request: Request):
         content=data,
         headers={
             "X-Config-Version": str(server_version),
+            "X-Config-Locale": locale or "en",
             "Cache-Control": "public, max-age=300",
         },
     )

@@ -28,6 +28,31 @@ GhostPour serves JSON config files to the ShoulderSurf iOS app via `GET /v1/conf
 
 Edit the JSON in `config/remote/`, bump the `version` integer, and redeploy. The iOS app picks up changes on next launch.
 
+## Localization
+
+The config endpoint supports localized variants via the `Accept-Language` header.
+
+**How it works:**
+1. Client sends `Accept-Language: es` (or `es-MX`, `es-MX,en;q=0.5`, etc.)
+2. Server extracts the primary language code (e.g., `es`)
+3. Looks for `{slug}.{lang}.json` first (e.g., `protected-prompts.es.json`)
+4. Falls back to `{slug}.json` (English default) if no localized version exists
+5. Response includes `X-Config-Locale` header indicating which locale was served
+
+**Example:** `GET /v1/config/protected-prompts` with `Accept-Language: es` returns `protected-prompts.es.json` if it exists, otherwise `protected-prompts.json`.
+
+English (`en`) is the default — no `.en.json` suffix needed.
+
+**Current localized configs:**
+
+| Base Config | Locales Available |
+|------------|------------------|
+| `protected-prompts` | `es` (Spanish) |
+
 ## To add a new config
 
 Drop a `.json` file with a `"version"` field into `config/remote/` and restart. The slug is the filename without `.json`.
+
+## To add a localized variant
+
+Create `{slug}.{lang}.json` in `config/remote/` (e.g., `protected-prompts.fr.json`). It must have its own `"version"` field. The version is tracked independently from the base config.
