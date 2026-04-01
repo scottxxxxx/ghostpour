@@ -512,10 +512,10 @@ async def chat(
     if cq_state == "enabled" and body.context_quilt:
         # Full CQ: recall + inject
         cq_metadata = {}
-        if body.project:
-            cq_metadata["project"] = body.project
-        if body.project_id:
-            cq_metadata["project_id"] = body.project_id
+        if body.get_meta("project"):
+            cq_metadata["project"] = body.get_meta("project")
+        if body.get_meta("project_id"):
+            cq_metadata["project_id"] = body.get_meta("project_id")
         cq_result = await cq.recall(
             user_id=user.id,
             text=body.user_content,
@@ -535,10 +535,10 @@ async def chat(
     elif cq_state == "teaser" and "context_quilt" not in skip_teasers:
         # Teaser: recall for metadata only, don't inject into prompt
         cq_metadata = {}
-        if body.project:
-            cq_metadata["project"] = body.project
-        if body.project_id:
-            cq_metadata["project_id"] = body.project_id
+        if body.get_meta("project"):
+            cq_metadata["project"] = body.get_meta("project")
+        if body.get_meta("project_id"):
+            cq_metadata["project_id"] = body.get_meta("project_id")
         cq_result = await cq.recall(
             user_id=user.id,
             text=body.user_content,
@@ -587,18 +587,18 @@ async def chat(
     _cq_skip_modes = ("PostMeetingChat", "ProjectChat", "AutoSummary", "PostSessionAnalysis")
     if (cq_state == "enabled"
             and body.context_quilt
-            and body.prompt_mode not in _cq_skip_modes
-            and body.session_duration_sec is None):
+            and body.get_meta("prompt_mode") not in _cq_skip_modes
+            and body.get_meta("session_duration_sec") is None):
         asyncio.create_task(cq.capture(
             user_id=user.id,
-            interaction_type=body.call_type or "query",
+            interaction_type=body.get_meta("call_type") or "query",
             content=body.user_content,
             response=response.text,
-            meeting_id=body.meeting_id,
-            project=body.project,
-            project_id=body.project_id,
-            call_type=body.call_type,
-            prompt_mode=body.prompt_mode,
+            meeting_id=body.get_meta("meeting_id"),
+            project=body.get_meta("project"),
+            project_id=body.get_meta("project_id"),
+            call_type=body.get_meta("call_type"),
+            prompt_mode=body.get_meta("prompt_mode"),
             display_name=user.display_name,
             email=user.email,
         ))
