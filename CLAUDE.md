@@ -1,6 +1,6 @@
 # CLAUDE.md — GhostPour
 
-> **Last updated:** March 30, 2026
+> **Last updated:** April 1, 2026
 > **Formerly:** CloudZap. Env vars still use `CZ_` prefix and some identifiers retain "cloudzap" for backwards compatibility with deployed clients.
 
 ## Project Overview
@@ -21,6 +21,7 @@
 | `docs/feature-gating.md` | 3-state feature gating, Context Quilt integration, adding new features |
 | `docs/remote-config.md` | iOS remote config system (`GET /v1/config/{name}`) |
 | `docs/deployment.md` | GCP VM, Docker, CI/CD, admin dashboard |
+| `docs/decoupling.md` | SS decoupling plan: test harness, metadata abstraction, feature hooks |
 
 ## Tech Stack
 
@@ -216,7 +217,37 @@ Key variables:
 pytest tests/ -v
 ```
 
-56 tests covering: JWT, tier enforcement, provider routing, base64 redaction, rate limiting, generic adapter, pricing/cost calculation, CQ graph proxy, CQ prewarm proxy, meeting project assignment.
+74 tests across two layers:
+
+### Unit tests (`tests/test_*.py`)
+Pure unit tests with no app or DB — direct service/model instantiation:
+- JWT service (create, verify, expire, wrong secret)
+- Tier enforcement (provider/model access, image limits)
+- Provider adapters (OpenAI content formatting, base64 redaction)
+- Pricing (cost calculation, cached tokens, model lookup)
+- Rate limiter (within limit, blocked, per-user buckets)
+- Generic adapter (path extraction, usage flattening, URL building)
+- CQ proxy endpoints (graph svg/png, prewarm, assign-project, auth, errors)
+
+### Integration tests (`tests/integration/`)
+End-to-end tests using FastAPI TestClient with real app, real DB, real tier config. LLM providers, CQ service, and pricing are mocked at the boundary.
+
+**Fixtures** (`tests/conftest.py`):
+- `client` / `client_with_cq` — TestClient with isolated temp DB per test
+- `free_user` / `pro_user` / `standard_user` / `exhausted_user` / `trial_user` — pre-seeded users at various tiers
+- `mock_provider` — canned ChatResponse (no real LLM calls)
+- `mock_cq` — tracks recall/capture calls
+- `mock_pricing` — returns known cost values
+
+**Chat endpoint tests** (`tests/integration/test_chat_e2e.py`):
+- Basic flow: auto model resolution, allocation headers, auth rejection
+- Quota: exhausted → 429, 80% warning header
+- Model access: blocked provider/model → 403
+- CQ integration: recall injection, capture fire/skip per prompt_mode, teaser gating, disabled skip
+- Usage logging: DB persistence, SS field passthrough (call_type, prompt_mode, session_duration_sec)
+- Auto model: verifies tier default_model resolution
+
+These integration tests are the **safety net for the SS decoupling refactor** — they verify that the current behavior is preserved as we extract SS-specific code into generic patterns. See `docs/decoupling.md` for the full plan.
 
 ## Related Projects
 
