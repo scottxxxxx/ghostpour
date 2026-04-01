@@ -22,6 +22,7 @@
 | `docs/remote-config.md` | iOS remote config system (`GET /v1/config/{name}`) |
 | `docs/deployment.md` | GCP VM, Docker, CI/CD, admin dashboard |
 | `docs/decoupling.md` | SS decoupling plan: test harness, metadata abstraction, feature hooks |
+| `docs/security-hardening.md` | Post-public-repo security: cert pinning, CQ JWT auth, enforce_auth |
 
 ## Tech Stack
 
