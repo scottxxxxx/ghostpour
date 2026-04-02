@@ -310,7 +310,7 @@
   <div id="tab-configs" class="section">
     <h3>Remote Configs</h3>
     <p style="color:var(--text-dim);margin-bottom:12px">JSON files served via <code style="color:var(--accent)">GET /v1/config/{name}</code>. Localized variants served when client sends <code style="color:var(--accent)">Accept-Language</code> header.</p>
-    <div id="config-list" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px"></div>
+    <div id="config-list" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px"></div>
     <div id="config-editor-wrap" style="display:none">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <h3 id="config-editor-title" style="margin:0"></h3>
@@ -972,11 +972,11 @@ async function loadConfigs() {
     ).join(' ');
     const addLangBtn = `<span onclick="event.stopPropagation();addLocale('${name}')" style="cursor:pointer;display:inline-block;background:var(--bg);border:1px dashed var(--border);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--text-dim);transition:border-color 0.2s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">+ Lang</span>`;
     return `
-    <div onclick="openConfig('${name}')" style="cursor:pointer;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;min-width:220px;transition:border-color 0.2s"
+    <div onclick="openConfig('${name}')" style="cursor:pointer;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;transition:border-color 0.2s"
          onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
       <div class="mono" style="color:var(--accent);font-size:14px;margin-bottom:4px">${name}</div>
       <div style="color:var(--text-dim);font-size:12px">${base ? `v${base.version} · ${(base.size/1024).toFixed(1)} KB` : 'base missing'}</div>
-      <div style="color:var(--text-dim);font-size:11px;margin-top:4px">${base ? base.keys.filter(k => k !== 'version').join(', ') : ''}</div>
+      <div style="color:var(--text-dim);font-size:11px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${base ? base.keys.filter(k => k !== 'version').join(', ') : ''}</div>
       ${locales.length || base ? `<div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">
         ${base ? '<span style="font-size:11px;color:var(--text-dim)">EN</span>' : ''}
         ${localeButtons}
