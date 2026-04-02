@@ -67,33 +67,52 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             _format_body(req_body),
         )
 
-        # Capture response body
-        resp_body = None
-        if hasattr(response, "body"):
-            try:
-                resp_body = response.body.decode("utf-8", errors="replace")[:_MAX_BODY_LOG]
-            except Exception:
-                resp_body = "<decode error>"
+        # Capture response body by reading the stream
+        resp_body = b""
+        async for chunk in response.body_iterator:
+            resp_body += chunk if isinstance(chunk, bytes) else chunk.encode()
 
+        resp_body_str = resp_body.decode("utf-8", errors="replace")[:_MAX_BODY_LOG]
         resp_headers = dict(response.headers)
         logger.info(
             "<<< %d %dms\n    Headers: %s\n    Body: %s",
             response.status_code,
             elapsed_ms,
             json.dumps(resp_headers, indent=2),
-            _format_body(resp_body),
+            _format_body(resp_body_str),
         )
 
-        return response
+        # Return a new response with the consumed body
+        return Response(
+            content=resp_body,
+            status_code=response.status_code,
+            headers=dict(response.headers),
+            media_type=response.media_type,
+        )
+
+
+_REDACT_KEYS = {"identity_token", "access_token", "refresh_token", "signed_transaction", "client_secret", "password"}
 
 
 def _format_body(body: str | None) -> str:
     if not body:
         return "<empty>"
-    # Try to pretty-print JSON
     try:
         parsed = json.loads(body)
-        # Redact long string values (base64 images, tokens)
+        _redact_sensitive(parsed)
         return json.dumps(parsed, indent=2, ensure_ascii=False)[:_MAX_BODY_LOG]
     except (json.JSONDecodeError, TypeError):
         return body[:_MAX_BODY_LOG]
+
+
+def _redact_sensitive(obj):
+    """Recursively redact sensitive fields in a dict."""
+    if isinstance(obj, dict):
+        for key in obj:
+            if key in _REDACT_KEYS and isinstance(obj[key], str):
+                obj[key] = obj[key][:20] + "...<redacted>"
+            elif isinstance(obj[key], (dict, list)):
+                _redact_sensitive(obj[key])
+    elif isinstance(obj, list):
+        for item in obj:
+            _redact_sensitive(item)
