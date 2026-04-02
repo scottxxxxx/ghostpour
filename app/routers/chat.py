@@ -15,7 +15,6 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.chat import ChatRequest, ChatResponse
 from app.models.user import UserRecord
-from app.services import context_quilt as cq
 
 router = APIRouter()
 
@@ -501,67 +500,20 @@ async def chat(
     # 5. Monthly allocation + overage check
     monthly_used, overage_balance = await usage_tracker.check_quota(db, user, tier)
 
-    # 5.5. Context Quilt — generic feature gating
+    # 5.5. Feature hooks (before LLM)
     #
-    # Feature states from tiers.yml:
-    #   enabled  → recall + inject into prompt + capture on response
-    #   teaser   → recall only (return metadata for upgrade nudge, don't inject)
-    #   disabled → skip entirely
-    #
-    # Client can send skip_teasers: ["context_quilt"] to opt out of teaser
-    # checks after it has already shown the nudge this session.
-
-    cq_state = tier.feature_state("context_quilt")
-    cq_result = {"context": "", "matched_entities": [], "patch_count": 0}
-    cq_gated = False  # True when teaser ran but results not injected
-
+    # Each registered feature hook runs before the LLM call and may modify
+    # the request body. The hook_results dict is passed to after_llm and
+    # response_headers after the LLM responds.
+    feature_hooks = request.app.state.feature_hooks
     skip_teasers = set(body.skip_teasers or [])
+    hook_results: dict[str, dict] = {}
 
-    if cq_state == "enabled" and body.context_quilt:
-        # Full CQ: recall + inject
-        cq_metadata = {}
-        if body.get_meta("project"):
-            cq_metadata["project"] = body.get_meta("project")
-        if body.get_meta("project_id"):
-            cq_metadata["project_id"] = body.get_meta("project_id")
-        cq_result = await cq.recall(
-            user_id=user.id,
-            text=body.user_content,
-            metadata=cq_metadata or None,
-        )
-        if cq_result.get("context"):
-            cq_context = cq_result["context"]
-            if "{{context_quilt}}" in body.system_prompt:
-                body = body.model_copy(update={
-                    "system_prompt": body.system_prompt.replace("{{context_quilt}}", cq_context)
-                })
-            else:
-                body = body.model_copy(update={
-                    "system_prompt": f"[CONTEXT FROM PREVIOUS MEETINGS]\n{cq_context}\n\n{body.system_prompt}"
-                })
-
-        # Inject communication style for chat modes only
-        if cq_result.get("communication_style") and body.get_meta("prompt_mode") in (
-            "ProjectChat", "PostMeetingChat"
-        ):
-            body = body.model_copy(update={
-                "system_prompt": body.system_prompt + f"\n\n{cq_result['communication_style']}"
-            })
-
-    elif cq_state == "teaser" and "context_quilt" not in skip_teasers:
-        # Teaser: recall for metadata only, don't inject into prompt
-        cq_metadata = {}
-        if body.get_meta("project"):
-            cq_metadata["project"] = body.get_meta("project")
-        if body.get_meta("project_id"):
-            cq_metadata["project_id"] = body.get_meta("project_id")
-        cq_result = await cq.recall(
-            user_id=user.id,
-            text=body.user_content,
-            metadata=cq_metadata or None,
-        )
-        if cq_result.get("matched_entities"):
-            cq_gated = True
+    for feature_name, hook in feature_hooks.items():
+        state = tier.feature_state(feature_name)
+        if state != "disabled":
+            body, result = await hook.before_llm(user, body, tier, state, skip_teasers)
+            hook_results[feature_name] = result
 
     # 6. Route to provider
     start = time.monotonic()
@@ -595,31 +547,11 @@ async def chat(
     # 9. Log usage
     await usage_tracker.log_usage(db, user.id, body, response, elapsed_ms)
 
-    # 9.5. Context Quilt capture (async, non-blocking) — only for enabled, not teaser
-    # Skip capture when:
-    # - Active meeting session (session_duration_sec set) — transcript captures at session end
-    # - Read-only chat modes — user is consuming the quilt, not adding to it
-    # - Auto-generated summaries and post-session analysis — derivatives of the transcript
-    feature_config = request.app.state.feature_config
-    cq_feature = feature_config.features.get("context_quilt")
-    cq_skip_modes = set(cq_feature.capture_skip_modes) if cq_feature else set()
-    if (cq_state == "enabled"
-            and body.context_quilt
-            and body.get_meta("prompt_mode") not in cq_skip_modes
-            and body.get_meta("session_duration_sec") is None):
-        asyncio.create_task(cq.capture(
-            user_id=user.id,
-            interaction_type=body.get_meta("call_type") or "query",
-            content=body.user_content,
-            response=response.text,
-            meeting_id=body.get_meta("meeting_id"),
-            project=body.get_meta("project"),
-            project_id=body.get_meta("project_id"),
-            call_type=body.get_meta("call_type"),
-            prompt_mode=body.get_meta("prompt_mode"),
-            display_name=user.display_name,
-            email=user.email,
-        ))
+    # 9.5. Feature hooks (after LLM) — async, non-blocking
+    for feature_name, hook in feature_hooks.items():
+        state = tier.feature_state(feature_name)
+        if feature_name in hook_results:
+            await hook.after_llm(user, body, response, hook_results[feature_name], state)
 
     # 10. Build response with allocation headers
     response_data = response.model_dump()
@@ -639,18 +571,11 @@ async def chat(
         json_response.headers["X-Monthly-Used"] = f"{new_monthly_used:.4f}"
         json_response.headers["X-Monthly-Limit"] = f"{effective_limit:.2f}"
 
-    # Feature response headers — generic pattern for any gated feature
-    matched = cq_result.get("matched_entities", [])
-    if cq_state == "enabled" and body.context_quilt:
-        # Full CQ: report what was used
-        json_response.headers["X-CQ-Matched"] = str(len(matched))
-        if matched:
-            json_response.headers["X-CQ-Entities"] = ",".join(matched[:10])
-    elif cq_gated:
-        # Teaser: report what was found but not used
-        json_response.headers["X-CQ-Matched"] = str(len(matched))
-        json_response.headers["X-CQ-Gated"] = "true"
-        if matched:
-            json_response.headers["X-CQ-Entities"] = ",".join(matched[:10])
+    # Feature response headers
+    for feature_name, hook in feature_hooks.items():
+        if feature_name in hook_results:
+            state = tier.feature_state(feature_name)
+            for k, v in hook.response_headers(hook_results[feature_name], state).items():
+                json_response.headers[k] = v
 
     return json_response
