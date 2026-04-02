@@ -942,7 +942,14 @@ async def user_detail(
     )
     month_row = await cursor.fetchone()
 
-    monthly_limit = tier.daily_cost_limit_usd * 30 if tier and tier.daily_cost_limit_usd != -1 else -1
+    # Use the user's stored limit (set during verify-receipt/sync), fall back to tier config
+    db_limit = row["monthly_cost_limit_usd"]
+    if db_limit is not None and db_limit >= 0:
+        monthly_limit = db_limit
+    elif tier and tier.monthly_cost_limit_usd >= 0:
+        monthly_limit = tier.monthly_cost_limit_usd
+    else:
+        monthly_limit = -1
     monthly_used = month_row["total_cost"]
 
     # Usage by call type
