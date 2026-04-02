@@ -69,7 +69,7 @@ tiers:
       - "claude-haiku-4-5-20251001"
     max_images_per_request: 1
     hours_per_month: 25
-    storekit_product_id: "com.example.myapp.sub.standard.monthly"
+    storekit_product_id: "com.weirtech.shouldersurf.sub.standard.monthly"
     features:
       context_quilt: "teaser"
     feature_bullets:
@@ -95,7 +95,7 @@ tiers:
       - "claude-haiku-4-5-20251001"
     max_images_per_request: 2
     hours_per_month: 50
-    storekit_product_id: "com.example.myapp.sub.pro.monthly"
+    storekit_product_id: "com.weirtech.shouldersurf.sub.pro.monthly"
     features:
       context_quilt: "enabled"
     feature_bullets:
@@ -122,7 +122,7 @@ tiers:
       - "claude-haiku-4-5-20251001"
     max_images_per_request: 3
     hours_per_month: 25
-    storekit_product_id: "com.example.myapp.sub.ultra.monthly"
+    storekit_product_id: "com.weirtech.shouldersurf.sub.ultra.monthly"
     features:
       context_quilt: "enabled"
     feature_bullets:
@@ -149,7 +149,7 @@ tiers:
       - "claude-haiku-4-5-20251001"
     max_images_per_request: 5
     hours_per_month: 50
-    storekit_product_id: "com.example.myapp.sub.ultramax.monthly"
+    storekit_product_id: "com.weirtech.shouldersurf.sub.ultramax.monthly"
     features:
       context_quilt: "enabled"
     feature_bullets:

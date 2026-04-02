@@ -14,7 +14,7 @@ class TestVerifyReceipt:
         resp = client.post(
             "/v1/verify-receipt",
             json={
-                "product_id": "com.example.myapp.sub.standard.monthly",
+                "product_id": "com.weirtech.shouldersurf.sub.standard.monthly",
                 "transaction_id": "txn_123",
             },
             headers=headers,
@@ -33,7 +33,7 @@ class TestVerifyReceipt:
         resp = client.post(
             "/v1/verify-receipt",
             json={
-                "product_id": "com.example.myapp.sub.pro.monthly",
+                "product_id": "com.weirtech.shouldersurf.sub.pro.monthly",
                 "transaction_id": "txn_456",
                 "offer_type": "introductory",
                 "offer_price": 0,
