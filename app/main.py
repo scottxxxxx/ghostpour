@@ -10,7 +10,7 @@ from app.database import init_db
 from app.middleware.request_logging import RequestLoggingMiddleware
 from app.models.feature import load_feature_config
 from app.models.tier import load_tier_config
-from app.routers import auth, chat, config, health, webhooks
+from app.routers import apple_webhooks, auth, chat, config, health, webhooks
 from app.services.apple_auth import AppleAuthVerifier
 from app.services.jwt_service import JWTService
 from app.services.pricing import PricingService
@@ -93,6 +93,7 @@ app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(chat.router, prefix="/v1", tags=["chat"])
 app.include_router(config.router, tags=["config"])
 app.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
+app.include_router(apple_webhooks.router, prefix="/v1", tags=["apple-webhooks"])
 
 # Context Quilt proxy routes — only included when CQ is configured
 if get_settings().cq_base_url:
