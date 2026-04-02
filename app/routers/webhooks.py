@@ -273,6 +273,21 @@ async def admin_capture_transcript(
     }
 
 
+# --- Live Request Log ---
+
+
+@router.get("/admin/live-log")
+async def get_live_log(
+    request: Request,
+    x_admin_key: str = Header(...),
+    limit: int = 50,
+):
+    """Return recent API request/response log entries from the in-memory buffer."""
+    _verify_admin(request, x_admin_key)
+    from app.middleware.request_logging import get_recent_logs
+    return {"entries": get_recent_logs(limit)}
+
+
 # --- Remote Config Management ---
 
 

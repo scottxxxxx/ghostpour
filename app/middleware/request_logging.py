@@ -1,10 +1,12 @@
 import json
 import logging
 import time
+from collections import deque
+from datetime import datetime, timezone
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
-from starlette.responses import Response, StreamingResponse
+from starlette.responses import Response
 
 logger = logging.getLogger("ghostpour")
 
@@ -13,6 +15,18 @@ _SKIP_BODY_PATHS = {"/health", "/docs", "/openapi.json", "/v1/model-pricing"}
 
 # Max body size to log (prevent huge payloads from flooding logs)
 _MAX_BODY_LOG = 10_000
+
+# In-memory ring buffer for recent requests (viewable in dashboard)
+_LOG_BUFFER: deque[dict] = deque(maxlen=200)
+
+_REDACT_KEYS = {"identity_token", "access_token", "refresh_token", "signed_transaction", "client_secret", "password"}
+
+
+def get_recent_logs(limit: int = 50) -> list[dict]:
+    """Return the most recent log entries, newest first."""
+    entries = list(_LOG_BUFFER)
+    entries.reverse()
+    return entries[:limit]
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
@@ -24,15 +38,15 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
         start = time.monotonic()
 
-        # Capture request details in verbose mode
-        req_body = None
-        if verbose and request.url.path not in _SKIP_BODY_PATHS:
+        # Capture request body
+        req_body_str = None
+        if request.url.path not in _SKIP_BODY_PATHS:
             try:
                 raw = await request.body()
                 if raw:
-                    req_body = raw.decode("utf-8", errors="replace")[:_MAX_BODY_LOG]
+                    req_body_str = raw.decode("utf-8", errors="replace")[:_MAX_BODY_LOG]
             except Exception:
-                req_body = "<read error>"
+                req_body_str = "<read error>"
 
         response = await call_next(request)
         elapsed_ms = int((time.monotonic() - start) * 1000)
@@ -46,26 +60,17 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             elapsed_ms,
         )
 
-        if not verbose or request.url.path in _SKIP_BODY_PATHS:
+        if request.url.path in _SKIP_BODY_PATHS:
             return response
 
-        # Log request details
-        headers_to_log = {
+        # Build request headers (redact auth)
+        req_headers = {
             k: v for k, v in request.headers.items()
             if k.lower() not in ("authorization", "x-admin-key", "cookie")
         }
-        # Redact auth header to just the type
         auth = request.headers.get("authorization", "")
         if auth:
-            headers_to_log["authorization"] = auth.split()[0] + " <redacted>" if " " in auth else "<redacted>"
-
-        logger.info(
-            ">>> %s %s\n    Headers: %s\n    Body: %s",
-            request.method,
-            str(request.url),
-            json.dumps(headers_to_log, indent=2),
-            _format_body(req_body),
-        )
+            req_headers["authorization"] = auth.split()[0] + " <redacted>" if " " in auth else "<redacted>"
 
         # Capture response body by reading the stream
         resp_body = b""
@@ -74,13 +79,44 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
         resp_body_str = resp_body.decode("utf-8", errors="replace")[:_MAX_BODY_LOG]
         resp_headers = dict(response.headers)
-        logger.info(
-            "<<< %d %dms\n    Headers: %s\n    Body: %s",
-            response.status_code,
-            elapsed_ms,
-            json.dumps(resp_headers, indent=2),
-            _format_body(resp_body_str),
-        )
+
+        # Store in ring buffer (always, for dashboard)
+        entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "method": request.method,
+            "path": request.url.path,
+            "query": str(request.url.query) if request.url.query else None,
+            "status": response.status_code,
+            "latency_ms": elapsed_ms,
+            "client_ip": request.headers.get("x-real-ip", request.client.host if request.client else "unknown"),
+            "user_agent": request.headers.get("user-agent", ""),
+            "request": {
+                "headers": req_headers,
+                "body": _format_body_parsed(req_body_str),
+            },
+            "response": {
+                "headers": resp_headers,
+                "body": _format_body_parsed(resp_body_str),
+            },
+        }
+        _LOG_BUFFER.append(entry)
+
+        # Verbose file logging
+        if verbose:
+            logger.info(
+                ">>> %s %s\n    Headers: %s\n    Body: %s",
+                request.method,
+                str(request.url),
+                json.dumps(req_headers, indent=2),
+                _format_body(req_body_str),
+            )
+            logger.info(
+                "<<< %d %dms\n    Headers: %s\n    Body: %s",
+                response.status_code,
+                elapsed_ms,
+                json.dumps(resp_headers, indent=2),
+                _format_body(resp_body_str),
+            )
 
         # Return a new response with the consumed body
         return Response(
@@ -91,7 +127,16 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         )
 
 
-_REDACT_KEYS = {"identity_token", "access_token", "refresh_token", "signed_transaction", "client_secret", "password"}
+def _format_body_parsed(body: str | None):
+    """Parse body to dict/list for JSON storage. Redacts sensitive fields."""
+    if not body:
+        return None
+    try:
+        parsed = json.loads(body)
+        _redact_sensitive(parsed)
+        return parsed
+    except (json.JSONDecodeError, TypeError):
+        return body[:_MAX_BODY_LOG]
 
 
 def _format_body(body: str | None) -> str:

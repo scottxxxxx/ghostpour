@@ -178,6 +178,7 @@
     <div class="tab" onclick="switchTab('providers')">Providers</div>
     <div class="tab" onclick="switchTab('errors')">Errors</div>
     <div class="tab" onclick="switchTab('configs')">Configs</div>
+    <div class="tab" onclick="switchTab('livelog')">Live Log</div>
   </div>
 
   <!-- Overview -->
@@ -323,6 +324,21 @@
     </div>
   </div>
 
+  <!-- Live Log -->
+  <div id="tab-livelog" class="section">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 style="margin:0">Live Request Log</h3>
+      <div style="display:flex;gap:8px;align-items:center">
+        <label style="font-size:12px;color:var(--text-dim)">
+          <input type="checkbox" id="livelog-auto" checked> Auto-refresh (5s)
+        </label>
+        <button class="refresh-btn" onclick="loadLiveLog()">Refresh</button>
+      </div>
+    </div>
+    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Last 50 API requests. Click a row to expand request/response details.</p>
+    <div id="livelog-entries" style="font-family:'SF Mono',Menlo,monospace;font-size:12px"></div>
+  </div>
+
   <!-- Errors -->
   <div id="tab-errors" class="section">
     <h3>Error Summary</h3>
@@ -365,6 +381,7 @@ function switchTab(name) {
   if (name === 'providers') loadProviders();
   if (name === 'errors') loadErrors();
   if (name === 'configs') loadConfigs();
+  if (name === 'livelog') loadLiveLog();
 }
 
 function fmt(n) { return n == null ? '-' : n.toLocaleString(); }
@@ -1070,6 +1087,69 @@ async function saveConfig() {
     statusEl.style.color = 'var(--red)';
   }
 }
+
+// --- Live Log ---
+
+let _livelogTimer = null;
+
+async function loadLiveLog() {
+  const data = await fetch(`${BASE}/webhooks/admin/live-log?limit=50`, {
+    headers: {'X-Admin-Key': adminKey}
+  }).then(r => r.json());
+
+  const el = document.getElementById('livelog-entries');
+  if (!data.entries || !data.entries.length) {
+    el.innerHTML = '<div style="color:var(--text-dim);padding:20px;text-align:center">No requests logged yet. Traffic will appear here automatically.</div>';
+  } else {
+    el.innerHTML = data.entries.map((e, i) => {
+      const statusColor = e.status < 300 ? 'var(--green)' : e.status < 400 ? 'var(--orange)' : 'var(--red)';
+      const time = new Date(e.timestamp).toLocaleTimeString();
+      const reqBody = e.request.body ? JSON.stringify(e.request.body, null, 2) : '<empty>';
+      const respBody = e.response.body ? JSON.stringify(e.response.body, null, 2) : '<empty>';
+      return `
+      <div style="border:1px solid var(--border);border-radius:6px;margin-bottom:6px;overflow:hidden">
+        <div onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'" style="cursor:pointer;padding:8px 12px;display:flex;gap:12px;align-items:center;background:var(--surface);transition:background 0.1s"
+             onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='var(--surface)'">
+          <span style="color:var(--text-dim);min-width:70px">${time}</span>
+          <span style="color:var(--accent);min-width:50px;font-weight:600">${e.method}</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.path}${e.query ? '?' + e.query : ''}</span>
+          <span style="color:${statusColor};font-weight:600;min-width:30px">${e.status}</span>
+          <span style="color:var(--text-dim);min-width:50px;text-align:right">${e.latency_ms}ms</span>
+          <span style="color:var(--text-dim);font-size:10px;min-width:90px;text-align:right">${e.client_ip}</span>
+        </div>
+        <div style="display:none;padding:12px;background:var(--bg);border-top:1px solid var(--border)">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <div style="color:var(--accent);font-weight:600;margin-bottom:6px;font-size:11px">REQUEST</div>
+              <div style="color:var(--text-dim);font-size:10px;margin-bottom:4px">Headers</div>
+              <pre style="background:var(--surface);padding:8px;border-radius:4px;overflow:auto;max-height:200px;font-size:11px;margin:0 0 8px 0">${JSON.stringify(e.request.headers, null, 2)}</pre>
+              <div style="color:var(--text-dim);font-size:10px;margin-bottom:4px">Body</div>
+              <pre style="background:var(--surface);padding:8px;border-radius:4px;overflow:auto;max-height:300px;font-size:11px;margin:0">${reqBody}</pre>
+            </div>
+            <div>
+              <div style="color:${statusColor};font-weight:600;margin-bottom:6px;font-size:11px">RESPONSE ${e.status}</div>
+              <div style="color:var(--text-dim);font-size:10px;margin-bottom:4px">Headers</div>
+              <pre style="background:var(--surface);padding:8px;border-radius:4px;overflow:auto;max-height:200px;font-size:11px;margin:0 0 8px 0">${JSON.stringify(e.response.headers, null, 2)}</pre>
+              <div style="color:var(--text-dim);font-size:10px;margin-bottom:4px">Body</div>
+              <pre style="background:var(--surface);padding:8px;border-radius:4px;overflow:auto;max-height:300px;font-size:11px;margin:0">${respBody}</pre>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Auto-refresh
+  clearInterval(_livelogTimer);
+  if (document.getElementById('livelog-auto').checked) {
+    _livelogTimer = setInterval(loadLiveLog, 5000);
+  }
+}
+
+document.getElementById('livelog-auto').addEventListener('change', function() {
+  clearInterval(_livelogTimer);
+  if (this.checked) loadLiveLog();
+});
 </script>
 </body>
 </html>
