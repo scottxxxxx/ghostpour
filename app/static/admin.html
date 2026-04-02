@@ -974,7 +974,7 @@ async function loadConfigs() {
     ).join(' ');
     const addLangBtn = `<span onclick="event.stopPropagation();addLocale('${name}')" style="cursor:pointer;display:inline-block;background:var(--bg);border:1px dashed var(--border);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--text-dim);transition:border-color 0.2s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">+ Lang</span>`;
     return `
-    <div onclick="openConfig('${name}')" style="cursor:pointer;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;transition:border-color 0.2s"
+    <div onclick="openConfig('${name}')" style="cursor:pointer;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;min-width:0;overflow:hidden;transition:border-color 0.2s"
          onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
       <div class="mono" style="color:var(--accent);font-size:14px;margin-bottom:4px">${name}</div>
       <div style="color:var(--text-dim);font-size:12px">${base ? `v${base.version} · ${(base.size/1024).toFixed(1)} KB` : 'base missing'}</div>
