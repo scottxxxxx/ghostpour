@@ -41,6 +41,9 @@ docker-compose.override.yml
 CLAUDE.md
 RENAMING_STRATEGY.md
 
+# Private config (product IDs, customer-specific overrides)
+config/product-ids.yml
+
 # pytest
 .pytest_cache/
 htmlcov/

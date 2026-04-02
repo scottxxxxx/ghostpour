@@ -93,10 +93,10 @@ Configured in `config/tiers.yml`. Five purchasable tiers plus admin:
 **Why summary interval varies by tier:** Auto-summaries are full chat requests that consume allocation. Every summary burns tokens. Sonnet is ~4x more expensive per token than Haiku, so Sonnet tiers default to 15-minute intervals instead of 10 to prevent users from burning through hours unexpectedly. This is a per-tier setting in `tiers.yml` (`summary_interval_minutes`) that the iOS app reads from `/v1/usage/me` and locks when using GhostPour.
 
 **StoreKit product IDs** (mapped in `tiers.yml`):
-- `com.weirtech.shouldersurf.sub.standard.monthly`
-- `com.weirtech.shouldersurf.sub.pro.monthly`
-- `com.weirtech.shouldersurf.sub.ultra.monthly`
-- `com.weirtech.shouldersurf.sub.ultramax.monthly`
+- `com.example.myapp.sub.standard.monthly`
+- `com.example.myapp.sub.pro.monthly`
+- `com.example.myapp.sub.ultra.monthly`
+- `com.example.myapp.sub.ultramax.monthly`
 
 ---
 
@@ -438,7 +438,7 @@ Server-driven subscription UI. The iOS app renders tier cards from this data ins
         "Claude Haiku - fast and capable",
         "Auto-summaries every 10 min"
       ],
-      "storekit_product_id": "com.weirtech.shouldersurf.sub.standard.monthly"
+      "storekit_product_id": "com.example.myapp.sub.standard.monthly"
     }
   },
   "feature_definitions": {

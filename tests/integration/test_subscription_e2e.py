@@ -2,7 +2,13 @@
 
 import sqlite3
 
+from app.models.tier import load_tier_config
 from tests.conftest import _insert_user, _jwt_token, chat_request
+
+# Read product IDs from tier config (respects product-ids.yml overrides)
+_tier_config = load_tier_config("config/tiers.yml")
+_STANDARD_PRODUCT = _tier_config.tiers["standard"].storekit_product_id
+_PRO_PRODUCT = _tier_config.tiers["pro"].storekit_product_id
 
 
 class TestVerifyReceipt:
@@ -14,7 +20,7 @@ class TestVerifyReceipt:
         resp = client.post(
             "/v1/verify-receipt",
             json={
-                "product_id": "com.weirtech.shouldersurf.sub.standard.monthly",
+                "product_id": _STANDARD_PRODUCT,
                 "transaction_id": "txn_123",
             },
             headers=headers,
@@ -33,7 +39,7 @@ class TestVerifyReceipt:
         resp = client.post(
             "/v1/verify-receipt",
             json={
-                "product_id": "com.weirtech.shouldersurf.sub.pro.monthly",
+                "product_id": _PRO_PRODUCT,
                 "transaction_id": "txn_456",
                 "offer_type": "introductory",
                 "offer_price": 0,
