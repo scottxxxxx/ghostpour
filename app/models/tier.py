@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pydantic import BaseModel
 
 import yaml
@@ -52,4 +54,15 @@ class TierConfig(BaseModel):
 def load_tier_config(path: str) -> TierConfig:
     with open(path) as f:
         data = yaml.safe_load(f)
-    return TierConfig(**data)
+    config = TierConfig(**data)
+
+    # Apply product ID overrides from gitignored config (keeps real IDs out of repo)
+    product_ids_path = Path(path).parent / "product-ids.yml"
+    if product_ids_path.exists():
+        with open(product_ids_path) as f:
+            overrides = yaml.safe_load(f) or {}
+        for tier_name, product_id in overrides.items():
+            if tier_name in config.tiers:
+                config.tiers[tier_name].storekit_product_id = product_id
+
+    return config
