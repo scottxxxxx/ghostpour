@@ -52,6 +52,14 @@ async def lifespan(app: FastAPI):
     config.seed_remote_configs()
     app.state.remote_configs = config.load_remote_configs()
 
+    # Register feature hooks
+    feature_hooks: dict[str, object] = {}
+    if settings.cq_base_url:
+        from app.services.features.context_quilt_hook import ContextQuiltHook
+        cq_feature_def = app.state.feature_config.features.get("context_quilt")
+        feature_hooks["context_quilt"] = ContextQuiltHook(cq_feature_def)
+    app.state.feature_hooks = feature_hooks
+
     pricing = PricingService(
         source_url=settings.pricing_source_url,
         refresh_interval=settings.pricing_refresh_seconds,
