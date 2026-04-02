@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     )
     pricing_refresh_seconds: int = 86400  # 24 hours
 
+    # Debug
+    verbose_logging: bool = False       # Log full request/response bodies (set CZ_VERBOSE_LOGGING=true)
+
     # Config file paths
     tier_config_path: str = "config/tiers.yml"
     feature_config_path: str = "config/features.yml"
