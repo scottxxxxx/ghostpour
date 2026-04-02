@@ -48,6 +48,10 @@ jobs:
             cd /opt/ghostpour
             echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u ${{ github.actor }} --password-stdin
             sudo sed -i 's|image:.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest|' docker-compose.prod.yml
+
+            # Write product ID mapping from secret (keeps real IDs out of git)
+            echo '${{ secrets.PRODUCT_IDS_YAML }}' | sudo tee product-ids.yml > /dev/null
+
             sudo docker compose -f docker-compose.prod.yml pull
             sudo docker compose -f docker-compose.prod.yml up -d
             sudo docker image prune -af --filter "until=24h"
