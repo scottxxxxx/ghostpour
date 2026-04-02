@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "tiers": {
+    "free": {
+      "display_name": "Gratis",
+      "description": "Prueba la asistencia de IA para reuniones con un pequeño crédito gratuito.",
+      "feature_bullets": [
+        "~1 hora de asistencia de IA",
+        "Claude Haiku — rápido y capaz",
+        "Resúmenes automáticos cada 10 min",
+        "1 imagen por consulta"
+      ]
+    },
+    "standard": {
+      "display_name": "Estándar",
+      "description": "Asistencia mensual de IA para reuniones de uso regular.",
+      "feature_bullets": [
+        "25 horas/mes de asistencia de IA",
+        "Claude Haiku — rápido y capaz",
+        "Resúmenes automáticos cada 10 minutos",
+        "1 imagen por consulta",
+        "Memoria de reuniones disponible con Pro"
+      ]
+    },
+    "pro": {
+      "display_name": "Pro",
+      "description": "Más horas, análisis de imágenes y memoria de reuniones.",
+      "feature_bullets": [
+        "50 horas/mes de asistencia de IA",
+        "Claude Haiku — rápido y capaz",
+        "Resúmenes automáticos cada 10 minutos",
+        "2 imágenes por consulta",
+        "Context Quilt — la IA recuerda reuniones pasadas"
+      ]
+    },
+    "ultra": {
+      "display_name": "Ultra",
+      "description": "Nuestro modelo más inteligente con control total de resúmenes.",
+      "feature_bullets": [
+        "25 horas/mes de asistencia de IA",
+        "Claude Sonnet — nuestro modelo más inteligente",
+        "Resúmenes completos o incrementales (tu elección)",
+        "3 imágenes por consulta",
+        "Context Quilt — la IA recuerda reuniones pasadas"
+      ]
+    },
+    "ultra_max": {
+      "display_name": "Ultra Max",
+      "description": "Máxima capacidad con nuestro modelo más inteligente.",
+      "feature_bullets": [
+        "50 horas/mes de asistencia de IA",
+        "Claude Sonnet — nuestro modelo más inteligente",
+        "Resúmenes completos o incrementales (tu elección)",
+        "5 imágenes por consulta",
+        "Context Quilt — la IA recuerda reuniones pasadas"
+      ]
+    }
+  },
+  "feature_definitions": {
+    "context_quilt": {
+      "display_name": "Context Quilt",
+      "description": "Memoria entre reuniones y recuperación de entidades. Tu IA recuerda reuniones pasadas y usa ese conocimiento automáticamente.",
+      "teaser_description": "Tu IA encontró conexiones con tus reuniones pasadas",
+      "upgrade_cta": "Actualiza a Pro para desbloquear la memoria de reuniones"
+    }
+  }
+}

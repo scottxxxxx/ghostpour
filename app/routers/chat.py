@@ -407,44 +407,69 @@ async def usage_me(
 async def list_tiers(request: Request):
     """Return the full tier catalog for display in the iOS subscription UI.
 
-    Public endpoint — no auth required. Returns descriptions, feature states,
-    feature bullets, and constraint details for each tier. The iOS app
-    uses this to render server-driven subscription screens instead of
-    relying on hardcoded StoreKit descriptions.
+    Public endpoint — no auth required. Supports localization via
+    Accept-Language header — looks for a tiers.{lang} remote config,
+    falls back to tiers config, then to tiers.yml.
+
+    Display strings (display_name, description, feature_bullets) come from
+    the remote config so they can be edited from the dashboard and translated.
+    Structural data (hours, features, product IDs) comes from tiers.yml.
     """
+    from app.routers.config import _parse_accept_language
+
     tier_config = request.app.state.tier_config
     feature_config = request.app.state.feature_config
+    configs = request.app.state.remote_configs
 
-    # Build feature metadata (display names, descriptions, CTAs)
+    # Resolve localized tier display config
+    locale = _parse_accept_language(request.headers.get("Accept-Language"))
+    localized_name = f"tiers.{locale}" if locale else None
+    display_config = None
+    if localized_name and localized_name in configs:
+        display_config = configs[localized_name]
+    elif "tiers" in configs:
+        display_config = configs["tiers"]
+
+    display_tiers = display_config.get("tiers", {}) if display_config else {}
+    display_features = display_config.get("feature_definitions", {}) if display_config else {}
+
+    # Build feature metadata — prefer remote config, fall back to features.yml
     feature_metadata = {}
     for fname, fdef in feature_config.features.items():
-        feature_metadata[fname] = {
-            "display_name": fdef.display_name,
-            "description": fdef.description,
-            "teaser_description": fdef.teaser_description,
-            "upgrade_cta": fdef.upgrade_cta,
-            "category": fdef.category,
-        }
+        if fname in display_features:
+            feature_metadata[fname] = display_features[fname]
+            feature_metadata[fname]["category"] = fdef.category
+        else:
+            feature_metadata[fname] = {
+                "display_name": fdef.display_name,
+                "description": fdef.description,
+                "teaser_description": fdef.teaser_description,
+                "upgrade_cta": fdef.upgrade_cta,
+                "category": fdef.category,
+            }
 
     tiers_result = {}
     for name, tier in tier_config.tiers.items():
         if name == "admin":
-            continue  # Don't expose admin tier to clients
+            continue
+        # Merge: display strings from remote config, structural from YAML
+        dt = display_tiers.get(name, {})
         tiers_result[name] = {
-            "display_name": tier.display_name,
-            "description": tier.description,
+            "display_name": dt.get("display_name", tier.display_name),
+            "description": dt.get("description", tier.description),
             "hours_per_month": tier.hours_per_month,
             "summary_mode": tier.summary_mode,
             "summary_interval_minutes": tier.summary_interval_minutes,
             "max_images_per_request": tier.max_images_per_request,
             "features": tier.features,
-            "feature_bullets": tier.feature_bullets,
+            "feature_bullets": dt.get("feature_bullets", tier.feature_bullets),
             "storekit_product_id": tier.storekit_product_id,
         }
-    return {
-        "tiers": tiers_result,
-        "feature_definitions": feature_metadata,
-    }
+
+    response = {"tiers": tiers_result, "feature_definitions": feature_metadata}
+    if locale:
+        return JSONResponse(content=response, headers={"X-Config-Locale": locale})
+    return response
 
 
 @router.post("/chat", response_model=ChatResponse)
