@@ -93,6 +93,8 @@ async def set_tier(
             monthly_used_usd = 0,
             overage_balance_usd = 0,
             allocation_resets_at = ?,
+            simulated_tier = NULL,
+            simulated_exhausted = 0,
             updated_at = ?
            WHERE id = ?""",
         (body.tier, new_limit, resets_at, now.isoformat(), body.user_id),

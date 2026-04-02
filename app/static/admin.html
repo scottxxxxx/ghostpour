@@ -449,8 +449,10 @@ async function refresh() {
   // User table
   const utbody = document.querySelector('#user-table tbody');
   utbody.innerHTML = users.users.map(u => {
+    const effectiveTier = u.simulated_tier || u.tier;
     const tierLabel = u.tier_display_name || u.tier;
     const trialBadge = u.is_trial ? ' <span style="color:var(--accent);font-size:0.75em">TRIAL</span>' : '';
+    const simBadge = u.simulated_tier ? ` <span style="color:#FF9500;font-size:0.75em" title="Simulated as ${u.simulated_tier}">SIM:${u.simulated_tier}</span>` : '';
     const hrsUsed = u.hours_used != null ? u.hours_used.toFixed(1) : '0';
     const hrsLimit = u.hours_limit === -1 ? '&infin;' : (u.hours_limit != null ? u.hours_limit.toFixed(1) : '?');
     const pct = u.percent_used || 0;
@@ -463,7 +465,7 @@ async function refresh() {
     const resets = u.allocation_resets_at ? timeAgo(u.allocation_resets_at) : '—';
     return `<tr>
     <td>${u.email||'<span style="color:var(--text-dim)">Private relay</span>'}</td>
-    <td><span class="badge ${u.tier}">${tierLabel}</span>${trialBadge}</td>
+    <td><span class="badge ${u.tier}">${tierLabel}</span>${trialBadge}${simBadge}</td>
     <td>${hrsUsed} / ${hrsLimit} hrs</td>
     <td>${allocBar}</td>
     <td>${resets}</td>
