@@ -98,7 +98,8 @@ async def verify_receipt(
                 simulated_exhausted = 0,
                 is_trial = 1,
                 trial_start = ?,
-                trial_end = ?
+                trial_end = ?,
+                original_transaction_id = ?
                WHERE id = ?""",
             (
                 new_tier_name,
@@ -107,6 +108,7 @@ async def verify_receipt(
                 now.isoformat(),
                 now.isoformat(),
                 trial_end,
+                body.transaction_id,
                 user.id,
             ),
         )
@@ -137,13 +139,15 @@ async def verify_receipt(
             simulated_exhausted = 0,
             is_trial = 0,
             trial_start = NULL,
-            trial_end = NULL
+            trial_end = NULL,
+            original_transaction_id = ?
            WHERE id = ?""",
         (
             new_tier_name,
             new_tier.monthly_cost_limit_usd,
             resets_at,
             now.isoformat(),
+            body.transaction_id,
             user.id,
         ),
     )

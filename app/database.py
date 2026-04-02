@@ -81,6 +81,9 @@ MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN trial_end TEXT",
     # v6: Add display_name for CQ user identity passthrough
     "ALTER TABLE users ADD COLUMN display_name TEXT",
+    # v7: Store Apple originalTransactionId for server notification lookups
+    "ALTER TABLE users ADD COLUMN original_transaction_id TEXT",
+    "CREATE INDEX IF NOT EXISTS idx_users_original_txn ON users(original_transaction_id)",
 ]
 
 
