@@ -9,31 +9,7 @@
 - **Routing**: Nginx Proxy Manager routes `api.example.com` → `ghostpour:8000`
 - **CI/CD**: Push to `main` → GitHub Actions builds image → pushes to GHCR → SSH deploys
 - **Data**: SQLite DB persisted in `ghostpour-data` Docker volume at `/app/data/`
-- **Server config**: `/opt/ghostpour/.env.prod` + `/opt/ghostpour/docker-compose.prod.yml` + `/opt/ghostpour/config/product-ids.yml`
-
-## Private config files
-
-Some config files are gitignored to keep customer-specific data out of the public repo:
-
-| File | Purpose | Required? |
-|------|---------|-----------|
-| `.env.prod` | Secrets (JWT secret, API keys, admin key) | Yes |
-| `config/product-ids.yml` | Real StoreKit product ID → tier mapping | Yes (for subscriptions) |
-
-**`config/product-ids.yml`** overrides the placeholder `storekit_product_id` values in `tiers.yml` at startup. Format:
-
-```yaml
-standard: "com.yourapp.sub.standard.monthly"
-pro: "com.yourapp.sub.pro.monthly"
-ultra: "com.yourapp.sub.ultra.monthly"
-ultra_max: "com.yourapp.sub.ultramax.monthly"
-```
-
-This file must exist on the production server. For Docker deploys, either:
-- Mount it as a volume: `-v /opt/ghostpour/config/product-ids.yml:/app/config/product-ids.yml`
-- Or copy it into the image during a local build
-
-Without this file, `/v1/verify-receipt` and `/v1/sync-subscription` will reject real StoreKit purchases (they won't match the placeholder product IDs).
+- **Server config**: `/opt/ghostpour/.env.prod` + `/opt/ghostpour/docker-compose.prod.yml`
 
 ## Manual deploy
 

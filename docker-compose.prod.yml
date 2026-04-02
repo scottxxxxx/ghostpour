@@ -7,7 +7,6 @@ services:
       - "8000"
     volumes:
       - ghostpour-data:/app/data
-      - ./product-ids.yml:/app/config/product-ids.yml:ro
     env_file:
       - .env.prod
     networks:
