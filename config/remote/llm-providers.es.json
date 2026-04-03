@@ -1,11 +1,11 @@
 {
-  "version": 1,
+  "version": 2,
   "providers": [
     {
       "id": "cloudzap",
       "displayName": "IA Gestionada",
       "apiFormat": "cloudzap",
-      "baseURL": "https://api.example.com/v1/chat",
+      "baseURL": "https://cz.shouldersurf.com/v1/chat",
       "authHeaderName": "Authorization",
       "authHeaderPrefix": "Bearer ",
       "extraHeaders": {},
@@ -24,7 +24,7 @@
         }
       ],
       "notes": "Servicio de IA gestionado por GhostPour. Inicia sesion con Apple, suscribete y nosotros nos encargamos del resto.",
-      "keyURL": "https://api.example.com/docs"
+      "keyURL": "https://cz.shouldersurf.com/docs"
     },
     {
       "id": "onDevice",
