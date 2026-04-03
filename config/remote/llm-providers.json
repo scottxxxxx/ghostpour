@@ -1,11 +1,11 @@
 {
-  "version": 1,
+  "version": 2,
   "providers": [
     {
       "id": "cloudzap",
       "displayName": "Managed AI",
       "apiFormat": "cloudzap",
-      "baseURL": "https://api.example.com/v1/chat",
+      "baseURL": "https://cz.shouldersurf.com/v1/chat",
       "authHeaderName": "Authorization",
       "authHeaderPrefix": "Bearer ",
       "extraHeaders": {},
@@ -24,7 +24,7 @@
         }
       ],
       "notes": "GhostPour managed AI service. Sign in with Apple, subscribe, and we handle the rest.",
-      "keyURL": "https://api.example.com/docs"
+      "keyURL": "https://cz.shouldersurf.com/docs"
     },
     {
       "id": "onDevice",

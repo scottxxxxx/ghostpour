@@ -29,11 +29,12 @@ CONFIG_DIR = Path(__file__).parent.parent.parent / "data" / "remote-config"
 
 
 def seed_remote_configs() -> None:
-    """Copy any missing bundled configs into the persistent directory.
+    """Copy bundled configs into the persistent directory.
 
-    Called once at startup. Bundled files that already exist in the persistent
-    directory are left untouched — dashboard edits take precedence over the
-    baked-in baseline.
+    Called once at startup. For each bundled file:
+    - If it doesn't exist in the persistent dir, copy it.
+    - If the bundled version is newer (higher version field), update it.
+    - Otherwise leave it untouched (dashboard edits take precedence).
     """
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -46,6 +47,18 @@ def seed_remote_configs() -> None:
         if not dest.exists():
             shutil.copy2(src, dest)
             logger.info("Seeded remote config from bundle: %s", src.name)
+        else:
+            # Update if bundled version is newer
+            try:
+                src_data = json.loads(src.read_text())
+                dest_data = json.loads(dest.read_text())
+                src_ver = src_data.get("version", 0)
+                dest_ver = dest_data.get("version", 0)
+                if src_ver > dest_ver:
+                    shutil.copy2(src, dest)
+                    logger.info("Updated remote config from bundle: %s (v%s → v%s)", src.name, dest_ver, src_ver)
+            except (json.JSONDecodeError, OSError):
+                pass  # Keep existing file on parse error
 
 
 def load_remote_configs() -> dict[str, dict]:
