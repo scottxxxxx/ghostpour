@@ -27,9 +27,20 @@ class AnthropicAdapter(ProviderAdapter):
 
         content_parts.append({"type": "text", "text": request.user_content})
 
+        # Use content block format for system prompt to enable prompt caching.
+        # Anthropic caches when content exceeds the model's minimum (4096 tokens
+        # for Haiku, 2048 for Sonnet). Below threshold, the hint is ignored.
+        system_block = [
+            {
+                "type": "text",
+                "text": request.system_prompt,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ]
+
         body = {
             "model": request.model,
-            "system": request.system_prompt,
+            "system": system_block,
             "messages": [{"role": "user", "content": content_parts}],
             "max_tokens": request.max_tokens or 4096,
         }

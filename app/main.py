@@ -69,6 +69,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    await app.state.provider_router.close()
     await pricing.stop()
 
 

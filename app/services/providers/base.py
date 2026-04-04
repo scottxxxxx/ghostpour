@@ -21,6 +21,7 @@ class ProviderAdapter(ABC):
         self.auth_header = auth_header
         self.auth_prefix = auth_prefix
         self.extra_headers = extra_headers or {}
+        self._client: httpx.AsyncClient | None = None
 
     @abstractmethod
     async def send_request(self, request: ChatRequest) -> ChatResponse:
@@ -91,6 +92,22 @@ class ProviderAdapter(ABC):
                 flat[full_key] = v
         return flat
 
+    def _get_client(self) -> httpx.AsyncClient:
+        """Return a shared HTTP client, creating it on first use.
+
+        Reusing the client keeps TCP connections alive across requests,
+        eliminating ~200-400ms of DNS + TLS overhead per call.
+        """
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(timeout=120.0)
+        return self._client
+
+    async def close(self) -> None:
+        """Close the shared HTTP client. Called on app shutdown."""
+        if self._client and not self._client.is_closed:
+            await self._client.aclose()
+            self._client = None
+
     async def _post(
         self, url: str, body: dict, headers: dict
     ) -> tuple[int, dict, str, str]:
@@ -100,8 +117,8 @@ class ProviderAdapter(ABC):
         """
         raw_request = self._redact_base64(self._pretty_json(body))
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            resp = await client.post(url, json=body, headers=headers)
+        client = self._get_client()
+        resp = await client.post(url, json=body, headers=headers)
 
         try:
             resp_json = resp.json()

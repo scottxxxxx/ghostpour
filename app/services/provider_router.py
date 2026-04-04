@@ -112,3 +112,8 @@ class ProviderRouter:
         self.validate_model(request.provider, request.model)
         adapter = self._get_adapter(request.provider)
         return await adapter.send_request(request)
+
+    async def close(self) -> None:
+        """Close all adapter HTTP clients. Called on app shutdown."""
+        for adapter in self._adapters.values():
+            await adapter.close()
