@@ -16,6 +16,7 @@ class ChatRequest(BaseModel):
     user_content: str
     images: list[str] | None = None
     max_tokens: int | None = None
+    stream: bool = False
 
     # Generic metadata dict — apps can pass any key-value pairs.
     # Known keys used by existing clients: call_type, prompt_mode,

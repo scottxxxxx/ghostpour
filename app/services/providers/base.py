@@ -1,6 +1,7 @@
 import json
 import re
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 
 import httpx
 
@@ -127,3 +128,40 @@ class ProviderAdapter(ABC):
 
         raw_response = self._pretty_json(resp_json)
         return resp.status_code, resp_json, raw_request, raw_response
+
+    async def _post_stream(
+        self, url: str, body: dict, headers: dict
+    ) -> AsyncIterator[str]:
+        """POST to provider with streaming and yield SSE lines.
+
+        Yields raw SSE lines (e.g., 'event: content_block_delta\\ndata: {...}').
+        The caller is responsible for parsing provider-specific event formats.
+        """
+        client = self._get_client()
+        async with client.stream("POST", url, json=body, headers=headers) as resp:
+            if resp.status_code != 200:
+                await resp.aread()
+                raise httpx.HTTPStatusError(
+                    f"Provider returned {resp.status_code}",
+                    request=resp.request,
+                    response=resp,
+                )
+            async for line in resp.aiter_lines():
+                if line:
+                    yield line
+
+    async def send_request_stream(
+        self, request: "ChatRequest"
+    ) -> AsyncIterator[dict]:
+        """Stream a chat request. Yields event dicts.
+
+        Default implementation falls back to non-streaming (yields one event).
+        Providers override this with real streaming support.
+        """
+        response = await self.send_request(request)
+        yield {
+            "type": "text",
+            "text": response.text,
+            "done": True,
+            "response": response,
+        }
