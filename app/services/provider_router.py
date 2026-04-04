@@ -113,6 +113,12 @@ class ProviderRouter:
         adapter = self._get_adapter(request.provider)
         return await adapter.send_request(request)
 
+    def route_stream(self, request: ChatRequest):
+        """Return an async iterator of stream events from the provider."""
+        self.validate_model(request.provider, request.model)
+        adapter = self._get_adapter(request.provider)
+        return adapter.send_request_stream(request)
+
     async def close(self) -> None:
         """Close all adapter HTTP clients. Called on app shutdown."""
         for adapter in self._adapters.values():

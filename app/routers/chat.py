@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import time
 from datetime import datetime, timedelta, timezone
@@ -7,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from app.config import get_settings
@@ -544,6 +545,25 @@ async def chat(
             body, result = await hook.before_llm(user, body, tier, state, skip_teasers)
             hook_results[feature_name] = result
 
+    # Effective allocation limit (trial or regular)
+    effective_limit = tier.monthly_cost_limit_usd
+    if user.is_trial and tier.trial_cost_limit_usd is not None:
+        effective_limit = tier.trial_cost_limit_usd
+
+    # 6. Stream or non-stream based on request + call_type
+    # Only stream interactive queries; background tasks (summary, analysis) get full JSON
+    call_type = body.get_meta("call_type")
+    should_stream = body.stream and call_type not in ("summary", "analysis")
+
+    if should_stream:
+        return await _handle_stream(
+            body, request, user, db, provider_router, usage_tracker,
+            pricing, tier, feature_hooks, hook_results,
+            monthly_used, overage_balance, effective_limit,
+        )
+
+    # --- Non-streaming path (original) ---
+
     # 6. Route to provider
     start = time.monotonic()
     try:
@@ -586,11 +606,6 @@ async def chat(
     response_data = response.model_dump()
     json_response = JSONResponse(content=response_data)
 
-    # Use trial limit for allocation headers during active trial
-    effective_limit = tier.monthly_cost_limit_usd
-    if user.is_trial and tier.trial_cost_limit_usd is not None:
-        effective_limit = tier.trial_cost_limit_usd
-
     if effective_limit != -1:
         new_monthly_used = monthly_used + request_cost
         percent = min(100, new_monthly_used / effective_limit * 100)
@@ -608,3 +623,99 @@ async def chat(
                 json_response.headers[k] = v
 
     return json_response
+
+
+async def _handle_stream(
+    body, request, user, db, provider_router, usage_tracker,
+    pricing, tier, feature_hooks, hook_results,
+    monthly_used, overage_balance, effective_limit,
+):
+    """SSE streaming path for interactive chat queries.
+
+    Streams text deltas as they arrive from the provider. Cost recording,
+    usage logging, and after_llm hooks run after the stream completes.
+    """
+    # Pre-compute allocation headers (sent before any body chunks)
+    headers = {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",  # Disable nginx buffering
+    }
+    if effective_limit != -1:
+        percent = min(100, monthly_used / effective_limit * 100)
+        headers["X-Allocation-Percent"] = f"{percent:.1f}"
+        if percent >= 80:
+            headers["X-Allocation-Warning"] = "true"
+        headers["X-Monthly-Used"] = f"{monthly_used:.4f}"
+        headers["X-Monthly-Limit"] = f"{effective_limit:.2f}"
+
+    # Feature hook headers
+    for feature_name, hook in feature_hooks.items():
+        if feature_name in hook_results:
+            state = tier.feature_state(feature_name)
+            for k, v in hook.response_headers(hook_results[feature_name], state).items():
+                headers[k] = v
+
+    start = time.monotonic()
+
+    async def event_stream():
+        final_response = None
+        try:
+            async for event in provider_router.route_stream(body):
+                if event.get("done"):
+                    final_response = event.get("response")
+                else:
+                    # Yield text delta as SSE
+                    sse_data = json.dumps({"type": "text", "text": event["text"]})
+                    yield f"data: {sse_data}\n\n"
+
+        except HTTPException:
+            elapsed_ms = int((time.monotonic() - start) * 1000)
+            await usage_tracker.log_usage(
+                db, user.id, body, None, elapsed_ms, status="error"
+            )
+            error_data = json.dumps({"type": "error", "text": "Provider error"})
+            yield f"data: {error_data}\n\n"
+            return
+
+        elapsed_ms = int((time.monotonic() - start) * 1000)
+
+        # Post-stream: cost calculation, recording, logging, hooks
+        request_cost = 0.0
+        if final_response and pricing.is_loaded:
+            cost = pricing.calculate_cost(
+                provider=body.provider,
+                model=body.model,
+                usage=final_response.usage,
+                input_tokens=final_response.input_tokens,
+                output_tokens=final_response.output_tokens,
+            )
+            final_response.cost = cost
+            request_cost = cost.get("total_cost", 0.0)
+
+        await usage_tracker.record_cost(db, user.id, request_cost, tier, user=user)
+        await usage_tracker.log_usage(db, user.id, body, final_response, elapsed_ms)
+
+        for feature_name, hook in feature_hooks.items():
+            state = tier.feature_state(feature_name)
+            if feature_name in hook_results:
+                await hook.after_llm(user, body, final_response, hook_results[feature_name], state)
+
+        # Final event with metadata (tokens, cost, allocation)
+        done_data = {
+            "type": "done",
+            "input_tokens": final_response.input_tokens if final_response else None,
+            "output_tokens": final_response.output_tokens if final_response else None,
+            "cost": final_response.cost if final_response else None,
+            "usage": final_response.usage if final_response else None,
+        }
+        if effective_limit != -1:
+            new_used = monthly_used + request_cost
+            done_data["allocation_percent"] = min(100, new_used / effective_limit * 100)
+        yield f"data: {json.dumps(done_data)}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers=headers,
+    )
