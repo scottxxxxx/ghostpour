@@ -154,7 +154,7 @@ def test_graph_invalid_format_returns_400(client):
 # --- CQ errors ---
 
 
-@patch("app.routers.chat.get_settings")
+@patch("app.routers.cq_proxy.get_settings")
 def test_graph_cq_not_configured(mock_settings, client):
     mock_settings.return_value.cq_base_url = ""
 
@@ -270,7 +270,7 @@ def test_prewarm_wrong_user_returns_403(wrong_user_client):
     assert resp.status_code == 403
 
 
-@patch("app.routers.chat.get_settings")
+@patch("app.routers.cq_proxy.get_settings")
 def test_prewarm_cq_not_configured(mock_settings, client):
     mock_settings.return_value.cq_base_url = ""
 

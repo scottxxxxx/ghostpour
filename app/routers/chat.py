@@ -634,7 +634,11 @@ async def _handle_stream(
 
     Streams text deltas as they arrive from the provider. Cost recording,
     usage logging, and after_llm hooks run after the stream completes.
+
+    Note: The generator opens its own DB connection because FastAPI's
+    request-scoped Depends(get_db) closes before the generator finishes.
     """
+    from app.database import get_db as _get_db
     # Pre-compute allocation headers (sent before any body chunks)
     headers = {
         "Content-Type": "text/event-stream",
@@ -671,16 +675,18 @@ async def _handle_stream(
 
         except HTTPException:
             elapsed_ms = int((time.monotonic() - start) * 1000)
-            await usage_tracker.log_usage(
-                db, user.id, body, None, elapsed_ms, status="error"
-            )
+            async for err_db in _get_db():
+                await usage_tracker.log_usage(
+                    err_db, user.id, body, None, elapsed_ms, status="error"
+                )
             error_data = json.dumps({"type": "error", "text": "Provider error"})
             yield f"data: {error_data}\n\n"
             return
 
         elapsed_ms = int((time.monotonic() - start) * 1000)
 
-        # Post-stream: cost calculation, recording, logging, hooks
+        # Post-stream: cost calculation, recording, logging, hooks.
+        # Use a fresh DB connection — the request-scoped one is closed by now.
         request_cost = 0.0
         if final_response and pricing.is_loaded:
             cost = pricing.calculate_cost(
@@ -693,13 +699,14 @@ async def _handle_stream(
             final_response.cost = cost
             request_cost = cost.get("total_cost", 0.0)
 
-        await usage_tracker.record_cost(db, user.id, request_cost, tier, user=user)
-        await usage_tracker.log_usage(db, user.id, body, final_response, elapsed_ms)
+        async for stream_db in _get_db():
+            await usage_tracker.record_cost(stream_db, user.id, request_cost, tier, user=user)
+            await usage_tracker.log_usage(stream_db, user.id, body, final_response, elapsed_ms)
 
-        for feature_name, hook in feature_hooks.items():
-            state = tier.feature_state(feature_name)
-            if feature_name in hook_results:
-                await hook.after_llm(user, body, final_response, hook_results[feature_name], state)
+            for feature_name, hook in feature_hooks.items():
+                state = tier.feature_state(feature_name)
+                if feature_name in hook_results:
+                    await hook.after_llm(user, body, final_response, hook_results[feature_name], state)
 
         # Final event with metadata (tokens, cost, allocation)
         done_data = {
