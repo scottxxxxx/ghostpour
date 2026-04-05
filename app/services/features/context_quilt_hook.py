@@ -45,6 +45,7 @@ class ContextQuiltHook:
             cq_metadata["project"] = body.get_meta("project")
         if body.get_meta("project_id"):
             cq_metadata["project_id"] = body.get_meta("project_id")
+        cq_metadata["locale"] = body.get_meta("locale") or "en"
 
         if feature_state == "enabled":
             # Full CQ: recall + inject
