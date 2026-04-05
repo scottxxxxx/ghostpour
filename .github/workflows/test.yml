@@ -13,6 +13,7 @@ jobs:
     env:
       CZ_JWT_SECRET: "ci-test-secret-not-real"
       CZ_APPLE_BUNDLE_ID: "com.example.test"
+      CZ_CQ_BASE_URL: "http://localhost:9999"
 
     steps:
       - uses: actions/checkout@v4
