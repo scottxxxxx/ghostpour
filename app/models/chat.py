@@ -5,7 +5,7 @@ from pydantic import BaseModel, model_validator
 
 _CHAT_META_FIELDS = (
     "call_type", "prompt_mode", "image_count", "session_duration_sec",
-    "meeting_id", "project", "project_id",
+    "meeting_id", "project", "project_id", "locale",
 )
 
 
@@ -37,6 +37,7 @@ class ChatRequest(BaseModel):
     meeting_id: str | None = None
     project: str | None = None
     project_id: str | None = None
+    locale: str | None = None
 
     @model_validator(mode="before")
     @classmethod
