@@ -103,7 +103,9 @@ async def get_quilt(
 
 class PatchUpdateRequest(BaseModel):
     fact: str | None = None
-    patch_type: str | None = None
+    category: str | None = None
+    owner: str | None = None
+    project_id: str | None = None
 
 
 @router.patch("/quilt/{user_id}/patches/{patch_id}")
@@ -113,7 +115,7 @@ async def update_quilt_patch(
     body: PatchUpdateRequest,
     user: UserRecord = Depends(get_current_user),
 ):
-    """Proxy: update a quilt patch."""
+    """Proxy: update a quilt patch (text, category, owner, project)."""
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
     payload = {k: v for k, v in body.model_dump().items() if v is not None}
@@ -130,6 +132,39 @@ async def delete_quilt_patch(
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
     return await _cq_proxy("DELETE", f"/v1/quilt/{user_id}/patches/{patch_id}")
+
+
+# --- Connection management ---
+
+
+class ConnectionRequest(BaseModel):
+    source_patch_id: str
+    target_patch_id: str
+    relationship: str | None = None
+
+
+@router.post("/quilt/{user_id}/connections")
+async def create_connection(
+    user_id: str,
+    body: ConnectionRequest,
+    user: UserRecord = Depends(get_current_user),
+):
+    """Proxy: create a connection between two patches."""
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
+    return await _cq_proxy("POST", f"/v1/quilt/{user_id}/connections", body.model_dump())
+
+
+@router.delete("/quilt/{user_id}/connections")
+async def delete_connection(
+    user_id: str,
+    body: ConnectionRequest,
+    user: UserRecord = Depends(get_current_user),
+):
+    """Proxy: delete a connection between two patches."""
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
+    return await _cq_proxy("DELETE", f"/v1/quilt/{user_id}/connections", body.model_dump())
 
 
 # --- Meeting management ---
