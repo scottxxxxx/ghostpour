@@ -29,6 +29,7 @@ class VerifyReceiptRequest(BaseModel):
     signed_transaction: str | None = None  # JWS for future server-side verification
     offer_type: str | None = None  # "introductory" for free trial, None for paid
     offer_price: float | None = None  # 0.00 for free trial
+    is_trial: bool | None = None  # Explicit trial flag from client (preferred over inference)
 
 
 # Map StoreKit product IDs to tier names
@@ -73,11 +74,14 @@ async def verify_receipt(
     new_tier = tier_config.tiers[new_tier_name]
     old_tier_name = user.tier
 
-    # Detect free trial: introductory offer with price 0
-    is_trial = (
-        body.offer_type == "introductory"
-        and (body.offer_price is None or body.offer_price == 0)
-    )
+    # Detect free trial: prefer explicit flag from client, fall back to inference
+    if body.is_trial is not None:
+        is_trial = body.is_trial
+    else:
+        is_trial = (
+            body.offer_type == "introductory"
+            and (body.offer_price is None or body.offer_price == 0)
+        )
 
     now = datetime.now(timezone.utc)
 
