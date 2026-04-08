@@ -128,15 +128,20 @@ class ContextQuiltHook:
         headers: dict[str, str] = {}
         cq_result = hook_result.get("cq_result", {})
         matched = cq_result.get("matched_entities", [])
+        patch_ids = cq_result.get("matched_patch_ids", [])
         gated = hook_result.get("gated", False)
 
         if feature_state == "enabled" and matched:
             headers["X-CQ-Matched"] = str(len(matched))
             headers["X-CQ-Entities"] = ",".join(matched[:10])
+            if patch_ids:
+                headers["X-CQ-Patch-IDs"] = ",".join(patch_ids[:20])
         elif gated:
             headers["X-CQ-Matched"] = str(len(matched))
             headers["X-CQ-Gated"] = "true"
             if matched:
                 headers["X-CQ-Entities"] = ",".join(matched[:10])
+            if patch_ids:
+                headers["X-CQ-Patch-IDs"] = ",".join(patch_ids[:20])
 
         return headers
