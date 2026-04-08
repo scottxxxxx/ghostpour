@@ -459,10 +459,19 @@ async def list_tiers(request: Request):
             continue
         # Merge: display strings from remote config, structural from YAML
         dt = display_tiers.get(name, {})
+
+        # Cost per hour for this tier's default model. Used by clients for
+        # pre-flight allocation checks (estimated_minutes × cost_per_hour / 60).
+        # Hardcoded by model family today; will become per-model when tiers
+        # support mixed-model allocation.
+        cost_per_hour_usd = 0.19 if "sonnet" in (tier.default_model or "").lower() else 0.05
+
         tiers_result[name] = {
             "display_name": dt.get("display_name", tier.display_name),
             "description": dt.get("description", tier.description),
             "hours_per_month": tier.hours_per_month,
+            "cost_per_hour_usd": cost_per_hour_usd,
+            "monthly_cost_limit_usd": tier.monthly_cost_limit_usd,
             "summary_mode": tier.summary_mode,
             "summary_interval_minutes": tier.summary_interval_minutes,
             "max_images_per_request": tier.max_images_per_request,
