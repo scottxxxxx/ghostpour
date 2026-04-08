@@ -288,6 +288,21 @@ async def get_live_log(
     return {"entries": get_recent_logs(limit)}
 
 
+@router.get("/admin/live-log/{request_id}")
+async def get_live_log_entry(
+    request_id: str,
+    request: Request,
+    x_admin_key: str = Header(...),
+):
+    """Look up a single log entry by request_id (from X-Request-ID header)."""
+    _verify_admin(request, x_admin_key)
+    from app.middleware.request_logging import get_log_by_request_id
+    entry = get_log_by_request_id(request_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail=f"No log entry for request_id: {request_id}")
+    return entry
+
+
 # --- Remote Config Management ---
 
 

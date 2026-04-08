@@ -10,7 +10,7 @@ import hashlib
 import logging
 
 import httpx
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
@@ -216,6 +216,7 @@ async def prewarm_quilt(
 @router.get("/quilt/{user_id}/graph")
 async def get_quilt_graph(
     user_id: str,
+    request: Request,
     format: str = "svg",
     user: UserRecord = Depends(get_current_user),
     if_none_match: str | None = Header(default=None, alias="If-None-Match"),
@@ -225,6 +226,8 @@ async def get_quilt_graph(
     Sets a 1-hour Cache-Control and a weak ETag based on the content hash so
     clients can issue conditional requests and get a cheap 304 Not Modified.
     """
+    request_id = getattr(request.state, "request_id", "unknown")
+
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot access another user's quilt")
     if format not in ("svg", "png", "html"):
@@ -232,7 +235,11 @@ async def get_quilt_graph(
 
     settings = get_settings()
     if not settings.cq_base_url:
-        raise HTTPException(status_code=503, detail="Context Quilt not configured")
+        raise HTTPException(status_code=503, detail={
+            "code": "service_unavailable",
+            "message": "Context Quilt not configured",
+            "request_id": request_id,
+        })
 
     try:
         auth_headers = await cq._get_auth_headers()
@@ -244,10 +251,24 @@ async def get_quilt_graph(
             )
         if resp.status_code != 200:
             try:
-                detail = resp.json().get("detail", resp.text)
+                upstream_detail = resp.json().get("detail", resp.text)
             except Exception:
-                detail = resp.text or "Context Quilt error"
-            raise HTTPException(status_code=resp.status_code, detail=detail)
+                upstream_detail = resp.text or "Context Quilt error"
+            logger.error(
+                "quilt_graph_upstream_error",
+                extra={
+                    "request_id": request_id,
+                    "user_id": user_id,
+                    "upstream_status": resp.status_code,
+                    "upstream_detail": str(upstream_detail)[:500],
+                },
+            )
+            raise HTTPException(status_code=resp.status_code, detail={
+                "code": "upstream_error",
+                "upstream": "cq",
+                "message": str(upstream_detail)[:500],
+                "request_id": request_id,
+            })
 
         content_types = {"svg": "image/svg+xml", "png": "image/png", "html": "text/html"}
         content_type = content_types.get(format, "application/octet-stream")
@@ -280,6 +301,18 @@ async def get_quilt_graph(
     except HTTPException:
         raise
     except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="Context Quilt timeout")
+        logger.error("quilt_graph_timeout", extra={"request_id": request_id, "user_id": user_id})
+        raise HTTPException(status_code=504, detail={
+            "code": "upstream_timeout",
+            "upstream": "cq",
+            "message": "Context Quilt timeout",
+            "request_id": request_id,
+        })
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Context Quilt unreachable: {e}")
+        logger.error("quilt_graph_unreachable", extra={"request_id": request_id, "user_id": user_id, "error": str(e)})
+        raise HTTPException(status_code=502, detail={
+            "code": "upstream_unreachable",
+            "upstream": "cq",
+            "message": f"Context Quilt unreachable: {e}",
+            "request_id": request_id,
+        })

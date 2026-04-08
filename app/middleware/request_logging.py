@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+import uuid
 from collections import deque
 from datetime import datetime, timezone
 
@@ -19,7 +20,7 @@ _SKIP_PATHS = {"/health", "/docs", "/openapi.json", "/v1/model-pricing",
 _MAX_BODY_LOG = 10_000
 
 # In-memory ring buffer for recent requests (viewable in dashboard)
-_LOG_BUFFER: deque[dict] = deque(maxlen=200)
+_LOG_BUFFER: deque[dict] = deque(maxlen=1000)
 
 _REDACT_KEYS = {"identity_token", "access_token", "refresh_token", "signed_transaction", "client_secret", "password"}
 
@@ -31,6 +32,14 @@ def get_recent_logs(limit: int = 50) -> list[dict]:
     return entries[:limit]
 
 
+def get_log_by_request_id(request_id: str) -> dict | None:
+    """Find a single log entry by its request_id, or None if not in buffer."""
+    for entry in _LOG_BUFFER:
+        if entry.get("request_id") == request_id:
+            return entry
+    return None
+
+
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
@@ -39,6 +48,11 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         verbose = get_settings().verbose_logging
 
         start = time.monotonic()
+
+        # Generate a request ID and stash it on request.state so handlers
+        # can include it in error responses for client-side correlation.
+        request_id = uuid.uuid4().hex[:12]
+        request.state.request_id = request_id
 
         # Capture request body
         req_body_str = None
@@ -52,6 +66,9 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
         response = await call_next(request)
         elapsed_ms = int((time.monotonic() - start) * 1000)
+
+        # Always set X-Request-ID so clients can correlate with GP logs
+        response.headers["X-Request-ID"] = request_id
 
         if request.url.path in _SKIP_PATHS:
             return response
@@ -85,6 +102,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         # Store in ring buffer (always, for dashboard)
         entry = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
+            "request_id": request_id,
             "method": request.method,
             "path": request.url.path,
             "query": str(request.url.query) if request.url.query else None,
