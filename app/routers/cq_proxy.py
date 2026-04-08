@@ -6,10 +6,11 @@ is configured. Apps that don't use Context Quilt won't have these routes.
 """
 
 import asyncio
+import hashlib
 import logging
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
@@ -217,8 +218,13 @@ async def get_quilt_graph(
     user_id: str,
     format: str = "svg",
     user: UserRecord = Depends(get_current_user),
+    if_none_match: str | None = Header(default=None, alias="If-None-Match"),
 ):
-    """Proxy: fetch user's quilt graph visualization from Context Quilt."""
+    """Proxy: fetch user's quilt graph visualization from Context Quilt.
+
+    Sets a 1-hour Cache-Control and a weak ETag based on the content hash so
+    clients can issue conditional requests and get a cheap 304 Not Modified.
+    """
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot access another user's quilt")
     if format not in ("svg", "png", "html"):
@@ -247,10 +253,29 @@ async def get_quilt_graph(
         content_type = content_types.get(format, "application/octet-stream")
         size = len(resp.content)
         logger.info("quilt_graph_proxy", extra={"user_id": user_id, "format": format, "bytes": size})
+
+        # Weak ETag based on content hash — lets clients revalidate cheaply
+        etag = f'W/"{hashlib.sha256(resp.content).hexdigest()[:16]}"'
+
+        # Conditional request: client already has this version
+        if if_none_match and if_none_match == etag:
+            return Response(
+                status_code=304,
+                headers={
+                    "ETag": etag,
+                    "Cache-Control": "private, max-age=3600",
+                },
+            )
+
         return Response(
             content=resp.content,
             media_type=content_type,
-            headers={"Content-Length": str(size), "X-Graph-Bytes": str(size)},
+            headers={
+                "Content-Length": str(size),
+                "X-Graph-Bytes": str(size),
+                "ETag": etag,
+                "Cache-Control": "private, max-age=3600",
+            },
         )
     except HTTPException:
         raise
