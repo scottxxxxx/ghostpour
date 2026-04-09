@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "providers": [
     {
       "id": "cloudzap",
@@ -382,6 +382,191 @@
       ],
       "notes": "Alibaba Qwen models.",
       "keyURL": "https://bailian.console.alibabacloud.com/#/model-market"
+    },
+    {
+      "id": "openrouter",
+      "displayName": "OpenRouter",
+      "apiFormat": "openai",
+      "baseURL": "https://openrouter.ai/api/v1/chat/completions",
+      "authHeaderName": "Authorization",
+      "authHeaderPrefix": "Bearer ",
+      "extraHeaders": {
+        "HTTP-Referer": "https://shouldersurf.app",
+        "X-Title": "Shoulder Surf"
+      },
+      "requiresAPIKey": true,
+      "supportsVision": true,
+      "maxTokensDefault": 1024,
+      "temperatureDefault": 0.7,
+      "models": [
+        {
+          "id": "google/gemini-2.5-flash",
+          "displayName": "Gemini 2.5 Flash (OR)",
+          "description": "Fast, 1M context, vision. Best all-around default for mid-meeting queries.",
+          "isDefault": true,
+          "supportsVision": true,
+          "contextWindow": 1048576,
+          "inputCostPerMillion": 0.30,
+          "outputCostPerMillion": 2.50,
+          "litellmKey": "openrouter/google/gemini-2.5-flash"
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "displayName": "Claude Haiku 4.5 (OR)",
+          "description": "Claude speed tier with vision. Great for fast summaries and extraction.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 200000,
+          "inputCostPerMillion": 1.00,
+          "outputCostPerMillion": 5.00,
+          "litellmKey": "openrouter/anthropic/claude-haiku-4.5"
+        },
+        {
+          "id": "openai/gpt-5-mini",
+          "displayName": "GPT-5 Mini (OR)",
+          "description": "Fast, cost-efficient GPT-5 with vision. Good for well-defined mid-meeting tasks.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 400000,
+          "inputCostPerMillion": 0.25,
+          "outputCostPerMillion": 2.00,
+          "litellmKey": "openrouter/openai/gpt-5-mini"
+        },
+        {
+          "id": "google/gemini-2.5-flash-lite",
+          "displayName": "Gemini 2.5 Flash Lite (OR)",
+          "description": "Lightweight Flash for high-volume, cost-sensitive queries. Cheapest vision-capable option.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 1048576,
+          "inputCostPerMillion": 0.10,
+          "outputCostPerMillion": 0.40,
+          "litellmKey": "openrouter/google/gemini-2.5-flash-lite"
+        },
+        {
+          "id": "anthropic/claude-sonnet-4.6",
+          "displayName": "Claude Sonnet 4.6 (OR)",
+          "description": "Balanced quality and speed with vision. Often the best summary writer for meetings.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 1000000,
+          "inputCostPerMillion": 3.00,
+          "outputCostPerMillion": 15.00,
+          "litellmKey": "openrouter/anthropic/claude-sonnet-4.6"
+        },
+        {
+          "id": "google/gemini-2.5-pro",
+          "displayName": "Gemini 2.5 Pro (OR)",
+          "description": "Flagship Gemini with 1M context. Best choice for very long meetings with deep analysis.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 1048576,
+          "inputCostPerMillion": 1.25,
+          "outputCostPerMillion": 10.00,
+          "litellmKey": "openrouter/google/gemini-2.5-pro"
+        },
+        {
+          "id": "anthropic/claude-opus-4.6",
+          "displayName": "Claude Opus 4.6 (OR)",
+          "description": "Peak Claude quality for post-meeting analysis. Slower — use when quality matters more than speed.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 1000000,
+          "inputCostPerMillion": 5.00,
+          "outputCostPerMillion": 25.00,
+          "litellmKey": "openrouter/anthropic/claude-opus-4.6"
+        },
+        {
+          "id": "openai/gpt-5",
+          "displayName": "GPT-5 (OR)",
+          "description": "Flagship GPT-5 with vision. Strong for reasoning, document analysis, and post-meeting report writing.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 400000,
+          "inputCostPerMillion": 1.25,
+          "outputCostPerMillion": 10.00,
+          "litellmKey": "openrouter/openai/gpt-5"
+        },
+        {
+          "id": "deepseek/deepseek-v3.2",
+          "displayName": "DeepSeek V3.2 (OR)",
+          "description": "Cheapest frontier model for text-only queries. Strong summarization, no vision support.",
+          "isDefault": false,
+          "supportsVision": false,
+          "contextWindow": 163840,
+          "inputCostPerMillion": 0.26,
+          "outputCostPerMillion": 0.38,
+          "litellmKey": "openrouter/deepseek/deepseek-v3.2"
+        },
+        {
+          "id": "perplexity/sonar",
+          "displayName": "Perplexity Sonar (OR)",
+          "description": "Real-time web search backing. Ask about companies, people, or topics mentioned in the meeting as they come up.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 127072,
+          "inputCostPerMillion": 1.00,
+          "outputCostPerMillion": 1.00,
+          "litellmKey": "openrouter/perplexity/sonar"
+        },
+        {
+          "id": "meta-llama/llama-4-maverick",
+          "displayName": "Llama 4 Maverick (OR)",
+          "description": "Open-weight flagship with vision. Competitive budget alternative with strong multilingual support.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 1048576,
+          "inputCostPerMillion": 0.15,
+          "outputCostPerMillion": 0.60,
+          "litellmKey": "openrouter/meta-llama/llama-4-maverick"
+        },
+        {
+          "id": "x-ai/grok-4",
+          "displayName": "Grok 4 (OR)",
+          "description": "Reasoning with real-time knowledge integration. Useful for meetings discussing current events or fast-moving topics.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 256000,
+          "inputCostPerMillion": 3.00,
+          "outputCostPerMillion": 15.00,
+          "litellmKey": "openrouter/x-ai/grok-4"
+        },
+        {
+          "id": "mistralai/mistral-large-2411",
+          "displayName": "Mistral Large 2 (OR)",
+          "description": "European alternative with strong multilingual support. Useful for teams needing EU data residency.",
+          "isDefault": false,
+          "supportsVision": false,
+          "contextWindow": 131072,
+          "inputCostPerMillion": 2.00,
+          "outputCostPerMillion": 6.00,
+          "litellmKey": "openrouter/mistralai/mistral-large-2411"
+        },
+        {
+          "id": "qwen/qwen3-vl-235b-a22b-instruct",
+          "displayName": "Qwen3 VL 235B (OR)",
+          "description": "Strongest multilingual vision model. Best choice for meetings in Japanese, Mandarin, or other non-English languages.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 262144,
+          "inputCostPerMillion": 0.20,
+          "outputCostPerMillion": 0.88,
+          "litellmKey": "openrouter/qwen/qwen3-vl-235b-a22b-instruct"
+        },
+        {
+          "id": "anthropic/claude-3.5-haiku",
+          "displayName": "Claude 3.5 Haiku (OR)",
+          "description": "Previous-generation Haiku at reduced cost. Budget Claude option when Haiku 4.5 is overkill.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 200000,
+          "inputCostPerMillion": 0.80,
+          "outputCostPerMillion": 4.00,
+          "litellmKey": "openrouter/anthropic/claude-3.5-haiku"
+        }
+      ],
+      "notes": "OpenRouter provides a unified API for 300+ models. Pay-as-you-go with spend caps on the key itself. Create an API key at openrouter.ai/keys and set a monthly limit for safety.",
+      "keyURL": "https://openrouter.ai/keys"
     }
   ]
 }
