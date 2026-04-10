@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Meeting report template — rendered server-side by GhostPour -->
+</head>
+<body style="margin:0;padding:0;background:#f2f2ee;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+
+<div style="max-width:620px;margin:0 auto;background:#ffffff;">
+
+  <!-- Top bar -->
+  <div style="background:#1a1a1a;padding:12px 32px;">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td style="font-size:11px;color:#ffffff;font-weight:600;letter-spacing:0.05em;">{{header.title}}</td>
+      <td style="text-align:right;font-size:10px;color:#888;font-family:monospace;">{{meeting_date}} · {{meeting_time}}</td>
+    </tr></table>
+  </div>
+
+  <!-- Header -->
+  <div style="padding:28px 32px 20px;border-bottom:1px solid #ebebeb;">
+    <div style="font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:#aaa;margin-bottom:8px;">{{header.category}}</div>
+    <div style="font-size:22px;font-weight:700;color:#1a1a1a;line-height:1.2;margin-bottom:12px;">{{header.title}}</div>
+
+    <div style="font-size:13px;color:#666;line-height:1.6;">{{header.summary}}</div>
+
+    <!-- Attendees -->
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid #f0f0ec;">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.12em;color:#aaa;margin-bottom:8px;">Attendees</div>
+      <div style="font-size:12px;color:#555;line-height:1.8;">
+        <!-- {{#each header.attendees}} -->
+        <span style="background:#f0f0ec;padding:2px 8px;border-radius:3px;margin-right:4px;margin-bottom:4px;display:inline-block;">{{this}}</span>
+        <!-- {{/each}} -->
+      </div>
+    </div>
+
+    <!-- Stoplight + Sentiment -->
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid #f0f0ec;">
+
+      <!-- Stoplight -->
+      <table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #f0f0ec;"><tr valign="middle">
+        <td style="padding-right:16px;">
+          <table cellpadding="0" cellspacing="0">
+            <!-- Three circles: light up the one matching stoplight.color, others are #e0e0db -->
+            <tr><td align="center" style="padding-bottom:4px;"><table cellpadding="0" cellspacing="0"><tr><td width="18" height="18" bgcolor="{{#if stoplight.color == 'red'}}#E24B4A{{else}}#e0e0db{{/if}}" style="border-radius:9px;width:18px;height:18px;font-size:0;line-height:0;">&nbsp;</td></tr></table></td></tr>
+            <tr><td align="center" style="padding-bottom:4px;"><table cellpadding="0" cellspacing="0"><tr><td width="18" height="18" bgcolor="{{#if stoplight.color == 'yellow'}}#EF9F27{{else}}#e0e0db{{/if}}" style="border-radius:9px;width:18px;height:18px;font-size:0;line-height:0;">&nbsp;</td></tr></table></td></tr>
+            <tr><td align="center"><table cellpadding="0" cellspacing="0"><tr><td width="18" height="18" bgcolor="{{#if stoplight.color == 'green'}}#4CAF50{{else}}#e0e0db{{/if}}" style="border-radius:9px;width:18px;height:18px;font-size:0;line-height:0;">&nbsp;</td></tr></table></td></tr>
+          </table>
+        </td>
+        <td>
+          <div style="font-size:12px;font-weight:600;color:{{stoplight_text}};margin-bottom:3px;">{{stoplight.label}}</div>
+          <div style="font-size:11px;color:#888;line-height:1.6;">{{stoplight.detail}}</div>
+        </td>
+      </tr></table>
+
+      <!-- Sentiment Score + Label -->
+      <table cellpadding="0" cellspacing="0"><tr valign="middle">
+        <td style="padding-right:12px;">
+          <div style="text-align:center;">
+            <div onclick="var d=document.getElementById('sent-expand');d.style.display=d.style.display==='none'?'block':'none';" style="background:{{stoplight_bg}};border-radius:50%;width:44px;height:44px;text-align:center;line-height:44px;font-size:14px;font-weight:700;color:{{stoplight_text}};margin:0 auto;cursor:pointer;">{{sentiment.score}}</div>
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:{{stoplight_text}};margin-top:3px;">Sentiment</div>
+          </div>
+        </td>
+        <td>
+          <div style="font-size:11px;font-weight:600;color:#1a1a1a;margin-bottom:2px;">{{sentiment.label}}</div>
+          <div style="font-size:11px;color:#888;line-height:1.5;">{{sentiment.detail}} <span onclick="var d=document.getElementById('sent-expand');d.style.display=d.style.display==='none'?'block':'none';" style="color:{{stoplight_text}};cursor:pointer;text-decoration:underline;">View arc</span></div>
+        </td>
+      </tr></table>
+
+      <!-- Sentiment Arc (progressive disclosure, hidden by default) -->
+      <div id="sent-expand" style="display:none;margin-top:12px;padding:12px 14px;background:#fafaf8;border:1px solid #e8e8e4;border-radius:4px;">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.12em;color:#aaa;margin-bottom:10px;">Sentiment arc</div>
+        <table cellpadding="0" cellspacing="2" width="100%" style="height:48px;"><tr valign="bottom">
+          <!-- {{#each sentiment.arc}} -->
+          <td style="vertical-align:bottom;"><table cellpadding="0" cellspacing="0" width="100%"><tr><td bgcolor="{{mood_color this.mood}}" height="{{this.value}}" style="border-radius:2px 2px 0 0;">&nbsp;</td></tr></table></td>
+          <!-- {{/each}} -->
+        </tr></table>
+        <!-- Legend -->
+        <table cellpadding="0" cellspacing="0" style="margin-top:10px;padding-top:8px;border-top:1px solid #f0f0ec;"><tr>
+          <td style="padding-right:14px;white-space:nowrap;"><table cellpadding="0" cellspacing="0"><tr valign="middle"><td width="8" height="8" bgcolor="#639922" style="border-radius:4px;width:8px;height:8px;">&nbsp;</td><td style="font-size:10px;color:#555;padding-left:5px;">Confident</td></tr></table></td>
+          <td style="padding-right:14px;white-space:nowrap;"><table cellpadding="0" cellspacing="0"><tr valign="middle"><td width="8" height="8" bgcolor="#EF9F27" style="border-radius:4px;width:8px;height:8px;">&nbsp;</td><td style="font-size:10px;color:#555;padding-left:5px;">Tense</td></tr></table></td>
+          <td style="padding-right:14px;white-space:nowrap;"><table cellpadding="0" cellspacing="0"><tr valign="middle"><td width="8" height="8" bgcolor="#E24B4A" style="border-radius:4px;width:8px;height:8px;">&nbsp;</td><td style="font-size:10px;color:#555;padding-left:5px;">Concern</td></tr></table></td>
+          <td style="white-space:nowrap;"><table cellpadding="0" cellspacing="0"><tr valign="middle"><td width="8" height="8" bgcolor="#888780" style="border-radius:4px;width:8px;height:8px;">&nbsp;</td><td style="font-size:10px;color:#555;padding-left:5px;">Neutral</td></tr></table></td>
+        </tr></table>
+        <div style="margin-top:8px;font-size:11px;color:#888;line-height:1.6;">{{sentiment.arc_narrative}}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION: Action Required -->
+  <div style="background:#fff8f0;border-top:3px solid #E24B4A;padding:24px 32px;border-bottom:1px solid #f0e8e0;">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:#A32D2D;margin-bottom:16px;">Action Required</div>
+
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <!-- {{#each actions}} -->
+      <tr style="border-bottom:1px solid #f0e0d8;">
+        <td style="padding:10px 12px 10px 0;width:96px;vertical-align:top;">
+          <span style="background:{{priority_bg this.priority}};color:#ffffff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:3px;white-space:nowrap;">{{this.owner}}</span>
+        </td>
+        <td style="padding:10px 0;font-size:12px;color:#333;line-height:1.6;">{{this.task}}{{#if this.deadline}} <strong>{{this.deadline}}</strong>{{/if}}</td>
+      </tr>
+      <!-- {{/each}} -->
+    </table>
+  </div>
+
+  <!-- SECTION: Critical Technical Issues -->
+  <!-- {{#if technical_issues.length}} -->
+  <div style="padding:24px 32px;border-bottom:1px solid #ebebeb;">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:#aaa;margin-bottom:16px;">Critical Technical Issue</div>
+
+    <!-- {{#each technical_issues}} -->
+    <div style="border-left:3px solid #E24B4A;background:#fff5f5;padding:14px 16px;border-radius:0 4px 4px 0;margin-bottom:12px;">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:#A32D2D;margin-bottom:4px;">{{this.severity}} Identified</div>
+      <div style="font-size:13px;font-weight:700;color:#1a1a1a;margin-bottom:6px;">{{this.title}}</div>
+      <div style="font-size:12px;line-height:1.7;color:#555;">{{this.detail}}</div>
+
+      <!-- {{#if this.position}} -->
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid #fadddd;">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:#A32D2D;margin-bottom:4px;">Position stated</div>
+        <div style="font-size:11px;line-height:1.6;color:#666;">{{this.position}}</div>
+      </div>
+      <!-- {{/if}} -->
+    </div>
+    <!-- {{/each}} -->
+
+    <!-- Positive Developments (rendered inside same section if they exist) -->
+    <!-- {{#each developments}} -->
+    <div style="border-left:3px solid #4CAF50;background:#f5fbf0;padding:14px 16px;border-radius:0 4px 4px 0;margin-bottom:12px;">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:#3B6D11;margin-bottom:4px;">New Development</div>
+      <div style="font-size:13px;font-weight:700;color:#1a1a1a;margin-bottom:6px;">{{this.title}}</div>
+      <div style="font-size:12px;line-height:1.7;color:#555;">{{this.detail}}</div>
+    </div>
+    <!-- {{/each}} -->
+  </div>
+  <!-- {{/if}} -->
+
+  <!-- SECTION: Decisions Made -->
+  <!-- {{#if decisions.length}} -->
+  <div style="padding:24px 32px;border-bottom:1px solid #ebebeb;">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:#aaa;margin-bottom:16px;">Decisions Made</div>
+
+    <!-- {{#each decisions}} -->
+    <div style="border:1px solid #e8e8e4;border-radius:4px;overflow:hidden;margin-bottom:10px;">
+      <div style="padding:14px 16px;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#3B6D11;margin-bottom:4px;">Agreed</div>
+        <div style="font-size:13px;font-weight:700;color:#1a1a1a;margin-bottom:6px;">{{this.title}}</div>
+        <div style="font-size:12px;line-height:1.7;color:#555;">{{this.detail}}</div>
+      </div>
+    </div>
+    <!-- {{/each}} -->
+  </div>
+  <!-- {{/if}} -->
+
+  <!-- SECTION: Open Questions -->
+  <!-- {{#if open_questions.length}} -->
+  <div style="padding:24px 32px;border-bottom:1px solid #ebebeb;">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:#aaa;margin-bottom:16px;">Open Questions</div>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8e8e4;border-radius:4px;overflow:hidden;border-collapse:collapse;">
+      <tr style="background:#f5f5f2;border-bottom:1px solid #e8e8e4;">
+        <td style="padding:8px 12px;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#aaa;border-bottom:1px solid #e8e8e4;">Question</td>
+        <td style="padding:8px 12px;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#aaa;border-bottom:1px solid #e8e8e4;width:30%;">Owner</td>
+      </tr>
+      <!-- {{#each open_questions}} -->
+      <tr style="border-bottom:1px solid #f0f0ec;">
+        <td style="padding:10px 12px;font-size:12px;color:#333;line-height:1.5;">{{this.question}}</td>
+        <td style="padding:10px 12px;font-size:12px;color:#666;">{{this.owner}}</td>
+      </tr>
+      <!-- {{/each}} -->
+    </table>
+  </div>
+  <!-- {{/if}} -->
+
+  <!-- SECTION: AI Queries During Meeting (Progressive Disclosure) -->
+  <!-- {{#if queries_during_meeting.length}} -->
+  <div style="padding:24px 32px;border-bottom:1px solid #ebebeb;">
+    <div onclick="var d=document.getElementById('queries-expand');d.style.display=d.style.display==='none'?'block':'none';" style="cursor:pointer;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:#aaa;margin-bottom:4px;">Research Notes</div>
+      <div style="font-size:11px;color:#555;font-weight:600;">{{queries_during_meeting.length}} queries captured during this meeting <span style="color:#999;">&#x25BC;</span></div>
+    </div>
+
+    <div id="queries-expand" style="display:none;margin-top:14px;">
+      <!-- {{#each queries_during_meeting}} -->
+      <div style="background:#f7f7f5;border:1px solid #e8e8e4;border-radius:6px;padding:12px 14px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:10px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:0.08em;">{{this.mode}}</span>
+          <span style="font-size:10px;color:#999;font-family:monospace;">{{this.timestamp}}</span>
+        </div>
+        <div style="font-size:12px;font-weight:600;color:#1a1a1a;margin-bottom:6px;">{{this.question}}</div>
+        <div style="font-size:11px;color:#555;line-height:1.6;">{{this.response_summary}}</div>
+      </div>
+      <!-- {{/each}} -->
+    </div>
+  </div>
+  <!-- {{/if}} -->
+
+  <!-- Footer -->
+  <div style="padding:20px 32px;background:#f8f8f5;border-top:1px solid #ebebeb;">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr valign="middle">
+      <td>
+        <div style="font-size:10px;color:#bbb;line-height:1.5;">Meeting notes · {{meeting_duration}} · {{meeting_date}}</div>
+      </td>
+    </tr></table>
+  </div>
+
+</div>
+
+</body>
+</html>
