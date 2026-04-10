@@ -84,6 +84,20 @@ MIGRATIONS = [
     # v7: Store Apple originalTransactionId for server notification lookups
     "ALTER TABLE users ADD COLUMN original_transaction_id TEXT",
     "CREATE INDEX IF NOT EXISTS idx_users_original_txn ON users(original_transaction_id)",
+    # v8: Add meeting_id to usage_log for per-meeting indexing (report generation)
+    "ALTER TABLE usage_log ADD COLUMN meeting_id TEXT",
+    "CREATE INDEX IF NOT EXISTS idx_usage_meeting ON usage_log(meeting_id)",
+    # v9: Store transcripts for meeting report generation
+    """CREATE TABLE IF NOT EXISTS meeting_transcripts (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        meeting_id TEXT NOT NULL,
+        transcript TEXT NOT NULL,
+        project TEXT,
+        project_id TEXT,
+        created_at TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_transcripts_meeting ON meeting_transcripts(meeting_id)",
 ]
 
 
