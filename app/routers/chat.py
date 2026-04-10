@@ -85,12 +85,79 @@ async def verify_receipt(
 
     now = datetime.now(timezone.utc)
 
+    # Determine if this is an idempotent re-verification or a real state change.
+    # Reset allocation ONLY on:
+    #   - New subscription (tier changed)
+    #   - Trial → paid conversion
+    # Do NOT reset on:
+    #   - Re-verification of existing tier (SS calls this on every app launch)
+    #   - Trial → trial (same state, just a periodic re-check)
+    tier_changed = old_tier_name != new_tier_name
+    trial_to_paid = user.is_trial and not is_trial
+    is_state_change = tier_changed or trial_to_paid
+
     if is_trial:
         # Trial: use trial_cost_limit_usd, 7-day period
         trial_limit = new_tier.trial_cost_limit_usd or new_tier.monthly_cost_limit_usd
-        resets_at = (now + timedelta(days=7)).isoformat()
-        trial_end = resets_at
 
+        if is_state_change:
+            # New trial — reset allocation and set trial window
+            resets_at = (now + timedelta(days=7)).isoformat()
+            trial_end = resets_at
+            await db.execute(
+                """UPDATE users SET
+                    tier = ?,
+                    monthly_cost_limit_usd = ?,
+                    monthly_used_usd = 0,
+                    overage_balance_usd = 0,
+                    allocation_resets_at = ?,
+                    updated_at = ?,
+                    simulated_tier = NULL,
+                    simulated_exhausted = 0,
+                    is_trial = 1,
+                    trial_start = ?,
+                    trial_end = ?,
+                    original_transaction_id = ?
+                   WHERE id = ?""",
+                (
+                    new_tier_name, trial_limit, resets_at, now.isoformat(),
+                    now.isoformat(), trial_end, body.transaction_id, user.id,
+                ),
+            )
+        else:
+            # Idempotent re-verification — only update limit, txn_id, and timestamp.
+            # Preserve monthly_used_usd, allocation_resets_at, trial_start, trial_end.
+            await db.execute(
+                """UPDATE users SET
+                    monthly_cost_limit_usd = ?,
+                    updated_at = ?,
+                    is_trial = 1,
+                    original_transaction_id = ?
+                   WHERE id = ?""",
+                (trial_limit, now.isoformat(), body.transaction_id, user.id),
+            )
+        await db.commit()
+
+        # Read back the preserved allocation_resets_at for the response
+        cursor = await db.execute(
+            "SELECT allocation_resets_at, trial_end FROM users WHERE id = ?",
+            (user.id,),
+        )
+        row = await cursor.fetchone()
+        return {
+            "status": "ok",
+            "old_tier": old_tier_name,
+            "new_tier": new_tier_name,
+            "is_trial": True,
+            "trial_end": row["trial_end"] if row else None,
+            "monthly_limit_usd": trial_limit,
+            "allocation_resets_at": row["allocation_resets_at"] if row else None,
+        }
+
+    # Paid subscription (or trial-to-paid conversion)
+    if is_state_change:
+        # Real upgrade/downgrade/conversion — reset allocation
+        resets_at = (now + timedelta(days=30)).isoformat()
         await db.execute(
             """UPDATE users SET
                 tier = ?,
@@ -101,62 +168,39 @@ async def verify_receipt(
                 updated_at = ?,
                 simulated_tier = NULL,
                 simulated_exhausted = 0,
-                is_trial = 1,
-                trial_start = ?,
-                trial_end = ?,
+                is_trial = 0,
+                trial_start = NULL,
+                trial_end = NULL,
                 original_transaction_id = ?
                WHERE id = ?""",
             (
-                new_tier_name,
-                trial_limit,
-                resets_at,
-                now.isoformat(),
-                now.isoformat(),
-                trial_end,
-                body.transaction_id,
-                user.id,
+                new_tier_name, new_tier.monthly_cost_limit_usd, resets_at,
+                now.isoformat(), body.transaction_id, user.id,
             ),
         )
-        await db.commit()
-
-        return {
-            "status": "ok",
-            "old_tier": old_tier_name,
-            "new_tier": new_tier_name,
-            "is_trial": True,
-            "trial_end": trial_end,
-            "monthly_limit_usd": trial_limit,
-            "allocation_resets_at": resets_at,
-        }
-
-    # Paid subscription (or trial-to-paid conversion)
-    resets_at = (now + timedelta(days=30)).isoformat()
-
-    await db.execute(
-        """UPDATE users SET
-            tier = ?,
-            monthly_cost_limit_usd = ?,
-            monthly_used_usd = 0,
-            overage_balance_usd = 0,
-            allocation_resets_at = ?,
-            updated_at = ?,
-            simulated_tier = NULL,
-            simulated_exhausted = 0,
-            is_trial = 0,
-            trial_start = NULL,
-            trial_end = NULL,
-            original_transaction_id = ?
-           WHERE id = ?""",
-        (
-            new_tier_name,
-            new_tier.monthly_cost_limit_usd,
-            resets_at,
-            now.isoformat(),
-            body.transaction_id,
-            user.id,
-        ),
-    )
+    else:
+        # Idempotent re-verification — preserve allocation state
+        await db.execute(
+            """UPDATE users SET
+                monthly_cost_limit_usd = ?,
+                updated_at = ?,
+                is_trial = 0,
+                original_transaction_id = ?
+               WHERE id = ?""",
+            (
+                new_tier.monthly_cost_limit_usd, now.isoformat(),
+                body.transaction_id, user.id,
+            ),
+        )
     await db.commit()
+
+    # Read back preserved allocation_resets_at
+    cursor = await db.execute(
+        "SELECT allocation_resets_at FROM users WHERE id = ?",
+        (user.id,),
+    )
+    row = await cursor.fetchone()
+    resets_at = row["allocation_resets_at"] if row else None
 
     return {
         "status": "ok",
