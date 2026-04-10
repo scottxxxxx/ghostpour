@@ -9,12 +9,14 @@ import asyncio
 import hashlib
 import logging
 
+import aiosqlite
 import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
 from app.config import get_settings
+from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import UserRecord
 from app.services import context_quilt as cq
@@ -67,14 +69,36 @@ class TranscriptCaptureRequest(BaseModel):
 async def capture_transcript(
     body: TranscriptCaptureRequest,
     user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
 ):
     """
-    End-of-session transcript capture for Context Quilt.
+    End-of-session transcript capture for Context Quilt + local storage.
 
     Called by the client app at session end to send the full raw transcript.
-    CQ extracts traits, preferences, and durable facts from the raw dialogue
-    that would otherwise be lost in per-query summarization.
+    CQ extracts traits, preferences, and durable facts from the raw dialogue.
+    GP also stores the transcript locally for meeting report generation.
     """
+    # Store transcript locally for report generation
+    if body.meeting_id:
+        from datetime import datetime, timezone
+        import uuid
+        await db.execute(
+            """INSERT OR REPLACE INTO meeting_transcripts
+               (id, user_id, meeting_id, transcript, project, project_id, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                str(uuid.uuid4()),
+                user.id,
+                body.meeting_id,
+                body.transcript,
+                body.project,
+                body.project_id,
+                datetime.now(timezone.utc).isoformat(),
+            ),
+        )
+        await db.commit()
+
+    # Forward to CQ for knowledge extraction
     asyncio.create_task(cq.capture(
         user_id=user.id,
         interaction_type="meeting_transcript",

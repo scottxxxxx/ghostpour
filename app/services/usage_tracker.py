@@ -196,8 +196,8 @@ class UsageTracker:
                (id, user_id, provider, model, input_tokens, output_tokens,
                 estimated_cost_usd, request_timestamp, response_time_ms,
                 status, error_message, call_type, prompt_mode,
-                image_count, session_duration_sec, cached_tokens, metadata)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                image_count, session_duration_sec, cached_tokens, meeting_id, metadata)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 str(uuid.uuid4()),
                 user_id,
@@ -215,6 +215,7 @@ class UsageTracker:
                 request.get_meta("image_count") or (len(request.images) if request.images else 0),
                 request.get_meta("session_duration_sec"),
                 cached_tokens,
+                request.get_meta("meeting_id"),
                 metadata_json,
             ),
         )
