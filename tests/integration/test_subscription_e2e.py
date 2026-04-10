@@ -51,6 +51,78 @@ class TestVerifyReceipt:
         assert data["is_trial"] is True
         assert "trial_end" in data
 
+    def test_verify_receipt_idempotent_preserves_usage(self, client, tmp_db_path):
+        """Re-verification of same tier should NOT reset monthly_used_usd.
+
+        SS calls verify-receipt on every launch. If GP resets allocation each
+        time, users lose their accumulated usage and the hours.used display
+        shows 0 even when they've consumed real quota.
+        """
+        _insert_user(
+            tmp_db_path,
+            user_id="idempotent-user",
+            tier="standard",
+            monthly_limit=1.25,
+            monthly_used=0.50,
+        )
+        headers = {"Authorization": f"Bearer {_jwt_token('idempotent-user')}"}
+
+        # Re-verify same subscription (not a tier change)
+        resp = client.post(
+            "/v1/verify-receipt",
+            json={
+                "product_id": _STANDARD_PRODUCT,
+                "transaction_id": "txn_same",
+                "is_trial": False,
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 200
+
+        # monthly_used_usd should be preserved (not reset to 0)
+        conn = sqlite3.connect(tmp_db_path)
+        row = conn.execute(
+            "SELECT monthly_used_usd, monthly_cost_limit_usd FROM users WHERE id = ?",
+            ("idempotent-user",),
+        ).fetchone()
+        conn.close()
+        assert row[0] == 0.50, f"monthly_used_usd was reset to {row[0]}, expected 0.50"
+        assert row[1] == 1.25
+
+    def test_verify_receipt_idempotent_trial_preserves_usage(self, client, tmp_db_path):
+        """Trial re-verification should NOT reset monthly_used_usd either."""
+        _insert_user(
+            tmp_db_path,
+            user_id="idempotent-trial-user",
+            tier="standard",
+            monthly_limit=0.50,
+            monthly_used=0.30,
+            is_trial=True,
+        )
+        headers = {"Authorization": f"Bearer {_jwt_token('idempotent-trial-user')}"}
+
+        resp = client.post(
+            "/v1/verify-receipt",
+            json={
+                "product_id": _STANDARD_PRODUCT,
+                "transaction_id": "txn_trial_same",
+                "offer_type": "introductory",
+                "offer_price": 0,
+                "is_trial": True,
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 200
+
+        conn = sqlite3.connect(tmp_db_path)
+        row = conn.execute(
+            "SELECT monthly_used_usd, is_trial FROM users WHERE id = ?",
+            ("idempotent-trial-user",),
+        ).fetchone()
+        conn.close()
+        assert row[0] == 0.30, f"trial monthly_used_usd was reset to {row[0]}, expected 0.30"
+        assert row[1] == 1  # still in trial
+
     def test_verify_receipt_unknown_product(self, client, tmp_db_path):
         """Unknown product ID → 400."""
         _insert_user(tmp_db_path, user_id="unknown-product-user", tier="free")
