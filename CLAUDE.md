@@ -50,12 +50,14 @@ app/
 │   ├── auth.py          # POST /auth/apple, POST /auth/refresh
 │   ├── apple_webhooks.py # POST /v1/apple-notifications (Apple Server Notifications V2)
 │   ├── chat.py          # /v1/chat, /v1/usage/me, /v1/tiers, /v1/verify-receipt, /v1/sync-subscription, /v1/capture-transcript, /v1/quilt/* proxy
+│   ├── reports.py       # POST /v1/meetings/{meeting_id}/report (shareable meeting reports)
 │   ├── config.py        # GET /v1/config/{name} (remote config for iOS app)
 │   ├── health.py        # GET /health, GET /admin, GET /v1/model-pricing
 │   └── webhooks.py      # Admin endpoints (dashboard, users, user queries, tiers, errors, configs, simulate-tier, feature-state, capture-transcript, provider-status, update-key)
 ├── services/
 │   ├── apple_auth.py    # Apple JWKS token verification (Sign In with Apple)
 │   ├── apple_notifications.py # Apple JWS verification for Server Notifications V2
+│   ├── meeting_report.py # Report data gathering, LLM prompt, HTML rendering
 │   ├── jwt_service.py   # JWT create/verify
 │   ├── pricing.py       # LiteLLM pricing fetch, cost calculation, cached token handling
 │   ├── provider_router.py  # Dispatches to correct adapter
@@ -157,13 +159,15 @@ Key variables:
 
 ## Database
 
-3 tables, raw SQL (no ORM), with versioned migrations in `app/database.py`:
+4 tables, raw SQL (no ORM), with versioned migrations in `app/database.py`:
 
 **users**: `id`, `apple_sub`, `email`, `display_name`, `tier`, `monthly_cost_limit_usd`, `monthly_used_usd`, `overage_balance_usd`, `allocation_resets_at`, `simulated_tier`, `simulated_exhausted`, `is_trial`, `trial_start`, `trial_end`, `is_active`, `original_transaction_id`, `metadata`, timestamps
 
 **refresh_tokens**: `id`, `user_id`, `token_hash`, `expires_at`, `revoked`, `created_at`
 
-**usage_log**: `id`, `user_id`, `provider`, `model`, `input_tokens`, `output_tokens`, `cached_tokens`, `estimated_cost_usd`, `response_time_ms`, `status`, `error_message`, `call_type`, `prompt_mode`, `image_count`, `session_duration_sec`, `request_timestamp`, `metadata` (JSON)
+**usage_log**: `id`, `user_id`, `provider`, `model`, `input_tokens`, `output_tokens`, `cached_tokens`, `estimated_cost_usd`, `response_time_ms`, `status`, `error_message`, `call_type`, `prompt_mode`, `image_count`, `session_duration_sec`, `meeting_id`, `request_timestamp`, `metadata` (JSON)
+
+**meeting_transcripts**: `id`, `user_id`, `meeting_id`, `transcript`, `project`, `project_id`, `created_at`
 
 ## API Endpoints
 
@@ -184,6 +188,7 @@ Key variables:
 | POST | `/v1/verify-receipt` | Bearer JWT | StoreKit receipt verification |
 | POST | `/v1/sync-subscription` | Bearer JWT | Subscription state sync from iOS |
 | POST | `/v1/apple-notifications` | None (JWS) | Apple Server Notifications V2 webhook |
+| POST | `/v1/meetings/{meeting_id}/report` | Bearer JWT | Generate shareable HTML meeting report |
 | GET | `/v1/usage/me` | Bearer JWT | User's allocation, overage, usage stats, features |
 | GET | `/v1/tiers` | None | Public tier catalog (server-driven subscription UI) |
 | GET | `/v1/config/{name}` | None | Remote config for iOS app (see `docs/remote-config.md`) |
