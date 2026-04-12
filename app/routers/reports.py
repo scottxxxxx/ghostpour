@@ -161,3 +161,28 @@ async def generate_report(
         "cost_usd": request_cost,
         "generation_ms": elapsed_ms,
     }
+
+
+class RenderRequest(BaseModel):
+    report_json: dict
+    duration_seconds: int
+
+
+@router.post("/reports/render")
+async def render_report(
+    body: RenderRequest,
+    user: UserRecord = Depends(get_current_user),
+):
+    """Re-render a report from edited JSON. No LLM call, no allocation charge.
+
+    Used for live preview after the user edits report sections in the review screen.
+    """
+    now = datetime.now(timezone.utc)
+    metadata = {
+        "meeting_date": now.strftime("%B %-d, %Y"),
+        "meeting_time": now.strftime("%-I:%M %p"),
+        "meeting_duration": format_duration(body.duration_seconds),
+    }
+
+    report_html = render_report_html(body.report_json, metadata)
+    return {"report_html": report_html}
