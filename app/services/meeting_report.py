@@ -352,7 +352,7 @@ def render_report_html(report_json: dict, metadata: dict) -> str:
         )
 
     # Attendees loop
-    attendees_html = "".join(
+    attendees_html = " ".join(
         f'<span style="background:#f0f0ec;padding:2px 8px;border-radius:3px;margin-right:4px;margin-bottom:4px;display:inline-block;">{_esc(a)}</span>'
         for a in header.get("attendees", [])
     )
