@@ -57,33 +57,36 @@
       <table cellpadding="0" cellspacing="0"><tr valign="middle">
         <td style="padding-right:12px;">
           <div style="text-align:center;">
-            <div onclick="var d=document.getElementById('sent-expand');d.style.display=d.style.display==='none'?'block':'none';" style="background:{{stoplight_bg}};border-radius:50%;width:44px;height:44px;text-align:center;line-height:44px;font-size:14px;font-weight:700;color:{{stoplight_text}};margin:0 auto;cursor:pointer;">{{sentiment.score}}</div>
+            <div style="background:{{stoplight_bg}};border-radius:50%;width:44px;height:44px;text-align:center;line-height:44px;font-size:14px;font-weight:700;color:{{stoplight_text}};margin:0 auto;">{{sentiment.score}}</div>
             <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:{{stoplight_text}};margin-top:3px;">Sentiment</div>
           </div>
         </td>
         <td>
           <div style="font-size:11px;font-weight:600;color:#1a1a1a;margin-bottom:2px;">{{sentiment.label}}</div>
-          <div style="font-size:11px;color:#888;line-height:1.5;">{{sentiment.detail}} <span onclick="var d=document.getElementById('sent-expand');d.style.display=d.style.display==='none'?'block':'none';" style="color:{{stoplight_text}};cursor:pointer;text-decoration:underline;">View arc</span></div>
+          <div style="font-size:11px;color:#888;line-height:1.5;">{{sentiment.detail}}</div>
         </td>
       </tr></table>
 
-      <!-- Sentiment Arc (progressive disclosure, hidden by default) -->
-      <div id="sent-expand" style="display:none;margin-top:12px;padding:12px 14px;background:#fafaf8;border:1px solid #e8e8e4;border-radius:4px;">
-        <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.12em;color:#aaa;margin-bottom:10px;">Sentiment arc</div>
-        <table cellpadding="0" cellspacing="2" width="100%" style="height:48px;"><tr valign="bottom">
-          <!-- {{#each sentiment.arc}} -->
-          <td style="vertical-align:bottom;"><table cellpadding="0" cellspacing="0" width="100%"><tr><td bgcolor="{{mood_color this.mood}}" height="{{this.value}}" style="border-radius:2px 2px 0 0;">&nbsp;</td></tr></table></td>
-          <!-- {{/each}} -->
-        </tr></table>
-        <!-- Legend -->
-        <table cellpadding="0" cellspacing="0" style="margin-top:10px;padding-top:8px;border-top:1px solid #f0f0ec;"><tr>
-          <td style="padding-right:14px;white-space:nowrap;"><table cellpadding="0" cellspacing="0"><tr valign="middle"><td width="8" height="8" bgcolor="#639922" style="border-radius:4px;width:8px;height:8px;">&nbsp;</td><td style="font-size:10px;color:#555;padding-left:5px;">Confident</td></tr></table></td>
-          <td style="padding-right:14px;white-space:nowrap;"><table cellpadding="0" cellspacing="0"><tr valign="middle"><td width="8" height="8" bgcolor="#EF9F27" style="border-radius:4px;width:8px;height:8px;">&nbsp;</td><td style="font-size:10px;color:#555;padding-left:5px;">Tense</td></tr></table></td>
-          <td style="padding-right:14px;white-space:nowrap;"><table cellpadding="0" cellspacing="0"><tr valign="middle"><td width="8" height="8" bgcolor="#E24B4A" style="border-radius:4px;width:8px;height:8px;">&nbsp;</td><td style="font-size:10px;color:#555;padding-left:5px;">Concern</td></tr></table></td>
-          <td style="white-space:nowrap;"><table cellpadding="0" cellspacing="0"><tr valign="middle"><td width="8" height="8" bgcolor="#888780" style="border-radius:4px;width:8px;height:8px;">&nbsp;</td><td style="font-size:10px;color:#555;padding-left:5px;">Neutral</td></tr></table></td>
-        </tr></table>
-        <div style="margin-top:8px;font-size:11px;color:#888;line-height:1.6;">{{sentiment.arc_narrative}}</div>
-      </div>
+      <!-- Sentiment Arc (progressive disclosure via <details>, email-safe) -->
+      <details style="margin-top:12px;">
+        <summary style="font-size:11px;color:{{stoplight_text}};cursor:pointer;text-decoration:underline;list-style:none;">View sentiment arc</summary>
+        <div style="padding:12px 14px;background:#fafaf8;border:1px solid #e8e8e4;border-radius:4px;margin-top:8px;">
+          <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.12em;color:#aaa;margin-bottom:10px;">Sentiment arc</div>
+          <table cellpadding="0" cellspacing="2" width="100%" style="height:48px;"><tr valign="bottom">
+            <!-- {{#each sentiment.arc}} -->
+            <td style="vertical-align:bottom;"><table cellpadding="0" cellspacing="0" width="100%"><tr><td bgcolor="{{mood_color this.mood}}" height="{{this.value}}" style="border-radius:2px 2px 0 0;">&nbsp;</td></tr></table></td>
+            <!-- {{/each}} -->
+          </tr></table>
+          <!-- Legend -->
+          <table cellpadding="0" cellspacing="0" style="margin-top:10px;padding-top:8px;border-top:1px solid #f0f0ec;"><tr>
+            <td style="padding-right:14px;white-space:nowrap;"><table cellpadding="0" cellspacing="0"><tr valign="middle"><td width="8" height="8" bgcolor="#639922" style="border-radius:4px;width:8px;height:8px;">&nbsp;</td><td style="font-size:10px;color:#555;padding-left:5px;">Confident</td></tr></table></td>
+            <td style="padding-right:14px;white-space:nowrap;"><table cellpadding="0" cellspacing="0"><tr valign="middle"><td width="8" height="8" bgcolor="#EF9F27" style="border-radius:4px;width:8px;height:8px;">&nbsp;</td><td style="font-size:10px;color:#555;padding-left:5px;">Tense</td></tr></table></td>
+            <td style="padding-right:14px;white-space:nowrap;"><table cellpadding="0" cellspacing="0"><tr valign="middle"><td width="8" height="8" bgcolor="#E24B4A" style="border-radius:4px;width:8px;height:8px;">&nbsp;</td><td style="font-size:10px;color:#555;padding-left:5px;">Concern</td></tr></table></td>
+            <td style="white-space:nowrap;"><table cellpadding="0" cellspacing="0"><tr valign="middle"><td width="8" height="8" bgcolor="#888780" style="border-radius:4px;width:8px;height:8px;">&nbsp;</td><td style="font-size:10px;color:#555;padding-left:5px;">Neutral</td></tr></table></td>
+          </tr></table>
+          <div style="margin-top:8px;font-size:11px;color:#888;line-height:1.6;">{{sentiment.arc_narrative}}</div>
+        </div>
+      </details>
     </div>
   </div>
 
@@ -171,26 +174,27 @@
   </div>
   <!-- {{/if}} -->
 
-  <!-- SECTION: AI Queries During Meeting (Progressive Disclosure) -->
+  <!-- SECTION: AI Queries During Meeting (Progressive Disclosure, email-safe) -->
   <!-- {{#if queries_during_meeting.length}} -->
   <div style="padding:24px 32px;border-bottom:1px solid #ebebeb;">
-    <div onclick="var d=document.getElementById('queries-expand');d.style.display=d.style.display==='none'?'block':'none';" style="cursor:pointer;">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:#aaa;margin-bottom:4px;">Research Notes</div>
-      <div style="font-size:11px;color:#555;font-weight:600;">{{queries_during_meeting.length}} queries captured during this meeting <span style="color:#999;">&#x25BC;</span></div>
-    </div>
-
-    <div id="queries-expand" style="display:none;margin-top:14px;">
-      <!-- {{#each queries_during_meeting}} -->
-      <div style="background:#f7f7f5;border:1px solid #e8e8e4;border-radius:6px;padding:12px 14px;margin-bottom:8px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <span style="font-size:10px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:0.08em;">{{this.mode}}</span>
-          <span style="font-size:10px;color:#999;font-family:monospace;">{{this.timestamp}}</span>
+    <details>
+      <summary style="cursor:pointer;list-style:none;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:#aaa;margin-bottom:4px;">Research Notes</div>
+        <div style="font-size:11px;color:#555;font-weight:600;">{{queries_during_meeting.length}} queries captured during this meeting <span style="color:#999;">&#x25BC;</span></div>
+      </summary>
+      <div style="margin-top:14px;">
+        <!-- {{#each queries_during_meeting}} -->
+        <div style="background:#f7f7f5;border:1px solid #e8e8e4;border-radius:6px;padding:12px 14px;margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-size:10px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:0.08em;">{{this.mode}}</span>
+            <span style="font-size:10px;color:#999;font-family:monospace;">{{this.timestamp}}</span>
+          </div>
+          <div style="font-size:12px;font-weight:600;color:#1a1a1a;margin-bottom:6px;">{{this.question}}</div>
+          <div style="font-size:11px;color:#555;line-height:1.6;">{{this.response_summary}}</div>
         </div>
-        <div style="font-size:12px;font-weight:600;color:#1a1a1a;margin-bottom:6px;">{{this.question}}</div>
-        <div style="font-size:11px;color:#555;line-height:1.6;">{{this.response_summary}}</div>
+        <!-- {{/each}} -->
       </div>
-      <!-- {{/each}} -->
-    </div>
+    </details>
   </div>
   <!-- {{/if}} -->
 
