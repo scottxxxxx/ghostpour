@@ -140,6 +140,27 @@ async def get_quilt(
     return await _cq_proxy("GET", f"/v1/quilt/{user_id}")
 
 
+class PatchCreateRequest(BaseModel):
+    type: str  # e.g., "person", "fact", "commitment"
+    text: str
+    owner: str | None = None
+    project_id: str | None = None
+    connections: list[dict] | None = None  # [{"target_patch_id", "role", "label"}]
+
+
+@router.post("/quilt/{user_id}/patches")
+async def create_quilt_patch(
+    user_id: str,
+    body: PatchCreateRequest,
+    user: UserRecord = Depends(get_current_user),
+):
+    """Proxy: create a new quilt patch manually."""
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
+    payload = {k: v for k, v in body.model_dump().items() if v is not None}
+    return await _cq_proxy("POST", f"/v1/quilt/{user_id}/patches", payload)
+
+
 class PatchUpdateRequest(BaseModel):
     fact: str | None = None
     category: str | None = None
