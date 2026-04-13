@@ -33,6 +33,7 @@ class ReportRequest(BaseModel):
     duration_seconds: int
     project: str | None = None
     attendees: list[str] | None = None
+    tag_taxonomy: list[str] | None = None  # Custom tags; defaults to built-in 8
 
 
 @router.post("/meetings/{meeting_id}/report")
@@ -75,6 +76,7 @@ async def generate_report(
     system_prompt, user_message = build_report_prompt(
         meeting_data,
         attendees=body.attendees,
+        tag_taxonomy=body.tag_taxonomy,
     )
 
     # 3. Call LLM (always Sonnet for report quality, charged to user's allocation)
