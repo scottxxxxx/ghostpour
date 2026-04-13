@@ -48,6 +48,20 @@ async def _cq_proxy(method: str, path: str, body: dict | None = None) -> JSONRes
             content = resp.json()
         except Exception:
             content = {"detail": resp.text or "Context Quilt error"}
+
+        # Don't pass through CQ's 401 as GP's 401 — the user's JWT was valid,
+        # CQ's server-to-server auth failed. Map to 502 so the client doesn't
+        # think its own token was rejected and trigger a refresh loop.
+        if resp.status_code == 401:
+            logger.warning("cq_proxy_auth_rejected", extra={"path": path, "detail": str(content)[:200]})
+            return JSONResponse(status_code=502, content={
+                "detail": {
+                    "code": "upstream_auth_error",
+                    "upstream": "cq",
+                    "message": "Context Quilt rejected server credentials",
+                }
+            })
+
         return JSONResponse(status_code=resp.status_code, content=content)
     except httpx.TimeoutException:
         return JSONResponse(status_code=504, content={"detail": "Context Quilt timeout"})
