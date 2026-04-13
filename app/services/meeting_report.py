@@ -43,6 +43,8 @@ Rules:
 - The sentiment_score is 0 to 100 where 50 is neutral, above 50 is positive, below 50 is negative
 - The stoplight color is red (blocked), yellow (at risk or partially blocked), or green (clear/on track)
 - The sentiment_arc should have 8 to 14 data points representing the emotional trajectory across the meeting, each tagged as "confident", "tense", "concern", or "neutral"
+- The sentiment_emoji_label must be exactly one of: enthusiastic, collaborative, positive, informational, focused, cautious, frustrated, tense, concerned, disappointed. The emoji should be a single emoji that represents the chosen label.
+- For suggested_tags: return 1-4 tags from the provided TAG TAXONOMY list only. Each tag needs a reason explaining why it applies.
 - For queries_during_meeting: include them exactly as provided in the input, do not modify query text or response text
 - Never fabricate information not present in the transcript
 - If a field has no relevant data, use an empty array or null as appropriate"""
@@ -69,6 +71,8 @@ JSON SCHEMA:
     "score": "number 0-100",
     "label": "string — 2 to 5 word characterization",
     "detail": "string — 1 to 2 sentences describing the overall emotional tone",
+    "emoji_label": "string — exactly one of: enthusiastic, collaborative, positive, informational, focused, cautious, frustrated, tense, concerned, disappointed",
+    "emoji": "string — single emoji that represents the emoji_label",
     "arc": [
       {{
         "value": "number 20-48 representing bar height in pixels",
@@ -77,6 +81,12 @@ JSON SCHEMA:
     ],
     "arc_narrative": "string — 2 to 3 sentences describing how the sentiment shifted during the meeting and why"
   }},
+  "suggested_tags": [
+    {{
+      "tag": "string — tag name from the TAG TAXONOMY list",
+      "reason": "string — why this tag applies to this meeting"
+    }}
+  ],
   "actions": [
     {{
       "owner": "string — person's name",
@@ -125,6 +135,9 @@ JSON SCHEMA:
 
 CONFIRMED ATTENDEES:
 {attendees}
+
+TAG TAXONOMY (use only tags from this list):
+{tag_taxonomy}
 
 MEETING TRANSCRIPT:
 {transcript}
@@ -278,9 +291,16 @@ async def gather_meeting_data(
     return result
 
 
+_DEFAULT_TAG_TAXONOMY = [
+    "Review", "Follow-up", "Schedule Meeting", "Research",
+    "Share", "Important", "Action Items", "Decision Made",
+]
+
+
 def build_report_prompt(
     meeting_data: dict,
     attendees: list[str] | None = None,
+    tag_taxonomy: list[str] | None = None,
 ) -> tuple[str, str]:
     """Build the system prompt and user message for the report LLM call.
 
@@ -290,11 +310,13 @@ def build_report_prompt(
     summary = meeting_data.get("summary") or "(No summary available)"
     queries = meeting_data.get("queries", [])
     attendee_list = attendees or ["(attendees not specified)"]
+    tags = tag_taxonomy or _DEFAULT_TAG_TAXONOMY
 
     queries_json = json.dumps(queries, indent=2) if queries else "[]"
 
     user_message = REPORT_USER_TEMPLATE.format(
         attendees="\n".join(f"- {a}" for a in attendee_list),
+        tag_taxonomy=", ".join(tags),
         transcript=transcript,
         summary=summary,
         queries_json=queries_json,
