@@ -98,6 +98,22 @@ MIGRATIONS = [
         created_at TEXT NOT NULL
     )""",
     "CREATE INDEX IF NOT EXISTS idx_transcripts_meeting ON meeting_transcripts(meeting_id)",
+    # v10: Cache generated reports for recovery (30-day retention)
+    """CREATE TABLE IF NOT EXISTS meeting_reports (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        meeting_id TEXT NOT NULL UNIQUE,
+        report_json TEXT NOT NULL,
+        report_html TEXT NOT NULL,
+        model TEXT,
+        input_tokens INTEGER,
+        output_tokens INTEGER,
+        cost_usd REAL,
+        generation_ms INTEGER,
+        created_at TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_reports_meeting ON meeting_reports(meeting_id)",
+    "CREATE INDEX IF NOT EXISTS idx_reports_created ON meeting_reports(created_at)",
 ]
 
 
@@ -113,6 +129,11 @@ async def init_db(database_url: str) -> None:
                 await db.execute(sql)
             except Exception:
                 pass  # Column already exists
+
+        # Purge cached reports older than 30 days
+        await db.execute(
+            "DELETE FROM meeting_reports WHERE created_at < datetime('now', '-30 days')"
+        )
         await db.commit()
 
 
