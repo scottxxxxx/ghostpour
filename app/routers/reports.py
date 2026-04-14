@@ -37,6 +37,7 @@ class ReportRequest(BaseModel):
     project: str | None = None
     attendees: list[str] | None = None
     tag_taxonomy: list[str] | None = None  # Custom tags; defaults to built-in 8
+    meeting_start_iso: str | None = None  # ISO 8601 with timezone, e.g. "2026-04-14T13:01:00-05:00"
 
 
 @router.post("/meetings/{meeting_id}/report")
@@ -146,11 +147,29 @@ async def generate_report(
             "message": "The LLM returned invalid JSON for the report. Please try again.",
         })
 
-    # 6. Render HTML
-    now = datetime.now(timezone.utc)
+    # 6. Render HTML — use meeting start time if provided, else fall back to now
+    if body.meeting_start_iso:
+        try:
+            meeting_dt = datetime.fromisoformat(body.meeting_start_iso)
+        except (ValueError, TypeError):
+            meeting_dt = datetime.now(timezone.utc)
+    else:
+        meeting_dt = datetime.now(timezone.utc)
+
+    # Format timezone abbreviation if available
+    tz_label = ""
+    if meeting_dt.tzinfo and meeting_dt.utcoffset() is not None:
+        offset = meeting_dt.utcoffset()
+        total_seconds = int(offset.total_seconds())
+        hours, remainder = divmod(abs(total_seconds), 3600)
+        sign = "+" if total_seconds >= 0 else "-"
+        tz_label = f" UTC{sign}{hours}"
+        if remainder:
+            tz_label += f":{remainder // 60:02d}"
+
     metadata = {
-        "meeting_date": now.strftime("%B %-d, %Y"),
-        "meeting_time": now.strftime("%-I:%M %p"),
+        "meeting_date": meeting_dt.strftime("%B %-d, %Y"),
+        "meeting_time": meeting_dt.strftime("%-I:%M %p") + tz_label,
         "meeting_duration": format_duration(body.duration_seconds),
     }
 
