@@ -118,6 +118,9 @@ class ContextQuiltHook:
             prompt_mode=prompt_mode,
             display_name=user.display_name,
             email=user.email,
+            user_identified=body.get_meta("user_identified"),
+            user_label=body.get_meta("user_label"),
+            identification_source=body.get_meta("identification_source"),
         ))
 
     def response_headers(
