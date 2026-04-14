@@ -238,29 +238,7 @@ async def gather_meeting_data(
 
         elif call_type == "query":
             # Interactive query — extract for research notes
-            question = ""
             response_text = ""
-
-            if raw_req:
-                try:
-                    req_data = json.loads(raw_req)
-                    # user_content contains the actual query
-                    question = req_data.get("user_content", "")
-                    # For structured messages, extract the last user text
-                    msgs = req_data.get("messages", [])
-                    if msgs:
-                        for msg in reversed(msgs):
-                            content = msg.get("content", "")
-                            if isinstance(content, list):
-                                for part in content:
-                                    if part.get("type") == "text":
-                                        question = part["text"]
-                                        break
-                            elif isinstance(content, str):
-                                question = content
-                            break
-                except json.JSONDecodeError:
-                    pass
 
             if raw_resp:
                 try:
@@ -273,7 +251,7 @@ async def gather_meeting_data(
                 except (json.JSONDecodeError, IndexError, KeyError):
                     pass
 
-            if question:
+            if response_text:
                 ts = row["request_timestamp"]
                 try:
                     dt = datetime.fromisoformat(ts)
@@ -281,11 +259,14 @@ async def gather_meeting_data(
                 except (ValueError, TypeError):
                     time_str = ts
 
+                # Extract first meaningful paragraph of the response
+                first_para = _extract_first_paragraph(response_text)
+
                 result["queries"].append({
                     "timestamp": time_str,
                     "mode": prompt_mode or "Ask",
-                    "question": question[:500],
-                    "response": response_text[:500],
+                    "question": prompt_mode or "Query",
+                    "response": first_para,
                 })
 
     return result
@@ -502,6 +483,36 @@ def _esc(s: str) -> str:
         .replace(">", "&gt;")
         .replace('"', "&quot;")
     )
+
+
+def _extract_first_paragraph(text: str, max_len: int = 300) -> str:
+    """Extract the first meaningful paragraph from an LLM response.
+
+    Skips markdown headers (# lines) and empty lines. Returns the first
+    block of substantive text, truncated to max_len.
+    """
+    lines = text.strip().split("\n")
+    paragraph = []
+    for line in lines:
+        stripped = line.strip()
+        # Skip markdown headers and empty lines at the start
+        if not paragraph and (not stripped or stripped.startswith("#")):
+            continue
+        # Stop at the next empty line or header after we've started collecting
+        if paragraph and (not stripped or stripped.startswith("#")):
+            break
+        paragraph.append(stripped)
+
+    result = " ".join(paragraph).strip()
+    if not result:
+        # Fallback: just take the first non-empty line
+        for line in lines:
+            if line.strip():
+                result = line.strip()
+                break
+    if len(result) > max_len:
+        result = result[:max_len].rsplit(" ", 1)[0] + "..."
+    return result
 
 
 def _replace_each(html: str, section: str, rendered: str, pattern: str) -> str:
