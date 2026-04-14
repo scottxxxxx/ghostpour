@@ -1,12 +1,15 @@
-"""Meeting report generation endpoint.
+"""Meeting report generation and retrieval.
 
-POST /v1/meetings/{meeting_id}/report generates a structured HTML meeting
-report from data already stored in GP (transcript, queries, summaries,
-analysis) — all indexed by meeting_id.
+POST /v1/meetings/{meeting_id}/report — generate a new report (LLM call, charges allocation)
+GET  /v1/meetings/{meeting_id}/report — retrieve cached report (no LLM, free)
+
+Reports are cached for 30 days for recovery (e.g., timeout during generation).
+SS should persist the report locally once received — GP is not long-term storage.
 """
 
 import json
 import logging
+import uuid
 from datetime import datetime, timezone
 
 import aiosqlite
@@ -153,6 +156,29 @@ async def generate_report(
 
     report_html = render_report_html(report_json, metadata)
 
+    # 7. Cache the report for recovery (30-day retention, purged on startup)
+    report_json_str = json.dumps(report_json, ensure_ascii=False)
+    await db.execute(
+        """INSERT OR REPLACE INTO meeting_reports
+           (id, user_id, meeting_id, report_json, report_html,
+            model, input_tokens, output_tokens, cost_usd, generation_ms, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (
+            str(uuid.uuid4()),
+            user.id,
+            meeting_id,
+            report_json_str,
+            report_html,
+            report_model,
+            response.input_tokens,
+            response.output_tokens,
+            request_cost,
+            elapsed_ms,
+            now.isoformat(),
+        ),
+    )
+    await db.commit()
+
     return {
         "report_html": report_html,
         "report_json": report_json,
@@ -162,6 +188,44 @@ async def generate_report(
         "output_tokens": response.output_tokens,
         "cost_usd": request_cost,
         "generation_ms": elapsed_ms,
+    }
+
+
+@router.get("/meetings/{meeting_id}/report")
+async def get_cached_report(
+    meeting_id: str,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Retrieve a previously generated report. No LLM call, no charge.
+
+    Returns the cached report if it exists (retained for 30 days).
+    SS should use this for recovery after timeouts — the report was
+    generated, paid for, and cached even if the HTTP response didn't
+    make it back to the client.
+    """
+    cursor = await db.execute(
+        "SELECT * FROM meeting_reports WHERE meeting_id = ? AND user_id = ?",
+        (meeting_id, user.id),
+    )
+    row = await cursor.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail={
+            "code": "report_not_found",
+            "message": f"No cached report for meeting {meeting_id}. Generate one with POST first.",
+        })
+
+    return {
+        "report_html": row["report_html"],
+        "report_json": json.loads(row["report_json"]),
+        "meeting_id": meeting_id,
+        "model": row["model"],
+        "input_tokens": row["input_tokens"],
+        "output_tokens": row["output_tokens"],
+        "cost_usd": row["cost_usd"],
+        "generation_ms": row["generation_ms"],
+        "cached": True,
+        "generated_at": row["created_at"],
     }
 
 
