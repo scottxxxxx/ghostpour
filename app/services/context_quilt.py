@@ -143,6 +143,9 @@ async def capture(
     prompt_mode: str | None = None,
     display_name: str | None = None,
     email: str | None = None,
+    user_identified: bool | None = None,
+    user_label: str | None = None,
+    identification_source: str | None = None,
 ):
     """
     Send query+response to Context Quilt for learning. Fire-and-forget (async).
@@ -178,6 +181,12 @@ async def capture(
         metadata["display_name"] = display_name
     if email:
         metadata["email"] = email
+    if user_identified is not None:
+        metadata["user_identified"] = user_identified
+    if user_label:
+        metadata["user_label"] = user_label
+    if identification_source:
+        metadata["identification_source"] = identification_source
     if metadata:
         body["metadata"] = metadata
 
