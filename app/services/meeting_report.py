@@ -47,7 +47,8 @@ Rules:
 - For suggested_tags: return 1-4 tags from the provided TAG TAXONOMY list only. Each tag needs a reason explaining why it applies.
 - For queries_during_meeting: include them exactly as provided in the input, do not modify query text or response text
 - Never fabricate information not present in the transcript
-- If a field has no relevant data, use an empty array or null as appropriate"""
+- If a field has no relevant data, use an empty array or null as appropriate
+- When referring to the app owner, use second-person voice ("You" / "Your"). Never use parenthetical identifiers like "(you)" in output text."""
 
 REPORT_USER_TEMPLATE = """Analyze this meeting and produce a structured JSON report.
 

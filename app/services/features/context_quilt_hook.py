@@ -8,6 +8,7 @@ Implements the FeatureHook protocol for CQ integration:
 
 import asyncio
 import logging
+import re
 from typing import Any
 
 from app.models.chat import ChatRequest, ChatResponse
@@ -46,6 +47,8 @@ class ContextQuiltHook:
         if body.get_meta("project_id"):
             cq_metadata["project_id"] = body.get_meta("project_id")
         cq_metadata["locale"] = body.get_meta("locale") or "en"
+        if body.get_meta("owner_speaker_label"):
+            cq_metadata["owner_speaker_label"] = body.get_meta("owner_speaker_label")
 
         if feature_state == "enabled":
             # Full CQ: recall + inject
@@ -58,6 +61,9 @@ class ContextQuiltHook:
 
             if cq_result.get("context"):
                 cq_context = cq_result["context"]
+                # Sanitize "(you)" suffixes from CQ context to prevent the LLM
+                # from echoing them in output (e.g., "Scott (you) decided...")
+                cq_context = _sanitize_you_suffix(cq_context)
                 if "{{context_quilt}}" in body.system_prompt:
                     body = body.model_copy(update={
                         "system_prompt": body.system_prompt.replace("{{context_quilt}}", cq_context)
@@ -148,3 +154,21 @@ class ContextQuiltHook:
                 headers["X-CQ-Patch-IDs"] = ",".join(patch_ids[:20])
 
         return headers
+
+
+def _sanitize_you_suffix(text: str) -> str:
+    """Strip '(you)' suffixes from CQ context to prevent LLM echo.
+
+    Rewrites patterns like 'Scott (you) wants...' → 'You want...'
+    and 'Name (you)' → 'You' in any position. Also handles bracketed
+    forms like '[Scott (you)]' → '[You]'.
+
+    This is a render-time fix for historical patches stored with the
+    '(you)' suffix. New patches should use second-person 'You' natively.
+    """
+    # Replace "Name (you)" patterns with "You"
+    # Handles: "Scott (you)", "[Scott (you)]", "Speaker 1 (you)"
+    text = re.sub(r'\b\w[\w\s]*?\s*\(you\)', 'You', text, flags=re.IGNORECASE)
+    # Clean up any remaining standalone "(you)" that might be left
+    text = re.sub(r'\s*\(you\)', '', text, flags=re.IGNORECASE)
+    return text
