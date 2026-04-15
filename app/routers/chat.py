@@ -569,6 +569,18 @@ async def chat(
         else:
             body = body.model_copy(update={"model": tier.default_model})
 
+    # 2.5. Sanitize "(you)" suffixes from system prompt and user content.
+    # SS sends [Name (you)] in transcript context to help CQ extraction,
+    # but it must not reach the LLM in chat/summary/report prompts.
+    from app.services.features.context_quilt_hook import _sanitize_you_suffix
+    sanitized_system = _sanitize_you_suffix(body.system_prompt)
+    sanitized_content = _sanitize_you_suffix(body.user_content)
+    if sanitized_system != body.system_prompt or sanitized_content != body.user_content:
+        body = body.model_copy(update={
+            "system_prompt": sanitized_system,
+            "user_content": sanitized_content,
+        })
+
     # 3. Check provider + model access
     usage_tracker.check_model_access(body, tier)
 
