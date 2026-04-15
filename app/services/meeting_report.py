@@ -345,6 +345,7 @@ def render_report_html(report_json: dict, metadata: dict) -> str:
     html = html.replace("{{meeting_date}}", _esc(metadata.get("meeting_date", "")))
     html = html.replace("{{meeting_time}}", _esc(metadata.get("meeting_time", "")))
     html = html.replace("{{meeting_duration}}", _esc(metadata.get("meeting_duration", "")))
+    html = html.replace("{{report_model_label}}", _esc(metadata.get("report_model_label", "")))
 
     # Stoplight circles
     for color in ("red", "yellow", "green"):

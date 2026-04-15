@@ -38,6 +38,7 @@ class ReportRequest(BaseModel):
     attendees: list[str] | None = None
     tag_taxonomy: list[str] | None = None  # Custom tags; defaults to built-in 8
     meeting_start_iso: str | None = None  # ISO 8601 with timezone, e.g. "2026-04-14T13:01:00-05:00"
+    timezone_abbr: str | None = None  # e.g. "CST", "EST", "IST" — from device locale
     quality: str | None = None  # "fast" = Haiku, "best" = Sonnet (default)
 
 
@@ -160,9 +161,12 @@ async def generate_report(
     else:
         meeting_dt = datetime.now(timezone.utc)
 
-    # Format timezone abbreviation if available
+    # Format timezone — prefer explicit abbreviation from client (CST, EST, IST),
+    # fall back to UTC offset if not provided
     tz_label = ""
-    if meeting_dt.tzinfo and meeting_dt.utcoffset() is not None:
+    if body.timezone_abbr:
+        tz_label = f" {body.timezone_abbr}"
+    elif meeting_dt.tzinfo and meeting_dt.utcoffset() is not None:
         offset = meeting_dt.utcoffset()
         total_seconds = int(offset.total_seconds())
         hours, remainder = divmod(abs(total_seconds), 3600)
@@ -171,10 +175,15 @@ async def generate_report(
         if remainder:
             tz_label += f":{remainder // 60:02d}"
 
+    model_labels = {
+        "claude-sonnet-4-6": "Sonnet",
+        "claude-haiku-4-5-20251001": "Haiku",
+    }
     metadata = {
         "meeting_date": meeting_dt.strftime("%B %-d, %Y"),
         "meeting_time": meeting_dt.strftime("%-I:%M %p") + tz_label,
         "meeting_duration": format_duration(body.duration_seconds),
+        "report_model_label": model_labels.get(report_model, report_model),
     }
 
     report_html = render_report_html(report_json, metadata)
