@@ -81,7 +81,7 @@ Returned from `POST /v1/meetings/{id}/report` in the `report_json` object. Super
 
 | Field | Type | Example | UI Element |
 |-------|------|---------|------------|
-| `stoplight.color` | `"red"` / `"yellow"` / `"green"` | `"yellow"` | Orb color (more precise than meetingUrgency) |
+| `stoplight.color` | `"red"` / `"orange"` / `"yellow"` / `"green"` | `"orange"` | Orb color (1:1 with meetingUrgency) |
 | `stoplight.label` | string | `"Blocked on access"` | Subtitle or tooltip |
 | `stoplight.detail` | string | `"VPC access pending..."` | Report body |
 
@@ -90,9 +90,9 @@ Returned from `POST /v1/meetings/{id}/report` in the `report_json` object. Super
 | stoplight.color | Maps to | Orb Color |
 |----------------|---------|-----------|
 | `red` | critical | `#E24B4A` |
-| `yellow` | high | `#EF9F27` |
+| `orange` | high | `#EF9F27` |
+| `yellow` | medium | `#FFD54F` |
 | `green` | low | `#4CAF50` |
-| (missing) | medium | `#FFD54F` |
 
 ### Tags
 

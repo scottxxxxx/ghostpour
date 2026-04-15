@@ -25,9 +25,9 @@ _MOOD_COLORS = {
     "neutral": "#888780",
 }
 
-_STOPLIGHT_COLORS = {"red": "#E24B4A", "yellow": "#EF9F27", "green": "#4CAF50"}
-_STOPLIGHT_BG = {"red": "#FFF3E0", "yellow": "#FFF3E0", "green": "#EAF3DE"}
-_STOPLIGHT_TEXT = {"red": "#A32D2D", "yellow": "#854F0B", "green": "#3B6D11"}
+_STOPLIGHT_COLORS = {"red": "#E24B4A", "orange": "#EF9F27", "yellow": "#FFD54F", "green": "#4CAF50"}
+_STOPLIGHT_BG = {"red": "#FFF3E0", "orange": "#FFF3E0", "yellow": "#FFFDE7", "green": "#EAF3DE"}
+_STOPLIGHT_TEXT = {"red": "#A32D2D", "orange": "#854F0B", "yellow": "#7D6608", "green": "#3B6D11"}
 _PRIORITY_BG = {"critical": "#E24B4A", "standard": "#1a1a1a"}
 
 _TEMPLATE_PATH = Path(__file__).parent.parent / "static" / "report_template.html"
@@ -41,7 +41,7 @@ Rules:
 - Attribute action items to specific people by name when the transcript supports it
 - Use the confirmed attendee list for names, not the transcript (transcription often mangles names)
 - The sentiment_score is 0 to 100 where 50 is neutral, above 50 is positive, below 50 is negative
-- The stoplight color is red (blocked), yellow (at risk or partially blocked), or green (clear/on track)
+- The stoplight color is red (blocked/critical), orange (high urgency, needs prompt attention), yellow (medium, some open items but not blocking), or green (low urgency, on track)
 - The sentiment_arc should have 8 to 14 data points representing the emotional trajectory across the meeting, each tagged as "confident", "tense", "concern", or "neutral"
 - The sentiment_emoji_label must be exactly one of: enthusiastic, collaborative, positive, informational, focused, cautious, frustrated, tense, concerned, disappointed. The emoji should be a single emoji that represents the chosen label.
 - For suggested_tags: return 1-4 tags from the provided TAG TAXONOMY list only. Each tag needs a reason explaining why it applies.
@@ -63,7 +63,7 @@ JSON SCHEMA:
     "attendees": ["string — use the CONFIRMED ATTENDEES list below, not names from transcript"]
   }},
   "stoplight": {{
-    "color": "red | yellow | green",
+    "color": "red | orange | yellow | green",
     "label": "string — short status phrase, 3 to 6 words",
     "detail": "string — 1 to 2 sentences explaining why you chose this color"
   }},
@@ -348,7 +348,7 @@ def render_report_html(report_json: dict, metadata: dict) -> str:
     html = html.replace("{{report_model_label}}", _esc(metadata.get("report_model_label", "")))
 
     # Stoplight circles
-    for color in ("red", "yellow", "green"):
+    for color in ("red", "orange", "yellow", "green"):
         active = _STOPLIGHT_COLORS[color] if stoplight.get("color") == color else "#e0e0db"
         html = html.replace(
             f"{{{{#if stoplight.color == '{color}'}}}}{_STOPLIGHT_COLORS[color]}{{{{else}}}}#e0e0db{{{{/if}}}}",
