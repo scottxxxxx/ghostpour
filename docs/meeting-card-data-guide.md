@@ -28,6 +28,7 @@ Returned in the `/v1/chat` response `text` as JSON. These are defined by the SS 
 | `sentimentScore` | float 0-100 | `64` | Internal / card background tint |
 | `sentimentLabel` | string | `"Constructive but frustrated"` | Available for detail view |
 | `sentimentEmoji` | string (1 emoji) | `"😤"` | Meeting card — emoji badge |
+| `sentimentReason` | string | `"Coordination gaps caused friction early" ` | Emoji tooltip / detail view |
 | `meetingUrgency` | string | `"high"` | Meeting card — orb color |
 | `urgencyReason` | string | `"Pipeline blocked on access"` | Available for detail view |
 | `title` | string | `"Staffing & Work Allocation"` | Meeting card — title |
