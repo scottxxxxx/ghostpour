@@ -38,6 +38,7 @@ class ReportRequest(BaseModel):
     attendees: list[str] | None = None
     tag_taxonomy: list[str] | None = None  # Custom tags; defaults to built-in 8
     meeting_start_iso: str | None = None  # ISO 8601 with timezone, e.g. "2026-04-14T13:01:00-05:00"
+    quality: str | None = None  # "fast" = Haiku, "best" = Sonnet (default)
 
 
 @router.post("/meetings/{meeting_id}/report")
@@ -83,8 +84,11 @@ async def generate_report(
         tag_taxonomy=body.tag_taxonomy,
     )
 
-    # 3. Call LLM (always Sonnet for report quality, charged to user's allocation)
-    report_model = "claude-sonnet-4-6"
+    # 3. Call LLM — Sonnet by default, Haiku for "fast" quality tier
+    if body.quality == "fast":
+        report_model = "claude-haiku-4-5-20251001"
+    else:
+        report_model = "claude-sonnet-4-6"
     report_provider = "anthropic"
 
     chat_request = ChatRequest(
