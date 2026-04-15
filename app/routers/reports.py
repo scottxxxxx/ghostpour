@@ -85,11 +85,14 @@ async def generate_report(
         tag_taxonomy=body.tag_taxonomy,
     )
 
-    # 3. Call LLM — Sonnet by default, Haiku for "fast" quality tier
+    # 3. Select model — respect explicit quality from client, else tier-based
     if body.quality == "fast":
         report_model = "claude-haiku-4-5-20251001"
-    else:
+    elif body.quality == "best":
         report_model = "claude-sonnet-4-6"
+    else:
+        # No explicit quality: free tier gets Haiku, paid tiers get Sonnet
+        report_model = "claude-haiku-4-5-20251001" if user.effective_tier == "free" else "claude-sonnet-4-6"
     report_provider = "anthropic"
 
     chat_request = ChatRequest(
