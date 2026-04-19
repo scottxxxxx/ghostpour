@@ -53,6 +53,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         # can include it in error responses for client-side correlation.
         request_id = uuid.uuid4().hex[:12]
         request.state.request_id = request_id
+        request.state.app_id = request.headers.get("X-App-ID", "unknown")
 
         # Capture request body
         req_body_str = None
@@ -103,6 +104,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         entry = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "request_id": request_id,
+            "app_id": request.state.app_id,
             "method": request.method,
             "path": request.url.path,
             "query": str(request.url.query) if request.url.query else None,

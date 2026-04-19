@@ -20,6 +20,43 @@ from app.models.user import UserRecord
 router = APIRouter()
 
 
+def _resolve_model_routing(request: Request, body: ChatRequest, tier) -> str | None:
+    """Resolve which model to use for an 'auto' request.
+
+    Priority:
+    1. model-routing config: app_id + call_type → specific model
+    2. model-routing config: app_id + "default" → app default model
+    3. Tier's default_model (from tiers.yml)
+
+    The model-routing config is editable via the admin dashboard Configs tab,
+    so model selection can be changed without code deploys.
+    """
+    configs = request.app.state.remote_configs
+    routing = configs.get("model-routing", {}).get("routes", {})
+
+    if routing:
+        app_id = getattr(request.state, "app_id", "unknown")
+        call_type = body.get_meta("call_type")
+
+        app_routes = routing.get(app_id, {})
+        if not app_routes:
+            app_routes = routing.get("_default", {})
+
+        # Check specific call_type route
+        if call_type and call_type in app_routes:
+            model = app_routes[call_type]
+            if model:
+                return model
+
+        # Check app default
+        app_default = app_routes.get("default")
+        if app_default:
+            return app_default
+
+    # Fall back to tier's default model
+    return tier.default_model
+
+
 # MARK: - StoreKit Receipt Verification
 
 
@@ -553,9 +590,10 @@ async def chat(
             detail={"code": "invalid_request", "message": f"Unknown tier: {effective_tier_name}"},
         )
 
-    # 2. Resolve "auto" model to tier's default
+    # 2. Resolve "auto" model — check model-routing config first, then tier default
     if body.model == "auto" or body.provider == "auto":
-        if not tier.default_model:
+        resolved_model = _resolve_model_routing(request, body, tier)
+        if not resolved_model:
             raise HTTPException(
                 status_code=400,
                 detail={
@@ -563,11 +601,11 @@ async def chat(
                     "message": "No default model configured for this tier",
                 },
             )
-        parts = tier.default_model.split("/", 1)
+        parts = resolved_model.split("/", 1)
         if len(parts) == 2:
             body = body.model_copy(update={"provider": parts[0], "model": parts[1]})
         else:
-            body = body.model_copy(update={"model": tier.default_model})
+            body = body.model_copy(update={"model": resolved_model})
 
     # 2.5. Sanitize "(you)" suffixes from system prompt and user content.
     # SS sends [Name (you)] in transcript context to help CQ extraction,

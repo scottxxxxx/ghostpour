@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "description": "Per-app and per-call-type model routing. When a client sends model: auto, GP checks this config before falling back to the tier's default_model. Edit via the admin dashboard Configs tab.",
+  "routes": {
+    "techrehearsal": {
+      "tr_parse_jd": "anthropic/claude-sonnet-4-6",
+      "tr_parse_resume": "anthropic/claude-sonnet-4-6",
+      "tr_mock_interview": "anthropic/claude-sonnet-4-6",
+      "tr_response_analysis": "anthropic/claude-sonnet-4-6",
+      "default": "anthropic/claude-haiku-4-5-20251001"
+    },
+    "shouldersurf": {
+      "report": "anthropic/claude-sonnet-4-6",
+      "default": null
+    }
+  },
+  "_schema": {
+    "routes.<app_id>.<call_type>": "provider/model — override for this app + call_type combo",
+    "routes.<app_id>.default": "provider/model — fallback for this app when call_type has no specific route. null = use tier default."
+  }
+}
