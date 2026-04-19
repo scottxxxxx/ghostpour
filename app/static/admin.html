@@ -408,7 +408,7 @@ async function refresh() {
   const days = document.getElementById('period').value;
   const [dash, users, tiers] = await Promise.all([
     fetch(`${BASE}/webhooks/admin/dashboard?days=${days}`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
-    fetch(`${BASE}/webhooks/admin/users`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
+    fetch(`${BASE}/webhooks/admin/users?days=${days}`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
     fetch(`${BASE}/webhooks/admin/tiers`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
   ]);
 

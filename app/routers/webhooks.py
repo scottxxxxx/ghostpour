@@ -959,7 +959,7 @@ async def user_detail(
     user_tier = row["tier"]
     tier = tier_config.tiers.get(user_tier)
 
-    # Monthly budget
+    # Budget stats — filtered by the requested time period
     cursor = await db.execute(
         """SELECT
             COALESCE(SUM(COALESCE(input_tokens, 0)), 0) as input_tokens,
@@ -968,9 +968,9 @@ async def user_detail(
             COALESCE(SUM(COALESCE(estimated_cost_usd, 0)), 0) as total_cost,
             COUNT(*) as total_requests
            FROM usage_log
-           WHERE user_id = ? AND request_timestamp >= date('now', 'start of month')
+           WHERE user_id = ? AND request_timestamp >= date('now', ?)
              AND status = 'success'""",
-        (user_id,),
+        (user_id, f"-{days} days"),
     )
     month_row = await cursor.fetchone()
 
@@ -1182,8 +1182,9 @@ async def list_users(
     request: Request,
     db: aiosqlite.Connection = Depends(get_db),
     x_admin_key: str = Header(...),
+    days: int = Query(default=7, ge=1, le=90),
 ):
-    """List all users with their usage stats."""
+    """List all users with their usage stats, filtered by time period."""
     _verify_admin(request, x_admin_key)
 
     tier_config = request.app.state.tier_config
@@ -1193,16 +1194,21 @@ async def list_users(
             u.simulated_tier, u.simulated_exhausted,
             u.monthly_used_usd, u.monthly_cost_limit_usd, u.allocation_resets_at,
             u.is_trial, u.trial_end,
-            (SELECT COUNT(*) FROM usage_log l WHERE l.user_id = u.id AND l.status = 'success') as total_requests,
+            (SELECT COUNT(*) FROM usage_log l WHERE l.user_id = u.id AND l.status = 'success'
+             AND l.request_timestamp >= date('now', ?)) as total_requests,
             (SELECT COALESCE(SUM(COALESCE(l2.input_tokens,0)), 0)
-             FROM usage_log l2 WHERE l2.user_id = u.id AND l2.status = 'success') as total_input_tokens,
+             FROM usage_log l2 WHERE l2.user_id = u.id AND l2.status = 'success'
+             AND l2.request_timestamp >= date('now', ?)) as total_input_tokens,
             (SELECT COALESCE(SUM(COALESCE(l2.output_tokens,0)), 0)
-             FROM usage_log l2 WHERE l2.user_id = u.id AND l2.status = 'success') as total_output_tokens,
+             FROM usage_log l2 WHERE l2.user_id = u.id AND l2.status = 'success'
+             AND l2.request_timestamp >= date('now', ?)) as total_output_tokens,
             (SELECT COALESCE(SUM(l3.estimated_cost_usd), 0)
-             FROM usage_log l3 WHERE l3.user_id = u.id AND l3.status = 'success') as total_cost_usd,
+             FROM usage_log l3 WHERE l3.user_id = u.id AND l3.status = 'success'
+             AND l3.request_timestamp >= date('now', ?)) as total_cost_usd,
             (SELECT MAX(l4.request_timestamp) FROM usage_log l4 WHERE l4.user_id = u.id) as last_request
            FROM users u
-           ORDER BY u.created_at DESC"""
+           ORDER BY u.created_at DESC""",
+        (f"-{days} days", f"-{days} days", f"-{days} days", f"-{days} days"),
     )
     users = []
     for r in await cursor.fetchall():
