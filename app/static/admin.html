@@ -225,7 +225,7 @@
     <div id="user-detail" style="display:none">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <h3 id="user-detail-title" style="margin:0">User Detail</h3>
-        <button class="refresh-btn" onclick="document.getElementById('user-detail').style.display='none'" style="font-size:1.1em;padding:4px 12px">Close</button>
+        <button class="refresh-btn" onclick="_openDetailUserId=null;document.getElementById('user-detail').style.display='none'" style="font-size:1.1em;padding:4px 12px">Close</button>
       </div>
       <div class="cards" id="user-budget-cards"></div>
       <h3>Usage by Query Type</h3>
@@ -403,6 +403,8 @@ function card(label, value, cls, sub) {
 let currentUserTier = '';
 let currentUserId = '';
 let simulationState = null;  // {tier, exhausted} or null
+let _openDetailUserId = null;  // Track which user detail is open
+let _openDetailEmail = null;
 
 async function refresh() {
   const days = document.getElementById('period').value;
@@ -565,6 +567,11 @@ async function refresh() {
   }
 
   document.getElementById('dash-subtitle').textContent = `Updated ${new Date().toLocaleTimeString()}`;
+
+  // Re-fetch open user detail if one is visible
+  if (_openDetailUserId) {
+    showUserDetail(_openDetailUserId, _openDetailEmail);
+  }
 }
 
 function renderTiers(tiers) {
@@ -650,6 +657,8 @@ function renderTiers(tiers) {
 }
 
 async function showUserDetail(userId, email) {
+  _openDetailUserId = userId;
+  _openDetailEmail = email;
   const days = document.getElementById('period').value;
   const data = await fetch(`${BASE}/webhooks/admin/user/${userId}?days=${days}`, {
     headers: {'X-Admin-Key': adminKey}
