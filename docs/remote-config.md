@@ -73,22 +73,83 @@ English (`en`) is the default — no `.en.json` suffix needed.
 
 ## Multi-app convention
 
-For deployments serving multiple client apps, prefix config slugs with the app name to avoid collisions:
-- `myapp-prompts` instead of `prompts`
-- `myapp-providers` instead of `providers`
+GhostPour serves multiple iOS apps from a single instance. Each app uses a **prefix** on its config slugs to avoid collisions. The prefix is the app's short name followed by a hyphen.
 
-This is a naming convention, not enforced by code. Single-app deployments can use unprefixed slugs.
+### Slug naming
+
+| App | Prefix | Example slug | URL |
+|-----|--------|-------------|-----|
+| Shoulder Surf | *(none — legacy, unprefixed)* | `idle-tips` | `GET /v1/config/idle-tips` |
+| Tech Rehearsal | `tr-` | `tr-idle-tips` | `GET /v1/config/tr-idle-tips` |
+
+### Required header
+
+Every request from a client app must include:
+```
+X-App-ID: shouldersurf    (or)
+X-App-ID: techrehearsal
+```
+This header is used for usage segmentation, model routing, and per-app analytics in the admin dashboard.
+
+### Per-app config registry
+
+**Shoulder Surf** (unprefixed slugs):
+
+| Slug | Purpose |
+|------|---------|
+| `idle-tips` | Rotating tip bubbles shown under the idle orb |
+| `protected-prompts` | Server-locked system prompts, default prompt modes, summary/analysis templates |
+| `llm-providers` | Provider endpoints, model lists, display names for Settings |
+| `model-capabilities` | Per-model context-slot allowances (transcript tokens, images, doc tokens) |
+
+**Tech Rehearsal** (`tr-` prefixed slugs):
+
+| Slug | Purpose |
+|------|---------|
+| `tr-idle-tips` | Rotating tip bubbles |
+| `tr-protected-prompts` | System prompts and prompt modes for interview scenarios |
+| `tr-llm-providers` | Provider/model list for TR |
+| `tr-model-capabilities` | Per-model context-slot allowances |
+| `tr-jd-analysis` | JD analysis prompt: system prompt + user template with `{{job_description}}` placeholder |
+
+### Localization
+
+Config files support localization via a 2-letter language code suffix. The base file (no suffix) is **English**.
+
+```
+idle-tips.json        ← English (default)
+idle-tips.es.json     ← Spanish
+idle-tips.fr.json     ← French
+```
+
+**How it works:**
+1. Client sends `Accept-Language: es` header (iOS sends this automatically based on device locale)
+2. GP looks for `{slug}.es` → if found, serves it
+3. If not found → falls back to `{slug}` (English)
+4. Response includes `X-Config-Locale` and `X-Config-Resolved` headers
+
+**No `.en.json` suffix exists.** English is the base file without any suffix.
+
+**Current localized configs:**
+
+| Base Config | Locales |
+|------------|---------|
+| `idle-tips` | `es` |
+| `protected-prompts` | `es` |
+| `llm-providers` | `es` |
+| `model-capabilities` | `es` |
+| `tr-*` configs | English only (no localized variants yet) |
+
+To add a localized variant for any config, create `{slug}.{lang}.json` with its own `"version"` field. Or use the admin dashboard's `+ Lang` button.
+
+### Version tracking
+
+Each config file has a top-level `"version"` integer. The client sends `X-Config-Version: N` on each request. If the server version matches, GP returns `{"changed": false}` (cheap 200). If newer, GP returns the full payload.
+
+Localized variants have their own independent version numbers — bumping `idle-tips.json` to v3 does not affect `idle-tips.es.json` which may still be at v1.
 
 ## To add a new config
 
 Drop a `.json` file with a `"version"` field into `config/remote/` and redeploy. The slug is the filename without `.json`. On startup, it will be seeded into `data/remote-config/`.
 
 Alternatively, use the admin dashboard's `+ Lang` button to create configs without a deploy.
-
-## To add a localized variant
-
-**Via code:** Create `{slug}.{lang}.json` in `config/remote/` (e.g., `protected-prompts.fr.json`). It must have its own `"version"` field. The version is tracked independently from the base config.
-
-**Via admin dashboard:** Click `+ Lang` on any config card, enter the language code, and edit the content. The server hot-reloads immediately.
-
-No code changes needed on the iOS side — the app sends `Accept-Language` automatically based on the device locale. If a localized config exists, it's served; if not, the English fallback is returned.
