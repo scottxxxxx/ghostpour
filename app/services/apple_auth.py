@@ -7,7 +7,9 @@ APPLE_ISSUER = "https://appleid.apple.com"
 
 class AppleAuthVerifier:
     def __init__(self, bundle_id: str):
-        self.bundle_id = bundle_id
+        # Support comma-separated bundle IDs for multi-app deployments
+        ids = [b.strip() for b in bundle_id.split(",") if b.strip()]
+        self.bundle_ids = ids if len(ids) > 1 else ids[0]  # str for single, list for multi
         self._jwks_client = PyJWKClient(
             APPLE_JWKS_URL, cache_jwk_set=True, lifespan=86400
         )
@@ -23,7 +25,7 @@ class AppleAuthVerifier:
             token,
             signing_key.key,
             algorithms=["RS256"],
-            audience=self.bundle_id,
+            audience=self.bundle_ids,
             issuer=APPLE_ISSUER,
         )
         return claims
