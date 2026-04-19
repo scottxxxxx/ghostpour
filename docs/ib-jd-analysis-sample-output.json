@@ -1,0 +1,157 @@
+{
+  "title": "Vice President - Intelligent Automation And Data Platforms",
+  "company": "",
+  "team": "Platform Engineering / Intelligent Automation",
+  "level": "VP / Senior Director",
+  "location": "Remote (US-based only, no visa sponsorship)",
+  "salary": "$150,000 – $200,000 annually",
+  "employmentType": "Full-time",
+  "keywords": [
+    { "term": "automation", "count": 6, "importance": "high" },
+    { "term": "platform engineering", "count": 3, "importance": "high" },
+    { "term": "DevSecOps", "count": 2, "importance": "high" },
+    { "term": "Service Catalog", "count": 2, "importance": "high" },
+    { "term": "self-service", "count": 2, "importance": "high" },
+    { "term": "infrastructure-as-code", "count": 1, "importance": "high" },
+    { "term": "CI/CD", "count": 1, "importance": "high" },
+    { "term": "cloud platforms (AWS, Azure, GCP)", "count": 1, "importance": "high" },
+    { "term": "federated contribution model", "count": 1, "importance": "medium" },
+    { "term": "cross-functional alignment", "count": 2, "importance": "medium" },
+    { "term": "modernization", "count": 1, "importance": "medium" },
+    { "term": "global developers", "count": 1, "importance": "medium" },
+    { "term": "measurable outcomes", "count": 2, "importance": "medium" },
+    { "term": "SRE", "count": 1, "importance": "medium" },
+    { "term": "DEI", "count": 1, "importance": "low" },
+    { "term": "Finance & Insurance", "count": 1, "importance": "low" }
+  ],
+  "mustHave": [
+    {
+      "text": "10+ years in engineering, DevOps, platform engineering, SRE, or similar technical leadership roles",
+      "interviewerLens": "Probe the scale and scope of teams/platforms led — number of engineers managed, global vs. regional scope, and progression from IC to VP-level leadership."
+    },
+    {
+      "text": "Strong knowledge of cloud platforms (AWS, Azure, or GCP), infrastructure-as-code, CI/CD, and modern DevSecOps",
+      "interviewerLens": "Expect scenario-based questions on architectural decisions, toolchain choices (e.g., Terraform, GitHub Actions, ArgoCD), and how they've embedded security into delivery pipelines."
+    },
+    {
+      "text": "Experience converting strategy and vision into products and platforms with high adoption rates",
+      "interviewerLens": "Probe for product thinking in a platform context — how they measured adoption, handled low-adoption failures, and iterated based on developer feedback."
+    },
+    {
+      "text": "Ability to lead through ambiguity and create clarity in complex global environments",
+      "interviewerLens": "Ask for examples where requirements were ill-defined or org structure was unclear — how they built alignment and drove toward outcomes without full authority."
+    },
+    {
+      "text": "Drive cross-functional alignment with Security, Cloud, and Engineering",
+      "interviewerLens": "Look for evidence of influencing without direct authority across org boundaries, particularly where security and engineering priorities conflicted."
+    },
+    {
+      "text": "Architect and scale an Automated Service Catalog for standardized services across regions",
+      "interviewerLens": "Probe depth of experience with internal developer platforms (Backstage, ServiceNow, or custom), multi-region rollout challenges, and governance models."
+    }
+  ],
+  "niceToHave": [
+    {
+      "text": "Advanced degree in Technology, Computer Science, Engineering, or related field",
+      "interviewerLens": "Unlikely to be a strong filter given the depth of experience required; may surface in exec-level conversations about thought leadership."
+    },
+    {
+      "text": "Experience in Finance & Insurance industry",
+      "interviewerLens": "Probe familiarity with regulated environments, compliance constraints on automation pipelines, and audit requirements — implicitly valued even if not stated."
+    },
+    {
+      "text": "Establishing a federated contribution model for global developer communities",
+      "interviewerLens": "Look for inner-source or open-source governance experience — how they structured contribution standards, review processes, and quality gates at scale."
+    }
+  ],
+  "culture": [
+    { "text": "High-growth environment demanding both strategy and execution ownership", "category": "pace" },
+    { "text": "Cross-functional partnership across Security, Cloud, and Engineering", "category": "collaboration" },
+    { "text": "Continuous feedback loops with engineering teams", "category": "ownership" },
+    { "text": "Strong DEI focus and people-first approach", "category": "other" },
+    { "text": "Work/life balance and employee wellness emphasized", "category": "other" },
+    { "text": "Global developer community with federated autonomy model", "category": "autonomy" }
+  ],
+  "implicitBar": "Despite the VP title, the role demands a hands-on technical architect who has personally built and scaled internal developer platforms, not merely overseen them — candidates without direct platform product ownership at global scale will likely be screened out.",
+  "likelyStages": [
+    {
+      "stage": "recruiter",
+      "format": "30-min phone screen",
+      "focus": "Years of experience, leadership scope, compensation alignment, visa/location eligibility, and high-level platform engineering background."
+    },
+    {
+      "stage": "phone",
+      "format": "60-min video call with hiring manager or senior leader",
+      "focus": "Technical depth in DevSecOps and platform engineering, strategic vision for automation, and examples of cross-functional influence."
+    },
+    {
+      "stage": "onsite",
+      "format": "Panel — multiple 45-60 min interviews with engineering, security, and product stakeholders",
+      "focus": "System design for internal developer platform, behavioral leadership scenarios, cultural fit, and cross-functional collaboration evidence."
+    },
+    {
+      "stage": "exec",
+      "format": "30-45 min with C-suite or divisional CTO/CIO",
+      "focus": "Strategic alignment, ability to translate technical roadmap to business outcomes, and executive presence / communication style."
+    }
+  ],
+  "redFlagsForCandidate": [
+    "'High-growth environment' combined with VP-level scope may signal that foundational platform infrastructure is immature and the candidate will need to build from scratch with limited resources.",
+    "Role posted through a third-party recruiter ('our client') with company name withheld — limits ability to research actual culture, stability, or leadership tenure.",
+    "'No visa sponsorship available' and 'US-based only' flag a narrow talent pool, potentially indicating urgency or prior failed searches.",
+    "'Drive cross-functional alignment' without mention of direct engineering headcount may indicate this is an influential-but-not-line-management role with accountability but limited authority.",
+    "Compensation ceiling of $200K for a VP in Finance & Insurance with global scope may be below market for the seniority implicitly required."
+  ],
+  "questionsToExpect": [
+    {
+      "type": "system_design",
+      "prompt": "Design an Automated Service Catalog that global developers across multiple regions can contribute to and consume from. Walk me through your architecture, governance model, and how you'd ensure quality.",
+      "why": "Directly maps to the core deliverable of the role; tests architectural depth and platform product thinking simultaneously."
+    },
+    {
+      "type": "behavioral",
+      "prompt": "Tell me about a time you drove adoption of an internal platform that initially had low uptake. What did you learn and how did you turn it around?",
+      "why": "The JD specifically calls out 'high adoption rates' — interviewers will probe for product iteration skills and developer empathy."
+    },
+    {
+      "type": "behavioral",
+      "prompt": "Describe a situation where you had to align Security, Engineering, and Cloud teams on an architecture decision where they had conflicting priorities. How did you reach consensus?",
+      "why": "Cross-functional alignment with exactly these three groups is called out explicitly — expect a deep dive here."
+    },
+    {
+      "type": "situational",
+      "prompt": "You've just joined and discovered the automation strategy is fragmented — five teams are using different IaC tools with no standardization. How do you approach the first 90 days?",
+      "why": "Tests the candidate's ability to 'lead through ambiguity and create clarity' as stated in qualifications, and reveals strategic planning skills."
+    },
+    {
+      "type": "technical",
+      "prompt": "How would you embed security gates into a CI/CD pipeline for a regulated financial services environment without significantly slowing deployment velocity?",
+      "why": "Finance & Insurance context makes DevSecOps compliance a non-negotiable; tests ability to balance speed and governance."
+    },
+    {
+      "type": "behavioral",
+      "prompt": "Tell me about the largest platform modernization initiative you've led. What was the scope, how did you measure success, and what would you do differently?",
+      "why": "The word 'modernization' leads the responsibilities list — interviewers want evidence of end-to-end ownership at scale."
+    },
+    {
+      "type": "situational",
+      "prompt": "How would you establish a federated contribution model that allows developers across 10+ countries to publish automations while maintaining standards and preventing regressions?",
+      "why": "Directly tests experience with inner-source governance, a nuanced and differentiating requirement in the JD."
+    },
+    {
+      "type": "behavioral",
+      "prompt": "Give me an example of how you built a continuous feedback loop with engineering teams to track and act on measurable outcomes. What metrics did you use and how did they influence your roadmap?",
+      "why": "Measurable outcomes are called out twice in the JD — interviewers will want concrete metrics and iteration evidence, not vague process descriptions."
+    }
+  ],
+  "storyPrompts": [
+    "A time you built or scaled an internal developer platform from low adoption to widespread use — what drove the turnaround.",
+    "A situation where you had to create alignment between Security and Engineering teams who had fundamentally different risk tolerances on an automation or DevSecOps initiative.",
+    "A complex platform modernization you led under ambiguity — how you defined the roadmap when requirements were unclear and stakeholders were misaligned.",
+    "A time you established a federated or inner-source contribution model across a distributed, global engineering organization.",
+    "A moment when you had to influence a strategic direction at the VP or C-suite level without having direct authority over all the teams involved.",
+    "A time you designed or redesigned a CI/CD or infrastructure-as-code architecture for a regulated industry — what constraints you navigated and what tradeoffs you made.",
+    "A situation where a platform you owned failed to deliver measurable business outcomes — how you diagnosed it, communicated upward, and course-corrected.",
+    "A time you had to balance long-term platform vision with short-term engineering team demands, and how you negotiated priorities with stakeholders."
+  ]
+}
