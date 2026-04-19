@@ -136,7 +136,9 @@ async def capture(
     interaction_type: str,
     content: str,
     response: str | None = None,
-    meeting_id: str | None = None,
+    origin_id: str | None = None,
+    origin_type: str | None = None,
+    meeting_id: str | None = None,  # DEPRECATED — use origin_id + origin_type
     project: str | None = None,
     project_id: str | None = None,
     call_type: str | None = None,
@@ -152,6 +154,11 @@ async def capture(
 
     This runs in the background after the LLM response is returned to the user.
     Never blocks the response.
+
+    Origin scoping: CQ v1 replaced meeting_id with (origin_id, origin_type).
+    Callers should pass origin_id + origin_type directly. The meeting_id arg
+    is retained as a deprecated alias — when supplied, it's forwarded as
+    origin_id with origin_type="meeting".
     """
     settings = get_settings()
     if not settings.cq_base_url:
@@ -165,10 +172,18 @@ async def capture(
     if response:
         body["response"] = response
 
+    # Normalize origin: prefer explicit origin_id/origin_type; fall back to
+    # translating the deprecated meeting_id alias.
+    if origin_id is None and meeting_id is not None:
+        origin_id = meeting_id
+        origin_type = origin_type or "meeting"
+
     # Build metadata from available fields
     metadata: dict[str, Any] = {}
-    if meeting_id:
-        metadata["meeting_id"] = meeting_id
+    if origin_id:
+        metadata["origin_id"] = origin_id
+    if origin_type:
+        metadata["origin_type"] = origin_type
     if project:
         metadata["project"] = project
     if project_id:
