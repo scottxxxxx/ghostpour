@@ -117,6 +117,10 @@ class ContextQuiltHook:
             interaction_type=body.get_meta("call_type") or "query",
             content=body.user_content,
             response=response.text,
+            origin_id=body.get_meta("origin_id"),
+            origin_type=body.get_meta("origin_type"),
+            # Deprecated alias — still honored for clients that haven't
+            # migrated; cq.capture() translates it to origin_id/origin_type.
             meeting_id=body.get_meta("meeting_id"),
             project=body.get_meta("project"),
             project_id=body.get_meta("project_id"),

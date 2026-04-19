@@ -74,6 +74,11 @@ async def _cq_proxy(method: str, path: str, body: dict | None = None) -> JSONRes
 
 class TranscriptCaptureRequest(BaseModel):
     transcript: str
+    # Origin scoping — preferred going forward:
+    origin_id: str | None = None
+    origin_type: str | None = None
+    # Deprecated alias (CQ v1 renamed meeting_id → origin_id + origin_type).
+    # Still accepted from clients that haven't migrated; we translate below.
     meeting_id: str | None = None
     project: str | None = None
     project_id: str | None = None
@@ -92,8 +97,15 @@ async def capture_transcript(
     CQ extracts traits, preferences, and durable facts from the raw dialogue.
     GP also stores the transcript locally for meeting report generation.
     """
-    # Store transcript locally for report generation
-    if body.meeting_id:
+    # Normalize origin fields — prefer explicit origin_id/origin_type;
+    # translate legacy meeting_id if that's what the client sent.
+    effective_origin_id = body.origin_id or body.meeting_id
+    effective_origin_type = body.origin_type or ("meeting" if body.meeting_id else None)
+
+    # Store transcript locally for report generation. The local meeting_transcripts
+    # table still uses meeting_id as its column name; reuse whichever origin id the
+    # client provided (for "meeting" origins this is a direct map).
+    if effective_origin_id:
         from datetime import datetime, timezone
         import uuid
         await db.execute(
@@ -103,7 +115,7 @@ async def capture_transcript(
             (
                 str(uuid.uuid4()),
                 user.id,
-                body.meeting_id,
+                effective_origin_id,
                 body.transcript,
                 body.project,
                 body.project_id,
@@ -117,7 +129,8 @@ async def capture_transcript(
         user_id=user.id,
         interaction_type="meeting_transcript",
         content=body.transcript,
-        meeting_id=body.meeting_id,
+        origin_id=effective_origin_id,
+        origin_type=effective_origin_type,
         project=body.project,
         project_id=body.project_id,
         display_name=user.display_name,
@@ -227,12 +240,38 @@ async def delete_connection(
     return await _cq_proxy("DELETE", f"/v1/quilt/{user_id}/connections", body.model_dump())
 
 
-# --- Meeting management ---
+# --- Origin (meeting / session / note) management ---
 
 
 class AssignProjectRequest(BaseModel):
     project_id: str
     project: str | None = None  # Display name, optional
+
+
+@router.post("/origins/{user_id}/{origin_type}/{origin_id}/assign-project")
+async def assign_origin_project(
+    user_id: str,
+    origin_type: str,
+    origin_id: str,
+    body: AssignProjectRequest,
+    user: UserRecord = Depends(get_current_user),
+):
+    """Proxy: reassign an origin's patches to a different project in Context Quilt.
+
+    An "origin" generalizes CQ v1's input-unit scoping: a meeting, a practice
+    session, a typed note, etc. This replaces the old /meetings/... endpoint,
+    which is retained below as a deprecated alias.
+    """
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify another user's origins")
+    payload = {"project_id": body.project_id}
+    if body.project is not None:
+        payload["project_name"] = body.project
+    return await _cq_proxy(
+        "POST",
+        f"/v1/origins/{user_id}/{origin_type}/{origin_id}/assign-project",
+        payload,
+    )
 
 
 @router.post("/meetings/{user_id}/{meeting_id}/assign-project")
@@ -242,7 +281,12 @@ async def assign_meeting_project(
     body: AssignProjectRequest,
     user: UserRecord = Depends(get_current_user),
 ):
-    """Proxy: reassign a meeting's patches to a different project in Context Quilt."""
+    """DEPRECATED — use /origins/{user_id}/meeting/{meeting_id}/assign-project.
+
+    Retained for clients that haven't migrated. Translates to the origin-based
+    path before forwarding to CQ (the old /v1/meetings endpoint was removed
+    server-side in CQ v1).
+    """
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's meetings")
     payload = {"project_id": body.project_id}
@@ -250,8 +294,45 @@ async def assign_meeting_project(
         payload["project_name"] = body.project
     return await _cq_proxy(
         "POST",
-        f"/v1/meetings/{user_id}/{meeting_id}/assign-project",
+        f"/v1/origins/{user_id}/meeting/{meeting_id}/assign-project",
         payload,
+    )
+
+
+# --- Schema discovery ---
+
+
+@router.get("/schema")
+async def get_schema(user: UserRecord = Depends(get_current_user)):
+    """Proxy: fetch GP's CQ manifest (types, connection labels, entity types).
+
+    Clients use this to build UI data-driven (e.g., connection picker matrix).
+    GP hits CQ's /v1/schema with its own server JWT and returns the result.
+    """
+    return await _cq_proxy("GET", "/v1/schema")
+
+
+# --- Speaker rename (post-rename, SS flow: "Speaker 4" → "SriDev") ---
+
+
+class RenameSpeakerRequest(BaseModel):
+    old_name: str
+    new_name: str
+
+
+@router.post("/quilt/{user_id}/rename-speaker")
+async def rename_speaker(
+    user_id: str,
+    body: RenameSpeakerRequest,
+    user: UserRecord = Depends(get_current_user),
+):
+    """Proxy: rename a speaker in a user's quilt (creates the entity + rebuilds Redis index)."""
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
+    return await _cq_proxy(
+        "POST",
+        f"/v1/quilt/{user_id}/rename-speaker",
+        body.model_dump(),
     )
 
 
