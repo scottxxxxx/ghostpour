@@ -600,7 +600,34 @@ async def chat(
         else:
             body = body.model_copy(update={"model": resolved_model})
 
-    # 2.5. Sanitize "(you)" suffixes from system prompt and user content.
+    # 2.5. Server-side prompt assembly — if client sent no system_prompt but
+    # has a call_type with a registered prompt config, assemble it server-side.
+    if not body.system_prompt:
+        from app.services.prompt_assembly import assemble_prompt
+        call_type = body.get_meta("call_type")
+        if call_type:
+            assembled = assemble_prompt(
+                call_type, body.user_content, request.app.state.remote_configs
+            )
+            if assembled:
+                updates = {
+                    "system_prompt": assembled["system_prompt"],
+                    "user_content": assembled["user_content"],
+                }
+                if assembled.get("max_tokens"):
+                    updates["max_tokens"] = assembled["max_tokens"]
+                body = body.model_copy(update=updates)
+
+        if not body.system_prompt:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "invalid_request",
+                    "message": "system_prompt is required (or send a call_type with a registered server-side prompt config)",
+                },
+            )
+
+    # 2.6. Sanitize "(you)" suffixes from system prompt and user content.
     # SS sends [Name (you)] in transcript context to help CQ extraction,
     # but it must not reach the LLM in chat/summary/report prompts.
     from app.services.features.context_quilt_hook import _sanitize_you_suffix
