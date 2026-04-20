@@ -204,6 +204,7 @@ async def _build_report_response(response, body, db, user, report_model, request
         "meeting_time": meeting_dt.strftime("%-I:%M %p") + tz_label,
         "meeting_duration": format_duration(body.duration_seconds),
         "report_model_label": model_labels.get(report_model, report_model),
+        "project_name": body.project or "",
     }
 
     report_html = render_report_html(report_json, metadata)

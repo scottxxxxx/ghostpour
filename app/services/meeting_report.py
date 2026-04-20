@@ -347,6 +347,11 @@ def render_report_html(report_json: dict, metadata: dict) -> str:
     html = html.replace("{{meeting_time}}", _esc(metadata.get("meeting_time", "")))
     html = html.replace("{{meeting_duration}}", _esc(metadata.get("meeting_duration", "")))
     html = html.replace("{{report_model_label}}", _esc(metadata.get("report_model_label", "")))
+    html = html.replace("{{project_name}}", _esc(metadata.get("project_name", "")))
+
+    # Remove masthead if no project name
+    if not metadata.get("project_name"):
+        html = _remove_conditional(html, "project_name")
 
     # Stoplight circles
     for color in ("red", "orange", "yellow", "green"):
