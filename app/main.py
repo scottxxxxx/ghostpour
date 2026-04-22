@@ -87,8 +87,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(StreamingBypassMiddleware)
+# Note: RequestLoggingMiddleware (BaseHTTPMiddleware) is NOT added.
+# StreamingBypassMiddleware handles all logging as pure ASGI middleware
+# to avoid BaseHTTPMiddleware's body materialization killing SSE streaming.
 
 app.include_router(health.router, tags=["health"])
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
