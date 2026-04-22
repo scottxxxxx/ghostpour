@@ -258,11 +258,17 @@
           <div class="cards" id="query-detail-meta"></div>
           <div style="display:flex;gap:16px;margin-top:16px;flex-wrap:wrap">
             <div style="flex:1;min-width:400px">
-              <h4 style="margin-bottom:8px;color:var(--accent)">Request JSON</h4>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <h4 style="margin:0;color:var(--accent)">Request JSON</h4>
+                <button class="refresh-btn" onclick="copyToClipboard('query-detail-request','req')" style="font-size:11px;padding:2px 8px">Copy</button>
+              </div>
               <pre id="query-detail-request" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;overflow:auto;max-height:600px;font-size:12px;white-space:pre-wrap;word-break:break-all"></pre>
             </div>
             <div style="flex:1;min-width:400px">
-              <h4 style="margin-bottom:8px;color:var(--green)">Response JSON</h4>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <h4 style="margin:0;color:var(--green)">Response JSON</h4>
+                <button class="refresh-btn" onclick="copyToClipboard('query-detail-response','resp')" style="font-size:11px;padding:2px 8px">Copy</button>
+              </div>
               <pre id="query-detail-response" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;overflow:auto;max-height:600px;font-size:12px;white-space:pre-wrap;word-break:break-all"></pre>
             </div>
           </div>
@@ -757,6 +763,18 @@ async function loadQueryLog(userId, offset) {
     ${offset > 0 ? `<button class="refresh-btn" onclick="loadQueryLog('${userId}', ${offset - 50})">← Prev</button>` : ''}
     ${offset + data.limit < data.total ? `<button class="refresh-btn" onclick="loadQueryLog('${userId}', ${offset + 50})">Next →</button>` : ''}
   `;
+}
+
+function copyToClipboard(elementId, label) {
+  const text = document.getElementById(elementId).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    btn.style.background = 'var(--green)';
+    btn.style.color = '#000';
+    setTimeout(() => { btn.textContent = orig; btn.style.background = ''; btn.style.color = ''; }, 1500);
+  });
 }
 
 function showQueryDetail(index) {
