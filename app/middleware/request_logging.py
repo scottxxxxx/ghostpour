@@ -42,12 +42,11 @@ def get_log_by_request_id(request_id: str) -> dict | None:
 
 
 class StreamingBypassMiddleware:
-    """Raw ASGI middleware that bypasses BaseHTTPMiddleware for streaming requests.
+    """Pure ASGI middleware for request logging that supports SSE streaming.
 
-    BaseHTTPMiddleware materializes StreamingResponse bodies internally
-    (known Starlette limitation), defeating SSE streaming. This wrapper
-    intercepts streaming requests at the ASGI level and passes them through
-    without body materialization, while still setting request_id and app_id.
+    Replaces BaseHTTPMiddleware which materializes StreamingResponse bodies.
+    For streaming requests (stream:true in body), passes through without
+    body capture. For non-streaming, captures response body for logging.
     """
 
     def __init__(self, app: ASGIApp):
@@ -58,44 +57,14 @@ class StreamingBypassMiddleware:
             await self.app(scope, receive, send)
             return
 
-        # Peek at the request body to detect stream: true
-        body_chunks = []
-        is_stream = False
+        path = scope.get("path", "")
+        method = scope.get("method", "")
 
-        async def receive_wrapper():
-            message = await receive()
-            if message.get("type") == "http.request":
-                body = message.get("body", b"")
-                body_chunks.append(body)
-                if b'"stream":true' in body or b'"stream": true' in body:
-                    nonlocal is_stream
-                    is_stream = True
-            return message
-
-        # We need to peek at the first receive to check for streaming.
-        # But we can only consume receive once, so we buffer and replay.
-        first_message = await receive()
-        if first_message.get("type") == "http.request":
-            body = first_message.get("body", b"")
-            if b'"stream":true' in body or b'"stream": true' in body:
-                is_stream = True
-
-        if not is_stream:
-            # Non-streaming: replay the first message and delegate to the
-            # full BaseHTTPMiddleware pipeline
-            replayed = False
-            async def replay_receive():
-                nonlocal replayed
-                if not replayed:
-                    replayed = True
-                    return first_message
-                return await receive()
-            await self.app(scope, replay_receive, send)
+        if path in _SKIP_PATHS:
+            await self.app(scope, receive, send)
             return
 
-        # Streaming: bypass BaseHTTPMiddleware entirely.
-        # Set request_id and app_id on scope state, inject X-Request-ID
-        # into response headers, log minimal entry, and pass through.
+        start = time.monotonic()
         request_id = uuid.uuid4().hex[:12]
         app_id = "unknown"
         for hdr_name, hdr_val in scope.get("headers", []):
@@ -103,26 +72,32 @@ class StreamingBypassMiddleware:
                 app_id = hdr_val.decode()
                 break
 
-        # Store on scope for downstream access via request.state
         if "state" not in scope:
             scope["state"] = {}
         scope["state"]["request_id"] = request_id
         scope["state"]["app_id"] = app_id
 
-        start = time.monotonic()
-        response_started = False
+        # Peek at request body
+        first_message = await receive()
+        req_body = b""
+        is_stream = False
+        if first_message.get("type") == "http.request":
+            req_body = first_message.get("body", b"")
+            if b'"stream":true' in req_body or b'"stream": true' in req_body:
+                is_stream = True
 
-        async def send_wrapper(message):
-            nonlocal response_started
-            if message["type"] == "http.response.start":
-                response_started = True
-                # Inject X-Request-ID header
-                headers = list(message.get("headers", []))
-                headers.append((b"x-request-id", request_id.encode()))
-                message["headers"] = headers
-            await send(message)
+        req_body_str = req_body.decode("utf-8", errors="replace")[:_MAX_BODY_LOG] if req_body else None
 
-        # Replay the first message and delegate directly to the app
+        # Build request headers (redact auth)
+        req_headers = {}
+        for hdr_name, hdr_val in scope.get("headers", []):
+            name = hdr_name.decode().lower()
+            if name not in ("authorization", "x-admin-key", "cookie"):
+                req_headers[name] = hdr_val.decode()
+            elif name == "authorization":
+                val = hdr_val.decode()
+                req_headers["authorization"] = val.split()[0] + " <redacted>" if " " in val else "<redacted>"
+
         replayed = False
         async def replay_receive():
             nonlocal replayed
@@ -131,24 +106,72 @@ class StreamingBypassMiddleware:
                 return first_message
             return await receive()
 
-        await self.app(scope, replay_receive, send_wrapper)
+        if is_stream:
+            # STREAMING: pass through without body capture
+            response_status = 200
+            async def stream_send(message):
+                nonlocal response_status
+                if message["type"] == "http.response.start":
+                    response_status = message.get("status", 200)
+                    headers = list(message.get("headers", []))
+                    headers.append((b"x-request-id", request_id.encode()))
+                    message = {**message, "headers": headers}
+                await send(message)
 
-        elapsed_ms = int((time.monotonic() - start) * 1000)
-        path = scope.get("path", "")
-        method = scope.get("method", "")
-        if path not in _SKIP_PATHS:
+            await self.app(scope, replay_receive, stream_send)
+
+            elapsed_ms = int((time.monotonic() - start) * 1000)
             _LOG_BUFFER.append({
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "request_id": request_id,
                 "app_id": app_id,
                 "method": method,
                 "path": path,
-                "status": 200,
+                "status": response_status,
                 "latency_ms": elapsed_ms,
-                "request": {"body": "(streaming request)"},
+                "client_ip": req_headers.get("x-real-ip", ""),
+                "request": {"headers": req_headers, "body": _format_body_parsed(req_body_str)},
                 "response": {"body": "(streaming)"},
             })
-            logger.info("%s %s 200 %dms (streaming)", method, path, elapsed_ms)
+            logger.info("%s %s %d %dms (streaming)", method, path, response_status, elapsed_ms)
+            return
+
+        # NON-STREAMING: capture response body
+        response_status = 200
+        response_headers = {}
+        response_body = b""
+
+        async def capture_send(message):
+            nonlocal response_status, response_headers, response_body
+            if message["type"] == "http.response.start":
+                response_status = message.get("status", 200)
+                headers = list(message.get("headers", []))
+                headers.append((b"x-request-id", request_id.encode()))
+                message = {**message, "headers": headers}
+                response_headers = {h[0].decode(): h[1].decode() for h in headers}
+            elif message["type"] == "http.response.body":
+                response_body += message.get("body", b"")
+            await send(message)
+
+        await self.app(scope, replay_receive, capture_send)
+
+        elapsed_ms = int((time.monotonic() - start) * 1000)
+        resp_body_str = response_body.decode("utf-8", errors="replace")[:_MAX_BODY_LOG]
+
+        _LOG_BUFFER.append({
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "request_id": request_id,
+            "app_id": app_id,
+            "method": method,
+            "path": path,
+            "status": response_status,
+            "latency_ms": elapsed_ms,
+            "client_ip": req_headers.get("x-real-ip", ""),
+            "user_agent": req_headers.get("user-agent", ""),
+            "request": {"headers": req_headers, "body": _format_body_parsed(req_body_str)},
+            "response": {"headers": response_headers, "body": _format_body_parsed(resp_body_str)},
+        })
+        logger.info("%s %s %d %dms", method, path, response_status, elapsed_ms)
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
