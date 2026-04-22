@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.database import init_db
-from app.middleware.request_logging import RequestLoggingMiddleware
+from app.middleware.request_logging import RequestLoggingMiddleware, StreamingBypassMiddleware
 from app.models.feature import load_feature_config
 from app.models.tier import load_tier_config
 from app.routers import apple_webhooks, auth, chat, config, health, reports, webhooks
@@ -88,6 +88,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(StreamingBypassMiddleware)
 
 app.include_router(health.router, tags=["health"])
 app.include_router(auth.router, prefix="/auth", tags=["auth"])

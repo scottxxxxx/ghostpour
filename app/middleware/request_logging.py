@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 logger = logging.getLogger("ghostpour")
 
@@ -38,6 +39,116 @@ def get_log_by_request_id(request_id: str) -> dict | None:
         if entry.get("request_id") == request_id:
             return entry
     return None
+
+
+class StreamingBypassMiddleware:
+    """Raw ASGI middleware that bypasses BaseHTTPMiddleware for streaming requests.
+
+    BaseHTTPMiddleware materializes StreamingResponse bodies internally
+    (known Starlette limitation), defeating SSE streaming. This wrapper
+    intercepts streaming requests at the ASGI level and passes them through
+    without body materialization, while still setting request_id and app_id.
+    """
+
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        # Peek at the request body to detect stream: true
+        body_chunks = []
+        is_stream = False
+
+        async def receive_wrapper():
+            message = await receive()
+            if message.get("type") == "http.request":
+                body = message.get("body", b"")
+                body_chunks.append(body)
+                if b'"stream":true' in body or b'"stream": true' in body:
+                    nonlocal is_stream
+                    is_stream = True
+            return message
+
+        # We need to peek at the first receive to check for streaming.
+        # But we can only consume receive once, so we buffer and replay.
+        first_message = await receive()
+        if first_message.get("type") == "http.request":
+            body = first_message.get("body", b"")
+            if b'"stream":true' in body or b'"stream": true' in body:
+                is_stream = True
+
+        if not is_stream:
+            # Non-streaming: replay the first message and delegate to the
+            # full BaseHTTPMiddleware pipeline
+            replayed = False
+            async def replay_receive():
+                nonlocal replayed
+                if not replayed:
+                    replayed = True
+                    return first_message
+                return await receive()
+            await self.app(scope, replay_receive, send)
+            return
+
+        # Streaming: bypass BaseHTTPMiddleware entirely.
+        # Set request_id and app_id on scope state, inject X-Request-ID
+        # into response headers, log minimal entry, and pass through.
+        request_id = uuid.uuid4().hex[:12]
+        app_id = "unknown"
+        for hdr_name, hdr_val in scope.get("headers", []):
+            if hdr_name == b"x-app-id":
+                app_id = hdr_val.decode()
+                break
+
+        # Store on scope for downstream access via request.state
+        if "state" not in scope:
+            scope["state"] = {}
+        scope["state"]["request_id"] = request_id
+        scope["state"]["app_id"] = app_id
+
+        start = time.monotonic()
+        response_started = False
+
+        async def send_wrapper(message):
+            nonlocal response_started
+            if message["type"] == "http.response.start":
+                response_started = True
+                # Inject X-Request-ID header
+                headers = list(message.get("headers", []))
+                headers.append((b"x-request-id", request_id.encode()))
+                message["headers"] = headers
+            await send(message)
+
+        # Replay the first message and delegate directly to the app
+        replayed = False
+        async def replay_receive():
+            nonlocal replayed
+            if not replayed:
+                replayed = True
+                return first_message
+            return await receive()
+
+        await self.app(scope, replay_receive, send_wrapper)
+
+        elapsed_ms = int((time.monotonic() - start) * 1000)
+        path = scope.get("path", "")
+        method = scope.get("method", "")
+        if path not in _SKIP_PATHS:
+            _LOG_BUFFER.append({
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "request_id": request_id,
+                "app_id": app_id,
+                "method": method,
+                "path": path,
+                "status": 200,
+                "latency_ms": elapsed_ms,
+                "request": {"body": "(streaming request)"},
+                "response": {"body": "(streaming)"},
+            })
+            logger.info("%s %s 200 %dms (streaming)", method, path, elapsed_ms)
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
