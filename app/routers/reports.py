@@ -39,7 +39,7 @@ class ReportRequest(BaseModel):
     tag_taxonomy: list[str] | None = None  # Custom tags; defaults to built-in 8
     meeting_start_iso: str | None = None  # ISO 8601 with timezone, e.g. "2026-04-14T13:01:00-05:00"
     timezone_abbr: str | None = None  # e.g. "CST", "EST", "IST" — from device locale
-    quality: str | None = None  # "fast" = Haiku, "best" = Sonnet (default)
+    quality: str | None = None  # "fast" = lighter model, "best" = premium model (default)
 
 
 @router.post("/meetings/{meeting_id}/report")
@@ -91,7 +91,7 @@ async def generate_report(
     elif body.quality == "best":
         report_model = "claude-sonnet-4-6"
     else:
-        # No explicit quality: free tier gets Haiku, paid tiers get Sonnet
+        # No explicit quality: free tier gets lighter model, paid tiers get premium
         report_model = "claude-haiku-4-5-20251001" if user.effective_tier == "free" else "claude-sonnet-4-6"
     report_provider = "anthropic"
 
@@ -195,15 +195,10 @@ async def _build_report_response(response, body, db, user, report_model, request
         if remainder:
             tz_label += f":{remainder // 60:02d}"
 
-    model_labels = {
-        "claude-sonnet-4-6": "Sonnet",
-        "claude-haiku-4-5-20251001": "Haiku",
-    }
     metadata = {
         "meeting_date": meeting_dt.strftime("%B %-d, %Y"),
         "meeting_time": meeting_dt.strftime("%-I:%M %p") + tz_label,
         "meeting_duration": format_duration(body.duration_seconds),
-        "report_model_label": model_labels.get(report_model, report_model),
         "project_name": body.project or "",
     }
 
@@ -236,7 +231,6 @@ async def _build_report_response(response, body, db, user, report_model, request
         "report_html": report_html,
         "report_json": report_json,
         "meeting_id": meeting_id,
-        "model": report_model,
         "input_tokens": response.input_tokens,
         "output_tokens": response.output_tokens,
         "cost_usd": request_cost,
@@ -272,7 +266,6 @@ async def get_cached_report(
         "report_html": row["report_html"],
         "report_json": json.loads(row["report_json"]),
         "meeting_id": meeting_id,
-        "model": row["model"],
         "input_tokens": row["input_tokens"],
         "output_tokens": row["output_tokens"],
         "cost_usd": row["cost_usd"],
