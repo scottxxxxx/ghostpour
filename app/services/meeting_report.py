@@ -346,7 +346,7 @@ def render_report_html(report_json: dict, metadata: dict) -> str:
     html = html.replace("{{meeting_date}}", _esc(metadata.get("meeting_date", "")))
     html = html.replace("{{meeting_time}}", _esc(metadata.get("meeting_time", "")))
     html = html.replace("{{meeting_duration}}", _esc(metadata.get("meeting_duration", "")))
-    html = html.replace("{{report_model_label}}", _esc(metadata.get("report_model_label", "")))
+    # report_model_label removed — model names not exposed to end users
     html = html.replace("{{project_name}}", _esc(metadata.get("project_name", "")))
 
     # Remove masthead if no project name
