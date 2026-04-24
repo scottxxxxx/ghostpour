@@ -195,7 +195,7 @@ def _insert_user(
 def free_user(tmp_db_path: str) -> dict:
     """Create a free tier user and return auth headers + user info."""
     user_id = "test-free-user"
-    _insert_user(tmp_db_path, user_id=user_id, tier="free", monthly_limit=0.05)
+    _insert_user(tmp_db_path, user_id=user_id, tier="free", monthly_limit=0.35)
     return {
         "headers": {"Authorization": f"Bearer {_jwt_token(user_id)}"},
         "user_id": user_id,
@@ -207,7 +207,7 @@ def free_user(tmp_db_path: str) -> dict:
 def pro_user(tmp_db_path: str) -> dict:
     """Create a pro tier user (CQ enabled) and return auth headers."""
     user_id = "test-pro-user"
-    _insert_user(tmp_db_path, user_id=user_id, tier="pro", monthly_limit=2.50)
+    _insert_user(tmp_db_path, user_id=user_id, tier="pro", monthly_limit=5.10)
     return {
         "headers": {"Authorization": f"Bearer {_jwt_token(user_id)}"},
         "user_id": user_id,
@@ -216,14 +216,14 @@ def pro_user(tmp_db_path: str) -> dict:
 
 
 @pytest.fixture
-def standard_user(tmp_db_path: str) -> dict:
-    """Create a standard tier user (CQ teaser) and return auth headers."""
-    user_id = "test-standard-user"
-    _insert_user(tmp_db_path, user_id=user_id, tier="standard", monthly_limit=1.25)
+def plus_user(tmp_db_path: str) -> dict:
+    """Create a plus tier user (CQ teaser) and return auth headers."""
+    user_id = "test-plus-user"
+    _insert_user(tmp_db_path, user_id=user_id, tier="plus", monthly_limit=2.40)
     return {
         "headers": {"Authorization": f"Bearer {_jwt_token(user_id)}"},
         "user_id": user_id,
-        "tier": "standard",
+        "tier": "plus",
     }
 
 
@@ -235,8 +235,8 @@ def exhausted_user(tmp_db_path: str) -> dict:
         tmp_db_path,
         user_id=user_id,
         tier="free",
-        monthly_limit=0.05,
-        monthly_used=0.06,
+        monthly_limit=0.35,
+        monthly_used=0.40,
     )
     return {
         "headers": {"Authorization": f"Bearer {_jwt_token(user_id)}"},
@@ -247,19 +247,19 @@ def exhausted_user(tmp_db_path: str) -> dict:
 
 @pytest.fixture
 def trial_user(tmp_db_path: str) -> dict:
-    """Create a trial user on standard tier."""
+    """Create a trial user on plus tier."""
     user_id = "test-trial-user"
     _insert_user(
         tmp_db_path,
         user_id=user_id,
-        tier="standard",
+        tier="plus",
         monthly_limit=0.50,
         is_trial=True,
     )
     return {
         "headers": {"Authorization": f"Bearer {_jwt_token(user_id)}"},
         "user_id": user_id,
-        "tier": "standard",
+        "tier": "plus",
     }
 
 
