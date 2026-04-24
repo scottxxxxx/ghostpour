@@ -7,7 +7,7 @@ from tests.conftest import _insert_user, _jwt_token, chat_request
 
 # Read product IDs from tier config (respects product-ids.yml overrides)
 _tier_config = load_tier_config("config/tiers.yml")
-_STANDARD_PRODUCT = _tier_config.tiers["standard"].storekit_product_id
+_PLUS_PRODUCT = _tier_config.tiers["plus"].storekit_product_id
 _PRO_PRODUCT = _tier_config.tiers["pro"].storekit_product_id
 
 
@@ -20,14 +20,14 @@ class TestVerifyReceipt:
         resp = client.post(
             "/v1/verify-receipt",
             json={
-                "product_id": _STANDARD_PRODUCT,
+                "product_id": _PLUS_PRODUCT,
                 "transaction_id": "txn_123",
             },
             headers=headers,
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["new_tier"] == "standard"
+        assert data["new_tier"] == "plus"
         assert data["old_tier"] == "free"
         assert data["is_trial"] is False
 
@@ -61,8 +61,8 @@ class TestVerifyReceipt:
         _insert_user(
             tmp_db_path,
             user_id="idempotent-user",
-            tier="standard",
-            monthly_limit=1.25,
+            tier="plus",
+            monthly_limit=2.40,
             monthly_used=0.50,
         )
         headers = {"Authorization": f"Bearer {_jwt_token('idempotent-user')}"}
@@ -71,7 +71,7 @@ class TestVerifyReceipt:
         resp = client.post(
             "/v1/verify-receipt",
             json={
-                "product_id": _STANDARD_PRODUCT,
+                "product_id": _PLUS_PRODUCT,
                 "transaction_id": "txn_same",
                 "is_trial": False,
             },
@@ -87,14 +87,14 @@ class TestVerifyReceipt:
         ).fetchone()
         conn.close()
         assert row[0] == 0.50, f"monthly_used_usd was reset to {row[0]}, expected 0.50"
-        assert row[1] == 1.25
+        assert row[1] == 2.40
 
     def test_verify_receipt_idempotent_trial_preserves_usage(self, client, tmp_db_path):
         """Trial re-verification should NOT reset monthly_used_usd either."""
         _insert_user(
             tmp_db_path,
             user_id="idempotent-trial-user",
-            tier="standard",
+            tier="plus",
             monthly_limit=0.50,
             monthly_used=0.30,
             is_trial=True,
@@ -104,7 +104,7 @@ class TestVerifyReceipt:
         resp = client.post(
             "/v1/verify-receipt",
             json={
-                "product_id": _STANDARD_PRODUCT,
+                "product_id": _PLUS_PRODUCT,
                 "transaction_id": "txn_trial_same",
                 "offer_type": "introductory",
                 "offer_price": 0,
@@ -142,7 +142,7 @@ class TestVerifyReceipt:
 class TestSyncSubscription:
     def test_sync_downgrade_to_free(self, client, tmp_db_path):
         """No active product → downgrade to free."""
-        _insert_user(tmp_db_path, user_id="downgrade-user", tier="standard", monthly_limit=1.25)
+        _insert_user(tmp_db_path, user_id="downgrade-user", tier="plus", monthly_limit=2.40)
         headers = {"Authorization": f"Bearer {_jwt_token('downgrade-user')}"}
 
         resp = client.post(
