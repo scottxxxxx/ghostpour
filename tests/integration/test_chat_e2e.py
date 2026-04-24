@@ -68,7 +68,7 @@ class TestChatQuota:
         """User near 80% allocation → X-Allocation-Warning header."""
         from tests.conftest import _insert_user, _jwt_token
         user_id = "test-near-limit"
-        _insert_user(tmp_db_path, user_id=user_id, tier="free", monthly_limit=0.05, monthly_used=0.045)
+        _insert_user(tmp_db_path, user_id=user_id, tier="free", monthly_limit=0.35, monthly_used=0.30)
         headers = {"Authorization": f"Bearer {_jwt_token(user_id)}"}
         resp = client.post("/v1/chat", json=chat_request(), headers=headers)
         assert resp.status_code == 200
@@ -148,12 +148,12 @@ class TestChatCQ:
         assert resp.status_code == 200
         mock_cq["capture"].assert_not_called()
 
-    def test_cq_teaser_returns_gated_header(self, client_with_cq, standard_user, mock_cq):
+    def test_cq_teaser_returns_gated_header(self, client_with_cq, plus_user, mock_cq):
         """Standard tier (CQ=teaser) → recall runs, X-CQ-Gated header set, no injection."""
         resp = client_with_cq.post(
             "/v1/chat",
             json=chat_request(context_quilt=True),
-            headers=standard_user["headers"],
+            headers=plus_user["headers"],
         )
         assert resp.status_code == 200
         mock_cq["recall"].assert_called_once()
