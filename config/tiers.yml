@@ -11,19 +11,19 @@
 #   teaser   — Run check, return metadata, don't apply (for upgrade nudges)
 #   disabled — Don't run at all
 #
-# Pricing basis: 2x markup on average user cost
-#   Haiku 4.5:  ~$0.05/hr avg, ~$0.10/hr power user (10-min auto-summary)
-#   Sonnet 4.6: ~$0.19/hr avg, ~$0.38/hr power user (15-min auto-summary)
-#   Apple takes 15% (Small Business Program)
+# Model selection is controlled via model-routing.json in the admin dashboard.
+# Never reference model names in user-facing text — use "Standard AI" /
+# "Advanced AI" instead.
 #
-# monthly_cost_limit_usd: calculated from hours × raw model cost (not markup)
-#   This is our ACTUAL spend limit per user per month.
-#   Standard: 25 hrs × $0.05 = $1.25
-#   Pro:      50 hrs × $0.05 = $2.50
-#   Ultra:    25 hrs × $0.19 = $4.75
-#   Ultra Max:50 hrs × $0.19 = $9.50
+# Pricing basis (after 15% Apple Small Business cut):
+#   Plus $6.99  → $5.94 revenue → ~85 meetings breakeven on standard AI
+#   Pro  $14.99 → $12.74 revenue → ~116 meetings breakeven on hybrid AI
 #
-# On tier upgrade: unused allocation carries forward as dollar value (Option D)
+# monthly_cost_limit_usd: our ACTUAL spend limit per user per month.
+#   Plus: ~$2.40 (60% margin target at 33 meetings)
+#   Pro:  ~$5.10 (60% margin target at 45 meetings)
+#
+# On tier upgrade: unused allocation carries forward as dollar value
 # =============================================================================
 
 tiers:
@@ -31,7 +31,7 @@ tiers:
     display_name: "Free"
     description: "Try AI-powered meeting assistance with a small free credit."
     default_model: "anthropic/claude-haiku-4-5-20251001"
-    monthly_cost_limit_usd: 0.05
+    monthly_cost_limit_usd: 0.35
     daily_cost_limit_usd: -1
     daily_token_limit: -1
     requests_per_minute: 5
@@ -42,48 +42,24 @@ tiers:
     allowed_models:
       - "claude-haiku-4-5-20251001"
     max_images_per_request: 1
-    hours_per_month: 1
+    hours_per_month: 5
     storekit_product_id: ""
     features:
       context_quilt: "disabled"
+      meeting_reports: "disabled"
+      project_chat: "disabled"
     feature_bullets:
-      - "~1 hour of AI assistance"
-      - "Claude Haiku — fast and capable"
-      - "Auto-summaries every 10 min"
+      - "5 meetings/month with AI assistance"
+      - "Real-time auto-summaries"
+      - "On-device transcription (unlimited)"
       - "1 image per query"
 
-  standard:
-    display_name: "Standard"
-    description: "Monthly AI meeting assistance for regular use."
+  plus:
+    display_name: "Plus"
+    description: "Unlimited AI-powered meeting assistance. Summaries, reports, and project chat."
     default_model: "anthropic/claude-haiku-4-5-20251001"
-    monthly_cost_limit_usd: 1.25
-    trial_cost_limit_usd: 0.50        # Cap during 7-day free trial (~10 hrs Haiku)
-    daily_cost_limit_usd: -1
-    daily_token_limit: -1
-    requests_per_minute: 15
-    summary_mode: "delta"
-    summary_interval_minutes: 10
-    allowed_providers:
-      - "anthropic"
-    allowed_models:
-      - "claude-haiku-4-5-20251001"
-    max_images_per_request: 1
-    hours_per_month: 25
-    storekit_product_id: "com.weirtech.shouldersurf.sub.standard.monthly"
-    features:
-      context_quilt: "teaser"
-    feature_bullets:
-      - "25 hours/month of AI assistance"
-      - "Claude Haiku — fast and capable"
-      - "Auto-summaries every 10 minutes"
-      - "1 image per query"
-      - "Meeting memory available with Pro"
-
-  pro:
-    display_name: "Pro"
-    description: "More hours, image analysis, and meeting memory."
-    default_model: "anthropic/claude-haiku-4-5-20251001"
-    monthly_cost_limit_usd: 2.50
+    monthly_cost_limit_usd: 2.40
+    trial_cost_limit_usd: 0.50
     daily_cost_limit_usd: -1
     daily_token_limit: -1
     requests_per_minute: 20
@@ -93,71 +69,51 @@ tiers:
       - "anthropic"
     allowed_models:
       - "claude-haiku-4-5-20251001"
-    max_images_per_request: 2
-    hours_per_month: 50
+    max_images_per_request: 3
+    hours_per_month: -1
+    storekit_product_id: "com.weirtech.shouldersurf.sub.plus.monthly"
+    features:
+      context_quilt: "teaser"
+      meeting_reports: "enabled"
+      project_chat: "enabled"
+    feature_bullets:
+      - "Unlimited meetings with AI assistance"
+      - "Real-time auto-summaries"
+      - "Shareable meeting reports"
+      - "Project chat across meetings"
+      - "3 images per query"
+      - "Standard AI"
+
+  pro:
+    display_name: "Pro"
+    description: "Everything in Plus with advanced AI for deeper reports and Meeting Memory."
+    default_model: "anthropic/claude-haiku-4-5-20251001"
+    monthly_cost_limit_usd: 5.10
+    trial_cost_limit_usd: 1.00
+    daily_cost_limit_usd: -1
+    daily_token_limit: -1
+    requests_per_minute: 30
+    summary_mode: "choice"
+    summary_interval_minutes: 10
+    allowed_providers:
+      - "anthropic"
+    allowed_models:
+      - "claude-haiku-4-5-20251001"
+      - "claude-sonnet-4-6"
+    max_images_per_request: 5
+    hours_per_month: -1
     storekit_product_id: "com.weirtech.shouldersurf.sub.pro.monthly"
     features:
       context_quilt: "enabled"
+      meeting_reports: "enabled"
+      project_chat: "enabled"
     feature_bullets:
-      - "50 hours/month of AI assistance"
-      - "Claude Haiku — fast and capable"
-      - "Auto-summaries every 10 minutes"
-      - "2 images per query"
-      - "Context Quilt — AI remembers past meetings"
-
-  ultra:
-    display_name: "Ultra"
-    description: "Our smartest model with full summary control."
-    default_model: "anthropic/claude-sonnet-4-6"
-    monthly_cost_limit_usd: 4.75
-    daily_cost_limit_usd: -1
-    daily_token_limit: -1
-    requests_per_minute: 30
-    summary_mode: "choice"
-    summary_interval_minutes: 15
-    allowed_providers:
-      - "anthropic"
-    allowed_models:
-      - "claude-sonnet-4-6"
-      - "claude-haiku-4-5-20251001"
-    max_images_per_request: 3
-    hours_per_month: 25
-    storekit_product_id: "com.weirtech.shouldersurf.sub.ultra.monthly"
-    features:
-      context_quilt: "enabled"
-    feature_bullets:
-      - "25 hours/month of AI assistance"
-      - "Claude Sonnet — our smartest model"
+      - "Unlimited meetings with AI assistance"
+      - "Advanced AI for reports and analysis"
+      - "Meeting Memory — AI remembers past meetings"
       - "Full or delta summaries (your choice)"
-      - "3 images per query"
-      - "Context Quilt — AI remembers past meetings"
-
-  ultra_max:
-    display_name: "Ultra Max"
-    description: "Maximum capacity with our smartest model."
-    default_model: "anthropic/claude-sonnet-4-6"
-    monthly_cost_limit_usd: 9.50
-    daily_cost_limit_usd: -1
-    daily_token_limit: -1
-    requests_per_minute: 30
-    summary_mode: "choice"
-    summary_interval_minutes: 15
-    allowed_providers:
-      - "anthropic"
-    allowed_models:
-      - "claude-sonnet-4-6"
-      - "claude-haiku-4-5-20251001"
-    max_images_per_request: 5
-    hours_per_month: 50
-    storekit_product_id: "com.weirtech.shouldersurf.sub.ultramax.monthly"
-    features:
-      context_quilt: "enabled"
-    feature_bullets:
-      - "50 hours/month of AI assistance"
-      - "Claude Sonnet — our smartest model"
-      - "Full or delta summaries (your choice)"
+      - "Project chat across meetings"
       - "5 images per query"
-      - "Context Quilt — AI remembers past meetings"
 
   admin:
     display_name: "Admin"
@@ -178,7 +134,9 @@ tiers:
     storekit_product_id: ""
     features:
       context_quilt: "enabled"
+      meeting_reports: "enabled"
+      project_chat: "enabled"
     feature_bullets:
       - "Unlimited AI assistance"
       - "All models and providers"
-      - "Context Quilt — cross-meeting memory"
+      - "Meeting Memory"

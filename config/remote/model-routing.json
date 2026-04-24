@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "models": [
     {"id": "anthropic/claude-opus-4-6", "label": "Opus 4.6"},
     {"id": "anthropic/claude-sonnet-4-6", "label": "Sonnet 4.6"},
@@ -8,61 +8,46 @@
   "apps": {
     "shouldersurf": {
       "label": "Shoulder Surf",
-      "tiers": ["free", "standard", "pro", "ultra", "ultra_max", "trial"],
+      "tiers": ["free", "plus", "pro"],
       "call_types": {
         "summary": {
           "label": "Auto Summary",
           "models": {
             "free": "anthropic/claude-haiku-4-5-20251001",
-            "standard": "anthropic/claude-haiku-4-5-20251001",
-            "pro": "anthropic/claude-haiku-4-5-20251001",
-            "ultra": "anthropic/claude-sonnet-4-6",
-            "ultra_max": "anthropic/claude-sonnet-4-6",
-            "trial": "anthropic/claude-haiku-4-5-20251001"
+            "plus": "anthropic/claude-haiku-4-5-20251001",
+            "pro": "anthropic/claude-haiku-4-5-20251001"
           }
         },
         "analysis": {
           "label": "Post-Session Analysis",
           "models": {
             "free": "anthropic/claude-haiku-4-5-20251001",
-            "standard": "anthropic/claude-haiku-4-5-20251001",
-            "pro": "anthropic/claude-haiku-4-5-20251001",
-            "ultra": "anthropic/claude-sonnet-4-6",
-            "ultra_max": "anthropic/claude-sonnet-4-6",
-            "trial": "anthropic/claude-haiku-4-5-20251001"
+            "plus": "anthropic/claude-haiku-4-5-20251001",
+            "pro": "anthropic/claude-sonnet-4-6"
           }
         },
         "query": {
           "label": "Interactive Query",
           "models": {
             "free": "anthropic/claude-haiku-4-5-20251001",
-            "standard": "anthropic/claude-haiku-4-5-20251001",
-            "pro": "anthropic/claude-haiku-4-5-20251001",
-            "ultra": "anthropic/claude-sonnet-4-6",
-            "ultra_max": "anthropic/claude-sonnet-4-6",
-            "trial": "anthropic/claude-haiku-4-5-20251001"
+            "plus": "anthropic/claude-haiku-4-5-20251001",
+            "pro": "anthropic/claude-haiku-4-5-20251001"
           }
         },
         "follow_up": {
           "label": "Follow-up Query",
           "models": {
             "free": "anthropic/claude-haiku-4-5-20251001",
-            "standard": "anthropic/claude-haiku-4-5-20251001",
-            "pro": "anthropic/claude-haiku-4-5-20251001",
-            "ultra": "anthropic/claude-sonnet-4-6",
-            "ultra_max": "anthropic/claude-sonnet-4-6",
-            "trial": "anthropic/claude-haiku-4-5-20251001"
+            "plus": "anthropic/claude-haiku-4-5-20251001",
+            "pro": "anthropic/claude-haiku-4-5-20251001"
           }
         },
         "report": {
           "label": "Meeting Report",
           "models": {
             "free": "anthropic/claude-haiku-4-5-20251001",
-            "standard": "anthropic/claude-sonnet-4-6",
-            "pro": "anthropic/claude-sonnet-4-6",
-            "ultra": "anthropic/claude-sonnet-4-6",
-            "ultra_max": "anthropic/claude-sonnet-4-6",
-            "trial": "anthropic/claude-haiku-4-5-20251001"
+            "plus": "anthropic/claude-haiku-4-5-20251001",
+            "pro": "anthropic/claude-sonnet-4-6"
           }
         }
       }
