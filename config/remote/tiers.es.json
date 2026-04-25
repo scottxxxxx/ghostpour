@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "tiers": {
     "free": {
       "display_name": "Gratis",
@@ -9,6 +9,18 @@
         "Resúmenes automáticos en tiempo real",
         "Transcripción en el dispositivo (ilimitada)",
         "1 imagen por consulta"
+      ],
+      "feature_items": [
+        {"text": "5 reuniones/mes con asistencia de IA", "icon": "checkmark"},
+        {"text": "Resúmenes automáticos en tiempo real", "icon": "doc"},
+        {"text": "Transcripción en el dispositivo (ilimitada)", "icon": "checkmark"},
+        {"text": "1 imagen por consulta", "icon": "photo"}
+      ],
+      "status_items": [
+        {"label": "Resumen automático", "value": "cada 10 min", "icon": "clock"},
+        {"label": "Modo de resumen", "value": "Solo delta", "icon": "doc"},
+        {"label": "Imágenes máx.", "value": "1 por consulta", "icon": "photo"},
+        {"label": "Memoria de Reuniones", "value": "requiere suscripción", "icon": "brain", "state": "locked"}
       ]
     },
     "plus": {
@@ -16,11 +28,25 @@
       "description": "Asistencia de IA ilimitada para reuniones. Resúmenes, informes y chat de proyecto.",
       "feature_bullets": [
         "Reuniones ilimitadas con asistencia de IA",
+        "IA estándar",
         "Resúmenes automáticos en tiempo real",
         "Informes de reuniones compartibles",
         "Chat de proyecto entre reuniones",
-        "3 imágenes por consulta",
-        "IA estándar"
+        "3 imágenes por consulta"
+      ],
+      "feature_items": [
+        {"text": "Reuniones ilimitadas con asistencia de IA", "icon": "checkmark"},
+        {"text": "IA estándar", "icon": "checkmark"},
+        {"text": "Resúmenes automáticos en tiempo real", "icon": "doc"},
+        {"text": "Informes de reuniones compartibles", "icon": "checkmark"},
+        {"text": "Chat de proyecto entre reuniones", "icon": "chat"},
+        {"text": "3 imágenes por consulta", "icon": "photo"}
+      ],
+      "status_items": [
+        {"label": "Resumen automático", "value": "cada 10 min", "icon": "clock"},
+        {"label": "Modo de resumen", "value": "Solo delta", "icon": "doc"},
+        {"label": "Imágenes máx.", "value": "3 por consulta", "icon": "photo"},
+        {"label": "Memoria de Reuniones", "value": "actualiza a Pro", "icon": "brain", "state": "teaser"}
       ]
     },
     "pro": {
@@ -29,10 +55,26 @@
       "feature_bullets": [
         "Reuniones ilimitadas con asistencia de IA",
         "IA avanzada para informes y análisis",
-        "Memoria de Reuniones: la IA recuerda reuniones pasadas",
         "Resúmenes completos o incrementales (tu elección)",
+        "Informes de reuniones compartibles",
         "Chat de proyecto entre reuniones",
+        "Memoria de Reuniones: la IA recuerda reuniones pasadas",
         "5 imágenes por consulta"
+      ],
+      "feature_items": [
+        {"text": "Reuniones ilimitadas con asistencia de IA", "icon": "checkmark"},
+        {"text": "IA avanzada para informes y análisis", "icon": "checkmark.plus"},
+        {"text": "Resúmenes completos o incrementales (tu elección)", "icon": "doc"},
+        {"text": "Informes de reuniones compartibles", "icon": "checkmark"},
+        {"text": "Chat de proyecto entre reuniones", "icon": "chat"},
+        {"text": "Memoria de Reuniones: la IA recuerda reuniones pasadas", "icon": "brain"},
+        {"text": "5 imágenes por consulta", "icon": "photo"}
+      ],
+      "status_items": [
+        {"label": "Resumen automático", "value": "cada 10 min", "icon": "clock"},
+        {"label": "Modo de resumen", "value": "Completo o delta (tu elección)", "icon": "doc"},
+        {"label": "Imágenes máx.", "value": "5 por consulta", "icon": "photo"},
+        {"label": "Memoria de Reuniones", "value": "activado", "icon": "brain", "state": "enabled"}
       ]
     }
   },

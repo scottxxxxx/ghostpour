@@ -540,7 +540,7 @@ async def list_tiers(request: Request):
         # support mixed-model allocation.
         cost_per_hour_usd = 0.19 if "sonnet" in (tier.default_model or "").lower() else 0.05
 
-        tiers_result[name] = {
+        tier_entry = {
             "display_name": dt.get("display_name", tier.display_name),
             "description": dt.get("description", tier.description),
             "hours_per_month": tier.hours_per_month,
@@ -553,6 +553,12 @@ async def list_tiers(request: Request):
             "feature_bullets": dt.get("feature_bullets", tier.feature_bullets),
             "storekit_product_id": tier.storekit_product_id,
         }
+        # Structured display data from remote config (icon hints, status section)
+        if "feature_items" in dt:
+            tier_entry["feature_items"] = dt["feature_items"]
+        if "status_items" in dt:
+            tier_entry["status_items"] = dt["status_items"]
+        tiers_result[name] = tier_entry
 
     response = {"tiers": tiers_result, "feature_definitions": feature_metadata}
     if locale:
