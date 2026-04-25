@@ -82,11 +82,11 @@ tiers:
       project_chat: "enabled"
     feature_bullets:
       - "Unlimited meetings with AI assistance"
+      - "Standard AI"
       - "Real-time auto-summaries"
       - "Shareable meeting reports"
       - "Project chat across meetings"
       - "3 images per query"
-      - "Standard AI"
 
   pro:
     display_name: "Pro"
@@ -114,9 +114,10 @@ tiers:
     feature_bullets:
       - "Unlimited meetings with AI assistance"
       - "Advanced AI for reports and analysis"
-      - "Meeting Memory: AI remembers past meetings"
       - "Full or delta summaries (your choice)"
+      - "Shareable meeting reports"
       - "Project chat across meetings"
+      - "Meeting Memory: AI remembers past meetings"
       - "5 images per query"
 
   admin:
