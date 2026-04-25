@@ -18,8 +18,8 @@ class TierDefinition(BaseModel):
     allowed_models: list[str] = []
     max_images_per_request: int = 0
     hours_per_month: int = -1           # -1 = unlimited, display only
-    storekit_product_id: str = ""       # DEPRECATED: use app_product_ids
-    app_product_ids: dict[str, str] = {}  # app_name -> StoreKit product ID
+    storekit_product_id: str = ""       # StoreKit product ID for this tier
+    app_product_ids: dict[str, str] = {}  # optional per-app overrides
     # Generic feature gating: feature_name -> "enabled" | "teaser" | "disabled"
     features: dict[str, str] = {}
     # Display bullets for subscription UI
