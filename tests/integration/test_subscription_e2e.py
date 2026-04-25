@@ -87,7 +87,7 @@ class TestVerifyReceipt:
         ).fetchone()
         conn.close()
         assert row[0] == 0.50, f"monthly_used_usd was reset to {row[0]}, expected 0.50"
-        assert row[1] == 2.40
+        assert row[1] == -1  # Plus tier is unlimited
 
     def test_verify_receipt_idempotent_trial_preserves_usage(self, client, tmp_db_path):
         """Trial re-verification should NOT reset monthly_used_usd either."""
@@ -193,4 +193,6 @@ class TestUsageMe:
 
         free_limit = free_resp.json()["allocation"]["monthly_limit_usd"]
         pro_limit = pro_resp.json()["allocation"]["monthly_limit_usd"]
-        assert pro_limit > free_limit
+        # Pro is unlimited (-1), free has a cap
+        assert pro_limit == -1  # unlimited
+        assert free_limit > 0   # capped

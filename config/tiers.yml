@@ -20,8 +20,12 @@
 #   Pro  $14.99 → $12.74 revenue → ~116 meetings breakeven on hybrid AI
 #
 # monthly_cost_limit_usd: our ACTUAL spend limit per user per month.
-#   Plus: ~$2.40 (60% margin target at 33 meetings)
-#   Pro:  ~$5.10 (60% margin target at 45 meetings)
+#   Free: $0.35 (~5 meetings)
+#   Plus: -1 (unlimited — margin safe at 53%+ even at 40 meetings/month)
+#   Pro:  -1 (unlimited — margin safe at 65%+ even at 40 meetings/month)
+#   Trial limits cap spend before user has paid:
+#     Plus trial: $2.40 (7 days, ~33 meetings worth)
+#     Pro trial:  $5.10 (7 days, ~45 meetings worth)
 #
 # On tier upgrade: unused allocation carries forward as dollar value
 # =============================================================================
@@ -58,8 +62,8 @@ tiers:
     display_name: "Plus"
     description: "Unlimited AI-powered meeting assistance. Summaries, reports, and project chat."
     default_model: "anthropic/claude-haiku-4-5-20251001"
-    monthly_cost_limit_usd: 2.40
-    trial_cost_limit_usd: 0.50
+    monthly_cost_limit_usd: -1
+    trial_cost_limit_usd: 2.40
     daily_cost_limit_usd: -1
     daily_token_limit: -1
     requests_per_minute: 20
@@ -88,8 +92,8 @@ tiers:
     display_name: "Pro"
     description: "Everything in Plus with advanced AI for deeper reports and Meeting Memory."
     default_model: "anthropic/claude-haiku-4-5-20251001"
-    monthly_cost_limit_usd: 5.10
-    trial_cost_limit_usd: 1.00
+    monthly_cost_limit_usd: -1
+    trial_cost_limit_usd: 5.10
     daily_cost_limit_usd: -1
     daily_token_limit: -1
     requests_per_minute: 30
