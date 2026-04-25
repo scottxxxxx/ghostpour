@@ -76,9 +76,6 @@ tiers:
     max_images_per_request: 3
     hours_per_month: -1
     storekit_product_id: "com.weirtech.shouldersurf.sub.plus.monthly"
-    app_product_ids:
-      shouldersurf: "com.weirtech.shouldersurf.sub.plus.monthly"
-      shouldersurf_legacy: "com.weirtech.shouldersurf.sub.standard.monthly"
     features:
       context_quilt: "teaser"
       meeting_reports: "enabled"
@@ -110,11 +107,6 @@ tiers:
     max_images_per_request: 5
     hours_per_month: -1
     storekit_product_id: "com.weirtech.shouldersurf.sub.pro.monthly"
-    app_product_ids:
-      shouldersurf: "com.weirtech.shouldersurf.sub.pro.monthly"
-      shouldersurf_legacy_ultra: "com.weirtech.shouldersurf.sub.ultra.monthly"
-      shouldersurf_legacy_ultramax: "com.weirtech.shouldersurf.sub.ultramax.monthly"
-      shouldersurf_legacy_pro: "com.weirtech.shouldersurf.sub.pro.monthly"
     features:
       context_quilt: "enabled"
       meeting_reports: "enabled"
