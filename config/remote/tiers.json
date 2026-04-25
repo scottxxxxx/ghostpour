@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -9,6 +9,18 @@
         "Real-time auto-summaries",
         "On-device transcription (unlimited)",
         "1 image per query"
+      ],
+      "feature_items": [
+        {"text": "5 meetings/month with AI assistance", "icon": "checkmark"},
+        {"text": "Real-time auto-summaries", "icon": "doc"},
+        {"text": "On-device transcription (unlimited)", "icon": "checkmark"},
+        {"text": "1 image per query", "icon": "photo"}
+      ],
+      "status_items": [
+        {"label": "Auto-summary", "value": "every 10 min", "icon": "clock"},
+        {"label": "Summary mode", "value": "Delta only", "icon": "doc"},
+        {"label": "Max images", "value": "1 per query", "icon": "photo"},
+        {"label": "Meeting Memory", "value": "requires subscription", "icon": "brain", "state": "locked"}
       ]
     },
     "plus": {
@@ -16,11 +28,25 @@
       "description": "Unlimited AI-powered meeting assistance. Summaries, reports, and project chat.",
       "feature_bullets": [
         "Unlimited meetings with AI assistance",
+        "Standard AI",
         "Real-time auto-summaries",
         "Shareable meeting reports",
         "Project chat across meetings",
-        "3 images per query",
-        "Standard AI"
+        "3 images per query"
+      ],
+      "feature_items": [
+        {"text": "Unlimited meetings with AI assistance", "icon": "checkmark"},
+        {"text": "Standard AI", "icon": "checkmark"},
+        {"text": "Real-time auto-summaries", "icon": "doc"},
+        {"text": "Shareable meeting reports", "icon": "checkmark"},
+        {"text": "Project chat across meetings", "icon": "chat"},
+        {"text": "3 images per query", "icon": "photo"}
+      ],
+      "status_items": [
+        {"label": "Auto-summary", "value": "every 10 min", "icon": "clock"},
+        {"label": "Summary mode", "value": "Delta only", "icon": "doc"},
+        {"label": "Max images", "value": "3 per query", "icon": "photo"},
+        {"label": "Meeting Memory", "value": "upgrade to Pro", "icon": "brain", "state": "teaser"}
       ]
     },
     "pro": {
@@ -29,10 +55,26 @@
       "feature_bullets": [
         "Unlimited meetings with AI assistance",
         "Advanced AI for reports and analysis",
-        "Meeting Memory: AI remembers past meetings",
         "Full or delta summaries (your choice)",
+        "Shareable meeting reports",
         "Project chat across meetings",
+        "Meeting Memory: AI remembers past meetings",
         "5 images per query"
+      ],
+      "feature_items": [
+        {"text": "Unlimited meetings with AI assistance", "icon": "checkmark"},
+        {"text": "Advanced AI for reports and analysis", "icon": "checkmark.plus"},
+        {"text": "Full or delta summaries (your choice)", "icon": "doc"},
+        {"text": "Shareable meeting reports", "icon": "checkmark"},
+        {"text": "Project chat across meetings", "icon": "chat"},
+        {"text": "Meeting Memory: AI remembers past meetings", "icon": "brain"},
+        {"text": "5 images per query", "icon": "photo"}
+      ],
+      "status_items": [
+        {"label": "Auto-summary", "value": "every 10 min", "icon": "clock"},
+        {"label": "Summary mode", "value": "Full or delta (your choice)", "icon": "doc"},
+        {"label": "Max images", "value": "5 per query", "icon": "photo"},
+        {"label": "Meeting Memory", "value": "enabled", "icon": "brain", "state": "enabled"}
       ]
     }
   },
