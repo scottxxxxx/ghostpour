@@ -18,10 +18,10 @@
 
 features:
   context_quilt:
-    display_name: "Context Quilt"
-    description: "Cross-meeting memory and entity recall. Your AI remembers past meetings and uses that knowledge automatically."
+    display_name: "Meeting Memory"
+    description: "Your AI remembers past meetings and uses that knowledge automatically."
     teaser_description: "Your AI found connections to your past meetings"
-    upgrade_cta: "Upgrade to Pro to unlock meeting memory"
+    upgrade_cta: "Upgrade to Pro to unlock Meeting Memory"
     category: "intelligence"
     # The service module in app/services/ that implements this feature.
     # Must expose: async check(user_id, text, metadata) -> dict
