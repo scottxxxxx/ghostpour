@@ -1,10 +1,10 @@
 {
-  "version": 1,
+  "version": 2,
   "highlights": [
     {"id": "copilot",   "icon": "sparkles", "text": "AI搭載ミーティングコパイロット",                         "highlighted": false},
     {"id": "summaries", "icon": "clock",    "text": "10分ごとの自動要約",                                     "highlighted": false},
     {"id": "images",    "icon": "photo",    "text": "画像分析（枚数はプランによって異なります）",              "highlighted": false},
     {"id": "ai",        "icon": "cpu",      "text": "スタンダードAIまたはアドバンストAI",                      "highlighted": false},
-    {"id": "memory",    "icon": "brain",    "text": "ミーティングメモリー：AIが過去の会議を記憶",              "highlighted": true}
+    {"id": "memory",    "icon": "brain",    "text": "ミーティングメモリー：AIが過去の会議を記憶",              "highlighted": true, "color": "green"}
   ]
 }
