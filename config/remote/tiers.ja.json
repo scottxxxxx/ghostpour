@@ -1,0 +1,89 @@
+{
+  "version": 4,
+  "tiers": {
+    "free": {
+      "display_name": "無料",
+      "description": "少額の無料クレジットでAIミーティングアシスタントをお試しください。",
+      "feature_bullets": [
+        "月5回のAIアシスタント付きミーティング",
+        "リアルタイム自動要約",
+        "デバイス上の文字起こし（無制限）",
+        "1クエリにつき画像1枚"
+      ],
+      "feature_items": [
+        {"text": "月5回のAIアシスタント付きミーティング", "icon": "checkmark"},
+        {"text": "リアルタイム自動要約", "icon": "doc"},
+        {"text": "デバイス上の文字起こし（無制限）", "icon": "checkmark"},
+        {"text": "1クエリにつき画像1枚", "icon": "photo"}
+      ],
+      "status_items": [
+        {"label": "自動要約", "value": "10分ごと", "icon": "clock"},
+        {"label": "要約モード", "value": "差分のみ", "icon": "doc"},
+        {"label": "最大画像数", "value": "1クエリにつき1枚", "icon": "photo"},
+        {"label": "ミーティングメモリー", "value": "サブスクリプションが必要です", "icon": "brain", "state": "locked"}
+      ]
+    },
+    "plus": {
+      "display_name": "Plus",
+      "description": "無制限のAIミーティングアシスタント。要約、レポート、プロジェクトチャット。",
+      "feature_bullets": [
+        "無制限のAIアシスタント付きミーティング",
+        "スタンダードAI",
+        "リアルタイム自動要約",
+        "共有可能なミーティングレポート",
+        "ミーティング間のプロジェクトチャット",
+        "1クエリにつき画像3枚"
+      ],
+      "feature_items": [
+        {"text": "無制限のAIアシスタント付きミーティング", "icon": "checkmark"},
+        {"text": "スタンダードAI", "icon": "checkmark"},
+        {"text": "リアルタイム自動要約", "icon": "doc"},
+        {"text": "共有可能なミーティングレポート", "icon": "checkmark"},
+        {"text": "ミーティング間のプロジェクトチャット", "icon": "chat"},
+        {"text": "1クエリにつき画像3枚", "icon": "photo"}
+      ],
+      "status_items": [
+        {"label": "自動要約", "value": "10分ごと", "icon": "clock"},
+        {"label": "要約モード", "value": "差分のみ", "icon": "doc"},
+        {"label": "最大画像数", "value": "1クエリにつき3枚", "icon": "photo"},
+        {"label": "ミーティングメモリー", "value": "Proにアップグレード", "icon": "brain", "state": "teaser"}
+      ]
+    },
+    "pro": {
+      "display_name": "Pro",
+      "description": "Plusの全機能に加え、アドバンストAIによる詳細レポートとミーティングメモリー。",
+      "feature_bullets": [
+        "無制限のAIアシスタント付きミーティング",
+        "レポートと分析のためのアドバンストAI",
+        "全文または差分要約（選択可能）",
+        "共有可能なミーティングレポート",
+        "ミーティング間のプロジェクトチャット",
+        "ミーティングメモリー：AIが過去の会議を記憶",
+        "1クエリにつき画像5枚"
+      ],
+      "feature_items": [
+        {"text": "無制限のAIアシスタント付きミーティング", "icon": "checkmark"},
+        {"text": "レポートと分析のためのアドバンストAI", "icon": "checkmark.plus"},
+        {"text": "全文または差分要約（選択可能）", "icon": "doc"},
+        {"text": "共有可能なミーティングレポート", "icon": "checkmark"},
+        {"text": "ミーティング間のプロジェクトチャット", "icon": "chat"},
+        {"text": "ミーティングメモリー：AIが過去の会議を記憶", "icon": "brain"},
+        {"text": "1クエリにつき画像5枚", "icon": "photo"}
+      ],
+      "status_items": [
+        {"label": "自動要約", "value": "10分ごと", "icon": "clock"},
+        {"label": "要約モード", "value": "全文または差分（選択可能）", "icon": "doc"},
+        {"label": "最大画像数", "value": "1クエリにつき5枚", "icon": "photo"},
+        {"label": "ミーティングメモリー", "value": "有効", "icon": "brain", "state": "enabled"}
+      ]
+    }
+  },
+  "feature_definitions": {
+    "context_quilt": {
+      "display_name": "ミーティングメモリー",
+      "description": "AIが過去の会議を記憶し、その知識を自動的に活用します。",
+      "teaser_description": "AIが過去の会議とのつながりを発見しました",
+      "upgrade_cta": "Proにアップグレードしてミーティングメモリーを解除"
+    }
+  }
+}
