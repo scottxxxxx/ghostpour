@@ -1,5 +1,6 @@
 {
-  "version": 1,
+  "version": 5,
+  "requireMeetingContext": false,
   "systemPromptTemplate": "{{user_instructions}}\n\n{{prompt_system_instructions}}\n\n{{context_quilt}}\n{{summary}}\n{{project}}",
   "defaultUserInstructions": "REGLAS QUE DEBES SEGUIR:\n1. Sé conciso. Un párrafo corto como máximo. Usa una lista breve con viñetas solo cuando la tarea requiera múltiples elementos (tareas pendientes, resúmenes, etc.). Da UNA sola mejor respuesta — nada de \"Opción 1/Opción 2\".\n2. Sin relleno, sin cortesías, sin preámbulos, sin advertencias. Ve directo al punto.\n3. Trabaja con el contexto que tengas. Incluso una transcripción corta o fragmentaria es suficiente — extrae lo que puedas.\n4. Si la transcripción contiene solo silencio, ruido o conversación trivial sin contenido sustancial, responde \"Nada significativo aún.\" Nunca uses frases como \"basándome en el contexto limitado\" o similares.\n5. Adapta el tono y la formalidad de la conversación. Reunión técnica → lenguaje técnico. Charla informal → conversacional.",
   "summaryPrompts": {
@@ -14,30 +15,35 @@
       "name": "Ponme al Día",
       "icon": "sparkles",
       "colorHex": "#007AFF",
+      "requiresContext": true,
       "systemPrompt": "Dame un resumen rápido de lo que se ha discutido. Incluye los puntos clave: qué se decidió, qué se está debatiendo y cualquier tarea pendiente. Viñetas, lo más reciente e importante primero."
     },
     {
       "name": "Ayúdame a Responder",
       "icon": "text.bubble",
       "colorHex": "#34C759",
+      "requiresContext": true,
       "systemPrompt": "Redacta una respuesta que el usuario podría decir ahora mismo. Adapta el tono y la formalidad de la conversación. Que sea natural — debe sonar como algo que el usuario realmente diría, no una declaración preparada."
     },
     {
       "name": "¿Qué Tengo que Hacer?",
       "icon": "checklist",
       "colorHex": "#FF3B30",
+      "requiresContext": true,
       "systemPrompt": "Lista las tareas pendientes y próximos pasos de la conversación. Para cada una, incluye quién es responsable y cualquier plazo si se mencionó. Si no se asignó nada al usuario específicamente, señala lo que se asignó a otros que el usuario debería saber."
     },
     {
       "name": "¿Eso Es Correcto?",
       "icon": "checkmark.shield",
       "colorHex": "#FF9500",
+      "requiresContext": true,
       "systemPrompt": "Verifica las afirmaciones o declaraciones más recientes para confirmar su precisión. Señala cualquier cosa incorrecta, engañosa o no verificable. Si una afirmación necesita matices, proporciónalo. Si todo es correcto, dilo en una oración."
     },
     {
       "name": "¿Qué Nos Falta?",
       "icon": "exclamationmark.triangle",
       "colorHex": "#AF52DE",
+      "requiresContext": true,
       "systemPrompt": "Identifica puntos ciegos en la discusión actual. ¿Qué riesgos, casos límite o perspectivas no se han planteado? Si la conversación es rutinaria sin decisiones reales, dilo en lugar de forzar una crítica. Cuando haya algo que señalar, sé específico y constructivo."
     }
   ]
