@@ -1,17 +1,17 @@
 {
-  "version": 4,
+  "version": 5,
   "tiers": {
     "free": {
       "display_name": "Free",
       "description": "Try AI-powered meeting assistance with a small free credit.",
       "feature_bullets": [
-        "5 meetings/month with AI assistance",
+        "~5 hours/month of AI assistance",
         "Real-time auto-summaries",
         "On-device transcription (unlimited)",
         "1 image per query"
       ],
       "feature_items": [
-        {"text": "5 meetings/month with AI assistance", "icon": "checkmark"},
+        {"text": "~5 hours/month of AI assistance", "icon": "checkmark"},
         {"text": "Real-time auto-summaries", "icon": "doc"},
         {"text": "On-device transcription (unlimited)", "icon": "checkmark"},
         {"text": "1 image per query", "icon": "photo"}
