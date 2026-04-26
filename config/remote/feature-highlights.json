@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "highlights": [
+    {"id": "copilot",   "icon": "sparkles", "text": "AI-powered meeting copilot",                  "highlighted": false},
+    {"id": "summaries", "icon": "clock",    "text": "Auto-summaries every 10 min",                 "highlighted": false},
+    {"id": "images",    "icon": "photo",    "text": "Image analysis (count varies by plan)",        "highlighted": false},
+    {"id": "ai",        "icon": "cpu",      "text": "Standard or Advanced AI",                     "highlighted": false},
+    {"id": "memory",    "icon": "brain",    "text": "Meeting Memory: AI remembers past meetings",   "highlighted": true}
+  ]
+}
