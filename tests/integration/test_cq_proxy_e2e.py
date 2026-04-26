@@ -22,6 +22,62 @@ class TestCaptureTranscript:
         assert resp.status_code == 200
         assert resp.json()["status"] == "queued"
 
+    def test_capture_transcript_forwards_identification_top_level(self, client_with_cq, pro_user, mock_cq):
+        """user_identified / user_label / identification_source at top level → forwarded to cq.capture."""
+        resp = client_with_cq.post(
+            "/v1/capture-transcript",
+            json={
+                "transcript": "...",
+                "meeting_id": "m-1",
+                "user_identified": True,
+                "user_label": "Scott",
+                "identification_source": "voice_id",
+            },
+            headers=pro_user["headers"],
+        )
+        assert resp.status_code == 200
+        kwargs = mock_cq["capture"].call_args.kwargs
+        assert kwargs["user_identified"] is True
+        assert kwargs["user_label"] == "Scott"
+        assert kwargs["identification_source"] == "voice_id"
+
+    def test_capture_transcript_forwards_identification_metadata_dict(self, client_with_cq, pro_user, mock_cq):
+        """Same fields nested under metadata: {...} → forwarded to cq.capture."""
+        resp = client_with_cq.post(
+            "/v1/capture-transcript",
+            json={
+                "transcript": "...",
+                "meeting_id": "m-2",
+                "metadata": {
+                    "user_identified": False,
+                    "user_label": "Speaker 4",
+                    "identification_source": "transcript_scan",
+                },
+            },
+            headers=pro_user["headers"],
+        )
+        assert resp.status_code == 200
+        kwargs = mock_cq["capture"].call_args.kwargs
+        assert kwargs["user_identified"] is False
+        assert kwargs["user_label"] == "Speaker 4"
+        assert kwargs["identification_source"] == "transcript_scan"
+
+    def test_capture_transcript_metadata_wins_over_top_level(self, client_with_cq, pro_user, mock_cq):
+        """When both forms are sent, metadata dict takes precedence (matches ChatRequest behavior)."""
+        resp = client_with_cq.post(
+            "/v1/capture-transcript",
+            json={
+                "transcript": "...",
+                "meeting_id": "m-3",
+                "user_label": "top-level",
+                "metadata": {"user_label": "from-metadata"},
+            },
+            headers=pro_user["headers"],
+        )
+        assert resp.status_code == 200
+        kwargs = mock_cq["capture"].call_args.kwargs
+        assert kwargs["user_label"] == "from-metadata"
+
 
 class TestQuiltProxy:
     def test_quilt_get_proxied(self, client_with_cq, pro_user):

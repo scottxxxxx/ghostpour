@@ -8,6 +8,7 @@ is configured. Apps that don't use Context Quilt won't have these routes.
 import asyncio
 import hashlib
 import logging
+from typing import Any
 
 import aiosqlite
 import httpx
@@ -82,6 +83,18 @@ class TranscriptCaptureRequest(BaseModel):
     meeting_id: str | None = None
     project: str | None = None
     project_id: str | None = None
+    # Speaker identification (forwarded to CQ /v1/memory metadata).
+    # Accept at top level OR inside the metadata dict — clients vary.
+    user_identified: bool | None = None
+    user_label: str | None = None
+    identification_source: str | None = None
+    metadata: dict[str, Any] | None = None
+
+    def get_meta(self, key: str, default: Any = None) -> Any:
+        """Read a value from metadata, falling back to top-level field."""
+        if self.metadata and key in self.metadata:
+            return self.metadata[key]
+        return getattr(self, key, default)
 
 
 @router.post("/capture-transcript")
@@ -135,6 +148,9 @@ async def capture_transcript(
         project_id=body.project_id,
         display_name=user.display_name,
         email=user.email,
+        user_identified=body.get_meta("user_identified"),
+        user_label=body.get_meta("user_label"),
+        identification_source=body.get_meta("identification_source"),
     ))
     return {"status": "queued"}
 
