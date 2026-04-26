@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "highlights": [
+    {"id": "copilot",   "icon": "sparkles", "text": "Copiloto de reuniones con IA",                       "highlighted": false},
+    {"id": "summaries", "icon": "clock",    "text": "Resúmenes automáticos cada 10 min",                  "highlighted": false},
+    {"id": "images",    "icon": "photo",    "text": "Análisis de imágenes (cantidad varía según el plan)", "highlighted": false},
+    {"id": "ai",        "icon": "cpu",      "text": "IA estándar o avanzada",                              "highlighted": false},
+    {"id": "memory",    "icon": "brain",    "text": "Memoria de Reuniones: la IA recuerda reuniones pasadas", "highlighted": true}
+  ]
+}
