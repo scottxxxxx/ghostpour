@@ -140,3 +140,108 @@ class TestQuiltProxy:
             headers=pro_user["headers"],
         )
         assert resp.status_code == 403
+
+
+class TestReassignSpeaker:
+    def test_reassign_speaker_to_self_proxied(self, client_with_cq, pro_user):
+        """POST /v1/quilt/{user_id}/reassign-speaker (to_self) proxies to CQ verbatim."""
+        captured = {}
+        cq_response = {"patches_updated": 7, "connections_updated": 3, "entities_merged": 2}
+        mock_resp = httpx.Response(
+            status_code=200,
+            json=cq_response,
+            request=httpx.Request("POST", "http://cq-mock/v1/quilt/test/reassign-speaker"),
+        )
+
+        async def fake_request(method, path, json=None, headers=None):
+            captured["method"] = method
+            captured["path"] = path
+            captured["body"] = json
+            return mock_resp
+
+        with patch("app.services.context_quilt._get_auth_headers", new_callable=AsyncMock, return_value={"Authorization": "Bearer mock"}), \
+             patch("httpx.AsyncClient") as MockClient:
+            instance = AsyncMock()
+            instance.__aenter__ = AsyncMock(return_value=instance)
+            instance.__aexit__ = AsyncMock(return_value=False)
+            instance.request = AsyncMock(side_effect=fake_request)
+            MockClient.return_value = instance
+
+            resp = client_with_cq.post(
+                f"/v1/quilt/{pro_user['user_id']}/reassign-speaker",
+                json={"from_labels": ["Speaker 4", "Unknown 1"], "to_self": True},
+                headers=pro_user["headers"],
+            )
+
+        assert resp.status_code == 200
+        assert resp.json() == cq_response
+        assert captured["method"] == "POST"
+        assert captured["path"] == f"/v1/quilt/{pro_user['user_id']}/reassign-speaker"
+        # to_person_id is None and stripped; body forwarded verbatim otherwise
+        assert captured["body"] == {"from_labels": ["Speaker 4", "Unknown 1"], "to_self": True}
+
+    def test_reassign_speaker_to_person_id_proxied(self, client_with_cq, pro_user):
+        """POST reassign-speaker with to_person_id forwards person id, not to_self."""
+        captured = {}
+        mock_resp = httpx.Response(
+            status_code=200,
+            json={"patches_updated": 1, "connections_updated": 0, "entities_merged": 1},
+            request=httpx.Request("POST", "http://cq-mock/v1/quilt/test/reassign-speaker"),
+        )
+
+        async def fake_request(method, path, json=None, headers=None):
+            captured["body"] = json
+            return mock_resp
+
+        with patch("app.services.context_quilt._get_auth_headers", new_callable=AsyncMock, return_value={"Authorization": "Bearer mock"}), \
+             patch("httpx.AsyncClient") as MockClient:
+            instance = AsyncMock()
+            instance.__aenter__ = AsyncMock(return_value=instance)
+            instance.__aexit__ = AsyncMock(return_value=False)
+            instance.request = AsyncMock(side_effect=fake_request)
+            MockClient.return_value = instance
+
+            resp = client_with_cq.post(
+                f"/v1/quilt/{pro_user['user_id']}/reassign-speaker",
+                json={"from_labels": ["Speaker 2"], "to_person_id": "person-uuid-123"},
+                headers=pro_user["headers"],
+            )
+
+        assert resp.status_code == 200
+        assert captured["body"] == {"from_labels": ["Speaker 2"], "to_person_id": "person-uuid-123"}
+
+    def test_reassign_speaker_cross_user_forbidden(self, client_with_cq, pro_user):
+        """Reassigning speakers in another user's quilt → 403."""
+        resp = client_with_cq.post(
+            "/v1/quilt/someone-else/reassign-speaker",
+            json={"from_labels": ["Speaker 1"], "to_self": True},
+            headers=pro_user["headers"],
+        )
+        assert resp.status_code == 403
+
+    def test_reassign_speaker_requires_a_target(self, client_with_cq, pro_user):
+        """Neither to_self nor to_person_id → 422 from validation, no CQ call."""
+        resp = client_with_cq.post(
+            f"/v1/quilt/{pro_user['user_id']}/reassign-speaker",
+            json={"from_labels": ["Speaker 3"]},
+            headers=pro_user["headers"],
+        )
+        assert resp.status_code == 422
+
+    def test_reassign_speaker_rejects_both_targets(self, client_with_cq, pro_user):
+        """Both to_self=true AND to_person_id → 422."""
+        resp = client_with_cq.post(
+            f"/v1/quilt/{pro_user['user_id']}/reassign-speaker",
+            json={"from_labels": ["Speaker 3"], "to_self": True, "to_person_id": "person-1"},
+            headers=pro_user["headers"],
+        )
+        assert resp.status_code == 422
+
+    def test_reassign_speaker_rejects_empty_from_labels(self, client_with_cq, pro_user):
+        """Empty from_labels → 422."""
+        resp = client_with_cq.post(
+            f"/v1/quilt/{pro_user['user_id']}/reassign-speaker",
+            json={"from_labels": [], "to_self": True},
+            headers=pro_user["headers"],
+        )
+        assert resp.status_code == 422

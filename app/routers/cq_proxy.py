@@ -352,6 +352,45 @@ async def rename_speaker(
     )
 
 
+# --- Speaker reassignment (merge multiple speaker labels onto self or another person) ---
+
+
+class ReassignSpeakerRequest(BaseModel):
+    from_labels: list[str]
+    to_self: bool | None = None
+    to_person_id: str | None = None
+
+
+@router.post("/quilt/{user_id}/reassign-speaker")
+async def reassign_speaker(
+    user_id: str,
+    body: ReassignSpeakerRequest,
+    user: UserRecord = Depends(get_current_user),
+):
+    """Proxy: reassign one or more speaker labels to the user (self) or another person.
+
+    Body shape forwarded verbatim to CQ. CQ's response
+    `{patches_updated, connections_updated, entities_merged}` is returned unchanged.
+    Validation here ensures exactly one target is set so malformed requests fail
+    fast without a CQ round-trip.
+    """
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
+    if not body.from_labels:
+        raise HTTPException(status_code=422, detail="from_labels must not be empty")
+    if bool(body.to_self) == bool(body.to_person_id):
+        raise HTTPException(
+            status_code=422,
+            detail="Provide exactly one of to_self=true or to_person_id",
+        )
+    payload = {k: v for k, v in body.model_dump().items() if v is not None}
+    return await _cq_proxy(
+        "POST",
+        f"/v1/quilt/{user_id}/reassign-speaker",
+        payload,
+    )
+
+
 # --- Prewarm ---
 
 
