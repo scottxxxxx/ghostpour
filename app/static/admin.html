@@ -347,13 +347,14 @@
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <h3 style="margin:0">Live Request Log</h3>
       <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="livelog-filter" placeholder="Filter by path (e.g. config, chat, tiers)" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);width:220px" oninput="filterLiveLog()">
         <label style="font-size:12px;color:var(--text-dim)">
           <input type="checkbox" id="livelog-auto" checked> Auto-refresh (5s)
         </label>
         <button class="refresh-btn" onclick="loadLiveLog()">Refresh</button>
       </div>
     </div>
-    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Last 50 API requests. Click a row to expand request/response details.</p>
+    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Last 50 API requests. Click a row to expand request/response details. Use the filter to search by path.</p>
     <div id="livelog-entries" style="font-family:'SF Mono',Menlo,monospace;font-size:12px"></div>
   </div>
 
@@ -1130,17 +1131,20 @@ async function saveConfig() {
 // --- Live Log ---
 
 let _livelogTimer = null;
+let _livelogEntries = [];
 
-async function loadLiveLog() {
-  const data = await fetch(`${BASE}/webhooks/admin/live-log?limit=50`, {
-    headers: {'X-Admin-Key': adminKey}
-  }).then(r => r.json());
-
+function filterLiveLog() {
+  const filter = (document.getElementById('livelog-filter').value || '').toLowerCase();
   const el = document.getElementById('livelog-entries');
-  if (!data.entries || !data.entries.length) {
-    el.innerHTML = '<div style="color:var(--text-dim);padding:20px;text-align:center">No requests logged yet. Traffic will appear here automatically.</div>';
-  } else {
-    el.innerHTML = data.entries.map((e, i) => {
+  const filtered = filter ? _livelogEntries.filter(e => (e.path + (e.query||'')).toLowerCase().includes(filter)) : _livelogEntries;
+  el.innerHTML = renderLiveLogEntries(filtered);
+}
+
+function renderLiveLogEntries(entries) {
+  if (!entries || !entries.length) {
+    return '<div style="color:var(--text-dim);padding:20px;text-align:center">No matching requests.</div>';
+  }
+  return entries.map((e, i) => {
       const statusColor = e.status < 300 ? 'var(--green)' : e.status < 400 ? 'var(--orange)' : 'var(--red)';
       const time = new Date(e.timestamp).toLocaleTimeString();
       const reqBody = e.request.body ? JSON.stringify(e.request.body, null, 2) : '<empty>';
@@ -1175,8 +1179,16 @@ async function loadLiveLog() {
           </div>
         </div>
       </div>`;
-    }).join('');
-  }
+  }).join('');
+}
+
+async function loadLiveLog() {
+  const data = await fetch(`${BASE}/webhooks/admin/live-log?limit=50`, {
+    headers: {'X-Admin-Key': adminKey}
+  }).then(r => r.json());
+
+  _livelogEntries = data.entries || [];
+  filterLiveLog();
 
   // Auto-refresh
   clearInterval(_livelogTimer);
