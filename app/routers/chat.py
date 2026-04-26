@@ -425,7 +425,8 @@ async def usage_me(
     # Convert cost to hours for user-friendly display
     model_cost_per_hour = 0.05 if "haiku" in (tier.default_model or "") else 0.19
     hours_used = monthly_used / model_cost_per_hour if model_cost_per_hour > 0 else 0
-    hours_limit = monthly_limit / model_cost_per_hour if monthly_limit > 0 else -1
+    # Use hours_per_month from tier config (display value) rather than deriving from cost
+    hours_limit = tier.hours_per_month if tier else -1
     result = {
         "user_id": user.id,
         "tier": effective_tier_name,
