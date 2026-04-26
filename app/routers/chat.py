@@ -556,7 +556,17 @@ async def list_tiers(request: Request):
         }
         # Structured display data from remote config (icon hints, status section)
         if "feature_items" in dt:
-            tier_entry["feature_items"] = dt["feature_items"]
+            # Transitional: emit both `text` (legacy) and `label` (new schema, SS-coordinated).
+            # Drop `text` synthesis once iOS adoption of label-aware decoder is high.
+            items = []
+            for item in dt["feature_items"]:
+                out = dict(item)
+                if "label" in out and "text" not in out:
+                    out["text"] = out["label"]
+                elif "text" in out and "label" not in out:
+                    out["label"] = out["text"]
+                items.append(out)
+            tier_entry["feature_items"] = items
         if "status_items" in dt:
             tier_entry["status_items"] = dt["status_items"]
         tiers_result[name] = tier_entry
