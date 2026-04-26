@@ -434,9 +434,9 @@ async function refresh() {
 
   const tierNames = Object.keys(tiers.tiers);
 
-  // Track current user for simulate
+  // Track current user for simulate — find the admin user, fall back to first
   if (users.users.length > 0) {
-    const me = users.users[0]; // First user (sorted by created_at desc)
+    const me = users.users.find(u => u.tier === 'admin') || users.users[0];
     currentUserTier = me.tier;
     currentUserId = me.id;
     // Restore simulation state from server
