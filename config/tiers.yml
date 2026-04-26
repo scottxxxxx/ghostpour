@@ -53,7 +53,7 @@ tiers:
       meeting_reports: "disabled"
       project_chat: "disabled"
     feature_bullets:
-      - "5 meetings/month with AI assistance"
+      - "~5 hours/month of AI assistance"
       - "Real-time auto-summaries"
       - "On-device transcription (unlimited)"
       - "1 image per query"
