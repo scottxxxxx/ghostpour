@@ -1,5 +1,5 @@
 {
-  "version": 8,
+  "version": 9,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -19,8 +19,7 @@
       "status_items": [
         {"label": "Auto-summary", "value": "every 10 min", "icon": "clock"},
         {"label": "Summary mode", "value": "Delta only", "icon": "doc"},
-        {"label": "Max images", "value": "1 per query", "icon": "photo"},
-        {"label": "Meeting Memory", "value": "requires subscription", "icon": "brain", "state": "locked"}
+        {"label": "Max images", "value": "1 per query", "icon": "photo"}
       ]
     },
     "plus": {

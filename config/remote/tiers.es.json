@@ -1,5 +1,5 @@
 {
-  "version": 8,
+  "version": 9,
   "tiers": {
     "free": {
       "display_name": "Gratis",
@@ -19,8 +19,7 @@
       "status_items": [
         {"label": "Resumen automático", "value": "cada 10 min", "icon": "clock"},
         {"label": "Modo de resumen", "value": "Solo delta", "icon": "doc"},
-        {"label": "Imágenes máx.", "value": "1 por consulta", "icon": "photo"},
-        {"label": "Memoria de Reuniones", "value": "requiere suscripción", "icon": "brain", "state": "locked"}
+        {"label": "Imágenes máx.", "value": "1 por consulta", "icon": "photo"}
       ]
     },
     "plus": {
