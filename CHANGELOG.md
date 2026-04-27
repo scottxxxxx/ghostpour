@@ -6,6 +6,88 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **3-tier restructure** — free, plus ($6.99), pro ($14.99); legacy 5-tier product IDs removed (no subscribers to grandfather)
+- **SSE streaming** for `/v1/chat` (`stream: true` in request body) with raw-ASGI passthrough middleware for chunk-level delivery
+- **90-second wall-clock cap** on streaming `/v1/chat`; emits `stream_timeout` event on overrun
+- **Meeting reports** — `POST /v1/meetings/{meeting_id}/report` (LLM-generated), `GET /v1/meetings/{meeting_id}/report` (cached), `POST /v1/reports/render` (template-only re-render). Tier-driven model selection (free=Haiku, paid=Sonnet) with optional `quality=fast|best` override
+- **Server-controlled report model** — clients send `ai_tier` instead of model name; server resolves
+- **4-level stoplight** (red/orange/yellow/green) and sentiment emoji + suggested tags in report JSON
+- **Apple Server Notifications V2 webhook** (`POST /v1/apple-notifications`) with JWS verification for real-time subscription state
+- **`POST /v1/sync-subscription`** for client-driven cancellation handling
+- **Trial support** — explicit `is_trial` flag on `/v1/verify-receipt`; idempotent (no allocation reset on app launch)
+- **CQ proxy endpoints** — `POST /v1/quilt/{user_id}/patches` (manual create), `POST/DELETE /v1/quilt/{user_id}/connections`, `POST /v1/quilt/{user_id}/prewarm`, `GET /v1/quilt/{user_id}/graph` (svg/png/html, with `Cache-Control` + ETag), `POST /v1/quilt/{user_id}/rename-speaker`, `POST /v1/quilt/{user_id}/reassign-speaker` (per-meeting `from_labels: [{label, meeting_id}]`)
+- **Origin reassignment** — `POST /v1/origins/{user_id}/{origin_type}/{origin_id}/assign-project` to move a meeting's patches to a different project
+- **Speaker-identification metadata** — `user_identified`, `user_label`, `identification_source` forwarded to CQ on both `/v1/chat` and `/v1/capture-transcript` (top-level or `metadata: {...}`)
+- **Multi-app support** — `X-App-ID` header routes per-app configs (Shoulder Surf, Tech Rehearsal, Interview Buddy)
+- **Per-app per-call-type model routing** with admin-dashboard editor
+- **Server-side prompt assembly** — clients send `call_type`, server assembles `system_prompt` from registered config (Path B)
+- **Quick-prompt context enforcement** — `requiresContext` flag in protected-prompts config; client gates protected prompts when context is empty
+- **Remote config persistence** — `GET /v1/config/{slug}` with locale negotiation, version-aware updates, persistent volume seed; admin-dashboard editor with auto-version bump
+- **Spanish + Japanese localization** — tiers, feature-highlights, idle-tips, llm-providers, model-capabilities, protected-prompts
+- **Structured tier display** — `feature_items` (icon hints: checkmark, brain, chat, etc.) and `status_items` (settings status section) on `/v1/tiers`
+- **`feature-highlights` remote config** for pre-sign-in marketing bullets
+- **OpenRouter provider** with verified model IDs and pricing
+- **`X-Request-ID`** header on every response (12-char hex); request log buffer expanded to 1000 entries
+- **`X-CQ-Patch-IDs`** response header on `/v1/chat` (top 20 patch UUIDs from CQ recall)
+- **`X-CQ-Matched`, `X-CQ-Entities`, `X-CQ-Gated`** response headers from CQ feature hook
+- **Admin dashboard tabs** — Live Log (with path filter), Query Log, Model Routing, Providers (API key + balance management), live-log-by-request-id detail view
+- **Anthropic prompt caching** (`cache_control` on system prompt) and persistent HTTP connections to providers
+- **Project Chat free-tier teaser** — canned upsell response, no LLM call
+- **Locale-aware CQ recall** — client `locale` field forwarded to CQ metadata
+- **Communication style injection** — CQ-returned style appended to system prompt for `ProjectChat` and `PostMeetingChat` modes
+- **`logger.info` extras rendered in stdout** — `cq_recall_ok matched=N patch_count=N` etc., previously dropped
+- **`cost_per_hour_usd` and `monthly_cost_limit_usd`** exposed on `/v1/tiers`
+- **`hours_per_month`** on free tier (~5 hours, cost-enforced)
+
+### Changed
+- **Tiers**: 5 → 3 (free, plus, pro). Plus/Pro are unlimited AI (no per-month credit cap)
+- **`(you)` suffix sanitization** on all chat request content (system prompt + user content), not just CQ context — prevents LLM echo of identity markers
+- **CQ proxy**: 401 from upstream is mapped to 502 `upstream_auth_error` (don't trigger client refresh loop on server-to-server auth failure)
+- **Origin scoping**: CQ v1 alignment — `origin_id` + `origin_type` replace `meeting_id` (which is still accepted as a deprecated alias)
+- **Report template** — server-owned HTML at `app/static/report_template.html`; design updates without App Store review
+- **`/v1/usage/me`** `hours_limit` derived from tier config `hours_per_month`, not cost-divided
+
+### Fixed
+- **SSE streaming** — `BaseHTTPMiddleware` was materializing entire response body before sending; replaced with pure ASGI middleware that bypasses body capture for streams
+- **`verify-receipt`** — was resetting `monthly_used_usd` on every app launch; now idempotent
+- **Capture-transcript** — was silently dropping speaker-identification metadata fields (Pydantic strict model + missing forward); both fixed
+- **`(you)` suffix** leaking from CQ patches into LLM output
+- **CQ proxy** passing through CQ's 401 as GP's own auth rejection (caused client refresh loops)
+- **Admin dashboard** showing wrong current tier in simulate dialog
+- **`/v1/usage/me`** showing 7h instead of 5h on free tier (cost-derived vs config-derived)
+- **Report 500** from undefined `now` variable in cache save path
+- **Research notes** in reports rendering raw context instead of LLM responses
+
+### Removed
+- **Overage / carryover system** — replaced by simple per-tier monthly cost cap
+- **Legacy 5-tier product IDs** (no subscribers to grandfather)
+- **Client-facing model names** in API responses and report template (server picks model)
+
+## [0.4.0] - 2026-03-26
+
+### Added
+- **GhostPour** rename (formerly CloudZap); env vars retain `CZ_` prefix for backwards compat
+- **Context Quilt integration** — recall (inject context into system prompt) + capture (async query/response forwarding); pluggable via `FeatureHook` protocol with per-tier `enabled`/`teaser`/`disabled` states
+- **CQ proxy endpoints** — `GET /v1/quilt/{user_id}` (fetch patches), `PATCH /v1/quilt/{user_id}/patches/{patch_id}` (update text/category/owner), `DELETE /v1/quilt/{user_id}/patches/{patch_id}`
+- **`POST /v1/capture-transcript`** — end-of-session full-transcript capture; stores locally for report generation and forwards to CQ for knowledge extraction
+- **`POST /v1/sync-subscription`** — client-driven subscription state refresh (cancellations, renewals)
+- **Trial support** — `is_trial` column on users; cancellation downgrades to free with exhausted allocation
+- **StoreKit product IDs** in tiers config; `product-ids.yml` mounted from GitHub secret on deploy
+- **Display name** on users (forwarded to CQ for owner attribution)
+- **Remote config endpoints** — `GET /v1/config/{slug}` for iOS-side config (idle tips, LLM providers, model capabilities, protected prompts)
+- **Admin Providers tab** — API key status, balances, key management with disk persistence
+- **Admin tier simulation** — `simulated_tier` column lets admins test tier-gated behavior end-to-end
+- **`projectid`** forwarded to CQ for patch grouping; rename cascade support
+- **JWT bearer auth** to CQ (replacing legacy `X-App-ID`)
+
+### Changed
+- Renamed `cloudzap` → `ghostpour` across infra, image names, repo, container names
+
+### Fixed
+- Quilt proxy routes had double `/v1` prefix
+- Capture-transcript route had double `/v1` prefix
+
 ## [0.3.0] - 2026-03-21
 
 ### Added
