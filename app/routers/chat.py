@@ -85,6 +85,44 @@ def _project_chat_teaser_response(request: Request) -> JSONResponse:
     )
 
 
+def _enforce_meeting_context_gate(
+    remote_configs: dict, prompt_mode: str | None, meeting_id: str | None
+) -> None:
+    """Server-side enforcement of the protected-prompts context gate.
+
+    When a `protected-prompts*` config has `requireMeetingContext: true`
+    AND the requested prompt_mode is listed with `requiresContext: true`,
+    require a non-empty meeting_id. Otherwise, raise 403.
+
+    Iterates over all `protected-prompts*` configs (locale variants) so the
+    gate works regardless of which locale the client's prompt name belongs
+    to. The kill switch is per-config — flipping en/es/ja independently
+    lets us roll out the gate per-locale if needed.
+    """
+    if not prompt_mode:
+        return  # no prompt mode → nothing to gate
+    if meeting_id:
+        return  # context present → allowed regardless of gate state
+
+    for slug, cfg in remote_configs.items():
+        if "protected-prompts" not in slug:
+            continue
+        if not cfg.get("requireMeetingContext"):
+            continue
+        for mode in cfg.get("defaultPromptModes", []):
+            if mode.get("name") == prompt_mode and mode.get("requiresContext"):
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "code": "context_required",
+                        "message": (
+                            f"Prompt mode '{prompt_mode}' requires meeting "
+                            "context. Send a meeting_id with this request."
+                        ),
+                    },
+                )
+
+
 def _resolve_model_routing(
     request: Request, body: ChatRequest, tier, tier_name: str
 ) -> str | None:
@@ -665,6 +703,17 @@ async def chat(
         and body.get_meta("prompt_mode") == "ProjectChat"
     ):
         return _project_chat_teaser_response(request)
+
+    # 1.6. Protected-prompts context gate. iOS already enforces requiresContext
+    # client-side; this closes the bypass loophole when a non-iOS or modified
+    # client sends a context-required prompt without a meeting_id. Activated
+    # by flipping `requireMeetingContext: true` in the protected-prompts
+    # config — kill switch is per-config (en/ja/es each can flip independently).
+    _enforce_meeting_context_gate(
+        request.app.state.remote_configs,
+        body.get_meta("prompt_mode"),
+        body.get_meta("meeting_id"),
+    )
 
     # 2. Resolve "auto" model — check model-routing config first, then tier default
     if body.model == "auto" or body.provider == "auto":

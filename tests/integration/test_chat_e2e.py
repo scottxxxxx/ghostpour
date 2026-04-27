@@ -91,6 +91,67 @@ class TestChatQuota:
 # ---------------------------------------------------------------------------
 
 
+class TestProtectedPromptsContextGate:
+    """Server-side enforcement of requireMeetingContext on protected-prompts."""
+
+    @staticmethod
+    def _patch_protected_prompts(client, *, require_context: bool):
+        client.app.state.remote_configs["protected-prompts"] = {
+            "version": 99,
+            "requireMeetingContext": require_context,
+            "defaultPromptModes": [
+                {"name": "Catch Me Up", "requiresContext": True, "systemPrompt": "..."},
+                {"name": "Free Form", "requiresContext": False, "systemPrompt": "..."},
+            ],
+        }
+
+    def test_gate_off_allows_context_required_prompt_without_meeting(self, client, free_user):
+        self._patch_protected_prompts(client, require_context=False)
+        resp = client.post(
+            "/v1/chat",
+            json=chat_request(prompt_mode="Catch Me Up"),
+            headers=free_user["headers"],
+        )
+        assert resp.status_code == 200
+
+    def test_gate_on_blocks_context_required_prompt_without_meeting(self, client, free_user):
+        self._patch_protected_prompts(client, require_context=True)
+        resp = client.post(
+            "/v1/chat",
+            json=chat_request(prompt_mode="Catch Me Up"),
+            headers=free_user["headers"],
+        )
+        assert resp.status_code == 403
+        assert resp.json()["detail"]["code"] == "context_required"
+
+    def test_gate_on_with_meeting_id_allows(self, client, free_user):
+        self._patch_protected_prompts(client, require_context=True)
+        resp = client.post(
+            "/v1/chat",
+            json=chat_request(prompt_mode="Catch Me Up", meeting_id="meeting-abc"),
+            headers=free_user["headers"],
+        )
+        assert resp.status_code == 200
+
+    def test_gate_on_does_not_block_non_context_prompt(self, client, free_user):
+        self._patch_protected_prompts(client, require_context=True)
+        resp = client.post(
+            "/v1/chat",
+            json=chat_request(prompt_mode="Free Form"),
+            headers=free_user["headers"],
+        )
+        assert resp.status_code == 200
+
+    def test_gate_on_does_not_block_unknown_prompt_mode(self, client, free_user):
+        self._patch_protected_prompts(client, require_context=True)
+        resp = client.post(
+            "/v1/chat",
+            json=chat_request(prompt_mode="Some New Mode"),
+            headers=free_user["headers"],
+        )
+        assert resp.status_code == 200
+
+
 class TestChatStreamTimeout:
     def test_stream_wall_clock_timeout_emits_error_event(self, client_with_cq, free_user, monkeypatch):
         """SSE stream that hangs past the wall-clock cap → stream_timeout error
