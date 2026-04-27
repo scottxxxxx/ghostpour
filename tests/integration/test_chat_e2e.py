@@ -91,6 +91,50 @@ class TestChatQuota:
 # ---------------------------------------------------------------------------
 
 
+class TestChatStreamTimeout:
+    def test_stream_wall_clock_timeout_emits_error_event(self, client_with_cq, free_user, monkeypatch):
+        """SSE stream that hangs past the wall-clock cap → stream_timeout error
+        event, usage_log row with status="timeout", connection closes."""
+        import asyncio
+        from unittest.mock import patch
+        from app.routers import chat as chat_module
+
+        # Tighten the cap for the test so it fires fast.
+        monkeypatch.setattr(chat_module, "_CHAT_STREAM_WALL_CLOCK_SECONDS", 0.2)
+
+        async def slow_stream(_body):
+            # Yield nothing for longer than the cap — emulates a stalled provider.
+            await asyncio.sleep(2.0)
+            yield {"type": "text", "text": "should never reach here", "done": False}
+
+        with patch(
+            "app.services.provider_router.ProviderRouter.route_stream",
+            side_effect=lambda body: slow_stream(body),
+        ):
+            resp = client_with_cq.post(
+                "/v1/chat",
+                json=chat_request(stream=True, call_type="query"),
+                headers=free_user["headers"],
+            )
+
+        assert resp.status_code == 200
+        assert "stream_timeout" in resp.text
+        assert "error" in resp.text
+
+        # usage_log row written with status="timeout"
+        import os
+        import sqlite3
+        db_path = os.environ["CZ_DATABASE_URL"].replace("sqlite+aiosqlite:///", "")
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT status FROM usage_log WHERE user_id = ? AND status = 'timeout'",
+            (free_user["user_id"],),
+        ).fetchall()
+        conn.close()
+        assert len(rows) == 1
+
+
 class TestProjectChatTeaser:
     def test_free_user_project_chat_returns_canned_no_llm(self, client, free_user, mock_provider):
         """Free tier (project_chat=teaser) → canned upsell text, no LLM call, no charge."""

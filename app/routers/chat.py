@@ -6,6 +6,13 @@ from datetime import datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
 
+# Hard wall-clock ceiling for /v1/chat SSE streams. After this, we cancel
+# the upstream task, emit a stream_timeout SSE error event, log a row in
+# usage_log with status="timeout", and close the connection. Without this
+# cap, a slow-trickle upstream could keep the connection open indefinitely
+# (httpx's per-operation read timeout doesn't bound total wall-clock).
+_CHAT_STREAM_WALL_CLOCK_SECONDS = 90
+
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -873,13 +880,28 @@ async def _handle_stream(
     async def event_stream():
         final_response = None
         try:
-            async for event in provider_router.route_stream(body):
-                if event.get("done"):
-                    final_response = event.get("response")
-                else:
-                    # Yield text delta as SSE
-                    sse_data = json.dumps({"type": "text", "text": event["text"]})
-                    yield f"data: {sse_data}\n\n"
+            async with asyncio.timeout(_CHAT_STREAM_WALL_CLOCK_SECONDS):
+                async for event in provider_router.route_stream(body):
+                    if event.get("done"):
+                        final_response = event.get("response")
+                    else:
+                        # Yield text delta as SSE
+                        sse_data = json.dumps({"type": "text", "text": event["text"]})
+                        yield f"data: {sse_data}\n\n"
+
+        except asyncio.TimeoutError:
+            elapsed_ms = int((time.monotonic() - start) * 1000)
+            async for err_db in _get_db():
+                await usage_tracker.log_usage(
+                    err_db, user.id, body, None, elapsed_ms, status="timeout"
+                )
+            timeout_data = json.dumps({
+                "type": "error",
+                "code": "stream_timeout",
+                "message": f"Stream exceeded {_CHAT_STREAM_WALL_CLOCK_SECONDS}s cap.",
+            })
+            yield f"data: {timeout_data}\n\n"
+            return
 
         except HTTPException:
             elapsed_ms = int((time.monotonic() - start) * 1000)
