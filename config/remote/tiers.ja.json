@@ -1,5 +1,5 @@
 {
-  "version": 8,
+  "version": 9,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -19,8 +19,7 @@
       "status_items": [
         {"label": "自動要約", "value": "10分ごと", "icon": "clock"},
         {"label": "要約モード", "value": "差分のみ", "icon": "doc"},
-        {"label": "最大画像数", "value": "1クエリにつき1枚", "icon": "photo"},
-        {"label": "ミーティングメモリー", "value": "サブスクリプションが必要です", "icon": "brain", "state": "locked"}
+        {"label": "最大画像数", "value": "1クエリにつき1枚", "icon": "photo"}
       ]
     },
     "plus": {
