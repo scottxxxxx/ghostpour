@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -11,10 +11,10 @@
         "1 image per query"
       ],
       "feature_items": [
-        {"text": "~5 hours/month of AI assistance", "icon": "checkmark"},
-        {"text": "Real-time auto-summaries", "icon": "doc"},
-        {"text": "On-device transcription (unlimited)", "icon": "checkmark"},
-        {"text": "1 image per query", "icon": "photo"}
+        {"label": "~5 hours/month of AI assistance", "icon": "checkmark"},
+        {"label": "Real-time auto-summaries", "icon": "doc"},
+        {"label": "On-device transcription (unlimited)", "icon": "checkmark"},
+        {"label": "1 image per query", "icon": "photo"}
       ],
       "status_items": [
         {"label": "Auto-summary", "value": "every 10 min", "icon": "clock"},
@@ -35,12 +35,12 @@
         "3 images per query"
       ],
       "feature_items": [
-        {"text": "Unlimited meetings with AI assistance", "icon": "checkmark"},
-        {"text": "Standard AI", "icon": "checkmark"},
-        {"text": "Real-time auto-summaries", "icon": "doc"},
-        {"text": "Shareable meeting reports", "icon": "checkmark"},
-        {"text": "Project chat across meetings", "icon": "chat"},
-        {"text": "3 images per query", "icon": "photo"}
+        {"label": "Unlimited meetings with AI assistance", "icon": "checkmark"},
+        {"label": "Standard AI", "icon": "checkmark"},
+        {"label": "Real-time auto-summaries", "icon": "doc"},
+        {"label": "Shareable meeting reports", "icon": "checkmark"},
+        {"label": "Project chat across meetings", "icon": "chat"},
+        {"label": "3 images per query", "icon": "photo"}
       ],
       "status_items": [
         {"label": "Auto-summary", "value": "every 10 min", "icon": "clock"},
@@ -62,13 +62,13 @@
         "5 images per query"
       ],
       "feature_items": [
-        {"text": "Unlimited meetings with AI assistance", "icon": "checkmark"},
-        {"text": "Advanced AI for reports and analysis", "icon": "checkmark.plus"},
-        {"text": "Full or delta summaries (your choice)", "icon": "doc"},
-        {"text": "Shareable meeting reports", "icon": "checkmark"},
-        {"text": "Project chat across meetings", "icon": "chat"},
-        {"text": "Meeting Memory: AI remembers past meetings", "icon": "brain"},
-        {"text": "5 images per query", "icon": "photo"}
+        {"label": "Unlimited meetings with AI assistance", "icon": "checkmark"},
+        {"label": "Advanced AI for reports and analysis", "icon": "checkmark.plus"},
+        {"label": "Full or delta summaries (your choice)", "icon": "doc"},
+        {"label": "Shareable meeting reports", "icon": "checkmark"},
+        {"label": "Project chat across meetings", "icon": "chat"},
+        {"label": "Meeting Memory: AI remembers past meetings", "icon": "brain"},
+        {"label": "5 images per query", "icon": "photo"}
       ],
       "status_items": [
         {"label": "Auto-summary", "value": "every 10 min", "icon": "clock"},

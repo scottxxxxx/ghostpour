@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -11,10 +11,10 @@
         "1クエリにつき画像1枚"
       ],
       "feature_items": [
-        {"text": "月約5時間のAIアシスタント", "icon": "checkmark"},
-        {"text": "リアルタイム自動要約", "icon": "doc"},
-        {"text": "デバイス上の文字起こし（無制限）", "icon": "checkmark"},
-        {"text": "1クエリにつき画像1枚", "icon": "photo"}
+        {"label": "月約5時間のAIアシスタント", "icon": "checkmark"},
+        {"label": "リアルタイム自動要約", "icon": "doc"},
+        {"label": "デバイス上の文字起こし（無制限）", "icon": "checkmark"},
+        {"label": "1クエリにつき画像1枚", "icon": "photo"}
       ],
       "status_items": [
         {"label": "自動要約", "value": "10分ごと", "icon": "clock"},
@@ -35,12 +35,12 @@
         "1クエリにつき画像3枚"
       ],
       "feature_items": [
-        {"text": "無制限のAIアシスタント付きミーティング", "icon": "checkmark"},
-        {"text": "スタンダードAI", "icon": "checkmark"},
-        {"text": "リアルタイム自動要約", "icon": "doc"},
-        {"text": "共有可能なミーティングレポート", "icon": "checkmark"},
-        {"text": "ミーティング間のプロジェクトチャット", "icon": "chat"},
-        {"text": "1クエリにつき画像3枚", "icon": "photo"}
+        {"label": "無制限のAIアシスタント付きミーティング", "icon": "checkmark"},
+        {"label": "スタンダードAI", "icon": "checkmark"},
+        {"label": "リアルタイム自動要約", "icon": "doc"},
+        {"label": "共有可能なミーティングレポート", "icon": "checkmark"},
+        {"label": "ミーティング間のプロジェクトチャット", "icon": "chat"},
+        {"label": "1クエリにつき画像3枚", "icon": "photo"}
       ],
       "status_items": [
         {"label": "自動要約", "value": "10分ごと", "icon": "clock"},
@@ -62,13 +62,13 @@
         "1クエリにつき画像5枚"
       ],
       "feature_items": [
-        {"text": "無制限のAIアシスタント付きミーティング", "icon": "checkmark"},
-        {"text": "レポートと分析のためのアドバンストAI", "icon": "checkmark.plus"},
-        {"text": "全文または差分要約（選択可能）", "icon": "doc"},
-        {"text": "共有可能なミーティングレポート", "icon": "checkmark"},
-        {"text": "ミーティング間のプロジェクトチャット", "icon": "chat"},
-        {"text": "ミーティングメモリー：AIが過去の会議を記憶", "icon": "brain"},
-        {"text": "1クエリにつき画像5枚", "icon": "photo"}
+        {"label": "無制限のAIアシスタント付きミーティング", "icon": "checkmark"},
+        {"label": "レポートと分析のためのアドバンストAI", "icon": "checkmark.plus"},
+        {"label": "全文または差分要約（選択可能）", "icon": "doc"},
+        {"label": "共有可能なミーティングレポート", "icon": "checkmark"},
+        {"label": "ミーティング間のプロジェクトチャット", "icon": "chat"},
+        {"label": "ミーティングメモリー：AIが過去の会議を記憶", "icon": "brain"},
+        {"label": "1クエリにつき画像5枚", "icon": "photo"}
       ],
       "status_items": [
         {"label": "自動要約", "value": "10分ごと", "icon": "clock"},
