@@ -352,11 +352,16 @@ async def rename_speaker(
     )
 
 
-# --- Speaker reassignment (merge multiple speaker labels onto self or another person) ---
+# --- Speaker reassignment (merge speaker labels in specific meetings onto self or another person) ---
+
+
+class FromLabel(BaseModel):
+    label: str
+    meeting_id: str
 
 
 class ReassignSpeakerRequest(BaseModel):
-    from_labels: list[str]
+    from_labels: list[FromLabel]
     to_self: bool | None = None
     to_person_id: str | None = None
 
@@ -367,11 +372,16 @@ async def reassign_speaker(
     body: ReassignSpeakerRequest,
     user: UserRecord = Depends(get_current_user),
 ):
-    """Proxy: reassign one or more speaker labels to the user (self) or another person.
+    """Proxy: reassign one or more speaker labels (scoped per-meeting) to the user (self)
+    or another person.
+
+    Each from_labels entry is {label, meeting_id} — meeting scoping prevents cross-meeting
+    over-reassignment when diarization assigns the same generic label (e.g. "Speaker 3")
+    to different real people across sessions.
 
     Body shape forwarded verbatim to CQ. CQ's response
-    `{patches_updated, connections_updated, entities_merged}` is returned unchanged.
-    Validation here ensures exactly one target is set so malformed requests fail
+    `{patches_updated, connections_updated, entities_merged, labels_skipped}` is returned
+    unchanged. Validation here ensures exactly one target is set so malformed requests fail
     fast without a CQ round-trip.
     """
     if user.id != user_id:

@@ -169,7 +169,13 @@ class TestReassignSpeaker:
 
             resp = client_with_cq.post(
                 f"/v1/quilt/{pro_user['user_id']}/reassign-speaker",
-                json={"from_labels": ["Speaker 4", "Unknown 1"], "to_self": True},
+                json={
+                    "from_labels": [
+                        {"label": "Speaker 4", "meeting_id": "m-aaa"},
+                        {"label": "Unknown 1", "meeting_id": "m-bbb"},
+                    ],
+                    "to_self": True,
+                },
                 headers=pro_user["headers"],
             )
 
@@ -178,7 +184,13 @@ class TestReassignSpeaker:
         assert captured["method"] == "POST"
         assert captured["path"] == f"/v1/quilt/{pro_user['user_id']}/reassign-speaker"
         # to_person_id is None and stripped; body forwarded verbatim otherwise
-        assert captured["body"] == {"from_labels": ["Speaker 4", "Unknown 1"], "to_self": True}
+        assert captured["body"] == {
+            "from_labels": [
+                {"label": "Speaker 4", "meeting_id": "m-aaa"},
+                {"label": "Unknown 1", "meeting_id": "m-bbb"},
+            ],
+            "to_self": True,
+        }
 
     def test_reassign_speaker_to_person_id_proxied(self, client_with_cq, pro_user):
         """POST reassign-speaker with to_person_id forwards person id, not to_self."""
@@ -203,18 +215,27 @@ class TestReassignSpeaker:
 
             resp = client_with_cq.post(
                 f"/v1/quilt/{pro_user['user_id']}/reassign-speaker",
-                json={"from_labels": ["Speaker 2"], "to_person_id": "person-uuid-123"},
+                json={
+                    "from_labels": [{"label": "Speaker 2", "meeting_id": "m-xyz"}],
+                    "to_person_id": "person-uuid-123",
+                },
                 headers=pro_user["headers"],
             )
 
         assert resp.status_code == 200
-        assert captured["body"] == {"from_labels": ["Speaker 2"], "to_person_id": "person-uuid-123"}
+        assert captured["body"] == {
+            "from_labels": [{"label": "Speaker 2", "meeting_id": "m-xyz"}],
+            "to_person_id": "person-uuid-123",
+        }
 
     def test_reassign_speaker_cross_user_forbidden(self, client_with_cq, pro_user):
         """Reassigning speakers in another user's quilt → 403."""
         resp = client_with_cq.post(
             "/v1/quilt/someone-else/reassign-speaker",
-            json={"from_labels": ["Speaker 1"], "to_self": True},
+            json={
+                "from_labels": [{"label": "Speaker 1", "meeting_id": "m-1"}],
+                "to_self": True,
+            },
             headers=pro_user["headers"],
         )
         assert resp.status_code == 403
@@ -223,7 +244,7 @@ class TestReassignSpeaker:
         """Neither to_self nor to_person_id → 422 from validation, no CQ call."""
         resp = client_with_cq.post(
             f"/v1/quilt/{pro_user['user_id']}/reassign-speaker",
-            json={"from_labels": ["Speaker 3"]},
+            json={"from_labels": [{"label": "Speaker 3", "meeting_id": "m-1"}]},
             headers=pro_user["headers"],
         )
         assert resp.status_code == 422
@@ -232,7 +253,11 @@ class TestReassignSpeaker:
         """Both to_self=true AND to_person_id → 422."""
         resp = client_with_cq.post(
             f"/v1/quilt/{pro_user['user_id']}/reassign-speaker",
-            json={"from_labels": ["Speaker 3"], "to_self": True, "to_person_id": "person-1"},
+            json={
+                "from_labels": [{"label": "Speaker 3", "meeting_id": "m-1"}],
+                "to_self": True,
+                "to_person_id": "person-1",
+            },
             headers=pro_user["headers"],
         )
         assert resp.status_code == 422
@@ -242,6 +267,15 @@ class TestReassignSpeaker:
         resp = client_with_cq.post(
             f"/v1/quilt/{pro_user['user_id']}/reassign-speaker",
             json={"from_labels": [], "to_self": True},
+            headers=pro_user["headers"],
+        )
+        assert resp.status_code == 422
+
+    def test_reassign_speaker_rejects_label_missing_meeting_id(self, client_with_cq, pro_user):
+        """from_labels item without meeting_id → 422 (Pydantic validation, no CQ call)."""
+        resp = client_with_cq.post(
+            f"/v1/quilt/{pro_user['user_id']}/reassign-speaker",
+            json={"from_labels": [{"label": "Speaker 3"}], "to_self": True},
             headers=pro_user["headers"],
         )
         assert resp.status_code == 422
