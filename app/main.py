@@ -18,10 +18,28 @@ from app.services.provider_router import ProviderRouter
 from app.services.rate_limiter import RateLimiter
 from app.services.usage_tracker import UsageTracker
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-)
+
+class _ExtraRenderingFormatter(logging.Formatter):
+    """Append non-standard LogRecord attrs (i.e. anything passed via extra={})
+    to the formatted line as `key=value` pairs, so callers' structured fields
+    are visible in stdout instead of silently dropped."""
+
+    _RESERVED = frozenset(logging.LogRecord("", 0, "", 0, "", None, None).__dict__.keys()) | {"message", "asctime"}
+
+    def format(self, record: logging.LogRecord) -> str:
+        base = super().format(record)
+        extras = {
+            k: v for k, v in record.__dict__.items()
+            if k not in self._RESERVED and not k.startswith("_")
+        }
+        if not extras:
+            return base
+        return f"{base} " + " ".join(f"{k}={v}" for k, v in extras.items())
+
+
+_handler = logging.StreamHandler()
+_handler.setFormatter(_ExtraRenderingFormatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+logging.basicConfig(level=logging.INFO, handlers=[_handler], force=True)
 
 
 @asynccontextmanager
