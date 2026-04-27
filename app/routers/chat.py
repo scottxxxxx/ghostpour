@@ -20,6 +20,60 @@ from app.models.user import UserRecord
 router = APIRouter()
 
 
+_PROJECT_CHAT_FALLBACK_TEASER = (
+    "Project Chat is a Plus feature. "
+    "Upgrade to ask AI questions across all your meetings in this project."
+)
+
+
+def _project_chat_teaser_response(request: Request) -> JSONResponse:
+    """Build a canned upsell response when Project Chat is in teaser state.
+
+    No LLM call, no allocation charge. Localized teaser_response is read
+    from feature_definitions.project_chat in the active locale's tiers
+    config; falls back to features.yml; finally to a hardcoded English
+    string. Response shape mirrors a normal chat response so iOS renders
+    the text as a regular AI bubble.
+    """
+    from app.routers.config import _parse_accept_language
+
+    locale = _parse_accept_language(request.headers.get("Accept-Language"))
+    configs = request.app.state.remote_configs
+    localized_name = f"tiers.{locale}" if locale else None
+
+    teaser_text: str | None = None
+    for slug in (localized_name, "tiers"):
+        if slug and slug in configs:
+            pc = configs[slug].get("feature_definitions", {}).get("project_chat", {})
+            if pc.get("teaser_response"):
+                teaser_text = pc["teaser_response"]
+                break
+
+    if not teaser_text:
+        feature_config = request.app.state.feature_config
+        pc = feature_config.features.get("project_chat")
+        if pc and pc.teaser_response:
+            teaser_text = pc.teaser_response
+
+    if not teaser_text:
+        teaser_text = _PROJECT_CHAT_FALLBACK_TEASER
+
+    headers = {"X-Locale-Resolved": locale or "en"} if locale else {}
+    return JSONResponse(
+        content={
+            "text": teaser_text,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "model": "ghostpour-canned",
+            "provider": "ghostpour",
+            "ai_tier": "standard",
+            "usage": {},
+            "cost": {"total_cost": 0.0, "input_cost": 0.0, "output_cost": 0.0},
+        },
+        headers=headers,
+    )
+
+
 def _resolve_model_routing(
     request: Request, body: ChatRequest, tier, tier_name: str
 ) -> str | None:
@@ -589,6 +643,17 @@ async def chat(
             status_code=500,
             detail={"code": "invalid_request", "message": f"Unknown tier: {effective_tier_name}"},
         )
+
+    # 1.5. Project Chat teaser intercept — when project_chat is in "teaser"
+    # state for the user's tier (today: free), return a canned upsell
+    # response with no LLM call and no allocation charge. iOS renders the
+    # text as a normal chat bubble. Future: switch to "give one real turn
+    # then lock" by changing this branch's behavior — config stays the same.
+    if (
+        tier.feature_state("project_chat") == "teaser"
+        and body.get_meta("prompt_mode") == "ProjectChat"
+    ):
+        return _project_chat_teaser_response(request)
 
     # 2. Resolve "auto" model — check model-routing config first, then tier default
     if body.model == "auto" or body.provider == "auto":

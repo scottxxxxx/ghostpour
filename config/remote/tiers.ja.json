@@ -1,5 +1,5 @@
 {
-  "version": 7,
+  "version": 8,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -90,6 +90,13 @@
       "description": "ミーティングの記録から共有可能なHTMLレポートを生成 — 感情分析、重要な瞬間、推奨タグ、メモ。",
       "teaser_description": "レポートでミーティングを共有可能なサマリーに。",
       "upgrade_cta": "Plusにアップグレードして共有可能なミーティングレポートを生成"
+    },
+    "project_chat": {
+      "display_name": "プロジェクトチャット",
+      "description": "プロジェクト内のすべてのミーティングにわたってAIに質問できます — AIがコンテキストを理解しています。",
+      "teaser_description": "プロジェクトチャットはPlus機能です。",
+      "upgrade_cta": "Plusにアップグレードしてプロジェクトチャットをご利用ください",
+      "teaser_response": "プロジェクトチャットはPlus機能です。Plusにアップグレードして、このプロジェクトのすべてのミーティングにわたるAI質問をご利用ください。"
     }
   }
 }

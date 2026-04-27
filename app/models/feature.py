@@ -24,6 +24,7 @@ class FeatureDefinition(BaseModel):
     description: str = ""
     teaser_description: str = ""
     upgrade_cta: str = ""
+    teaser_response: str = ""  # Canned chat-bubble text returned in lieu of an LLM call when feature is in "teaser" state
     category: str = ""
     service_module: str = ""
     capture_skip_modes: list[str] = []  # prompt_mode values that skip capture

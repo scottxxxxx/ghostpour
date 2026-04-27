@@ -80,6 +80,42 @@ class TestChatQuota:
 # ---------------------------------------------------------------------------
 
 
+class TestProjectChatTeaser:
+    def test_free_user_project_chat_returns_canned_no_llm(self, client, free_user, mock_provider):
+        """Free tier (project_chat=teaser) → canned upsell text, no LLM call, no charge."""
+        resp = client.post(
+            "/v1/chat",
+            json=chat_request(prompt_mode="ProjectChat"),
+            headers=free_user["headers"],
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        # Canned response shape — looks like a normal chat bubble to iOS
+        assert "Project Chat" in data["text"]
+        assert "Plus" in data["text"]
+        assert data["model"] == "ghostpour-canned"
+        assert data["provider"] == "ghostpour"
+        assert data["input_tokens"] == 0
+        assert data["output_tokens"] == 0
+        assert data["cost"]["total_cost"] == 0.0
+        # No LLM call should have happened
+        mock_provider.assert_not_called()
+
+    def test_pro_user_project_chat_uses_llm(self, client, pro_user, mock_provider):
+        """Pro tier (project_chat=enabled) → real LLM call, not the canned upsell."""
+        resp = client.post(
+            "/v1/chat",
+            json=chat_request(prompt_mode="ProjectChat"),
+            headers=pro_user["headers"],
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["model"] != "ghostpour-canned"
+        # Pro tier uses Anthropic via mock provider
+        assert data["provider"] == "anthropic"
+        mock_provider.assert_called_once()
+
+
 class TestChatModelAccess:
     def test_free_tier_blocked_provider(self, client, free_user):
         """Free tier requesting a provider not in allowed_providers → 403."""

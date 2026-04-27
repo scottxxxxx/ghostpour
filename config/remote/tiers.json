@@ -1,5 +1,5 @@
 {
-  "version": 7,
+  "version": 8,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -90,6 +90,13 @@
       "description": "Generate shareable HTML reports from your meeting transcripts — sentiment, key moments, suggested tags, and your speaker notes.",
       "teaser_description": "Reports turn your meetings into shareable summaries.",
       "upgrade_cta": "Upgrade to Plus to generate shareable meeting reports"
+    },
+    "project_chat": {
+      "display_name": "Project Chat",
+      "description": "Ask AI questions across all the meetings in a project — your AI knows the context.",
+      "teaser_description": "Project Chat is a Plus feature.",
+      "upgrade_cta": "Upgrade to Plus to use Project Chat",
+      "teaser_response": "Project Chat is a Plus feature. Upgrade to ask AI questions across all your meetings in this project."
     }
   }
 }

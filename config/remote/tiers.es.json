@@ -1,5 +1,5 @@
 {
-  "version": 7,
+  "version": 8,
   "tiers": {
     "free": {
       "display_name": "Gratis",
@@ -90,6 +90,13 @@
       "description": "Genera informes HTML compartibles desde las transcripciones de tus reuniones — análisis de sentimiento, momentos clave, etiquetas sugeridas y tus notas.",
       "teaser_description": "Convierte tus reuniones en resúmenes compartibles.",
       "upgrade_cta": "Actualiza a Plus para generar informes de reuniones compartibles"
+    },
+    "project_chat": {
+      "display_name": "Chat de proyecto",
+      "description": "Hazle preguntas a la IA en todas las reuniones de un proyecto — tu IA conoce el contexto.",
+      "teaser_description": "Chat de proyecto es una función Plus.",
+      "upgrade_cta": "Actualiza a Plus para usar Chat de proyecto",
+      "teaser_response": "Chat de proyecto es una función Plus. Actualiza a Plus para hacerle preguntas a la IA a través de todas tus reuniones en este proyecto."
     }
   }
 }
