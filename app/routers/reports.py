@@ -59,11 +59,27 @@ async def generate_report(
     provider_router = request.app.state.provider_router
     pricing = request.app.state.pricing
     usage_tracker = request.app.state.usage_tracker
+    rate_limiter = request.app.state.rate_limiter
     tier_config = request.app.state.tier_config
 
     tier = tier_config.tiers.get(user.effective_tier)
     if not tier:
         raise HTTPException(status_code=500, detail="Unknown tier")
+
+    # Enforce rate limit and monthly allocation BEFORE expensive work.
+    # Without these, an exhausted user could keep generating reports and
+    # GP would eat the cost (cost is recorded post-call).
+    allowed, retry_after = rate_limiter.check(user.id, tier.requests_per_minute)
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "code": "rate_limited",
+                "message": f"Rate limit exceeded. Try again in {retry_after} seconds.",
+                "details": {"retry_after": retry_after},
+            },
+        )
+    await usage_tracker.check_quota(db, user, tier)
 
     # 1. Gather meeting data
     meeting_data = await gather_meeting_data(db, user.id, meeting_id)
