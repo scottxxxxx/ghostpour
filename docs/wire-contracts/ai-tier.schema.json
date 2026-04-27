@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/scottxxxxx/ghostpour/docs/wire-contracts/ai-tier.schema.json#v1",
+  "title": "AITier",
+  "description": "Abstract subscription-tier label that clients render instead of the underlying model identity. Decoupled from the model name on purpose — the tier label is what the user is paying for, not what model happened to answer the request. This lets GP swap models per tier without breaking client attribution UI.",
+  "type": ["string", "null"],
+  "enum": [
+    "standard",
+    "advanced",
+    "free",
+    null
+  ],
+  "x-mapping": {
+    "by_subscription_tier": {
+      "free": "standard",
+      "plus": "standard",
+      "pro": "advanced",
+      "admin": "advanced"
+    },
+    "sentinel": {
+      "free": "Server-generated upsell bubble (no LLM call). Distinct from the \"standard\" badge so clients can suppress AI attribution UI on these rows. Co-occurs with `model: \"ghostpour-canned\"`."
+    },
+    "null": "Field absent or null on cached responses generated before the abstraction shipped (PR #79, 2026-04-27). Clients should fall back to the raw model name in that case (or skip attribution per their product policy)."
+  },
+  "x-appears-in": [
+    {
+      "endpoint": "POST /v1/chat",
+      "field_path": "$.ai_tier",
+      "since": "PR #79 (2026-04-27)"
+    },
+    {
+      "endpoint": "POST /v1/chat (SSE)",
+      "field_path": "done event $.ai_tier",
+      "since": "PR #79 (2026-04-27)"
+    },
+    {
+      "endpoint": "POST /v1/meetings/{meeting_id}/report",
+      "field_path": "$.ai_tier",
+      "since": "PR #79 (2026-04-27)"
+    },
+    {
+      "endpoint": "GET /v1/meetings/{meeting_id}/report",
+      "field_path": "$.ai_tier",
+      "since": "PR #79 (2026-04-27); reports generated before deploy return null"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/scottxxxxx/ghostpour/docs/wire-contracts/tier-row-item.schema.json#v1",
+  "title": "TierRowItem",
+  "description": "A single row entry in either feature_items[] or status_items[] under tiers.{tier_name} in the /v1/tiers response. Both arrays share this shape; the only structural difference is that status rows populate `value` while feature rows do not.",
+  "type": "object",
+  "required": ["label", "icon"],
+  "additionalProperties": false,
+  "properties": {
+    "label": {
+      "type": "string",
+      "description": "Primary text rendered in the row. Pre-localized — clients do no string interpolation.",
+      "minLength": 1
+    },
+    "value": {
+      "type": "string",
+      "description": "Secondary text. Present on status_items rows (e.g. \"every 10 min\"). Absent on feature_items rows."
+    },
+    "icon": {
+      "type": "string",
+      "description": "Icon identifier from a controlled vocabulary, mapped on the client side to platform-specific glyphs (SF Symbols on iOS).",
+      "enum": [
+        "checkmark",
+        "checkmark.plus",
+        "doc",
+        "photo",
+        "brain",
+        "chat",
+        "clock",
+        "sparkles",
+        "cpu"
+      ]
+    },
+    "state": {
+      "type": "string",
+      "description": "Optional row state. When omitted, treated as \"enabled\". Drives client-side row tint (e.g. iOS renders teaser/locked rows in orange, enabled rows in secondary).",
+      "enum": ["enabled", "teaser", "locked"]
+    }
+  }
+}
