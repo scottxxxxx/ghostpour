@@ -73,7 +73,7 @@ class ChatResponse(BaseModel):
     output_tokens: int | None = None
     model: str
     provider: str
-    # Abstract tier label ("standard" | "advanced" | "canned") that clients
+    # Abstract tier label ("standard" | "advanced" | "free") that clients
     # should render instead of `model`. Set by the route handler from the
     # user's subscription tier — NOT derived from the model identity, so we
     # can swap models per tier without breaking iOS attribution.

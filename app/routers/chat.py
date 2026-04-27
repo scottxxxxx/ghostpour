@@ -67,8 +67,10 @@ def _project_chat_teaser_response(request: Request) -> JSONResponse:
             "model": "ghostpour-canned",
             "provider": "ghostpour",
             # Sentinel — distinct from "standard" / "advanced" so iOS can
-            # recognize and suppress AI attribution UI on canned responses.
-            "ai_tier": "canned",
+            # render server-generated upsell bubbles differently from real
+            # AI responses. May later be split from "standard" at the badge
+            # level if free-tier UX diverges further.
+            "ai_tier": "free",
             "usage": {},
             "cost": {"total_cost": 0.0, "input_cost": 0.0, "output_cost": 0.0},
         },
