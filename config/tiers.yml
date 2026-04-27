@@ -51,7 +51,7 @@ tiers:
     features:
       context_quilt: "disabled"
       meeting_reports: "enabled"
-      project_chat: "disabled"
+      project_chat: "teaser"
     feature_bullets:
       - "~5 hours/month of AI assistance"
       - "Real-time auto-summaries"
