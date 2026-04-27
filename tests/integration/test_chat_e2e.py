@@ -95,6 +95,8 @@ class TestProjectChatTeaser:
         assert "Plus" in data["text"]
         assert data["model"] == "ghostpour-canned"
         assert data["provider"] == "ghostpour"
+        # ai_tier is the "canned" sentinel, distinct from standard/advanced.
+        assert data["ai_tier"] == "canned"
         assert data["input_tokens"] == 0
         assert data["output_tokens"] == 0
         assert data["cost"]["total_cost"] == 0.0

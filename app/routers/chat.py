@@ -66,7 +66,9 @@ def _project_chat_teaser_response(request: Request) -> JSONResponse:
             "output_tokens": 0,
             "model": "ghostpour-canned",
             "provider": "ghostpour",
-            "ai_tier": "standard",
+            # Sentinel — distinct from "standard" / "advanced" so iOS can
+            # recognize and suppress AI attribution UI on canned responses.
+            "ai_tier": "canned",
             "usage": {},
             "cost": {"total_cost": 0.0, "input_cost": 0.0, "output_cost": 0.0},
         },
