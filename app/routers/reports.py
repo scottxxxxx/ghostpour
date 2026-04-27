@@ -39,7 +39,18 @@ class ReportRequest(BaseModel):
     tag_taxonomy: list[str] | None = None  # Custom tags; defaults to built-in 8
     meeting_start_iso: str | None = None  # ISO 8601 with timezone, e.g. "2026-04-14T13:01:00-05:00"
     timezone_abbr: str | None = None  # e.g. "CST", "EST", "IST" — from device locale
-    quality: str | None = None  # "fast" = lighter model, "best" = premium model (default)
+
+
+# Server-controlled per-tier report model. Clients do not pick.
+# Pro gets Advanced AI (Sonnet) per the tier promise; everyone else
+# gets Standard AI (Haiku) which matches the "Standard AI" feature
+# bullet for Plus and the breakeven margin math in tiers.yml.
+_REPORT_MODEL_BY_TIER = {
+    "free": "claude-haiku-4-5-20251001",
+    "plus": "claude-haiku-4-5-20251001",
+    "pro": "claude-sonnet-4-6",
+    "admin": "claude-sonnet-4-6",
+}
 
 
 @router.post("/meetings/{meeting_id}/report")
@@ -101,14 +112,10 @@ async def generate_report(
         tag_taxonomy=body.tag_taxonomy,
     )
 
-    # 3. Select model — respect explicit quality from client, else tier-based
-    if body.quality == "fast":
-        report_model = "claude-haiku-4-5-20251001"
-    elif body.quality == "best":
-        report_model = "claude-sonnet-4-6"
-    else:
-        # No explicit quality: free tier gets lighter model, paid tiers get premium
-        report_model = "claude-haiku-4-5-20251001" if user.effective_tier == "free" else "claude-sonnet-4-6"
+    # 3. Select model — server-controlled per tier. Clients do not pick.
+    report_model = _REPORT_MODEL_BY_TIER.get(
+        user.effective_tier, "claude-haiku-4-5-20251001"
+    )
     report_provider = "anthropic"
 
     chat_request = ChatRequest(
