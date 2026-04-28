@@ -95,7 +95,15 @@
       "description": "プロジェクト内のすべてのミーティングにわたってAIに質問できます — AIがコンテキストを理解しています。",
       "teaser_description": "プロジェクトチャットはPlus機能です。",
       "upgrade_cta": "Plusにアップグレードしてプロジェクトチャットをご利用ください",
-      "teaser_response": "プロジェクトチャットはPlus機能です。Plusにアップグレードして、このプロジェクトのすべてのミーティングにわたるAI質問をご利用ください。"
+      "teaser_response": "プロジェクトチャットはPlus機能です。Plusにアップグレードして、このプロジェクトのすべてのミーティングにわたるAI質問をご利用ください。",
+      "gp_chat_flag": "plus",
+      "free_quota_per_month": 1,
+      "cta_strings": {
+        "quota_remaining": "今月の無料プロジェクトチャットは残り{remaining}/{total}回です。Plusにアップグレードすると無制限にご利用いただけます。",
+        "quota_exhausted": "今月の無料プロジェクトチャット{total}回をすべて使い切りました。Plusにアップグレードすると無制限にご利用いただけます。",
+        "unlimited": "Shoulder Surfのプロジェクトチャット。",
+        "login_required": "プロジェクトチャットを使用するにはサインインしてください。"
+      }
     }
   }
 }

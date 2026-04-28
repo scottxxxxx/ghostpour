@@ -270,6 +270,12 @@ async def verify_receipt(
                     now.isoformat(), trial_end, body.transaction_id, user.id,
                 ),
             )
+            # Zero Project Chat quota counter on Free → trial upgrade so
+            # the new subscriber doesn't start with stale counts that
+            # would surface in feature_state on the first send.
+            if old_tier_name == "free":
+                from app.services.project_chat_quota import zero_quota_on_tier_change
+                await zero_quota_on_tier_change(db, user.id)
         else:
             # Idempotent re-verification — only update limit, txn_id, and timestamp.
             # Preserve monthly_used_usd, allocation_resets_at, trial_start, trial_end.
@@ -324,6 +330,10 @@ async def verify_receipt(
                 now.isoformat(), body.transaction_id, user.id,
             ),
         )
+        # Zero Project Chat quota counter on Free → paid upgrade.
+        if old_tier_name == "free":
+            from app.services.project_chat_quota import zero_quota_on_tier_change
+            await zero_quota_on_tier_change(db, user.id)
     else:
         # Idempotent re-verification — preserve allocation state
         await db.execute(
@@ -706,16 +716,55 @@ async def chat(
             detail={"code": "invalid_request", "message": f"Unknown tier: {effective_tier_name}"},
         )
 
-    # 1.5. Project Chat teaser intercept — when project_chat is in "teaser"
-    # state for the user's tier (today: free), return a canned upsell
-    # response with no LLM call and no allocation charge. iOS renders the
-    # text as a normal chat bubble. Future: switch to "give one real turn
-    # then lock" by changing this branch's behavior — config stays the same.
-    if (
-        tier.feature_state("project_chat") == "teaser"
-        and body.get_meta("prompt_mode") == "ProjectChat"
-    ):
-        return _project_chat_teaser_response(request)
+    # 1.5. Project Chat policy gate. Re-resolves the verdict server-side
+    # so we can't be tricked by a client that skipped /v1/features/project-chat/check.
+    # See app/services/project_chat_policy.py and
+    # docs/wire-contracts/project-chat.md for the full state matrix.
+    project_chat_cta_kind = None
+    project_chat_quota = None
+    project_chat_pc_config = None
+    if body.get_meta("prompt_mode") == "ProjectChat":
+        from app.routers.config import _parse_accept_language
+        from app.routers.features import _get_project_chat_config
+        from app.services.project_chat_policy import resolve_project_chat_verdict
+        from app.services.project_chat_quota import read_quota_state
+
+        _pc_locale = _parse_accept_language(request.headers.get("Accept-Language"))
+        project_chat_pc_config = _get_project_chat_config(request, _pc_locale)
+        gp_chat_flag = project_chat_pc_config.get("gp_chat_flag", "plus")
+        free_quota_per_month = project_chat_pc_config.get("free_quota_per_month", 1)
+        selected_model = body.get_meta("selected_model") or "ssai"
+        if user.effective_tier == "free":
+            project_chat_quota = read_quota_state(user, free_quota_per_month)
+            has_quota = project_chat_quota.has_quota
+        else:
+            has_quota = True
+
+        verdict = resolve_project_chat_verdict(
+            is_logged_in=True,  # /v1/chat already requires JWT
+            tier=user.effective_tier,
+            gp_chat_flag=gp_chat_flag,
+            selected_model=selected_model,  # type: ignore[arg-type]
+            has_quota=has_quota,
+            free_quota_per_month=free_quota_per_month,
+        )
+
+        if verdict.verdict == "login_required":
+            # Should be unreachable since /v1/chat requires JWT, but defense
+            # in depth in case auth changes.
+            raise HTTPException(
+                status_code=401,
+                detail={"code": "login_required"},
+            )
+        if verdict.verdict == "send_to_user_model":
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "use_user_model"},
+            )
+        # send_to_gp / send_to_gp_with_cta both proceed through the normal
+        # LLM path. Track the CTA kind so we can populate feature_state on
+        # the response.
+        project_chat_cta_kind = verdict.cta_kind
 
     # 1.6. Protected-prompts context gate. iOS already enforces requiresContext
     # client-side; this closes the bypass loophole when a non-iOS or modified
@@ -823,9 +872,17 @@ async def chat(
         effective_limit = tier.trial_cost_limit_usd
 
     # 6. Stream or non-stream based on request + call_type
-    # Only stream interactive queries; background tasks (summary, analysis) get full JSON
+    # Only stream interactive queries; background tasks (summary, analysis) get full JSON.
+    # Project Chat is also forced non-streaming so feature_state can land
+    # cleanly in the JSON body (SSE injection of structured trailer fields
+    # would require a separate event type and client-side merge).
     call_type = body.get_meta("call_type")
-    should_stream = body.stream and call_type not in ("summary", "analysis")
+    is_project_chat = body.get_meta("prompt_mode") == "ProjectChat"
+    should_stream = (
+        body.stream
+        and call_type not in ("summary", "analysis")
+        and not is_project_chat
+    )
 
     if should_stream:
         return await _handle_stream(
@@ -881,6 +938,54 @@ async def chat(
 
     # 10. Build response with allocation headers
     response_data = response.model_dump()
+
+    # Project Chat: populate feature_state in the response and decrement
+    # the per-user counter when the verdict was send_to_gp_with_cta. The
+    # decrement happens after the LLM call so we don't burn quota on
+    # upstream failures (which raise above before reaching this point).
+    if body.get_meta("prompt_mode") == "ProjectChat" and project_chat_pc_config is not None:
+        from app.services.project_chat_policy import render_cta_text
+        from app.services.project_chat_quota import decrement_quota, read_quota_state
+
+        feature_state = {
+            "feature": "project_chat",
+            "policy_mode": project_chat_pc_config.get("gp_chat_flag", "plus"),
+        }
+
+        if project_chat_cta_kind is not None and user.effective_tier == "free":
+            free_quota_per_month = project_chat_pc_config.get("free_quota_per_month", 1)
+            await decrement_quota(db, user.id)
+            await db.commit()
+            # Re-read after decrement so feature_state reflects post-send count.
+            cursor = await db.execute(
+                "SELECT project_chat_used_this_period, project_chat_period FROM users WHERE id = ?",
+                (user.id,),
+            )
+            row = await cursor.fetchone()
+            user_post = user.model_copy(update={
+                "project_chat_used_this_period": int(row["project_chat_used_this_period"] or 0),
+                "project_chat_period": row["project_chat_period"],
+            })
+            quota_post = read_quota_state(user_post, free_quota_per_month)
+            cta_strings = project_chat_pc_config.get("cta_strings", {})
+            cta_text = render_cta_text(
+                project_chat_cta_kind,
+                cta_strings,
+                remaining=quota_post.remaining if quota_post.remaining is not None else 0,
+                total=quota_post.total,
+            )
+            feature_state["quota_remaining"] = (
+                quota_post.remaining if quota_post.remaining is not None else None
+            )
+            feature_state["quota_total"] = quota_post.total
+            feature_state["quota_resets_at"] = quota_post.resets_at
+            feature_state["cta"] = {
+                "kind": project_chat_cta_kind,
+                "text": cta_text,
+            }
+
+        response_data["feature_state"] = feature_state
+
     json_response = JSONResponse(content=response_data)
 
     if effective_limit != -1:
