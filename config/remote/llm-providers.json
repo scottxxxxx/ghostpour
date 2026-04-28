@@ -258,26 +258,26 @@
       "temperatureDefault": 0.7,
       "models": [
         {
-          "id": "deepseek-reasoner",
-          "displayName": "DeepSeek R1 (Reasoner)",
-          "description": "V3.2 thinking mode; chain-of-thought reasoning (R1 lineage), strong math and logic.",
-          "isDefault": false,
-          "supportsVision": false,
-          "contextWindow": 131072,
-          "inputCostPerMillion": 0.55,
-          "outputCostPerMillion": 2.19,
-          "litellmKey": "deepseek/deepseek-reasoner"
-        },
-        {
-          "id": "deepseek-chat",
-          "displayName": "DeepSeek V3.2",
-          "description": "V3.2 non-thinking mode; general-purpose chat, tool calling, JSON output.",
+          "id": "deepseek-v4-flash",
+          "displayName": "DeepSeek V4 Flash",
+          "description": "MoE 284B/13B active, 1M context. Dual mode (thinking / non-thinking). Cheapest frontier text-only chat.",
           "isDefault": true,
           "supportsVision": false,
-          "contextWindow": 131072,
-          "inputCostPerMillion": 0.27,
-          "outputCostPerMillion": 1.1,
-          "litellmKey": "deepseek/deepseek-chat"
+          "contextWindow": 1048576,
+          "inputCostPerMillion": 0.14,
+          "outputCostPerMillion": 0.28,
+          "litellmKey": "deepseek/deepseek-v4-flash"
+        },
+        {
+          "id": "deepseek-v4-pro",
+          "displayName": "DeepSeek V4 Pro",
+          "description": "MoE 1.6T/49B active, 1M context. Dual mode (thinking / non-thinking). Frontier reasoning, math, code. (75% promo discount until 2026-05-31; regular pricing shown.)",
+          "isDefault": false,
+          "supportsVision": false,
+          "contextWindow": 1048576,
+          "inputCostPerMillion": 1.74,
+          "outputCostPerMillion": 3.48,
+          "litellmKey": "deepseek/deepseek-v4-pro"
         }
       ],
       "notes": "DeepSeek cloud models. Text-only.",
@@ -488,15 +488,26 @@
           "litellmKey": "openrouter/openai/gpt-5"
         },
         {
-          "id": "deepseek/deepseek-v3.2",
-          "displayName": "DeepSeek V3.2 (OR)",
-          "description": "Cheapest frontier model for text-only queries. Strong summarization, no vision support.",
+          "id": "deepseek/deepseek-v4-flash",
+          "displayName": "DeepSeek V4 Flash (OR)",
+          "description": "Cheapest frontier text-only chat. 1M context, dual-mode reasoning. Great for summarization at scale.",
           "isDefault": false,
           "supportsVision": false,
-          "contextWindow": 163840,
-          "inputCostPerMillion": 0.26,
-          "outputCostPerMillion": 0.38,
-          "litellmKey": "openrouter/deepseek/deepseek-v3.2"
+          "contextWindow": 1048576,
+          "inputCostPerMillion": 0.14,
+          "outputCostPerMillion": 0.28,
+          "litellmKey": "openrouter/deepseek/deepseek-v4-flash"
+        },
+        {
+          "id": "deepseek/deepseek-v4-pro",
+          "displayName": "DeepSeek V4 Pro (OR)",
+          "description": "Frontier text-only reasoning. 1.6T/49B active params, 1M context, dual-mode. (75% promo discount until 2026-05-31; regular pricing shown.)",
+          "isDefault": false,
+          "supportsVision": false,
+          "contextWindow": 1048576,
+          "inputCostPerMillion": 1.74,
+          "outputCostPerMillion": 3.48,
+          "litellmKey": "openrouter/deepseek/deepseek-v4-pro"
         },
         {
           "id": "perplexity/sonar",
