@@ -14,8 +14,12 @@ services:
 
   # Continuous SQLite → GCS replication for DR. Reads the same data
   # volume as the GhostPour app and streams WAL frames to
-  # gs://ghostpour-prod-db-backups. Auth via the VM's default Compute
-  # Engine SA (granted roles/storage.objectAdmin on the bucket).
+  # gs://ghostpour-prod-db-backups. Auth via a dedicated service account
+  # key (gp-backup-sa@weirtech-shared-infra) — the VM's default
+  # Compute Engine SA only had devstorage.read_only scope, which broke
+  # replication after the initial snapshot. The key file lives at
+  # /opt/ghostpour/gp-backup-sa.json on the VM (root:root, 600) and is
+  # mounted read-only into this container.
   # Restore runbook: ghostpour-ops/docs/disaster-recovery.md.
   litestream:
     image: litestream/litestream:0.3.13
@@ -24,6 +28,9 @@ services:
     volumes:
       - ghostpour-data:/data
       - ./litestream.yml:/etc/litestream.yml:ro
+      - ./gp-backup-sa.json:/etc/gcp-credentials.json:ro
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /etc/gcp-credentials.json
     command: replicate -config /etc/litestream.yml
     depends_on:
       - ghostpour
