@@ -41,10 +41,10 @@ providers:
       anthropic-version: "2023-06-01"
     env_key: "anthropic_api_key"
     models:
-      - id: "claude-sonnet-4-6"
+      - id: "claude-opus-4-7"
         supports_vision: true
         max_tokens_default: 4096
-      - id: "claude-opus-4-6"
+      - id: "claude-sonnet-4-6"
         supports_vision: true
         max_tokens_default: 4096
       - id: "claude-haiku-4-5-20251001"
