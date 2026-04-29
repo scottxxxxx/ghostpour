@@ -21,6 +21,12 @@ providers:
     extra_headers: {}
     env_key: "openai_api_key"
     models:
+      - id: "gpt-5.5"
+        supports_vision: true
+        max_tokens_default: 4096
+      - id: "gpt-5.5-pro"
+        supports_vision: true
+        max_tokens_default: 4096
       - id: "gpt-5.2"
         supports_vision: true
         max_tokens_default: 4096
@@ -41,10 +47,10 @@ providers:
       anthropic-version: "2023-06-01"
     env_key: "anthropic_api_key"
     models:
-      - id: "claude-sonnet-4-6"
+      - id: "claude-opus-4-7"
         supports_vision: true
         max_tokens_default: 4096
-      - id: "claude-opus-4-6"
+      - id: "claude-sonnet-4-6"
         supports_vision: true
         max_tokens_default: 4096
       - id: "claude-haiku-4-5-20251001"
@@ -64,6 +70,9 @@ providers:
         supports_vision: true
         max_tokens_default: 4096
       - id: "gemini-3-flash-preview"
+        supports_vision: true
+        max_tokens_default: 4096
+      - id: "gemini-3.1-flash-lite-preview"
         supports_vision: true
         max_tokens_default: 4096
 
