@@ -291,7 +291,7 @@ def build_report_prompt(
     transcript = meeting_data.get("transcript") or "(No transcript available)"
     summary = meeting_data.get("summary") or "(No summary available)"
     queries = meeting_data.get("queries", [])
-    attendee_list = attendees or ["(attendees not specified)"]
+    attendee_list = attendees or ["No named speakers identified"]
     tags = tag_taxonomy or _DEFAULT_TAG_TAXONOMY
 
     queries_json = json.dumps(queries, indent=2) if queries else "[]"
@@ -378,15 +378,20 @@ def render_report_html(report_json: dict, metadata: dict) -> str:
         r'<td style="vertical-align:bottom;">.*?</td>')
 
     # Actions
-    actions_html = "".join(
-        f'<tr style="border-bottom:1px solid #f0e0d8;">'
-        f'<td style="padding:10px 12px 10px 0;width:96px;vertical-align:top;">'
-        f'<span style="background:{_PRIORITY_BG.get(a.get("priority", "standard"), "#1a1a1a")};color:#ffffff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:3px;white-space:nowrap;">{_esc(a.get("owner", ""))}</span>'
-        f'</td>'
-        f'<td style="padding:10px 0;font-size:12px;color:#333;line-height:1.6;">{_esc(a.get("task", ""))}{" <strong>" + _esc(a["deadline"]) + "</strong>" if a.get("deadline") else ""}</td>'
-        f'</tr>'
-        for a in actions
-    )
+    if actions:
+        actions_html = "".join(
+            f'<tr style="border-bottom:1px solid #f0e0d8;">'
+            f'<td style="padding:10px 12px 10px 0;width:96px;vertical-align:top;">'
+            f'<span style="background:{_PRIORITY_BG.get(a.get("priority", "standard"), "#1a1a1a")};color:#ffffff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:3px;white-space:nowrap;">{_esc(a.get("owner", ""))}</span>'
+            f'</td>'
+            f'<td style="padding:10px 0;font-size:12px;color:#333;line-height:1.6;">{_esc(a.get("task", ""))}{" <strong>" + _esc(a["deadline"]) + "</strong>" if a.get("deadline") else ""}</td>'
+            f'</tr>'
+            for a in actions
+        )
+    else:
+        actions_html = (
+            '<tr><td colspan="2" style="padding:10px 0;font-size:12px;color:#888;font-style:italic;line-height:1.6;">None identified</td></tr>'
+        )
     html = _replace_each(html, "actions", actions_html,
         r'<tr style="border-bottom:1px solid #f0e0d8;">.*?</tr>')
 
