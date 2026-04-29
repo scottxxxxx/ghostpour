@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "providers": [
     {
       "id": "cloudzap",
@@ -67,10 +67,32 @@
       "temperatureDefault": 0.7,
       "models": [
         {
+          "id": "gpt-5.5",
+          "displayName": "GPT-5.5",
+          "description": "El modelo mas inteligente de OpenAI; razonamiento mas fuerte, tareas agentivas, analisis de documentos. Contexto 1M.",
+          "isDefault": true,
+          "supportsVision": true,
+          "contextWindow": 1050000,
+          "inputCostPerMillion": 5.0,
+          "outputCostPerMillion": 30.0,
+          "litellmKey": "gpt-5.5"
+        },
+        {
+          "id": "gpt-5.5-pro",
+          "displayName": "GPT-5.5 Pro",
+          "description": "Nivel premium de precision de GPT-5.5. Ideal cuando la exactitud importa mas que el costo.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 1050000,
+          "inputCostPerMillion": 30.0,
+          "outputCostPerMillion": 180.0,
+          "litellmKey": "gpt-5.5-pro"
+        },
+        {
           "id": "gpt-5.2",
           "displayName": "GPT-5.2",
-          "description": "Modelo de proposito general de primera linea; el mas potente en razonamiento, trabajo intelectual, analisis de documentos y tareas agentivas.",
-          "isDefault": true,
+          "description": "Modelo de proposito general de generacion anterior. Menor costo que 5.5 para tareas rutinarias.",
+          "isDefault": false,
           "supportsVision": true,
           "contextWindow": 400000,
           "inputCostPerMillion": 1.75,
@@ -119,23 +141,23 @@
       "temperatureDefault": 0.7,
       "models": [
         {
-          "id": "claude-opus-4-6",
-          "displayName": "Claude Opus 4.6",
-          "description": "Ultimo modelo insignia; lo mas avanzado en programacion, agentes, contexto largo y trabajo profesional.",
-          "isDefault": false,
+          "id": "claude-opus-4-7",
+          "displayName": "Claude Opus 4.7",
+          "description": "El Claude mas capaz; pensamiento adaptativo, salto cualitativo en programacion agentiva, contexto 1M.",
+          "isDefault": true,
           "supportsVision": true,
-          "contextWindow": 200000,
+          "contextWindow": 1000000,
           "inputCostPerMillion": 5.0,
           "outputCostPerMillion": 25.0,
-          "litellmKey": "claude-opus-4-6"
+          "litellmKey": "claude-opus-4-7"
         },
         {
           "id": "claude-sonnet-4-6",
           "displayName": "Claude Sonnet 4.6",
-          "description": "Inteligencia cercana a Opus a menor costo; fuerte en programacion y uso de computadora.",
-          "isDefault": true,
+          "description": "Mejor equilibrio de velocidad e inteligencia; pensamiento extendido, contexto 1M, fuerte uso de computadora.",
+          "isDefault": false,
           "supportsVision": true,
-          "contextWindow": 200000,
+          "contextWindow": 1000000,
           "inputCostPerMillion": 3.0,
           "outputCostPerMillion": 15.0,
           "litellmKey": "claude-sonnet-4-6"
@@ -143,16 +165,16 @@
         {
           "id": "claude-haiku-4-5-20251001",
           "displayName": "Claude Haiku 4.5",
-          "description": "Modelo ligero de Claude; el mas economico y rapido de la familia Claude.",
+          "description": "Claude mas rapido con inteligencia cercana a la frontera; ideal para resumenes y tareas de alto volumen.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 200000,
-          "inputCostPerMillion": 0.8,
-          "outputCostPerMillion": 4.0,
+          "inputCostPerMillion": 1.0,
+          "outputCostPerMillion": 5.0,
           "litellmKey": "claude-haiku-4-5-20251001"
         }
       ],
-      "notes": "Modelos en la nube de Anthropic. Opus 4.6 y Sonnet 4.6 soportan contexto de 1M en beta.",
+      "notes": "Modelos en la nube de Anthropic. Opus 4.7 y Sonnet 4.6 soportan contexto de 1M.",
       "keyURL": "https://console.anthropic.com/settings/keys"
     },
     {
@@ -176,7 +198,7 @@
           "supportsVision": true,
           "contextWindow": 1048576,
           "inputCostPerMillion": 2.0,
-          "outputCostPerMillion": 10.0,
+          "outputCostPerMillion": 12.0,
           "litellmKey": "gemini/gemini-3.1-pro-preview"
         },
         {
@@ -186,20 +208,20 @@
           "isDefault": true,
           "supportsVision": true,
           "contextWindow": 1048576,
-          "inputCostPerMillion": 0.15,
-          "outputCostPerMillion": 0.6,
+          "inputCostPerMillion": 0.5,
+          "outputCostPerMillion": 3.0,
           "litellmKey": "gemini/gemini-3-flash-preview"
         },
         {
-          "id": "gemini-2.5-flash-lite",
-          "displayName": "Gemini 2.5 Flash Lite",
-          "description": "Variante ligera y rapida optimizada para tareas de alto volumen y bajo costo.",
+          "id": "gemini-3.1-flash-lite-preview",
+          "displayName": "Gemini 3.1 Flash Lite",
+          "description": "El modelo Gemini 3 mas economico; contexto 1M, ideal para consultas de alto volumen.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 1048576,
-          "inputCostPerMillion": 0.1,
-          "outputCostPerMillion": 0.4,
-          "litellmKey": "gemini/gemini-2.5-flash-lite"
+          "inputCostPerMillion": 0.25,
+          "outputCostPerMillion": 1.5,
+          "litellmKey": "gemini/gemini-3.1-flash-lite-preview"
         }
       ],
       "notes": "Modelos de Google Gemini.",
@@ -400,15 +422,15 @@
       "temperatureDefault": 0.7,
       "models": [
         {
-          "id": "google/gemini-2.5-flash",
-          "displayName": "Gemini 2.5 Flash (OR)",
-          "description": "Rapido, contexto de 1M, vision. La mejor opcion predeterminada para consultas durante reuniones.",
+          "id": "google/gemini-3-flash-preview",
+          "displayName": "Gemini 3 Flash (OR)",
+          "description": "Ultimo Flash con razonamiento de nivel Pro a menor latencia. Contexto 1M, vision. La mejor opcion predeterminada para consultas durante reuniones.",
           "isDefault": true,
           "supportsVision": true,
           "contextWindow": 1048576,
-          "inputCostPerMillion": 0.30,
-          "outputCostPerMillion": 2.50,
-          "litellmKey": "openrouter/google/gemini-2.5-flash"
+          "inputCostPerMillion": 0.50,
+          "outputCostPerMillion": 3.00,
+          "litellmKey": "openrouter/google/gemini-3-flash-preview"
         },
         {
           "id": "anthropic/claude-haiku-4.5",
@@ -433,15 +455,15 @@
           "litellmKey": "openrouter/openai/gpt-5-mini"
         },
         {
-          "id": "google/gemini-2.5-flash-lite",
-          "displayName": "Gemini 2.5 Flash Lite (OR)",
-          "description": "Flash ligero para consultas de alto volumen y bajo costo. La opcion mas economica con vision.",
+          "id": "google/gemini-3.1-flash-lite-preview",
+          "displayName": "Gemini 3.1 Flash Lite (OR)",
+          "description": "El modelo Gemini 3 mas economico. Contexto 1M, vision; ideal para consultas de alto volumen y bajo costo.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 1048576,
-          "inputCostPerMillion": 0.10,
-          "outputCostPerMillion": 0.40,
-          "litellmKey": "openrouter/google/gemini-2.5-flash-lite"
+          "inputCostPerMillion": 0.25,
+          "outputCostPerMillion": 1.50,
+          "litellmKey": "openrouter/google/gemini-3.1-flash-lite-preview"
         },
         {
           "id": "anthropic/claude-sonnet-4.6",
@@ -455,26 +477,26 @@
           "litellmKey": "openrouter/anthropic/claude-sonnet-4.6"
         },
         {
-          "id": "google/gemini-2.5-pro",
-          "displayName": "Gemini 2.5 Pro (OR)",
-          "description": "Gemini insignia con contexto de 1M. La mejor opcion para reuniones largas con analisis profundo.",
+          "id": "google/gemini-3.1-pro-preview",
+          "displayName": "Gemini 3.1 Pro (OR)",
+          "description": "Gemini insignia con contexto 1M, razonamiento de primer nivel. La mejor opcion para reuniones largas con analisis profundo.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 1048576,
-          "inputCostPerMillion": 1.25,
-          "outputCostPerMillion": 10.00,
-          "litellmKey": "openrouter/google/gemini-2.5-pro"
+          "inputCostPerMillion": 2.00,
+          "outputCostPerMillion": 12.00,
+          "litellmKey": "openrouter/google/gemini-3.1-pro-preview"
         },
         {
-          "id": "anthropic/claude-opus-4.6",
-          "displayName": "Claude Opus 4.6 (OR)",
-          "description": "Calidad maxima de Claude para analisis posterior a la reunion. Mas lento — usar cuando la calidad importa mas que la velocidad.",
+          "id": "anthropic/claude-opus-4.7",
+          "displayName": "Claude Opus 4.7 (OR)",
+          "description": "Calidad maxima de Claude con pensamiento adaptativo. Ideal para analisis posterior a la reunion cuando la calidad importa mas que la velocidad.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 1000000,
           "inputCostPerMillion": 5.00,
           "outputCostPerMillion": 25.00,
-          "litellmKey": "openrouter/anthropic/claude-opus-4.6"
+          "litellmKey": "openrouter/anthropic/claude-opus-4.7"
         },
         {
           "id": "openai/gpt-5",
@@ -486,6 +508,28 @@
           "inputCostPerMillion": 1.25,
           "outputCostPerMillion": 10.00,
           "litellmKey": "openrouter/openai/gpt-5"
+        },
+        {
+          "id": "openai/gpt-5.5",
+          "displayName": "GPT-5.5 (OR)",
+          "description": "Ultimo GPT-5.5 con contexto 1M. Razonamiento mas fuerte y tareas agentivas; maxima calidad para analisis posterior a la reunion.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 1050000,
+          "inputCostPerMillion": 5.00,
+          "outputCostPerMillion": 30.00,
+          "litellmKey": "openrouter/openai/gpt-5.5"
+        },
+        {
+          "id": "openai/gpt-5.5-pro",
+          "displayName": "GPT-5.5 Pro (OR)",
+          "description": "Nivel premium de precision de GPT-5.5. Usar cuando la exactitud importa mas que el costo.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 1050000,
+          "inputCostPerMillion": 30.00,
+          "outputCostPerMillion": 180.00,
+          "litellmKey": "openrouter/openai/gpt-5.5-pro"
         },
         {
           "id": "deepseek/deepseek-v4-flash",
@@ -563,17 +607,6 @@
           "inputCostPerMillion": 0.20,
           "outputCostPerMillion": 0.88,
           "litellmKey": "openrouter/qwen/qwen3-vl-235b-a22b-instruct"
-        },
-        {
-          "id": "anthropic/claude-3.5-haiku",
-          "displayName": "Claude 3.5 Haiku (OR)",
-          "description": "Haiku de generacion anterior a costo reducido. Opcion economica de Claude cuando Haiku 4.5 es excesivo.",
-          "isDefault": false,
-          "supportsVision": true,
-          "contextWindow": 200000,
-          "inputCostPerMillion": 0.80,
-          "outputCostPerMillion": 4.00,
-          "litellmKey": "openrouter/anthropic/claude-3.5-haiku"
         }
       ],
       "notes": "OpenRouter ofrece una API unificada para mas de 300 modelos. Pago por uso con limites de gasto en la propia clave. Crea una clave API en openrouter.ai/keys y establece un limite mensual por seguridad.",
