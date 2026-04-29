@@ -37,6 +37,20 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
+      # Copy infra config files to the VM. The repo is now the source of
+      # truth for docker-compose.prod.yml and litestream.yml — VM-side
+      # in-place sed is gone. SCP places into /tmp; the SSH step moves
+      # them into /opt/ghostpour with sudo.
+      - name: Copy compose + litestream config to VM
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.GCP_HOST }}
+          username: ${{ secrets.GCP_USERNAME }}
+          key: ${{ secrets.GCP_SSH_KEY }}
+          passphrase: ${{ secrets.GCP_SSH_PASSPHRASE }}
+          source: "docker-compose.prod.yml,litestream.yml"
+          target: "/tmp/"
+
       - name: Deploy to GCP via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -45,10 +59,10 @@ jobs:
           key: ${{ secrets.GCP_SSH_KEY }}
           passphrase: ${{ secrets.GCP_SSH_PASSPHRASE }}
           script: |
+            sudo mv /tmp/docker-compose.prod.yml /opt/ghostpour/docker-compose.prod.yml
+            sudo mv /tmp/litestream.yml /opt/ghostpour/litestream.yml
             cd /opt/ghostpour
             echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            sudo sed -i 's|image:.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest|' docker-compose.prod.yml
-
             sudo docker compose -f docker-compose.prod.yml --env-file .env.prod pull
             sudo docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
             sudo docker image prune -af --filter "until=24h"

@@ -12,6 +12,22 @@ services:
     networks:
       - proxy-tier
 
+  # Continuous SQLite → GCS replication for DR. Reads the same data
+  # volume as the GhostPour app and streams WAL frames to
+  # gs://<redacted-bucket>. Auth via the VM's default Compute
+  # Engine SA (granted roles/storage.objectAdmin on the bucket).
+  # Restore runbook: ghostpour-ops/docs/disaster-recovery.md.
+  litestream:
+    image: litestream/litestream:0.3.13
+    container_name: ghostpour-litestream
+    restart: unless-stopped
+    volumes:
+      - ghostpour-data:/data
+      - ./litestream.yml:/etc/litestream.yml:ro
+    command: replicate -config /etc/litestream.yml
+    depends_on:
+      - ghostpour
+
 volumes:
   ghostpour-data:
 
