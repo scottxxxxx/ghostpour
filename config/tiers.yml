@@ -11,23 +11,23 @@
 #   teaser   — Run check, return metadata, don't apply (for upgrade nudges)
 #   disabled — Don't run at all
 #
-# Model selection is controlled via model-routing.json in the admin dashboard.
-# Never reference model names in user-facing text — use "Standard AI" /
-# "Advanced AI" instead.
+# Field reference (see private ops repo for tier economics rationale):
+#   monthly_cost_limit_usd  — per-user per-month spend cap. -1 = unlimited.
+#   trial_cost_limit_usd    — temporary cap during free-trial window.
+#   daily_cost_limit_usd    — per-day spend cap. -1 = unlimited.
+#   daily_token_limit       — per-day token cap. -1 = unlimited.
+#   requests_per_minute     — rate limit.
+#   summary_mode            — "delta" or "choice" (full or delta).
+#   summary_interval_minutes
+#   allowed_providers       — provider names; "*" allows all.
+#   allowed_models          — model identifiers; "*" allows all.
+#   max_images_per_request
+#   hours_per_month         — display value (cost-enforced under the hood).
+#   storekit_product_id     — App Store product ID for purchase mapping.
+#   features                — per-feature state (enabled/teaser/disabled).
+#   feature_bullets         — display strings for the upgrade page.
 #
-# Pricing basis (after 15% Apple Small Business cut):
-#   Plus $6.99  → $5.94 revenue → ~85 meetings breakeven on standard AI
-#   Pro  $14.99 → $12.74 revenue → ~116 meetings breakeven on hybrid AI
-#
-# monthly_cost_limit_usd: our ACTUAL spend limit per user per month.
-#   Free: $0.35 (~5 meetings)
-#   Plus: -1 (unlimited — margin safe at 53%+ even at 40 meetings/month)
-#   Pro:  -1 (unlimited — margin safe at 65%+ even at 40 meetings/month)
-#   Trial limits cap spend before user has paid:
-#     Plus trial: $2.40 (7 days, ~33 meetings worth)
-#     Pro trial:  $5.10 (7 days, ~45 meetings worth)
-#
-# On tier upgrade: unused allocation carries forward as dollar value
+# On tier upgrade: unused allocation carries forward as dollar value.
 # =============================================================================
 
 tiers:
