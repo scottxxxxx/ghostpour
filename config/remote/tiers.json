@@ -1,5 +1,5 @@
 {
-  "version": 9,
+  "version": 12,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -95,7 +95,15 @@
       "description": "Ask AI questions across all the meetings in a project — your AI knows the context.",
       "teaser_description": "Project Chat is a Plus feature.",
       "upgrade_cta": "Upgrade to Plus to use Project Chat",
-      "teaser_response": "Project Chat is a Plus feature. Upgrade to ask AI questions across all your meetings in this project."
+      "teaser_response": "Project Chat is a Plus feature. Upgrade to ask AI questions across all your meetings in this project.",
+      "gp_chat_flag": "ssai_free_only",
+      "free_quota_per_month": 1,
+      "cta_strings": {
+        "quota_remaining": "You have {remaining} of {total} free Project Chats remaining this month. Upgrade to Plus for unlimited.",
+        "quota_exhausted": "You've used your {total} free Project Chats for this month. Upgrade to Plus for unlimited.",
+        "unlimited": "Project Chat by Shoulder Surf.",
+        "login_required": "Sign in to use Project Chat."
+      }
     }
   }
 }

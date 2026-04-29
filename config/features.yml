@@ -46,7 +46,38 @@ features:
     description: "Ask AI questions across all the meetings in a project — your AI knows the context."
     teaser_description: "Project Chat is a Plus feature."
     upgrade_cta: "Upgrade to Plus to use Project Chat"
-    # Returned in lieu of an LLM call when free users hit /v1/chat with
-    # prompt_mode=ProjectChat. iOS renders as a normal chat bubble.
-    teaser_response: "Project Chat is a Plus feature. Upgrade to ask AI questions across all your meetings in this project."
     category: "intelligence"
+    # Server-controlled routing policy. iOS calls /v1/features/project-chat/check
+    # before each Project Chat send and branches on the verdict. See
+    # docs/wire-contracts/project-chat.md for the full state matrix.
+    #
+    # gp_chat_flag values:
+    #   all              — anyone (logged in or not) can use; routes to user's
+    #                      model unless they picked SS AI.
+    #   ssai             — login required; SS AI is the routing target
+    #                      (overrides user's model for ALL tiers). Free +
+    #                      external + no quota gets CTA wrap.
+    #   ssai_free_only   — login required; ssai semantics for Free tier
+    #                      (override + metered CTA), logged_in semantics for
+    #                      paid tiers (respect BYOK). Day-1 default.
+    #   logged_in        — login required; uses user's selected model
+    #                      (no override). No CTA on Free.
+    #   plus             — Plus/Pro required for unrestricted use; Free users
+    #                      always get GP-routed responses with a CTA wrap.
+    gp_chat_flag: "ssai_free_only"
+    # Free-tier monthly quota for CTA-wrapped Project Chats.
+    # Valid: 0 (no free uses) | 1..10 (N free per month) | -1 (unlimited)
+    # Decrements only when GP processes a send_to_gp_with_cta outcome for a
+    # Free user. Calendar-month boundary, UTC. Lazy reset.
+    free_quota_per_month: 1
+    # CTA strings rendered server-side and surfaced via response.feature_state.cta.
+    # Template variables: {remaining}, {total}.
+    cta_strings:
+      quota_remaining: "You have {remaining} of {total} free Project Chats remaining this month. Upgrade to Plus for unlimited."
+      quota_exhausted: "You've used your {total} free Project Chats for this month. Upgrade to Plus for unlimited."
+      unlimited: "Project Chat by Shoulder Surf."
+      login_required: "Sign in to use Project Chat."
+    # DEPRECATED: kept until iOS clients migrate to the policy verdict.
+    # The old free-tier intercept (PR #80) returns this when the policy
+    # collapses to "deny without verdict" — should rarely fire post-migration.
+    teaser_response: "Project Chat is a Plus feature. Upgrade to ask AI questions across all your meetings in this project."
