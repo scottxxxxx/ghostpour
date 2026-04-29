@@ -23,13 +23,11 @@ services:
         tag: ghostpour
 
   # Continuous SQLite → GCS replication for DR. Reads the same data
-  # volume as the GhostPour app and streams WAL frames to
-  # gs://<redacted-bucket>. Auth via a dedicated service account
-  # key (gp-backup-sa@<redacted-project>) — the VM's default
-  # Compute Engine SA only had devstorage.read_only scope, which broke
-  # replication after the initial snapshot. The key file lives at
-  # /opt/ghostpour/gp-backup-sa.json on the VM (root:root, 600) and is
-  # mounted read-only into this container.
+  # volume as the GhostPour app and streams WAL frames to a GCS bucket
+  # configured in litestream.yml. Auth via a dedicated service-account
+  # key file mounted read-only at runtime — file lives outside the
+  # repo (provided per-host) and never appears in tracked content.
+  # Bucket, SA, and project identifiers are tracked privately.
   # Restore runbook: ghostpour-ops/docs/disaster-recovery.md.
   litestream:
     image: litestream/litestream:0.3.13

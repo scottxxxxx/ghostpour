@@ -6,19 +6,16 @@
 # usage). RPO ~seconds. RTO is bounded by `litestream restore` time
 # plus container start (~minutes).
 #
-# Auth: uses Application Default Credentials. On the prod VM, that's
-# the default Compute Engine service account
-# (<redacted-compute-sa>), which has been
-# granted roles/storage.objectAdmin on the bucket. No key file
-# required.
-#
-# Restore procedure: see ghostpour-ops/docs/disaster-recovery.md.
+# Auth: dedicated service account key, mounted read-only into the
+# litestream container. See docker-compose.prod.yml for the mount.
+# Bucket name, project, and SA identifiers are tracked privately —
+# see ghostpour-ops/docs/disaster-recovery.md for the runbook.
 
 dbs:
   - path: /data/cloudzap.db
     replicas:
       - type: gcs
-        bucket: <redacted-bucket>
+        bucket: gp-prod-archive-dd28494d6d54
         path: cloudzap
         # 30-day retention. Plenty of runway for the case where data
         # corruption isn't noticed for a few days.
