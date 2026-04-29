@@ -11,6 +11,16 @@ services:
       - .env.prod
     networks:
       - proxy-tier
+    # Send container logs to journald so they survive `docker compose
+    # up -d` recreates on every deploy. Default json-file driver writes
+    # to /var/lib/docker/containers/<id>/<id>-json.log which is deleted
+    # when the container is removed — that wiped a hung-request
+    # request_id during the 2026-04-27 incident. Query via:
+    #   journalctl CONTAINER_NAME=ghostpour --since '...' --until '...'
+    logging:
+      driver: journald
+      options:
+        tag: ghostpour
 
   # Continuous SQLite → GCS replication for DR. Reads the same data
   # volume as the GhostPour app and streams WAL frames to
@@ -34,6 +44,10 @@ services:
     command: replicate -config /etc/litestream.yml
     depends_on:
       - ghostpour
+    logging:
+      driver: journald
+      options:
+        tag: ghostpour-litestream
 
 volumes:
   ghostpour-data:
