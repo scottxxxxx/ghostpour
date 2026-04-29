@@ -92,10 +92,10 @@ providers:
     extra_headers: {}
     env_key: "deepseek_api_key"
     models:
-      - id: "deepseek-chat"
+      - id: "deepseek-v4-flash"
         supports_vision: false
         max_tokens_default: 4096
-      - id: "deepseek-reasoner"
+      - id: "deepseek-v4-pro"
         supports_vision: false
         max_tokens_default: 4096
 

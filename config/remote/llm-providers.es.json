@@ -258,26 +258,26 @@
       "temperatureDefault": 0.7,
       "models": [
         {
-          "id": "deepseek-reasoner",
-          "displayName": "DeepSeek R1 (Reasoner)",
-          "description": "Modo de pensamiento V3.2; razonamiento paso a paso (linaje R1), fuerte en matematicas y logica.",
-          "isDefault": false,
-          "supportsVision": false,
-          "contextWindow": 131072,
-          "inputCostPerMillion": 0.55,
-          "outputCostPerMillion": 2.19,
-          "litellmKey": "deepseek/deepseek-reasoner"
-        },
-        {
-          "id": "deepseek-chat",
-          "displayName": "DeepSeek V3.2",
-          "description": "Modo sin pensamiento V3.2; chat de proposito general, uso de herramientas, salida JSON.",
+          "id": "deepseek-v4-flash",
+          "displayName": "DeepSeek V4 Flash",
+          "description": "MoE 284B/13B activos, contexto 1M. Modo dual (con pensamiento / sin pensamiento). Chat de texto frontera mas economico.",
           "isDefault": true,
           "supportsVision": false,
-          "contextWindow": 131072,
-          "inputCostPerMillion": 0.27,
-          "outputCostPerMillion": 1.1,
-          "litellmKey": "deepseek/deepseek-chat"
+          "contextWindow": 1048576,
+          "inputCostPerMillion": 0.14,
+          "outputCostPerMillion": 0.28,
+          "litellmKey": "deepseek/deepseek-v4-flash"
+        },
+        {
+          "id": "deepseek-v4-pro",
+          "displayName": "DeepSeek V4 Pro",
+          "description": "MoE 1.6T/49B activos, contexto 1M. Modo dual (con pensamiento / sin pensamiento). Razonamiento, matematicas y codigo de frontera. (Descuento promocional del 75% hasta 2026-05-31; se muestra el precio regular.)",
+          "isDefault": false,
+          "supportsVision": false,
+          "contextWindow": 1048576,
+          "inputCostPerMillion": 1.74,
+          "outputCostPerMillion": 3.48,
+          "litellmKey": "deepseek/deepseek-v4-pro"
         }
       ],
       "notes": "Modelos en la nube de DeepSeek. Solo texto.",
@@ -488,15 +488,26 @@
           "litellmKey": "openrouter/openai/gpt-5"
         },
         {
-          "id": "deepseek/deepseek-v3.2",
-          "displayName": "DeepSeek V3.2 (OR)",
-          "description": "El modelo de frontera mas economico para consultas de solo texto. Fuerte en resumenes, sin soporte de vision.",
+          "id": "deepseek/deepseek-v4-flash",
+          "displayName": "DeepSeek V4 Flash (OR)",
+          "description": "Chat de texto frontera mas economico. Contexto 1M, razonamiento de modo dual. Excelente para resumenes a escala.",
           "isDefault": false,
           "supportsVision": false,
-          "contextWindow": 163840,
-          "inputCostPerMillion": 0.26,
-          "outputCostPerMillion": 0.38,
-          "litellmKey": "openrouter/deepseek/deepseek-v3.2"
+          "contextWindow": 1048576,
+          "inputCostPerMillion": 0.14,
+          "outputCostPerMillion": 0.28,
+          "litellmKey": "openrouter/deepseek/deepseek-v4-flash"
+        },
+        {
+          "id": "deepseek/deepseek-v4-pro",
+          "displayName": "DeepSeek V4 Pro (OR)",
+          "description": "Razonamiento de texto frontera. 1.6T/49B parametros activos, contexto 1M, modo dual. (Descuento promocional del 75% hasta 2026-05-31; se muestra el precio regular.)",
+          "isDefault": false,
+          "supportsVision": false,
+          "contextWindow": 1048576,
+          "inputCostPerMillion": 1.74,
+          "outputCostPerMillion": 3.48,
+          "litellmKey": "openrouter/deepseek/deepseek-v4-pro"
         },
         {
           "id": "perplexity/sonar",

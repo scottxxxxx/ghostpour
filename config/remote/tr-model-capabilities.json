@@ -505,12 +505,12 @@
       "splitModelSummary": true,
       "estimatedAvailableTokens": 1047552
     },
-    "deepseek-reasoner": {
+    "deepseek-v4-flash": {
       "provider": "DeepSeek",
-      "description": "V3.2 thinking mode; chain of thought reasoning (R1 lineage), strong math and logic",
-      "inputCostPerMillion": 0.55,
-      "outputCostPerMillion": 2.19,
-      "contextWindow": "128K",
+      "description": "V4 Flash MoE (284B/13B active); dual-mode (thinking / non-thinking), 1M context, cheapest frontier text-only chat",
+      "inputCostPerMillion": 0.14,
+      "outputCostPerMillion": 0.28,
+      "contextWindow": "1M",
       "weights": "Open",
       "supportsImages": false,
       "requiredParams": "model, messages",
@@ -531,14 +531,14 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 130048
+      "estimatedAvailableTokens": 1047552
     },
-    "deepseek-chat": {
+    "deepseek-v4-pro": {
       "provider": "DeepSeek",
-      "description": "V3.2 non-thinking mode; general purpose chat, tool calling, JSON output",
-      "inputCostPerMillion": 0.27,
-      "outputCostPerMillion": 1.1,
-      "contextWindow": "128K",
+      "description": "V4 Pro MoE (1.6T/49B active); dual-mode (thinking / non-thinking), 1M context, frontier reasoning, math, code (75% promo until 2026-05-31; regular pricing shown)",
+      "inputCostPerMillion": 1.74,
+      "outputCostPerMillion": 3.48,
+      "contextWindow": "1M",
       "weights": "Open",
       "supportsImages": false,
       "requiredParams": "model, messages",
@@ -559,7 +559,7 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 130048
+      "estimatedAvailableTokens": 1047552
     }
   }
 }
