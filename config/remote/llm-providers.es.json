@@ -67,10 +67,32 @@
       "temperatureDefault": 0.7,
       "models": [
         {
+          "id": "gpt-5.5",
+          "displayName": "GPT-5.5",
+          "description": "El modelo mas inteligente de OpenAI; razonamiento mas fuerte, tareas agentivas, analisis de documentos. Contexto 1M.",
+          "isDefault": true,
+          "supportsVision": true,
+          "contextWindow": 1050000,
+          "inputCostPerMillion": 5.0,
+          "outputCostPerMillion": 30.0,
+          "litellmKey": "gpt-5.5"
+        },
+        {
+          "id": "gpt-5.5-pro",
+          "displayName": "GPT-5.5 Pro",
+          "description": "Nivel premium de precision de GPT-5.5. Ideal cuando la exactitud importa mas que el costo.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 1050000,
+          "inputCostPerMillion": 30.0,
+          "outputCostPerMillion": 180.0,
+          "litellmKey": "gpt-5.5-pro"
+        },
+        {
           "id": "gpt-5.2",
           "displayName": "GPT-5.2",
-          "description": "Modelo de proposito general de primera linea; el mas potente en razonamiento, trabajo intelectual, analisis de documentos y tareas agentivas.",
-          "isDefault": true,
+          "description": "Modelo de proposito general de generacion anterior. Menor costo que 5.5 para tareas rutinarias.",
+          "isDefault": false,
           "supportsVision": true,
           "contextWindow": 400000,
           "inputCostPerMillion": 1.75,
@@ -486,6 +508,28 @@
           "inputCostPerMillion": 1.25,
           "outputCostPerMillion": 10.00,
           "litellmKey": "openrouter/openai/gpt-5"
+        },
+        {
+          "id": "openai/gpt-5.5",
+          "displayName": "GPT-5.5 (OR)",
+          "description": "Ultimo GPT-5.5 con contexto 1M. Razonamiento mas fuerte y tareas agentivas; maxima calidad para analisis posterior a la reunion.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 1050000,
+          "inputCostPerMillion": 5.00,
+          "outputCostPerMillion": 30.00,
+          "litellmKey": "openrouter/openai/gpt-5.5"
+        },
+        {
+          "id": "openai/gpt-5.5-pro",
+          "displayName": "GPT-5.5 Pro (OR)",
+          "description": "Nivel premium de precision de GPT-5.5. Usar cuando la exactitud importa mas que el costo.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 1050000,
+          "inputCostPerMillion": 30.00,
+          "outputCostPerMillion": 180.00,
+          "litellmKey": "openrouter/openai/gpt-5.5-pro"
         },
         {
           "id": "deepseek/deepseek-v4-flash",

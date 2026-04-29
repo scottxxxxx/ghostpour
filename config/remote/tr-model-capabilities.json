@@ -29,9 +29,65 @@
       "splitModelSummary": false,
       "estimatedAvailableTokens": 3072
     },
+    "gpt-5.5": {
+      "provider": "OpenAI",
+      "description": "OpenAI's smartest model; strongest reasoning, agentic tasks, document analysis. 1M context",
+      "inputCostPerMillion": 5.0,
+      "outputCostPerMillion": 30.0,
+      "contextWindow": "1M",
+      "weights": "Closed",
+      "supportsImages": true,
+      "requiredParams": "model, messages",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 1048576
+    },
+    "gpt-5.5-pro": {
+      "provider": "OpenAI",
+      "description": "Premium accuracy tier of GPT-5.5; use when correctness matters more than cost",
+      "inputCostPerMillion": 30.0,
+      "outputCostPerMillion": 180.0,
+      "contextWindow": "1M",
+      "weights": "Closed",
+      "supportsImages": true,
+      "requiredParams": "model, messages",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 1048576
+    },
     "gpt-5.2": {
       "provider": "OpenAI",
-      "description": "Top general purpose model; strongest for reasoning, knowledge work, document analysis, and agentic tasks",
+      "description": "Previous-generation general-purpose model. Lower cost than 5.5 for routine tasks",
       "inputCostPerMillion": 1.75,
       "outputCostPerMillion": 14.0,
       "contextWindow": "400K",

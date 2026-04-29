@@ -29,9 +29,65 @@
       "splitModelSummary": false,
       "estimatedAvailableTokens": 3072
     },
+    "gpt-5.5": {
+      "provider": "OpenAI",
+      "description": "El modelo mas inteligente de OpenAI; razonamiento mas fuerte, tareas agentivas, analisis de documentos. Contexto 1M",
+      "inputCostPerMillion": 5.0,
+      "outputCostPerMillion": 30.0,
+      "contextWindow": "1M",
+      "weights": "Closed",
+      "supportsImages": true,
+      "requiredParams": "model, messages",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 1048576
+    },
+    "gpt-5.5-pro": {
+      "provider": "OpenAI",
+      "description": "Nivel premium de precision de GPT-5.5; usar cuando la exactitud importa mas que el costo",
+      "inputCostPerMillion": 30.0,
+      "outputCostPerMillion": 180.0,
+      "contextWindow": "1M",
+      "weights": "Closed",
+      "supportsImages": true,
+      "requiredParams": "model, messages",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 1048576
+    },
     "gpt-5.2": {
       "provider": "OpenAI",
-      "description": "Modelo de proposito general de primera linea; el mas potente en razonamiento, trabajo intelectual, analisis de documentos y tareas agentivas",
+      "description": "Modelo de proposito general de generacion anterior. Menor costo que 5.5 para tareas rutinarias",
       "inputCostPerMillion": 1.75,
       "outputCostPerMillion": 14.0,
       "contextWindow": "400K",

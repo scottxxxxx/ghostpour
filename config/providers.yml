@@ -21,6 +21,12 @@ providers:
     extra_headers: {}
     env_key: "openai_api_key"
     models:
+      - id: "gpt-5.5"
+        supports_vision: true
+        max_tokens_default: 4096
+      - id: "gpt-5.5-pro"
+        supports_vision: true
+        max_tokens_default: 4096
       - id: "gpt-5.2"
         supports_vision: true
         max_tokens_default: 4096
