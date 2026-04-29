@@ -19,6 +19,8 @@ class UserRecord(BaseModel):
     is_trial: bool = False
     trial_start: str | None = None
     trial_end: str | None = None
+    project_chat_used_this_period: int = 0
+    project_chat_period: str | None = None  # "YYYY-MM" UTC; null until first send
 
     @property
     def effective_tier(self) -> str:

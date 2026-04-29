@@ -196,9 +196,21 @@ class TestChatStreamTimeout:
         assert len(rows) == 1
 
 
-class TestProjectChatTeaser:
-    def test_free_user_project_chat_returns_canned_no_llm(self, client, free_user, mock_provider):
-        """Free tier (project_chat=teaser) → canned upsell text, no LLM call, no charge."""
+class TestProjectChatPolicy:
+    """ProjectChat goes through the policy resolver (replaces PR #80 canned intercept).
+
+    Default policy: gp_chat_flag="ssai_free_only", free_quota_per_month=1.
+    ssai_free_only applies ssai semantics for Free tier (override + metered
+    CTA) and logged_in semantics for paid tiers (respect BYOK). CTA only
+    fires for Free + external + quota exhausted.
+    """
+
+    def test_free_user_project_chat_default_no_cta(self, client, free_user, mock_provider):
+        """Free + default selected_model (ssai) → send_to_gp, no CTA.
+
+        Under ssai_free_only, Free + ssai selected → send_to_gp, no CTA
+        — they already opted into SS AI; no nag.
+        """
         resp = client.post(
             "/v1/chat",
             json=chat_request(prompt_mode="ProjectChat"),
@@ -206,22 +218,15 @@ class TestProjectChatTeaser:
         )
         assert resp.status_code == 200
         data = resp.json()
-        # Canned response shape — looks like a normal chat bubble to iOS
-        assert "Project Chat" in data["text"]
-        assert "Plus" in data["text"]
-        assert data["model"] == "ghostpour-canned"
-        assert data["provider"] == "ghostpour"
-        # ai_tier is the "free" sentinel for server-generated upsell bubbles,
-        # distinct from "standard" / "advanced" badges on real AI responses.
-        assert data["ai_tier"] == "free"
-        assert data["input_tokens"] == 0
-        assert data["output_tokens"] == 0
-        assert data["cost"]["total_cost"] == 0.0
-        # No LLM call should have happened
-        mock_provider.assert_not_called()
+        mock_provider.assert_called_once()
+        assert "feature_state" in data
+        fs = data["feature_state"]
+        assert fs["feature"] == "project_chat"
+        assert fs["policy_mode"] == "ssai_free_only"
+        assert "cta" not in fs
 
-    def test_pro_user_project_chat_uses_llm(self, client, pro_user, mock_provider):
-        """Pro tier (project_chat=enabled) → real LLM call, not the canned upsell."""
+    def test_pro_user_project_chat_uses_llm_no_cta(self, client, pro_user, mock_provider):
+        """Pro tier with SS AI selection → real LLM call, no CTA in feature_state."""
         resp = client.post(
             "/v1/chat",
             json=chat_request(prompt_mode="ProjectChat"),
@@ -229,10 +234,12 @@ class TestProjectChatTeaser:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["model"] != "ghostpour-canned"
-        # Pro tier uses Anthropic via mock provider
         assert data["provider"] == "anthropic"
         mock_provider.assert_called_once()
+        fs = data["feature_state"]
+        assert fs["feature"] == "project_chat"
+        assert "cta" not in fs  # paid tier, no CTA
+        assert "quota_remaining" not in fs  # not Free, no quota fields
 
 
 class TestChatModelAccess:

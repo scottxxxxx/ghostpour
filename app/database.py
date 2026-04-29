@@ -117,6 +117,9 @@ MIGRATIONS = [
     # v11: Persist tier-derived ai_tier label at generation time so cached
     # GETs return a stable label that survives model swaps.
     "ALTER TABLE meeting_reports ADD COLUMN ai_tier TEXT",
+    # v12: Project Chat per-user quota tracking (calendar-month period, lazy reset)
+    "ALTER TABLE users ADD COLUMN project_chat_used_this_period INTEGER DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN project_chat_period TEXT",
 ]
 
 

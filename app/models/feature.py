@@ -28,6 +28,10 @@ class FeatureDefinition(BaseModel):
     category: str = ""
     service_module: str = ""
     capture_skip_modes: list[str] = []  # prompt_mode values that skip capture
+    # Project Chat policy (only set on the project_chat feature)
+    gp_chat_flag: str = ""              # "all" | "ssai" | "logged_in" | "plus"
+    free_quota_per_month: int = 0       # 0 | 1..10 | -1 (unlimited)
+    cta_strings: dict[str, str] = {}    # keys: quota_remaining, quota_exhausted, unlimited, login_required
 
 
 class FeatureConfig(BaseModel):
