@@ -1,5 +1,5 @@
 {
-  "version": 10,
+  "version": 11,
   "tiers": {
     "free": {
       "display_name": "Gratis",
@@ -96,7 +96,7 @@
       "teaser_description": "Chat de proyecto es una función Plus.",
       "upgrade_cta": "Actualiza a Plus para usar Chat de proyecto",
       "teaser_response": "Chat de proyecto es una función Plus. Actualiza a Plus para hacerle preguntas a la IA a través de todas tus reuniones en este proyecto.",
-      "gp_chat_flag": "plus",
+      "gp_chat_flag": "ssai",
       "free_quota_per_month": 1,
       "cta_strings": {
         "quota_remaining": "Te quedan {remaining} de {total} chats de proyecto gratis este mes. Actualiza a Plus para acceso ilimitado.",

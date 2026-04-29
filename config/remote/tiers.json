@@ -1,5 +1,5 @@
 {
-  "version": 10,
+  "version": 11,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -96,7 +96,7 @@
       "teaser_description": "Project Chat is a Plus feature.",
       "upgrade_cta": "Upgrade to Plus to use Project Chat",
       "teaser_response": "Project Chat is a Plus feature. Upgrade to ask AI questions across all your meetings in this project.",
-      "gp_chat_flag": "plus",
+      "gp_chat_flag": "ssai",
       "free_quota_per_month": 1,
       "cta_strings": {
         "quota_remaining": "You have {remaining} of {total} free Project Chats remaining this month. Upgrade to Plus for unlimited.",

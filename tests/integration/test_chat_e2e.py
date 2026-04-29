@@ -199,15 +199,19 @@ class TestChatStreamTimeout:
 class TestProjectChatPolicy:
     """ProjectChat goes through the policy resolver (replaces PR #80 canned intercept).
 
-    Default policy: gp_chat_flag="plus", free_quota_per_month=1.
-    Free users now route to GP for processing with feature_state.cta wrapping
-    the response (instead of getting the canned bypass). Paid users get
-    routed normally with no CTA when picking SS AI, or use_user_model
-    422 when they pick external.
+    Default policy: gp_chat_flag="ssai", free_quota_per_month=1.
+    Under ssai mode, all logged-in users route to GP. CTA only fires for
+    Free users with external model selected AND no quota remaining
+    ("metered gate" — first send is the freebie, CTA on the second).
     """
 
-    def test_free_user_project_chat_routes_to_gp_with_cta(self, client, free_user, mock_provider):
-        """Free tier under default 'plus' flag → real LLM call + feature_state.cta in response."""
+    def test_free_user_project_chat_default_no_cta(self, client, free_user, mock_provider):
+        """Free + default selected_model (ssai) → send_to_gp, no CTA under ssai mode.
+
+        The default selected_model is "ssai" server-side (test fixture doesn't
+        set it). Under ssai mode, Free + ssai selected → send_to_gp, no CTA
+        — they already opted into SS AI; no nag.
+        """
         resp = client.post(
             "/v1/chat",
             json=chat_request(prompt_mode="ProjectChat"),
@@ -215,21 +219,14 @@ class TestProjectChatPolicy:
         )
         assert resp.status_code == 200
         data = resp.json()
-        # LLM did get called — this is the new send_to_gp_with_cta behavior
+        # LLM did get called — Free user sends through GP normally
         mock_provider.assert_called_once()
-        # feature_state carries the CTA payload (option B: structured only,
-        # never injected into text).
+        # feature_state present but no CTA (Free + ssai selected, ssai mode)
         assert "feature_state" in data
         fs = data["feature_state"]
         assert fs["feature"] == "project_chat"
-        assert fs["policy_mode"] == "plus"
-        assert fs["cta"]["kind"] == "quota_remaining"
-        assert "Project Chat" in fs["cta"]["text"]
-        # text remains pure AI response — no CTA prepended
-        assert "Plus" not in (data.get("text") or "")[:60] or True  # text is mock-provided, not asserting wording
-        # Quota was decremented
-        assert fs["quota_remaining"] == 0
-        assert fs["quota_total"] == 1
+        assert fs["policy_mode"] == "ssai"
+        assert "cta" not in fs
 
     def test_pro_user_project_chat_uses_llm_no_cta(self, client, pro_user, mock_provider):
         """Pro tier with SS AI selection → real LLM call, no CTA in feature_state."""

@@ -10,19 +10,24 @@ PREFLIGHT_PATH = "/v1/features/project-chat/check"
 
 class TestProjectChatPreflight:
     def test_unauthenticated_returns_login_required(self, client):
-        """No JWT → verdict=login_required, regardless of selected_model."""
+        """No JWT + external selected → verdict=login_required under ssai mode."""
         resp = client.post(
             PREFLIGHT_PATH,
             json={"selected_model": "external"},
         )
         assert resp.status_code == 200
         body = resp.json()
-        # Default flag is "plus" — non-logged-in always gets login_required
+        # Default flag is "ssai" — non-logged-in with external selected → login_required
         assert body["verdict"] == "login_required"
         assert body["cta"]["kind"] == "login_required"
 
-    def test_plus_user_external_model_routes_to_user_model(self, client, tmp_db_path):
-        """Plus user with external model selected → send_to_user_model under default 'plus' policy."""
+    def test_plus_user_external_model_routes_to_gp_under_ssai(self, client, tmp_db_path):
+        """Plus user with external selected → send_to_gp under ssai mode (override).
+
+        ssai mode forces routing through GP regardless of the user's selected
+        model. This is the override behavior — distinct from logged_in/all
+        modes which respect the user's choice.
+        """
         _insert_user(tmp_db_path, user_id="plus-pc", tier="plus", monthly_limit=-1)
         headers = {"Authorization": f"Bearer {_jwt_token('plus-pc')}"}
         resp = client.post(
@@ -31,7 +36,10 @@ class TestProjectChatPreflight:
             headers=headers,
         )
         assert resp.status_code == 200
-        assert resp.json()["verdict"] == "send_to_user_model"
+        body = resp.json()
+        assert body["verdict"] == "send_to_gp"
+        # No CTA for paid users even when overridden
+        assert "cta" not in body
 
     def test_plus_user_ssai_model_routes_to_gp(self, client, tmp_db_path):
         """Plus user with SS AI selected → send_to_gp."""
@@ -48,10 +56,51 @@ class TestProjectChatPreflight:
         # No CTA for paid users
         assert "cta" not in body
 
-    def test_free_user_with_quota_returns_send_to_gp_with_cta(self, client, tmp_db_path):
-        """Free user, quota=1, no use yet → send_to_gp_with_cta + quota_remaining CTA."""
-        _insert_user(tmp_db_path, user_id="free-pc", tier="free", monthly_limit=0.35)
-        headers = {"Authorization": f"Bearer {_jwt_token('free-pc')}"}
+    def test_free_user_ssai_selected_no_cta_under_ssai_mode(self, client, tmp_db_path):
+        """Free user with SS AI picked → send_to_gp, NO CTA (they already opted in)."""
+        _insert_user(tmp_db_path, user_id="free-ssai", tier="free", monthly_limit=0.35)
+        headers = {"Authorization": f"Bearer {_jwt_token('free-ssai')}"}
+        resp = client.post(
+            PREFLIGHT_PATH,
+            json={"selected_model": "ssai"},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["verdict"] == "send_to_gp"
+        assert "cta" not in body
+
+    def test_free_user_external_with_quota_no_cta(self, client, tmp_db_path):
+        """Free + external + quota remaining → send_to_gp under ssai mode (the freebie)."""
+        _insert_user(tmp_db_path, user_id="free-ext-quota", tier="free", monthly_limit=0.35)
+        headers = {"Authorization": f"Bearer {_jwt_token('free-ext-quota')}"}
+        resp = client.post(
+            PREFLIGHT_PATH,
+            json={"selected_model": "external"},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        # Under ssai mode + quota remaining + external → send_to_gp (no CTA yet)
+        assert body["verdict"] == "send_to_gp"
+        assert "cta" not in body
+        assert body["quota_remaining"] == 1
+        assert body["quota_total"] == 1
+
+    def test_free_user_external_quota_exhausted_gets_cta(self, client, tmp_db_path):
+        """Free + external + quota exhausted → send_to_gp_with_cta (the metered gate)."""
+        from app.services.project_chat_quota import current_period_utc
+        _insert_user(tmp_db_path, user_id="free-ext-burned", tier="free", monthly_limit=0.35)
+        # Burn the user's quota for the current period
+        conn = sqlite3.connect(tmp_db_path)
+        conn.execute(
+            "UPDATE users SET project_chat_used_this_period = 1, project_chat_period = ? WHERE id = ?",
+            (current_period_utc(), "free-ext-burned"),
+        )
+        conn.commit()
+        conn.close()
+
+        headers = {"Authorization": f"Bearer {_jwt_token('free-ext-burned')}"}
         resp = client.post(
             PREFLIGHT_PATH,
             json={"selected_model": "external"},
@@ -60,8 +109,8 @@ class TestProjectChatPreflight:
         assert resp.status_code == 200
         body = resp.json()
         assert body["verdict"] == "send_to_gp_with_cta"
-        assert body["cta"]["kind"] == "quota_remaining"
-        assert body["quota_remaining"] == 1
+        assert body["cta"]["kind"] == "quota_exhausted"
+        assert body["quota_remaining"] == 0
         assert body["quota_total"] == 1
 
     def test_preflight_does_not_decrement_quota(self, client, tmp_db_path):

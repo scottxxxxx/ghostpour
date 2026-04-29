@@ -1,5 +1,5 @@
 {
-  "version": 10,
+  "version": 11,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -96,7 +96,7 @@
       "teaser_description": "プロジェクトチャットはPlus機能です。",
       "upgrade_cta": "Plusにアップグレードしてプロジェクトチャットをご利用ください",
       "teaser_response": "プロジェクトチャットはPlus機能です。Plusにアップグレードして、このプロジェクトのすべてのミーティングにわたるAI質問をご利用ください。",
-      "gp_chat_flag": "plus",
+      "gp_chat_flag": "ssai",
       "free_quota_per_month": 1,
       "cta_strings": {
         "quota_remaining": "今月の無料プロジェクトチャットは残り{remaining}/{total}回です。Plusにアップグレードすると無制限にご利用いただけます。",

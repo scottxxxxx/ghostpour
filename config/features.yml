@@ -60,7 +60,7 @@ features:
     #   logged_in   — login required; uses user's selected model (no override).
     #   plus        — Plus/Pro required for unrestricted use; Free users get
     #                 GP-routed responses with a CTA wrap.
-    gp_chat_flag: "plus"
+    gp_chat_flag: "ssai"
     # Free-tier monthly quota for CTA-wrapped Project Chats.
     # Valid: 0 (no free uses) | 1..10 (N free per month) | -1 (unlimited)
     # Decrements only when GP processes a send_to_gp_with_cta outcome for a
