@@ -33,6 +33,16 @@ features:
       - "ProjectChat"
       - "AutoSummary"
       - "PostSessionAnalysis"
+    # Free-tier monthly quota for end-of-meeting Memory captures. Decrements
+    # only when GP processes a `capture_with_cta` outcome at /v1/capture-transcript.
+    # Calendar-month boundary, UTC. Lazy reset (mirrors project_chat_quota).
+    # Valid: 0 (no free captures) | 1..10 (N free per month) | -1 (unlimited).
+    free_quota_per_month: 1
+    # CTA strings for the synthetic memory card injected into the next
+    # /v1/quilt/{user_id} fetch. Template variables: {remaining}, {total}.
+    cta_strings:
+      free_within_quota_footer: "✨ This was your free Memory of {total} this month — Upgrade to Pro to keep building Memory."
+      free_no_quota_only: "✨ Want your AI to remember meetings? Upgrade to Pro to start building Memory."
 
   meeting_reports:
     display_name: "Meeting Reports"

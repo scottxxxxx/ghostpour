@@ -274,8 +274,10 @@ async def verify_receipt(
             # the new subscriber doesn't start with stale counts that
             # would surface in feature_state on the first send.
             if old_tier_name == "free":
+                from app.services.memory_capture_quota import zero_memory_quota_on_tier_change
                 from app.services.project_chat_quota import zero_quota_on_tier_change
                 await zero_quota_on_tier_change(db, user.id)
+                await zero_memory_quota_on_tier_change(db, user.id)
         else:
             # Idempotent re-verification — only update limit, txn_id, and timestamp.
             # Preserve monthly_used_usd, allocation_resets_at, trial_start, trial_end.

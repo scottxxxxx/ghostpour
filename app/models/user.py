@@ -21,6 +21,10 @@ class UserRecord(BaseModel):
     trial_end: str | None = None
     project_chat_used_this_period: int = 0
     project_chat_period: str | None = None  # "YYYY-MM" UTC; null until first send
+    memory_used_this_period: int = 0
+    memory_period: str | None = None  # "YYYY-MM" UTC; null until first capture
+    memory_last_origin_id: str | None = None  # set at capture-transcript time
+    memory_last_cta_kind: str | None = None   # consumed + cleared by next quilt fetch
 
     @property
     def effective_tier(self) -> str:

@@ -120,6 +120,15 @@ MIGRATIONS = [
     # v12: Project Chat per-user quota tracking (calendar-month period, lazy reset)
     "ALTER TABLE users ADD COLUMN project_chat_used_this_period INTEGER DEFAULT 0",
     "ALTER TABLE users ADD COLUMN project_chat_period TEXT",
+    # v13: Memory capture quota + last-meeting CTA flags. Mirrors Project
+    # Chat's lazy-reset pattern. memory_last_origin_id + memory_last_cta_kind
+    # are written at /v1/capture-transcript time and consumed (then cleared)
+    # by the next /v1/quilt/{user_id} fetch so the synthetic upsell card
+    # only appears once per meeting.
+    "ALTER TABLE users ADD COLUMN memory_used_this_period INTEGER DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN memory_period TEXT",
+    "ALTER TABLE users ADD COLUMN memory_last_origin_id TEXT",
+    "ALTER TABLE users ADD COLUMN memory_last_cta_kind TEXT",
 ]
 
 

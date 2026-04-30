@@ -21,6 +21,13 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import UserRecord
 from app.services import context_quilt as cq
+from app.services.memory_capture_policy import resolve_memory_capture_verdict
+from app.services.memory_capture_quota import (
+    consume_meeting_cta,
+    decrement_memory_quota,
+    read_memory_quota_state,
+    stamp_meeting_cta,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +107,7 @@ class TranscriptCaptureRequest(BaseModel):
 @router.post("/capture-transcript")
 async def capture_transcript(
     body: TranscriptCaptureRequest,
+    request: Request,
     user: UserRecord = Depends(get_current_user),
     db: aiosqlite.Connection = Depends(get_db),
 ):
@@ -109,6 +117,15 @@ async def capture_transcript(
     Called by the client app at session end to send the full raw transcript.
     CQ extracts traits, preferences, and durable facts from the raw dialogue.
     GP also stores the transcript locally for meeting report generation.
+
+    Tier gating: the local transcript write always happens (meeting_reports
+    is independent of context_quilt). The CQ extraction is metered:
+      Pro    → unconditional capture
+      Plus   → recall-only (no capture; recall stays on the chat-flow hook)
+      Free   → capture once per month within `free_quota_per_month`; over
+               quota, skip capture but still surface a one-shot upsell card
+               in the next /v1/quilt fetch (same meeting view).
+    See docs/wire-contracts/memory-capture.md for the full matrix.
     """
     # Normalize origin fields — prefer explicit origin_id/origin_type;
     # translate legacy meeting_id if that's what the client sent.
@@ -135,23 +152,50 @@ async def capture_transcript(
                 datetime.now(timezone.utc).isoformat(),
             ),
         )
-        await db.commit()
 
-    # Forward to CQ for knowledge extraction
-    asyncio.create_task(cq.capture(
-        user_id=user.id,
-        interaction_type="meeting_transcript",
-        content=body.transcript,
-        origin_id=effective_origin_id,
-        origin_type=effective_origin_type,
-        project=body.project,
-        project_id=body.project_id,
-        display_name=user.display_name,
-        email=user.email,
-        user_identified=body.get_meta("user_identified"),
-        user_label=body.get_meta("user_label"),
-        identification_source=body.get_meta("identification_source"),
-    ))
+    # Resolve tier-based verdict for the CQ extraction call.
+    tier_config = request.app.state.tier_config
+    feature_config = request.app.state.feature_config
+    tier = tier_config.tiers.get(user.effective_tier)
+    feature_state = (
+        tier.feature_state("context_quilt") if tier else "disabled"
+    )
+    cq_def = feature_config.features.get("context_quilt")
+    free_quota_per_month = cq_def.free_quota_per_month if cq_def else 1
+
+    # Free quota gate (only consulted when feature_state == "disabled").
+    quota_state = read_memory_quota_state(user, free_quota_per_month)
+    verdict = resolve_memory_capture_verdict(
+        feature_state=feature_state,
+        has_quota=quota_state.has_quota,
+    )
+
+    if verdict.verdict in ("capture", "capture_with_cta"):
+        asyncio.create_task(cq.capture(
+            user_id=user.id,
+            interaction_type="meeting_transcript",
+            content=body.transcript,
+            origin_id=effective_origin_id,
+            origin_type=effective_origin_type,
+            project=body.project,
+            project_id=body.project_id,
+            display_name=user.display_name,
+            email=user.email,
+            user_identified=body.get_meta("user_identified"),
+            user_label=body.get_meta("user_label"),
+            identification_source=body.get_meta("identification_source"),
+        ))
+
+    if verdict.verdict == "capture_with_cta":
+        # Free-within-quota: count it.
+        await decrement_memory_quota(db, user.id)
+
+    if verdict.cta_kind and effective_origin_id:
+        await stamp_meeting_cta(
+            db, user.id, effective_origin_id, verdict.cta_kind,
+        )
+
+    await db.commit()
     return {"status": "queued"}
 
 
@@ -161,12 +205,76 @@ async def capture_transcript(
 @router.get("/quilt/{user_id}")
 async def get_quilt(
     user_id: str,
+    request: Request,
     user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
 ):
-    """Proxy: fetch user's quilt patches from Context Quilt."""
+    """Proxy: fetch user's quilt patches from Context Quilt.
+
+    For Free users, if a one-shot upsell card is pending (set by
+    /v1/capture-transcript when the user is over quota OR captured
+    within quota), append a synthetic patch carrying the CTA so iOS'
+    meeting-end view (which filters by metadata.origin_id) renders
+    the upsell inline. Cleared after one render.
+    """
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot access another user's quilt")
-    return await _cq_proxy("GET", f"/v1/quilt/{user_id}")
+    proxied = await _cq_proxy("GET", f"/v1/quilt/{user_id}")
+
+    # Only inject for the one-shot CTA window. memory_last_cta_kind is
+    # cleared after this render.
+    if not (user.memory_last_origin_id and user.memory_last_cta_kind):
+        return proxied
+    if proxied.status_code != 200:
+        return proxied
+
+    try:
+        # JSONResponse stores the encoded body in .body. Decode, mutate, re-emit.
+        import json as _json
+        payload = _json.loads(proxied.body.decode("utf-8"))
+    except Exception as exc:
+        logger.warning("quilt_cta_decode_failed", extra={"error": str(exc)})
+        return proxied
+
+    if not isinstance(payload, dict) or not isinstance(payload.get("patches"), list):
+        return proxied
+
+    cta_text = _render_memory_cta_text(request, user.memory_last_cta_kind)
+    if not cta_text:
+        return proxied
+
+    synthetic = {
+        "id": f"cta:{user.memory_last_cta_kind}:{user.memory_last_origin_id}",
+        "type": "TAKEAWAY",
+        "text": cta_text,
+        "metadata": {
+            "origin_id": user.memory_last_origin_id,
+            "origin_type": "meeting",
+            "is_synthetic": True,
+            "cta_kind": user.memory_last_cta_kind,
+            "action": "open_paywall",
+        },
+    }
+    payload["patches"].append(synthetic)
+    payload["count"] = payload.get("count", len(payload["patches"]) - 1) + 1
+
+    await consume_meeting_cta(db, user.id)
+    await db.commit()
+
+    return JSONResponse(status_code=200, content=payload)
+
+
+def _render_memory_cta_text(request: Request, cta_kind: str) -> str | None:
+    """Resolve the CTA template from features.yml and substitute quota fields."""
+    feature_config = request.app.state.feature_config
+    cq_def = feature_config.features.get("context_quilt")
+    if not cq_def or not cq_def.cta_strings:
+        return None
+    template = cq_def.cta_strings.get(cta_kind)
+    if not template:
+        return None
+    total = cq_def.free_quota_per_month if cq_def.free_quota_per_month >= 0 else 0
+    return template.format(total=total, remaining=0)
 
 
 class PatchCreateRequest(BaseModel):

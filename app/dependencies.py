@@ -56,6 +56,10 @@ async def get_current_user(
         trial_end=row["trial_end"],
         project_chat_used_this_period=int(row["project_chat_used_this_period"] or 0),
         project_chat_period=row["project_chat_period"],
+        memory_used_this_period=int(row["memory_used_this_period"] or 0),
+        memory_period=row["memory_period"],
+        memory_last_origin_id=row["memory_last_origin_id"],
+        memory_last_cta_kind=row["memory_last_cta_kind"],
     )
 
     if not user.is_active:
@@ -117,6 +121,10 @@ async def get_current_user_optional(
         trial_end=row["trial_end"],
         project_chat_used_this_period=int(row["project_chat_used_this_period"] or 0),
         project_chat_period=row["project_chat_period"],
+        memory_used_this_period=int(row["memory_used_this_period"] or 0),
+        memory_period=row["memory_period"],
+        memory_last_origin_id=row["memory_last_origin_id"],
+        memory_last_cta_kind=row["memory_last_cta_kind"],
     )
 
     if not user.is_active:
