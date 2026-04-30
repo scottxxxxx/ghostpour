@@ -44,17 +44,41 @@ Request and response shapes are identical to today. SS does not need to
 inspect the response — it's still `{"status": "queued"}`.
 
 ### `GET /v1/quilt/{user_id}`
-Response is still `{"patches": [...], "count": N}`. When a CTA is pending,
-GP appends a synthetic patch with this shape:
+Response is CQ's native shape — passes through unmodified except for the
+synthetic CTA injection:
 
 ```json
 {
-  "id": "cta:<cta_kind>:<origin_id>",
-  "type": "TAKEAWAY",
-  "text": "<rendered CTA copy>",
+  "user_id": "...",
+  "facts": [...],
+  "action_items": [...],
+  "deleted": [...],
+  "server_time": "..."
+}
+```
+
+When a CTA is pending, GP appends a synthetic fact to the `facts` array
+with this shape (mirrors a real fact + adds a `metadata` detection bag):
+
+```json
+{
+  "patch_id": "cta:<cta_kind>:<origin_id>",
+  "fact": "<rendered CTA copy>",
+  "category": "cta",
+  "patch_type": "cta",
+  "source": "synthetic",
+  "created_at": "<iso8601 utc>",
+  "origin_id": "<the meeting that triggered the CTA>",
+  "origin_type": "meeting",
+  "participants": [],
+  "owner": null,
+  "deadline": null,
+  "project": null,
+  "project_id": null,
+  "permanence_override": null,
+  "permanence_override_source": null,
+  "connections": [],
   "metadata": {
-    "origin_id": "<the meeting that triggered the CTA>",
-    "origin_type": "meeting",
     "is_synthetic": true,
     "cta_kind": "free_within_quota_footer" | "free_no_quota_only",
     "action": "open_paywall"
@@ -62,8 +86,12 @@ GP appends a synthetic patch with this shape:
 }
 ```
 
-`count` increments by 1. The flag clears after one fetch — refreshing the
-view does not re-surface the card.
+iOS detects the upsell card via `metadata.is_synthetic == true` and
+routes taps via `metadata.action`. Real CQ facts have no `metadata`
+field, so the check is unambiguous.
+
+The flag clears after one fetch — refreshing the view does not
+re-surface the card.
 
 ### CTA copy
 

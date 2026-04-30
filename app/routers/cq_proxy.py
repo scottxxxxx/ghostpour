@@ -236,27 +236,48 @@ async def get_quilt(
         logger.warning("quilt_cta_decode_failed", extra={"error": str(exc)})
         return proxied
 
-    if not isinstance(payload, dict) or not isinstance(payload.get("patches"), list):
+    # CQ's quilt response shape:
+    #   {"user_id", "facts", "action_items", "deleted", "server_time"}
+    # — no "patches" key. Originally PR #102 assumed {"patches": [...]}; that
+    # caused this entire injection branch to short-circuit silently for every
+    # Free user. We now inject into "facts" with a fact-shaped synthetic so
+    # iOS' existing memory-card iterator picks it up. iOS detects synthetic
+    # via metadata.is_synthetic per the wire contract.
+    if not isinstance(payload, dict) or not isinstance(payload.get("facts"), list):
         return proxied
 
     cta_text = _render_memory_cta_text(request, user.memory_last_cta_kind)
     if not cta_text:
         return proxied
 
-    synthetic = {
-        "id": f"cta:{user.memory_last_cta_kind}:{user.memory_last_origin_id}",
-        "type": "TAKEAWAY",
-        "text": cta_text,
+    from datetime import datetime, timezone
+    synthetic_fact = {
+        "patch_id": f"cta:{user.memory_last_cta_kind}:{user.memory_last_origin_id}",
+        "fact": cta_text,
+        "category": "cta",
+        "patch_type": "cta",
+        "source": "synthetic",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "origin_id": user.memory_last_origin_id,
+        "origin_type": "meeting",
+        "participants": [],
+        "owner": None,
+        "deadline": None,
+        "project": None,
+        "project_id": None,
+        "permanence_override": None,
+        "permanence_override_source": None,
+        "connections": [],
+        # iOS-detected upsell marker. Per the wire contract, iOS renders
+        # facts with metadata.is_synthetic == true with the upsell styling
+        # and routes taps through metadata.action.
         "metadata": {
-            "origin_id": user.memory_last_origin_id,
-            "origin_type": "meeting",
             "is_synthetic": True,
             "cta_kind": user.memory_last_cta_kind,
             "action": "open_paywall",
         },
     }
-    payload["patches"].append(synthetic)
-    payload["count"] = payload.get("count", len(payload["patches"]) - 1) + 1
+    payload["facts"].append(synthetic_fact)
 
     await consume_meeting_cta(db, user.id)
     await db.commit()
