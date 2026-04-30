@@ -1,11 +1,53 @@
 # Reasoning level — wire contract
 
-Status: **shipped server-side, awaiting iOS adoption**.
+Status: **shipped server-side. Per-model `reasoningLevels` field added 2026-04-30.**
 Owner (server): GP. Owner (client): SS iOS.
 
-## What changed on the wire
+## What iOS reads now
 
-`/v1/chat` accepts a new optional field on the request body:
+Each model in `model-capabilities.json` carries a `reasoningLevels` array
+(when `supportsReasoning: true`). iOS renders **only** those buttons in
+the picker — no "Default" button, no provider-level guesswork.
+
+```json
+"claude-haiku-4-5": {
+  "supportsReasoning": true,
+  "reasoningLevels": ["off", "low", "medium", "high"]
+},
+"grok-4": {
+  "supportsReasoning": true,
+  "reasoningLevels": ["low", "high"]
+},
+"kimi-k2.5": {
+  "supportsReasoning": true,
+  "reasoningLevels": ["off", "high"]
+},
+"foundation-models": {
+  "supportsReasoning": false
+  // no reasoningLevels field; picker hidden
+}
+```
+
+**iOS rules:**
+1. If `supportsReasoning: false` OR `reasoningLevels` is absent/empty, hide the picker entirely.
+2. Otherwise show one button per entry in `reasoningLevels`, in array order.
+3. Send the chosen value as `reasoning` on `/v1/chat`. Always send an explicit value (never `null`, never `"default"`).
+4. Persist user's last choice per (provider, model) pair so model-switches don't surprise them.
+
+## Per-model levels (Day 1)
+
+| Provider family | `reasoningLevels` | Reason |
+|---|---|---|
+| OpenAI gpt-5.x | `["off", "low", "medium", "high"]` | Native 4-level support |
+| Anthropic Haiku/Sonnet/Opus 4.x | `["off", "low", "medium", "high"]` | Continuous `budget_tokens`, mapped to 4 buckets |
+| Google Gemini 3.x | `["off", "low", "medium", "high"]` | Continuous `thinkingBudget`, mapped to 4 buckets |
+| xAI Grok 4 / 4.1 | `["low", "high"]` | Native 2-level support; no real "off" mode |
+| Moonshot Kimi K2.x | `["off", "high"]` | Boolean `enable_thinking` |
+| Alibaba Qwen 3.5 | `["off", "high"]` | Boolean `enable_thinking` |
+| DeepSeek V4 Flash/Pro | `["off", "high"]` | Server collapses low/medium → high; don't fake granularity |
+| Apple Foundation Models | (picker hidden) | No reasoning support |
+
+## /v1/chat request
 
 ```json
 {
@@ -17,8 +59,13 @@ Owner (server): GP. Owner (client): SS iOS.
 }
 ```
 
-When `reasoning` is omitted (or `null`), the provider's own default is
-used — existing iOS builds keep working with no change.
+**Validation:** the server's `ReasoningLevel` literal accepts only
+`"off"`, `"low"`, `"medium"`, `"high"` (or omit the field). Sending
+`"default"` returns a 422 validation error.
+
+When `reasoning` is omitted entirely (legacy clients), the provider's own
+default is used — but iOS should always send an explicit value going
+forward.
 
 This is a single normalized knob. Per-provider translation lives in
 `app/services/providers/reasoning.py`; iOS does not need to learn each
@@ -61,19 +108,18 @@ OpenRouter docs: https://openrouter.ai/docs/guides/best-practices/reasoning-toke
 
 ## Suggested iOS UI
 
-A single 4-way picker tied to the model selector. Suggested copy:
+Render only the buttons listed in the active model's `reasoningLevels`
+array. Suggested copy when the level is exposed:
 
 - **Off** — fastest, cheapest. Use for short factual queries.
 - **Low** — light reasoning. Default for mid-meeting.
 - **Medium** — balanced.
 - **High** — deepest reasoning. Use for post-meeting analysis.
 
-Hide the picker when the selected model has no reasoning support
-(today: Apple on-device, Perplexity Sonar, Llama 4 Maverick, Mistral
-Large, Gemini 1.x). For the rest of the catalog the picker is safe.
+Picker visibility is determined entirely by `model-capabilities.json`:
+- `supportsReasoning: false` → picker hidden.
+- `supportsReasoning: true` + `reasoningLevels: [...]` → picker shows those buttons in order.
 
-The picker should default to `null` (don't send the field) on first
-launch so we inherit per-model defaults rather than forcing a level.
 Persist the user's last selection per (provider, model) pair.
 
 ## Test plan (iOS side)

@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "models": {
     "foundation-models": {
       "provider": "Apple",
@@ -57,7 +57,13 @@
       },
       "splitModelSummary": true,
       "estimatedAvailableTokens": 1048576,
-      "supportsReasoning": true
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "off",
+        "low",
+        "medium",
+        "high"
+      ]
     },
     "gpt-5.5-pro": {
       "provider": "OpenAI",
@@ -86,7 +92,13 @@
       },
       "splitModelSummary": true,
       "estimatedAvailableTokens": 1048576,
-      "supportsReasoning": true
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "off",
+        "low",
+        "medium",
+        "high"
+      ]
     },
     "gpt-5.2": {
       "provider": "OpenAI",
@@ -115,7 +127,13 @@
       },
       "splitModelSummary": true,
       "estimatedAvailableTokens": 398976,
-      "supportsReasoning": true
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "off",
+        "low",
+        "medium",
+        "high"
+      ]
     },
     "gpt-5-mini": {
       "provider": "OpenAI",
@@ -144,7 +162,13 @@
       },
       "splitModelSummary": true,
       "estimatedAvailableTokens": 398976,
-      "supportsReasoning": true
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "off",
+        "low",
+        "medium",
+        "high"
+      ]
     },
     "gpt-5-nano": {
       "provider": "OpenAI",
@@ -173,7 +197,13 @@
       },
       "splitModelSummary": true,
       "estimatedAvailableTokens": 398976,
-      "supportsReasoning": true
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "off",
+        "low",
+        "medium",
+        "high"
+      ]
     },
     "claude-opus-4-7": {
       "provider": "Anthropic",
@@ -202,7 +232,13 @@
       },
       "splitModelSummary": true,
       "estimatedAvailableTokens": 998848,
-      "supportsReasoning": true
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "off",
+        "low",
+        "medium",
+        "high"
+      ]
     },
     "claude-sonnet-4-6": {
       "provider": "Anthropic",
@@ -231,7 +267,13 @@
       },
       "splitModelSummary": true,
       "estimatedAvailableTokens": 998848,
-      "supportsReasoning": true
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "off",
+        "low",
+        "medium",
+        "high"
+      ]
     },
     "claude-haiku-4-5": {
       "provider": "Anthropic",
@@ -260,7 +302,13 @@
       },
       "splitModelSummary": true,
       "estimatedAvailableTokens": 198976,
-      "supportsReasoning": true
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "off",
+        "low",
+        "medium",
+        "high"
+      ]
     },
     "gemini-3.1-pro-preview": {
       "provider": "Google",
@@ -289,7 +337,13 @@
       },
       "splitModelSummary": true,
       "estimatedAvailableTokens": 1047552,
-      "supportsReasoning": true
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "off",
+        "low",
+        "medium",
+        "high"
+      ]
     },
     "gemini-3-flash-preview": {
       "provider": "Google",
@@ -318,7 +372,13 @@
       },
       "splitModelSummary": true,
       "estimatedAvailableTokens": 1047552,
-      "supportsReasoning": true
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "off",
+        "low",
+        "medium",
+        "high"
+      ]
     },
     "gemini-3.1-flash-lite-preview": {
       "provider": "Google",
@@ -347,7 +407,13 @@
       },
       "splitModelSummary": true,
       "estimatedAvailableTokens": 1047552,
-      "supportsReasoning": true
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "off",
+        "low",
+        "medium",
+        "high"
+      ]
     },
     "grok-4": {
       "provider": "xAI",
@@ -376,7 +442,11 @@
       },
       "splitModelSummary": true,
       "estimatedAvailableTokens": 254976,
-      "supportsReasoning": true
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "low",
+        "high"
+      ]
     },
     "grok-4.1-fast": {
       "provider": "xAI",
@@ -405,7 +475,11 @@
       },
       "splitModelSummary": true,
       "estimatedAvailableTokens": 1998976,
-      "supportsReasoning": true
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "low",
+        "high"
+      ]
     },
     "kimi-k2.5": {
       "provider": "Moonshot AI",
@@ -434,7 +508,11 @@
       },
       "splitModelSummary": true,
       "estimatedAvailableTokens": 261120,
-      "supportsReasoning": true
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "off",
+        "high"
+      ]
     },
     "kimi-k2-thinking": {
       "provider": "Moonshot AI",
@@ -463,7 +541,11 @@
       },
       "splitModelSummary": true,
       "estimatedAvailableTokens": 261120,
-      "supportsReasoning": true
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "off",
+        "high"
+      ]
     },
     "kimi-k2-turbo-preview": {
       "provider": "Moonshot AI",
@@ -492,7 +574,11 @@
       },
       "splitModelSummary": true,
       "estimatedAvailableTokens": 261120,
-      "supportsReasoning": true
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "off",
+        "high"
+      ]
     },
     "qwen-max": {
       "provider": "Alibaba (Qwen)",
@@ -521,7 +607,11 @@
       },
       "splitModelSummary": true,
       "estimatedAvailableTokens": 261120,
-      "supportsReasoning": true
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "off",
+        "high"
+      ]
     },
     "qwen-plus": {
       "provider": "Alibaba (Qwen)",
@@ -550,7 +640,11 @@
       },
       "splitModelSummary": true,
       "estimatedAvailableTokens": 1047552,
-      "supportsReasoning": true
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "off",
+        "high"
+      ]
     },
     "qwen-flash": {
       "provider": "Alibaba (Qwen)",
@@ -579,7 +673,11 @@
       },
       "splitModelSummary": true,
       "estimatedAvailableTokens": 1047552,
-      "supportsReasoning": true
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "off",
+        "high"
+      ]
     },
     "deepseek-v4-flash": {
       "provider": "DeepSeek",
@@ -608,7 +706,11 @@
       },
       "splitModelSummary": true,
       "estimatedAvailableTokens": 1047552,
-      "supportsReasoning": true
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "off",
+        "high"
+      ]
     },
     "deepseek-v4-pro": {
       "provider": "DeepSeek",
@@ -637,7 +739,11 @@
       },
       "splitModelSummary": true,
       "estimatedAvailableTokens": 1047552,
-      "supportsReasoning": true
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "off",
+        "high"
+      ]
     }
   }
 }
