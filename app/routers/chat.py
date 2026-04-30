@@ -725,6 +725,7 @@ async def chat(
     project_chat_cta_kind = None
     project_chat_quota = None
     project_chat_pc_config = None
+    project_chat_should_meter = False  # True when this send consumes a Free quota slot
     if body.get_meta("prompt_mode") == "ProjectChat":
         from app.routers.config import _parse_accept_language
         from app.routers.features import _get_project_chat_config
@@ -767,6 +768,26 @@ async def chat(
         # LLM path. Track the CTA kind so we can populate feature_state on
         # the response.
         project_chat_cta_kind = verdict.cta_kind
+
+        # Decide whether this send consumes a metered Free quota slot.
+        # Per docs/wire-contracts/project-chat.md, metering applies only on
+        # the GP-routed external path under modes that produce a CTA when
+        # quota is exhausted (ssai, ssai_free_only, plus). Free + SS AI
+        # under ssai_free_only is intentionally unmetered ("they already
+        # opted in"). The decrement must happen on the FIRST send (the
+        # freebie) too — otherwise has_quota never flips and the CTA never
+        # surfaces, which is the bug this fix addresses.
+        if user.effective_tier == "free" and verdict.verdict in (
+            "send_to_gp",
+            "send_to_gp_with_cta",
+        ):
+            if gp_chat_flag == "plus":
+                # 'plus' mode meters every Free send regardless of model.
+                project_chat_should_meter = True
+            elif gp_chat_flag in ("ssai", "ssai_free_only") and selected_model == "external":
+                # ssai-family modes meter only the GP-overrides-your-model path.
+                project_chat_should_meter = True
+            # 'all' / 'logged_in' modes don't meter Free.
 
     # 1.6. Protected-prompts context gate. iOS already enforces requiresContext
     # client-side; this closes the bypass loophole when a non-iOS or modified
@@ -941,9 +962,9 @@ async def chat(
     # 10. Build response with allocation headers
     response_data = response.model_dump()
 
-    # Project Chat: populate feature_state in the response and decrement
-    # the per-user counter when the verdict was send_to_gp_with_cta. The
-    # decrement happens after the LLM call so we don't burn quota on
+    # Project Chat: populate feature_state in the response, and decrement
+    # the per-user counter for any Free send that consumes a metered slot.
+    # The decrement happens after the LLM call so we don't burn quota on
     # upstream failures (which raise above before reaching this point).
     if body.get_meta("prompt_mode") == "ProjectChat" and project_chat_pc_config is not None:
         from app.services.project_chat_policy import render_cta_text
@@ -954,11 +975,18 @@ async def chat(
             "policy_mode": project_chat_pc_config.get("gp_chat_flag", "plus"),
         }
 
-        if project_chat_cta_kind is not None and user.effective_tier == "free":
-            free_quota_per_month = project_chat_pc_config.get("free_quota_per_month", 1)
+        # Decrement first if this send consumed a metered slot. Critically,
+        # this fires for `send_to_gp` too (the freebie path) — not just for
+        # `send_to_gp_with_cta`. Without the freebie decrement, has_quota
+        # never flips False → CTA never surfaces → quota system stuck.
+        if project_chat_should_meter:
             await decrement_quota(db, user.id)
             await db.commit()
-            # Re-read after decrement so feature_state reflects post-send count.
+
+        # Surface fresh quota numbers to iOS for any Free send (with or
+        # without CTA) so the counter pill reflects the post-send state.
+        if user.effective_tier == "free":
+            free_quota_per_month = project_chat_pc_config.get("free_quota_per_month", 1)
             cursor = await db.execute(
                 "SELECT project_chat_used_this_period, project_chat_period FROM users WHERE id = ?",
                 (user.id,),
@@ -969,22 +997,24 @@ async def chat(
                 "project_chat_period": row["project_chat_period"],
             })
             quota_post = read_quota_state(user_post, free_quota_per_month)
-            cta_strings = project_chat_pc_config.get("cta_strings", {})
-            cta_text = render_cta_text(
-                project_chat_cta_kind,
-                cta_strings,
-                remaining=quota_post.remaining if quota_post.remaining is not None else 0,
-                total=quota_post.total,
-            )
             feature_state["quota_remaining"] = (
                 quota_post.remaining if quota_post.remaining is not None else None
             )
             feature_state["quota_total"] = quota_post.total
             feature_state["quota_resets_at"] = quota_post.resets_at
-            feature_state["cta"] = {
-                "kind": project_chat_cta_kind,
-                "text": cta_text,
-            }
+
+            if project_chat_cta_kind is not None:
+                cta_strings = project_chat_pc_config.get("cta_strings", {})
+                cta_text = render_cta_text(
+                    project_chat_cta_kind,
+                    cta_strings,
+                    remaining=quota_post.remaining if quota_post.remaining is not None else 0,
+                    total=quota_post.total,
+                )
+                feature_state["cta"] = {
+                    "kind": project_chat_cta_kind,
+                    "text": cta_text,
+                }
 
         response_data["feature_state"] = feature_state
 

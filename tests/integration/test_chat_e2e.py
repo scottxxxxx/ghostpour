@@ -241,6 +241,86 @@ class TestProjectChatPolicy:
         assert "cta" not in fs  # paid tier, no CTA
         assert "quota_remaining" not in fs  # not Free, no quota fields
 
+    def test_free_external_first_send_decrements_freebie_then_cta_fires(
+        self, client, free_user, mock_provider, tmp_db_path,
+    ):
+        """Reproduces the metering bug fix: Free + external first send burns
+        the freebie (no CTA), second send fires the CTA.
+
+        Pre-fix bug: decrement only fired on send_to_gp_with_cta verdict, but
+        that verdict only fires when has_quota=False, which requires the
+        counter to already be incremented. The freebie path (send_to_gp) never
+        decremented, so the CTA never fired and Free users had unlimited
+        Project Chat. This test pins the corrected behavior.
+        """
+        import sqlite3
+
+        # First send (Free + external + has_quota=true → send_to_gp, no CTA, but burns freebie)
+        resp = client.post(
+            "/v1/chat",
+            json=chat_request(prompt_mode="ProjectChat", metadata={"selected_model": "external"}),
+            headers=free_user["headers"],
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        fs = data["feature_state"]
+        # No CTA on the freebie...
+        assert "cta" not in fs
+        # ...but quota counter visible to iOS for the pill update.
+        assert fs["quota_total"] == 1
+        assert fs["quota_remaining"] == 0  # 0/1 after the freebie consumed
+
+        # DB confirms decrement.
+        conn = sqlite3.connect(tmp_db_path)
+        used = conn.execute(
+            "SELECT project_chat_used_this_period FROM users WHERE id = ?",
+            (free_user["user_id"],),
+        ).fetchone()[0]
+        conn.close()
+        assert used == 1, f"expected counter at 1 after freebie, got {used}"
+
+        # Second send (now has_quota=false → send_to_gp_with_cta).
+        resp2 = client.post(
+            "/v1/chat",
+            json=chat_request(prompt_mode="ProjectChat", metadata={"selected_model": "external"}),
+            headers=free_user["headers"],
+        )
+        assert resp2.status_code == 200
+        fs2 = resp2.json()["feature_state"]
+        assert fs2["cta"]["kind"] == "quota_exhausted"
+        assert "Upgrade to Plus" in fs2["cta"]["text"]
+        assert fs2["quota_remaining"] == 0  # capped at 0; counter grew to 2 underneath
+
+    def test_free_ssai_path_does_not_meter(
+        self, client, free_user, mock_provider, tmp_db_path,
+    ):
+        """Free + SS AI under ssai_free_only is intentionally unmetered.
+
+        SS's design: Free user who picked SS AI 'already opted in' — no
+        quota burn, no CTA, no nag. Only the BYOK-override path is metered.
+        Pin that behavior so future refactors don't accidentally meter it.
+        """
+        import sqlite3
+
+        for _ in range(3):
+            resp = client.post(
+                "/v1/chat",
+                json=chat_request(prompt_mode="ProjectChat", metadata={"selected_model": "ssai"}),
+                headers=free_user["headers"],
+            )
+            assert resp.status_code == 200
+            assert "cta" not in resp.json()["feature_state"]
+
+        conn = sqlite3.connect(tmp_db_path)
+        used = conn.execute(
+            "SELECT project_chat_used_this_period FROM users WHERE id = ?",
+            (free_user["user_id"],),
+        ).fetchone()[0]
+        conn.close()
+        assert used == 0, (
+            f"Free + SS AI should not decrement quota; got used={used} after 3 sends"
+        )
+
 
 class TestChatModelAccess:
     def test_free_tier_blocked_provider(self, client, free_user):
