@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "models": {
     "foundation-models": {
       "provider": "Apple",
@@ -27,7 +27,8 @@
         "meetingGuidance": "no"
       },
       "splitModelSummary": false,
-      "estimatedAvailableTokens": 3072
+      "estimatedAvailableTokens": 3072,
+      "supportsReasoning": false
     },
     "gpt-5.5": {
       "provider": "OpenAI",
@@ -55,7 +56,8 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 1048576
+      "estimatedAvailableTokens": 1048576,
+      "supportsReasoning": true
     },
     "gpt-5.5-pro": {
       "provider": "OpenAI",
@@ -83,7 +85,8 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 1048576
+      "estimatedAvailableTokens": 1048576,
+      "supportsReasoning": true
     },
     "gpt-5.2": {
       "provider": "OpenAI",
@@ -111,7 +114,8 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 398976
+      "estimatedAvailableTokens": 398976,
+      "supportsReasoning": true
     },
     "gpt-5-mini": {
       "provider": "OpenAI",
@@ -139,7 +143,8 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 398976
+      "estimatedAvailableTokens": 398976,
+      "supportsReasoning": true
     },
     "gpt-5-nano": {
       "provider": "OpenAI",
@@ -167,7 +172,8 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 398976
+      "estimatedAvailableTokens": 398976,
+      "supportsReasoning": true
     },
     "claude-opus-4-7": {
       "provider": "Anthropic",
@@ -195,7 +201,8 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 998848
+      "estimatedAvailableTokens": 998848,
+      "supportsReasoning": true
     },
     "claude-sonnet-4-6": {
       "provider": "Anthropic",
@@ -223,7 +230,8 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 998848
+      "estimatedAvailableTokens": 998848,
+      "supportsReasoning": true
     },
     "claude-haiku-4-5": {
       "provider": "Anthropic",
@@ -251,7 +259,8 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 198976
+      "estimatedAvailableTokens": 198976,
+      "supportsReasoning": true
     },
     "gemini-3.1-pro-preview": {
       "provider": "Google",
@@ -279,7 +288,8 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 1047552
+      "estimatedAvailableTokens": 1047552,
+      "supportsReasoning": true
     },
     "gemini-3-flash-preview": {
       "provider": "Google",
@@ -307,7 +317,8 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 1047552
+      "estimatedAvailableTokens": 1047552,
+      "supportsReasoning": true
     },
     "gemini-3.1-flash-lite-preview": {
       "provider": "Google",
@@ -335,7 +346,8 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 1047552
+      "estimatedAvailableTokens": 1047552,
+      "supportsReasoning": true
     },
     "grok-4": {
       "provider": "xAI",
@@ -363,7 +375,8 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 254976
+      "estimatedAvailableTokens": 254976,
+      "supportsReasoning": true
     },
     "grok-4.1-fast": {
       "provider": "xAI",
@@ -391,7 +404,8 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 1998976
+      "estimatedAvailableTokens": 1998976,
+      "supportsReasoning": true
     },
     "kimi-k2.5": {
       "provider": "Moonshot AI",
@@ -419,7 +433,8 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 261120
+      "estimatedAvailableTokens": 261120,
+      "supportsReasoning": true
     },
     "kimi-k2-thinking": {
       "provider": "Moonshot AI",
@@ -447,7 +462,8 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 261120
+      "estimatedAvailableTokens": 261120,
+      "supportsReasoning": true
     },
     "kimi-k2-turbo-preview": {
       "provider": "Moonshot AI",
@@ -475,7 +491,8 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 261120
+      "estimatedAvailableTokens": 261120,
+      "supportsReasoning": true
     },
     "qwen-max": {
       "provider": "Alibaba (Qwen)",
@@ -503,7 +520,8 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 261120
+      "estimatedAvailableTokens": 261120,
+      "supportsReasoning": true
     },
     "qwen-plus": {
       "provider": "Alibaba (Qwen)",
@@ -531,7 +549,8 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 1047552
+      "estimatedAvailableTokens": 1047552,
+      "supportsReasoning": true
     },
     "qwen-flash": {
       "provider": "Alibaba (Qwen)",
@@ -559,7 +578,8 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 1047552
+      "estimatedAvailableTokens": 1047552,
+      "supportsReasoning": true
     },
     "deepseek-v4-flash": {
       "provider": "DeepSeek",
@@ -587,7 +607,8 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 1047552
+      "estimatedAvailableTokens": 1047552,
+      "supportsReasoning": true
     },
     "deepseek-v4-pro": {
       "provider": "DeepSeek",
@@ -615,7 +636,8 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 1047552
+      "estimatedAvailableTokens": 1047552,
+      "supportsReasoning": true
     }
   }
 }
