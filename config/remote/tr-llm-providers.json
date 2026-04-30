@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "providers": [
     {
       "id": "cloudzap",
@@ -20,7 +20,8 @@
           "description": "We select the best AI model for your subscription tier. No configuration needed.",
           "isDefault": true,
           "supportsVision": true,
-          "contextWindow": 200000
+          "contextWindow": 200000,
+          "supportsReasoning": true
         }
       ],
       "notes": "GhostPour managed AI service. Sign in with Apple, subscribe, and we handle the rest.",
@@ -47,7 +48,8 @@
           "supportsVision": false,
           "contextWindow": 4096,
           "inputCostPerMillion": 0,
-          "outputCostPerMillion": 0
+          "outputCostPerMillion": 0,
+          "supportsReasoning": false
         }
       ],
       "notes": "Free, private, works offline. Powered by Apple Intelligence.",
@@ -75,7 +77,8 @@
           "contextWindow": 1050000,
           "inputCostPerMillion": 5.0,
           "outputCostPerMillion": 30.0,
-          "litellmKey": "gpt-5.5"
+          "litellmKey": "gpt-5.5",
+          "supportsReasoning": true
         },
         {
           "id": "gpt-5.5-pro",
@@ -86,7 +89,8 @@
           "contextWindow": 1050000,
           "inputCostPerMillion": 30.0,
           "outputCostPerMillion": 180.0,
-          "litellmKey": "gpt-5.5-pro"
+          "litellmKey": "gpt-5.5-pro",
+          "supportsReasoning": true
         },
         {
           "id": "gpt-5.2",
@@ -97,7 +101,8 @@
           "contextWindow": 400000,
           "inputCostPerMillion": 1.75,
           "outputCostPerMillion": 14.0,
-          "litellmKey": "gpt-5.2"
+          "litellmKey": "gpt-5.2",
+          "supportsReasoning": true
         },
         {
           "id": "gpt-5-mini",
@@ -108,7 +113,8 @@
           "contextWindow": 400000,
           "inputCostPerMillion": 0.25,
           "outputCostPerMillion": 1.25,
-          "litellmKey": "gpt-5-mini"
+          "litellmKey": "gpt-5-mini",
+          "supportsReasoning": true
         },
         {
           "id": "gpt-5-nano",
@@ -119,7 +125,8 @@
           "contextWindow": 400000,
           "inputCostPerMillion": 0.05,
           "outputCostPerMillion": 0.4,
-          "litellmKey": "gpt-5-nano"
+          "litellmKey": "gpt-5-nano",
+          "supportsReasoning": true
         }
       ],
       "notes": "OpenAI cloud models.",
@@ -149,7 +156,8 @@
           "contextWindow": 1000000,
           "inputCostPerMillion": 5.0,
           "outputCostPerMillion": 25.0,
-          "litellmKey": "claude-opus-4-7"
+          "litellmKey": "claude-opus-4-7",
+          "supportsReasoning": true
         },
         {
           "id": "claude-sonnet-4-6",
@@ -160,7 +168,8 @@
           "contextWindow": 1000000,
           "inputCostPerMillion": 3.0,
           "outputCostPerMillion": 15.0,
-          "litellmKey": "claude-sonnet-4-6"
+          "litellmKey": "claude-sonnet-4-6",
+          "supportsReasoning": true
         },
         {
           "id": "claude-haiku-4-5-20251001",
@@ -171,7 +180,8 @@
           "contextWindow": 200000,
           "inputCostPerMillion": 1.0,
           "outputCostPerMillion": 5.0,
-          "litellmKey": "claude-haiku-4-5-20251001"
+          "litellmKey": "claude-haiku-4-5-20251001",
+          "supportsReasoning": true
         }
       ],
       "notes": "Anthropic cloud models. Opus 4.7 and Sonnet 4.6 support 1M context.",
@@ -199,7 +209,8 @@
           "contextWindow": 1048576,
           "inputCostPerMillion": 2.0,
           "outputCostPerMillion": 12.0,
-          "litellmKey": "gemini/gemini-3.1-pro-preview"
+          "litellmKey": "gemini/gemini-3.1-pro-preview",
+          "supportsReasoning": true
         },
         {
           "id": "gemini-3-flash-preview",
@@ -210,7 +221,8 @@
           "contextWindow": 1048576,
           "inputCostPerMillion": 0.5,
           "outputCostPerMillion": 3.0,
-          "litellmKey": "gemini/gemini-3-flash-preview"
+          "litellmKey": "gemini/gemini-3-flash-preview",
+          "supportsReasoning": true
         },
         {
           "id": "gemini-3.1-flash-lite-preview",
@@ -221,7 +233,8 @@
           "contextWindow": 1048576,
           "inputCostPerMillion": 0.25,
           "outputCostPerMillion": 1.5,
-          "litellmKey": "gemini/gemini-3.1-flash-lite-preview"
+          "litellmKey": "gemini/gemini-3.1-flash-lite-preview",
+          "supportsReasoning": true
         }
       ],
       "notes": "Google Gemini models.",
@@ -249,7 +262,8 @@
           "contextWindow": 256000,
           "inputCostPerMillion": 3.0,
           "outputCostPerMillion": 15.0,
-          "litellmKey": "xai/grok-4"
+          "litellmKey": "xai/grok-4",
+          "supportsReasoning": true
         },
         {
           "id": "grok-4.1-fast",
@@ -260,7 +274,8 @@
           "contextWindow": 2000000,
           "inputCostPerMillion": 0.2,
           "outputCostPerMillion": 0.5,
-          "litellmKey": "xai/grok-4.1-fast"
+          "litellmKey": "xai/grok-4.1-fast",
+          "supportsReasoning": true
         }
       ],
       "notes": "xAI Grok models. Grok 4 is reasoning-only.",
@@ -288,7 +303,8 @@
           "contextWindow": 1048576,
           "inputCostPerMillion": 0.14,
           "outputCostPerMillion": 0.28,
-          "litellmKey": "deepseek/deepseek-v4-flash"
+          "litellmKey": "deepseek/deepseek-v4-flash",
+          "supportsReasoning": true
         },
         {
           "id": "deepseek-v4-pro",
@@ -299,7 +315,8 @@
           "contextWindow": 1048576,
           "inputCostPerMillion": 1.74,
           "outputCostPerMillion": 3.48,
-          "litellmKey": "deepseek/deepseek-v4-pro"
+          "litellmKey": "deepseek/deepseek-v4-pro",
+          "supportsReasoning": true
         }
       ],
       "notes": "DeepSeek cloud models. Text-only.",
@@ -327,7 +344,8 @@
           "contextWindow": 262144,
           "inputCostPerMillion": 0.6,
           "outputCostPerMillion": 2.5,
-          "litellmKey": "moonshot/kimi-k2.5"
+          "litellmKey": "moonshot/kimi-k2.5",
+          "supportsReasoning": true
         },
         {
           "id": "kimi-k2-thinking",
@@ -338,7 +356,8 @@
           "contextWindow": 262144,
           "inputCostPerMillion": 0.6,
           "outputCostPerMillion": 2.5,
-          "litellmKey": "moonshot/kimi-k2-thinking"
+          "litellmKey": "moonshot/kimi-k2-thinking",
+          "supportsReasoning": true
         },
         {
           "id": "kimi-k2-turbo-preview",
@@ -349,7 +368,8 @@
           "contextWindow": 262144,
           "inputCostPerMillion": 0.3,
           "outputCostPerMillion": 1.2,
-          "litellmKey": "moonshot/kimi-k2-turbo-preview"
+          "litellmKey": "moonshot/kimi-k2-turbo-preview",
+          "supportsReasoning": true
         }
       ],
       "notes": "Kimi models. All models support vision and video.",
@@ -377,7 +397,8 @@
           "contextWindow": 262144,
           "inputCostPerMillion": 1.2,
           "outputCostPerMillion": 6.0,
-          "litellmKey": "qwen/qwen-max"
+          "litellmKey": "qwen/qwen-max",
+          "supportsReasoning": true
         },
         {
           "id": "qwen-plus",
@@ -388,7 +409,8 @@
           "contextWindow": 1048576,
           "inputCostPerMillion": 0.4,
           "outputCostPerMillion": 2.4,
-          "litellmKey": "qwen/qwen-plus"
+          "litellmKey": "qwen/qwen-plus",
+          "supportsReasoning": true
         },
         {
           "id": "qwen-flash",
@@ -399,7 +421,8 @@
           "contextWindow": 1048576,
           "inputCostPerMillion": 0.1,
           "outputCostPerMillion": 0.4,
-          "litellmKey": "qwen/qwen-flash"
+          "litellmKey": "qwen/qwen-flash",
+          "supportsReasoning": true
         }
       ],
       "notes": "Alibaba Qwen models.",
@@ -430,7 +453,8 @@
           "contextWindow": 1048576,
           "inputCostPerMillion": 0.5,
           "outputCostPerMillion": 3.0,
-          "litellmKey": "openrouter/google/gemini-3-flash-preview"
+          "litellmKey": "openrouter/google/gemini-3-flash-preview",
+          "supportsReasoning": true
         },
         {
           "id": "anthropic/claude-haiku-4.5",
@@ -441,7 +465,8 @@
           "contextWindow": 200000,
           "inputCostPerMillion": 1.0,
           "outputCostPerMillion": 5.0,
-          "litellmKey": "openrouter/anthropic/claude-haiku-4.5"
+          "litellmKey": "openrouter/anthropic/claude-haiku-4.5",
+          "supportsReasoning": true
         },
         {
           "id": "openai/gpt-5-mini",
@@ -452,7 +477,8 @@
           "contextWindow": 400000,
           "inputCostPerMillion": 0.25,
           "outputCostPerMillion": 2.0,
-          "litellmKey": "openrouter/openai/gpt-5-mini"
+          "litellmKey": "openrouter/openai/gpt-5-mini",
+          "supportsReasoning": true
         },
         {
           "id": "google/gemini-3.1-flash-lite-preview",
@@ -463,7 +489,8 @@
           "contextWindow": 1048576,
           "inputCostPerMillion": 0.25,
           "outputCostPerMillion": 1.5,
-          "litellmKey": "openrouter/google/gemini-3.1-flash-lite-preview"
+          "litellmKey": "openrouter/google/gemini-3.1-flash-lite-preview",
+          "supportsReasoning": true
         },
         {
           "id": "anthropic/claude-sonnet-4.6",
@@ -474,7 +501,8 @@
           "contextWindow": 1000000,
           "inputCostPerMillion": 3.0,
           "outputCostPerMillion": 15.0,
-          "litellmKey": "openrouter/anthropic/claude-sonnet-4.6"
+          "litellmKey": "openrouter/anthropic/claude-sonnet-4.6",
+          "supportsReasoning": true
         },
         {
           "id": "google/gemini-3.1-pro-preview",
@@ -485,7 +513,8 @@
           "contextWindow": 1048576,
           "inputCostPerMillion": 2.0,
           "outputCostPerMillion": 12.0,
-          "litellmKey": "openrouter/google/gemini-3.1-pro-preview"
+          "litellmKey": "openrouter/google/gemini-3.1-pro-preview",
+          "supportsReasoning": true
         },
         {
           "id": "anthropic/claude-opus-4.7",
@@ -496,7 +525,8 @@
           "contextWindow": 1000000,
           "inputCostPerMillion": 5.0,
           "outputCostPerMillion": 25.0,
-          "litellmKey": "openrouter/anthropic/claude-opus-4.7"
+          "litellmKey": "openrouter/anthropic/claude-opus-4.7",
+          "supportsReasoning": true
         },
         {
           "id": "openai/gpt-5",
@@ -507,7 +537,8 @@
           "contextWindow": 400000,
           "inputCostPerMillion": 1.25,
           "outputCostPerMillion": 10.0,
-          "litellmKey": "openrouter/openai/gpt-5"
+          "litellmKey": "openrouter/openai/gpt-5",
+          "supportsReasoning": true
         },
         {
           "id": "openai/gpt-5.5",
@@ -518,7 +549,8 @@
           "contextWindow": 1050000,
           "inputCostPerMillion": 5.0,
           "outputCostPerMillion": 30.0,
-          "litellmKey": "openrouter/openai/gpt-5.5"
+          "litellmKey": "openrouter/openai/gpt-5.5",
+          "supportsReasoning": true
         },
         {
           "id": "openai/gpt-5.5-pro",
@@ -529,7 +561,8 @@
           "contextWindow": 1050000,
           "inputCostPerMillion": 30.0,
           "outputCostPerMillion": 180.0,
-          "litellmKey": "openrouter/openai/gpt-5.5-pro"
+          "litellmKey": "openrouter/openai/gpt-5.5-pro",
+          "supportsReasoning": true
         },
         {
           "id": "deepseek/deepseek-v4-flash",
@@ -540,7 +573,8 @@
           "contextWindow": 1048576,
           "inputCostPerMillion": 0.14,
           "outputCostPerMillion": 0.28,
-          "litellmKey": "openrouter/deepseek/deepseek-v4-flash"
+          "litellmKey": "openrouter/deepseek/deepseek-v4-flash",
+          "supportsReasoning": true
         },
         {
           "id": "deepseek/deepseek-v4-pro",
@@ -551,7 +585,8 @@
           "contextWindow": 1048576,
           "inputCostPerMillion": 1.74,
           "outputCostPerMillion": 3.48,
-          "litellmKey": "openrouter/deepseek/deepseek-v4-pro"
+          "litellmKey": "openrouter/deepseek/deepseek-v4-pro",
+          "supportsReasoning": true
         },
         {
           "id": "perplexity/sonar",
@@ -562,7 +597,8 @@
           "contextWindow": 127072,
           "inputCostPerMillion": 1.0,
           "outputCostPerMillion": 1.0,
-          "litellmKey": "openrouter/perplexity/sonar"
+          "litellmKey": "openrouter/perplexity/sonar",
+          "supportsReasoning": false
         },
         {
           "id": "meta-llama/llama-4-maverick",
@@ -573,7 +609,8 @@
           "contextWindow": 1048576,
           "inputCostPerMillion": 0.15,
           "outputCostPerMillion": 0.6,
-          "litellmKey": "openrouter/meta-llama/llama-4-maverick"
+          "litellmKey": "openrouter/meta-llama/llama-4-maverick",
+          "supportsReasoning": false
         },
         {
           "id": "x-ai/grok-4",
@@ -584,7 +621,8 @@
           "contextWindow": 256000,
           "inputCostPerMillion": 3.0,
           "outputCostPerMillion": 15.0,
-          "litellmKey": "openrouter/x-ai/grok-4"
+          "litellmKey": "openrouter/x-ai/grok-4",
+          "supportsReasoning": true
         },
         {
           "id": "mistralai/mistral-large-2411",
@@ -595,7 +633,8 @@
           "contextWindow": 131072,
           "inputCostPerMillion": 2.0,
           "outputCostPerMillion": 6.0,
-          "litellmKey": "openrouter/mistralai/mistral-large-2411"
+          "litellmKey": "openrouter/mistralai/mistral-large-2411",
+          "supportsReasoning": false
         },
         {
           "id": "qwen/qwen3-vl-235b-a22b-instruct",
@@ -606,7 +645,8 @@
           "contextWindow": 262144,
           "inputCostPerMillion": 0.2,
           "outputCostPerMillion": 0.88,
-          "litellmKey": "openrouter/qwen/qwen3-vl-235b-a22b-instruct"
+          "litellmKey": "openrouter/qwen/qwen3-vl-235b-a22b-instruct",
+          "supportsReasoning": true
         }
       ],
       "notes": "OpenRouter provides a unified API for 300+ models. Pay-as-you-go with spend caps on the key itself. Create an API key at openrouter.ai/keys and set a monthly limit for safety.",
