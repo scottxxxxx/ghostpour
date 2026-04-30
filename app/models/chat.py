@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, model_validator
 
@@ -9,6 +9,13 @@ _CHAT_META_FIELDS = (
 )
 
 
+# Normalized reasoning level. Each adapter translates to its provider's
+# native shape (OpenAI reasoning_effort, Anthropic thinking budget, Gemini
+# thinkingConfig, DeepSeek thinking + reasoning_effort, etc.). When None,
+# no reasoning param is sent and the provider's default applies.
+ReasoningLevel = Literal["off", "low", "medium", "high"]
+
+
 class ChatRequest(BaseModel):
     provider: str
     model: str
@@ -17,6 +24,7 @@ class ChatRequest(BaseModel):
     images: list[str] | None = None
     max_tokens: int | None = None
     stream: bool = False
+    reasoning: ReasoningLevel | None = None
 
     # Generic metadata dict — apps can pass any key-value pairs.
     # Known keys used by existing clients: call_type, prompt_mode,

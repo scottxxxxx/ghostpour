@@ -3,6 +3,7 @@ from fastapi import HTTPException
 from app.models.chat import ChatRequest, ChatResponse
 
 from .base import ProviderAdapter
+from .reasoning import openai_compat_fields
 
 
 class OpenAICompatAdapter(ProviderAdapter):
@@ -20,6 +21,7 @@ class OpenAICompatAdapter(ProviderAdapter):
         }
         if request.max_tokens:
             body["max_tokens"] = request.max_tokens
+        body.update(openai_compat_fields(request.provider, request.reasoning))
 
         headers = self._build_headers()
         status, data, raw_req, raw_resp = await self._post(

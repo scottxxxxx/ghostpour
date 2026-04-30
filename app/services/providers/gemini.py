@@ -3,6 +3,7 @@ from fastapi import HTTPException
 from app.models.chat import ChatRequest, ChatResponse
 
 from .base import ProviderAdapter
+from .reasoning import gemini_thinking_config
 
 
 class GeminiAdapter(ProviderAdapter):
@@ -26,6 +27,9 @@ class GeminiAdapter(ProviderAdapter):
             body["systemInstruction"] = {
                 "parts": [{"text": request.system_prompt}]
             }
+        thinking_config = gemini_thinking_config(request.reasoning)
+        if thinking_config is not None:
+            body.setdefault("generationConfig", {})["thinkingConfig"] = thinking_config
 
         headers = self._build_headers()
         status, data, raw_req, raw_resp = await self._post(url, body, headers)

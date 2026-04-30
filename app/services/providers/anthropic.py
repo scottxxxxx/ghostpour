@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from app.models.chat import ChatRequest, ChatResponse
 
 from .base import ProviderAdapter
+from .reasoning import anthropic_min_max_tokens, anthropic_thinking_block
 
 
 class AnthropicAdapter(ProviderAdapter):
@@ -78,12 +79,20 @@ class AnthropicAdapter(ProviderAdapter):
             "cache_control": {"type": "ephemeral"},
         }]
 
+        max_tokens = request.max_tokens or 4096
+        thinking = anthropic_thinking_block(request.reasoning)
+        if thinking:
+            # Anthropic requires budget_tokens < max_tokens; lift if needed.
+            max_tokens = max(max_tokens, anthropic_min_max_tokens(request.reasoning))
+
         body = {
             "model": request.model,
             "system": system_block,
             "messages": [{"role": "user", "content": content_parts}],
-            "max_tokens": request.max_tokens or 4096,
+            "max_tokens": max_tokens,
         }
+        if thinking:
+            body["thinking"] = thinking
         return body, self._build_headers()
 
     async def send_request_stream(self, request: ChatRequest) -> AsyncIterator[dict]:
