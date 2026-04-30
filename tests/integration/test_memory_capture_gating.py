@@ -15,6 +15,22 @@ from unittest.mock import AsyncMock, patch
 import httpx
 
 
+def _empty_quilt_response():
+    """Return the real CQ-shaped empty response for use in mocks.
+
+    Real shape per https://cq.shouldersurf.com/v1/quilt:
+      {user_id, facts, action_items, deleted, server_time}
+    No "patches" key — that field is iOS-internal naming, not CQ's.
+    """
+    return {
+        "user_id": "test-user",
+        "facts": [],
+        "action_items": [],
+        "deleted": [],
+        "server_time": "2026-04-30T20:00:00Z",
+    }
+
+
 def _patched_quilt_fetch(json_payload):
     """Helper: patch httpx.AsyncClient so the proxied GET /v1/quilt returns
     a known payload. Mirrors the pattern in test_cq_proxy_e2e.py."""
@@ -98,9 +114,24 @@ class TestFreeWithinQuota:
         conn.commit()
         conn.close()
 
+        # Real CQ response shape: {user_id, facts, action_items, deleted,
+        # server_time} — see https://cq.shouldersurf.com/v1/quilt sample.
+        # Real fact shape uses patch_id + fact (not id + text).
         mock_resp, auth_cm, client_cm = _patched_quilt_fetch(
-            {"patches": [{"id": "p1", "type": "TAKEAWAY", "text": "real memory"}],
-             "count": 1}
+            {
+                "user_id": free_user["user_id"],
+                "facts": [
+                    {
+                        "patch_id": "p1",
+                        "fact": "Existing real memory",
+                        "category": "fact",
+                        "patch_type": "fact",
+                    }
+                ],
+                "action_items": [],
+                "deleted": [],
+                "server_time": "2026-04-30T20:00:00Z",
+            }
         )
         with auth_cm, client_cm as MockClient:
             _setup_async_client_mock(MockClient, mock_resp)
@@ -111,12 +142,17 @@ class TestFreeWithinQuota:
 
         assert resp.status_code == 200
         body = resp.json()
-        assert body["count"] == 2
-        cta = body["patches"][-1]
+        # Synthetic appended to facts (not patches — that key never existed
+        # in CQ's real response). 2 = original 1 + injected 1.
+        assert len(body["facts"]) == 2
+        cta = body["facts"][-1]
         assert cta["metadata"]["is_synthetic"] is True
-        assert cta["metadata"]["origin_id"] == "m-free-1"
+        assert cta["origin_id"] == "m-free-1"
+        assert cta["origin_type"] == "meeting"
         assert cta["metadata"]["cta_kind"] == "free_within_quota_footer"
-        assert "Upgrade to Pro" in cta["text"]
+        assert cta["metadata"]["action"] == "open_paywall"
+        assert "Upgrade to Pro" in cta["fact"]
+        assert cta["patch_type"] == "cta"
 
         # Flag cleared after one render.
         conn = sqlite3.connect(tmp_db_path)
@@ -167,9 +203,8 @@ class TestNoCtaWhenNotPending:
     def test_pro_quilt_fetch_passes_through_unmodified(
         self, client_with_cq, pro_user, mock_cq, tmp_db_path,
     ):
-        mock_resp, auth_cm, client_cm = _patched_quilt_fetch(
-            {"patches": [], "count": 0}
-        )
+        empty = _empty_quilt_response()
+        mock_resp, auth_cm, client_cm = _patched_quilt_fetch(empty)
         with auth_cm, client_cm as MockClient:
             _setup_async_client_mock(MockClient, mock_resp)
             resp = client_with_cq.get(
@@ -177,7 +212,10 @@ class TestNoCtaWhenNotPending:
                 headers=pro_user["headers"],
             )
         assert resp.status_code == 200
-        assert resp.json() == {"patches": [], "count": 0}
+        # No CTA stamped → response passes through CQ's body unchanged.
+        body = resp.json()
+        assert body["facts"] == []
+        assert body["action_items"] == []
 
 
 class TestCtaLocalization:
@@ -201,7 +239,7 @@ class TestCtaLocalization:
         conn.close()
 
         mock_resp, auth_cm, client_cm = _patched_quilt_fetch(
-            {"patches": [], "count": 0}
+            _empty_quilt_response()
         )
         with auth_cm, client_cm as MockClient:
             _setup_async_client_mock(MockClient, mock_resp)
@@ -212,9 +250,9 @@ class TestCtaLocalization:
 
         assert resp.status_code == 200
         body = resp.json()
-        cta = body["patches"][-1]
-        assert "Actualiza a Pro" in cta["text"]
-        assert "Memoria" in cta["text"]
+        cta = body["facts"][-1]
+        assert "Actualiza a Pro" in cta["fact"]
+        assert "Memoria" in cta["fact"]
 
     def test_ja_locale_picks_japanese_cta(
         self, client_with_cq, free_user, mock_cq, tmp_db_path,
@@ -229,7 +267,7 @@ class TestCtaLocalization:
         conn.close()
 
         mock_resp, auth_cm, client_cm = _patched_quilt_fetch(
-            {"patches": [], "count": 0}
+            _empty_quilt_response()
         )
         with auth_cm, client_cm as MockClient:
             _setup_async_client_mock(MockClient, mock_resp)
@@ -240,10 +278,10 @@ class TestCtaLocalization:
 
         assert resp.status_code == 200
         body = resp.json()
-        cta = body["patches"][-1]
-        assert "Pro" in cta["text"]
+        cta = body["facts"][-1]
+        assert "Pro" in cta["fact"]
         # Japanese-specific marker: メモリー (memory)
-        assert "メモリー" in cta["text"]
+        assert "メモリー" in cta["fact"]
 
     def test_unknown_locale_falls_back_to_english(
         self, client_with_cq, free_user, mock_cq, tmp_db_path,
@@ -258,7 +296,7 @@ class TestCtaLocalization:
         conn.close()
 
         mock_resp, auth_cm, client_cm = _patched_quilt_fetch(
-            {"patches": [], "count": 0}
+            _empty_quilt_response()
         )
         with auth_cm, client_cm as MockClient:
             _setup_async_client_mock(MockClient, mock_resp)
@@ -269,5 +307,5 @@ class TestCtaLocalization:
 
         assert resp.status_code == 200
         body = resp.json()
-        cta = body["patches"][-1]
-        assert "Upgrade to Pro" in cta["text"]
+        cta = body["facts"][-1]
+        assert "Upgrade to Pro" in cta["fact"]
