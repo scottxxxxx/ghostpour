@@ -178,3 +178,96 @@ class TestNoCtaWhenNotPending:
             )
         assert resp.status_code == 200
         assert resp.json() == {"patches": [], "count": 0}
+
+
+class TestCtaLocalization:
+    """Verify Accept-Language picks the locale-matched CTA copy.
+
+    Falls back to default tiers config (English) when the requested locale
+    doesn't have a localized override, and to features.yml as the final
+    English source of truth.
+    """
+
+    def test_es_locale_picks_spanish_cta(
+        self, client_with_cq, free_user, mock_cq, tmp_db_path,
+    ):
+        conn = sqlite3.connect(tmp_db_path)
+        conn.execute(
+            """UPDATE users SET memory_last_origin_id = ?, memory_last_cta_kind = ?
+               WHERE id = ?""",
+            ("m-es-1", "free_within_quota_footer", free_user["user_id"]),
+        )
+        conn.commit()
+        conn.close()
+
+        mock_resp, auth_cm, client_cm = _patched_quilt_fetch(
+            {"patches": [], "count": 0}
+        )
+        with auth_cm, client_cm as MockClient:
+            _setup_async_client_mock(MockClient, mock_resp)
+            resp = client_with_cq.get(
+                f"/v1/quilt/{free_user['user_id']}",
+                headers={**free_user["headers"], "Accept-Language": "es"},
+            )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        cta = body["patches"][-1]
+        assert "Actualiza a Pro" in cta["text"]
+        assert "Memoria" in cta["text"]
+
+    def test_ja_locale_picks_japanese_cta(
+        self, client_with_cq, free_user, mock_cq, tmp_db_path,
+    ):
+        conn = sqlite3.connect(tmp_db_path)
+        conn.execute(
+            """UPDATE users SET memory_last_origin_id = ?, memory_last_cta_kind = ?
+               WHERE id = ?""",
+            ("m-ja-1", "free_no_quota_only", free_user["user_id"]),
+        )
+        conn.commit()
+        conn.close()
+
+        mock_resp, auth_cm, client_cm = _patched_quilt_fetch(
+            {"patches": [], "count": 0}
+        )
+        with auth_cm, client_cm as MockClient:
+            _setup_async_client_mock(MockClient, mock_resp)
+            resp = client_with_cq.get(
+                f"/v1/quilt/{free_user['user_id']}",
+                headers={**free_user["headers"], "Accept-Language": "ja"},
+            )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        cta = body["patches"][-1]
+        assert "Pro" in cta["text"]
+        # Japanese-specific marker: メモリー (memory)
+        assert "メモリー" in cta["text"]
+
+    def test_unknown_locale_falls_back_to_english(
+        self, client_with_cq, free_user, mock_cq, tmp_db_path,
+    ):
+        conn = sqlite3.connect(tmp_db_path)
+        conn.execute(
+            """UPDATE users SET memory_last_origin_id = ?, memory_last_cta_kind = ?
+               WHERE id = ?""",
+            ("m-fr-1", "free_within_quota_footer", free_user["user_id"]),
+        )
+        conn.commit()
+        conn.close()
+
+        mock_resp, auth_cm, client_cm = _patched_quilt_fetch(
+            {"patches": [], "count": 0}
+        )
+        with auth_cm, client_cm as MockClient:
+            _setup_async_client_mock(MockClient, mock_resp)
+            resp = client_with_cq.get(
+                f"/v1/quilt/{free_user['user_id']}",
+                headers={**free_user["headers"], "Accept-Language": "fr"},
+            )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        cta = body["patches"][-1]
+        assert "Upgrade to Pro" in cta["text"]

@@ -265,15 +265,44 @@ async def get_quilt(
 
 
 def _render_memory_cta_text(request: Request, cta_kind: str) -> str | None:
-    """Resolve the CTA template from features.yml and substitute quota fields."""
+    """Resolve the CTA template and substitute quota fields.
+
+    Resolution order:
+      1. feature_definitions.context_quilt.cta_strings in tiers.{locale}.json
+         (locale parsed from Accept-Language)
+      2. feature_definitions.context_quilt.cta_strings in tiers.json (default
+         English locale)
+      3. features.yml context_quilt.cta_strings (English source of truth)
+    """
+    from app.routers.config import _parse_accept_language
+
     feature_config = request.app.state.feature_config
     cq_def = feature_config.features.get("context_quilt")
-    if not cq_def or not cq_def.cta_strings:
+    if not cq_def:
         return None
-    template = cq_def.cta_strings.get(cta_kind)
+
+    total = cq_def.free_quota_per_month if cq_def.free_quota_per_month >= 0 else 0
+
+    locale = _parse_accept_language(request.headers.get("Accept-Language"))
+    configs = request.app.state.remote_configs
+    localized_name = f"tiers.{locale}" if locale else None
+
+    template: str | None = None
+    for slug in (localized_name, "tiers"):
+        if slug and slug in configs:
+            cq_block = (
+                configs[slug].get("feature_definitions", {}).get("context_quilt", {})
+            )
+            template = cq_block.get("cta_strings", {}).get(cta_kind)
+            if template:
+                break
+
+    # Fallback: features.yml English source of truth.
+    if not template and cq_def.cta_strings:
+        template = cq_def.cta_strings.get(cta_kind)
+
     if not template:
         return None
-    total = cq_def.free_quota_per_month if cq_def.free_quota_per_month >= 0 else 0
     return template.format(total=total, remaining=0)
 
 
