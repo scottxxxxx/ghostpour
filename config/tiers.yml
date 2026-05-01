@@ -47,6 +47,10 @@ tiers:
       - "claude-haiku-4-5-20251001"
     max_images_per_request: 1
     hours_per_month: 5
+    # Project Chat context cap (chars/4 heuristic; matches iOS fuel gauge).
+    # Free: ~3-4 meetings of context. iOS blocks send client-side; server
+    # returns 413 + context_too_large CTA as defense in depth.
+    max_input_tokens: 50000
     storekit_product_id: ""
     features:
       context_quilt: "disabled"
@@ -75,6 +79,9 @@ tiers:
       - "claude-haiku-4-5-20251001"
     max_images_per_request: 3
     hours_per_month: -1
+    # Plus context cap — guardrail against accidental "attach everything"
+    # footguns. Plus has unlimited budget so this isn't a cost gate.
+    max_input_tokens: 150000
     storekit_product_id: "com.weirtech.shouldersurf.sub.plus.monthly"
     features:
       context_quilt: "teaser"
@@ -106,6 +113,10 @@ tiers:
       - "claude-sonnet-4-6"
     max_images_per_request: 5
     hours_per_month: -1
+    # Pro context cap — slightly under model context window for system-prompt
+    # headroom. Pro reports run on Sonnet; cost variance absorbed by unlimited
+    # budget at this tier.
+    max_input_tokens: 180000
     storekit_product_id: "com.weirtech.shouldersurf.sub.pro.monthly"
     features:
       context_quilt: "enabled"

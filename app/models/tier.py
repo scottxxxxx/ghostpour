@@ -18,6 +18,12 @@ class TierDefinition(BaseModel):
     allowed_models: list[str] = []
     max_images_per_request: int = 0
     hours_per_month: int = -1           # -1 = unlimited, display only
+    # Max input tokens (chars/4 heuristic) accepted on /v1/chat ProjectChat
+    # sends. Defense-in-depth guard against attaching too much context — iOS
+    # enforces client-side via the fuel gauge using the same value, but we
+    # also enforce server-side and return 413 with a context_too_large CTA.
+    # -1 disables the cap (admin tier).
+    max_input_tokens: int = -1
     storekit_product_id: str = ""       # StoreKit product ID for this tier
     app_product_ids: dict[str, str] = {}  # optional per-app overrides
     # Generic feature gating: feature_name -> "enabled" | "teaser" | "disabled"

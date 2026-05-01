@@ -1,5 +1,5 @@
 {
-  "version": 13,
+  "version": 14,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -20,7 +20,10 @@
         {"label": "自動要約", "value": "10分ごと", "icon": "clock"},
         {"label": "要約モード", "value": "差分のみ", "icon": "doc"},
         {"label": "最大画像数", "value": "1クエリにつき1枚", "icon": "photo"}
-      ]
+      ],
+      "feature_definitions": {
+        "project_chat": {"max_input_tokens": 50000}
+      }
     },
     "plus": {
       "display_name": "Plus",
@@ -46,7 +49,10 @@
         {"label": "要約モード", "value": "差分のみ", "icon": "doc"},
         {"label": "最大画像数", "value": "1クエリにつき3枚", "icon": "photo"},
         {"label": "ミーティングメモリー", "value": "Proにアップグレード", "icon": "brain", "state": "teaser"}
-      ]
+      ],
+      "feature_definitions": {
+        "project_chat": {"max_input_tokens": 150000}
+      }
     },
     "pro": {
       "display_name": "Pro",
@@ -74,7 +80,10 @@
         {"label": "要約モード", "value": "全文または差分（選択可能）", "icon": "doc"},
         {"label": "最大画像数", "value": "1クエリにつき5枚", "icon": "photo"},
         {"label": "ミーティングメモリー", "value": "有効", "icon": "brain", "state": "enabled"}
-      ]
+      ],
+      "feature_definitions": {
+        "project_chat": {"max_input_tokens": 180000}
+      }
     }
   },
   "feature_definitions": {

@@ -236,12 +236,15 @@ async def _build_report_response(response, body, db, user, report_model, request
     # 7. Cache the report for recovery (30-day retention, purged on startup)
     report_json_str = json.dumps(report_json, ensure_ascii=False)
     ai_tier = tier_to_ai_tier(user.effective_tier)
+    # Real (LLM-generated) report — report_status NULL signals "not a placeholder",
+    # is_editable=1 lets iOS open the editor. Canned/budget-blocked reports take
+    # a different persistence path (see budget-gate handler) and set both flags.
     await db.execute(
         """INSERT OR REPLACE INTO meeting_reports
            (id, user_id, meeting_id, report_json, report_html,
             model, ai_tier, input_tokens, output_tokens, cost_usd,
-            generation_ms, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            generation_ms, created_at, report_status, is_editable)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             str(uuid.uuid4()),
             user.id,
@@ -255,6 +258,8 @@ async def _build_report_response(response, body, db, user, report_model, request
             request_cost,
             elapsed_ms,
             meeting_dt.isoformat(),
+            None,  # report_status: real reports have no status marker
+            1,     # is_editable: real reports are editable
         ),
     )
     await db.commit()
@@ -268,6 +273,8 @@ async def _build_report_response(response, body, db, user, report_model, request
         "output_tokens": response.output_tokens,
         "cost_usd": request_cost,
         "generation_ms": elapsed_ms,
+        "report_status": None,
+        "is_editable": True,
     }
 
 
@@ -297,10 +304,19 @@ async def get_cached_report(
 
     # ai_tier was added in a later schema rev. Old rows return None;
     # iOS falls back to whatever attribution it had (or skips).
-    try:
-        cached_ai_tier = row["ai_tier"]
-    except (IndexError, KeyError):
-        cached_ai_tier = None
+    # Same pattern for report_status / is_editable (added v14).
+    def _safe(col, default=None):
+        try:
+            return row[col]
+        except (IndexError, KeyError):
+            return default
+
+    cached_ai_tier = _safe("ai_tier")
+    cached_status = _safe("report_status")
+    cached_editable_int = _safe("is_editable")
+    # Legacy rows (NULL is_editable) are treated as editable=true; only
+    # explicitly-stamped 0 disables the editor.
+    cached_editable = True if cached_editable_int is None else bool(cached_editable_int)
 
     return {
         "report_html": row["report_html"],
@@ -313,6 +329,8 @@ async def get_cached_report(
         "generation_ms": row["generation_ms"],
         "cached": True,
         "generated_at": row["created_at"],
+        "report_status": cached_status,
+        "is_editable": cached_editable,
     }
 
 
