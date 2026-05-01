@@ -975,24 +975,38 @@ async def chat(
             },
         )
 
-    # Budget gate — pre-call cost estimate vs effective_limit + overage.
-    # Skips when limit is unlimited (Plus/Pro/Admin) or when pricing data
-    # isn't loaded (fail open to avoid blanket-blocking on a transient
-    # outage; the post-call check_quota backstop still catches runaway
-    # spend retroactively).
-    if effective_limit != -1 and pricing.is_loaded:
-        estimated_cost = estimate_call_cost_usd(
-            pricing,
-            provider=body.provider,
-            model=body.model,
-            input_tokens=estimated_input_tokens,
-            max_output_tokens=body.max_tokens,
-        )
-        if estimated_cost is not None and would_exceed_budget(
-            monthly_used_usd=monthly_used,
-            estimated_cost_usd=estimated_cost,
-            effective_limit_usd=effective_limit,
-        ):
+    # Budget gate — handles BOTH "already past cap" AND "this call would
+    # push past cap" with a unified 200 + CTA envelope. Skips when:
+    #   - limit is unlimited (Plus/Pro/Admin)
+    #   - call_type is "summary" or "analysis" — auto-summary and post-meeting
+    #     analysis are background pipelines that must keep running for the
+    #     core "summarize my meetings" value prop, even past cap. The user
+    #     experiences gating on user-initiated chat (queries, project chat,
+    #     reports), not on the background AI that powers the meeting view.
+    #     The budget still tracks via record_cost; we just don't pre-block.
+    #   - pricing data isn't loaded for the "would push over" case (fail
+    #     open). The "already past cap" check still fires because it
+    #     doesn't need a cost estimate.
+    _gate_call_type = body.get_meta("call_type")
+    _gate_exempt = _gate_call_type in ("summary", "analysis")
+    if effective_limit != -1 and not _gate_exempt:
+        already_exhausted = monthly_used >= effective_limit
+        would_exceed = False
+        if not already_exhausted and pricing.is_loaded:
+            estimated_cost = estimate_call_cost_usd(
+                pricing,
+                provider=body.provider,
+                model=body.model,
+                input_tokens=estimated_input_tokens,
+                max_output_tokens=body.max_tokens,
+            )
+            if estimated_cost is not None:
+                would_exceed = would_exceed_budget(
+                    monthly_used_usd=monthly_used,
+                    estimated_cost_usd=estimated_cost,
+                    effective_limit_usd=effective_limit,
+                )
+        if already_exhausted or would_exceed:
             credits_total = dollars_to_credits(effective_limit)
             credits_used = dollars_to_credits(monthly_used)
             credits_remaining = max(0, credits_total - credits_used)

@@ -66,10 +66,18 @@ class UsageTracker:
         user: UserRecord,
         tier: TierDefinition,
     ) -> tuple[float, float]:
-        """Check monthly allocation + overage. Returns (monthly_used, overage_balance).
+        """Read current usage state. Returns (monthly_used, overage_balance).
 
-        Raises 429 if both monthly allocation and overage are exhausted.
-        Returns the current values so chat router can set response headers.
+        Previously raised 429 when monthly_used >= effective_limit. That path
+        is gone — the budget gate (app/services/budget_gate.py) is now the
+        sole authority for "you're over cap" responses, emitting the
+        unified 200 + feature_state.cta envelope (or canned report on the
+        meeting-report path). One wire shape, no legacy/new split.
+
+        Still raises 429 for the simulated_exhausted testing path so the
+        admin "force exhausted" toggle keeps working — that's a developer
+        feature, not a real-user one, and the wire shape there doesn't
+        need to match the production envelope.
         """
         # Determine effective limit (trial cap overrides monthly limit)
         effective_limit = tier.monthly_cost_limit_usd
@@ -79,7 +87,9 @@ class UsageTracker:
         if effective_limit == -1:
             return 0.0, 0.0  # Unlimited (admin)
 
-        # Simulation: force allocation exhausted
+        # Simulation: force allocation exhausted (admin testing toggle).
+        # Kept on the 429 path because it's a synthetic dev affordance — the
+        # production block path is the budget gate.
         if user.simulated_exhausted:
             raise HTTPException(
                 status_code=429,
@@ -88,7 +98,7 @@ class UsageTracker:
                     "message": (
                         f"Monthly allocation exhausted "
                         f"(${effective_limit:.2f}/${effective_limit:.2f}). "
-                        f"Purchase overage credits or upgrade your plan."
+                        f"Simulated by admin toggle."
                     ),
                     "details": {
                         "monthly_used": effective_limit,
@@ -100,32 +110,14 @@ class UsageTracker:
                 },
             )
 
-        # Read user's allocation state
+        # Read user's allocation state. Do NOT raise on over-cap — the
+        # budget gate handles that case with the new envelope.
         cursor = await db.execute(
             "SELECT monthly_used_usd FROM users WHERE id = ?",
             (user.id,),
         )
         row = await cursor.fetchone()
         monthly_used = float(row["monthly_used_usd"] or 0) if row else 0.0
-
-        # Monthly allocation exhausted?
-        if monthly_used >= effective_limit:
-            raise HTTPException(
-                status_code=429,
-                detail={
-                    "code": "allocation_exhausted",
-                    "message": (
-                        f"Monthly allocation exhausted "
-                        f"(${monthly_used:.4f}/${effective_limit:.2f}). "
-                        f"Upgrade your plan for more hours."
-                    ),
-                    "details": {
-                        "monthly_used": monthly_used,
-                        "monthly_limit": effective_limit,
-                        "fallback": "on_device",
-                    },
-                },
-            )
 
         return monthly_used, 0.0
 
