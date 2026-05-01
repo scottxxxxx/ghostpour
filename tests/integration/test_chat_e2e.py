@@ -70,10 +70,19 @@ class TestChatBasicFlow:
 
 class TestChatQuota:
     def test_chat_quota_exhausted(self, client, exhausted_user):
-        """User with monthly_used >= limit → 429."""
+        """User already past cap → 200 with empty text + budget_exhausted CTA.
+
+        Replaces the legacy 429/allocation_exhausted path. The budget gate
+        is now the sole authority for over-cap responses; one wire shape
+        across 'already past cap' and 'this call would push past'.
+        """
         resp = client.post("/v1/chat", json=chat_request(), headers=exhausted_user["headers"])
-        assert resp.status_code == 429
-        assert resp.json()["detail"]["code"] == "allocation_exhausted"
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["text"] == ""
+        cta = body["feature_state"]["cta"]
+        assert cta["kind"] == "budget_exhausted"
+        assert cta["action"] == "open_paywall"
 
     def test_chat_allocation_warning_at_80_percent(self, client, tmp_db_path):
         """User near 80% allocation → X-Allocation-Warning header."""

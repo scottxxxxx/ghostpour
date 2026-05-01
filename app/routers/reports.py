@@ -132,20 +132,12 @@ async def generate_report(
     if user.is_trial and tier.trial_cost_limit_usd is not None:
         effective_limit = tier.trial_cost_limit_usd
 
-    if effective_limit != -1 and pricing.is_loaded:
+    if effective_limit != -1:
         from app.services.budget_gate import (
             dollars_to_credits,
             estimate_call_cost_usd,
             estimate_input_tokens,
             would_exceed_budget,
-        )
-        prompt_tokens = estimate_input_tokens(system_prompt + user_message)
-        estimated_cost = estimate_call_cost_usd(
-            pricing,
-            provider=report_provider,
-            model=report_model,
-            input_tokens=prompt_tokens,
-            max_output_tokens=4096,
         )
         cursor = await db.execute(
             "SELECT monthly_used_usd FROM users WHERE id = ?",
@@ -153,11 +145,25 @@ async def generate_report(
         )
         row = await cursor.fetchone()
         monthly_used = float(row["monthly_used_usd"] or 0) if row else 0.0
-        if estimated_cost is not None and would_exceed_budget(
-            monthly_used_usd=monthly_used,
-            estimated_cost_usd=estimated_cost,
-            effective_limit_usd=effective_limit,
-        ):
+
+        already_exhausted = monthly_used >= effective_limit
+        would_exceed = False
+        if not already_exhausted and pricing.is_loaded:
+            prompt_tokens = estimate_input_tokens(system_prompt + user_message)
+            estimated_cost = estimate_call_cost_usd(
+                pricing,
+                provider=report_provider,
+                model=report_model,
+                input_tokens=prompt_tokens,
+                max_output_tokens=4096,
+            )
+            if estimated_cost is not None:
+                would_exceed = would_exceed_budget(
+                    monthly_used_usd=monthly_used,
+                    estimated_cost_usd=estimated_cost,
+                    effective_limit_usd=effective_limit,
+                )
+        if already_exhausted or would_exceed:
             return await _build_canned_report_response(
                 request, db, user, meeting_id, body,
                 effective_limit_usd=effective_limit,

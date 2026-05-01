@@ -108,6 +108,64 @@ class TestChatBudgetGate:
         body = resp.json()
         assert body["text"]  # served
 
+    def test_already_past_cap_returns_cta_envelope(
+        self, client, exhausted_user, mock_provider,
+    ):
+        """SS smoke regression: a Free user already past the cap who sends
+        a tiny query must get the new 200+CTA envelope, not a legacy 429.
+        Prior to this PR, usage_tracker.check_quota fired 429 before the
+        budget gate ran — the new envelope was unreachable for over-cap
+        users. Pin the unified path."""
+        with _force_cost(0.001):
+            resp = client.post(
+                "/v1/chat",
+                json=chat_request(),
+                headers=exhausted_user["headers"],
+            )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["text"] == ""
+        cta = body["feature_state"]["cta"]
+        assert cta["kind"] == "budget_exhausted"
+        assert cta["action"] == "open_paywall"
+        # Provider must NOT have been called — block is pre-LLM.
+        mock_provider.assert_not_called()
+
+    def test_summary_call_type_exempt_from_budget_gate(
+        self, client, exhausted_user, mock_provider,
+    ):
+        """AutoSummary / DeltaSummary / SummaryConsolidation must keep
+        running past cap so the meeting view stays useful and the
+        end-of-meeting consolidation can land. Otherwise queries about the
+        meeting would have stale context."""
+        with _force_cost(0.001):
+            resp = client.post(
+                "/v1/chat",
+                json=chat_request(call_type="summary", prompt_mode="AutoSummary"),
+                headers=exhausted_user["headers"],
+            )
+        assert resp.status_code == 200
+        body = resp.json()
+        # NOT blocked — text is the real (mock) LLM response.
+        assert body["text"] != ""
+        fs = body.get("feature_state") or {}
+        cta = fs.get("cta")
+        assert cta is None or cta.get("kind") != "budget_exhausted"
+
+    def test_analysis_call_type_exempt_from_budget_gate(
+        self, client, exhausted_user, mock_provider,
+    ):
+        """PostSessionAnalysis follows the same exemption — background
+        pipeline that powers the meeting summary, not user-initiated."""
+        with _force_cost(0.001):
+            resp = client.post(
+                "/v1/chat",
+                json=chat_request(call_type="analysis", prompt_mode="PostSessionAnalysis"),
+                headers=exhausted_user["headers"],
+            )
+        assert resp.status_code == 200
+        assert resp.json()["text"] != ""
+
     def test_block_response_has_no_persisted_usage(
         self, client, free_user, mock_provider, tmp_db_path,
     ):
