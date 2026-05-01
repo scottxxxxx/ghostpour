@@ -198,6 +198,66 @@ class TestVerifyReceipt:
         )
         assert resp.status_code == 400
 
+    def test_verify_receipt_includes_placeholder_report_count(
+        self, client, tmp_db_path,
+    ):
+        """When a Free user upgrades and they have canned (budget-blocked)
+        meeting reports, the count is surfaced on the verify-receipt
+        response so iOS can prompt regen for the most recent one without
+        scanning the meeting list. Real reports don't count."""
+        _insert_user(tmp_db_path, user_id="upgrade-with-placeholders", tier="free", monthly_limit=0.35)
+        headers = {"Authorization": f"Bearer {_jwt_token('upgrade-with-placeholders')}"}
+
+        # Seed: 1 real report + 2 canned (budget-blocked) reports.
+        conn = sqlite3.connect(tmp_db_path)
+        for i, status in enumerate([None, "placeholder_budget_blocked", "placeholder_budget_blocked"]):
+            conn.execute(
+                """INSERT INTO meeting_reports
+                   (id, user_id, meeting_id, report_json, report_html,
+                    created_at, report_status, is_editable)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    f"r-{i}", "upgrade-with-placeholders", f"m-{i}",
+                    "{}", "<html></html>",
+                    "2026-04-30T00:00:00Z",
+                    status,
+                    1 if status is None else 0,
+                ),
+            )
+        conn.commit()
+        conn.close()
+
+        resp = client.post(
+            "/v1/verify-receipt",
+            json={
+                "product_id": _PLUS_PRODUCT,
+                "transaction_id": "txn_placeholder_count",
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        # 2 canned reports, 1 real → count is 2 (real reports excluded).
+        assert resp.json()["placeholder_report_count"] == 2
+
+    def test_verify_receipt_zero_placeholders_when_none_exist(
+        self, client, tmp_db_path,
+    ):
+        """User with no canned reports — count is 0, not absent. iOS can
+        rely on the field being present and integer-valued."""
+        _insert_user(tmp_db_path, user_id="no-placeholders", tier="free", monthly_limit=0.35)
+        headers = {"Authorization": f"Bearer {_jwt_token('no-placeholders')}"}
+
+        resp = client.post(
+            "/v1/verify-receipt",
+            json={
+                "product_id": _PLUS_PRODUCT,
+                "transaction_id": "txn_no_placeholders",
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["placeholder_report_count"] == 0
+
 
 class TestSyncSubscription:
     def test_sync_downgrade_to_free(self, client, tmp_db_path):
