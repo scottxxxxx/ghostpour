@@ -1,5 +1,5 @@
 {
-  "version": 14,
+  "version": 15,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -40,7 +40,7 @@
         {"label": "無制限のAIアシスタント付きミーティング", "icon": "checkmark"},
         {"label": "スタンダードAI", "icon": "checkmark"},
         {"label": "リアルタイム自動要約", "icon": "doc"},
-        {"label": "共有可能なミーティングレポート", "icon": "checkmark"},
+        {"label": "共有可能なミーティングレポート", "icon": "share"},
         {"label": "ミーティング間のプロジェクトチャット", "icon": "chat"},
         {"label": "1クエリにつき画像3枚", "icon": "photo"}
       ],
@@ -70,7 +70,7 @@
         {"label": "無制限のAIアシスタント付きミーティング", "icon": "checkmark"},
         {"label": "レポートと分析のためのアドバンストAI", "icon": "checkmark.plus"},
         {"label": "全文または差分要約（選択可能）", "icon": "doc"},
-        {"label": "共有可能なミーティングレポート", "icon": "checkmark"},
+        {"label": "共有可能なミーティングレポート", "icon": "share"},
         {"label": "ミーティング間のプロジェクトチャット", "icon": "chat"},
         {"label": "ミーティングメモリー：AIが過去の会議を記憶", "icon": "brain"},
         {"label": "1クエリにつき画像5枚", "icon": "photo"}

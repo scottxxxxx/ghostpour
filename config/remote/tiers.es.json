@@ -1,5 +1,5 @@
 {
-  "version": 14,
+  "version": 15,
   "tiers": {
     "free": {
       "display_name": "Gratis",
@@ -40,7 +40,7 @@
         {"label": "Reuniones ilimitadas con asistencia de IA", "icon": "checkmark"},
         {"label": "IA estándar", "icon": "checkmark"},
         {"label": "Resúmenes automáticos en tiempo real", "icon": "doc"},
-        {"label": "Informes de reuniones compartibles", "icon": "checkmark"},
+        {"label": "Informes de reuniones compartibles", "icon": "share"},
         {"label": "Chat de proyecto entre reuniones", "icon": "chat"},
         {"label": "3 imágenes por consulta", "icon": "photo"}
       ],
@@ -70,7 +70,7 @@
         {"label": "Reuniones ilimitadas con asistencia de IA", "icon": "checkmark"},
         {"label": "IA avanzada para informes y análisis", "icon": "checkmark.plus"},
         {"label": "Resúmenes completos o incrementales (tu elección)", "icon": "doc"},
-        {"label": "Informes de reuniones compartibles", "icon": "checkmark"},
+        {"label": "Informes de reuniones compartibles", "icon": "share"},
         {"label": "Chat de proyecto entre reuniones", "icon": "chat"},
         {"label": "Memoria de Reuniones: la IA recuerda reuniones pasadas", "icon": "brain"},
         {"label": "5 imágenes por consulta", "icon": "photo"}
