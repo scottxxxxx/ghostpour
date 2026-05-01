@@ -1,5 +1,5 @@
 {
-  "version": 13,
+  "version": 14,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -20,7 +20,10 @@
         {"label": "Auto-summary", "value": "every 10 min", "icon": "clock"},
         {"label": "Summary mode", "value": "Delta only", "icon": "doc"},
         {"label": "Max images", "value": "1 per query", "icon": "photo"}
-      ]
+      ],
+      "feature_definitions": {
+        "project_chat": {"max_input_tokens": 50000}
+      }
     },
     "plus": {
       "display_name": "Plus",
@@ -46,7 +49,10 @@
         {"label": "Summary mode", "value": "Delta only", "icon": "doc"},
         {"label": "Max images", "value": "3 per query", "icon": "photo"},
         {"label": "Meeting Memory", "value": "upgrade to Pro", "icon": "brain", "state": "teaser"}
-      ]
+      ],
+      "feature_definitions": {
+        "project_chat": {"max_input_tokens": 150000}
+      }
     },
     "pro": {
       "display_name": "Pro",
@@ -74,7 +80,10 @@
         {"label": "Summary mode", "value": "Full or delta (your choice)", "icon": "doc"},
         {"label": "Max images", "value": "5 per query", "icon": "photo"},
         {"label": "Meeting Memory", "value": "enabled", "icon": "brain", "state": "enabled"}
-      ]
+      ],
+      "feature_definitions": {
+        "project_chat": {"max_input_tokens": 180000}
+      }
     }
   },
   "feature_definitions": {
