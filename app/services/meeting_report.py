@@ -321,12 +321,64 @@ def build_report_prompt(
     return system_prompt, user_message
 
 
-def render_report_html(report_json: dict, metadata: dict) -> str:
+_DEFAULT_REPORT_STRINGS = {
+    # English defaults — used when remote_configs has no report-strings.{locale}
+    # entry. Mirrors config/remote/report-strings.json so a deployment without
+    # the remote config still renders correctly.
+    "header_label": "Meeting Report",
+    "speakers_heading": "Identified speakers",
+    "sentiment_label": "Sentiment",
+    "view_arc_button": "View sentiment arc",
+    "sentiment_arc_heading": "Sentiment arc",
+    "action_required_heading": "Action Required",
+    "critical_issue_heading": "Critical Technical Issue",
+    "decisions_heading": "Decisions Made",
+    "decisions_agreed_label": "Agreed",
+    "open_questions_heading": "Open Questions",
+    "open_questions_question_label": "Question",
+    "open_questions_owner_label": "Owner",
+    "footer_powered_by": "Meeting notes powered by",
+}
+
+
+def _resolve_report_strings(
+    remote_configs: dict | None,
+    locale: str | None,
+) -> dict[str, str]:
+    """Locale-aware lookup with English fallback. Resolution order:
+    1. report-strings.{locale} if locale ∈ {es, ja, ...}
+    2. report-strings (English base)
+    3. _DEFAULT_REPORT_STRINGS (hardcoded fallback for missing remote config)
+    """
+    if not remote_configs:
+        return _DEFAULT_REPORT_STRINGS
+    if locale and locale != "en":
+        cfg = remote_configs.get(f"report-strings.{locale}")
+        if cfg and isinstance(cfg.get("strings"), dict):
+            return {**_DEFAULT_REPORT_STRINGS, **cfg["strings"]}
+    cfg = remote_configs.get("report-strings")
+    if cfg and isinstance(cfg.get("strings"), dict):
+        return {**_DEFAULT_REPORT_STRINGS, **cfg["strings"]}
+    return _DEFAULT_REPORT_STRINGS
+
+
+def render_report_html(
+    report_json: dict,
+    metadata: dict,
+    remote_configs: dict | None = None,
+    locale: str | None = None,
+) -> str:
     """Render the report JSON into HTML using the template.
 
-    metadata should contain: meeting_date, meeting_time, meeting_duration
+    metadata should contain: meeting_date, meeting_time, meeting_duration.
+    Chrome strings (section headers, labels) are pulled from
+    report-strings.{locale} remote config with fallback to the English
+    base config and finally to hardcoded defaults.
     """
     template = _TEMPLATE_PATH.read_text()
+    strings = _resolve_report_strings(remote_configs, locale)
+    for key, value in strings.items():
+        template = template.replace(f"{{{{strings.{key}}}}}", _esc(value))
 
     header = report_json.get("header", {})
     stoplight = report_json.get("stoplight", {})

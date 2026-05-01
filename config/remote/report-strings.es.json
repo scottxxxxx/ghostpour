@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "strings": {
+    "header_label": "Informe de Reunión",
+    "speakers_heading": "Asistentes identificados",
+    "sentiment_label": "Sentimiento",
+    "view_arc_button": "Ver arco de sentimiento",
+    "sentiment_arc_heading": "Arco de sentimiento",
+    "action_required_heading": "Acción requerida",
+    "critical_issue_heading": "Problema técnico crítico",
+    "decisions_heading": "Decisiones tomadas",
+    "decisions_agreed_label": "Acordado",
+    "open_questions_heading": "Preguntas abiertas",
+    "open_questions_question_label": "Pregunta",
+    "open_questions_owner_label": "Responsable",
+    "footer_powered_by": "Notas de reunión por"
+  }
+}

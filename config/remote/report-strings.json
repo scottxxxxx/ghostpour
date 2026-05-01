@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "strings": {
+    "header_label": "Meeting Report",
+    "speakers_heading": "Identified speakers",
+    "sentiment_label": "Sentiment",
+    "view_arc_button": "View sentiment arc",
+    "sentiment_arc_heading": "Sentiment arc",
+    "action_required_heading": "Action Required",
+    "critical_issue_heading": "Critical Technical Issue",
+    "decisions_heading": "Decisions Made",
+    "decisions_agreed_label": "Agreed",
+    "open_questions_heading": "Open Questions",
+    "open_questions_question_label": "Question",
+    "open_questions_owner_label": "Owner",
+    "footer_powered_by": "Meeting notes powered by"
+  }
+}

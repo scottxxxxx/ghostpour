@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "strings": {
+    "header_label": "会議レポート",
+    "speakers_heading": "識別された参加者",
+    "sentiment_label": "感情",
+    "view_arc_button": "感情の推移を見る",
+    "sentiment_arc_heading": "感情の推移",
+    "action_required_heading": "要対応",
+    "critical_issue_heading": "重大な技術課題",
+    "decisions_heading": "決定事項",
+    "decisions_agreed_label": "合意",
+    "open_questions_heading": "未解決の質問",
+    "open_questions_question_label": "質問",
+    "open_questions_owner_label": "担当者",
+    "footer_powered_by": "会議ノート提供"
+  }
+}

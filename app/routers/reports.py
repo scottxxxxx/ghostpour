@@ -212,6 +212,7 @@ async def generate_report(
     try:
         return await _build_report_response(
             response, body, db, user, report_model, request_cost, elapsed_ms, meeting_id,
+            request=request, locale=locale,
         )
     except HTTPException:
         raise
@@ -223,7 +224,7 @@ async def generate_report(
         })
 
 
-async def _build_report_response(response, body, db, user, report_model, request_cost, elapsed_ms, meeting_id):
+async def _build_report_response(response, body, db, user, report_model, request_cost, elapsed_ms, meeting_id, *, request=None, locale=None):
     report_text = response.text.strip()
     # Strip markdown fencing if the model added it despite instructions
     if report_text.startswith("```"):
@@ -271,7 +272,12 @@ async def _build_report_response(response, body, db, user, report_model, request
         "project_name": body.project or "",
     }
 
-    report_html = render_report_html(report_json, metadata)
+    report_html = render_report_html(
+        report_json,
+        metadata,
+        remote_configs=request.app.state.remote_configs,
+        locale=locale,
+    )
 
     # 7. Cache the report for recovery (30-day retention, purged on startup)
     report_json_str = json.dumps(report_json, ensure_ascii=False)
@@ -474,12 +480,15 @@ class RenderRequest(BaseModel):
 @router.post("/reports/render")
 async def render_report(
     body: RenderRequest,
+    request: Request,
     user: UserRecord = Depends(get_current_user),
 ):
     """Re-render a report from edited JSON. No LLM call, no allocation charge.
 
     Used for live preview after the user edits report sections in the review screen.
     """
+    from app.routers.config import _parse_accept_language
+    locale = _parse_accept_language(request.headers.get("Accept-Language"))
     now = datetime.now(timezone.utc)
     metadata = {
         "meeting_date": now.strftime("%B %-d, %Y"),
@@ -487,5 +496,10 @@ async def render_report(
         "meeting_duration": format_duration(body.duration_seconds),
     }
 
-    report_html = render_report_html(body.report_json, metadata)
+    report_html = render_report_html(
+        body.report_json,
+        metadata,
+        remote_configs=request.app.state.remote_configs,
+        locale=locale,
+    )
     return {"report_html": report_html}
