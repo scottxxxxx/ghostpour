@@ -145,3 +145,55 @@ class TestVerifyReceiptFiresNotify:
             assert resp.status_code == 200
             mock_notify.assert_awaited_once()
             assert mock_notify.await_args.kwargs["event_type"] == "trial_start"
+
+
+class TestSyncSubscriptionFiresNotify:
+    """/v1/sync-subscription should fire notify_tier_change on transitions."""
+
+    def test_cancellation_fires(self, client_with_cq, pro_user, mock_cq):
+        with patch(
+            "app.routers.chat.cq.notify_tier_change",
+            new_callable=AsyncMock,
+        ) as mock_notify:
+            resp = client_with_cq.post(
+                "/v1/sync-subscription",
+                json={"active_product_id": None, "is_trial": False},
+                headers=pro_user["headers"],
+            )
+            assert resp.status_code == 200
+            mock_notify.assert_awaited_once()
+            kwargs = mock_notify.await_args.kwargs
+            assert kwargs["old_tier"] == "pro"
+            assert kwargs["new_tier"] == "free"
+            assert kwargs["event_type"] == "cancellation"
+
+    def test_idempotent_sync_does_not_fire(self, client_with_cq, pro_user, mock_cq):
+        with patch(
+            "app.routers.chat.cq.notify_tier_change",
+            new_callable=AsyncMock,
+        ) as mock_notify:
+            resp = client_with_cq.post(
+                "/v1/sync-subscription",
+                json={
+                    "active_product_id": "com.weirtech.shouldersurf.sub.pro.monthly",
+                    "is_trial": False,
+                },
+                headers=pro_user["headers"],
+            )
+            assert resp.status_code == 200
+            mock_notify.assert_not_called()
+
+    def test_already_free_no_active_does_not_fire(
+        self, client_with_cq, free_user, mock_cq
+    ):
+        with patch(
+            "app.routers.chat.cq.notify_tier_change",
+            new_callable=AsyncMock,
+        ) as mock_notify:
+            resp = client_with_cq.post(
+                "/v1/sync-subscription",
+                json={"active_product_id": None, "is_trial": False},
+                headers=free_user["headers"],
+            )
+            assert resp.status_code == 200
+            mock_notify.assert_not_called()
