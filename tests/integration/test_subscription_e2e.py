@@ -316,3 +316,43 @@ class TestUsageMe:
         # Pro is unlimited (-1), free has a cap
         assert pro_limit == -1  # unlimited
         assert free_limit > 0   # capped
+
+    def test_usage_me_includes_credits_block(self, client, free_user, tmp_db_path):
+        """Free users see a credits.{used,total,remaining,resets_at} block
+        for the iOS Account screen. Replaces the misleading 'X of Y meetings'
+        derived display (which had drift between marketing-copy hours and
+        the real $-budget). 1¢ = 100 credits → Free $0.35 = 3,500 credits."""
+        # Prime monthly_used to exercise the math.
+        import sqlite3
+        conn = sqlite3.connect(tmp_db_path)
+        conn.execute(
+            "UPDATE users SET monthly_used_usd = ? WHERE id = ?",
+            (0.34, free_user["user_id"]),
+        )
+        conn.commit()
+        conn.close()
+
+        resp = client.get("/v1/usage/me", headers=free_user["headers"])
+        assert resp.status_code == 200
+        credits = resp.json()["credits"]
+        # $0.35 limit → 3,500 credits.
+        assert credits["total"] == 3500
+        # $0.34 used → 3,400 credits.
+        assert credits["used"] == 3400
+        # 100 credits remaining.
+        assert credits["remaining"] == 100
+        # resets_at echoes allocation.resets_at — same field, different
+        # presentation. iOS UI binds to credits.resets_at directly.
+        assert "resets_at" in credits
+
+    def test_usage_me_pro_has_unlimited_credits(self, client, pro_user):
+        """Pro is unlimited budget. Surface this as total=-1 / remaining=-1
+        so iOS can render an 'unlimited' badge instead of a depleting bar."""
+        resp = client.get("/v1/usage/me", headers=pro_user["headers"])
+        assert resp.status_code == 200
+        credits = resp.json()["credits"]
+        assert credits["total"] == -1
+        assert credits["remaining"] == -1
+        # `used` still gets a real value — useful for analytics even when
+        # there's no cap.
+        assert credits["used"] >= 0

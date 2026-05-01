@@ -571,6 +571,21 @@ async def usage_me(
     hours_used = monthly_used / model_cost_per_hour if model_cost_per_hour > 0 else 0
     # Use hours_per_month from tier config (display value) rather than deriving from cost
     hours_limit = tier.hours_per_month if tier else -1
+
+    # Credit-denominated allocation. iOS-facing UI should bind to these
+    # rather than `hours.*` (which has marketing/cost drift) or
+    # `monthly_*_usd` (which exposes vendor pricing). Conversion lives
+    # server-side so we can shift the ratio without an iOS update.
+    from app.services.budget_gate import dollars_to_credits
+    if monthly_limit == -1:
+        credits_total = -1
+        credits_used = dollars_to_credits(monthly_used)
+        credits_remaining = -1
+    else:
+        credits_total = dollars_to_credits(monthly_limit)
+        credits_used = dollars_to_credits(monthly_used)
+        credits_remaining = max(0, credits_total - credits_used)
+
     result = {
         "user_id": user.id,
         "tier": effective_tier_name,
@@ -580,6 +595,12 @@ async def usage_me(
             "monthly_used_usd": round(monthly_used, 4),
             "monthly_remaining_usd": round(max(0, monthly_limit - monthly_used), 4) if monthly_limit != -1 else -1,
             "percent_used": round(monthly_used / monthly_limit * 100, 1) if monthly_limit > 0 else 0,
+            "resets_at": resets_at,
+        },
+        "credits": {
+            "used": credits_used,
+            "total": credits_total,
+            "remaining": credits_remaining,
             "resets_at": resets_at,
         },
         "hours": {
