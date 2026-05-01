@@ -106,11 +106,16 @@ async def generate_report(
             },
         )
 
-    # 2. Build LLM prompt
+    # 2. Build LLM prompt — localize narrative content from Accept-Language.
+    # Wire enums (stoplight color, emoji_label, severity, etc.) stay English
+    # so iOS keying continues to work; only display text gets translated.
+    from app.routers.config import _parse_accept_language
+    locale = _parse_accept_language(request.headers.get("Accept-Language"))
     system_prompt, user_message = build_report_prompt(
         meeting_data,
         attendees=body.attendees,
         tag_taxonomy=body.tag_taxonomy,
+        locale=locale,
     )
 
     # 3. Select model — server-controlled per tier. Clients do not pick.
