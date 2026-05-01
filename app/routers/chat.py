@@ -169,6 +169,20 @@ class VerifyReceiptRequest(BaseModel):
 PRODUCT_TO_TIER: dict[str, str] = {}  # Populated from tier config at startup
 
 
+async def _placeholder_report_count(db: aiosqlite.Connection, user_id: str) -> int:
+    """Count canned (budget-blocked) meeting reports for this user.
+    Surfaced on /v1/verify-receipt so iOS can prompt regen for the most
+    recent placeholder right after upgrade without scanning the meeting
+    list. Cheap query (single integer)."""
+    cursor = await db.execute(
+        """SELECT COUNT(*) AS n FROM meeting_reports
+           WHERE user_id = ? AND report_status = 'placeholder_budget_blocked'""",
+        (user_id,),
+    )
+    row = await cursor.fetchone()
+    return int(row["n"] or 0) if row else 0
+
+
 @router.post("/verify-receipt")
 async def verify_receipt(
     body: VerifyReceiptRequest,
@@ -306,6 +320,7 @@ async def verify_receipt(
             "trial_end": row["trial_end"] if row else None,
             "monthly_limit_usd": trial_limit,
             "allocation_resets_at": row["allocation_resets_at"] if row else None,
+            "placeholder_report_count": await _placeholder_report_count(db, user.id),
         }
 
     # Paid subscription (or trial-to-paid conversion)
@@ -367,6 +382,7 @@ async def verify_receipt(
         "is_trial": False,
         "monthly_limit_usd": new_tier.monthly_cost_limit_usd,
         "allocation_resets_at": resets_at,
+        "placeholder_report_count": await _placeholder_report_count(db, user.id),
     }
 
 
