@@ -279,12 +279,22 @@ _DEFAULT_TAG_TAXONOMY = [
 ]
 
 
+_LOCALE_DIRECTIVE = """
+
+LANGUAGE: Produce all narrative text fields (titles, summaries, labels, details, action item text, technical issue titles and details, decision titles and details, open questions, sentiment narrative) in the language with BCP-47 code '{locale}'. Keep all enum values exactly as defined in the schema — these are wire-protocol keys, not display strings, and MUST remain in English: stoplight color (red/orange/yellow/green), emoji_label (enthusiastic, collaborative, positive, informational, focused, cautious, frustrated, tense, concerned, disappointed), priority (critical/standard), severity (gap/bug/risk), mood (confident/tense/concern/neutral)."""
+
+
 def build_report_prompt(
     meeting_data: dict,
     attendees: list[str] | None = None,
     tag_taxonomy: list[str] | None = None,
+    locale: str | None = None,
 ) -> tuple[str, str]:
     """Build the system prompt and user message for the report LLM call.
+
+    `locale` is a BCP-47 code (e.g. 'es', 'ja'). When non-English, the system
+    prompt is extended with a directive instructing the model to localize
+    narrative content while keeping enum/wire-protocol values in English.
 
     Returns (system_prompt, user_message).
     """
@@ -304,7 +314,11 @@ def build_report_prompt(
         queries_json=queries_json,
     )
 
-    return REPORT_SYSTEM_PROMPT, user_message
+    system_prompt = REPORT_SYSTEM_PROMPT
+    if locale and locale != "en":
+        system_prompt = system_prompt + _LOCALE_DIRECTIVE.format(locale=locale)
+
+    return system_prompt, user_message
 
 
 def render_report_html(report_json: dict, metadata: dict) -> str:
