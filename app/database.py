@@ -129,6 +129,13 @@ MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN memory_period TEXT",
     "ALTER TABLE users ADD COLUMN memory_last_origin_id TEXT",
     "ALTER TABLE users ADD COLUMN memory_last_cta_kind TEXT",
+    # v14: meeting-report placeholder tracking. NULL report_status means
+    # "real generated report"; any other value (e.g. 'placeholder_budget_blocked')
+    # marks a canned upsell response that iOS should treat as non-editable
+    # and surface under a 'Hide samples' toggle. is_editable is set explicitly
+    # at persist time; NULL on legacy rows is treated as editable=true.
+    "ALTER TABLE meeting_reports ADD COLUMN report_status TEXT",
+    "ALTER TABLE meeting_reports ADD COLUMN is_editable INTEGER",
 ]
 
 
