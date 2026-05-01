@@ -29,12 +29,23 @@ CONFIG_DIR = Path(__file__).parent.parent.parent / "data" / "remote-config"
 
 
 def seed_remote_configs() -> None:
-    """Copy bundled configs into the persistent directory.
+    """Copy bundled configs into the persistent directory IF MISSING.
 
     Called once at startup. For each bundled file:
     - If it doesn't exist in the persistent dir, copy it.
-    - If the bundled version is newer (higher version field), update it.
-    - Otherwise leave it untouched (dashboard edits take precedence).
+    - If it exists, **leave it alone unconditionally**. Dashboard edits
+      always win over bundled-from-repo. Pulling repo changes into prod
+      requires a manual sync (admin overwrites the dashboard config, or
+      we add a "force-sync from bundle" admin action later).
+
+    History: previously this helper ran "if bundled.version > persistent.version,
+    overwrite" — which silently wiped dashboard edits any time someone
+    bumped a JSON file in the repo. That stomp pattern hit us on
+    2026-05-01 when PR #109 bumped tiers.json 13→14 and erased a
+    dashboard-added 'share' icon. Failure mode is invisible until iOS
+    starts rendering the wrong glyph; silent data loss for admin work.
+    Repo bundle now seeds only fresh containers; subsequent edits live
+    only in the persistent dir and the admin dashboard.
     """
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -47,18 +58,7 @@ def seed_remote_configs() -> None:
         if not dest.exists():
             shutil.copy2(src, dest)
             logger.info("Seeded remote config from bundle: %s", src.name)
-        else:
-            # Update if bundled version is newer
-            try:
-                src_data = json.loads(src.read_text())
-                dest_data = json.loads(dest.read_text())
-                src_ver = src_data.get("version", 0)
-                dest_ver = dest_data.get("version", 0)
-                if src_ver > dest_ver:
-                    shutil.copy2(src, dest)
-                    logger.info("Updated remote config from bundle: %s (v%s → v%s)", src.name, dest_ver, src_ver)
-            except (json.JSONDecodeError, OSError):
-                pass  # Keep existing file on parse error
+        # else: persistent file wins — never overwrite dashboard edits.
 
 
 def load_remote_configs() -> dict[str, dict]:

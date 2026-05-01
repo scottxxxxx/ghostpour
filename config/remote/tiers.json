@@ -1,5 +1,5 @@
 {
-  "version": 14,
+  "version": 15,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -40,7 +40,7 @@
         {"label": "Unlimited meetings with AI assistance", "icon": "checkmark"},
         {"label": "Standard AI", "icon": "checkmark"},
         {"label": "Real-time auto-summaries", "icon": "doc"},
-        {"label": "Shareable meeting reports", "icon": "checkmark"},
+        {"label": "Shareable meeting reports", "icon": "share"},
         {"label": "Project chat across meetings", "icon": "chat"},
         {"label": "3 images per query", "icon": "photo"}
       ],
@@ -70,7 +70,7 @@
         {"label": "Unlimited meetings with AI assistance", "icon": "checkmark"},
         {"label": "Advanced AI for reports and analysis", "icon": "checkmark.plus"},
         {"label": "Full or delta summaries (your choice)", "icon": "doc"},
-        {"label": "Shareable meeting reports", "icon": "checkmark"},
+        {"label": "Shareable meeting reports", "icon": "share"},
         {"label": "Project chat across meetings", "icon": "chat"},
         {"label": "Meeting Memory: AI remembers past meetings", "icon": "brain"},
         {"label": "5 images per query", "icon": "photo"}
@@ -88,6 +88,7 @@
   },
   "feature_definitions": {
     "context_quilt": {
+      "category": "intelligence",
       "display_name": "Meeting Memory",
       "description": "Your AI remembers past meetings and uses that knowledge automatically.",
       "teaser_description": "Your AI found connections to your past meetings",
@@ -98,12 +99,14 @@
       }
     },
     "meeting_reports": {
+      "category": "intelligence",
       "display_name": "Meeting Reports",
       "description": "Generate shareable HTML reports from your meeting transcripts — sentiment, key moments, suggested tags, and your speaker notes.",
       "teaser_description": "Reports turn your meetings into shareable summaries.",
       "upgrade_cta": "Upgrade to Plus to generate shareable meeting reports"
     },
     "project_chat": {
+      "category": "intelligence",
       "display_name": "Project Chat",
       "description": "Ask AI questions across all the meetings in a project — your AI knows the context.",
       "teaser_description": "Project Chat is a Plus feature.",
