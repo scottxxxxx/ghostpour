@@ -889,6 +889,95 @@ async def chat(
     if user.is_trial and tier.trial_cost_limit_usd is not None:
         effective_limit = tier.trial_cost_limit_usd
 
+    # 5.6. Pre-call gates — block before any LLM tokens are spent.
+    # These run after feature hooks so they see the assembled prompt
+    # (hooks may inject CQ recall, project context, etc.). They run
+    # before the stream branch so the JSON envelope works on every
+    # endpoint — SS's parser is content-type driven.
+    from app.services.ai_tier import tier_to_ai_tier as _tier_to_ai_tier_lazy
+    from app.services.budget_gate import (
+        dollars_to_credits,
+        estimate_call_cost_usd,
+        estimate_input_tokens,
+        would_exceed_budget,
+    )
+    is_project_chat_pre = body.get_meta("prompt_mode") == "ProjectChat"
+    assembled_prompt = (body.system_prompt or "") + (body.user_content or "")
+    estimated_input_tokens = estimate_input_tokens(assembled_prompt)
+
+    # Context cap (Project Chat only). iOS already enforces client-side
+    # via the tier max_input_tokens fuel gauge; this is the
+    # defense-in-depth path for races / hacked clients / stale tiers.
+    if is_project_chat_pre and tier.max_input_tokens != -1 and estimated_input_tokens > tier.max_input_tokens:
+        raise HTTPException(
+            status_code=413,
+            detail={
+                "code": "context_too_large",
+                "message": (
+                    f"Selected context is too large for your tier "
+                    f"({estimated_input_tokens} tokens, max {tier.max_input_tokens}). "
+                    f"Deselect meetings or drop transcript chips."
+                ),
+                "feature_state": {
+                    "feature": "project_chat",
+                    "cta": {
+                        "kind": "context_too_large",
+                        "text": (
+                            f"Selected context is {estimated_input_tokens // 1000}K tokens, "
+                            f"over your {tier.max_input_tokens // 1000}K-token limit. "
+                            f"Deselect meetings or drop transcripts to fit."
+                        ),
+                        "action": "trim_context",
+                    },
+                    "details": {
+                        "max_tokens": tier.max_input_tokens,
+                        "actual_tokens": estimated_input_tokens,
+                        "tokenizer": "chars_div_4",
+                    },
+                },
+            },
+        )
+
+    # Budget gate — pre-call cost estimate vs effective_limit + overage.
+    # Skips when limit is unlimited (Plus/Pro/Admin) or when pricing data
+    # isn't loaded (fail open to avoid blanket-blocking on a transient
+    # outage; the post-call check_quota backstop still catches runaway
+    # spend retroactively).
+    if effective_limit != -1 and pricing.is_loaded:
+        estimated_cost = estimate_call_cost_usd(
+            pricing,
+            provider=body.provider,
+            model=body.model,
+            input_tokens=estimated_input_tokens,
+            max_output_tokens=body.max_tokens,
+        )
+        if estimated_cost is not None and would_exceed_budget(
+            monthly_used_usd=monthly_used,
+            estimated_cost_usd=estimated_cost,
+            effective_limit_usd=effective_limit,
+        ):
+            credits_total = dollars_to_credits(effective_limit)
+            credits_used = dollars_to_credits(monthly_used)
+            credits_remaining = max(0, credits_total - credits_used)
+            block_payload = {
+                "text": "",
+                "model": body.model,
+                "provider": body.provider,
+                "ai_tier": _tier_to_ai_tier_lazy(user.effective_tier),
+                "feature_state": {
+                    "feature": "chat" if not is_project_chat_pre else "project_chat",
+                    "credits_remaining": credits_remaining,
+                    "credits_total": credits_total,
+                    "credits_resets_at": user.allocation_resets_at,
+                    "cta": {
+                        "kind": "budget_exhausted",
+                        "text": "You've used your free AI for this month. Upgrade to Plus to keep going.",
+                        "action": "open_paywall",
+                    },
+                },
+            }
+            return JSONResponse(status_code=200, content=block_payload)
+
     # 6. Stream or non-stream based on request + call_type
     # Only stream interactive queries; background tasks (summary, analysis) get full JSON.
     # Project Chat is also forced non-streaming so feature_state can land

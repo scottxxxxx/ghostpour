@@ -124,6 +124,46 @@ async def generate_report(
     )
     report_provider = "anthropic"
 
+    # 3.5. Pre-call budget gate. If running this report would push the
+    # user past their effective_limit + overage tolerance, return the
+    # canned/sample report verbatim and persist it with
+    # report_status='placeholder_budget_blocked'. No LLM call.
+    effective_limit = tier.monthly_cost_limit_usd
+    if user.is_trial and tier.trial_cost_limit_usd is not None:
+        effective_limit = tier.trial_cost_limit_usd
+
+    if effective_limit != -1 and pricing.is_loaded:
+        from app.services.budget_gate import (
+            dollars_to_credits,
+            estimate_call_cost_usd,
+            estimate_input_tokens,
+            would_exceed_budget,
+        )
+        prompt_tokens = estimate_input_tokens(system_prompt + user_message)
+        estimated_cost = estimate_call_cost_usd(
+            pricing,
+            provider=report_provider,
+            model=report_model,
+            input_tokens=prompt_tokens,
+            max_output_tokens=4096,
+        )
+        cursor = await db.execute(
+            "SELECT monthly_used_usd FROM users WHERE id = ?",
+            (user.id,),
+        )
+        row = await cursor.fetchone()
+        monthly_used = float(row["monthly_used_usd"] or 0) if row else 0.0
+        if estimated_cost is not None and would_exceed_budget(
+            monthly_used_usd=monthly_used,
+            estimated_cost_usd=estimated_cost,
+            effective_limit_usd=effective_limit,
+        ):
+            return await _build_canned_report_response(
+                request, db, user, meeting_id, body,
+                effective_limit_usd=effective_limit,
+                monthly_used_usd=monthly_used,
+            )
+
     chat_request = ChatRequest(
         provider=report_provider,
         model=report_model,
@@ -275,6 +315,98 @@ async def _build_report_response(response, body, db, user, report_model, request
         "generation_ms": elapsed_ms,
         "report_status": None,
         "is_editable": True,
+    }
+
+
+async def _build_canned_report_response(
+    request,
+    db,
+    user,
+    meeting_id,
+    body,
+    *,
+    effective_limit_usd: float,
+    monthly_used_usd: float,
+):
+    """Return + persist the canned/sample meeting report when a Free user
+    is over budget. Pulls the HTML template + CTA strings from the
+    canned-report remote config, substitutes meeting metadata + CTA copy,
+    and stamps the row with report_status='placeholder_budget_blocked'
+    so iOS can disable the editor and surface the 'Hide samples' filter.
+    """
+    from app.services.budget_gate import dollars_to_credits
+
+    configs = request.app.state.remote_configs
+    canned = configs.get("canned-report", {})
+    template = canned.get("report_html_template", "")
+    cta = canned.get("cta", {})
+
+    # Substitute meeting metadata + CTA copy. Server-rendered: iOS just
+    # displays whatever HTML we send.
+    meeting_dt = datetime.now(timezone.utc)
+    if body.meeting_start_iso:
+        try:
+            meeting_dt = datetime.fromisoformat(body.meeting_start_iso)
+        except (ValueError, TypeError):
+            pass
+
+    rendered_html = template
+    for key, value in [
+        ("{{cta_eyebrow}}", cta.get("eyebrow", "")),
+        ("{{cta_headline}}", cta.get("headline", "")),
+        ("{{cta_body}}", cta.get("body", "")),
+        ("{{cta_button_text}}", cta.get("button_text", "Upgrade")),
+    ]:
+        rendered_html = rendered_html.replace(key, value)
+
+    # Persist with placeholder flags so subsequent GETs return the same
+    # canned content + iOS can route around it correctly.
+    await db.execute(
+        """INSERT OR REPLACE INTO meeting_reports
+           (id, user_id, meeting_id, report_json, report_html,
+            model, ai_tier, input_tokens, output_tokens, cost_usd,
+            generation_ms, created_at, report_status, is_editable)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (
+            str(uuid.uuid4()),
+            user.id,
+            meeting_id,
+            json.dumps({"placeholder": True}),
+            rendered_html,
+            None, None, 0, 0, 0.0, 0,
+            meeting_dt.isoformat(),
+            "placeholder_budget_blocked",
+            0,  # is_editable=false
+        ),
+    )
+    await db.commit()
+
+    credits_total = dollars_to_credits(effective_limit_usd)
+    credits_used = dollars_to_credits(monthly_used_usd)
+    credits_remaining = max(0, credits_total - credits_used)
+
+    return {
+        "report_html": rendered_html,
+        "report_json": None,
+        "meeting_id": meeting_id,
+        "ai_tier": None,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cost_usd": 0.0,
+        "generation_ms": 0,
+        "report_status": "placeholder_budget_blocked",
+        "is_editable": False,
+        "feature_state": {
+            "feature": "meeting_report",
+            "credits_remaining": credits_remaining,
+            "credits_total": credits_total,
+            "credits_resets_at": user.allocation_resets_at,
+            "cta": {
+                "kind": "report_blocked_budget_exhausted",
+                "text": cta.get("pill_text", "You've used your free AI for this month. Upgrade to Plus to keep going."),
+                "action": cta.get("action", "open_paywall"),
+            },
+        },
     }
 
 
