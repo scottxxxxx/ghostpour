@@ -162,6 +162,7 @@ async def generate_report(
                 request, db, user, meeting_id, body,
                 effective_limit_usd=effective_limit,
                 monthly_used_usd=monthly_used,
+                locale=locale,
             )
 
     chat_request = ChatRequest(
@@ -333,17 +334,27 @@ async def _build_canned_report_response(
     *,
     effective_limit_usd: float,
     monthly_used_usd: float,
+    locale: str | None = None,
 ):
     """Return + persist the canned/sample meeting report when a Free user
     is over budget. Pulls the HTML template + CTA strings from the
     canned-report remote config, substitutes meeting metadata + CTA copy,
     and stamps the row with report_status='placeholder_budget_blocked'
     so iOS can disable the editor and surface the 'Hide samples' filter.
+
+    Locale resolution: canned-report.{locale} → canned-report (English
+    base) → empty fallback. Body narrative stays English across locales
+    (sample meeting content is fixed); only CTA strings localize per
+    canned-report.{locale} variants.
     """
     from app.services.budget_gate import dollars_to_credits
 
     configs = request.app.state.remote_configs
-    canned = configs.get("canned-report", {})
+    canned = None
+    if locale and locale != "en":
+        canned = configs.get(f"canned-report.{locale}")
+    if not canned:
+        canned = configs.get("canned-report", {})
     template = canned.get("report_html_template", "")
     cta = canned.get("cta", {})
 
