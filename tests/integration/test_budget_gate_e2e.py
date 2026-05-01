@@ -131,13 +131,15 @@ class TestChatBudgetGate:
         # Provider must NOT have been called — block is pre-LLM.
         mock_provider.assert_not_called()
 
-    def test_summary_call_type_exempt_from_budget_gate(
+    def test_summary_call_type_blocks_when_over_cap(
         self, client, exhausted_user, mock_provider,
     ):
-        """AutoSummary / DeltaSummary / SummaryConsolidation must keep
-        running past cap so the meeting view stays useful and the
-        end-of-meeting consolidation can land. Otherwise queries about the
-        meeting would have stale context."""
+        """Defense-in-depth: even AutoSummary / DeltaSummary /
+        SummaryConsolidation gate when the user is past cap. iOS is the
+        primary 'don't start the meeting if over budget' UX; GP makes
+        sure a stale or hacked client can't bypass billing by routing
+        spend through summary endpoints. (Reverses the PR #117 exemption
+        after the 2026-05-01 product call.)"""
         with _force_cost(0.001):
             resp = client.post(
                 "/v1/chat",
@@ -146,17 +148,18 @@ class TestChatBudgetGate:
             )
         assert resp.status_code == 200
         body = resp.json()
-        # NOT blocked — text is the real (mock) LLM response.
-        assert body["text"] != ""
-        fs = body.get("feature_state") or {}
-        cta = fs.get("cta")
-        assert cta is None or cta.get("kind") != "budget_exhausted"
+        assert body["text"] == ""
+        cta = body["feature_state"]["cta"]
+        assert cta["kind"] == "budget_exhausted"
+        # No LLM call — the gate fires pre-flight.
+        mock_provider.assert_not_called()
 
-    def test_analysis_call_type_exempt_from_budget_gate(
+    def test_analysis_call_type_blocks_when_over_cap(
         self, client, exhausted_user, mock_provider,
     ):
-        """PostSessionAnalysis follows the same exemption — background
-        pipeline that powers the meeting summary, not user-initiated."""
+        """PostSessionAnalysis gates the same way as summary. No exemption
+        for any call_type — every LLM call costs money and every LLM call
+        respects the budget."""
         with _force_cost(0.001):
             resp = client.post(
                 "/v1/chat",
@@ -164,7 +167,10 @@ class TestChatBudgetGate:
                 headers=exhausted_user["headers"],
             )
         assert resp.status_code == 200
-        assert resp.json()["text"] != ""
+        body = resp.json()
+        assert body["text"] == ""
+        assert body["feature_state"]["cta"]["kind"] == "budget_exhausted"
+        mock_provider.assert_not_called()
 
     def test_block_response_has_no_persisted_usage(
         self, client, free_user, mock_provider, tmp_db_path,
