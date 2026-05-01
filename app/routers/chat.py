@@ -454,6 +454,13 @@ async def sync_subscription(
         )
         await db.commit()
 
+        asyncio.create_task(cq.notify_tier_change(
+            user_id=user.id,
+            old_tier=user.tier,
+            new_tier="free",
+            event_type="cancellation",
+        ))
+
         return {
             "status": "ok",
             "action": "downgraded",
@@ -518,6 +525,22 @@ async def sync_subscription(
         )
 
     await db.commit()
+
+    if trial_converted:
+        event_type = "trial_to_paid"
+    else:
+        tier_rank = {"free": 0, "plus": 1, "pro": 2, "admin": 3}
+        event_type = (
+            "upgrade"
+            if tier_rank.get(expected_tier, 0) >= tier_rank.get(user.tier, 0)
+            else "downgrade"
+        )
+    asyncio.create_task(cq.notify_tier_change(
+        user_id=user.id,
+        old_tier=user.tier,
+        new_tier=expected_tier,
+        event_type=event_type,
+    ))
 
     result = {
         "status": "ok",
