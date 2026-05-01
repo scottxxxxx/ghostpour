@@ -770,17 +770,12 @@ async def chat(
         project_chat_cta_kind = verdict.cta_kind
 
         # Decide whether this send consumes a metered Free quota slot.
-        # Per docs/wire-contracts/project-chat.md, metering applies only on
-        # the GP-routed external path under modes that produce a CTA when
-        # quota is exhausted (ssai, ssai_free_only, plus). Free + SS AI
-        # under ssai_free_only is intentionally unmetered ("they already
-        # opted in"). The decrement must happen on the FIRST send (the
-        # freebie) too — otherwise has_quota never flips and the CTA never
-        # surfaces, which is the bug this fix addresses.
-        if user.effective_tier == "free" and verdict.verdict in (
-            "send_to_gp",
-            "send_to_gp_with_cta",
-        ):
+        # Only the freebie verdict (`send_to_gp`) consumes a slot — the
+        # `send_to_gp_with_cta` path is already over quota and would
+        # double-decrement (skewing analytics) if metered again. The pill
+        # clamps `remaining` at 0, so cosmetics are unaffected, but the
+        # underlying counter must stop at `total`.
+        if user.effective_tier == "free" and verdict.verdict == "send_to_gp":
             if gp_chat_flag == "plus":
                 # 'plus' mode meters every Free send regardless of model.
                 project_chat_should_meter = True
@@ -975,10 +970,9 @@ async def chat(
             "policy_mode": project_chat_pc_config.get("gp_chat_flag", "plus"),
         }
 
-        # Decrement first if this send consumed a metered slot. Critically,
-        # this fires for `send_to_gp` too (the freebie path) — not just for
-        # `send_to_gp_with_cta`. Without the freebie decrement, has_quota
-        # never flips False → CTA never surfaces → quota system stuck.
+        # Decrement first if this send consumed a metered slot. Fires only
+        # on the freebie verdict (`send_to_gp`) — `send_to_gp_with_cta` is
+        # already over quota and must not double-decrement.
         if project_chat_should_meter:
             await decrement_quota(db, user.id)
             await db.commit()

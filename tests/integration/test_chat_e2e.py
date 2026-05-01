@@ -289,7 +289,28 @@ class TestProjectChatPolicy:
         fs2 = resp2.json()["feature_state"]
         assert fs2["cta"]["kind"] == "quota_exhausted"
         assert "Upgrade to Plus" in fs2["cta"]["text"]
-        assert fs2["quota_remaining"] == 0  # capped at 0; counter grew to 2 underneath
+        assert fs2["quota_remaining"] == 0
+
+        # Counter must NOT double-decrement on the over-quota path. Third
+        # send pins this — three CTA-served sends, counter still at 1.
+        resp3 = client.post(
+            "/v1/chat",
+            json=chat_request(prompt_mode="ProjectChat", metadata={"selected_model": "external"}),
+            headers=free_user["headers"],
+        )
+        assert resp3.status_code == 200
+        assert resp3.json()["feature_state"]["cta"]["kind"] == "quota_exhausted"
+
+        conn = sqlite3.connect(tmp_db_path)
+        used_after = conn.execute(
+            "SELECT project_chat_used_this_period FROM users WHERE id = ?",
+            (free_user["user_id"],),
+        ).fetchone()[0]
+        conn.close()
+        assert used_after == 1, (
+            f"counter must cap at total=1 after freebie consumed; got used={used_after} "
+            f"after 3 sends. Over-quota path must not double-decrement."
+        )
 
     def test_free_ssai_path_does_not_meter(
         self, client, free_user, mock_provider, tmp_db_path,
