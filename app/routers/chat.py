@@ -976,20 +976,18 @@ async def chat(
         )
 
     # Budget gate — handles BOTH "already past cap" AND "this call would
-    # push past cap" with a unified 200 + CTA envelope. Skips when:
+    # push past cap" with a unified 200 + CTA envelope. Skips ONLY when:
     #   - limit is unlimited (Plus/Pro/Admin)
-    #   - call_type is "summary" or "analysis" — auto-summary and post-meeting
-    #     analysis are background pipelines that must keep running for the
-    #     core "summarize my meetings" value prop, even past cap. The user
-    #     experiences gating on user-initiated chat (queries, project chat,
-    #     reports), not on the background AI that powers the meeting view.
-    #     The budget still tracks via record_cost; we just don't pre-block.
     #   - pricing data isn't loaded for the "would push over" case (fail
     #     open). The "already past cap" check still fires because it
     #     doesn't need a cost estimate.
-    _gate_call_type = body.get_meta("call_type")
-    _gate_exempt = _gate_call_type in ("summary", "analysis")
-    if effective_limit != -1 and not _gate_exempt:
+    #
+    # No call_type exemptions — every LLM call gates. Background pipelines
+    # (AutoSummary, DeltaSummary, SummaryConsolidation, PostSessionAnalysis)
+    # all gate too. iOS is the primary "don't start the meeting if over
+    # cap" UX; GP is defense-in-depth so a hacked or stale client can't
+    # bypass billing by routing through summary endpoints.
+    if effective_limit != -1:
         already_exhausted = monthly_used >= effective_limit
         would_exceed = False
         if not already_exhausted and pricing.is_loaded:
