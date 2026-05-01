@@ -19,10 +19,21 @@ without moving the schema, that's a coordination bug.
 
 ## Files
 
+### Schemas (formal contracts)
+
 | Schema | Used by | What it defines |
 |---|---|---|
 | `tier-row-item.schema.json` | `/v1/tiers` `feature_items[]` and `status_items[]` rows | Unified row schema (`label`, optional `value`, `icon`, optional `state`) |
 | `ai-tier.schema.json` | `/v1/chat`, `/v1/meetings/{id}/report` (POST and GET cached) | Tier-derived `ai_tier` field; values, semantics, null fallback |
+
+### Narrative docs (cross-team feature contracts)
+
+| Doc | Status | What it defines |
+|---|---|---|
+| `budget-gate.md` | active (2026-05-01) | Pre-call cost estimate, credits abstraction, context-cap 413, canned report, CTA kinds/actions |
+| `project-chat.md` | superseded by budget-gate (deprecation 2026-05-08) | Original Project Chat verdict matrix and count-based quota |
+| `memory-capture.md` | active | Memory capture verdict matrix, synthetic CTA card injection, quota mechanics |
+| `reasoning-control.md` | active | Per-model reasoningLevels, server-side mapping to provider params |
 
 ## Why this directory exists
 

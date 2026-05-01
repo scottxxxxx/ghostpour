@@ -5,6 +5,14 @@ canned-upsell intercept with a richer per-request verdict.
 
 Last updated: 2026-04-29.
 
+> **Status (2026-05-01):** the `free_quota_per_month` count-quota described
+> below is **superseded by the budget gate** (see `budget-gate.md`). The
+> count-quota matrix and `feature_state.quota_*` fields are kept in code
+> for backwards compatibility with iOS builds that haven't migrated, but
+> new clients should bind to `feature_state.credits_*` and treat the
+> `budget_exhausted` / `context_too_large` CTAs as the authoritative
+> Free-tier gates. Drop scheduled ~2026-05-08.
+
 ## Concepts
 
 - **`gp_chat_flag`** — server-controlled policy mode that decides routing.

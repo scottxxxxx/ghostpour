@@ -7,6 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Budget gate (Slice 1–4)** — pre-call cost estimate blocks Free-tier `/v1/chat` and `/v1/meetings/{id}/report` before any LLM tokens are spent. Replaces the count-based Project Chat quota (deprecation in follow-up). Char/4 input-token heuristic matches iOS fuel gauge; $0.05 overage tolerance. See `docs/wire-contracts/budget-gate.md`.
+- **Credits abstraction** — wire-facing `credits_{used,total,remaining,resets_at}` fields on `/v1/usage/me` and `/v1/chat` budget-block responses. 1¢ = 100 credits; server-canonical conversion so the ratio can shift later without an iOS update. Free $0.35 budget surfaces as 3,500 credits.
+- **Per-tier `max_input_tokens` context cap** — Free 50K / Plus 150K / Pro 180K, exposed at `tiers.{tier}.feature_definitions.project_chat.max_input_tokens` in `tiers.json` (and locale variants). 413 + `context_too_large` CTA + `details {max_tokens, actual_tokens, tokenizer}` server-side as defense-in-depth for the iOS-side fuel-gauge block.
+- **Canned/sample meeting report** — when a Free user is over budget, returns a placeholder report (no LLM call) persisted with `report_status="placeholder_budget_blocked"` and `is_editable=false`. Editable from `config/remote/canned-report.json`; localized via `.es` / `.ja` variants.
+- **`placeholder_report_count`** on `/v1/verify-receipt` response — lets iOS prompt regen for the most recent canned report after upgrade without scanning the meeting list.
+- **Meeting-report localization** — `Accept-Language` directive on the LLM system prompt for narrative content; `report-strings.{locale}` remote configs for template chrome (section headers, table labels). En/es/ja shipped; "+ Lang" from the dashboard for additional locales.
+- **CTA wire contract** — stable `kind` + `action` fields on `feature_state.cta`. `kind` ∈ {`budget_exhausted`, `report_blocked_budget_exhausted`, `context_too_large`, `login_required`, `unlimited`, `quota_remaining`, `quota_exhausted`}; `action` ∈ {`open_paywall`, `sign_in`, `trim_context`, null}. Localized `text`, stable enums.
 - **3-tier restructure** — free, plus ($6.99), pro ($14.99); legacy 5-tier product IDs removed (no subscribers to grandfather)
 - **SSE streaming** for `/v1/chat` (`stream: true` in request body) with raw-ASGI passthrough middleware for chunk-level delivery
 - **90-second wall-clock cap** on streaming `/v1/chat`; emits `stream_timeout` event on overrun
