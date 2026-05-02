@@ -724,9 +724,25 @@ async def list_tiers(request: Request):
             tier_entry["feature_items"] = dt["feature_items"]
         if "status_items" in dt:
             tier_entry["status_items"] = dt["status_items"]
+        # Per-tier tunables resolved from tiers.json's feature_definitions block.
+        # Currently surfaces feature_definitions.project_chat.max_input_tokens
+        # so iOS's Project Chat fuel gauge reads the same value the server
+        # enforces (see tunable_config.project_chat_max_input_tokens for the
+        # server-side resolver). Pass-through, not a re-shape — whatever shape
+        # tiers.json has is what iOS sees.
+        if "feature_definitions" in dt:
+            tier_entry["feature_definitions"] = dt["feature_definitions"]
         tiers_result[name] = tier_entry
 
-    response = {"tiers": tiers_result, "feature_definitions": feature_metadata}
+    # Stamp the response with the version of the live tiers config so iOS can
+    # tell at a glance which payload it's looking at — useful when an edit
+    # is ambiguous between "not deployed yet" and "deployed but iOS cached."
+    response: dict[str, object] = {
+        "tiers": tiers_result,
+        "feature_definitions": feature_metadata,
+    }
+    if display_config and "version" in display_config:
+        response["version"] = display_config["version"]
     if locale:
         return JSONResponse(content=response, headers={"X-Config-Locale": locale})
     return response
