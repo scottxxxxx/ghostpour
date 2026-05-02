@@ -7,6 +7,7 @@ httpx==0.28.*
 PyJWT[crypto]==2.10.*
 cryptography==44.*
 pyyaml==6.*
+google-cloud-secret-manager==2.*
 pytest==8.*
 pytest-asyncio==0.24.*
 httpx  # also used as test client via httpx.AsyncClient
