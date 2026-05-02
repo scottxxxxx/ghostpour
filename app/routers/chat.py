@@ -942,17 +942,25 @@ async def chat(
     assembled_prompt = (body.system_prompt or "") + (body.user_content or "")
     estimated_input_tokens = estimate_input_tokens(assembled_prompt)
 
-    # Context cap (Project Chat only). iOS already enforces client-side
-    # via the tier max_input_tokens fuel gauge; this is the
+    # Context cap (Project Chat only). Source of truth is the live
+    # tiers.json (dashboard-editable); tiers.yml's tier.max_input_tokens
+    # is only the fallback for missing JSON. iOS already enforces
+    # client-side via the same field on the fuel gauge; this is the
     # defense-in-depth path for races / hacked clients / stale tiers.
-    if is_project_chat_pre and tier.max_input_tokens != -1 and estimated_input_tokens > tier.max_input_tokens:
+    from app.services.tunable_config import project_chat_max_input_tokens
+    cap = project_chat_max_input_tokens(
+        request.app.state.remote_configs,
+        user.effective_tier,
+        yaml_default=tier.max_input_tokens,
+    )
+    if is_project_chat_pre and cap != -1 and estimated_input_tokens > cap:
         raise HTTPException(
             status_code=413,
             detail={
                 "code": "context_too_large",
                 "message": (
                     f"Selected context is too large for your tier "
-                    f"({estimated_input_tokens} tokens, max {tier.max_input_tokens}). "
+                    f"({estimated_input_tokens} tokens, max {cap}). "
                     f"Deselect meetings or drop transcript chips."
                 ),
                 "feature_state": {
@@ -961,13 +969,13 @@ async def chat(
                         "kind": "context_too_large",
                         "text": (
                             f"Selected context is {estimated_input_tokens // 1000}K tokens, "
-                            f"over your {tier.max_input_tokens // 1000}K-token limit. "
+                            f"over your {cap // 1000}K-token limit. "
                             f"Deselect meetings or drop transcripts to fit."
                         ),
                         "action": "trim_context",
                     },
                     "details": {
-                        "max_tokens": tier.max_input_tokens,
+                        "max_tokens": cap,
                         "actual_tokens": estimated_input_tokens,
                         "tokenizer": "chars_div_4",
                     },

@@ -332,8 +332,18 @@ async def get_config_detail(
     request: Request,
     x_admin_key: str = Header(...),
 ):
-    """Get the full JSON content of a remote config."""
+    """Get the full JSON content of a remote config.
+
+    Re-reads from disk on every call so direct file edits to the
+    persistent config dir are reflected immediately in the dashboard.
+    The persistent JSON file is the source of truth — `app.state.remote_configs`
+    is just an in-memory cache for hot-path reads on /v1/* endpoints,
+    and we refresh it here so dashboard reads stay consistent.
+    """
     _verify_admin(request, x_admin_key)
+
+    from app.routers.config import load_remote_configs
+    request.app.state.remote_configs = load_remote_configs()
     configs: dict[str, dict] = request.app.state.remote_configs
 
     if slug not in configs:
@@ -387,6 +397,85 @@ async def update_config(
         "status": "updated",
         "slug": slug,
         "version": body.data["version"],
+    }
+
+
+# --- Tunable parameters (per-tier dials editable from the dashboard) ---
+
+
+class TunableTierFieldRequest(BaseModel):
+    """Update a single per-tier numeric field across all locale variants
+    of tiers.json (en + .es + .ja). Locale-independent values like
+    max_input_tokens stay in lockstep so iOS sees the same number
+    regardless of Accept-Language."""
+    tier: str          # "free" | "plus" | "pro" | "admin"
+    feature: str       # "project_chat" | "meeting_reports" | "context_quilt"
+    field: str         # "max_input_tokens" | (future: "free_quota_per_month", etc.)
+    value: int         # new value
+
+
+@router.put("/admin/tunable/tier-field")
+async def update_tier_tunable_field(
+    body: TunableTierFieldRequest,
+    request: Request,
+    x_admin_key: str = Header(...),
+):
+    """Update tiers.{tier}.feature_definitions.{feature}.{field} across
+    all locale variants of tiers.json. Auto-bumps version on every
+    locale that changed. Hot-reloads remote_configs.
+
+    Source of truth is the persistent JSON file. Server-side enforcement
+    (e.g., the budget gate's context cap check) reads from this file
+    via app.services.tunable_config — so a save here changes both the
+    iOS fuel gauge AND the server's 413 threshold.
+    """
+    _verify_admin(request, x_admin_key)
+
+    from app.routers.config import CONFIG_DIR, load_remote_configs
+
+    locale_slugs = ["tiers", "tiers.es", "tiers.ja"]
+    updated: list[dict] = []
+    for slug in locale_slugs:
+        path = CONFIG_DIR / f"{slug}.json"
+        if not path.exists():
+            continue  # locale not shipped — skip, not an error
+        try:
+            data = json.loads(path.read_text())
+        except (json.JSONDecodeError, OSError) as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Could not read {slug}.json: {exc}",
+            )
+
+        tier_block = (data.get("tiers") or {}).get(body.tier)
+        if tier_block is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Tier '{body.tier}' not found in {slug}.json",
+            )
+
+        feature_defs = tier_block.setdefault("feature_definitions", {})
+        feature_block = feature_defs.setdefault(body.feature, {})
+        old_value = feature_block.get(body.field)
+        if old_value == body.value:
+            continue  # no-op for this locale
+
+        feature_block[body.field] = body.value
+        data["version"] = (data.get("version") or 0) + 1
+
+        path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+        updated.append({"slug": slug, "version": data["version"], "old": old_value, "new": body.value})
+
+    # Hot-reload so the next /v1/chat call sees the new cap immediately.
+    request.app.state.remote_configs = load_remote_configs()
+
+    return {
+        "status": "updated",
+        "tier": body.tier,
+        "feature": body.feature,
+        "field": body.field,
+        "value": body.value,
+        "files_updated": updated,
     }
 
 
@@ -915,8 +1004,24 @@ async def get_tiers(
     request: Request,
     x_admin_key: str = Header(...),
 ):
-    """View all tier configurations with their model/provider access rules."""
+    """View all tier configurations with their model/provider access rules.
+
+    Re-reads the persistent tiers.json from disk so the dashboard always
+    sees the current value of any JSON-sourced tunable (max_input_tokens
+    today; more tunables to follow). The yaml-sourced fields come from
+    tier_config which is loaded at startup; tunables come from
+    app.services.tunable_config which prefers the JSON.
+    """
     _verify_admin(request, x_admin_key)
+
+    from app.routers.config import load_remote_configs
+    from app.services.tunable_config import project_chat_max_input_tokens
+
+    # Refresh remote_configs so any direct edit to /app/data/remote-config/
+    # tiers.json shows up in the dashboard immediately.
+    request.app.state.remote_configs = load_remote_configs()
+    remote_configs = request.app.state.remote_configs
+
     tier_config = request.app.state.tier_config
 
     tiers = {}
@@ -933,6 +1038,11 @@ async def get_tiers(
             "max_images_per_request": tier.max_images_per_request,
             "storekit_product_id": tier.storekit_product_id,
             "features": tier.features,
+            # JSON-sourced tunables (dashboard-editable, JSON file is the
+            # source of truth, yaml is the fallback default).
+            "max_input_tokens": project_chat_max_input_tokens(
+                remote_configs, name, yaml_default=tier.max_input_tokens,
+            ),
         }
 
     return {"tiers": tiers}
