@@ -223,6 +223,39 @@ char/4 approximation). Within ~10% of the real Anthropic BPE tokenizer at
 worst, fine for an abuse guard. Documented as `tokenizer: "chars_div_4"` in
 the 413 `details` payload.
 
+## iOS Project Chat fuel gauge — denominator math
+
+The compose-screen fuel gauge for Project Chat shows context-window
+utilization, NOT cost or meeting count. The denominator depends on which
+model the user has selected:
+
+```
+SS AI path:    tier.max_input_tokens                     (Free 50K / Plus 150K / Pro 180K)
+External path: model.contextWindow - promptReserveTokens (per model-capabilities.json)
+```
+
+Numerator is always `estimatedInputTokens` for the assembled prompt,
+using the same `(text.count + 3) / 4` heuristic as the server-side gate.
+Bar fills at `numerator / denominator`, clamped to 1.0.
+
+`promptReserveTokens` is the headroom we leave for system prompt,
+project metadata, conversation history, and future system-instruction
+additions. Default lives at top-level `defaultPromptReserveTokens` in
+`model-capabilities.json` (currently **8000**). Per-model override via
+`models.{slug}.promptReserveTokens` for any model that needs more (e.g.
+extended-thinking variants); absent → use the default.
+
+For very small context windows, iOS should clamp the reserve so it can
+never eat more than half the window: effectively
+`min(promptReserveTokens, contextWindow / 2)`. Otherwise a 4K-context
+model with 8K reserve gives a negative denominator.
+
+This replaces the earlier "5 meetings of budget" gauge framing, which
+mixed cost and size axes in a way that didn't add up to real spend
+(20K-token Project Chat showed "5 of 5 meetings full" while actual
+cost was ~$0.006 — the cost-axis math was using meeting count as a
+proxy, not real dollar estimates).
+
 ## Test surfaces
 
 - Unit: `tests/test_budget_gate.py` — credits conversion, char/4 heuristic,
