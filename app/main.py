@@ -10,7 +10,17 @@ from app.database import init_db
 from app.middleware.request_logging import RequestLoggingMiddleware, StreamingBypassMiddleware
 from app.models.feature import load_feature_config
 from app.models.tier import load_tier_config
-from app.routers import apple_webhooks, auth, chat, config, features, health, reports, webhooks
+from app.routers import (
+    apple_webhooks,
+    auth,
+    chat,
+    config,
+    features,
+    health,
+    reports,
+    resend_webhooks,
+    webhooks,
+)
 from app.services.apple_auth import AppleAuthVerifier
 from app.services.jwt_service import JWTService
 from app.services.pricing import PricingService
@@ -115,6 +125,7 @@ app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(chat.router, prefix="/v1", tags=["chat"])
 app.include_router(config.router, tags=["config"])
 app.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
+app.include_router(resend_webhooks.router, prefix="/webhooks", tags=["resend-webhooks"])
 app.include_router(apple_webhooks.router, prefix="/v1", tags=["apple-webhooks"])
 app.include_router(reports.router, prefix="/v1", tags=["reports"])
 app.include_router(features.router, prefix="/v1", tags=["features"])

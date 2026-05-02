@@ -136,6 +136,30 @@ MIGRATIONS = [
     # at persist time; NULL on legacy rows is treated as editable=true.
     "ALTER TABLE meeting_reports ADD COLUMN report_status TEXT",
     "ALTER TABLE meeting_reports ADD COLUMN is_editable INTEGER",
+    # v15: email webhook event audit log. One row per delivered Resend webhook,
+    # keyed by svix-id for idempotent ingest. Stores the full payload so we
+    # can replay analysis without re-fetching from Resend.
+    """CREATE TABLE IF NOT EXISTS email_events (
+        id TEXT PRIMARY KEY,
+        event_type TEXT NOT NULL,
+        recipient TEXT,
+        email_id TEXT,
+        bounce_type TEXT,
+        payload TEXT NOT NULL,
+        received_at TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_email_events_recipient ON email_events(recipient)",
+    "CREATE INDEX IF NOT EXISTS idx_email_events_type ON email_events(event_type, received_at)",
+    # v16: active email suppression list. Recipients here are blocked from all
+    # future sends. Populated by hard bounces and spam complaints. PK is the
+    # lowercased recipient — normalize at write time so case-only differences
+    # don't slip past `is_suppressed`.
+    """CREATE TABLE IF NOT EXISTS email_suppression (
+        recipient TEXT PRIMARY KEY,
+        reason TEXT NOT NULL,
+        source_event_id TEXT,
+        suppressed_at TEXT NOT NULL
+    )""",
 ]
 
 
