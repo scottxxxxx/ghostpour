@@ -37,8 +37,14 @@ def _resolve_signing_secret() -> str:
     secret = get_secret("resend-webhook-secret", env_var="CZ_RESEND_WEBHOOK_SECRET")
     if not secret:
         # Fail closed — refusing to verify is safer than accepting unverified
-        # webhooks. This will surface as 503s in logs until the secret is
-        # provisioned in Secret Manager / the env.
+        # webhooks. Structured log so the misconfiguration is searchable.
+        logger.warning(
+            "webhook_auth_failure",
+            extra={
+                "provider": "resend",
+                "reason": "secret_not_configured",
+            },
+        )
         raise HTTPException(status_code=503, detail="webhook secret not configured")
     return secret
 
@@ -60,7 +66,19 @@ def _verify_signature(secret: str, body: bytes, headers) -> None:
         # Svix accepts a dict-like for headers; FastAPI Headers is dict-compatible.
         wh.verify(body, dict(headers))
     except WebhookVerificationError as exc:
-        logger.warning("Resend webhook signature verification failed: %s", exc)
+        # Structured log so journald / log-aggregation queries can trend
+        # 401s and alert on a spike (e.g. dashboard secret rotated but
+        # SM not updated → every event 401s until reconciled).
+        logger.warning(
+            "webhook_auth_failure",
+            extra={
+                "provider": "resend",
+                "reason": "invalid_signature",
+                "svix_id": headers.get("svix-id", ""),
+                "svix_timestamp": headers.get("svix-timestamp", ""),
+                "detail": str(exc)[:200],
+            },
+        )
         raise HTTPException(status_code=401, detail="invalid signature")
 
 

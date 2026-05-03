@@ -1678,6 +1678,21 @@ async def email_stats(
 
     total_events = sum(by_type.values())
 
+    # Webhook health: is the signing secret reachable, and how long
+    # since the last successful inbound event? Surfaces "we silently
+    # stopped receiving events" — e.g. dashboard secret rotated but
+    # SM not updated → 401 storm → no rows added → counters look
+    # normal until you check this field.
+    from app.secrets import get_secret as _get_secret
+    webhook_secret_configured = bool(
+        _get_secret("resend-webhook-secret", env_var="CZ_RESEND_WEBHOOK_SECRET")
+    )
+    cursor = await db.execute(
+        "SELECT MAX(received_at) as last FROM email_events",
+    )
+    row = await cursor.fetchone()
+    last_event_at = row["last"] if row else None
+
     return {
         'days': days,
         'total_events': total_events,
@@ -1688,6 +1703,10 @@ async def email_stats(
         'suppression_by_reason': by_reason,
         'oldest_event': activity['oldest'] if activity else None,
         'newest_event': activity['newest'] if activity else None,
+        'webhook': {
+            'signing_secret_configured': webhook_secret_configured,
+            'last_event_received_at': last_event_at,
+        },
     }
 
 
