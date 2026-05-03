@@ -1280,9 +1280,20 @@ async function loadConfigs() {
   listEl.innerHTML = Object.entries(groups).map(([name, g]) => {
     const base = g.base;
     const locales = Object.entries(g.locales);
-    const localeButtons = locales.map(([lang, lc]) =>
-      `<span onclick="event.stopPropagation();openConfig('${lc.slug}')" style="cursor:pointer;display:inline-block;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--accent);transition:border-color 0.2s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">${lang.toUpperCase()} v${lc.version}</span>`
-    ).join(' ');
+    // Locale-version drift indicator: when a locale variant's version
+    // doesn't match the base, color the chip orange so drift is
+    // visible at a glance. Common cause: someone bumped the base
+    // file but didn't update locale variants. iOS users on the
+    // drifted locale see stale data.
+    const baseVersion = base ? base.version : null;
+    const localeButtons = locales.map(([lang, lc]) => {
+      const drifted = baseVersion != null && lc.version !== baseVersion;
+      const color = drifted ? 'var(--orange)' : 'var(--accent)';
+      const title = drifted
+        ? `version ${lc.version} differs from base ${baseVersion} — locale drift`
+        : '';
+      return `<span onclick="event.stopPropagation();openConfig('${lc.slug}')" title="${title}" style="cursor:pointer;display:inline-block;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:11px;color:${color};transition:border-color 0.2s" onmouseover="this.style.borderColor='${color}'" onmouseout="this.style.borderColor='var(--border)'">${lang.toUpperCase()} v${lc.version}${drifted ? ' ⚠' : ''}</span>`;
+    }).join(' ');
     const addLangBtn = `<span onclick="event.stopPropagation();addLocale('${name}')" style="cursor:pointer;display:inline-block;background:var(--bg);border:1px dashed var(--border);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--text-dim);transition:border-color 0.2s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">+ Lang</span>`;
     return `
     <div onclick="openConfig('${name}')" style="cursor:pointer;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;min-width:0;overflow:hidden;transition:border-color 0.2s"
