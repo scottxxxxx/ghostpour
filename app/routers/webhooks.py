@@ -414,6 +414,22 @@ class TunableTierFieldRequest(BaseModel):
     value: int         # new value
 
 
+class ProjectChatCapRequest(BaseModel):
+    """Update the per-tier Project Chat context cap for one locale.
+
+    Source of truth is `client-config.{locale}.json`'s
+    `limits.project_chat.max_input_chars`. Server enforcement reads from
+    there. We ALSO dual-write the legacy
+    `tiers.{locale}.feature_definitions.project_chat.max_input_tokens`
+    field (= max_input_chars / 4) so iOS builds that haven't migrated to
+    `client-config` still see the right gauge denominator. Removing the
+    dual-write is a follow-up once iOS picks up `client-config`.
+    """
+    tier: str           # "free" | "plus" | "pro" | "admin"
+    locale: str = ""    # "" or "default" → English; "ja", "es", … for variants
+    max_input_chars: int   # -1 for uncapped
+
+
 @router.put("/admin/tunable/tier-field")
 async def update_tier_tunable_field(
     body: TunableTierFieldRequest,
@@ -476,6 +492,116 @@ async def update_tier_tunable_field(
         "field": body.field,
         "value": body.value,
         "files_updated": updated,
+    }
+
+
+@router.put("/admin/tunable/project-chat-cap")
+async def update_project_chat_cap(
+    body: ProjectChatCapRequest,
+    request: Request,
+    x_admin_key: str = Header(...),
+):
+    """Set the per-tier Project Chat character cap for one locale.
+
+    Writes `client-config.{locale}.json` (the new source of truth for
+    server enforcement) AND `tiers.{locale}.json` (legacy, for iOS
+    builds that haven't migrated to `client-config`). Both files'
+    versions are bumped on change. Hot-reloads remote_configs.
+
+    `locale=""` or `"default"` targets the unsuffixed default file.
+    """
+    _verify_admin(request, x_admin_key)
+
+    from app.routers.config import CONFIG_DIR, load_remote_configs
+
+    # Empty / "default" → the unsuffixed default files. Anything else
+    # becomes a `.{locale}` suffix.
+    suffix = ""
+    locale_label = "default"
+    if body.locale and body.locale.lower() not in ("default", "en"):
+        suffix = f".{body.locale.lower()}"
+        locale_label = body.locale.lower()
+
+    if body.max_input_chars < -1:
+        raise HTTPException(
+            status_code=400,
+            detail="max_input_chars must be -1 (uncapped) or a non-negative integer",
+        )
+
+    files_updated: list[dict] = []
+
+    # 1. client-config.{locale}.json — write max_input_chars at
+    #    limits.project_chat.max_input_chars[tier]
+    cc_slug = f"client-config{suffix}"
+    cc_path = CONFIG_DIR / f"{cc_slug}.json"
+    if cc_path.exists():
+        try:
+            cc_data = json.loads(cc_path.read_text())
+        except (json.JSONDecodeError, OSError) as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Could not read {cc_slug}.json: {exc}",
+            )
+    else:
+        # First write for a new locale — bootstrap with the v1 skeleton.
+        cc_data = {"version": 0, "limits": {"project_chat": {"max_input_chars": {}}}, "flags": {}, "intervals": {}}
+
+    limits = cc_data.setdefault("limits", {})
+    pc = limits.setdefault("project_chat", {})
+    chars_block = pc.setdefault("max_input_chars", {})
+    old_chars = chars_block.get(body.tier)
+    if old_chars != body.max_input_chars:
+        chars_block[body.tier] = body.max_input_chars
+        cc_data["version"] = (cc_data.get("version") or 0) + 1
+        cc_path.write_text(json.dumps(cc_data, indent=2, ensure_ascii=False) + "\n")
+        files_updated.append({
+            "slug": cc_slug,
+            "version": cc_data["version"],
+            "old": old_chars,
+            "new": body.max_input_chars,
+        })
+
+    # 2. tiers.{locale}.json — back-compat dual-write of
+    #    feature_definitions.project_chat.max_input_tokens (= chars / 4).
+    tiers_slug = f"tiers{suffix}"
+    tiers_path = CONFIG_DIR / f"{tiers_slug}.json"
+    if tiers_path.exists():
+        try:
+            tiers_data = json.loads(tiers_path.read_text())
+        except (json.JSONDecodeError, OSError) as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Could not read {tiers_slug}.json: {exc}",
+            )
+        tier_block = (tiers_data.get("tiers") or {}).get(body.tier)
+        if tier_block is not None:
+            feature_defs = tier_block.setdefault("feature_definitions", {})
+            pc_legacy = feature_defs.setdefault("project_chat", {})
+            new_tokens = (
+                -1 if body.max_input_chars == -1 else body.max_input_chars // 4
+            )
+            old_tokens = pc_legacy.get("max_input_tokens")
+            if old_tokens != new_tokens:
+                pc_legacy["max_input_tokens"] = new_tokens
+                tiers_data["version"] = (tiers_data.get("version") or 0) + 1
+                tiers_path.write_text(
+                    json.dumps(tiers_data, indent=2, ensure_ascii=False) + "\n"
+                )
+                files_updated.append({
+                    "slug": tiers_slug,
+                    "version": tiers_data["version"],
+                    "old": old_tokens,
+                    "new": new_tokens,
+                })
+
+    request.app.state.remote_configs = load_remote_configs()
+
+    return {
+        "status": "updated",
+        "tier": body.tier,
+        "locale": locale_label,
+        "max_input_chars": body.max_input_chars,
+        "files_updated": files_updated,
     }
 
 
