@@ -325,10 +325,31 @@
         <h3 id="config-editor-title" style="margin:0"></h3>
         <div style="display:flex;gap:8px;align-items:center">
           <span id="config-editor-status" style="font-size:12px;color:var(--text-dim)"></span>
+          <button class="refresh-btn" onclick="openSyncFromBundle()" style="background:var(--bg);color:var(--text);border:1px solid var(--border)">Sync from bundle…</button>
           <button class="refresh-btn" onclick="saveConfig()" style="background:var(--green);color:#000;font-weight:600">Save</button>
         </div>
       </div>
       <textarea id="config-editor" style="width:100%;min-height:500px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:'SF Mono',Menlo,monospace;font-size:13px;resize:vertical;tab-size:2" spellcheck="false"></textarea>
+    </div>
+
+    <!-- Sync-from-bundle modal -->
+    <div id="sync-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;min-width:480px;max-width:760px;max-height:80vh;overflow:auto">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <h3 id="sync-modal-title" style="margin:0">Sync from bundle</h3>
+          <button class="refresh-btn" onclick="closeSyncFromBundle()" style="background:transparent;border:1px solid var(--border)">Close</button>
+        </div>
+        <p style="color:var(--text-dim);font-size:12px;margin-bottom:12px">
+          Pick top-level keys to copy from the repo-shipped bundle into the live persistent config. Dashboard edits to
+          <em>other</em> keys are preserved. The bundle path is <code style="color:var(--accent)">config/remote/&lt;slug&gt;.json</code>.
+        </p>
+        <div id="sync-modal-body" style="font-family:'SF Mono',Menlo,monospace;font-size:12px"></div>
+        <div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px;align-items:center">
+          <span id="sync-modal-status" style="font-size:11px;color:var(--text-dim);margin-right:auto"></span>
+          <button class="refresh-btn" onclick="closeSyncFromBundle()" style="background:var(--bg)">Cancel</button>
+          <button class="refresh-btn" onclick="applySyncFromBundle()" style="background:var(--accent);color:#000;font-weight:600">Apply selected</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1283,6 +1304,126 @@ async function openConfig(slug) {
   document.getElementById('config-editor-title').textContent = slug + '.json' + (localeName ? ` (${localeName})` : '');
   document.getElementById('config-editor-status').textContent = `v${data.data.version}`;
   document.getElementById('config-editor').value = JSON.stringify(data.data, null, 2);
+}
+
+async function openSyncFromBundle() {
+  if (!currentConfigSlug) return;
+  const slug = currentConfigSlug;
+  const modal = document.getElementById('sync-modal');
+  const titleEl = document.getElementById('sync-modal-title');
+  const bodyEl = document.getElementById('sync-modal-body');
+  const statusEl = document.getElementById('sync-modal-status');
+
+  titleEl.textContent = `Sync from bundle: ${slug}`;
+  bodyEl.innerHTML = 'Loading bundle…';
+  statusEl.textContent = '';
+  modal.style.display = 'flex';
+
+  let bundle, persistent;
+  try {
+    const [b, p] = await Promise.all([
+      fetch(`${BASE}/webhooks/admin/config/${slug}/bundle`, {headers:{'X-Admin-Key':adminKey}}),
+      fetch(`${BASE}/webhooks/admin/config/${slug}`, {headers:{'X-Admin-Key':adminKey}}),
+    ]);
+    if (!b.ok) {
+      bodyEl.innerHTML = `<span style="color:var(--red)">No bundled file for slug "${slug}". Locale variants don't ship in the repo bundle by default — only the base file does.</span>`;
+      return;
+    }
+    bundle = (await b.json()).data || {};
+    persistent = p.ok ? ((await p.json()).data || {}) : {};
+  } catch (e) {
+    bodyEl.innerHTML = `<span style="color:var(--red)">Load failed: ${e.message}</span>`;
+    return;
+  }
+
+  // Compute per-top-level-key diff. Skip "version" (we bump it ourselves).
+  const allKeys = new Set([...Object.keys(bundle), ...Object.keys(persistent)]);
+  allKeys.delete('version');
+  const rows = [];
+  for (const key of [...allKeys].sort()) {
+    const inBundle = key in bundle;
+    const same = inBundle && JSON.stringify(bundle[key]) === JSON.stringify(persistent[key]);
+    if (!inBundle) continue;  // can't sync something not in the bundle
+    rows.push({key, same, persistentHas: key in persistent});
+  }
+
+  if (rows.length === 0) {
+    bodyEl.innerHTML = '<span style="color:var(--text-dim)">No top-level keys in the bundle to sync.</span>';
+    return;
+  }
+
+  const escape = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+  const truncate = (v, n=120) => { const s = JSON.stringify(v); return s.length > n ? s.slice(0, n) + '…' : s; };
+
+  bodyEl.innerHTML = `<table style="width:100%;border-collapse:collapse">
+    <thead><tr style="border-bottom:1px solid var(--border)">
+      <th style="text-align:left;padding:6px 8px;width:30px"></th>
+      <th style="text-align:left;padding:6px 8px">Key</th>
+      <th style="text-align:left;padding:6px 8px">Persistent</th>
+      <th style="text-align:left;padding:6px 8px">Bundle</th>
+    </tr></thead>
+    <tbody>
+      ${rows.map(r => {
+        const persistentVal = r.persistentHas ? truncate(persistent[r.key]) : '<em style="color:var(--text-dim)">absent</em>';
+        const bundleVal = truncate(bundle[r.key]);
+        const rowColor = r.same ? '' : 'background:rgba(210,153,34,0.08)';
+        const checked = r.same ? '' : 'checked';
+        const disabled = r.same ? 'disabled' : '';
+        return `<tr style="border-bottom:1px solid var(--border);${rowColor}">
+          <td style="padding:6px 8px"><input type="checkbox" data-key="${escape(r.key)}" ${checked} ${disabled}></td>
+          <td style="padding:6px 8px;color:var(--accent)">${escape(r.key)}</td>
+          <td style="padding:6px 8px;color:var(--text-dim);max-width:240px;overflow:hidden;text-overflow:ellipsis">${persistentVal}</td>
+          <td style="padding:6px 8px;max-width:240px;overflow:hidden;text-overflow:ellipsis">${bundleVal}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>
+  <p style="font-size:11px;color:var(--text-dim);margin-top:10px">
+    Highlighted rows differ between bundle and persistent. Same-value rows are pre-disabled (no point syncing). Sync replaces the entire top-level value verbatim — nested objects are not merged.
+  </p>`;
+}
+
+function closeSyncFromBundle() {
+  document.getElementById('sync-modal').style.display = 'none';
+}
+
+async function applySyncFromBundle() {
+  if (!currentConfigSlug) return;
+  const slug = currentConfigSlug;
+  const statusEl = document.getElementById('sync-modal-status');
+  const checkboxes = document.querySelectorAll('#sync-modal-body input[type="checkbox"]:checked');
+  const keys = Array.from(checkboxes).map(cb => cb.getAttribute('data-key'));
+
+  if (keys.length === 0) {
+    statusEl.textContent = 'No keys selected';
+    statusEl.style.color = 'var(--orange)';
+    return;
+  }
+
+  statusEl.textContent = `Syncing ${keys.length} key(s)…`;
+  statusEl.style.color = 'var(--orange)';
+
+  const resp = await fetch(`${BASE}/webhooks/admin/config/${slug}/sync-from-bundle`, {
+    method: 'POST',
+    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
+    body: JSON.stringify({keys}),
+  });
+
+  if (resp.ok) {
+    const data = await resp.json();
+    const synced = (data.changes || []).filter(c => c.status === 'synced').length;
+    statusEl.textContent = synced > 0
+      ? `Synced ${synced} key(s); persistent now at v${data.version}.`
+      : `No diffs — persistent already matched bundle.`;
+    statusEl.style.color = 'var(--green)';
+    // Refresh the editor + the config list
+    await openConfig(slug);
+    loadConfigs();
+  } else {
+    const err = await resp.json().catch(() => ({}));
+    statusEl.textContent = 'Error: ' + (err.detail || 'sync failed');
+    statusEl.style.color = 'var(--red)';
+  }
 }
 
 async function saveConfig() {
