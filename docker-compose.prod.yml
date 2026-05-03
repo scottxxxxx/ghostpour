@@ -24,10 +24,14 @@ services:
 
   # Continuous SQLite → GCS replication for DR. Reads the same data
   # volume as the GhostPour app and streams WAL frames to a GCS bucket
-  # configured in litestream.yml. Auth via a dedicated service-account
-  # key file mounted read-only at runtime — file lives outside the
-  # repo (provided per-host) and never appears in tracked content.
-  # Bucket, SA, and project identifiers are tracked privately.
+  # configured in litestream.yml.
+  #
+  # Auth: VM's metadata-service identity (Compute Engine default SA).
+  # The VM has cloud-platform OAuth scope and the SA has objectAdmin
+  # on the replication bucket — google-cloud-storage SDK inside the
+  # litestream binary picks this up via Application Default Creds.
+  # No key file on disk = no long-lived credentials to leak or rotate.
+  #
   # Restore runbook: ghostpour-ops/docs/disaster-recovery.md.
   litestream:
     image: litestream/litestream:0.3.13
@@ -36,9 +40,6 @@ services:
     volumes:
       - ghostpour-data:/data
       - ./litestream.yml:/etc/litestream.yml:ro
-      - ./gp-backup-sa.json:/etc/gcp-credentials.json:ro
-    environment:
-      GOOGLE_APPLICATION_CREDENTIALS: /etc/gcp-credentials.json
     command: replicate -config /etc/litestream.yml
     depends_on:
       - ghostpour
