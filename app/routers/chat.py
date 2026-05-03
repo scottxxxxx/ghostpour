@@ -724,12 +724,11 @@ async def list_tiers(request: Request):
             tier_entry["feature_items"] = dt["feature_items"]
         if "status_items" in dt:
             tier_entry["status_items"] = dt["status_items"]
-        # Per-tier tunables resolved from tiers.json's feature_definitions block.
-        # Currently surfaces feature_definitions.project_chat.max_input_tokens
-        # so iOS's Project Chat fuel gauge reads the same value the server
-        # enforces (see tunable_config.project_chat_max_input_tokens for the
-        # server-side resolver). Pass-through, not a re-shape — whatever shape
-        # tiers.json has is what iOS sees.
+        # Per-tier tunables passed through from tiers.json's feature_definitions
+        # block. Legacy: feature_definitions.project_chat.max_input_tokens.
+        # New iOS clients should prefer /v1/config/client-config (locale-aware
+        # max_input_chars); this field is kept for back-compat with iOS builds
+        # that haven't migrated. Pass-through, not a re-shape.
         if "feature_definitions" in dt:
             tier_entry["feature_definitions"] = dt["feature_definitions"]
         tiers_result[name] = tier_entry
@@ -958,25 +957,40 @@ async def chat(
     assembled_prompt = (body.system_prompt or "") + (body.user_content or "")
     estimated_input_tokens = estimate_input_tokens(assembled_prompt)
 
-    # Context cap (Project Chat only). Source of truth is the live
-    # tiers.json (dashboard-editable); tiers.yml's tier.max_input_tokens
-    # is only the fallback for missing JSON. iOS already enforces
-    # client-side via the same field on the fuel gauge; this is the
-    # defense-in-depth path for races / hacked clients / stale tiers.
-    from app.services.tunable_config import project_chat_max_input_tokens
-    cap = project_chat_max_input_tokens(
+    # Context cap (Project Chat only). Source of truth is
+    # client-config.{locale}.json's `limits.project_chat.max_input_chars`,
+    # locale-resolved off Accept-Language. iOS reads the same file via
+    # /v1/config/client-config so its gauge denominator and our 413
+    # threshold stay in lockstep — including locale-aware tightening
+    # for CJK content where the char/4 token heuristic underestimates.
+    # Falls back to tier.max_input_tokens × 4 (yaml) when client-config
+    # is absent so English behavior matches the pre-cutover defaults.
+    from app.routers.config import _parse_accept_language
+    from app.services.client_config import project_chat_max_input_chars
+    locale = _parse_accept_language(request.headers.get("Accept-Language"))
+    fallback_chars = (
+        tier.max_input_tokens * 4 if tier.max_input_tokens != -1 else -1
+    )
+    cap_chars = project_chat_max_input_chars(
         request.app.state.remote_configs,
         user.effective_tier,
-        yaml_default=tier.max_input_tokens,
+        locale=locale,
+        fallback_chars=fallback_chars,
     )
-    if is_project_chat_pre and cap != -1 and estimated_input_tokens > cap:
+    actual_chars = len(assembled_prompt)
+    if (
+        is_project_chat_pre
+        and cap_chars is not None
+        and cap_chars != -1
+        and actual_chars > cap_chars
+    ):
         raise HTTPException(
             status_code=413,
             detail={
                 "code": "context_too_large",
                 "message": (
                     f"Selected context is too large for your tier "
-                    f"({estimated_input_tokens} tokens, max {cap}). "
+                    f"({actual_chars} chars, max {cap_chars}). "
                     f"Deselect meetings or drop transcript chips."
                 ),
                 "feature_state": {
@@ -984,16 +998,17 @@ async def chat(
                     "cta": {
                         "kind": "context_too_large",
                         "text": (
-                            f"Selected context is {estimated_input_tokens // 1000}K tokens, "
-                            f"over your {cap // 1000}K-token limit. "
+                            f"Selected context is {actual_chars // 1000}K chars, "
+                            f"over your {cap_chars // 1000}K-char limit. "
                             f"Deselect meetings or drop transcripts to fit."
                         ),
                         "action": "trim_context",
                     },
                     "details": {
-                        "max_tokens": cap,
-                        "actual_tokens": estimated_input_tokens,
-                        "tokenizer": "chars_div_4",
+                        "max_chars": cap_chars,
+                        "actual_chars": actual_chars,
+                        "locale": locale or "en",
+                        "tokenizer": "chars_direct",
                     },
                 },
             },

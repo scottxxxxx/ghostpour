@@ -4,7 +4,8 @@ Pin the wire shape SS will consume:
 - 200 + empty text + feature_state.cta {kind: budget_exhausted, action: open_paywall}
   for the budget block.
 - 413 + feature_state.cta {kind: context_too_large, action: trim_context} +
-  details {max_tokens, actual_tokens, tokenizer} for the context-cap block.
+  details {max_chars, actual_chars, locale, tokenizer} for the context-cap block.
+  Char-based as of the client-config cutover (locale-aware caps).
 - Canned report (report_status=placeholder_budget_blocked, is_editable=false)
   when a meeting report would exceed budget.
 
@@ -198,10 +199,10 @@ class TestContextCapGate:
     def test_project_chat_oversized_context_returns_413(
         self, client, free_user, mock_provider,
     ):
-        """Free's max_input_tokens is 50K. system_prompt big enough to
-        push (sys + user) / 4 over 50K → 413 with context_too_large."""
-        # 50_001 tokens via chars/4 → need 200_004 chars
-        big_prompt = "a" * 200_004
+        """Free's English cap is 200K chars (= 50K tokens × 4). system_prompt
+        big enough to push len(sys + user) over 200K → 413 with
+        context_too_large."""
+        big_prompt = "a" * 200_004  # 200,006 chars total with "hi"
         resp = client.post(
             "/v1/chat",
             json=chat_request(
@@ -218,9 +219,10 @@ class TestContextCapGate:
         assert cta["kind"] == "context_too_large"
         assert cta["action"] == "trim_context"
         details = detail["feature_state"]["details"]
-        assert details["max_tokens"] == 50_000
-        assert details["actual_tokens"] > 50_000
-        assert details["tokenizer"] == "chars_div_4"
+        assert details["max_chars"] == 200_000
+        assert details["actual_chars"] > 200_000
+        assert details["locale"] == "en"
+        assert details["tokenizer"] == "chars_direct"
 
     def test_non_project_chat_skips_context_cap(
         self, client, free_user, mock_provider,
@@ -262,9 +264,10 @@ class TestContextCapGate:
     def test_plus_user_higher_cap(
         self, client, plus_user, mock_provider,
     ):
-        """Plus's cap is 150K. A prompt that blows Free's cap should still
-        fit Plus. Pin the per-tier differentiation."""
-        # 60K tokens → 240_000 chars. Over Free (50K) but under Plus (150K).
+        """Plus's English cap is 600K chars (= 150K tokens × 4). A prompt
+        that blows Free's cap should still fit Plus. Pin the per-tier
+        differentiation."""
+        # 240K chars. Over Free (200K) but under Plus (600K).
         prompt = "a" * 240_000
         with _force_cost(0.001):
             resp = client.post(
@@ -276,5 +279,79 @@ class TestContextCapGate:
                     user_content="hi",
                 ),
                 headers=plus_user["headers"],
+            )
+        assert resp.status_code == 200
+
+
+class TestContextCapLocaleAware:
+    """The Project Chat char cap is locale-aware: client-config.ja.json
+    defines tighter caps to match Anthropic's actual per-token char ratio
+    on CJK content. Same payload, different Accept-Language → different
+    enforcement."""
+
+    def test_japanese_plus_user_hits_lower_cap(
+        self, client, plus_user, mock_provider,
+    ):
+        """Plus + Accept-Language: ja → cap is 300K chars (vs 600K English).
+        A 320K-char prompt that fits English Plus should 413 on Japanese."""
+        prompt = "a" * 320_000
+        resp = client.post(
+            "/v1/chat",
+            json=chat_request(
+                prompt_mode="ProjectChat",
+                metadata={"selected_model": "ssai"},
+                system_prompt=prompt,
+                user_content="hi",
+            ),
+            headers={
+                **plus_user["headers"],
+                "Accept-Language": "ja-JP,ja;q=0.9",
+            },
+        )
+        assert resp.status_code == 413
+        details = resp.json()["detail"]["feature_state"]["details"]
+        assert details["max_chars"] == 300_000
+        assert details["locale"] == "ja"
+
+    def test_japanese_plus_user_within_locale_cap_is_served(
+        self, client, plus_user, mock_provider,
+    ):
+        """Just under 300K — Japanese Plus request goes through."""
+        prompt = "a" * 290_000
+        with _force_cost(0.001):
+            resp = client.post(
+                "/v1/chat",
+                json=chat_request(
+                    prompt_mode="ProjectChat",
+                    metadata={"selected_model": "ssai"},
+                    system_prompt=prompt,
+                    user_content="hi",
+                ),
+                headers={
+                    **plus_user["headers"],
+                    "Accept-Language": "ja",
+                },
+            )
+        assert resp.status_code == 200
+
+    def test_unknown_locale_falls_back_to_default_english_cap(
+        self, client, plus_user, mock_provider,
+    ):
+        """Korean isn't configured — falls back to default (English)
+        cap = 600K chars. A 400K prompt fits."""
+        prompt = "a" * 400_000
+        with _force_cost(0.001):
+            resp = client.post(
+                "/v1/chat",
+                json=chat_request(
+                    prompt_mode="ProjectChat",
+                    metadata={"selected_model": "ssai"},
+                    system_prompt=prompt,
+                    user_content="hi",
+                ),
+                headers={
+                    **plus_user["headers"],
+                    "Accept-Language": "ko",
+                },
             )
         assert resp.status_code == 200

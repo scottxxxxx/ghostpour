@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "limits": {
+    "project_chat": {
+      "max_input_chars": {
+        "free": 100000,
+        "plus": 300000,
+        "pro": 360000
+      }
+    }
+  },
+  "flags": {},
+  "intervals": {}
+}
