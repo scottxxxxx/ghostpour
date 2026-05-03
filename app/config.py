@@ -1,3 +1,25 @@
+"""Application Settings — pydantic-settings shape.
+
+Resolution order for each field (when not provided programmatically):
+1. Environment variable (`CZ_<FIELD>` per `env_prefix` below).
+2. `.env` file in cwd (loaded by pydantic-settings automatically).
+3. **Secret Manager fallback** for fields listed in
+   `_SECRET_MANAGER_MAPPINGS` — runs at `get_settings()` time before
+   pydantic builds the instance. Lets `.env.prod` ship without
+   plaintext secrets once the operator has provisioned the SM
+   counterparts. The mapping is `CZ_FOO` → secret name `foo` (lower-
+   kebab) by default; override on a case-by-case basis.
+
+Field defaults are still required so pydantic's required-field
+validation passes when a secret is absent in BOTH env AND SM (i.e.
+local dev test runs where neither is wired). For required fields like
+`jwt_secret`, the .env in tests still has to carry a value — same as
+before.
+"""
+
+from __future__ import annotations
+
+import os
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings
@@ -53,6 +75,61 @@ class Settings(BaseSettings):
     model_config = {"env_prefix": "CZ_", "env_file": ".env", "extra": "ignore"}
 
 
+# Map of CZ_<env var> → Secret Manager secret name. When the env var is
+# absent (or empty) at startup, `_ensure_secrets_in_env()` fetches from
+# SM and sets os.environ so pydantic Settings loads the value normally.
+#
+# Adding a secret here is the FIRST step of migrating it from
+# .env.prod plaintext to SM:
+#   1. Add a row here.
+#   2. Provision the secret in SM (runbook in ghostpour-ops).
+#   3. Remove the corresponding line from .env.prod on the VM.
+#   4. Restart the container — startup will fetch from SM.
+#
+# Don't add CZ_GCP_PROJECT or other config-style vars here — those
+# aren't secrets, they're configuration that's safe in env.
+_SECRET_MANAGER_MAPPINGS: dict[str, str] = {
+    "CZ_JWT_SECRET": "jwt-secret",
+    "CZ_ADMIN_KEY": "admin-key",
+    "CZ_ANTHROPIC_API_KEY": "anthropic-api-key",
+    "CZ_OPENAI_API_KEY": "openai-api-key",
+    "CZ_OPENROUTER_API_KEY": "openrouter-api-key",
+    "CZ_GOOGLE_API_KEY": "google-api-key",
+    "CZ_XAI_API_KEY": "xai-api-key",
+    "CZ_DEEPSEEK_API_KEY": "deepseek-api-key",
+    "CZ_KIMI_API_KEY": "kimi-api-key",
+    "CZ_QWEN_API_KEY": "qwen-api-key",
+    "CZ_CQ_CLIENT_SECRET": "cq-client-secret",
+}
+
+
+def _ensure_secrets_in_env() -> None:
+    """Fill os.environ from Secret Manager for any mapping that's
+    currently empty. Called once before Settings instantiation. Idempotent.
+
+    Calls into `app.secrets.get_secret`, which itself prefers env over
+    SM — so this loop is a no-op for any secret already wired in env.
+    The whole point is to let `.env.prod` ship without these values
+    (or with empty strings for them) and let SM fill in.
+    """
+    # Local import: avoid a circular dep with anything that imports config
+    # before app.secrets is available, and keep import cost off the
+    # `from app.config import Settings` path until startup.
+    from app.secrets import get_secret
+
+    for env_var, secret_name in _SECRET_MANAGER_MAPPINGS.items():
+        existing = os.environ.get(env_var, "").strip()
+        if existing:
+            continue
+        # Pass env_var=None so get_secret skips the env check (it'd
+        # short-circuit to "" anyway since we already know it's empty)
+        # and goes straight to SM.
+        sm_value = get_secret(secret_name)
+        if sm_value:
+            os.environ[env_var] = sm_value
+
+
 @lru_cache
 def get_settings() -> Settings:
+    _ensure_secrets_in_env()
     return Settings()
