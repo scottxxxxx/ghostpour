@@ -38,6 +38,7 @@ def _resolve_project() -> str:
 def _from_secret_manager(secret_name: str) -> str:
     try:
         from google.cloud import secretmanager  # type: ignore[import-not-found]
+        from google.auth import default as auth_default  # type: ignore[import-not-found]
     except ImportError:
         logger.debug("google-cloud-secret-manager not installed; cannot fetch %s", secret_name)
         return ""
@@ -46,7 +47,16 @@ def _from_secret_manager(secret_name: str) -> str:
         logger.warning("No GCP project resolved for secret %s; set CZ_GCP_PROJECT", secret_name)
         return ""
     try:
-        client = secretmanager.SecretManagerServiceClient()
+        # Compute Engine metadata-service credentials report
+        # `requires_scopes=True` and the SM SDK doesn't auto-supply the
+        # scope when constructing the client. Result: a default
+        # `SecretManagerServiceClient()` call comes back as 403
+        # IAM_PERMISSION_DENIED ("or it may not exist") even when the
+        # SA has `roles/secretmanager.secretAccessor` on the secret.
+        # Pass `cloud-platform` explicitly so the metadata token has
+        # the right scope.
+        creds, _ = auth_default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
+        client = secretmanager.SecretManagerServiceClient(credentials=creds)
         path = f"projects/{project}/secrets/{secret_name}/versions/latest"
         response = client.access_secret_version(name=path)
         return response.payload.data.decode("utf-8")
