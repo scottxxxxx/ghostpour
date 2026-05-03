@@ -177,6 +177,7 @@
     <div class="tab" onclick="switchTab('latency')">Latency</div>
     <div class="tab" onclick="switchTab('providers')">Providers</div>
     <div class="tab" onclick="switchTab('errors')">Errors</div>
+    <div class="tab" onclick="switchTab('email')">Email</div>
     <div class="tab" onclick="switchTab('configs')">Configs</div>
     <div class="tab" onclick="switchTab('routing')">Model Routing</div>
     <div class="tab" onclick="switchTab('livelog')">Live Log</div>
@@ -367,6 +368,35 @@
       <th>Time</th><th>User</th><th>Provider</th><th>Model</th><th>Status</th><th>Error</th><th>Latency</th><th>Type</th>
     </tr></thead><tbody></tbody></table></div>
   </div>
+
+  <!-- Email Management -->
+  <div id="tab-email" class="section">
+    <h3>Overview</h3>
+    <div class="cards" id="email-stats-cards"></div>
+
+    <h3 style="margin-top:24px">Events</h3>
+    <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <select id="email-type-filter" onchange="loadEmail()" style="padding:6px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px">
+        <option value="">All event types</option>
+        <option value="email.sent">Sent</option>
+        <option value="email.delivered">Delivered</option>
+        <option value="email.bounced">Bounced</option>
+        <option value="email.complained">Complained</option>
+        <option value="email.delivery_delayed">Delayed</option>
+      </select>
+      <input type="text" id="email-recipient-filter" placeholder="Filter by recipient (exact match)" onchange="loadEmail()" style="flex:1;min-width:240px;padding:6px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px">
+      <button onclick="loadEmail()" style="padding:6px 12px">Refresh</button>
+    </div>
+    <div class="table-wrap"><table id="email-events-table"><thead><tr>
+      <th>Time</th><th>Event</th><th>Recipient</th><th>Email ID</th><th>Bounce</th>
+    </tr></thead><tbody></tbody></table></div>
+
+    <h3 style="margin-top:24px">Suppression List</h3>
+    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Recipients we will never send to. Populated automatically by hard bounces and spam complaints. Soft bounces are NOT suppressed (Resend retries).</p>
+    <div class="table-wrap"><table id="email-suppression-table"><thead><tr>
+      <th>Recipient</th><th>Reason</th><th>Suppressed</th><th>Source Event</th>
+    </tr></thead><tbody></tbody></table></div>
+  </div>
 </div>
 
 <script>
@@ -401,6 +431,7 @@ function switchTab(name) {
   if (name === 'errors') loadErrors();
   if (name === 'configs') loadConfigs();
   if (name === 'livelog') loadLiveLog();
+  if (name === 'email') loadEmail();
 }
 
 function fmt(n) { return n == null ? '-' : n.toLocaleString(); }
@@ -941,6 +972,66 @@ async function promptUpdateKey(provider, displayName) {
     const err = await resp.json();
     alert('Failed: ' + (err.detail || 'Unknown error'));
   }
+}
+
+async function loadEmail() {
+  const days = document.getElementById('period').value;
+  const eventType = document.getElementById('email-type-filter').value;
+  const recipient = document.getElementById('email-recipient-filter').value.trim();
+
+  const eventsParams = new URLSearchParams({days, limit: '100'});
+  if (eventType) eventsParams.append('event_type', eventType);
+  if (recipient) eventsParams.append('recipient', recipient);
+
+  const headers = {'X-Admin-Key': adminKey};
+  const [statsResp, eventsResp, supResp] = await Promise.all([
+    fetch(`${BASE}/webhooks/admin/email/stats?days=${days}`, {headers}),
+    fetch(`${BASE}/webhooks/admin/email/events?${eventsParams}`, {headers}),
+    fetch(`${BASE}/webhooks/admin/email/suppression?limit=200`, {headers}),
+  ]);
+  if (!statsResp.ok || !eventsResp.ok || !supResp.ok) return;
+
+  const stats = await statsResp.json();
+  const events = await eventsResp.json();
+  const sup = await supResp.json();
+
+  // Stats cards
+  const supColor = stats.suppression_count > 0 ? 'orange' : 'green';
+  const complainColor = stats.complaints > 0 ? 'red' : '';
+  const bounceColor = stats.hard_bounces > 0 ? 'orange' : '';
+  document.getElementById('email-stats-cards').innerHTML =
+    card('Events (last ' + days + 'd)', fmt(stats.total_events)) +
+    card('Hard Bounces', fmt(stats.hard_bounces), bounceColor) +
+    card('Complaints', fmt(stats.complaints), complainColor) +
+    card('Suppressed (total)', fmt(stats.suppression_count), supColor) +
+    Object.entries(stats.by_type).map(([t, c]) =>
+      card(t.replace('email.', ''), fmt(c))
+    ).join('');
+
+  // Events table
+  const escape = s => (s == null ? '' : String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]));
+  const evRows = events.events.map(e => `<tr>
+    <td style="white-space:nowrap" title="${escape(e.received_at)}">${timeAgo(e.received_at)}</td>
+    <td><span class="badge">${escape(e.event_type)}</span></td>
+    <td>${escape(e.recipient) || '<span style="color:var(--text-dim)">-</span>'}</td>
+    <td class="mono" style="font-size:11px">${escape(e.email_id) || '-'}</td>
+    <td>${escape(e.bounce_type) || '-'}</td>
+  </tr>`).join('');
+  document.querySelector('#email-events-table tbody').innerHTML =
+    evRows || '<tr><td colspan="5" style="text-align:center;color:var(--text-dim)">No events match current filters</td></tr>';
+
+  // Suppression table
+  const supRows = sup.suppression.map(s => {
+    const cls = s.reason === 'spam_complaint' ? 'error' : '';
+    return `<tr>
+      <td>${escape(s.recipient)}</td>
+      <td><span class="badge ${cls}">${escape(s.reason)}</span></td>
+      <td style="white-space:nowrap" title="${escape(s.suppressed_at)}">${timeAgo(s.suppressed_at)}</td>
+      <td class="mono" style="font-size:11px">${escape(s.source_event_id) || '-'}</td>
+    </tr>`;
+  }).join('');
+  document.querySelector('#email-suppression-table tbody').innerHTML =
+    supRows || '<tr><td colspan="4" style="text-align:center;color:var(--text-dim)">No suppressed addresses</td></tr>';
 }
 
 async function loadErrors() {
