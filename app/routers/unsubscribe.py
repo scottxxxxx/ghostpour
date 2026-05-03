@@ -77,12 +77,44 @@ _ERROR_HTML = """<!doctype html>
 """
 
 
+_UNSUBSCRIBE_RATE_LIMIT_RPM = 30
+
+
+def _client_ip(request: Request) -> str:
+    """Best-effort client IP. NPM sets X-Forwarded-For; fall back to
+    direct peer. We don't trust XFF for security decisions, only as a
+    rate-limit key."""
+    xff = request.headers.get("x-forwarded-for", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    if request.client:
+        return request.client.host
+    return "unknown"
+
+
 @router.get("/unsubscribe", include_in_schema=False)
 async def unsubscribe(
     request: Request,
     token: str = "",
     db: aiosqlite.Connection = Depends(get_db),
 ):
+    # Per-IP rate limit. The HMAC token is unforgeable (256-bit), so
+    # this isn't about preventing brute force — it's belt-and-
+    # suspenders against someone hammering the endpoint with bad
+    # tokens to cause DB load or CPU on HMAC verification. 30/min/IP
+    # is generous for a human clicking an unsubscribe link.
+    rate_limiter = request.app.state.rate_limiter
+    rate_key = f"unsubscribe:{_client_ip(request)}"
+    allowed, retry_after = rate_limiter.check(rate_key, _UNSUBSCRIBE_RATE_LIMIT_RPM)
+    if not allowed:
+        return HTMLResponse(
+            content="<!doctype html><title>Too many requests</title>"
+                    "<p>Too many unsubscribe requests from this address. "
+                    f"Try again in {retry_after}s.</p>",
+            status_code=429,
+            headers={"Retry-After": str(retry_after)},
+        )
+
     secret = request.app.state.settings.jwt_secret
     user_id = marketing.verify_unsubscribe_token(token, secret)
     if user_id is None:

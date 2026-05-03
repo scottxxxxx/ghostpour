@@ -165,6 +165,19 @@ class TestUnsubscribeLink:
         assert resp.status_code == 200
         assert "already off" in resp.text.lower() or "unsubscribed" in resp.text.lower()
 
+    def test_rate_limit_kicks_in_after_30_per_minute(self, client):
+        """Per-IP rate limit pins the endpoint at 30/min. The HMAC token
+        is unforgeable so this is just belt-and-suspenders against
+        endpoint pounding. TestClient connects from 127.0.0.1 so all
+        requests share the same rate-limit key."""
+        # Burn through the budget with garbage tokens
+        for _ in range(30):
+            client.get("/unsubscribe?token=bad")
+        # 31st should 429
+        resp = client.get("/unsubscribe?token=bad")
+        assert resp.status_code == 429
+        assert "retry-after" in {h.lower() for h in resp.headers.keys()}
+
 
 # ---------------------------------------------------------------------------
 # Spam complaint webhook also flips the flag
