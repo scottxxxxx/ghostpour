@@ -7,6 +7,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Email Management feature (PRs #124, #126, #129)** — full inbound/outbound pipeline via Resend.
+  - **Webhook ingestion** at `POST /webhooks/resend` with Svix signature verification, idempotent dedupe via `svix-id`, persistence to a new `email_events` audit log. Hard bounces and spam complaints land in `email_suppression` (PK = lowercased recipient — never sent to again). Soft bounces are logged only (provider retries). (#124)
+  - **Read-only Email tab in the admin dashboard** — events log with type/recipient filters, suppression list, hard-bounce + complaint counters, recent activity timestamps. (#126)
+  - **Outbound + iOS toggle + unsubscribe** — `app/services/email_send.py` wraps Resend with a mandatory pre-send suppression check. `users.marketing_opt_in` (default 0, GDPR explicit-opt-in) with `marketing_opt_in_updated_at` + `marketing_opt_in_source` audit fields. New iOS-facing endpoints: `PUT /v1/preferences/marketing-opt-in`, `GET /v1/preferences/me`, and `marketing_opt_in.{enabled, updated_at, source}` on `/v1/usage/me` (the SS startup query). Public `GET /unsubscribe?token=...` link with HMAC token (no expiry, domain-separated). `email.complained` webhook flips both suppression AND marketing_opt_in. (#129)
+- **`client-config` remote config + locale-aware Project Chat char cap (PRs #127, #128)** — new runtime-tunables file at `GET /v1/config/client-config` with `Accept-Language` fallback. First tunable: `limits.project_chat.max_input_chars` per tier per locale. EN/ES defaults match legacy `max_input_tokens × 4`; JA halved (Haiku 200K context fits ~2 chars/token CJK content). Server enforcement cuts over to char-based via `app/services/client_config.py`; legacy `tiers.{slug}.feature_definitions.project_chat.max_input_tokens` stays on `/v1/tiers` for back-compat. New `PUT /admin/tunable/project-chat-cap` dual-writes both fields with per-locale support; dashboard Tiers-tab editor grew a locale dropdown.
+- **Secret Manager infrastructure (PRs #123, #130, #132, #135, #138)** — env-first → GCP Secret Manager fallback for app secrets, eliminating plaintext-on-disk as the only auth surface.
+  - `app.secrets.get_secret(name, env_var=...)` helper. (#123)
+  - Pass `cloud-platform` scope explicitly so the SM SDK doesn't 403 with `requires_scopes=True` against GCE metadata creds. (#130)
+  - 5-minute TTL cache (tunable via `CZ_SECRET_CACHE_TTL_SECONDS`) so rotations propagate without container restart. (#132)
+  - `_ensure_secrets_in_env()` at startup auto-fills 11 known secrets from SM when env is empty — `.env.prod` can be slimmed per-secret. (#135)
+  - Structured `secret_filled_from_sm` log for migration verification. (#138)
+- **`/v1/tiers` exposes `feature_definitions` per tier + top-level `version`** — fixes a missed wiring from PR #120. iOS reads `tiers[slug].feature_definitions.project_chat.max_input_tokens`; the field was on disk but never copied into the response. 4 endpoint tests pin the wire shape. (#125)
+- **Footgun audit + remediation sweep (PRs #131–#142, plus ghostpour-ops ops work)** — 15 known footguns inventoried 2026-05-03 and fixed in one day:
+  - **C1** Force-sync from bundle (#131) — `POST /admin/config/{slug}/sync-from-bundle` + dashboard modal preview. Closes the silent gap where bundle JSON updates merged via PR never reached prod (root cause of PR #121 and the tiers v15 confusion).
+  - **C2** `get_secret` TTL cache (#132).
+  - **C3** `email_events` 90-day retention prune at `init_db` time (#133), mirroring `meeting_reports`'s 30-day prune.
+  - **C4** `/v1/health` alias (#134) — silences NPM bifrost 404 polls.
+  - **C5** `.env.prod` → SM fallback (#135).
+  - **M1** Dashboard auto-reauth on any admin-key 403 (#136) — wraps `window.fetch` so a rotated `CZ_ADMIN_KEY` bumps the user to the auth screen instead of leaving silent failures.
+  - **M2** Webhook auth visibility (#137) — structured `webhook_auth_failure` logs, startup warning if the webhook secret is unreachable, `webhook.{signing_secret_configured, last_event_received_at}` on `/admin/email/stats`.
+  - **M3** `secret_filled_from_sm` log (#138).
+  - **M5** Locale-drift indicator on Configs tab (#139) — orange ⚠ chip when a locale variant's version doesn't match base.
+  - **H1** Litestream switches to VM metadata-service identity (#142) — drops the `gp-backup-sa.json` key file mount; bucket IAM granted to the VM Compute SA.
+  - **H2** `/unsubscribe` per-IP rate limit, 30/min/IP via the existing `RateLimiter` (#140). Belt-and-suspenders — HMAC tokens are unforgeable.
+  - **H5** GitHub Actions bumped to Node-24 versions (#141) — pre-empts June 2026 forced cutover.
+  - **M4** (operational, ghostpour-ops) — daily 04:00 UTC `mariadb-dump` of the bifrost NPM DB to GCS, 30-day retention via lifecycle policy. SPOF resolved (proxy routing + Let's Encrypt state).
+  - **H3** (operational) — `ResendKey.txt` orphan deleted.
 - **CQ tier signals** — `subscription_tier` field added to `/v1/memory` and `/v1/recall` metadata on every CQ call (resolved from `user.effective_tier`); new `POST /v1/users/{id}/tier-change` notification fired by GP on real subscription state transitions (event types: `upgrade`, `downgrade`, `trial_start`, `trial_to_paid`, `cancellation`, `expire`, `refund`). Lets CQ slice extraction metrics by tier and drive its own retention/soft-delete policy without GP encoding it. See `docs/wire-contracts/cq-tier-signals.md`.
 - **Unified budget gate (PR #117)** — `usage_tracker.check_quota` no longer raises 429 / `allocation_exhausted`. The budget gate is the sole authority for over-cap responses, emitting one wire shape (200 + `feature_state.cta { kind: "budget_exhausted" }`) across both "already past cap" and "this call would push past cap." Simulated-exhausted admin testing toggle keeps the 429 path.
 - **No exemption for `summary` / `analysis` call_types (PR #119)** — every LLM call gates past cap, including AutoSummary / DeltaSummary / SummaryConsolidation / PostSessionAnalysis. iOS owns the primary "don't allow meeting start when over cap" UX (reads `credits_remaining` from `/v1/usage/me`); GP is defense-in-depth. Earlier exemption from PR #117 reverted after product call.
