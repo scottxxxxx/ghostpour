@@ -188,6 +188,16 @@ async def init_db(database_url: str) -> None:
         await db.execute(
             "DELETE FROM meeting_reports WHERE created_at < datetime('now', '-30 days')"
         )
+
+        # Purge email_events older than 90 days. Webhook event audit log
+        # — kept long enough for spam-complaint / bounce attribution
+        # debugging, then dropped to bound disk + Litestream replication
+        # size. Suppression list is NOT pruned here: a suppressed
+        # address stays suppressed forever unless explicitly lifted.
+        await db.execute(
+            "DELETE FROM email_events WHERE received_at < datetime('now', '-90 days')"
+        )
+
         await db.commit()
 
 
