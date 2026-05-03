@@ -76,6 +76,36 @@ def test_stats_empty_dataset(client):
     assert body["suppression_count"] == 0
     assert body["hard_bounces"] == 0
     assert body["complaints"] == 0
+    # Webhook health (added in M2 — visibility for silent 401 storms)
+    assert "webhook" in body
+    assert "signing_secret_configured" in body["webhook"]
+    assert "last_event_received_at" in body["webhook"]
+    assert body["webhook"]["last_event_received_at"] is None
+
+
+def test_stats_webhook_last_event_reflects_recent_seed(client, tmp_db_path):
+    _seed_event(tmp_db_path, event_id="e_recent", event_type="email.delivered",
+                recipient="x@example.com")
+    resp = client.get("/webhooks/admin/email/stats", headers=_KEY)
+    body = resp.json()
+    assert body["webhook"]["last_event_received_at"] is not None
+
+
+def test_stats_signing_secret_reflects_env(client, monkeypatch):
+    """webhook.signing_secret_configured is True when CZ_RESEND_WEBHOOK_SECRET
+    is set, False when unset (and SM also returns empty)."""
+    from app import secrets as app_secrets
+    monkeypatch.setenv("CZ_RESEND_WEBHOOK_SECRET", "whsec_test_dummy")
+    app_secrets.get_secret.cache_clear()
+    resp = client.get("/webhooks/admin/email/stats", headers=_KEY)
+    assert resp.json()["webhook"]["signing_secret_configured"] is True
+
+    monkeypatch.delenv("CZ_RESEND_WEBHOOK_SECRET", raising=False)
+    monkeypatch.setattr(app_secrets, "_from_secret_manager", lambda name: "")
+    app_secrets.get_secret.cache_clear()
+    resp = client.get("/webhooks/admin/email/stats", headers=_KEY)
+    assert resp.json()["webhook"]["signing_secret_configured"] is False
+    app_secrets.get_secret.cache_clear()
 
 
 def test_stats_counts_events_correctly(client, tmp_db_path):

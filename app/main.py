@@ -97,6 +97,19 @@ async def lifespan(app: FastAPI):
     await pricing.start()
     app.state.pricing = pricing
 
+    # Startup-time sanity warning: if the Resend webhook signing secret
+    # isn't reachable, /webhooks/resend will fail-closed (503) on every
+    # call and we'll silently drop bounces / complaints. Better to
+    # log loudly at startup so the misconfiguration is visible in
+    # journald immediately rather than only when an event lands.
+    from app.secrets import get_secret
+    if not get_secret("resend-webhook-secret", env_var="CZ_RESEND_WEBHOOK_SECRET"):
+        logging.getLogger("app.main").warning(
+            "startup_check resend_webhook_secret_missing — /webhooks/resend "
+            "will return 503 until secret is provisioned in CZ_RESEND_WEBHOOK_SECRET "
+            "or GCP Secret Manager (cloudzap/resend-webhook-secret)."
+        )
+
     yield
 
     await app.state.provider_router.close()
