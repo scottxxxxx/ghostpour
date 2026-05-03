@@ -424,15 +424,54 @@
 let adminKey = '';
 const BASE = '';
 
+// When the admin key gets rotated server-side, every authenticated
+// fetch starts coming back as 403. This handler bumps the user back
+// to the auth screen instead of leaving them staring at silently-
+// failing tabs. Clears the cached key so they have to paste the new
+// one. Wraps `window.fetch` so every existing call site benefits
+// without per-callsite changes.
+const _origFetch = window.fetch.bind(window);
+window.fetch = async function(...args) {
+  const resp = await _origFetch(...args);
+  if (resp.status === 403 && adminKey) {
+    // Only bump on admin-authenticated calls — public endpoints
+    // (e.g. /v1/config/{name}) can legitimately 403 without us
+    // wanting to nuke the session.
+    const headers = (args[1] && args[1].headers) || {};
+    const sentAdminKey = headers['X-Admin-Key'] || headers['x-admin-key'];
+    if (sentAdminKey) {
+      handleAdminAuthFailure();
+    }
+  }
+  return resp;
+};
+
+function handleAdminAuthFailure() {
+  // Avoid loops when the auth screen is already showing
+  if (document.getElementById('auth-screen').style.display === 'none') {
+    localStorage.removeItem('cz_admin_key');
+    adminKey = '';
+    document.getElementById('admin-key').value = '';
+    document.getElementById('dashboard').style.display = 'none';
+    document.getElementById('auth-screen').style.display = '';
+    document.getElementById('auth-error').textContent =
+      'Admin key was rejected — it may have been rotated. Paste the new key.';
+  }
+}
+
 function login() {
   adminKey = document.getElementById('admin-key').value;
   if (!adminKey) return;
-  fetch(`${BASE}/webhooks/admin/dashboard?days=7`, {headers: {'X-Admin-Key': adminKey}})
+  // Use the original fetch directly so the wrapped 403 handler
+  // doesn't trigger handleAdminAuthFailure during the login attempt
+  // itself (we want to surface the error inline on the auth screen).
+  _origFetch(`${BASE}/webhooks/admin/dashboard?days=7`, {headers: {'X-Admin-Key': adminKey}})
     .then(r => { if (!r.ok) throw new Error('Invalid key'); return r.json(); })
     .then(() => {
       localStorage.setItem('cz_admin_key', adminKey);
       document.getElementById('auth-screen').style.display = 'none';
       document.getElementById('dashboard').style.display = 'block';
+      document.getElementById('auth-error').textContent = '';
       refresh();
     })
     .catch(() => { document.getElementById('auth-error').textContent = 'Invalid admin key'; });
