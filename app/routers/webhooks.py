@@ -400,6 +400,130 @@ async def update_config(
     }
 
 
+@router.get("/admin/config/{slug}/bundle")
+async def get_config_bundle(
+    slug: str,
+    request: Request,
+    x_admin_key: str = Header(...),
+):
+    """Return the bundled (repo-shipped) version of a remote config.
+
+    The active value at /admin/config/{slug} comes from the persistent
+    file on the data volume (dashboard-edited). This endpoint exposes
+    the BUNDLED value from `config/remote/` for diff/sync UIs.
+    """
+    _verify_admin(request, x_admin_key)
+    from app.routers.config import _BUNDLED_DIR
+
+    bundle_path = _BUNDLED_DIR / f"{slug}.json"
+    if not bundle_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"No bundled file for slug '{slug}' at {bundle_path.name}",
+        )
+    try:
+        data = json.loads(bundle_path.read_text())
+    except (json.JSONDecodeError, OSError) as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not read bundled {slug}.json: {exc}",
+        )
+    return {"slug": slug, "data": data}
+
+
+class SyncFromBundleRequest(BaseModel):
+    """Force-sync a list of top-level keys from the bundled config into
+    the persistent (live) config. Closes the silent-deploy gap left by
+    `seed_remote_configs()`'s no-overwrite policy: bundle changes for
+    these keys propagate to prod immediately, dashboard edits to
+    OTHER keys are preserved."""
+    keys: list[str]
+
+
+@router.post("/admin/config/{slug}/sync-from-bundle")
+async def sync_config_from_bundle(
+    slug: str,
+    body: SyncFromBundleRequest,
+    request: Request,
+    x_admin_key: str = Header(...),
+):
+    """Copy the listed top-level keys from the bundled config into the
+    persistent config. Bumps version; hot-reloads `remote_configs`.
+
+    Returns a per-key change report (old → new value, or "unchanged"
+    when bundle and persistent already matched). If the persistent
+    file doesn't exist yet, it's created with the requested keys
+    plus a starting `version: 1`.
+    """
+    _verify_admin(request, x_admin_key)
+    if not body.keys:
+        raise HTTPException(status_code=400, detail="keys list must not be empty")
+
+    from app.routers.config import _BUNDLED_DIR, CONFIG_DIR, load_remote_configs
+
+    bundle_path = _BUNDLED_DIR / f"{slug}.json"
+    if not bundle_path.exists():
+        raise HTTPException(
+            status_code=404, detail=f"No bundled file for slug '{slug}'"
+        )
+    try:
+        bundle = json.loads(bundle_path.read_text())
+    except (json.JSONDecodeError, OSError) as exc:
+        raise HTTPException(status_code=500, detail=f"Could not read bundle: {exc}")
+
+    persistent_path = CONFIG_DIR / f"{slug}.json"
+    if persistent_path.exists():
+        try:
+            persistent = json.loads(persistent_path.read_text())
+        except (json.JSONDecodeError, OSError) as exc:
+            raise HTTPException(
+                status_code=500, detail=f"Could not read persistent: {exc}",
+            )
+    else:
+        persistent = {"version": 0}
+
+    changes: list[dict] = []
+    any_change = False
+    missing_keys: list[str] = []
+    for key in body.keys:
+        if key not in bundle:
+            missing_keys.append(key)
+            continue
+        new_val = bundle[key]
+        old_val = persistent.get(key)
+        if old_val == new_val:
+            changes.append({"key": key, "status": "unchanged"})
+            continue
+        persistent[key] = new_val
+        changes.append({
+            "key": key,
+            "status": "synced",
+            "old": old_val,
+            "new": new_val,
+        })
+        any_change = True
+
+    if missing_keys:
+        raise HTTPException(
+            status_code=400,
+            detail=f"keys not in bundled file: {missing_keys}",
+        )
+
+    if any_change:
+        persistent["version"] = (persistent.get("version") or 0) + 1
+        persistent_path.write_text(
+            json.dumps(persistent, indent=2, ensure_ascii=False) + "\n"
+        )
+        request.app.state.remote_configs = load_remote_configs()
+
+    return {
+        "status": "synced" if any_change else "no_changes",
+        "slug": slug,
+        "version": persistent["version"],
+        "changes": changes,
+    }
+
+
 # --- Tunable parameters (per-tier dials editable from the dashboard) ---
 
 
