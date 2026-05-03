@@ -148,9 +148,16 @@ async def receive_resend_webhook(
             added = await email_suppression.add_suppression(
                 db, recipient, reason="spam_complaint", source_event_id=event_id
             )
+            # Also flip the user's marketing_opt_in flag so iOS reflects
+            # the unsubscribe-by-complaint on next launch and we don't
+            # try to push them back into the marketing audience.
+            from app.services import marketing_opt_in as marketing
+            opted_out = await marketing.opt_out_by_recipient(
+                db, recipient, source=marketing.SOURCE_SPAM_COMPLAINT,
+            )
             logger.warning(
-                "Resend spam complaint: recipient=%s newly_suppressed=%s",
-                recipient, added,
+                "Resend spam complaint: recipient=%s newly_suppressed=%s opted_out=%s",
+                recipient, added, opted_out,
             )
 
     elif event_type in ("email.delivered", "email.sent", "email.delivery_delayed"):

@@ -17,8 +17,10 @@ from app.routers import (
     config,
     features,
     health,
+    preferences,
     reports,
     resend_webhooks,
+    unsubscribe,
     webhooks,
 )
 from app.services.apple_auth import AppleAuthVerifier
@@ -129,6 +131,8 @@ app.include_router(resend_webhooks.router, prefix="/webhooks", tags=["resend-web
 app.include_router(apple_webhooks.router, prefix="/v1", tags=["apple-webhooks"])
 app.include_router(reports.router, prefix="/v1", tags=["reports"])
 app.include_router(features.router, prefix="/v1", tags=["features"])
+app.include_router(preferences.router, prefix="/v1", tags=["preferences"])
+app.include_router(unsubscribe.router, tags=["unsubscribe"])
 
 # Context Quilt proxy routes — only included when CQ is configured
 if get_settings().cq_base_url:

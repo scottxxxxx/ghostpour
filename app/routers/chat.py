@@ -645,6 +645,17 @@ async def usage_me(
         result["is_trial"] = True
         result["trial_end"] = user.trial_end
 
+    # Marketing email opt-in state — part of the SS startup query so the
+    # iOS Settings toggle reflects the latest value (e.g., flips after
+    # an email-side unsubscribe or a spam complaint).
+    from app.services import marketing_opt_in as marketing
+    moi = await marketing.get_marketing_opt_in(db, user.id)
+    result["marketing_opt_in"] = {
+        "enabled": moi["opt_in"],
+        "updated_at": moi["updated_at"],
+        "source": moi["source"],
+    }
+
     return result
 
 

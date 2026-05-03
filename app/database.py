@@ -160,6 +160,14 @@ MIGRATIONS = [
         source_event_id TEXT,
         suppressed_at TEXT NOT NULL
     )""",
+    # v17: per-user marketing email opt-in state. Source of truth for
+    # "may we send tips/news to this user." Default 0 (off) — GDPR
+    # explicit-opt-in. Source distinguishes how the value was set (ios
+    # toggle / unsubscribe link / spam complaint webhook / admin) so
+    # we can audit unexpected flips.
+    "ALTER TABLE users ADD COLUMN marketing_opt_in INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN marketing_opt_in_updated_at TEXT",
+    "ALTER TABLE users ADD COLUMN marketing_opt_in_source TEXT",
 ]
 
 
