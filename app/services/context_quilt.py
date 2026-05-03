@@ -78,7 +78,12 @@ async def _get_auth_headers() -> dict[str, str]:
         return {"X-App-ID": settings.cq_app_id}
 
 
-async def recall(user_id: str, text: str, metadata: dict | None = None) -> dict:
+async def recall(
+    user_id: str,
+    text: str,
+    metadata: dict | None = None,
+    subscription_tier: str | None = None,
+) -> dict:
     """
     Fetch relevant context from Context Quilt's graph memory.
 
@@ -102,8 +107,11 @@ async def recall(user_id: str, text: str, metadata: dict | None = None) -> dict:
             "user_id": user_id,
             "text": text,
         }
-        if metadata:
-            body["metadata"] = metadata
+        merged_metadata = dict(metadata) if metadata else {}
+        if subscription_tier:
+            merged_metadata["subscription_tier"] = subscription_tier
+        if merged_metadata:
+            body["metadata"] = merged_metadata
 
         auth_headers = await _get_auth_headers()
         resp = await client.post(
@@ -148,6 +156,7 @@ async def capture(
     user_identified: bool | None = None,
     user_label: str | None = None,
     identification_source: str | None = None,
+    subscription_tier: str | None = None,
 ):
     """
     Send query+response to Context Quilt for learning. Fire-and-forget (async).
@@ -202,6 +211,8 @@ async def capture(
         metadata["user_label"] = user_label
     if identification_source:
         metadata["identification_source"] = identification_source
+    if subscription_tier:
+        metadata["subscription_tier"] = subscription_tier
     if metadata:
         body["metadata"] = metadata
 
@@ -217,3 +228,51 @@ async def capture(
         logger.info("cq_capture_ok", extra={"type": interaction_type})
     except Exception as e:
         logger.warning("cq_capture_error", extra={"error": str(e)})
+
+
+async def notify_tier_change(
+    user_id: str,
+    old_tier: str,
+    new_tier: str,
+    event_type: str,
+    occurred_at: str | None = None,
+):
+    """Notify Context Quilt of a subscription tier transition.
+
+    Fire-and-forget. CQ uses these events to drive retention/soft-delete
+    policy without GP having to encode the policy on its side.
+
+    event_type values: "upgrade", "downgrade", "cancellation", "refund",
+    "expire", "trial_start", "trial_to_paid". Idempotent on
+    (user_id, occurred_at) on the CQ side.
+    """
+    settings = get_settings()
+    if not settings.cq_base_url:
+        return
+
+    from datetime import datetime, timezone
+    body = {
+        "old_tier": old_tier,
+        "new_tier": new_tier,
+        "event_type": event_type,
+        "occurred_at": occurred_at or datetime.now(timezone.utc).isoformat(),
+    }
+
+    try:
+        client = _get_client()
+        auth_headers = await _get_auth_headers()
+        resp = await client.post(
+            f"/v1/users/{user_id}/tier-change",
+            json=body,
+            headers=auth_headers,
+        )
+        resp.raise_for_status()
+        logger.info(
+            "cq_tier_change_ok",
+            extra={"user_id": user_id, "old": old_tier, "new": new_tier, "event": event_type},
+        )
+    except Exception as e:
+        logger.warning(
+            "cq_tier_change_error",
+            extra={"user_id": user_id, "event": event_type, "error": str(e)},
+        )

@@ -23,6 +23,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.chat import ChatRequest, ChatResponse
 from app.models.user import UserRecord
+from app.services import context_quilt as cq
 
 router = APIRouter()
 
@@ -292,6 +293,12 @@ async def verify_receipt(
                 from app.services.project_chat_quota import zero_quota_on_tier_change
                 await zero_quota_on_tier_change(db, user.id)
                 await zero_memory_quota_on_tier_change(db, user.id)
+            asyncio.create_task(cq.notify_tier_change(
+                user_id=user.id,
+                old_tier=old_tier_name,
+                new_tier=new_tier_name,
+                event_type="trial_start",
+            ))
         else:
             # Idempotent re-verification — only update limit, txn_id, and timestamp.
             # Preserve monthly_used_usd, allocation_resets_at, trial_start, trial_end.
@@ -351,6 +358,21 @@ async def verify_receipt(
         if old_tier_name == "free":
             from app.services.project_chat_quota import zero_quota_on_tier_change
             await zero_quota_on_tier_change(db, user.id)
+        if trial_to_paid:
+            event_type = "trial_to_paid"
+        else:
+            tier_rank = {"free": 0, "plus": 1, "pro": 2, "admin": 3}
+            event_type = (
+                "upgrade"
+                if tier_rank.get(new_tier_name, 0) >= tier_rank.get(old_tier_name, 0)
+                else "downgrade"
+            )
+        asyncio.create_task(cq.notify_tier_change(
+            user_id=user.id,
+            old_tier=old_tier_name,
+            new_tier=new_tier_name,
+            event_type=event_type,
+        ))
     else:
         # Idempotent re-verification — preserve allocation state
         await db.execute(
@@ -432,6 +454,13 @@ async def sync_subscription(
         )
         await db.commit()
 
+        asyncio.create_task(cq.notify_tier_change(
+            user_id=user.id,
+            old_tier=user.tier,
+            new_tier="free",
+            event_type="cancellation",
+        ))
+
         return {
             "status": "ok",
             "action": "downgraded",
@@ -496,6 +525,22 @@ async def sync_subscription(
         )
 
     await db.commit()
+
+    if trial_converted:
+        event_type = "trial_to_paid"
+    else:
+        tier_rank = {"free": 0, "plus": 1, "pro": 2, "admin": 3}
+        event_type = (
+            "upgrade"
+            if tier_rank.get(expected_tier, 0) >= tier_rank.get(user.tier, 0)
+            else "downgrade"
+        )
+    asyncio.create_task(cq.notify_tier_change(
+        user_id=user.id,
+        old_tier=user.tier,
+        new_tier=expected_tier,
+        event_type=event_type,
+    ))
 
     result = {
         "status": "ok",
