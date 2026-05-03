@@ -688,16 +688,24 @@ function renderTiers(tiers) {
         <div class="limit"><div class="lbl">Images/Request</div><div class="lval">${t.max_images_per_request}</div></div>
       </div>
       <div style="margin-top:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:6px">
-        <div class="lbl" style="margin-bottom:6px">Project Chat context cap (tokens)</div>
+        <div class="lbl" style="margin-bottom:6px">Project Chat context cap (chars)</div>
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+          <select id="pcc-locale-${name}" onchange="loadProjectChatCap('${name}')"
+                  style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:11px">
+            <option value="">Default (en, es, …)</option>
+            <option value="es">Spanish only</option>
+            <option value="ja">Japanese only</option>
+          </select>
+        </div>
         <div style="display:flex;gap:6px;align-items:center">
-          <input type="number" id="mit-input-${name}" value="${t.max_input_tokens === -1 ? '' : t.max_input_tokens}"
+          <input type="number" id="pcc-input-${name}" value="${t.max_input_tokens === -1 ? '' : t.max_input_tokens * 4}"
                  placeholder="${t.max_input_tokens === -1 ? 'unlimited' : ''}"
                  style="flex:1;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:12px;font-family:monospace"
-                 min="0" step="1000">
+                 min="-1" step="1000">
           <button class="refresh-btn" style="background:var(--accent);color:#000;font-weight:600;padding:6px 12px"
-                  onclick="saveMaxInputTokens('${name}')">Save</button>
+                  onclick="saveProjectChatCap('${name}')">Save</button>
         </div>
-        <div id="mit-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px"></div>
+        <div id="pcc-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px"></div>
       </div>
       <div class="model-list">
         <div class="lbl" style="margin-bottom:4px">Providers</div>
@@ -1098,44 +1106,81 @@ async function toggleFeature(tierName, featureName, newState) {
   }
 }
 
-async function saveMaxInputTokens(tierName) {
-  const input = document.getElementById('mit-input-' + tierName);
-  const status = document.getElementById('mit-status-' + tierName);
-  // Empty input = unlimited (-1). Anything else must parse to a non-negative int.
+async function loadProjectChatCap(tierName) {
+  // Called when the locale dropdown changes. Pulls the current value
+  // from client-config.{locale}.json so the input reflects what's
+  // actually persisted for that locale.
+  const locale = document.getElementById('pcc-locale-' + tierName).value;
+  const slug = locale ? `client-config.${locale}` : 'client-config';
+  const status = document.getElementById('pcc-status-' + tierName);
+  const input = document.getElementById('pcc-input-' + tierName);
+
+  try {
+    const resp = await fetch(`${BASE}/webhooks/admin/config/${slug}`, {
+      headers: {'X-Admin-Key': adminKey}
+    });
+    if (!resp.ok) {
+      status.textContent = `No ${slug}.json yet — saving will create it.`;
+      status.style.color = 'var(--text-dim)';
+      input.value = '';
+      return;
+    }
+    const data = await resp.json();
+    const limits = (data.data || {}).limits || {};
+    const pc = limits.project_chat || {};
+    const charsBlock = pc.max_input_chars || {};
+    const val = charsBlock[tierName];
+    if (val === undefined || val === null) {
+      input.value = '';
+      status.textContent = `No value set for ${tierName} in ${slug}; saving will create it.`;
+    } else if (val === -1) {
+      input.value = '';
+      status.textContent = `${slug}: unlimited.`;
+    } else {
+      input.value = val;
+      status.textContent = `${slug}: showing persisted value.`;
+    }
+    status.style.color = 'var(--text-dim)';
+  } catch (e) {
+    status.textContent = 'Load failed: ' + e.message;
+    status.style.color = 'var(--red)';
+  }
+}
+
+async function saveProjectChatCap(tierName) {
+  const locale = document.getElementById('pcc-locale-' + tierName).value;
+  const input = document.getElementById('pcc-input-' + tierName);
+  const status = document.getElementById('pcc-status-' + tierName);
+
   let value;
   if (input.value === '' || input.value === null) {
     value = -1;
   } else {
     value = parseInt(input.value, 10);
-    if (isNaN(value) || value < 0) {
-      status.textContent = 'Must be a non-negative integer or empty for unlimited.';
+    if (isNaN(value) || value < -1) {
+      status.textContent = 'Must be a non-negative integer (chars) or empty for unlimited.';
       status.style.color = 'var(--red)';
       return;
     }
   }
 
-  status.textContent = 'Saving across en/es/ja...';
+  const localeLabel = locale || 'default';
+  status.textContent = `Saving (${localeLabel})…`;
   status.style.color = 'var(--orange)';
 
-  const resp = await fetch(`${BASE}/webhooks/admin/tunable/tier-field`, {
+  const resp = await fetch(`${BASE}/webhooks/admin/tunable/project-chat-cap`, {
     method: 'PUT',
     headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      tier: tierName,
-      feature: 'project_chat',
-      field: 'max_input_tokens',
-      value: value,
-    }),
+    body: JSON.stringify({tier: tierName, locale: locale, max_input_chars: value}),
   });
 
   if (resp.ok) {
     const data = await resp.json();
     const fileCount = (data.files_updated || []).length;
     status.textContent = fileCount > 0
-      ? `Saved. Updated ${fileCount} locale file(s); server enforcement live.`
-      : 'No change (value already matched).';
+      ? `Saved (${localeLabel}). Updated ${fileCount} file(s); server enforcement live.`
+      : `No change (${localeLabel}: value already matched).`;
     status.style.color = 'var(--green)';
-    // Refresh the dashboard so other panels see the new value too.
     refresh();
   } else {
     const err = await resp.json().catch(() => ({}));
