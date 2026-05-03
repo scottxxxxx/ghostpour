@@ -7,8 +7,7 @@ from fastapi.responses import FileResponse, JSONResponse
 router = APIRouter()
 
 
-@router.get("/health")
-async def health(request: Request):
+def _health_payload(request: Request) -> dict:
     uptime = time.monotonic() - request.app.state.start_time
     pricing = request.app.state.pricing
     return {
@@ -21,6 +20,21 @@ async def health(request: Request):
             "source": pricing.source_url,
         },
     }
+
+
+@router.get("/health")
+async def health(request: Request):
+    return _health_payload(request)
+
+
+# Alias under /v1 because Nginx Proxy Manager (bifrost) was
+# health-checking /v1/health and getting 404s — every poll was a
+# spurious "container unhealthy" data point and a noisy log line.
+# Mirroring the route is cheaper than reconfiguring NPM and lets any
+# future caller use whichever path matches their convention.
+@router.get("/v1/health")
+async def health_v1(request: Request):
+    return _health_payload(request)
 
 
 @router.get("/admin")
