@@ -184,6 +184,7 @@ async def capture_transcript(
             user_identified=body.get_meta("user_identified"),
             user_label=body.get_meta("user_label"),
             identification_source=body.get_meta("identification_source"),
+            subscription_tier=user.effective_tier,
         ))
 
     if verdict.verdict == "capture_with_cta":

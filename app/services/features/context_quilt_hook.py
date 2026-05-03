@@ -56,6 +56,7 @@ class ContextQuiltHook:
                 user_id=user.id,
                 text=body.user_content,
                 metadata=cq_metadata or None,
+                subscription_tier=user.effective_tier,
             )
             result["cq_result"] = cq_result
 
@@ -87,6 +88,7 @@ class ContextQuiltHook:
                 user_id=user.id,
                 text=body.user_content,
                 metadata=cq_metadata or None,
+                subscription_tier=user.effective_tier,
             )
             result["cq_result"] = cq_result
             if cq_result.get("matched_entities"):
@@ -131,6 +133,7 @@ class ContextQuiltHook:
             user_identified=body.get_meta("user_identified"),
             user_label=body.get_meta("user_label"),
             identification_source=body.get_meta("identification_source"),
+            subscription_tier=user.effective_tier,
         ))
 
     def response_headers(

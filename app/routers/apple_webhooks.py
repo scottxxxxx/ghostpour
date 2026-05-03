@@ -10,6 +10,7 @@ from JWS signature verification against Apple's certificate chain.
 See: https://developer.apple.com/documentation/appstoreservernotifications
 """
 
+import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -20,6 +21,7 @@ from pydantic import BaseModel
 
 from app.config import get_settings
 from app.database import get_db
+from app.services import context_quilt as cq
 from app.services.apple_notifications import (
     AppleJWSError,
     decode_notification,
@@ -225,6 +227,9 @@ async def apple_notifications(
             "Apple notification: upgraded user %s from %s to %s (type=%s)",
             user_id, old_tier, new_tier, notification_type,
         )
+        asyncio.create_task(cq.notify_tier_change(
+            user_id=user_id, old_tier=old_tier, new_tier=new_tier, event_type="upgrade",
+        ))
         return {"status": "received", "action": "upgraded", "old_tier": old_tier, "new_tier": new_tier}
 
     elif notification_type in _DOWNGRADE_TYPES:
@@ -237,6 +242,9 @@ async def apple_notifications(
             "Apple notification: downgraded user %s from %s to free (type=%s subtype=%s)",
             user_id, old_tier, notification_type, subtype,
         )
+        asyncio.create_task(cq.notify_tier_change(
+            user_id=user_id, old_tier=old_tier, new_tier=new_tier, event_type="expire",
+        ))
         return {"status": "received", "action": "downgraded", "old_tier": old_tier, "new_tier": new_tier}
 
     elif notification_type in _REFUND_TYPES:
@@ -249,6 +257,9 @@ async def apple_notifications(
             "Apple notification: refund for user %s, downgraded from %s to free",
             user_id, old_tier,
         )
+        asyncio.create_task(cq.notify_tier_change(
+            user_id=user_id, old_tier=old_tier, new_tier=new_tier, event_type="refund",
+        ))
         return {"status": "received", "action": "refunded", "old_tier": old_tier, "new_tier": new_tier}
 
     elif notification_type in _BILLING_RETRY_TYPES:
