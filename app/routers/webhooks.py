@@ -1362,3 +1362,151 @@ async def list_users(
         })
 
     return {"users": users, "count": len(users)}
+
+# --- Email management (Resend webhook events + suppression list) ---
+
+
+@router.get('/admin/email/stats')
+async def email_stats(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    days: int = Query(default=7, ge=1, le=90),
+):
+    """Aggregate email-event counts for the dashboard overview cards.
+
+    Returns counts by event type over the last N days, the current
+    suppression-list size, and a breakdown of suppression reasons.
+    """
+    _verify_admin(request, x_admin_key)
+
+    cursor = await db.execute(
+        '''SELECT event_type, COUNT(*) as count
+           FROM email_events
+           WHERE received_at >= datetime('now', ?)
+           GROUP BY event_type
+           ORDER BY count DESC''',
+        (f'-{days} days',),
+    )
+    by_type = {r['event_type']: r['count'] for r in await cursor.fetchall()}
+
+    cursor = await db.execute(
+        '''SELECT COUNT(*) as count, MIN(received_at) as oldest, MAX(received_at) as newest
+           FROM email_events
+           WHERE received_at >= datetime('now', ?)''',
+        (f'-{days} days',),
+    )
+    activity = (await cursor.fetchone()) or {}
+
+    cursor = await db.execute(
+        '''SELECT reason, COUNT(*) as count
+           FROM email_suppression
+           GROUP BY reason
+           ORDER BY count DESC'''
+    )
+    by_reason = {r['reason']: r['count'] for r in await cursor.fetchall()}
+
+    cursor = await db.execute('SELECT COUNT(*) as c FROM email_suppression')
+    suppression_count = (await cursor.fetchone())['c']
+
+    cursor = await db.execute(
+        '''SELECT COUNT(*) as c FROM email_events
+           WHERE event_type = 'email.bounced'
+             AND bounce_type = 'hard'
+             AND received_at >= datetime('now', ?)''',
+        (f'-{days} days',),
+    )
+    hard_bounces = (await cursor.fetchone())['c']
+
+    cursor = await db.execute(
+        '''SELECT COUNT(*) as c FROM email_events
+           WHERE event_type = 'email.complained'
+             AND received_at >= datetime('now', ?)''',
+        (f'-{days} days',),
+    )
+    complaints = (await cursor.fetchone())['c']
+
+    total_events = sum(by_type.values())
+
+    return {
+        'days': days,
+        'total_events': total_events,
+        'by_type': by_type,
+        'hard_bounces': hard_bounces,
+        'complaints': complaints,
+        'suppression_count': suppression_count,
+        'suppression_by_reason': by_reason,
+        'oldest_event': activity['oldest'] if activity else None,
+        'newest_event': activity['newest'] if activity else None,
+    }
+
+
+@router.get('/admin/email/events')
+async def email_events_list(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    days: int = Query(default=7, ge=1, le=90),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    event_type: str | None = Query(default=None),
+    recipient: str | None = Query(default=None),
+):
+    """Paginated email-event log, filterable by type and recipient."""
+    _verify_admin(request, x_admin_key)
+
+    where = ['received_at >= datetime(\'now\', ?)']
+    params: list = [f'-{days} days']
+    if event_type:
+        where.append('event_type = ?')
+        params.append(event_type)
+    if recipient:
+        where.append('recipient = ?')
+        params.append(recipient.strip().lower())
+
+    where_sql = ' AND '.join(where)
+
+    cursor = await db.execute(
+        f'''SELECT id, event_type, recipient, email_id, bounce_type, received_at
+            FROM email_events
+            WHERE {where_sql}
+            ORDER BY received_at DESC
+            LIMIT ? OFFSET ?''',
+        params + [limit, offset],
+    )
+    events = [dict(r) for r in await cursor.fetchall()]
+
+    cursor = await db.execute(
+        f'SELECT COUNT(*) as c FROM email_events WHERE {where_sql}',
+        params,
+    )
+    total = (await cursor.fetchone())['c']
+
+    return {'events': events, 'total': total, 'limit': limit, 'offset': offset}
+
+
+@router.get('/admin/email/suppression')
+async def email_suppression_list(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    limit: int = Query(default=200, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+):
+    """Active suppression list (recipients we will never send to)."""
+    _verify_admin(request, x_admin_key)
+
+    cursor = await db.execute(
+        '''SELECT recipient, reason, source_event_id, suppressed_at
+           FROM email_suppression
+           ORDER BY suppressed_at DESC
+           LIMIT ? OFFSET ?''',
+        (limit, offset),
+    )
+    rows = [dict(r) for r in await cursor.fetchall()]
+
+    cursor = await db.execute('SELECT COUNT(*) as c FROM email_suppression')
+    total = (await cursor.fetchone())['c']
+
+    return {'suppression': rows, 'total': total, 'limit': limit, 'offset': offset}
+
