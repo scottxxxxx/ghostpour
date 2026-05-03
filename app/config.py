@@ -111,11 +111,22 @@ def _ensure_secrets_in_env() -> None:
     SM — so this loop is a no-op for any secret already wired in env.
     The whole point is to let `.env.prod` ship without these values
     (or with empty strings for them) and let SM fill in.
+
+    Logs a structured INFO line for each secret that was filled from
+    SM. Operators who migrated a secret from .env.prod to SM should
+    expect to see one such line per restart per migrated secret —
+    confirms the migration is wired correctly. The absence of the
+    line for a secret means env was already populated (the env may be
+    shadowing a rotated SM value — runbook section "shadow risk"
+    explains the cleanup).
     """
     # Local import: avoid a circular dep with anything that imports config
     # before app.secrets is available, and keep import cost off the
     # `from app.config import Settings` path until startup.
+    import logging
     from app.secrets import get_secret
+
+    log = logging.getLogger(__name__)
 
     for env_var, secret_name in _SECRET_MANAGER_MAPPINGS.items():
         existing = os.environ.get(env_var, "").strip()
@@ -127,6 +138,10 @@ def _ensure_secrets_in_env() -> None:
         sm_value = get_secret(secret_name)
         if sm_value:
             os.environ[env_var] = sm_value
+            log.info(
+                "secret_filled_from_sm env_var=%s sm_secret=%s len=%d",
+                env_var, secret_name, len(sm_value),
+            )
 
 
 @lru_cache
