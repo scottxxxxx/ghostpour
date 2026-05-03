@@ -59,3 +59,45 @@ def test_results_are_cached(monkeypatch):
     assert app_secrets.get_secret("name", env_var="CZ_TEST_SECRET") == "first"
     app_secrets.get_secret.cache_clear()
     assert app_secrets.get_secret("name", env_var="CZ_TEST_SECRET") == "second"
+
+
+def test_cache_expires_after_ttl(monkeypatch):
+    """A rotation that updates the env var (or SM) should be picked up
+    within TTL seconds — no container restart required. We fake the
+    monotonic clock to advance past the TTL without sleeping."""
+    monkeypatch.setenv("CZ_TEST_SECRET", "before_rotation")
+
+    fake_now = [0.0]
+    monkeypatch.setattr(app_secrets.time, "monotonic", lambda: fake_now[0])
+
+    # First call populates the cache at t=0 with TTL = _TTL_SECONDS
+    assert app_secrets.get_secret("any", env_var="CZ_TEST_SECRET") == "before_rotation"
+
+    # Rotate the env value
+    monkeypatch.setenv("CZ_TEST_SECRET", "after_rotation")
+
+    # Just before the TTL expires: still cached
+    fake_now[0] = app_secrets._TTL_SECONDS - 0.001
+    assert app_secrets.get_secret("any", env_var="CZ_TEST_SECRET") == "before_rotation"
+
+    # Just past the TTL: cache misses, re-resolves, picks up rotation
+    fake_now[0] = app_secrets._TTL_SECONDS + 0.001
+    assert app_secrets.get_secret("any", env_var="CZ_TEST_SECRET") == "after_rotation"
+
+
+def test_cache_eviction_under_pressure():
+    """When more than _MAX_ENTRIES distinct keys are queried, the cache
+    drops oldest first. Pin the bound."""
+    # Fill the cache with N+5 distinct keys; assert the oldest are gone.
+    n = app_secrets._MAX_ENTRIES + 5
+    with patch.object(app_secrets, "_from_secret_manager") as fsm:
+        fsm.side_effect = lambda name: f"val:{name}"
+        for i in range(n):
+            app_secrets.get_secret(f"sec_{i}")
+    # The first 5 should have been evicted; later ones should still be there.
+    with app_secrets._cache_lock:
+        cached_keys = set(app_secrets._cache.keys())
+    for i in range(5):
+        assert (f"sec_{i}", None) not in cached_keys
+    for i in range(5, n):
+        assert (f"sec_{i}", None) in cached_keys

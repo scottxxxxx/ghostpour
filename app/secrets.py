@@ -8,15 +8,64 @@ scope and the secret's IAM policy permit access.
 The GCP project is read from `CZ_GCP_PROJECT`, falling back to
 Application Default Credentials project resolution. No project ID is
 hard-coded here so the same code can run against any deployment.
+
+Cached values expire after `_TTL_SECONDS` (default 300s) so a rotated
+secret gets picked up without restarting the container — bounded
+staleness + bounded SM call rate. Callers can clear the cache
+manually via `get_secret.cache_clear()` (lru_cache-compatible alias)
+for tests / explicit invalidation.
 """
 
 from __future__ import annotations
 
 import logging
 import os
-from functools import lru_cache
+import threading
+import time
 
 logger = logging.getLogger(__name__)
+
+
+# How long (seconds) a resolved value is cached in-process. Override via
+# CZ_SECRET_CACHE_TTL_SECONDS if needed; production default is 5 min.
+_TTL_SECONDS = float(os.getenv("CZ_SECRET_CACHE_TTL_SECONDS", "300"))
+_MAX_ENTRIES = 64
+
+_cache: dict[tuple, tuple[str, float]] = {}
+_cache_lock = threading.Lock()
+
+
+def _cache_get(key: tuple) -> tuple[str, bool]:
+    """Return (value, hit). On expired entry, drop it and miss."""
+    now = time.monotonic()
+    with _cache_lock:
+        entry = _cache.get(key)
+        if entry is None:
+            return "", False
+        value, expires_at = entry
+        if now >= expires_at:
+            _cache.pop(key, None)
+            return "", False
+        return value, True
+
+
+def _cache_put(key: tuple, value: str) -> None:
+    expires_at = time.monotonic() + _TTL_SECONDS
+    with _cache_lock:
+        if len(_cache) >= _MAX_ENTRIES and key not in _cache:
+            # Simple FIFO eviction — drop the oldest insertion. Insertion
+            # order is preserved by dict in Python 3.7+.
+            try:
+                oldest_key = next(iter(_cache))
+                _cache.pop(oldest_key, None)
+            except StopIteration:
+                pass
+        _cache[key] = (value, expires_at)
+
+
+def _cache_clear() -> None:
+    with _cache_lock:
+        _cache.clear()
 
 
 def _resolve_project() -> str:
@@ -65,7 +114,6 @@ def _from_secret_manager(secret_name: str) -> str:
         return ""
 
 
-@lru_cache(maxsize=32)
 def get_secret(secret_name: str, env_var: str | None = None) -> str:
     """Return the value of `secret_name`, env first then Secret Manager.
 
@@ -74,9 +122,28 @@ def get_secret(secret_name: str, env_var: str | None = None) -> str:
     `projects/{CZ_GCP_PROJECT}/secrets/{secret_name}/versions/latest`.
     Returns "" if neither source produces a value — callers decide
     whether to treat that as fatal.
+
+    Resolution is cached for `_TTL_SECONDS` (default 5 minutes) so
+    repeated calls in tight loops don't hammer Secret Manager and so
+    rotations propagate automatically without container restart.
     """
+    cache_key = (secret_name, env_var)
+    cached, hit = _cache_get(cache_key)
+    if hit:
+        return cached
+
+    value = ""
     if env_var:
         env_value = os.getenv(env_var, "").strip()
         if env_value:
-            return env_value
-    return _from_secret_manager(secret_name)
+            value = env_value
+    if not value:
+        value = _from_secret_manager(secret_name)
+
+    _cache_put(cache_key, value)
+    return value
+
+
+# lru_cache-compatible alias so existing test code calling
+# `get_secret.cache_clear()` keeps working unchanged.
+get_secret.cache_clear = _cache_clear  # type: ignore[attr-defined]
