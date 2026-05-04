@@ -1329,13 +1329,53 @@ async def _handle_stream(
             yield f"data: {timeout_data}\n\n"
             return
 
-        except HTTPException:
+        except HTTPException as exc:
+            # Surface enough detail for iOS to show a useful message.
+            # Without this, the SSE event was just `{"type":"error","text":"Provider error"}`
+            # which iOS rendered as the unhelpful "Stream error: stream_error".
             elapsed_ms = int((time.monotonic() - start) * 1000)
             async for err_db in _get_db():
                 await usage_tracker.log_usage(
                     err_db, user.id, body, None, elapsed_ms, status="error"
                 )
-            error_data = json.dumps({"type": "error", "text": "Provider error"})
+
+            detail = exc.detail
+            if isinstance(detail, dict):
+                msg = detail.get("message") or detail.get("detail") or "Provider error"
+                code = detail.get("code") or f"upstream_{exc.status_code}"
+            elif isinstance(detail, str) and detail:
+                msg = detail
+                code = f"upstream_{exc.status_code}"
+            else:
+                msg = "Provider error"
+                code = f"upstream_{exc.status_code}"
+
+            logger.warning(
+                "stream_provider_error status=%s code=%s msg=%s",
+                exc.status_code, code, str(msg)[:200],
+            )
+
+            error_data = json.dumps({
+                "type": "error",
+                "code": code,
+                "http_status": exc.status_code,
+                "text": msg,
+            })
+            yield f"data: {error_data}\n\n"
+            return
+
+        except Exception as exc:  # noqa: BLE001 — defense-in-depth for unexpected failures
+            elapsed_ms = int((time.monotonic() - start) * 1000)
+            async for err_db in _get_db():
+                await usage_tracker.log_usage(
+                    err_db, user.id, body, None, elapsed_ms, status="error"
+                )
+            logger.exception("stream_unexpected_error")
+            error_data = json.dumps({
+                "type": "error",
+                "code": "internal_error",
+                "text": "Something went wrong on our side. Try again.",
+            })
             yield f"data: {error_data}\n\n"
             return
 
