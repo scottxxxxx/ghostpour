@@ -30,6 +30,23 @@ _STOPLIGHT_BG = {"red": "#FFF3E0", "orange": "#FFF3E0", "yellow": "#FFFDE7", "gr
 _STOPLIGHT_TEXT = {"red": "#A32D2D", "orange": "#854F0B", "yellow": "#7D6608", "green": "#3B6D11"}
 _PRIORITY_BG = {"critical": "#E24B4A", "standard": "#1a1a1a"}
 
+
+def _arc_pixel_height(value) -> int:
+    """Map a 0-100 sentiment-arc value to an email-bar pixel height.
+
+    Sentiment arc values used to be 20-48 (the LLM was instructed to
+    produce pixel heights directly, which clamped the apparent range
+    no matter the real meeting tone). After 2026-05-04, values are
+    on the 0-100 sentiment scale; this helper does the visual scaling.
+
+    Mapping: linear 0-100 → 4-60 px, with a 4 px floor so even very
+    negative segments render as a visible bar.
+    """
+    if not isinstance(value, (int, float)):
+        return 30  # neutral fallback for malformed input
+    clamped = max(0.0, min(100.0, float(value)))
+    return max(4, int(round(4 + clamped * 0.56)))
+
 _TEMPLATE_PATH = Path(__file__).parent.parent / "static" / "report_template.html"
 
 # System prompt for the LLM analysis call
@@ -42,7 +59,14 @@ Rules:
 - Use the confirmed attendee list for names, not the transcript (transcription often mangles names)
 - The sentiment_score is 0 to 100 where 50 is neutral, above 50 is positive, below 50 is negative
 - The stoplight color is red (blocked/critical), orange (high urgency, needs prompt attention), yellow (medium, some open items but not blocking), or green (low urgency, on track)
-- The sentiment_arc should have 8 to 14 data points representing the emotional trajectory across the meeting, each tagged as "confident", "tense", "concern", or "neutral"
+- The sentiment_arc should have 8 to 14 data points representing the emotional trajectory across the meeting. Each point's `value` is on the SAME 0-100 scale as sentiment_score (0 = very negative, 50 = neutral, 100 = very positive), and `mood` is one of "confident", "tense", "concern", or "neutral".
+- USE THE FULL 0-100 RANGE on the arc. Do NOT cluster all values around 50. Calibrate to the actual emotional content:
+  - Casual / amused / mocking conversation, jokes, laughter: peaks 70-90, baseline 55-70.
+  - Brainstorming with breakthroughs / excitement: peaks 80-95, baseline 60-75.
+  - Tense argument or contentious decision: dips into 15-35, baseline 30-45.
+  - Frustration / blocking issues: 20-40 sustained, dipping lower at flashpoints.
+  - Dry status update / routine sync: 40-55, low variance is honest here.
+  - The `arc` should reflect the actual ups and downs — a meeting with both jokes and a serious decision moment should show both peaks and dips. Aim for at least 25-30 points of variance between min and max unless the meeting was genuinely monotone.
 - The sentiment_emoji_label must be exactly one of: enthusiastic, collaborative, positive, informational, focused, cautious, frustrated, tense, concerned, disappointed. The emoji should be a single emoji that represents the chosen label.
 - For suggested_tags: return 1-4 tags from the provided TAG TAXONOMY list only. Each tag needs a reason explaining why it applies.
 - For queries_during_meeting: include them exactly as provided in the input, do not modify query text or response text
@@ -76,7 +100,7 @@ JSON SCHEMA:
     "emoji": "string — single emoji that represents the emoji_label",
     "arc": [
       {{
-        "value": "number 20-48 representing bar height in pixels",
+        "value": "number 0-100, sentiment score for this segment of the meeting (0 = very negative, 50 = neutral, 100 = very positive). Use the full range — see Rules.",
         "mood": "confident | tense | concern | neutral"
       }}
     ],
@@ -435,9 +459,12 @@ def render_report_html(
     html = _replace_each(html, "header.attendees", attendees_html,
         r'<span style="background:#f0f0ec.*?{{this}}</span>')
 
-    # Sentiment arc
+    # Sentiment arc — value is now on a 0-100 sentiment scale (same as
+    # sentiment.score). Map to a 4-60 px bar height for the email so the
+    # visual range is comparable to the legacy 20-48 px range while
+    # giving more headroom for genuinely high-energy meetings.
     arc_html = "".join(
-        f'<td style="vertical-align:bottom;"><table cellpadding="0" cellspacing="0" width="100%"><tr><td bgcolor="{_MOOD_COLORS.get(p.get("mood", "neutral"), "#888780")}" height="{p.get("value", 30)}" style="border-radius:2px 2px 0 0;">&nbsp;</td></tr></table></td>'
+        f'<td style="vertical-align:bottom;"><table cellpadding="0" cellspacing="0" width="100%"><tr><td bgcolor="{_MOOD_COLORS.get(p.get("mood", "neutral"), "#888780")}" height="{_arc_pixel_height(p.get("value", 50))}" style="border-radius:2px 2px 0 0;">&nbsp;</td></tr></table></td>'
         for p in sentiment.get("arc", [])
     )
     html = _replace_each(html, "sentiment.arc", arc_html,
