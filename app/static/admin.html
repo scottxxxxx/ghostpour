@@ -767,6 +767,27 @@ function renderTiers(tiers) {
         </div>
         <div id="pcc-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px"></div>
       </div>
+      <div style="margin-top:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:6px">
+        <div class="lbl" style="margin-bottom:6px">Web search cap (per month)</div>
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
+          <span style="font-size:11px;color:var(--text-dim);width:60px">Hard cap</span>
+          <input type="number" id="src-hard-${name}" value="${t.searches_per_month != null ? t.searches_per_month : 0}"
+                 style="flex:1;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:12px;font-family:monospace"
+                 min="0" step="5">
+          <button class="refresh-btn" style="background:var(--accent);color:#000;font-weight:600;padding:6px 12px"
+                  onclick="saveSearchCap('${name}', 'searches_per_month')">Save</button>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:11px;color:var(--text-dim);width:60px">Soft cap</span>
+          <input type="number" id="src-soft-${name}" value="${t.searches_soft_threshold != null ? t.searches_soft_threshold : ''}"
+                 placeholder="none"
+                 style="flex:1;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:12px;font-family:monospace"
+                 min="0" step="5">
+          <button class="refresh-btn" style="background:var(--accent);color:#000;font-weight:600;padding:6px 12px"
+                  onclick="saveSearchCap('${name}', 'searches_soft_threshold')">Save</button>
+        </div>
+        <div id="src-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px">0 = search disabled (Free)</div>
+      </div>
       <div class="model-list">
         <div class="lbl" style="margin-bottom:4px">Providers</div>
         ${providerTags}
@@ -1240,6 +1261,59 @@ async function saveProjectChatCap(tierName) {
     status.textContent = fileCount > 0
       ? `Saved (${localeLabel}). Updated ${fileCount} file(s); server enforcement live.`
       : `No change (${localeLabel}: value already matched).`;
+    status.style.color = 'var(--green)';
+    refresh();
+  } else {
+    const err = await resp.json().catch(() => ({}));
+    status.textContent = 'Error: ' + (err.detail || 'save failed');
+    status.style.color = 'var(--red)';
+  }
+}
+
+// --- Web search caps (hard + soft) ---
+//
+// One Save click writes ONE field across en/es/ja via the existing
+// /admin/tunable/tier-field endpoint. Soft cap can be cleared (empty
+// input) which sends `null` to remove the threshold; hard cap is always
+// numeric. Both surface as `tiers.{tier}.feature_definitions.search.{field}`
+// in tiers.{locale}.json.
+async function saveSearchCap(tierName, field) {
+  const idSuffix = field === 'searches_per_month' ? 'hard' : 'soft';
+  const input = document.getElementById(`src-${idSuffix}-${tierName}`);
+  const status = document.getElementById('src-status-' + tierName);
+
+  let value;
+  if (input.value === '' || input.value === null) {
+    if (field === 'searches_per_month') {
+      status.textContent = 'Hard cap is required (use 0 to disable search).';
+      status.style.color = 'var(--red)';
+      return;
+    }
+    value = null;
+  } else {
+    value = parseInt(input.value, 10);
+    if (isNaN(value) || value < 0) {
+      status.textContent = 'Must be a non-negative integer (or empty for soft = none).';
+      status.style.color = 'var(--red)';
+      return;
+    }
+  }
+
+  status.textContent = `Saving ${field}…`;
+  status.style.color = 'var(--orange)';
+
+  const resp = await fetch(`${BASE}/webhooks/admin/tunable/tier-field`, {
+    method: 'PUT',
+    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
+    body: JSON.stringify({tier: tierName, feature: 'search', field: field, value: value}),
+  });
+
+  if (resp.ok) {
+    const data = await resp.json();
+    const fileCount = (data.files_updated || []).length;
+    status.textContent = fileCount > 0
+      ? `Saved ${field}. Updated ${fileCount} file(s).`
+      : `No change (${field}: value already matched).`;
     status.style.color = 'var(--green)';
     refresh();
   } else {

@@ -1,5 +1,5 @@
 {
-  "version": 15,
+  "version": 16,
   "tiers": {
     "free": {
       "display_name": "Gratis",
@@ -22,7 +22,18 @@
         {"label": "Imágenes máx.", "value": "1 por consulta", "icon": "photo"}
       ],
       "feature_definitions": {
-        "project_chat": {"max_input_tokens": 50000}
+        "project_chat": {"max_input_tokens": 50000},
+        "search": {
+          "searches_per_month": 0,
+          "searches_soft_threshold": null,
+          "cta_hard_cap": {
+            "kind": "search_paywall_required",
+            "title": "La búsqueda web es una función de pago",
+            "body": "La búsqueda web no está incluida en el plan Gratis. Actualiza a Plus para activarla.",
+            "action": "open_paywall"
+          },
+          "cta_soft_cap": null
+        }
       }
     },
     "plus": {
@@ -51,7 +62,18 @@
         {"label": "Memoria de Reuniones", "value": "actualiza a Pro", "icon": "brain", "state": "teaser"}
       ],
       "feature_definitions": {
-        "project_chat": {"max_input_tokens": 150000}
+        "project_chat": {"max_input_tokens": 150000},
+        "search": {
+          "searches_per_month": 75,
+          "searches_soft_threshold": null,
+          "cta_hard_cap": {
+            "kind": "search_cap_exhausted",
+            "title": "Límite de búsqueda web alcanzado",
+            "body": "Has usado tus {total} búsquedas de este mes. Actualiza a Pro para tener un límite mayor.",
+            "action": "open_paywall"
+          },
+          "cta_soft_cap": null
+        }
       }
     },
     "pro": {
@@ -82,7 +104,23 @@
         {"label": "Memoria de Reuniones", "value": "activado", "icon": "brain", "state": "enabled"}
       ],
       "feature_definitions": {
-        "project_chat": {"max_input_tokens": 180000}
+        "project_chat": {"max_input_tokens": 180000},
+        "search": {
+          "searches_per_month": 120,
+          "searches_soft_threshold": 80,
+          "cta_hard_cap": {
+            "kind": "search_cap_exhausted",
+            "title": "Límite de búsqueda web alcanzado",
+            "body": "Has usado tus {total} búsquedas de este mes. Las búsquedas se reanudan el {reset_date}.",
+            "action": "none"
+          },
+          "cta_soft_cap": {
+            "kind": "search_soft_cap_warning",
+            "title": "Te acercas al límite mensual de búsquedas",
+            "body": "Has usado {used} de {total} búsquedas este mes.",
+            "action": "none"
+          }
+        }
       }
     }
   },
@@ -117,6 +155,12 @@
         "unlimited": "Chat de proyecto por Shoulder Surf.",
         "login_required": "Inicia sesión para usar Chat de proyecto."
       }
+    },
+    "search": {
+      "display_name": "Búsqueda web",
+      "description": "Pídele a tu IA que busque información actualizada en la web durante una consulta.",
+      "teaser_description": "La búsqueda web es una función de pago.",
+      "upgrade_cta": "Actualiza a Plus para activar la búsqueda web"
     }
   }
 }

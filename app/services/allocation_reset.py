@@ -92,7 +92,8 @@ async def lazy_reset_if_due(
 
     Resets:
       - monthly_used_usd → 0
-      - searches_used   → 0   (no-op until that column lands; safe to set)
+      - overage_balance_usd → 0
+      - searches_used → 0
       - allocation_resets_at → rolled forward past `now`
     """
     if now is None:
@@ -117,6 +118,7 @@ async def lazy_reset_if_due(
         """UPDATE users
               SET monthly_used_usd = 0,
                   overage_balance_usd = 0,
+                  searches_used = 0,
                   allocation_resets_at = ?,
                   updated_at = ?
             WHERE id = ?

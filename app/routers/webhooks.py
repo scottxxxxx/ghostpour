@@ -95,6 +95,7 @@ async def set_tier(
             monthly_cost_limit_usd = ?,
             monthly_used_usd = 0,
             overage_balance_usd = 0,
+            searches_used = 0,
             allocation_resets_at = ?,
             simulated_tier = NULL,
             simulated_exhausted = 0,
@@ -534,11 +535,16 @@ class TunableTierFieldRequest(BaseModel):
     """Update a single per-tier numeric field across all locale variants
     of tiers.json (en + .es + .ja). Locale-independent values like
     max_input_tokens stay in lockstep so iOS sees the same number
-    regardless of Accept-Language."""
+    regardless of Accept-Language.
+
+    `value: None` is allowed — used to *clear* an optional field (e.g.,
+    `searches_soft_threshold` for tiers that don't have a soft cap).
+    For required numeric fields the caller should pass a concrete int
+    (e.g., 0 to disable rather than null)."""
     tier: str          # "free" | "plus" | "pro" | "admin"
-    feature: str       # "project_chat" | "meeting_reports" | "context_quilt"
-    field: str         # "max_input_tokens" | (future: "free_quota_per_month", etc.)
-    value: int         # new value
+    feature: str       # "project_chat" | "meeting_reports" | "context_quilt" | "search"
+    field: str         # "max_input_tokens" | "searches_per_month" | "searches_soft_threshold" | ...
+    value: int | None  # new value (None clears the field)
 
 
 class ProjectChatCapRequest(BaseModel):
@@ -1277,8 +1283,14 @@ async def get_tiers(
 
     tier_config = request.app.state.tier_config
 
+    from app.services.search_caps import get_search_caps
+
     tiers = {}
     for name, tier in tier_config.tiers.items():
+        # Resolve current search-cap values from tiers.json so the
+        # dashboard renders whatever's persisted (admin tunable edits
+        # land in the JSON, not yaml).
+        sc = get_search_caps(remote_configs, name, locale=None)
         tiers[name] = {
             "display_name": tier.display_name,
             "default_model": tier.default_model,
@@ -1296,6 +1308,8 @@ async def get_tiers(
             "max_input_tokens": project_chat_max_input_tokens(
                 remote_configs, name, yaml_default=tier.max_input_tokens,
             ),
+            "searches_per_month": sc.searches_per_month,
+            "searches_soft_threshold": sc.searches_soft_threshold,
         }
 
     return {"tiers": tiers}
@@ -1478,6 +1492,99 @@ async def user_detail(
         "by_prompt_mode": by_prompt_mode,
         "by_model": by_model,
         "daily_trend": daily_trend,
+    }
+
+
+@router.get("/admin/user/{user_id}/search-usage")
+async def user_search_usage(
+    user_id: str,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    days: int = Query(default=30, ge=1, le=90),
+    limit: int = Query(default=100, ge=1, le=500),
+):
+    """Per-user web-search usage history.
+
+    Returns the live counter (`searches_used` from users table — the
+    rolling-period number that the gate checks against) and a recent
+    audit trail from `search_usage`. Useful for verifying the gate is
+    counting accurately and for debugging "why did my CTA fire" reports.
+    """
+    _verify_admin(request, x_admin_key)
+
+    # Live state — the same fields the chat-router gate reads.
+    cursor = await db.execute(
+        "SELECT searches_used, allocation_resets_at, tier "
+        "FROM users WHERE id = ?",
+        (user_id,),
+    )
+    row = await cursor.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Per-tier cap from current remote-config (English locale here —
+    # the dashboard is admin-only, no localization needed).
+    from app.services.search_caps import get_search_caps
+    caps = get_search_caps(
+        request.app.state.remote_configs,
+        row["tier"],
+        locale=None,
+    )
+
+    # Recent audit rows — one per search-bearing response.
+    cursor = await db.execute(
+        """SELECT id, request_timestamp, meeting_id, provider, model,
+                  searches_count, search_cost_usd, usage_log_id
+           FROM search_usage
+           WHERE user_id = ? AND request_timestamp >= date('now', ?)
+           ORDER BY request_timestamp DESC
+           LIMIT ?""",
+        (user_id, f"-{days} days", limit),
+    )
+    rows = await cursor.fetchall()
+    history = [
+        {
+            "id": r["id"],
+            "timestamp": r["request_timestamp"],
+            "meeting_id": r["meeting_id"],
+            "provider": r["provider"],
+            "model": r["model"],
+            "searches_count": r["searches_count"],
+            "search_cost_usd": r["search_cost_usd"],
+            "usage_log_id": r["usage_log_id"],
+        }
+        for r in rows
+    ]
+
+    # Aggregates over the requested window — useful for "this user has
+    # generated $X in search fees this month" queries.
+    cursor = await db.execute(
+        """SELECT COALESCE(SUM(searches_count), 0) AS total_searches,
+                  COALESCE(SUM(search_cost_usd), 0) AS total_cost_usd,
+                  COUNT(*) AS total_requests
+           FROM search_usage
+           WHERE user_id = ? AND request_timestamp >= date('now', ?)""",
+        (user_id, f"-{days} days"),
+    )
+    agg = await cursor.fetchone()
+
+    return {
+        "user_id": user_id,
+        "tier": row["tier"],
+        "current_period": {
+            "used": int(row["searches_used"] or 0),
+            "total": caps.searches_per_month,
+            "soft_threshold": caps.searches_soft_threshold,
+            "resets_at": row["allocation_resets_at"],
+        },
+        "window_days": days,
+        "window_aggregate": {
+            "total_searches": int(agg["total_searches"] or 0),
+            "total_cost_usd": round(float(agg["total_cost_usd"] or 0), 4),
+            "total_requests": int(agg["total_requests"] or 0),
+        },
+        "history": history,
     }
 
 

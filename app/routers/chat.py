@@ -344,6 +344,7 @@ async def verify_receipt(
                 monthly_cost_limit_usd = ?,
                 monthly_used_usd = 0,
                 overage_balance_usd = 0,
+                searches_used = 0,
                 allocation_resets_at = ?,
                 updated_at = ?,
                 simulated_tier = NULL,
@@ -509,6 +510,7 @@ async def sync_subscription(
                 monthly_cost_limit_usd = ?,
                 monthly_used_usd = 0,
                 overage_balance_usd = 0,
+                searches_used = 0,
                 allocation_resets_at = ?,
                 is_trial = 0,
                 trial_start = NULL,
@@ -1126,6 +1128,110 @@ async def chat(
             }
             return JSONResponse(status_code=200, content=block_payload)
 
+    # 5.7. Search gate. Three outcomes:
+    #
+    #   - Free user with search_enabled=true → return 200 + paywall CTA,
+    #     no LLM call (mirrors the budget-exhausted envelope).
+    #   - Plus/Pro past hard cap → strip search_enabled before the LLM
+    #     call (so AnthropicAdapter doesn't attach the tool), proceed
+    #     with the query, return search_state.cta as a sidecar so iOS
+    #     can show the "limit reached" notice.
+    #   - Pro past soft cap → keep search_enabled, return soft-warning
+    #     CTA as a sidecar.
+    #
+    # We deliberately gate AFTER the budget gate so a budget-exhausted
+    # user gets one consistent reason rather than seeing search CTA on
+    # top of a budget block.
+    from app.services.search_caps import format_cta, get_search_caps
+    search_state: dict | None = None
+    if body.get_meta("search_enabled"):
+        search_caps_locale = locale  # already resolved for project-chat cap above
+        caps = get_search_caps(
+            request.app.state.remote_configs,
+            user.effective_tier,
+            locale=search_caps_locale,
+        )
+        # Read live counter from DB rather than the cached UserRecord —
+        # users record is loaded once at request start, but lazy-reset
+        # in check_quota may have just zeroed it.
+        cursor = await db.execute(
+            "SELECT searches_used FROM users WHERE id = ?",
+            (user.id,),
+        )
+        row = await cursor.fetchone()
+        searches_used = int(row["searches_used"] or 0) if row else 0
+
+        if caps.searches_per_month == 0:
+            # Free or any tier where search isn't provisioned. Hard reject
+            # before the LLM call — same envelope shape as budget_gate so
+            # iOS's existing CTA renderer just works.
+            cta = format_cta(
+                caps.cta_hard_cap,
+                used=searches_used,
+                total=caps.searches_per_month,
+                reset_date=user.allocation_resets_at,
+            )
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "text": "",
+                    "model": body.model,
+                    "provider": body.provider,
+                    "ai_tier": _tier_to_ai_tier_lazy(user.effective_tier),
+                    "feature_state": {
+                        "feature": "search",
+                        "cta": cta,
+                    },
+                },
+            )
+
+        if searches_used >= caps.searches_per_month:
+            # Past hard cap. Strip the flag before the adapter sees it
+            # so no tool gets attached. Query proceeds, sidecar CTA on
+            # the response tells iOS "we ran your query, but search was
+            # off because you hit your monthly limit."
+            if body.metadata is None:
+                body.metadata = {}
+            body.metadata["search_enabled"] = False
+            search_state = {
+                "used": searches_used,
+                "total": caps.searches_per_month,
+                "resets_at": user.allocation_resets_at,
+                "cta": format_cta(
+                    caps.cta_hard_cap,
+                    used=searches_used,
+                    total=caps.searches_per_month,
+                    reset_date=user.allocation_resets_at,
+                ),
+            }
+        elif (
+            caps.searches_soft_threshold is not None
+            and searches_used >= caps.searches_soft_threshold
+        ):
+            # Past soft cap. Search still runs, but we surface a gentle
+            # "approaching limit" notice so the user isn't surprised
+            # when they hit the hard cap later.
+            search_state = {
+                "used": searches_used,
+                "total": caps.searches_per_month,
+                "resets_at": user.allocation_resets_at,
+                "cta": format_cta(
+                    caps.cta_soft_cap,
+                    used=searches_used,
+                    total=caps.searches_per_month,
+                    reset_date=user.allocation_resets_at,
+                ),
+            }
+        else:
+            # Under all caps. Surface the counter so iOS can render an
+            # "N of M used" pill if it wants — no CTA.
+            search_state = {
+                "used": searches_used,
+                "total": caps.searches_per_month,
+                "resets_at": user.allocation_resets_at,
+                "cta": None,
+            }
+
     # 6. Stream or non-stream based on request + call_type
     # Only stream interactive queries; background tasks (summary, analysis) get full JSON.
     # Project Chat is also forced non-streaming so feature_state can land
@@ -1179,6 +1285,53 @@ async def chat(
 
     # 9. Log usage
     await usage_tracker.log_usage(db, user.id, body, response, elapsed_ms)
+
+    # 9.1. Search-usage tracking: count search invocations Anthropic
+    # actually performed (mirrored into usage["web_search_requests"] by
+    # AnthropicAdapter), increment the per-user counter, and write an
+    # audit row per search-bearing response. Fail-open: if the increment
+    # fails (e.g., transient DB error), the user effectively gets the
+    # search free for this request — accept it rather than block them.
+    try:
+        searches_performed = int(
+            (response.usage or {}).get("web_search_requests") or 0
+        )
+    except (TypeError, ValueError):
+        searches_performed = 0
+    if searches_performed > 0:
+        try:
+            await db.execute(
+                "UPDATE users SET searches_used = searches_used + ? WHERE id = ?",
+                (searches_performed, user.id),
+            )
+            # Audit row: one per response. Cost = $10 / 1000 searches
+            # (Anthropic flat fee for web_search tool usage); the input
+            # tokens consumed by returned search content are tracked
+            # separately under usage_log.estimated_cost_usd.
+            import uuid as _uuid
+            await db.execute(
+                """INSERT INTO search_usage
+                   (id, user_id, request_timestamp, meeting_id, provider,
+                    model, searches_count, search_cost_usd)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    str(_uuid.uuid4()),
+                    user.id,
+                    datetime.now(timezone.utc).isoformat(),
+                    body.get_meta("meeting_id"),
+                    body.provider,
+                    body.model,
+                    searches_performed,
+                    searches_performed * 0.01,
+                ),
+            )
+            await db.commit()
+        except Exception as e:
+            logger.warning(
+                "search_usage tracking failed for user %s: %s — "
+                "search ran, counter not incremented (fail-open)",
+                user.id, e,
+            )
 
     # 9.5. Feature hooks (after LLM) — async, non-blocking
     for feature_name, hook in feature_hooks.items():
@@ -1248,6 +1401,14 @@ async def chat(
                 }
 
         response_data["feature_state"] = feature_state
+
+    # Search-state sidecar (independent of feature_state, which is owned
+    # by the project_chat / budget paths). Always populated when the
+    # request had search_enabled=true so iOS can render a "searches used
+    # this month" pill, with `cta` non-null only when a soft- or hard-cap
+    # message needs to surface.
+    if search_state is not None:
+        response_data["search_state"] = search_state
 
     json_response = JSONResponse(content=response_data)
 

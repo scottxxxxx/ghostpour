@@ -168,6 +168,27 @@ MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN marketing_opt_in INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE users ADD COLUMN marketing_opt_in_updated_at TEXT",
     "ALTER TABLE users ADD COLUMN marketing_opt_in_source TEXT",
+    # v18: per-user web-search cap counter + audit log. searches_used is
+    # the rolling counter for the current allocation period — reset by
+    # the same lazy-reset path as monthly_used_usd. The search_usage
+    # table is a per-search audit row written after each search-bearing
+    # Anthropic response: enables per-user usage display in the admin
+    # dashboard and offline reconciliation if the counter ever drifts
+    # (e.g., Anthropic returned a search but our DB increment failed).
+    "ALTER TABLE users ADD COLUMN searches_used INTEGER NOT NULL DEFAULT 0",
+    """CREATE TABLE IF NOT EXISTS search_usage (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        request_timestamp TEXT NOT NULL,
+        meeting_id TEXT,
+        provider TEXT NOT NULL,
+        model TEXT NOT NULL,
+        searches_count INTEGER NOT NULL DEFAULT 1,
+        search_cost_usd REAL,
+        usage_log_id TEXT REFERENCES usage_log(id)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_search_usage_user_date ON search_usage(user_id, request_timestamp)",
+    "CREATE INDEX IF NOT EXISTS idx_search_usage_meeting ON search_usage(meeting_id)",
 ]
 
 

@@ -120,6 +120,7 @@ async def _upgrade_to_tier(
             monthly_cost_limit_usd = ?,
             monthly_used_usd = 0,
             overage_balance_usd = 0,
+            searches_used = 0,
             allocation_resets_at = ?,
             is_trial = 0,
             trial_start = NULL,
@@ -141,9 +142,10 @@ async def _renew_same_tier(
 ) -> None:
     """Apply DID_RENEW for a user already on the right tier.
 
-    Resets `monthly_used_usd` to 0 and advances `allocation_resets_at` to
-    Apple's new `expiresDate`. This is the path that historically did
-    nothing except log — leaving subscribers' allocations frozen forever.
+    Resets `monthly_used_usd` and `searches_used` to 0 and advances
+    `allocation_resets_at` to Apple's new `expiresDate`. This is the path
+    that historically did nothing except log — leaving subscribers'
+    allocations frozen forever.
     """
     now = datetime.now(timezone.utc)
     resets_at = compute_next_reset(now, apple_expires_date_ms).isoformat()
@@ -151,6 +153,7 @@ async def _renew_same_tier(
         """UPDATE users SET
             monthly_used_usd = 0,
             overage_balance_usd = 0,
+            searches_used = 0,
             allocation_resets_at = ?,
             updated_at = ?
            WHERE id = ?""",

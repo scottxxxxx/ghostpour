@@ -1,5 +1,5 @@
 {
-  "version": 15,
+  "version": 16,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -22,7 +22,18 @@
         {"label": "Max images", "value": "1 per query", "icon": "photo"}
       ],
       "feature_definitions": {
-        "project_chat": {"max_input_tokens": 50000}
+        "project_chat": {"max_input_tokens": 50000},
+        "search": {
+          "searches_per_month": 0,
+          "searches_soft_threshold": null,
+          "cta_hard_cap": {
+            "kind": "search_paywall_required",
+            "title": "Web search is a paid feature",
+            "body": "Web search isn't included in the Free tier. Upgrade to Plus to enable web search.",
+            "action": "open_paywall"
+          },
+          "cta_soft_cap": null
+        }
       }
     },
     "plus": {
@@ -51,7 +62,18 @@
         {"label": "Meeting Memory", "value": "upgrade to Pro", "icon": "brain", "state": "teaser"}
       ],
       "feature_definitions": {
-        "project_chat": {"max_input_tokens": 150000}
+        "project_chat": {"max_input_tokens": 150000},
+        "search": {
+          "searches_per_month": 75,
+          "searches_soft_threshold": null,
+          "cta_hard_cap": {
+            "kind": "search_cap_exhausted",
+            "title": "Web search limit reached",
+            "body": "You've used all {total} searches this month. Upgrade to Pro for higher limits.",
+            "action": "open_paywall"
+          },
+          "cta_soft_cap": null
+        }
       }
     },
     "pro": {
@@ -82,7 +104,23 @@
         {"label": "Meeting Memory", "value": "enabled", "icon": "brain", "state": "enabled"}
       ],
       "feature_definitions": {
-        "project_chat": {"max_input_tokens": 180000}
+        "project_chat": {"max_input_tokens": 180000},
+        "search": {
+          "searches_per_month": 120,
+          "searches_soft_threshold": 80,
+          "cta_hard_cap": {
+            "kind": "search_cap_exhausted",
+            "title": "Web search limit reached",
+            "body": "You've used all {total} searches this month. Searches resume on {reset_date}.",
+            "action": "none"
+          },
+          "cta_soft_cap": {
+            "kind": "search_soft_cap_warning",
+            "title": "Approaching your monthly search limit",
+            "body": "You've used {used} of {total} searches this month.",
+            "action": "none"
+          }
+        }
       }
     }
   },
@@ -120,6 +158,13 @@
         "unlimited": "Project Chat by Shoulder Surf.",
         "login_required": "Sign in to use Project Chat."
       }
+    },
+    "search": {
+      "category": "intelligence",
+      "display_name": "Web Search",
+      "description": "Ask your AI to look up current information from the web during a query.",
+      "teaser_description": "Web search is a paid feature.",
+      "upgrade_cta": "Upgrade to Plus to enable web search"
     }
   }
 }
