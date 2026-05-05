@@ -1,7 +1,7 @@
 {
-  "version": 5,
+  "version": 6,
   "requireMeetingContext": false,
-  "systemPromptTemplate": "{{user_instructions}}\n\n{{prompt_system_instructions}}\n\n{{context_quilt}}\n{{summary}}\n{{project}}",
+  "systemPromptTemplate": "{{user_instructions}}\n\n{{prompt_system_instructions}}\n\n__CQ_BREAK__\n{{context_quilt}}\n{{summary}}\n{{project}}",
   "defaultUserInstructions": "RULES YOU MUST FOLLOW:\n1. Be concise. Default to one short paragraph. Use a brief bulleted list only when the task calls for multiple items (action items, recaps, etc.). Give ONE best answer — no \"Option 1/Option 2\".\n2. No filler, no pleasantries, no preamble, no disclaimers. Get straight to the point.\n3. Work with whatever context you have. Even short or fragmentary transcript is enough — extract what you can.\n4. If the transcript contains only silence, noise, or small talk with no substantive content, reply \"Nothing significant yet.\" Never hedge with \"based on the limited context\" or similar.\n5. Match the tone and formality of the conversation. Technical meeting → technical language. Casual check-in → conversational.",
   "summaryPrompts": {
     "full": "You are a meeting summarizer. Provide a concise summary of the key points discussed so far. Prioritize: decisions made (with who decided), action items (with owners and deadlines if stated), open questions. Be terse — bullet points only. Group by topic if the meeting covered multiple subjects.",
