@@ -1,5 +1,5 @@
 {
-  "version": 16,
+  "version": 17,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -28,9 +28,18 @@
           "searches_soft_threshold": null,
           "cta_hard_cap": {
             "kind": "search_paywall_required",
-            "title": "Web search is a paid feature",
-            "body": "Web search isn't included in the Free tier. Upgrade to Plus to enable web search.",
-            "action": "open_paywall"
+            "header_icon": "globe",
+            "title": "Web Search",
+            "body": "Pull fresh information from the web into your queries, current news, recent docs, and live data your model wouldn't otherwise know about.",
+            "bullets_label": "TRY IT FOR",
+            "bullets": [
+              {"icon": "newspaper.fill", "label": "Latest news on a competitor or topic in your meeting"},
+              {"icon": "doc.text.magnifyingglass", "label": "Recent docs for a library or framework you're discussing"},
+              {"icon": "chart.line.uptrend.xyaxis", "label": "Current pricing, availability, or product changes"}
+            ],
+            "footer": "Web search is available with a Plus or Pro subscription, when using SS AI as your model.",
+            "primary_action": {"label": "Upgrade", "action": "open_paywall"},
+            "secondary_action": {"label": "Maybe later", "action": "dismiss"}
           },
           "cta_soft_cap": null
         }
@@ -70,7 +79,8 @@
             "kind": "search_cap_exhausted",
             "title": "Web search limit reached",
             "body": "You've used all {total} searches this month. Upgrade to Pro for higher limits.",
-            "action": "open_paywall"
+            "primary_action": {"label": "Upgrade", "action": "open_paywall"},
+            "secondary_action": {"label": "OK", "action": "dismiss"}
           },
           "cta_soft_cap": null
         }
@@ -112,13 +122,12 @@
             "kind": "search_cap_exhausted",
             "title": "Web search limit reached",
             "body": "You've used all {total} searches this month. Searches resume on {reset_date}.",
-            "action": "none"
+            "primary_action": {"label": "OK", "action": "dismiss"}
           },
           "cta_soft_cap": {
             "kind": "search_soft_cap_warning",
             "title": "Approaching your monthly search limit",
-            "body": "You've used {used} of {total} searches this month.",
-            "action": "none"
+            "body": "You've used {used} of {total} searches this month."
           }
         }
       }

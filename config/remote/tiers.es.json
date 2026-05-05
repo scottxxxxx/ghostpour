@@ -1,5 +1,5 @@
 {
-  "version": 16,
+  "version": 17,
   "tiers": {
     "free": {
       "display_name": "Gratis",
@@ -28,9 +28,18 @@
           "searches_soft_threshold": null,
           "cta_hard_cap": {
             "kind": "search_paywall_required",
-            "title": "La búsqueda web es una función de pago",
-            "body": "La búsqueda web no está incluida en el plan Gratis. Actualiza a Plus para activarla.",
-            "action": "open_paywall"
+            "header_icon": "globe",
+            "title": "Búsqueda web",
+            "body": "Trae información actualizada de la web a tus consultas: noticias actuales, documentación reciente y datos en vivo que tu modelo no podría conocer de otra forma.",
+            "bullets_label": "PRUÉBALO PARA",
+            "bullets": [
+              {"icon": "newspaper.fill", "label": "Últimas noticias sobre un competidor o tema en tu reunión"},
+              {"icon": "doc.text.magnifyingglass", "label": "Documentación reciente sobre una biblioteca o framework que estás discutiendo"},
+              {"icon": "chart.line.uptrend.xyaxis", "label": "Precios actuales, disponibilidad o cambios de producto"}
+            ],
+            "footer": "La búsqueda web está disponible con una suscripción Plus o Pro, cuando uses SS AI como tu modelo.",
+            "primary_action": {"label": "Actualizar", "action": "open_paywall"},
+            "secondary_action": {"label": "Quizás más tarde", "action": "dismiss"}
           },
           "cta_soft_cap": null
         }
@@ -70,7 +79,8 @@
             "kind": "search_cap_exhausted",
             "title": "Límite de búsqueda web alcanzado",
             "body": "Has usado tus {total} búsquedas de este mes. Actualiza a Pro para tener un límite mayor.",
-            "action": "open_paywall"
+            "primary_action": {"label": "Actualizar", "action": "open_paywall"},
+            "secondary_action": {"label": "OK", "action": "dismiss"}
           },
           "cta_soft_cap": null
         }
@@ -112,13 +122,12 @@
             "kind": "search_cap_exhausted",
             "title": "Límite de búsqueda web alcanzado",
             "body": "Has usado tus {total} búsquedas de este mes. Las búsquedas se reanudan el {reset_date}.",
-            "action": "none"
+            "primary_action": {"label": "OK", "action": "dismiss"}
           },
           "cta_soft_cap": {
             "kind": "search_soft_cap_warning",
             "title": "Te acercas al límite mensual de búsquedas",
-            "body": "Has usado {used} de {total} búsquedas este mes.",
-            "action": "none"
+            "body": "Has usado {used} de {total} búsquedas este mes."
           }
         }
       }

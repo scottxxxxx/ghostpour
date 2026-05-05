@@ -1,5 +1,5 @@
 {
-  "version": 16,
+  "version": 17,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -28,9 +28,18 @@
           "searches_soft_threshold": null,
           "cta_hard_cap": {
             "kind": "search_paywall_required",
-            "title": "Web検索は有料機能です",
-            "body": "Web検索は無料プランには含まれていません。Plusにアップグレードすると有効になります。",
-            "action": "open_paywall"
+            "header_icon": "globe",
+            "title": "Web検索",
+            "body": "クエリにWebからの最新情報を取り込みましょう。最新ニュース、最近のドキュメント、モデルが本来知り得ないライブデータを活用できます。",
+            "bullets_label": "こんな用途に",
+            "bullets": [
+              {"icon": "newspaper.fill", "label": "ミーティングの競合他社や話題に関する最新ニュース"},
+              {"icon": "doc.text.magnifyingglass", "label": "話題に上がっているライブラリやフレームワークの最新ドキュメント"},
+              {"icon": "chart.line.uptrend.xyaxis", "label": "現在の価格、在庫、製品の変更"}
+            ],
+            "footer": "Web検索はPlusまたはProのサブスクリプションでSS AIをモデルとして使用する場合に利用できます。",
+            "primary_action": {"label": "アップグレード", "action": "open_paywall"},
+            "secondary_action": {"label": "後で", "action": "dismiss"}
           },
           "cta_soft_cap": null
         }
@@ -70,7 +79,8 @@
             "kind": "search_cap_exhausted",
             "title": "Web検索の上限に達しました",
             "body": "今月の{total}回の検索をすべて使い切りました。Proにアップグレードするとより多くの検索が可能です。",
-            "action": "open_paywall"
+            "primary_action": {"label": "アップグレード", "action": "open_paywall"},
+            "secondary_action": {"label": "OK", "action": "dismiss"}
           },
           "cta_soft_cap": null
         }
@@ -112,13 +122,12 @@
             "kind": "search_cap_exhausted",
             "title": "Web検索の上限に達しました",
             "body": "今月の{total}回の検索をすべて使い切りました。検索は{reset_date}に再開されます。",
-            "action": "none"
+            "primary_action": {"label": "OK", "action": "dismiss"}
           },
           "cta_soft_cap": {
             "kind": "search_soft_cap_warning",
             "title": "月間検索上限に近づいています",
-            "body": "今月{used}/{total}回の検索を使用しました。",
-            "action": "none"
+            "body": "今月{used}/{total}回の検索を使用しました。"
           }
         }
       }
