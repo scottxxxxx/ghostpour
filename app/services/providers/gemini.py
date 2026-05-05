@@ -23,9 +23,10 @@ class GeminiAdapter(ProviderAdapter):
         body: dict = {
             "contents": [{"role": "user", "parts": user_parts}],
         }
-        if request.system_prompt:
+        system_prompt = self._strip_cache_marker(request.system_prompt) if request.system_prompt else ""
+        if system_prompt:
             body["systemInstruction"] = {
-                "parts": [{"text": request.system_prompt}]
+                "parts": [{"text": system_prompt}]
             }
         thinking_config = gemini_thinking_config(request.reasoning)
         if thinking_config is not None:

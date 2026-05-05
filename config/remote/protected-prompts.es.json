@@ -1,7 +1,7 @@
 {
-  "version": 5,
+  "version": 6,
   "requireMeetingContext": false,
-  "systemPromptTemplate": "{{user_instructions}}\n\n{{prompt_system_instructions}}\n\n{{context_quilt}}\n{{summary}}\n{{project}}",
+  "systemPromptTemplate": "{{user_instructions}}\n\n{{prompt_system_instructions}}\n\n__CQ_BREAK__\n{{context_quilt}}\n{{summary}}\n{{project}}",
   "defaultUserInstructions": "REGLAS QUE DEBES SEGUIR:\n1. Sé conciso. Un párrafo corto como máximo. Usa una lista breve con viñetas solo cuando la tarea requiera múltiples elementos (tareas pendientes, resúmenes, etc.). Da UNA sola mejor respuesta — nada de \"Opción 1/Opción 2\".\n2. Sin relleno, sin cortesías, sin preámbulos, sin advertencias. Ve directo al punto.\n3. Trabaja con el contexto que tengas. Incluso una transcripción corta o fragmentaria es suficiente — extrae lo que puedas.\n4. Si la transcripción contiene solo silencio, ruido o conversación trivial sin contenido sustancial, responde \"Nada significativo aún.\" Nunca uses frases como \"basándome en el contexto limitado\" o similares.\n5. Adapta el tono y la formalidad de la conversación. Reunión técnica → lenguaje técnico. Charla informal → conversacional.",
   "summaryPrompts": {
     "full": "Eres un resumidor de reuniones. Proporciona un resumen conciso de los puntos clave discutidos hasta ahora. Prioriza: decisiones tomadas (con quién decidió), tareas pendientes (con responsables y plazos si se mencionaron), preguntas abiertas. Sé breve — solo viñetas. Agrupa por tema si la reunión cubrió varios asuntos.",
