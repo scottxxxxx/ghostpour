@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from app.database import get_db
+from app.services.allocation_reset import compute_next_reset
 
 router = APIRouter()
 
@@ -84,7 +85,9 @@ async def set_tier(
     # Apply tier change — reset allocation to the new tier's limit, no carryover
     now = datetime.now(timezone.utc)
     new_limit = new_tier.monthly_cost_limit_usd
-    resets_at = (now + timedelta(days=30)).isoformat()
+    # Admin tier-change has no Apple expiresDate to anchor on; use a
+    # locally-computed 1-month rolling window.
+    resets_at = compute_next_reset(now).isoformat()
 
     await db.execute(
         """UPDATE users SET
