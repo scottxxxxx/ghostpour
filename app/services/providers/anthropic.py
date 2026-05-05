@@ -5,25 +5,8 @@ from fastapi import HTTPException
 
 from app.models.chat import ChatRequest, ChatResponse
 
-from .base import _CACHE_BREAK, ProviderAdapter
+from .base import ProviderAdapter
 from .reasoning import anthropic_min_max_tokens, anthropic_thinking_block
-
-# _CACHE_BREAK is the canonical sentinel for splitting the system prompt
-# into a "stable above" and "variable below" block, each cached
-# independently. Defined in base.py so non-Anthropic adapters can import
-# it for stripping; re-exported here because the splitting logic that
-# *consumes* the marker lives in this module.
-#
-# Effect of the split for Anthropic requests:
-#   - Block 1 (stable): cache_control hits across turns within the 5-min
-#     window — system instructions don't change query-to-query.
-#   - Block 2 (variable): cache_control hits within a turn (e.g. the
-#     two-call tool_use cycle of a search-enabled query) once we hold
-#     the rendered enrichment in memory across sub-LLM calls.
-# When the marker is absent we fall back to the legacy single-block
-# behavior so this stays back-compat with iOS builds that haven't
-# pulled the updated template yet.
-__all__ = ["AnthropicAdapter", "_CACHE_BREAK"]
 
 
 class AnthropicAdapter(ProviderAdapter):
@@ -79,33 +62,6 @@ class AnthropicAdapter(ProviderAdapter):
             raw_response_json=raw_resp,
         )
 
-    @staticmethod
-    def _build_system_block(system_prompt: str) -> list[dict]:
-        """Split the system prompt on the _CACHE_BREAK sentinel into two
-        independently-cached blocks. Returns a single block when the
-        marker is absent (legacy iOS templates) or when either side of
-        the split is empty after trimming."""
-        if _CACHE_BREAK not in system_prompt:
-            return [{
-                "type": "text",
-                "text": system_prompt,
-                "cache_control": {"type": "ephemeral"},
-            }]
-        head, _, tail = system_prompt.partition(_CACHE_BREAK)
-        head = head.rstrip()
-        tail = tail.lstrip()
-        if not head or not tail:
-            stitched = head + tail if (head or tail) else system_prompt
-            return [{
-                "type": "text",
-                "text": stitched,
-                "cache_control": {"type": "ephemeral"},
-            }]
-        return [
-            {"type": "text", "text": head, "cache_control": {"type": "ephemeral"}},
-            {"type": "text", "text": tail, "cache_control": {"type": "ephemeral"}},
-        ]
-
     def _build_body(self, request: ChatRequest) -> tuple[dict, dict]:
         """Build Anthropic request body and headers. Shared by stream and non-stream."""
         content_parts: list[dict] = []
@@ -117,7 +73,11 @@ class AnthropicAdapter(ProviderAdapter):
                 })
         content_parts.append({"type": "text", "text": request.user_content})
 
-        system_block = self._build_system_block(request.system_prompt)
+        system_block = [{
+            "type": "text",
+            "text": request.system_prompt,
+            "cache_control": {"type": "ephemeral"},
+        }]
 
         max_tokens = request.max_tokens or 4096
         thinking = anthropic_thinking_block(request.reasoning)

@@ -7,13 +7,6 @@ import httpx
 
 from app.models.chat import ChatRequest, ChatResponse
 
-# Sentinel marker iOS bakes into the protected-prompts systemPromptTemplate
-# between the stable system instructions and the per-turn Context Quilt
-# enrichment. Only AnthropicAdapter consumes it (to emit two cache_control
-# blocks). Every other adapter strips it via _strip_cache_marker so the
-# literal sentinel never leaks into the prompt of a non-Anthropic model.
-_CACHE_BREAK = "__CQ_BREAK__"
-
 
 class ProviderAdapter(ABC):
     def __init__(
@@ -45,24 +38,6 @@ class ProviderAdapter(ABC):
     @staticmethod
     def _pretty_json(obj: dict | list) -> str:
         return json.dumps(obj, indent=2, ensure_ascii=False)
-
-    @staticmethod
-    def _strip_cache_marker(system_prompt: str) -> str:
-        """Remove the _CACHE_BREAK sentinel from a system prompt.
-
-        The marker is meaningful only to AnthropicAdapter; for any other
-        provider it would leak as literal text in the system prompt. Strip
-        the marker plus immediately surrounding whitespace, leaving a
-        single blank-line separator (matches the v5 template spacing
-        between prompt_system_instructions and context_quilt).
-        """
-        if _CACHE_BREAK not in system_prompt:
-            return system_prompt
-        return re.sub(
-            r"\s*" + re.escape(_CACHE_BREAK) + r"\s*",
-            "\n\n",
-            system_prompt,
-        )
 
     @staticmethod
     def _redact_base64(json_str: str) -> str:

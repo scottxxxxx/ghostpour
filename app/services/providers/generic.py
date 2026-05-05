@@ -140,15 +140,10 @@ class GenericAdapter(ProviderAdapter):
         image_format = fmt.get("image_format", "openai")
 
         user_content = self._build_user_content(request, image_format)
-        system_prompt = (
-            self._strip_cache_marker(request.system_prompt)
-            if request.system_prompt
-            else ""
-        )
 
         messages = []
-        if system_in_messages and system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
+        if system_in_messages and request.system_prompt:
+            messages.append({"role": "system", "content": request.system_prompt})
         messages.append({"role": "user", "content": user_content})
 
         body: dict = {
@@ -158,7 +153,7 @@ class GenericAdapter(ProviderAdapter):
 
         # System prompt as top-level field (Anthropic style)
         if system_prompt_field and not system_in_messages:
-            body[system_prompt_field] = system_prompt
+            body[system_prompt_field] = request.system_prompt
 
         if request.max_tokens:
             body[max_tokens_field] = request.max_tokens

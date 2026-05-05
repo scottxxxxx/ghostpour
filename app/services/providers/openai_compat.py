@@ -11,12 +11,11 @@ class OpenAICompatAdapter(ProviderAdapter):
 
     async def send_request(self, request: ChatRequest) -> ChatResponse:
         user_content = self._build_user_content(request)
-        system_prompt = self._strip_cache_marker(request.system_prompt)
 
         body: dict = {
             "model": request.model,
             "messages": [
-                {"role": "system", "content": system_prompt},
+                {"role": "system", "content": request.system_prompt},
                 {"role": "user", "content": user_content},
             ],
         }
