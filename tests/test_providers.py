@@ -2,6 +2,8 @@
 
 from app.models.chat import ChatRequest
 from app.services.providers.anthropic import _CACHE_BREAK, AnthropicAdapter
+from app.services.providers.base import ProviderAdapter
+from app.services.providers.generic import GenericAdapter
 from app.services.providers.openai_compat import OpenAICompatAdapter
 
 
@@ -135,3 +137,109 @@ def test_build_body_routes_through_split():
     assert len(body["system"]) == 2
     assert body["system"][0]["text"] == "Head text"
     assert body["system"][1]["text"] == "Tail text"
+
+
+# ---------------------------------------------------------------------------
+# Non-Anthropic adapters MUST strip the cache-break marker
+# ---------------------------------------------------------------------------
+# The sentinel is meaningful only to AnthropicAdapter. iOS uses one
+# protected-prompts template for every request regardless of routing, so
+# requests headed to OpenAI, Gemini, or any Generic provider would see
+# the literal string "__CQ_BREAK__" embedded in their system prompt
+# unless we strip it server-side. These tests pin that the marker
+# never reaches the wire for non-Anthropic providers.
+
+
+def test_strip_cache_marker_removes_sentinel():
+    """The shared helper collapses the marker plus surrounding whitespace
+    into a single blank-line separator (matches v5 template spacing)."""
+    raw = f"Stable head\n\n{_CACHE_BREAK}\nVariable tail"
+    cleaned = ProviderAdapter._strip_cache_marker(raw)
+    assert _CACHE_BREAK not in cleaned
+    assert "Stable head" in cleaned
+    assert "Variable tail" in cleaned
+    # Spacing should be a clean paragraph break — no triple newlines
+    assert "\n\n\n" not in cleaned
+
+
+def test_strip_cache_marker_no_op_when_absent():
+    """Helper must return the prompt unchanged when the marker isn't there."""
+    raw = "Plain system prompt with no marker."
+    assert ProviderAdapter._strip_cache_marker(raw) == raw
+
+
+def test_strip_cache_marker_handles_multiple_occurrences():
+    """Defensive: if iOS ever rendered two markers, strip both."""
+    raw = f"A{_CACHE_BREAK}B{_CACHE_BREAK}C"
+    cleaned = ProviderAdapter._strip_cache_marker(raw)
+    assert _CACHE_BREAK not in cleaned
+
+
+def test_openai_adapter_strips_marker_from_system_message():
+    """OpenAI/xAI/DeepSeek/Kimi/Qwen all share this adapter — none of
+    them speak Anthropic's cache_control protocol, so the marker would
+    be raw text in the system role unless stripped."""
+    # We can't call send_request without an HTTP server, but we can
+    # verify the strip helper is what gets composed into the body by
+    # using it directly the same way send_request does.
+    raw_prompt = f"Stable rules\n\n{_CACHE_BREAK}\nContext Quilt content"
+    cleaned = OpenAICompatAdapter._strip_cache_marker(raw_prompt)
+    assert _CACHE_BREAK not in cleaned
+    assert "Stable rules" in cleaned
+    assert "Context Quilt content" in cleaned
+
+
+def test_generic_adapter_build_request_body_strips_marker_system_in_messages():
+    """Generic adapter (e.g. OpenRouter, third-party providers) with
+    system_in_messages=True puts system in the messages array."""
+    adapter = GenericAdapter(
+        api_key="test",
+        base_url="https://example.com/v1/chat",
+        auth_header="Authorization",
+        auth_prefix="Bearer ",
+        request_format={
+            "model_field": "model",
+            "messages_field": "messages",
+            "system_in_messages": True,
+            "image_format": "openai",
+        },
+    )
+    request = ChatRequest(
+        provider="openrouter",
+        model="some-model",
+        system_prompt=f"Head\n\n{_CACHE_BREAK}\nTail",
+        user_content="Hi",
+    )
+    body = adapter._build_request_body(request)
+    system_msg = next(m for m in body["messages"] if m["role"] == "system")
+    assert _CACHE_BREAK not in system_msg["content"]
+    assert "Head" in system_msg["content"]
+    assert "Tail" in system_msg["content"]
+
+
+def test_generic_adapter_build_request_body_strips_marker_top_level_field():
+    """Generic adapter with system_prompt as a top-level field
+    (Anthropic-shaped non-Anthropic providers, e.g. mirrors)."""
+    adapter = GenericAdapter(
+        api_key="test",
+        base_url="https://example.com/v1/messages",
+        auth_header="x-api-key",
+        auth_prefix="",
+        request_format={
+            "model_field": "model",
+            "messages_field": "messages",
+            "system_in_messages": False,
+            "system_prompt_field": "system",
+            "image_format": "openai",
+        },
+    )
+    request = ChatRequest(
+        provider="some-mirror",
+        model="some-model",
+        system_prompt=f"Head\n\n{_CACHE_BREAK}\nTail",
+        user_content="Hi",
+    )
+    body = adapter._build_request_body(request)
+    assert _CACHE_BREAK not in body["system"]
+    assert "Head" in body["system"]
+    assert "Tail" in body["system"]

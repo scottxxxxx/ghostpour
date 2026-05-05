@@ -5,15 +5,16 @@ from fastapi import HTTPException
 
 from app.models.chat import ChatRequest, ChatResponse
 
-from .base import ProviderAdapter
+from .base import _CACHE_BREAK, ProviderAdapter
 from .reasoning import anthropic_min_max_tokens, anthropic_thinking_block
 
-
-# Sentinel marker for splitting the system prompt into a "stable above"
-# and "variable below" block, each cached independently. iOS bakes this
-# marker into the protected-prompts systemPromptTemplate between the
-# stable system instructions and the per-turn Context Quilt enrichment.
-# Effect:
+# _CACHE_BREAK is the canonical sentinel for splitting the system prompt
+# into a "stable above" and "variable below" block, each cached
+# independently. Defined in base.py so non-Anthropic adapters can import
+# it for stripping; re-exported here because the splitting logic that
+# *consumes* the marker lives in this module.
+#
+# Effect of the split for Anthropic requests:
 #   - Block 1 (stable): cache_control hits across turns within the 5-min
 #     window — system instructions don't change query-to-query.
 #   - Block 2 (variable): cache_control hits within a turn (e.g. the
@@ -22,7 +23,7 @@ from .reasoning import anthropic_min_max_tokens, anthropic_thinking_block
 # When the marker is absent we fall back to the legacy single-block
 # behavior so this stays back-compat with iOS builds that haven't
 # pulled the updated template yet.
-_CACHE_BREAK = "__CQ_BREAK__"
+__all__ = ["AnthropicAdapter", "_CACHE_BREAK"]
 
 
 class AnthropicAdapter(ProviderAdapter):
