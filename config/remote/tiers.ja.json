@@ -1,5 +1,5 @@
 {
-  "version": 15,
+  "version": 16,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -22,7 +22,18 @@
         {"label": "最大画像数", "value": "1クエリにつき1枚", "icon": "photo"}
       ],
       "feature_definitions": {
-        "project_chat": {"max_input_tokens": 50000}
+        "project_chat": {"max_input_tokens": 50000},
+        "search": {
+          "searches_per_month": 0,
+          "searches_soft_threshold": null,
+          "cta_hard_cap": {
+            "kind": "search_paywall_required",
+            "title": "Web検索は有料機能です",
+            "body": "Web検索は無料プランには含まれていません。Plusにアップグレードすると有効になります。",
+            "action": "open_paywall"
+          },
+          "cta_soft_cap": null
+        }
       }
     },
     "plus": {
@@ -51,7 +62,18 @@
         {"label": "ミーティングメモリー", "value": "Proにアップグレード", "icon": "brain", "state": "teaser"}
       ],
       "feature_definitions": {
-        "project_chat": {"max_input_tokens": 150000}
+        "project_chat": {"max_input_tokens": 150000},
+        "search": {
+          "searches_per_month": 75,
+          "searches_soft_threshold": null,
+          "cta_hard_cap": {
+            "kind": "search_cap_exhausted",
+            "title": "Web検索の上限に達しました",
+            "body": "今月の{total}回の検索をすべて使い切りました。Proにアップグレードするとより多くの検索が可能です。",
+            "action": "open_paywall"
+          },
+          "cta_soft_cap": null
+        }
       }
     },
     "pro": {
@@ -82,7 +104,23 @@
         {"label": "ミーティングメモリー", "value": "有効", "icon": "brain", "state": "enabled"}
       ],
       "feature_definitions": {
-        "project_chat": {"max_input_tokens": 180000}
+        "project_chat": {"max_input_tokens": 180000},
+        "search": {
+          "searches_per_month": 120,
+          "searches_soft_threshold": 80,
+          "cta_hard_cap": {
+            "kind": "search_cap_exhausted",
+            "title": "Web検索の上限に達しました",
+            "body": "今月の{total}回の検索をすべて使い切りました。検索は{reset_date}に再開されます。",
+            "action": "none"
+          },
+          "cta_soft_cap": {
+            "kind": "search_soft_cap_warning",
+            "title": "月間検索上限に近づいています",
+            "body": "今月{used}/{total}回の検索を使用しました。",
+            "action": "none"
+          }
+        }
       }
     }
   },
@@ -117,6 +155,12 @@
         "unlimited": "Shoulder Surfのプロジェクトチャット。",
         "login_required": "プロジェクトチャットを使用するにはサインインしてください。"
       }
+    },
+    "search": {
+      "display_name": "Web検索",
+      "description": "クエリ中にAIにWebから最新情報を取得させることができます。",
+      "teaser_description": "Web検索は有料機能です。",
+      "upgrade_cta": "PlusにアップグレードしてWeb検索を有効にする"
     }
   }
 }

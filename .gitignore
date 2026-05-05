@@ -17,8 +17,8 @@ ENV/
 .env
 .env.prod
 
-# Database
-data/*.db
+# Database + runtime remote-config snapshots
+data/
 *.db
 
 # IDE

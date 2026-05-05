@@ -39,9 +39,23 @@ class AnthropicAdapter(ProviderAdapter):
 
         # Capture the full usage block from the provider
         # Anthropic returns: input_tokens, output_tokens,
-        # cache_creation_input_tokens, cache_read_input_tokens
+        # cache_creation_input_tokens, cache_read_input_tokens.
+        # When web_search is enabled, also: server_tool_use.web_search_requests.
         raw_usage = data.get("usage", {})
         usage = self._flatten_usage(raw_usage)
+
+        # Count web_search invocations from the content blocks. Anthropic
+        # emits one `server_tool_use` block per search with name="web_search".
+        # We mirror this into a top-level usage key so the chat router's
+        # gate can increment the per-user counter without re-parsing the
+        # raw content array.
+        search_count = sum(
+            1 for block in data.get("content", [])
+            if block.get("type") == "server_tool_use"
+            and block.get("name") == "web_search"
+        )
+        if search_count:
+            usage["web_search_requests"] = search_count
 
         # Also capture response-level metadata
         if data.get("id"):
@@ -93,6 +107,22 @@ class AnthropicAdapter(ProviderAdapter):
         }
         if thinking:
             body["thinking"] = thinking
+
+        # Web search tool — gated upstream by the chat router. The router
+        # only sets search_enabled=True after passing tier + cap checks,
+        # so the adapter trusts the flag and just attaches Anthropic's
+        # native web_search_20250305 tool. max_uses bounds how many
+        # searches a single turn can make (otherwise one query could
+        # burn through the user's monthly cap).
+        if request.get_meta("search_enabled"):
+            body["tools"] = [
+                {
+                    "type": "web_search_20250305",
+                    "name": "web_search",
+                    "max_uses": 5,
+                }
+            ]
+
         return body, self._build_headers()
 
     async def send_request_stream(self, request: ChatRequest) -> AsyncIterator[dict]:
