@@ -95,11 +95,14 @@ def format_cta(
     *,
     used: int,
     total: int,
-    reset_date: str | None = None,
 ) -> dict | None:
-    """Substitute `{used}`, `{total}`, `{reset_date}` template variables
-    in the CTA's `title` and `body` fields. Other fields pass through
-    unchanged.
+    """Substitute `{used}` and `{total}` template variables in the CTA's
+    `title` and `body` fields. `{reset_date}` is intentionally NOT
+    substituted: dates need locale-aware formatting (en-US "Jun 15" vs
+    es "15 jun" vs ja "6月15日") that the server can't do without
+    Accept-Language plumbing into every call site. iOS gets the raw ISO
+    timestamp via `search_state.resets_at` and formats with the user's
+    DateFormatter.
 
     Returns None if the input CTA is None — caller can use this to
     decide whether to surface a CTA at all.
@@ -107,18 +110,18 @@ def format_cta(
     if not cta:
         return None
     out = dict(cta)
-    fmt_args = {
-        "used": used,
-        "total": total,
-        "reset_date": reset_date or "",
-    }
+    fmt_args = {"used": used, "total": total}
+    # Use a class that returns "{reset_date}" verbatim when format() asks
+    # for it — preserves the placeholder for iOS to substitute later.
+    class _PassThrough(dict):
+        def __missing__(self, key):
+            return "{" + key + "}"
+    args = _PassThrough(fmt_args)
     for key in ("title", "body"):
         val = out.get(key)
         if isinstance(val, str):
             try:
-                out[key] = val.format(**fmt_args)
+                out[key] = val.format_map(args)
             except (KeyError, IndexError):
-                # Leave unsubstituted if a variable is missing — better
-                # than crashing on a malformed template.
                 pass
     return out
