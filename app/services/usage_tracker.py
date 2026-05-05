@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from app.models.chat import ChatRequest, ChatResponse
 from app.models.tier import TierDefinition
 from app.models.user import UserRecord
+from app.services.allocation_reset import lazy_reset_if_due
 
 
 class UsageTracker:
@@ -86,6 +87,13 @@ class UsageTracker:
 
         if effective_limit == -1:
             return 0.0, 0.0  # Unlimited (admin)
+
+        # Lazy reset on first read past allocation_resets_at. Catches Free
+        # users (no Apple webhook path), missed/delayed DID_RENEW
+        # notifications, and the historical case where same-tier renewals
+        # never reset. Atomic via WHERE-guarded UPDATE — racing requests
+        # don't double-reset. No-op when not yet due.
+        await lazy_reset_if_due(db, user.id)
 
         # Simulation: force allocation exhausted (admin testing toggle).
         # Kept on the 429 path because it's a synthetic dev affordance — the

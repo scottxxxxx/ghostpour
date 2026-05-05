@@ -24,6 +24,7 @@ from app.dependencies import get_current_user
 from app.models.chat import ChatRequest, ChatResponse
 from app.models.user import UserRecord
 from app.services import context_quilt as cq
+from app.services.allocation_reset import compute_next_reset, lazy_reset_if_due
 
 router = APIRouter()
 
@@ -332,8 +333,11 @@ async def verify_receipt(
 
     # Paid subscription (or trial-to-paid conversion)
     if is_state_change:
-        # Real upgrade/downgrade/conversion — reset allocation
-        resets_at = (now + timedelta(days=30)).isoformat()
+        # Real upgrade/downgrade/conversion — reset allocation. The Apple
+        # webhook will keep allocation_resets_at aligned with Apple's
+        # billing on subsequent renewals; this initial value is the
+        # 1-month fallback used until the first DID_RENEW lands.
+        resets_at = compute_next_reset(now).isoformat()
         await db.execute(
             """UPDATE users SET
                 tier = ?,
@@ -498,7 +502,7 @@ async def sync_subscription(
     trial_converted = user.is_trial and not body.is_trial
 
     if trial_converted:
-        resets_at = (now + timedelta(days=30)).isoformat()
+        resets_at = compute_next_reset(now).isoformat()
         await db.execute(
             """UPDATE users SET
                 tier = ?,

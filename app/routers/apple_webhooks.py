@@ -12,7 +12,7 @@ See: https://developer.apple.com/documentation/appstoreservernotifications
 
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import aiosqlite
 from fastapi import APIRouter, Depends, Request
@@ -22,6 +22,7 @@ from pydantic import BaseModel
 from app.config import get_settings
 from app.database import get_db
 from app.services import context_quilt as cq
+from app.services.allocation_reset import compute_next_reset
 from app.services.apple_notifications import (
     AppleJWSError,
     decode_notification,
@@ -92,16 +93,26 @@ async def _downgrade_to_free(db: aiosqlite.Connection, user_id: str, tier_config
 
 
 async def _upgrade_to_tier(
-    db: aiosqlite.Connection, user_id: str, tier_name: str, tier_config
+    db: aiosqlite.Connection,
+    user_id: str,
+    tier_name: str,
+    tier_config,
+    apple_expires_date_ms: int | None = None,
 ) -> str:
-    """Upgrade/set a user to a specific tier."""
+    """Upgrade/set a user to a specific tier.
+
+    When `apple_expires_date_ms` is provided, anchors `allocation_resets_at`
+    to Apple's authoritative next-renewal timestamp (calendar-month aligned
+    with all end-of-month edge cases handled by Apple). Otherwise falls back
+    to `now + 1 calendar month`.
+    """
     tier = tier_config.tiers.get(tier_name)
     if not tier:
         logger.error("Unknown tier %s for upgrade", tier_name)
         return tier_name
 
     now = datetime.now(timezone.utc)
-    resets_at = (now + timedelta(days=30)).isoformat()
+    resets_at = compute_next_reset(now, apple_expires_date_ms).isoformat()
 
     await db.execute(
         """UPDATE users SET
@@ -121,6 +132,31 @@ async def _upgrade_to_tier(
     )
     await db.commit()
     return tier_name
+
+
+async def _renew_same_tier(
+    db: aiosqlite.Connection,
+    user_id: str,
+    apple_expires_date_ms: int | None,
+) -> None:
+    """Apply DID_RENEW for a user already on the right tier.
+
+    Resets `monthly_used_usd` to 0 and advances `allocation_resets_at` to
+    Apple's new `expiresDate`. This is the path that historically did
+    nothing except log — leaving subscribers' allocations frozen forever.
+    """
+    now = datetime.now(timezone.utc)
+    resets_at = compute_next_reset(now, apple_expires_date_ms).isoformat()
+    await db.execute(
+        """UPDATE users SET
+            monthly_used_usd = 0,
+            overage_balance_usd = 0,
+            allocation_resets_at = ?,
+            updated_at = ?
+           WHERE id = ?""",
+        (resets_at, now.isoformat(), user_id),
+    )
+    await db.commit()
 
 
 @router.post("/apple-notifications")
@@ -204,6 +240,16 @@ async def apple_notifications(
     user_id = user["id"]
     old_tier = user["tier"]
 
+    # Pull Apple's `expiresDate` so allocation_resets_at can anchor to
+    # Apple's authoritative billing cycle (calendar-month with all the
+    # end-of-month edge cases handled). Comes through as ms since epoch.
+    apple_expires_ms = transaction_info.get("expiresDate")
+    if apple_expires_ms is not None:
+        try:
+            apple_expires_ms = int(apple_expires_ms)
+        except (TypeError, ValueError):
+            apple_expires_ms = None
+
     # Handle notification by type
     if notification_type in _UPGRADE_TYPES:
         # SUBSCRIBED or DID_RENEW — set tier based on product_id
@@ -218,11 +264,20 @@ async def apple_notifications(
             return {"status": "received", "action": "skipped", "reason": "unknown_product"}
 
         if old_tier == new_tier_name and not user["is_trial"]:
-            # DID_RENEW for same tier — just log it
-            logger.info("Apple notification: renewal confirmed for user %s (tier=%s)", user_id, old_tier)
-            return {"status": "received", "action": "none", "tier": old_tier}
+            # DID_RENEW for same tier. Historically this path returned
+            # without resetting — leaving monthly_used_usd accumulating
+            # across renewals indefinitely. Fix: reset counters and roll
+            # allocation_resets_at to Apple's new expiresDate.
+            await _renew_same_tier(db, user_id, apple_expires_ms)
+            logger.info(
+                "Apple notification: renewal applied for user %s (tier=%s, expires_ms=%s)",
+                user_id, old_tier, apple_expires_ms,
+            )
+            return {"status": "received", "action": "renewed", "tier": old_tier}
 
-        new_tier = await _upgrade_to_tier(db, user_id, new_tier_name, tier_config)
+        new_tier = await _upgrade_to_tier(
+            db, user_id, new_tier_name, tier_config, apple_expires_ms,
+        )
         logger.info(
             "Apple notification: upgraded user %s from %s to %s (type=%s)",
             user_id, old_tier, new_tier, notification_type,
