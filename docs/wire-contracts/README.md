@@ -32,6 +32,7 @@ without moving the schema, that's a coordination bug.
 |---|---|---|
 | `budget-gate.md` | active (2026-05-01) | Pre-call cost estimate, credits abstraction, context-cap 413, canned report, CTA kinds/actions |
 | `project-chat.md` | superseded by budget-gate (deprecation 2026-05-08) | Original Project Chat verdict matrix and count-based quota |
+| `project-chat-prompt-assembly.md` | active (2026-05-06) | SS-side `system_prompt` assembly for Project Chat — meeting manifest, per-meeting headers, summary/transcript/Q&A sub-sections |
 | `memory-capture.md` | active | Memory capture verdict matrix, synthetic CTA card injection, quota mechanics |
 | `reasoning-control.md` | active | Per-model reasoningLevels, server-side mapping to provider params |
 
