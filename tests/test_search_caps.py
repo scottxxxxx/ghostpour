@@ -708,6 +708,145 @@ def test_usage_me_search_block_shows_zero_total_for_free(
     assert data["search"]["used"] == 0
 
 
+def test_streaming_response_carries_search_state_in_done_event(
+    client: TestClient, tmp_db_path: str
+):
+    """Streaming Meeting Chat queries route through `_handle_stream`,
+    not the JSON path. search_state must land in the final SSE `done`
+    event so iOS's streaming consumer renders the same CTA + counter
+    pill the JSON path delivers. Without this, soft/hard-cap CTAs are
+    silently dropped on the very paths SS wired the inline pill into."""
+    import asyncio as _asyncio
+
+    _seed_user_with_search_state(
+        tmp_db_path, user_id="plus-stream-search", tier="plus",
+        searches_used=85,  # Plus has 75 cap → past hard
+        monthly_limit=5.00,
+    )
+    headers = {"Authorization": f"Bearer {_jwt_for('plus-stream-search')}"}
+
+    # Mock the streaming provider to emit a single text delta + a done
+    # event with a final ChatResponse. usage carries
+    # web_search_requests=2 to also exercise the post-stream
+    # counter-increment path.
+    async def fake_stream(_body):
+        yield {"type": "text", "text": "streaming", "done": False}
+        yield {
+            "type": "text",
+            "text": "",
+            "done": True,
+            "response": ChatResponse(
+                text="streaming",
+                input_tokens=10,
+                output_tokens=5,
+                model="claude-haiku-4-5-20251001",
+                provider="anthropic",
+                usage={
+                    "input_tokens": 10,
+                    "output_tokens": 5,
+                    "web_search_requests": 2,
+                },
+            ),
+        }
+
+    with patch(
+        "app.services.provider_router.ProviderRouter.route_stream",
+        side_effect=lambda body: fake_stream(body),
+    ):
+        resp = client.post(
+            "/v1/chat",
+            headers=headers,
+            json={
+                "provider": "anthropic",
+                "model": "claude-haiku-4-5-20251001",
+                "system_prompt": "you help",
+                "user_content": "search now",
+                "stream": True,
+                "metadata": {
+                    "search_enabled": True,
+                    # NOT ProjectChat — Project Chat is forced non-stream
+                    "prompt_mode": "PostMeetingChat",
+                    "call_type": "query",
+                },
+            },
+        )
+
+    assert resp.status_code == 200
+    body = resp.text
+    # The done event lands as a JSON line in SSE format.
+    # Parse out the JSON inside `data: {...}\n\n`.
+    done_lines = [
+        line for line in body.split("\n")
+        if line.startswith("data: ") and '"done"' in line
+    ]
+    assert done_lines, f"no done event found in stream: {body!r}"
+    import json as _json
+    done_payload = _json.loads(done_lines[-1][len("data: "):])
+    assert "search_state" in done_payload
+    assert done_payload["search_state"]["was_used"] is True  # web_search_requests > 0
+    # At hard cap → CTA present
+    assert done_payload["search_state"]["cta"] is not None
+    assert done_payload["search_state"]["cta"]["kind"] == "search_cap_exhausted"
+
+
+def test_streaming_response_omits_search_state_when_search_disabled(
+    client: TestClient, tmp_db_path: str
+):
+    """No search_enabled in metadata → no search_state in the done
+    event. iOS shouldn't see a counter pill on plain Meeting Chat."""
+    _seed_user_with_search_state(
+        tmp_db_path, user_id="plus-stream-no-search", tier="plus",
+        searches_used=0, monthly_limit=5.00,
+    )
+    headers = {"Authorization": f"Bearer {_jwt_for('plus-stream-no-search')}"}
+
+    async def fake_stream(_body):
+        yield {"type": "text", "text": "streaming", "done": False}
+        yield {
+            "type": "text",
+            "text": "",
+            "done": True,
+            "response": ChatResponse(
+                text="streaming",
+                input_tokens=10, output_tokens=5,
+                model="claude-haiku-4-5-20251001",
+                provider="anthropic",
+                usage={"input_tokens": 10, "output_tokens": 5},
+            ),
+        }
+
+    with patch(
+        "app.services.provider_router.ProviderRouter.route_stream",
+        side_effect=lambda body: fake_stream(body),
+    ):
+        resp = client.post(
+            "/v1/chat",
+            headers=headers,
+            json={
+                "provider": "anthropic",
+                "model": "claude-haiku-4-5-20251001",
+                "system_prompt": "you help",
+                "user_content": "hello",
+                "stream": True,
+                "metadata": {
+                    "prompt_mode": "PostMeetingChat",
+                    "call_type": "query",
+                },
+            },
+        )
+    assert resp.status_code == 200
+    body = resp.text
+    # done event present but no search_state key in it
+    done_lines = [
+        line for line in body.split("\n")
+        if line.startswith("data: ") and '"done"' in line
+    ]
+    assert done_lines
+    import json as _json
+    done_payload = _json.loads(done_lines[-1][len("data: "):])
+    assert "search_state" not in done_payload
+
+
 def test_reset_date_placeholder_passes_through_to_ios(
     client: TestClient, tmp_db_path: str, mock_provider
 ):

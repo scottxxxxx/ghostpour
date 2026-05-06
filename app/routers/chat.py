@@ -1293,6 +1293,7 @@ async def chat(
             body, request, user, db, provider_router, usage_tracker,
             pricing, tier, feature_hooks, hook_results,
             monthly_used, overage_balance, effective_limit,
+            search_state,
         )
 
     # --- Non-streaming path (original) ---
@@ -1488,11 +1489,16 @@ async def _handle_stream(
     body, request, user, db, provider_router, usage_tracker,
     pricing, tier, feature_hooks, hook_results,
     monthly_used, overage_balance, effective_limit,
+    search_state: dict | None = None,
 ):
     """SSE streaming path for interactive chat queries.
 
     Streams text deltas as they arrive from the provider. Cost recording,
     usage logging, and after_llm hooks run after the stream completes.
+
+    `search_state` (when non-None) is the gate's pre-LLM payload: counter,
+    cap, optional CTA. It's emitted in the final `done` SSE event with
+    `was_used` filled in from the streamed response's usage.
 
     Note: The generator opens its own DB connection because FastAPI's
     request-scoped Depends(get_db) closes before the generator finishes.
@@ -1613,9 +1619,57 @@ async def _handle_stream(
             final_response.cost = cost
             request_cost = cost.get("total_cost", 0.0)
 
+        # Mirror the non-streaming path: count search invocations from
+        # usage, increment the per-user counter, write an audit row.
+        # Fail-open on DB errors (search ran; user gets it free this turn).
+        try:
+            searches_performed = int(
+                (final_response.usage if final_response else {} or {}).get(
+                    "web_search_requests"
+                ) or 0
+            )
+        except (TypeError, ValueError):
+            searches_performed = 0
+
+        # Fill in was_used so iOS can branch on whether search actually
+        # ran for this stream (independent of CTA presence).
+        if search_state is not None:
+            search_state["was_used"] = searches_performed > 0
+
         async for stream_db in _get_db():
             await usage_tracker.record_cost(stream_db, user.id, request_cost, tier, user=user)
             await usage_tracker.log_usage(stream_db, user.id, body, final_response, elapsed_ms)
+
+            if searches_performed > 0:
+                try:
+                    await stream_db.execute(
+                        "UPDATE users SET searches_used = searches_used + ? WHERE id = ?",
+                        (searches_performed, user.id),
+                    )
+                    import uuid as _uuid
+                    await stream_db.execute(
+                        """INSERT INTO search_usage
+                           (id, user_id, request_timestamp, meeting_id, provider,
+                            model, searches_count, search_cost_usd)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (
+                            str(_uuid.uuid4()),
+                            user.id,
+                            datetime.now(timezone.utc).isoformat(),
+                            body.get_meta("meeting_id"),
+                            body.provider,
+                            body.model,
+                            searches_performed,
+                            searches_performed * 0.01,
+                        ),
+                    )
+                    await stream_db.commit()
+                except Exception as e:
+                    logger.warning(
+                        "stream search_usage tracking failed for user %s: %s — "
+                        "search ran, counter not incremented (fail-open)",
+                        user.id, e,
+                    )
 
             for feature_name, hook in feature_hooks.items():
                 state = tier.feature_state(feature_name)
@@ -1624,7 +1678,11 @@ async def _handle_stream(
 
         from app.services.ai_tier import tier_to_ai_tier
 
-        # Final event with metadata (tokens, cost, allocation)
+        # Final event with metadata (tokens, cost, allocation, search).
+        # search_state is included so streaming Meeting Chat queries get
+        # the same CTA + counter signal as the JSON path — without it,
+        # an iOS streaming consumer would silently miss soft/hard-cap
+        # CTAs on the very paths SS wired the inline pill into.
         done_data = {
             "type": "done",
             "input_tokens": final_response.input_tokens if final_response else None,
@@ -1633,6 +1691,8 @@ async def _handle_stream(
             "usage": final_response.usage if final_response else None,
             "ai_tier": tier_to_ai_tier(user.effective_tier),
         }
+        if search_state is not None:
+            done_data["search_state"] = search_state
         if effective_limit != -1:
             new_used = monthly_used + request_cost
             done_data["allocation_percent"] = min(100, new_used / effective_limit * 100)
