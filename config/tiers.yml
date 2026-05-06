@@ -56,6 +56,7 @@ tiers:
       context_quilt: "disabled"
       meeting_reports: "enabled"
       project_chat: "teaser"
+      web_search: "disabled"
     feature_bullets:
       - "~5 hours/month of AI assistance"
       - "Real-time auto-summaries"
@@ -87,6 +88,7 @@ tiers:
       context_quilt: "teaser"
       meeting_reports: "enabled"
       project_chat: "enabled"
+      web_search: "enabled"
     feature_bullets:
       - "Unlimited meetings with AI assistance"
       - "Standard AI"
@@ -122,6 +124,7 @@ tiers:
       context_quilt: "enabled"
       meeting_reports: "enabled"
       project_chat: "enabled"
+      web_search: "enabled"
     feature_bullets:
       - "Unlimited meetings with AI assistance"
       - "Advanced AI for reports and analysis"
@@ -152,6 +155,7 @@ tiers:
       context_quilt: "enabled"
       meeting_reports: "enabled"
       project_chat: "enabled"
+      web_search: "enabled"
     feature_bullets:
       - "Unlimited AI assistance"
       - "All models and providers"
