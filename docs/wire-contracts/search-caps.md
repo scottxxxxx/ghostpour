@@ -6,7 +6,7 @@ tier + monthly cap pre-LLM, decides whether the search tool is attached
 to the upstream Anthropic call, and emits a structured CTA payload iOS
 renders inline.
 
-Last updated: 2026-05-05.
+Last updated: 2026-05-06.
 
 ## Concepts
 
@@ -235,6 +235,23 @@ a search-bearing request first:
 `total: 0` indicates the tier has no search at all (Free) — iOS uses
 this to decide whether to show the search toggle as disabled or to
 route the tap into the upgrade flow.
+
+### Entitlement signal — canonical vs. fallback
+
+`search.total > 0` is the canonical iOS gate signal. `0` for Free,
+`75` for Plus, `120` for Pro.
+
+`/v1/usage/me`.features also carries a `web_search` key
+(`"enabled"` on Plus/Pro/Admin, `"disabled"` on Free) for symmetry
+with other features (`context_quilt`, `project_chat`). Published in
+PR #155 after a field bug where SS clients gating on
+`features["web_search"] == "enabled"` blocked Pro users — the
+features-map entry had been missed when the search-caps gate
+shipped in PRs #149–152.
+
+Both fields stay in sync server-side; clients should prefer
+`search.total` because it folds entitlement and the cap number
+(used for the "X of Y used" pill) into a single read.
 
 ## Audit trail
 
