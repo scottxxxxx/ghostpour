@@ -243,6 +243,12 @@
         <th>Provider</th><th>Model</th><th>Requests</th><th>Input</th><th>Output</th><th>Cost</th><th>Latency</th>
       </tr></thead><tbody></tbody></table></div>
 
+      <h3 style="margin-top:20px">Web Search Activity</h3>
+      <div class="cards" id="user-search-cards"></div>
+      <div class="table-wrap"><table id="user-search-table"><thead><tr>
+        <th>Time</th><th>Model</th><th>Searches</th><th>Cost</th><th>Meeting</th><th></th>
+      </tr></thead><tbody></tbody></table></div>
+
       <h3 style="margin-top:20px">Query Log</h3>
       <div class="table-wrap"><table id="query-log-table"><thead><tr>
         <th>Time</th><th>Type</th><th>Mode</th><th>Model</th><th>In</th><th>Out</th><th>Cost</th><th>Latency</th><th>Status</th><th></th>
@@ -855,8 +861,86 @@ async function showUserDetail(userId, email) {
     <td>${fmtCost(r.cost)}</td><td>${fmtMs(r.avg_latency_ms)}</td>
   </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-dim)">No data</td></tr>';
 
+  // Web search activity (separate endpoint — search_usage audit table)
+  loadSearchActivity(userId, days);
+
   // Query log
   loadQueryLog(userId, 0);
+}
+
+async function loadSearchActivity(userId, days) {
+  const data = await fetch(
+    `${BASE}/webhooks/admin/user/${userId}/search-usage?days=${days}&limit=100`,
+    {headers: {'X-Admin-Key': adminKey}},
+  ).then(r => r.json());
+
+  // Cards: current-period counter + resets-at + window aggregates.
+  const cur = data.current_period || {};
+  const agg = data.window_aggregate || {};
+  const used = cur.used || 0;
+  const total = cur.total || 0;
+  const soft = cur.soft_threshold;
+  // Color the counter relative to the cap: red past hard cap, orange past
+  // soft cap, green otherwise. Free tier (total=0) shows neutral.
+  let counterColor = '';
+  let counterSubtitle = '';
+  if (total > 0) {
+    if (used >= total) {
+      counterColor = 'red';
+      counterSubtitle = 'past hard cap';
+    } else if (soft != null && used >= soft) {
+      counterColor = 'orange';
+      counterSubtitle = 'past soft cap';
+    } else {
+      counterColor = 'green';
+      counterSubtitle = `${total - used} remaining`;
+    }
+  } else {
+    counterSubtitle = 'no entitlement';
+  }
+  const resetsAt = cur.resets_at
+    ? new Date(cur.resets_at).toLocaleDateString([], {month:'short',day:'numeric',year:'numeric'})
+    : '—';
+
+  document.getElementById('user-search-cards').innerHTML =
+    card(
+      'Searches Used (this period)',
+      total > 0 ? `${used} / ${total}` : `${used}`,
+      counterColor,
+      counterSubtitle,
+    ) +
+    card('Period Resets', resetsAt, '') +
+    card(`Searches in ${days}d`, fmt(agg.total_searches || 0), '',
+         `${agg.total_requests || 0} bearing requests`) +
+    card(`Search Cost (${days}d)`,
+         fmtCost(agg.total_cost_usd || 0), 'purple',
+         '$0.01 per Anthropic search');
+
+  // History table — one row per search-bearing response.
+  const tbody = document.querySelector('#user-search-table tbody');
+  tbody.innerHTML = (data.history || []).map(r => {
+    const ts = new Date(r.timestamp);
+    const timeStr = ts.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const dateStr = ts.toLocaleDateString([], {month:'short',day:'numeric'});
+    const modelShort = (r.model || '').split('/').pop() || r.model || '—';
+    const meetingCell = r.meeting_id
+      ? `<span class="mono" style="font-size:11px">${r.meeting_id.slice(0, 8)}…</span>`
+      : '<span style="color:var(--text-dim)">—</span>';
+    // Anthropic's max_uses=5 — flag any row at the ceiling so the
+    // operator can investigate whether the user is regularly maxing it.
+    const countCell = r.searches_count >= 5
+      ? `<span style="color:var(--orange)" title="At per-query max_uses ceiling">${r.searches_count}</span>`
+      : `${r.searches_count}`;
+    return `<tr>
+      <td class="mono" style="font-size:11px">${dateStr} ${timeStr}</td>
+      <td class="mono" style="font-size:11px">${modelShort}</td>
+      <td>${countCell}</td>
+      <td>${fmtCost(r.search_cost_usd)}</td>
+      <td>${meetingCell}</td>
+      <td style="color:var(--text-dim);font-size:11px">${r.usage_log_id ? '🔗' : ''}</td>
+    </tr>`;
+  }).join('') ||
+    '<tr><td colspan="6" style="text-align:center;color:var(--text-dim)">No search activity in this window</td></tr>';
 }
 
 let queryLogCache = [];
