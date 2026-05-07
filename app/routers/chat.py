@@ -1275,6 +1275,27 @@ async def chat(
                     "cta": None,
                 }
 
+    # 5.8. Search-tool nudge. When `search_enabled` survives the gate
+    # (Pro under hard cap; Plus under hard cap; Pro past soft cap), append
+    # a one-sentence note to system_prompt so the model knows the tool is
+    # available and when to reach for it. Without this, heavy in-context
+    # prompts (ProjectChat injects 3+ meeting summaries) anchor Haiku to
+    # the provided content and it never invokes web_search even when the
+    # user explicitly asks about current/external info — observed on a
+    # Pro ProjectChat send 2026-05-07 (request 58065b9d104f).
+    #
+    # Skipped when the gate stripped the flag (non-Anthropic provider,
+    # Free, hard-cap) — no point hinting at a tool the adapter won't
+    # attach.
+    if body.get_meta("search_enabled"):
+        body = body.model_copy(update={
+            "system_prompt": body.system_prompt + (
+                "\n\nYou have access to a web_search tool. Use it when the "
+                "user asks about current events, recent news, or topics that "
+                "aren't covered by the provided context."
+            ),
+        })
+
     # 6. Stream or non-stream based on request + call_type
     # Only stream interactive queries; background tasks (summary, analysis) get full JSON.
     # Project Chat is also forced non-streaming so feature_state can land

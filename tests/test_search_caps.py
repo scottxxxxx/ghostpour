@@ -878,3 +878,130 @@ def test_reset_date_placeholder_passes_through_to_ios(
     assert "{reset_date}" in body  # placeholder preserved
     # Raw ISO available for iOS to format with the user's locale
     assert data["search_state"]["resets_at"] == "2099-01-01T00:00:00Z"
+
+
+# ---------------------------------------------------------------------------
+# Search-tool nudge — added 2026-05-07 after a Pro ProjectChat send
+# decoded with search_enabled=true but the model declined to invoke
+# web_search because the heavy in-context system prompt anchored it to
+# meeting summaries (request 58065b9d104f). When the gate keeps
+# search_enabled=true, the router appends a one-sentence note to
+# system_prompt so the model knows the tool is available.
+# ---------------------------------------------------------------------------
+
+
+_NUDGE_PHRASE = "You have access to a web_search tool"
+
+
+def test_nudge_appended_when_pro_under_caps(
+    client: TestClient, tmp_db_path: str, mock_provider
+):
+    """Pro under hard + soft cap → gate keeps search_enabled, nudge is
+    appended to the system_prompt the adapter sees."""
+    _seed_user_with_search_state(
+        tmp_db_path, user_id="pro-nudge", tier="pro",
+        searches_used=10, monthly_limit=10.00,
+    )
+    headers = {"Authorization": f"Bearer {_jwt_for('pro-nudge')}"}
+    resp = client.post(
+        "/v1/chat",
+        headers=headers,
+        json={
+            "provider": "anthropic",
+            "model": "claude-haiku-4-5-20251001",
+            "system_prompt": "you help",
+            "user_content": "what's new in ABM",
+            "metadata": {"search_enabled": True},
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    sent = mock_provider.call_args.args[0]
+    assert _NUDGE_PHRASE in sent.system_prompt
+    # Original prompt content preserved
+    assert sent.system_prompt.startswith("you help")
+    # Flag still set so adapter attaches the tool
+    assert sent.get_meta("search_enabled") is True
+
+
+def test_nudge_appended_for_pro_past_soft_cap(
+    client: TestClient, tmp_db_path: str, mock_provider
+):
+    """Pro past soft cap (≥80) but under hard cap → gate keeps
+    search_enabled and surfaces the soft-warning CTA. Nudge still
+    appended."""
+    _seed_user_with_search_state(
+        tmp_db_path, user_id="pro-soft-nudge", tier="pro",
+        searches_used=85, monthly_limit=10.00,
+    )
+    headers = {"Authorization": f"Bearer {_jwt_for('pro-soft-nudge')}"}
+    resp = client.post(
+        "/v1/chat",
+        headers=headers,
+        json={
+            "provider": "anthropic",
+            "model": "claude-haiku-4-5-20251001",
+            "system_prompt": "you help",
+            "user_content": "search?",
+            "metadata": {"search_enabled": True},
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    sent = mock_provider.call_args.args[0]
+    assert _NUDGE_PHRASE in sent.system_prompt
+
+
+def test_nudge_NOT_appended_when_hard_cap_strips_flag(
+    client: TestClient, tmp_db_path: str, mock_provider
+):
+    """Pro at hard cap → gate strips search_enabled → no nudge (since
+    the adapter won't attach the tool, hinting at it would be a lie)."""
+    _seed_user_with_search_state(
+        tmp_db_path, user_id="pro-hard-no-nudge", tier="pro",
+        searches_used=120, monthly_limit=10.00,
+    )
+    headers = {"Authorization": f"Bearer {_jwt_for('pro-hard-no-nudge')}"}
+    resp = client.post(
+        "/v1/chat",
+        headers=headers,
+        json={
+            "provider": "anthropic",
+            "model": "claude-haiku-4-5-20251001",
+            "system_prompt": "you help",
+            "user_content": "search?",
+            "metadata": {"search_enabled": True},
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    sent = mock_provider.call_args.args[0]
+    assert _NUDGE_PHRASE not in sent.system_prompt
+    assert sent.get_meta("search_enabled") is False  # flag stripped
+
+
+def test_nudge_NOT_appended_when_search_enabled_false(
+    client: TestClient, tmp_db_path: str, mock_provider
+):
+    """Default (search_enabled absent / false) → no nudge, no tool."""
+    _seed_user_with_search_state(
+        tmp_db_path, user_id="pro-no-search", tier="pro",
+        searches_used=0, monthly_limit=10.00,
+    )
+    headers = {"Authorization": f"Bearer {_jwt_for('pro-no-search')}"}
+    resp = client.post(
+        "/v1/chat",
+        headers=headers,
+        json={
+            "provider": "anthropic",
+            "model": "claude-haiku-4-5-20251001",
+            "system_prompt": "you help",
+            "user_content": "hello",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    sent = mock_provider.call_args.args[0]
+    assert _NUDGE_PHRASE not in sent.system_prompt
+
+
+# (Non-Anthropic provider strip is verified in the adapter-level
+# tests above; we don't reproduce it here because tier-based provider
+# allowlists in tiers.yml block managed users from openai entirely,
+# which would 403 before reaching the gate.)
