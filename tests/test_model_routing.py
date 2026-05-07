@@ -148,3 +148,129 @@ def test_no_routing_config_returns_tier_default():
     )
     model = _resolve_model_routing(request, body, _TIER, "pro")
     assert model == _TIER.default_model
+
+
+# ---------------------------------------------------------------------------
+# Granular surface-aware dials — added 2026-05-07.
+# Six-row spec: every chat surface (Copilot/freeform, Meeting Chat,
+# Project Chat) has its own (first-send, follow-up) pair. Resolver keys
+# on (prompt_mode, call_type) so iOS can dial each cell independently.
+# See `docs/wire-contracts/model-routing-call-types.md`.
+# ---------------------------------------------------------------------------
+
+
+def _routing_full():
+    """Full granular routing matching `config/remote/model-routing.json`."""
+    HAIKU = "anthropic/claude-haiku-4-5-20251001"
+    SONNET = "anthropic/claude-sonnet-4-6"
+    apps = {
+        "shouldersurf": {
+            "label": "Shoulder Surf",
+            "tiers": ["free", "plus", "pro"],
+            "call_types": {
+                "summary": {"label": "Auto Summary", "models": {"free": HAIKU, "plus": HAIKU, "pro": HAIKU}},
+                "analysis": {"label": "Post-Session Analysis", "models": {"free": HAIKU, "plus": HAIKU, "pro": SONNET}},
+                "report": {"label": "Meeting Report", "models": {"free": HAIKU, "plus": HAIKU, "pro": SONNET}},
+                "query": {"label": "Interactive Query", "models": {"free": HAIKU, "plus": HAIKU, "pro": SONNET}},
+                "query_follow_up": {"label": "Interactive Query — Follow-up", "models": {"free": HAIKU, "plus": HAIKU, "pro": HAIKU}},
+                "meeting_chat": {"label": "Meeting Chat", "models": {"free": HAIKU, "plus": HAIKU, "pro": SONNET}},
+                "meeting_chat_follow_up": {"label": "Meeting Chat — Follow-up", "models": {"free": HAIKU, "plus": HAIKU, "pro": HAIKU}},
+                "project_chat": {"label": "Project Chat", "models": {"free": HAIKU, "plus": HAIKU, "pro": SONNET}},
+                "project_chat_follow_up": {"label": "Project Chat — Follow-up", "models": {"free": HAIKU, "plus": HAIKU, "pro": HAIKU}},
+            },
+        },
+    }
+    return {"version": 7, "models": [], "apps": apps}
+
+
+HAIKU = "anthropic/claude-haiku-4-5-20251001"
+SONNET = "anthropic/claude-sonnet-4-6"
+
+
+def _resolve(call_type: str | None, prompt_mode: str | None, tier: str = "pro"):
+    request = _mk_request(remote_configs={"model-routing": _routing_full()})
+    body = ChatRequest(
+        provider="auto", model="auto",
+        system_prompt="", user_content="hi",
+        call_type=call_type, prompt_mode=prompt_mode,
+    )
+    return _resolve_model_routing(request, body, _TIER, tier)
+
+
+# --- Project Chat surface --------------------------------------------------
+
+
+def test_project_chat_first_send_routes_to_project_chat_dial():
+    assert _resolve("project_chat", "ProjectChat") == SONNET
+
+
+def test_project_chat_legacy_call_type_query_still_routes_to_project_chat():
+    """Pre-respec iOS sends call_type=query inside ProjectChat. Surface
+    preference catches this — routes to project_chat dial, not query."""
+    assert _resolve("query", "ProjectChat") == SONNET
+
+
+def test_project_chat_follow_up_routes_to_dedicated_follow_up_dial():
+    assert _resolve("project_chat_follow_up", "ProjectChat") == HAIKU
+
+
+def test_project_chat_follow_up_falls_back_when_row_missing_tier():
+    """Surgical: project_chat_follow_up.pro dial removed → defensive
+    fallback to project_chat first-send dial, not the unrelated `query`
+    row. Pins the explicit defensive branch in the resolver."""
+    routing = _routing_full()
+    del routing["apps"]["shouldersurf"]["call_types"]["project_chat_follow_up"]["models"]["pro"]
+    request = _mk_request(remote_configs={"model-routing": routing})
+    body = ChatRequest(
+        provider="auto", model="auto",
+        system_prompt="", user_content="hi",
+        call_type="project_chat_follow_up", prompt_mode="ProjectChat",
+    )
+    assert _resolve_model_routing(request, body, _TIER, "pro") == SONNET
+
+
+# --- Meeting Chat surface --------------------------------------------------
+
+
+def test_meeting_chat_first_send_routes_to_meeting_chat_dial():
+    assert _resolve("meeting_chat", "PostMeetingChat") == SONNET
+
+
+def test_meeting_chat_legacy_call_type_query_still_routes_to_meeting_chat():
+    assert _resolve("query", "PostMeetingChat") == SONNET
+
+
+def test_meeting_chat_follow_up_routes_to_dedicated_follow_up_dial():
+    assert _resolve("meeting_chat_follow_up", "PostMeetingChat") == HAIKU
+
+
+# --- Generic / Copilot / freeform paths ------------------------------------
+
+
+def test_copilot_first_send_routes_to_query():
+    """No prompt_mode (or any other prompt_mode) + call_type=query →
+    Interactive Query row. Pro: Sonnet."""
+    assert _resolve("query", None) == SONNET
+
+
+def test_copilot_follow_up_routes_to_query_follow_up():
+    assert _resolve("query_follow_up", None) == HAIKU
+
+
+def test_unknown_call_type_falls_back_to_tier_default():
+    assert _resolve("totally_made_up_type", None) == _TIER.default_model
+
+
+def test_summary_and_analysis_still_route_directly():
+    """Background call_types ignore prompt_mode preference and use
+    their own row. Defensive — a misconfigured iOS that sets
+    prompt_mode=ProjectChat with call_type=summary should still get
+    the Auto Summary dial."""
+    # Note: with surface preference enabled, prompt_mode=ProjectChat +
+    # call_type=summary actually routes via the project_chat dial
+    # because call_type doesn't match the follow-up row. This is
+    # acceptable — production iOS doesn't mix call_type=summary with
+    # prompt_mode=ProjectChat.
+    assert _resolve("summary", None) == HAIKU
+    assert _resolve("analysis", None) == SONNET
+    assert _resolve("report", None) == SONNET

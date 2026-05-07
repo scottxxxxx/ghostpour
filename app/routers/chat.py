@@ -130,49 +130,84 @@ def _resolve_model_routing(
 ) -> str | None:
     """Resolve which model to use for an 'auto' request.
 
-    Checks the model-routing config (editable via admin dashboard):
+    Looks up the model-routing config (editable via admin dashboard):
       apps.<app_id>.call_types.<call_type>.models.<tier_name> → model
 
-    Project Chat override: when `prompt_mode == "ProjectChat"`, prefer the
-    `project_chat` call_type entry if defined. Lets the dashboard dial
-    Project Chat models independently from the `query` row that other
-    interactive paths (in-meeting freeform, follow-ups) share — without
-    requiring an iOS change to send a different `call_type`. Falls
-    through to the regular call_type lookup if `project_chat` isn't
-    configured or doesn't have an entry for this tier.
+    Two-stage lookup:
 
-    Falls back to the tier's default_model if no routing match is found.
+    1. **Surface-aware preference** — when `prompt_mode` identifies a
+       chat surface (ProjectChat / PostMeetingChat), prefer the
+       surface's dedicated dial. Within a surface, follow-ups use the
+       `<surface>_follow_up` row when iOS sends the matching
+       `call_type`; otherwise the first-send dial. This lets the
+       dashboard dial each (surface × first/follow-up) cell
+       independently without requiring iOS to send an exotic
+       call_type for every send.
+
+    2. **Direct call_type lookup** — for surfaces without a dedicated
+       prompt_mode (Copilot / freeform / TR app), use the call_type
+       row as-is. This is also the fallback when the surface dial
+       above doesn't have an entry for the tier.
+
+    Falls back to `tier.default_model` if neither lookup finds a row.
+
+    See `docs/wire-contracts/model-routing-call-types.md` for the
+    iOS-side spec.
     """
     configs = request.app.state.remote_configs
     routing = configs.get("model-routing", {}).get("apps", {})
 
-    if routing:
-        app_id = getattr(request.state, "app_id", "unknown")
-        call_type = body.get_meta("call_type")
-        prompt_mode = body.get_meta("prompt_mode")
+    if not routing:
+        return tier.default_model
 
-        app_config = routing.get(app_id, {})
+    app_id = getattr(request.state, "app_id", "unknown")
+    call_type = body.get_meta("call_type")
+    prompt_mode = body.get_meta("prompt_mode")
+    app_config = routing.get(app_id, {})
+    if not app_config:
+        return tier.default_model
 
-        # Project Chat preference: try the dedicated dial first.
-        if app_config and prompt_mode == "ProjectChat":
-            pc_config = app_config.get("call_types", {}).get("project_chat", {})
-            if pc_config:
-                pc_models = pc_config.get("models", {})
-                pc_model = pc_models.get(tier_name) or pc_models.get("default")
-                if pc_model:
-                    return pc_model
-            # If project_chat row exists but has no entry for this tier,
-            # fall through to the call_type-keyed lookup below.
+    call_types_cfg = app_config.get("call_types", {})
 
-        if app_config and call_type:
-            call_config = app_config.get("call_types", {}).get(call_type, {})
-            if call_config:
-                models = call_config.get("models", {})
-                model = models.get(tier_name) or models.get("default")
-                if model:
-                    return model
+    def _model_from_row(row_name: str) -> str | None:
+        row = call_types_cfg.get(row_name)
+        if not row:
+            return None
+        models = row.get("models", {})
+        return models.get(tier_name) or models.get("default")
 
-    # Fall back to tier's default model
+    # 1. Surface-aware preference. Each surface has a (first, follow_up)
+    #    pair of dials; iOS picks which by setting `call_type` to the
+    #    follow-up name. If iOS hasn't migrated yet, the follow-up name
+    #    won't match and we fall through to the first-send dial — which
+    #    preserves PR #161 behavior for legacy clients sending
+    #    call_type=query inside ProjectChat.
+    surface_dials = {
+        "ProjectChat": ("project_chat", "project_chat_follow_up"),
+        "PostMeetingChat": ("meeting_chat", "meeting_chat_follow_up"),
+    }
+    surface = surface_dials.get(prompt_mode)
+    if surface is not None:
+        first_row, follow_up_row = surface
+        if call_type == follow_up_row:
+            model = _model_from_row(follow_up_row)
+            if model:
+                return model
+            # Follow-up row missing this tier — defensive fallback to the
+            # surface's first-send dial rather than silently routing to
+            # the unrelated `query` row.
+        model = _model_from_row(first_row)
+        if model:
+            return model
+        # Surface row exists but has no entry for this tier; fall through
+        # to direct call_type lookup so the request still resolves.
+
+    # 2. Direct call_type lookup (Copilot / freeform / TR / fallback).
+    if call_type:
+        model = _model_from_row(call_type)
+        if model:
+            return model
+
     return tier.default_model
 
 
