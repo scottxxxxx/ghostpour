@@ -158,6 +158,47 @@ with no buttons.
 }
 ```
 
+`search_state.used` reflects the **post-increment** count for the
+current response (i.e., the value the user-side counter pill should
+adopt after rendering). When the model runs N searches for this turn,
+`used` = pre-LLM counter + N. Pre-2026-05-07 the field was the
+pre-increment value, which made iOS pills appear stuck after a
+search-bearing response.
+
+### 5. Search not available for the active model → counter unchanged + advisory CTA
+
+Fires when a Plus or Pro user has the search toggle on but their
+active model is non-Anthropic (BYOK / on-device / future provider).
+Server strips `search_enabled` so the adapter doesn't attach the
+tool, query proceeds normally, and `search_state` carries a
+`search_unavailable_for_provider` CTA so iOS can render an honest
+"switch to SS AI to use web search" affordance instead of inferring
+from absence.
+
+`used` and `total` are null in this branch — iOS reads the canonical
+counter from `/v1/usage/me` on app foreground; this response just
+flags that *this particular turn* won't run a search.
+
+```json
+{
+  "text": "<assistant response>",
+  "search_state": {
+    "used": null,
+    "total": null,
+    "resets_at": null,
+    "cta": {
+      "kind": "search_unavailable_for_provider",
+      "title": "Web search not available for this model",
+      "body": "Switch to SS AI to use web search on this query.",
+      "primary_action": {"label": "OK", "action": "dismiss"}
+    }
+  }
+}
+```
+
+Free tier never reaches this branch — Free with `search_enabled=true`
+is short-circuited earlier by the paywall envelope (case 1 above).
+
 ## SSE streaming parity
 
 Streaming responses (Meeting Chat, freeform Response) carry
