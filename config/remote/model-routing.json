@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 7,
   "models": [
     {"id": "anthropic/claude-opus-4-7", "label": "Opus 4.7"},
     {"id": "anthropic/claude-sonnet-4-6", "label": "Sonnet 4.6"},
@@ -26,12 +26,44 @@
             "pro": "anthropic/claude-sonnet-4-6"
           }
         },
+        "report": {
+          "label": "Meeting Report",
+          "models": {
+            "free": "anthropic/claude-haiku-4-5-20251001",
+            "plus": "anthropic/claude-haiku-4-5-20251001",
+            "pro": "anthropic/claude-sonnet-4-6"
+          }
+        },
         "query": {
           "label": "Interactive Query",
           "models": {
             "free": "anthropic/claude-haiku-4-5-20251001",
             "plus": "anthropic/claude-haiku-4-5-20251001",
             "pro": "anthropic/claude-sonnet-4-6"
+          }
+        },
+        "query_follow_up": {
+          "label": "Interactive Query — Follow-up",
+          "models": {
+            "free": "anthropic/claude-haiku-4-5-20251001",
+            "plus": "anthropic/claude-haiku-4-5-20251001",
+            "pro": "anthropic/claude-haiku-4-5-20251001"
+          }
+        },
+        "meeting_chat": {
+          "label": "Meeting Chat",
+          "models": {
+            "free": "anthropic/claude-haiku-4-5-20251001",
+            "plus": "anthropic/claude-haiku-4-5-20251001",
+            "pro": "anthropic/claude-sonnet-4-6"
+          }
+        },
+        "meeting_chat_follow_up": {
+          "label": "Meeting Chat — Follow-up",
+          "models": {
+            "free": "anthropic/claude-haiku-4-5-20251001",
+            "plus": "anthropic/claude-haiku-4-5-20251001",
+            "pro": "anthropic/claude-haiku-4-5-20251001"
           }
         },
         "project_chat": {
@@ -42,20 +74,12 @@
             "pro": "anthropic/claude-sonnet-4-6"
           }
         },
-        "follow_up": {
-          "label": "Follow-up Query",
+        "project_chat_follow_up": {
+          "label": "Project Chat — Follow-up",
           "models": {
             "free": "anthropic/claude-haiku-4-5-20251001",
             "plus": "anthropic/claude-haiku-4-5-20251001",
             "pro": "anthropic/claude-haiku-4-5-20251001"
-          }
-        },
-        "report": {
-          "label": "Meeting Report",
-          "models": {
-            "free": "anthropic/claude-haiku-4-5-20251001",
-            "plus": "anthropic/claude-haiku-4-5-20251001",
-            "pro": "anthropic/claude-sonnet-4-6"
           }
         }
       }
