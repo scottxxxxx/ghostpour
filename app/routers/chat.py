@@ -133,6 +133,14 @@ def _resolve_model_routing(
     Checks the model-routing config (editable via admin dashboard):
       apps.<app_id>.call_types.<call_type>.models.<tier_name> → model
 
+    Project Chat override: when `prompt_mode == "ProjectChat"`, prefer the
+    `project_chat` call_type entry if defined. Lets the dashboard dial
+    Project Chat models independently from the `query` row that other
+    interactive paths (in-meeting freeform, follow-ups) share — without
+    requiring an iOS change to send a different `call_type`. Falls
+    through to the regular call_type lookup if `project_chat` isn't
+    configured or doesn't have an entry for this tier.
+
     Falls back to the tier's default_model if no routing match is found.
     """
     configs = request.app.state.remote_configs
@@ -141,8 +149,21 @@ def _resolve_model_routing(
     if routing:
         app_id = getattr(request.state, "app_id", "unknown")
         call_type = body.get_meta("call_type")
+        prompt_mode = body.get_meta("prompt_mode")
 
         app_config = routing.get(app_id, {})
+
+        # Project Chat preference: try the dedicated dial first.
+        if app_config and prompt_mode == "ProjectChat":
+            pc_config = app_config.get("call_types", {}).get("project_chat", {})
+            if pc_config:
+                pc_models = pc_config.get("models", {})
+                pc_model = pc_models.get(tier_name) or pc_models.get("default")
+                if pc_model:
+                    return pc_model
+            # If project_chat row exists but has no entry for this tier,
+            # fall through to the call_type-keyed lookup below.
+
         if app_config and call_type:
             call_config = app_config.get("call_types", {}).get(call_type, {})
             if call_config:
