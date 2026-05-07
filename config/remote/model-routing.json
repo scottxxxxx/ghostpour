@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "models": [
     {"id": "anthropic/claude-opus-4-7", "label": "Opus 4.7"},
     {"id": "anthropic/claude-sonnet-4-6", "label": "Sonnet 4.6"},
@@ -28,6 +28,14 @@
         },
         "query": {
           "label": "Interactive Query",
+          "models": {
+            "free": "anthropic/claude-haiku-4-5-20251001",
+            "plus": "anthropic/claude-haiku-4-5-20251001",
+            "pro": "anthropic/claude-sonnet-4-6"
+          }
+        },
+        "project_chat": {
+          "label": "Project Chat",
           "models": {
             "free": "anthropic/claude-haiku-4-5-20251001",
             "plus": "anthropic/claude-haiku-4-5-20251001",
