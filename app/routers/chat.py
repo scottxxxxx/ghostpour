@@ -1238,11 +1238,42 @@ async def chat(
             if body.metadata is None:
                 body.metadata = {}
             body.metadata["search_enabled"] = False
-            # No search_state surfaced — the request semantically didn't
-            # ask for search on a search-capable model. iOS should have
-            # disabled the toggle client-side; if we got here the user
-            # bypassed it somehow, and silently ignoring is friendlier
-            # than spamming a CTA.
+            # Surface a search_state sidecar with the tier's
+            # `cta_unavailable` template so iOS can dispatch on
+            # `cta.kind == "search_unavailable_for_provider"` the same
+            # way it dispatches on `search_cap_exhausted`. Closes the
+            # silent-strip gap that caused stuck-counter reports during
+            # SS smoke testing (response field was absent → iOS had no
+            # UX anchor for "search wasn't run"). Counters left null
+            # because they're not load-bearing here; iOS reads
+            # used/total from /v1/usage/me on app foreground.
+            unavailable_caps = get_search_caps(
+                request.app.state.remote_configs,
+                user.effective_tier,
+                locale=locale,
+            )
+            search_state = {
+                "used": None,
+                "total": None,
+                "resets_at": None,
+                "cta": format_cta(
+                    unavailable_caps.cta_unavailable,
+                    used=0,
+                    total=unavailable_caps.searches_per_month,
+                ) if unavailable_caps.cta_unavailable else None,
+            }
+            # Defensive log: paid-tier users with a search entitlement
+            # should never end up here. If they do, model-routing has
+            # drifted (e.g., a future config change pointed Pro `query`
+            # at a non-Anthropic provider). Log so we catch it before
+            # it becomes a stuck-counter ticket.
+            if user.effective_tier in ("plus", "pro"):
+                logger.warning(
+                    "paid_tier_search_non_anthropic_provider tier=%s "
+                    "provider=%s model=%s — model-routing may have "
+                    "drifted; search entitlement is unusable",
+                    user.effective_tier, body.provider, body.model,
+                )
         else:
             search_caps_locale = locale  # already resolved for project-chat cap above
             caps = get_search_caps(
@@ -1435,6 +1466,15 @@ async def chat(
                 "UPDATE users SET searches_used = searches_used + ? WHERE id = ?",
                 (searches_performed, user.id),
             )
+            # Bump the on-the-wire counter to match the post-increment
+            # DB state so iOS's `updateSearchUsage(from: search_state)`
+            # advances the pill in lockstep with this response. Without
+            # this, search_state.used is the pre-LLM snapshot and iOS
+            # writes back the same value it already had — the pill
+            # appears frozen until /v1/usage/me is fetched on app
+            # foreground (observed bug, request 19:46:00 UTC 2026-05-07).
+            if search_state is not None and search_state.get("used") is not None:
+                search_state["used"] = search_state["used"] + searches_performed
             # Audit row: one per response. Cost = $10 / 1000 searches
             # (Anthropic flat fee for web_search tool usage); the input
             # tokens consumed by returned search content are tracked
@@ -1723,6 +1763,15 @@ async def _handle_stream(
                         "UPDATE users SET searches_used = searches_used + ? WHERE id = ?",
                         (searches_performed, user.id),
                     )
+                    # Mirror the non-streaming path: bump search_state.used
+                    # so the SSE done event carries the post-increment count.
+                    if (
+                        search_state is not None
+                        and search_state.get("used") is not None
+                    ):
+                        search_state["used"] = (
+                            search_state["used"] + searches_performed
+                        )
                     import uuid as _uuid
                     await stream_db.execute(
                         """INSERT INTO search_usage
