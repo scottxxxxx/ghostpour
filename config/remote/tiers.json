@@ -82,7 +82,13 @@
             "primary_action": {"label": "Upgrade", "action": "open_paywall"},
             "secondary_action": {"label": "OK", "action": "dismiss"}
           },
-          "cta_soft_cap": null
+          "cta_soft_cap": null,
+          "cta_unavailable": {
+            "kind": "search_unavailable_for_provider",
+            "title": "Web search not available for this model",
+            "body": "Switch to SS AI to use web search on this query.",
+            "primary_action": {"label": "OK", "action": "dismiss"}
+          }
         }
       }
     },
@@ -128,6 +134,12 @@
             "kind": "search_soft_cap_warning",
             "title": "Approaching your monthly search limit",
             "body": "You've used {used} of {total} searches this month."
+          },
+          "cta_unavailable": {
+            "kind": "search_unavailable_for_provider",
+            "title": "Web search not available for this model",
+            "body": "Switch to SS AI to use web search on this query.",
+            "primary_action": {"label": "OK", "action": "dismiss"}
           }
         }
       }

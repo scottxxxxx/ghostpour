@@ -82,7 +82,13 @@
             "primary_action": {"label": "アップグレード", "action": "open_paywall"},
             "secondary_action": {"label": "OK", "action": "dismiss"}
           },
-          "cta_soft_cap": null
+          "cta_soft_cap": null,
+          "cta_unavailable": {
+            "kind": "search_unavailable_for_provider",
+            "title": "このモデルではWeb検索は利用できません",
+            "body": "このクエリでWeb検索を使うには、SS AIに切り替えてください。",
+            "primary_action": {"label": "OK", "action": "dismiss"}
+          }
         }
       }
     },
@@ -128,6 +134,12 @@
             "kind": "search_soft_cap_warning",
             "title": "月間検索上限に近づいています",
             "body": "今月{used}/{total}回の検索を使用しました。"
+          },
+          "cta_unavailable": {
+            "kind": "search_unavailable_for_provider",
+            "title": "このモデルではWeb検索は利用できません",
+            "body": "このクエリでWeb検索を使うには、SS AIに切り替えてください。",
+            "primary_action": {"label": "OK", "action": "dismiss"}
           }
         }
       }
