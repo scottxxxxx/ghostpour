@@ -33,6 +33,21 @@ class TestCaptureTierMetadata:
         assert mock_cq["capture"].await_count == 1
         assert mock_cq["capture"].call_args.kwargs["subscription_tier"] == "free"
 
+    def test_admin_capture_carries_target_user_tier(
+        self, client_with_cq, pro_user, mock_cq
+    ):
+        resp = client_with_cq.post(
+            "/webhooks/admin/capture-transcript",
+            json={
+                "user_id": pro_user["user_id"],
+                "transcript": "...",
+                "meeting_id": "m-admin",
+            },
+            headers={"X-Admin-Key": "test-admin-key"},
+        )
+        assert resp.status_code == 200
+        assert mock_cq["capture"].call_args.kwargs["subscription_tier"] == "pro"
+
 
 class TestNotifyTierChangeClient:
     """Direct tests of the cq.notify_tier_change client."""
