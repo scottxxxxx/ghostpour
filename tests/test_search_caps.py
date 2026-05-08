@@ -241,6 +241,110 @@ def test_anthropic_no_tools_when_metadata_absent():
     assert "tools" not in body
 
 
+def test_anthropic_stream_counts_web_search_invocations():
+    """Streaming responses must populate usage['web_search_requests']
+    by counting `content_block_start` events whose content_block is a
+    server_tool_use named 'web_search'. Without this, the chat router's
+    post-stream gate (chat.py:1742) reads 0 and never writes an audit
+    row or increments the per-user cap counter — meaning every
+    streaming search would be untracked and effectively free-to-the-user
+    while Anthropic still bills us."""
+    import asyncio as _asyncio
+
+    sse_lines = [
+        # message_start
+        'data: {"type":"message_start","message":{"id":"msg_1",'
+        '"model":"claude-sonnet-4-6","usage":{"input_tokens":42}}}',
+        # First web_search invocation
+        'data: {"type":"content_block_start","index":0,'
+        '"content_block":{"type":"server_tool_use","name":"web_search"}}',
+        'data: {"type":"content_block_stop","index":0}',
+        # Second web_search invocation (chained)
+        'data: {"type":"content_block_start","index":1,'
+        '"content_block":{"type":"server_tool_use","name":"web_search"}}',
+        'data: {"type":"content_block_stop","index":1}',
+        # Final text block
+        'data: {"type":"content_block_start","index":2,'
+        '"content_block":{"type":"text","text":""}}',
+        'data: {"type":"content_block_delta","index":2,'
+        '"delta":{"type":"text_delta","text":"answer"}}',
+        'data: {"type":"content_block_stop","index":2}',
+        # Wrap up
+        'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},'
+        '"usage":{"output_tokens":7}}',
+        'data: {"type":"message_stop"}',
+    ]
+
+    async def fake_post_stream(_self, _url, _body, _headers):
+        for line in sse_lines:
+            yield line
+
+    request = ChatRequest(
+        provider="anthropic",
+        model="claude-sonnet-4-6",
+        system_prompt="hi",
+        user_content="search",
+        metadata={"search_enabled": True},
+    )
+
+    async def _drain():
+        events = []
+        with patch.object(AnthropicAdapter, "_post_stream", fake_post_stream):
+            async for ev in _adapter().send_request_stream(request):
+                events.append(ev)
+        return events
+
+    events = _asyncio.run(_drain())
+    done = [e for e in events if e.get("done")]
+    assert done, f"no done event in stream: {events!r}"
+    final_response = done[-1]["response"]
+    assert final_response.usage.get("web_search_requests") == 2
+    # Sanity: text accumulation still works alongside the new counter.
+    assert final_response.text == "answer"
+
+
+def test_anthropic_stream_omits_web_search_requests_when_no_invocation():
+    """No server_tool_use blocks → no `web_search_requests` key. Guards
+    against accidentally writing 0 (which would still be falsy but
+    pollutes usage shape) when the model declined to call the tool."""
+    import asyncio as _asyncio
+
+    sse_lines = [
+        'data: {"type":"message_start","message":{"id":"msg_1",'
+        '"model":"claude-sonnet-4-6","usage":{"input_tokens":42}}}',
+        'data: {"type":"content_block_start","index":0,'
+        '"content_block":{"type":"text","text":""}}',
+        'data: {"type":"content_block_delta","index":0,'
+        '"delta":{"type":"text_delta","text":"answer"}}',
+        'data: {"type":"content_block_stop","index":0}',
+        'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},'
+        '"usage":{"output_tokens":7}}',
+    ]
+
+    async def fake_post_stream(_self, _url, _body, _headers):
+        for line in sse_lines:
+            yield line
+
+    request = ChatRequest(
+        provider="anthropic",
+        model="claude-sonnet-4-6",
+        system_prompt="hi",
+        user_content="hello",
+        metadata={"search_enabled": True},
+    )
+
+    async def _drain():
+        events = []
+        with patch.object(AnthropicAdapter, "_post_stream", fake_post_stream):
+            async for ev in _adapter().send_request_stream(request):
+                events.append(ev)
+        return events
+
+    events = _asyncio.run(_drain())
+    final_response = [e for e in events if e.get("done")][-1]["response"]
+    assert "web_search_requests" not in final_response.usage
+
+
 # ---------------------------------------------------------------------------
 # End-to-end: chat router gate behavior
 # ---------------------------------------------------------------------------
