@@ -11,6 +11,7 @@ import logging
 import re
 from typing import Any
 
+from app.config import get_settings
 from app.models.chat import ChatRequest, ChatResponse
 from app.models.feature import FeatureDefinition
 from app.models.tier import TierDefinition
@@ -63,8 +64,14 @@ class ContextQuiltHook:
             if cq_result.get("context"):
                 cq_context = cq_result["context"]
                 # Sanitize "(you)" suffixes from CQ context to prevent the LLM
-                # from echoing them in output (e.g., "Scott (you) decided...")
-                cq_context = _sanitize_you_suffix(cq_context)
+                # from echoing them in output (e.g., "Scott (you) decided...").
+                # Kill-switch — CQ #43 + #93 tightened upstream extraction so
+                # new patches shouldn't carry the "(you)" suffix; setting
+                # CZ_CQ_DISABLE_YOU_SUFFIX_SANITIZER=true on a canary lets us
+                # verify unsanitized recall is grammatical before retiring
+                # the regex.
+                if not get_settings().cq_disable_you_suffix_sanitizer:
+                    cq_context = _sanitize_you_suffix(cq_context)
                 if "{{context_quilt}}" in body.system_prompt:
                     body = body.model_copy(update={
                         "system_prompt": body.system_prompt.replace("{{context_quilt}}", cq_context)
