@@ -142,6 +142,7 @@ class AnthropicAdapter(ProviderAdapter):
         stop_reason = ""
         cache_creation = 0
         cache_read = 0
+        web_search_count = 0
 
         try:
             async for line in self._post_stream(self.base_url, body, headers):
@@ -162,6 +163,20 @@ class AnthropicAdapter(ProviderAdapter):
                         input_tokens = usage.get("input_tokens", 0)
                         cache_creation = usage.get("cache_creation_input_tokens", 0)
                         cache_read = usage.get("cache_read_input_tokens", 0)
+
+                    elif event_type == "content_block_start":
+                        # Anthropic emits one content_block_start per
+                        # server_tool_use invocation. Mirror parse_response's
+                        # counter so streaming responses populate
+                        # web_search_requests; without this, the chat router's
+                        # post-stream gate reads 0, no audit row is written,
+                        # and the per-user cap counter never advances.
+                        cb = event.get("content_block", {})
+                        if (
+                            cb.get("type") == "server_tool_use"
+                            and cb.get("name") == "web_search"
+                        ):
+                            web_search_count += 1
 
                     elif event_type == "content_block_delta":
                         delta = event.get("delta", {})
@@ -192,6 +207,8 @@ class AnthropicAdapter(ProviderAdapter):
             "model_version": model_version,
             "finish_reason": stop_reason,
         }
+        if web_search_count:
+            usage_dict["web_search_requests"] = web_search_count
 
         final_response = ChatResponse(
             text=full_text,
