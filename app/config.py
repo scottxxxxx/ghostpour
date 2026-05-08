@@ -53,6 +53,16 @@ class Settings(BaseSettings):
     cq_app_id: str = "cloudzap"        # App identifier for CQ (UUID or legacy string)
     cq_client_secret: str = ""         # Client secret for CQ JWT auth (empty = use X-App-ID fallback)
     cq_recall_timeout_ms: int = 200    # Max wait for CQ recall (ms)
+    # Render-time "(you)" suffix sanitizer in the CQ recall context.
+    # Historical patches stored "Name (you)" forms that the LLM would echo
+    # back. CQ #43 (extraction voice rules) and #93 (self-typed-patch voice
+    # + owner stripping) tightened the upstream extraction so new patches
+    # use second-person "You" natively. The render-time regex should be
+    # retiring; this flag lets a canary build run without it to confirm.
+    # Default false (sanitizer ON) — matches today's behavior. Flip to
+    # true on a single canary deploy to see whether unsanitized recall
+    # produces grammatical output.
+    cq_disable_you_suffix_sanitizer: bool = False
 
     # Database
     database_url: str = "sqlite+aiosqlite:///./data/ghostpour.db"
