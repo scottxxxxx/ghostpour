@@ -11,6 +11,7 @@ import logging
 import re
 from typing import Any
 
+from app.config import get_settings
 from app.models.chat import ChatRequest, ChatResponse
 from app.models.feature import FeatureDefinition
 from app.models.tier import TierDefinition
@@ -63,16 +64,33 @@ class ContextQuiltHook:
             if cq_result.get("context"):
                 cq_context = cq_result["context"]
                 # Sanitize "(you)" suffixes from CQ context to prevent the LLM
-                # from echoing them in output (e.g., "Scott (you) decided...")
-                cq_context = _sanitize_you_suffix(cq_context)
+                # from echoing them in output (e.g., "Scott (you) decided...").
+                # Kill-switch — CQ #43 + #93 tightened upstream extraction so
+                # new patches shouldn't carry the "(you)" suffix; setting
+                # CZ_CQ_DISABLE_YOU_SUFFIX_SANITIZER=true on a canary lets us
+                # verify unsanitized recall is grammatical before retiring
+                # the regex.
+                if not get_settings().cq_disable_you_suffix_sanitizer:
+                    cq_context = _sanitize_you_suffix(cq_context)
                 if "{{context_quilt}}" in body.system_prompt:
-                    body = body.model_copy(update={
-                        "system_prompt": body.system_prompt.replace("{{context_quilt}}", cq_context)
-                    })
+                    new_system = body.system_prompt.replace("{{context_quilt}}", cq_context)
                 else:
-                    body = body.model_copy(update={
-                        "system_prompt": f"[CONTEXT FROM PREVIOUS MEETINGS]\n{cq_context}\n\n{body.system_prompt}"
-                    })
+                    new_system = f"[CONTEXT FROM PREVIOUS MEETINGS]\n{cq_context}\n\n{body.system_prompt}"
+                # Stash the exact recall text on metadata so cache-aware
+                # adapters (Anthropic) can split the system prompt at the
+                # recall boundary into separate cache_control blocks. Once
+                # CQ #89 made recall byte-stable across calls within a 5-min
+                # window, isolating the recall block lets the base prefix
+                # cache independently when recall content differs across
+                # turns. Adapters that don't consume this fall back to the
+                # single-block string layout in `system_prompt` and behave
+                # exactly as before.
+                new_meta = dict(body.metadata or {})
+                new_meta["cq_recall_block"] = cq_context
+                body = body.model_copy(update={
+                    "system_prompt": new_system,
+                    "metadata": new_meta,
+                })
 
             # Inject communication style for chat modes only
             if cq_result.get("communication_style") and body.get_meta("prompt_mode") in (
