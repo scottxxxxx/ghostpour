@@ -249,14 +249,19 @@ async def admin_capture_transcript(
     import asyncio
     from app.services import context_quilt as cq
 
-    # Look up user for display_name and email
+    # Look up user for display_name, email, and effective tier (so the
+    # admin path forwards subscription_tier to CQ like the user-driven
+    # /v1/capture-transcript and chat after_llm hook do — closes the
+    # last gap on extraction_metrics tier coverage).
     cursor = await db.execute(
-        "SELECT id, email, display_name FROM users WHERE id = ?",
+        "SELECT id, email, display_name, tier, simulated_tier FROM users WHERE id = ?",
         (body.user_id,),
     )
     row = await cursor.fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="User not found")
+
+    effective_tier = row["simulated_tier"] or row["tier"]
 
     asyncio.create_task(cq.capture(
         user_id=row["id"],
@@ -267,6 +272,7 @@ async def admin_capture_transcript(
         project_id=body.project_id,
         display_name=row["display_name"],
         email=row["email"],
+        subscription_tier=effective_tier,
     ))
 
     return {
