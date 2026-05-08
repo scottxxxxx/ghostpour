@@ -130,28 +130,84 @@ def _resolve_model_routing(
 ) -> str | None:
     """Resolve which model to use for an 'auto' request.
 
-    Checks the model-routing config (editable via admin dashboard):
+    Looks up the model-routing config (editable via admin dashboard):
       apps.<app_id>.call_types.<call_type>.models.<tier_name> → model
 
-    Falls back to the tier's default_model if no routing match is found.
+    Two-stage lookup:
+
+    1. **Surface-aware preference** — when `prompt_mode` identifies a
+       chat surface (ProjectChat / PostMeetingChat), prefer the
+       surface's dedicated dial. Within a surface, follow-ups use the
+       `<surface>_follow_up` row when iOS sends the matching
+       `call_type`; otherwise the first-send dial. This lets the
+       dashboard dial each (surface × first/follow-up) cell
+       independently without requiring iOS to send an exotic
+       call_type for every send.
+
+    2. **Direct call_type lookup** — for surfaces without a dedicated
+       prompt_mode (Copilot / freeform / TR app), use the call_type
+       row as-is. This is also the fallback when the surface dial
+       above doesn't have an entry for the tier.
+
+    Falls back to `tier.default_model` if neither lookup finds a row.
+
+    See `docs/wire-contracts/model-routing-call-types.md` for the
+    iOS-side spec.
     """
     configs = request.app.state.remote_configs
     routing = configs.get("model-routing", {}).get("apps", {})
 
-    if routing:
-        app_id = getattr(request.state, "app_id", "unknown")
-        call_type = body.get_meta("call_type")
+    if not routing:
+        return tier.default_model
 
-        app_config = routing.get(app_id, {})
-        if app_config and call_type:
-            call_config = app_config.get("call_types", {}).get(call_type, {})
-            if call_config:
-                models = call_config.get("models", {})
-                model = models.get(tier_name) or models.get("default")
-                if model:
-                    return model
+    app_id = getattr(request.state, "app_id", "unknown")
+    call_type = body.get_meta("call_type")
+    prompt_mode = body.get_meta("prompt_mode")
+    app_config = routing.get(app_id, {})
+    if not app_config:
+        return tier.default_model
 
-    # Fall back to tier's default model
+    call_types_cfg = app_config.get("call_types", {})
+
+    def _model_from_row(row_name: str) -> str | None:
+        row = call_types_cfg.get(row_name)
+        if not row:
+            return None
+        models = row.get("models", {})
+        return models.get(tier_name) or models.get("default")
+
+    # 1. Surface-aware preference. Each surface has a (first, follow_up)
+    #    pair of dials; iOS picks which by setting `call_type` to the
+    #    follow-up name. If iOS hasn't migrated yet, the follow-up name
+    #    won't match and we fall through to the first-send dial — which
+    #    preserves PR #161 behavior for legacy clients sending
+    #    call_type=query inside ProjectChat.
+    surface_dials = {
+        "ProjectChat": ("project_chat", "project_chat_follow_up"),
+        "PostMeetingChat": ("meeting_chat", "meeting_chat_follow_up"),
+    }
+    surface = surface_dials.get(prompt_mode)
+    if surface is not None:
+        first_row, follow_up_row = surface
+        if call_type == follow_up_row:
+            model = _model_from_row(follow_up_row)
+            if model:
+                return model
+            # Follow-up row missing this tier — defensive fallback to the
+            # surface's first-send dial rather than silently routing to
+            # the unrelated `query` row.
+        model = _model_from_row(first_row)
+        if model:
+            return model
+        # Surface row exists but has no entry for this tier; fall through
+        # to direct call_type lookup so the request still resolves.
+
+    # 2. Direct call_type lookup (Copilot / freeform / TR / fallback).
+    if call_type:
+        model = _model_from_row(call_type)
+        if model:
+            return model
+
     return tier.default_model
 
 
@@ -1182,11 +1238,42 @@ async def chat(
             if body.metadata is None:
                 body.metadata = {}
             body.metadata["search_enabled"] = False
-            # No search_state surfaced — the request semantically didn't
-            # ask for search on a search-capable model. iOS should have
-            # disabled the toggle client-side; if we got here the user
-            # bypassed it somehow, and silently ignoring is friendlier
-            # than spamming a CTA.
+            # Surface a search_state sidecar with the tier's
+            # `cta_unavailable` template so iOS can dispatch on
+            # `cta.kind == "search_unavailable_for_provider"` the same
+            # way it dispatches on `search_cap_exhausted`. Closes the
+            # silent-strip gap that caused stuck-counter reports during
+            # SS smoke testing (response field was absent → iOS had no
+            # UX anchor for "search wasn't run"). Counters left null
+            # because they're not load-bearing here; iOS reads
+            # used/total from /v1/usage/me on app foreground.
+            unavailable_caps = get_search_caps(
+                request.app.state.remote_configs,
+                user.effective_tier,
+                locale=locale,
+            )
+            search_state = {
+                "used": None,
+                "total": None,
+                "resets_at": None,
+                "cta": format_cta(
+                    unavailable_caps.cta_unavailable,
+                    used=0,
+                    total=unavailable_caps.searches_per_month,
+                ) if unavailable_caps.cta_unavailable else None,
+            }
+            # Defensive log: paid-tier users with a search entitlement
+            # should never end up here. If they do, model-routing has
+            # drifted (e.g., a future config change pointed Pro `query`
+            # at a non-Anthropic provider). Log so we catch it before
+            # it becomes a stuck-counter ticket.
+            if user.effective_tier in ("plus", "pro"):
+                logger.warning(
+                    "paid_tier_search_non_anthropic_provider tier=%s "
+                    "provider=%s model=%s — model-routing may have "
+                    "drifted; search entitlement is unusable",
+                    user.effective_tier, body.provider, body.model,
+                )
         else:
             search_caps_locale = locale  # already resolved for project-chat cap above
             caps = get_search_caps(
@@ -1275,6 +1362,27 @@ async def chat(
                     "cta": None,
                 }
 
+    # 5.8. Search-tool nudge. When `search_enabled` survives the gate
+    # (Pro under hard cap; Plus under hard cap; Pro past soft cap), append
+    # a one-sentence note to system_prompt so the model knows the tool is
+    # available and when to reach for it. Without this, heavy in-context
+    # prompts (ProjectChat injects 3+ meeting summaries) anchor Haiku to
+    # the provided content and it never invokes web_search even when the
+    # user explicitly asks about current/external info — observed on a
+    # Pro ProjectChat send 2026-05-07 (request 58065b9d104f).
+    #
+    # Skipped when the gate stripped the flag (non-Anthropic provider,
+    # Free, hard-cap) — no point hinting at a tool the adapter won't
+    # attach.
+    if body.get_meta("search_enabled"):
+        body = body.model_copy(update={
+            "system_prompt": body.system_prompt + (
+                "\n\nYou have access to a web_search tool. Use it when the "
+                "user asks about current events, recent news, or topics that "
+                "aren't covered by the provided context."
+            ),
+        })
+
     # 6. Stream or non-stream based on request + call_type
     # Only stream interactive queries; background tasks (summary, analysis) get full JSON.
     # Project Chat is also forced non-streaming so feature_state can land
@@ -1358,6 +1466,15 @@ async def chat(
                 "UPDATE users SET searches_used = searches_used + ? WHERE id = ?",
                 (searches_performed, user.id),
             )
+            # Bump the on-the-wire counter to match the post-increment
+            # DB state so iOS's `updateSearchUsage(from: search_state)`
+            # advances the pill in lockstep with this response. Without
+            # this, search_state.used is the pre-LLM snapshot and iOS
+            # writes back the same value it already had — the pill
+            # appears frozen until /v1/usage/me is fetched on app
+            # foreground (observed bug, request 19:46:00 UTC 2026-05-07).
+            if search_state is not None and search_state.get("used") is not None:
+                search_state["used"] = search_state["used"] + searches_performed
             # Audit row: one per response. Cost = $10 / 1000 searches
             # (Anthropic flat fee for web_search tool usage); the input
             # tokens consumed by returned search content are tracked
@@ -1646,6 +1763,15 @@ async def _handle_stream(
                         "UPDATE users SET searches_used = searches_used + ? WHERE id = ?",
                         (searches_performed, user.id),
                     )
+                    # Mirror the non-streaming path: bump search_state.used
+                    # so the SSE done event carries the post-increment count.
+                    if (
+                        search_state is not None
+                        and search_state.get("used") is not None
+                    ):
+                        search_state["used"] = (
+                            search_state["used"] + searches_performed
+                        )
                     import uuid as _uuid
                     await stream_db.execute(
                         """INSERT INTO search_usage

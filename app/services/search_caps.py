@@ -45,6 +45,13 @@ class SearchCaps:
     """Full CTA payload emitted when used >= soft_threshold. None means
     no soft warning for this tier."""
 
+    cta_unavailable: dict | None
+    """Full CTA payload emitted when search physically can't run for the
+    request (e.g., user picked a non-Anthropic model). None means the
+    tier doesn't have copy for this state — caller surfaces an empty
+    `cta` and lets iOS render a generic "search unavailable" affordance.
+    Kind is conventionally `search_unavailable_for_provider`."""
+
 
 def _resolve_tiers(
     remote_configs: dict[str, dict],
@@ -71,12 +78,12 @@ def get_search_caps(
     """
     tiers_cfg = _resolve_tiers(remote_configs, locale)
     if not tiers_cfg:
-        return SearchCaps(0, None, None, None)
+        return SearchCaps(0, None, None, None, None)
 
     tier_block = tiers_cfg.get("tiers", {}).get(tier, {})
     search_block = tier_block.get("feature_definitions", {}).get("search")
     if not isinstance(search_block, dict):
-        return SearchCaps(0, None, None, None)
+        return SearchCaps(0, None, None, None, None)
 
     return SearchCaps(
         searches_per_month=int(search_block.get("searches_per_month", 0)),
@@ -87,6 +94,7 @@ def get_search_caps(
         ),
         cta_hard_cap=search_block.get("cta_hard_cap"),
         cta_soft_cap=search_block.get("cta_soft_cap"),
+        cta_unavailable=search_block.get("cta_unavailable"),
     )
 
 

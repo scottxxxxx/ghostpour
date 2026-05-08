@@ -878,3 +878,329 @@ def test_reset_date_placeholder_passes_through_to_ios(
     assert "{reset_date}" in body  # placeholder preserved
     # Raw ISO available for iOS to format with the user's locale
     assert data["search_state"]["resets_at"] == "2099-01-01T00:00:00Z"
+
+
+# ---------------------------------------------------------------------------
+# Search-tool nudge — added 2026-05-07 after a Pro ProjectChat send
+# decoded with search_enabled=true but the model declined to invoke
+# web_search because the heavy in-context system prompt anchored it to
+# meeting summaries (request 58065b9d104f). When the gate keeps
+# search_enabled=true, the router appends a one-sentence note to
+# system_prompt so the model knows the tool is available.
+# ---------------------------------------------------------------------------
+
+
+_NUDGE_PHRASE = "You have access to a web_search tool"
+
+
+def test_nudge_appended_when_pro_under_caps(
+    client: TestClient, tmp_db_path: str, mock_provider
+):
+    """Pro under hard + soft cap → gate keeps search_enabled, nudge is
+    appended to the system_prompt the adapter sees."""
+    _seed_user_with_search_state(
+        tmp_db_path, user_id="pro-nudge", tier="pro",
+        searches_used=10, monthly_limit=10.00,
+    )
+    headers = {"Authorization": f"Bearer {_jwt_for('pro-nudge')}"}
+    resp = client.post(
+        "/v1/chat",
+        headers=headers,
+        json={
+            "provider": "anthropic",
+            "model": "claude-haiku-4-5-20251001",
+            "system_prompt": "you help",
+            "user_content": "what's new in ABM",
+            "metadata": {"search_enabled": True},
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    sent = mock_provider.call_args.args[0]
+    assert _NUDGE_PHRASE in sent.system_prompt
+    # Original prompt content preserved
+    assert sent.system_prompt.startswith("you help")
+    # Flag still set so adapter attaches the tool
+    assert sent.get_meta("search_enabled") is True
+
+
+def test_nudge_appended_for_pro_past_soft_cap(
+    client: TestClient, tmp_db_path: str, mock_provider
+):
+    """Pro past soft cap (≥80) but under hard cap → gate keeps
+    search_enabled and surfaces the soft-warning CTA. Nudge still
+    appended."""
+    _seed_user_with_search_state(
+        tmp_db_path, user_id="pro-soft-nudge", tier="pro",
+        searches_used=85, monthly_limit=10.00,
+    )
+    headers = {"Authorization": f"Bearer {_jwt_for('pro-soft-nudge')}"}
+    resp = client.post(
+        "/v1/chat",
+        headers=headers,
+        json={
+            "provider": "anthropic",
+            "model": "claude-haiku-4-5-20251001",
+            "system_prompt": "you help",
+            "user_content": "search?",
+            "metadata": {"search_enabled": True},
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    sent = mock_provider.call_args.args[0]
+    assert _NUDGE_PHRASE in sent.system_prompt
+
+
+def test_nudge_NOT_appended_when_hard_cap_strips_flag(
+    client: TestClient, tmp_db_path: str, mock_provider
+):
+    """Pro at hard cap → gate strips search_enabled → no nudge (since
+    the adapter won't attach the tool, hinting at it would be a lie)."""
+    _seed_user_with_search_state(
+        tmp_db_path, user_id="pro-hard-no-nudge", tier="pro",
+        searches_used=120, monthly_limit=10.00,
+    )
+    headers = {"Authorization": f"Bearer {_jwt_for('pro-hard-no-nudge')}"}
+    resp = client.post(
+        "/v1/chat",
+        headers=headers,
+        json={
+            "provider": "anthropic",
+            "model": "claude-haiku-4-5-20251001",
+            "system_prompt": "you help",
+            "user_content": "search?",
+            "metadata": {"search_enabled": True},
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    sent = mock_provider.call_args.args[0]
+    assert _NUDGE_PHRASE not in sent.system_prompt
+    assert sent.get_meta("search_enabled") is False  # flag stripped
+
+
+def test_nudge_NOT_appended_when_search_enabled_false(
+    client: TestClient, tmp_db_path: str, mock_provider
+):
+    """Default (search_enabled absent / false) → no nudge, no tool."""
+    _seed_user_with_search_state(
+        tmp_db_path, user_id="pro-no-search", tier="pro",
+        searches_used=0, monthly_limit=10.00,
+    )
+    headers = {"Authorization": f"Bearer {_jwt_for('pro-no-search')}"}
+    resp = client.post(
+        "/v1/chat",
+        headers=headers,
+        json={
+            "provider": "anthropic",
+            "model": "claude-haiku-4-5-20251001",
+            "system_prompt": "you help",
+            "user_content": "hello",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    sent = mock_provider.call_args.args[0]
+    assert _NUDGE_PHRASE not in sent.system_prompt
+
+
+# (Non-Anthropic provider strip is verified in the adapter-level
+# tests above; we don't reproduce it here because tier-based provider
+# allowlists in tiers.yml block managed users from openai entirely,
+# which would 403 before reaching the gate.)
+
+
+# ---------------------------------------------------------------------------
+# Counter increment + non-Anthropic strip surfacing — added 2026-05-07
+# after SS smoke test caught a stuck-pill bug. Two coupled fixes:
+#
+#   1. Server was returning the pre-increment counter in
+#      search_state.used; iOS's updateSearchUsage(from:) wrote back
+#      the same value it already had, so the pill never advanced
+#      until /v1/usage/me was fetched on app foreground.
+#   2. Non-Anthropic provider path silently stripped search_enabled
+#      and omitted search_state from the response; iOS had no UX
+#      anchor to render "search not available for this model."
+# ---------------------------------------------------------------------------
+
+
+def test_search_state_used_advances_post_increment(
+    client: TestClient, tmp_db_path: str
+):
+    """When Anthropic actually runs N searches, search_state.used in
+    the response should equal `pre_increment + N`, matching the
+    post-increment DB state. Pins the fix for the stuck-pill bug
+    (request 19:46:00 UTC 2026-05-07)."""
+    _seed_user_with_search_state(
+        tmp_db_path, user_id="pro-used-advances", tier="pro",
+        searches_used=1, monthly_limit=10.00,
+    )
+    headers = {"Authorization": f"Bearer {_jwt_for('pro-used-advances')}"}
+
+    canned = ChatResponse(
+        text="Yes, IBM is publicly traded.",
+        input_tokens=100, output_tokens=50,
+        model="claude-sonnet-4-6",
+        provider="anthropic",
+        usage={"input_tokens": 100, "output_tokens": 50, "web_search_requests": 1},
+    )
+    async def _async_canned(*args, **kwargs):
+        return canned
+    with patch(
+        "app.services.provider_router.ProviderRouter.route",
+        side_effect=_async_canned,
+    ):
+        resp = client.post(
+            "/v1/chat",
+            headers=headers,
+            json={
+                "provider": "anthropic",
+                "model": "claude-sonnet-4-6",
+                "system_prompt": "you help",
+                "user_content": "Is IBM publicly traded?",
+                "metadata": {"search_enabled": True},
+            },
+        )
+    assert resp.status_code == 200
+    data = resp.json()
+    # Pre: 1; Anthropic ran 1 search; expected: 2 in the response sidecar.
+    assert data["search_state"]["used"] == 2
+    assert data["search_state"]["was_used"] is True
+
+
+def test_search_state_used_advances_by_actual_count(
+    client: TestClient, tmp_db_path: str
+):
+    """Multi-search query: the counter should jump by the actual count,
+    not just by 1. Anthropic's max_uses=5 ceiling means a single query
+    can drive 1-5 increments."""
+    _seed_user_with_search_state(
+        tmp_db_path, user_id="pro-multi-search", tier="pro",
+        searches_used=10, monthly_limit=10.00,
+    )
+    headers = {"Authorization": f"Bearer {_jwt_for('pro-multi-search')}"}
+
+    canned = ChatResponse(
+        text="Detailed analysis.",
+        input_tokens=200, output_tokens=400,
+        model="claude-sonnet-4-6",
+        provider="anthropic",
+        usage={"input_tokens": 200, "output_tokens": 400, "web_search_requests": 4},
+    )
+    async def _async_canned(*args, **kwargs):
+        return canned
+    with patch(
+        "app.services.provider_router.ProviderRouter.route",
+        side_effect=_async_canned,
+    ):
+        resp = client.post(
+            "/v1/chat",
+            headers=headers,
+            json={
+                "provider": "anthropic",
+                "model": "claude-sonnet-4-6",
+                "system_prompt": "you help",
+                "user_content": "compare three vendors",
+                "metadata": {"search_enabled": True},
+            },
+        )
+    assert resp.status_code == 200
+    assert resp.json()["search_state"]["used"] == 14  # 10 + 4
+
+
+def test_search_state_unchanged_when_anthropic_skipped_search(
+    client: TestClient, tmp_db_path: str
+):
+    """Tool attached but model declined to invoke it (web_search_requests=0
+    or absent) → search_state.used stays at pre-increment value,
+    was_used=False. Matches the "Sonnet decided IBM is publicly traded
+    is in training data" case."""
+    _seed_user_with_search_state(
+        tmp_db_path, user_id="pro-skipped-search", tier="pro",
+        searches_used=5, monthly_limit=10.00,
+    )
+    headers = {"Authorization": f"Bearer {_jwt_for('pro-skipped-search')}"}
+
+    canned = ChatResponse(
+        text="Answered from training data.",
+        input_tokens=100, output_tokens=50,
+        model="claude-sonnet-4-6",
+        provider="anthropic",
+        # No web_search_requests key — model didn't invoke the tool.
+        usage={"input_tokens": 100, "output_tokens": 50},
+    )
+    async def _async_canned(*args, **kwargs):
+        return canned
+    with patch(
+        "app.services.provider_router.ProviderRouter.route",
+        side_effect=_async_canned,
+    ):
+        resp = client.post(
+            "/v1/chat",
+            headers=headers,
+            json={
+                "provider": "anthropic",
+                "model": "claude-sonnet-4-6",
+                "system_prompt": "you help",
+                "user_content": "what's 2+2",
+                "metadata": {"search_enabled": True},
+            },
+        )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["search_state"]["used"] == 5  # unchanged
+    assert data["search_state"]["was_used"] is False
+
+
+# Non-Anthropic strip — needs a custom provider whitelist, so we patch
+# the provider router instead of going through the tier-based gate.
+# The test target is `search_state` shape, not the underlying tier
+# config (which would 403 a non-Anthropic provider for managed users).
+
+
+def test_search_caps_loads_cta_unavailable_from_remote_config():
+    """Per-tier `cta_unavailable` template is loaded from
+    `feature_definitions.search.cta_unavailable` alongside the existing
+    cta_hard_cap / cta_soft_cap fields. SS team prefers approach (b) —
+    iOS dispatches on cta.kind across all stripped states, so the
+    server populates a real CTA rather than a free-form `reason` code."""
+    from app.services.search_caps import get_search_caps
+
+    remote_configs = {
+        "tiers": {
+            "tiers": {
+                "plus": {
+                    "feature_definitions": {
+                        "search": {
+                            "searches_per_month": 75,
+                            "cta_unavailable": {
+                                "kind": "search_unavailable_for_provider",
+                                "title": "Web search not available for this model",
+                                "body": "Switch to SS AI to use web search.",
+                            },
+                        }
+                    }
+                }
+            }
+        }
+    }
+    caps = get_search_caps(remote_configs, "plus", locale=None)
+    assert caps.cta_unavailable is not None
+    assert caps.cta_unavailable["kind"] == "search_unavailable_for_provider"
+
+
+def test_search_caps_cta_unavailable_absent_when_not_configured():
+    """Tiers without an explicit cta_unavailable entry resolve to None,
+    so callers can decide whether to surface a generic affordance."""
+    from app.services.search_caps import get_search_caps
+
+    remote_configs = {
+        "tiers": {
+            "tiers": {
+                "free": {
+                    "feature_definitions": {
+                        "search": {"searches_per_month": 0},
+                    }
+                }
+            }
+        }
+    }
+    caps = get_search_caps(remote_configs, "free", locale=None)
+    assert caps.cta_unavailable is None
