@@ -87,11 +87,7 @@ class AnthropicAdapter(ProviderAdapter):
                 })
         content_parts.append({"type": "text", "text": request.user_content})
 
-        system_block = [{
-            "type": "text",
-            "text": request.system_prompt,
-            "cache_control": {"type": "ephemeral"},
-        }]
+        system_block = _build_system_blocks(request)
 
         max_tokens = request.max_tokens or 4096
         thinking = anthropic_thinking_block(request.reasoning)
@@ -209,3 +205,60 @@ class AnthropicAdapter(ProviderAdapter):
         )
 
         yield {"type": "text", "text": "", "done": True, "response": final_response}
+
+
+def _build_system_blocks(request: ChatRequest) -> list[dict]:
+    """Build the Anthropic `system` field as one or more cache_control blocks.
+
+    Default: single block carrying the full `system_prompt` with
+    `cache_control: ephemeral` — the long-standing layout that already
+    delivers cross-turn caching when the prompt is byte-stable.
+
+    CQ recall split: when the Context Quilt feature hook stashed the
+    recall text on `metadata.cq_recall_block` and that text appears
+    verbatim inside `system_prompt`, the prompt is sliced into three
+    blocks at the recall boundary:
+
+        1. prefix  (cache_control)
+        2. recall  (cache_control)
+        3. suffix  (no cache_control — last block)
+
+    Two breakpoints isolate the base prompt prefix from the recall block
+    so the prefix keeps caching cross-turn even when recall content
+    differs. Anthropic supports up to 4 cache_control breakpoints; this
+    uses 2, leaving headroom for future splits.
+
+    Falls back to the single-block layout when:
+      - no recall block was stashed (free/plus tier, recall empty, no CQ)
+      - the recall text isn't found in `system_prompt` (defensive — should
+        not happen since the hook just inserted it, but a hook refactor
+        or a downstream mutation should not break Anthropic calls)
+      - the recall block is empty after slicing
+    """
+    recall = request.get_meta("cq_recall_block") if request.metadata else None
+    if recall:
+        idx = request.system_prompt.find(recall)
+        if idx >= 0:
+            prefix = request.system_prompt[:idx]
+            suffix = request.system_prompt[idx + len(recall):]
+            blocks: list[dict] = []
+            if prefix:
+                blocks.append({
+                    "type": "text",
+                    "text": prefix,
+                    "cache_control": {"type": "ephemeral"},
+                })
+            blocks.append({
+                "type": "text",
+                "text": recall,
+                "cache_control": {"type": "ephemeral"},
+            })
+            if suffix:
+                blocks.append({"type": "text", "text": suffix})
+            return blocks
+
+    return [{
+        "type": "text",
+        "text": request.system_prompt,
+        "cache_control": {"type": "ephemeral"},
+    }]

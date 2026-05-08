@@ -43,6 +43,7 @@ GhostPour integrates with Context Quilt as the first feature using the generic f
 - Calls `POST {CQ_BASE_URL}/v1/recall` with the user's query text
 - 200ms timeout — skips gracefully on timeout or error
 - Injects returned context into `system_prompt` (replaces `{{context_quilt}}` placeholder, or prepends)
+- Stashes the same recall text on `metadata.cq_recall_block`. Cache-aware adapters (currently only Anthropic) split `system_prompt` at this boundary into `[prefix, recall, suffix]` blocks with `cache_control: ephemeral` on prefix + recall. After CQ #89 made recall byte-stable across calls within a 5-min window for the same input, this lets the base prefix keep cross-turn caching even when recall content differs across turns. Adapters that ignore the metadata key consume `system_prompt` as a single string and behave exactly as before.
 
 **Capture (post-response, async):**
 - Fires background `POST {CQ_BASE_URL}/v1/memory` with query, LLM response, and metadata
