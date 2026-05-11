@@ -6,7 +6,12 @@ from fastapi import HTTPException
 from app.models.chat import ChatRequest, ChatResponse
 
 from .base import ProviderAdapter
-from .reasoning import anthropic_min_max_tokens, anthropic_thinking_block
+from .reasoning import (
+    anthropic_min_max_tokens,
+    anthropic_output_config,
+    anthropic_thinking_block,
+    anthropic_uses_effort_path,
+)
 
 
 class AnthropicAdapter(ProviderAdapter):
@@ -90,9 +95,11 @@ class AnthropicAdapter(ProviderAdapter):
         system_block = _build_system_blocks(request)
 
         max_tokens = request.max_tokens or 4096
-        thinking = anthropic_thinking_block(request.reasoning)
-        if thinking:
-            # Anthropic requires budget_tokens < max_tokens; lift if needed.
+        thinking = anthropic_thinking_block(request.reasoning, request.model)
+        # max_tokens lift is only needed on the legacy budget_tokens path
+        # (Haiku). Effort-path models don't constrain max_tokens against
+        # budget_tokens.
+        if thinking and not anthropic_uses_effort_path(request.model):
             max_tokens = max(max_tokens, anthropic_min_max_tokens(request.reasoning))
 
         body = {
@@ -103,6 +110,13 @@ class AnthropicAdapter(ProviderAdapter):
         }
         if thinking:
             body["thinking"] = thinking
+        # Effort-path models (Sonnet 4.6, Opus 4.7): attach output_config.effort
+        # alongside `thinking: {type: "adaptive"}`. Per Anthropic's docs the
+        # effort parameter is what controls thinking depth on these models;
+        # legacy budget_tokens returns 400 on Opus 4.7.
+        output_config = anthropic_output_config(request.reasoning, request.model)
+        if output_config:
+            body["output_config"] = output_config
 
         # Web search tool — gated upstream by the chat router. The router
         # only sets search_enabled=True after passing tier + cap checks,

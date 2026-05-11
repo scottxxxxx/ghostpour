@@ -4,11 +4,22 @@ Vocabulary: `default | minimal | low | medium | high`. Per-model exposure
 is driven by `model-capabilities.json.reasoningLevels`; this file pins the
 *translation* layer for every (provider, level) combo, including defensive
 behavior for levels a model shouldn't expose.
+
+Verified against provider docs on 2026-05-11:
+- Anthropic effort doc: Opus 4.7 requires effort path; Haiku 4.5 NOT in
+  effort-supported list (legacy budget_tokens only); Sonnet 4.6 supports
+  both (effort recommended).
+- Kimi docs: thinking field is `{type: "enabled"/"disabled"}`, not
+  `enable_thinking: bool`.
+- Qwen / OpenRouter docs: Qwen uses `thinking_budget` (int).
+- xAI Grok docs: 4 levels natively (none, low, medium, high).
 """
 
 from app.services.providers.reasoning import (
     anthropic_min_max_tokens,
+    anthropic_output_config,
     anthropic_thinking_block,
+    anthropic_uses_effort_path,
     gemini_thinking_config,
     openai_compat_fields,
 )
@@ -19,22 +30,18 @@ from app.services.providers.reasoning import (
 # ---------------------------------------------------------------------------
 
 def test_none_level_yields_no_fields_for_omit_providers():
-    """OpenAI / xAI omit reasoning fields when level is None (provider default applies)."""
+    """OpenAI / xAI omit reasoning fields when level is None."""
     assert openai_compat_fields("openai", None) == {}
     assert openai_compat_fields("xai", None) == {}
-    assert anthropic_thinking_block(None) is None
+    assert anthropic_thinking_block(None, "claude-haiku-4-5") is None
+    assert anthropic_thinking_block(None, "claude-opus-4-7") is None
     assert gemini_thinking_config(None, "gemini-3-flash-preview") is None
 
 
 def test_none_level_force_disables_on_binary_providers():
-    """Kimi/Qwen/DeepSeek: absence of an explicit level still force-disables thinking.
-
-    For these providers, an absent `enable_thinking` / `thinking` field
-    means the provider's default kicks in — which on these specific
-    providers is typically thinking-on. We default-to-cheapest by
-    force-disabling at the field level."""
-    assert openai_compat_fields("kimi", None) == {"enable_thinking": False}
-    assert openai_compat_fields("qwen", None) == {"enable_thinking": False}
+    """Kimi/DeepSeek: force-disable thinking. Qwen: thinking_budget=0."""
+    assert openai_compat_fields("kimi", None) == {"thinking": {"type": "disabled"}}
+    assert openai_compat_fields("qwen", None) == {"thinking_budget": 0}
     assert openai_compat_fields("deepseek", None) == {"thinking": {"type": "disabled"}}
 
 
@@ -45,12 +52,12 @@ def test_none_level_force_disables_on_binary_providers():
 def test_default_level_matches_none():
     for p in ("openai", "xai"):
         assert openai_compat_fields(p, "default") == openai_compat_fields(p, None) == {}
-    for p in ("kimi", "qwen"):
-        assert openai_compat_fields(p, "default") == openai_compat_fields(p, None) == {
-            "enable_thinking": False
-        }
+    assert openai_compat_fields("kimi", "default") == {"thinking": {"type": "disabled"}}
+    assert openai_compat_fields("qwen", "default") == {"thinking_budget": 0}
     assert openai_compat_fields("deepseek", "default") == {"thinking": {"type": "disabled"}}
-    assert anthropic_thinking_block("default") is None
+    assert anthropic_thinking_block("default", "claude-haiku-4-5") is None
+    assert anthropic_thinking_block("default", "claude-opus-4-7") is None
+    assert anthropic_output_config("default", "claude-opus-4-7") is None
     assert gemini_thinking_config("default", "gemini-3-flash-preview") is None
 
 
@@ -66,15 +73,14 @@ def test_openai_levels_all_native():
 
 
 # ---------------------------------------------------------------------------
-# xAI Grok — 2-level (low, high); collapses minimal/medium defensively
+# xAI Grok — 4 levels native; minimal defensively collapses to low
 # ---------------------------------------------------------------------------
 
-def test_xai_collapses_to_low_high():
-    # model-capabilities.json should only expose ["low", "high"] for Grok,
-    # but defensive collapse covers stale clients:
+def test_xai_grok_native_levels():
+    """xAI Grok natively supports low/medium/high via reasoning_effort."""
     assert openai_compat_fields("xai", "minimal") == {"reasoning_effort": "low"}
     assert openai_compat_fields("xai", "low") == {"reasoning_effort": "low"}
-    assert openai_compat_fields("xai", "medium") == {"reasoning_effort": "high"}
+    assert openai_compat_fields("xai", "medium") == {"reasoning_effort": "medium"}
     assert openai_compat_fields("xai", "high") == {"reasoning_effort": "high"}
 
 
@@ -83,8 +89,6 @@ def test_xai_collapses_to_low_high():
 # ---------------------------------------------------------------------------
 
 def test_deepseek_minimal_disables_thinking():
-    """Even though model-capabilities.json should expose only ["default", "high"]
-    for DeepSeek, "minimal" from a stale client maps to disable."""
     assert openai_compat_fields("deepseek", "minimal") == {"thinking": {"type": "disabled"}}
 
 
@@ -96,35 +100,85 @@ def test_deepseek_enabled_levels():
 
 
 # ---------------------------------------------------------------------------
-# Kimi / Qwen — boolean toggle
+# Kimi K2.x — `thinking: {type: "enabled"/"disabled"}` (NOT enable_thinking)
 # ---------------------------------------------------------------------------
 
-def test_kimi_qwen_boolean_toggle():
-    for p in ("kimi", "qwen"):
-        # minimal is hidden from picker but stale clients defensively disable:
-        assert openai_compat_fields(p, "minimal") == {"enable_thinking": False}
-        # any explicit non-default level enables:
-        assert openai_compat_fields(p, "low") == {"enable_thinking": True}
-        assert openai_compat_fields(p, "medium") == {"enable_thinking": True}
-        assert openai_compat_fields(p, "high") == {"enable_thinking": True}
+def test_kimi_uses_thinking_block_not_enable_thinking_bool():
+    """Verified against platform.kimi.ai/docs/api/chat on 2026-05-11:
+    Kimi K2.5 + K2-Thinking accept `thinking: {type: "enabled"/"disabled"}`."""
+    assert openai_compat_fields("kimi", "minimal") == {"thinking": {"type": "disabled"}}
+    assert openai_compat_fields("kimi", "high") == {"thinking": {"type": "enabled"}}
+
+
+def test_kimi_low_medium_also_enable_thinking():
+    for lvl in ("low", "medium", "high"):
+        assert openai_compat_fields("kimi", lvl) == {"thinking": {"type": "enabled"}}
 
 
 # ---------------------------------------------------------------------------
-# Anthropic Claude — no minimal, thinking block with budget
+# Qwen 3.x — integer `thinking_budget` (NOT enable_thinking)
 # ---------------------------------------------------------------------------
 
-def test_anthropic_minimal_is_no_block():
-    """Anthropic doesn't expose minimal in the picker; defensively returns
-    no thinking block (same as default) if a stale client sends it."""
-    assert anthropic_thinking_block("minimal") is None
+def test_qwen_uses_thinking_budget_int():
+    """Verified against OpenRouter's translation table on 2026-05-11:
+    'Alibaba Qwen models map [max_tokens] to thinking_budget.'"""
+    assert openai_compat_fields("qwen", "minimal") == {"thinking_budget": 0}
+    assert openai_compat_fields("qwen", "low") == {"thinking_budget": 1024}
+    assert openai_compat_fields("qwen", "medium") == {"thinking_budget": 4096}
+    assert openai_compat_fields("qwen", "high") == {"thinking_budget": 16384}
 
 
-def test_anthropic_enabled_levels():
-    for lvl, budget in (("low", 1024), ("medium", 4096), ("high", 16384)):
-        block = anthropic_thinking_block(lvl)
-        assert block == {"type": "enabled", "budget_tokens": budget}
-        # min_max_tokens leaves headroom above budget for the actual response.
-        assert anthropic_min_max_tokens(lvl) == budget + 1024
+# ---------------------------------------------------------------------------
+# Anthropic — model-aware dispatch (effort path vs legacy budget_tokens)
+# ---------------------------------------------------------------------------
+
+def test_anthropic_haiku_uses_legacy_budget_path():
+    """Haiku 4.5 is NOT in Anthropic's effort-supported list (per docs).
+    Stays on `thinking: {type: enabled, budget_tokens: N}`."""
+    assert not anthropic_uses_effort_path("claude-haiku-4-5")
+    block = anthropic_thinking_block("high", "claude-haiku-4-5")
+    assert block == {"type": "enabled", "budget_tokens": 16384}
+    assert anthropic_output_config("high", "claude-haiku-4-5") is None
+
+
+def test_anthropic_haiku_max_tokens_lift():
+    """Anthropic requires budget_tokens < max_tokens. Helper computes the lift."""
+    assert anthropic_min_max_tokens("low") == 2048
+    assert anthropic_min_max_tokens("medium") == 5120
+    assert anthropic_min_max_tokens("high") == 17408
+    assert anthropic_min_max_tokens("default") == 0
+    assert anthropic_min_max_tokens("minimal") == 0
+    assert anthropic_min_max_tokens(None) == 0
+
+
+def test_anthropic_opus_uses_effort_path():
+    """Opus 4.7 REQUIRES effort path. Manual thinking returns 400 per docs."""
+    assert anthropic_uses_effort_path("claude-opus-4-7")
+    assert anthropic_thinking_block("medium", "claude-opus-4-7") == {"type": "adaptive"}
+    assert anthropic_output_config("medium", "claude-opus-4-7") == {"effort": "medium"}
+
+
+def test_anthropic_sonnet_uses_effort_path():
+    """Sonnet 4.6 supports both paths; we use effort (the recommended path)."""
+    assert anthropic_uses_effort_path("claude-sonnet-4-6")
+    assert anthropic_thinking_block("low", "claude-sonnet-4-6") == {"type": "adaptive"}
+    assert anthropic_output_config("low", "claude-sonnet-4-6") == {"effort": "low"}
+
+
+def test_anthropic_effort_path_all_levels():
+    for lvl in ("low", "medium", "high"):
+        assert anthropic_output_config(lvl, "claude-opus-4-7") == {"effort": lvl}
+        assert anthropic_thinking_block(lvl, "claude-opus-4-7") == {"type": "adaptive"}
+
+
+def test_anthropic_minimal_collapses_to_low_on_effort_path():
+    """Anthropic effort doesn't have "minimal"; collapse defensively."""
+    assert anthropic_output_config("minimal", "claude-opus-4-7") == {"effort": "low"}
+
+
+def test_anthropic_minimal_is_no_thinking_on_haiku():
+    """On the legacy path, minimal is treated as no thinking (same as default)."""
+    assert anthropic_thinking_block("minimal", "claude-haiku-4-5") is None
 
 
 # ---------------------------------------------------------------------------
@@ -132,7 +186,6 @@ def test_anthropic_enabled_levels():
 # ---------------------------------------------------------------------------
 
 def test_gemini_3_flash_supports_all_levels_including_minimal():
-    """Gemini 3 Flash supports thinkingLevel=minimal natively per Google."""
     for lvl in ("minimal", "low", "medium", "high"):
         assert gemini_thinking_config(lvl, "gemini-3-flash-preview") == {
             "thinkingLevel": lvl
@@ -147,13 +200,9 @@ def test_gemini_3_flash_lite_supports_minimal():
 
 
 def test_gemini_3_pro_collapses_minimal_to_low():
-    """Per Google: Gemini 3 Pro does NOT accept thinkingLevel=minimal.
-    model-capabilities.json should hide the button; defensive collapse
-    catches stale clients."""
     assert gemini_thinking_config("minimal", "gemini-3.1-pro-preview") == {
         "thinkingLevel": "low"
     }
-    # Non-minimal levels pass through unchanged.
     for lvl in ("low", "medium", "high"):
         assert gemini_thinking_config(lvl, "gemini-3.1-pro-preview") == {
             "thinkingLevel": lvl
@@ -161,13 +210,10 @@ def test_gemini_3_pro_collapses_minimal_to_low():
 
 
 # ---------------------------------------------------------------------------
-# Gemini 2.5.x — thinkingBudget int (defensive — no 2.5 models in current
-# model-capabilities.json, but adapter dispatches by model family so the
-# mapping needs to exist for future adds)
+# Gemini 2.5.x — thinkingBudget int
 # ---------------------------------------------------------------------------
 
 def test_gemini_25_flash_minimal_is_zero_budget():
-    """Gemini 2.5 Flash supports thinkingBudget=0 (disable thinking)."""
     assert gemini_thinking_config("minimal", "gemini-2.5-flash") == {
         "thinkingBudget": 0
     }
