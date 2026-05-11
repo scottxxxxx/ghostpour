@@ -1,5 +1,5 @@
 {
-  "version": 19,
+  "version": 20,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -62,7 +62,6 @@
         "Shareable meeting reports",
         "Project chat across meetings",
         "Web search (75/mo)",
-        "Meeting Memory: upgrade to Pro",
         "3 images per query"
       ],
       "feature_items": [
@@ -72,7 +71,6 @@
         {"label": "Shareable meeting reports", "icon": "share"},
         {"label": "Project chat across meetings", "icon": "chat"},
         {"label": "Web search (75/mo)", "icon": "globe"},
-        {"label": "Meeting Memory: upgrade to Pro", "icon": "brain", "state": "teaser"},
         {"label": "3 images per query", "icon": "photo"}
       ],
       "status_items": [
