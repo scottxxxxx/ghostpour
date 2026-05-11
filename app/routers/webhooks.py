@@ -442,12 +442,57 @@ async def get_config_bundle(
 
 
 class SyncFromBundleRequest(BaseModel):
-    """Force-sync a list of top-level keys from the bundled config into
-    the persistent (live) config. Closes the silent-deploy gap left by
+    """Force-sync entries from the bundled config into the persistent
+    (live) config. Closes the silent-deploy gap left by
     `seed_remote_configs()`'s no-overwrite policy: bundle changes for
-    these keys propagate to prod immediately, dashboard edits to
-    OTHER keys are preserved."""
+    these entries propagate to prod immediately, dashboard edits to
+    OTHER entries are preserved.
+
+    Each entry in `keys` is either:
+      - a bare top-level key (e.g. `"alpha"`) — legacy semantics; the
+        whole value is replaced verbatim.
+      - a JSON pointer starting with `/` (RFC 6901, e.g.
+        `"/limits/project_chat/defaultPromptReserveTokens"`) — only the
+        leaf is replaced. Intermediate objects are created if missing
+        on the persistent side. Use this to land deeply-nested bundle
+        adds without clobbering sibling dashboard edits.
+    """
     keys: list[str]
+
+
+def _unescape_pointer_token(tok: str) -> str:
+    """Decode an RFC 6901 reference token: ~1 → /, ~0 → ~."""
+    return tok.replace("~1", "/").replace("~0", "~")
+
+
+def _resolve_pointer(obj: dict, pointer: str) -> tuple[bool, object]:
+    """Resolve a JSON pointer against `obj`. Returns (found, value)."""
+    if pointer == "":
+        return True, obj
+    if not pointer.startswith("/"):
+        raise ValueError(f"Pointer must start with '/' or be empty: {pointer!r}")
+    cur: object = obj
+    for raw in pointer.split("/")[1:]:
+        tok = _unescape_pointer_token(raw)
+        if not isinstance(cur, dict) or tok not in cur:
+            return False, None
+        cur = cur[tok]
+    return True, cur
+
+
+def _set_pointer(obj: dict, pointer: str, value: object) -> None:
+    """Set a value at a JSON pointer, creating intermediate dicts as needed."""
+    if pointer == "" or not pointer.startswith("/"):
+        raise ValueError(f"Pointer must start with '/': {pointer!r}")
+    tokens = [_unescape_pointer_token(t) for t in pointer.split("/")[1:]]
+    cur: dict = obj
+    for tok in tokens[:-1]:
+        nxt = cur.get(tok)
+        if not isinstance(nxt, dict):
+            nxt = {}
+            cur[tok] = nxt
+        cur = nxt
+    cur[tokens[-1]] = value
 
 
 @router.post("/admin/config/{slug}/sync-from-bundle")
@@ -457,12 +502,14 @@ async def sync_config_from_bundle(
     request: Request,
     x_admin_key: str = Header(...),
 ):
-    """Copy the listed top-level keys from the bundled config into the
-    persistent config. Bumps version; hot-reloads `remote_configs`.
+    """Copy listed entries from the bundled config into the persistent
+    config. Each entry is either a top-level key (legacy) or a JSON
+    pointer (`/limits/project_chat/...`). Bumps version; hot-reloads
+    `remote_configs`.
 
-    Returns a per-key change report (old → new value, or "unchanged"
+    Returns a per-entry change report (old → new value, or "unchanged"
     when bundle and persistent already matched). If the persistent
-    file doesn't exist yet, it's created with the requested keys
+    file doesn't exist yet, it's created with the requested entries
     plus a starting `version: 1`.
     """
     _verify_admin(request, x_admin_key)
@@ -494,29 +541,33 @@ async def sync_config_from_bundle(
 
     changes: list[dict] = []
     any_change = False
-    missing_keys: list[str] = []
-    for key in body.keys:
-        if key not in bundle:
-            missing_keys.append(key)
+    missing_entries: list[str] = []
+    for entry in body.keys:
+        pointer = entry if entry.startswith("/") else f"/{entry}"
+        try:
+            found, new_val = _resolve_pointer(bundle, pointer)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        if not found:
+            missing_entries.append(entry)
             continue
-        new_val = bundle[key]
-        old_val = persistent.get(key)
+        _, old_val = _resolve_pointer(persistent, pointer)
         if old_val == new_val:
-            changes.append({"key": key, "status": "unchanged"})
+            changes.append({"key": entry, "status": "unchanged"})
             continue
-        persistent[key] = new_val
+        _set_pointer(persistent, pointer, new_val)
         changes.append({
-            "key": key,
+            "key": entry,
             "status": "synced",
             "old": old_val,
             "new": new_val,
         })
         any_change = True
 
-    if missing_keys:
+    if missing_entries:
         raise HTTPException(
             status_code=400,
-            detail=f"keys not in bundled file: {missing_keys}",
+            detail=f"keys not in bundled file: {missing_entries}",
         )
 
     if any_change:
