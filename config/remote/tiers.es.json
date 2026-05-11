@@ -1,5 +1,5 @@
 {
-  "version": 17,
+  "version": 18,
   "tiers": {
     "free": {
       "display_name": "Gratis",
@@ -23,6 +23,13 @@
       ],
       "feature_definitions": {
         "project_chat": {"max_input_tokens": 50000},
+        "budget": {
+          "cta_exhausted": {
+            "kind": "budget_exhausted",
+            "text": "Has agotado tu IA gratuita de este mes. Actualiza a Plus para continuar.",
+            "action": "open_paywall"
+          }
+        },
         "search": {
           "searches_per_month": 0,
           "searches_soft_threshold": null,

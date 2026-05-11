@@ -780,6 +780,21 @@ async def usage_me(
         "source": moi["source"],
     }
 
+    # Budget-exhausted CTA payload — surfaces when the user is past their
+    # monthly cap so iOS can render the upgrade prompt on pre-flight gates
+    # (e.g., the meeting-start check) without firing a /v1/chat call first.
+    # Same canonical CTA shape the /v1/chat block-response emits. Omitted
+    # for unlimited tiers (monthly_limit == -1) since they never exhaust.
+    if credits_total != -1 and credits_remaining <= 0:
+        from app.routers.config import _parse_accept_language
+        from app.services.budget_cta import get_budget_exhausted_cta
+        locale = _parse_accept_language(request.headers.get("Accept-Language"))
+        result["budget_exhausted_cta"] = get_budget_exhausted_cta(
+            request.app.state.remote_configs,
+            effective_tier_name,
+            locale,
+        )
+
     return result
 
 
@@ -1145,6 +1160,9 @@ async def chat(
             credits_total = dollars_to_credits(effective_limit)
             credits_used = dollars_to_credits(monthly_used)
             credits_remaining = max(0, credits_total - credits_used)
+            from app.routers.config import _parse_accept_language
+            from app.services.budget_cta import get_budget_exhausted_cta
+            _budget_locale = _parse_accept_language(request.headers.get("Accept-Language"))
             block_payload = {
                 "text": "",
                 "model": body.model,
@@ -1155,11 +1173,11 @@ async def chat(
                     "credits_remaining": credits_remaining,
                     "credits_total": credits_total,
                     "credits_resets_at": user.allocation_resets_at,
-                    "cta": {
-                        "kind": "budget_exhausted",
-                        "text": "You've used your free AI for this month. Upgrade to Plus to keep going.",
-                        "action": "open_paywall",
-                    },
+                    "cta": get_budget_exhausted_cta(
+                        request.app.state.remote_configs,
+                        user.effective_tier,
+                        _budget_locale,
+                    ),
                 },
             }
             return JSONResponse(status_code=200, content=block_payload)

@@ -200,6 +200,30 @@ conversion, no drift between display and gate.
 
 Plus/Pro: `total = -1`, `remaining = -1` (unlimited badge).
 
+### `budget_exhausted_cta` block (pre-flight gate copy)
+
+Added to `/v1/usage/me` when the user is past their monthly cap so iOS
+can render the upgrade prompt on **pre-flight gates** (meeting-start,
+project-chat send, etc.) without firing a `/v1/chat` call first. Same
+canonical CTA shape as the blocked `/v1/chat` envelope.
+
+```json
+{
+  "budget_exhausted_cta": {
+    "kind": "budget_exhausted",
+    "text": "You've used your free AI for this month. Upgrade to Plus to keep going.",
+    "action": "open_paywall"
+  }
+}
+```
+
+Omitted when `credits.remaining > 0` and for unlimited tiers
+(`credits.total == -1`). Copy is sourced from
+`tiers.{locale}.json → tiers.{tier}.feature_definitions.budget.cta_exhausted`
+and resolved with the request's `Accept-Language` (es/ja variants
+ship localized copy). Edits to the copy hot-reload from the admin
+dashboard without an iOS release.
+
 ## CTA kind / action table
 
 Locked across all locales. Server keeps `kind` + `action` stable; only

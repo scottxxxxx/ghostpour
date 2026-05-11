@@ -1,5 +1,5 @@
 {
-  "version": 17,
+  "version": 18,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -23,6 +23,13 @@
       ],
       "feature_definitions": {
         "project_chat": {"max_input_tokens": 50000},
+        "budget": {
+          "cta_exhausted": {
+            "kind": "budget_exhausted",
+            "text": "今月の無料AIを使い切りました。Plusにアップグレードして続けましょう。",
+            "action": "open_paywall"
+          }
+        },
         "search": {
           "searches_per_month": 0,
           "searches_soft_threshold": null,
