@@ -45,8 +45,10 @@ class StreamingBypassMiddleware:
     """Pure ASGI middleware for request logging that supports SSE streaming.
 
     Replaces BaseHTTPMiddleware which materializes StreamingResponse bodies.
-    For streaming requests (stream:true in body), passes through without
-    body capture. For non-streaming, captures response body for logging.
+    Decides whether to capture the response body based on the response's
+    actual content-type — not the request's `stream:true` flag — so handlers
+    that override streaming (e.g. ProjectChat returning JSON to a request
+    with `stream:true`) log their real body and aren't mislabeled "(streaming)".
     """
 
     def __init__(self, app: ASGIApp):
@@ -80,11 +82,8 @@ class StreamingBypassMiddleware:
         # Peek at request body
         first_message = await receive()
         req_body = b""
-        is_stream = False
         if first_message.get("type") == "http.request":
             req_body = first_message.get("body", b"")
-            if b'"stream":true' in req_body or b'"stream": true' in req_body:
-                is_stream = True
 
         req_body_str = req_body.decode("utf-8", errors="replace")[:_MAX_BODY_LOG] if req_body else None
 
@@ -106,57 +105,39 @@ class StreamingBypassMiddleware:
                 return first_message
             return await receive()
 
-        if is_stream:
-            # STREAMING: pass through without body capture
-            response_status = 200
-            async def stream_send(message):
-                nonlocal response_status
-                if message["type"] == "http.response.start":
-                    response_status = message.get("status", 200)
-                    headers = list(message.get("headers", []))
-                    headers.append((b"x-request-id", request_id.encode()))
-                    message = {**message, "headers": headers}
-                await send(message)
-
-            await self.app(scope, replay_receive, stream_send)
-
-            elapsed_ms = int((time.monotonic() - start) * 1000)
-            _LOG_BUFFER.append({
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "request_id": request_id,
-                "app_id": app_id,
-                "method": method,
-                "path": path,
-                "status": response_status,
-                "latency_ms": elapsed_ms,
-                "client_ip": req_headers.get("x-real-ip", ""),
-                "request": {"headers": req_headers, "body": _format_body_parsed(req_body_str)},
-                "response": {"body": "(streaming)"},
-            })
-            logger.info("%s %s %d %dms (streaming)", method, path, response_status, elapsed_ms)
-            return
-
-        # NON-STREAMING: capture response body
         response_status = 200
-        response_headers = {}
+        response_headers: dict[str, str] = {}
         response_body = b""
+        is_streaming = False
 
         async def capture_send(message):
-            nonlocal response_status, response_headers, response_body
+            nonlocal response_status, response_headers, response_body, is_streaming
             if message["type"] == "http.response.start":
                 response_status = message.get("status", 200)
                 headers = list(message.get("headers", []))
                 headers.append((b"x-request-id", request_id.encode()))
                 message = {**message, "headers": headers}
                 response_headers = {h[0].decode(): h[1].decode() for h in headers}
-            elif message["type"] == "http.response.body":
+                # Decide based on actual response content-type, not the
+                # request's `stream:true` flag — handlers may override it.
+                ct = response_headers.get("content-type", "")
+                if ct.startswith("text/event-stream"):
+                    is_streaming = True
+            elif message["type"] == "http.response.body" and not is_streaming:
                 response_body += message.get("body", b"")
             await send(message)
 
         await self.app(scope, replay_receive, capture_send)
 
         elapsed_ms = int((time.monotonic() - start) * 1000)
-        resp_body_str = response_body.decode("utf-8", errors="replace")[:_MAX_BODY_LOG]
+
+        if is_streaming:
+            resp_section: dict = {"headers": response_headers, "body": "(streaming)"}
+            log_suffix = " (streaming)"
+        else:
+            resp_body_str = response_body.decode("utf-8", errors="replace")[:_MAX_BODY_LOG]
+            resp_section = {"headers": response_headers, "body": _format_body_parsed(resp_body_str)}
+            log_suffix = ""
 
         _LOG_BUFFER.append({
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -169,9 +150,9 @@ class StreamingBypassMiddleware:
             "client_ip": req_headers.get("x-real-ip", ""),
             "user_agent": req_headers.get("user-agent", ""),
             "request": {"headers": req_headers, "body": _format_body_parsed(req_body_str)},
-            "response": {"headers": response_headers, "body": _format_body_parsed(resp_body_str)},
+            "response": resp_section,
         })
-        logger.info("%s %s %d %dms", method, path, response_status, elapsed_ms)
+        logger.info("%s %s %d %dms%s", method, path, response_status, elapsed_ms, log_suffix)
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
