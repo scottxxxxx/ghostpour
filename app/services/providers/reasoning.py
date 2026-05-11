@@ -22,13 +22,21 @@ from __future__ import annotations
 from app.models.chat import ReasoningLevel
 
 
-# Anthropic budget_tokens by level. Anthropic requires budget_tokens < max_tokens,
-# so callers may need to lift max_tokens; see anthropic_min_max_tokens below.
+# Anthropic budget_tokens by level — used for Haiku 4.5, which doesn't
+# support the `effort` parameter and stays on the legacy
+# `thinking: {type: enabled, budget_tokens: N}` path. Anthropic requires
+# budget_tokens < max_tokens, so callers may need to lift max_tokens; see
+# anthropic_min_max_tokens below.
 _ANTHROPIC_BUDGET = {"low": 1024, "medium": 4096, "high": 16384}
 
 # Gemini 2.5 thinkingBudget by level (integer field).
 # 0 disables thinking on Flash/Flash-Lite; Pro doesn't accept 0.
 _GEMINI_25_BUDGET = {"low": 1024, "medium": 4096, "high": 16384}
+
+# Qwen 3.x thinking_budget by level (integer field). Same scale as Gemini 2.5.
+# Native Qwen + OpenRouter both accept this field; OR's docs explicitly say
+# "Alibaba Qwen models map [reasoning.max_tokens] to thinking_budget."
+_QWEN_BUDGET = {"low": 1024, "medium": 4096, "high": 16384}
 
 
 def openai_compat_fields(
@@ -49,18 +57,19 @@ def openai_compat_fields(
         return {"reasoning_effort": level}
 
     if p == "xai":
-        # Grok 4: reasoning_effort low|high natively (no minimal/medium).
-        # `model-capabilities.json` should only expose ["low", "high"] for
-        # Grok. Default = omit. Defensive collapse for stale clients.
+        # Grok 4 / 4.1-fast: reasoning_effort none|low|medium|high natively.
+        # `model-capabilities.json` exposes [default, low, medium, high].
+        # `minimal` defensively collapses to "low" for stale clients.
         if is_default:
             return {}
-        effort = "low" if level in ("minimal", "low") else "high"
-        return {"reasoning_effort": effort}
+        if level == "minimal":
+            return {"reasoning_effort": "low"}
+        return {"reasoning_effort": level}
 
     if p == "deepseek":
-        # V4 dual-mode: explicit thinking block + optional effort.
+        # V4 dual-mode: `thinking: {type: enabled|disabled}` + optional effort.
         # `model-capabilities.json` exposes only ["default", "high"].
-        # Default and minimal both force-disable; everything else enables.
+        # Default and minimal both force-disable.
         if is_default or level == "minimal":
             return {"thinking": {"type": "disabled"}}
         return {
@@ -68,36 +77,127 @@ def openai_compat_fields(
             "reasoning_effort": level,  # low/medium map to high server-side
         }
 
-    if p in ("kimi", "qwen"):
-        # Boolean toggle. `model-capabilities.json` exposes only
-        # ["default", "high"]. Default and minimal both force-disable.
+    if p == "kimi":
+        # Kimi K2.x: same `thinking: {type: enabled|disabled}` shape as DeepSeek
+        # (NOT `enable_thinking: bool` — that was wrong in the older code).
+        # `model-capabilities.json` exposes only ["default", "high"].
+        # Default and minimal both force-disable.
         if is_default or level == "minimal":
-            return {"enable_thinking": False}
-        return {"enable_thinking": True}
+            return {"thinking": {"type": "disabled"}}
+        return {"thinking": {"type": "enabled"}}
+
+    if p == "qwen":
+        # Qwen 3.x: integer thinking_budget. Same scale as Gemini 2.5.
+        # `model-capabilities.json` exposes only ["default", "high"].
+        # Default = 0 (no thinking). Minimal = 0 too (defensive).
+        if is_default or level == "minimal":
+            return {"thinking_budget": 0}
+        return {"thinking_budget": _QWEN_BUDGET[level]}
 
     return {}
 
 
-def anthropic_thinking_block(level: ReasoningLevel | None) -> dict | None:
-    """Returns the thinking block to splice into an Anthropic request, or None.
+# ---------------------------------------------------------------------------
+# Anthropic — model-aware dispatch
+# ---------------------------------------------------------------------------
+#
+# Anthropic has TWO request shapes for controlling thinking depth:
+#
+#   1. Legacy "manual thinking" — `thinking: {type: enabled, budget_tokens: N}`.
+#      Still works on Haiku 4.5 (its only path); deprecated on Sonnet 4.6;
+#      REJECTED with 400 on Opus 4.7.
+#
+#   2. Modern "effort" path — `output_config: {effort: low|medium|high|...}`
+#      with `thinking: {type: adaptive}`. Required on Opus 4.7; recommended
+#      on Sonnet 4.6 (replaces the deprecated budget_tokens path); NOT
+#      supported on Haiku 4.5.
+#
+# Verified against https://platform.claude.com/docs/en/docs/build-with-claude/effort
+# and .../extended-thinking on 2026-05-11. Per the effort doc:
+#   "The effort parameter is supported by Claude Mythos Preview, Claude Opus 4.7,
+#    Claude Opus 4.6, Claude Sonnet 4.6, and Claude Opus 4.5."
+# Haiku 4.5 is explicitly NOT in that list.
 
-    Anthropic doesn't have a native "minimal" tier. `model-capabilities.json`
-    only exposes ["default", "low", "medium", "high"] for Claude; "minimal"
-    on a stale client defensively returns None (same as default).
+
+def anthropic_uses_effort_path(model: str) -> bool:
+    """True if the model accepts `output_config: {effort: ...}`.
+
+    Sonnet 4.6 + Opus 4.7 (and Opus 4.5/4.6/Mythos for completeness). Haiku
+    stays on the legacy budget_tokens path.
+    """
+    m = model.lower()
+    return (
+        "sonnet-4" in m
+        or "opus-4" in m
+        or "mythos" in m
+    )
+
+
+def anthropic_thinking_block(
+    level: ReasoningLevel | None, model: str | None = None
+) -> dict | None:
+    """Returns the `thinking` block for an Anthropic request, or None.
+
+    For models on the effort path (Sonnet/Opus 4.x): returns
+    `{type: "adaptive"}` for any non-default level so the model uses
+    adaptive thinking; `None` for default (no thinking).
+
+    For Haiku 4.5: returns the legacy
+    `{type: "enabled", budget_tokens: N}` shape — the only supported path.
+
+    For backwards-compat when called without `model` (older test paths or
+    a future adapter that hasn't migrated), assumes the legacy budget path.
     """
     if level is None or level == "default" or level == "minimal":
         return None
+
+    if model and anthropic_uses_effort_path(model):
+        return {"type": "adaptive"}
+
     return {
         "type": "enabled",
         "budget_tokens": _ANTHROPIC_BUDGET[level],
     }
 
 
+def anthropic_output_config(
+    level: ReasoningLevel | None, model: str
+) -> dict | None:
+    """Returns the `output_config` block for Anthropic effort-path models,
+    or None for legacy / default cases.
+
+    Maps our normalized levels onto the effort vocabulary:
+      default → omit (Anthropic's default = "high")
+      low     → effort: "low"
+      medium  → effort: "medium"
+      high    → effort: "high"
+
+    minimal collapses to "low" defensively — `model-capabilities.json`
+    shouldn't expose minimal on Anthropic models but a stale client
+    sending it shouldn't 400."""
+    if not anthropic_uses_effort_path(model):
+        return None
+    if level is None or level == "default":
+        return None
+    effort = "low" if level == "minimal" else level
+    return {"effort": effort}
+
+
 def anthropic_min_max_tokens(level: ReasoningLevel | None) -> int:
-    """Floor for max_tokens when thinking is enabled (budget + 1024 headroom)."""
+    """Floor for max_tokens when LEGACY thinking is enabled (Haiku path only).
+
+    The effort path doesn't constrain max_tokens — only budget_tokens
+    needs to stay below max_tokens. Callers using the effort path can
+    skip this lift.
+    """
     if level is None or level == "default" or level == "minimal":
         return 0
     return _ANTHROPIC_BUDGET[level] + 1024
+
+
+# ---------------------------------------------------------------------------
+# Gemini — model-aware dispatch (3.x uses thinkingLevel; 2.5.x uses thinkingBudget)
+# ---------------------------------------------------------------------------
 
 
 def _is_gemini_3(model: str) -> bool:
@@ -125,15 +225,15 @@ def gemini_thinking_config(
       - Gemini 3.x uses `thinkingLevel: minimal|low|medium|high`
         (minimal only on Flash/Flash-Lite; Pro rejects it).
       - Gemini 2.5.x uses `thinkingBudget: <int>` (0 disables on Flash,
-        not Pro; no native "minimal" level).
+        not Pro; no native "minimal" level — minimal maps to 0 on Flash).
     """
     if level is None or level == "default":
         return None
 
     if _is_gemini_3(model):
         # Defensive: Pro doesn't accept "minimal" per Google's docs.
-        # `model-capabilities.json` should already gate the picker, but if
-        # a stale client still sends it, collapse to "low".
+        # `model-capabilities.json` already gates the picker, but if a
+        # stale client still sends it, collapse to "low".
         if level == "minimal" and _is_gemini_3_pro(model):
             return {"thinkingLevel": "low"}
         return {"thinkingLevel": level}

@@ -51,9 +51,9 @@ no provider-level guesswork.
 | Anthropic Claude 4.x | `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5` | `[default, low, medium, high]` |
 | Google Gemini 3 Flash / Flash-Lite | `gemini-3-flash-preview`, `gemini-3.1-flash-lite-preview` | `[default, minimal, low, medium, high]` |
 | Google Gemini 3 Pro | `gemini-3.1-pro-preview` | `[default, low, medium, high]` (no `minimal` per Google) |
-| xAI Grok 4 / 4.1 | `grok-4`, `grok-4.1-fast` | `[low, high]` (no `default` — Grok's omit-default is observationally `low`) |
+| xAI Grok 4 / 4.1 | `grok-4`, `grok-4.1-fast` | `[default, low, medium, high]` (native API supports 4 levels) |
 | Moonshot Kimi K2.x | `kimi-k2.5`, `kimi-k2-thinking`, `kimi-k2-turbo-preview` | `[default, high]` (boolean toggle; `default` force-disables) |
-| Alibaba Qwen 3.x | `qwen-max`, `qwen-plus`, `qwen-flash` | `[default, high]` (boolean toggle; `default` force-disables) |
+| Alibaba Qwen 3.x | `qwen-max`, `qwen-plus`, `qwen-flash` | `[default, high]` (integer budget; `default` = budget 0) |
 | DeepSeek V4 | `deepseek-v4-flash`, `deepseek-v4-pro` | `[default, high]` (server collapses low/medium → high) |
 | Apple Foundation Models | `foundation-models` | (picker hidden — `supportsReasoning: false`) |
 
@@ -82,22 +82,92 @@ provider's native field name.
 
 ## Mapping (server-side translation)
 
-| Level | OpenAI gpt-5.x | Anthropic | Gemini 3 (Flash / Flash-Lite) | Gemini 3 Pro | xAI Grok | Kimi / Qwen | DeepSeek V4 |
-|---|---|---|---|---|---|---|---|
-| `default` | (omit) | (no thinking block) | (omit `thinkingConfig`) | (omit `thinkingConfig`) | (hidden in picker) | `enable_thinking: false` | `thinking: {disabled}` |
-| `minimal` | `reasoning_effort: "minimal"` | (hidden) | `thinkingLevel: "minimal"` | (hidden; defensively → `low`) | (hidden; defensively → `low`) | (hidden; defensively → `enable_thinking: false`) | (hidden; defensively → `thinking: {disabled}`) |
-| `low` | `"low"` | `budget_tokens: 1024` | `thinkingLevel: "low"` | `thinkingLevel: "low"` | `reasoning_effort: "low"` | (hidden) | (hidden) |
-| `medium` | `"medium"` | `budget_tokens: 4096` | `thinkingLevel: "medium"` | `thinkingLevel: "medium"` | (hidden; collapse → `high`) | (hidden) | (hidden) |
-| `high` | `"high"` | `budget_tokens: 16384` | `thinkingLevel: "high"` | `thinkingLevel: "high"` | `reasoning_effort: "high"` | `enable_thinking: true` | `thinking: {enabled}, reasoning_effort: "high"` |
+### OpenAI gpt-5.x
 
-When the Anthropic `thinking` block is set, the adapter automatically
-lifts `max_tokens` to `budget_tokens + 1024` so the response has
-headroom (Anthropic requires `budget_tokens < max_tokens`).
+| Level | Native API |
+|---|---|
+| `default` | (omit `reasoning_effort`) |
+| `minimal` | `reasoning_effort: "minimal"` |
+| `low` / `medium` / `high` | `reasoning_effort: "low"` / `"medium"` / `"high"` |
 
-For Gemini 2.5.x (no models in current `model-capabilities.json` but
-adapter dispatches by model family): `default` → omit;
-`low`/`medium`/`high` → `thinkingBudget: 1024 / 4096 / 16384`;
-`minimal` → `thinkingBudget: 0` (Flash/Flash-Lite only — Pro doesn't accept 0).
+### Anthropic Claude 4.x — **model-aware dispatch**
+
+Anthropic has two API shapes; the adapter selects based on the model.
+Verified against `https://platform.claude.com/docs/en/docs/build-with-claude/effort`
+and the extended-thinking page on 2026-05-11.
+
+**Effort path (Sonnet 4.6, Opus 4.7):** `output_config.effort` + `thinking: {type: "adaptive"}`. Required for Opus 4.7 (manual thinking returns 400). Recommended for Sonnet 4.6 (manual thinking still works but deprecated).
+
+| Level | Sonnet 4.6 + Opus 4.7 |
+|---|---|
+| `default` | (omit `output_config.effort`; Anthropic default = "high") |
+| `low` | `thinking: {type: "adaptive"}`, `output_config: {effort: "low"}` |
+| `medium` | `thinking: {type: "adaptive"}`, `output_config: {effort: "medium"}` |
+| `high` | `thinking: {type: "adaptive"}`, `output_config: {effort: "high"}` |
+| `minimal` (hidden, defensive) | `output_config: {effort: "low"}` |
+
+**Legacy budget_tokens path (Haiku 4.5):** Haiku 4.5 is NOT in Anthropic's effort-supported list per the official docs. Stays on the older `thinking: {type: enabled, budget_tokens: N}` shape; adapter lifts `max_tokens` to `budget_tokens + 1024` for response headroom.
+
+| Level | Haiku 4.5 |
+|---|---|
+| `default` | (no `thinking` block) |
+| `low` | `thinking: {type: "enabled", budget_tokens: 1024}` |
+| `medium` | `thinking: {type: "enabled", budget_tokens: 4096}` |
+| `high` | `thinking: {type: "enabled", budget_tokens: 16384}` |
+| `minimal` (hidden, defensive) | (no `thinking` block) |
+
+### Google Gemini — **model-aware dispatch**
+
+Gemini 3.x uses string `thinkingLevel`; Gemini 2.5.x uses integer `thinkingBudget`. Adapter selects by model family.
+
+| Level | Gemini 3 Flash / Flash-Lite | Gemini 3 Pro | Gemini 2.5 Flash / Flash-Lite | Gemini 2.5 Pro |
+|---|---|---|---|---|
+| `default` | (omit `thinkingConfig`) | (omit) | (omit) | (omit) |
+| `minimal` | `thinkingLevel: "minimal"` | (hidden; defensively → `"low"`) | `thinkingBudget: 0` | (hidden; defensively → `"low"` equivalent budget) |
+| `low` / `medium` / `high` | `thinkingLevel: "low"` / `"medium"` / `"high"` | same | `thinkingBudget: 1024` / `4096` / `16384` | same |
+
+### xAI Grok 4 / 4.1-fast
+
+Native API accepts `none | low | medium | high`. Verified at `https://docs.x.ai/docs/guides/reasoning`.
+
+| Level | Native API |
+|---|---|
+| `default` | (omit `reasoning_effort`; Grok's default = `"low"`) |
+| `low` / `medium` / `high` | `reasoning_effort: "low"` / `"medium"` / `"high"` |
+| `minimal` (hidden, defensive) | `reasoning_effort: "low"` |
+
+### Moonshot Kimi K2.x
+
+Field is `thinking: {type: "enabled"/"disabled"}` per `https://platform.kimi.ai/docs/api/chat` — same shape as DeepSeek (not `enable_thinking: bool` as in earlier revs of this doc).
+
+| Level | Native API |
+|---|---|
+| `default` | `thinking: {type: "disabled"}` |
+| `minimal` (hidden, defensive) | `thinking: {type: "disabled"}` |
+| `low` / `medium` (hidden) / `high` | `thinking: {type: "enabled"}` |
+
+> **Unverified:** `kimi-k2-turbo-preview` may use a different schema per Kimi docs. Currently treated as supportsReasoning=true with the same shape; flag if SS sees 400s on that specific model.
+
+### Alibaba Qwen 3.x
+
+Field is `thinking_budget: int` per OpenRouter's translation table ("Alibaba Qwen models map [max_tokens] to thinking_budget"). Same scale as Gemini 2.5.
+
+| Level | Native API |
+|---|---|
+| `default` | `thinking_budget: 0` |
+| `minimal` (hidden, defensive) | `thinking_budget: 0` |
+| `low` / `medium` (hidden) / `high` | `thinking_budget: 1024` / `4096` / `16384` |
+
+### DeepSeek V4
+
+Dual-mode: `thinking: {type: "enabled"/"disabled"}` + optional `reasoning_effort`.
+
+| Level | Native API |
+|---|---|
+| `default` | `thinking: {type: "disabled"}` |
+| `minimal` (hidden, defensive) | `thinking: {type: "disabled"}` |
+| `low` / `medium` (hidden) | `thinking: {type: "enabled"}` + `reasoning_effort: <level>` *(server collapses low/medium → high)* |
+| `high` | `thinking: {type: "enabled"}` + `reasoning_effort: "high"` |
 
 ## OpenRouter (called direct from iOS, not proxied)
 

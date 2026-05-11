@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 7,
   "defaultPromptReserveTokens": 8000,
   "models": {
     "foundation-models": {
@@ -452,7 +452,9 @@
       "estimatedAvailableTokens": 254976,
       "supportsReasoning": true,
       "reasoningLevels": [
+        "default",
         "low",
+        "medium",
         "high"
       ]
     },
@@ -485,7 +487,9 @@
       "estimatedAvailableTokens": 1998976,
       "supportsReasoning": true,
       "reasoningLevels": [
+        "default",
         "low",
+        "medium",
         "high"
       ]
     },
