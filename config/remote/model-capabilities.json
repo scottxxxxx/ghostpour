@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "defaultPromptReserveTokens": 8000,
   "models": {
     "foundation-models": {
@@ -60,7 +60,8 @@
       "estimatedAvailableTokens": 1048576,
       "supportsReasoning": true,
       "reasoningLevels": [
-        "off",
+        "default",
+        "minimal",
         "low",
         "medium",
         "high"
@@ -95,7 +96,8 @@
       "estimatedAvailableTokens": 1048576,
       "supportsReasoning": true,
       "reasoningLevels": [
-        "off",
+        "default",
+        "minimal",
         "low",
         "medium",
         "high"
@@ -130,7 +132,8 @@
       "estimatedAvailableTokens": 398976,
       "supportsReasoning": true,
       "reasoningLevels": [
-        "off",
+        "default",
+        "minimal",
         "low",
         "medium",
         "high"
@@ -165,7 +168,8 @@
       "estimatedAvailableTokens": 398976,
       "supportsReasoning": true,
       "reasoningLevels": [
-        "off",
+        "default",
+        "minimal",
         "low",
         "medium",
         "high"
@@ -200,7 +204,8 @@
       "estimatedAvailableTokens": 398976,
       "supportsReasoning": true,
       "reasoningLevels": [
-        "off",
+        "default",
+        "minimal",
         "low",
         "medium",
         "high"
@@ -235,7 +240,7 @@
       "estimatedAvailableTokens": 998848,
       "supportsReasoning": true,
       "reasoningLevels": [
-        "off",
+        "default",
         "low",
         "medium",
         "high"
@@ -270,7 +275,7 @@
       "estimatedAvailableTokens": 998848,
       "supportsReasoning": true,
       "reasoningLevels": [
-        "off",
+        "default",
         "low",
         "medium",
         "high"
@@ -305,7 +310,7 @@
       "estimatedAvailableTokens": 198976,
       "supportsReasoning": true,
       "reasoningLevels": [
-        "off",
+        "default",
         "low",
         "medium",
         "high"
@@ -340,7 +345,7 @@
       "estimatedAvailableTokens": 1047552,
       "supportsReasoning": true,
       "reasoningLevels": [
-        "off",
+        "default",
         "low",
         "medium",
         "high"
@@ -375,7 +380,8 @@
       "estimatedAvailableTokens": 1047552,
       "supportsReasoning": true,
       "reasoningLevels": [
-        "off",
+        "default",
+        "minimal",
         "low",
         "medium",
         "high"
@@ -410,7 +416,8 @@
       "estimatedAvailableTokens": 1047552,
       "supportsReasoning": true,
       "reasoningLevels": [
-        "off",
+        "default",
+        "minimal",
         "low",
         "medium",
         "high"
@@ -511,7 +518,7 @@
       "estimatedAvailableTokens": 261120,
       "supportsReasoning": true,
       "reasoningLevels": [
-        "off",
+        "default",
         "high"
       ]
     },
@@ -544,7 +551,7 @@
       "estimatedAvailableTokens": 261120,
       "supportsReasoning": true,
       "reasoningLevels": [
-        "off",
+        "default",
         "high"
       ]
     },
@@ -577,7 +584,7 @@
       "estimatedAvailableTokens": 261120,
       "supportsReasoning": true,
       "reasoningLevels": [
-        "off",
+        "default",
         "high"
       ]
     },
@@ -610,7 +617,7 @@
       "estimatedAvailableTokens": 261120,
       "supportsReasoning": true,
       "reasoningLevels": [
-        "off",
+        "default",
         "high"
       ]
     },
@@ -643,7 +650,7 @@
       "estimatedAvailableTokens": 1047552,
       "supportsReasoning": true,
       "reasoningLevels": [
-        "off",
+        "default",
         "high"
       ]
     },
@@ -676,7 +683,7 @@
       "estimatedAvailableTokens": 1047552,
       "supportsReasoning": true,
       "reasoningLevels": [
-        "off",
+        "default",
         "high"
       ]
     },
@@ -709,7 +716,7 @@
       "estimatedAvailableTokens": 1047552,
       "supportsReasoning": true,
       "reasoningLevels": [
-        "off",
+        "default",
         "high"
       ]
     },
@@ -742,7 +749,7 @@
       "estimatedAvailableTokens": 1047552,
       "supportsReasoning": true,
       "reasoningLevels": [
-        "off",
+        "default",
         "high"
       ]
     }
