@@ -30,8 +30,12 @@ class FeatureDefinition(BaseModel):
     capture_skip_modes: list[str] = []  # prompt_mode values that skip capture
     # Project Chat policy (only set on the project_chat feature)
     gp_chat_flag: str = ""              # "all" | "ssai" | "logged_in" | "plus"
+    # Memory capture quota (free_quota_per_month + free_within_quota_footer /
+    # free_no_quota_only CTA strings). Project Chat's count quota was
+    # superseded by the budget gate — `free_quota_per_month` is unused for
+    # project_chat and its `cta_strings` block is empty.
     free_quota_per_month: int = 0       # 0 | 1..10 | -1 (unlimited)
-    cta_strings: dict[str, str] = {}    # keys: quota_remaining, quota_exhausted, unlimited, login_required
+    cta_strings: dict[str, str] = {}
 
 
 class FeatureConfig(BaseModel):
