@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-VALID_LEVELS = {"off", "low", "medium", "high"}
+VALID_LEVELS = {"default", "minimal", "low", "medium", "high"}
 
 CAPABILITY_FILES = [
     "config/remote/model-capabilities.json",
@@ -56,14 +56,15 @@ def test_levels_are_valid_values(path):
 
 
 @pytest.mark.parametrize("path", CAPABILITY_FILES)
-def test_no_default_value_anywhere(path):
-    """The contract drops 'default' entirely. None should appear in any list."""
+def test_no_legacy_off_value_anywhere(path):
+    """Legacy 'off' level was renamed to 'default' (2026-05-11). No file
+    should still carry the old name."""
     data = _load(path)
     for model_id, cap in data["models"].items():
         levels = cap.get("reasoningLevels") or []
-        assert "default" not in levels, (
-            f"{path}:{model_id} contains 'default' — must be removed; "
-            "iOS sends an explicit level only."
+        assert "off" not in levels, (
+            f"{path}:{model_id} contains legacy 'off' — must be renamed to "
+            "'default'. See docs/wire-contracts/reasoning-control.md."
         )
 
 
