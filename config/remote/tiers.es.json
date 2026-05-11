@@ -1,5 +1,5 @@
 {
-  "version": 19,
+  "version": 20,
   "tiers": {
     "free": {
       "display_name": "Gratis",
@@ -62,7 +62,6 @@
         "Informes de reuniones compartibles",
         "Chat de proyecto entre reuniones",
         "Búsqueda web (75/mes)",
-        "Memoria de Reuniones: actualiza a Pro",
         "3 imágenes por consulta"
       ],
       "feature_items": [
@@ -72,7 +71,6 @@
         {"label": "Informes de reuniones compartibles", "icon": "share"},
         {"label": "Chat de proyecto entre reuniones", "icon": "chat"},
         {"label": "Búsqueda web (75/mes)", "icon": "globe"},
-        {"label": "Memoria de Reuniones: actualiza a Pro", "icon": "brain", "state": "teaser"},
         {"label": "3 imágenes por consulta", "icon": "photo"}
       ],
       "status_items": [

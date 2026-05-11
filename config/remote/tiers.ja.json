@@ -1,5 +1,5 @@
 {
-  "version": 19,
+  "version": 20,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -62,7 +62,6 @@
         "共有可能なミーティングレポート",
         "ミーティング間のプロジェクトチャット",
         "Web検索（月75回）",
-        "ミーティングメモリー：Proにアップグレード",
         "1クエリにつき画像3枚"
       ],
       "feature_items": [
@@ -72,7 +71,6 @@
         {"label": "共有可能なミーティングレポート", "icon": "share"},
         {"label": "ミーティング間のプロジェクトチャット", "icon": "chat"},
         {"label": "Web検索（月75回）", "icon": "globe"},
-        {"label": "ミーティングメモリー：Proにアップグレード", "icon": "brain", "state": "teaser"},
         {"label": "1クエリにつき画像3枚", "icon": "photo"}
       ],
       "status_items": [
