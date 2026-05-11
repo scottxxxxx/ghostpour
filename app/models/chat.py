@@ -11,9 +11,23 @@ _CHAT_META_FIELDS = (
 
 # Normalized reasoning level. Each adapter translates to its provider's
 # native shape (OpenAI reasoning_effort, Anthropic thinking budget, Gemini
-# thinkingConfig, DeepSeek thinking + reasoning_effort, etc.). When None,
-# no reasoning param is sent and the provider's default applies.
-ReasoningLevel = Literal["off", "low", "medium", "high"]
+# thinkingConfig / thinkingLevel, DeepSeek thinking + reasoning_effort, etc.).
+#
+# Semantics:
+#   "default" — let the provider decide. For Anthropic / Gemini that means
+#     omitting the thinking block entirely. For Kimi/Qwen/DeepSeek (which
+#     interpret an absent field as "thinking on") this means force-disable
+#     thinking (enable_thinking:false / thinking:{disabled}) — i.e., default
+#     is the user's "I don't care; give me the cheapest path."
+#   "minimal" — the lowest non-default native level. Only meaningful on
+#     providers that support it natively: OpenAI gpt-5.x, Gemini 3
+#     Flash/Flash-Lite.
+#   "low" / "medium" / "high" — explicit thinking levels.
+#
+# Per-model `reasoningLevels` arrays in model-capabilities.json drive which
+# of these values iOS exposes per model. See
+# docs/wire-contracts/reasoning-control.md.
+ReasoningLevel = Literal["default", "minimal", "low", "medium", "high"]
 
 
 class ChatRequest(BaseModel):

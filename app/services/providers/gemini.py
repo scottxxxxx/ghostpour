@@ -27,7 +27,7 @@ class GeminiAdapter(ProviderAdapter):
             body["systemInstruction"] = {
                 "parts": [{"text": request.system_prompt}]
             }
-        thinking_config = gemini_thinking_config(request.reasoning)
+        thinking_config = gemini_thinking_config(request.reasoning, request.model)
         if thinking_config is not None:
             body.setdefault("generationConfig", {})["thinkingConfig"] = thinking_config
 
