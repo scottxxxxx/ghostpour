@@ -1,5 +1,5 @@
 {
-  "version": 18,
+  "version": 19,
   "tiers": {
     "free": {
       "display_name": "Gratis",
@@ -61,6 +61,8 @@
         "Resúmenes automáticos en tiempo real",
         "Informes de reuniones compartibles",
         "Chat de proyecto entre reuniones",
+        "Búsqueda web (75/mes)",
+        "Memoria de Reuniones: actualiza a Pro",
         "3 imágenes por consulta"
       ],
       "feature_items": [
@@ -69,6 +71,8 @@
         {"label": "Resúmenes automáticos en tiempo real", "icon": "doc"},
         {"label": "Informes de reuniones compartibles", "icon": "share"},
         {"label": "Chat de proyecto entre reuniones", "icon": "chat"},
+        {"label": "Búsqueda web (75/mes)", "icon": "globe"},
+        {"label": "Memoria de Reuniones: actualiza a Pro", "icon": "brain", "state": "teaser"},
         {"label": "3 imágenes por consulta", "icon": "photo"}
       ],
       "status_items": [
@@ -108,6 +112,7 @@
         "Resúmenes completos o incrementales (tu elección)",
         "Informes de reuniones compartibles",
         "Chat de proyecto entre reuniones",
+        "Búsqueda web (120/mes)",
         "Memoria de Reuniones: la IA recuerda reuniones pasadas",
         "5 imágenes por consulta"
       ],
@@ -117,6 +122,7 @@
         {"label": "Resúmenes completos o incrementales (tu elección)", "icon": "doc"},
         {"label": "Informes de reuniones compartibles", "icon": "share"},
         {"label": "Chat de proyecto entre reuniones", "icon": "chat"},
+        {"label": "Búsqueda web (120/mes)", "icon": "globe"},
         {"label": "Memoria de Reuniones: la IA recuerda reuniones pasadas", "icon": "brain"},
         {"label": "5 imágenes por consulta", "icon": "photo"}
       ],
