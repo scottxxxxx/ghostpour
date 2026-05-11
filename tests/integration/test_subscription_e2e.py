@@ -356,3 +356,56 @@ class TestUsageMe:
         # `used` still gets a real value — useful for analytics even when
         # there's no cap.
         assert credits["used"] >= 0
+
+    def test_usage_me_budget_exhausted_cta_present_when_credits_zero(
+        self, client, exhausted_user,
+    ):
+        """A Free user past their cap gets a `budget_exhausted_cta` block
+        on /v1/usage/me so iOS can render the upgrade prompt on pre-flight
+        gates (meeting-start, etc.) without firing a /v1/chat call first.
+        Same canonical CTA shape the /v1/chat block-response emits."""
+        resp = client.get("/v1/usage/me", headers=exhausted_user["headers"])
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["credits"]["remaining"] == 0
+        cta = body["budget_exhausted_cta"]
+        assert cta["kind"] == "budget_exhausted"
+        assert cta["action"] == "open_paywall"
+        assert isinstance(cta["text"], str) and cta["text"]
+
+    def test_usage_me_no_budget_cta_when_credits_remaining(
+        self, client, free_user,
+    ):
+        """Free user with budget still available → no `budget_exhausted_cta`."""
+        resp = client.get("/v1/usage/me", headers=free_user["headers"])
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["credits"]["remaining"] > 0
+        assert "budget_exhausted_cta" not in body
+
+    def test_usage_me_no_budget_cta_for_unlimited_pro(self, client, pro_user):
+        """Pro is unlimited (`credits.total == -1`). They never exhaust;
+        omitting the field saves bytes and prevents nonsense UX where iOS
+        could try to render an upgrade prompt for a paying user."""
+        resp = client.get("/v1/usage/me", headers=pro_user["headers"])
+        assert resp.status_code == 200
+        assert "budget_exhausted_cta" not in resp.json()
+
+    def test_usage_me_budget_cta_honors_accept_language(
+        self, client, exhausted_user,
+    ):
+        """Spanish-locale request gets Spanish copy. Pin the locale plumbing
+        all the way through `_parse_accept_language` → resolver → response."""
+        resp = client.get(
+            "/v1/usage/me",
+            headers={
+                **exhausted_user["headers"],
+                "Accept-Language": "es-MX,es;q=0.9,en;q=0.8",
+            },
+        )
+        assert resp.status_code == 200
+        cta = resp.json()["budget_exhausted_cta"]
+        # Localized copy lives in tiers.es.json → free → feature_definitions.budget
+        assert "Plus" in cta["text"]
+        # Crude but durable signal: Spanish copy mentions "Actualiza"
+        assert "Actualiza" in cta["text"] or "agotado" in cta["text"]
