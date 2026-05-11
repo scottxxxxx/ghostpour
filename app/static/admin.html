@@ -1544,19 +1544,44 @@ async function openSyncFromBundle() {
     return;
   }
 
-  // Compute per-top-level-key diff. Skip "version" (we bump it ourselves).
-  const allKeys = new Set([...Object.keys(bundle), ...Object.keys(persistent)]);
-  allKeys.delete('version');
-  const rows = [];
-  for (const key of [...allKeys].sort()) {
-    const inBundle = key in bundle;
-    const same = inBundle && JSON.stringify(bundle[key]) === JSON.stringify(persistent[key]);
-    if (!inBundle) continue;  // can't sync something not in the bundle
-    rows.push({key, same, persistentHas: key in persistent});
+  // Walk bundle leaves (scalars and arrays) to produce per-path rows.
+  // Skip /version (we bump it ourselves). Arrays are treated as opaque
+  // leaves — we don't diff or sync individual array indices.
+  const escapeToken = t => String(t).replace(/~/g, '~0').replace(/\//g, '~1');
+  const isLeaf = v => v === null || typeof v !== 'object' || Array.isArray(v);
+  function* walkLeaves(obj, path = []) {
+    if (isLeaf(obj)) {
+      yield {pointer: '/' + path.map(escapeToken).join('/'), value: obj};
+      return;
+    }
+    for (const key of Object.keys(obj)) {
+      yield* walkLeaves(obj[key], path.concat([key]));
+    }
+  }
+  function lookupPointer(obj, pointer) {
+    if (pointer === '') return {found: true, value: obj};
+    const toks = pointer.split('/').slice(1).map(t => t.replace(/~1/g, '/').replace(/~0/g, '~'));
+    let cur = obj;
+    for (const t of toks) {
+      if (cur === null || typeof cur !== 'object' || Array.isArray(cur) || !(t in cur)) {
+        return {found: false, value: undefined};
+      }
+      cur = cur[t];
+    }
+    return {found: true, value: cur};
   }
 
+  const rows = [];
+  for (const {pointer, value} of walkLeaves(bundle)) {
+    if (pointer === '/version') continue;
+    const {found, value: pVal} = lookupPointer(persistent, pointer);
+    const same = found && JSON.stringify(value) === JSON.stringify(pVal);
+    rows.push({pointer, bundleVal: value, persistentVal: pVal, persistentHas: found, same});
+  }
+  rows.sort((a, b) => a.pointer.localeCompare(b.pointer));
+
   if (rows.length === 0) {
-    bodyEl.innerHTML = '<span style="color:var(--text-dim)">No top-level keys in the bundle to sync.</span>';
+    bodyEl.innerHTML = '<span style="color:var(--text-dim)">No syncable entries in the bundle.</span>';
     return;
   }
 
@@ -1566,20 +1591,20 @@ async function openSyncFromBundle() {
   bodyEl.innerHTML = `<table style="width:100%;border-collapse:collapse">
     <thead><tr style="border-bottom:1px solid var(--border)">
       <th style="text-align:left;padding:6px 8px;width:30px"></th>
-      <th style="text-align:left;padding:6px 8px">Key</th>
+      <th style="text-align:left;padding:6px 8px">Path</th>
       <th style="text-align:left;padding:6px 8px">Persistent</th>
       <th style="text-align:left;padding:6px 8px">Bundle</th>
     </tr></thead>
     <tbody>
       ${rows.map(r => {
-        const persistentVal = r.persistentHas ? truncate(persistent[r.key]) : '<em style="color:var(--text-dim)">absent</em>';
-        const bundleVal = truncate(bundle[r.key]);
+        const persistentVal = r.persistentHas ? truncate(r.persistentVal) : '<em style="color:var(--text-dim)">absent</em>';
+        const bundleVal = truncate(r.bundleVal);
         const rowColor = r.same ? '' : 'background:rgba(210,153,34,0.08)';
         const checked = r.same ? '' : 'checked';
         const disabled = r.same ? 'disabled' : '';
         return `<tr style="border-bottom:1px solid var(--border);${rowColor}">
-          <td style="padding:6px 8px"><input type="checkbox" data-key="${escape(r.key)}" ${checked} ${disabled}></td>
-          <td style="padding:6px 8px;color:var(--accent)">${escape(r.key)}</td>
+          <td style="padding:6px 8px"><input type="checkbox" data-key="${escape(r.pointer)}" ${checked} ${disabled}></td>
+          <td style="padding:6px 8px;color:var(--accent);font-family:var(--mono, monospace);font-size:12px">${escape(r.pointer)}</td>
           <td style="padding:6px 8px;color:var(--text-dim);max-width:240px;overflow:hidden;text-overflow:ellipsis">${persistentVal}</td>
           <td style="padding:6px 8px;max-width:240px;overflow:hidden;text-overflow:ellipsis">${bundleVal}</td>
         </tr>`;
@@ -1587,7 +1612,7 @@ async function openSyncFromBundle() {
     </tbody>
   </table>
   <p style="font-size:11px;color:var(--text-dim);margin-top:10px">
-    Highlighted rows differ between bundle and persistent. Same-value rows are pre-disabled (no point syncing). Sync replaces the entire top-level value verbatim — nested objects are not merged.
+    Highlighted rows differ between bundle and persistent. Same-value rows are pre-disabled. Each row is a JSON pointer to a leaf — checking it copies only that leaf from bundle to persistent, preserving dashboard edits to sibling paths.
   </p>`;
 }
 
