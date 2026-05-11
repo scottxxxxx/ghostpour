@@ -1,9 +1,9 @@
 """Memory-capture free-tier quota helper.
 
 End-of-meeting CQ captures (`/v1/capture-transcript`) are metered for Free
-users. Mirrors `project_chat_quota` exactly: lazy reset on every read/write
-keyed by calendar-month UTC, no cron job. The counter and period live on
-`users.memory_used_this_period` + `users.memory_period`.
+users. Lazy reset on every read/write keyed by calendar-month UTC, no
+cron job. The counter and period live on `users.memory_used_this_period`
++ `users.memory_period`.
 
 See docs/wire-contracts/memory-capture.md for the full spec.
 """
@@ -16,10 +16,7 @@ from datetime import datetime
 import aiosqlite
 
 from app.models.user import UserRecord
-from app.services.project_chat_quota import (
-    current_period_utc,
-    next_period_resets_at,
-)
+from app.services.period import current_period_utc, next_period_resets_at
 
 
 @dataclass(frozen=True)

@@ -169,7 +169,7 @@ class TestFreeOverQuota:
         self, client_with_cq, free_user, mock_cq, tmp_db_path,
     ):
         # Pre-set the user to "1 used in current period" so quota is exhausted.
-        from app.services.project_chat_quota import current_period_utc
+        from app.services.period import current_period_utc
         conn = sqlite3.connect(tmp_db_path)
         conn.execute(
             """UPDATE users SET memory_used_this_period = 1, memory_period = ?

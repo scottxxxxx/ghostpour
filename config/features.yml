@@ -35,7 +35,7 @@ features:
       - "PostSessionAnalysis"
     # Free-tier monthly quota for end-of-meeting Memory captures. Decrements
     # only when GP processes a `capture_with_cta` outcome at /v1/capture-transcript.
-    # Calendar-month boundary, UTC. Lazy reset (mirrors project_chat_quota).
+    # Calendar-month boundary, UTC. Lazy reset.
     # Valid: 0 (no free captures) | 1..10 (N free per month) | -1 (unlimited).
     free_quota_per_month: 1
     # CTA strings for the synthetic memory card injected into the next
@@ -75,17 +75,10 @@ features:
     #   plus             — Plus/Pro required for unrestricted use; Free users
     #                      always get GP-routed responses with a CTA wrap.
     gp_chat_flag: "ssai_free_only"
-    # Free-tier monthly quota for CTA-wrapped Project Chats.
-    # Valid: 0 (no free uses) | 1..10 (N free per month) | -1 (unlimited)
-    # Decrements only when GP processes a send_to_gp_with_cta outcome for a
-    # Free user. Calendar-month boundary, UTC. Lazy reset.
-    free_quota_per_month: 1
-    # CTA strings rendered server-side and surfaced via response.feature_state.cta.
-    # Template variables: {remaining}, {total}.
+    # CTA strings rendered server-side for the preflight `login_required`
+    # outcome. Free-tier *blocking* is the budget gate's job — no count
+    # quota lives here anymore.
     cta_strings:
-      quota_remaining: "You have {remaining} of {total} free Project Chats remaining this month. Upgrade to Plus for unlimited."
-      quota_exhausted: "You've used your {total} free Project Chats for this month. Upgrade to Plus for unlimited."
-      unlimited: "Project Chat by Shoulder Surf."
       login_required: "Sign in to use Project Chat."
     # DEPRECATED: kept until iOS clients migrate to the policy verdict.
     # The old free-tier intercept (PR #80) returns this when the policy

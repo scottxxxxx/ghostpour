@@ -342,13 +342,11 @@ async def verify_receipt(
                     now.isoformat(), trial_end, body.transaction_id, user.id,
                 ),
             )
-            # Zero Project Chat quota counter on Free → trial upgrade so
+            # Zero Memory capture quota counter on Free → trial upgrade so
             # the new subscriber doesn't start with stale counts that
-            # would surface in feature_state on the first send.
+            # would surface on the first capture.
             if old_tier_name == "free":
                 from app.services.memory_capture_quota import zero_memory_quota_on_tier_change
-                from app.services.project_chat_quota import zero_quota_on_tier_change
-                await zero_quota_on_tier_change(db, user.id)
                 await zero_memory_quota_on_tier_change(db, user.id)
             asyncio.create_task(cq.notify_tier_change(
                 user_id=user.id,
@@ -415,10 +413,6 @@ async def verify_receipt(
                 now.isoformat(), body.transaction_id, user.id,
             ),
         )
-        # Zero Project Chat quota counter on Free → paid upgrade.
-        if old_tier_name == "free":
-            from app.services.project_chat_quota import zero_quota_on_tier_change
-            await zero_quota_on_tier_change(db, user.id)
         if trial_to_paid:
             event_type = "trial_to_paid"
         else:
@@ -911,43 +905,25 @@ async def chat(
             detail={"code": "invalid_request", "message": f"Unknown tier: {effective_tier_name}"},
         )
 
-    # 1.5. Project Chat policy gate. Re-resolves the verdict server-side
-    # so we can't be tricked by a client that skipped /v1/features/project-chat/check.
-    # See app/services/project_chat_policy.py and
-    # docs/wire-contracts/project-chat.md for the full state matrix.
-    project_chat_cta_kind = None
-    project_chat_quota = None
-    project_chat_pc_config = None
-    project_chat_should_meter = False  # True when this send consumes a Free quota slot
+    # 1.5. Project Chat policy gate. Re-resolves the routing verdict
+    # server-side so we can't be tricked by a client that skipped
+    # /v1/features/project-chat/check. The budget gate handles Free-tier
+    # blocking — this gate is purely about routing.
     if body.get_meta("prompt_mode") == "ProjectChat":
         from app.routers.config import _parse_accept_language
         from app.routers.features import _get_project_chat_config
         from app.services.project_chat_policy import resolve_project_chat_verdict
-        from app.services.project_chat_quota import read_quota_state
 
         _pc_locale = _parse_accept_language(request.headers.get("Accept-Language"))
-        project_chat_pc_config = _get_project_chat_config(request, _pc_locale)
-        gp_chat_flag = project_chat_pc_config.get("gp_chat_flag", "plus")
-        free_quota_per_month = project_chat_pc_config.get("free_quota_per_month", 1)
-        selected_model = body.get_meta("selected_model") or "ssai"
-        if user.effective_tier == "free":
-            project_chat_quota = read_quota_state(user, free_quota_per_month)
-            has_quota = project_chat_quota.has_quota
-        else:
-            has_quota = True
-
+        _pc_config = _get_project_chat_config(request, _pc_locale)
         verdict = resolve_project_chat_verdict(
             is_logged_in=True,  # /v1/chat already requires JWT
             tier=user.effective_tier,
-            gp_chat_flag=gp_chat_flag,
-            selected_model=selected_model,  # type: ignore[arg-type]
-            has_quota=has_quota,
-            free_quota_per_month=free_quota_per_month,
+            gp_chat_flag=_pc_config.get("gp_chat_flag", "plus"),
+            selected_model=body.get_meta("selected_model") or "ssai",
         )
 
         if verdict.verdict == "login_required":
-            # Should be unreachable since /v1/chat requires JWT, but defense
-            # in depth in case auth changes.
             raise HTTPException(
                 status_code=401,
                 detail={"code": "login_required"},
@@ -957,25 +933,6 @@ async def chat(
                 status_code=422,
                 detail={"code": "use_user_model"},
             )
-        # send_to_gp / send_to_gp_with_cta both proceed through the normal
-        # LLM path. Track the CTA kind so we can populate feature_state on
-        # the response.
-        project_chat_cta_kind = verdict.cta_kind
-
-        # Decide whether this send consumes a metered Free quota slot.
-        # Only the freebie verdict (`send_to_gp`) consumes a slot — the
-        # `send_to_gp_with_cta` path is already over quota and would
-        # double-decrement (skewing analytics) if metered again. The pill
-        # clamps `remaining` at 0, so cosmetics are unaffected, but the
-        # underlying counter must stop at `total`.
-        if user.effective_tier == "free" and verdict.verdict == "send_to_gp":
-            if gp_chat_flag == "plus":
-                # 'plus' mode meters every Free send regardless of model.
-                project_chat_should_meter = True
-            elif gp_chat_flag in ("ssai", "ssai_free_only") and selected_model == "external":
-                # ssai-family modes meter only the GP-overrides-your-model path.
-                project_chat_should_meter = True
-            # 'all' / 'logged_in' modes don't meter Free.
 
     # 1.6. Protected-prompts context gate. iOS already enforces requiresContext
     # client-side; this closes the bypass loophole when a non-iOS or modified
@@ -1517,61 +1474,6 @@ async def chat(
 
     # 10. Build response with allocation headers
     response_data = response.model_dump()
-
-    # Project Chat: populate feature_state in the response, and decrement
-    # the per-user counter for any Free send that consumes a metered slot.
-    # The decrement happens after the LLM call so we don't burn quota on
-    # upstream failures (which raise above before reaching this point).
-    if body.get_meta("prompt_mode") == "ProjectChat" and project_chat_pc_config is not None:
-        from app.services.project_chat_policy import render_cta_text
-        from app.services.project_chat_quota import decrement_quota, read_quota_state
-
-        feature_state = {
-            "feature": "project_chat",
-            "policy_mode": project_chat_pc_config.get("gp_chat_flag", "plus"),
-        }
-
-        # Decrement first if this send consumed a metered slot. Fires only
-        # on the freebie verdict (`send_to_gp`) — `send_to_gp_with_cta` is
-        # already over quota and must not double-decrement.
-        if project_chat_should_meter:
-            await decrement_quota(db, user.id)
-            await db.commit()
-
-        # Surface fresh quota numbers to iOS for any Free send (with or
-        # without CTA) so the counter pill reflects the post-send state.
-        if user.effective_tier == "free":
-            free_quota_per_month = project_chat_pc_config.get("free_quota_per_month", 1)
-            cursor = await db.execute(
-                "SELECT project_chat_used_this_period, project_chat_period FROM users WHERE id = ?",
-                (user.id,),
-            )
-            row = await cursor.fetchone()
-            user_post = user.model_copy(update={
-                "project_chat_used_this_period": int(row["project_chat_used_this_period"] or 0),
-                "project_chat_period": row["project_chat_period"],
-            })
-            quota_post = read_quota_state(user_post, free_quota_per_month)
-            feature_state["quota_remaining"] = (
-                quota_post.remaining if quota_post.remaining is not None else None
-            )
-            feature_state["quota_total"] = quota_post.total
-            feature_state["quota_resets_at"] = quota_post.resets_at
-
-            if project_chat_cta_kind is not None:
-                cta_strings = project_chat_pc_config.get("cta_strings", {})
-                cta_text = render_cta_text(
-                    project_chat_cta_kind,
-                    cta_strings,
-                    remaining=quota_post.remaining if quota_post.remaining is not None else 0,
-                    total=quota_post.total,
-                )
-                feature_state["cta"] = {
-                    "kind": project_chat_cta_kind,
-                    "text": cta_text,
-                }
-
-        response_data["feature_state"] = feature_state
 
     # Search-state sidecar (independent of feature_state, which is owned
     # by the project_chat / budget paths). Always populated when the

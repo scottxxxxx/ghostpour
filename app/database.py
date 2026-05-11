@@ -189,6 +189,12 @@ MIGRATIONS = [
     )""",
     "CREATE INDEX IF NOT EXISTS idx_search_usage_user_date ON search_usage(user_id, request_timestamp)",
     "CREATE INDEX IF NOT EXISTS idx_search_usage_meeting ON search_usage(meeting_id)",
+    # v19: drop Project Chat count-quota columns. Replaced by the budget gate
+    # (PRs #109-#121). SQLite 3.35+ supports DROP COLUMN; older runtimes
+    # raise and the init_db try/except moves on (the columns simply remain
+    # — they're unused by the code from this point on).
+    "ALTER TABLE users DROP COLUMN project_chat_used_this_period",
+    "ALTER TABLE users DROP COLUMN project_chat_period",
 ]
 
 
