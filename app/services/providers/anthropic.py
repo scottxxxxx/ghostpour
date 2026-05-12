@@ -7,10 +7,8 @@ from app.models.chat import ChatRequest, ChatResponse
 
 from .base import ProviderAdapter
 from .reasoning import (
-    anthropic_min_max_tokens,
     anthropic_output_config,
     anthropic_thinking_block,
-    anthropic_uses_effort_path,
 )
 
 
@@ -96,11 +94,10 @@ class AnthropicAdapter(ProviderAdapter):
 
         max_tokens = request.max_tokens or 4096
         thinking = anthropic_thinking_block(request.reasoning, request.model)
-        # max_tokens lift is only needed on the legacy budget_tokens path
-        # (Haiku). Effort-path models don't constrain max_tokens against
-        # budget_tokens.
-        if thinking and not anthropic_uses_effort_path(request.model):
-            max_tokens = max(max_tokens, anthropic_min_max_tokens(request.reasoning))
+        # All Anthropic reasoning-pickable models are on the effort path
+        # (Opus 4.7, Sonnet 4.6, Mythos). They don't constrain max_tokens
+        # against budget_tokens, so no lift needed. Haiku 4.5 is hidden
+        # from the picker (manual budget_tokens path isn't user-friendly).
 
         body = {
             "model": request.model,
