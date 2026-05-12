@@ -15,7 +15,21 @@ from pathlib import Path
 
 import pytest
 
-VALID_LEVELS = {"default", "minimal", "low", "medium", "high"}
+# Provider-native reasoning values. Each model's array is a subset of this
+# universe — provider-specific (e.g., OpenAI's `xhigh`/`none`, Anthropic's
+# `max`, Kimi/DeepSeek's `disabled`/`enabled`). The universal `"default"`
+# is the first entry on every reasoning-enabled model and signals "omit
+# the field, use provider API default."
+VALID_LEVELS = {
+    # Universal
+    "default",
+    # OpenAI gpt-5.x
+    "none", "minimal", "low", "medium", "high", "xhigh",
+    # Anthropic effort path (Opus 4.7 / Sonnet 4.6)
+    "max",
+    # Kimi K2.5/K2.6 + DeepSeek V4
+    "enabled", "disabled",
+}
 
 CAPABILITY_FILES = [
     "config/remote/model-capabilities.json",
