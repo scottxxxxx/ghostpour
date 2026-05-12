@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 7,
   "providers": [
     {
       "id": "cloudzap",
@@ -78,18 +78,6 @@
           "inputCostPerMillion": 5.0,
           "outputCostPerMillion": 30.0,
           "litellmKey": "gpt-5.5",
-          "supportsReasoning": true
-        },
-        {
-          "id": "gpt-5.5-pro",
-          "displayName": "GPT-5.5 Pro",
-          "description": "Premium accuracy tier of GPT-5.5. Best when correctness matters more than cost.",
-          "isDefault": false,
-          "supportsVision": true,
-          "contextWindow": 1050000,
-          "inputCostPerMillion": 30.0,
-          "outputCostPerMillion": 180.0,
-          "litellmKey": "gpt-5.5-pro",
           "supportsReasoning": true
         },
         {
