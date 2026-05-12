@@ -33,10 +33,6 @@ _ANTHROPIC_BUDGET = {"low": 1024, "medium": 4096, "high": 16384}
 # 0 disables thinking on Flash/Flash-Lite; Pro doesn't accept 0.
 _GEMINI_25_BUDGET = {"low": 1024, "medium": 4096, "high": 16384}
 
-# Qwen 3.x thinking_budget by level (integer field). Same scale as Gemini 2.5.
-# Native Qwen + OpenRouter both accept this field; OR's docs explicitly say
-# "Alibaba Qwen models map [reasoning.max_tokens] to thinking_budget."
-_QWEN_BUDGET = {"low": 1024, "medium": 4096, "high": 16384}
 
 
 def openai_compat_fields(
@@ -87,12 +83,20 @@ def openai_compat_fields(
         return {"thinking": {"type": "enabled"}}
 
     if p == "qwen":
-        # Qwen 3.x: integer thinking_budget. Same scale as Gemini 2.5.
-        # `model-capabilities.json` exposes only ["default", "high"].
-        # Default = 0 (no thinking). Minimal = 0 too (defensive).
+        # Qwen 3.x via DashScope OpenAI-compatible endpoint: top-level
+        # `enable_thinking: bool`. Verified against
+        # help.aliyun.com/zh/model-studio/deep-thinking on 2026-05-11:
+        #   {"model": "qwen-plus", "enable_thinking": true}
+        # (`extra_body` is only needed when using the Python OpenAI SDK
+        # because it strips non-standard fields — our adapter builds JSON
+        # directly so top-level is correct.)
+        #
+        # `thinking_budget: int` is also supported for granular control
+        # but `model-capabilities.json` exposes only ["default", "high"]
+        # so we use the binary toggle. Expand if/when the picker grows.
         if is_default or level == "minimal":
-            return {"thinking_budget": 0}
-        return {"thinking_budget": _QWEN_BUDGET[level]}
+            return {"enable_thinking": False}
+        return {"enable_thinking": True}
 
     return {}
 

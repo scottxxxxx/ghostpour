@@ -150,13 +150,24 @@ Field is `thinking: {type: "enabled"/"disabled"}` per `https://platform.kimi.ai/
 
 ### Alibaba Qwen 3.x
 
-Field is `thinking_budget: int` per OpenRouter's translation table ("Alibaba Qwen models map [max_tokens] to thinking_budget"). Same scale as Gemini 2.5.
+Field is `enable_thinking: bool` at the JSON top level. Verified against
+`help.aliyun.com/zh/model-studio/deep-thinking` on 2026-05-11: the
+DashScope OpenAI-compatible HTTP endpoint accepts this non-standard
+field directly. (`extra_body` wrapping is only needed when using the
+Python OpenAI SDK because it strips non-standard fields; our adapter
+builds JSON directly.)
 
 | Level | Native API |
 |---|---|
-| `default` | `thinking_budget: 0` |
-| `minimal` (hidden, defensive) | `thinking_budget: 0` |
-| `low` / `medium` (hidden) / `high` | `thinking_budget: 1024` / `4096` / `16384` |
+| `default` | `enable_thinking: false` |
+| `minimal` (hidden, defensive) | `enable_thinking: false` |
+| `low` / `medium` (hidden) | `enable_thinking: true` |
+| `high` | `enable_thinking: true` |
+
+DashScope also exposes `thinking_budget: int` for finer-grained control
+(supported on Qwen3, GLM, and Kimi-via-DashScope). Not currently used —
+the picker exposes only `[default, high]` so the binary toggle suffices.
+Expand if/when finer granularity is wanted.
 
 ### DeepSeek V4
 
