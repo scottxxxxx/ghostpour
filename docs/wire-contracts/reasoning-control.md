@@ -162,11 +162,10 @@ Translation:
 ### Alibaba Qwen 3.x
 
 Field is `enable_thinking: bool` at the JSON top level. Verified against
-`help.aliyun.com/zh/model-studio/deep-thinking` on 2026-05-11: the
-DashScope OpenAI-compatible HTTP endpoint accepts this non-standard
-field directly. (`extra_body` wrapping is only needed when using the
-Python OpenAI SDK because it strips non-standard fields; our adapter
-builds JSON directly.)
+`help.aliyun.com/zh/model-studio/deep-thinking` AND a live smoke on
+2026-05-11. DashScope OpenAI-compat HTTP endpoint accepts this
+non-standard field directly. (`extra_body` wrapping is only needed when
+using the Python OpenAI SDK; our adapter builds JSON directly.)
 
 | Level | Native API |
 |---|---|
@@ -174,6 +173,21 @@ builds JSON directly.)
 | `minimal` (hidden, defensive) | `enable_thinking: false` |
 | `low` / `medium` (hidden) | `enable_thinking: true` |
 | `high` | `enable_thinking: true` |
+
+**Model variants — which actually support thinking** (live smoke 2026-05-11):
+
+| Model ID | `enable_thinking: true` returns `reasoning_content`? |
+|---|---|
+| `qwen3-max` | ✅ Yes (1100 chars + `reasoning_tokens: 391` in usage) |
+| `qwen-plus` | ✅ Yes (2100 chars + `reasoning_tokens: 656`) |
+| `qwen-flash` | ✅ Yes (1776 chars + `reasoning_tokens: 576`) |
+| `qwen-max` (old variant) | ❌ silently ignores the field; no reasoning content |
+| `qwen-max-latest` | ❌ aliases to the old qwen-max |
+
+`model-capabilities.json` uses `qwen3-max` (not `qwen-max`) for this
+reason. Older `qwen-max` was accepted syntactically but produced no
+thinking — misleading to users. PR #180 swapped the ID; display label
+"Qwen Max" is unchanged.
 
 DashScope also exposes `thinking_budget: int` for finer-grained control
 (supported on Qwen3, GLM, and Kimi-via-DashScope). Not currently used —
