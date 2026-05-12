@@ -111,7 +111,7 @@ providers:
   kimi:
     display_name: "Kimi (Moonshot)"
     api_format: "openai"
-    base_url: "https://kimi-k2.ai/api/v1/chat/completions"
+    base_url: "https://api.moonshot.ai/v1/chat/completions"
     auth_header: "Authorization"
     auth_prefix: "Bearer "
     extra_headers: {}
