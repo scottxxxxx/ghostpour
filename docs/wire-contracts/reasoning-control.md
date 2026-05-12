@@ -136,17 +136,28 @@ Native API accepts `none | low | medium | high`. Verified at `https://docs.x.ai/
 | `low` / `medium` / `high` | `reasoning_effort: "low"` / `"medium"` / `"high"` |
 | `minimal` (hidden, defensive) | `reasoning_effort: "low"` |
 
-### Moonshot Kimi K2.x
+### Moonshot Kimi (`api.moonshot.ai/v1`)
 
-Field is `thinking: {type: "enabled"/"disabled"}` per `https://platform.kimi.ai/docs/api/chat` — same shape as DeepSeek (not `enable_thinking: bool` as in earlier revs of this doc).
+Field is `thinking: {type: "enabled"/"disabled"}` at JSON top level (when using the Python OpenAI SDK, pass via `extra_body={"thinking": {...}}`; our adapter builds JSON directly so it's a top-level merge).
 
-| Level | Native API |
+Per Kimi model:
+
+| Model | `supportsReasoning` | Default behavior | Picker exposure |
+|---|---|---|---|
+| `kimi-k2.6` | `true` | Thinking ON by default (opt-out via `thinking: {type: "disabled"}`) | `[default, high]` — picker's "default" still force-disables for cheapest path |
+| `kimi-k2.5` | `true` | Instant by default (opt-in via `thinking: {type: "enabled"}`) | `[default, high]` |
+| `kimi-k2-thinking` | **`false`** | Always thinks; field is ignored; returns `reasoning_content` alongside `content` | (picker hidden — no toggle) |
+| `kimi-k2-turbo-preview` | (removed in PR #178) | No native thinking | n/a |
+
+Translation:
+
+| Level | Native API for k2.5 / k2.6 |
 |---|---|
 | `default` | `thinking: {type: "disabled"}` |
 | `minimal` (hidden, defensive) | `thinking: {type: "disabled"}` |
 | `low` / `medium` (hidden) / `high` | `thinking: {type: "enabled"}` |
 
-> **Unverified:** `kimi-k2-turbo-preview` may use a different schema per Kimi docs. Currently treated as supportsReasoning=true with the same shape; flag if SS sees 400s on that specific model.
+> **Endpoint note:** providers.yml uses the official `https://api.moonshot.ai/v1/chat/completions` (migrated in PR #179 from a non-official URL).
 
 ### Alibaba Qwen 3.x
 

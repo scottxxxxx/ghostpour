@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 7,
   "providers": [
     {
       "id": "cloudzap",
@@ -348,6 +348,18 @@
           "supportsReasoning": true
         },
         {
+          "id": "kimi-k2.6",
+          "displayName": "Kimi K2.6",
+          "description": "Latest K2 generation; thinking ON by default. Multi-turn reasoning retention via preserve_thinking.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 262144,
+          "inputCostPerMillion": 0.6,
+          "outputCostPerMillion": 2.5,
+          "litellmKey": "moonshot/kimi-k2.6",
+          "supportsReasoning": true
+        },
+        {
           "id": "kimi-k2-thinking",
           "displayName": "Kimi K2 Thinking",
           "description": "Modelo de razonamiento profundo; discusiones tecnicas, vision estrategica, resolucion de problemas multi-paso.",
@@ -357,18 +369,6 @@
           "inputCostPerMillion": 0.6,
           "outputCostPerMillion": 2.5,
           "litellmKey": "moonshot/kimi-k2-thinking",
-          "supportsReasoning": true
-        },
-        {
-          "id": "kimi-k2-turbo-preview",
-          "displayName": "Kimi K2 Turbo",
-          "description": "El modelo Kimi mas rapido; resumenes rapidos, limpieza basica, revision rutinaria de reuniones.",
-          "isDefault": false,
-          "supportsVision": true,
-          "contextWindow": 262144,
-          "inputCostPerMillion": 0.3,
-          "outputCostPerMillion": 1.2,
-          "litellmKey": "moonshot/kimi-k2-turbo-preview",
           "supportsReasoning": true
         }
       ],
