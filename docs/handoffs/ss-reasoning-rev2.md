@@ -86,7 +86,7 @@ Verified via OpenRouter against each unverified model:
 | DeepSeek V4 Flash + Pro accepting our shapes | ✅ Both return 200. As documented, DeepSeek collapses fine-grained effort levels — default and high produce similar reasoning-token counts. |
 | Gemini 3 Flash-Lite `minimal` | ✅ Confirmed (0 reasoning tokens). |
 | Kimi `k2-turbo-preview` via OpenRouter | ❌→**Removed** (PR #178). OR rejects the model ID (`moonshotai/kimi-k2-turbo-preview is not a valid model ID`); confirmed it's a model-availability issue on OR, not a reasoning-payload issue. Model was working on GP-managed (native Moonshot) but to keep the picker honest we removed it from `model-capabilities.{,es,tr-}.json` + `llm-providers.{,es,tr-}.json` entirely. Other Kimi variants (`kimi-k2.5`, `kimi-k2-thinking`) work on both paths. |
-| Qwen field name | ⚠️ PR #175 used `thinking_budget` (OR's translation table). Reverted in PR #177 to `enable_thinking: bool` per Alibaba's own docs (`help.aliyun.com/zh/model-studio/deep-thinking`). DashScope OpenAI-compat HTTP endpoint accepts this at the JSON top level. |
+| Qwen field name | ⚠️→✅ PR #175 used `thinking_budget` (OR's translation table). Reverted in PR #177 to `enable_thinking: bool` per Alibaba's own docs. **Validated end-to-end via live smoke 2026-05-11**: `qwen3-max`, `qwen-plus`, `qwen-flash` all return `reasoning_content` + `reasoning_tokens` with the shape we ship. **Note:** older `qwen-max` (now `qwen3-max` in our config per PR #180) silently ignored the field — config was misleading users. Fixed. |
 
 ### Resolved: `kimi-k2-turbo-preview`
 

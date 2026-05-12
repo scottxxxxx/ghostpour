@@ -1,5 +1,5 @@
 {
-  "version": 9,
+  "version": 10,
   "defaultPromptReserveTokens": 8000,
   "models": {
     "foundation-models": {
@@ -555,39 +555,6 @@
       "estimatedAvailableTokens": 261120,
       "supportsReasoning": false
     },
-    "qwen-max": {
-      "provider": "Alibaba (Qwen)",
-      "description": "Complex reasoning, enterprise workflows, high-stakes tasks",
-      "inputCostPerMillion": 1.2,
-      "outputCostPerMillion": 6.0,
-      "contextWindow": "262K",
-      "weights": "Open",
-      "supportsImages": true,
-      "requiredParams": "model, messages",
-      "promptPlacement": "System",
-      "contextSlots": {
-        "transcriptBuffer": "yes",
-        "rollingSummary": "yes",
-        "deltaSummaryMode": true,
-        "fullTranscriptSummary": true,
-        "projectContext": true,
-        "projectFiles": true,
-        "followUpContext": true
-      },
-      "contextQuilt": {
-        "commProfile": "yes",
-        "factExtraction": "yes",
-        "companyIntel": "yes",
-        "meetingGuidance": "yes"
-      },
-      "splitModelSummary": true,
-      "estimatedAvailableTokens": 261120,
-      "supportsReasoning": true,
-      "reasoningLevels": [
-        "default",
-        "high"
-      ]
-    },
     "qwen-plus": {
       "provider": "Alibaba (Qwen)",
       "description": "General-purpose apps, balanced latency/quality, most production workloads",
@@ -726,6 +693,39 @@
       "inputCostPerMillion": 0.6,
       "outputCostPerMillion": 2.5,
       "contextWindow": "256K",
+      "weights": "Open",
+      "supportsImages": true,
+      "requiredParams": "model, messages",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 261120,
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "default",
+        "high"
+      ]
+    },
+    "qwen3-max": {
+      "provider": "Alibaba (Qwen)",
+      "description": "Complex reasoning, enterprise workflows, high-stakes tasks",
+      "inputCostPerMillion": 1.2,
+      "outputCostPerMillion": 6.0,
+      "contextWindow": "262K",
       "weights": "Open",
       "supportsImages": true,
       "requiredParams": "model, messages",
