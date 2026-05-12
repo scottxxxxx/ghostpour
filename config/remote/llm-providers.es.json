@@ -1,5 +1,5 @@
 {
-  "version": 7,
+  "version": 8,
   "providers": [
     {
       "id": "cloudzap",
@@ -389,7 +389,7 @@
       "temperatureDefault": 0.7,
       "models": [
         {
-          "id": "qwen-max",
+          "id": "qwen3-max",
           "displayName": "Qwen Max",
           "description": "Razonamiento complejo, flujos de trabajo empresariales, tareas de alta importancia.",
           "isDefault": true,
@@ -397,7 +397,7 @@
           "contextWindow": 262144,
           "inputCostPerMillion": 1.2,
           "outputCostPerMillion": 6.0,
-          "litellmKey": "qwen/qwen-max",
+          "litellmKey": "qwen/qwen3-max",
           "supportsReasoning": true
         },
         {
