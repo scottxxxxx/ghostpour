@@ -155,6 +155,35 @@ def test_anthropic_haiku_uses_legacy_budget_path():
     assert anthropic_output_config("high", "claude-haiku-4-5") is None
 
 
+def test_anthropic_legacy_4_5_uses_manual_path():
+    """Per Anthropic docs (2026-05-11): claude-opus-4-5 and claude-sonnet-4-5
+    are legacy 'manual only' models. They reject the effort path. Confirm our
+    matcher routes them to manual budget_tokens, not effort.
+
+    PR #175's substring match `"opus-4" in m` would have false-positived on
+    `claude-opus-4-5`; PR #179 tightened to an explicit list. This boundary
+    test pins the fix."""
+    for legacy in ("claude-opus-4-5", "claude-sonnet-4-5"):
+        assert not anthropic_uses_effort_path(legacy), (
+            f"{legacy} should NOT be on the effort path (it's manual-only legacy)"
+        )
+        # Should route to legacy budget_tokens
+        block = anthropic_thinking_block("high", legacy)
+        assert block == {"type": "enabled", "budget_tokens": 16384}
+        assert anthropic_output_config("high", legacy) is None
+
+
+def test_anthropic_pre_effort_models_use_manual_path():
+    """Older versions and 3.x get the manual path too."""
+    for old in ("claude-3-7-sonnet-20250219", "claude-3-5-sonnet-20240620"):
+        assert not anthropic_uses_effort_path(old)
+
+
+def test_anthropic_mythos_uses_effort_path():
+    """Mythos Preview is effort-path per Anthropic docs."""
+    assert anthropic_uses_effort_path("claude-mythos-preview")
+
+
 def test_anthropic_haiku_max_tokens_lift():
     """Anthropic requires budget_tokens < max_tokens. Helper computes the lift."""
     assert anthropic_min_max_tokens("low") == 2048

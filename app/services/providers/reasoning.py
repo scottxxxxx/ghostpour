@@ -126,15 +126,29 @@ def openai_compat_fields(
 def anthropic_uses_effort_path(model: str) -> bool:
     """True if the model accepts `output_config: {effort: ...}`.
 
-    Sonnet 4.6 + Opus 4.7 (and Opus 4.5/4.6/Mythos for completeness). Haiku
-    stays on the legacy budget_tokens path.
+    Per Anthropic's effort docs (verified 2026-05-11), the effort parameter
+    is supported on the modern 4.6+ family ONLY: Opus 4.7, Opus 4.6,
+    Sonnet 4.6, plus the Mythos Preview. Legacy 4.5 models (`opus-4-5`,
+    `sonnet-4-5`) and earlier accept *only* the manual `thinking: {type:
+    enabled, budget_tokens: N}` shape — they 400 on `output_config.effort`.
+    Haiku 4.5 also stays on the manual path (Haiku is explicitly NOT in
+    Anthropic's effort-supported list).
+
+    Substring matching like `"opus-4" in m` would false-positive on
+    `claude-opus-4-5` and silently break it; this list is explicit.
     """
     m = model.lower()
-    return (
-        "sonnet-4" in m
-        or "opus-4" in m
-        or "mythos" in m
+    explicit_effort_models = (
+        "claude-opus-4-7",
+        "claude-opus-4-6",
+        "claude-sonnet-4-6",
     )
+    if any(prefix in m for prefix in explicit_effort_models):
+        return True
+    # Mythos Preview substring match — its full ID isn't fixed yet.
+    if "mythos" in m:
+        return True
+    return False
 
 
 def anthropic_thinking_block(
