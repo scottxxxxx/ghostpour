@@ -9,25 +9,26 @@ _CHAT_META_FIELDS = (
 )
 
 
-# Normalized reasoning level. Each adapter translates to its provider's
-# native shape (OpenAI reasoning_effort, Anthropic thinking budget, Gemini
-# thinkingConfig / thinkingLevel, DeepSeek thinking + reasoning_effort, etc.).
+# The reasoning value sent on the wire is one of the literal strings in
+# the model's `reasoningLevels` array in model-capabilities.json. iOS picks
+# one of those values; the value is passed through to the provider's native
+# field by app/services/providers/reasoning.py.
 #
-# Semantics:
-#   "default" — let the provider decide. For Anthropic / Gemini that means
-#     omitting the thinking block entirely. For Kimi/Qwen/DeepSeek (which
-#     interpret an absent field as "thinking on") this means force-disable
-#     thinking (enable_thinking:false / thinking:{disabled}) — i.e., default
-#     is the user's "I don't care; give me the cheapest path."
-#   "minimal" — the lowest non-default native level. Only meaningful on
-#     providers that support it natively: OpenAI gpt-5.x, Gemini 3
-#     Flash/Flash-Lite.
-#   "low" / "medium" / "high" — explicit thinking levels.
+# Values are provider-native and differ per model:
+#   OpenAI gpt-5.5/5.2     → none | low | medium | high | xhigh
+#   OpenAI gpt-5-mini/nano → minimal | low | medium | high
+#   Anthropic effort path  → low | medium | high | xhigh (Opus 4.7) | max
+#   Gemini 3 Flash/Lite    → minimal | low | medium | high
+#   Gemini 3 Pro           → low | medium | high
+#   xAI Grok               → none | low | medium | high
+#   Kimi (k2.5/k2.6)       → disabled | enabled
+#   DeepSeek V4            → disabled | enabled
 #
-# Per-model `reasoningLevels` arrays in model-capabilities.json drive which
-# of these values iOS exposes per model. See
-# docs/wire-contracts/reasoning-control.md.
-ReasoningLevel = Literal["default", "minimal", "low", "medium", "high"]
+# No normalization; the adapter passes the value through verbatim. Models
+# without a string-vocabulary (Anthropic Haiku integer, Qwen bool, Gemini 2.5
+# integer) are `supportsReasoning: false` in model-capabilities.json — the
+# picker is hidden for them.
+ReasoningLevel = str  # any literal from the model's reasoningLevels array
 
 
 class ChatRequest(BaseModel):

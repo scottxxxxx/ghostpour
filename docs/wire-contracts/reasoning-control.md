@@ -1,277 +1,81 @@
 # Reasoning level — wire contract
 
-Status: **shipped server-side. Vocabulary rev 2 (2026-05-11): `default | minimal | low | medium | high`.**
+Status: **vocabulary rev 3 (2026-05-11) — per-model native values, no normalization.**
 Owner (server): GP. Owner (client): SS iOS.
 
-## What iOS reads now
+## Design
 
-Each model in `model-capabilities.json` carries a `reasoningLevels` array
-(when `supportsReasoning: true`). iOS renders **only** those buttons in
-the picker — no "Default" button when the array doesn't include `"default"`,
-no provider-level guesswork.
+Each model in `model-capabilities.json` lists its accepted reasoning values verbatim in `reasoningLevels`. iOS picks one and sends it as `reasoning` on `/v1/chat`. The server adapter slots that value into the right provider-native field. No translation tables, no normalized vocabulary.
+
+The one universal value is **`"default"`**: first entry in every reasoning-enabled model's array; signals "omit the field, use the provider's API default behavior." iOS shows it pre-selected.
+
+## What iOS reads
 
 ```json
-"claude-haiku-4-5": {
-  "supportsReasoning": true,
-  "reasoningLevels": ["default", "low", "medium", "high"]
-},
 "gpt-5.5": {
   "supportsReasoning": true,
-  "reasoningLevels": ["default", "minimal", "low", "medium", "high"]
-},
-"grok-4": {
-  "supportsReasoning": true,
-  "reasoningLevels": ["low", "high"]
-},
-"foundation-models": {
-  "supportsReasoning": false
-  // no reasoningLevels field; picker hidden
+  "reasoningLevels": ["default", "none", "low", "medium", "high", "xhigh"]
 }
 ```
 
-**iOS rules:**
-1. If `supportsReasoning: false` OR `reasoningLevels` is absent/empty, hide the picker entirely.
-2. Otherwise show one button per entry in `reasoningLevels`, in array order.
-3. Send the chosen value as `reasoning` on `/v1/chat`. Always send an explicit value (never `null`).
-4. Persist user's last choice per (provider, model) pair so model-switches don't surprise them.
+iOS rules:
+1. If `supportsReasoning: false` or `reasoningLevels` is absent/empty → hide picker.
+2. Otherwise show one button per array entry in order. First entry (`"default"`) is the pre-selection.
+3. Send chosen value as `reasoning: <value>` on `/v1/chat`. The wire `reasoning` field is a free string — provider-native values vary per model.
 
-## Vocabulary
+## Per-model arrays (current state)
 
-| Value | Meaning |
+| Model | `reasoningLevels` |
 |---|---|
-| `default` | Let the provider decide. Translates to "omit the reasoning field" on most providers, or "force-disable thinking" on binary-toggle providers (Kimi/Qwen/DeepSeek) where omission would let the provider think anyway. The cheapest path on every provider where the cheapest is well-defined. |
-| `minimal` | The lowest non-default native level. Only meaningful on providers that have it natively: **OpenAI gpt-5.x** and **Gemini 3 Flash / Flash-Lite**. Hidden in the picker for every other model. |
-| `low` / `medium` / `high` | Explicit per-provider thinking levels. Each mapped to that provider's native budget / effort value. |
+| `gpt-5.5` | `["default", "none", "low", "medium", "high", "xhigh"]` |
+| `gpt-5.2` | `["default", "none", "low", "medium", "high", "xhigh"]` |
+| `gpt-5-mini` | `["default", "minimal", "low", "medium", "high"]` |
+| `gpt-5-nano` | `["default", "minimal", "low", "medium", "high"]` |
+| `claude-opus-4-7` | `["default", "low", "medium", "high", "xhigh", "max"]` |
+| `claude-sonnet-4-6` | `["default", "low", "medium", "high", "max"]` |
+| `claude-haiku-4-5` | (picker hidden — manual `budget_tokens: int`, no string vocabulary) |
+| `gemini-3-flash-preview` | `["default", "minimal", "low", "medium", "high"]` |
+| `gemini-3.1-flash-lite-preview` | `["default", "minimal", "low", "medium", "high"]` |
+| `gemini-3.1-pro-preview` | `["default", "low", "medium", "high"]` |
+| `grok-4`, `grok-4.1-fast` | `["default", "none", "low", "medium", "high"]` |
+| `kimi-k2.5`, `kimi-k2.6` | `["default", "disabled", "enabled"]` |
+| `kimi-k2-thinking` | (picker hidden — always thinks, no toggle) |
+| `deepseek-v4-flash`, `deepseek-v4-pro` | `["default", "disabled", "enabled"]` |
+| `qwen3-max`, `qwen-plus`, `qwen-flash` | (picker hidden — `enable_thinking` is bool, no string vocabulary) |
+| `foundation-models` | (picker hidden — Apple, no reasoning) |
 
-## Per-model levels (current)
+## Server-side translation
 
-| Provider family | Models | `reasoningLevels` |
-|---|---|---|
-| OpenAI gpt-5.x | `gpt-5.5`, `gpt-5.5-pro`, `gpt-5.2`, `gpt-5-mini`, `gpt-5-nano` | `[default, minimal, low, medium, high]` |
-| Anthropic Claude 4.x | `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5` | `[default, low, medium, high]` |
-| Google Gemini 3 Flash / Flash-Lite | `gemini-3-flash-preview`, `gemini-3.1-flash-lite-preview` | `[default, minimal, low, medium, high]` |
-| Google Gemini 3 Pro | `gemini-3.1-pro-preview` | `[default, low, medium, high]` (no `minimal` per Google) |
-| xAI Grok 4 / 4.1 | `grok-4`, `grok-4.1-fast` | `[default, low, medium, high]` (native API supports 4 levels) |
-| Moonshot Kimi K2.x | `kimi-k2.5`, `kimi-k2-thinking`, `kimi-k2-turbo-preview` | `[default, high]` (boolean toggle; `default` force-disables) |
-| Alibaba Qwen 3.x | `qwen-max`, `qwen-plus`, `qwen-flash` | `[default, high]` (integer budget; `default` = budget 0) |
-| DeepSeek V4 | `deepseek-v4-flash`, `deepseek-v4-pro` | `[default, high]` (server collapses low/medium → high) |
-| Apple Foundation Models | `foundation-models` | (picker hidden — `supportsReasoning: false`) |
+The adapter's only job is to slot the value into the right field. `"default"` (or null/empty) means omit.
 
-## /v1/chat request
-
-```json
-{
-  "provider": "deepseek",
-  "model": "deepseek-v4-pro",
-  "system_prompt": "...",
-  "user_content": "...",
-  "reasoning": "default" | "minimal" | "low" | "medium" | "high"
-}
-```
-
-**Validation:** the server's `ReasoningLevel` literal accepts only
-`"default"`, `"minimal"`, `"low"`, `"medium"`, `"high"` (or omit the field).
-Sending any other value (including legacy `"off"`) returns a 422.
-
-When `reasoning` is omitted entirely, the helper still resolves a sensible
-shape per provider (same as `default`).
-
-This is a single normalized knob. Per-provider translation lives in
-`app/services/providers/reasoning.py`; iOS does not need to learn each
-provider's native field name.
-
-## Mapping (server-side translation)
-
-### OpenAI gpt-5.x
-
-| Level | Native API |
+| Provider | Wire shape when `reasoning: <value>` is non-`"default"` |
 |---|---|
-| `default` | (omit `reasoning_effort`) |
-| `minimal` | `reasoning_effort: "minimal"` |
-| `low` / `medium` / `high` | `reasoning_effort: "low"` / `"medium"` / `"high"` |
+| OpenAI gpt-5.x | `reasoning_effort: <value>` |
+| xAI Grok | `reasoning_effort: <value>` |
+| Anthropic Opus 4.7 / Opus 4.6 / Sonnet 4.6 / Mythos | `thinking: {type: "adaptive"}` + `output_config: {effort: <value>}` |
+| Google Gemini 3.x | `thinkingConfig: {thinkingLevel: <value>}` |
+| Moonshot Kimi K2.5 / K2.6 | `thinking: {type: <value>}` |
+| DeepSeek V4 | `thinking: {type: <value>}` |
+| Qwen 3.x | (picker hidden — bool field, not a string vocabulary) |
 
-### Anthropic Claude 4.x — **model-aware dispatch**
+When `reasoning: "default"` (or omitted): GP sends no reasoning-related fields. Each provider's API default applies (e.g., gpt-5.5 → medium thinking; Opus 4.7 → high effort; Kimi K2.6 → thinking on by default; Kimi K2.5 → Instant mode default).
 
-Anthropic has two API shapes; the adapter selects based on the model.
-Verified against `https://platform.claude.com/docs/en/docs/build-with-claude/effort`
-and the extended-thinking page on 2026-05-11.
+## OpenRouter (iOS → OR direct, GP not in path)
 
-**Effort path (Sonnet 4.6, Opus 4.7):** `output_config.effort` + `thinking: {type: "adaptive"}`. Required for Opus 4.7 (manual thinking returns 400). Recommended for Sonnet 4.6 (manual thinking still works but deprecated).
+OR uses its own unified `reasoning` block. iOS maps the picker value:
 
-| Level | Sonnet 4.6 + Opus 4.7 |
+| iOS picker value | OpenRouter request body |
 |---|---|
-| `default` | (omit `output_config.effort`; Anthropic default = "high") |
-| `low` | `thinking: {type: "adaptive"}`, `output_config: {effort: "low"}` |
-| `medium` | `thinking: {type: "adaptive"}`, `output_config: {effort: "medium"}` |
-| `high` | `thinking: {type: "adaptive"}`, `output_config: {effort: "high"}` |
-| `minimal` (hidden, defensive) | `output_config: {effort: "low"}` |
+| `"default"` | Omit `reasoning` block entirely |
+| `"none"` / `"disabled"` | `reasoning: { effort: "none" }` (OR supports `none` as explicit disable) |
+| `"minimal"` / `"low"` / `"medium"` / `"high"` / `"xhigh"` | `reasoning: { effort: <value> }` |
+| `"max"` (Anthropic-only) | Pass `effort: "max"` through — OR forwards to Anthropic |
+| `"enabled"` | OR doesn't take literal `"enabled"`; iOS should map → `effort: "high"` (sensible default for "yes, think") |
 
-**Legacy budget_tokens path (Haiku 4.5):** Haiku 4.5 is NOT in Anthropic's effort-supported list per the official docs. Stays on the older `thinking: {type: enabled, budget_tokens: N}` shape; adapter lifts `max_tokens` to `budget_tokens + 1024` for response headroom.
+## Hidden-picker rationale
 
-| Level | Haiku 4.5 |
-|---|---|
-| `default` | (no `thinking` block) |
-| `low` | `thinking: {type: "enabled", budget_tokens: 1024}` |
-| `medium` | `thinking: {type: "enabled", budget_tokens: 4096}` |
-| `high` | `thinking: {type: "enabled", budget_tokens: 16384}` |
-| `minimal` (hidden, defensive) | (no `thinking` block) |
+A model is hidden from the reasoning picker (`supportsReasoning: false`) when:
+- The provider field accepts a non-string type (integer like Gemini 2.5 `thinkingBudget`, Anthropic Haiku `budget_tokens`; boolean like Qwen `enable_thinking`)
+- The model has no toggle at all (Kimi K2-Thinking always thinks)
 
-### Google Gemini — **model-aware dispatch**
-
-Gemini 3.x uses string `thinkingLevel`; Gemini 2.5.x uses integer `thinkingBudget`. Adapter selects by model family.
-
-| Level | Gemini 3 Flash / Flash-Lite | Gemini 3 Pro | Gemini 2.5 Flash / Flash-Lite | Gemini 2.5 Pro |
-|---|---|---|---|---|
-| `default` | (omit `thinkingConfig`) | (omit) | (omit) | (omit) |
-| `minimal` | `thinkingLevel: "minimal"` | (hidden; defensively → `"low"`) | `thinkingBudget: 0` | (hidden; defensively → `"low"` equivalent budget) |
-| `low` / `medium` / `high` | `thinkingLevel: "low"` / `"medium"` / `"high"` | same | `thinkingBudget: 1024` / `4096` / `16384` | same |
-
-### xAI Grok 4 / 4.1-fast
-
-Native API accepts `none | low | medium | high`. Verified at `https://docs.x.ai/docs/guides/reasoning`.
-
-| Level | Native API |
-|---|---|
-| `default` | (omit `reasoning_effort`; Grok's default = `"low"`) |
-| `low` / `medium` / `high` | `reasoning_effort: "low"` / `"medium"` / `"high"` |
-| `minimal` (hidden, defensive) | `reasoning_effort: "low"` |
-
-### Moonshot Kimi (`api.moonshot.ai/v1`)
-
-Field is `thinking: {type: "enabled"/"disabled"}` at JSON top level (when using the Python OpenAI SDK, pass via `extra_body={"thinking": {...}}`; our adapter builds JSON directly so it's a top-level merge).
-
-Per Kimi model:
-
-| Model | `supportsReasoning` | Default behavior | Picker exposure |
-|---|---|---|---|
-| `kimi-k2.6` | `true` | Thinking ON by default (opt-out via `thinking: {type: "disabled"}`) | `[default, high]` — picker's "default" still force-disables for cheapest path |
-| `kimi-k2.5` | `true` | Instant by default (opt-in via `thinking: {type: "enabled"}`) | `[default, high]` |
-| `kimi-k2-thinking` | **`false`** | Always thinks; field is ignored; returns `reasoning_content` alongside `content` | (picker hidden — no toggle) |
-| `kimi-k2-turbo-preview` | (removed in PR #178) | No native thinking | n/a |
-
-Translation:
-
-| Level | Native API for k2.5 / k2.6 |
-|---|---|
-| `default` | `thinking: {type: "disabled"}` |
-| `minimal` (hidden, defensive) | `thinking: {type: "disabled"}` |
-| `low` / `medium` (hidden) / `high` | `thinking: {type: "enabled"}` |
-
-> **Endpoint note:** providers.yml uses the official `https://api.moonshot.ai/v1/chat/completions` (migrated in PR #179 from a non-official URL).
-
-### Alibaba Qwen 3.x
-
-Field is `enable_thinking: bool` at the JSON top level. Verified against
-`help.aliyun.com/zh/model-studio/deep-thinking` AND a live smoke on
-2026-05-11. DashScope OpenAI-compat HTTP endpoint accepts this
-non-standard field directly. (`extra_body` wrapping is only needed when
-using the Python OpenAI SDK; our adapter builds JSON directly.)
-
-| Level | Native API |
-|---|---|
-| `default` | `enable_thinking: false` |
-| `minimal` (hidden, defensive) | `enable_thinking: false` |
-| `low` / `medium` (hidden) | `enable_thinking: true` |
-| `high` | `enable_thinking: true` |
-
-**Model variants — which actually support thinking** (live smoke 2026-05-11):
-
-| Model ID | `enable_thinking: true` returns `reasoning_content`? |
-|---|---|
-| `qwen3-max` | ✅ Yes (1100 chars + `reasoning_tokens: 391` in usage) |
-| `qwen-plus` | ✅ Yes (2100 chars + `reasoning_tokens: 656`) |
-| `qwen-flash` | ✅ Yes (1776 chars + `reasoning_tokens: 576`) |
-| `qwen-max` (old variant) | ❌ silently ignores the field; no reasoning content |
-| `qwen-max-latest` | ❌ aliases to the old qwen-max |
-
-`model-capabilities.json` uses `qwen3-max` (not `qwen-max`) for this
-reason. Older `qwen-max` was accepted syntactically but produced no
-thinking — misleading to users. PR #180 swapped the ID; display label
-"Qwen Max" is unchanged.
-
-DashScope also exposes `thinking_budget: int` for finer-grained control
-(supported on Qwen3, GLM, and Kimi-via-DashScope). Not currently used —
-the picker exposes only `[default, high]` so the binary toggle suffices.
-Expand if/when finer granularity is wanted.
-
-### DeepSeek V4
-
-Dual-mode: `thinking: {type: "enabled"/"disabled"}` + optional `reasoning_effort`.
-
-| Level | Native API |
-|---|---|
-| `default` | `thinking: {type: "disabled"}` |
-| `minimal` (hidden, defensive) | `thinking: {type: "disabled"}` |
-| `low` / `medium` (hidden) | `thinking: {type: "enabled"}` + `reasoning_effort: <level>` *(server collapses low/medium → high)* |
-| `high` | `thinking: {type: "enabled"}` + `reasoning_effort: "high"` |
-
-## OpenRouter (called direct from iOS, not proxied)
-
-iOS hits OpenRouter directly with the user's BYO key — there is no
-GP adapter in that path. To keep behavior identical between
-`provider: "cloudzap"` and `provider: "openrouter"` in SS, send
-OpenRouter's unified reasoning block:
-
-```jsonc
-// OpenRouter request body
-{
-  "model": "google/gemini-3-flash-preview",
-  "messages": [...],
-  "reasoning": { "effort": "minimal" | "low" | "medium" | "high" }
-}
-```
-
-**iOS → OpenRouter mapping:**
-
-| iOS picker value | OpenRouter request shape |
-|---|---|
-| `default` | **Omit the `reasoning` block entirely.** OpenRouter falls back to the upstream provider's default. |
-| `minimal` | `reasoning: { effort: "minimal" }` (OpenRouter supports this for OpenAI gpt-5 and Gemini 3 Flash/Flash-Lite) |
-| `low` | `reasoning: { effort: "low" }` |
-| `medium` | `reasoning: { effort: "medium" }` |
-| `high` | `reasoning: { effort: "high" }` |
-
-If iOS needs to force-disable thinking through OpenRouter on a model
-where the provider's default *is* thinking-on (Gemini 3 in particular —
-default is dynamic `high`), use `reasoning: { max_tokens: 0 }`. OpenRouter
-translates this to `thinkingBudget: 0` for Gemini. Today this isn't on
-the picker; if a user-facing "force off on OR" button is wanted,
-introduce a separate `reasoningLevels` array variant for OpenRouter-routed
-models.
-
-OpenRouter docs: https://openrouter.ai/docs/guides/best-practices/reasoning-tokens
-
-## Suggested iOS UI
-
-Render only the buttons listed in the active model's `reasoningLevels`
-array. Suggested copy when each level is exposed:
-
-- **Default** — let the model decide. Cheapest / fastest path on most providers.
-- **Minimal** — request the smallest non-default thinking budget. *(Only OpenAI gpt-5.x and Gemini 3 Flash / Flash-Lite.)*
-- **Low** — light reasoning.
-- **Medium** — balanced.
-- **High** — deepest reasoning. Use for post-meeting analysis.
-
-Picker visibility is determined entirely by `model-capabilities.json`:
-- `supportsReasoning: false` → picker hidden.
-- `supportsReasoning: true` + `reasoningLevels: [...]` → picker shows those buttons in order.
-
-Persist the user's last selection per (provider, model) pair.
-
-## Test plan (iOS side)
-
-1. Picker hidden for models without reasoning support; visible for the rest.
-2. **`gpt-5.5` shows 5 buttons including "Minimal"**; Anthropic Haiku shows 4 (no Minimal).
-3. **Gemini 3 Flash shows 5 buttons including "Minimal"**; Gemini 3 Pro shows 4 (no Minimal).
-4. **Grok 4 shows only Low/High** (no Default).
-5. **Kimi/Qwen/DeepSeek show only Default/High** (binary toggle).
-6. Selecting "Default" on Claude: response arrives with no `thinking` content (no thinking block sent).
-7. Selecting "Minimal" on Gemini 3 Flash via GP: provider response confirms `thinkingLevel: "minimal"` was applied (verify via thinking-token usage in `usageMetadata.thoughtsTokenCount`).
-8. Selecting each level on OpenRouter→Gemini 3 Flash: latency / `usage.completion_tokens_details.reasoning_tokens` increases with level.
-
-## When to add a new model with reasoning support
-
-If the new model uses an existing provider's shape, just add an entry in
-`model-capabilities.json` with the right `reasoningLevels` array. Otherwise
-add a branch in `app/services/providers/reasoning.py::openai_compat_fields`
-(or the matching helper) and update the per-model table above.
+In these cases iOS doesn't render the reasoning section. The model still works; users just don't get reasoning-level controls.
