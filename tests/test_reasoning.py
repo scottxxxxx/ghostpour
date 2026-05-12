@@ -39,9 +39,11 @@ def test_none_level_yields_no_fields_for_omit_providers():
 
 
 def test_none_level_force_disables_on_binary_providers():
-    """Kimi/DeepSeek: force-disable thinking. Qwen: thinking_budget=0."""
+    """Kimi/DeepSeek: force-disable thinking via `thinking: {type: disabled}`.
+    Qwen: force-disable via `enable_thinking: false` (top-level per
+    DashScope OpenAI-compat docs)."""
     assert openai_compat_fields("kimi", None) == {"thinking": {"type": "disabled"}}
-    assert openai_compat_fields("qwen", None) == {"thinking_budget": 0}
+    assert openai_compat_fields("qwen", None) == {"enable_thinking": False}
     assert openai_compat_fields("deepseek", None) == {"thinking": {"type": "disabled"}}
 
 
@@ -53,7 +55,7 @@ def test_default_level_matches_none():
     for p in ("openai", "xai"):
         assert openai_compat_fields(p, "default") == openai_compat_fields(p, None) == {}
     assert openai_compat_fields("kimi", "default") == {"thinking": {"type": "disabled"}}
-    assert openai_compat_fields("qwen", "default") == {"thinking_budget": 0}
+    assert openai_compat_fields("qwen", "default") == {"enable_thinking": False}
     assert openai_compat_fields("deepseek", "default") == {"thinking": {"type": "disabled"}}
     assert anthropic_thinking_block("default", "claude-haiku-4-5") is None
     assert anthropic_thinking_block("default", "claude-opus-4-7") is None
@@ -119,13 +121,25 @@ def test_kimi_low_medium_also_enable_thinking():
 # Qwen 3.x — integer `thinking_budget` (NOT enable_thinking)
 # ---------------------------------------------------------------------------
 
-def test_qwen_uses_thinking_budget_int():
-    """Verified against OpenRouter's translation table on 2026-05-11:
-    'Alibaba Qwen models map [max_tokens] to thinking_budget.'"""
-    assert openai_compat_fields("qwen", "minimal") == {"thinking_budget": 0}
-    assert openai_compat_fields("qwen", "low") == {"thinking_budget": 1024}
-    assert openai_compat_fields("qwen", "medium") == {"thinking_budget": 4096}
-    assert openai_compat_fields("qwen", "high") == {"thinking_budget": 16384}
+def test_qwen_uses_enable_thinking_top_level():
+    """Verified against help.aliyun.com/zh/model-studio/deep-thinking on
+    2026-05-11: DashScope OpenAI-compatible HTTP endpoint accepts
+    `enable_thinking: bool` at the JSON top level (no extra_body wrapping
+    needed — that's only for the Python OpenAI SDK).
+
+    PR #175 wrongly switched to `thinking_budget: int` based on OpenRouter's
+    translation table; OR's translation is specific to OR's unified API,
+    not the native DashScope shape. Reverted in PR #177."""
+    assert openai_compat_fields("qwen", "minimal") == {"enable_thinking": False}
+    assert openai_compat_fields("qwen", "high") == {"enable_thinking": True}
+
+
+def test_qwen_low_medium_also_enable_thinking():
+    """`model-capabilities.json` exposes only [default, high] for Qwen
+    (binary toggle). Stale clients sending low/medium still enable
+    thinking — the closest valid behavior on the binary."""
+    for lvl in ("low", "medium", "high"):
+        assert openai_compat_fields("qwen", lvl) == {"enable_thinking": True}
 
 
 # ---------------------------------------------------------------------------

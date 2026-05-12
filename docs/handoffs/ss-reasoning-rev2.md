@@ -76,13 +76,23 @@ All iOS-visible: the picker on Grok now has 4 buttons instead of 2.
 - Config: `model-capabilities.json` v6 persistent / v7 bundled (Grok now 4-level)
 - Server-side translation: `app/services/providers/reasoning.py`
 
-## Unverified — flag if you see weirdness in testing
+## Live-API smoke results (PR #177 follow-up, 2026-05-11)
 
-Noted in PR #175 as not-yet-verified via live API:
+Verified via OpenRouter against each unverified model:
 
-- OpenAI `gpt-5-mini` / `gpt-5-nano` — assumed full 4-level `minimal/low/medium/high`; could be restricted
-- DeepSeek V4 Flash vs Pro — behavioral differences unverified
-- Kimi `k2-turbo-preview` — schema may differ from K2.5/K2-Thinking
-- Gemini 3 Flash-Lite specific `minimal` support — Google grouped Flash + Flash-Lite together but didn't separately call out Flash-Lite for `minimal`
+| Item | Status |
+|---|---|
+| OpenAI `gpt-5-mini` / `gpt-5-nano` 5-level support | ✅ Confirmed. `minimal` produces 0 reasoning tokens. Note: `gpt-5-nano` default ≈ high (192 reasoning tokens at default) — pickier than `gpt-5-mini` whose default is lighter. |
+| DeepSeek V4 Flash + Pro accepting our shapes | ✅ Both return 200. As documented, DeepSeek collapses fine-grained effort levels — default and high produce similar reasoning-token counts. |
+| Gemini 3 Flash-Lite `minimal` | ✅ Confirmed (0 reasoning tokens). |
+| Kimi `k2-turbo-preview` via OpenRouter | ❌ **OpenRouter rejects this model ID** (`moonshotai/kimi-k2-turbo-preview is not a valid model ID`). Model IS valid on Moonshot's native API — confirmed in `platform.kimi.ai/docs/models`. **So GP-managed path works; OR BYOK path is broken for this specific model.** iOS should hide `kimi-k2-turbo-preview` when `provider: "openrouter"` is selected, or surface an error. Workaround: users who want that model must use the SS-managed path. |
+| Qwen field name | ⚠️ PR #175 used `thinking_budget` (OR's translation table). Reverted in PR #177 to `enable_thinking: bool` per Alibaba's own docs (`help.aliyun.com/zh/model-studio/deep-thinking`). DashScope OpenAI-compat HTTP endpoint accepts this at the JSON top level. |
 
-If any produce 4xx errors or unexpected behavior in testing, ping back with the request_id from GP's response. Live-API smoke tests are planned for these but haven't run yet.
+### Known gap: `kimi-k2-turbo-preview` on OpenRouter
+
+If SS exposes this model in the BYOK picker, send to OR will 400. Options:
+1. Per-model `byokAvailable: false` flag (would need a `model-capabilities.json` schema add)
+2. iOS-side allowlist of models that work via OR
+3. Catch the OR 400 and surface a "this model only works on SS-managed path" message
+
+For now flag this in iOS to avoid the silent failure. Long-term solution can be agreed in a follow-up.
