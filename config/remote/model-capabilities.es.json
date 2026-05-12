@@ -1,5 +1,5 @@
 {
-  "version": 10,
+  "version": 11,
   "defaultPromptReserveTokens": 8000,
   "models": {
     "foundation-models": {
@@ -61,43 +61,6 @@
       "supportsReasoning": true,
       "reasoningLevels": [
         "default",
-        "minimal",
-        "low",
-        "medium",
-        "high"
-      ]
-    },
-    "gpt-5.5-pro": {
-      "provider": "OpenAI",
-      "description": "Nivel premium de precision de GPT-5.5; usar cuando la exactitud importa mas que el costo",
-      "inputCostPerMillion": 30.0,
-      "outputCostPerMillion": 180.0,
-      "contextWindow": "1M",
-      "weights": "Closed",
-      "supportsImages": true,
-      "requiredParams": "model, messages",
-      "promptPlacement": "System",
-      "contextSlots": {
-        "transcriptBuffer": "yes",
-        "rollingSummary": "yes",
-        "deltaSummaryMode": true,
-        "fullTranscriptSummary": true,
-        "projectContext": true,
-        "projectFiles": true,
-        "followUpContext": true
-      },
-      "contextQuilt": {
-        "commProfile": "yes",
-        "factExtraction": "yes",
-        "companyIntel": "yes",
-        "meetingGuidance": "yes"
-      },
-      "splitModelSummary": true,
-      "estimatedAvailableTokens": 1048576,
-      "supportsReasoning": true,
-      "reasoningLevels": [
-        "default",
-        "minimal",
         "low",
         "medium",
         "high"
@@ -133,7 +96,6 @@
       "supportsReasoning": true,
       "reasoningLevels": [
         "default",
-        "minimal",
         "low",
         "medium",
         "high"

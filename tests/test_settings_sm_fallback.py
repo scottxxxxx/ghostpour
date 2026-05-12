@@ -49,8 +49,18 @@ def test_sm_fills_in_when_env_empty(monkeypatch):
 def test_no_match_leaves_field_empty(monkeypatch):
     """If neither env nor SM has the value, the field stays at its
     default ("" for empty-default fields). pydantic doesn't complain
-    because the default is provided in the class definition."""
-    monkeypatch.delenv("CZ_OPENAI_API_KEY", raising=False)
+    because the default is provided in the class definition.
+
+    NOTE: use `setenv("", "")` (empty string) rather than `delenv`.
+    Pydantic-settings reads from `.env` as a fallback, so deleting
+    from os.environ alone lets it fall through to the developer's
+    real `.env` file — which can leak a real key into a test
+    AssertionError if the test fails. Setting to empty string keeps
+    pydantic on env-resolution and skips the file fallback.
+
+    Same fix needs to apply anywhere a test asserts a settings field
+    is empty/None — see feedback_env_dump_redaction memory."""
+    monkeypatch.setenv("CZ_OPENAI_API_KEY", "")
     with patch("app.secrets.get_secret", return_value=""):
         app_config.get_settings.cache_clear()
         s = app_config.get_settings()
