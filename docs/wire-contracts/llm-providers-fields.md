@@ -1,25 +1,38 @@
 # `llm-providers.json` — per-model capability fields
 
-Status: **PR B (2026-05-12) added 7 per-model capability fields.**
+Status:
+- **PR B (2026-05-12)** added 7 per-model sampling/IO fields.
+- **PR A1 (2026-05-12)** added `reasoningLevels` + `promptReserveTokens` per model and a top-level `defaultPromptReserveTokens` fallback (Option A consolidation — `llm-providers.json` is now the canonical iOS-facing config).
+
 Owner (server): GP. Owner (client): SS iOS.
 
 ## Why these fields exist
 
 SS audited their consumption of `llm-providers.json` and `model-capabilities.json` and asked GP to expose a handful of per-model facts that iOS was previously guessing or hardcoding. Boss decision: put them in `llm-providers.json` next to the other per-model identity/capability fields (rather than splitting them into `model-capabilities.json` which is now primarily the reasoning-picker driver).
 
-## The 7 fields
+## Per-model fields
 
 Each entry under `providers[*].models[*]` carries:
 
-| Field | Type | Meaning |
-|---|---|---|
-| `maxOutputTokens` | `int \| null` | Provider's documented max output tokens for this model. `null` means GP picks at runtime (only `cloudzap.auto`). |
-| `temperatureDefault` | `float \| null` | Recommended sampling temperature. `null` = **iOS must OMIT the field on the wire** (e.g. Anthropic adaptive-thinking models 400 when temperature is set). |
-| `maxImagesPerRequest` | `int \| null` | Hard cap on image attachments per request. `0` = model is text-only even though it might be on a vision-capable provider. `null` = managed at runtime. |
-| `streamingSupported` | `bool` | True if SSE / chunked streaming works end-to-end for this model. |
-| `toolUseSupported` | `bool` | True if function/tool calling works. Future agentic features will gate on this. |
-| `cacheControlSupported` | `bool` | Anthropic-only prompt caching. iOS may splice `cache_control` markers into the body when this is true. Set on Anthropic native + `anthropic/*` OR routes + `cloudzap.auto` (GP handles cache_control server-side when routing). |
-| `serverManaged` | `bool` | True only for `cloudzap.auto`. Signals "GP picks the underlying model at runtime; ignore the other per-model fields here, the chosen model's fields will apply." |
+| Field | Type | Added | Meaning |
+|---|---|---|---|
+| `maxOutputTokens` | `int \| null` | PR B | Provider's documented max output tokens for this model. `null` means GP picks at runtime (only `cloudzap.auto`). |
+| `temperatureDefault` | `float \| null` | PR B | Recommended sampling temperature. `null` = **iOS must OMIT the field on the wire** (e.g. Anthropic adaptive-thinking models 400 when temperature is set). |
+| `maxImagesPerRequest` | `int \| null` | PR B | Hard cap on image attachments per request. `0` = model is text-only even though it might be on a vision-capable provider. `null` = managed at runtime. |
+| `streamingSupported` | `bool` | PR B | True if SSE / chunked streaming works end-to-end for this model. |
+| `toolUseSupported` | `bool` | PR B | True if function/tool calling works. Future agentic features will gate on this. |
+| `cacheControlSupported` | `bool` | PR B | Anthropic-only prompt caching. iOS may splice `cache_control` markers into the body when this is true. Set on Anthropic native + `anthropic/*` OR routes + `cloudzap.auto` (GP handles cache_control server-side when routing). |
+| `serverManaged` | `bool` | PR B | True only for `cloudzap.auto`. Signals "GP picks the underlying model at runtime; ignore the other per-model fields here, the chosen model's fields will apply." |
+| `reasoningLevels` | `array<string> \| null` | PR A1 | Provider-native reasoning vocabulary the model accepts (e.g. Anthropic Opus 4.7 = `["default","low","medium","high","xhigh","max"]`; Kimi K2.5 = `["default","disabled","enabled"]`). `null` for models with no string-vocabulary picker. Picker shows iff `supportsReasoning && reasoningLevels` is non-empty. |
+| `promptReserveTokens` | `int \| null` | PR A1 | Per-model override for the prompt-reserve budget iOS subtracts from the context window when sizing chat history. `null` means use the file-level fallback (`defaultPromptReserveTokens`). |
+
+## Top-level fields
+
+| Field | Type | Added | Meaning |
+|---|---|---|---|
+| `version` | `int` | (always present) | Monotonic config version. iOS sends `X-Config-Version: N` and gets fresh payload when `N < server version`. |
+| `defaultPromptReserveTokens` | `int` | PR A1 | File-level fallback for `promptReserveTokens` when a model's per-model value is `null`. Today: `8000`. |
+| `providers` | `array` | (always present) | The provider list. |
 
 ## iOS read semantics
 
@@ -44,18 +57,23 @@ For each model the user selects:
 - **Gemini 3.x / Grok 4.x / DeepSeek V4 / Qwen 3.x** — `temperatureDefault: 0.3` for the same meeting-assistant rationale as OpenAI.
 - **`cloudzap.auto`** — every numeric field is `null` because GP picks the underlying model at runtime; the actual per-model fields will apply to whatever model GP chose. `serverManaged: true` is the signal to iOS that this is the GP-managed path.
 
-## Partition with `model-capabilities.json`
+## Relationship to `model-capabilities.json`
 
-After PR B, the two configs serve clearly distinct purposes:
+PR A1 (Option A) consolidated all iOS-facing per-model fields into `llm-providers.json`. The remaining `model-capabilities.json` carries server-side routing intelligence (`contextSlots`, `contextQuilt`, `splitModelSummary`, `estimatedAvailableTokens`) that has no business being shipped over the wire to clients.
 
-- **`llm-providers.json`** — identity (provider, model, costs, context window, vision) + **capability constraints** (this PR's 7 fields) + auth/wire details (baseURL, header names, etc.).
-- **`model-capabilities.json`** — reasoning-picker driver (`supportsReasoning`, `reasoningLevels`) + memory/token budget UX values (`promptReserveTokens`).
+PR A3 will:
+- Move that server-side routing intelligence into `config/internal/model-routing.json` (not published via `/v1/config/*`).
+- Remove the `/v1/config/model-capabilities` endpoint entirely once SS's iOS PR A2 has shipped + clients have rolled forward.
 
-PR A (next) will clean up dead fields in `model-capabilities.json` (SS confirmed ~80% of its schema is unused) and remove the now-redundant `supportsReasoning` from `llm-providers.json`.
+Until then, the existing `model-capabilities.json` keeps being published so older iOS builds continue to work, but new iOS code (post-A2) reads everything from `llm-providers.json`.
 
 ## Versioning
 
-`llm-providers.json` bumped 9 → 10 in PR B. iOS sends `X-Config-Version: 9` on next fetch and gets the full v10 payload back. Existing iOS that doesn't know about the new fields ignores them gracefully (forward-compatible).
+`llm-providers.json` version history:
+- v9 → v10 (PR B, 2026-05-12): added the 7 sampling/IO fields.
+- v10 → v11 (PR A1, 2026-05-12): added `reasoningLevels`, `promptReserveTokens` per model and `defaultPromptReserveTokens` top-level.
+
+iOS sends `X-Config-Version: N` and gets fresh payload when `N < server version`. Builds that don't know the newer fields ignore them gracefully (forward-compatible).
 
 ## Failure modes
 

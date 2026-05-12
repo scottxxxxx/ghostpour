@@ -85,6 +85,8 @@ Same pattern as `tiers`, `protected-prompts`, `model-capabilities`:
 ## What's coming next
 
 - **PR A (server-side cleanup)** — SS confirmed `model-capabilities.json` is ~80% dead schema (only `supportsReasoning`, `reasoningLevels`, `promptReserveTokens` are consumed). PR A removes the dead fields + the now-redundant per-model `supportsReasoning` in `llm-providers.json`.
+
+  > **Update 2026-05-12:** After SS audit response, "PR A" was re-scoped as **Option A consolidation** (collapse iOS-facing fields into `llm-providers.json`; eventually delete `model-capabilities.json`). The actual sequence is A1 (us — landed in PR #184) → A2 (SS iOS swap) → A3 (us — remove `model-capabilities.json` as iOS-facing). See `docs/handoffs/ss-config-canonical-homes.md` (proposal) and `docs/handoffs/ss-config-cleanup-a1.md` (what A1 shipped).
 - **Templates trial (Anthropic-only)** — separate proposal in `docs/handoffs/ss-per-model-request-schemas-proposal.md`. Boss is weighing in first; nothing for iOS to do until that lands.
 
 ## Questions for SS
