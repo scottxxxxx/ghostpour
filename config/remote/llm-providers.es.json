@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 7,
   "providers": [
     {
       "id": "cloudzap",
@@ -345,6 +345,18 @@
           "inputCostPerMillion": 0.6,
           "outputCostPerMillion": 2.5,
           "litellmKey": "moonshot/kimi-k2.5",
+          "supportsReasoning": true
+        },
+        {
+          "id": "kimi-k2.6",
+          "displayName": "Kimi K2.6",
+          "description": "Latest K2 generation; thinking ON by default. Multi-turn reasoning retention via preserve_thinking.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 262144,
+          "inputCostPerMillion": 0.6,
+          "outputCostPerMillion": 2.5,
+          "litellmKey": "moonshot/kimi-k2.6",
           "supportsReasoning": true
         },
         {

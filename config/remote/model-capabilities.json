@@ -1,5 +1,5 @@
 {
-  "version": 8,
+  "version": 9,
   "defaultPromptReserveTokens": 8000,
   "models": {
     "foundation-models": {
@@ -553,11 +553,7 @@
       },
       "splitModelSummary": true,
       "estimatedAvailableTokens": 261120,
-      "supportsReasoning": true,
-      "reasoningLevels": [
-        "default",
-        "high"
-      ]
+      "supportsReasoning": false
     },
     "qwen-max": {
       "provider": "Alibaba (Qwen)",
@@ -718,6 +714,39 @@
       },
       "splitModelSummary": true,
       "estimatedAvailableTokens": 1047552,
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "default",
+        "high"
+      ]
+    },
+    "kimi-k2.6": {
+      "provider": "Moonshot AI",
+      "description": "Flagship open source multimodal agentic model; 1T MoE, agent swarm, vision + video",
+      "inputCostPerMillion": 0.6,
+      "outputCostPerMillion": 2.5,
+      "contextWindow": "256K",
+      "weights": "Open",
+      "supportsImages": true,
+      "requiredParams": "model, messages",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 261120,
       "supportsReasoning": true,
       "reasoningLevels": [
         "default",
