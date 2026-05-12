@@ -1,5 +1,5 @@
 {
-  "version": 7,
+  "version": 10,
   "providers": [
     {
       "id": "cloudzap",
@@ -21,7 +21,14 @@
           "isDefault": true,
           "supportsVision": true,
           "contextWindow": 200000,
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": null,
+          "temperatureDefault": null,
+          "maxImagesPerRequest": null,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": true,
+          "serverManaged": true
         }
       ],
       "notes": "GhostPour managed AI service. Sign in with Apple, subscribe, and we handle the rest.",
@@ -49,7 +56,14 @@
           "contextWindow": 4096,
           "inputCostPerMillion": 0,
           "outputCostPerMillion": 0,
-          "supportsReasoning": false
+          "supportsReasoning": false,
+          "maxOutputTokens": 4096,
+          "temperatureDefault": 0.7,
+          "maxImagesPerRequest": 0,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         }
       ],
       "notes": "Free, private, works offline. Powered by Apple Intelligence.",
@@ -78,7 +92,14 @@
           "inputCostPerMillion": 5.0,
           "outputCostPerMillion": 30.0,
           "litellmKey": "gpt-5.5",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 128000,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 10,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         },
         {
           "id": "gpt-5.2",
@@ -90,7 +111,14 @@
           "inputCostPerMillion": 1.75,
           "outputCostPerMillion": 14.0,
           "litellmKey": "gpt-5.2",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 128000,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 10,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         },
         {
           "id": "gpt-5-mini",
@@ -102,7 +130,14 @@
           "inputCostPerMillion": 0.25,
           "outputCostPerMillion": 1.25,
           "litellmKey": "gpt-5-mini",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 128000,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 10,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         },
         {
           "id": "gpt-5-nano",
@@ -114,7 +149,14 @@
           "inputCostPerMillion": 0.05,
           "outputCostPerMillion": 0.4,
           "litellmKey": "gpt-5-nano",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 128000,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 0,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         }
       ],
       "notes": "OpenAI cloud models.",
@@ -145,7 +187,14 @@
           "inputCostPerMillion": 5.0,
           "outputCostPerMillion": 25.0,
           "litellmKey": "claude-opus-4-7",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 64000,
+          "temperatureDefault": null,
+          "maxImagesPerRequest": 5,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": true,
+          "serverManaged": false
         },
         {
           "id": "claude-sonnet-4-6",
@@ -157,7 +206,14 @@
           "inputCostPerMillion": 3.0,
           "outputCostPerMillion": 15.0,
           "litellmKey": "claude-sonnet-4-6",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 64000,
+          "temperatureDefault": null,
+          "maxImagesPerRequest": 5,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": true,
+          "serverManaged": false
         },
         {
           "id": "claude-haiku-4-5-20251001",
@@ -169,7 +225,14 @@
           "inputCostPerMillion": 1.0,
           "outputCostPerMillion": 5.0,
           "litellmKey": "claude-haiku-4-5-20251001",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 64000,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 5,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": true,
+          "serverManaged": false
         }
       ],
       "notes": "Anthropic cloud models. Opus 4.7 and Sonnet 4.6 support 1M context.",
@@ -198,7 +261,14 @@
           "inputCostPerMillion": 2.0,
           "outputCostPerMillion": 12.0,
           "litellmKey": "gemini/gemini-3.1-pro-preview",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 32768,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 16,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         },
         {
           "id": "gemini-3-flash-preview",
@@ -210,7 +280,14 @@
           "inputCostPerMillion": 0.5,
           "outputCostPerMillion": 3.0,
           "litellmKey": "gemini/gemini-3-flash-preview",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 8192,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 16,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         },
         {
           "id": "gemini-3.1-flash-lite-preview",
@@ -222,7 +299,14 @@
           "inputCostPerMillion": 0.25,
           "outputCostPerMillion": 1.5,
           "litellmKey": "gemini/gemini-3.1-flash-lite-preview",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 8192,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 16,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         }
       ],
       "notes": "Google Gemini models.",
@@ -251,7 +335,14 @@
           "inputCostPerMillion": 3.0,
           "outputCostPerMillion": 15.0,
           "litellmKey": "xai/grok-4",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 32768,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 4,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         },
         {
           "id": "grok-4.1-fast",
@@ -263,7 +354,14 @@
           "inputCostPerMillion": 0.2,
           "outputCostPerMillion": 0.5,
           "litellmKey": "xai/grok-4.1-fast",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 32768,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 4,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         }
       ],
       "notes": "xAI Grok models. Grok 4 is reasoning-only.",
@@ -292,7 +390,14 @@
           "inputCostPerMillion": 0.14,
           "outputCostPerMillion": 0.28,
           "litellmKey": "deepseek/deepseek-v4-flash",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 8192,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 0,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         },
         {
           "id": "deepseek-v4-pro",
@@ -304,7 +409,14 @@
           "inputCostPerMillion": 1.74,
           "outputCostPerMillion": 3.48,
           "litellmKey": "deepseek/deepseek-v4-pro",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 8192,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 0,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         }
       ],
       "notes": "DeepSeek cloud models. Text-only.",
@@ -333,7 +445,14 @@
           "inputCostPerMillion": 0.6,
           "outputCostPerMillion": 2.5,
           "litellmKey": "moonshot/kimi-k2.5",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 8192,
+          "temperatureDefault": 0.6,
+          "maxImagesPerRequest": 5,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         },
         {
           "id": "kimi-k2.6",
@@ -345,7 +464,14 @@
           "inputCostPerMillion": 0.6,
           "outputCostPerMillion": 2.5,
           "litellmKey": "moonshot/kimi-k2.6",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 8192,
+          "temperatureDefault": 1.0,
+          "maxImagesPerRequest": 5,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         },
         {
           "id": "kimi-k2-thinking",
@@ -357,7 +483,14 @@
           "inputCostPerMillion": 0.6,
           "outputCostPerMillion": 2.5,
           "litellmKey": "moonshot/kimi-k2-thinking",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 8192,
+          "temperatureDefault": 1.0,
+          "maxImagesPerRequest": 5,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         }
       ],
       "notes": "Kimi models. All models support vision and video.",
@@ -386,7 +519,14 @@
           "inputCostPerMillion": 1.2,
           "outputCostPerMillion": 6.0,
           "litellmKey": "qwen/qwen3-max",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 8192,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 5,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         },
         {
           "id": "qwen-plus",
@@ -398,7 +538,14 @@
           "inputCostPerMillion": 0.4,
           "outputCostPerMillion": 2.4,
           "litellmKey": "qwen/qwen-plus",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 8192,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 5,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         },
         {
           "id": "qwen-flash",
@@ -410,7 +557,14 @@
           "inputCostPerMillion": 0.1,
           "outputCostPerMillion": 0.4,
           "litellmKey": "qwen/qwen-flash",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 8192,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 5,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         }
       ],
       "notes": "Alibaba Qwen models.",
@@ -442,7 +596,14 @@
           "inputCostPerMillion": 0.5,
           "outputCostPerMillion": 3.0,
           "litellmKey": "openrouter/google/gemini-3-flash-preview",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 8192,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 16,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         },
         {
           "id": "anthropic/claude-haiku-4.5",
@@ -454,7 +615,14 @@
           "inputCostPerMillion": 1.0,
           "outputCostPerMillion": 5.0,
           "litellmKey": "openrouter/anthropic/claude-haiku-4.5",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 64000,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 5,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": true,
+          "serverManaged": false
         },
         {
           "id": "openai/gpt-5-mini",
@@ -466,7 +634,14 @@
           "inputCostPerMillion": 0.25,
           "outputCostPerMillion": 2.0,
           "litellmKey": "openrouter/openai/gpt-5-mini",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 128000,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 10,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         },
         {
           "id": "google/gemini-3.1-flash-lite-preview",
@@ -478,7 +653,14 @@
           "inputCostPerMillion": 0.25,
           "outputCostPerMillion": 1.5,
           "litellmKey": "openrouter/google/gemini-3.1-flash-lite-preview",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 8192,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 16,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         },
         {
           "id": "anthropic/claude-sonnet-4.6",
@@ -490,7 +672,14 @@
           "inputCostPerMillion": 3.0,
           "outputCostPerMillion": 15.0,
           "litellmKey": "openrouter/anthropic/claude-sonnet-4.6",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 64000,
+          "temperatureDefault": null,
+          "maxImagesPerRequest": 5,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": true,
+          "serverManaged": false
         },
         {
           "id": "google/gemini-3.1-pro-preview",
@@ -502,7 +691,14 @@
           "inputCostPerMillion": 2.0,
           "outputCostPerMillion": 12.0,
           "litellmKey": "openrouter/google/gemini-3.1-pro-preview",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 32768,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 16,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         },
         {
           "id": "anthropic/claude-opus-4.7",
@@ -514,7 +710,14 @@
           "inputCostPerMillion": 5.0,
           "outputCostPerMillion": 25.0,
           "litellmKey": "openrouter/anthropic/claude-opus-4.7",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 64000,
+          "temperatureDefault": null,
+          "maxImagesPerRequest": 5,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": true,
+          "serverManaged": false
         },
         {
           "id": "openai/gpt-5",
@@ -526,7 +729,14 @@
           "inputCostPerMillion": 1.25,
           "outputCostPerMillion": 10.0,
           "litellmKey": "openrouter/openai/gpt-5",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 128000,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 10,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         },
         {
           "id": "openai/gpt-5.5",
@@ -538,7 +748,14 @@
           "inputCostPerMillion": 5.0,
           "outputCostPerMillion": 30.0,
           "litellmKey": "openrouter/openai/gpt-5.5",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 128000,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 10,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         },
         {
           "id": "openai/gpt-5.5-pro",
@@ -550,7 +767,14 @@
           "inputCostPerMillion": 30.0,
           "outputCostPerMillion": 180.0,
           "litellmKey": "openrouter/openai/gpt-5.5-pro",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 128000,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 0,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         },
         {
           "id": "deepseek/deepseek-v4-flash",
@@ -562,7 +786,14 @@
           "inputCostPerMillion": 0.14,
           "outputCostPerMillion": 0.28,
           "litellmKey": "openrouter/deepseek/deepseek-v4-flash",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 8192,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 0,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         },
         {
           "id": "deepseek/deepseek-v4-pro",
@@ -574,7 +805,14 @@
           "inputCostPerMillion": 1.74,
           "outputCostPerMillion": 3.48,
           "litellmKey": "openrouter/deepseek/deepseek-v4-pro",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 8192,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 0,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         },
         {
           "id": "perplexity/sonar",
@@ -586,7 +824,14 @@
           "inputCostPerMillion": 1.0,
           "outputCostPerMillion": 1.0,
           "litellmKey": "openrouter/perplexity/sonar",
-          "supportsReasoning": false
+          "supportsReasoning": false,
+          "maxOutputTokens": 8192,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 0,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         },
         {
           "id": "meta-llama/llama-4-maverick",
@@ -598,7 +843,14 @@
           "inputCostPerMillion": 0.15,
           "outputCostPerMillion": 0.6,
           "litellmKey": "openrouter/meta-llama/llama-4-maverick",
-          "supportsReasoning": false
+          "supportsReasoning": false,
+          "maxOutputTokens": 8192,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 0,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         },
         {
           "id": "x-ai/grok-4",
@@ -610,7 +862,14 @@
           "inputCostPerMillion": 3.0,
           "outputCostPerMillion": 15.0,
           "litellmKey": "openrouter/x-ai/grok-4",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 32768,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 4,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         },
         {
           "id": "mistralai/mistral-large-2411",
@@ -622,7 +881,14 @@
           "inputCostPerMillion": 2.0,
           "outputCostPerMillion": 6.0,
           "litellmKey": "openrouter/mistralai/mistral-large-2411",
-          "supportsReasoning": false
+          "supportsReasoning": false,
+          "maxOutputTokens": 8192,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 0,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         },
         {
           "id": "qwen/qwen3-vl-235b-a22b-instruct",
@@ -634,7 +900,14 @@
           "inputCostPerMillion": 0.2,
           "outputCostPerMillion": 0.88,
           "litellmKey": "openrouter/qwen/qwen3-vl-235b-a22b-instruct",
-          "supportsReasoning": true
+          "supportsReasoning": true,
+          "maxOutputTokens": 8192,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 5,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false
         }
       ],
       "notes": "OpenRouter provides a unified API for 300+ models. Pay-as-you-go with spend caps on the key itself. Create an API key at openrouter.ai/keys and set a monthly limit for safety.",
