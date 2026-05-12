@@ -1,10 +1,17 @@
-"""Schema tests for the 7 per-model capability fields in llm-providers.json.
+"""Schema tests for the per-model capability fields in llm-providers.json.
 
-Added 2026-05-12 per SS audit response: iOS asked us to expose per-model
-sampling/IO capability constraints so it can stop guessing.
+History:
+- 2026-05-12 PR B: added 7 sampling/IO capability fields per SS audit so iOS
+  could stop guessing per-model defaults.
+- 2026-05-12 PR A1 (Option A consolidation): pulled `reasoningLevels` +
+  `promptReserveTokens` over from `model-capabilities.json`, plus added a
+  top-level `defaultPromptReserveTokens` fallback.
 
 Invariants enforced:
-- Every model declares all 7 fields (no silent fallback to provider-level).
+- Every model declares all 9 per-model fields (no silent fallback to
+  provider-level).
+- Top-level `defaultPromptReserveTokens` is present (file-level fallback
+  used when a per-model `promptReserveTokens` is null).
 - Locale variants agree on capability values (locales differ only on copy).
 - Anthropic adaptive-thinking models (Opus 4.7, Sonnet 4.6) have
   `temperatureDefault: null` — sending temperature with adaptive thinking
@@ -12,6 +19,10 @@ Invariants enforced:
 - `cacheControlSupported: true` only on Anthropic models and `cloudzap.auto`
   (which routes via GP and can splice cache_control server-side).
 - `serverManaged: true` only on `cloudzap.auto`.
+- `reasoningLevels` is either null or a non-empty list of strings. SS gates
+  the picker on `supportsReasoning && !reasoningLevels.isEmpty`, so a model
+  with `supportsReasoning: false` MUST have `reasoningLevels: null` and a
+  model with non-null levels must have `supportsReasoning: true`.
 """
 
 from __future__ import annotations
@@ -35,6 +46,8 @@ REQUIRED_FIELDS = (
     "toolUseSupported",
     "cacheControlSupported",
     "serverManaged",
+    "reasoningLevels",
+    "promptReserveTokens",
 )
 
 ANTHROPIC_ADAPTIVE_THINKING_MODELS = {
@@ -110,6 +123,24 @@ def test_field_types_are_sane(path):
                 f"{path}:{mid} {field}={m[field]!r} must be bool"
             )
 
+        # reasoningLevels: null, or a non-empty list of non-empty strings
+        rl = m["reasoningLevels"]
+        if rl is not None:
+            assert isinstance(rl, list) and rl, (
+                f"{path}:{mid} reasoningLevels={rl!r} must be null or non-empty list"
+            )
+            for entry in rl:
+                assert isinstance(entry, str) and entry, (
+                    f"{path}:{mid} reasoningLevels entry {entry!r} must be non-empty string"
+                )
+
+        # promptReserveTokens: null, or positive int
+        prt = m["promptReserveTokens"]
+        if prt is not None:
+            assert isinstance(prt, int) and prt > 0, (
+                f"{path}:{mid} promptReserveTokens={prt!r} must be positive int or null"
+            )
+
 
 @pytest.mark.parametrize("path", PROVIDER_FILES)
 def test_adaptive_thinking_models_have_null_temperature(path):
@@ -181,7 +212,53 @@ def test_locales_agree_on_capability_fields():
 
 
 def test_version_bumped():
-    """PR B bumps llm-providers.json to v10."""
+    """PR A1 bumps llm-providers.json to v11."""
     for path in PROVIDER_FILES:
         v = _load(path)["version"]
-        assert v >= 10, f"{path} version={v} — expected >=10 after PR B"
+        assert v >= 11, f"{path} version={v} — expected >=11 after PR A1"
+
+
+@pytest.mark.parametrize("path", PROVIDER_FILES)
+def test_default_prompt_reserve_tokens_present(path):
+    """File-level fallback used when a model's `promptReserveTokens` is null.
+
+    SS reads this as the canonical name `defaultPromptReserveTokens`.
+    """
+    data = _load(path)
+    assert "defaultPromptReserveTokens" in data, (
+        f"{path} missing top-level defaultPromptReserveTokens"
+    )
+    val = data["defaultPromptReserveTokens"]
+    assert isinstance(val, int) and val > 0, (
+        f"{path} defaultPromptReserveTokens={val!r} must be positive int"
+    )
+
+
+@pytest.mark.parametrize("path", PROVIDER_FILES)
+def test_reasoning_levels_consistent_with_supports_reasoning(path):
+    """Picker semantics: SS gates `picker(model)` on
+    `supportsReasoning && !reasoningLevels.isEmpty`.
+
+    Two invariants follow:
+    - If `reasoningLevels` is a non-empty list, `supportsReasoning` MUST be true.
+    - If `supportsReasoning` is false, `reasoningLevels` MUST be null (a
+      non-null list with supportsReasoning=false is a contradiction).
+
+    Note: `supportsReasoning: true` with `reasoningLevels: null` is allowed —
+    that's the `cloudzap.auto` case (capable in principle, no picker exposed).
+    """
+    data = _load(path)
+    for prov_id, m in _iter_models(data):
+        mid = m["id"]
+        supports = m["supportsReasoning"]
+        levels = m["reasoningLevels"]
+        if levels is not None and len(levels) > 0:
+            assert supports is True, (
+                f"{path}:{prov_id}/{mid} has reasoningLevels but "
+                f"supportsReasoning={supports!r}"
+            )
+        if supports is False:
+            assert levels is None, (
+                f"{path}:{prov_id}/{mid} has supportsReasoning=false but "
+                f"reasoningLevels={levels!r} (must be null)"
+            )
