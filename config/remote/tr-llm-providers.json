@@ -1,5 +1,5 @@
 {
-  "version": 11,
+  "version": 13,
   "defaultPromptReserveTokens": 8000,
   "providers": [
     {
@@ -79,6 +79,7 @@
       "displayName": "OpenAI",
       "apiFormat": "openai",
       "baseURL": "https://api.openai.com/v1/chat/completions",
+      "tokenLimitField": "max_completion_tokens",
       "authHeaderName": "Authorization",
       "authHeaderPrefix": "Bearer ",
       "extraHeaders": {},
@@ -398,6 +399,7 @@
       "displayName": "xAI (Grok)",
       "apiFormat": "openai",
       "baseURL": "https://api.x.ai/v1/chat/completions",
+      "tokenLimitField": null,
       "authHeaderName": "Authorization",
       "authHeaderPrefix": "Bearer ",
       "extraHeaders": {},
@@ -469,6 +471,7 @@
       "displayName": "DeepSeek",
       "apiFormat": "openai",
       "baseURL": "https://api.deepseek.com/chat/completions",
+      "tokenLimitField": null,
       "authHeaderName": "Authorization",
       "authHeaderPrefix": "Bearer ",
       "extraHeaders": {},
@@ -536,6 +539,7 @@
       "displayName": "Kimi (Moonshot)",
       "apiFormat": "openai",
       "baseURL": "https://api.moonshot.ai/v1/chat/completions",
+      "tokenLimitField": null,
       "authHeaderName": "Authorization",
       "authHeaderPrefix": "Bearer ",
       "extraHeaders": {},
@@ -603,6 +607,7 @@
       "displayName": "Qwen (Alibaba)",
       "apiFormat": "openai",
       "baseURL": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
+      "tokenLimitField": null,
       "authHeaderName": "Authorization",
       "authHeaderPrefix": "Bearer ",
       "extraHeaders": {},
@@ -683,6 +688,7 @@
       "displayName": "OpenRouter",
       "apiFormat": "openai",
       "baseURL": "https://openrouter.ai/api/v1/chat/completions",
+      "tokenLimitField": null,
       "authHeaderName": "Authorization",
       "authHeaderPrefix": "Bearer ",
       "extraHeaders": {
