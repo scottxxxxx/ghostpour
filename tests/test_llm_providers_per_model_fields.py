@@ -182,9 +182,88 @@ def test_server_managed_only_on_cloudzap_auto(path):
             )
 
 
-def test_locales_agree_on_capability_fields():
-    """All three locale variants must declare identical capability values per
-    model — only displayName/description differ across locales."""
+# Locale-parity: fields allowed to differ between en, es, tr.
+# Everything else must match — including field PRESENCE (`tokenLimitField`
+# being absent in one locale but null in another counts as drift).
+#
+# `displayName` and `description` carry localized copy at the provider
+# and model level. `notes` carries provider-level operator commentary
+# that is sometimes localized. Everything else is wire-shape / capability
+# data that must agree across locales.
+PROVIDER_LEVEL_DIVERGENT = {"displayName", "notes"}
+MODEL_LEVEL_DIVERGENT = {"displayName", "description"}
+
+
+def _strip(obj: dict, divergent: set[str]) -> dict:
+    return {k: v for k, v in obj.items() if k not in divergent}
+
+
+def test_locales_agree_on_version():
+    """All locale variants advance together. Any drift means a PR forgot
+    one — PR #188 caught its own omission this way, but earlier PRs
+    (#184, #187) shipped with tr lagging because the prior parity test
+    only checked model sets, not version."""
+    versions = {p: _load(p)["version"] for p in PROVIDER_FILES}
+    assert len(set(versions.values())) == 1, (
+        f"locale versions diverged: {versions}"
+    )
+
+
+def test_locales_agree_on_top_level_fields():
+    """Top-level keys outside `providers` (e.g., `defaultPromptReserveTokens`)
+    must be identical across locales."""
+    en = _load("config/remote/llm-providers.json")
+    es = _load("config/remote/llm-providers.es.json")
+    tr = _load("config/remote/tr-llm-providers.json")
+    en_top = {k: v for k, v in en.items() if k != "providers"}
+    for variant_name, variant in (("es", es), ("tr", tr)):
+        v_top = {k: v for k, v in variant.items() if k != "providers"}
+        assert en_top == v_top, (
+            f"{variant_name} top-level fields drift from en: "
+            f"en={en_top}, {variant_name}={v_top}"
+        )
+
+
+def test_locales_agree_on_provider_level_fields():
+    """Provider entries must match across locales except for displayName
+    and notes (localized copy). Catches drift like the missing
+    tokenLimitField in tr-llm-providers after PR #187."""
+    en = _load("config/remote/llm-providers.json")
+    es = _load("config/remote/llm-providers.es.json")
+    tr = _load("config/remote/tr-llm-providers.json")
+
+    def _providers_by_id(data: dict) -> dict[str, dict]:
+        return {
+            p["id"]: _strip({k: v for k, v in p.items() if k != "models"},
+                            PROVIDER_LEVEL_DIVERGENT)
+            for p in data["providers"]
+        }
+
+    en_idx = _providers_by_id(en)
+    for variant_name, variant in (("es", es), ("tr", tr)):
+        v_idx = _providers_by_id(variant)
+        assert set(en_idx) == set(v_idx), (
+            f"{variant_name} has different provider set than en: "
+            f"en={set(en_idx)}, {variant_name}={set(v_idx)}"
+        )
+        for pid, en_p in en_idx.items():
+            v_p = v_idx[pid]
+            assert en_p == v_p, (
+                f"{variant_name}:{pid} provider-level fields drift from en. "
+                f"en keys not in {variant_name}: "
+                f"{set(en_p) - set(v_p)}; "
+                f"{variant_name} keys not in en: "
+                f"{set(v_p) - set(en_p)}; "
+                f"diff: en={en_p}, {variant_name}={v_p}"
+            )
+
+
+def test_locales_agree_on_per_model_fields():
+    """Per-model entries must match across locales except for displayName
+    and description (localized copy). Field-level equality on EVERY
+    field, not just the 9 in REQUIRED_FIELDS — so new fields added
+    later (e.g., reasoningFamily for Rev 3) automatically participate
+    in parity without test changes."""
     en = _load("config/remote/llm-providers.json")
     es = _load("config/remote/llm-providers.es.json")
     tr = _load("config/remote/tr-llm-providers.json")
@@ -193,7 +272,7 @@ def test_locales_agree_on_capability_fields():
         out: dict[str, dict] = {}
         for prov in data["providers"]:
             for m in prov["models"]:
-                out[f"{prov['id']}/{m['id']}"] = m
+                out[f"{prov['id']}/{m['id']}"] = _strip(m, MODEL_LEVEL_DIVERGENT)
         return out
 
     en_idx = _models_by_id(en)
@@ -204,18 +283,13 @@ def test_locales_agree_on_capability_fields():
         )
         for key, en_m in en_idx.items():
             v_m = v_idx[key]
-            for field in REQUIRED_FIELDS:
-                assert en_m[field] == v_m[field], (
-                    f"{key}: en {field}={en_m[field]!r}, "
-                    f"{variant_name} {field}={v_m[field]!r}"
-                )
-
-
-def test_version_bumped():
-    """PR A1 bumps llm-providers.json to v11."""
-    for path in PROVIDER_FILES:
-        v = _load(path)["version"]
-        assert v >= 11, f"{path} version={v} — expected >=11 after PR A1"
+            assert en_m == v_m, (
+                f"{variant_name}:{key} per-model fields drift from en. "
+                f"en keys not in {variant_name}: {set(en_m) - set(v_m)}; "
+                f"{variant_name} keys not in en: {set(v_m) - set(en_m)}; "
+                f"differing values: "
+                f"{ {k: (en_m.get(k), v_m.get(k)) for k in set(en_m) & set(v_m) if en_m[k] != v_m[k]} }"
+            )
 
 
 @pytest.mark.parametrize("path", PROVIDER_FILES)
