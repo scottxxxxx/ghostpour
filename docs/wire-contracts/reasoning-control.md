@@ -1,6 +1,9 @@
 # Reasoning level — wire contract
 
-Status: **vocabulary rev 3 (2026-05-11) — per-model native values, no normalization.**
+> **Superseded** by [reasoning-vocabulary-rev-3.md](reasoning-vocabulary-rev-3.md) (2026-05-18).
+> This doc documents the per-model native vocabulary that SS shipped iOS-side and corresponds to what SS calls "Rev 2." Rev 3 adds the `reasoningFamily` classification (`effort` vs `toggle`) and extends the vocabulary with `none`, `xhigh`, `max`, `disabled`, `enabled`. Read the Rev 3 doc for the current contract; this one is preserved for historical reference and because the wire-translation table here is unchanged.
+
+Status: **vocabulary rev 2 (per SS numbering) — per-model native values, no normalization.**
 Owner (server): GP. Owner (client): SS iOS.
 
 ## Design
