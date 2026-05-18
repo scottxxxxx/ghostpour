@@ -1,5 +1,5 @@
 {
-  "version": 12,
+  "version": 13,
   "defaultPromptReserveTokens": 8000,
   "providers": [
     {
@@ -538,7 +538,7 @@
       "id": "kimi",
       "displayName": "Kimi (Moonshot)",
       "apiFormat": "openai",
-      "baseURL": "https://kimi-k2.ai/api/v1/chat/completions",
+      "baseURL": "https://api.moonshot.ai/v1/chat/completions",
       "tokenLimitField": null,
       "authHeaderName": "Authorization",
       "authHeaderPrefix": "Bearer ",
@@ -597,31 +597,10 @@
           "cacheControlSupported": false,
           "serverManaged": false,
           "promptReserveTokens": null
-        },
-        {
-          "id": "kimi-k2-thinking",
-          "displayName": "Kimi K2 Thinking",
-          "description": "Modelo de razonamiento profundo; discusiones tecnicas, vision estrategica, resolucion de problemas multi-paso.",
-          "isDefault": false,
-          "supportsVision": true,
-          "contextWindow": 262144,
-          "inputCostPerMillion": 0.6,
-          "outputCostPerMillion": 2.5,
-          "litellmKey": "moonshot/kimi-k2-thinking",
-          "supportsReasoning": false,
-          "reasoningLevels": null,
-          "maxOutputTokens": 8192,
-          "temperatureDefault": 1.0,
-          "maxImagesPerRequest": 5,
-          "streamingSupported": true,
-          "toolUseSupported": true,
-          "cacheControlSupported": false,
-          "serverManaged": false,
-          "promptReserveTokens": null
         }
       ],
-      "notes": "Modelos Kimi. Todos los modelos soportan vision y video.",
-      "keyURL": "https://kimi-k2.ai"
+      "notes": "Modelos Kimi de la API oficial internacional de Moonshot AI. Todos los modelos soportan vision y video.",
+      "keyURL": "https://platform.moonshot.ai/console/api-keys"
     },
     {
       "id": "qwen",
