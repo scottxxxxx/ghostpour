@@ -309,3 +309,54 @@ class TestCtaLocalization:
         body = resp.json()
         cta = body["facts"][-1]
         assert "Upgrade to Pro" in cta["fact"]
+
+
+class TestRecoveryHeader:
+    """X-CZ-Recovery header lands and emits a structured log line.
+
+    SS sets this header on captures that are part of the report-404
+    recovery flow. GP must surface it so dashboards can split capture
+    volume by recovery_source.
+    """
+
+    def test_header_present_emits_structured_log(
+        self, client_with_cq, pro_user, mock_cq, caplog,
+    ):
+        import logging
+        caplog.set_level(logging.INFO, logger="app.routers.cq_proxy")
+
+        resp = client_with_cq.post(
+            "/v1/capture-transcript",
+            json={"transcript": "hello", "meeting_id": "m-rec-1"},
+            headers={**pro_user["headers"], "X-CZ-Recovery": "report-404-replay"},
+        )
+        assert resp.status_code == 200
+
+        rec = next(
+            (r for r in caplog.records if r.message == "capture_transcript_recovery"),
+            None,
+        )
+        assert rec is not None, "expected capture_transcript_recovery log line"
+        assert rec.recovery_source == "report-404-replay"
+        assert rec.user_id == pro_user["user_id"]
+        assert rec.origin_id == "m-rec-1"
+        assert rec.origin_type == "meeting"
+
+    def test_header_absent_no_recovery_log(
+        self, client_with_cq, pro_user, mock_cq, caplog,
+    ):
+        import logging
+        caplog.set_level(logging.INFO, logger="app.routers.cq_proxy")
+
+        resp = client_with_cq.post(
+            "/v1/capture-transcript",
+            json={"transcript": "hello", "meeting_id": "m-rec-2"},
+            headers=pro_user["headers"],
+        )
+        assert resp.status_code == 200
+
+        recovery_logs = [
+            r for r in caplog.records
+            if r.message == "capture_transcript_recovery"
+        ]
+        assert recovery_logs == []

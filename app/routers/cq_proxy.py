@@ -132,6 +132,23 @@ async def capture_transcript(
     effective_origin_id = body.origin_id or body.meeting_id
     effective_origin_type = body.origin_type or ("meeting" if body.meeting_id else None)
 
+    # SS sets X-CZ-Recovery on captures that originate from a client-side
+    # recovery flow (e.g., "report-404-replay" when the report endpoint
+    # 404'd because the original capture never landed). Absent on first-
+    # send captures. Logged so dashboards can split capture volume by
+    # source and measure how often recovery fires.
+    recovery_source = request.headers.get("X-CZ-Recovery")
+    if recovery_source:
+        logger.info(
+            "capture_transcript_recovery",
+            extra={
+                "recovery_source": recovery_source,
+                "user_id": user.id,
+                "origin_id": effective_origin_id,
+                "origin_type": effective_origin_type,
+            },
+        )
+
     # Store transcript locally for report generation. The local meeting_transcripts
     # table still uses meeting_id as its column name; reuse whichever origin id the
     # client provided (for "meeting" origins this is a direct map).
