@@ -14,8 +14,12 @@ Invariants enforced:
   used when a per-model `promptReserveTokens` is null).
 - Locale variants agree on capability values (locales differ only on copy).
 - Anthropic adaptive-thinking models (Opus 4.7, Sonnet 4.6) have
-  `temperatureDefault: null` — sending temperature with adaptive thinking
-  is rejected by the Anthropic API.
+  `temperatureDefault: null`. The Anthropic API accepts `temperature: 1.0`
+  or an omitted temperature when adaptive thinking is active, and rejects
+  any other value (400: "`temperature` may only be set to 1 when thinking
+  is enabled or in adaptive mode" — verified via live API 2026-05-19).
+  We omit the field as the cleanest UX since a slider locked at 1.0
+  would be a no-op.
 - `cacheControlSupported: true` only on Anthropic models and `cloudzap.auto`
   (which routes via GP and can splice cache_control server-side).
 - `serverManaged: true` only on `cloudzap.auto`.
@@ -149,8 +153,9 @@ def test_adaptive_thinking_models_have_null_temperature(path):
         if m["id"] in ANTHROPIC_ADAPTIVE_THINKING_MODELS:
             assert m["temperatureDefault"] is None, (
                 f"{path}:{m['id']} is on Anthropic adaptive-thinking path — "
-                "temperatureDefault must be null (API rejects temperature "
-                "when thinking is adaptive)"
+                "temperatureDefault must be null (API only accepts "
+                "temperature=1.0 or omission with adaptive thinking; "
+                "we omit so iOS doesn't render a no-op slider)"
             )
 
 
