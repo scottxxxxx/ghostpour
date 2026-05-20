@@ -34,6 +34,40 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+async def _report_cq_incident(
+    request: Request,
+    db: aiosqlite.Connection,
+    *,
+    kind: str,           # "timeout" or "unreachable"
+    request_id: str | None = None,
+    error: str | None = None,
+) -> None:
+    """Report a CQ-side critical-failure incident to the alerting
+    service. Swallows all exceptions — alerting must never break the
+    request path that triggered it.
+
+    `kind` distinguishes timeout vs unreachable so the dashboard
+    history shows which kind of failure has been happening. Subject
+    stays "cq" so all CQ failures dedupe into one incident."""
+    try:
+        from app.services.alerting import report_incident
+        settings = request.app.state.settings
+        details: dict[str, str] = {"kind": kind}
+        if request_id:
+            details["request_id"] = request_id
+        if error:
+            details["error"] = error
+        await report_incident(
+            db,
+            category="cq_unreachable",
+            subject="cq",
+            details=details,
+            from_addr=settings.alert_email_from,
+        )
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.warning("cq_incident_report_failed reason=%s", str(exc)[:200])
+
+
 # --- Proxy helper ---
 
 
@@ -601,6 +635,7 @@ async def get_quilt_graph(
     format: str = "svg",
     user: UserRecord = Depends(get_current_user),
     if_none_match: str | None = Header(default=None, alias="If-None-Match"),
+    db: aiosqlite.Connection = Depends(get_db),
 ):
     """Proxy: fetch user's quilt graph visualization from Context Quilt.
 
@@ -683,6 +718,9 @@ async def get_quilt_graph(
         raise
     except httpx.TimeoutException:
         logger.error("quilt_graph_timeout", extra={"request_id": request_id, "user_id": user_id})
+        await _report_cq_incident(
+            request, db, kind="timeout", request_id=request_id,
+        )
         raise HTTPException(status_code=504, detail={
             "code": "upstream_timeout",
             "upstream": "cq",
@@ -691,6 +729,10 @@ async def get_quilt_graph(
         })
     except Exception as e:
         logger.error("quilt_graph_unreachable", extra={"request_id": request_id, "user_id": user_id, "error": str(e)})
+        await _report_cq_incident(
+            request, db, kind="unreachable", request_id=request_id,
+            error=str(e)[:300],
+        )
         raise HTTPException(status_code=502, detail={
             "code": "upstream_unreachable",
             "upstream": "cq",

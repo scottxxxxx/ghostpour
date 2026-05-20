@@ -178,6 +178,7 @@
     <div class="tab" onclick="switchTab('providers')">Providers</div>
     <div class="tab" onclick="switchTab('errors')">Errors</div>
     <div class="tab" onclick="switchTab('email')">Email</div>
+    <div class="tab" onclick="switchTab('alerts')">Alerts</div>
     <div class="tab" onclick="switchTab('configs')">Configs</div>
     <div class="tab" onclick="switchTab('routing')">Model Routing</div>
     <div class="tab" onclick="switchTab('livelog')">Live Log</div>
@@ -424,6 +425,55 @@
       <th>Recipient</th><th>Reason</th><th>Suppressed</th><th>Source Event</th>
     </tr></thead><tbody></tbody></table></div>
   </div>
+
+  <!-- Alerts (critical-failure recipients + incident history) -->
+  <div id="tab-alerts" class="section">
+    <h3>Recipients</h3>
+    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Emails that receive operator alerts when a critical system failure is detected (CQ unreachable, managed-provider key rejected, managed-provider budget exhausted). Recipients with no category filter receive every category. Suppression is once-per-incident — re-fires only after 30 min of quiet.</p>
+
+    <!-- Add new recipient -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;padding:12px;background:var(--card-bg);border:1px solid var(--border);border-radius:4px">
+      <div style="flex:1;min-width:240px">
+        <label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px">Email address</label>
+        <input type="email" id="alert-add-email" placeholder="oncall@example.com" style="width:100%;padding:6px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px">
+      </div>
+      <div style="flex:1;min-width:160px">
+        <label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px">Display name (optional)</label>
+        <input type="text" id="alert-add-name" placeholder="Scott" style="width:100%;padding:6px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px">
+      </div>
+      <div style="flex:2;min-width:260px">
+        <label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px">Categories (leave empty for all)</label>
+        <div id="alert-add-categories" style="display:flex;flex-wrap:wrap;gap:8px;padding:6px;border:1px solid var(--border);border-radius:4px;background:var(--bg);min-height:32px"></div>
+      </div>
+      <button onclick="addAlertRecipient()" style="padding:8px 16px;background:#2563eb;color:#fff;border:0;border-radius:4px;cursor:pointer">Add</button>
+    </div>
+    <div id="alert-add-error" style="color:#dc2626;margin-bottom:12px;font-size:13px"></div>
+
+    <div class="table-wrap"><table id="alert-recipients-table"><thead><tr>
+      <th>Email</th><th>Display Name</th><th>Categories</th><th>Active</th><th>Added</th><th></th>
+    </tr></thead><tbody></tbody></table></div>
+
+    <h3 style="margin-top:24px">Test send</h3>
+    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Fire a synthetic incident under the chosen category so every active recipient subscribed to it receives a test email. Useful after adding a new address to confirm deliverability. Lands in the history below.</p>
+    <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:24px">
+      <div style="min-width:240px">
+        <label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px">Category</label>
+        <select id="alert-test-category" style="padding:6px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px;width:100%"></select>
+      </div>
+      <div style="flex:1;min-width:240px">
+        <label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px">Note (optional)</label>
+        <input type="text" id="alert-test-note" placeholder="Verifying new on-call email" style="width:100%;padding:6px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px">
+      </div>
+      <button onclick="testSendAlert()" style="padding:8px 16px;background:#16a34a;color:#fff;border:0;border-radius:4px;cursor:pointer">Send Test</button>
+    </div>
+    <div id="alert-test-result" style="margin-bottom:24px;font-size:13px"></div>
+
+    <h3>Incident History</h3>
+    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Last 100 incidents. Open rows in red; resolved rows in green. Incidents auto-resolve after 30 min of quiet on the same fingerprint.</p>
+    <div class="table-wrap"><table id="alert-incidents-table"><thead><tr>
+      <th>Status</th><th>Category</th><th>Subject</th><th>First seen</th><th>Last seen</th><th>Triggers</th><th>Emailed</th>
+    </tr></thead><tbody></tbody></table></div>
+  </div>
 </div>
 
 <script>
@@ -498,6 +548,194 @@ function switchTab(name) {
   if (name === 'configs') loadConfigs();
   if (name === 'livelog') loadLiveLog();
   if (name === 'email') loadEmail();
+  if (name === 'alerts') loadAlerts();
+}
+
+// ---------------------------------------------------------------------------
+// Critical-failure alerts tab
+// ---------------------------------------------------------------------------
+
+let _alertCategories = [];
+
+async function loadAlertCategories() {
+  if (_alertCategories.length) return _alertCategories;
+  const resp = await fetch(`${BASE}/webhooks/admin/alerts/categories`, {
+    headers: {'X-Admin-Key': adminKey},
+  });
+  const j = await resp.json();
+  _alertCategories = j.categories || [];
+  return _alertCategories;
+}
+
+async function loadAlerts() {
+  const cats = await loadAlertCategories();
+
+  // Render the per-category checkbox row for the "add recipient" form.
+  const addCatBox = document.getElementById('alert-add-categories');
+  if (addCatBox && !addCatBox.dataset.populated) {
+    addCatBox.innerHTML = cats.map(c =>
+      `<label style="font-size:13px;display:inline-flex;align-items:center;gap:4px">
+         <input type="checkbox" value="${c.id}" data-cat-checkbox>
+         <span title="${c.description}">${c.label}</span>
+       </label>`
+    ).join('');
+    addCatBox.dataset.populated = '1';
+  }
+
+  // Populate the test-send category select.
+  const sel = document.getElementById('alert-test-category');
+  if (sel && !sel.dataset.populated) {
+    sel.innerHTML = cats.map(c =>
+      `<option value="${c.id}">${c.label}</option>`
+    ).join('');
+    sel.dataset.populated = '1';
+  }
+
+  // Recipients table.
+  const recipientsResp = await fetch(`${BASE}/webhooks/admin/alerts/recipients`, {
+    headers: {'X-Admin-Key': adminKey},
+  });
+  const recipientsJson = await recipientsResp.json();
+  renderAlertRecipients(recipientsJson.recipients || []);
+
+  // Incident history.
+  const incResp = await fetch(`${BASE}/webhooks/admin/alerts/incidents?limit=100`, {
+    headers: {'X-Admin-Key': adminKey},
+  });
+  const incJson = await incResp.json();
+  renderAlertIncidents(incJson.incidents || []);
+}
+
+function renderAlertRecipients(rows) {
+  const tbody = document.querySelector('#alert-recipients-table tbody');
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="padding:24px;text-align:center;color:var(--text-dim)">No recipients yet. Add one above.</td></tr>`;
+    return;
+  }
+  const catLookup = {};
+  _alertCategories.forEach(c => { catLookup[c.id] = c.label; });
+  tbody.innerHTML = rows.map(r => {
+    const catLabels = r.categories && r.categories.length
+      ? r.categories.map(c => catLookup[c] || c).join(', ')
+      : '<em style="color:var(--text-dim)">all</em>';
+    const activeBadge = r.active
+      ? '<span style="color:#16a34a">Active</span>'
+      : '<span style="color:var(--text-dim)">Paused</span>';
+    return `<tr>
+      <td>${r.email}</td>
+      <td>${r.display_name || ''}</td>
+      <td style="font-size:12px">${catLabels}</td>
+      <td>${activeBadge}</td>
+      <td style="font-size:12px;color:var(--text-dim)">${timeAgo(r.created_at)}</td>
+      <td style="text-align:right">
+        <button onclick="toggleAlertRecipient('${r.id}', ${!r.active})" style="padding:4px 8px;margin-right:4px;font-size:12px;background:transparent;color:var(--text);border:1px solid var(--border);border-radius:4px;cursor:pointer">${r.active ? 'Pause' : 'Resume'}</button>
+        <button onclick="deleteAlertRecipient('${r.id}', '${r.email}')" style="padding:4px 8px;font-size:12px;background:transparent;color:#dc2626;border:1px solid #dc2626;border-radius:4px;cursor:pointer">Remove</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function renderAlertIncidents(rows) {
+  const tbody = document.querySelector('#alert-incidents-table tbody');
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="padding:24px;text-align:center;color:var(--text-dim)">No incidents recorded.</td></tr>`;
+    return;
+  }
+  const catLookup = {};
+  _alertCategories.forEach(c => { catLookup[c.id] = c.label; });
+  tbody.innerHTML = rows.map(r => {
+    const status = r.status === 'open'
+      ? '<span style="color:#dc2626;font-weight:600">OPEN</span>'
+      : '<span style="color:#16a34a">resolved</span>';
+    const emailed = r.emailed_recipients && r.emailed_recipients.length
+      ? `${r.emailed_recipients.length}`
+      : '<span style="color:var(--text-dim)">—</span>';
+    return `<tr>
+      <td>${status}</td>
+      <td>${catLookup[r.category] || r.category}</td>
+      <td style="font-family:monospace;font-size:12px">${r.subject}</td>
+      <td style="font-size:12px;color:var(--text-dim)">${timeAgo(r.first_seen_at)}</td>
+      <td style="font-size:12px;color:var(--text-dim)">${timeAgo(r.last_seen_at)}</td>
+      <td>${r.trigger_count}</td>
+      <td>${emailed}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function addAlertRecipient() {
+  const errEl = document.getElementById('alert-add-error');
+  errEl.textContent = '';
+  const email = document.getElementById('alert-add-email').value.trim();
+  const name = document.getElementById('alert-add-name').value.trim();
+  const cats = Array.from(document.querySelectorAll('[data-cat-checkbox]:checked'))
+    .map(cb => cb.value);
+  if (!email || !email.includes('@')) {
+    errEl.textContent = 'Valid email required.';
+    return;
+  }
+  const resp = await fetch(`${BASE}/webhooks/admin/alerts/recipients`, {
+    method: 'POST',
+    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      email: email,
+      display_name: name || null,
+      categories: cats.length ? cats : null,
+      active: true,
+    }),
+  });
+  if (!resp.ok) {
+    const j = await resp.json().catch(() => ({}));
+    errEl.textContent = j.detail || `HTTP ${resp.status}`;
+    return;
+  }
+  document.getElementById('alert-add-email').value = '';
+  document.getElementById('alert-add-name').value = '';
+  document.querySelectorAll('[data-cat-checkbox]').forEach(cb => { cb.checked = false; });
+  loadAlerts();
+}
+
+async function toggleAlertRecipient(id, newActive) {
+  await fetch(`${BASE}/webhooks/admin/alerts/recipients/${id}`, {
+    method: 'PATCH',
+    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
+    body: JSON.stringify({active: newActive}),
+  });
+  loadAlerts();
+}
+
+async function deleteAlertRecipient(id, email) {
+  if (!confirm(`Remove ${email} from the alert list?`)) return;
+  await fetch(`${BASE}/webhooks/admin/alerts/recipients/${id}`, {
+    method: 'DELETE',
+    headers: {'X-Admin-Key': adminKey},
+  });
+  loadAlerts();
+}
+
+async function testSendAlert() {
+  const category = document.getElementById('alert-test-category').value;
+  const note = document.getElementById('alert-test-note').value.trim();
+  const resultEl = document.getElementById('alert-test-result');
+  resultEl.textContent = 'Sending…';
+  const resp = await fetch(`${BASE}/webhooks/admin/alerts/test-send`, {
+    method: 'POST',
+    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
+    body: JSON.stringify({category, subject: 'manual', note: note || null}),
+  });
+  const j = await resp.json();
+  if (!resp.ok) {
+    resultEl.innerHTML = `<span style="color:#dc2626">Failed: ${j.detail || resp.status}</span>`;
+    return;
+  }
+  if (j.suppressed_reason === 'incident_already_open') {
+    resultEl.innerHTML = `<span style="color:#f59e0b">Test fingerprint already has an open incident — won't re-email until quiet window passes. Use a different subject or wait 30 min.</span>`;
+  } else if (j.suppressed_reason === 'no_recipients') {
+    resultEl.innerHTML = `<span style="color:#f59e0b">No active recipients matched. Add an address (or check subscription categories).</span>`;
+  } else {
+    resultEl.innerHTML = `<span style="color:#16a34a">Sent to ${j.emailed_to.length} recipient${j.emailed_to.length === 1 ? '' : 's'}: ${j.emailed_to.join(', ') || '(none)'}</span>`;
+  }
+  // Re-render the history table to surface the new incident row.
+  loadAlerts();
 }
 
 function fmt(n) { return n == null ? '-' : n.toLocaleString(); }

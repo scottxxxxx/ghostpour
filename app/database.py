@@ -195,6 +195,40 @@ MIGRATIONS = [
     # — they're unused by the code from this point on).
     "ALTER TABLE users DROP COLUMN project_chat_used_this_period",
     "ALTER TABLE users DROP COLUMN project_chat_period",
+    # v20: critical-failure alert recipients. Operator-facing email list
+    # for system-level outages (CQ unreachable, managed-provider auth
+    # rejected, managed-provider monthly limit exhausted). Each row is
+    # one address opted into the alert flow. `categories` is a JSON
+    # array of category strings the recipient wants — empty/null = all.
+    """CREATE TABLE IF NOT EXISTS alert_recipients (
+        id TEXT PRIMARY KEY,
+        email TEXT NOT NULL UNIQUE,
+        display_name TEXT,
+        active INTEGER NOT NULL DEFAULT 1,
+        categories TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )""",
+    # v21: open-incident state. One row per (category, subject)
+    # fingerprint while the incident is open; resolved rows stay for
+    # the history view until purged by retention. fingerprint is unique
+    # only WHERE resolved_at IS NULL — a resolved+re-opened incident
+    # gets a fresh row, so the table doubles as immutable history.
+    """CREATE TABLE IF NOT EXISTS alert_incidents (
+        id TEXT PRIMARY KEY,
+        category TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        fingerprint TEXT NOT NULL,
+        first_seen_at TEXT NOT NULL,
+        last_seen_at TEXT NOT NULL,
+        trigger_count INTEGER NOT NULL DEFAULT 1,
+        details_json TEXT,
+        email_sent_at TEXT,
+        emailed_recipients TEXT,
+        resolved_at TEXT
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_alert_incidents_open ON alert_incidents(fingerprint) WHERE resolved_at IS NULL",
+    "CREATE INDEX IF NOT EXISTS idx_alert_incidents_created ON alert_incidents(first_seen_at DESC)",
 ]
 
 

@@ -1946,3 +1946,258 @@ async def email_suppression_list(
 
     return {'suppression': rows, 'total': total, 'limit': limit, 'offset': offset}
 
+
+
+# ---------------------------------------------------------------------------
+# Critical-failure alert administration
+#
+# Recipients CRUD + incident history + test-send. The detection +
+# email dispatch live in app/services/alerting.py; this surface is
+# purely operator-facing.
+# ---------------------------------------------------------------------------
+
+
+class AlertRecipientRequest(BaseModel):
+    """Create or update an alert recipient.
+
+    `email` is required on create, optional on update (PATCH-style).
+    `categories` is a list of category tokens from
+    `alerting.KNOWN_CATEGORIES`. Empty or null = receive every category.
+    """
+    email: str | None = None
+    display_name: str | None = None
+    active: bool | None = None
+    categories: list[str] | None = None
+
+
+class AlertTestSendRequest(BaseModel):
+    """Force a test alert send to every active recipient. Used by the
+    dashboard to verify deliverability after adding a new address."""
+    category: str = "cq_unreachable"
+    subject: str = "test-send"
+    note: str | None = None
+
+
+@router.get("/admin/alerts/categories")
+async def list_alert_categories(
+    request: Request,
+    x_admin_key: str = Header(...),
+):
+    """Stable category catalog. Dashboard renders the subscription
+    picker against this; clients shouldn't hardcode the list."""
+    _verify_admin(request, x_admin_key)
+    from app.services.alerting import KNOWN_CATEGORIES
+    return {
+        "categories": [
+            {"id": k, "label": v["label"], "description": v["description"]}
+            for k, v in KNOWN_CATEGORIES.items()
+        ],
+    }
+
+
+@router.get("/admin/alerts/recipients")
+async def list_alert_recipients(
+    request: Request,
+    x_admin_key: str = Header(...),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """All recipients, active and inactive. UI distinguishes by the
+    `active` column."""
+    _verify_admin(request, x_admin_key)
+    db.row_factory = aiosqlite.Row
+    cursor = await db.execute(
+        "SELECT id, email, display_name, active, categories, "
+        "       created_at, updated_at "
+        "FROM alert_recipients ORDER BY email"
+    )
+    rows = []
+    for row in await cursor.fetchall():
+        d = dict(row)
+        d["active"] = bool(d["active"])
+        try:
+            d["categories"] = json.loads(d["categories"]) if d["categories"] else []
+        except (json.JSONDecodeError, TypeError):
+            d["categories"] = []
+        rows.append(d)
+    return {"recipients": rows}
+
+
+@router.post("/admin/alerts/recipients")
+async def create_alert_recipient(
+    body: AlertRecipientRequest,
+    request: Request,
+    x_admin_key: str = Header(...),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Add a recipient. Email is required, must be unique. Categories
+    list is optional — empty/missing = subscribed to everything."""
+    _verify_admin(request, x_admin_key)
+    if not body.email or "@" not in body.email:
+        raise HTTPException(status_code=400, detail="valid email required")
+
+    import uuid
+    from app.services.alerting import KNOWN_CATEGORIES
+
+    if body.categories:
+        bad = [c for c in body.categories if c not in KNOWN_CATEGORIES]
+        if bad:
+            raise HTTPException(
+                status_code=400,
+                detail=f"unknown categories: {bad} (known: {list(KNOWN_CATEGORIES)})",
+            )
+
+    now = datetime.now(timezone.utc).isoformat()
+    rid = str(uuid.uuid4())
+    try:
+        await db.execute(
+            "INSERT INTO alert_recipients "
+            "(id, email, display_name, active, categories, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                rid,
+                body.email.lower().strip(),
+                body.display_name,
+                1 if body.active is None else (1 if body.active else 0),
+                json.dumps(body.categories) if body.categories else None,
+                now, now,
+            ),
+        )
+        await db.commit()
+    except aiosqlite.IntegrityError:
+        raise HTTPException(status_code=409, detail="email already registered")
+
+    return {"id": rid, "email": body.email.lower().strip()}
+
+
+@router.patch("/admin/alerts/recipients/{recipient_id}")
+async def update_alert_recipient(
+    recipient_id: str,
+    body: AlertRecipientRequest,
+    request: Request,
+    x_admin_key: str = Header(...),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Patch a recipient. Only the fields present in the body are
+    updated. Toggling `active=false` keeps the row but stops alerts."""
+    _verify_admin(request, x_admin_key)
+    from app.services.alerting import KNOWN_CATEGORIES
+
+    if body.categories is not None and body.categories:
+        bad = [c for c in body.categories if c not in KNOWN_CATEGORIES]
+        if bad:
+            raise HTTPException(
+                status_code=400,
+                detail=f"unknown categories: {bad}",
+            )
+
+    db.row_factory = aiosqlite.Row
+    cursor = await db.execute(
+        "SELECT id FROM alert_recipients WHERE id = ?", (recipient_id,),
+    )
+    if await cursor.fetchone() is None:
+        raise HTTPException(status_code=404, detail="recipient not found")
+
+    sets: list[str] = []
+    args: list = []
+    if body.email is not None:
+        sets.append("email = ?")
+        args.append(body.email.lower().strip())
+    if body.display_name is not None:
+        sets.append("display_name = ?")
+        args.append(body.display_name)
+    if body.active is not None:
+        sets.append("active = ?")
+        args.append(1 if body.active else 0)
+    if body.categories is not None:
+        sets.append("categories = ?")
+        args.append(json.dumps(body.categories) if body.categories else None)
+
+    if not sets:
+        return {"id": recipient_id, "updated": False}
+
+    sets.append("updated_at = ?")
+    args.append(datetime.now(timezone.utc).isoformat())
+    args.append(recipient_id)
+
+    try:
+        await db.execute(
+            f"UPDATE alert_recipients SET {', '.join(sets)} WHERE id = ?",
+            tuple(args),
+        )
+        await db.commit()
+    except aiosqlite.IntegrityError:
+        raise HTTPException(status_code=409, detail="email already in use")
+
+    return {"id": recipient_id, "updated": True}
+
+
+@router.delete("/admin/alerts/recipients/{recipient_id}")
+async def delete_alert_recipient(
+    recipient_id: str,
+    request: Request,
+    x_admin_key: str = Header(...),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    _verify_admin(request, x_admin_key)
+    cursor = await db.execute(
+        "DELETE FROM alert_recipients WHERE id = ?", (recipient_id,),
+    )
+    if cursor.rowcount == 0:
+        raise HTTPException(status_code=404, detail="recipient not found")
+    await db.commit()
+    return {"id": recipient_id, "deleted": True}
+
+
+@router.get("/admin/alerts/incidents")
+async def list_alert_incidents(
+    request: Request,
+    x_admin_key: str = Header(...),
+    db: aiosqlite.Connection = Depends(get_db),
+    limit: int = Query(default=100, ge=1, le=500),
+):
+    """Recent incidents (open + resolved). Newest first. Used by the
+    dashboard's history panel."""
+    _verify_admin(request, x_admin_key)
+    from app.services.alerting import list_incidents
+    rows = await list_incidents(db, limit=limit)
+    return {"incidents": rows}
+
+
+@router.post("/admin/alerts/test-send")
+async def test_send_alert(
+    body: AlertTestSendRequest,
+    request: Request,
+    x_admin_key: str = Header(...),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Fire a synthetic incident under the chosen category so all
+    subscribed-active recipients receive an email. Useful after
+    adding a new address to confirm deliverability + Resend DKIM
+    setup. The synthetic incident lands in the history list and
+    auto-resolves like any other."""
+    _verify_admin(request, x_admin_key)
+    from app.services.alerting import report_incident, KNOWN_CATEGORIES
+    if body.category not in KNOWN_CATEGORIES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"unknown category: {body.category}",
+        )
+
+    settings = request.app.state.settings
+    result = await report_incident(
+        db,
+        category=body.category,
+        subject=f"test-send/{body.subject}",
+        details={
+            "test_send": True,
+            "note": body.note or "Manual deliverability check from admin dashboard.",
+            "triggered_at": datetime.now(timezone.utc).isoformat(),
+        },
+        from_addr=settings.alert_email_from,
+    )
+    return {
+        "incident_id": result.incident_id,
+        "is_new": result.is_new,
+        "emailed_to": result.emailed_to,
+        "suppressed_reason": result.suppressed_reason,
+    }
