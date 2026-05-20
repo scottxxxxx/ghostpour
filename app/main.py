@@ -80,6 +80,12 @@ async def lifespan(app: FastAPI):
     app.state.usage_tracker = UsageTracker()
 
     config.seed_remote_configs()
+    # After seed (whole-file copy for net-new slugs), hydrate any
+    # field-level additions from the bundle into existing overlays.
+    # Additive only — never overwrites overlay values, never merges
+    # lists. Closes the "PR adds a field but live config still serves
+    # old shape until manual sync" trap. See issue #186.
+    config.hydrate_overlay_additions()
     app.state.remote_configs = config.load_remote_configs()
 
     # Register feature hooks

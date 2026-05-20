@@ -61,6 +61,131 @@ def seed_remote_configs() -> None:
         # else: persistent file wins — never overwrite dashboard edits.
 
 
+def _escape_pointer_token(tok: str) -> str:
+    """Encode an RFC 6901 reference token: ~ → ~0, / → ~1.
+    Order matters — escape ~ first."""
+    return tok.replace("~", "~0").replace("/", "~1")
+
+
+def _hydrate_walk(bundle_node, overlay_node, ptr: str, added: list[str]) -> None:
+    """Recursive worker for hydrate_overlay_additions.
+
+    Both nodes are at the same JSON pointer path. Three descent rules:
+
+    - **Both dicts** → walk each key in bundle. If missing from overlay,
+      deep-copy the subtree and record the pointer. If present in both,
+      recurse (apply the same rules to the child pair).
+    - **Both same-length lists of dicts** → recurse element-wise. This
+      is the common case for `providers[]` and per-provider `models[]`:
+      bundle adds a field to an existing element, overlay needs that
+      field added at the same index. We refuse to descend when lengths
+      differ or when any pair isn't dict-dict, because then the safe
+      action is unclear (shifting indices changes semantics).
+    - **Anything else** (scalar-scalar, list-list with mismatched
+      lengths, dict-vs-scalar, etc.) → atomic. Overlay wins.
+
+    Lists are NEVER extended or shortened by this hook. Element
+    additions/removals require the explicit sync-from-bundle endpoint.
+    """
+    if isinstance(bundle_node, dict) and isinstance(overlay_node, dict):
+        for key, bundle_val in bundle_node.items():
+            sub_ptr = f"{ptr}/{_escape_pointer_token(key)}"
+            if key not in overlay_node:
+                overlay_node[key] = json.loads(json.dumps(bundle_val))
+                added.append(sub_ptr)
+                continue
+            _hydrate_walk(bundle_val, overlay_node[key], sub_ptr, added)
+        return
+
+    if (
+        isinstance(bundle_node, list)
+        and isinstance(overlay_node, list)
+        and len(bundle_node) == len(overlay_node)
+        and all(isinstance(b, dict) and isinstance(o, dict)
+                for b, o in zip(bundle_node, overlay_node))
+    ):
+        for i, (b, o) in enumerate(zip(bundle_node, overlay_node)):
+            _hydrate_walk(b, o, f"{ptr}/{i}", added)
+        return
+
+    # Atomic: overlay wins.
+
+
+def hydrate_overlay_additions() -> int:
+    """For each bundled config, copy JSON pointers present in the bundle
+    but missing from the overlay into the overlay. Never overwrites
+    values the overlay already has — dashboard / hot-edits win. Lists
+    are atomic: if the overlay has a list at a given path, the bundle's
+    list at the same path is not merged.
+
+    When additions land on a slug, the overlay's `version` counter is
+    bumped by 1 (signals cache invalidation). When nothing changed,
+    `version` is untouched.
+
+    Closes the recurring "PR adds a field, runtime overlay still serves
+    the old shape until manual sync-from-bundle" foot-gun that bit us
+    on PRs #184, #187, #188, and #191. The manual sync endpoint is
+    preserved for value-changes and explicit ops syncs; this only
+    handles the additive case at startup.
+
+    Returns the number of slugs that were modified. Logs a structured
+    line per slug with addition count and a sample of pointers.
+
+    Malformed bundles or overlay files are logged and skipped; never
+    raises (so we never fail-start the container on a config issue).
+    """
+    if not _BUNDLED_DIR.is_dir():
+        return 0
+    if not CONFIG_DIR.is_dir():
+        return 0
+
+    slugs_modified = 0
+    for bundle_path in _BUNDLED_DIR.glob("*.json"):
+        slug = bundle_path.stem
+        overlay_path = CONFIG_DIR / bundle_path.name
+        if not overlay_path.exists():
+            # seed_remote_configs handles the no-overlay case by copying
+            # the bundle wholesale. Nothing to do here.
+            continue
+
+        try:
+            bundle = json.loads(bundle_path.read_text())
+            overlay = json.loads(overlay_path.read_text())
+        except (json.JSONDecodeError, OSError) as exc:
+            logger.warning(
+                "hydrate_overlay skipped slug=%s reason=%s", slug, str(exc)[:200],
+            )
+            continue
+
+        if not isinstance(bundle, dict) or not isinstance(overlay, dict):
+            # Non-object root — out of scope; we only hydrate dict roots.
+            continue
+
+        added: list[str] = []
+        _hydrate_walk(bundle, overlay, "", added)
+        if not added:
+            continue
+
+        overlay["version"] = int(overlay.get("version", 0)) + 1
+        try:
+            overlay_path.write_text(
+                json.dumps(overlay, indent=2, ensure_ascii=False) + "\n"
+            )
+        except OSError as exc:
+            logger.error(
+                "hydrate_overlay write failed slug=%s reason=%s", slug, exc,
+            )
+            continue
+
+        slugs_modified += 1
+        logger.info(
+            "hydrate_overlay slug=%s additions=%d sample_pointers=%s version_after=%d",
+            slug, len(added), added[:5], overlay["version"],
+        )
+
+    return slugs_modified
+
+
 def load_remote_configs() -> dict[str, dict]:
     """Load all JSON files from the persistent config directory into a slug→data dict.
 
