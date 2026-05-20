@@ -74,6 +74,12 @@ class Settings(BaseSettings):
     )
     pricing_refresh_seconds: int = 86400  # 24 hours
 
+    # Critical-failure alerting (operator-facing email alerts).
+    # Sender address must be on a domain verified in Resend with DKIM/SPF.
+    # The address itself isn't a secret; the Resend API key is (already
+    # in CZ_RESEND_API_KEY / Secret Manager).
+    alert_email_from: str = "alerts@noreply.invalid"
+
     # Debug
     verbose_logging: bool = False       # Log full request/response bodies (set CZ_VERBOSE_LOGGING=true)
 
