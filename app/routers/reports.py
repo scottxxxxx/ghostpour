@@ -27,6 +27,10 @@ from app.services.meeting_report import (
     gather_meeting_data,
     render_report_html,
 )
+from app.services.transcript_cleanup import (
+    clean_transcript as run_transcript_cleanup,
+    should_clean as should_clean_transcript,
+)
 
 logger = logging.getLogger("ghostpour.reports")
 
@@ -40,6 +44,11 @@ class ReportRequest(BaseModel):
     tag_taxonomy: list[str] | None = None  # Custom tags; defaults to built-in 8
     meeting_start_iso: str | None = None  # ISO 8601 with timezone, e.g. "2026-04-14T13:01:00-05:00"
     timezone_abbr: str | None = None  # e.g. "CST", "EST", "IST" — from device locale
+    # Source of the raw transcript: "ocr_captions" (OCR'd on-screen captions),
+    # "speech_to_text" (microphone STT), or "mixed" (both contributed ≥20%).
+    # Drives whether a server-side cleanup pass runs before report generation;
+    # see app.services.transcript_cleanup. Absent for legacy clients.
+    transcript_source: str | None = None
 
 
 # Server-controlled per-tier report model. Clients do not pick.
@@ -106,11 +115,34 @@ async def generate_report(
             },
         )
 
+    # 1.5. Transcript cleanup. When iOS signals the transcript came from a
+    # known cleanable source (today: "ocr_captions") and the feature flag is
+    # on, run an LLM cleanup pass over the raw transcript before report
+    # generation. The cleaned text replaces meeting_data["transcript"] for
+    # downstream prompt building AND gets persisted to
+    # meeting_reports.cleaned_transcript so cached GETs return it. Failures
+    # are silent: we fall back to raw and omit the response field.
+    from app.routers.config import _parse_accept_language
+    locale = _parse_accept_language(request.headers.get("Accept-Language"))
+    cleaned_transcript = None
+    settings = request.app.state.settings
+    if meeting_data.get("transcript") and should_clean_transcript(
+        body.transcript_source, settings.captions_cleanup_enabled
+    ):
+        cleaned_transcript = await run_transcript_cleanup(
+            provider_router,
+            meeting_data["transcript"],
+            request.app.state.remote_configs,
+            body.transcript_source,
+            locale=locale,
+            meeting_id=meeting_id,
+        )
+        if cleaned_transcript:
+            meeting_data = dict(meeting_data, transcript=cleaned_transcript)
+
     # 2. Build LLM prompt — localize narrative content from Accept-Language.
     # Wire enums (stoplight color, emoji_label, severity, etc.) stay English
     # so iOS keying continues to work; only display text gets translated.
-    from app.routers.config import _parse_accept_language
-    locale = _parse_accept_language(request.headers.get("Accept-Language"))
     system_prompt, user_message = build_report_prompt(
         meeting_data,
         attendees=body.attendees,
@@ -219,7 +251,7 @@ async def generate_report(
     try:
         return await _build_report_response(
             response, body, db, user, report_model, request_cost, elapsed_ms, meeting_id,
-            request=request, locale=locale,
+            request=request, locale=locale, cleaned_transcript=cleaned_transcript,
         )
     except HTTPException:
         raise
@@ -231,7 +263,7 @@ async def generate_report(
         })
 
 
-async def _build_report_response(response, body, db, user, report_model, request_cost, elapsed_ms, meeting_id, *, request=None, locale=None):
+async def _build_report_response(response, body, db, user, report_model, request_cost, elapsed_ms, meeting_id, *, request=None, locale=None, cleaned_transcript: str | None = None):
     report_text = response.text.strip()
     # Strip markdown fencing if the model added it despite instructions
     if report_text.startswith("```"):
@@ -296,8 +328,9 @@ async def _build_report_response(response, body, db, user, report_model, request
         """INSERT OR REPLACE INTO meeting_reports
            (id, user_id, meeting_id, report_json, report_html,
             model, ai_tier, input_tokens, output_tokens, cost_usd,
-            generation_ms, created_at, report_status, is_editable)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            generation_ms, created_at, report_status, is_editable,
+            cleaned_transcript)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             str(uuid.uuid4()),
             user.id,
@@ -313,11 +346,12 @@ async def _build_report_response(response, body, db, user, report_model, request
             meeting_dt.isoformat(),
             None,  # report_status: real reports have no status marker
             1,     # is_editable: real reports are editable
+            cleaned_transcript,
         ),
     )
     await db.commit()
 
-    return {
+    response_payload = {
         "report_html": report_html,
         "report_json": report_json,
         "meeting_id": meeting_id,
@@ -329,6 +363,9 @@ async def _build_report_response(response, body, db, user, report_model, request
         "report_status": None,
         "is_editable": True,
     }
+    if cleaned_transcript:
+        response_payload["cleaned_transcript"] = cleaned_transcript
+    return response_payload
 
 
 async def _build_canned_report_response(
@@ -388,8 +425,9 @@ async def _build_canned_report_response(
         """INSERT OR REPLACE INTO meeting_reports
            (id, user_id, meeting_id, report_json, report_html,
             model, ai_tier, input_tokens, output_tokens, cost_usd,
-            generation_ms, created_at, report_status, is_editable)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            generation_ms, created_at, report_status, is_editable,
+            cleaned_transcript)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             str(uuid.uuid4()),
             user.id,
@@ -400,6 +438,7 @@ async def _build_canned_report_response(
             meeting_dt.isoformat(),
             "placeholder_budget_blocked",
             0,  # is_editable=false
+            None,  # cleaned_transcript: canned reports never carry one
         ),
     )
     await db.commit()
@@ -472,8 +511,12 @@ async def get_cached_report(
     # Legacy rows (NULL is_editable) are treated as editable=true; only
     # explicitly-stamped 0 disables the editor.
     cached_editable = True if cached_editable_int is None else bool(cached_editable_int)
+    # cleaned_transcript (v22 column) may be NULL on legacy rows or when
+    # cleanup was skipped — omit from response when absent so iOS
+    # continues to fall back to its raw transcript.
+    cached_cleaned = _safe("cleaned_transcript")
 
-    return {
+    payload = {
         "report_html": row["report_html"],
         "report_json": json.loads(row["report_json"]),
         "meeting_id": meeting_id,
@@ -487,6 +530,9 @@ async def get_cached_report(
         "report_status": cached_status,
         "is_editable": cached_editable,
     }
+    if cached_cleaned:
+        payload["cleaned_transcript"] = cached_cleaned
+    return payload
 
 
 class RenderRequest(BaseModel):

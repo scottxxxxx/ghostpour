@@ -80,6 +80,16 @@ class Settings(BaseSettings):
     # in CZ_RESEND_API_KEY / Secret Manager).
     alert_email_from: str = "alerts@noreply.invalid"
 
+    # Captions/STT transcript cleanup feature flag. When true, requests
+    # that carry transcript_source="ocr_captions" (and in the future
+    # "speech_to_text") on the report POST or /v1/chat analysis call
+    # will trigger an LLM cleanup pass before the main call runs. The
+    # cleaned transcript is persisted alongside the report and returned
+    # to iOS as the optional `cleaned_transcript` response field. When
+    # false (default), cleanup is silently skipped and iOS falls back
+    # to its raw transcript. Set CZ_CAPTIONS_CLEANUP_ENABLED=true to flip.
+    captions_cleanup_enabled: bool = False
+
     # Debug
     verbose_logging: bool = False       # Log full request/response bodies (set CZ_VERBOSE_LOGGING=true)
 
