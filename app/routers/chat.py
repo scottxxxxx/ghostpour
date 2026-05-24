@@ -1381,6 +1381,37 @@ async def chat(
 
     # --- Non-streaming path (original) ---
 
+    # 5.9. Transcript cleanup for analysis calls. When call_type=="analysis"
+    # carries a transcript_source the cleanup module knows how to handle
+    # (today: "ocr_captions") and the server flag is on, run an LLM cleanup
+    # pass over body.user_content (the raw transcript) before the analysis
+    # call. The cleaned text replaces user_content for the main call AND
+    # gets surfaced on the response as `cleaned_transcript` so iOS persists
+    # it to MeetingRecord.cleanedTranscript. Failures are silent: we fall
+    # back to raw and omit the field.
+    cleaned_for_response: str | None = None
+    if call_type == "analysis":
+        from app.services.transcript_cleanup import (
+            clean_transcript as _run_cleanup,
+            should_clean as _should_clean,
+        )
+        settings = request.app.state.settings
+        _ts = body.get_meta("transcript_source")
+        if _should_clean(_ts, settings.captions_cleanup_enabled):
+            from app.routers.config import _parse_accept_language
+            _locale = _parse_accept_language(request.headers.get("Accept-Language"))
+            _cleaned = await _run_cleanup(
+                provider_router,
+                body.user_content,
+                request.app.state.remote_configs,
+                _ts,
+                locale=_locale,
+                meeting_id=body.get_meta("meeting_id"),
+            )
+            if _cleaned:
+                body = body.model_copy(update={"user_content": _cleaned})
+                cleaned_for_response = _cleaned
+
     # 6. Route to provider
     start = time.monotonic()
     try:
@@ -1489,6 +1520,12 @@ async def chat(
     # can swap models per tier without breaking iOS attribution UI.
     from app.services.ai_tier import tier_to_ai_tier
     response.ai_tier = tier_to_ai_tier(effective_tier_name)
+
+    # Surface the cleaned transcript (if cleanup ran for this analysis call)
+    # so iOS can persist it to MeetingRecord.cleanedTranscript. Absent when
+    # cleanup was skipped or failed — iOS falls back to raw silently.
+    if cleaned_for_response is not None:
+        response.cleaned_transcript = cleaned_for_response
 
     # 10. Build response with allocation headers
     response_data = response.model_dump()
