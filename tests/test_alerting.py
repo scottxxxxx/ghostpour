@@ -248,6 +248,30 @@ class TestNoRecipientsCase:
         assert (await cursor.fetchone())["c"] == 1
 
 
+class TestResendTagShape:
+    @pytest.mark.asyncio
+    async def test_send_includes_stack_gp_tag(self, db, patched_send_email):
+        """Every alert send must carry a `stack=gp` tag so analytics on
+        the shared Resend account (GP alerts + CQ alerts on the same
+        sender domain) can cleanly partition traffic per stack.
+        Coordinated with CQ team 2026-05-21 — CQ uses stack=cq on their
+        side."""
+        await _add_recipient(db, "scott@example.com")
+        await report_incident(
+            db, category="cq_unreachable", subject="cq", details={},
+        )
+        assert patched_send_email.await_count == 1
+        call_kwargs = patched_send_email.await_args.kwargs
+        tags = call_kwargs.get("tags") or []
+        tag_map = {t["name"]: t["value"] for t in tags}
+        assert tag_map.get("stack") == "gp", (
+            f"expected stack=gp tag in {tags}"
+        )
+        # Sanity: the other two tags we've always had stay in place.
+        assert tag_map.get("purpose") == "critical-alert"
+        assert tag_map.get("category") == "cq_unreachable"
+
+
 class TestSendFailureResilience:
     @pytest.mark.asyncio
     async def test_send_email_raising_does_not_propagate(self, db):

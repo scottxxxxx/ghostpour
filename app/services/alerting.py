@@ -326,6 +326,11 @@ async def report_incident(
                 tags=[
                     {"name": "purpose", "value": "critical-alert"},
                     {"name": "category", "value": category},
+                    # `stack` tag partitions traffic on the shared
+                    # Resend account so analytics can cleanly split
+                    # GP alerts from CQ alerts (CQ uses stack=cq on
+                    # their side; coordinated with CQ team 2026-05-21).
+                    {"name": "stack", "value": "gp"},
                 ],
             )
             if result.sent:
