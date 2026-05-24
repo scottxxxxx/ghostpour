@@ -229,6 +229,12 @@ MIGRATIONS = [
     )""",
     "CREATE INDEX IF NOT EXISTS idx_alert_incidents_open ON alert_incidents(fingerprint) WHERE resolved_at IS NULL",
     "CREATE INDEX IF NOT EXISTS idx_alert_incidents_created ON alert_incidents(first_seen_at DESC)",
+    # v22: Persist server-cleaned transcript alongside the report so cached
+    # GETs return the same cleaned text the original POST did. Populated
+    # when transcript_source is "ocr_captions" (or future modes) AND the
+    # cleanup feature flag is enabled; NULL otherwise. iOS reads this
+    # field optionally and falls back to its raw transcript when absent.
+    "ALTER TABLE meeting_reports ADD COLUMN cleaned_transcript TEXT",
 ]
 
 
