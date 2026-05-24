@@ -36,6 +36,9 @@ providers:
       - id: "gpt-5-nano"
         supports_vision: false
         max_tokens_default: 4096
+      - id: "gpt-4.1-mini"
+        supports_vision: true
+        max_tokens_default: 4096
 
   anthropic:
     display_name: "Anthropic"

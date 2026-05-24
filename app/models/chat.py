@@ -5,7 +5,7 @@ from pydantic import BaseModel, model_validator
 
 _CHAT_META_FIELDS = (
     "call_type", "prompt_mode", "image_count", "session_duration_sec",
-    "meeting_id", "project", "project_id", "locale",
+    "meeting_id", "project", "project_id", "locale", "transcript_source",
 )
 
 
@@ -61,6 +61,10 @@ class ChatRequest(BaseModel):
     project: str | None = None
     project_id: str | None = None
     locale: str | None = None
+    # Source of the raw transcript when call_type=="analysis": "ocr_captions",
+    # "speech_to_text", or "mixed". Drives server-side cleanup routing; see
+    # app.services.transcript_cleanup. Absent for non-analysis calls.
+    transcript_source: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -105,6 +109,12 @@ class ChatResponse(BaseModel):
     cost: dict | None = None
     raw_request_json: str | None = None
     raw_response_json: str | None = None
+    # Optional cleaned-up transcript when the server ran a captions/STT
+    # cleanup pass before the main LLM call. Present only when the
+    # transcript_source metadata field was set AND the cleanup feature
+    # was enabled for this request. iOS falls back to its raw transcript
+    # when this field is absent.
+    cleaned_transcript: str | None = None
 
 
 class ErrorDetail(BaseModel):
