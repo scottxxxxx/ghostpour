@@ -76,6 +76,11 @@ MODELS = [
     {"id": "microsoft/phi-4-mini-instruct",    "in": 0.07, "out": 0.14, "tag": "wildcard"},
     # Quality ceiling
     {"id": "anthropic/claude-sonnet-4.6",      "in": 3.00, "out": 15.00, "tag": "ceiling"},
+    # Late additions — newer Qwen/DeepSeek/Kimi/Mistral in Kimi K2 price band
+    {"id": "qwen/qwen3-235b-a22b-2507",        "in": 0.07, "out": 0.10, "tag": "moe"},
+    {"id": "deepseek/deepseek-v3.2-exp",       "in": 0.27, "out": 0.41, "tag": "moe"},
+    {"id": "moonshotai/kimi-k2.5",             "in": 0.40, "out": 1.90, "tag": "moe"},
+    {"id": "mistralai/mistral-medium-3.1",     "in": 0.40, "out": 2.00, "tag": "dense"},
 ]
 
 
