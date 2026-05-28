@@ -68,7 +68,7 @@ Rules:
   - Dry status update / routine sync: 40-55, low variance is honest here.
   - The `arc` should reflect the actual ups and downs — a meeting with both jokes and a serious decision moment should show both peaks and dips. Aim for at least 25-30 points of variance between min and max unless the meeting was genuinely monotone.
 - The sentiment_emoji_label must be exactly one of: enthusiastic, collaborative, positive, informational, focused, cautious, frustrated, tense, concerned, disappointed. The emoji should be a single emoji that represents the chosen label.
-- For suggested_tags: return 1-4 tags from the provided TAG TAXONOMY list only. Each tag needs a reason explaining why it applies.
+- For suggested_tags: return at most 2 tags from the provided TAG TAXONOMY list, applied only when they capture what makes THIS meeting distinctive from a typical meeting. Most meetings should produce 1 tag, or 0 if nothing stands out. Do not apply a tag just because it could plausibly fit. Each tag needs a reason explaining why it applies and what makes it distinguishing.
 - For queries_during_meeting: include them exactly as provided in the input, do not modify query text or response text
 - Never fabricate information not present in the transcript
 - If a field has no relevant data, use an empty array or null as appropriate
