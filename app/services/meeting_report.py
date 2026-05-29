@@ -55,7 +55,8 @@ REPORT_SYSTEM_PROMPT = """You are a meeting analyst that produces structured rep
 Rules:
 - Do not use hyphens to join words unless they form a standard compound word
 - Be direct and concise in all text fields
-- Attribute action items to specific people by name when the transcript supports it
+- An action item requires a concrete commitment or assignment that someone took on, not a hypothetical suggestion. Phrases like "a great step would be", "we should consider", or "someone could" describe possibilities, not action items, unless a person in the conversation actually accepted ownership.
+- Attribute an action to the person who committed to doing it, not to someone merely named in the surrounding discussion or who authored a related document. If a task was proposed but no one took it on, treat it as an open question rather than assigning it to a plausible-sounding name.
 - Use the confirmed attendee list for names, not the transcript (transcription often mangles names)
 - The sentiment_score is 0 to 100 where 50 is neutral, above 50 is positive, below 50 is negative
 - The stoplight color is red (blocked/critical), orange (high urgency, needs prompt attention), yellow (medium, some open items but not blocking), or green (low urgency, on track)
