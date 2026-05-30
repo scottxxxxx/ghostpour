@@ -1741,14 +1741,22 @@ async def list_users(
     for r in await cursor.fetchall():
         monthly_used = float(r["monthly_used_usd"] or 0)
         monthly_limit = float(r["monthly_cost_limit_usd"] or 0)
+        window_cost = float(r["total_cost_usd"] or 0)
         tier_name = r["tier"]
         tier_def = tier_config.tiers.get(tier_name)
 
-        # Convert cost to hours for display
+        # Derive the display gauge from `total_cost_usd` (the sum from
+        # usage_log over the last `days` window), NOT from
+        # `monthly_used_usd`. The latter is the budget-gate counter, and
+        # `usage_tracker.record_cost` early-returns out of it for
+        # unlimited tiers (`effective_limit == -1`) — so Plus/Pro/admin
+        # users would always show 0 hours / 0% no matter how active they
+        # are. It can also drift from reality if a reset path didn't fire
+        # cleanly. usage_log is the source of truth, so derive from there.
         model_cost_per_hour = 0.19 if tier_def and "sonnet" in (tier_def.default_model or "") else 0.05
-        hours_used = monthly_used / model_cost_per_hour if model_cost_per_hour > 0 else 0
+        hours_used = window_cost / model_cost_per_hour if model_cost_per_hour > 0 else 0
         hours_limit = monthly_limit / model_cost_per_hour if monthly_limit > 0 else -1
-        percent_used = round(monthly_used / monthly_limit * 100, 1) if monthly_limit > 0 else 0
+        percent_used = round(window_cost / monthly_limit * 100, 1) if monthly_limit > 0 else 0
 
         users.append({
             "id": r["id"],
