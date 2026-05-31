@@ -1,17 +1,21 @@
 """Tests for app.services.transcript_cleanup + the report/chat integrations.
 
 Covers:
-- should_clean() returns the right boolean for each (source, flag) combination
-- get_cleanup_prompt() reads from remote_configs and locale-falls-back to English
-- clean_transcript() returns None on the expected failure modes (no prompt,
-  empty input, oversized input, provider error, empty model response)
+- should_clean() boolean matrix per (source, flag) combination
+- get_cleanup_prompt() locale-falls-back to English when missing
+- clean_transcript() primary-then-fallback routing:
+    * primary success returns primary output (DeepSeek dispatched)
+    * primary timeout / error / empty triggers fallback (Haiku dispatched)
+    * both failing returns None
 - protected-prompts.json carries the transcriptCleanup.ocr_captions key at v10+
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -95,23 +99,27 @@ _CONFIGS = {
 }
 
 
+def _ok(text: str):
+    """Build a minimal response object the routing layer would return."""
+    return SimpleNamespace(text=text)
+
+
 @pytest.mark.asyncio
-async def test_clean_transcript_happy_path():
+async def test_clean_transcript_happy_path_uses_primary_deepseek():
+    """Primary returns successfully — fallback should not be invoked."""
     router = AsyncMock()
-    router.route.return_value.text = "CLEANED OUTPUT"
+    router.route.return_value = _ok("PRIMARY OUTPUT")
     result = await clean_transcript(
         router, "raw transcript here", _CONFIGS, "ocr_captions",
         locale="en", meeting_id="m1",
     )
-    assert result == "CLEANED OUTPUT"
-    router.route.assert_awaited_once()
-    # The dispatched ChatRequest must carry the cleanup call_type so
-    # usage_log can attribute the call correctly.
-    sent_request = router.route.call_args[0][0]
-    assert sent_request.call_type == "captions_cleanup"
-    assert sent_request.prompt_mode == "CaptionsTranscriptCleanup"
-    assert sent_request.provider == "openai"
-    assert sent_request.model == "gpt-4.1-mini"
+    assert result == "PRIMARY OUTPUT"
+    assert router.route.await_count == 1
+    sent = router.route.call_args_list[0][0][0]
+    assert sent.call_type == "captions_cleanup"
+    assert sent.prompt_mode == "CaptionsTranscriptCleanup"
+    assert sent.provider == "openrouter"
+    assert sent.model == "deepseek/deepseek-v3.2-exp"
 
 
 @pytest.mark.asyncio
@@ -133,23 +141,79 @@ async def test_clean_transcript_returns_none_on_oversized_input():
 @pytest.mark.asyncio
 async def test_clean_transcript_returns_none_when_no_prompt_configured():
     router = AsyncMock()
-    configs = {"protected-prompts": {}}  # no transcriptCleanup section
+    configs = {"protected-prompts": {}}
     assert await clean_transcript(router, "raw", configs, "ocr_captions") is None
     router.route.assert_not_called()
 
 
-@pytest.mark.asyncio
-async def test_clean_transcript_returns_none_on_provider_error():
-    router = AsyncMock()
-    router.route.side_effect = RuntimeError("upstream timeout")
-    assert await clean_transcript(router, "raw", _CONFIGS, "ocr_captions") is None
+# --- Fallback behavior ------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_clean_transcript_returns_none_on_empty_response():
+async def test_primary_error_falls_back_to_haiku():
+    """Primary raises a generic exception → fallback (Haiku) takes over."""
     router = AsyncMock()
-    router.route.return_value.text = "   "
-    assert await clean_transcript(router, "raw", _CONFIGS, "ocr_captions") is None
+    router.route.side_effect = [RuntimeError("upstream blew up"), _ok("FALLBACK OUTPUT")]
+    result = await clean_transcript(
+        router, "raw", _CONFIGS, "ocr_captions", meeting_id="m2",
+    )
+    assert result == "FALLBACK OUTPUT"
+    assert router.route.await_count == 2
+    primary = router.route.call_args_list[0][0][0]
+    fallback = router.route.call_args_list[1][0][0]
+    assert primary.provider == "openrouter"
+    assert primary.model == "deepseek/deepseek-v3.2-exp"
+    assert fallback.provider == "anthropic"
+    assert fallback.model == "claude-haiku-4-5-20251001"
+
+
+@pytest.mark.asyncio
+async def test_primary_timeout_falls_back_to_haiku():
+    """asyncio.TimeoutError on primary → fallback fires."""
+    router = AsyncMock()
+    router.route.side_effect = [asyncio.TimeoutError(), _ok("FALLBACK OUTPUT")]
+    result = await clean_transcript(
+        router, "raw", _CONFIGS, "ocr_captions", meeting_id="m3",
+    )
+    assert result == "FALLBACK OUTPUT"
+    assert router.route.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_primary_empty_falls_back_to_haiku():
+    """Primary returns empty text → fallback fires (this was the
+    cratering DeepSeek run we observed in eval)."""
+    router = AsyncMock()
+    router.route.side_effect = [_ok("   "), _ok("FALLBACK OUTPUT")]
+    result = await clean_transcript(
+        router, "raw", _CONFIGS, "ocr_captions", meeting_id="m4",
+    )
+    assert result == "FALLBACK OUTPUT"
+    assert router.route.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_both_routes_fail_returns_none():
+    """Primary errors and fallback also errors → silent skip."""
+    router = AsyncMock()
+    router.route.side_effect = [RuntimeError("primary down"), RuntimeError("fallback down")]
+    result = await clean_transcript(
+        router, "raw", _CONFIGS, "ocr_captions", meeting_id="m5",
+    )
+    assert result is None
+    assert router.route.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_both_routes_empty_returns_none():
+    """Both routes return empty text → silent skip."""
+    router = AsyncMock()
+    router.route.side_effect = [_ok(""), _ok("   ")]
+    result = await clean_transcript(
+        router, "raw", _CONFIGS, "ocr_captions", meeting_id="m6",
+    )
+    assert result is None
+    assert router.route.await_count == 2
 
 
 # --- protected-prompts.json content lock ------------------------------------

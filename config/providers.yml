@@ -143,6 +143,26 @@ providers:
         supports_vision: true
         max_tokens_default: 4096
 
+  # OpenRouter — used by app.services.transcript_cleanup as the primary
+  # cleanup route (DeepSeek V3.2-exp). OR is not on the BYOK picker;
+  # it's purely a server-side dispatch path for models we've validated
+  # via eval. The Haiku fallback in the same module goes direct to
+  # Anthropic, not via OR.
+  openrouter:
+    display_name: "OpenRouter"
+    api_format: "openai"
+    base_url: "https://openrouter.ai/api/v1/chat/completions"
+    auth_header: "Authorization"
+    auth_prefix: "Bearer "
+    extra_headers:
+      HTTP-Referer: "https://cz.shouldersurf.com"
+      X-Title: "GhostPour"
+    env_key: "openrouter_api_key"
+    models:
+      - id: "deepseek/deepseek-v3.2-exp"
+        supports_vision: false
+        max_tokens_default: 8000
+
   # ===========================================================================
   # TEMPLATE: Adding a custom provider via the generic adapter
   #
