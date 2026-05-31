@@ -1,3 +1,4 @@
+import os
 import time
 from pathlib import Path
 
@@ -10,9 +11,14 @@ router = APIRouter()
 def _health_payload(request: Request) -> dict:
     uptime = time.monotonic() - request.app.state.start_time
     pricing = request.app.state.pricing
+    # GIT_SHA is baked into the image by the Build & Deploy workflow
+    # (see Dockerfile + .github/workflows/deploy.yml). Falls back to
+    # "unknown" for local builds where the arg wasn't supplied.
+    git_sha = os.environ.get("GIT_SHA", "unknown")
     return {
         "status": "ok",
         "version": "0.4.0",
+        "git_sha": git_sha,
         "uptime_seconds": int(uptime),
         "pricing": {
             "loaded": pricing.is_loaded,
