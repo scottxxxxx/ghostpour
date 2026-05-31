@@ -1788,6 +1788,90 @@ async def list_users(
 
     return {"users": users, "count": len(users)}
 
+
+# --- Telemetry summary (anonymous lifecycle pings) ---
+
+
+@router.get("/admin/telemetry/summary")
+async def telemetry_summary(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    days: int = Query(default=30, ge=1, le=180),
+):
+    """Aggregated telemetry data for the admin dashboard's Telemetry tab.
+
+    Reads from `telemetry_daily_rollups` (kept indefinitely, populated by
+    the startup job in `app.services.telemetry_rollup`) so this endpoint
+    can answer trend queries beyond the raw 30-day TTL on
+    `telemetry_events`.
+    """
+    _verify_admin(request, x_admin_key)
+
+    cursor = await db.execute(
+        """SELECT day, metric, value
+           FROM telemetry_daily_rollups
+           WHERE day >= date('now', ?)
+           ORDER BY day ASC, metric ASC""",
+        (f"-{days} days",),
+    )
+
+    by_day: dict[str, dict[str, float]] = {}
+    model_totals: dict[str, float] = {}
+    for r in await cursor.fetchall():
+        day, metric, value = r["day"], r["metric"], r["value"]
+        by_day.setdefault(day, {})[metric] = value
+        if metric.startswith("meetings_per_model:"):
+            model_id = metric.split(":", 1)[1]
+            model_totals[model_id] = model_totals.get(model_id, 0) + value
+
+    series_keys = [
+        "app_starts",
+        "meetings_started",
+        "meetings_stopped",
+        "distinct_devices",
+        "distinct_users",
+    ]
+    series = {
+        k: [{"day": d, "value": by_day[d].get(k, 0)} for d in sorted(by_day)]
+        for k in series_keys
+    }
+
+    # Duration aggregate over the window. Weight the average by
+    # meetings_stopped that day so the period mean reflects activity,
+    # not unweighted day averages.
+    weighted_sum = 0.0
+    weighted_n = 0.0
+    min_secs: list[float] = []
+    max_secs: list[float] = []
+    for m in by_day.values():
+        stopped = m.get("meetings_stopped", 0)
+        if "duration_avg_sec" in m and stopped > 0:
+            weighted_sum += m["duration_avg_sec"] * stopped
+            weighted_n += stopped
+        if "duration_min_sec" in m:
+            min_secs.append(m["duration_min_sec"])
+        if "duration_max_sec" in m:
+            max_secs.append(m["duration_max_sec"])
+
+    duration_summary = {
+        "avg_sec": round(weighted_sum / weighted_n, 1) if weighted_n > 0 else None,
+        "min_sec": min(min_secs) if min_secs else None,
+        "max_sec": max(max_secs) if max_secs else None,
+        "sample_size": int(weighted_n),
+    }
+
+    return {
+        "days": days,
+        "series": series,
+        "models": sorted(
+            ({"model_id": k, "meetings": v} for k, v in model_totals.items()),
+            key=lambda x: -x["meetings"],
+        ),
+        "duration": duration_summary,
+    }
+
+
 # --- Email management (Resend webhook events + suppression list) ---
 
 

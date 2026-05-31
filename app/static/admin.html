@@ -182,6 +182,7 @@
     <div class="tab" onclick="switchTab('configs')">Configs</div>
     <div class="tab" onclick="switchTab('routing')">Model Routing</div>
     <div class="tab" onclick="switchTab('livelog')">Live Log</div>
+    <div class="tab" onclick="switchTab('telemetry')">Telemetry</div>
   </div>
 
   <!-- Overview -->
@@ -371,6 +372,24 @@
     </div>
   </div>
 
+  <!-- Telemetry -->
+  <div id="tab-telemetry" class="section">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 style="margin:0">Telemetry</h3>
+      <button class="refresh-btn" onclick="loadTelemetry()">Refresh</button>
+    </div>
+    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Anonymous lifecycle events from iOS — app starts, meeting starts/stops, and the AI model used. Raw events are retained 30 days; aggregates kept indefinitely.</p>
+    <div class="cards" id="telemetry-cards"></div>
+    <h4 style="margin-top:20px">Daily counts (last 30 days)</h4>
+    <div class="table-wrap"><table id="telemetry-series-table"><thead><tr>
+      <th>Day</th><th>App starts</th><th>Distinct devices</th><th>Distinct users</th><th>Meetings started</th><th>Meetings stopped</th>
+    </tr></thead><tbody></tbody></table></div>
+    <h4 style="margin-top:20px">Meetings by model</h4>
+    <div class="table-wrap"><table id="telemetry-models-table"><thead><tr>
+      <th>Model</th><th>Meeting events (start + stop)</th>
+    </tr></thead><tbody></tbody></table></div>
+  </div>
+
   <!-- Live Log -->
   <div id="tab-livelog" class="section">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -549,6 +568,84 @@ function switchTab(name) {
   if (name === 'livelog') loadLiveLog();
   if (name === 'email') loadEmail();
   if (name === 'alerts') loadAlerts();
+  if (name === 'telemetry') loadTelemetry();
+}
+
+// ---------------------------------------------------------------------------
+// Telemetry tab — anonymous lifecycle events from iOS
+// ---------------------------------------------------------------------------
+async function loadTelemetry() {
+  const period = document.getElementById('period').value || 30;
+  const days = Math.max(parseInt(period, 10), 30);  // telemetry tab is monthly-scoped
+  try {
+    const resp = await fetch(`${BASE}/webhooks/admin/telemetry/summary?days=${days}`, {
+      headers: {'X-Admin-Key': adminKey},
+    });
+    if (!resp.ok) {
+      document.getElementById('telemetry-cards').innerHTML =
+        `<div class="card" style="grid-column: span 4">Telemetry load failed (${resp.status})</div>`;
+      return;
+    }
+    const d = await resp.json();
+    _renderTelemetry(d);
+  } catch (e) {
+    document.getElementById('telemetry-cards').innerHTML =
+      `<div class="card" style="grid-column: span 4">Telemetry error: ${e.message}</div>`;
+  }
+}
+
+function _renderTelemetry(d) {
+  // Summary cards. Aggregate the daily series for totals across the window.
+  const sum = (arr) => (arr || []).reduce((a, b) => a + (b.value || 0), 0);
+  const appStarts = sum(d.series.app_starts);
+  const meetingsStarted = sum(d.series.meetings_started);
+  const meetingsStopped = sum(d.series.meetings_stopped);
+  const uniqueDevices = Math.max(...((d.series.distinct_devices || []).map(p => p.value || 0)), 0);
+  const dur = d.duration || {};
+  const fmtDur = (s) => s == null ? '—' : (s >= 60 ? `${Math.round(s / 60)}m` : `${Math.round(s)}s`);
+
+  document.getElementById('telemetry-cards').innerHTML = [
+    {label: 'App starts',      value: appStarts.toLocaleString(),     hint: `over ${d.days} days`},
+    {label: 'Meetings started', value: meetingsStarted.toLocaleString()},
+    {label: 'Meetings stopped', value: meetingsStopped.toLocaleString(), hint: 'drop-off if < started'},
+    {label: 'Peak distinct devices/day', value: uniqueDevices.toLocaleString()},
+    {label: 'Avg meeting duration', value: fmtDur(dur.avg_sec), hint: `n=${dur.sample_size || 0}`},
+    {label: 'Shortest meeting', value: fmtDur(dur.min_sec)},
+    {label: 'Longest meeting',  value: fmtDur(dur.max_sec)},
+  ].map(c => `
+    <div class="card">
+      <div class="card-label">${c.label}</div>
+      <div class="card-value">${c.value}</div>
+      ${c.hint ? `<div class="card-hint">${c.hint}</div>` : ''}
+    </div>
+  `).join('');
+
+  // Daily series table — collapse the per-metric series into per-day rows
+  // so it reads horizontally.
+  const days = (d.series.app_starts || []).map(p => p.day);
+  const valAt = (key, day) => {
+    const pt = (d.series[key] || []).find(p => p.day === day);
+    return pt ? pt.value : 0;
+  };
+  document.querySelector('#telemetry-series-table tbody').innerHTML = days.map(day => `
+    <tr>
+      <td>${day}</td>
+      <td>${valAt('app_starts', day).toLocaleString()}</td>
+      <td>${valAt('distinct_devices', day).toLocaleString()}</td>
+      <td>${valAt('distinct_users', day).toLocaleString()}</td>
+      <td>${valAt('meetings_started', day).toLocaleString()}</td>
+      <td>${valAt('meetings_stopped', day).toLocaleString()}</td>
+    </tr>
+  `).reverse().join('');  // newest first
+
+  // Model breakdown
+  document.querySelector('#telemetry-models-table tbody').innerHTML =
+    (d.models || []).map(m => `
+      <tr>
+        <td><code>${m.model_id}</code></td>
+        <td>${m.meetings.toLocaleString()}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="2" style="color:var(--text-dim)">No model events in this window yet.</td></tr>';
 }
 
 // ---------------------------------------------------------------------------
