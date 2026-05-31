@@ -155,7 +155,7 @@
   <div class="header-row">
     <div>
       <h1>GhostPour</h1>
-      <h2 id="dash-subtitle">Admin Dashboard</h2>
+      <h2 id="dash-subtitle">Admin Dashboard <span id="build-badge" style="font-size:11px;color:var(--text-dim);font-weight:normal;margin-left:8px;"></span></h2>
     </div>
     <div style="display:flex;gap:8px;align-items:center;">
       <select class="period-select" id="period" onchange="refresh()">
@@ -520,6 +520,25 @@ window.fetch = async function(...args) {
   }
   return resp;
 };
+
+// Populate the build badge in the header from /health. Unauthenticated
+// endpoint so this works pre-login too. Uses the un-wrapped fetch so
+// the admin-auth 403 handler doesn't fire on a public call. Fails
+// silently if /health is unreachable or the SHA is "unknown" (local
+// dev image where the build-arg wasn't supplied).
+(async () => {
+  try {
+    const r = await _origFetch(`${BASE}/health`);
+    if (!r.ok) return;
+    const d = await r.json();
+    const sha = (d.git_sha || '').slice(0, 7);
+    if (!sha || sha === 'unknown') return;
+    const el = document.getElementById('build-badge');
+    if (el) {
+      el.innerHTML = `<a href="https://github.com/scottxxxxx/ghostpour/commit/${d.git_sha}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--text-dim);">build ${sha}</a>`;
+    }
+  } catch (_) {}
+})();
 
 function handleAdminAuthFailure() {
   // Avoid loops when the auth screen is already showing
