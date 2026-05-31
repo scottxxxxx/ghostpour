@@ -20,6 +20,7 @@ from app.routers import (
     preferences,
     reports,
     resend_webhooks,
+    telemetry,
     unsubscribe,
     webhooks,
 )
@@ -116,6 +117,24 @@ async def lifespan(app: FastAPI):
             "or GCP Secret Manager (cloudzap/resend-webhook-secret)."
         )
 
+    # Roll up telemetry events into telemetry_daily_rollups. Idempotent
+    # (INSERT OR REPLACE on day+metric PK), recomputes the trailing
+    # window so any late-arriving events get folded in. Fail-soft: a
+    # rollup failure must not block app startup.
+    try:
+        import aiosqlite
+        from app.services.telemetry_rollup import compute_rollups
+        db_path = settings.database_url.replace("sqlite+aiosqlite:///", "")
+        async with aiosqlite.connect(db_path) as db:
+            written = await compute_rollups(db)
+            logging.getLogger("app.main").info(
+                "telemetry_rollup startup ok rows_written=%d", written,
+            )
+    except Exception as e:
+        logging.getLogger("app.main").warning(
+            "telemetry_rollup startup failed: %s", e,
+        )
+
     yield
 
     await app.state.provider_router.close()
@@ -152,6 +171,7 @@ app.include_router(reports.router, prefix="/v1", tags=["reports"])
 app.include_router(features.router, prefix="/v1", tags=["features"])
 app.include_router(preferences.router, prefix="/v1", tags=["preferences"])
 app.include_router(unsubscribe.router, tags=["unsubscribe"])
+app.include_router(telemetry.router, prefix="/v1", tags=["telemetry"])
 
 # Context Quilt proxy routes — only included when CQ is configured
 if get_settings().cq_base_url:

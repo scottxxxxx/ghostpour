@@ -235,6 +235,42 @@ MIGRATIONS = [
     # cleanup feature flag is enabled; NULL otherwise. iOS reads this
     # field optionally and falls back to its raw transcript when absent.
     "ALTER TABLE meeting_reports ADD COLUMN cleaned_transcript TEXT",
+    # v23: Unauthenticated telemetry events for app/meeting lifecycle
+    # tracking. iOS pings on app_start, meeting_start, meeting_stop with
+    # an anonymous device_id (identifierForVendor) and, when logged in,
+    # an optional user_id so we can attribute pre-login activity to a
+    # user retroactively. Raw events purge at 30 days; aggregates kept
+    # forever in telemetry_daily_rollups. ip_hash is SHA256 of the
+    # source IP (not stored raw) for per-IP abuse detection.
+    """CREATE TABLE IF NOT EXISTS telemetry_events (
+        id TEXT PRIMARY KEY,
+        event_type TEXT NOT NULL,
+        device_id TEXT NOT NULL,
+        user_id TEXT,
+        meeting_id TEXT,
+        model_id TEXT,
+        app_version TEXT,
+        os_version TEXT,
+        duration_seconds INTEGER,
+        ip_hash TEXT,
+        received_at TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_telemetry_device ON telemetry_events(device_id)",
+    "CREATE INDEX IF NOT EXISTS idx_telemetry_user ON telemetry_events(user_id) WHERE user_id IS NOT NULL",
+    "CREATE INDEX IF NOT EXISTS idx_telemetry_event ON telemetry_events(event_type, received_at)",
+    # Daily rollup table — one row per (day, metric) pair, INSERT OR
+    # REPLACE for idempotency. Metric keys are flat strings like
+    # 'app_starts', 'distinct_devices', 'meetings_started',
+    # 'meetings_stopped', 'meetings_per_model:<model_id>',
+    # 'duration_avg_sec', 'duration_min_sec', 'duration_max_sec'.
+    # Kept indefinitely (tiny table, useful for long-term trend lines).
+    """CREATE TABLE IF NOT EXISTS telemetry_daily_rollups (
+        day TEXT NOT NULL,
+        metric TEXT NOT NULL,
+        value REAL NOT NULL,
+        PRIMARY KEY (day, metric)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_telemetry_rollups_day ON telemetry_daily_rollups(day)",
 ]
 
 
@@ -263,6 +299,13 @@ async def init_db(database_url: str) -> None:
         # address stays suppressed forever unless explicitly lifted.
         await db.execute(
             "DELETE FROM email_events WHERE received_at < datetime('now', '-90 days')"
+        )
+
+        # Purge raw telemetry_events older than 30 days. Aggregates land
+        # in telemetry_daily_rollups (computed by the startup rollup job
+        # in app.services.telemetry_rollup) and are kept indefinitely.
+        await db.execute(
+            "DELETE FROM telemetry_events WHERE received_at < datetime('now', '-30 days')"
         )
 
         await db.commit()
