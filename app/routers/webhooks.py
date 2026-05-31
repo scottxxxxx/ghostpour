@@ -1721,17 +1721,33 @@ async def list_users(
             u.simulated_tier, u.simulated_exhausted,
             u.monthly_used_usd, u.monthly_cost_limit_usd, u.allocation_resets_at,
             u.is_trial, u.trial_end,
+            -- Windowed totals (last `days` days). The "window_" prefix
+            -- makes the date filter visible at the call site so future
+            -- editors don't confuse these with all-time aggregates.
             (SELECT COUNT(*) FROM usage_log l WHERE l.user_id = u.id AND l.status = 'success'
-             AND l.request_timestamp >= date('now', ?)) as total_requests,
+             AND l.request_timestamp >= date('now', ?)) as window_requests,
             (SELECT COALESCE(SUM(COALESCE(l2.input_tokens,0)), 0)
              FROM usage_log l2 WHERE l2.user_id = u.id AND l2.status = 'success'
-             AND l2.request_timestamp >= date('now', ?)) as total_input_tokens,
+             AND l2.request_timestamp >= date('now', ?)) as window_input_tokens,
             (SELECT COALESCE(SUM(COALESCE(l2.output_tokens,0)), 0)
              FROM usage_log l2 WHERE l2.user_id = u.id AND l2.status = 'success'
-             AND l2.request_timestamp >= date('now', ?)) as total_output_tokens,
+             AND l2.request_timestamp >= date('now', ?)) as window_output_tokens,
             (SELECT COALESCE(SUM(l3.estimated_cost_usd), 0)
              FROM usage_log l3 WHERE l3.user_id = u.id AND l3.status = 'success'
-             AND l3.request_timestamp >= date('now', ?)) as total_cost_usd,
+             AND l3.request_timestamp >= date('now', ?)) as window_cost_usd,
+            -- Lifetime aggregates (no date filter). Bounded by the
+            -- usage_log table's lifetime, which is never purged today.
+            (SELECT COUNT(*) FROM usage_log lt1 WHERE lt1.user_id = u.id AND lt1.status = 'success')
+              as lifetime_requests,
+            (SELECT COALESCE(SUM(COALESCE(lt2.input_tokens,0)), 0)
+             FROM usage_log lt2 WHERE lt2.user_id = u.id AND lt2.status = 'success')
+              as lifetime_input_tokens,
+            (SELECT COALESCE(SUM(COALESCE(lt3.output_tokens,0)), 0)
+             FROM usage_log lt3 WHERE lt3.user_id = u.id AND lt3.status = 'success')
+              as lifetime_output_tokens,
+            (SELECT COALESCE(SUM(lt4.estimated_cost_usd), 0)
+             FROM usage_log lt4 WHERE lt4.user_id = u.id AND lt4.status = 'success')
+              as lifetime_cost_usd,
             (SELECT MAX(l4.request_timestamp) FROM usage_log l4 WHERE l4.user_id = u.id) as last_request
            FROM users u
            ORDER BY u.created_at DESC""",
@@ -1741,22 +1757,26 @@ async def list_users(
     for r in await cursor.fetchall():
         monthly_used = float(r["monthly_used_usd"] or 0)
         monthly_limit = float(r["monthly_cost_limit_usd"] or 0)
-        window_cost = float(r["total_cost_usd"] or 0)
+        window_cost = float(r["window_cost_usd"] or 0)
         tier_name = r["tier"]
         tier_def = tier_config.tiers.get(tier_name)
 
-        # Derive the display gauge from `total_cost_usd` (the sum from
+        # Derive the display gauge from `window_cost_usd` (the sum from
         # usage_log over the last `days` window), NOT from
         # `monthly_used_usd`. The latter is the budget-gate counter, and
         # `usage_tracker.record_cost` early-returns out of it for
         # unlimited tiers (`effective_limit == -1`) — so Plus/Pro/admin
         # users would always show 0 hours / 0% no matter how active they
-        # are. It can also drift from reality if a reset path didn't fire
-        # cleanly. usage_log is the source of truth, so derive from there.
+        # are. usage_log is the source of truth, so derive from there.
         model_cost_per_hour = 0.19 if tier_def and "sonnet" in (tier_def.default_model or "") else 0.05
         hours_used = window_cost / model_cost_per_hour if model_cost_per_hour > 0 else 0
         hours_limit = monthly_limit / model_cost_per_hour if monthly_limit > 0 else -1
         percent_used = round(window_cost / monthly_limit * 100, 1) if monthly_limit > 0 else 0
+
+        window_input = r["window_input_tokens"] or 0
+        window_output = r["window_output_tokens"] or 0
+        lifetime_input = r["lifetime_input_tokens"] or 0
+        lifetime_output = r["lifetime_output_tokens"] or 0
 
         users.append({
             "id": r["id"],
@@ -1777,12 +1797,18 @@ async def list_users(
             "hours_used": round(hours_used, 1),
             "hours_limit": round(hours_limit, 1) if hours_limit != -1 else -1,
             "allocation_resets_at": r["allocation_resets_at"],
-            # Lifetime totals
-            "total_requests": r["total_requests"],
-            "total_input_tokens": r["total_input_tokens"],
-            "total_output_tokens": r["total_output_tokens"],
-            "total_tokens": r["total_input_tokens"] + r["total_output_tokens"],
-            "total_cost_usd": round(r["total_cost_usd"], 4) if r["total_cost_usd"] else 0,
+            # Windowed totals — bound by the `days` query parameter.
+            "window_requests": r["window_requests"],
+            "window_input_tokens": window_input,
+            "window_output_tokens": window_output,
+            "window_tokens": window_input + window_output,
+            "window_cost_usd": round(window_cost, 4),
+            # Lifetime totals — all time, no date filter.
+            "lifetime_requests": r["lifetime_requests"],
+            "lifetime_input_tokens": lifetime_input,
+            "lifetime_output_tokens": lifetime_output,
+            "lifetime_tokens": lifetime_input + lifetime_output,
+            "lifetime_cost_usd": round(r["lifetime_cost_usd"] or 0, 4),
             "last_request": r["last_request"],
         })
 
