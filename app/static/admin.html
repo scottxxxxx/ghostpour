@@ -958,7 +958,7 @@ async function refresh() {
     <td>${hrsUsed} / ${hrsLimit} hrs</td>
     <td>${allocBar}</td>
     <td>${resets}</td>
-    <td>${fmtCost(u.total_cost_usd)}</td><td>${timeAgo(u.last_request)}</td>
+    <td><div>${fmtCost(u.lifetime_cost_usd)}</div><div style="color:var(--text-dim);font-size:0.8em">${fmtCost(u.window_cost_usd)} last ${days}d</div></td><td>${timeAgo(u.last_request)}</td>
     <td style="display:flex;gap:4px;align-items:center">
       <select class="period-select" style="font-size:11px;padding:3px 6px" onchange="changeTier('${u.id}',this.value,'${u.tier}')" ${u.tier === 'admin' ? 'disabled' : ''}>
         ${tierNames.map(t => `<option value="${t}" ${t === u.tier ? 'selected' : ''}>${t}</option>`).join('')}
