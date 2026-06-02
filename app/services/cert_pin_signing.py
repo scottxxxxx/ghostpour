@@ -32,16 +32,24 @@ Key custody (also documented in app/config.py):
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import logging
+import re
+import subprocess
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import aiosqlite
+from cryptography import x509
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
     Ed25519PublicKey,
+)
+from cryptography.hazmat.primitives.serialization import (
+    Encoding,
+    PublicFormat,
 )
 
 from app.config import Settings
@@ -247,3 +255,55 @@ async def publish_manifest(
         version, len(pins), manifest["expires_at"],
     )
     return manifest
+
+
+# --- Live chain inspection -------------------------------------------------
+
+
+def _spki_pin(cert: x509.Certificate) -> str:
+    """Compute the SPKI SHA-256 base64 pin for an x509 cert."""
+    spki_der = cert.public_key().public_bytes(
+        Encoding.DER, PublicFormat.SubjectPublicKeyInfo,
+    )
+    return "sha256/" + base64.b64encode(hashlib.sha256(spki_der).digest()).decode("ascii")
+
+
+_PEM_RE = re.compile(
+    r"-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----",
+    re.DOTALL,
+)
+
+
+def fetch_current_chain_pins(host: str, port: int = 443, timeout: float = 10.0) -> list[str]:
+    """Fetch the TLS chain presented by `host:port` and return SPKI pins
+    for the intermediate + roots (everything ABOVE the leaf).
+
+    The leaf is intentionally excluded — we don't want to pin something
+    that LE rotates every ~60 days. Auto-republish should pick up an
+    intermediate or root rotation transparently while ignoring leaf churn.
+
+    Shells out to `openssl s_client` because Python 3.12's stdlib only
+    exposes the leaf via `SSLSocket.getpeercert()`. The 3.13+ native
+    `get_unverified_chain` would be cleaner, but we're pinned to 3.12
+    for prod + CI.
+    """
+    try:
+        out = subprocess.run(
+            ["openssl", "s_client", "-showcerts", "-servername", host,
+             "-connect", f"{host}:{port}"],
+            input="", capture_output=True, text=True, timeout=timeout,
+        ).stdout
+    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+        raise CertPinSigningError(f"openssl s_client to {host}:{port} failed: {e}")
+    certs = _PEM_RE.findall(out)
+    if not certs or len(certs) < 2:
+        raise CertPinSigningError(
+            f"chain from {host}:{port} only has {len(certs)} cert(s); "
+            "expected at least leaf + intermediate"
+        )
+    pins: list[str] = []
+    # Skip index 0 (the leaf). Take everything else (intermediate + roots).
+    for pem in certs[1:]:
+        cert = x509.load_pem_x509_certificate(pem.encode())
+        pins.append(_spki_pin(cert))
+    return pins

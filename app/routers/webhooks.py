@@ -2362,6 +2362,29 @@ async def admin_cert_pins_current(
     }
 
 
+@router.get("/admin/cert-pins/status")
+async def admin_cert_pins_status(
+    request: Request,
+    x_admin_key: str = Header(...),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Banner data for the dashboard. Read-only, no side effects.
+    Returned shape is consumed by app/static/admin.html."""
+    _verify_admin(request, x_admin_key)
+    from app.services.cert_pin_auto_republish import (
+        compute_status, get_last_check,
+    )
+    from app.services.cert_pin_signing import latest_manifest
+    settings = request.app.state.settings
+    signing_configured = bool((settings.cert_pin_signing_key_raw_b64 or "").strip())
+    current = await latest_manifest(db)
+    return compute_status(
+        signing_configured=signing_configured,
+        current=current,
+        last_check=get_last_check(),
+    )
+
+
 @router.post("/admin/cert-pins/publish")
 async def admin_cert_pins_publish(
     body: PublishCertPinsRequest,

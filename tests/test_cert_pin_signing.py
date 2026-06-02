@@ -227,3 +227,242 @@ def test_admin_publish_empty_pins_rejected(client_with_pins):
         headers={"X-Admin-Key": "test-admin-key"},
     )
     assert resp.status_code == 400
+
+
+# --- Auto-republish + status banner ---------------------------------------
+
+import pytest_asyncio
+from unittest.mock import patch
+from datetime import datetime, timezone, timedelta
+
+
+def test_compute_status_no_signing_returns_red():
+    from app.services.cert_pin_auto_republish import compute_status
+    s = compute_status(signing_configured=False, current=None, last_check=None)
+    assert s["level"] == "red"
+    assert "not configured" in s["text"].lower()
+
+
+def test_compute_status_no_manifest_returns_red():
+    from app.services.cert_pin_auto_republish import compute_status
+    s = compute_status(signing_configured=True, current=None, last_check=None)
+    assert s["level"] == "red"
+    assert "no cert pin manifest" in s["text"].lower()
+
+
+def test_compute_status_healthy_returns_green():
+    from app.services.cert_pin_auto_republish import compute_status
+    now = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    current = {
+        "version": 1,
+        "expires_at": (now + timedelta(days=60)).isoformat().replace("+00:00", "Z"),
+        "pins": ["sha256/AAA=="],
+    }
+    s = compute_status(signing_configured=True, current=current, last_check=None, now=now)
+    assert s["level"] == "green"
+    assert s["version"] == 1
+    assert 59.9 < s["days_remaining"] < 60.1
+
+
+def test_compute_status_warn_band_returns_yellow():
+    from app.services.cert_pin_auto_republish import compute_status
+    now = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    current = {
+        "version": 1,
+        "expires_at": (now + timedelta(days=10)).isoformat().replace("+00:00", "Z"),
+        "pins": ["sha256/AAA=="],
+    }
+    s = compute_status(signing_configured=True, current=current, last_check=None, now=now)
+    assert s["level"] == "yellow"
+
+
+def test_compute_status_auto_window_returns_yellow():
+    from app.services.cert_pin_auto_republish import compute_status
+    now = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    current = {
+        "version": 1,
+        "expires_at": (now + timedelta(days=3)).isoformat().replace("+00:00", "Z"),
+        "pins": ["sha256/AAA=="],
+    }
+    s = compute_status(signing_configured=True, current=current, last_check=None, now=now)
+    assert s["level"] == "yellow"
+    assert "auto-republish" in s["text"].lower()
+
+
+def test_compute_status_expired_returns_red():
+    from app.services.cert_pin_auto_republish import compute_status
+    now = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    current = {
+        "version": 1,
+        "expires_at": (now - timedelta(days=2)).isoformat().replace("+00:00", "Z"),
+        "pins": ["sha256/AAA=="],
+    }
+    s = compute_status(signing_configured=True, current=current, last_check=None, now=now)
+    assert s["level"] == "red"
+    assert "expired" in s["text"].lower()
+
+
+def test_compute_status_last_failed_returns_red():
+    from app.services.cert_pin_auto_republish import compute_status, CheckResult
+    now = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    current = {
+        "version": 1,
+        "expires_at": (now + timedelta(days=60)).isoformat().replace("+00:00", "Z"),
+        "pins": ["sha256/AAA=="],
+    }
+    last = CheckResult(
+        checked_at=now,
+        action="failed",
+        version_after=1,
+        detail="chain fetch failed: timeout",
+    )
+    s = compute_status(signing_configured=True, current=current, last_check=last, now=now)
+    assert s["level"] == "red"
+    assert "failed" in s["text"].lower()
+
+
+@pytest.mark.asyncio
+async def test_maybe_auto_republish_no_signing(tmp_path):
+    """No signing key configured = noop_no_signing, no alert, no error."""
+    from app.services.cert_pin_auto_republish import maybe_auto_republish
+    import aiosqlite
+    from app.database import MIGRATIONS
+
+    db_path = str(tmp_path / "test.db")
+    from app.database import init_db
+    await init_db(f"sqlite+aiosqlite:///{db_path}")
+    async with aiosqlite.connect(db_path) as db:
+        settings = _settings_with_key("")
+        result = await maybe_auto_republish(db, settings)
+    assert result.action == "noop_no_signing"
+
+
+@pytest.mark.asyncio
+async def test_maybe_auto_republish_healthy_is_noop(tmp_path):
+    """Manifest with plenty of time remaining = noop_healthy."""
+    from app.services.cert_pin_auto_republish import maybe_auto_republish
+    from app.services.cert_pin_signing import publish_manifest
+    import aiosqlite
+    from app.database import MIGRATIONS
+
+    db_path = str(tmp_path / "test.db")
+    from app.database import init_db
+    await init_db(f"sqlite+aiosqlite:///{db_path}")
+    async with aiosqlite.connect(db_path) as db:
+        settings = _settings_with_key(_fresh_key_b64())
+        await publish_manifest(
+            db, settings, pins=["sha256/AAA=="], days_valid=60,
+        )
+        result = await maybe_auto_republish(db, settings)
+    assert result.action == "noop_healthy"
+    assert result.version_after == 1
+
+
+@pytest.mark.asyncio
+async def test_maybe_auto_republish_in_window_publishes(tmp_path):
+    """Manifest expiring in <=7 days = publishes v2."""
+    from app.services.cert_pin_auto_republish import maybe_auto_republish
+    from app.services.cert_pin_signing import publish_manifest
+    import aiosqlite
+    from app.database import MIGRATIONS
+
+    db_path = str(tmp_path / "test.db")
+    from app.database import init_db
+    await init_db(f"sqlite+aiosqlite:///{db_path}")
+    async with aiosqlite.connect(db_path) as db:
+        settings = _settings_with_key(_fresh_key_b64())
+        # Publish a manifest that expires in 3 days.
+        await publish_manifest(
+            db, settings, pins=["sha256/OLD=="], days_valid=3,
+        )
+        # Stub the live chain fetch to return a known pin set.
+        with patch(
+            "app.services.cert_pin_auto_republish.fetch_current_chain_pins",
+            return_value=["sha256/OLD=="],
+        ):
+            result = await maybe_auto_republish(db, settings)
+    assert result.action == "republished"
+    assert result.version_after == 2
+
+
+@pytest.mark.asyncio
+async def test_maybe_auto_republish_fires_alert_on_pin_change(tmp_path):
+    """When live chain pins differ from prior publish, an incident fires."""
+    from app.services.cert_pin_auto_republish import maybe_auto_republish
+    from app.services.cert_pin_signing import publish_manifest
+    import aiosqlite
+    from app.database import MIGRATIONS
+
+    db_path = str(tmp_path / "test.db")
+    from app.database import init_db
+    await init_db(f"sqlite+aiosqlite:///{db_path}")
+    async with aiosqlite.connect(db_path) as db:
+        settings = _settings_with_key(_fresh_key_b64())
+        await publish_manifest(
+            db, settings, pins=["sha256/OLD=="], days_valid=3,
+        )
+
+        called = {}
+
+        async def _stub_report_incident(db_arg, **kwargs):
+            called["category"] = kwargs.get("category")
+            called["subject"] = kwargs.get("subject")
+            called["details"] = kwargs.get("details")
+            class _R:
+                incident_id = "test-id"
+                is_new = True
+                emailed_to: list[str] = []
+                suppressed_reason = None
+            return _R()
+
+        with patch(
+            "app.services.cert_pin_auto_republish.fetch_current_chain_pins",
+            return_value=["sha256/NEW1==", "sha256/NEW2=="],
+        ), patch(
+            "app.services.alerting.report_incident",
+            new=_stub_report_incident,
+        ):
+            result = await maybe_auto_republish(db, settings)
+    assert result.action == "republished"
+    assert called.get("category") == "cert_pin_auto_republish"
+    assert called.get("subject") == "pin_set_changed"
+
+
+def test_fetch_current_chain_pins_against_prod():
+    """Integration test against real prod chain. Skipped when network
+    is unavailable. Confirms we return exactly 3 pins (intermediate +
+    both roots) skipping the leaf."""
+    import socket
+    from app.services.cert_pin_signing import fetch_current_chain_pins
+    try:
+        socket.create_connection(("cz.shouldersurf.com", 443), timeout=5).close()
+    except OSError:
+        pytest.skip("no network or prod unreachable")
+    pins = fetch_current_chain_pins("cz.shouldersurf.com")
+    assert len(pins) == 3
+    assert all(p.startswith("sha256/") for p in pins)
+
+
+def test_admin_status_endpoint_returns_banner_data(client_with_pins):
+    """Status endpoint surfaces compute_status output with admin auth."""
+    headers = {"X-Admin-Key": "test-admin-key"}
+    # Before any publish, expect red+no manifest.
+    resp = client_with_pins.get(
+        "/webhooks/admin/cert-pins/status", headers=headers,
+    )
+    assert resp.status_code == 200
+    s = resp.json()
+    assert s["level"] == "red"
+    assert s["version"] is None
+
+    # After publish, expect green.
+    client_with_pins.post(
+        "/webhooks/admin/cert-pins/publish",
+        json={"pins": ["sha256/AAA=="], "days_valid": 60},
+        headers=headers,
+    )
+    s2 = client_with_pins.get(
+        "/webhooks/admin/cert-pins/status", headers=headers,
+    ).json()
+    assert s2["level"] == "green"
+    assert s2["version"] == 1

@@ -105,6 +105,16 @@ KNOWN_CATEGORIES: dict[str, dict] = {
             "credit_balance_too_low). Time to top up that provider."
         ),
     },
+    "cert_pin_auto_republish": {
+        "label": "Cert pin auto-republish needs attention",
+        "description": (
+            "The daily auto-republish task either failed outright or "
+            "detected that the live TLS chain pins differ from the "
+            "previously published manifest (LE rotated, or worse a MITM). "
+            "Check /admin and the cert pin runbook before iOS picks up "
+            "the new manifest."
+        ),
+    },
 }
 
 
