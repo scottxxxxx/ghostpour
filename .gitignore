@@ -45,3 +45,7 @@ RENAMING_STRATEGY.md
 .pytest_cache/
 htmlcov/
 .coverage
+
+# Locally-mirrored secrets (private keys, etc) — must never reach the repo
+private-local-secrets/
+*signing_private*

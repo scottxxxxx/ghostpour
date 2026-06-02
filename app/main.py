@@ -13,6 +13,7 @@ from app.models.tier import load_tier_config
 from app.routers import (
     apple_webhooks,
     auth,
+    cert_pins,
     chat,
     config,
     features,
@@ -163,6 +164,10 @@ app.add_middleware(StreamingBypassMiddleware)
 app.include_router(health.router, tags=["health"])
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(chat.router, prefix="/v1", tags=["chat"])
+# cert_pins must be registered BEFORE config so the explicit
+# `/v1/config/cert-pins` path wins over config's path-parameter
+# `/v1/config/{name}` catch-all.
+app.include_router(cert_pins.router, prefix="/v1", tags=["cert-pins"])
 app.include_router(config.router, tags=["config"])
 app.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
 app.include_router(resend_webhooks.router, prefix="/webhooks", tags=["resend-webhooks"])
