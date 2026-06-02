@@ -2319,3 +2319,72 @@ async def test_send_alert(
         "emailed_to": result.emailed_to,
         "suppressed_reason": result.suppressed_reason,
     }
+
+
+# --- Cert pin manifest (admin) ---------------------------------------------
+# Proposal: /Users/scottguida/ShoulderSurf/docs/CERT_PINNING_PROPOSAL.md
+# Service: app/services/cert_pin_signing.py
+# Public read endpoint: GET /v1/config/cert-pins (in app/routers/cert_pins.py).
+
+class PublishCertPinsRequest(BaseModel):
+    pins: list[str]
+    days_valid: int = 60
+
+
+@router.get("/admin/cert-pins/current")
+async def admin_cert_pins_current(
+    request: Request,
+    x_admin_key: str = Header(...),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Show the most-recent signed manifest plus the public key so the
+    operator can hand the public key to SS for baking into iOS. Also
+    runs a round-trip signature verification as a sanity check — if it
+    returns verified=false the signing key the server holds doesn't
+    match the manifest in the DB (key rotation got out of sync).
+    """
+    _verify_admin(request, x_admin_key)
+    from app.services.cert_pin_signing import (
+        get_public_key_b64, latest_manifest, verify_signature,
+    )
+    settings = request.app.state.settings
+    pub_b64 = get_public_key_b64(settings)
+    manifest = await latest_manifest(db)
+    verified = (
+        verify_signature(pub_b64, manifest)
+        if (pub_b64 and manifest) else None
+    )
+    return {
+        "signing_configured": pub_b64 is not None,
+        "public_key_b64": pub_b64,
+        "manifest": manifest,
+        "verified": verified,
+    }
+
+
+@router.post("/admin/cert-pins/publish")
+async def admin_cert_pins_publish(
+    body: PublishCertPinsRequest,
+    request: Request,
+    x_admin_key: str = Header(...),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Sign and persist a new pin manifest with monotonically increasing
+    version. Returns the wire-shape dict served at /v1/config/cert-pins.
+
+    Pin format is whatever iOS expects — currently base64 SPKI SHA-256
+    hashes — but this endpoint stores them as opaque strings so the wire
+    format can evolve without a server change.
+    """
+    _verify_admin(request, x_admin_key)
+    from app.services.cert_pin_signing import publish_manifest, CertPinSigningError
+    suffix = (x_admin_key or "")[-6:]
+    try:
+        manifest = await publish_manifest(
+            db, request.app.state.settings,
+            pins=body.pins, days_valid=body.days_valid,
+            admin_key_suffix=suffix,
+        )
+    except CertPinSigningError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return manifest
