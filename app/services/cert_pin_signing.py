@@ -35,8 +35,8 @@ import base64
 import hashlib
 import json
 import logging
-import socket
-import ssl
+import re
+import subprocess
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -268,6 +268,12 @@ def _spki_pin(cert: x509.Certificate) -> str:
     return "sha256/" + base64.b64encode(hashlib.sha256(spki_der).digest()).decode("ascii")
 
 
+_PEM_RE = re.compile(
+    r"-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----",
+    re.DOTALL,
+)
+
+
 def fetch_current_chain_pins(host: str, port: int = 443, timeout: float = 10.0) -> list[str]:
     """Fetch the TLS chain presented by `host:port` and return SPKI pins
     for the intermediate + roots (everything ABOVE the leaf).
@@ -276,25 +282,28 @@ def fetch_current_chain_pins(host: str, port: int = 443, timeout: float = 10.0) 
     that LE rotates every ~60 days. Auto-republish should pick up an
     intermediate or root rotation transparently while ignoring leaf churn.
 
-    Uses Python's ssl.SSLSocket.get_unverified_chain() (3.13+) so we
-    don't need an openssl subprocess. Hostname verification is off
-    because we're collecting pins, not validating a session.
+    Shells out to `openssl s_client` because Python 3.12's stdlib only
+    exposes the leaf via `SSLSocket.getpeercert()`. The 3.13+ native
+    `get_unverified_chain` would be cleaner, but we're pinned to 3.12
+    for prod + CI.
     """
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    with socket.create_connection((host, port), timeout=timeout) as sock:
-        with ctx.wrap_socket(sock, server_hostname=host) as ssock:
-            chain = ssock.get_unverified_chain()
-    if not chain or len(chain) < 2:
+    try:
+        out = subprocess.run(
+            ["openssl", "s_client", "-showcerts", "-servername", host,
+             "-connect", f"{host}:{port}"],
+            input="", capture_output=True, text=True, timeout=timeout,
+        ).stdout
+    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+        raise CertPinSigningError(f"openssl s_client to {host}:{port} failed: {e}")
+    certs = _PEM_RE.findall(out)
+    if not certs or len(certs) < 2:
         raise CertPinSigningError(
-            f"chain from {host}:{port} only has {len(chain) if chain else 0} cert(s); "
+            f"chain from {host}:{port} only has {len(certs)} cert(s); "
             "expected at least leaf + intermediate"
         )
     pins: list[str] = []
     # Skip index 0 (the leaf). Take everything else (intermediate + roots).
-    # get_unverified_chain() returns DER bytes per entry on Python 3.14.
-    for der in chain[1:]:
-        cert = x509.load_der_x509_certificate(der)
+    for pem in certs[1:]:
+        cert = x509.load_pem_x509_certificate(pem.encode())
         pins.append(_spki_pin(cert))
     return pins
