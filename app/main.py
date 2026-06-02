@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 from contextlib import asynccontextmanager
@@ -118,6 +119,17 @@ async def lifespan(app: FastAPI):
             "or GCP Secret Manager (cloudzap/resend-webhook-secret)."
         )
 
+    # Cert pin auto-republish daemon. Fail-soft: if it can't start, the
+    # endpoint still works for manual publishes via /admin/cert-pins/publish.
+    # See app/services/cert_pin_auto_republish.py for the policy.
+    try:
+        from app.services.cert_pin_auto_republish import run_daemon as _cp_daemon
+        app.state.cert_pin_daemon = asyncio.create_task(_cp_daemon(app))
+    except Exception as e:
+        logging.getLogger("app.main").warning(
+            "cert_pin auto-republish daemon failed to start: %s", e,
+        )
+
     # Roll up telemetry events into telemetry_daily_rollups. Idempotent
     # (INSERT OR REPLACE on day+metric PK), recomputes the trailing
     # window so any late-arriving events get folded in. Fail-soft: a
@@ -137,6 +149,15 @@ async def lifespan(app: FastAPI):
         )
 
     yield
+
+    # Stop the cert pin daemon cleanly on shutdown.
+    daemon = getattr(app.state, "cert_pin_daemon", None)
+    if daemon is not None and not daemon.done():
+        daemon.cancel()
+        try:
+            await daemon
+        except (asyncio.CancelledError, Exception):
+            pass
 
     await app.state.provider_router.close()
     await pricing.stop()

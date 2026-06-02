@@ -71,6 +71,12 @@ class Settings(BaseSettings):
     #     transition.
     cert_pin_signing_key_raw_b64: str = ""
 
+    # Hostname the auto-republish task probes for the live TLS chain.
+    # Defaults to prod so the local dev image stays a no-op (cert_pin_self_host
+    # is only meaningful when paired with a configured signing key). Override
+    # via CZ_CERT_PIN_SELF_HOST for staging.
+    cert_pin_self_host: str = "cz.shouldersurf.com"
+
     # Context Quilt integration
     cq_base_url: str = ""              # e.g., "https://cq.example.com"
     cq_app_id: str = "cloudzap"        # App identifier for CQ (UUID or legacy string)
