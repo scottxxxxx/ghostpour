@@ -48,6 +48,29 @@ class Settings(BaseSettings):
     # Admin
     admin_key: str = ""
 
+    # Cert pin manifest signing (proposal in
+    # /Users/scottguida/ShoulderSurf/docs/CERT_PINNING_PROPOSAL.md).
+    # 32-byte Ed25519 private key, raw bytes encoded base64. Used by
+    # app/services/cert_pin_signing.py to sign the JSON manifest served
+    # at GET /v1/config/cert-pins. iOS bakes in the matching public key
+    # and verifies the signature on every fetch.
+    #
+    # Generation, custody, and rotation:
+    #   - Generated locally on a trusted operator machine with
+    #     `openssl genpkey -algorithm Ed25519`, never in CI, never in a
+    #     shared environment.
+    #   - Stored in GCP Secret Manager as `cert-pin-signing-key-raw-b64`
+    #     (mapped below); .env mirror for local dev only.
+    #   - The key NEVER lands in this repo. .env is gitignored and a
+    #     belt-and-suspenders pattern in .gitignore excludes any file
+    #     matching `*signing_private*` in case of accidental copy.
+    #   - Rotation is rare (years). When rotated, iOS ships the next
+    #     public key in an app release first (both keys baked in for
+    #     the transition window), THEN we cut over server-side signing
+    #     to the new key, so old installs keep verifying during the
+    #     transition.
+    cert_pin_signing_key_raw_b64: str = ""
+
     # Context Quilt integration
     cq_base_url: str = ""              # e.g., "https://cq.example.com"
     cq_app_id: str = "cloudzap"        # App identifier for CQ (UUID or legacy string)
@@ -126,6 +149,7 @@ _SECRET_MANAGER_MAPPINGS: dict[str, str] = {
     "CZ_KIMI_API_KEY": "kimi-api-key",
     "CZ_QWEN_API_KEY": "qwen-api-key",
     "CZ_CQ_CLIENT_SECRET": "cq-client-secret",
+    "CZ_CERT_PIN_SIGNING_KEY_RAW_B64": "cert-pin-signing-key-raw-b64",
 }
 
 

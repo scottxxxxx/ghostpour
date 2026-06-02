@@ -271,6 +271,26 @@ MIGRATIONS = [
         PRIMARY KEY (day, metric)
     )""",
     "CREATE INDEX IF NOT EXISTS idx_telemetry_rollups_day ON telemetry_daily_rollups(day)",
+    # v24: Signed cert pin manifests served at /v1/config/cert-pins.
+    # iOS fetches the latest manifest, verifies the signature against a
+    # baked-in public key, and uses the resulting pins. This decouples
+    # pin updates from app releases: when Let's Encrypt rotates the cert
+    # chain we sign and publish a new manifest, the app picks it up next
+    # launch. Version is a monotonic integer (next_version = MAX + 1)
+    # so iOS can refuse any version older than what it has already seen
+    # (rollback protection). See app/services/cert_pin_signing.py for
+    # the signing implementation and the wire-contract proposal at
+    # /Users/scottguida/ShoulderSurf/docs/CERT_PINNING_PROPOSAL.md.
+    """CREATE TABLE IF NOT EXISTS cert_pin_manifest (
+        version INTEGER PRIMARY KEY,
+        pins_json TEXT NOT NULL,
+        issued_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        signature TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        created_by_admin_key_suffix TEXT
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_cert_pin_manifest_version_desc ON cert_pin_manifest(version DESC)",
 ]
 
 
