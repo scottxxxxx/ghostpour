@@ -168,6 +168,15 @@
     </div>
   </div>
 
+  <!-- Cert pin auto-republish banner. Hidden by default; populated by
+       refreshCertPinBanner() on dashboard load + refresh. Yellow/red
+       background per status level; green is suppressed so the banner
+       only takes screen space when there's something to see. -->
+  <div id="cert-pin-banner" style="display:none;margin:12px 0;padding:12px 14px;border-radius:8px;font-size:13px;line-height:1.4;">
+    <span id="cert-pin-banner-text"></span>
+    <span id="cert-pin-banner-meta" style="margin-left:8px;color:rgba(255,255,255,0.65);font-size:11px;"></span>
+  </div>
+
   <!-- Tabs -->
   <div class="tabs">
     <div class="tab active" onclick="switchTab('overview')">Overview</div>
@@ -876,7 +885,37 @@ let simulationState = null;  // {tier, exhausted} or null
 let _openDetailUserId = null;  // Track which user detail is open
 let _openDetailEmail = null;
 
+async function refreshCertPinBanner() {
+  // Auto-republish + expiry banner. Suppressed when level==green so the
+  // banner is silent during the boring 90% of the manifest lifecycle.
+  try {
+    const r = await fetch(`${BASE}/webhooks/admin/cert-pins/status`, {headers:{'X-Admin-Key':adminKey}});
+    if (!r.ok) return;
+    const s = await r.json();
+    const banner = document.getElementById('cert-pin-banner');
+    const text = document.getElementById('cert-pin-banner-text');
+    const meta = document.getElementById('cert-pin-banner-meta');
+    if (s.level === 'green') {
+      banner.style.display = 'none';
+      return;
+    }
+    const palette = s.level === 'red'
+      ? {bg: 'rgba(220, 53, 69, 0.18)', border: '#dc3545', fg: '#ffb3bc'}
+      : {bg: 'rgba(255, 193, 7, 0.18)', border: '#ffc107', fg: '#ffe48a'};
+    banner.style.background = palette.bg;
+    banner.style.borderLeft = `4px solid ${palette.border}`;
+    banner.style.color = palette.fg;
+    text.textContent = s.text;
+    const checked = s.last_check && s.last_check.checked_at
+      ? `last check ${new Date(s.last_check.checked_at).toLocaleString()}`
+      : 'no auto-check yet';
+    meta.textContent = `(${checked})`;
+    banner.style.display = '';
+  } catch (_) { /* silent */ }
+}
+
 async function refresh() {
+  refreshCertPinBanner();
   const days = document.getElementById('period').value;
   const [dash, users, tiers] = await Promise.all([
     fetch(`${BASE}/webhooks/admin/dashboard?days=${days}`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),

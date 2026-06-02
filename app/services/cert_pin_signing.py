@@ -32,16 +32,24 @@ Key custody (also documented in app/config.py):
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import logging
+import socket
+import ssl
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import aiosqlite
+from cryptography import x509
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
     Ed25519PublicKey,
+)
+from cryptography.hazmat.primitives.serialization import (
+    Encoding,
+    PublicFormat,
 )
 
 from app.config import Settings
@@ -247,3 +255,46 @@ async def publish_manifest(
         version, len(pins), manifest["expires_at"],
     )
     return manifest
+
+
+# --- Live chain inspection -------------------------------------------------
+
+
+def _spki_pin(cert: x509.Certificate) -> str:
+    """Compute the SPKI SHA-256 base64 pin for an x509 cert."""
+    spki_der = cert.public_key().public_bytes(
+        Encoding.DER, PublicFormat.SubjectPublicKeyInfo,
+    )
+    return "sha256/" + base64.b64encode(hashlib.sha256(spki_der).digest()).decode("ascii")
+
+
+def fetch_current_chain_pins(host: str, port: int = 443, timeout: float = 10.0) -> list[str]:
+    """Fetch the TLS chain presented by `host:port` and return SPKI pins
+    for the intermediate + roots (everything ABOVE the leaf).
+
+    The leaf is intentionally excluded — we don't want to pin something
+    that LE rotates every ~60 days. Auto-republish should pick up an
+    intermediate or root rotation transparently while ignoring leaf churn.
+
+    Uses Python's ssl.SSLSocket.get_unverified_chain() (3.13+) so we
+    don't need an openssl subprocess. Hostname verification is off
+    because we're collecting pins, not validating a session.
+    """
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    with socket.create_connection((host, port), timeout=timeout) as sock:
+        with ctx.wrap_socket(sock, server_hostname=host) as ssock:
+            chain = ssock.get_unverified_chain()
+    if not chain or len(chain) < 2:
+        raise CertPinSigningError(
+            f"chain from {host}:{port} only has {len(chain) if chain else 0} cert(s); "
+            "expected at least leaf + intermediate"
+        )
+    pins: list[str] = []
+    # Skip index 0 (the leaf). Take everything else (intermediate + roots).
+    # get_unverified_chain() returns DER bytes per entry on Python 3.14.
+    for der in chain[1:]:
+        cert = x509.load_der_x509_certificate(der)
+        pins.append(_spki_pin(cert))
+    return pins
