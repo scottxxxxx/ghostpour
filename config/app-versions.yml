@@ -33,7 +33,9 @@ com.shouldersurf.ShoulderSurf:
       # Hard floor. Client refuses to operate below this. Bump only
       # when an older build has a real correctness or security issue.
       min_supported_version: "1.0"
-      # Tap target for the upgrade prompt. TestFlight invite while in
-      # beta; swap to https://apps.apple.com/app/id<APPID> once the
-      # app is in the App Store. Pending real link from SS.
-      upgrade_url: "https://testflight.apple.com/join/REPLACE_ME"
+      # Tap target for the upgrade prompt. Currently the live TestFlight
+      # invite linked from the beta button on shouldersurf.com. Swap to
+      # https://apps.apple.com/app/id<APPID> once the app is in the
+      # App Store. Update alongside latest_version on every release so
+      # the client always lands on the correct build.
+      upgrade_url: "https://testflight.apple.com/join/ubRWVcXF"
