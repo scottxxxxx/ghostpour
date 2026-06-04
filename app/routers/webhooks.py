@@ -2440,6 +2440,23 @@ async def admin_cert_pins_current(
     }
 
 
+@router.get("/admin/provider-health/status")
+async def admin_provider_health_status(
+    request: Request,
+    x_admin_key: str = Header(...),
+):
+    """Most recent probe result per provider. Backs the dashboard tile.
+    Cache lives in app/services/provider_health._last_check (process
+    memory; first tick after restart populates it ~10s in)."""
+    _verify_admin(request, x_admin_key)
+    from app.services.provider_health import get_last_check
+    checks = get_last_check()
+    return {
+        "providers": {name: r.to_dict() for name, r in checks.items()},
+        "interval_seconds": request.app.state.settings.provider_health_check_interval_seconds,
+    }
+
+
 @router.get("/admin/cert-pins/status")
 async def admin_cert_pins_status(
     request: Request,
