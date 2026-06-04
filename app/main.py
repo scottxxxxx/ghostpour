@@ -12,6 +12,7 @@ from app.middleware.request_logging import RequestLoggingMiddleware, StreamingBy
 from app.models.feature import load_feature_config
 from app.models.tier import load_tier_config
 from app.routers import (
+    app_version,
     apple_webhooks,
     auth,
     cert_pins,
@@ -90,6 +91,16 @@ async def lifespan(app: FastAPI):
     # old shape until manual sync" trap. See issue #186.
     config.hydrate_overlay_additions()
     app.state.remote_configs = config.load_remote_configs()
+
+    # Per-app version registry. Backs GET /v1/app/version. Missing file
+    # is non-fatal; the endpoint just 404s every call until the file
+    # lands. See app/services/app_version.py.
+    from app.services.app_version import load_registry as _load_app_versions
+    app.state.app_versions = _load_app_versions(settings.app_versions_path)
+    logging.getLogger("app.main").info(
+        "app_versions loaded apps=%d path=%s",
+        len(app.state.app_versions), settings.app_versions_path,
+    )
 
     # Register feature hooks
     feature_hooks: dict[str, object] = {}
@@ -198,6 +209,7 @@ app.include_router(features.router, prefix="/v1", tags=["features"])
 app.include_router(preferences.router, prefix="/v1", tags=["preferences"])
 app.include_router(unsubscribe.router, tags=["unsubscribe"])
 app.include_router(telemetry.router, prefix="/v1", tags=["telemetry"])
+app.include_router(app_version.router, prefix="/v1", tags=["app-version"])
 
 # Context Quilt proxy routes — only included when CQ is configured
 if get_settings().cq_base_url:

@@ -126,6 +126,10 @@ class Settings(BaseSettings):
     tier_config_path: str = "config/tiers.yml"
     feature_config_path: str = "config/features.yml"
     provider_config_path: str = "config/providers.yml"
+    # Per-app version registry served by GET /v1/app/version. Keyed by
+    # bundle id. Missing file is non-fatal (endpoint just 404s on every
+    # bundle); see app/services/app_version.py.
+    app_versions_path: str = "config/app-versions.yml"
 
     model_config = {"env_prefix": "CZ_", "env_file": ".env", "extra": "ignore"}
 
