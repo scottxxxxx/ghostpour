@@ -926,7 +926,16 @@ async def update_key(
     request: Request,
     x_admin_key: str = Header(...),
 ):
-    """Update a provider API key — takes effect immediately and persists to .env file."""
+    """Update a provider API key — takes effect immediately and persists to
+    Secret Manager so it survives container restarts.
+
+    Prior implementation tried to write a .env file at /app inside the
+    container. The container can't reach /opt/ghostpour/.env.prod on
+    the host (docker compose reads env_file once at start), so every
+    update went memory-only and silently reverted on the next deploy.
+    This path writes to the same Secret Manager secret that
+    _ensure_secrets_in_env reads at startup, closing that loop.
+    """
     _verify_admin(request, x_admin_key)
     settings = request.app.state.settings
 
@@ -941,61 +950,130 @@ async def update_key(
     if not hasattr(settings, env_key):
         raise HTTPException(status_code=400, detail=f"No setting for {env_key}")
 
-    # Update in-memory (pydantic-settings model is frozen, so use object.__setattr__)
+    # Update in-memory first so the running process picks up the new key
+    # immediately, regardless of whether SM persistence succeeds.
+    # (pydantic-settings model is frozen, so use object.__setattr__)
     object.__setattr__(settings, env_key, body.api_key)
-
-    # Persist to .env file so it survives container restarts
+    # Also update the env var so any subprocess Python (e.g. tests,
+    # debug shells) and any fresh `get_settings()` call sees it.
+    import os
     env_var_name = f"CZ_{env_key.upper()}"
-    persisted = _persist_env_var(env_var_name, body.api_key)
+    os.environ[env_var_name] = body.api_key
 
-    masked = f"...{body.api_key[-4:]}" if len(body.api_key) > 4 else "***"
+    # Persist to Secret Manager. The mapping from env var to secret name
+    # lives in app/config.py:_SECRET_MANAGER_MAPPINGS.
+    from app.config import _SECRET_MANAGER_MAPPINGS
+    sm_secret_name = _SECRET_MANAGER_MAPPINGS.get(env_var_name)
+    if not sm_secret_name:
+        # No mapping configured — the operator added a new provider
+        # without wiring it through SM. Memory-only is the best we can
+        # do, surface it.
+        return {
+            "status": "ok",
+            "provider": body.provider,
+            "key_masked": _mask_key(body.api_key),
+            "persisted": False,
+            "location": "memory_only",
+            "detail": (
+                f"No Secret Manager mapping for {env_var_name}. Add an "
+                "entry to _SECRET_MANAGER_MAPPINGS in app/config.py to "
+                "enable durable persistence."
+            ),
+        }
+
+    success, detail = _persist_to_secret_manager(sm_secret_name, body.api_key)
+    # Clear the secrets cache so a future startup or get_secret() call
+    # reads the just-written value rather than the stale cached one.
+    try:
+        from app.secrets import _cache, _cache_lock
+        with _cache_lock:
+            _cache.clear()
+    except Exception:
+        pass
+
     return {
         "status": "ok",
         "provider": body.provider,
-        "key_masked": masked,
-        "persisted": persisted,
+        "key_masked": _mask_key(body.api_key),
+        "persisted": success,
+        "location": "secret_manager" if success else "memory_only",
+        "secret_name": sm_secret_name,
+        "detail": detail,
     }
 
 
-def _persist_env_var(name: str, value: str) -> bool:
-    """Update or add an env var in the .env file. Returns True if successful."""
-    import os
+def _mask_key(value: str) -> str:
+    return f"...{value[-4:]}" if len(value) > 4 else "***"
 
-    # Try common .env file locations
-    env_paths = [".env.prod", ".env", "/app/.env.prod", "/app/.env"]
-    env_path = None
-    for p in env_paths:
-        if os.path.exists(p):
-            env_path = p
-            break
 
-    if not env_path:
-        return False
+def _persist_to_secret_manager(secret_name: str, value: str) -> tuple[bool, str]:
+    """Add a new version to the named Secret Manager secret. Auto-creates
+    the secret if it doesn't exist yet. Returns (success, detail_message).
+
+    PermissionDenied is reported separately so the dashboard can tell
+    the operator exactly which IAM binding is missing instead of a
+    generic "write failed."
+    """
+    try:
+        from google.api_core.exceptions import (  # type: ignore[import-not-found]
+            NotFound, PermissionDenied,
+        )
+        from google.cloud import secretmanager  # type: ignore[import-not-found]
+        from google.auth import default as auth_default  # type: ignore[import-not-found]
+    except ImportError as e:
+        return False, f"google-cloud-secret-manager not installed: {e}"
+
+    from app.secrets import _resolve_project
+    project = _resolve_project()
+    if not project:
+        return False, (
+            "No GCP project resolved. Set CZ_GCP_PROJECT or run on a "
+            "GCE instance with Application Default Credentials."
+        )
 
     try:
-        # Read existing file
-        with open(env_path) as f:
-            lines = f.readlines()
-
-        # Replace existing key or append
-        found = False
-        new_lines = []
-        for line in lines:
-            if line.strip().startswith(f"{name}="):
-                new_lines.append(f"{name}={value}\n")
-                found = True
-            else:
-                new_lines.append(line)
-
-        if not found:
-            new_lines.append(f"{name}={value}\n")
-
-        with open(env_path, "w") as f:
-            f.writelines(new_lines)
-
-        return True
-    except Exception:
-        return False
+        # Same scope dance as app/secrets.py: GCE metadata-service
+        # credentials need cloud-platform passed explicitly or every
+        # SM call comes back 403.
+        creds, _ = auth_default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
+        client = secretmanager.SecretManagerServiceClient(credentials=creds)
+        secret_path = f"projects/{project}/secrets/{secret_name}"
+        try:
+            client.add_secret_version(
+                request={
+                    "parent": secret_path,
+                    "payload": {"data": value.encode("utf-8")},
+                }
+            )
+            return True, f"Added new version to projects/{project}/secrets/{secret_name}"
+        except NotFound:
+            # First write for this secret — create it then add v1.
+            client.create_secret(
+                request={
+                    "parent": f"projects/{project}",
+                    "secret_id": secret_name,
+                    "secret": {"replication": {"automatic": {}}},
+                }
+            )
+            client.add_secret_version(
+                request={
+                    "parent": secret_path,
+                    "payload": {"data": value.encode("utf-8")},
+                }
+            )
+            return True, (
+                f"Created secret projects/{project}/secrets/{secret_name} "
+                "and added v1."
+            )
+    except PermissionDenied as e:
+        return False, (
+            f"Runtime SA lacks Secret Manager write permission: {e}. "
+            f"Grant roles/secretmanager.admin on projects/{project} (or "
+            f"roles/secretmanager.secretVersionAdder on the specific "
+            f"secret if you pre-create it via gcloud)."
+        )
+    except Exception as e:  # noqa: BLE001 — surface any other failure with detail
+        return False, f"Secret Manager write failed: {e}"
 
 
 @router.get("/admin/dashboard")

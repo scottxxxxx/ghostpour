@@ -327,7 +327,7 @@
   <div id="tab-providers" class="section">
     <h3>API Provider Status</h3>
     <p style="font-size:13px;color:var(--text-dim);margin-bottom:16px;">
-      Check credit balances and update API keys. Changes take effect immediately and are saved to disk.
+      Check credit balances and update API keys. Changes take effect immediately and persist to Secret Manager.
     </p>
     <div id="provider-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;"></div>
   </div>
@@ -1531,7 +1531,13 @@ async function promptUpdateKey(provider, displayName) {
 
   if (resp.ok) {
     const data = await resp.json();
-    const saved = data.persisted ? 'Saved to disk — survives restarts.' : 'Active in memory only — could not write to .env file.';
+    let saved;
+    if (data.persisted) {
+      saved = `Saved to Secret Manager (${data.secret_name}). Survives restarts.`;
+    } else {
+      saved = 'Active in memory only — will revert on container restart.';
+      if (data.detail) saved += `\n\nReason: ${data.detail}`;
+    }
     alert(`Key updated for ${displayName} (${data.key_masked})\n\n${saved}`);
     loadProviders();
   } else {
