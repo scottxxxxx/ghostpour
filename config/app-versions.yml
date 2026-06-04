@@ -1,0 +1,29 @@
+# Per-app version registry. Served by GET /v1/app/version with the
+# X-App-Bundle-Id header.
+#
+# Keyed by Apple bundle identifier (or Android applicationId once we
+# add Android). Each entry has a `platforms` block so the same registry
+# can answer for iOS, Android, macOS, etc. without a wire shape rev.
+#
+# Updates: bump `latest_version` on every TestFlight or App Store
+# release. Bump `min_supported_version` only when you want to force a
+# hard upgrade on old installs.
+#
+# Adding a new app = add a new top-level key. No code change needed.
+# Unknown bundle id returns 404 so a misconfigured client surfaces
+# immediately instead of silently reading the wrong app's data.
+
+com.weirtech.shouldersurf:
+  platforms:
+    ios:
+      # Soft upgrade target. Bump on every release. Client shows a
+      # dismissible toast when the device's CFBundleShortVersionString
+      # is below this.
+      latest_version: "1.11"
+      # Hard floor. Client refuses to operate below this. Bump only
+      # when an older build has a real correctness or security issue.
+      min_supported_version: "1.0"
+      # Tap target for the upgrade prompt. TestFlight invite while in
+      # beta; swap to https://apps.apple.com/app/id<APPID> once the
+      # app is in the App Store.
+      upgrade_url: "https://testflight.apple.com/join/REPLACE_ME"
