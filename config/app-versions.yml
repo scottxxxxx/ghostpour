@@ -5,37 +5,40 @@
 # add Android). Each entry has a `platforms` block so the same registry
 # can answer for iOS, Android, macOS, etc. without a wire shape rev.
 #
-# Updates: bump `latest_version` on every TestFlight or App Store
-# release. Bump `min_supported_version` only when you want to force a
-# hard upgrade on old installs.
+# `latest` is a nested block containing the version + the upgrade URL
+# that should land users on THAT specific build. URL belongs next to
+# the version it represents so an operator can never forget to update
+# the link when bumping the version — they're updated as one block.
+#
+# `min_supported_version` is a flat threshold (any version below this
+# is hard-gated by the client). It does not have its own URL today; if
+# a hard-gated user taps an upgrade prompt, they get latest.upgrade_url.
+#
+# Updates: bump `latest.version` + `latest.upgrade_url` together on
+# every TestFlight or App Store release. Bump `min_supported_version`
+# only when you want to force a hard upgrade on old installs.
 #
 # Adding a new app = add a new top-level key. No code change needed.
 # Unknown bundle id returns 404 so a misconfigured client surfaces
 # immediately instead of silently reading the wrong app's data.
 
-# NOTE: bundle id key is the app's real CFBundleIdentifier
-# (com.shouldersurf.ShoulderSurf, exact case). The com.weirtech.*
-# string that lived here briefly came from the iCloud container, not
-# the app binary. Any rekey for a future app needs to match what the
-# device actually sends on X-App-Bundle-Id.
 com.shouldersurf.ShoulderSurf:
   platforms:
     ios:
-      # Soft upgrade target. Bump on every release. Client shows a
-      # dismissible toast when the device's CFBundleShortVersionString
-      # is below this.
-      #
-      # Current shipping build is 1.12. Set to 1.13 temporarily so SS
-      # (whose test device is on 1.12) can see the soft banner appear
-      # end-to-end. Revert to "1.12" (or the next real build) once they
-      # confirm the banner fires.
-      latest_version: "1.13"
+      latest:
+        # Bump on every release. Client shows a dismissible toast when
+        # the device's CFBundleShortVersionString is below this.
+        #
+        # Current shipping build is 1.12. Set to 1.13 temporarily so SS
+        # (whose test device is on 1.12) can see the soft banner appear
+        # end-to-end. Revert to "1.12" (or the next real build) once
+        # they confirm the banner fires.
+        version: "1.13"
+        # Tap target for the upgrade prompt. Currently the live
+        # TestFlight invite linked from the beta button on
+        # shouldersurf.com. Swap to https://apps.apple.com/app/id<APPID>
+        # once the app is in the App Store.
+        upgrade_url: "https://testflight.apple.com/join/ubRWVcXF"
       # Hard floor. Client refuses to operate below this. Bump only
       # when an older build has a real correctness or security issue.
       min_supported_version: "1.0"
-      # Tap target for the upgrade prompt. Currently the live TestFlight
-      # invite linked from the beta button on shouldersurf.com. Swap to
-      # https://apps.apple.com/app/id<APPID> once the app is in the
-      # App Store. Update alongside latest_version on every release so
-      # the client always lands on the correct build.
-      upgrade_url: "https://testflight.apple.com/join/ubRWVcXF"
