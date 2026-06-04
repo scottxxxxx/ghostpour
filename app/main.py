@@ -130,6 +130,18 @@ async def lifespan(app: FastAPI):
             "or GCP Secret Manager (cloudzap/resend-webhook-secret)."
         )
 
+    # Provider health daemon — periodically pings managed LLM provider
+    # keys so we get alerted on revoked/exhausted keys within minutes
+    # instead of when iOS starts seeing failed chats. Daemon is fail-soft;
+    # see app/services/provider_health.py for cadence + probe strategy.
+    try:
+        from app.services.provider_health import run_daemon as _ph_daemon
+        app.state.provider_health_daemon = asyncio.create_task(_ph_daemon(app))
+    except Exception as e:
+        logging.getLogger("app.main").warning(
+            "provider_health daemon failed to start: %s", e,
+        )
+
     # Cert pin auto-republish daemon. Fail-soft: if it can't start, the
     # endpoint still works for manual publishes via /admin/cert-pins/publish.
     # See app/services/cert_pin_auto_republish.py for the policy.
@@ -167,6 +179,15 @@ async def lifespan(app: FastAPI):
         daemon.cancel()
         try:
             await daemon
+        except (asyncio.CancelledError, Exception):
+            pass
+
+    # Stop the provider health daemon cleanly on shutdown.
+    ph_daemon = getattr(app.state, "provider_health_daemon", None)
+    if ph_daemon is not None and not ph_daemon.done():
+        ph_daemon.cancel()
+        try:
+            await ph_daemon
         except (asyncio.CancelledError, Exception):
             pass
 

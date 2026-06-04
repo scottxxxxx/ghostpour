@@ -126,6 +126,19 @@ class Settings(BaseSettings):
     tier_config_path: str = "config/tiers.yml"
     feature_config_path: str = "config/features.yml"
     provider_config_path: str = "config/providers.yml"
+    # Provider health probe daemon. Periodically pings managed providers
+    # so we get paged the moment a key revokes or budget runs out, instead
+    # of finding out when iOS starts seeing failed chats. Anthropic uses
+    # /v1/messages/count_tokens (free, validates auth without burning
+    # tokens). OpenRouter uses the existing /v1/auth/key balance API.
+    # OpenAI uses a tiny chat completion only if a key is configured.
+    # See app/services/provider_health.py.
+    provider_health_check_interval_seconds: int = 900  # 15 minutes
+    # OpenRouter alert threshold. When `remaining_usd` (limit - used) drops
+    # below this, fire provider_budget_exhausted. 1.00 USD by default gives
+    # ~ a day's headroom at our current burn rate before total exhaustion.
+    openrouter_low_balance_threshold_usd: float = 1.00
+
     # Per-app version registry served by GET /v1/app/version. Keyed by
     # bundle id. Missing file is non-fatal (endpoint just 404s on every
     # bundle); see app/services/app_version.py.
