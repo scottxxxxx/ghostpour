@@ -13,17 +13,27 @@
 # Unknown bundle id returns 404 so a misconfigured client surfaces
 # immediately instead of silently reading the wrong app's data.
 
-com.weirtech.shouldersurf:
+# NOTE: bundle id key is the app's real CFBundleIdentifier
+# (com.shouldersurf.ShoulderSurf, exact case). The com.weirtech.*
+# string that lived here briefly came from the iCloud container, not
+# the app binary. Any rekey for a future app needs to match what the
+# device actually sends on X-App-Bundle-Id.
+com.shouldersurf.ShoulderSurf:
   platforms:
     ios:
       # Soft upgrade target. Bump on every release. Client shows a
       # dismissible toast when the device's CFBundleShortVersionString
       # is below this.
-      latest_version: "1.11"
+      #
+      # Current shipping build is 1.12. Set to 1.13 temporarily so SS
+      # (whose test device is on 1.12) can see the soft banner appear
+      # end-to-end. Revert to "1.12" (or the next real build) once they
+      # confirm the banner fires.
+      latest_version: "1.13"
       # Hard floor. Client refuses to operate below this. Bump only
       # when an older build has a real correctness or security issue.
       min_supported_version: "1.0"
       # Tap target for the upgrade prompt. TestFlight invite while in
       # beta; swap to https://apps.apple.com/app/id<APPID> once the
-      # app is in the App Store.
+      # app is in the App Store. Pending real link from SS.
       upgrade_url: "https://testflight.apple.com/join/REPLACE_ME"
