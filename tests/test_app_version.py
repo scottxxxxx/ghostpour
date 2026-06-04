@@ -44,26 +44,34 @@ def test_load_registry_parses_real_shape(tmp_path):
         com.example.app:
           platforms:
             ios:
-              latest_version: "1.2"
+              latest:
+                version: "1.2"
+                upgrade_url: "https://example.com/upgrade"
               min_supported_version: "1.0"
-              upgrade_url: "https://example.com/upgrade"
     """))
     r = load_registry(p)
     assert "com.example.app" in r
-    assert r["com.example.app"]["platforms"]["ios"]["latest_version"] == "1.2"
+    ios = r["com.example.app"]["platforms"]["ios"]
+    assert ios["latest"]["version"] == "1.2"
+    assert ios["latest"]["upgrade_url"] == "https://example.com/upgrade"
+    assert ios["min_supported_version"] == "1.0"
 
 
 def test_get_version_info_hit():
     registry = {
         "com.example.app": {
             "platforms": {
-                "ios": {"latest_version": "1.2", "min_supported_version": "1.0"},
+                "ios": {
+                    "latest": {"version": "1.2", "upgrade_url": "https://x.test"},
+                    "min_supported_version": "1.0",
+                },
             },
         },
     }
     info = get_version_info(registry, "com.example.app")
     assert info["bundle_id"] == "com.example.app"
-    assert info["platforms"]["ios"]["latest_version"] == "1.2"
+    assert info["platforms"]["ios"]["latest"]["version"] == "1.2"
+    assert info["platforms"]["ios"]["latest"]["upgrade_url"] == "https://x.test"
 
 
 def test_get_version_info_miss():
@@ -86,9 +94,11 @@ def client_with_versions(client, tmp_path, monkeypatch):
         "com.shouldersurf.ShoulderSurf": {
             "platforms": {
                 "ios": {
-                    "latest_version": "1.13",
+                    "latest": {
+                        "version": "1.13",
+                        "upgrade_url": "https://testflight.apple.com/join/ubRWVcXF",
+                    },
                     "min_supported_version": "1.0",
-                    "upgrade_url": "https://testflight.apple.com/join/REPLACE_ME",
                 },
             },
         },
@@ -123,9 +133,10 @@ def test_known_bundle_id_returns_200_with_platforms(client_with_versions):
     assert resp.status_code == 200
     body = resp.json()
     assert body["bundle_id"] == "com.shouldersurf.ShoulderSurf"
-    assert body["platforms"]["ios"]["latest_version"] == "1.13"
-    assert body["platforms"]["ios"]["min_supported_version"] == "1.0"
-    assert body["platforms"]["ios"]["upgrade_url"].startswith("https://")
+    ios = body["platforms"]["ios"]
+    assert ios["latest"]["version"] == "1.13"
+    assert ios["latest"]["upgrade_url"].startswith("https://")
+    assert ios["min_supported_version"] == "1.0"
     assert resp.headers["cache-control"].startswith("public")
 
 
