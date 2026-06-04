@@ -83,10 +83,10 @@ def client_with_versions(client, tmp_path, monkeypatch):
     """Inject a known registry onto the running app via app.state."""
     from app.main import app
     registry = {
-        "com.weirtech.shouldersurf": {
+        "com.shouldersurf.ShoulderSurf": {
             "platforms": {
                 "ios": {
-                    "latest_version": "1.11",
+                    "latest_version": "1.13",
                     "min_supported_version": "1.0",
                     "upgrade_url": "https://testflight.apple.com/join/REPLACE_ME",
                 },
@@ -118,12 +118,12 @@ def test_unknown_bundle_id_returns_404(client_with_versions):
 def test_known_bundle_id_returns_200_with_platforms(client_with_versions):
     resp = client_with_versions.get(
         "/v1/app/version",
-        headers={"X-App-Bundle-Id": "com.weirtech.shouldersurf"},
+        headers={"X-App-Bundle-Id": "com.shouldersurf.ShoulderSurf"},
     )
     assert resp.status_code == 200
     body = resp.json()
-    assert body["bundle_id"] == "com.weirtech.shouldersurf"
-    assert body["platforms"]["ios"]["latest_version"] == "1.11"
+    assert body["bundle_id"] == "com.shouldersurf.ShoulderSurf"
+    assert body["platforms"]["ios"]["latest_version"] == "1.13"
     assert body["platforms"]["ios"]["min_supported_version"] == "1.0"
     assert body["platforms"]["ios"]["upgrade_url"].startswith("https://")
     assert resp.headers["cache-control"].startswith("public")
@@ -134,7 +134,7 @@ def test_endpoint_requires_no_auth(client_with_versions):
     pre-login on launch. Pin that explicitly."""
     resp = client_with_versions.get(
         "/v1/app/version",
-        headers={"X-App-Bundle-Id": "com.weirtech.shouldersurf"},
+        headers={"X-App-Bundle-Id": "com.shouldersurf.ShoulderSurf"},
     )
     assert resp.status_code == 200
 
