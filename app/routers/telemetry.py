@@ -62,6 +62,13 @@ class PingEvent(BaseModel):
     app_version: str | None = Field(default=None, max_length=32)
     os_version: str | None = Field(default=None, max_length=32)
     duration_seconds: int | None = Field(default=None, ge=0, le=86400 * 7)
+    # Raw Apple sysctl `hw.machine` code (e.g. "iPhone17,3"). Server maps
+    # to a marketing name at query time via app/services/device_models.py
+    # so iOS doesn't need to ship a translation table.
+    device_model: str | None = Field(default=None, max_length=64)
+    # BCP-47ish locale string from `Locale.current.identifier` (e.g.
+    # "en_US", "ja_JP"). Used for market segmentation in the dashboard.
+    app_locale: str | None = Field(default=None, max_length=16)
 
 
 def _client_ip(request: Request) -> str:
@@ -126,8 +133,9 @@ async def ping(
     await db.execute(
         """INSERT INTO telemetry_events
            (id, event_type, device_id, user_id, meeting_id, model_id,
-            app_version, os_version, duration_seconds, ip_hash, received_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            app_version, os_version, duration_seconds, ip_hash, received_at,
+            device_model, app_locale)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             str(uuid.uuid4()),
             body.event_type,
@@ -140,6 +148,8 @@ async def ping(
             body.duration_seconds,
             ip_h,
             datetime.now(timezone.utc).isoformat(),
+            body.device_model,
+            body.app_locale,
         ),
     )
     await db.commit()

@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GhostPour Admin</title>
+<!-- ApexCharts for the Telemetry dashboard. CDN load avoids a build
+     step. Pinned major so we don't drift into a breaking release. -->
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3"></script>
 <style>
   :root {
     --bg: #0d1117;
@@ -383,20 +386,33 @@
 
   <!-- Telemetry -->
   <div id="tab-telemetry" class="section">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
       <h3 style="margin:0">Telemetry</h3>
-      <button class="refresh-btn" onclick="loadTelemetry()">Refresh</button>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="tel-days" onchange="loadTelemetry()" class="period-select">
+          <option value="7">7 days</option>
+          <option value="14">14 days</option>
+          <option value="30" selected>30 days</option>
+          <option value="60">60 days</option>
+          <option value="90">90 days</option>
+        </select>
+        <select id="tel-version" onchange="loadTelemetry()" class="period-select"><option value="">All versions</option></select>
+        <select id="tel-os" onchange="loadTelemetry()" class="period-select"><option value="">All iOS</option></select>
+        <select id="tel-device" onchange="loadTelemetry()" class="period-select"><option value="">All devices</option></select>
+        <select id="tel-model" onchange="loadTelemetry()" class="period-select"><option value="">All models</option></select>
+        <button class="refresh-btn" onclick="loadTelemetry()">Refresh</button>
+      </div>
     </div>
-    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Anonymous lifecycle events from iOS — app starts, meeting starts/stops, and the AI model used. Raw events are retained 30 days; aggregates kept indefinitely.</p>
-    <div class="cards" id="telemetry-cards"></div>
-    <h4 style="margin-top:20px">Daily counts (last 30 days)</h4>
-    <div class="table-wrap"><table id="telemetry-series-table"><thead><tr>
-      <th>Day</th><th>App starts</th><th>Distinct devices</th><th>Distinct users</th><th>Meetings started</th><th>Meetings stopped</th>
-    </tr></thead><tbody></tbody></table></div>
-    <h4 style="margin-top:20px">Meetings by model</h4>
-    <div class="table-wrap"><table id="telemetry-models-table"><thead><tr>
-      <th>Model</th><th>Meeting events (start + stop)</th>
-    </tr></thead><tbody></tbody></table></div>
+    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Anonymous lifecycle events from iOS — app starts, meeting starts/stops, AI model used, device model, and OS version. Raw events are retained 30 days. Apply filters above to slice every chart.</p>
+    <div class="cards" id="tel-kpis"></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px;margin-top:16px">
+      <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">App starts by version (daily)</h4><div id="tel-chart-versions"></div></div>
+      <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Meetings by model</h4><div id="tel-chart-models"></div></div>
+      <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Meetings by device</h4><div id="tel-chart-devices"></div></div>
+      <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Devices by iOS version</h4><div id="tel-chart-os"></div></div>
+      <div class="card" style="padding:16px;grid-column:span 2"><h4 style="margin:0 0 8px">Meeting starts by hour × day-of-week (UTC)</h4><div id="tel-chart-heatmap"></div></div>
+      <div class="card" style="padding:16px;grid-column:span 2"><h4 style="margin:0 0 8px">Funnel: app start → meeting start → meeting stop</h4><div id="tel-chart-funnel"></div></div>
+    </div>
   </div>
 
   <!-- Live Log -->
@@ -601,45 +617,99 @@ function switchTab(name) {
 
 // ---------------------------------------------------------------------------
 // Telemetry tab — anonymous lifecycle events from iOS
+// Filter-driven dashboard backed by /admin/telemetry/rich + ApexCharts.
 // ---------------------------------------------------------------------------
+
+// Chart instances cached so re-renders update in place instead of leaking.
+const _telCharts = {};
+
+// Dark theme that matches the rest of the admin surface.
+const _telTheme = {
+  mode: 'dark',
+  palette: 'palette3',  // ApexCharts built-in vibrant palette
+};
+const _telForeground = '#c9d1d9';
+const _telGrid = '#30363d';
+
+function _renderChart(divId, options) {
+  if (_telCharts[divId]) {
+    _telCharts[divId].destroy();
+    delete _telCharts[divId];
+  }
+  const el = document.getElementById(divId);
+  if (!el) return;
+  const merged = Object.assign({
+    theme: _telTheme,
+    chart: Object.assign({
+      foreColor: _telForeground,
+      toolbar: {show: false},
+      animations: {enabled: true, speed: 400, animateGradually: {enabled: false}},
+      background: 'transparent',
+    }, options.chart || {}),
+    grid: Object.assign({borderColor: _telGrid, strokeDashArray: 3}, options.grid || {}),
+    tooltip: Object.assign({theme: 'dark'}, options.tooltip || {}),
+  }, options);
+  _telCharts[divId] = new ApexCharts(el, merged);
+  _telCharts[divId].render();
+}
+
+function _telPopulateOpts(selectId, prefix, values, current) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const opts = [`<option value="">${prefix}</option>`].concat(
+    (values || []).map(v => `<option value="${v}" ${v === current ? 'selected' : ''}>${v}</option>`)
+  );
+  sel.innerHTML = opts.join('');
+}
+
 async function loadTelemetry() {
-  const period = document.getElementById('period').value || 30;
-  const days = Math.max(parseInt(period, 10), 30);  // telemetry tab is monthly-scoped
+  const days = document.getElementById('tel-days')?.value || 30;
+  const version = document.getElementById('tel-version')?.value || '';
+  const os = document.getElementById('tel-os')?.value || '';
+  const device = document.getElementById('tel-device')?.value || '';
+  const model = document.getElementById('tel-model')?.value || '';
+
+  const params = new URLSearchParams({days});
+  if (version) params.set('app_version', version);
+  if (os) params.set('os_version', os);
+  if (device) params.set('device_model', device);
+  if (model) params.set('model_id', model);
+
   try {
-    const resp = await fetch(`${BASE}/webhooks/admin/telemetry/summary?days=${days}`, {
+    const resp = await fetch(`${BASE}/webhooks/admin/telemetry/rich?${params}`, {
       headers: {'X-Admin-Key': adminKey},
     });
     if (!resp.ok) {
-      document.getElementById('telemetry-cards').innerHTML =
+      document.getElementById('tel-kpis').innerHTML =
         `<div class="card" style="grid-column: span 4">Telemetry load failed (${resp.status})</div>`;
       return;
     }
     const d = await resp.json();
-    _renderTelemetry(d);
+    _renderTelemetry(d, {version, os, device, model});
   } catch (e) {
-    document.getElementById('telemetry-cards').innerHTML =
+    document.getElementById('tel-kpis').innerHTML =
       `<div class="card" style="grid-column: span 4">Telemetry error: ${e.message}</div>`;
   }
 }
 
-function _renderTelemetry(d) {
-  // Summary cards. Aggregate the daily series for totals across the window.
-  const sum = (arr) => (arr || []).reduce((a, b) => a + (b.value || 0), 0);
-  const appStarts = sum(d.series.app_starts);
-  const meetingsStarted = sum(d.series.meetings_started);
-  const meetingsStopped = sum(d.series.meetings_stopped);
-  const uniqueDevices = Math.max(...((d.series.distinct_devices || []).map(p => p.value || 0)), 0);
-  const dur = d.duration || {};
-  const fmtDur = (s) => s == null ? '—' : (s >= 60 ? `${Math.round(s / 60)}m` : `${Math.round(s)}s`);
+function _renderTelemetry(d, current) {
+  // Filter dropdowns
+  _telPopulateOpts('tel-version', 'All versions', d.options.app_versions, current.version);
+  _telPopulateOpts('tel-os', 'All iOS', d.options.os_versions, current.os);
+  _telPopulateOpts('tel-device', 'All devices', d.options.device_models, current.device);
+  _telPopulateOpts('tel-model', 'All models', d.options.model_ids, current.model);
 
-  document.getElementById('telemetry-cards').innerHTML = [
-    {label: 'App starts',      value: appStarts.toLocaleString(),     hint: `over ${d.days} days`},
-    {label: 'Meetings started', value: meetingsStarted.toLocaleString()},
-    {label: 'Meetings stopped', value: meetingsStopped.toLocaleString(), hint: 'drop-off if < started'},
-    {label: 'Peak distinct devices/day', value: uniqueDevices.toLocaleString()},
-    {label: 'Avg meeting duration', value: fmtDur(dur.avg_sec), hint: `n=${dur.sample_size || 0}`},
-    {label: 'Shortest meeting', value: fmtDur(dur.min_sec)},
-    {label: 'Longest meeting',  value: fmtDur(dur.max_sec)},
+  // --- KPI cards ---
+  const k = d.kpis || {};
+  const fmtDur = (s) => s == null ? '—' : (s >= 60 ? `${Math.round(s / 60)}m ${Math.round(s) % 60}s` : `${Math.round(s)}s`);
+  document.getElementById('tel-kpis').innerHTML = [
+    {label: 'Total events', value: k.total_events.toLocaleString(), hint: `last ${d.days}d`},
+    {label: 'Distinct devices', value: k.distinct_devices.toLocaleString()},
+    {label: 'Distinct users', value: k.distinct_users.toLocaleString()},
+    {label: 'App starts', value: k.app_starts.toLocaleString()},
+    {label: 'Meetings started', value: k.meeting_starts.toLocaleString()},
+    {label: 'Meetings stopped', value: k.meeting_stops.toLocaleString(), hint: 'drop-off if < started'},
+    {label: 'Avg meeting duration', value: fmtDur(k.avg_duration_sec)},
   ].map(c => `
     <div class="card">
       <div class="card-label">${c.label}</div>
@@ -648,32 +718,106 @@ function _renderTelemetry(d) {
     </div>
   `).join('');
 
-  // Daily series table — collapse the per-metric series into per-day rows
-  // so it reads horizontally.
-  const days = (d.series.app_starts || []).map(p => p.day);
-  const valAt = (key, day) => {
-    const pt = (d.series[key] || []).find(p => p.day === day);
-    return pt ? pt.value : 0;
-  };
-  document.querySelector('#telemetry-series-table tbody').innerHTML = days.map(day => `
-    <tr>
-      <td>${day}</td>
-      <td>${valAt('app_starts', day).toLocaleString()}</td>
-      <td>${valAt('distinct_devices', day).toLocaleString()}</td>
-      <td>${valAt('distinct_users', day).toLocaleString()}</td>
-      <td>${valAt('meetings_started', day).toLocaleString()}</td>
-      <td>${valAt('meetings_stopped', day).toLocaleString()}</td>
-    </tr>
-  `).reverse().join('');  // newest first
+  // --- Stacked area: app_starts by version ---
+  _renderChart('tel-chart-versions', {
+    series: d.version_series.length ? d.version_series : [{name: '(no data)', data: []}],
+    chart: {type: 'area', stacked: true, height: 280},
+    dataLabels: {enabled: false},
+    stroke: {curve: 'smooth', width: 2},
+    fill: {type: 'gradient', gradient: {opacityFrom: 0.6, opacityTo: 0.15}},
+    xaxis: {type: 'datetime', labels: {style: {colors: _telForeground}}},
+    yaxis: {labels: {style: {colors: _telForeground}}},
+    legend: {position: 'top'},
+    colors: ['#58a6ff','#3fb950','#d29922','#bc8cff','#ff7b72','#79c0ff','#a5d6ff','#f0883e'],
+  });
 
-  // Model breakdown
-  document.querySelector('#telemetry-models-table tbody').innerHTML =
-    (d.models || []).map(m => `
-      <tr>
-        <td><code>${m.model_id}</code></td>
-        <td>${m.meetings.toLocaleString()}</td>
-      </tr>
-    `).join('') || '<tr><td colspan="2" style="color:var(--text-dim)">No model events in this window yet.</td></tr>';
+  // --- Donut: meetings by model ---
+  _renderChart('tel-chart-models', {
+    series: d.models.map(m => m.meetings),
+    chart: {type: 'donut', height: 280},
+    labels: d.models.map(m => m.model_id),
+    legend: {position: 'bottom'},
+    colors: ['#3fb950','#bc8cff','#58a6ff','#d29922','#ff7b72','#79c0ff'],
+    plotOptions: {pie: {donut: {size: '60%', labels: {show: true, total: {show: true, label: 'meetings', color: _telForeground}}}}},
+    dataLabels: {enabled: true, formatter: (val) => `${val.toFixed(0)}%`},
+    noData: {text: 'No meeting events in this window.'},
+  });
+
+  // --- Horizontal bar: meetings by device ---
+  const deviceLabels = d.devices.map(x => x.marketing_name || x.device_model);
+  _renderChart('tel-chart-devices', {
+    series: [{name: 'Meetings', data: d.devices.map(x => x.meetings)}],
+    chart: {type: 'bar', height: 280},
+    plotOptions: {bar: {horizontal: true, borderRadius: 4, distributed: true}},
+    xaxis: {categories: deviceLabels, labels: {style: {colors: _telForeground}}},
+    yaxis: {labels: {style: {colors: _telForeground}}},
+    legend: {show: false},
+    dataLabels: {enabled: true, style: {colors: ['#fff']}},
+    colors: ['#3fb950','#58a6ff','#bc8cff','#d29922','#ff7b72','#79c0ff','#a5d6ff'],
+    noData: {text: 'No device_model field on events yet. SS adds it in next iOS build.'},
+  });
+
+  // --- Donut: devices by iOS version ---
+  _renderChart('tel-chart-os', {
+    series: d.os_versions.map(x => x.devices),
+    chart: {type: 'donut', height: 280},
+    labels: d.os_versions.map(x => x.os_version),
+    legend: {position: 'bottom'},
+    colors: ['#58a6ff','#bc8cff','#3fb950','#d29922','#ff7b72'],
+    plotOptions: {pie: {donut: {size: '60%'}}},
+    dataLabels: {enabled: true, formatter: (val) => `${val.toFixed(0)}%`},
+    noData: {text: 'No iOS version data in this window.'},
+  });
+
+  // --- Heatmap: meetings by dow × hour ---
+  const dowNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const heatSeries = dowNames.map((name, dowIdx) => ({
+    name,
+    data: Array.from({length: 24}, (_, h) => {
+      const m = d.heatmap.find(x => x.dow === dowIdx && x.hour === h);
+      return {x: `${String(h).padStart(2, '0')}:00`, y: m ? m.n : 0};
+    }),
+  }));
+  _renderChart('tel-chart-heatmap', {
+    series: heatSeries,
+    chart: {type: 'heatmap', height: 320},
+    dataLabels: {enabled: false},
+    colors: ['#58a6ff'],
+    plotOptions: {heatmap: {
+      shadeIntensity: 0.6,
+      colorScale: {ranges: [
+        {from: 0, to: 0, color: '#161b22', name: 'none'},
+        {from: 1, to: 2, color: '#0e4429', name: '1-2'},
+        {from: 3, to: 5, color: '#006d32', name: '3-5'},
+        {from: 6, to: 9, color: '#26a641', name: '6-9'},
+        {from: 10, to: 9999, color: '#39d353', name: '10+'},
+      ]},
+    }},
+    xaxis: {labels: {style: {colors: _telForeground, fontSize: '10px'}}},
+    yaxis: {labels: {style: {colors: _telForeground}}},
+    noData: {text: 'No meeting events in this window.'},
+  });
+
+  // --- Funnel via horizontal bar ---
+  _renderChart('tel-chart-funnel', {
+    series: [{name: 'Count', data: d.funnel.map(s => s.n)}],
+    chart: {type: 'bar', height: 220},
+    plotOptions: {bar: {horizontal: true, borderRadius: 6, distributed: true, barHeight: '70%'}},
+    xaxis: {categories: d.funnel.map(s => s.stage), labels: {style: {colors: _telForeground}}},
+    yaxis: {labels: {style: {colors: _telForeground}}},
+    legend: {show: false},
+    dataLabels: {
+      enabled: true,
+      style: {colors: ['#fff']},
+      formatter: (val, opts) => {
+        const arr = d.funnel.map(s => s.n);
+        const first = arr[0] || 1;
+        const pct = arr[opts.dataPointIndex] / first;
+        return `${val.toLocaleString()}  (${(pct * 100).toFixed(0)}%)`;
+      },
+    },
+    colors: ['#58a6ff','#bc8cff','#3fb950'],
+  });
 }
 
 // ---------------------------------------------------------------------------
