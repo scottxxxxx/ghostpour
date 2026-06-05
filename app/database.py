@@ -291,6 +291,15 @@ MIGRATIONS = [
         created_by_admin_key_suffix TEXT
     )""",
     "CREATE INDEX IF NOT EXISTS idx_cert_pin_manifest_version_desc ON cert_pin_manifest(version DESC)",
+    # v25: Richer telemetry dimensions for the dashboard. `device_model`
+    # is the raw Apple hw.machine code from iOS (e.g. "iPhone17,3"); the
+    # server maps it to a marketing name at query time. `app_locale` is
+    # BCP-47ish (e.g. "en_US"). Both are optional on the wire so older
+    # iOS builds that don't send them still validate.
+    "ALTER TABLE telemetry_events ADD COLUMN device_model TEXT",
+    "ALTER TABLE telemetry_events ADD COLUMN app_locale TEXT",
+    "CREATE INDEX IF NOT EXISTS idx_telemetry_device_model ON telemetry_events(device_model) WHERE device_model IS NOT NULL",
+    "CREATE INDEX IF NOT EXISTS idx_telemetry_app_version ON telemetry_events(app_version) WHERE app_version IS NOT NULL",
 ]
 
 
