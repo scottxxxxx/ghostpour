@@ -1976,6 +1976,204 @@ async def telemetry_summary(
     }
 
 
+@router.get("/admin/telemetry/rich")
+async def telemetry_rich(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    days: int = Query(default=30, ge=1, le=90),
+    app_version: str | None = Query(default=None),
+    device_model: str | None = Query(default=None),
+    model_id: str | None = Query(default=None),
+    os_version: str | None = Query(default=None),
+):
+    """Ad-hoc rich telemetry rollups for the visual dashboard.
+
+    Queries raw `telemetry_events` directly so we can slice by any
+    dimension within the 30-day TTL window. Filters cascade — every
+    query honors all four optional filters.
+
+    The trade-off vs. /admin/telemetry/summary: this can't go past the
+    raw-events TTL, but it can answer every breakdown the dashboard
+    renders without pre-aggregation. For the dashboard's typical 7-30
+    day windows that's the right call.
+    """
+    _verify_admin(request, x_admin_key)
+    from app.services.device_models import to_marketing_name
+
+    # Build a reusable WHERE clause + bound parameters.
+    clauses = ["received_at >= datetime('now', ?)"]
+    params: list[object] = [f"-{days} days"]
+    if app_version:
+        clauses.append("app_version = ?")
+        params.append(app_version)
+    if device_model:
+        clauses.append("device_model = ?")
+        params.append(device_model)
+    if model_id:
+        clauses.append("model_id = ?")
+        params.append(model_id)
+    if os_version:
+        clauses.append("os_version = ?")
+        params.append(os_version)
+    where = " AND ".join(clauses)
+
+    async def _all(sql: str, *extra: object) -> list[dict]:
+        cur = await db.execute(sql, (*params, *extra))
+        rows = await cur.fetchall()
+        return [dict(r) for r in rows]
+
+    # --- KPIs --------------------------------------------------------------
+    kpi_rows = await _all(f"""
+        SELECT
+            COUNT(*) AS total_events,
+            COUNT(DISTINCT device_id) AS distinct_devices,
+            COUNT(DISTINCT user_id) AS distinct_users,
+            SUM(CASE WHEN event_type='app_start' THEN 1 ELSE 0 END) AS app_starts,
+            SUM(CASE WHEN event_type='meeting_start' THEN 1 ELSE 0 END) AS meeting_starts,
+            SUM(CASE WHEN event_type='meeting_stop' THEN 1 ELSE 0 END) AS meeting_stops,
+            AVG(CASE WHEN event_type='meeting_stop' THEN duration_seconds END) AS avg_duration_sec
+        FROM telemetry_events
+        WHERE {where}
+    """)
+    kpis = kpi_rows[0] if kpi_rows else {}
+
+    # --- Daily app_starts stacked by version -------------------------------
+    series_rows = await _all(f"""
+        SELECT date(received_at) AS day,
+               COALESCE(app_version, 'unknown') AS app_version,
+               COUNT(*) AS n
+        FROM telemetry_events
+        WHERE {where} AND event_type='app_start'
+        GROUP BY day, app_version
+        ORDER BY day, app_version
+    """)
+    # Pivot into per-version series.
+    days_seen: list[str] = sorted({r["day"] for r in series_rows})
+    versions_seen: list[str] = sorted({r["app_version"] for r in series_rows})
+    lookup = {(r["day"], r["app_version"]): r["n"] for r in series_rows}
+    version_series = [
+        {
+            "name": v,
+            "data": [{"x": d, "y": int(lookup.get((d, v), 0))} for d in days_seen],
+        }
+        for v in versions_seen
+    ]
+
+    # --- Meetings by model_id ---------------------------------------------
+    models = await _all(f"""
+        SELECT COALESCE(model_id, 'unknown') AS model_id, COUNT(*) AS meetings
+        FROM telemetry_events
+        WHERE {where} AND event_type='meeting_start'
+        GROUP BY model_id
+        ORDER BY meetings DESC
+    """)
+
+    # --- Meetings by device_model (with marketing name) -------------------
+    raw_devices = await _all(f"""
+        SELECT COALESCE(device_model, 'unknown') AS device_model, COUNT(*) AS meetings
+        FROM telemetry_events
+        WHERE {where} AND event_type='meeting_start'
+        GROUP BY device_model
+        ORDER BY meetings DESC
+    """)
+    devices = [
+        {
+            "device_model": r["device_model"],
+            "marketing_name": (
+                to_marketing_name(r["device_model"])
+                if r["device_model"] != "unknown" else "unknown"
+            ),
+            "meetings": r["meetings"],
+        }
+        for r in raw_devices
+    ]
+
+    # --- Distinct devices by os_version -----------------------------------
+    os_versions = await _all(f"""
+        SELECT COALESCE(os_version, 'unknown') AS os_version,
+               COUNT(DISTINCT device_id) AS devices
+        FROM telemetry_events
+        WHERE {where}
+        GROUP BY os_version
+        ORDER BY devices DESC
+    """)
+
+    # --- Heatmap: meetings by (day_of_week, hour) ------------------------
+    # SQLite: strftime('%w') = day of week 0-6 (Sun=0). strftime('%H') = hour.
+    heat_rows = await _all(f"""
+        SELECT CAST(strftime('%w', received_at) AS INTEGER) AS dow,
+               CAST(strftime('%H', received_at) AS INTEGER) AS hour,
+               COUNT(*) AS n
+        FROM telemetry_events
+        WHERE {where} AND event_type='meeting_start'
+        GROUP BY dow, hour
+    """)
+    heatmap = [{"dow": r["dow"], "hour": r["hour"], "n": r["n"]} for r in heat_rows]
+
+    # --- Funnel (totals) -------------------------------------------------
+    funnel = [
+        {"stage": "App start", "n": int(kpis.get("app_starts") or 0)},
+        {"stage": "Meeting start", "n": int(kpis.get("meeting_starts") or 0)},
+        {"stage": "Meeting stop", "n": int(kpis.get("meeting_stops") or 0)},
+    ]
+
+    # --- Filter options (so the dashboard can populate dropdowns) ---------
+    # Strip filter so dropdowns show ALL options, not just ones matching
+    # the current filter set. Otherwise picking "iPhone 16" hides every
+    # other device.
+    opt_rows = await db.execute(
+        "SELECT DISTINCT app_version, os_version, device_model, model_id "
+        "FROM telemetry_events WHERE received_at >= datetime('now', ?)",
+        (f"-{days} days",),
+    )
+    options = {
+        "app_versions": set(),
+        "os_versions": set(),
+        "device_models": set(),
+        "model_ids": set(),
+    }
+    for r in await opt_rows.fetchall():
+        d = dict(r)
+        for k, src in [
+            ("app_versions", d["app_version"]),
+            ("os_versions", d["os_version"]),
+            ("device_models", d["device_model"]),
+            ("model_ids", d["model_id"]),
+        ]:
+            if src:
+                options[k].add(src)
+
+    return {
+        "days": days,
+        "filters": {
+            "app_version": app_version,
+            "device_model": device_model,
+            "model_id": model_id,
+            "os_version": os_version,
+        },
+        "kpis": {
+            "total_events": int(kpis.get("total_events") or 0),
+            "distinct_devices": int(kpis.get("distinct_devices") or 0),
+            "distinct_users": int(kpis.get("distinct_users") or 0),
+            "app_starts": int(kpis.get("app_starts") or 0),
+            "meeting_starts": int(kpis.get("meeting_starts") or 0),
+            "meeting_stops": int(kpis.get("meeting_stops") or 0),
+            "avg_duration_sec": (
+                round(kpis["avg_duration_sec"], 1)
+                if kpis.get("avg_duration_sec") is not None else None
+            ),
+        },
+        "version_series": version_series,
+        "models": models,
+        "devices": devices,
+        "os_versions": os_versions,
+        "heatmap": heatmap,
+        "funnel": funnel,
+        "options": {k: sorted(v) for k, v in options.items()},
+    }
+
+
 # --- Email management (Resend webhook events + suppression list) ---
 
 
