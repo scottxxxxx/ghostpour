@@ -134,10 +134,74 @@ def test_known_bundle_id_returns_200_with_platforms(client_with_versions):
     body = resp.json()
     assert body["bundle_id"] == "com.shouldersurf.ShoulderSurf"
     ios = body["platforms"]["ios"]
+    # Nested shape (canonical, what future clients read).
     assert ios["latest"]["version"] == "1.13"
     assert ios["latest"]["upgrade_url"].startswith("https://")
+    # Flat aliases (additive, what 1.13's flat decoder reads).
+    assert ios["latest_version"] == "1.13"
+    assert ios["upgrade_url"].startswith("https://")
     assert ios["min_supported_version"] == "1.0"
     assert resp.headers["cache-control"].startswith("public")
+
+
+def test_response_includes_flat_aliases_for_1_13_decoder(client_with_versions):
+    """SS's 1.13 build (build 377, shipped 2026-06-03) decodes
+    `latest_version` + `upgrade_url` as flat fields on the platform.
+    Without the additive aliases, every 1.13 device silently reports
+    'no update available' even when a newer version ships, because
+    its decoder sees null for the field it expects. Pin the contract."""
+    resp = client_with_versions.get(
+        "/v1/app/version",
+        headers={"X-App-Bundle-Id": "com.shouldersurf.ShoulderSurf"},
+    )
+    ios = resp.json()["platforms"]["ios"]
+    # Flat siblings must mirror the nested values exactly.
+    assert ios["latest_version"] == ios["latest"]["version"]
+    assert ios["upgrade_url"] == ios["latest"]["upgrade_url"]
+
+
+def test_get_version_info_emits_flat_aliases():
+    """Unit test the helper directly: nested platforms input → flat
+    aliases on the way out."""
+    registry = {
+        "com.example.app": {
+            "platforms": {
+                "ios": {
+                    "latest": {
+                        "version": "2.0",
+                        "upgrade_url": "https://example.com/u",
+                    },
+                    "min_supported_version": "1.0",
+                },
+            },
+        },
+    }
+    info = get_version_info(registry, "com.example.app")
+    ios = info["platforms"]["ios"]
+    assert ios["latest"]["version"] == "2.0"
+    assert ios["latest_version"] == "2.0"
+    assert ios["upgrade_url"] == "https://example.com/u"
+
+
+def test_aliases_do_not_overwrite_existing_flat_fields():
+    """Defensive: if an operator one day puts flat fields in the YAML
+    directly, don't clobber them with the nested values."""
+    registry = {
+        "com.example.app": {
+            "platforms": {
+                "ios": {
+                    "latest": {"version": "2.0", "upgrade_url": "https://A"},
+                    "latest_version": "1.99",
+                    "upgrade_url": "https://B",
+                    "min_supported_version": "1.0",
+                },
+            },
+        },
+    }
+    info = get_version_info(registry, "com.example.app")
+    ios = info["platforms"]["ios"]
+    assert ios["latest_version"] == "1.99"  # explicit value preserved
+    assert ios["upgrade_url"] == "https://B"
 
 
 def test_endpoint_requires_no_auth(client_with_versions):
