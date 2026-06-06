@@ -2091,12 +2091,18 @@ async def telemetry_rich(
         GROUP BY device_model
         ORDER BY meetings DESC
     """)
+    # Null device_model on the wire means a pre-1.13 iOS build — SS only
+    # added the field in 1.13. Label the bucket clearly so the dashboard
+    # doesn't look like we have a mountain of unrecognized device codes,
+    # which gives the wrong impression of mapping coverage. Decays
+    # naturally as old builds churn out of the 30-day raw event TTL.
+    _DEVICE_MISSING_LABEL = "Field missing (pre-1.13 build)"
     devices = [
         {
             "device_model": r["device_model"],
             "marketing_name": (
                 to_marketing_name(r["device_model"])
-                if r["device_model"] != "unknown" else "unknown"
+                if r["device_model"] != "unknown" else _DEVICE_MISSING_LABEL
             ),
             "meetings": r["meetings"],
         }
