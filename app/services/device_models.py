@@ -98,6 +98,11 @@ _MARKETING_NAMES: dict[str, str] = {
     "iPad14,9": "iPad Air 11\" (M2)",
     "iPad14,10": "iPad Air 13\" (M2)",
     "iPad14,11": "iPad Air 13\" (M2)",
+    # iPad Air M4 (paired Wi-Fi / Cellular per Apple's convention)
+    "iPad16,7": "iPad Air 11\" (M4)",
+    "iPad16,8": "iPad Air 11\" (M4)",
+    "iPad16,9": "iPad Air 13\" (M4)",
+    "iPad16,10": "iPad Air 13\" (M4)",
     # iPad mini
     "iPad14,1": "iPad mini (6th gen)",
     "iPad14,2": "iPad mini (6th gen)",
@@ -123,14 +128,31 @@ _MARKETING_NAMES: dict[str, str] = {
 def to_marketing_name(raw: str | None) -> str | None:
     """Translate a sysctl hw.machine code to a human marketing name.
 
-    None / empty input → None. Unknown codes return a "Unknown
-    (<raw>)" string so the dashboard renders something specific
-    rather than swallowing the data point. We deliberately keep the
-    raw code in that fallback so an operator can grep, look it up,
-    and add a row above.
+    Priority order:
+    1. The synced map from app/services/device_models_sync (refreshed
+       weekly from adamawolf's gist, the de facto community-maintained
+       canonical source).
+    2. The hand-curated static table above, which acts as a fallback
+       during the brief window between deploy and first sync, and for
+       edge cases the upstream gist hasn't picked up.
+    3. `Unknown (<raw>)` string preserving the original code so an
+       operator can grep, look it up, and add a row.
+
+    None / empty input → None.
     """
     if not raw:
         return None
+    # Local import keeps this module standalone for tests and avoids a
+    # circular import if anything in sync grows to depend on us.
+    try:
+        from app.services import device_models_sync
+        synced = device_models_sync.lookup(raw)
+        if synced is not None:
+            return synced
+    except Exception:
+        # Sync module not loaded yet (e.g., during early import in
+        # test fixtures). Fall through to static table.
+        pass
     name = _MARKETING_NAMES.get(raw)
     if name is not None:
         return name
