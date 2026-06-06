@@ -29,12 +29,10 @@ com.shouldersurf.ShoulderSurf:
         # Bump on every release. Client shows a dismissible toast when
         # the device's CFBundleShortVersionString is below this.
         #
-        # Current shipping build is 1.13 (build 447 on TestFlight).
-        # Bump on every TestFlight or App Store release that goes out
-        # to users. SS verified the soft-banner pipeline end-to-end
-        # 2026-06-06 with a temporary 1.14 flip on a flat-decoder
-        # device — banner fires and TestFlight tap-through works.
-        version: "1.13"
+        # Current shipping build is 1.14 (2026-06-06). Bump on every
+        # TestFlight or App Store release that goes out to users.
+        # Soft-banner pipeline verified end-to-end 2026-06-06.
+        version: "1.14"
         # Tap target for the upgrade prompt. Currently the live
         # TestFlight invite linked from the beta button on
         # shouldersurf.com. Swap to https://apps.apple.com/app/id<APPID>
