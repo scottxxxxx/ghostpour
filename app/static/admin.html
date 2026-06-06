@@ -234,7 +234,7 @@
   <div id="tab-users" class="section">
     <h3>All Users</h3>
     <div class="table-wrap"><table id="user-table"><thead><tr>
-      <th>Email</th><th>Tier</th><th>Hours Used</th><th>Allocation</th><th>Resets</th><th>Lifetime Cost</th><th>Last Active</th><th></th>
+      <th>Email</th><th>Tier</th><th>Hours Used</th><th>Allocation</th><th>Resets</th><th id="user-table-window-cost-th">Period Cost</th><th>Lifetime Cost</th><th>Last Active</th><th></th>
     </tr></thead><tbody></tbody></table></div>
 
     <!-- User detail panel (shown when clicking a user) -->
@@ -1121,7 +1121,11 @@ async function refresh() {
     <td>${fmtCost(m.cost_usd)}</td><td>${fmtMs(m.avg_latency_ms)}</td>
   </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-dim)">No usage data yet</td></tr>';
 
-  // User table
+  // User table — sync the windowed cost column header with the active period
+  // selector so operators see "30d Cost" / "90d Cost" / etc instead of a
+  // generic label that doesn't say what window the number covers.
+  const _userWinTh = document.getElementById('user-table-window-cost-th');
+  if (_userWinTh) _userWinTh.textContent = `${days}d Cost`;
   const utbody = document.querySelector('#user-table tbody');
   utbody.innerHTML = users.users.map(u => {
     const effectiveTier = u.simulated_tier || u.tier;
@@ -1144,7 +1148,9 @@ async function refresh() {
     <td>${hrsUsed} / ${hrsLimit} hrs</td>
     <td>${allocBar}</td>
     <td>${resets}</td>
-    <td><div>${fmtCost(u.lifetime_cost_usd)}</div><div style="color:var(--text-dim);font-size:0.8em">${fmtCost(u.window_cost_usd)} last ${days}d</div></td><td>${timeAgo(u.last_request)}</td>
+    <td>${fmtCost(u.window_cost_usd)}</td>
+    <td>${fmtCost(u.lifetime_cost_usd)}</td>
+    <td>${timeAgo(u.last_request)}</td>
     <td style="display:flex;gap:4px;align-items:center">
       <select class="period-select" style="font-size:11px;padding:3px 6px" onchange="changeTier('${u.id}',this.value,'${u.tier}')" ${u.tier === 'admin' ? 'disabled' : ''}>
         ${tierNames.map(t => `<option value="${t}" ${t === u.tier ? 'selected' : ''}>${t}</option>`).join('')}
