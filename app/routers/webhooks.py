@@ -2000,6 +2000,7 @@ async def telemetry_rich(
     """
     _verify_admin(request, x_admin_key)
     from app.services.device_models import to_marketing_name
+    from app.services.model_display import to_display_name
 
     # Build a reusable WHERE clause + bound parameters.
     clauses = ["received_at >= datetime('now', ?)"]
@@ -2061,13 +2062,26 @@ async def telemetry_rich(
     ]
 
     # --- Meetings by model_id ---------------------------------------------
-    models = await _all(f"""
+    raw_models = await _all(f"""
         SELECT COALESCE(model_id, 'unknown') AS model_id, COUNT(*) AS meetings
         FROM telemetry_events
         WHERE {where} AND event_type='meeting_start'
         GROUP BY model_id
         ORDER BY meetings DESC
     """)
+    # Attach the product-facing display name (e.g. cloudzap/auto → "SS AI")
+    # so the dashboard doesn't leak internal routing aliases to the operator.
+    models = [
+        {
+            "model_id": r["model_id"],
+            "display_name": (
+                to_display_name(r["model_id"])
+                if r["model_id"] != "unknown" else "unknown"
+            ),
+            "meetings": r["meetings"],
+        }
+        for r in raw_models
+    ]
 
     # --- Meetings by device_model (with marketing name) -------------------
     raw_devices = await _all(f"""

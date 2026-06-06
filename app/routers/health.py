@@ -45,9 +45,20 @@ async def health_v1(request: Request):
 
 @router.get("/admin")
 async def admin_ui():
-    """Serve the admin dashboard."""
+    """Serve the admin dashboard.
+
+    Sends `Cache-Control: no-store` so the browser never serves the
+    HTML from cache. Without this, deploys that ship a new admin.html
+    look broken to operators with a tab already open — they keep
+    seeing the old layout until they hard-refresh. The build-SHA badge
+    in the header confirms which build is loaded.
+    """
     html_path = Path(__file__).parent.parent / "static" / "admin.html"
-    return FileResponse(html_path, media_type="text/html")
+    return FileResponse(
+        html_path,
+        media_type="text/html",
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
 
 
 @router.get("/v1/model-pricing")

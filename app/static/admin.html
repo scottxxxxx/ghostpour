@@ -732,10 +732,13 @@ function _renderTelemetry(d, current) {
   });
 
   // --- Donut: meetings by model ---
+  // Prefer the server-provided display_name (e.g. "SS AI" instead of
+  // the internal "cloudzap/auto" routing id) so the operator dashboard
+  // doesn't leak GhostPour-internal aliases.
   _renderChart('tel-chart-models', {
     series: d.models.map(m => m.meetings),
     chart: {type: 'donut', height: 280},
-    labels: d.models.map(m => m.model_id),
+    labels: d.models.map(m => m.display_name || m.model_id),
     legend: {position: 'bottom'},
     colors: ['#3fb950','#bc8cff','#58a6ff','#d29922','#ff7b72','#79c0ff'],
     plotOptions: {pie: {donut: {size: '60%', labels: {show: true, total: {show: true, label: 'meetings', color: _telForeground}}}}},

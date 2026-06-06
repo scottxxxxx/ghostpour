@@ -130,6 +130,23 @@ async def lifespan(app: FastAPI):
             "or GCP Secret Manager (cloudzap/resend-webhook-secret)."
         )
 
+    # Device models periodic sync — keeps the iPhone/iPad identifier-to-
+    # marketing-name table fresh from adamawolf's gist so we don't need
+    # to manually edit a Python file every Apple release. Loads any
+    # previously-cached JSON immediately and spawns a weekly refresh
+    # task. Fail-soft: a missing/unreachable gist falls back to the
+    # hand-curated static table in app/services/device_models.py.
+    try:
+        from app.services import device_models_sync
+        device_models_sync.load_cached_from_disk()
+        app.state.device_models_sync_daemon = asyncio.create_task(
+            device_models_sync.run_daemon(app)
+        )
+    except Exception as e:
+        logging.getLogger("app.main").warning(
+            "device_models_sync daemon failed to start: %s", e,
+        )
+
     # Provider health daemon — periodically pings managed LLM provider
     # keys so we get alerted on revoked/exhausted keys within minutes
     # instead of when iOS starts seeing failed chats. Daemon is fail-soft;
@@ -188,6 +205,15 @@ async def lifespan(app: FastAPI):
         ph_daemon.cancel()
         try:
             await ph_daemon
+        except (asyncio.CancelledError, Exception):
+            pass
+
+    # Stop the device models sync daemon cleanly on shutdown.
+    dms_daemon = getattr(app.state, "device_models_sync_daemon", None)
+    if dms_daemon is not None and not dms_daemon.done():
+        dms_daemon.cancel()
+        try:
+            await dms_daemon
         except (asyncio.CancelledError, Exception):
             pass
 
