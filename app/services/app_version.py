@@ -59,5 +59,40 @@ def get_version_info(registry: dict[str, Any], bundle_id: str) -> dict | None:
         return None
     return {
         "bundle_id": bundle_id,
-        "platforms": platforms,
+        "platforms": _emit_with_flat_aliases(platforms),
     }
+
+
+def _emit_with_flat_aliases(platforms: dict) -> dict:
+    """Return platforms with the `latest` block mirrored as flat
+    `latest_version` + `upgrade_url` siblings.
+
+    Background: PR #210 shipped a flat shape, PR #213 restructured into
+    a nested `latest` block. The 1.13 iOS build (build 377, shipped
+    2026-06-03) decodes the FLAT shape and silently treats the nested
+    response as "no update available." 1.14 will accept both shapes,
+    but for the entire 1.13-in-the-field window we need to serve both
+    on the wire so the soft banner actually fires.
+
+    This is purely additive — the nested `latest` block stays, the
+    flat aliases sit next to it. Future clients keep reading the
+    nested form (semantically cleaner because the URL and version are
+    coupled to the release they describe); 1.13 reads the flat form.
+
+    Operators continue editing the YAML in the nested shape only — the
+    aliases are synthesized here on the way out.
+    """
+    out: dict = {}
+    for platform_key, p in platforms.items():
+        if not isinstance(p, dict):
+            out[platform_key] = p
+            continue
+        merged = dict(p)
+        latest = p.get("latest")
+        if isinstance(latest, dict):
+            if "version" in latest and "latest_version" not in merged:
+                merged["latest_version"] = latest["version"]
+            if "upgrade_url" in latest and "upgrade_url" not in merged:
+                merged["upgrade_url"] = latest["upgrade_url"]
+        out[platform_key] = merged
+    return out
