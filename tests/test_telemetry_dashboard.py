@@ -165,6 +165,29 @@ def test_rich_endpoint_applies_device_filter(client):
     assert all(d in ("iPhone17,3", "unknown") for d in devices)
 
 
+def test_rich_endpoint_null_device_labeled_pre113(client):
+    """Events from pre-1.13 builds have no device_model on the wire.
+    The dashboard label should clearly identify this bucket so it
+    doesn't look like a mountain of unrecognized device codes."""
+    _seed_event(
+        client,
+        event_type="meeting_start",
+        # explicitly no device_model
+        model_id="cloudzap/auto",
+        meeting_id="null-device-test",
+    )
+    resp = client.get(
+        "/webhooks/admin/telemetry/rich?days=30",
+        headers={"X-Admin-Key": "test-admin-key"},
+    ).json()
+    null_buckets = [
+        d for d in resp["devices"]
+        if d["device_model"] == "unknown"
+    ]
+    assert null_buckets, "expected a NULL device_model bucket"
+    assert "pre-1.13" in null_buckets[0]["marketing_name"].lower()
+
+
 def test_rich_endpoint_devices_carry_marketing_name(client):
     _seed_event(
         client,
