@@ -59,9 +59,11 @@ same public version data anyone with TestFlight can already see.
     "ios": {
       "latest": {
         "version": "1.13",
+        "build": "447",
         "upgrade_url": "https://testflight.apple.com/join/ubRWVcXF"
       },
       "latest_version": "1.13",
+      "latest_build": "447",
       "upgrade_url": "https://testflight.apple.com/join/ubRWVcXF",
       "min_supported_version": "1.0"
     }
@@ -77,10 +79,27 @@ Field reference:
 |---|---|---|
 | `bundle_id` | string | Echo of the request header |
 | `platforms.ios.latest.version` | string | Canonical latest released marketing version |
+| `platforms.ios.latest.build` | string | CFBundleVersion (numeric string), optional |
 | `platforms.ios.latest.upgrade_url` | string | Tap target for the upgrade banner |
 | `platforms.ios.latest_version` | string | Flat alias mirroring `latest.version` |
+| `platforms.ios.latest_build` | string | Flat alias mirroring `latest.build`, optional |
 | `platforms.ios.upgrade_url` | string | Flat alias mirroring `latest.upgrade_url` |
 | `platforms.ios.min_supported_version` | string | Hard floor for the gate |
+
+### Build number semantics
+
+`latest_build` is opt-in. Clients only consult it when their marketing
+version equals `latest_version`:
+
+- **TestFlight installs** whose `CFBundleVersion` is below `latest_build`
+  show the same soft update banner as a version mismatch. Useful for
+  pushing testers from build 447 to build 451 within the 1.13 cycle.
+- **App Store installs** ignore the field entirely (App Store doesn't
+  expose build numbers as a tap target).
+- **Field absent** = backward compatible no-op. Every iOS build in the
+  field before 451 ignores it anyway; first build that reads it is 451+.
+
+The field is always a numeric string ("447", "1042") — never numeric.
 
 Clients MAY read from either the nested or the flat fields. Both shapes
 will always be served in sync. New clients should prefer the nested
