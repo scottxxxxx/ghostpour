@@ -33,6 +33,14 @@ com.shouldersurf.ShoulderSurf:
         # Bump on every TestFlight or App Store release that goes out
         # to users. Soft-banner pipeline verified end-to-end 2026-06-06.
         version: "1.13"
+        # CFBundleVersion (numeric string). Clients only consult this
+        # when their marketing version equals `version` above:
+        #   - TestFlight installs whose build number is < this show the
+        #     same soft update banner as a version mismatch.
+        #   - App Store installs ignore it entirely.
+        # Bump alongside `version` on every release. The bump pair from
+        # SS will always come as "version + build", e.g. "1.13 build 447".
+        build: "447"
         # Tap target for the upgrade prompt. Currently the live
         # TestFlight invite linked from the beta button on
         # shouldersurf.com. Swap to https://apps.apple.com/app/id<APPID>
