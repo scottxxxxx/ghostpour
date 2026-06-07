@@ -94,5 +94,12 @@ def _emit_with_flat_aliases(platforms: dict) -> dict:
                 merged["latest_version"] = latest["version"]
             if "upgrade_url" in latest and "upgrade_url" not in merged:
                 merged["upgrade_url"] = latest["upgrade_url"]
+            # `latest_build` flat alias — same flat-and-nested pattern
+            # as version/upgrade_url. Build number is a numeric string
+            # (CFBundleVersion); clients only consult it when their
+            # marketing version equals latest_version. See the wire
+            # contract doc for semantics.
+            if "build" in latest and "latest_build" not in merged:
+                merged["latest_build"] = latest["build"]
         out[platform_key] = merged
     return out

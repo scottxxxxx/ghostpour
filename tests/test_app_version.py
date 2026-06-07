@@ -190,9 +190,10 @@ def test_aliases_do_not_overwrite_existing_flat_fields():
         "com.example.app": {
             "platforms": {
                 "ios": {
-                    "latest": {"version": "2.0", "upgrade_url": "https://A"},
+                    "latest": {"version": "2.0", "upgrade_url": "https://A", "build": "999"},
                     "latest_version": "1.99",
                     "upgrade_url": "https://B",
+                    "latest_build": "888",
                     "min_supported_version": "1.0",
                 },
             },
@@ -202,6 +203,50 @@ def test_aliases_do_not_overwrite_existing_flat_fields():
     ios = info["platforms"]["ios"]
     assert ios["latest_version"] == "1.99"  # explicit value preserved
     assert ios["upgrade_url"] == "https://B"
+    assert ios["latest_build"] == "888"
+
+
+def test_get_version_info_emits_latest_build_flat_alias():
+    """SS adds `build` under latest; we mirror it as flat `latest_build`."""
+    registry = {
+        "com.example.app": {
+            "platforms": {
+                "ios": {
+                    "latest": {
+                        "version": "1.13",
+                        "build": "447",
+                        "upgrade_url": "https://x.test",
+                    },
+                    "min_supported_version": "1.0",
+                },
+            },
+        },
+    }
+    info = get_version_info(registry, "com.example.app")
+    ios = info["platforms"]["ios"]
+    assert ios["latest"]["build"] == "447"
+    assert ios["latest_build"] == "447"
+
+
+def test_get_version_info_omits_build_when_absent():
+    """Backward compat: registry without a build field omits the alias
+    entirely. Every iOS build in the field before 451 ignores the
+    field anyway, so a missing alias is semantically identical to a
+    present one with no consumers."""
+    registry = {
+        "com.example.app": {
+            "platforms": {
+                "ios": {
+                    "latest": {"version": "1.13", "upgrade_url": "https://x.test"},
+                    "min_supported_version": "1.0",
+                },
+            },
+        },
+    }
+    info = get_version_info(registry, "com.example.app")
+    ios = info["platforms"]["ios"]
+    assert "build" not in ios["latest"]
+    assert "latest_build" not in ios
 
 
 def test_endpoint_requires_no_auth(client_with_versions):
