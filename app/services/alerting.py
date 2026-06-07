@@ -105,6 +105,16 @@ KNOWN_CATEGORIES: dict[str, dict] = {
             "credit_balance_too_low). Time to top up that provider."
         ),
     },
+    "anthropic_fallback_to_or": {
+        "label": "Anthropic call fell back to OpenRouter",
+        "description": (
+            "An Anthropic-direct call failed (auth, rate limit, 5xx, "
+            "timeout, or network) and the wrapper transparently retried "
+            "through OpenRouter. The user-facing call succeeded but the "
+            "Anthropic-side issue needs investigation before our managed "
+            "key path silently rots."
+        ),
+    },
     "cert_pin_auto_republish": {
         "label": "Cert pin auto-republish needs attention",
         "description": (
