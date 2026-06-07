@@ -1415,7 +1415,10 @@ async def chat(
     # 6. Route to provider
     start = time.monotonic()
     try:
-        response = await provider_router.route(body)
+        from app.services.anthropic_or_fallback import route_with_fallback
+        response = await route_with_fallback(
+            provider_router, body, db, request.app.state.settings,
+        )
     except HTTPException:
         elapsed_ms = int((time.monotonic() - start) * 1000)
         await usage_tracker.log_usage(
@@ -1603,9 +1606,12 @@ async def _handle_stream(
 
     async def event_stream():
         final_response = None
+        from app.services.anthropic_or_fallback import route_stream_with_fallback
         try:
             async with asyncio.timeout(_CHAT_STREAM_WALL_CLOCK_SECONDS):
-                async for event in provider_router.route_stream(body):
+                async for event in route_stream_with_fallback(
+                    provider_router, body, db, request.app.state.settings,
+                ):
                     if event.get("done"):
                         final_response = event.get("response")
                     else:
