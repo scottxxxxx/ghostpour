@@ -170,6 +170,19 @@ async def lifespan(app: FastAPI):
             "cert_pin auto-republish daemon failed to start: %s", e,
         )
 
+    # Allocation reset sweep daemon — resets monthly_used_usd for users
+    # whose allocation_resets_at has passed but who never hit the usage
+    # path (lazy_reset_if_due only fires on request). Without it, inactive
+    # users keep a stale counter that the Overview allocation-alert panel
+    # reads directly, firing permanent false alerts. Fail-soft.
+    try:
+        from app.services.allocation_reset_sweep import run_daemon as _ar_daemon
+        app.state.allocation_reset_sweep_daemon = asyncio.create_task(_ar_daemon(app))
+    except Exception as e:
+        logging.getLogger("app.main").warning(
+            "allocation_reset_sweep daemon failed to start: %s", e,
+        )
+
     # Roll up telemetry events into telemetry_daily_rollups. Idempotent
     # (INSERT OR REPLACE on day+metric PK), recomputes the trailing
     # window so any late-arriving events get folded in. Fail-soft: a
@@ -214,6 +227,15 @@ async def lifespan(app: FastAPI):
         dms_daemon.cancel()
         try:
             await dms_daemon
+        except (asyncio.CancelledError, Exception):
+            pass
+
+    # Stop the allocation reset sweep daemon cleanly on shutdown.
+    ar_daemon = getattr(app.state, "allocation_reset_sweep_daemon", None)
+    if ar_daemon is not None and not ar_daemon.done():
+        ar_daemon.cancel()
+        try:
+            await ar_daemon
         except (asyncio.CancelledError, Exception):
             pass
 
