@@ -139,6 +139,15 @@ class Settings(BaseSettings):
     # ~ a day's headroom at our current burn rate before total exhaustion.
     openrouter_low_balance_threshold_usd: float = 1.00
 
+    # Allocation reset sweep daemon. lazy_reset_if_due only fires on the
+    # usage path, so a user who never makes a request after their reset
+    # date keeps a stale monthly_used_usd counter — which the Overview
+    # allocation-alert panel reads directly, producing a permanent false
+    # alert. This daemon applies the same lazy reset to all due users on a
+    # cadence so inactive users get reset at the period boundary too.
+    # See app/services/allocation_reset_sweep.py.
+    allocation_reset_sweep_interval_seconds: int = 3600  # 1 hour
+
     # Per-app version registry served by GET /v1/app/version. Keyed by
     # bundle id. Missing file is non-fatal (endpoint just 404s on every
     # bundle); see app/services/app_version.py.
