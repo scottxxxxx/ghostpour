@@ -1635,20 +1635,39 @@ async function loadProviders() {
     let balanceHtml = '';
     if (p.balance) {
       const b = p.balance;
+      // For a key with a reset window (e.g. weekly), the meaningful "used"
+      // is the current-period usage, NOT all-time. Pick the period usage
+      // that matches limit_reset; fall back to all-time for total/no-reset.
+      const resetWord = {daily:'today', weekly:'this week', monthly:'this month'}[b.limit_reset] || 'total';
+      const periodUsed = b.limit_reset === 'weekly' ? b.usage_weekly_usd
+                       : b.limit_reset === 'monthly' ? b.usage_monthly_usd
+                       : b.usage_usd;
+      const used = `$${(periodUsed||0).toFixed(2)}`;
+      const limitLabel = {daily:'/day', weekly:'/week', monthly:'/month'}[b.limit_reset] || '';
+      const limit = b.limit_usd != null ? `$${b.limit_usd.toFixed(2)}${limitLabel}` : 'Unlimited';
       const remaining = b.remaining_usd != null ? `$${b.remaining_usd.toFixed(2)}` : 'No limit';
-      const used = `$${(b.usage_usd||0).toFixed(2)}`;
-      const limit = b.limit_usd != null ? `$${b.limit_usd.toFixed(2)}` : 'Unlimited';
-      const pct = b.limit_usd ? Math.min(100, (b.usage_usd / b.limit_usd) * 100) : 0;
+      const pct = b.limit_usd ? Math.min(100, ((periodUsed||0) / b.limit_usd) * 100) : 0;
       const barColor = pct > 80 ? 'var(--red)' : pct > 50 ? 'var(--orange)' : 'var(--green)';
+      let resetHtml = '';
+      if (b.next_reset_at) {
+        const d = new Date(b.next_reset_at);
+        const days = Math.max(0, Math.ceil((d - new Date()) / 86400000));
+        const rel = days === 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`;
+        resetHtml = `<div style="font-size:11px;color:var(--text-dim);margin-top:4px">Resets ${rel} (${d.toUTCString().replace(':00 GMT',' UTC')})</div>`;
+      }
+      const lifetime = (b.limit_reset && b.usage_usd != null)
+        ? `<div style="font-size:11px;color:var(--text-dim);margin-top:2px">All-time usage: $${b.usage_usd.toFixed(2)}</div>` : '';
       balanceHtml = `
         <div style="margin:12px 0;padding:12px;background:var(--bg);border-radius:6px">
           <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px">
-            <span>Used: ${used}</span><span>Limit: ${limit}</span>
+            <span>Used (${resetWord}): ${used}</span><span>Limit: ${limit}</span>
           </div>
           <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:6px">
             <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px"></div>
           </div>
-          <div style="font-size:15px;font-weight:600;color:${barColor}">Remaining: ${remaining}</div>
+          <div style="font-size:15px;font-weight:600;color:${barColor}">Remaining: ${remaining}${b.limit_reset ? ` <span style="font-size:11px;font-weight:400;color:var(--text-dim)">(${resetWord})</span>` : ''}</div>
+          ${resetHtml}
+          ${lifetime}
           ${b.label ? `<div style="font-size:11px;color:var(--text-dim);margin-top:4px">Key: ${b.label}</div>` : ''}
         </div>`;
     } else if (p.status === 'ok' || p.status === 'configured') {

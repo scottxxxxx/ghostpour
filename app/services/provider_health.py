@@ -38,7 +38,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, asdict, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import aiosqlite
@@ -51,6 +51,28 @@ logger = logging.getLogger("ghostpour.provider_health")
 # Probe timeouts. Keep short — a 15 minute cadence means a stuck probe
 # doesn't matter much, but we'd rather move on than hang the daemon.
 _PROBE_TIMEOUT_SECS = 10.0
+
+
+def next_limit_reset(limit_reset: str | None, now: datetime | None = None) -> datetime | None:
+    """Compute the next UTC reset boundary for an OpenRouter key limit.
+
+    OpenRouter resets at midnight UTC; weeks run Monday-Sunday, so a weekly
+    limit resets each Monday 00:00 UTC, monthly on the 1st, daily at 00:00.
+    Returns None for keys with no reset (`limit_reset` null/total)."""
+    if now is None:
+        now = datetime.now(timezone.utc)
+    midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    if limit_reset == "daily":
+        return midnight + timedelta(days=1)
+    if limit_reset == "weekly":
+        # weekday(): Monday=0. Days until next Monday (never 0 → always future).
+        days_ahead = 7 - now.weekday()
+        return midnight + timedelta(days=days_ahead)
+    if limit_reset == "monthly":
+        if now.month == 12:
+            return midnight.replace(year=now.year + 1, month=1, day=1)
+        return midnight.replace(month=now.month + 1, day=1)
+    return None
 
 
 @dataclass
@@ -152,9 +174,24 @@ async def check_openrouter(
 
     try:
         data = resp.json().get("data", {})
-        usage = float(data.get("usage", 0.0))
-        limit = data.get("limit")  # null = unlimited
-        remaining = (float(limit) - usage) if limit is not None else None
+        usage = float(data.get("usage", 0.0))       # all-time usage
+        limit = data.get("limit")                   # null = unlimited
+        limit_reset = data.get("limit_reset")       # daily|weekly|monthly|null
+        # Prefer OpenRouter's own `limit_remaining`: it accounts for the
+        # reset window. A key with a WEEKLY $5 limit reports limit=5 and
+        # limit_remaining = 5 - usage_weekly, while `usage` is the ALL-TIME
+        # total. Computing (limit - usage) would subtract lifetime spend
+        # from a weekly cap and under-report what's left this week — that's
+        # the bug that made a barely-used weekly key look nearly exhausted.
+        lr = data.get("limit_remaining")
+        if lr is not None:
+            remaining = float(lr)
+        elif limit is not None:
+            remaining = float(limit) - usage
+        else:
+            remaining = None
+        usage_weekly = data.get("usage_weekly")
+        usage_monthly = data.get("usage_monthly")
     except (ValueError, KeyError, TypeError) as e:
         return ProbeResult(
             provider="openrouter", checked_at=_now(),
@@ -162,7 +199,15 @@ async def check_openrouter(
             detail=f"unparseable response: {e}",
         )
 
-    extras = {"usage_usd": usage, "limit_usd": limit, "remaining_usd": remaining}
+    extras = {
+        "usage_usd": usage,
+        "limit_usd": limit,
+        "remaining_usd": remaining,
+        "limit_reset": limit_reset,
+        "usage_weekly_usd": float(usage_weekly) if usage_weekly is not None else None,
+        "usage_monthly_usd": float(usage_monthly) if usage_monthly is not None else None,
+    }
+    reset_suffix = f"/{limit_reset}" if limit_reset else ""
 
     if remaining is not None and remaining < low_balance_threshold_usd:
         return ProbeResult(
@@ -170,7 +215,8 @@ async def check_openrouter(
             healthy=False, status_code=200,
             detail=(
                 f"remaining=${remaining:.2f} below threshold "
-                f"${low_balance_threshold_usd:.2f} (limit ${limit}, used ${usage:.2f})"
+                f"${low_balance_threshold_usd:.2f} (limit ${limit}{reset_suffix}, "
+                f"used ${usage:.2f} all-time)"
             ),
             extras=extras,
         )
@@ -179,7 +225,8 @@ async def check_openrouter(
         provider="openrouter", checked_at=_now(),
         healthy=True, status_code=200,
         detail=(
-            f"remaining=${remaining:.2f}" if remaining is not None
+            f"remaining=${remaining:.2f}{(' (resets ' + limit_reset + ')') if limit_reset else ''}"
+            if remaining is not None
             else f"unlimited (used ${usage:.2f})"
         ),
         extras=extras,
