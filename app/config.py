@@ -185,13 +185,17 @@ def _ensure_secrets_in_env() -> None:
     The whole point is to let `.env.prod` ship without these values
     (or with empty strings for them) and let SM fill in.
 
-    Logs a structured INFO line for each secret that was filled from
-    SM. Operators who migrated a secret from .env.prod to SM should
-    expect to see one such line per restart per migrated secret —
-    confirms the migration is wired correctly. The absence of the
-    line for a secret means env was already populated (the env may be
-    shadowing a rotated SM value — runbook section "shadow risk"
-    explains the cleanup).
+    Logs a structured INFO line (`secret_filled_from_sm`) for each secret
+    that was filled from SM. Operators who migrated a secret from .env.prod
+    to SM should expect to see one such line per restart per migrated
+    secret — confirms the migration is wired correctly.
+
+    For secrets still pinned in env, this also emits a WARNING
+    (`env_shadows_sm`) when the env value differs from the current SM
+    value — i.e. a rotated SM value is being shadowed by a stale env
+    entry. That's the failure mode where live key rotation appears to
+    revert on the next restart; the fix is to clear the env entry so SM
+    becomes authoritative. Runbook section "shadow risk".
     """
     # Local import: avoid a circular dep with anything that imports config
     # before app.secrets is available, and keep import cost off the
@@ -204,6 +208,24 @@ def _ensure_secrets_in_env() -> None:
     for env_var, secret_name in _SECRET_MANAGER_MAPPINGS.items():
         existing = os.environ.get(env_var, "").strip()
         if existing:
+            # Env wins over SM at startup (pydantic reads env directly), so
+            # a rotated Secret Manager value silently loses to a stale value
+            # left in `.env`/.env.prod. That's the "shadow trap": a live key
+            # rotation via /admin/update-key writes the new value to SM and
+            # to process memory, then the next restart reloads the OLD env
+            # value and the rotation appears to revert. Consult SM read-only
+            # and warn loudly when the two diverge so the operator knows to
+            # clear the env entry. We never log the values, only lengths.
+            shadowed = get_secret(secret_name)
+            if shadowed and shadowed != existing:
+                log.warning(
+                    "env_shadows_sm env_var=%s sm_secret=%s env_len=%d "
+                    "sm_len=%d — the environment value wins at startup, so "
+                    "the rotated Secret Manager value is IGNORED until %s is "
+                    "removed from .env/.env.prod. Live key rotation will keep "
+                    "appearing to revert on restart until then.",
+                    env_var, secret_name, len(existing), len(shadowed), env_var,
+                )
             continue
         # Pass env_var=None so get_secret skips the env check (it'd
         # short-circuit to "" anyway since we already know it's empty)
