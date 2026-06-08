@@ -29,7 +29,9 @@ com.shouldersurf.ShoulderSurf:
         # Bump on every release. Client shows a dismissible toast when
         # the device's CFBundleShortVersionString is below this.
         #
-        # Current shipping build is 1.13 (build 447 on TestFlight).
+        # Current shipping build is 1.13 (build 450 on TestFlight) — the
+        # build approved for testers. 447 was an internal-only build that
+        # was superseded before release (corrected 2026-06-08 per SS).
         # Bump on every TestFlight or App Store release that goes out
         # to users. Soft-banner pipeline verified end-to-end 2026-06-06.
         version: "1.13"
@@ -39,8 +41,8 @@ com.shouldersurf.ShoulderSurf:
         #     same soft update banner as a version mismatch.
         #   - App Store installs ignore it entirely.
         # Bump alongside `version` on every release. The bump pair from
-        # SS will always come as "version + build", e.g. "1.13 build 447".
-        build: "447"
+        # SS will always come as "version + build", e.g. "1.13 build 450".
+        build: "450"
         # Tap target for the upgrade prompt. Currently the live
         # TestFlight invite linked from the beta button on
         # shouldersurf.com. Swap to https://apps.apple.com/app/id<APPID>
