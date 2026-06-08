@@ -15,20 +15,72 @@ from app import config as app_config
 
 
 def test_env_value_wins_over_sm(monkeypatch):
-    """When CZ_FOO is already set, _ensure_secrets_in_env doesn't even
-    look at SM for that mapping."""
+    """When CZ_FOO is already set, the env value wins for the Settings
+    field regardless of what SM holds. (SM is now consulted read-only for
+    the shadow check — see test_env_shadows_sm_warns — but it must never
+    override the env value.)"""
     monkeypatch.setenv("CZ_ANTHROPIC_API_KEY", "from-env-sk-ant")
     with patch("app.secrets.get_secret") as gs:
-        # Important: get_secret should NOT be called for this key.
         gs.return_value = "from-sm-MUST-NOT-WIN"
         app_config.get_settings.cache_clear()
         s = app_config.get_settings()
 
     assert s.anthropic_api_key == "from-env-sk-ant"
-    # get_secret may still be called for OTHER mappings — assert this one
-    # specifically wasn't asked for.
-    called_secret_names = [c.args[0] for c in gs.call_args_list]
-    assert "anthropic-api-key" not in called_secret_names
+
+
+def test_env_shadows_sm_warns(monkeypatch, caplog):
+    """Env set + SM holds a DIFFERENT value → loud env_shadows_sm warning.
+    This is the live-rotation-reverts trap: the operator rotated the key
+    into SM but a stale .env entry still wins at startup."""
+    import logging
+    monkeypatch.setenv("CZ_ANTHROPIC_API_KEY", "stale-env-key")
+
+    def fake_get_secret(name, env_var=None):
+        return "freshly-rotated-sm-key" if name == "anthropic-api-key" else ""
+
+    with patch("app.secrets.get_secret", side_effect=fake_get_secret):
+        with caplog.at_level(logging.WARNING, logger="app.config"):
+            app_config.get_settings.cache_clear()
+            s = app_config.get_settings()
+
+    assert s.anthropic_api_key == "stale-env-key"  # env still wins
+    shadow_warnings = [r for r in caplog.records if "env_shadows_sm" in r.getMessage()]
+    assert any("CZ_ANTHROPIC_API_KEY" in r.getMessage() for r in shadow_warnings)
+    # Redaction: neither secret value may appear in the log line.
+    for r in shadow_warnings:
+        assert "stale-env-key" not in r.getMessage()
+        assert "freshly-rotated-sm-key" not in r.getMessage()
+
+
+def test_no_shadow_warning_when_env_matches_sm(monkeypatch, caplog):
+    """Env set + SM holds the SAME value → no warning (already consistent;
+    nothing is being shadowed)."""
+    import logging
+    monkeypatch.setenv("CZ_ANTHROPIC_API_KEY", "same-key")
+
+    def fake_get_secret(name, env_var=None):
+        return "same-key" if name == "anthropic-api-key" else ""
+
+    with patch("app.secrets.get_secret", side_effect=fake_get_secret):
+        with caplog.at_level(logging.WARNING, logger="app.config"):
+            app_config.get_settings.cache_clear()
+            app_config.get_settings()
+
+    assert not [r for r in caplog.records if "env_shadows_sm" in r.getMessage()]
+
+
+def test_no_shadow_warning_when_sm_unreachable(monkeypatch, caplog):
+    """Env set + SM returns "" (unreachable / secret absent) → no false
+    warning. We only warn on a genuine divergence."""
+    import logging
+    monkeypatch.setenv("CZ_ANTHROPIC_API_KEY", "env-only-key")
+
+    with patch("app.secrets.get_secret", return_value=""):
+        with caplog.at_level(logging.WARNING, logger="app.config"):
+            app_config.get_settings.cache_clear()
+            app_config.get_settings()
+
+    assert not [r for r in caplog.records if "env_shadows_sm" in r.getMessage()]
 
 
 def test_sm_fills_in_when_env_empty(monkeypatch):
@@ -69,8 +121,16 @@ def test_no_match_leaves_field_empty(monkeypatch):
 
 
 def test_ensure_is_idempotent(monkeypatch):
-    """Running _ensure_secrets_in_env twice doesn't blow up or mutate
-    twice. Pin so a future caller can call it whenever without worry."""
+    """Running _ensure_secrets_in_env twice doesn't blow up or re-mutate
+    the env value. Pin so a future caller can call it whenever without
+    worry.
+
+    The second call no longer skips SM entirely: with env now populated it
+    takes the shadow-check path and re-reads SM to compare. In production
+    that read is served from get_secret's TTL cache, so it's not an extra
+    round-trip; here the mock bypasses the cache, hence two fetches. The
+    important idempotency guarantee — the env value is set once and not
+    overwritten — still holds."""
     monkeypatch.delenv("CZ_KIMI_API_KEY", raising=False)
     fetch_count = {"n": 0}
 
@@ -81,13 +141,12 @@ def test_ensure_is_idempotent(monkeypatch):
         return ""
 
     with patch("app.secrets.get_secret", side_effect=fake_get_secret):
-        app_config._ensure_secrets_in_env()
-        # After first call, env now has the value → second call is no-op
-        # for this mapping.
-        app_config._ensure_secrets_in_env()
+        app_config._ensure_secrets_in_env()  # env empty → fill from SM
+        app_config._ensure_secrets_in_env()  # env set → shadow check only
 
     import os
-    assert fetch_count["n"] == 1
+    # 1 fill + 1 shadow-check read (matching value → no warning, no re-mutate)
+    assert fetch_count["n"] == 2
     assert os.environ.get("CZ_KIMI_API_KEY") == "kimi-sm-value"
 
 
