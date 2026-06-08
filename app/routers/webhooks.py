@@ -860,17 +860,25 @@ async def provider_status(
                         headers={"Authorization": f"Bearer {key}"},
                     )
                     if resp.status_code == 200:
+                        from app.services.provider_health import next_limit_reset
                         data = resp.json().get("data", {})
                         entry["status"] = "ok"
+                        # Prefer OpenRouter's limit_remaining (accounts for the
+                        # reset window). Fall back to limit - all-time usage only
+                        # for older API shapes that omit it. See provider_health.
+                        remaining = data.get("limit_remaining")
+                        if remaining is None and data.get("limit") is not None:
+                            remaining = round(data["limit"] - data.get("usage", 0), 4)
+                        nxt = next_limit_reset(data.get("limit_reset"))
                         entry["balance"] = {
                             "label": data.get("label", ""),
-                            "usage_usd": data.get("usage", 0),
+                            "usage_usd": data.get("usage", 0),          # all-time
                             "limit_usd": data.get("limit", None),
-                            "remaining_usd": (
-                                round(data["limit"] - data["usage"], 4)
-                                if data.get("limit") is not None
-                                else None
-                            ),
+                            "remaining_usd": remaining,                 # current period
+                            "limit_reset": data.get("limit_reset"),     # daily|weekly|monthly|null
+                            "usage_weekly_usd": data.get("usage_weekly"),
+                            "usage_monthly_usd": data.get("usage_monthly"),
+                            "next_reset_at": nxt.isoformat() if nxt else None,
                             "is_free_tier": data.get("is_free_tier", False),
                         }
                     else:
