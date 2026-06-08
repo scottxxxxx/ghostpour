@@ -47,6 +47,73 @@ def _arc_pixel_height(value) -> int:
     clamped = max(0.0, min(100.0, float(value)))
     return max(4, int(round(4 + clamped * 0.56)))
 
+# --- Action owner recovery -------------------------------------------------
+#
+# When speaker diarization is ambiguous the analysis LLM often labels an
+# action owner "Multiple" (or leaves a raw "Speaker N"), even though the
+# action text itself states who committed: "Joy to validate ...", "Srikanth
+# to complete ...". Recover the real name(s) from the leading subject of the
+# task so the owner chip is useful instead of "Multiple". High precision by
+# design: only fires when the existing owner is a known placeholder AND the
+# task opens with a "Name (and Name) to|will <verb>" subject.
+
+_OWNER_PLACEHOLDERS = {
+    "", "multiple", "multiple speakers", "unknown", "various", "team",
+    "the team", "everyone", "n/a", "na", "tbd", "unassigned",
+}
+_SPEAKER_LABEL_RE = re.compile(r"^speaker\s*\d+$", re.IGNORECASE)
+
+# A person name: a capitalized token (allowing . ' -) plus up to two more
+# capitalized tokens (first/middle/last). Deliberately conservative.
+_NAME = r"[A-Z][A-Za-z.'\-]+(?:\s+[A-Z][A-Za-z.'\-]+){0,2}"
+# Leading "<names> to|will <verb>" subject of an action sentence. Requires a
+# lowercase letter after the verb so capitalized non-subjects don't match.
+_LEADING_OWNER_RE = re.compile(
+    rf"^\s*(?P<names>{_NAME}(?:\s*(?:,|&|and)\s*{_NAME})*)\s+"
+    r"(?:to|will|is to|are to|to be|will be)\s+[a-z]",
+)
+# Capitalized lead words that are grammatically capitalized but aren't
+# people — guards against "Team to ...", "Monitor ...", etc.
+_NON_PERSON_LEADS = {
+    "the", "team", "everyone", "all", "both", "we", "they", "someone",
+    "nobody", "monitor", "review", "ensure", "confirm", "follow", "set",
+    "obtain", "coordinate", "complete", "investigate", "update", "create",
+    "schedule", "validate", "provide", "share", "check", "draft", "send",
+}
+
+
+def _extract_owner_from_task(task: str) -> str | None:
+    """Pull the responsible name(s) from the leading subject of an action.
+    Returns "Joy", "Joy & Sukumar", or None when there's no confident lead."""
+    m = _LEADING_OWNER_RE.match(task or "")
+    if not m:
+        return None
+    raw = m.group("names")
+    parts = [p.strip() for p in re.split(r"\s*(?:,|&|and)\s*", raw) if p.strip()]
+    parts = [
+        p for p in parts
+        if not _SPEAKER_LABEL_RE.match(p) and p.lower() not in _NON_PERSON_LEADS
+    ]
+    if not parts:
+        return None
+    if len(parts) == 1:
+        return parts[0]
+    if len(parts) == 2:
+        return f"{parts[0]} & {parts[1]}"
+    return f"{parts[0]}, {parts[1]} +{len(parts) - 2}"
+
+
+def _resolve_action_owner(action: dict) -> str:
+    """Owner for an action chip. Recovers a real name from the task text when
+    the LLM-provided owner is a placeholder like "Multiple" / "Speaker 2"."""
+    owner = (action.get("owner") or "").strip()
+    if owner.lower() in _OWNER_PLACEHOLDERS or _SPEAKER_LABEL_RE.match(owner):
+        recovered = _extract_owner_from_task(action.get("task", ""))
+        if recovered:
+            return recovered
+    return owner
+
+
 _TEMPLATE_PATH = Path(__file__).parent.parent / "static" / "report_template.html"
 
 # System prompt for the LLM analysis call
@@ -57,6 +124,7 @@ Rules:
 - Be direct and concise in all text fields
 - An action item requires a concrete commitment or assignment that someone took on, not a hypothetical suggestion. Phrases like "a great step would be", "we should consider", or "someone could" describe possibilities, not action items, unless a person in the conversation actually accepted ownership.
 - Attribute an action to the person who committed to doing it, not to someone merely named in the surrounding discussion or who authored a related document. If a task was proposed but no one took it on, treat it as an open question rather than assigning it to a plausible-sounding name.
+- If the action text itself states who will do it (for example "Joy to validate the QA items" or "Priya and Sam to draft the spec"), set owner to that person's name, or both names joined with " & " when two people share it. Only fall back to "Multiple" when the responsible person genuinely cannot be determined from the text, even when the speaker who said it is unknown or labeled as multiple.
 - Use the confirmed attendee list for names, not the transcript (transcription often mangles names)
 - The sentiment_score is 0 to 100 where 50 is neutral, above 50 is positive, below 50 is negative
 - The stoplight color is red (blocked/critical), orange (high urgency, needs prompt attention), yellow (medium, some open items but not blocking), or green (low urgency, on track)
@@ -476,7 +544,7 @@ def render_report_html(
         actions_html = "".join(
             f'<tr style="border-bottom:1px solid #f0e0d8;">'
             f'<td style="padding:10px 12px 10px 0;width:96px;vertical-align:top;">'
-            f'<span style="background:{_PRIORITY_BG.get(a.get("priority", "standard"), "#1a1a1a")};color:#ffffff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:3px;white-space:nowrap;">{_esc(a.get("owner", ""))}</span>'
+            f'<span style="background:{_PRIORITY_BG.get(a.get("priority", "standard"), "#1a1a1a")};color:#ffffff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:3px;white-space:nowrap;">{_esc(_resolve_action_owner(a))}</span>'
             f'</td>'
             f'<td style="padding:10px 0;font-size:12px;color:#333;line-height:1.6;">{_esc(a.get("task", ""))}{" <strong>" + _esc(a["deadline"]) + "</strong>" if a.get("deadline") else ""}</td>'
             f'</tr>'
