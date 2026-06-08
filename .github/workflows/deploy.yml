@@ -5,6 +5,17 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Serialize production deploys. Multiple pushes to main (e.g. merging
+# several PRs back to back) otherwise trigger concurrent runs that race on
+# `docker compose up -d` — a 3-way race once left the container stuck in
+# "Created" (app down). With this guard only one deploy runs at a time and a
+# newer push supersedes an older queued one, so main HEAD always wins without
+# overlapping `up -d` calls. cancel-in-progress is false so an in-flight
+# deploy is never killed mid-apply.
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
 env:
   REGISTRY: ghcr.io
 
