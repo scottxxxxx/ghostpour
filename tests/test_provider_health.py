@@ -120,6 +120,71 @@ async def test_openrouter_unlimited_limit_is_healthy():
 
 
 @pytest.mark.asyncio
+async def test_openrouter_weekly_limit_uses_limit_remaining():
+    """Bug fix: a WEEKLY-capped key reports limit=5 and all-time usage=3.74,
+    but limit_remaining=4.80 (= 5 - usage_weekly). We must use limit_remaining,
+    not (limit - usage) which would wrongly report ~$1.26 left and false-alert
+    a barely-used key as nearly exhausted."""
+    client = AsyncMock()
+    client.get.return_value = _fake_response(200, {"data": {
+        "usage": 3.74, "limit": 5, "limit_reset": "weekly",
+        "limit_remaining": 4.80, "usage_weekly": 0.20, "usage_monthly": 0.75,
+    }})
+    r = await ph.check_openrouter("oro-key", low_balance_threshold_usd=1.00, client=client)
+    assert r.healthy is True
+    assert r.extras["remaining_usd"] == pytest.approx(4.80)
+    assert r.extras["limit_reset"] == "weekly"
+    assert r.extras["usage_weekly_usd"] == pytest.approx(0.20)
+    assert r.extras["usage_monthly_usd"] == pytest.approx(0.75)
+
+
+@pytest.mark.asyncio
+async def test_openrouter_weekly_near_cap_unhealthy():
+    """When the WEEKLY remaining (limit_remaining) drops below threshold the
+    alert fires, even though all-time usage is high/unremarkable."""
+    client = AsyncMock()
+    client.get.return_value = _fake_response(200, {"data": {
+        "usage": 50.0, "limit": 5, "limit_reset": "weekly", "limit_remaining": 0.40,
+    }})
+    r = await ph.check_openrouter("oro-key", low_balance_threshold_usd=1.00, client=client)
+    assert r.healthy is False
+    assert r.extras["remaining_usd"] == pytest.approx(0.40)
+
+
+# --- next_limit_reset -----------------------------------------------------
+
+
+def test_next_limit_reset_weekly_is_next_monday_utc():
+    now = datetime(2026, 6, 10, 12, 0, tzinfo=timezone.utc)  # Wednesday
+    assert ph.next_limit_reset("weekly", now) == datetime(2026, 6, 15, 0, 0, tzinfo=timezone.utc)
+
+
+def test_next_limit_reset_weekly_on_monday_rolls_a_full_week():
+    now = datetime(2026, 6, 8, 9, 0, tzinfo=timezone.utc)  # Monday
+    assert ph.next_limit_reset("weekly", now) == datetime(2026, 6, 15, 0, 0, tzinfo=timezone.utc)
+
+
+def test_next_limit_reset_daily_is_next_midnight():
+    now = datetime(2026, 6, 8, 23, 30, tzinfo=timezone.utc)
+    assert ph.next_limit_reset("daily", now) == datetime(2026, 6, 9, 0, 0, tzinfo=timezone.utc)
+
+
+def test_next_limit_reset_monthly_first_of_next_month():
+    now = datetime(2026, 6, 20, 5, 0, tzinfo=timezone.utc)
+    assert ph.next_limit_reset("monthly", now) == datetime(2026, 7, 1, 0, 0, tzinfo=timezone.utc)
+
+
+def test_next_limit_reset_monthly_december_wraps_year():
+    now = datetime(2026, 12, 15, 0, 0, tzinfo=timezone.utc)
+    assert ph.next_limit_reset("monthly", now) == datetime(2027, 1, 1, 0, 0, tzinfo=timezone.utc)
+
+
+def test_next_limit_reset_none_for_no_reset():
+    assert ph.next_limit_reset(None) is None
+    assert ph.next_limit_reset("total") is None
+
+
+@pytest.mark.asyncio
 async def test_openrouter_401_classified_as_auth_fail():
     client = AsyncMock()
     client.get.return_value = _fake_response(401, text="bad key")
