@@ -410,8 +410,15 @@
       <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Meetings by model</h4><div id="tel-chart-models"></div></div>
       <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Meetings by device</h4><div id="tel-chart-devices"></div></div>
       <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Devices by iOS version</h4><div id="tel-chart-os"></div></div>
+      <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Devices by language</h4><div id="tel-chart-language"></div></div>
       <div class="card" style="padding:16px;grid-column:span 2"><h4 style="margin:0 0 8px">Meeting starts by hour × day-of-week (UTC)</h4><div id="tel-chart-heatmap"></div></div>
       <div class="card" style="padding:16px;grid-column:span 2"><h4 style="margin:0 0 8px">Funnel: app start → meeting start → meeting stop</h4><div id="tel-chart-funnel"></div></div>
+      <div class="card" style="padding:16px;grid-column:span 2">
+        <h4 style="margin:0 0 8px">User directory — name (if signed in) + language, by device</h4>
+        <div class="table-wrap"><table id="tel-directory"><thead><tr>
+          <th>Name</th><th>Language</th><th>Device</th><th>App</th><th>Events</th><th>Last seen</th>
+        </tr></thead><tbody></tbody></table></div>
+      </div>
     </div>
   </div>
 
@@ -771,6 +778,33 @@ function _renderTelemetry(d, current) {
     dataLabels: {enabled: true, formatter: (val) => `${val.toFixed(0)}%`},
     noData: {text: 'No iOS version data in this window.'},
   });
+
+  // --- Donut: devices by language ---
+  _renderChart('tel-chart-language', {
+    series: (d.by_language || []).map(x => x.devices),
+    chart: {type: 'donut', height: 280},
+    labels: (d.by_language || []).map(x => x.language),
+    legend: {position: 'bottom'},
+    colors: ['#58a6ff','#3fb950','#bc8cff','#d29922','#ff7b72','#79c0ff','#a5d6ff'],
+    plotOptions: {pie: {donut: {size: '60%'}}},
+    dataLabels: {enabled: true, formatter: (val) => `${val.toFixed(0)}%`},
+    noData: {text: 'No locale data yet (iOS sends app_locale in 1.13+ builds).'},
+  });
+
+  // --- Directory table: name (if known) + language, per device ---
+  const telEsc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const dirBody = document.querySelector('#tel-directory tbody');
+  if (dirBody) {
+    const dim = v => v ? telEsc(v) : '<span style="color:var(--text-dim)">—</span>';
+    dirBody.innerHTML = (d.directory || []).map(u => `<tr>
+      <td>${u.name ? telEsc(u.name) : '<span style="color:var(--text-dim)">anonymous</span>'}</td>
+      <td>${u.language ? `${telEsc(u.language)}${u.locale ? ` <span style="color:var(--text-dim);font-size:0.85em">(${telEsc(u.locale)})</span>` : ''}` : dim(null)}</td>
+      <td>${dim(u.device)}</td>
+      <td>${dim(u.app_version)}</td>
+      <td>${(u.events || 0).toLocaleString()}</td>
+      <td>${u.last_seen ? timeAgo(u.last_seen) : dim(null)}</td>
+    </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text-dim)">No telemetry in this window.</td></tr>';
+  }
 
   // --- Heatmap: meetings by dow × hour ---
   const dowNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];

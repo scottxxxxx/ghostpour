@@ -2173,6 +2173,63 @@ async def telemetry_rich(
             if src:
                 options[k].add(src)
 
+    # --- Per-device directory: name (if signed in) + language -------------
+    # One row per device. Name comes from users.display_name via the most
+    # recent signed-in event; language from the latest app_locale ping.
+    # Both are sparse by design: anonymous devices have no name, older
+    # builds sent no locale.
+    _LANG_NAMES = {
+        "en": "English", "es": "Spanish", "ja": "Japanese", "fr": "French",
+        "de": "German", "pt": "Portuguese", "zh": "Chinese", "it": "Italian",
+        "ko": "Korean", "ru": "Russian", "nl": "Dutch", "ar": "Arabic",
+    }
+
+    def _lang_name(locale: str | None) -> str | None:
+        if not locale:
+            return None
+        code = locale.replace("-", "_").split("_")[0].lower()
+        return _LANG_NAMES.get(code, code)
+
+    dir_rows = await _all(f"""
+        SELECT e.device_id AS device_id,
+          (SELECT u.display_name FROM telemetry_events e3 JOIN users u ON u.id = e3.user_id
+             WHERE e3.device_id = e.device_id AND e3.user_id IS NOT NULL
+             ORDER BY e3.received_at DESC LIMIT 1) AS name,
+          (SELECT app_locale FROM telemetry_events e2 WHERE e2.device_id = e.device_id
+             AND e2.app_locale IS NOT NULL ORDER BY e2.received_at DESC LIMIT 1) AS locale,
+          (SELECT app_version FROM telemetry_events e4 WHERE e4.device_id = e.device_id
+             AND e4.app_version IS NOT NULL ORDER BY e4.received_at DESC LIMIT 1) AS app_version,
+          MAX(e.device_model) AS device_model,
+          COUNT(*) AS events,
+          MAX(e.received_at) AS last_seen,
+          MAX(CASE WHEN e.user_id IS NOT NULL THEN 1 ELSE 0 END) AS signed_in
+        FROM telemetry_events e
+        WHERE {where}
+        GROUP BY e.device_id
+        ORDER BY events DESC
+        LIMIT 200
+    """)
+    directory = []
+    lang_devices: dict[str, int] = {}
+    for r in dir_rows:
+        lang = _lang_name(r["locale"])
+        directory.append({
+            "name": r["name"],
+            "locale": r["locale"],
+            "language": lang,
+            "device": to_marketing_name(r["device_model"]) if r["device_model"] else None,
+            "app_version": r["app_version"],
+            "events": r["events"],
+            "last_seen": r["last_seen"],
+            "signed_in": bool(r["signed_in"]),
+        })
+        key = lang or "Unknown"
+        lang_devices[key] = lang_devices.get(key, 0) + 1
+    by_language = sorted(
+        ({"language": k, "devices": v} for k, v in lang_devices.items()),
+        key=lambda x: -x["devices"],
+    )
+
     return {
         "days": days,
         "filters": {
@@ -2195,6 +2252,8 @@ async def telemetry_rich(
         },
         "version_series": version_series,
         "models": models,
+        "directory": directory,
+        "by_language": by_language,
         "devices": devices,
         "os_versions": os_versions,
         "heatmap": heatmap,
