@@ -114,6 +114,20 @@ async def _cq_proxy(method: str, path: str, body: dict | None = None) -> JSONRes
 # --- Transcript capture ---
 
 
+def _primary_language_tag(header: str | None) -> str | None:
+    """First language tag from an Accept-Language header, verbatim.
+
+    "es-US,es-419;q=0.9,es;q=0.8" → "es-US". Unlike config.py's
+    _parse_accept_language this keeps the full BCP-47 tag and treats
+    English as a real answer — CQ's metadata.language is a writing
+    directive, not a locale-variant lookup.
+    """
+    if not header:
+        return None
+    first = header.split(",")[0].strip().split(";")[0].strip()
+    return first or None
+
+
 class TranscriptCaptureRequest(BaseModel):
     transcript: str
     # Origin scoping — preferred going forward:
@@ -236,6 +250,11 @@ async def capture_transcript(
             user_label=body.get_meta("user_label"),
             identification_source=body.get_meta("identification_source"),
             subscription_tier=user.effective_tier,
+            # metadata.language arrives from the app (device locale) on
+            # builds that send it; older builds fall back to the request's
+            # Accept-Language, which reflects the same device setting.
+            language=body.get_meta("language")
+            or _primary_language_tag(request.headers.get("Accept-Language")),
         ))
 
     if verdict.verdict == "capture_with_cta":
