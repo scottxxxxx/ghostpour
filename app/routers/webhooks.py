@@ -1803,7 +1803,7 @@ async def list_users(
     tier_config = request.app.state.tier_config
 
     cursor = await db.execute(
-        """SELECT u.id, u.apple_sub, u.email, u.tier, u.created_at, u.is_active,
+        """SELECT u.id, u.apple_sub, u.email, u.display_name, u.tier, u.created_at, u.is_active,
             u.simulated_tier, u.simulated_exhausted,
             u.monthly_used_usd, u.monthly_cost_limit_usd, u.allocation_resets_at,
             u.is_trial, u.trial_end,
@@ -1868,6 +1868,7 @@ async def list_users(
             "id": r["id"],
             "apple_sub": r["apple_sub"][:8] + "..." if r["apple_sub"] else None,
             "email": r["email"],
+            "display_name": r["display_name"],
             "tier": tier_name,
             "tier_display_name": tier_def.display_name if tier_def else tier_name,
             "created_at": r["created_at"],

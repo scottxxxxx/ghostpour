@@ -234,7 +234,7 @@
   <div id="tab-users" class="section">
     <h3>All Users</h3>
     <div class="table-wrap"><table id="user-table"><thead><tr>
-      <th>Email</th><th>Tier</th><th>Hours Used</th><th>Allocation</th><th>Resets</th><th id="user-table-window-cost-th">Period Cost</th><th>Lifetime Cost</th><th>Last Active</th><th></th>
+      <th>User</th><th>Tier</th><th>Hours Used</th><th>Allocation</th><th>Resets</th><th id="user-table-window-cost-th">Period Cost</th><th>Lifetime Cost</th><th>Last Active</th><th></th>
     </tr></thead><tbody></tbody></table></div>
 
     <!-- User detail panel (shown when clicking a user) -->
@@ -704,8 +704,8 @@ function _renderTelemetry(d, current) {
   const fmtDur = (s) => s == null ? '—' : (s >= 60 ? `${Math.round(s / 60)}m ${Math.round(s) % 60}s` : `${Math.round(s)}s`);
   document.getElementById('tel-kpis').innerHTML = [
     {label: 'Total events', value: k.total_events.toLocaleString(), hint: `last ${d.days}d`},
-    {label: 'Distinct devices', value: k.distinct_devices.toLocaleString()},
-    {label: 'Distinct users', value: k.distinct_users.toLocaleString()},
+    {label: 'Active devices', value: k.distinct_devices.toLocaleString(), hint: 'all users — signed in + anonymous'},
+    {label: 'Signed-in users', value: k.distinct_users.toLocaleString(), hint: 'subset; full registry on Users tab'},
     {label: 'App starts', value: k.app_starts.toLocaleString()},
     {label: 'Meetings started', value: k.meeting_starts.toLocaleString()},
     {label: 'Meetings stopped', value: k.meeting_stops.toLocaleString(), hint: 'drop-off if < started'},
@@ -1127,6 +1127,7 @@ async function refresh() {
   const _userWinTh = document.getElementById('user-table-window-cost-th');
   if (_userWinTh) _userWinTh.textContent = `${days}d Cost`;
   const utbody = document.querySelector('#user-table tbody');
+  const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   utbody.innerHTML = users.users.map(u => {
     const effectiveTier = u.simulated_tier || u.tier;
     const tierLabel = u.tier_display_name || u.tier;
@@ -1143,7 +1144,9 @@ async function refresh() {
       `<span style="font-size:0.85em">${pct.toFixed(0)}%</span></div>`;
     const resets = u.allocation_resets_at ? timeAgo(u.allocation_resets_at) : '—';
     return `<tr>
-    <td>${u.email||'<span style="color:var(--text-dim)">Private relay</span>'}</td>
+    <td>${u.display_name
+      ? `<div>${esc(u.display_name)}</div><div style="font-size:0.8em;color:var(--text-dim)">${u.email?esc(u.email):'Private relay'}</div>`
+      : (u.email?esc(u.email):'<span style="color:var(--text-dim)">Private relay</span>')}</td>
     <td><span class="badge ${u.tier}">${tierLabel}</span>${trialBadge}${simBadge}</td>
     <td>${hrsUsed} / ${hrsLimit} hrs</td>
     <td>${allocBar}</td>
