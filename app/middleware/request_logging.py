@@ -23,7 +23,11 @@ _MAX_BODY_LOG = 10_000
 # In-memory ring buffer for recent requests (viewable in dashboard)
 _LOG_BUFFER: deque[dict] = deque(maxlen=1000)
 
-_REDACT_KEYS = {"identity_token", "access_token", "refresh_token", "signed_transaction", "client_secret", "password"}
+# Redact any field whose name contains one of these substrings. Matching
+# broadly (not an exact-name list) so new sensitive wire fields are redacted
+# by default instead of silently logged. Only string values are redacted, so
+# numeric fields like max_tokens/prompt_tokens pass through untouched.
+_REDACT_SUBSTRINGS = ("token", "secret", "password", "key", "signed_transaction", "credential")
 
 
 def get_recent_logs(limit: int = 50) -> list[dict]:
@@ -316,12 +320,21 @@ def _format_body(body: str | None) -> str:
         return body[:_MAX_BODY_LOG]
 
 
+def _is_sensitive_key(key) -> bool:
+    return isinstance(key, str) and any(s in key.lower() for s in _REDACT_SUBSTRINGS)
+
+
 def _redact_sensitive(obj):
-    """Recursively redact sensitive fields in a dict."""
+    """Recursively redact sensitive fields in a dict.
+
+    Values are replaced entirely — no prefix is kept. A 20-char prefix of a
+    password or client_secret can be the whole value, and token prefixes are
+    stable identifiers; the request_id is the correlation handle instead.
+    """
     if isinstance(obj, dict):
         for key in obj:
-            if key in _REDACT_KEYS and isinstance(obj[key], str):
-                obj[key] = obj[key][:20] + "...<redacted>"
+            if _is_sensitive_key(key) and isinstance(obj[key], str):
+                obj[key] = "<redacted>"
             elif isinstance(obj[key], (dict, list)):
                 _redact_sensitive(obj[key])
     elif isinstance(obj, list):

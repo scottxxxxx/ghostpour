@@ -1,4 +1,5 @@
 import json
+import secrets
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -16,7 +17,7 @@ router = APIRouter()
 
 def _verify_admin(request: Request, x_admin_key: str) -> None:
     settings = request.app.state.settings
-    if not settings.admin_key or x_admin_key != settings.admin_key:
+    if not settings.admin_key or not secrets.compare_digest(x_admin_key, settings.admin_key):
         raise HTTPException(status_code=403, detail="Invalid admin key")
 
 
