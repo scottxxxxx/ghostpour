@@ -157,6 +157,7 @@ async def capture(
     user_label: str | None = None,
     identification_source: str | None = None,
     subscription_tier: str | None = None,
+    language: str | None = None,
 ):
     """
     Send query+response to Context Quilt for learning. Fire-and-forget (async).
@@ -213,6 +214,11 @@ async def capture(
         metadata["identification_source"] = identification_source
     if subscription_tier:
         metadata["subscription_tier"] = subscription_tier
+    # BCP-47 tag (full tags fine, e.g. "es-US"). CQ writes extracted memory
+    # text in this language; when absent it infers from the speaker's words,
+    # which guesses wrong in mixed-language meetings.
+    if language:
+        metadata["language"] = language
     if metadata:
         body["metadata"] = metadata
 

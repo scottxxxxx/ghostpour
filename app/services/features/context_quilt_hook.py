@@ -152,6 +152,7 @@ class ContextQuiltHook:
             user_label=body.get_meta("user_label"),
             identification_source=body.get_meta("identification_source"),
             subscription_tier=user.effective_tier,
+            language=body.get_meta("language") or body.locale,
         ))
 
     def response_headers(
