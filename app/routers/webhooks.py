@@ -264,6 +264,18 @@ async def admin_capture_transcript(
 
     effective_tier = row["simulated_tier"] or row["tier"]
 
+    # Admin captures have no originating device request, so source the
+    # language from the user's most recent telemetry ping. app_locale is
+    # Locale.current.identifier ("es_US") — underscore → hyphen for BCP-47.
+    cursor = await db.execute(
+        """SELECT app_locale FROM telemetry_events
+           WHERE user_id = ? AND app_locale IS NOT NULL
+           ORDER BY received_at DESC LIMIT 1""",
+        (body.user_id,),
+    )
+    locale_row = await cursor.fetchone()
+    language = locale_row["app_locale"].replace("_", "-") if locale_row else None
+
     asyncio.create_task(cq.capture(
         user_id=row["id"],
         interaction_type="meeting_transcript",
@@ -274,6 +286,7 @@ async def admin_capture_transcript(
         display_name=row["display_name"],
         email=row["email"],
         subscription_tier=effective_tier,
+        language=language,
     ))
 
     return {
