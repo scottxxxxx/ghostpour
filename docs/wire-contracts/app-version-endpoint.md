@@ -5,7 +5,7 @@ soft banner iOS renders on launch. Multi-tenant by bundle id from day
 one so the gateway can serve any app on top of GhostPour without
 changing the wire shape.
 
-Last updated: 2026-06-06.
+Last updated: 2026-06-10.
 
 ## Concepts
 
@@ -59,11 +59,11 @@ same public version data anyone with TestFlight can already see.
     "ios": {
       "latest": {
         "version": "1.13",
-        "build": "447",
+        "build": "450",
         "upgrade_url": "https://testflight.apple.com/join/ubRWVcXF"
       },
       "latest_version": "1.13",
-      "latest_build": "447",
+      "latest_build": "450",
       "upgrade_url": "https://testflight.apple.com/join/ubRWVcXF",
       "min_supported_version": "1.0"
     }
@@ -93,7 +93,7 @@ version equals `latest_version`:
 
 - **TestFlight installs** whose `CFBundleVersion` is below `latest_build`
   show the same soft update banner as a version mismatch. Useful for
-  pushing testers from build 447 to build 451 within the 1.13 cycle.
+  pushing testers from build 450 to build 451 within the 1.13 cycle.
 - **App Store installs** ignore the field entirely (App Store doesn't
   expose build numbers as a tap target).
 - **Field absent** = backward compatible no-op. Every iOS build in the
@@ -186,7 +186,11 @@ an error" UX. Always lag.
 - 2026-06-06: PR #220 — additive flat aliases added back alongside the
   nested form as belt and suspenders. Wire shape now stable for both
   legacy and new decoders.
-- 2026-06-06: this doc, written to prevent another silent decode drift.
+- 2026-06-06: this doc (PR #225), written to prevent another silent decode drift.
+- 2026-06-07: PR #227 — `latest_build` added as an optional flat alias of
+  `latest.build` (documented above).
+- 2026-06-09: PR #233 — build bumped 447 → 450 (447 was an internal-only build,
+  superseded before release). Examples here track the live value.
 
 ## Out of scope
 

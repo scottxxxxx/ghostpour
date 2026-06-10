@@ -3,6 +3,11 @@ name: Build & Deploy
 on:
   push:
     branches: [main]
+    # Docs-only changes don't affect the running image, so skip the
+    # rebuild + container recreate (a pointless prod restart otherwise).
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
   workflow_dispatch:
 
 # Serialize production deploys. Multiple pushes to main (e.g. merging
