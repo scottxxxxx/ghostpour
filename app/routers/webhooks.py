@@ -335,9 +335,18 @@ async def list_configs(
     request: Request,
     x_admin_key: str = Header(...),
 ):
-    """List all remote config files with their versions and sizes."""
+    """List all remote config files with their versions and sizes.
+
+    `drift` lists JSON pointers where the bundled config's value differs
+    from the overlay's (recomputed live, not the boot-time snapshot).
+    Non-empty drift means a PR changed a value that hasn't been synced —
+    remediate via POST /admin/config/{slug}/sync-from-bundle.
+    """
     _verify_admin(request, x_admin_key)
     configs: dict[str, dict] = request.app.state.remote_configs
+
+    from app.routers.config import detect_overlay_drift
+    drift = detect_overlay_drift()
 
     result = []
     for slug, data in sorted(configs.items()):
@@ -346,6 +355,7 @@ async def list_configs(
             "version": data.get("version"),
             "keys": list(data.keys()),
             "size": len(json.dumps(data)),
+            "drift": drift.get(slug, []),
         })
     return {"configs": result}
 
