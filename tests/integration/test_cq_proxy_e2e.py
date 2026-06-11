@@ -101,6 +101,54 @@ class TestQuiltProxy:
             )
         assert resp.status_code == 200
 
+    def test_quilt_get_forwards_query_string(self, client_with_cq, pro_user):
+        """?since=...&delta=true reaches CQ verbatim — dropping it made every
+        delta poll return the full quilt."""
+        mock_resp = httpx.Response(
+            status_code=200,
+            json={"facts": [], "deleted": []},
+            request=httpx.Request("GET", "http://cq-mock/v1/quilt/test"),
+        )
+        with patch("app.services.context_quilt._get_auth_headers", new_callable=AsyncMock, return_value={"Authorization": "Bearer mock"}), \
+             patch("httpx.AsyncClient") as MockClient:
+            instance = AsyncMock()
+            instance.__aenter__ = AsyncMock(return_value=instance)
+            instance.__aexit__ = AsyncMock(return_value=False)
+            instance.request = AsyncMock(return_value=mock_resp)
+            MockClient.return_value = instance
+
+            resp = client_with_cq.get(
+                f"/v1/quilt/{pro_user['user_id']}?since=2026-06-11T02:55:17.309191Z&delta=true",
+                headers=pro_user["headers"],
+            )
+        assert resp.status_code == 200
+        called_path = instance.request.call_args.args[1]
+        assert "since=2026-06-11T02%3A55%3A17.309191Z" in called_path or "since=2026-06-11T02:55:17.309191Z" in called_path
+        assert "delta=true" in called_path
+
+    def test_quilt_get_no_query_unchanged(self, client_with_cq, pro_user):
+        """No query string → path proxied bare, no trailing '?'."""
+        mock_resp = httpx.Response(
+            status_code=200,
+            json={"facts": [], "deleted": []},
+            request=httpx.Request("GET", "http://cq-mock/v1/quilt/test"),
+        )
+        with patch("app.services.context_quilt._get_auth_headers", new_callable=AsyncMock, return_value={"Authorization": "Bearer mock"}), \
+             patch("httpx.AsyncClient") as MockClient:
+            instance = AsyncMock()
+            instance.__aenter__ = AsyncMock(return_value=instance)
+            instance.__aexit__ = AsyncMock(return_value=False)
+            instance.request = AsyncMock(return_value=mock_resp)
+            MockClient.return_value = instance
+
+            resp = client_with_cq.get(
+                f"/v1/quilt/{pro_user['user_id']}",
+                headers=pro_user["headers"],
+            )
+        assert resp.status_code == 200
+        called_path = instance.request.call_args.args[1]
+        assert called_path == f"/v1/quilt/{pro_user['user_id']}"
+
     def test_quilt_cross_user_forbidden(self, client_with_cq, pro_user):
         """User A trying to access user B's quilt → 403."""
         resp = client_with_cq.get(
