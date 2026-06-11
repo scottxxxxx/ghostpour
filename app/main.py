@@ -90,6 +90,17 @@ async def lifespan(app: FastAPI):
     # lists. Closes the "PR adds a field but live config still serves
     # old shape until manual sync" trap. See issue #186.
     config.hydrate_overlay_additions()
+    # Value changes are NOT auto-applied (overlay hot-edits win) but must
+    # not drift silently either — warn per slug so ops knows to run
+    # POST /webhooks/admin/config/{slug}/sync-from-bundle.
+    config_drift = config.detect_overlay_drift()
+    for _slug, _ptrs in sorted(config_drift.items()):
+        logging.getLogger("app.main").warning(
+            "config_drift slug=%s pointers=%d sample=%s — bundle and overlay "
+            "values differ; sync-from-bundle if the bundle is intended",
+            _slug, len(_ptrs), _ptrs[:5],
+        )
+    app.state.config_drift = config_drift
     app.state.remote_configs = config.load_remote_configs()
 
     # Per-app version registry. Backs GET /v1/app/version. Missing file

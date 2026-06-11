@@ -111,6 +111,78 @@ def _hydrate_walk(bundle_node, overlay_node, ptr: str, added: list[str]) -> None
     # Atomic: overlay wins.
 
 
+def _drift_walk(bundle_node, overlay_node, ptr: str, drifted: list[str]) -> None:
+    """Recursive worker for detect_overlay_drift.
+
+    Mirrors _hydrate_walk's descent rules, but reports pointers where a
+    value exists in BOTH bundle and overlay and differs. Keys missing
+    from the overlay are hydration's job; keys only in the overlay are
+    hot-edits and intentionally ignored.
+    """
+    if isinstance(bundle_node, dict) and isinstance(overlay_node, dict):
+        for key, bundle_val in bundle_node.items():
+            if key not in overlay_node:
+                continue
+            _drift_walk(bundle_val, overlay_node[key], f"{ptr}/{_escape_pointer_token(key)}", drifted)
+        return
+
+    if (
+        isinstance(bundle_node, list)
+        and isinstance(overlay_node, list)
+        and len(bundle_node) == len(overlay_node)
+        and all(isinstance(b, dict) and isinstance(o, dict)
+                for b, o in zip(bundle_node, overlay_node))
+    ):
+        for i, (b, o) in enumerate(zip(bundle_node, overlay_node)):
+            _drift_walk(b, o, f"{ptr}/{i}", drifted)
+        return
+
+    # Atomic leaf (scalar, mixed types, or non-element-wise lists):
+    # report when the values differ.
+    if bundle_node != overlay_node:
+        drifted.append(ptr or "/")
+
+
+def detect_overlay_drift() -> dict[str, list[str]]:
+    """Compare every bundled config against its runtime overlay and return
+    {slug: [drifted JSON pointers]} for slugs where a value present in BOTH
+    differs. Top-level /version is excluded (it always diverges).
+
+    This is the read-only complement to hydrate_overlay_additions: hydration
+    auto-applies *additions* at startup, but value CHANGES stay manual by
+    design (ops hot-edits must win). Without detection those changes drift
+    silently — bit us on protected-prompts (2026-06-10) where prod served a
+    stale defaultPromptModes for weeks. Remediation stays the existing
+    POST /webhooks/admin/config/{slug}/sync-from-bundle.
+
+    Malformed files are skipped silently — hydrate already logs them.
+    """
+    drift: dict[str, list[str]] = {}
+    if not _BUNDLED_DIR.is_dir() or not CONFIG_DIR.is_dir():
+        return drift
+
+    for bundle_path in _BUNDLED_DIR.glob("*.json"):
+        slug = bundle_path.stem
+        overlay_path = CONFIG_DIR / bundle_path.name
+        if not overlay_path.exists():
+            continue
+        try:
+            bundle = json.loads(bundle_path.read_text())
+            overlay = json.loads(overlay_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        if not isinstance(bundle, dict) or not isinstance(overlay, dict):
+            continue
+
+        bundle = {k: v for k, v in bundle.items() if k != "version"}
+        drifted: list[str] = []
+        _drift_walk(bundle, overlay, "", drifted)
+        if drifted:
+            drift[slug] = drifted
+
+    return drift
+
+
 def hydrate_overlay_additions() -> int:
     """For each bundled config, copy JSON pointers present in the bundle
     but missing from the overlay into the overlay. Never overwrites
