@@ -71,8 +71,18 @@ async def _report_cq_incident(
 # --- Proxy helper ---
 
 
-async def _cq_proxy(method: str, path: str, body: dict | None = None) -> JSONResponse:
-    """Forward a request to Context Quilt and return its response."""
+async def _cq_proxy(
+    method: str,
+    path: str,
+    body: dict | None = None,
+    query: str | None = None,
+) -> JSONResponse:
+    """Forward a request to Context Quilt and return its response.
+
+    `query` is the caller's raw query string, forwarded verbatim so CQ
+    query features (e.g. ?since=...&delta=true on /v1/quilt) and any
+    params CQ adds later pass through without GP knowing about them.
+    """
     settings = get_settings()
     if not settings.cq_base_url:
         raise HTTPException(status_code=503, detail="Context Quilt not configured")
@@ -82,7 +92,7 @@ async def _cq_proxy(method: str, path: str, body: dict | None = None) -> JSONRes
         async with httpx.AsyncClient(base_url=settings.cq_base_url, timeout=10.0) as client:
             resp = await client.request(
                 method,
-                path,
+                f"{path}?{query}" if query else path,
                 json=body,
                 headers=auth_headers,
             )
@@ -290,7 +300,10 @@ async def get_quilt(
     """
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot access another user's quilt")
-    proxied = await _cq_proxy("GET", f"/v1/quilt/{user_id}")
+    # Forward the device's query string verbatim — iOS sends
+    # ?since=...&delta=true for delta sync; dropping it made every poll
+    # return the full quilt ("+860 updated" on each fetch).
+    proxied = await _cq_proxy("GET", f"/v1/quilt/{user_id}", query=request.url.query or None)
 
     # Only inject for the one-shot CTA window. memory_last_cta_kind is
     # cleared after this render.
