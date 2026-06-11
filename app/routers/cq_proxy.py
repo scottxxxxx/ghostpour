@@ -12,7 +12,7 @@ from typing import Any
 
 import aiosqlite
 import httpx
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
@@ -463,6 +463,27 @@ async def delete_quilt_patch(
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
     return await _cq_proxy("DELETE", f"/v1/quilt/{user_id}/patches/{patch_id}")
+
+
+@router.post("/quilt/{user_id}/patches/{patch_id}/complete")
+async def complete_quilt_patch(
+    user_id: str,
+    patch_id: str,
+    user: UserRecord = Depends(get_current_user),
+    body: dict | None = Body(default=None),
+):
+    """Proxy: mark a patch completed (SS tap-to-complete).
+
+    Body is an untyped optional dict forwarded verbatim — CQ owns the
+    shape. Status codes carry meaning and pass through unchanged:
+    200 completed, 400 not a completable type, 404 not found,
+    409 already completed (including losing a race to CQ's auto-close).
+    The only rewrite in _cq_proxy is CQ's 401 → 502 (server-to-server
+    auth failure must not look like a client-token rejection).
+    """
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
+    return await _cq_proxy("POST", f"/v1/quilt/{user_id}/patches/{patch_id}/complete", body)
 
 
 # --- Connection management ---

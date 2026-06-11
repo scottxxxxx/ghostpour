@@ -149,6 +149,63 @@ class TestQuiltProxy:
         called_path = instance.request.call_args.args[1]
         assert called_path == f"/v1/quilt/{pro_user['user_id']}"
 
+    def test_complete_patch_proxied_with_status_passthrough(self, client_with_cq, pro_user):
+        """POST .../patches/{id}/complete forwards the body and passes CQ's
+        status codes through verbatim — 409 (already completed / lost race
+        to auto-close) must reach the device as 409."""
+        mock_resp = httpx.Response(
+            status_code=409,
+            json={"detail": "already completed"},
+            request=httpx.Request("POST", "http://cq-mock/v1/quilt/u/patches/p/complete"),
+        )
+        with patch("app.services.context_quilt._get_auth_headers", new_callable=AsyncMock, return_value={"Authorization": "Bearer mock"}), \
+             patch("httpx.AsyncClient") as MockClient:
+            instance = AsyncMock()
+            instance.__aenter__ = AsyncMock(return_value=instance)
+            instance.__aexit__ = AsyncMock(return_value=False)
+            instance.request = AsyncMock(return_value=mock_resp)
+            MockClient.return_value = instance
+
+            resp = client_with_cq.post(
+                f"/v1/quilt/{pro_user['user_id']}/patches/abc-123/complete",
+                json={"source": "tap"},
+                headers=pro_user["headers"],
+            )
+        assert resp.status_code == 409
+        assert resp.json() == {"detail": "already completed"}
+        called_path = instance.request.call_args.args[1]
+        assert called_path == f"/v1/quilt/{pro_user['user_id']}/patches/abc-123/complete"
+        assert instance.request.call_args.kwargs["json"] == {"source": "tap"}
+
+    def test_complete_patch_no_body(self, client_with_cq, pro_user):
+        """The JSON body is optional — a bare POST forwards with no body."""
+        mock_resp = httpx.Response(
+            status_code=200,
+            json={"status": "completed"},
+            request=httpx.Request("POST", "http://cq-mock/v1/quilt/u/patches/p/complete"),
+        )
+        with patch("app.services.context_quilt._get_auth_headers", new_callable=AsyncMock, return_value={"Authorization": "Bearer mock"}), \
+             patch("httpx.AsyncClient") as MockClient:
+            instance = AsyncMock()
+            instance.__aenter__ = AsyncMock(return_value=instance)
+            instance.__aexit__ = AsyncMock(return_value=False)
+            instance.request = AsyncMock(return_value=mock_resp)
+            MockClient.return_value = instance
+
+            resp = client_with_cq.post(
+                f"/v1/quilt/{pro_user['user_id']}/patches/abc-123/complete",
+                headers=pro_user["headers"],
+            )
+        assert resp.status_code == 200
+        assert instance.request.call_args.kwargs["json"] is None
+
+    def test_complete_patch_cross_user_forbidden(self, client_with_cq, pro_user):
+        resp = client_with_cq.post(
+            "/v1/quilt/someone-else/patches/abc-123/complete",
+            headers=pro_user["headers"],
+        )
+        assert resp.status_code == 403
+
     def test_quilt_cross_user_forbidden(self, client_with_cq, pro_user):
         """User A trying to access user B's quilt → 403."""
         resp = client_with_cq.get(
