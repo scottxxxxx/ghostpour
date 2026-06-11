@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 3,
   "tips": [
     "Tap me to start a session",
     "I'll transcribe your meeting in real time",
@@ -8,6 +8,6 @@
     "Try capturing a photo for visual context",
     "I'll summarize your meeting automatically",
     "I work through your AirPods — invisible to others",
-    "Swipe down on the query button to choose context range"
+    "Before tapping on a query button, you can choose how much of the meeting to include."
   ]
 }
