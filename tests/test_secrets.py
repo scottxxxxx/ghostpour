@@ -51,6 +51,58 @@ def test_secret_manager_failure_returns_empty_string(monkeypatch, caplog):
     assert result == ""
 
 
+def test_not_found_logs_info_not_warning(monkeypatch, caplog):
+    """A 404 from SM is a normal outcome — the shadow check consults SM
+    read-only for env-resident secrets, and BYOK-only provider keys have
+    no managed value. It must log at INFO; WARNING is reserved for real
+    failures (IAM, scope, network)."""
+    import logging
+    from google.api_core.exceptions import NotFound
+
+    monkeypatch.setenv("CZ_GCP_PROJECT", "test-project")
+    fake_client = MagicMock()
+    fake_client.access_secret_version.side_effect = NotFound("Secret not found")
+    fake_sm = MagicMock(SecretManagerServiceClient=MagicMock(return_value=fake_client))
+    fake_auth = MagicMock(default=MagicMock(return_value=(MagicMock(), "test-project")))
+    with patch.dict("sys.modules", {
+        "google.cloud": MagicMock(secretmanager=fake_sm),
+        "google.cloud.secretmanager": fake_sm,
+        "google.auth": fake_auth,
+    }):
+        with caplog.at_level(logging.INFO, logger="app.secrets"):
+            result = app_secrets.get_secret("never-provisioned")
+
+    assert result == ""
+    not_provisioned = [r for r in caplog.records if "not provisioned" in r.getMessage()]
+    assert len(not_provisioned) == 1
+    assert not_provisioned[0].levelno == logging.INFO
+    assert not [r for r in caplog.records if "fetch failed" in r.getMessage()]
+
+
+def test_non_404_failure_still_warns(monkeypatch, caplog):
+    """Anything other than NotFound keeps the loud WARNING."""
+    import logging
+    from google.api_core.exceptions import PermissionDenied
+
+    monkeypatch.setenv("CZ_GCP_PROJECT", "test-project")
+    fake_client = MagicMock()
+    fake_client.access_secret_version.side_effect = PermissionDenied("IAM says no")
+    fake_sm = MagicMock(SecretManagerServiceClient=MagicMock(return_value=fake_client))
+    fake_auth = MagicMock(default=MagicMock(return_value=(MagicMock(), "test-project")))
+    with patch.dict("sys.modules", {
+        "google.cloud": MagicMock(secretmanager=fake_sm),
+        "google.cloud.secretmanager": fake_sm,
+        "google.auth": fake_auth,
+    }):
+        with caplog.at_level(logging.INFO, logger="app.secrets"):
+            result = app_secrets.get_secret("locked-down")
+
+    assert result == ""
+    warnings = [r for r in caplog.records if "fetch failed" in r.getMessage()]
+    assert len(warnings) == 1
+    assert warnings[0].levelno == logging.WARNING
+
+
 def test_results_are_cached(monkeypatch):
     monkeypatch.setenv("CZ_TEST_SECRET", "first")
     assert app_secrets.get_secret("name", env_var="CZ_TEST_SECRET") == "first"

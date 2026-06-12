@@ -150,6 +150,41 @@ def test_ensure_is_idempotent(monkeypatch):
     assert os.environ.get("CZ_KIMI_API_KEY") == "kimi-sm-value"
 
 
+def test_secret_resolution_summary_buckets(monkeypatch, caplog):
+    """Boot emits exactly one secret_resolution_summary INFO line that
+    buckets every mapped secret by where it resolved from — the single
+    line of ground truth that prevents misreading per-secret 404s as
+    'Secret Manager is down'. Names only, never values."""
+    import logging
+    import re
+
+    monkeypatch.setenv("CZ_JWT_SECRET", "env-value")   # → env_resident
+    monkeypatch.setenv("CZ_ANTHROPIC_API_KEY", "")     # → filled_from_sm
+    monkeypatch.setenv("CZ_KIMI_API_KEY", "")          # → no_value
+
+    def fake_get_secret(name, env_var=None):
+        return "sm-value" if name == "anthropic-api-key" else ""
+
+    with patch("app.secrets.get_secret", side_effect=fake_get_secret):
+        with caplog.at_level(logging.INFO, logger="app.config"):
+            app_config._ensure_secrets_in_env()
+
+    summaries = [r.getMessage() for r in caplog.records
+                 if "secret_resolution_summary" in r.getMessage()]
+    assert len(summaries) == 1
+    m = re.search(
+        r"filled_from_sm=\[([^\]]*)\] env_resident=\[([^\]]*)\] no_value=\[([^\]]*)\]",
+        summaries[0],
+    )
+    assert m, summaries[0]
+    assert "anthropic-api-key" in m.group(1).split(",")
+    assert "jwt-secret" in m.group(2).split(",")
+    assert "kimi-api-key" in m.group(3).split(",")
+    # Redaction: no values in the summary.
+    assert "env-value" not in summaries[0]
+    assert "sm-value" not in summaries[0]
+
+
 def test_mapping_does_not_include_non_secret_config():
     """`CZ_GCP_PROJECT`, `CZ_DATABASE_URL`, `CZ_APPLE_BUNDLE_ID` etc.
     are configuration, not secrets — keep them out of the SM fallback
