@@ -64,24 +64,48 @@ def _cache_put(key: tuple, value: str) -> None:
 
 
 def _cache_clear() -> None:
+    global _adc_project
     with _cache_lock:
         _cache.clear()
+    _adc_project = None
+
+
+# ADC project resolution result, cached for the process lifetime ("" =
+# resolved to nothing). Without this, every get_secret cache miss re-runs
+# google.auth.default(), which on a machine with no ADC probes the GCE
+# metadata server and waits out its timeout — multiplied by the 12 mapped
+# secrets, that turned local test runs into minutes of silent waiting.
+# The explicit CZ_GCP_PROJECT path is deliberately NOT cached so tests
+# and operators can change it at runtime.
+_adc_project: str | None = None
 
 
 def _resolve_project() -> str:
+    global _adc_project
     explicit = os.getenv("CZ_GCP_PROJECT", "").strip()
     if explicit:
         return explicit
+    if _adc_project is not None:
+        return _adc_project
     try:
         from google.auth import default as google_auth_default  # type: ignore[import-not-found]
     except ImportError:
         return ""
     try:
         _, project = google_auth_default()
-        return project or ""
+        _adc_project = project or ""
     except Exception as exc:  # noqa: BLE001 — auth failures are expected in tests/local
         logger.debug("ADC project resolution failed: %s", exc)
-        return ""
+        _adc_project = ""
+    return _adc_project
+
+
+def _is_not_found(exc: Exception) -> bool:
+    try:
+        from google.api_core.exceptions import NotFound  # type: ignore[import-not-found]
+    except ImportError:
+        return False
+    return isinstance(exc, NotFound)
 
 
 def _from_secret_manager(secret_name: str) -> str:
@@ -110,7 +134,16 @@ def _from_secret_manager(secret_name: str) -> str:
         response = client.access_secret_version(name=path)
         return response.payload.data.decode("utf-8")
     except Exception as exc:  # noqa: BLE001 — surface broad failures as empty + log
-        logger.warning("Secret Manager fetch failed for %s: %s", secret_name, exc)
+        if _is_not_found(exc):
+            # A missing secret is a normal outcome here: the startup shadow
+            # check consults SM read-only for env-resident secrets, and
+            # BYOK-only provider keys have no managed value at all. Only
+            # real trouble (IAM, scope, network) belongs at WARNING — nine
+            # benign 404 warnings per boot once got misread as "Secret
+            # Manager is down for every secret".
+            logger.info("Secret %s not provisioned in Secret Manager", secret_name)
+        else:
+            logger.warning("Secret Manager fetch failed for %s: %s", secret_name, exc)
         return ""
 
 

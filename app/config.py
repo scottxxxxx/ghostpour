@@ -214,9 +214,13 @@ def _ensure_secrets_in_env() -> None:
 
     log = logging.getLogger(__name__)
 
+    filled: list[str] = []
+    env_resident: list[str] = []
+    no_value: list[str] = []
     for env_var, secret_name in _SECRET_MANAGER_MAPPINGS.items():
         existing = os.environ.get(env_var, "").strip()
         if existing:
+            env_resident.append(secret_name)
             # Env wins over SM at startup (pydantic reads env directly), so
             # a rotated Secret Manager value silently loses to a stale value
             # left in `.env`/.env.prod. That's the "shadow trap": a live key
@@ -241,11 +245,22 @@ def _ensure_secrets_in_env() -> None:
         # and goes straight to SM.
         sm_value = get_secret(secret_name)
         if sm_value:
+            filled.append(secret_name)
             os.environ[env_var] = sm_value
             log.info(
                 "secret_filled_from_sm env_var=%s sm_secret=%s len=%d",
                 env_var, secret_name, len(sm_value),
             )
+        else:
+            no_value.append(secret_name)
+
+    # One line of ground truth per boot — secret NAMES only, never values.
+    # `no_value` is expected for BYOK-only provider keys; anything else
+    # listed there means the secret is missing from both env and SM.
+    log.info(
+        "secret_resolution_summary filled_from_sm=[%s] env_resident=[%s] no_value=[%s]",
+        ",".join(filled), ",".join(env_resident), ",".join(no_value),
+    )
 
 
 @lru_cache
