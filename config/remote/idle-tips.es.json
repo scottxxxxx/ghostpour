@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "tips": [
     "Ina, Tocame para iniciar una sesion",
     "Transcribire tu reunion en tiempo real",
@@ -8,6 +8,7 @@
     "Prueba capturar una foto para contexto visual",
     "Resumire tu reunion automaticamente",
     "Funciono a traves de tus AirPods, invisible para los demas",
-    "Desliza hacia abajo en el boton de consulta para elegir el rango de contexto"
+    "Desliza hacia abajo en el boton de consulta para elegir el rango de contexto",
+    "Ahora puedes agregar documentos de referencia a tus chats de proyecto y de reuniones"
   ]
 }
