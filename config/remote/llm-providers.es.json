@@ -1,5 +1,5 @@
 {
-  "version": 15,
+  "version": 16,
   "defaultPromptReserveTokens": 8000,
   "providers": [
     {
@@ -665,10 +665,62 @@
       "temperatureDefault": 0.7,
       "models": [
         {
+          "id": "qwen3.7-max",
+          "displayName": "Qwen3.7 Max",
+          "description": "Modelo de agente y razonamiento de vanguardia, tareas de largo alcance, programacion, trabajo de alta importancia. Razona por defecto.",
+          "isDefault": true,
+          "supportsVision": true,
+          "contextWindow": 1048576,
+          "inputCostPerMillion": 1.25,
+          "outputCostPerMillion": 3.75,
+          "litellmKey": "qwen/qwen3.7-max",
+          "supportsReasoning": true,
+          "reasoningLevels": [
+            "default",
+            "disabled",
+            "enabled"
+          ],
+          "maxOutputTokens": 8192,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 5,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false,
+          "promptReserveTokens": null,
+          "reasoningFamily": "toggle"
+        },
+        {
+          "id": "qwen3.7-plus",
+          "displayName": "Qwen3.7 Plus",
+          "description": "Modelo de agente multimodal (vision + lenguaje). Costo equilibrado para cargas de trabajo de produccion de alto volumen. Razona por defecto.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 1048576,
+          "inputCostPerMillion": 0.32,
+          "outputCostPerMillion": 1.28,
+          "litellmKey": "qwen/qwen3.7-plus",
+          "supportsReasoning": true,
+          "reasoningLevels": [
+            "default",
+            "disabled",
+            "enabled"
+          ],
+          "maxOutputTokens": 8192,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 5,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false,
+          "promptReserveTokens": null,
+          "reasoningFamily": "toggle"
+        },
+        {
           "id": "qwen3-max",
           "displayName": "Qwen Max",
           "description": "Razonamiento complejo, flujos de trabajo empresariales, tareas de alta importancia.",
-          "isDefault": true,
+          "isDefault": false,
           "supportsVision": true,
           "contextWindow": 262144,
           "inputCostPerMillion": 1.2,

@@ -1,5 +1,5 @@
 {
-  "version": 13,
+  "version": 14,
   "defaultPromptReserveTokens": 8000,
   "models": {
     "foundation-models": {
@@ -709,6 +709,74 @@
       "splitModelSummary": true,
       "estimatedAvailableTokens": 261120,
       "supportsReasoning": false
+    },
+    "qwen3.7-max": {
+      "provider": "Alibaba (Qwen)",
+      "description": "Agente y razonamiento de vanguardia; tareas de largo alcance, programacion, trabajo de alta importancia; razona por defecto",
+      "inputCostPerMillion": 1.25,
+      "outputCostPerMillion": 3.75,
+      "contextWindow": "1M",
+      "weights": "Proprietary",
+      "supportsImages": true,
+      "requiredParams": "model, messages",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 1047552,
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "default",
+        "disabled",
+        "enabled"
+      ]
+    },
+    "qwen3.7-plus": {
+      "provider": "Alibaba (Qwen)",
+      "description": "Agente multimodal (vision + lenguaje); costo equilibrado, produccion de alto volumen; razona por defecto",
+      "inputCostPerMillion": 0.32,
+      "outputCostPerMillion": 1.28,
+      "contextWindow": "1M",
+      "weights": "Proprietary",
+      "supportsImages": true,
+      "requiredParams": "model, messages",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 1047552,
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "default",
+        "disabled",
+        "enabled"
+      ]
     }
   }
 }
