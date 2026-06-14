@@ -674,6 +674,7 @@
           "inputCostPerMillion": 1.25,
           "outputCostPerMillion": 3.75,
           "litellmKey": "qwen/qwen3.7-max",
+          "minAppBuild": 534,
           "supportsReasoning": true,
           "reasoningLevels": [
             "default",
@@ -700,6 +701,7 @@
           "inputCostPerMillion": 0.32,
           "outputCostPerMillion": 1.28,
           "litellmKey": "qwen/qwen3.7-plus",
+          "minAppBuild": 534,
           "supportsReasoning": true,
           "reasoningLevels": [
             "default",
