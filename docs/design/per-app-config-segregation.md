@@ -189,6 +189,56 @@ change), drop the flat name fallback and return 404 for an unknown bundle.
   read. Recommendation: one shared registry, so there is a single source of
   truth for "what apps exist."
 
+## Phase 0 audit findings (2026-06-14)
+
+All five `tr-` files were created in a single commit, #36 (2026-04-18), "Add
+multi-app support: Tech Rehearsal configs + multi-bundle-ID auth." Every one is
+Tech Rehearsal. None is a locale and none is a transcript or unrelated config.
+The earlier "transcript" reading of `tr-jd-analysis` was wrong.
+
+| File | Verdict | Content state | Consumed |
+|------|---------|---------------|----------|
+| `tr-jd-analysis.json` | Tech Rehearsal | TR specific. System prompt is an interview preparation analyst that parses a pasted job description. No ShoulderSurf equivalent exists. | Server side, via `prompt_assembly.py` call type `tr_parse_jd`. |
+| `tr-llm-providers.json` | Tech Rehearsal | Currently mirrors ShoulderSurf exactly (same 10 providers, same model set). TR's own copy of the BYOK lineup. | Client fetched. |
+| `tr-model-capabilities.json` | Tech Rehearsal | Mirrors ShoulderSurf. | Client fetched. |
+| `tr-idle-tips.json` | Tech Rehearsal namespace | Content is a stale ShoulderSurf placeholder (tips about meetings, AirPods, speakers), not interview rehearsal. Needs real TR copy. | Client fetched. |
+| `tr-protected-prompts.json` | Tech Rehearsal | Partially customized for TR, differs from the ShoulderSurf file. | Server side prompt assembly. |
+
+Conclusion: all `tr-` files are safe to migrate under `techrehearsal/`. Two
+content follow ups, both separate from the migration: `tr-idle-tips` needs real
+Tech Rehearsal copy, and `tr-llm-providers` / `tr-model-capabilities` should be
+allowed to diverge from ShoulderSurf rather than be kept in forced lockstep (the
+old parity test treated them as a ShoulderSurf locale, which is what caused the
+Qwen mis-edit).
+
+## Correction the audit forced: app identity is already `X-App-ID`, not bundle id, and there are already two patterns
+
+The audit found that multi app support already exists in two inconsistent shapes,
+which changes the "App resolution" section above:
+
+1. `model-routing.json` keys apps INTERNALLY: it has an `apps.shouldersurf` and
+   `apps.techrehearsal` block. The middleware (`request_logging.py`) reads the
+   `X-App-ID` header into `request.state.app_id`, and `chat.py` routes on it
+   (`routing.get(app_id)`). So the server consumed config is already app
+   segregated, by internal key, keyed off `X-App-ID` (values `shouldersurf`,
+   `techrehearsal`).
+2. The client fetched configs (`llm-providers`, `model-capabilities`,
+   `idle-tips`, `protected-prompts`, and `jd-analysis`) segregate by filename
+   prefix (`tr-`) instead, and the `/v1/config/{name}` endpoint does not read
+   `X-App-ID` at all.
+
+So the real task is to converge these two patterns, and to do it on the header
+that already exists, `X-App-ID`, rather than introducing `X-App-Bundle-Id`. Note
+also that the README and CHANGELOG name three apps, Shoulder Surf, Tech
+Rehearsal, and Interview Buddy, so this must scale past two.
+
+Revised resolution recommendation: the config endpoint reads `X-App-ID`
+(the same value `chat.py` already uses), maps it to a directory, and resolves
+`{app}/{name}.{locale}`. This reuses the existing identity signal end to end
+instead of adding a parallel one. Whether per app directories or internal app
+keys is the better physical layout is now an open decision, because
+`model-routing.json` already demonstrates the internal key approach working.
+
 ## Recommendation
 
 Adopt per app directories keyed by bundle id, keep language as the `.{code}`
