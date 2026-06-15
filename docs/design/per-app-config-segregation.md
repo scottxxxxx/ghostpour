@@ -1,69 +1,126 @@
 # Per App Config Segregation
 
-Status: Draft proposal
+Status: Draft proposal, revised v2 (post Phase 0 audit)
 Author: (you)
 Date: 2026-06-14
 
 ## Summary
 
-Today our remote config system flattens two unrelated dimensions, which app a
-config belongs to and which language it is in, into a single filename. App
-identity lives in the filename prefix (`tr-` for Tech Rehearsal, no prefix for
-ShoulderSurf) and language lives in the suffix (`.es`, `.ja`). This proposal
-moves app identity up to a real namespace, a per app directory keyed by bundle
-id, and keeps language as the suffix. The two axes become orthogonal, so adding
-an app or a language never collides or confuses.
+We serve remote config to several iOS apps, and app identity is handled two
+different ways today. Server consumed config (`model-routing.json`) keys apps
+internally and resolves them from the `X-App-ID` header. Client fetched config
+(`llm-providers`, `model-capabilities`, `idle-tips`, `protected-prompts`,
+`jd-analysis`) instead carries app identity as a filename prefix (`tr-` for Tech
+Rehearsal), and the config endpoint ignores `X-App-ID` entirely. This proposal
+converges both onto the identity signal we already have, `X-App-ID`, and
+recommends a single physical layout per consumption mode: per app directories
+for client delivered config, and internal app keys (the existing pattern) for
+server side routing tables. Language stays an orthogonal `.{code}` suffix.
 
 ## Why now
 
-This bit us twice in one week. The `tr-` prefix was read as Turkish by an
-engineer and then again by the ShoulderSurf team, which nearly led to Tech
-Rehearsal's provider config being renamed into a ShoulderSurf Japanese file.
-The flat scheme also gets visibly worse the moment a second app wants a second
-language: `tr-llm-providers.es.json` reads as "Turkish providers, Spanish," and
-nobody can tell at a glance whether `tr` is an app, a language, or something
-else. Tech Rehearsal is a real upcoming second iOS app, so we want a clean multi
-app story before its config surface grows.
+The split bit us three times in one week. The `tr-` prefix was read as Turkish
+by an engineer and twice by the ShoulderSurf team, nearly leading to Tech
+Rehearsal's provider config being renamed into a ShoulderSurf Japanese file and
+its interview prep prompt being dismissed as a stale "transcript" config. The
+scheme also gets visibly worse as apps add languages (`tr-llm-providers.es.json`
+reads as "Turkish providers, Spanish"). Tech Rehearsal is a live upcoming app and
+the README names a third, Interview Buddy, so this has to scale past two and stop
+being ambiguous.
 
 ## Goals
 
-- App identity is a first class boundary, not a filename prefix.
-- Language stays an orthogonal suffix (`.es`, `.ja`, and so on).
-- Adding an app or a language is a pure addition, no renames, no collisions.
-- Migration is backward compatible. No shipped ShoulderSurf build breaks.
+- App identity is resolved one way everywhere, from `X-App-ID`.
+- Client delivered config is isolated per app: its own version, its own file, its
+  own edit and sync blast radius.
+- Language stays an orthogonal suffix.
+- Adding an app or a language is a pure addition. No renames, no collisions.
+- Migration is backward compatible. No shipped build breaks.
 
 ## Non goals (for v1)
 
-- Translating the English placeholder content that some locale files carry.
-  That is separate content work.
-- Changing the request shape beyond app identity. The app already sends
-  `X-App-Bundle-Id` for the app version endpoint, so the identity signal exists.
-- The explicit `.en` decision (make English a real suffix instead of the
-  implicit base). Related and worth doing, but separable. Called out below.
+- Translating English placeholder content that some locale files carry. Separate
+  content work.
+- Forcing one physical layout on server side routing tables that are legitimately
+  better as a single consolidated file.
+- The explicit `.en` decision (make English a real suffix). Related, separable,
+  recommended, called out below.
 
-## How it works today (grounded)
+## How it works today (grounded by the Phase 0 audit)
 
-- The endpoint is `GET /v1/config/{name}` with an `Accept-Language` header
-  (`app/routers/config.py`). It builds `{name}.{locale}`, falls back to the base
-  `{name}` if no localized file exists. `Accept-Language` is parsed down to a
-  bare two letter code, and `en` resolves to the base file (no `.en`).
-- App identity is not used by the config endpoint at all. The only thing that
-  separates apps today is that the client asks for a different name:
-  ShoulderSurf asks for `llm-providers`, Tech Rehearsal asks for
-  `tr-llm-providers`.
-- Files live in `config/remote/*.json`. At startup they seed into a persistent
-  directory (`data/remote-config/`), seed only if missing, so dashboard edits
-  win and survive restarts. `load_remote_configs` globs `*.json` and uses the
-  filename stem as the slug.
-- The overlay machinery (hydrate new keys at boot, drift detection,
-  `sync-from-bundle`) all operate per file by that slug.
-- Precedent worth reusing: `app-versions.yml` is already keyed by bundle id
-  (`com.shouldersurf.ShoulderSurf`) and resolved from the `X-App-Bundle-Id`
-  header. Unknown bundle ids return 404 there.
+- `GET /v1/config/{name}` plus an `Accept-Language` header (`app/routers/config.py`)
+  builds `{name}.{locale}`, falling back to the base `{name}`. Locale is the bare
+  two letter code; `en` resolves to the base file. The endpoint does not read
+  `X-App-ID`.
+- App identity already exists as `X-App-ID`. `app/middleware/request_logging.py`
+  reads it into `request.state.app_id`; `app/routers/chat.py` routes model
+  selection through `model-routing.json` `apps.<app_id>`. Values seen:
+  `shouldersurf`, `techrehearsal`. (`X-App-Bundle-Id` is a separate header used
+  only by `/v1/app/version`.)
+- `model-routing.json` keys apps internally (`apps.shouldersurf`,
+  `apps.techrehearsal`) in one file. This is server consumed.
+- The client fetched configs key apps by filename prefix (`tr-`) in separate
+  files, and are differentiated only by the client asking for a different name.
+- Files live in `config/remote/*.json`, seed into a persistent directory
+  (`data/remote-config/`, seed only if missing so dashboard edits win), and
+  `load_remote_configs` globs `*.json` with the filename stem as slug. The
+  overlay machinery (hydrate, drift, `sync-from-bundle`) runs per file by slug.
+
+### Phase 0 audit findings
+
+All five `tr-` files were created in one commit, #36 (2026-04-18), "Add multi-app
+support: Tech Rehearsal configs + multi-bundle-ID auth." Every one is Tech
+Rehearsal. None is a locale, none is a transcript.
+
+| File | Verdict | Content state | Consumed |
+|------|---------|---------------|----------|
+| `tr-jd-analysis.json` | Tech Rehearsal, TR specific | Interview prep JD parser. No ShoulderSurf equivalent. | Server side (`prompt_assembly.py`, call type `tr_parse_jd`). |
+| `tr-llm-providers.json` | Tech Rehearsal | Mirrors ShoulderSurf's lineup exactly today. | Client fetched. |
+| `tr-model-capabilities.json` | Tech Rehearsal | Mirrors ShoulderSurf. | Client fetched. |
+| `tr-idle-tips.json` | Tech Rehearsal namespace | Stale ShoulderSurf placeholder (meetings, AirPods), not interview copy. | Client fetched. |
+| `tr-protected-prompts.json` | Tech Rehearsal | Partially customized, differs from SS. | Server side. |
+
+All are safe to migrate as Tech Rehearsal. Two content follow ups, separate from
+this work: `tr-idle-tips` needs real TR copy, and the `tr-llm-providers` /
+`tr-model-capabilities` forced lockstep with ShoulderSurf should be dropped so
+Tech Rehearsal can diverge (that lockstep is what caused the Qwen mis edit).
+
+## The core decision: internal app keys vs per app directories
+
+Both patterns already exist in the tree, so this is a real choice. The deciding
+factors are version independence, blast radius, and how much of the existing
+serving and overlay machinery has to change.
+
+| Dimension | Internal app keys (one file, apps nested inside) | Per app directories (one file per app) |
+|-----------|--------------------------------------------------|----------------------------------------|
+| Version and download skip | One `version` per file, so any app's change bumps it and every app's client re-downloads, even if its slice is identical. Breaks the `X-Config-Version` skip per app. | Each app's file has its own version. Unchanged apps skip the download. Protocol preserved. |
+| Payload | Client pulls every app's data and picks its slice, or the endpoint slices server side (extra logic, served payload differs from stored file). | Client gets only its app's file. |
+| Blast radius and overlay safety | Many apps share one file, so a dashboard edit or `sync-from-bundle` for one app can clobber another app's slice. We have been bitten by overlay clobber before. | One app per file. Edits and sync are isolated to that app. |
+| Change vs today's machinery | Rework version, hydrate, drift, and `sync-from-bundle` to be app slice aware within a file. | Small extension: resolve `{app}/{name}.{locale}`; the per file version and overlay model is unchanged. |
+| Language axis | Awkward. App internal plus language suffix means every language file carries all apps, or both go internal and you get deep nesting that breaks the existing `Accept-Language` suffix resolution. | Clean. App is the directory, language is the suffix. Fully orthogonal. |
+| Scaling to 3+ apps | Files grow wide and the coupling worsens. | Linear and isolated. |
+
+### Recommendation
+
+Use **per app directories for client delivered config**, resolved from
+`X-App-ID`, with language as the suffix. The decisive reasons are version
+independence (the download skip protocol only works per app if each app owns its
+version) and blast radius (one app per file means a sync or dashboard edit can
+never clobber another app), and it is the smaller change to the serving and
+overlay code.
+
+Keep **internal app keys for server side routing tables**, specifically
+`model-routing.json`. There the whole point is one table the server reads across
+apps and tiers, it is not client version fetched with a per app download skip, and
+it is small and rarely edited. Forcing it into directories would add files without
+buying the isolation that matters for client deliverables. So the unifying rule is
+not "one physical layout," it is "resolve the app from `X-App-ID` everywhere, keep
+client deliverables isolated per app, and let server side tables stay
+consolidated."
 
 ## Proposed design
 
-### Layout: a directory per app
+### Layout
 
 ```
 config/remote/
@@ -72,176 +129,105 @@ config/remote/
     llm-providers.es.json
     llm-providers.ja.json
     model-capabilities.json
-    tiers.json
+    idle-tips.json
+    protected-prompts.json
     ...
   techrehearsal/
     llm-providers.json
     model-capabilities.json
-    ...
-  _shared/                       # optional, for configs identical across apps
-    ...
+    idle-tips.json
+    protected-prompts.json
+    jd-analysis.json            # TR specific, was tr-jd-analysis
+  model-routing.json            # stays a single file, internal app keys
 ```
 
-App is the directory. Language is the `.{code}` suffix inside it. The `tr-`
-prefix disappears entirely. Tech Rehearsal's files just live under
-`techrehearsal/` with ordinary names.
+App is the directory, language is the `.{code}` suffix inside it. The `tr-` prefix
+disappears. `model-routing.json` stays where it is, keyed internally.
 
 ### App resolution
 
-- The endpoint reads `X-App-Bundle-Id` (already sent by the app for app
-  versions).
-- A small registry maps bundle id to an app namespace (directory):
-  - `com.shouldersurf.ShoulderSurf` to `shouldersurf`
-  - `com.techrehearsal.*` to `techrehearsal`
-- Resolution order for a request:
-  1. `{app}/{name}.{locale}`
-  2. `{app}/{name}` (app specific base)
-  3. optional `_shared/{name}.{locale}`
-  4. optional `_shared/{name}`
-- Unknown or missing bundle id: during migration, default to `shouldersurf`
-  with a warning so nothing breaks while clients are updated. After migration,
-  return 404, matching how the app version endpoint already treats an unknown
-  bundle.
+- The config endpoint reads `X-App-ID` (the same value `chat.py` already uses),
+  maps it to a directory through a small registry, then resolves
+  `{app}/{name}.{locale}`, falling back to `{app}/{name}`.
+- A single `apps` registry maps the app id to its directory and is the one source
+  of truth for which apps exist. `model-routing.json` and the config endpoint both
+  read it.
+- Missing or unknown `X-App-ID`: during migration, default to `shouldersurf` with
+  a warning so nothing breaks while clients are confirmed. After migration, return
+  404, matching how `/v1/app/version` already treats an unknown app.
 
 ### Language
 
-Unchanged. Language is the `.{code}` suffix. English is the base file today.
-
-Related, separable decision: make English explicit as `.en` so every file
-declares its language and a new app starts life multilingual instead of with an
-ambiguous base. That needs a one line change to negotiation (map
-`Accept-Language: en` to the `.en` file rather than the base). Recommended, but
-it can land independently of this proposal.
+Unchanged. Language is the `.{code}` suffix; English is the base file today.
+Related separable decision: make English explicit as `.en` so every file declares
+its language and a new app starts multilingual instead of with an ambiguous base.
+That is a one line negotiation change (map `Accept-Language: en` to the `.en`
+file). Recommended, can land on its own.
 
 ## Migration plan (phased, backward compatible)
 
-### Phase 0: disambiguate the `tr-` files
+Phase 0, done: audit the `tr-` files. All five are Tech Rehearsal. Safe to move.
 
-The `tr-` prefix is overloaded and must be audited file by file before anything
-moves. At least one `tr-` file is not an app namespace: `tr-jd-analysis` is
-referenced by `app/services/prompt_assembly.py` as the `tr_parse_jd` call type,
-i.e. a transcript or prompt config, not Tech Rehearsal's. Classify every `tr-`
-file as Tech Rehearsal app config versus other meaning. Do not move an ambiguous
-file on assumption.
+Phase 1: the config endpoint reads `X-App-ID` and resolves `{app}/{name}.{locale}`,
+but falls back to the current flat and `tr-` names when a per app file does not
+exist yet. `load_remote_configs` walks subdirectories, slug becomes app plus name,
+and the overlay, drift, and `sync-from-bundle` machinery becomes app aware. Nothing
+breaks because the old names still resolve.
 
-### Phase 1: endpoint understands both schemes
+Phase 2: move files. ShoulderSurf flat files move under `shouldersurf/`, names
+unchanged. The `tr-` files move under `techrehearsal/`, dropping the prefix, and
+`tr-jd-analysis` becomes `techrehearsal/jd-analysis.json`. Update the call type to
+slug map in `prompt_assembly.py` accordingly. Update tests to per app paths and add
+Tech Rehearsal coverage as its own set rather than a fake ShoulderSurf locale. Drop
+the forced lockstep between `tr-llm-providers` and ShoulderSurf. Migrate the prod
+persistent directory into per app subdirectories, preserving dashboard edits, one
+file at a time, verifying each file in the destination before removing the source.
 
-Teach the config endpoint to resolve the app from the bundle id into a
-directory, but fall back to the current flat names when a per app file does not
-exist yet. Update `load_remote_configs` to walk subdirectories, with the slug
-becoming app plus name. Make the overlay, drift, and `sync-from-bundle`
-machinery app aware. Nothing breaks because the flat names still resolve.
-
-### Phase 2: move the files
-
-- ShoulderSurf flat files move under `shouldersurf/`, names unchanged.
-- Confirmed Tech Rehearsal files move under `techrehearsal/`, dropping the `tr-`
-  prefix.
-- Update tests (the `PROVIDER_FILES` and `CAPABILITY_FILES` lists, the
-  protected prompts test) to the per app paths, and add Tech Rehearsal coverage
-  as its own set rather than as a fake ShoulderSurf locale.
-- Migrate the prod persistent config directory into per app subdirectories,
-  preserving dashboard edits. This is a careful one time script: verify each
-  file exists in the destination before removing the source, consistent with our
-  migration safety practice, and never a single combined delete and move.
-
-### Phase 3: make app identity required
-
-Once we confirm the iOS client sends `X-App-Bundle-Id` on config requests (it
-already does for app versions, so this is likely a confirmation, not an app
-change), drop the flat name fallback and return 404 for an unknown bundle.
+Phase 3: once the iOS client is confirmed to send `X-App-ID` on `/v1/config`
+requests, drop the flat and `tr-` fallback and return 404 for an unknown app.
 
 ## Work items
 
-- `config/routers/config.py`: app resolution, subdirectory walk, resolution
-  order. Moderate.
-- Overlay, hydrate, drift, `sync-from-bundle`: app aware slugs. Moderate.
-- Config admin dashboard: add the app dimension to the editor. Depends on the
-  current UI.
-- Tests: per app file lists, plus Tech Rehearsal parity coverage. Small to
-  moderate.
-- Prod persistent directory migration script. Small but careful.
-- Docs: a short config conventions page describing app as directory, language as
-  suffix, and the bundle id registry.
-- ShoulderSurf: confirm `X-App-Bundle-Id` is sent on `/v1/config` requests, not
-  only on app version requests.
+- `app/routers/config.py`: read `X-App-ID`, subdirectory walk, resolution order.
+- Overlay, hydrate, drift, `sync-from-bundle`: app aware slugs.
+- `app/services/prompt_assembly.py`: update the call type to slug mapping for the
+  moved `jd-analysis`.
+- A single `apps` registry (id, directory, label) read by both config resolution
+  and model routing.
+- Config admin dashboard: add the app dimension.
+- Tests: per app file lists, Tech Rehearsal parity as its own set, drop the SS
+  lockstep over `tr-`.
+- Prod persistent directory migration script (careful, verify before delete).
+- Docs: a config conventions page (app is directory, language is suffix,
+  `X-App-ID` resolves the app).
+- ShoulderSurf: confirm the app sends `X-App-ID` on `/v1/config` requests, not only
+  on chat requests.
 
 ## Risks and mitigations
 
-- Overloaded `tr-` prefix. Mis migrating `tr-jd-analysis` would break transcript
-  parsing. Mitigation: the Phase 0 audit, and a rule not to move any ambiguous
-  file.
-- Dashboard edits in the prod persistent directory. A careless migration could
-  wipe operator edits. Mitigation: verify in destination before deleting source,
-  one file at a time, and snapshot the directory first.
-- Client coordination. Phase 3 depends on the app sending the bundle id on
-  config requests. Mitigation: keep the flat fallback until SS confirms, and the
-  default to `shouldersurf` during migration means no break in the meantime.
+- Client coordination. Phase 3 needs the app to send `X-App-ID` on config requests.
+  Mitigation: the flat fallback and the default to `shouldersurf` during migration
+  mean no break until SS confirms.
+- Dashboard edits in the prod persistent directory. Mitigation: snapshot first,
+  verify in destination before deleting source, one file at a time.
+- The forced lockstep removal could let Tech Rehearsal silently drift on fields
+  that should match. Mitigation: keep per app schema tests so each app is internally
+  valid, just not a clone of ShoulderSurf.
 
 ## Open decisions
 
 - Adopt explicit `.en`? Recommended, separable.
-- A `_shared/` layer for configs identical across apps, or a full copy per app?
-  Recommendation: start with a full copy per app for clarity, add `_shared/`
-  only if duplication becomes painful.
-- Where the bundle id to app map lives: extend `app-versions.yml`, or a single
-  dedicated `apps.yml` registry that both app versions and config resolution
-  read. Recommendation: one shared registry, so there is a single source of
-  truth for "what apps exist."
-
-## Phase 0 audit findings (2026-06-14)
-
-All five `tr-` files were created in a single commit, #36 (2026-04-18), "Add
-multi-app support: Tech Rehearsal configs + multi-bundle-ID auth." Every one is
-Tech Rehearsal. None is a locale and none is a transcript or unrelated config.
-The earlier "transcript" reading of `tr-jd-analysis` was wrong.
-
-| File | Verdict | Content state | Consumed |
-|------|---------|---------------|----------|
-| `tr-jd-analysis.json` | Tech Rehearsal | TR specific. System prompt is an interview preparation analyst that parses a pasted job description. No ShoulderSurf equivalent exists. | Server side, via `prompt_assembly.py` call type `tr_parse_jd`. |
-| `tr-llm-providers.json` | Tech Rehearsal | Currently mirrors ShoulderSurf exactly (same 10 providers, same model set). TR's own copy of the BYOK lineup. | Client fetched. |
-| `tr-model-capabilities.json` | Tech Rehearsal | Mirrors ShoulderSurf. | Client fetched. |
-| `tr-idle-tips.json` | Tech Rehearsal namespace | Content is a stale ShoulderSurf placeholder (tips about meetings, AirPods, speakers), not interview rehearsal. Needs real TR copy. | Client fetched. |
-| `tr-protected-prompts.json` | Tech Rehearsal | Partially customized for TR, differs from the ShoulderSurf file. | Server side prompt assembly. |
-
-Conclusion: all `tr-` files are safe to migrate under `techrehearsal/`. Two
-content follow ups, both separate from the migration: `tr-idle-tips` needs real
-Tech Rehearsal copy, and `tr-llm-providers` / `tr-model-capabilities` should be
-allowed to diverge from ShoulderSurf rather than be kept in forced lockstep (the
-old parity test treated them as a ShoulderSurf locale, which is what caused the
-Qwen mis-edit).
-
-## Correction the audit forced: app identity is already `X-App-ID`, not bundle id, and there are already two patterns
-
-The audit found that multi app support already exists in two inconsistent shapes,
-which changes the "App resolution" section above:
-
-1. `model-routing.json` keys apps INTERNALLY: it has an `apps.shouldersurf` and
-   `apps.techrehearsal` block. The middleware (`request_logging.py`) reads the
-   `X-App-ID` header into `request.state.app_id`, and `chat.py` routes on it
-   (`routing.get(app_id)`). So the server consumed config is already app
-   segregated, by internal key, keyed off `X-App-ID` (values `shouldersurf`,
-   `techrehearsal`).
-2. The client fetched configs (`llm-providers`, `model-capabilities`,
-   `idle-tips`, `protected-prompts`, and `jd-analysis`) segregate by filename
-   prefix (`tr-`) instead, and the `/v1/config/{name}` endpoint does not read
-   `X-App-ID` at all.
-
-So the real task is to converge these two patterns, and to do it on the header
-that already exists, `X-App-ID`, rather than introducing `X-App-Bundle-Id`. Note
-also that the README and CHANGELOG name three apps, Shoulder Surf, Tech
-Rehearsal, and Interview Buddy, so this must scale past two.
-
-Revised resolution recommendation: the config endpoint reads `X-App-ID`
-(the same value `chat.py` already uses), maps it to a directory, and resolves
-`{app}/{name}.{locale}`. This reuses the existing identity signal end to end
-instead of adding a parallel one. Whether per app directories or internal app
-keys is the better physical layout is now an open decision, because
-`model-routing.json` already demonstrates the internal key approach working.
+- Migrate `model-routing.json` to per app files too, or keep it internal keyed?
+  Recommendation: keep it internal keyed. It is the right tool for a server side
+  routing table.
+- Registry location: a dedicated `apps.yml`, or extend an existing file.
+  Recommendation: a dedicated `apps.yml` as the single source of truth for apps.
 
 ## Recommendation
 
-Adopt per app directories keyed by bundle id, keep language as the `.{code}`
-suffix, and migrate in the phased, backward compatible way above, starting with
-the Phase 0 disambiguation audit. Treat explicit `.en` and the `_shared/` layer
-as separable follow ups.
+Resolve the app from `X-App-ID` everywhere. Put client delivered config in per app
+directories with language as the suffix, because that preserves per app version
+skip and isolates blast radius for the small price of more files. Keep
+`model-routing.json` internal keyed as a server side table. Migrate in the phased,
+backward compatible order above, starting from the completed Phase 0 audit. Treat
+explicit `.en` and the registry location as separable follow ups.
