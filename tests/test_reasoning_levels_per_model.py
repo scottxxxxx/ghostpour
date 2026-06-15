@@ -34,7 +34,7 @@ VALID_LEVELS = {
 CAPABILITY_FILES = [
     "config/remote/model-capabilities.json",
     "config/remote/model-capabilities.es.json",
-    "config/remote/tr-model-capabilities.json",
+    "config/remote/model-capabilities.ja.json",
 ]
 
 
@@ -83,18 +83,18 @@ def test_no_legacy_off_value_anywhere(path):
 
 
 def test_locales_agree_on_levels():
-    """Spanish/Japanese/TR variants must declare identical reasoningLevels per model.
+    """Spanish and Japanese variants must declare identical reasoningLevels per model.
 
     Differing levels would be a real product bug — pricing/UI shouldn't
     differ by language.
     """
     en = _load("config/remote/model-capabilities.json")
     es = _load("config/remote/model-capabilities.es.json")
-    tr = _load("config/remote/tr-model-capabilities.json")
+    ja = _load("config/remote/model-capabilities.ja.json")
 
     for model_id in en["models"]:
         en_levels = en["models"][model_id].get("reasoningLevels")
-        for variant_name, variant in (("es", es), ("tr", tr)):
+        for variant_name, variant in (("es", es), ("ja", ja)):
             v_levels = variant["models"].get(model_id, {}).get("reasoningLevels")
             assert v_levels == en_levels, (
                 f"{model_id}: en has {en_levels!r}, {variant_name} has {v_levels!r}"

@@ -4,7 +4,7 @@
   "providers": [
     {
       "id": "cloudzap",
-      "displayName": "IA Gestionada",
+      "displayName": "Managed AI",
       "apiFormat": "cloudzap",
       "baseURL": "https://cz.shouldersurf.com/v1/chat",
       "authHeaderName": "Authorization",
@@ -17,8 +17,8 @@
       "models": [
         {
           "id": "auto",
-          "displayName": "Gestionado por GhostPour",
-          "description": "Seleccionamos el mejor modelo de IA para tu nivel de suscripcion. No necesitas configurar nada.",
+          "displayName": "Managed by GhostPour",
+          "description": "We select the best AI model for your subscription tier. No configuration needed.",
           "isDefault": true,
           "supportsVision": true,
           "contextWindow": 200000,
@@ -34,12 +34,12 @@
           "promptReserveTokens": null
         }
       ],
-      "notes": "Servicio de IA gestionado por GhostPour. Inicia sesion con Apple, suscribete y nosotros nos encargamos del resto.",
+      "notes": "GhostPour managed AI service. Sign in with Apple, subscribe, and we handle the rest.",
       "keyURL": "https://cz.shouldersurf.com/docs"
     },
     {
       "id": "onDevice",
-      "displayName": "En el dispositivo (Apple)",
+      "displayName": "On-Device (Apple)",
       "apiFormat": "apple",
       "baseURL": "",
       "authHeaderName": "",
@@ -53,7 +53,7 @@
         {
           "id": "foundation-models",
           "displayName": "Apple Intelligence",
-          "description": "Modelo gratuito en el dispositivo. Privado, funciona sin conexion. Requiere iPhone 15 Pro o posterior con Apple Intelligence activado.",
+          "description": "Free on-device model. Private, works offline. Requires iPhone 15 Pro or later with Apple Intelligence enabled.",
           "isDefault": true,
           "supportsVision": false,
           "contextWindow": 4096,
@@ -71,7 +71,7 @@
           "promptReserveTokens": null
         }
       ],
-      "notes": "Gratuito, privado, funciona sin conexion. Impulsado por Apple Intelligence.",
+      "notes": "Free, private, works offline. Powered by Apple Intelligence.",
       "keyURL": ""
     },
     {
@@ -91,7 +91,7 @@
         {
           "id": "gpt-5.5",
           "displayName": "GPT-5.5",
-          "description": "El modelo mas inteligente de OpenAI; razonamiento mas fuerte, tareas agentivas, analisis de documentos. Contexto 1M.",
+          "description": "OpenAI's smartest model; strongest reasoning, agentic tasks, document analysis. 1M context.",
           "isDefault": true,
           "supportsVision": true,
           "contextWindow": 1050000,
@@ -120,7 +120,7 @@
         {
           "id": "gpt-5.4",
           "displayName": "GPT-5.4",
-          "description": "Modelo insignia de generacion anterior. Menor costo que 5.5 para tareas rutinarias. Contexto de 1M.",
+          "description": "Previous-generation flagship. Lower cost than 5.5 for routine tasks. 1M context.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 1050000,
@@ -149,7 +149,7 @@
         {
           "id": "gpt-5.4-mini",
           "displayName": "GPT-5.4 Mini",
-          "description": "GPT-5.4 rapido y economico para tareas bien definidas.",
+          "description": "Faster, cost-efficient GPT-5.4 for well-defined tasks and precise prompts.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 400000,
@@ -178,7 +178,7 @@
         {
           "id": "gpt-5.4-nano",
           "displayName": "GPT-5.4 Nano",
-          "description": "La variante mas rapida y economica de GPT-5.4; ideal para resumenes y clasificacion.",
+          "description": "Fastest, cheapest GPT-5.4 variant; great for summarization and classification.",
           "isDefault": false,
           "supportsVision": false,
           "contextWindow": 400000,
@@ -205,7 +205,7 @@
           "reasoningFamily": "effort"
         }
       ],
-      "notes": "Modelos en la nube de OpenAI.",
+      "notes": "OpenAI cloud models.",
       "keyURL": "https://platform.openai.com/api-keys"
     },
     {
@@ -226,7 +226,7 @@
         {
           "id": "claude-fable-5",
           "displayName": "Claude Fable 5",
-          "description": "El modelo mas potente de Anthropic; nuevo nivel por encima de Opus para el razonamiento mas exigente. Contexto de 1M.",
+          "description": "Anthropic's most powerful model; new tier above Opus for the hardest reasoning and agentic work. 1M context.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 1000000,
@@ -255,7 +255,7 @@
         {
           "id": "claude-opus-4-8",
           "displayName": "Claude Opus 4.8",
-          "description": "El Opus mas capaz; trabajo agentico de largo plazo de ultima generacion, pensamiento adaptativo, contexto de 1M.",
+          "description": "Most capable Opus; state-of-the-art long-horizon agentic work, adaptive thinking, 1M context.",
           "isDefault": true,
           "supportsVision": true,
           "contextWindow": 1000000,
@@ -284,7 +284,7 @@
         {
           "id": "claude-opus-4-7",
           "displayName": "Claude Opus 4.7",
-          "description": "Opus de generacion anterior; pensamiento adaptativo, contexto de 1M.",
+          "description": "Previous-generation Opus; adaptive thinking, strong agentic coding, 1M context.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 1000000,
@@ -313,7 +313,7 @@
         {
           "id": "claude-sonnet-4-6",
           "displayName": "Claude Sonnet 4.6",
-          "description": "Mejor equilibrio de velocidad e inteligencia; pensamiento extendido, contexto 1M, fuerte uso de computadora.",
+          "description": "Best balance of speed and intelligence; extended thinking, 1M context, strong computer use.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 1000000,
@@ -341,7 +341,7 @@
         {
           "id": "claude-haiku-4-5-20251001",
           "displayName": "Claude Haiku 4.5",
-          "description": "Claude mas rapido con inteligencia cercana a la frontera; ideal para resumenes y tareas de alto volumen.",
+          "description": "Fastest Claude with near-frontier intelligence; great for summaries and high-volume tasks.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 200000,
@@ -360,7 +360,7 @@
           "promptReserveTokens": null
         }
       ],
-      "notes": "Modelos en la nube de Anthropic. Opus 4.7 y Sonnet 4.6 soportan contexto de 1M.",
+      "notes": "Anthropic cloud models. Opus 4.7 and Sonnet 4.6 support 1M context.",
       "keyURL": "https://console.anthropic.com/settings/keys"
     },
     {
@@ -379,7 +379,7 @@
         {
           "id": "gemini-3.1-pro-preview",
           "displayName": "Gemini 3.1 Pro",
-          "description": "Ultimo modelo de razonamiento de primera linea; contexto de 1M, fuerte rendimiento agentivo y en programacion.",
+          "description": "Latest top-tier reasoning model; 1M context, strong agentic and coding performance.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 1048576,
@@ -406,7 +406,7 @@
         {
           "id": "gemini-3.5-flash",
           "displayName": "Gemini 3.5 Flash",
-          "description": "El modelo rapido mas nuevo de Google; gran calidad a alta velocidad, contexto de 1M.",
+          "description": "Google's newest fast model; strong quality at speed, 1M context.",
           "isDefault": true,
           "supportsVision": true,
           "contextWindow": 1048576,
@@ -434,7 +434,7 @@
         {
           "id": "gemini-3.1-flash-lite",
           "displayName": "Gemini 3.1 Flash Lite",
-          "description": "El Gemini de menor costo; resumenes rapidos y tareas ligeras.",
+          "description": "Lowest-cost Gemini; quick summaries and lightweight tasks.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 1048576,
@@ -460,7 +460,7 @@
           "reasoningFamily": "effort"
         }
       ],
-      "notes": "Modelos de Google Gemini.",
+      "notes": "Google Gemini models.",
       "keyURL": "https://aistudio.google.com/apikey"
     },
     {
@@ -480,7 +480,7 @@
         {
           "id": "grok-4.3",
           "displayName": "Grok 4.3",
-          "description": "El modelo insignia actual de xAI; razonamiento con conocimiento en tiempo real. Contexto de 1M.",
+          "description": "xAI's current flagship; reasoning with real-time knowledge integration. 1M context.",
           "isDefault": true,
           "supportsVision": true,
           "contextWindow": 1000000,
@@ -507,7 +507,7 @@
           "reasoningFamily": "effort"
         }
       ],
-      "notes": "Modelos xAI Grok. Grok 4 es solo de razonamiento.",
+      "notes": "xAI Grok models. Grok 4 is reasoning-only.",
       "keyURL": "https://console.x.ai"
     },
     {
@@ -527,7 +527,7 @@
         {
           "id": "deepseek-v4-flash",
           "displayName": "DeepSeek V4 Flash",
-          "description": "MoE 284B/13B activos, contexto 1M. Modo dual (con pensamiento / sin pensamiento). Chat de texto frontera mas economico.",
+          "description": "MoE 284B/13B active, 1M context. Dual mode (thinking / non-thinking). Cheapest frontier text-only chat.",
           "isDefault": true,
           "supportsVision": false,
           "contextWindow": 1048576,
@@ -553,7 +553,7 @@
         {
           "id": "deepseek-v4-pro",
           "displayName": "DeepSeek V4 Pro",
-          "description": "MoE 1.6T/49B activos, contexto 1M. Modo dual (con pensamiento / sin pensamiento). Razonamiento, matematicas y codigo de frontera. (Descuento promocional del 75% hasta 2026-05-31; se muestra el precio regular.)",
+          "description": "MoE 1.6T/49B active, 1M context. Dual mode (thinking / non-thinking). Frontier reasoning, math, code. (75% promo discount until 2026-05-31; regular pricing shown.)",
           "isDefault": false,
           "supportsVision": false,
           "contextWindow": 1048576,
@@ -577,7 +577,7 @@
           "reasoningFamily": "toggle"
         }
       ],
-      "notes": "Modelos en la nube de DeepSeek. Solo texto.",
+      "notes": "DeepSeek cloud models. Text-only.",
       "keyURL": "https://platform.deepseek.com/api_keys"
     },
     {
@@ -597,7 +597,7 @@
         {
           "id": "kimi-k2.5",
           "displayName": "Kimi K2.5",
-          "description": "Modelo insignia multimodal agentivo; MoE de 1T, vision + video, fuerte uso de herramientas.",
+          "description": "Flagship multimodal agentic model; 1T MoE, vision + video, strong tool use.",
           "isDefault": true,
           "supportsVision": true,
           "contextWindow": 262144,
@@ -647,7 +647,7 @@
           "reasoningFamily": "toggle"
         }
       ],
-      "notes": "Modelos Kimi de la API oficial internacional de Moonshot AI. Todos los modelos soportan vision y video.",
+      "notes": "Kimi models from Moonshot AI's official international API. All models support vision and video.",
       "keyURL": "https://platform.moonshot.ai/console/api-keys"
     },
     {
@@ -667,7 +667,7 @@
         {
           "id": "qwen3.7-max",
           "displayName": "Qwen3.7 Max",
-          "description": "Modelo de agente y razonamiento de vanguardia, tareas de largo alcance, programacion, trabajo de alta importancia. Razona por defecto.",
+          "description": "フロンティア級のエージェント兼推論モデル。長期タスク、コーディング、重要度の高い作業向け。既定で思考します。",
           "isDefault": true,
           "supportsVision": true,
           "contextWindow": 1048576,
@@ -694,7 +694,7 @@
         {
           "id": "qwen3.7-plus",
           "displayName": "Qwen3.7 Plus",
-          "description": "Modelo de agente multimodal (vision + lenguaje). Costo equilibrado para cargas de trabajo de produccion de alto volumen. Razona por defecto.",
+          "description": "マルチモーダルエージェント（視覚＋言語）。大量の本番ワークロードにコスト効率が高い。既定で思考します。",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 1048576,
@@ -721,7 +721,7 @@
         {
           "id": "qwen3-max",
           "displayName": "Qwen Max",
-          "description": "Razonamiento complejo, flujos de trabajo empresariales, tareas de alta importancia.",
+          "description": "Complex reasoning, enterprise workflows, high-stakes tasks.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 262144,
@@ -742,7 +742,7 @@
         {
           "id": "qwen-plus",
           "displayName": "Qwen Plus",
-          "description": "Aplicaciones de proposito general, equilibrio entre latencia y calidad, la mayoria de cargas de trabajo en produccion.",
+          "description": "General-purpose apps, balanced latency/quality, most production workloads.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 1048576,
@@ -763,7 +763,7 @@
         {
           "id": "qwen-flash",
           "displayName": "Qwen Flash",
-          "description": "Tareas simples de alto volumen, chatbots, prototipado rapido, aplicaciones sensibles al costo.",
+          "description": "High-volume simple tasks, chatbots, rapid prototyping, cost-sensitive apps.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 1048576,
@@ -782,7 +782,7 @@
           "promptReserveTokens": null
         }
       ],
-      "notes": "Modelos Qwen de Alibaba.",
+      "notes": "Alibaba Qwen models.",
       "keyURL": "https://bailian.console.alibabacloud.com/#/api-key"
     },
     {
@@ -805,7 +805,7 @@
         {
           "id": "google/gemini-3-flash-preview",
           "displayName": "Gemini 3 Flash (OR)",
-          "description": "Ultimo Flash con razonamiento de nivel Pro a menor latencia. Contexto 1M, vision. La mejor opcion predeterminada para consultas durante reuniones.",
+          "description": "Latest Flash with Pro-grade reasoning at much lower latency. 1M context, vision. Best all-around default for mid-meeting queries.",
           "isDefault": true,
           "supportsVision": true,
           "contextWindow": 1048576,
@@ -833,7 +833,7 @@
         {
           "id": "anthropic/claude-haiku-4.5",
           "displayName": "Claude Haiku 4.5 (OR)",
-          "description": "Nivel rapido de Claude con vision. Ideal para resumenes rapidos y extraccion.",
+          "description": "Claude speed tier with vision. Great for fast summaries and extraction.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 200000,
@@ -854,7 +854,7 @@
         {
           "id": "openai/gpt-5-mini",
           "displayName": "GPT-5 Mini (OR)",
-          "description": "GPT-5 rapido y economico con vision. Bueno para tareas bien definidas durante reuniones.",
+          "description": "Fast, cost-efficient GPT-5 with vision. Good for well-defined mid-meeting tasks.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 400000,
@@ -882,7 +882,7 @@
         {
           "id": "google/gemini-3.1-flash-lite-preview",
           "displayName": "Gemini 3.1 Flash Lite (OR)",
-          "description": "El modelo Gemini 3 mas economico. Contexto 1M, vision; ideal para consultas de alto volumen y bajo costo.",
+          "description": "Most cost-effective Gemini 3 model. 1M context, vision; ideal for high-volume, cost-sensitive queries.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 1048576,
@@ -910,7 +910,7 @@
         {
           "id": "anthropic/claude-sonnet-4.6",
           "displayName": "Claude Sonnet 4.6 (OR)",
-          "description": "Equilibrio de calidad y velocidad con vision. A menudo el mejor escritor de resumenes para reuniones.",
+          "description": "Balanced quality and speed with vision. Often the best summary writer for meetings.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 1000000,
@@ -938,7 +938,7 @@
         {
           "id": "google/gemini-3.1-pro-preview",
           "displayName": "Gemini 3.1 Pro (OR)",
-          "description": "Gemini insignia con contexto 1M, razonamiento de primer nivel. La mejor opcion para reuniones largas con analisis profundo.",
+          "description": "Flagship Gemini with 1M context, top-tier reasoning. Best for long meetings with deep analysis.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 1048576,
@@ -965,7 +965,7 @@
         {
           "id": "anthropic/claude-opus-4.8",
           "displayName": "Claude Opus 4.8 (OR)",
-          "description": "El Claude mas capaz via OpenRouter; trabajo agentico de ultima generacion.",
+          "description": "Most capable Claude via OpenRouter; state-of-the-art agentic work.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 1000000,
@@ -994,7 +994,7 @@
         {
           "id": "openai/gpt-5",
           "displayName": "GPT-5 (OR)",
-          "description": "GPT-5 insignia con vision. Fuerte para razonamiento, analisis de documentos y redaccion de informes posteriores.",
+          "description": "Flagship GPT-5 with vision. Strong for reasoning, document analysis, and post-meeting report writing.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 400000,
@@ -1015,7 +1015,7 @@
         {
           "id": "openai/gpt-5.5",
           "displayName": "GPT-5.5 (OR)",
-          "description": "Ultimo GPT-5.5 con contexto 1M. Razonamiento mas fuerte y tareas agentivas; maxima calidad para analisis posterior a la reunion.",
+          "description": "Latest GPT-5.5 with 1M context. Strongest reasoning and agentic tasks; highest quality for post-meeting analysis.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 1050000,
@@ -1044,7 +1044,7 @@
         {
           "id": "openai/gpt-5.5-pro",
           "displayName": "GPT-5.5 Pro (OR)",
-          "description": "Nivel premium de precision de GPT-5.5. Usar cuando la exactitud importa mas que el costo.",
+          "description": "Premium accuracy tier of GPT-5.5. Use when correctness matters more than cost.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 1050000,
@@ -1065,7 +1065,7 @@
         {
           "id": "deepseek/deepseek-v4-flash",
           "displayName": "DeepSeek V4 Flash (OR)",
-          "description": "Chat de texto frontera mas economico. Contexto 1M, razonamiento de modo dual. Excelente para resumenes a escala.",
+          "description": "Cheapest frontier text-only chat. 1M context, dual-mode reasoning. Great for summarization at scale.",
           "isDefault": false,
           "supportsVision": false,
           "contextWindow": 1048576,
@@ -1091,7 +1091,7 @@
         {
           "id": "deepseek/deepseek-v4-pro",
           "displayName": "DeepSeek V4 Pro (OR)",
-          "description": "Razonamiento de texto frontera. 1.6T/49B parametros activos, contexto 1M, modo dual. (Descuento promocional del 75% hasta 2026-05-31; se muestra el precio regular.)",
+          "description": "Frontier text-only reasoning. 1.6T/49B active params, 1M context, dual-mode. (75% promo discount until 2026-05-31; regular pricing shown.)",
           "isDefault": false,
           "supportsVision": false,
           "contextWindow": 1048576,
@@ -1117,7 +1117,7 @@
         {
           "id": "perplexity/sonar",
           "displayName": "Perplexity Sonar (OR)",
-          "description": "Respaldo de busqueda web en tiempo real. Pregunta sobre empresas, personas o temas mencionados durante la reunion.",
+          "description": "Real-time web search backing. Ask about companies, people, or topics mentioned in the meeting as they come up.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 127072,
@@ -1138,7 +1138,7 @@
         {
           "id": "meta-llama/llama-4-maverick",
           "displayName": "Llama 4 Maverick (OR)",
-          "description": "Modelo insignia de codigo abierto con vision. Alternativa economica con fuerte soporte multilingue.",
+          "description": "Open-weight flagship with vision. Competitive budget alternative with strong multilingual support.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 1048576,
@@ -1159,7 +1159,7 @@
         {
           "id": "x-ai/grok-4.3",
           "displayName": "Grok 4.3 (OR)",
-          "description": "El modelo insignia actual de xAI via OpenRouter; razonamiento con conocimiento en tiempo real.",
+          "description": "xAI's current flagship via OpenRouter; reasoning with real-time knowledge.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 1000000,
@@ -1188,7 +1188,7 @@
         {
           "id": "mistralai/mistral-large-2512",
           "displayName": "Mistral Large 2512 (OR)",
-          "description": "El modelo grande mas reciente de Mistral; gran rendimiento multilingue.",
+          "description": "Mistral's latest large model; strong multilingual performance.",
           "isDefault": false,
           "supportsVision": false,
           "contextWindow": 262144,
@@ -1209,7 +1209,7 @@
         {
           "id": "qwen/qwen3-vl-235b-a22b-instruct",
           "displayName": "Qwen3 VL 235B (OR)",
-          "description": "Modelo de vision multilingue mas potente. La mejor opcion para reuniones en japones, mandarin u otros idiomas no ingleses.",
+          "description": "Strongest multilingual vision model. Best choice for meetings in Japanese, Mandarin, or other non-English languages.",
           "isDefault": false,
           "supportsVision": true,
           "contextWindow": 262144,
@@ -1228,7 +1228,7 @@
           "promptReserveTokens": null
         }
       ],
-      "notes": "OpenRouter ofrece una API unificada para mas de 300 modelos. Pago por uso con limites de gasto en la propia clave. Crea una clave API en openrouter.ai/keys y establece un limite mensual por seguridad.",
+      "notes": "OpenRouter provides a unified API for 300+ models. Pay-as-you-go with spend caps on the key itself. Create an API key at openrouter.ai/keys and set a monthly limit for safety.",
       "keyURL": "https://openrouter.ai/keys"
     }
   ]

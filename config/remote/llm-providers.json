@@ -1,5 +1,5 @@
 {
-  "version": 15,
+  "version": 16,
   "defaultPromptReserveTokens": 8000,
   "providers": [
     {
@@ -665,10 +665,64 @@
       "temperatureDefault": 0.7,
       "models": [
         {
+          "id": "qwen3.7-max",
+          "displayName": "Qwen3.7 Max",
+          "description": "Frontier agent + reasoning model, long-horizon tasks, coding, high-stakes work. Thinks by default.",
+          "isDefault": true,
+          "supportsVision": true,
+          "contextWindow": 1048576,
+          "inputCostPerMillion": 1.25,
+          "outputCostPerMillion": 3.75,
+          "litellmKey": "qwen/qwen3.7-max",
+          "minAppBuild": 534,
+          "supportsReasoning": true,
+          "reasoningLevels": [
+            "default",
+            "disabled",
+            "enabled"
+          ],
+          "maxOutputTokens": 8192,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 5,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false,
+          "promptReserveTokens": null,
+          "reasoningFamily": "toggle"
+        },
+        {
+          "id": "qwen3.7-plus",
+          "displayName": "Qwen3.7 Plus",
+          "description": "Multimodal agent model (vision + language). Balanced cost for high-volume production workloads. Thinks by default.",
+          "isDefault": false,
+          "supportsVision": true,
+          "contextWindow": 1048576,
+          "inputCostPerMillion": 0.32,
+          "outputCostPerMillion": 1.28,
+          "litellmKey": "qwen/qwen3.7-plus",
+          "minAppBuild": 534,
+          "supportsReasoning": true,
+          "reasoningLevels": [
+            "default",
+            "disabled",
+            "enabled"
+          ],
+          "maxOutputTokens": 8192,
+          "temperatureDefault": 0.3,
+          "maxImagesPerRequest": 5,
+          "streamingSupported": true,
+          "toolUseSupported": true,
+          "cacheControlSupported": false,
+          "serverManaged": false,
+          "promptReserveTokens": null,
+          "reasoningFamily": "toggle"
+        },
+        {
           "id": "qwen3-max",
           "displayName": "Qwen Max",
           "description": "Complex reasoning, enterprise workflows, high-stakes tasks.",
-          "isDefault": true,
+          "isDefault": false,
           "supportsVision": true,
           "contextWindow": 262144,
           "inputCostPerMillion": 1.2,
