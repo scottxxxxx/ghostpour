@@ -57,11 +57,13 @@ being ambiguous.
   selection through `model-routing.json` `apps.<app_id>`. Values seen:
   `shouldersurf`, `techrehearsal`. (`X-App-Bundle-Id` is a separate header used
   only by `/v1/app/version`.)
-- SS confirmed (2026-06-15): the client sends `X-App-ID` on chat requests but NOT
-  on `/v1/config` requests today, which carry only `Accept-Language`,
-  `X-Config-Version`, and auth. SS agreed to add `X-App-ID: shouldersurf` to config
-  requests when we move app resolution there. So Phase 3 below is a confirmed,
-  agreed client change, not an open unknown.
+- SS confirmed (2026-06-15 iOS review): the client sends `X-App-ID: shouldersurf` on
+  the chat stream today but NOT on `/v1/config`, `/v1/tiers`, or `/v1/events/ping`,
+  which carry only `Accept-Language`, `X-Config-Version`, and auth. Adding it to config
+  is a one-line change in their request builder. SS offered to add it to all three
+  endpoints together (it is cheap) and leans universal, so we take that: `X-App-ID`
+  becomes the universal app-identity signal. This is a confirmed, agreed client change,
+  not an open unknown.
 - `model-routing.json` keys apps internally (`apps.shouldersurf`,
   `apps.techrehearsal`) in one file. This is server consumed.
 - The client fetched configs key apps by filename prefix (`tr-`) in separate
@@ -157,9 +159,14 @@ disappears. `model-routing.json` stays where it is, keyed internally.
 - A single `apps` registry maps the app id to its directory and is the one source
   of truth for which apps exist. `model-routing.json` and the config endpoint both
   read it.
-- Missing or unknown `X-App-ID`: during migration, default to `shouldersurf` with
-  a warning so nothing breaks while clients are confirmed. After migration, return
-  404, matching how `/v1/app/version` already treats an unknown app.
+- Missing `X-App-ID`: resolve to `shouldersurf`, permanently. ShoulderSurf is the
+  default app, so a header-less request is always correctly ShoulderSurf, and this
+  protects every old build forever with no coordination. This is NOT a migration
+  crutch we remove later. (iOS review 2026-06-15 caught that 404-ing a missing header
+  would silently freeze old ShoulderSurf builds on their bundled config.)
+- Present but UNKNOWN `X-App-ID` (a typo or unregistered app): return 404, matching
+  how `/v1/app/version` treats an unknown app. A present-but-unknown id is a real
+  error; a missing header is not.
 
 ### Language
 
@@ -167,7 +174,8 @@ Unchanged. Language is the `.{code}` suffix; English is the base file today.
 Related separable decision: make English explicit as `.en` so every file declares
 its language and a new app starts multilingual instead of with an ambiguous base.
 That is a one line negotiation change (map `Accept-Language: en` to the `.en`
-file). Recommended, can land on its own.
+file). If we do it, keep a base or default-locale fallback so a missing `.en` never
+404s English users (iOS review note). Recommended, can land on its own.
 
 ## Migration plan (phased, backward compatible)
 
@@ -188,10 +196,16 @@ the forced lockstep between `tr-llm-providers` and ShoulderSurf. Migrate the pro
 persistent directory into per app subdirectories, preserving dashboard edits, one
 file at a time, verifying each file in the destination before removing the source.
 
-Phase 3: once the iOS client ships the agreed `X-App-ID` on `/v1/config` requests
-(SS confirmed 2026-06-15 it is not sent there today and agreed to add
-`X-App-ID: shouldersurf`), drop the flat and `tr-` fallback and return 404 for an
-unknown app.
+Phase 3: tighten resolution once clients send the header. Keep "missing `X-App-ID`
+means shouldersurf" permanently (see App resolution), so old ShoulderSurf builds need
+no coordination ever. The 404 only ever applies to a present-but-unknown app id. The
+app genuinely at risk in this migration is Tech Rehearsal, not ShoulderSurf: a
+header-less Tech Rehearsal build resolves to shouldersurf and would get the wrong
+config, so the TR build must ship `X-App-ID: techrehearsal` BEFORE its config moves
+under `techrehearsal/`, and TR's header-less requests are the dangerous ones.
+ShoulderSurf is safe because header-less resolving to shouldersurf is correct for it.
+Sequence the TR rollout deliberately; ShoulderSurf needs none. (iOS review 2026-06-15
+confirmed the ShoulderSurf one-liner and flagged this TR sequencing.)
 
 ## Work items
 
@@ -213,10 +227,14 @@ unknown app.
 
 ## Risks and mitigations
 
-- Client coordination. Phase 3 needs the app to send `X-App-ID` on config requests.
-  SS confirmed it is not sent there today and agreed to add it, so this is scheduling
-  a client build, not an open unknown. Mitigation: the flat fallback and the default
-  to `shouldersurf` during migration mean no break until that build is out.
+- ShoulderSurf old builds: no risk. With "missing `X-App-ID` means shouldersurf" kept
+  permanent, header-less requests always resolve correctly to ShoulderSurf, so no
+  coordination is needed for SS at all. Their header addition is a one-liner shipped
+  whenever convenient.
+- Tech Rehearsal sequencing: this is the real risk. A header-less TR build resolves to
+  shouldersurf and gets the wrong config. Mitigation: TR must ship
+  `X-App-ID: techrehearsal` before its config moves under `techrehearsal/`; do not move
+  TR's files until that build is the effective floor.
 - Dashboard edits in the prod persistent directory. Mitigation: snapshot first,
   verify in destination before deleting source, one file at a time.
 - The forced lockstep removal could let Tech Rehearsal silently drift on fields
@@ -225,7 +243,12 @@ unknown app.
 
 ## Open decisions
 
-- Adopt explicit `.en`? Recommended, separable.
+- X-App-ID scope: RESOLVED to universal. iOS confirmed it is chat-only today and
+  offered to add it to `/v1/config` (this work), `/v1/tiers`, and `/v1/events/ping`
+  together since it is cheap; they lean universal and so do we.
+- Missing-header behavior: RESOLVED — missing `X-App-ID` resolves to `shouldersurf`
+  permanently; 404 only on a present-but-unknown id (iOS review).
+- Adopt explicit `.en`? Recommended, separable. Keep a base/default-locale fallback.
 - Migrate `model-routing.json` to per app files too, or keep it internal keyed?
   Recommendation: keep it internal keyed. It is the right tool for a server side
   routing table.
