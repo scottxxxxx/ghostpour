@@ -57,6 +57,11 @@ being ambiguous.
   selection through `model-routing.json` `apps.<app_id>`. Values seen:
   `shouldersurf`, `techrehearsal`. (`X-App-Bundle-Id` is a separate header used
   only by `/v1/app/version`.)
+- SS confirmed (2026-06-15): the client sends `X-App-ID` on chat requests but NOT
+  on `/v1/config` requests today, which carry only `Accept-Language`,
+  `X-Config-Version`, and auth. SS agreed to add `X-App-ID: shouldersurf` to config
+  requests when we move app resolution there. So Phase 3 below is a confirmed,
+  agreed client change, not an open unknown.
 - `model-routing.json` keys apps internally (`apps.shouldersurf`,
   `apps.techrehearsal`) in one file. This is server consumed.
 - The client fetched configs key apps by filename prefix (`tr-`) in separate
@@ -183,8 +188,10 @@ the forced lockstep between `tr-llm-providers` and ShoulderSurf. Migrate the pro
 persistent directory into per app subdirectories, preserving dashboard edits, one
 file at a time, verifying each file in the destination before removing the source.
 
-Phase 3: once the iOS client is confirmed to send `X-App-ID` on `/v1/config`
-requests, drop the flat and `tr-` fallback and return 404 for an unknown app.
+Phase 3: once the iOS client ships the agreed `X-App-ID` on `/v1/config` requests
+(SS confirmed 2026-06-15 it is not sent there today and agreed to add
+`X-App-ID: shouldersurf`), drop the flat and `tr-` fallback and return 404 for an
+unknown app.
 
 ## Work items
 
@@ -200,14 +207,16 @@ requests, drop the flat and `tr-` fallback and return 404 for an unknown app.
 - Prod persistent directory migration script (careful, verify before delete).
 - Docs: a config conventions page (app is directory, language is suffix,
   `X-App-ID` resolves the app).
-- ShoulderSurf: confirm the app sends `X-App-ID` on `/v1/config` requests, not only
-  on chat requests.
+- ShoulderSurf: CONFIRMED 2026-06-15 — `X-App-ID` is sent on chat requests but not
+  on `/v1/config` today; SS agreed to add `X-App-ID: shouldersurf` to config requests
+  when we move. Needs scheduling alongside Phase 1/3, not a new ask.
 
 ## Risks and mitigations
 
 - Client coordination. Phase 3 needs the app to send `X-App-ID` on config requests.
-  Mitigation: the flat fallback and the default to `shouldersurf` during migration
-  mean no break until SS confirms.
+  SS confirmed it is not sent there today and agreed to add it, so this is scheduling
+  a client build, not an open unknown. Mitigation: the flat fallback and the default
+  to `shouldersurf` during migration mean no break until that build is out.
 - Dashboard edits in the prod persistent directory. Mitigation: snapshot first,
   verify in destination before deleting source, one file at a time.
 - The forced lockstep removal could let Tech Rehearsal silently drift on fields
