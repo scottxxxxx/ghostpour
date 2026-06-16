@@ -185,6 +185,36 @@ class TestAutoResolve:
         )
         assert (await cursor.fetchone())["resolved_at"] is not None
 
+    @pytest.mark.asyncio
+    async def test_stale_open_incident_resolves_on_list(
+        self, db, patched_send_email,
+    ):
+        """Loading the dashboard list sweeps stale-but-quiet opens, so a
+        one-off incident with nothing alerting after it shows as resolved
+        instead of sticking open forever (the openrouter_low_balance case)."""
+        first = await report_incident(
+            db, category="provider_budget_exhausted",
+            subject="openrouter_low_balance", details={},
+        )
+        assert first.is_new is True
+
+        # Age it past the quiet window; nothing re-fires after this.
+        stale = (
+            datetime.now(timezone.utc)
+            - timedelta(minutes=INCIDENT_AUTO_RESOLVE_MINUTES + 5)
+        ).isoformat()
+        await db.execute(
+            "UPDATE alert_incidents SET last_seen_at = ? WHERE id = ?",
+            (stale, first.incident_id),
+        )
+        await db.commit()
+
+        # Loading the list alone should sweep it to resolved.
+        rows = await list_incidents(db)
+        row = next(r for r in rows if r["id"] == first.incident_id)
+        assert row["status"] == "resolved"
+        assert row["resolved_at"] is not None
+
 
 class TestSubscriptionFiltering:
     @pytest.mark.asyncio
