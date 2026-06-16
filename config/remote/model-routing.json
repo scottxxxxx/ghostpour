@@ -1,5 +1,5 @@
 {
-  "version": 8,
+  "version": 9,
   "models": [
     {"id": "anthropic/claude-opus-4-7", "label": "Opus 4.7"},
     {"id": "anthropic/claude-sonnet-4-6", "label": "Sonnet 4.6"},
@@ -121,6 +121,13 @@
           "models": {
             "free": "openrouter/perplexity/sonar",
             "paid": "openrouter/perplexity/sonar"
+          }
+        },
+        "tr_analyze_interviewer": {
+          "label": "Interviewer Analysis",
+          "models": {
+            "free": "anthropic/claude-sonnet-4-6",
+            "paid": "anthropic/claude-sonnet-4-6"
           }
         },
         "query": {

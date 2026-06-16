@@ -28,6 +28,7 @@ _CALL_TYPE_TO_CONFIG = {
     "tr_mock_interview": "tr-mock-interview",
     "tr_response_analysis": "tr-response-analysis",
     "tr_research_company": "tr-company-research",
+    "tr_analyze_interviewer": "tr-interviewer-analysis",
 }
 
 
