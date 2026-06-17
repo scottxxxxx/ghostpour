@@ -1824,6 +1824,8 @@ async def list_users(
     """List all users with their usage stats, filtered by time period."""
     _verify_admin(request, x_admin_key)
 
+    from app.services.device_models import to_marketing_name
+
     tier_config = request.app.state.tier_config
 
     cursor = await db.execute(
@@ -1858,7 +1860,23 @@ async def list_users(
             (SELECT COALESCE(SUM(lt4.estimated_cost_usd), 0)
              FROM usage_log lt4 WHERE lt4.user_id = u.id AND lt4.status = 'success')
               as lifetime_cost_usd,
-            (SELECT MAX(l4.request_timestamp) FROM usage_log l4 WHERE l4.user_id = u.id) as last_request
+            (SELECT MAX(l4.request_timestamp) FROM usage_log l4 WHERE l4.user_id = u.id) as last_request,
+            u.marketing_opt_in,
+            -- Latest non-null device/version/locale from telemetry pings.
+            -- Per-field "latest non-null" so an older build that doesn't send
+            -- device_model/app_locale doesn't blank out a value a newer ping set.
+            (SELECT t.app_locale FROM telemetry_events t
+             WHERE t.user_id = u.id AND t.app_locale IS NOT NULL
+             ORDER BY t.received_at DESC LIMIT 1) as app_locale,
+            (SELECT t.os_version FROM telemetry_events t
+             WHERE t.user_id = u.id AND t.os_version IS NOT NULL
+             ORDER BY t.received_at DESC LIMIT 1) as os_version,
+            (SELECT t.app_version FROM telemetry_events t
+             WHERE t.user_id = u.id AND t.app_version IS NOT NULL
+             ORDER BY t.received_at DESC LIMIT 1) as app_version,
+            (SELECT t.device_model FROM telemetry_events t
+             WHERE t.user_id = u.id AND t.device_model IS NOT NULL
+             ORDER BY t.received_at DESC LIMIT 1) as device_model
            FROM users u
            ORDER BY u.created_at DESC""",
         (f"-{days} days", f"-{days} days", f"-{days} days", f"-{days} days"),
@@ -1921,6 +1939,13 @@ async def list_users(
             "lifetime_tokens": lifetime_input + lifetime_output,
             "lifetime_cost_usd": round(r["lifetime_cost_usd"] or 0, 4),
             "last_request": r["last_request"],
+            # Profile / device dimensions (marketing opt-in from users;
+            # language/iOS/device from the user's latest telemetry pings).
+            "marketing_opt_in": bool(r["marketing_opt_in"]),
+            "language": r["app_locale"],
+            "ios_version": r["os_version"],
+            "app_version": r["app_version"],
+            "device": to_marketing_name(r["device_model"]),
         })
 
     return {"users": users, "count": len(users)}
