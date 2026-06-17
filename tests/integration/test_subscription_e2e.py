@@ -335,12 +335,14 @@ class TestUsageMe:
         resp = client.get("/v1/usage/me", headers=free_user["headers"])
         assert resp.status_code == 200
         credits = resp.json()["credits"]
-        # $0.35 limit → 3,500 credits.
-        assert credits["total"] == 3500
-        # $0.34 used → 3,400 credits.
+        # total derives from the live free cap (survives the TestFlight bump).
+        from app.models.tier import load_tier_config
+        free_limit = load_tier_config("config/tiers.yml").tiers["free"].monthly_cost_limit_usd
+        expected_total = int(round(free_limit * 10000))
+        assert credits["total"] == expected_total
+        # $0.34 used → 3,400 credits (independent of the cap).
         assert credits["used"] == 3400
-        # 100 credits remaining.
-        assert credits["remaining"] == 100
+        assert credits["remaining"] == expected_total - 3400
         # resets_at echoes allocation.resets_at — same field, different
         # presentation. iOS UI binds to credits.resets_at directly.
         assert "resets_at" in credits
