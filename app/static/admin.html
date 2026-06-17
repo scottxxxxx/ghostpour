@@ -234,7 +234,19 @@
   <div id="tab-users" class="section">
     <h3>All Users</h3>
     <div class="table-wrap"><table id="user-table"><thead><tr>
-      <th>User</th><th>Tier</th><th>Hours Used</th><th>Allocation</th><th>Resets</th><th id="user-table-window-cost-th">Period Cost</th><th>Lifetime Cost</th><th>Last Active</th><th></th>
+      <th onclick="sortUserTable('user')" style="cursor:pointer">User<span class="sa" data-sk="user"></span></th>
+      <th onclick="sortUserTable('tier')" style="cursor:pointer">Tier<span class="sa" data-sk="tier"></span></th>
+      <th onclick="sortUserTable('hours')" style="cursor:pointer">Hours Used<span class="sa" data-sk="hours"></span></th>
+      <th onclick="sortUserTable('alloc')" style="cursor:pointer">Allocation<span class="sa" data-sk="alloc"></span></th>
+      <th onclick="sortUserTable('resets')" style="cursor:pointer">Resets<span class="sa" data-sk="resets"></span></th>
+      <th onclick="sortUserTable('window')" style="cursor:pointer"><span id="user-table-window-cost-th">Period Cost</span><span class="sa" data-sk="window"></span></th>
+      <th onclick="sortUserTable('lifetime')" style="cursor:pointer">Lifetime Cost<span class="sa" data-sk="lifetime"></span></th>
+      <th onclick="sortUserTable('last')" style="cursor:pointer">Last Active<span class="sa" data-sk="last"></span></th>
+      <th onclick="sortUserTable('marketing')" style="cursor:pointer">Marketing<span class="sa" data-sk="marketing"></span></th>
+      <th onclick="sortUserTable('language')" style="cursor:pointer">Language<span class="sa" data-sk="language"></span></th>
+      <th onclick="sortUserTable('ios')" style="cursor:pointer">iOS<span class="sa" data-sk="ios"></span></th>
+      <th onclick="sortUserTable('device')" style="cursor:pointer">Device<span class="sa" data-sk="device"></span></th>
+      <th></th>
     </tr></thead><tbody></tbody></table></div>
 
     <!-- User detail panel (shown when clicking a user) -->
@@ -1046,6 +1058,91 @@ async function testSendAlert() {
 
 function fmt(n) { return n == null ? '-' : n.toLocaleString(); }
 function fmtCost(n) { return n == null ? '-' : '$' + n.toFixed(4); }
+
+// --- User table: client-side sortable columns ---------------------------
+// refresh() stashes rows in window._userTableState and calls renderUserRows();
+// header clicks call sortUserTable(key) which re-sorts in place (no refetch).
+let _userSort = { key: 'created_at', dir: -1 };  // default: newest first (matches backend order)
+function _userSortVal(u, key) {
+  switch (key) {
+    case 'user': return (u.display_name || u.email || '').toLowerCase();
+    case 'tier': return u.tier || '';
+    case 'hours': return u.hours_used || 0;
+    case 'alloc': return u.percent_used || 0;
+    case 'resets': return u.allocation_resets_at || '';
+    case 'window': return u.window_cost_usd || 0;
+    case 'lifetime': return u.lifetime_cost_usd || 0;
+    case 'last': return u.last_request || '';
+    case 'marketing': return u.marketing_opt_in ? 1 : 0;
+    case 'language': return (u.language || '').toLowerCase();
+    case 'ios': return u.ios_version || '';
+    case 'device': return (u.device || '').toLowerCase();
+    default: return u.created_at || '';
+  }
+}
+function sortUserTable(key) {
+  if (_userSort.key === key) _userSort.dir = -_userSort.dir;
+  else _userSort = { key, dir: 1 };
+  renderUserRows();
+}
+function renderUserRows() {
+  const st = window._userTableState;
+  if (!st) return;
+  const { rows, tierNames } = st;
+  const dir = _userSort.dir;
+  const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const sorted = rows.slice().sort((a, b) => {
+    const va = _userSortVal(a, _userSort.key), vb = _userSortVal(b, _userSort.key);
+    if (va < vb) return -1 * dir;
+    if (va > vb) return 1 * dir;
+    return 0;
+  });
+  const utbody = document.querySelector('#user-table tbody');
+  utbody.innerHTML = sorted.map(u => {
+    const tierLabel = u.tier_display_name || u.tier;
+    const trialBadge = u.is_trial ? ' <span style="color:var(--accent);font-size:0.75em">TRIAL</span>' : '';
+    const simBadge = u.simulated_tier ? ` <span style="color:#FF9500;font-size:0.75em" title="Simulated as ${u.simulated_tier}">SIM:${u.simulated_tier}</span>` : '';
+    const hrsUsed = u.hours_used != null ? u.hours_used.toFixed(1) : '0';
+    const hrsLimit = u.hours_limit === -1 ? '&infin;' : (u.hours_limit != null ? u.hours_limit.toFixed(1) : '?');
+    const pct = u.percent_used || 0;
+    const pctColor = pct >= 90 ? 'red' : pct >= 70 ? 'orange' : 'green';
+    const barWidth = Math.min(100, pct);
+    const allocBar = `<div style="display:flex;align-items:center;gap:6px">` +
+      `<div style="width:60px;height:6px;background:var(--bg-card);border-radius:3px;overflow:hidden">` +
+      `<div style="width:${barWidth}%;height:100%;background:${pctColor};border-radius:3px"></div></div>` +
+      `<span style="font-size:0.85em">${pct.toFixed(0)}%</span></div>`;
+    const resets = u.allocation_resets_at ? timeAgo(u.allocation_resets_at) : '—';
+    const mkt = u.marketing_opt_in
+      ? '<span style="color:#4CAF50">Yes</span>'
+      : '<span style="color:var(--text-dim)">No</span>';
+    return `<tr>
+    <td>${u.display_name
+      ? `<div>${esc(u.display_name)}</div><div style="font-size:0.8em;color:var(--text-dim)">${u.email?esc(u.email):'Private relay'}</div>`
+      : (u.email?esc(u.email):'<span style="color:var(--text-dim)">Private relay</span>')}</td>
+    <td><span class="badge ${u.tier}">${tierLabel}</span>${trialBadge}${simBadge}</td>
+    <td>${hrsUsed} / ${hrsLimit} hrs</td>
+    <td>${allocBar}</td>
+    <td>${resets}</td>
+    <td>${fmtCost(u.window_cost_usd)}</td>
+    <td>${fmtCost(u.lifetime_cost_usd)}</td>
+    <td>${timeAgo(u.last_request)}</td>
+    <td>${mkt}</td>
+    <td>${u.language ? esc(u.language) : '<span style="color:var(--text-dim)">—</span>'}</td>
+    <td>${u.ios_version ? esc(u.ios_version) : '<span style="color:var(--text-dim)">—</span>'}</td>
+    <td>${u.device ? esc(u.device) : '<span style="color:var(--text-dim)">—</span>'}</td>
+    <td style="display:flex;gap:4px;align-items:center">
+      <select class="period-select" style="font-size:11px;padding:3px 6px" onchange="changeTier('${u.id}',this.value,'${u.tier}')" ${u.tier === 'admin' ? 'disabled' : ''}>
+        ${tierNames.map(t => `<option value="${t}" ${t === u.tier ? 'selected' : ''}>${t}</option>`).join('')}
+      </select>
+      <button class="refresh-btn" onclick="showUserDetail('${u.id}','${u.email||"User"}')">Detail</button>
+    </td>
+  </tr>`;
+  }).join('') || '<tr><td colspan="13" style="text-align:center;color:var(--text-dim)">No users yet</td></tr>';
+  // Update sort-direction arrows on the headers.
+  document.querySelectorAll('#user-table .sa').forEach(s => {
+    s.textContent = s.dataset.sk === _userSort.key ? (dir > 0 ? ' ▲' : ' ▼') : '';
+  });
+}
 function fmtMs(n) { return n == null ? '-' : (n > 1000 ? (n/1000).toFixed(1) + 's' : n + 'ms'); }
 function timeAgo(iso) {
   if (!iso) return 'Never';
@@ -1160,42 +1257,10 @@ async function refresh() {
   // generic label that doesn't say what window the number covers.
   const _userWinTh = document.getElementById('user-table-window-cost-th');
   if (_userWinTh) _userWinTh.textContent = `${days}d Cost`;
-  const utbody = document.querySelector('#user-table tbody');
-  const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  utbody.innerHTML = users.users.map(u => {
-    const effectiveTier = u.simulated_tier || u.tier;
-    const tierLabel = u.tier_display_name || u.tier;
-    const trialBadge = u.is_trial ? ' <span style="color:var(--accent);font-size:0.75em">TRIAL</span>' : '';
-    const simBadge = u.simulated_tier ? ` <span style="color:#FF9500;font-size:0.75em" title="Simulated as ${u.simulated_tier}">SIM:${u.simulated_tier}</span>` : '';
-    const hrsUsed = u.hours_used != null ? u.hours_used.toFixed(1) : '0';
-    const hrsLimit = u.hours_limit === -1 ? '&infin;' : (u.hours_limit != null ? u.hours_limit.toFixed(1) : '?');
-    const pct = u.percent_used || 0;
-    const pctColor = pct >= 90 ? 'red' : pct >= 70 ? 'orange' : 'green';
-    const barWidth = Math.min(100, pct);
-    const allocBar = `<div style="display:flex;align-items:center;gap:6px">` +
-      `<div style="width:60px;height:6px;background:var(--bg-card);border-radius:3px;overflow:hidden">` +
-      `<div style="width:${barWidth}%;height:100%;background:${pctColor};border-radius:3px"></div></div>` +
-      `<span style="font-size:0.85em">${pct.toFixed(0)}%</span></div>`;
-    const resets = u.allocation_resets_at ? timeAgo(u.allocation_resets_at) : '—';
-    return `<tr>
-    <td>${u.display_name
-      ? `<div>${esc(u.display_name)}</div><div style="font-size:0.8em;color:var(--text-dim)">${u.email?esc(u.email):'Private relay'}</div>`
-      : (u.email?esc(u.email):'<span style="color:var(--text-dim)">Private relay</span>')}</td>
-    <td><span class="badge ${u.tier}">${tierLabel}</span>${trialBadge}${simBadge}</td>
-    <td>${hrsUsed} / ${hrsLimit} hrs</td>
-    <td>${allocBar}</td>
-    <td>${resets}</td>
-    <td>${fmtCost(u.window_cost_usd)}</td>
-    <td>${fmtCost(u.lifetime_cost_usd)}</td>
-    <td>${timeAgo(u.last_request)}</td>
-    <td style="display:flex;gap:4px;align-items:center">
-      <select class="period-select" style="font-size:11px;padding:3px 6px" onchange="changeTier('${u.id}',this.value,'${u.tier}')" ${u.tier === 'admin' ? 'disabled' : ''}>
-        ${tierNames.map(t => `<option value="${t}" ${t === u.tier ? 'selected' : ''}>${t}</option>`).join('')}
-      </select>
-      <button class="refresh-btn" onclick="showUserDetail('${u.id}','${u.email||"User"}')">Detail</button>
-    </td>
-  </tr>`;
-  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--text-dim)">No users yet</td></tr>';
+  // Stash rows + tier list, then render via the sortable renderer so column
+  // header clicks can re-sort without re-fetching.
+  window._userTableState = { rows: users.users, tierNames };
+  renderUserRows();
 
   // Latency percentiles
   const lp = dash.latency_percentiles || {};
