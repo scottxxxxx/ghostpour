@@ -300,6 +300,14 @@ MIGRATIONS = [
     "ALTER TABLE telemetry_events ADD COLUMN app_locale TEXT",
     "CREATE INDEX IF NOT EXISTS idx_telemetry_device_model ON telemetry_events(device_model) WHERE device_model IS NOT NULL",
     "CREATE INDEX IF NOT EXISTS idx_telemetry_app_version ON telemetry_events(app_version) WHERE app_version IS NOT NULL",
+    # v26: Persist app identity (X-App-ID) for per-app segmented analytics.
+    # Middleware sets request.state.app_id; threaded into the usage_log and
+    # telemetry inserts. "unknown" when the header is absent. Lets the admin
+    # dashboard split users/usage/models by app (shouldersurf vs techrehearsal).
+    "ALTER TABLE usage_log ADD COLUMN app_id TEXT",
+    "CREATE INDEX IF NOT EXISTS idx_usage_app ON usage_log(app_id) WHERE app_id IS NOT NULL",
+    "ALTER TABLE telemetry_events ADD COLUMN app_id TEXT",
+    "CREATE INDEX IF NOT EXISTS idx_telemetry_app ON telemetry_events(app_id) WHERE app_id IS NOT NULL",
 ]
 
 
