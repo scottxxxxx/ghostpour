@@ -229,14 +229,21 @@ def plus_user(tmp_db_path: str) -> dict:
 
 @pytest.fixture
 def exhausted_user(tmp_db_path: str) -> dict:
-    """Create a user who has exhausted their monthly allocation."""
+    """Create a user who has exhausted their monthly allocation.
+
+    Derives the over-cap usage from the live free-tier limit so this stays
+    correct regardless of the configured cap (e.g. the TestFlight 5x bump).
+    """
+    from app.models.tier import load_tier_config
+
+    free_limit = load_tier_config("config/tiers.yml").tiers["free"].monthly_cost_limit_usd
     user_id = "test-exhausted-user"
     _insert_user(
         tmp_db_path,
         user_id=user_id,
         tier="free",
-        monthly_limit=0.35,
-        monthly_used=0.40,
+        monthly_limit=free_limit,
+        monthly_used=round(free_limit + 0.05, 4),
     )
     return {
         "headers": {"Authorization": f"Bearer {_jwt_token(user_id)}"},

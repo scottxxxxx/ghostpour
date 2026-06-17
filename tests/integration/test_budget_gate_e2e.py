@@ -16,7 +16,13 @@ data being loaded in the test environment.
 import sqlite3
 from unittest.mock import patch
 
+from app.models.tier import load_tier_config
 from tests.conftest import chat_request
+
+# Derive from the live config so these tests survive cap changes (e.g. the
+# TestFlight 5x bump). Overage tolerance is $0.05 (budget_gate.OVERAGE_TOLERANCE_USD).
+_FREE_LIMIT = load_tier_config("config/tiers.yml").tiers["free"].monthly_cost_limit_usd
+_NEAR_CAP = round(_FREE_LIMIT - 0.01, 4)  # just under the cap (not yet exhausted)
 
 
 def _force_cost(usd: float):
@@ -61,9 +67,9 @@ class TestChatBudgetGate:
         """Free user near cap + costly estimate → 200 with empty text and
         budget_exhausted CTA. No assistant bubble persistence on the iOS
         side (per SS contract); we just verify wire shape here."""
-        # Free's cap is $0.35, overage tolerance $0.05 → ceiling $0.40.
-        # Set used=$0.34, estimate=$0.10 → would land at $0.44. Over.
-        _set_monthly_used(tmp_db_path, free_user["user_id"], 0.34)
+        # Used just under cap + a costly estimate lands past cap+tolerance.
+        # e.g. limit $1.75: used $1.74, estimate $0.10 → $1.84 > $1.80. Over.
+        _set_monthly_used(tmp_db_path, free_user["user_id"], _NEAR_CAP)
         with _force_cost(0.10):
             resp = client.post(
                 "/v1/chat",
@@ -76,16 +82,16 @@ class TestChatBudgetGate:
         fs = body["feature_state"]
         assert fs["cta"]["kind"] == "budget_exhausted"
         assert fs["cta"]["action"] == "open_paywall"
-        # Credit fields obfuscate dollars at the wire boundary.
-        # Free $0.35 = 3500 credits, $0.34 used = 3400 used, 100 remaining.
-        assert fs["credits_total"] == 3500
-        assert fs["credits_remaining"] == 100
+        # Credit fields obfuscate dollars at the wire boundary (1 USD = 10000).
+        assert fs["credits_total"] == int(round(_FREE_LIMIT * 10000))
+        assert fs["credits_remaining"] == int(round((_FREE_LIMIT - _NEAR_CAP) * 10000))
 
     def test_free_user_within_overage_tolerance_is_served(
         self, client, free_user, mock_provider, tmp_db_path,
     ):
-        """$0.34 used + $0.05 estimated = $0.39, ≤ $0.40 ceiling. Allowed."""
-        _set_monthly_used(tmp_db_path, free_user["user_id"], 0.34)
+        """used (just under cap) + $0.05 estimate stays within the $0.05
+        overage tolerance ceiling. Allowed."""
+        _set_monthly_used(tmp_db_path, free_user["user_id"], _NEAR_CAP)
         with _force_cost(0.05):
             resp = client.post(
                 "/v1/chat",
@@ -178,7 +184,7 @@ class TestChatBudgetGate:
     ):
         """Critical: a blocked call must NOT increment the cost ledger.
         Otherwise blocked Free users would burn quota anyway."""
-        _set_monthly_used(tmp_db_path, free_user["user_id"], 0.34)
+        _set_monthly_used(tmp_db_path, free_user["user_id"], _NEAR_CAP)
         with _force_cost(0.10):
             client.post(
                 "/v1/chat",
@@ -191,8 +197,8 @@ class TestChatBudgetGate:
             (free_user["user_id"],),
         ).fetchone()[0]
         conn.close()
-        # Counter unchanged at 0.34 (the value we set pre-call).
-        assert abs(used_after - 0.34) < 1e-9
+        # Counter unchanged at the pre-call value.
+        assert abs(used_after - _NEAR_CAP) < 1e-9
 
 
 class TestContextCapGate:
