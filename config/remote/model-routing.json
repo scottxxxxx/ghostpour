@@ -1,5 +1,5 @@
 {
-  "version": 10,
+  "version": 11,
   "models": [
     {"id": "anthropic/claude-opus-4-7", "label": "Opus 4.7"},
     {"id": "anthropic/claude-sonnet-4-6", "label": "Sonnet 4.6"},
@@ -130,6 +130,14 @@
         },
         "tr_match_analysis": {
           "label": "Resume-JD Match",
+          "models": {
+            "free": "anthropic/claude-sonnet-4-6",
+            "paid": "anthropic/claude-sonnet-4-6",
+            "default": "anthropic/claude-sonnet-4-6"
+          }
+        },
+        "tr_research_interviewer": {
+          "label": "Interviewer Research",
           "models": {
             "free": "anthropic/claude-sonnet-4-6",
             "paid": "anthropic/claude-sonnet-4-6",
