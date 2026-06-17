@@ -134,8 +134,8 @@ async def ping(
         """INSERT INTO telemetry_events
            (id, event_type, device_id, user_id, meeting_id, model_id,
             app_version, os_version, duration_seconds, ip_hash, received_at,
-            device_model, app_locale)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            device_model, app_locale, app_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             str(uuid.uuid4()),
             body.event_type,
@@ -150,6 +150,7 @@ async def ping(
             datetime.now(timezone.utc).isoformat(),
             body.device_model,
             body.app_locale,
+            getattr(request.state, "app_id", "unknown"),
         ),
     )
     await db.commit()

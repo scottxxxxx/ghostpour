@@ -243,7 +243,10 @@ async def generate_report(
         request_cost = cost.get("total_cost", 0.0)
 
     await usage_tracker.record_cost(db, user.id, request_cost, tier, user=user)
-    await usage_tracker.log_usage(db, user.id, chat_request, response, elapsed_ms)
+    await usage_tracker.log_usage(
+        db, user.id, chat_request, response, elapsed_ms,
+        app_id=getattr(request.state, "app_id", "unknown"),
+    )
 
     # 5. Parse the LLM response as JSON and render
     # Wrapped in try/except to log the actual error — unhandled exceptions here

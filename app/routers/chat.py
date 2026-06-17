@@ -910,6 +910,10 @@ async def chat(
     rate_limiter = request.app.state.rate_limiter
     usage_tracker = request.app.state.usage_tracker
     pricing = request.app.state.pricing
+    # App identity (X-App-ID, set by middleware) — threaded into every
+    # usage_log write so analytics can be split per app. Captured by the
+    # nested event_stream() closure too.
+    app_id = getattr(request.state, "app_id", "unknown")
 
     # 1. Look up tier (respects simulation override)
     effective_tier_name = user.effective_tier
@@ -1422,7 +1426,7 @@ async def chat(
     except HTTPException:
         elapsed_ms = int((time.monotonic() - start) * 1000)
         await usage_tracker.log_usage(
-            db, user.id, body, None, elapsed_ms, status="error"
+            db, user.id, body, None, elapsed_ms, status="error", app_id=app_id
         )
         raise
 
@@ -1445,7 +1449,7 @@ async def chat(
     await usage_tracker.record_cost(db, user.id, request_cost, tier, user=user)
 
     # 9. Log usage
-    await usage_tracker.log_usage(db, user.id, body, response, elapsed_ms)
+    await usage_tracker.log_usage(db, user.id, body, response, elapsed_ms, app_id=app_id)
 
     # 9.1. Search-usage tracking: count search invocations Anthropic
     # actually performed (mirrored into usage["web_search_requests"] by
@@ -1581,6 +1585,9 @@ async def _handle_stream(
     request-scoped Depends(get_db) closes before the generator finishes.
     """
     from app.database import get_db as _get_db
+    # App identity (X-App-ID) for the per-app analytics tag on usage_log.
+    # Captured by the nested event_stream() closure below.
+    app_id = getattr(request.state, "app_id", "unknown")
     # Pre-compute allocation headers (sent before any body chunks)
     headers = {
         "Content-Type": "text/event-stream",
@@ -1623,7 +1630,7 @@ async def _handle_stream(
             elapsed_ms = int((time.monotonic() - start) * 1000)
             async for err_db in _get_db():
                 await usage_tracker.log_usage(
-                    err_db, user.id, body, None, elapsed_ms, status="timeout"
+                    err_db, user.id, body, None, elapsed_ms, status="timeout", app_id=app_id
                 )
             timeout_data = json.dumps({
                 "type": "error",
@@ -1640,7 +1647,7 @@ async def _handle_stream(
             elapsed_ms = int((time.monotonic() - start) * 1000)
             async for err_db in _get_db():
                 await usage_tracker.log_usage(
-                    err_db, user.id, body, None, elapsed_ms, status="error"
+                    err_db, user.id, body, None, elapsed_ms, status="error", app_id=app_id
                 )
 
             detail = exc.detail
@@ -1672,7 +1679,7 @@ async def _handle_stream(
             elapsed_ms = int((time.monotonic() - start) * 1000)
             async for err_db in _get_db():
                 await usage_tracker.log_usage(
-                    err_db, user.id, body, None, elapsed_ms, status="error"
+                    err_db, user.id, body, None, elapsed_ms, status="error", app_id=app_id
                 )
             logger.exception("stream_unexpected_error")
             error_data = json.dumps({
@@ -1718,7 +1725,7 @@ async def _handle_stream(
 
         async for stream_db in _get_db():
             await usage_tracker.record_cost(stream_db, user.id, request_cost, tier, user=user)
-            await usage_tracker.log_usage(stream_db, user.id, body, final_response, elapsed_ms)
+            await usage_tracker.log_usage(stream_db, user.id, body, final_response, elapsed_ms, app_id=app_id)
 
             if searches_performed > 0:
                 try:

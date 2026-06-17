@@ -160,6 +160,7 @@ class UsageTracker:
         response_time_ms: int,
         status: str = "success",
         error_msg: str | None = None,
+        app_id: str | None = None,
     ) -> None:
         # Build metadata from usage + cost dicts + raw request/response
         metadata: dict = {}
@@ -196,8 +197,8 @@ class UsageTracker:
                (id, user_id, provider, model, input_tokens, output_tokens,
                 estimated_cost_usd, request_timestamp, response_time_ms,
                 status, error_message, call_type, prompt_mode,
-                image_count, session_duration_sec, cached_tokens, meeting_id, metadata)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                image_count, session_duration_sec, cached_tokens, meeting_id, metadata, app_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 str(uuid.uuid4()),
                 user_id,
@@ -217,6 +218,7 @@ class UsageTracker:
                 cached_tokens,
                 request.get_meta("meeting_id"),
                 metadata_json,
+                app_id,
             ),
         )
         await db.commit()
