@@ -114,6 +114,51 @@ def _resolve_action_owner(action: dict) -> str:
     return owner
 
 
+# --- Attendee fallback from transcript labels ------------------------------
+#
+# The report's "Identified Speakers" comes from the app-supplied CONFIRMED
+# ATTENDEES list. When the app omits it (empty/None) we used to emit a bare
+# "No named speakers identified", even when the app had already diarized and
+# named the speakers inline as `[Ravi Varma]` bracket labels in the transcript.
+# Recover those names as a fallback so a fully-labeled meeting doesn't read as
+# anonymous. Conservative: excludes anonymous "Speaker N" labels and non-person
+# bracket annotations (Multiple, Inaudible, Laughter, ...).
+
+# Speaker labels are emitted inline as "[Name]" / "[Speaker 3]".
+_BRACKET_LABEL_RE = re.compile(r"\[([^\[\]]{1,40})\]")
+# Bracket contents that are annotations, not people. Union'd with the owner
+# placeholders ("multiple", "unknown", "team", ...) at filter time.
+_NON_SPEAKER_BRACKETS = {
+    "inaudible", "crosstalk", "laughter", "applause", "music", "silence",
+    "noise", "background", "speaker", "unintelligible",
+}
+
+
+def _extract_named_speakers_from_transcript(transcript: str | None) -> list[str]:
+    """Fallback attendees: distinct named speaker labels from the transcript.
+
+    Returns the person-name `[Name]` bracket labels in order of first
+    appearance, excluding anonymous `Speaker N` labels, placeholder owners,
+    and non-person annotations. Empty list when nothing qualifies.
+    """
+    if not transcript:
+        return []
+    ordered: dict[str, None] = {}
+    for raw in _BRACKET_LABEL_RE.findall(transcript):
+        label = raw.strip()
+        low = label.lower()
+        if (
+            not label
+            or low in _OWNER_PLACEHOLDERS
+            or low in _NON_SPEAKER_BRACKETS
+            or _SPEAKER_LABEL_RE.match(label)
+            or not re.match(r"[A-Z][A-Za-z.'\-]+", label)  # must look like a name
+        ):
+            continue
+        ordered.setdefault(label, None)
+    return list(ordered)
+
+
 _TEMPLATE_PATH = Path(__file__).parent.parent / "static" / "report_template.html"
 
 # System prompt for the LLM analysis call
@@ -394,7 +439,13 @@ def build_report_prompt(
     transcript = meeting_data.get("transcript") or "(No transcript available)"
     summary = meeting_data.get("summary") or "(No summary available)"
     queries = meeting_data.get("queries", [])
-    attendee_list = attendees or ["No named speakers identified"]
+    # Prefer the app-confirmed list; fall back to names the app diarized
+    # inline as `[Name]` labels in the transcript; only then the sentinel.
+    attendee_list = (
+        attendees
+        or _extract_named_speakers_from_transcript(meeting_data.get("transcript"))
+        or ["No named speakers identified"]
+    )
     tags = tag_taxonomy or _DEFAULT_TAG_TAXONOMY
 
     queries_json = json.dumps(queries, indent=2) if queries else "[]"
