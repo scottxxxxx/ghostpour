@@ -86,9 +86,14 @@ class TestChatQuota:
 
     def test_chat_allocation_warning_at_80_percent(self, client, tmp_db_path):
         """User near 80% allocation → X-Allocation-Warning header."""
+        from app.models.tier import load_tier_config
         from tests.conftest import _insert_user, _jwt_token
+        # 85% of the live free cap → over the 80% warning threshold, regardless
+        # of the configured cap (survives the TestFlight 5x bump).
+        free_limit = load_tier_config("config/tiers.yml").tiers["free"].monthly_cost_limit_usd
         user_id = "test-near-limit"
-        _insert_user(tmp_db_path, user_id=user_id, tier="free", monthly_limit=0.35, monthly_used=0.30)
+        _insert_user(tmp_db_path, user_id=user_id, tier="free",
+                     monthly_limit=free_limit, monthly_used=round(free_limit * 0.85, 4))
         headers = {"Authorization": f"Bearer {_jwt_token(user_id)}"}
         resp = client.post("/v1/chat", json=chat_request(), headers=headers)
         assert resp.status_code == 200
