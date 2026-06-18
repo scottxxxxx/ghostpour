@@ -161,6 +161,12 @@
       <h2><span id="dash-subtitle">Admin Dashboard</span> <span id="build-badge" style="font-size:11px;color:var(--text-dim);font-weight:normal;margin-left:8px;"></span></h2>
     </div>
     <div style="display:flex;gap:8px;align-items:center;">
+      <select class="period-select" id="app" onchange="refresh()">
+        <option value="" selected>All apps</option>
+        <option value="shouldersurf">Shoulder Surf</option>
+        <option value="techrehearsal">Tech Rehearsal</option>
+        <option value="unknown">Unknown</option>
+      </select>
       <select class="period-select" id="period" onchange="refresh()">
         <option value="1">Today</option>
         <option value="7" selected>Last 7 days</option>
@@ -689,6 +695,8 @@ async function loadTelemetry() {
   const model = document.getElementById('tel-model')?.value || '';
 
   const params = new URLSearchParams({days});
+  const app = document.getElementById('app')?.value || '';
+  if (app) params.set('app', app);
   if (version) params.set('app_version', version);
   if (os) params.set('os_version', os);
   if (device) params.set('device_model', device);
@@ -1192,12 +1200,20 @@ async function refreshCertPinBanner() {
   } catch (_) { /* silent */ }
 }
 
+// Selected app filter as a URL suffix ('' = all apps). Read from the one
+// global #app selector so every view scopes to the same app.
+function appQuery() {
+  const app = document.getElementById('app')?.value || '';
+  return app ? `&app=${encodeURIComponent(app)}` : '';
+}
+
 async function refresh() {
   refreshCertPinBanner();
   const days = document.getElementById('period').value;
+  const app = appQuery();
   const [dash, users, tiers] = await Promise.all([
-    fetch(`${BASE}/webhooks/admin/dashboard?days=${days}`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
-    fetch(`${BASE}/webhooks/admin/users?days=${days}`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
+    fetch(`${BASE}/webhooks/admin/dashboard?days=${days}${app}`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
+    fetch(`${BASE}/webhooks/admin/users?days=${days}${app}`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
     fetch(`${BASE}/webhooks/admin/tiers`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
   ]);
 
@@ -1465,7 +1481,7 @@ async function showUserDetail(userId, email) {
   _openDetailUserId = userId;
   _openDetailEmail = email;
   const days = document.getElementById('period').value;
-  const data = await fetch(`${BASE}/webhooks/admin/user/${userId}?days=${days}`, {
+  const data = await fetch(`${BASE}/webhooks/admin/user/${userId}?days=${days}${appQuery()}`, {
     headers: {'X-Admin-Key': adminKey}
   }).then(r => r.json());
 
@@ -1882,7 +1898,7 @@ async function loadEmail() {
 
 async function loadErrors() {
   const days = document.getElementById('period').value;
-  const resp = await fetch(`${BASE}/webhooks/admin/errors?days=${days}`, {headers:{'X-Admin-Key':adminKey}});
+  const resp = await fetch(`${BASE}/webhooks/admin/errors?days=${days}${appQuery()}`, {headers:{'X-Admin-Key':adminKey}});
   if (!resp.ok) return;
   const data = await resp.json();
 
