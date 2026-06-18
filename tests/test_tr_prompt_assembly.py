@@ -15,6 +15,7 @@ from app.services.prompt_assembly import _CALL_TYPE_TO_CONFIG, assemble_prompt
 CASES = [
     ("tr_mock_interview", "tr-mock-interview", "You are an expert technical interviewer"),
     ("tr_response_analysis", "tr-response-analysis", "You are an interview coach"),
+    ("tr_match_analysis", "tr-match-analysis", "You are an expert technical recruiter"),
 ]
 
 
@@ -49,6 +50,20 @@ def test_assembles_system_and_passes_user_through():
         assert r["system_prompt"].startswith(head)
         assert r["user_content"] == "RAW CLIENT DATA BLOB"  # passthrough, no template
         assert r["max_tokens"] == 4096
+
+
+def test_match_prompt_keeps_calibration_guardrails():
+    """The match prompt's anti-optimism calibration is the point — guard it
+    so an edit can't silently strip it back to a naive scorer."""
+    cfg = json.load(open("config/remote/tr-match-analysis.json"))
+    sp = cfg["systemPrompt"]
+    for phrase in (
+        "Use the FULL range",
+        "the radar must agree with your gaps list",
+        "MUST be <= 0.5",
+        "Never invent skills",
+    ):
+        assert phrase in sp, f"missing calibration guardrail: {phrase!r}"
 
 
 def test_returns_none_when_config_absent():

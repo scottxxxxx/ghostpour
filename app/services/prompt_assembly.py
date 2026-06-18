@@ -27,6 +27,7 @@ _CALL_TYPE_TO_CONFIG = {
     "tr_parse_resume": "tr-resume-analysis",
     "tr_mock_interview": "tr-mock-interview",
     "tr_response_analysis": "tr-response-analysis",
+    "tr_match_analysis": "tr-match-analysis",
     "tr_research_company": "tr-company-research",
 }
 
