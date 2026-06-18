@@ -1114,11 +1114,19 @@ async def dashboard(
     db: aiosqlite.Connection = Depends(get_db),
     x_admin_key: str = Header(...),
     days: int = Query(default=7, ge=1, le=90),
+    app: str | None = Query(default=None),
 ):
     """Admin dashboard: users, usage, costs, latency. Protected by admin key."""
     _verify_admin(request, x_admin_key)
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    # Optional per-app scoping. Empty/absent `app` means all apps. When set,
+    # every usage_log-derived metric below is restricted to that app_id. The
+    # users/trial/allocation counts stay global (users are shared across apps).
+    app_clause = " AND app_id = ?" if app else ""
+    app_clause_l = " AND l.app_id = ?" if app else ""
+    app_params = (app,) if app else ()
 
     # --- Users ---
     cursor = await db.execute("SELECT COUNT(*) FROM users")
@@ -1147,8 +1155,8 @@ async def dashboard(
             MAX(response_time_ms) as max_latency_ms,
             MIN(response_time_ms) as min_latency_ms
            FROM usage_log
-           WHERE request_timestamp >= date('now', ?)""",
-        (f"-{days} days",),
+           WHERE request_timestamp >= date('now', ?)""" + app_clause,
+        (f"-{days} days", *app_params),
     )
     row = await cursor.fetchone()
     usage_summary = {
@@ -1175,10 +1183,10 @@ async def dashboard(
             COALESCE(SUM(estimated_cost_usd), 0) as cost_usd,
             ROUND(AVG(response_time_ms), 0) as avg_latency_ms
            FROM usage_log
-           WHERE request_timestamp >= date('now', ?) AND status = 'success'
+           WHERE request_timestamp >= date('now', ?) AND status = 'success'""" + app_clause + """
            GROUP BY provider, model
            ORDER BY requests DESC""",
-        (f"-{days} days",),
+        (f"-{days} days", *app_params),
     )
     by_model = [
         {
@@ -1202,11 +1210,11 @@ async def dashboard(
             MAX(l.request_timestamp) as last_request
            FROM usage_log l
            JOIN users u ON l.user_id = u.id
-           WHERE l.request_timestamp >= date('now', ?) AND l.status = 'success'
+           WHERE l.request_timestamp >= date('now', ?) AND l.status = 'success'""" + app_clause_l + """
            GROUP BY u.id
            ORDER BY total_tokens DESC
            LIMIT 10""",
-        (f"-{days} days",),
+        (f"-{days} days", *app_params),
     )
     top_users = [
         {
@@ -1228,8 +1236,8 @@ async def dashboard(
             COALESCE(SUM(input_tokens), 0) + COALESCE(SUM(output_tokens), 0) as tokens,
             COALESCE(SUM(estimated_cost_usd), 0) as cost_usd
            FROM usage_log
-           WHERE request_timestamp >= ? AND status = 'success'""",
-        (today,),
+           WHERE request_timestamp >= ? AND status = 'success'""" + app_clause,
+        (today, *app_params),
     )
     today_row = await cursor.fetchone()
     today_usage = {
@@ -1241,9 +1249,9 @@ async def dashboard(
     # --- Latency percentiles (last N days) ---
     cursor = await db.execute(
         """SELECT response_time_ms FROM usage_log
-           WHERE request_timestamp >= date('now', ?) AND status = 'success'
+           WHERE request_timestamp >= date('now', ?) AND status = 'success'""" + app_clause + """
            ORDER BY response_time_ms""",
-        (f"-{days} days",),
+        (f"-{days} days", *app_params),
     )
     latencies = [r[0] for r in await cursor.fetchall() if r[0] is not None]
     percentiles = {}
@@ -1301,8 +1309,8 @@ async def dashboard(
             COALESCE(SUM(input_tokens), 0) as total_input,
             COALESCE(SUM(output_tokens), 0) as total_output
            FROM usage_log
-           WHERE request_timestamp >= date('now', ?) AND status = 'success'""",
-        (f"-{days} days",),
+           WHERE request_timestamp >= date('now', ?) AND status = 'success'""" + app_clause,
+        (f"-{days} days", *app_params),
     )
     cache_row = await cursor.fetchone()
     total_cached = cache_row["total_cached"]
@@ -1318,10 +1326,10 @@ async def dashboard(
             COALESCE(SUM(estimated_cost_usd), 0) as cost,
             SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as errors
            FROM usage_log
-           WHERE request_timestamp >= date('now', ?)
+           WHERE request_timestamp >= date('now', ?)""" + app_clause + """
            GROUP BY date(request_timestamp)
            ORDER BY day""",
-        (f"-{days} days",),
+        (f"-{days} days", *app_params),
     )
     daily_usage = [
         {"day": r["day"], "requests": r["requests"], "cost": round(r["cost"], 4), "errors": r["errors"]}
@@ -1361,9 +1369,14 @@ async def error_log(
     x_admin_key: str = Header(...),
     days: int = Query(default=7, ge=1, le=90),
     limit: int = Query(default=50, ge=1, le=200),
+    app: str | None = Query(default=None),
 ):
     """Recent failed requests for debugging."""
     _verify_admin(request, x_admin_key)
+
+    app_clause = " AND app_id = ?" if app else ""
+    app_clause_l = " AND l.app_id = ?" if app else ""
+    app_params = (app,) if app else ()
 
     cursor = await db.execute(
         """SELECT l.id, l.user_id, u.email, l.provider, l.model,
@@ -1372,10 +1385,10 @@ async def error_log(
            FROM usage_log l
            LEFT JOIN users u ON l.user_id = u.id
            WHERE l.status != 'success'
-             AND l.request_timestamp >= date('now', ?)
+             AND l.request_timestamp >= date('now', ?)""" + app_clause_l + """
            ORDER BY l.request_timestamp DESC
            LIMIT ?""",
-        (f"-{days} days", limit),
+        (f"-{days} days", *app_params, limit),
     )
     errors = [
         {
@@ -1398,10 +1411,10 @@ async def error_log(
         """SELECT status, COUNT(*) as count
            FROM usage_log
            WHERE status != 'success'
-             AND request_timestamp >= date('now', ?)
+             AND request_timestamp >= date('now', ?)""" + app_clause + """
            GROUP BY status
            ORDER BY count DESC""",
-        (f"-{days} days",),
+        (f"-{days} days", *app_params),
     )
     by_status = {r["status"]: r["count"] for r in await cursor.fetchall()}
 
@@ -1410,10 +1423,10 @@ async def error_log(
         """SELECT provider, COUNT(*) as count
            FROM usage_log
            WHERE status != 'success'
-             AND request_timestamp >= date('now', ?)
+             AND request_timestamp >= date('now', ?)""" + app_clause + """
            GROUP BY provider
            ORDER BY count DESC""",
-        (f"-{days} days",),
+        (f"-{days} days", *app_params),
     )
     by_provider = {r["provider"]: r["count"] for r in await cursor.fetchall()}
 
@@ -1489,10 +1502,14 @@ async def user_detail(
     db: aiosqlite.Connection = Depends(get_db),
     x_admin_key: str = Header(...),
     days: int = Query(default=30, ge=1, le=90),
+    app: str | None = Query(default=None),
 ):
     """Detailed user view with budget, usage breakdown by call type, and query history."""
     _verify_admin(request, x_admin_key)
     tier_config = request.app.state.tier_config
+
+    app_clause = " AND app_id = ?" if app else ""
+    app_params = (app,) if app else ()
 
     # User info
     cursor = await db.execute("SELECT * FROM users WHERE id = ?", (user_id,))
@@ -1513,8 +1530,8 @@ async def user_detail(
             COUNT(*) as total_requests
            FROM usage_log
            WHERE user_id = ? AND request_timestamp >= date('now', ?)
-             AND status = 'success'""",
-        (user_id, f"-{days} days"),
+             AND status = 'success'""" + app_clause,
+        (user_id, f"-{days} days", *app_params),
     )
     month_row = await cursor.fetchone()
 
@@ -1541,10 +1558,10 @@ async def user_detail(
             COALESCE(SUM(image_count), 0) as total_images
            FROM usage_log
            WHERE user_id = ? AND request_timestamp >= date('now', ?)
-             AND status = 'success'
+             AND status = 'success'""" + app_clause + """
            GROUP BY call_type
            ORDER BY requests DESC""",
-        (user_id, f"-{days} days"),
+        (user_id, f"-{days} days", *app_params),
     )
     by_call_type = [
         {
@@ -1570,10 +1587,10 @@ async def user_detail(
             ROUND(AVG(response_time_ms), 0) as avg_latency_ms
            FROM usage_log
            WHERE user_id = ? AND request_timestamp >= date('now', ?)
-             AND status = 'success'
+             AND status = 'success'""" + app_clause + """
            GROUP BY prompt_mode
            ORDER BY requests DESC""",
-        (user_id, f"-{days} days"),
+        (user_id, f"-{days} days", *app_params),
     )
     by_prompt_mode = [
         {
@@ -1597,10 +1614,10 @@ async def user_detail(
             ROUND(AVG(response_time_ms), 0) as avg_latency_ms
            FROM usage_log
            WHERE user_id = ? AND request_timestamp >= date('now', ?)
-             AND status = 'success'
+             AND status = 'success'""" + app_clause + """
            GROUP BY provider, model
            ORDER BY requests DESC""",
-        (user_id, f"-{days} days"),
+        (user_id, f"-{days} days", *app_params),
     )
     by_model = [
         {
@@ -1624,10 +1641,10 @@ async def user_detail(
             COALESCE(SUM(estimated_cost_usd), 0) as cost
            FROM usage_log
            WHERE user_id = ? AND request_timestamp >= date('now', ?)
-             AND status = 'success'
+             AND status = 'success'""" + app_clause + """
            GROUP BY date(request_timestamp)
            ORDER BY day""",
-        (user_id, f"-{days} days"),
+        (user_id, f"-{days} days", *app_params),
     )
     daily_trend = [
         {"day": r["day"], "requests": r["requests"], "tokens": r["tokens"], "cost": round(r["cost"], 4)}
@@ -1820,6 +1837,7 @@ async def list_users(
     db: aiosqlite.Connection = Depends(get_db),
     x_admin_key: str = Header(...),
     days: int = Query(default=7, ge=1, le=90),
+    app: str | None = Query(default=None),
 ):
     """List all users with their usage stats, filtered by time period."""
     _verify_admin(request, x_admin_key)
@@ -1828,8 +1846,34 @@ async def list_users(
 
     tier_config = request.app.state.tier_config
 
+    # Optional per-app scoping. When `app` is set, every usage_log subquery
+    # below (windowed and lifetime) is restricted to that app_id so the row
+    # reflects a single app end to end; an empty/absent `app` keeps them
+    # global. Telemetry device/locale subqueries stay unscoped — they
+    # describe the user's device, not per-app activity. Each filtered
+    # subquery contributes one `?` (only when `app` is set), in SELECT order.
+    def _app_filt(alias: str) -> str:
+        return f" AND {alias}.app_id = ?" if app else ""
+
+    app_params = (app,) if app else ()
+
+    # When an app is selected, HIDE users with no activity in it: keep only
+    # users with at least one usage_log OR telemetry_events row tagged with
+    # that app_id. So filtering by Tech Rehearsal drops users who only touch
+    # SS, and vice versa. Users are shared across apps, so someone active in
+    # both apps shows up under both filters. The two `?`s bind last (the
+    # outer WHERE follows every SELECT-list subquery in the SQL text).
+    app_user_filter = (
+        " WHERE EXISTS (SELECT 1 FROM usage_log ux"
+        " WHERE ux.user_id = u.id AND ux.app_id = ?)"
+        " OR EXISTS (SELECT 1 FROM telemetry_events tx"
+        " WHERE tx.user_id = u.id AND tx.app_id = ?)"
+        if app else ""
+    )
+    app_user_params = (app, app) if app else ()
+
     cursor = await db.execute(
-        """SELECT u.id, u.apple_sub, u.email, u.display_name, u.tier, u.created_at, u.is_active,
+        f"""SELECT u.id, u.apple_sub, u.email, u.display_name, u.tier, u.created_at, u.is_active,
             u.simulated_tier, u.simulated_exhausted,
             u.monthly_used_usd, u.monthly_cost_limit_usd, u.allocation_resets_at,
             u.is_trial, u.trial_end,
@@ -1837,30 +1881,30 @@ async def list_users(
             -- makes the date filter visible at the call site so future
             -- editors don't confuse these with all-time aggregates.
             (SELECT COUNT(*) FROM usage_log l WHERE l.user_id = u.id AND l.status = 'success'
-             AND l.request_timestamp >= date('now', ?)) as window_requests,
+             AND l.request_timestamp >= date('now', ?){_app_filt('l')}) as window_requests,
             (SELECT COALESCE(SUM(COALESCE(l2.input_tokens,0)), 0)
              FROM usage_log l2 WHERE l2.user_id = u.id AND l2.status = 'success'
-             AND l2.request_timestamp >= date('now', ?)) as window_input_tokens,
+             AND l2.request_timestamp >= date('now', ?){_app_filt('l2')}) as window_input_tokens,
             (SELECT COALESCE(SUM(COALESCE(l2.output_tokens,0)), 0)
              FROM usage_log l2 WHERE l2.user_id = u.id AND l2.status = 'success'
-             AND l2.request_timestamp >= date('now', ?)) as window_output_tokens,
+             AND l2.request_timestamp >= date('now', ?){_app_filt('l2')}) as window_output_tokens,
             (SELECT COALESCE(SUM(l3.estimated_cost_usd), 0)
              FROM usage_log l3 WHERE l3.user_id = u.id AND l3.status = 'success'
-             AND l3.request_timestamp >= date('now', ?)) as window_cost_usd,
+             AND l3.request_timestamp >= date('now', ?){_app_filt('l3')}) as window_cost_usd,
             -- Lifetime aggregates (no date filter). Bounded by the
             -- usage_log table's lifetime, which is never purged today.
-            (SELECT COUNT(*) FROM usage_log lt1 WHERE lt1.user_id = u.id AND lt1.status = 'success')
+            (SELECT COUNT(*) FROM usage_log lt1 WHERE lt1.user_id = u.id AND lt1.status = 'success'{_app_filt('lt1')})
               as lifetime_requests,
             (SELECT COALESCE(SUM(COALESCE(lt2.input_tokens,0)), 0)
-             FROM usage_log lt2 WHERE lt2.user_id = u.id AND lt2.status = 'success')
+             FROM usage_log lt2 WHERE lt2.user_id = u.id AND lt2.status = 'success'{_app_filt('lt2')})
               as lifetime_input_tokens,
             (SELECT COALESCE(SUM(COALESCE(lt3.output_tokens,0)), 0)
-             FROM usage_log lt3 WHERE lt3.user_id = u.id AND lt3.status = 'success')
+             FROM usage_log lt3 WHERE lt3.user_id = u.id AND lt3.status = 'success'{_app_filt('lt3')})
               as lifetime_output_tokens,
             (SELECT COALESCE(SUM(lt4.estimated_cost_usd), 0)
-             FROM usage_log lt4 WHERE lt4.user_id = u.id AND lt4.status = 'success')
+             FROM usage_log lt4 WHERE lt4.user_id = u.id AND lt4.status = 'success'{_app_filt('lt4')})
               as lifetime_cost_usd,
-            (SELECT MAX(l4.request_timestamp) FROM usage_log l4 WHERE l4.user_id = u.id) as last_request,
+            (SELECT MAX(l4.request_timestamp) FROM usage_log l4 WHERE l4.user_id = u.id{_app_filt('l4')}) as last_request,
             u.marketing_opt_in,
             -- Latest non-null device/version/locale from telemetry pings.
             -- Per-field "latest non-null" so an older build that doesn't send
@@ -1877,9 +1921,20 @@ async def list_users(
             (SELECT t.device_model FROM telemetry_events t
              WHERE t.user_id = u.id AND t.device_model IS NOT NULL
              ORDER BY t.received_at DESC LIMIT 1) as device_model
-           FROM users u
+           FROM users u""" + app_user_filter + """
            ORDER BY u.created_at DESC""",
-        (f"-{days} days", f"-{days} days", f"-{days} days", f"-{days} days"),
+        (
+            f"-{days} days", *app_params,   # window_requests
+            f"-{days} days", *app_params,   # window_input_tokens
+            f"-{days} days", *app_params,   # window_output_tokens
+            f"-{days} days", *app_params,   # window_cost_usd
+            *app_params,                    # lifetime_requests
+            *app_params,                    # lifetime_input_tokens
+            *app_params,                    # lifetime_output_tokens
+            *app_params,                    # lifetime_cost_usd
+            *app_params,                    # last_request
+            *app_user_params,               # outer WHERE: hide non-app users
+        ),
     )
     users = []
     for r in await cursor.fetchall():
@@ -2040,6 +2095,7 @@ async def telemetry_rich(
     db: aiosqlite.Connection = Depends(get_db),
     x_admin_key: str = Header(...),
     days: int = Query(default=30, ge=1, le=90),
+    app: str | None = Query(default=None),
     app_version: str | None = Query(default=None),
     device_model: str | None = Query(default=None),
     model_id: str | None = Query(default=None),
@@ -2063,6 +2119,9 @@ async def telemetry_rich(
     # Build a reusable WHERE clause + bound parameters.
     clauses = ["received_at >= datetime('now', ?)"]
     params: list[object] = [f"-{days} days"]
+    if app:
+        clauses.append("app_id = ?")
+        params.append(app)
     if app_version:
         clauses.append("app_version = ?")
         params.append(app_version)
