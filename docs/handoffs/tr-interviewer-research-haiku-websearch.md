@@ -3,6 +3,18 @@
 Status: SPEC (not implemented). Gated on client + budget prerequisites below.
 Last updated: 2026-06-17.
 
+## Status update (2026-06-18)
+
+Two things changed since this was written, neither of which implements the proposal below:
+
+1. **The interviewer prompt is now GP-owned** (PR #275). Its system prompt moved from the TR client into `config/remote/tr-research-interviewer.json`, ported verbatim, and GP assembles it server-side when the client omits its own `system_prompt` (same pattern as the other TR calls, see `project_tr_prompt_migration`). The prompt content is unchanged; only its home moved. It stays a **vision** call (the LinkedIn screenshot rides in `images`), so the routing dial must stay vision-capable.
+
+2. **The model + search switch in this doc is still NOT done.** Live today is exactly what the doc calls current state: `anthropic/claude-sonnet-4-6`, screenshot only, no web_search. The Sonnet → Haiku + web_search change remains a proposal, still gated on the same prerequisites (the search-enable path plus the TR budget mapping in `tr-budget-decision.md`).
+
+One thing the prompt-ownership change makes cleaner: because GP now owns and assembles this call end to end, the "force `search_enabled` server-side by call_type" alternative (Prereq 1 below) is more natural to implement than it was when the prompt lived in the client. It's still blocked by the free-tier search-gate / budget-mapping issue, so revisit it only alongside the budget decision.
+
+Everything below is the original, unchanged proposal.
+
 ## Goal
 
 Switch the `tr_research_interviewer` call type from **Sonnet, no web search** to
