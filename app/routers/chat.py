@@ -11,7 +11,13 @@ logger = logging.getLogger(__name__)
 # usage_log with status="timeout", and close the connection. Without this
 # cap, a slow-trickle upstream could keep the connection open indefinitely
 # (httpx's per-operation read timeout doesn't bound total wall-clock).
-_CHAT_STREAM_WALL_CLOCK_SECONDS = 90
+_CHAT_STREAM_WALL_CLOCK_SECONDS = 180
+
+# How long the stream may stay silent before we emit a progress heartbeat.
+# Lets a client keep an honest "still working" indicator alive through the
+# pre-first-token gap (model thinking / queued / running web_search) without
+# us fabricating a completion fraction we can't actually know.
+_STREAM_HEARTBEAT_SECONDS = 10
 
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -1704,14 +1710,48 @@ async def _handle_stream(
     async def event_stream():
         final_response = None
         from app.services.anthropic_or_fallback import route_stream_with_fallback
+        # Tracked across the heartbeat loop so it can be cancelled on any
+        # exit path (see the finally below).
+        pending = None
         try:
             async with asyncio.timeout(_CHAT_STREAM_WALL_CLOCK_SECONDS):
-                async for event in route_stream_with_fallback(
+                # Consume the upstream iterator one event at a time via a
+                # tracked task instead of `async for`, so a silent gap can
+                # emit a heartbeat WITHOUT cancelling the in-flight read.
+                # asyncio.wait (unlike wait_for) does not cancel the pending
+                # task when its own timeout elapses — that's what makes this
+                # safe to run against an async generator.
+                agen = route_stream_with_fallback(
                     provider_router, body, db, request.app.state.settings,
-                ):
+                ).__aiter__()
+                phase = "waiting"  # pre-first-token; flips to "generating"
+                pending = asyncio.ensure_future(agen.__anext__())
+                while True:
+                    done_set, _ = await asyncio.wait(
+                        {pending}, timeout=_STREAM_HEARTBEAT_SECONDS
+                    )
+                    if not done_set:
+                        # No event within the heartbeat window — emit a
+                        # liveness/phase ping; the read keeps running. Phase
+                        # only, no fabricated fraction.
+                        elapsed_ms = int((time.monotonic() - start) * 1000)
+                        hb = json.dumps({
+                            "type": "progress",
+                            "phase": phase,
+                            "elapsed_ms": elapsed_ms,
+                        })
+                        yield f"data: {hb}\n\n"
+                        continue
+                    try:
+                        event = pending.result()
+                    except StopAsyncIteration:
+                        break
+                    pending = asyncio.ensure_future(agen.__anext__())
                     if event.get("done"):
                         final_response = event.get("response")
                     else:
+                        if phase == "waiting":
+                            phase = "generating"
                         # Yield text delta as SSE
                         sse_data = json.dumps({"type": "text", "text": event["text"]})
                         yield f"data: {sse_data}\n\n"
@@ -1779,6 +1819,13 @@ async def _handle_stream(
             })
             yield f"data: {error_data}\n\n"
             return
+
+        finally:
+            # Cancel any in-flight upstream read so an abandoned stream
+            # (wall-clock timeout, provider error, or client disconnect)
+            # doesn't leak the task or hold the upstream connection open.
+            if pending is not None and not pending.done():
+                pending.cancel()
 
         elapsed_ms = int((time.monotonic() - start) * 1000)
 
