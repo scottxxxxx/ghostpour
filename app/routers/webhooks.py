@@ -2300,7 +2300,8 @@ async def telemetry_rich(
 
     dir_rows = await _all(f"""
         SELECT e.device_id AS device_id,
-          (SELECT u.display_name FROM telemetry_events e3 JOIN users u ON u.id = e3.user_id
+          (SELECT COALESCE(NULLIF(u.display_name, ''), u.email)
+             FROM telemetry_events e3 JOIN users u ON u.id = e3.user_id
              WHERE e3.device_id = e.device_id AND e3.user_id IS NOT NULL
              ORDER BY e3.received_at DESC LIMIT 1) AS name,
           (SELECT app_locale FROM telemetry_events e2 WHERE e2.device_id = e.device_id

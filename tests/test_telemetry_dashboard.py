@@ -233,3 +233,43 @@ def test_rich_endpoint_requires_admin(client):
         headers={"X-Admin-Key": "wrong"},
     )
     assert resp.status_code == 403
+
+
+# --- directory name resolution -------------------------------------------
+
+def test_directory_falls_back_to_email_when_no_display_name(client, tmp_db_path):
+    """A signed-in user with no display_name must show their email, not
+    'anonymous'. The directory's pings carry the user_id; the only reason
+    they'd read anonymous is a null display_name with no fallback."""
+    import sqlite3
+    from tests.conftest import _insert_user
+
+    _insert_user(tmp_db_path, user_id="no-name-user", tier="pro", monthly_limit=5.10)
+    conn = sqlite3.connect(tmp_db_path)
+    conn.execute(
+        "UPDATE users SET display_name = NULL, email = ? WHERE id = ?",
+        ("noname@example.com", "no-name-user"),
+    )
+    conn.commit()
+    conn.close()
+
+    _seed_event(client, user_id="no-name-user", device_model="iPhone17,3", app_locale="en_US")
+    data = client.get(
+        "/webhooks/admin/telemetry/rich?days=30",
+        headers={"X-Admin-Key": "test-admin-key"},
+    ).json()
+    row = next((d for d in data["directory"] if d.get("name") == "noname@example.com"), None)
+    assert row is not None, [d.get("name") for d in data["directory"]]
+    assert row["signed_in"] is True
+
+
+def test_directory_prefers_display_name_when_present(client, tmp_db_path):
+    from tests.conftest import _insert_user
+
+    _insert_user(tmp_db_path, user_id="named-user", tier="pro", monthly_limit=5.10)
+    _seed_event(client, user_id="named-user", device_model="iPhone17,3")
+    data = client.get(
+        "/webhooks/admin/telemetry/rich?days=30",
+        headers={"X-Admin-Key": "test-admin-key"},
+    ).json()
+    assert "Test User" in [d.get("name") for d in data["directory"]]
