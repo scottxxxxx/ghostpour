@@ -109,6 +109,25 @@ These fields are read by GP's router (specifically by `/v1/chat`'s model selecto
 
 We move these to a new `config/internal/model-routing.json` that isn't exposed via `/v1/config/*` endpoints. iOS never sees them; we stop paying the bandwidth to ship them on every config fetch.
 
+### `contextSlots` / `contextQuilt` value scale
+
+These two blocks describe, per model, which context layers we'd compose into the prompt. The slots come in two shapes:
+
+- **Binary slots** use `true` / `false`: `deltaSummaryMode`, `fullTranscriptSummary`, `projectContext`, `projectFiles`, `followUpContext`. On or off, no middle ground.
+- **Graded slots** use a three-way string `yes` / `limited` / `no`: `transcriptBuffer`, `rollingSummary`, and all of `contextQuilt` (`commProfile`, `factExtraction`, `companyIntel`, `meetingGuidance`).
+
+The graded scale means:
+
+| Value | Meaning |
+|---|---|
+| `yes` | Include the slot in full. |
+| `limited` | Include the slot, but only a reduced or truncated amount, because the model's usable context is too small for the whole thing. The middle ground between full and omitted. |
+| `no` | Omit the slot for this model. |
+
+In the current file, `limited` appears on exactly one model: the Apple on-device `foundation-models` entry (4K window, ~3072 usable tokens), on `transcriptBuffer`, `rollingSummary`, `commProfile`, `factExtraction`, and `companyIntel` (`meetingGuidance` is `no`). Every other model, the 200K to 2M context ones, is `yes` across the board with zero limited slots. So today `limited` effectively means "this is the tiny on-device model, send a slimmed version of these pieces."
+
+One honest note: this is descriptive metadata, not enforced anywhere. Nothing in GP's code currently reads `contextSlots` / `contextQuilt` or acts on the scale, so what `limited` actually trims down to is the consumer's decision based on the hint, not a budget GP computes or imposes. If we later drive prompt composition off these fields server-side, that's where we'd define exactly what `limited` truncates to (for example a token cap per slot).
+
 ## Other normalization decisions (any option)
 
 Whatever shape we land on:
