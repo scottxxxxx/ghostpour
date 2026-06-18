@@ -101,6 +101,49 @@ def test_users_window_requests_respect_app_filter(client, tmp_db_path):
     assert _row(tr)["lifetime_requests"] == 2
 
 
+def _insert_telemetry(db_path, user_id, app_id):
+    """Insert one telemetry_events row tagged with an app_id."""
+    now = datetime.now(timezone.utc).isoformat()
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        """INSERT INTO telemetry_events
+           (id, event_type, device_id, user_id, received_at, app_id)
+           VALUES (?, 'app_start', ?, ?, ?, ?)""",
+        (str(uuid.uuid4()), str(uuid.uuid4()), user_id, now, app_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def test_users_list_hides_users_without_app_activity(client, tmp_db_path):
+    """Filtering by an app shows only users with activity in that app.
+    Activity = a usage_log OR a telemetry_events row tagged with the app_id."""
+    from tests.conftest import _insert_user
+
+    _insert_user(tmp_db_path, user_id="ss-only", tier="pro", monthly_limit=5.10)
+    _insert_user(tmp_db_path, user_id="tr-only", tier="pro", monthly_limit=5.10)
+    _insert_user(tmp_db_path, user_id="tel-only", tier="pro", monthly_limit=5.10)
+    _insert_usage(tmp_db_path, "ss-only", "shouldersurf")
+    _insert_usage(tmp_db_path, "tr-only", "techrehearsal")
+    # tel-only has no usage_log, only a telemetry ping — should still count.
+    _insert_telemetry(tmp_db_path, "tel-only", "techrehearsal")
+
+    def _ids(payload):
+        return {u["id"] for u in payload["users"]}
+
+    all_apps = client.get("/webhooks/admin/users?days=7", headers=ADMIN).json()
+    tr = client.get(
+        "/webhooks/admin/users?days=7&app=techrehearsal", headers=ADMIN
+    ).json()
+    ss = client.get(
+        "/webhooks/admin/users?days=7&app=shouldersurf", headers=ADMIN
+    ).json()
+
+    assert {"ss-only", "tr-only", "tel-only"} <= _ids(all_apps)
+    assert _ids(tr) == {"tr-only", "tel-only"}      # SS-only hidden; telemetry counts
+    assert _ids(ss) == {"ss-only"}                  # TR users hidden
+
+
 def test_user_detail_app_filter(client, tmp_db_path):
     user_id = _seed_two_apps(client, tmp_db_path)
 

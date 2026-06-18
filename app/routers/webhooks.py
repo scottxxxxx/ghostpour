@@ -1857,6 +1857,21 @@ async def list_users(
 
     app_params = (app,) if app else ()
 
+    # When an app is selected, HIDE users with no activity in it: keep only
+    # users with at least one usage_log OR telemetry_events row tagged with
+    # that app_id. So filtering by Tech Rehearsal drops users who only touch
+    # SS, and vice versa. Users are shared across apps, so someone active in
+    # both apps shows up under both filters. The two `?`s bind last (the
+    # outer WHERE follows every SELECT-list subquery in the SQL text).
+    app_user_filter = (
+        " WHERE EXISTS (SELECT 1 FROM usage_log ux"
+        " WHERE ux.user_id = u.id AND ux.app_id = ?)"
+        " OR EXISTS (SELECT 1 FROM telemetry_events tx"
+        " WHERE tx.user_id = u.id AND tx.app_id = ?)"
+        if app else ""
+    )
+    app_user_params = (app, app) if app else ()
+
     cursor = await db.execute(
         f"""SELECT u.id, u.apple_sub, u.email, u.display_name, u.tier, u.created_at, u.is_active,
             u.simulated_tier, u.simulated_exhausted,
@@ -1906,7 +1921,7 @@ async def list_users(
             (SELECT t.device_model FROM telemetry_events t
              WHERE t.user_id = u.id AND t.device_model IS NOT NULL
              ORDER BY t.received_at DESC LIMIT 1) as device_model
-           FROM users u
+           FROM users u""" + app_user_filter + """
            ORDER BY u.created_at DESC""",
         (
             f"-{days} days", *app_params,   # window_requests
@@ -1918,6 +1933,7 @@ async def list_users(
             *app_params,                    # lifetime_output_tokens
             *app_params,                    # lifetime_cost_usd
             *app_params,                    # last_request
+            *app_user_params,               # outer WHERE: hide non-app users
         ),
     )
     users = []
