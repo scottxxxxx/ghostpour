@@ -59,6 +59,7 @@ tiers:
       meeting_reports: "enabled"
       project_chat: "teaser"
       web_search: "disabled"
+      tag_centroids: "enabled"  # kill switch, default on (fail-open); flip to "disabled" to kill
     feature_bullets:
       - "~25 hours/month of AI assistance"
       - "Real-time auto-summaries"
@@ -91,6 +92,7 @@ tiers:
       meeting_reports: "enabled"
       project_chat: "enabled"
       web_search: "enabled"
+      tag_centroids: "enabled"  # kill switch, default on (fail-open); flip to "disabled" to kill
     feature_bullets:
       - "Unlimited meetings with AI assistance"
       - "Standard AI"
@@ -127,6 +129,7 @@ tiers:
       meeting_reports: "enabled"
       project_chat: "enabled"
       web_search: "enabled"
+      tag_centroids: "enabled"  # kill switch, default on (fail-open); flip to "disabled" to kill
     feature_bullets:
       - "Unlimited meetings with AI assistance"
       - "Advanced AI for reports and analysis"
@@ -158,6 +161,7 @@ tiers:
       meeting_reports: "enabled"
       project_chat: "enabled"
       web_search: "enabled"
+      tag_centroids: "enabled"  # kill switch, default on (fail-open); flip to "disabled" to kill
     feature_bullets:
       - "Unlimited AI assistance"
       - "All models and providers"
