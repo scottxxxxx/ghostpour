@@ -798,6 +798,96 @@ async def usage_me(
     return result
 
 
+# --- Timing hints ---------------------------------------------------------
+# Per-call_type latency + output-size percentiles, computed from usage_log,
+# so a client can drive an HONEST progress indicator: a curve shaped to what
+# we've actually measured, never a countdown to a finish we can't predict.
+# When the call streams, the same expected-output-token figure scales the
+# real token-flow signal; when it doesn't, the curve is the fallback. The
+# hints are aggregated per call_type and NEVER per model, so they can't leak
+# which model we picked (the ghost-relay opacity rule).
+_TIMING_HINTS_WINDOW_DAYS = 30
+_TIMING_HINTS_MIN_SAMPLES = 5
+_TIMING_HINTS_TTL_SEC = 600
+# Cache keyed by app_id → (computed_at_monotonic, payload). Slow-changing
+# aggregate, so a short TTL keeps the per-request DB scan off the hot path.
+_timing_hints_cache: dict[str, tuple[float, dict]] = {}
+
+
+def _percentile(sorted_vals: list[int], p: float) -> int:
+    """Nearest-rank percentile of a pre-sorted list (matches dashboard math)."""
+    if not sorted_vals:
+        return 0
+    idx = int(len(sorted_vals) * p)
+    return sorted_vals[min(idx, len(sorted_vals) - 1)]
+
+
+@router.get("/timing-hints")
+async def timing_hints(
+    request: Request,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Per-call_type expected-duration hints for honest progress UI.
+
+    For each call_type the caller's app has run, returns the p50/p90 of
+    response_time_ms and the p50 of output_tokens over the last N days of
+    successful requests. A client uses these to render progress
+    proportionate to what we expect — and, when streaming, to scale the
+    live token-flow against an expected total — instead of a countdown to
+    an unpredictable finish.
+
+    Scoped to the caller's app_id when known, so each app sees its own
+    call types. Aggregated across models on purpose: we never expose
+    per-model timing, which would reveal which model we chose.
+    """
+    app_id = getattr(request.state, "app_id", "unknown")
+
+    now = time.monotonic()
+    cached = _timing_hints_cache.get(app_id)
+    if cached and (now - cached[0]) < _TIMING_HINTS_TTL_SEC:
+        return cached[1]
+
+    # Pull raw per-call_type samples; percentiles are computed in Python
+    # (the row volume is small and SQLite has no native percentile aggregate).
+    sql = (
+        "SELECT call_type, response_time_ms, output_tokens FROM usage_log "
+        "WHERE status = 'success' AND response_time_ms IS NOT NULL "
+        "AND call_type IS NOT NULL "
+        "AND request_timestamp >= date('now', ?)"
+    )
+    params: list[object] = [f"-{_TIMING_HINTS_WINDOW_DAYS} days"]
+    if app_id and app_id != "unknown":
+        sql += " AND app_id = ?"
+        params.append(app_id)
+    cursor = await db.execute(sql, tuple(params))
+    rows = await cursor.fetchall()
+
+    buckets: dict[str, dict[str, list[int]]] = {}
+    for r in rows:
+        b = buckets.setdefault(r["call_type"], {"ms": [], "out": []})
+        b["ms"].append(int(r["response_time_ms"]))
+        if r["output_tokens"] is not None:
+            b["out"].append(int(r["output_tokens"]))
+
+    hints = {}
+    for ct, b in buckets.items():
+        if len(b["ms"]) < _TIMING_HINTS_MIN_SAMPLES:
+            continue  # too few to be honest about; client falls back to its default
+        ms = sorted(b["ms"])
+        out = sorted(b["out"])
+        hints[ct] = {
+            "p50_ms": _percentile(ms, 0.50),
+            "p90_ms": _percentile(ms, 0.90),
+            "p50_output_tokens": _percentile(out, 0.50) if out else None,
+            "samples": len(ms),
+        }
+
+    payload = {"window_days": _TIMING_HINTS_WINDOW_DAYS, "hints": hints}
+    _timing_hints_cache[app_id] = (now, payload)
+    return payload
+
+
 @router.get("/tiers")
 async def list_tiers(request: Request):
     """Return the full tier catalog for display in the iOS subscription UI.
