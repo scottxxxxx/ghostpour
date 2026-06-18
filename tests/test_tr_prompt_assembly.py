@@ -16,6 +16,7 @@ CASES = [
     ("tr_mock_interview", "tr-mock-interview", "You are an expert technical interviewer"),
     ("tr_response_analysis", "tr-response-analysis", "You are an interview coach"),
     ("tr_match_analysis", "tr-match-analysis", "You are an expert technical recruiter"),
+    ("tr_research_interviewer", "tr-research-interviewer", "You are looking at a screenshot"),
 ]
 
 
@@ -64,6 +65,28 @@ def test_match_prompt_keeps_calibration_guardrails():
         "Never invent skills",
     ):
         assert phrase in sp, f"missing calibration guardrail: {phrase!r}"
+
+
+def test_interviewer_assembly_preserves_image():
+    """tr_research_interviewer is a vision call: the LinkedIn screenshot
+    rides in `images`, separate from the prompt. The chat handler assembles
+    by model_copy-ing only system_prompt/user_content/max_tokens, so the
+    image must survive. Guard that invariant."""
+    from app.models.chat import ChatRequest
+
+    cfgs = {"tr-research-interviewer": json.load(open("config/remote/tr-research-interviewer.json"))}
+    body = ChatRequest(
+        provider="auto", model="auto", user_content="Screenshot attached. Produce the brief.",
+        images=["BASE64IMAGEDATA"], call_type="tr_research_interviewer",
+    )
+    assembled = assemble_prompt("tr_research_interviewer", body.user_content, cfgs)
+    assert assembled is not None
+    updated = body.model_copy(update={
+        "system_prompt": assembled["system_prompt"],
+        "user_content": assembled["user_content"],
+    })
+    assert updated.system_prompt.startswith("You are looking at a screenshot")
+    assert updated.images == ["BASE64IMAGEDATA"]  # image preserved through assembly
 
 
 def test_returns_none_when_config_absent():
