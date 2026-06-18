@@ -1149,6 +1149,19 @@ async def chat(
             body, result = await hook.before_llm(user, body, tier, state, skip_teasers)
             hook_results[feature_name] = result
 
+    # Safety net: the CQ hook fills the {{context_quilt}} placeholder ONLY
+    # when CQ is enabled AND recall returned content. In every other path —
+    # recall empty, teaser tier, CQ-disabled tier (hook skipped entirely
+    # above), or context_quilt flag off — a literal {{context_quilt}} left in
+    # the client's template would otherwise reach the model verbatim. Strip
+    # any leftover unconditionally so a client can safely leave the literal
+    # placeholder in and never leak it. Only the GP-owned slot is touched;
+    # client-owned placeholders are left alone.
+    if body.system_prompt and "{{context_quilt}}" in body.system_prompt:
+        body = body.model_copy(update={
+            "system_prompt": body.system_prompt.replace("{{context_quilt}}", "")
+        })
+
     # Effective allocation limit (trial or regular)
     effective_limit = tier.monthly_cost_limit_usd
     if user.is_trial and tier.trial_cost_limit_usd is not None:
