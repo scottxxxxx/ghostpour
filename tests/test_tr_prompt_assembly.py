@@ -63,6 +63,7 @@ def test_match_prompt_keeps_calibration_guardrails():
         "the radar must agree with your gaps list",
         "MUST be <= 0.5",
         "Never invent skills",
+        "no ```json",  # anti-fence instruction must survive
     ):
         assert phrase in sp, f"missing calibration guardrail: {phrase!r}"
 
