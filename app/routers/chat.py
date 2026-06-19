@@ -19,6 +19,38 @@ _CHAT_STREAM_WALL_CLOCK_SECONDS = 180
 # us fabricating a completion fraction we can't actually know.
 _STREAM_HEARTBEAT_SECONDS = 10
 
+
+def _strip_json_code_fence(text: str) -> str:
+    """Unwrap a response that is wholly a ```code fence``` wrapping valid JSON.
+
+    Several managed JSON call types tell the model "no code fences," but it
+    often wraps the object anyway (```json … ```), forcing the client to
+    strip it. We do it server-side instead. Content-driven and conservative:
+    we only unwrap when the ENTIRE response is a single fenced block whose
+    inner content parses as JSON, so prose/markdown answers (which may contain
+    a legitimate code block, or be a non-JSON brief) are never altered.
+    """
+    if not text:
+        return text
+    s = text.strip()
+    if not (s.startswith("```") and s.endswith("```")):
+        return text
+    inner = s[3:-3].strip()
+    # The opening fence may carry a language tag on its own first line
+    # (```json). Drop it only when it looks like a tag, not the start of JSON.
+    if "\n" in inner:
+        first, rest = inner.split("\n", 1)
+        ft = first.strip()
+        if ft and " " not in ft and "{" not in ft and "[" not in ft:
+            inner = rest
+    inner = inner.strip()
+    try:
+        json.loads(inner)
+    except Exception:
+        return text
+    return inner
+
+
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -1540,6 +1572,13 @@ async def chat(
         raise
 
     elapsed_ms = int((time.monotonic() - start) * 1000)
+
+    # 6.5. Unwrap a stray ```json code fence the model wrapped around a JSON
+    # response (managed JSON call types say "no code fences" but models still
+    # do it). Safe no-op for prose/markdown answers. Non-stream path only;
+    # the JSON call types don't stream.
+    if response and response.text:
+        response.text = _strip_json_code_fence(response.text)
 
     # 7. Calculate cost from pricing data
     request_cost = 0.0
