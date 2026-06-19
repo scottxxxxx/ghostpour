@@ -1201,6 +1201,31 @@ async def dashboard(
         for r in await cursor.fetchall()
     ]
 
+    # --- Usage by scenario (Tech Rehearsal scenario sub-dimension) ---
+    # interview / negotiation / personal / pitch (open vocab). Rows the
+    # client hasn't tagged read as "(untagged)". Honors the app + period
+    # filters like every other usage_log query here.
+    cursor = await db.execute(
+        """SELECT COALESCE(scenario, '(untagged)') as scenario,
+            COUNT(*) as requests,
+            COALESCE(SUM(input_tokens), 0) + COALESCE(SUM(output_tokens), 0) as tokens,
+            COALESCE(SUM(estimated_cost_usd), 0) as cost_usd
+           FROM usage_log
+           WHERE request_timestamp >= date('now', ?) AND status = 'success'""" + app_clause + """
+           GROUP BY scenario
+           ORDER BY requests DESC""",
+        (f"-{days} days", *app_params),
+    )
+    by_scenario = [
+        {
+            "scenario": r["scenario"],
+            "requests": r["requests"],
+            "tokens": r["tokens"],
+            "cost_usd": round(r["cost_usd"], 4),
+        }
+        for r in await cursor.fetchall()
+    ]
+
     # --- Usage by user (top 10) ---
     cursor = await db.execute(
         """SELECT u.id, u.email, u.tier,
@@ -1346,6 +1371,7 @@ async def dashboard(
         "today": today_usage,
         "usage": usage_summary,
         "by_model": by_model,
+        "by_scenario": by_scenario,
         "top_users": top_users,
         "latency_percentiles": percentiles,
         "allocation_alerts": allocation_alerts,

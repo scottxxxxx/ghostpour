@@ -234,6 +234,10 @@
     <div class="table-wrap"><table id="model-table"><thead><tr>
       <th>Provider</th><th>Model</th><th>Requests</th><th>Input Tokens</th><th>Output Tokens</th><th>Cost</th><th>Avg Latency</th>
     </tr></thead><tbody></tbody></table></div>
+    <h3 style="margin-top:24px;">Usage by Scenario</h3>
+    <div class="table-wrap"><table id="scenario-table"><thead><tr>
+      <th>Scenario</th><th>Requests</th><th>Tokens</th><th>Cost</th>
+    </tr></thead><tbody></tbody></table></div>
   </div>
 
   <!-- Users -->
@@ -1267,6 +1271,12 @@ async function refresh() {
     <td>${fmt(m.input_tokens)}</td><td>${fmt(m.output_tokens)}</td>
     <td>${fmtCost(m.cost_usd)}</td><td>${fmtMs(m.avg_latency_ms)}</td>
   </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-dim)">No usage data yet</td></tr>';
+
+  // Scenario table (TR scenario sub-dimension; populated once the client tags calls)
+  const stbody = document.querySelector('#scenario-table tbody');
+  stbody.innerHTML = (dash.by_scenario || []).map(s => `<tr>
+    <td>${s.scenario}</td><td>${fmt(s.requests)}</td><td>${fmt(s.tokens)}</td><td>${fmtCost(s.cost_usd)}</td>
+  </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text-dim)">No scenario data yet</td></tr>';
 
   // User table — sync the windowed cost column header with the active period
   // selector so operators see "30d Cost" / "90d Cost" / etc instead of a
