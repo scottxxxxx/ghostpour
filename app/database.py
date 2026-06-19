@@ -308,6 +308,13 @@ MIGRATIONS = [
     "CREATE INDEX IF NOT EXISTS idx_usage_app ON usage_log(app_id) WHERE app_id IS NOT NULL",
     "ALTER TABLE telemetry_events ADD COLUMN app_id TEXT",
     "CREATE INDEX IF NOT EXISTS idx_telemetry_app ON telemetry_events(app_id) WHERE app_id IS NOT NULL",
+    # v27: Per-call scenario sub-dimension. Tech Rehearsal is scenario-driven
+    # (interview / negotiation / personal conversations) under ONE app_id, so
+    # the client tags each call via metadata.scenario and we persist it here.
+    # Lets analytics slice scenarios cleanly without splitting app_id. NULL
+    # when the client doesn't send it (e.g. SS, or older TR builds).
+    "ALTER TABLE usage_log ADD COLUMN scenario TEXT",
+    "CREATE INDEX IF NOT EXISTS idx_usage_scenario ON usage_log(scenario) WHERE scenario IS NOT NULL",
 ]
 
 
