@@ -1,0 +1,32 @@
+# =============================================================================
+# App registry — the single source of truth for which iOS apps GhostPour
+# serves and where each app's client-fetched config lives.
+#
+# Identity arrives on the wire as the `X-App-ID` request header (set into
+# `request.state.app_id` by request_logging middleware). Config resolution
+# (app/routers/config.py get_config) and the admin dashboard both read this
+# registry.
+#
+# Resolution contract (Phase B / #249):
+#   - Missing / blank / "unknown" X-App-ID  -> `default_app` (shouldersurf),
+#     PERMANENTLY. A header-less client is ShoulderSurf by definition.
+#   - Known id    -> serve from that app's `dir` (with flat fallback during
+#                    the B2 migration; see config.py).
+#   - Present-but-UNKNOWN id -> 404. A misconfigured app is caught loudly,
+#     never silently served another app's config.
+#
+# `dir` is the subdirectory under config/remote/ (bundle) and the persistent
+# remote-config dir (overlay) that holds this app's files. Until Phase B2
+# moves files, the dirs are empty and resolution falls back to today's flat
+# filenames, so adding this registry changes nothing on its own.
+# =============================================================================
+
+default_app: shouldersurf
+
+apps:
+  shouldersurf:
+    dir: shouldersurf
+    label: ShoulderSurf
+  techrehearsal:
+    dir: techrehearsal
+    label: Tech Rehearsal

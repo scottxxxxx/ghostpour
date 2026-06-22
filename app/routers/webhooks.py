@@ -330,6 +330,25 @@ async def get_live_log_entry(
 # --- Remote Config Management ---
 
 
+def _config_app(slug: str) -> str:
+    """Bucket a config slug to an app for dashboard grouping.
+
+    Composite slugs (`techrehearsal/jd-analysis`) carry the app in their dir
+    prefix — authoritative post-B2. Flat slugs (pre-B2) are bucketed by the
+    legacy `tr-` convention so the dashboard segregates immediately; the
+    internally-keyed `model-routing` is shared. Display only — no bearing on
+    /v1/config resolution.
+    """
+    if "/" in slug:
+        return slug.split("/", 1)[0]
+    base = slug.split(".", 1)[0]
+    if base.startswith("tr-"):
+        return "techrehearsal"
+    if base == "model-routing":
+        return "shared"
+    return "shouldersurf"
+
+
 @router.get("/admin/configs")
 async def list_configs(
     request: Request,
@@ -352,6 +371,7 @@ async def list_configs(
     for slug, data in sorted(configs.items()):
         result.append({
             "slug": slug,
+            "app": _config_app(slug),
             "version": data.get("version"),
             "keys": list(data.keys()),
             "size": len(json.dumps(data)),
@@ -360,7 +380,41 @@ async def list_configs(
     return {"configs": result}
 
 
-@router.get("/admin/config/{slug}")
+@router.get("/admin/config/{slug:path}/bundle")
+async def get_config_bundle(
+    slug: str,
+    request: Request,
+    x_admin_key: str = Header(...),
+):
+    """Return the bundled (repo-shipped) version of a remote config.
+
+    The active value at /admin/config/{slug} comes from the persistent
+    file on the data volume (dashboard-edited). This endpoint exposes
+    the BUNDLED value from `config/remote/` for diff/sync UIs.
+
+    Declared BEFORE the catch-all `{slug:path}` detail route on purpose: the
+    greedy path converter would otherwise swallow `…/bundle` as a slug.
+    """
+    _verify_admin(request, x_admin_key)
+    from app.routers.config import _BUNDLED_DIR
+
+    bundle_path = _BUNDLED_DIR / f"{slug}.json"
+    if not bundle_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"No bundled file for slug '{slug}' at {bundle_path.name}",
+        )
+    try:
+        data = json.loads(bundle_path.read_text())
+    except (json.JSONDecodeError, OSError) as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not read bundled {slug}.json: {exc}",
+        )
+    return {"slug": slug, "data": data}
+
+
+@router.get("/admin/config/{slug:path}")
 async def get_config_detail(
     slug: str,
     request: Request,
@@ -389,7 +443,7 @@ class UpdateConfigRequest(BaseModel):
     data: dict
 
 
-@router.put("/admin/config/{slug}")
+@router.put("/admin/config/{slug:path}")
 async def update_config(
     slug: str,
     body: UpdateConfigRequest,
@@ -421,7 +475,8 @@ async def update_config(
     if body.data["version"] <= old_version:
         body.data["version"] = old_version + 1
 
-    # Write to disk
+    # Write to disk (create the app subdir on first per-app write)
+    config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(json.dumps(body.data, indent=2, ensure_ascii=False) + "\n")
 
     # Hot-reload all configs
@@ -432,37 +487,6 @@ async def update_config(
         "slug": slug,
         "version": body.data["version"],
     }
-
-
-@router.get("/admin/config/{slug}/bundle")
-async def get_config_bundle(
-    slug: str,
-    request: Request,
-    x_admin_key: str = Header(...),
-):
-    """Return the bundled (repo-shipped) version of a remote config.
-
-    The active value at /admin/config/{slug} comes from the persistent
-    file on the data volume (dashboard-edited). This endpoint exposes
-    the BUNDLED value from `config/remote/` for diff/sync UIs.
-    """
-    _verify_admin(request, x_admin_key)
-    from app.routers.config import _BUNDLED_DIR
-
-    bundle_path = _BUNDLED_DIR / f"{slug}.json"
-    if not bundle_path.exists():
-        raise HTTPException(
-            status_code=404,
-            detail=f"No bundled file for slug '{slug}' at {bundle_path.name}",
-        )
-    try:
-        data = json.loads(bundle_path.read_text())
-    except (json.JSONDecodeError, OSError) as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Could not read bundled {slug}.json: {exc}",
-        )
-    return {"slug": slug, "data": data}
 
 
 class SyncFromBundleRequest(BaseModel):
@@ -519,7 +543,7 @@ def _set_pointer(obj: dict, pointer: str, value: object) -> None:
     cur[tokens[-1]] = value
 
 
-@router.post("/admin/config/{slug}/sync-from-bundle")
+@router.post("/admin/config/{slug:path}/sync-from-bundle")
 async def sync_config_from_bundle(
     slug: str,
     body: SyncFromBundleRequest,
