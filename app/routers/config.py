@@ -13,6 +13,7 @@ import logging
 import shutil
 from pathlib import Path
 
+import yaml
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
@@ -26,6 +27,72 @@ _BUNDLED_DIR = Path(__file__).parent.parent.parent / "config" / "remote"
 # Persistent directory for live configs (inside the mounted data volume).
 # Dashboard edits write here and survive container restarts.
 CONFIG_DIR = Path(__file__).parent.parent.parent / "data" / "remote-config"
+
+# App registry (config/apps.yml): X-App-ID → {dir, label}. Drives per-app
+# config resolution and dashboard grouping (Phase B / #249).
+_APPS_PATH = Path(__file__).parent.parent.parent / "config" / "apps.yml"
+_DEFAULT_APP = "shouldersurf"
+_apps_cache: dict | None = None
+
+
+def load_apps(force: bool = False) -> dict:
+    """Return {"default_app": str, "apps": {id: {"dir","label"}}} from apps.yml.
+
+    Cached after first read. Falls back to a shouldersurf-only registry if the
+    file is missing or malformed, so a bad apps.yml can never fail-start the
+    container or 404 ShoulderSurf (the safe default app).
+    """
+    global _apps_cache
+    if _apps_cache is not None and not force:
+        return _apps_cache
+    fallback = {"default_app": _DEFAULT_APP,
+                "apps": {"shouldersurf": {"dir": "shouldersurf", "label": "ShoulderSurf"}}}
+    try:
+        loaded = yaml.safe_load(_APPS_PATH.read_text()) or {}
+        apps = loaded.get("apps") or {}
+        if not isinstance(apps, dict) or not apps:
+            raise ValueError("apps.yml has no 'apps' map")
+        _apps_cache = {
+            "default_app": loaded.get("default_app", _DEFAULT_APP),
+            "apps": apps,
+        }
+    except (OSError, yaml.YAMLError, ValueError) as exc:
+        logger.error("apps.yml load failed (%s); using shouldersurf-only fallback", exc)
+        _apps_cache = fallback
+    return _apps_cache
+
+
+def resolve_app_dir(app_id: str | None) -> str | None:
+    """Map an X-App-ID to its config subdirectory.
+
+    Missing / blank / "unknown" → the default app's dir (shouldersurf),
+    permanently. Known id → its dir. Present-but-unknown id → None (the
+    caller returns 404). See config/apps.yml for the contract.
+    """
+    reg = load_apps()
+    apps = reg["apps"]
+    default_dir = apps.get(reg["default_app"], {}).get("dir", _DEFAULT_APP)
+    if not app_id or app_id == "unknown":
+        return default_dir
+    entry = apps.get(app_id)
+    return entry.get("dir") if entry else None
+
+
+def candidate_slugs(app_dir: str, name: str) -> list[str]:
+    """Slug lookup order for (app, requested name), highest priority first.
+
+    1. `{app_dir}/{name}` — the app's own file.
+    2. `{app_dir}/{name[3:]}` — Option C (#249): when Tech Rehearsal asks for a
+       legacy `tr-`prefixed name, also match the clean unprefixed file, so old
+       TR builds keep resolving after B2 drops the prefix in storage.
+    3. `{name}` — flat fallback = today's behavior; nothing breaks pre-B2 when
+       no per-app files exist yet.
+    """
+    cands = [f"{app_dir}/{name}"]
+    if app_dir == "techrehearsal" and name.startswith("tr-"):
+        cands.append(f"{app_dir}/{name[3:]}")
+    cands.append(name)
+    return cands
 
 
 def seed_remote_configs() -> None:
@@ -53,11 +120,13 @@ def seed_remote_configs() -> None:
         logger.warning("Bundled config directory not found: %s", _BUNDLED_DIR)
         return
 
-    for src in _BUNDLED_DIR.glob("*.json"):
-        dest = CONFIG_DIR / src.name
+    for src in _BUNDLED_DIR.rglob("*.json"):
+        rel = src.relative_to(_BUNDLED_DIR)
+        dest = CONFIG_DIR / rel
         if not dest.exists():
+            dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, dest)
-            logger.info("Seeded remote config from bundle: %s", src.name)
+            logger.info("Seeded remote config from bundle: %s", rel.as_posix())
         # else: persistent file wins — never overwrite dashboard edits.
 
 
@@ -161,9 +230,10 @@ def detect_overlay_drift() -> dict[str, list[str]]:
     if not _BUNDLED_DIR.is_dir() or not CONFIG_DIR.is_dir():
         return drift
 
-    for bundle_path in _BUNDLED_DIR.glob("*.json"):
-        slug = bundle_path.stem
-        overlay_path = CONFIG_DIR / bundle_path.name
+    for bundle_path in _BUNDLED_DIR.rglob("*.json"):
+        rel = bundle_path.relative_to(_BUNDLED_DIR)
+        slug = rel.with_suffix("").as_posix()
+        overlay_path = CONFIG_DIR / rel
         if not overlay_path.exists():
             continue
         try:
@@ -212,9 +282,10 @@ def hydrate_overlay_additions() -> int:
         return 0
 
     slugs_modified = 0
-    for bundle_path in _BUNDLED_DIR.glob("*.json"):
-        slug = bundle_path.stem
-        overlay_path = CONFIG_DIR / bundle_path.name
+    for bundle_path in _BUNDLED_DIR.rglob("*.json"):
+        rel = bundle_path.relative_to(_BUNDLED_DIR)
+        slug = rel.with_suffix("").as_posix()
+        overlay_path = CONFIG_DIR / rel
         if not overlay_path.exists():
             # seed_remote_configs handles the no-overlay case by copying
             # the bundle wholesale. Nothing to do here.
@@ -259,18 +330,22 @@ def hydrate_overlay_additions() -> int:
 
 
 def load_remote_configs() -> dict[str, dict]:
-    """Load all JSON files from the persistent config directory into a slug→data dict.
+    """Load all JSON files from the persistent config dir (recursively) into a
+    slug→data dict.
 
-    Each JSON file must have a top-level "version" integer.
-    The slug is the filename without .json (e.g., idle-tips.json → idle-tips).
+    Each JSON file must have a top-level "version" integer. The slug is the
+    path relative to CONFIG_DIR without .json, posix-style: a flat file
+    `idle-tips.json` → `idle-tips`; a per-app file `techrehearsal/jd-analysis.json`
+    → `techrehearsal/jd-analysis`. Pre-B2 everything is flat, so slugs are bare
+    stems exactly as before.
     """
     configs: dict[str, dict] = {}
     if not CONFIG_DIR.is_dir():
         logger.warning("Remote config directory not found: %s", CONFIG_DIR)
         return configs
 
-    for path in CONFIG_DIR.glob("*.json"):
-        slug = path.stem
+    for path in CONFIG_DIR.rglob("*.json"):
+        slug = path.relative_to(CONFIG_DIR).with_suffix("").as_posix()
         try:
             data = json.loads(path.read_text())
             if "version" not in data:
@@ -306,37 +381,50 @@ def _parse_accept_language(header: str | None) -> str | None:
 async def get_config(name: str, request: Request):
     """Return a remote config JSON, or a slim 'not changed' response.
 
-    Supports localization via Accept-Language header. If the client sends
-    Accept-Language: es, the server looks for a "{name}.es" config first,
-    falling back to the base "{name}" config. English is the default.
+    Per-app resolution (Phase B / #249): the X-App-ID header (via
+    request.state.app_id) selects the app dir; we try `{app_dir}/{name}`, the
+    Option-C `tr-`stripped alias for Tech Rehearsal, then the flat name —
+    each in the requested locale first (Accept-Language), then base. Missing
+    header → ShoulderSurf; present-but-unknown app → 404. Pre-B2 (no per-app
+    files yet) every lookup lands on the flat fallback, so behavior is
+    unchanged for existing clients.
     """
     configs: dict[str, dict] = request.app.state.remote_configs
+
+    # App identity → config dir. Middleware defaults app_id to "unknown" when
+    # the header is absent; resolve_app_dir maps that to the default app.
+    app_id = getattr(request.state, "app_id", None)
+    app_dir = resolve_app_dir(app_id)
+    if app_dir is None:
+        logger.warning("Config request for unknown app_id=%r (name=%s)", app_id, name)
+        return JSONResponse(
+            status_code=404, content={"error": f"Unknown app: {app_id}"}
+        )
 
     # Resolve locale-specific config with fallback
     accept_lang = request.headers.get("Accept-Language")
     locale = _parse_accept_language(accept_lang)
-    localized_name = f"{name}.{locale}" if locale else None
+
+    # Walk candidates in priority order; for each, try the localized variant
+    # before the base, so a per-app localized file wins over a flat base.
+    resolved_name = None
+    for cand in candidate_slugs(app_dir, name):
+        if locale and f"{cand}.{locale}" in configs:
+            resolved_name = f"{cand}.{locale}"
+            break
+        if cand in configs:
+            resolved_name = cand
+            break
 
     logger.info(
-        "Config request: name=%s, Accept-Language=%r, parsed_locale=%s, "
-        "trying=%s, available=[%s]",
-        name, accept_lang, locale or "en",
-        localized_name or name,
-        ", ".join(sorted(configs.keys())),
+        "Config request: name=%s app_id=%r app_dir=%s locale=%s resolved=%s",
+        name, app_id, app_dir, locale or "en", resolved_name,
     )
 
-    if localized_name and localized_name in configs:
-        data = configs[localized_name]
-        resolved_name = localized_name
-        logger.info("Resolved to localized config: %s", resolved_name)
-    elif name in configs:
-        data = configs[name]
-        resolved_name = name
-        logger.info("Resolved to base config: %s (no localized version found)", resolved_name)
-    else:
-        logger.warning("Config not found: %s (tried %s)", name, localized_name or name)
+    if resolved_name is None:
         return JSONResponse(status_code=404, content={"error": f"Unknown config: {name}"})
 
+    data = configs[resolved_name]
     server_version = data["version"]
 
     # Check if client already has this version
