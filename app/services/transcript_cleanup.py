@@ -52,11 +52,15 @@ _CLEANABLE_SOURCES = {"ocr_captions"}
 _PRIMARY_PROVIDER = "openrouter"
 _PRIMARY_MODEL = "deepseek/deepseek-v3.2-exp"
 
-# Hard ceiling on the primary call. The primary has shown 11-27s
-# latency on good runs and 56-72s on bad runs across the eval corpus.
-# 30s catches the bad-run band cleanly while leaving comfortable
-# headroom for normal completions.
-_PRIMARY_TIMEOUT_SECS = 30.0
+# Hard ceiling on the primary call. The old 30s cap was tuned for short
+# transcripts and silently defeated the primary on full meetings: a 2026-06-22
+# A/B on a real ~21K-char meeting showed DeepSeek finishing in 63-161s (avg
+# ~112s), so 30s ALWAYS timed out → every real meeting fell back to Haiku,
+# paying ~10x the cost and ~3pt lower accuracy for nothing. Raised to 120s so
+# DeepSeek completes on normal runs (the better + 10x-cheaper result), with
+# Haiku fallback reserved for genuine 120s+ outliers. Tradeoff: cleanup runs
+# before report generation, so this can add up to ~120s to the report wait.
+_PRIMARY_TIMEOUT_SECS = 120.0
 
 # Fallback model. Anthropic Haiku 4.5 direct (already wired in
 # config/providers.yml under the `anthropic` provider). Tighter latency
