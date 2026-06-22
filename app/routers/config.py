@@ -62,20 +62,35 @@ def load_apps(force: bool = False) -> dict:
     return _apps_cache
 
 
-def resolve_app_dir(app_id: str | None) -> str | None:
-    """Map an X-App-ID to its config subdirectory.
+def resolve_app_dir(app_id: str | None) -> str:
+    """Map an X-App-ID to its config subdirectory. Always fails open.
 
-    Missing / blank / "unknown" → the default app's dir (shouldersurf),
-    permanently. Known id → its dir. Present-but-unknown id → None (the
-    caller returns 404). See config/apps.yml for the contract.
+    Missing / blank / "unknown" → the default app's dir (shouldersurf).
+    Known id (case-insensitive) → its dir. UNRECOGNIZED id → the default dir
+    too, with a logged warning.
+
+    Why fail open instead of 404: ShoulderSurf has shipped to TestFlight for
+    months and older builds in the field may send no X-App-ID, an odd casing,
+    or a legacy value. We must never break their config fetch over app
+    identity — an unrecognized id resolves like a header-less client (flat /
+    ShoulderSurf config), exactly today's behavior, and the warning still
+    surfaces genuine misconfig in logs. New apps get registered in apps.yml
+    before launch so they land in their own dir rather than this fallback.
     """
     reg = load_apps()
     apps = reg["apps"]
     default_dir = apps.get(reg["default_app"], {}).get("dir", _DEFAULT_APP)
-    if not app_id or app_id == "unknown":
+    norm = (app_id or "").strip().lower()
+    if not norm or norm == "unknown":
         return default_dir
-    entry = apps.get(app_id)
-    return entry.get("dir") if entry else None
+    entry = apps.get(norm)
+    if entry:
+        return entry.get("dir", default_dir)
+    logger.warning(
+        "Unrecognized X-App-ID=%r; serving default app %s (flat config)",
+        app_id, default_dir,
+    )
+    return default_dir
 
 
 def candidate_slugs(app_dir: str, name: str) -> list[str]:
@@ -391,15 +406,11 @@ async def get_config(name: str, request: Request):
     """
     configs: dict[str, dict] = request.app.state.remote_configs
 
-    # App identity → config dir. Middleware defaults app_id to "unknown" when
-    # the header is absent; resolve_app_dir maps that to the default app.
+    # App identity → config dir. Fails open: missing/unknown/unrecognized
+    # X-App-ID all resolve to the default app (ShoulderSurf / flat config), so
+    # an older client never loses its config over app identity.
     app_id = getattr(request.state, "app_id", None)
     app_dir = resolve_app_dir(app_id)
-    if app_dir is None:
-        logger.warning("Config request for unknown app_id=%r (name=%s)", app_id, name)
-        return JSONResponse(
-            status_code=404, content={"error": f"Unknown app: {app_id}"}
-        )
 
     # Resolve locale-specific config with fallback
     accept_lang = request.headers.get("Accept-Language")

@@ -13,7 +13,7 @@ import app.routers.config as cfg
 
 # --- pure helpers -----------------------------------------------------------
 
-def test_resolve_app_dir_default_and_unknown():
+def test_resolve_app_dir_fails_open_to_default():
     # missing / blank / "unknown" header → default app (shouldersurf)
     assert cfg.resolve_app_dir(None) == "shouldersurf"
     assert cfg.resolve_app_dir("") == "shouldersurf"
@@ -21,8 +21,13 @@ def test_resolve_app_dir_default_and_unknown():
     # known apps → their dirs
     assert cfg.resolve_app_dir("shouldersurf") == "shouldersurf"
     assert cfg.resolve_app_dir("techrehearsal") == "techrehearsal"
-    # present-but-unknown → None (caller 404s)
-    assert cfg.resolve_app_dir("interviewbuddy") is None
+    # case / whitespace insensitive (older builds / proxies may vary)
+    assert cfg.resolve_app_dir(" ShoulderSurf ") == "shouldersurf"
+    assert cfg.resolve_app_dir("TECHREHEARSAL") == "techrehearsal"
+    # UNRECOGNIZED id → fail open to default, never None (no 404). Protects
+    # older SS builds that might send an unexpected value.
+    assert cfg.resolve_app_dir("interviewbuddy") == "shouldersurf"
+    assert cfg.resolve_app_dir("com.weirtech.shouldersurf") == "shouldersurf"
 
 
 def test_candidate_slugs_tr_alias_and_flat_fallback():
@@ -107,11 +112,23 @@ def test_flat_fallback_preserved_pre_migration(client):
     assert r.headers["X-Config-Resolved"] == "tr-idle-tips"
 
 
-def test_unknown_app_returns_404(client):
+def test_unrecognized_app_fails_open_to_flat(client):
+    # An older/odd SS build sending an unexpected X-App-ID must still get its
+    # config (flat fallback), not a 404.
     client.app.state.remote_configs = {"tiers": {"version": 5}}
-    r = _get(client, "tiers", "interviewbuddy")
-    assert r.status_code == 404
-    assert "Unknown app" in r.json()["error"]
+    r = _get(client, "tiers", "com.weirtech.shouldersurf")
+    assert r.status_code == 200
+    assert r.headers["X-Config-Resolved"] == "tiers"
+
+
+def test_uppercase_app_id_resolves(client):
+    client.app.state.remote_configs = {
+        "shouldersurf/tiers": {"version": 9, "marker": "ss"},
+        "tiers": {"version": 5},
+    }
+    r = _get(client, "tiers", "ShoulderSurf")
+    assert r.status_code == 200
+    assert r.headers["X-Config-Resolved"] == "shouldersurf/tiers"
 
 
 def test_unknown_config_returns_404(client):
