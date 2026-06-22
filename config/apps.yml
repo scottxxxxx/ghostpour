@@ -7,13 +7,15 @@
 # (app/routers/config.py get_config) and the admin dashboard both read this
 # registry.
 #
-# Resolution contract (Phase B / #249):
-#   - Missing / blank / "unknown" X-App-ID  -> `default_app` (shouldersurf),
-#     PERMANENTLY. A header-less client is ShoulderSurf by definition.
-#   - Known id    -> serve from that app's `dir` (with flat fallback during
-#                    the B2 migration; see config.py).
-#   - Present-but-UNKNOWN id -> 404. A misconfigured app is caught loudly,
-#     never silently served another app's config.
+# Resolution contract (Phase B / #249) — ALWAYS fails open:
+#   - Missing / blank / "unknown" X-App-ID  -> `default_app` (shouldersurf).
+#     A header-less client is ShoulderSurf by definition.
+#   - Known id (case-insensitive) -> serve from that app's `dir` (with flat
+#     fallback during the B2 migration; see config.py).
+#   - UNRECOGNIZED id -> default_app too, with a logged warning. ShoulderSurf
+#     has months of TestFlight builds in the field; we never break their
+#     config fetch over an unexpected app id. Register new apps here before
+#     launch so they get their own dir instead of the fallback.
 #
 # `dir` is the subdirectory under config/remote/ (bundle) and the persistent
 # remote-config dir (overlay) that holds this app's files. Until Phase B2
