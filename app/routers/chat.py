@@ -1357,11 +1357,11 @@ async def chat(
                     "tr_budget_block user=%s entitlement=%s spent=%.4f cap=%.2f",
                     user.id, _tr_info["entitlement"], _tr_info["spent"], _tr_info["cap"],
                 )
-                _credits_total = dollars_to_credits(_tr_info["cap"])
-                _credits_used = dollars_to_credits(_tr_info["spent"])
-                # Provisional over-cap envelope (mirrors the SS feature_state
-                # shape, no SS-specific upgrade copy). Confirm the exact shape
-                # with TR before flipping `enabled` on.
+                # Lean over-cap envelope: HTTP 200 (not an error, so it won't
+                # trip the client's error / on-device path), empty text, and a
+                # single budget_exhausted flag to branch on. No credits/CTA —
+                # the client renders its own limit-reached state. Confirm the
+                # shape with TR before flipping `enabled` on.
                 return JSONResponse(status_code=200, content={
                     "text": "",
                     "model": body.model,
@@ -1372,8 +1372,6 @@ async def chat(
                         "app": "techrehearsal",
                         "entitlement": _tr_info["entitlement"],
                         "budget_exhausted": True,
-                        "credits_remaining": max(0, _credits_total - _credits_used),
-                        "credits_total": _credits_total,
                     },
                 })
 
