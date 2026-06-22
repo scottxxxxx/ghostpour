@@ -1327,6 +1327,56 @@ async def chat(
             }
             return JSONResponse(status_code=200, content=block_payload)
 
+    # 5.6b. Tech Rehearsal per-app budget gate. TR free/paid is the
+    # X-TR-Entitlement header, independent of the SS tier above, and TR shares
+    # the SS user row — so it can't use the per-user bucket. Cap TR spend per
+    # UTC month by summing this user's techrehearsal usage_log rows. DORMANT
+    # until apps.techrehearsal.budget.enabled is true (and the marginal-cost
+    # estimate fails open when pricing/model isn't resolvable — the
+    # already-over-cap check still fires).
+    if app_id == "techrehearsal":
+        from app.routers.config import load_apps
+        from app.services import tr_budget
+        _tr_budget_cfg = tr_budget.tr_budget_config(load_apps())
+        if _tr_budget_cfg and _tr_budget_cfg.get("enabled"):
+            _entitlement = request.headers.get("X-TR-Entitlement")
+            _tr_estimate = None
+            if pricing.is_loaded:
+                _tr_estimate = estimate_call_cost_usd(
+                    pricing,
+                    provider=body.provider,
+                    model=body.model,
+                    input_tokens=estimated_input_tokens,
+                    max_output_tokens=body.max_tokens,
+                )
+            _tr_block, _tr_info = await tr_budget.would_exceed_tr_budget(
+                db, user.id, _entitlement, _tr_estimate, _tr_budget_cfg,
+            )
+            if _tr_block:
+                logger.info(
+                    "tr_budget_block user=%s entitlement=%s spent=%.4f cap=%.2f",
+                    user.id, _tr_info["entitlement"], _tr_info["spent"], _tr_info["cap"],
+                )
+                _credits_total = dollars_to_credits(_tr_info["cap"])
+                _credits_used = dollars_to_credits(_tr_info["spent"])
+                # Provisional over-cap envelope (mirrors the SS feature_state
+                # shape, no SS-specific upgrade copy). Confirm the exact shape
+                # with TR before flipping `enabled` on.
+                return JSONResponse(status_code=200, content={
+                    "text": "",
+                    "model": body.model,
+                    "provider": body.provider,
+                    "ai_tier": _tier_to_ai_tier_lazy(user.effective_tier),
+                    "feature_state": {
+                        "feature": "chat",
+                        "app": "techrehearsal",
+                        "entitlement": _tr_info["entitlement"],
+                        "budget_exhausted": True,
+                        "credits_remaining": max(0, _credits_total - _credits_used),
+                        "credits_total": _credits_total,
+                    },
+                })
+
     # 5.7. Search gate. Four outcomes:
     #
     #   - Non-Anthropic provider with search_enabled=true → silently
