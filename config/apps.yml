@@ -58,3 +58,10 @@ apps:
       monthly_cost_limit_usd:
         free: 5.0
         paid: 25.0
+    # Per-app tier overrides (#249): values that REPLACE the user's SS-tier
+    # value when X-App-ID resolves to this app. TR users share the SS user row,
+    # so their tier (e.g. pro) carries SS defaults; these scope app-specific
+    # caps without editing the shared tiers.yml. Applied ONLY for
+    # app_id=techrehearsal — SS (shouldersurf / no header) is never touched.
+    tier_overrides:
+      max_images_per_request: 1   # TR live-interview single-shot cap (TR ask 2026-06-23; tunable)
