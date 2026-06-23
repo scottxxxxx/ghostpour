@@ -22,7 +22,7 @@ import pytest
 LOCALE_FILES = [
     "config/remote/protected-prompts.json",
     "config/remote/protected-prompts.es.json",
-    "config/remote/tr-protected-prompts.json",
+    "config/remote/techrehearsal/protected-prompts.json",
 ]
 
 
@@ -73,7 +73,7 @@ def test_version_bumped_after_rule_addition(path):
     """The rule landed at v8 (en + es) and v2 (tr). If anyone reverts
     or rolls back the file, this test catches it."""
     data = _load(path)
-    minimum = 2 if path.startswith("config/remote/tr-") else 8
+    minimum = 2 if "techrehearsal/" in path else 8
     assert data["version"] >= minimum, (
         f"{path} version={data['version']} — image-acknowledgement rule "
         f"shipped at v{minimum}; lower version means the rule may be missing"
