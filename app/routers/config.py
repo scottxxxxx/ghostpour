@@ -93,6 +93,22 @@ def resolve_app_dir(app_id: str | None) -> str:
     return default_dir
 
 
+def tier_overrides_for_app(app_id: str | None) -> dict:
+    """Per-app tier-value overrides from apps.yml (`apps.<id>.tier_overrides`).
+
+    Returns the override dict for a recognized app id, or {} for missing /
+    blank / "unknown" / unrecognized ids — so the default + ShoulderSurf path
+    always gets {} and is never altered. Callers apply overrides as
+    `overrides.get(field, tier.<field>)`, so an absent key leaves the tier
+    value untouched.
+    """
+    norm = (app_id or "").strip().lower()
+    if not norm or norm == "unknown":
+        return {}
+    entry = load_apps()["apps"].get(norm) or {}
+    return entry.get("tier_overrides") or {}
+
+
 def candidate_slugs(app_dir: str, name: str) -> list[str]:
     """Slug lookup order for (app, requested name), highest priority first.
 
