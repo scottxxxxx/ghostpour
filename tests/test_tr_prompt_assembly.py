@@ -13,10 +13,10 @@ import json
 from app.services.prompt_assembly import _CALL_TYPE_TO_CONFIG, assemble_prompt
 
 CASES = [
-    ("tr_mock_interview", "tr-mock-interview", "You are an expert technical interviewer"),
-    ("tr_response_analysis", "tr-response-analysis", "You are an interview coach"),
-    ("tr_match_analysis", "tr-match-analysis", "You are an expert technical recruiter"),
-    ("tr_research_interviewer", "tr-research-interviewer", "You are looking at a screenshot"),
+    ("tr_mock_interview", "techrehearsal/mock-interview", "You are an expert technical interviewer"),
+    ("tr_response_analysis", "techrehearsal/response-analysis", "You are an interview coach"),
+    ("tr_match_analysis", "techrehearsal/match-analysis", "You are an expert technical recruiter"),
+    ("tr_research_interviewer", "techrehearsal/research-interviewer", "You are looking at a screenshot"),
 ]
 
 
@@ -56,7 +56,7 @@ def test_assembles_system_and_passes_user_through():
 def test_match_prompt_keeps_calibration_guardrails():
     """The match prompt's anti-optimism calibration is the point — guard it
     so an edit can't silently strip it back to a naive scorer."""
-    cfg = json.load(open("config/remote/tr-match-analysis.json"))
+    cfg = json.load(open("config/remote/techrehearsal/match-analysis.json"))
     sp = cfg["systemPrompt"]
     for phrase in (
         "Use the FULL range",
@@ -75,7 +75,7 @@ def test_interviewer_assembly_preserves_image():
     image must survive. Guard that invariant."""
     from app.models.chat import ChatRequest
 
-    cfgs = {"tr-research-interviewer": json.load(open("config/remote/tr-research-interviewer.json"))}
+    cfgs = {"techrehearsal/research-interviewer": json.load(open("config/remote/techrehearsal/research-interviewer.json"))}
     body = ChatRequest(
         provider="auto", model="auto", user_content="Screenshot attached. Produce the brief.",
         images=["BASE64IMAGEDATA"], call_type="tr_research_interviewer",
