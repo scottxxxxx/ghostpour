@@ -136,6 +136,12 @@ async def generate_report(
             body.transcript_source,
             locale=locale,
             meeting_id=meeting_id,
+            # Meter the cleanup as its own usage_log row + cost (see chat.py).
+            on_subcall=lambda creq, cresp, cms: usage_tracker.record_and_log(
+                db, user=user, tier=tier,
+                app_id=getattr(request.state, "app_id", "unknown"),
+                request=creq, response=cresp, elapsed_ms=cms, pricing=pricing,
+            ),
         )
         if cleaned_transcript:
             meeting_data = dict(meeting_data, transcript=cleaned_transcript)

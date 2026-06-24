@@ -31,10 +31,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Optional
+import time
+from typing import Awaitable, Callable, Optional
 
-from app.models.chat import ChatRequest
+from app.models.chat import ChatRequest, ChatResponse
 from app.services.provider_router import ProviderRouter
+
+# Callback invoked once per successful cleanup attempt so the caller can meter
+# the sub-call (cost + usage_log row). Receives the ChatRequest we built, the
+# provider response, and the call's elapsed time in ms. See clean_transcript.
+SubcallMeter = Callable[[ChatRequest, ChatResponse, int], Awaitable[None]]
 
 logger = logging.getLogger("ghostpour.transcript_cleanup")
 
@@ -114,10 +120,11 @@ async def _attempt(
     raw_transcript: str,
     meeting_id: str | None,
     timeout: float | None,
-) -> Optional[str]:
+) -> "tuple[ChatRequest, ChatResponse, int] | None":
     """Single-model attempt with optional wall-clock timeout. Returns
-    cleaned text on success, None on any failure mode the caller should
-    treat as "try the next route". Logs a one-line attribution per attempt.
+    (request, response, elapsed_ms) on success, None on any failure mode the
+    caller should treat as "try the next route". The request is returned so the
+    caller can meter the sub-call. Logs a one-line attribution per attempt.
     """
     request = ChatRequest(
         provider=provider,
@@ -129,6 +136,7 @@ async def _attempt(
         prompt_mode="CaptionsTranscriptCleanup",
         meeting_id=meeting_id,
     )
+    start = time.monotonic()
     try:
         if timeout is not None:
             response = await asyncio.wait_for(
@@ -149,6 +157,7 @@ async def _attempt(
         )
         return None
 
+    elapsed_ms = int((time.monotonic() - start) * 1000)
     cleaned = (getattr(response, "text", "") or "").strip()
     if not cleaned:
         logger.warning(
@@ -156,7 +165,7 @@ async def _attempt(
             meeting_id, provider, model,
         )
         return None
-    return cleaned
+    return request, response, elapsed_ms
 
 
 async def clean_transcript(
@@ -167,6 +176,7 @@ async def clean_transcript(
     *,
     locale: str = "en",
     meeting_id: str | None = None,
+    on_subcall: "SubcallMeter | None" = None,
 ) -> Optional[str]:
     """Run the LLM cleanup pass. Returns the cleaned transcript on success,
     None on any failure (caller falls back to raw and omits the field).
@@ -174,6 +184,11 @@ async def clean_transcript(
     Tries the primary model first. If the primary times out (the bad-run
     band) or returns empty content, falls back to the secondary model.
     Both failing returns None.
+
+    on_subcall, when provided, is awaited once for the winning attempt with
+    (request, response, elapsed_ms) so the caller can meter the cleanup as its
+    own usage_log row + cost. Metering failures are swallowed (logged) so they
+    never drop an otherwise-good cleaned transcript.
     """
     if not raw_transcript or not raw_transcript.strip():
         return None
@@ -193,7 +208,7 @@ async def clean_transcript(
         return None
 
     # Primary attempt with hard timeout
-    cleaned = await _attempt(
+    result = await _attempt(
         provider_router,
         provider=_PRIMARY_PROVIDER,
         model=_PRIMARY_MODEL,
@@ -202,13 +217,16 @@ async def clean_transcript(
         meeting_id=meeting_id,
         timeout=_PRIMARY_TIMEOUT_SECS,
     )
-    if cleaned:
+    if result:
+        request, response, elapsed_ms = result
+        cleaned = response.text.strip()
         ratio = len(cleaned) / len(raw_transcript)
         logger.info(
             "Transcript cleanup ok (primary) meeting=%s source=%s model=%s in_chars=%d out_chars=%d ratio=%.2f",
             meeting_id, transcript_source, _PRIMARY_MODEL,
             len(raw_transcript), len(cleaned), ratio,
         )
+        await _meter(on_subcall, request, response, elapsed_ms, meeting_id)
         return cleaned
 
     # Fallback attempt — no timeout (Haiku's variance is much tighter)
@@ -216,7 +234,7 @@ async def clean_transcript(
         "Transcript cleanup falling back meeting=%s from=%s to=%s",
         meeting_id, _PRIMARY_MODEL, _FALLBACK_MODEL,
     )
-    cleaned = await _attempt(
+    result = await _attempt(
         provider_router,
         provider=_FALLBACK_PROVIDER,
         model=_FALLBACK_MODEL,
@@ -225,13 +243,16 @@ async def clean_transcript(
         meeting_id=meeting_id,
         timeout=None,
     )
-    if cleaned:
+    if result:
+        request, response, elapsed_ms = result
+        cleaned = response.text.strip()
         ratio = len(cleaned) / len(raw_transcript)
         logger.info(
             "Transcript cleanup ok (fallback) meeting=%s source=%s model=%s in_chars=%d out_chars=%d ratio=%.2f",
             meeting_id, transcript_source, _FALLBACK_MODEL,
             len(raw_transcript), len(cleaned), ratio,
         )
+        await _meter(on_subcall, request, response, elapsed_ms, meeting_id)
         return cleaned
 
     logger.warning(
@@ -239,3 +260,22 @@ async def clean_transcript(
         meeting_id, transcript_source,
     )
     return None
+
+
+async def _meter(
+    on_subcall: "SubcallMeter | None",
+    request: ChatRequest,
+    response: ChatResponse,
+    elapsed_ms: int,
+    meeting_id: str | None,
+) -> None:
+    """Run the caller's metering callback, swallowing any failure so a logging
+    or pricing hiccup never costs us the cleaned transcript."""
+    if on_subcall is None:
+        return
+    try:
+        await on_subcall(request, response, elapsed_ms)
+    except Exception as e:
+        logger.warning(
+            "Transcript cleanup metering failed meeting=%s err=%s", meeting_id, e,
+        )

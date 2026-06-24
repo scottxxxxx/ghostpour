@@ -216,6 +216,106 @@ async def test_both_routes_empty_returns_none():
     assert router.route.await_count == 2
 
 
+# --- sub-call metering (on_subcall) -----------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_meters_winning_primary_attempt():
+    """A successful primary cleanup invokes on_subcall once with the cleanup
+    request (call_type=captions_cleanup), the response, and an int elapsed_ms."""
+    router = AsyncMock()
+    router.route.return_value = _ok("PRIMARY OUTPUT")
+    meter = AsyncMock()
+    result = await clean_transcript(
+        router, "raw transcript here", _CONFIGS, "ocr_captions",
+        meeting_id="m1", on_subcall=meter,
+    )
+    assert result == "PRIMARY OUTPUT"
+    meter.assert_awaited_once()
+    req, resp, elapsed = meter.await_args[0]
+    assert req.get_meta("call_type") == "captions_cleanup"
+    assert req.get_meta("meeting_id") == "m1"
+    assert req.model == "deepseek/deepseek-v3.2-exp"
+    assert resp.text == "PRIMARY OUTPUT"
+    assert isinstance(elapsed, int)
+
+
+@pytest.mark.asyncio
+async def test_meters_winning_fallback_attempt():
+    """When the primary fails and the fallback wins, metering fires once for
+    the fallback call (Haiku), not the dead primary."""
+    router = AsyncMock()
+    router.route.side_effect = [RuntimeError("primary down"), _ok("FALLBACK OUTPUT")]
+    meter = AsyncMock()
+    result = await clean_transcript(
+        router, "raw transcript here", _CONFIGS, "ocr_captions",
+        meeting_id="m2", on_subcall=meter,
+    )
+    assert result == "FALLBACK OUTPUT"
+    meter.assert_awaited_once()
+    req, resp, _ = meter.await_args[0]
+    assert req.model == "claude-haiku-4-5-20251001"
+    assert resp.text == "FALLBACK OUTPUT"
+
+
+@pytest.mark.asyncio
+async def test_metering_failure_does_not_drop_result():
+    """A throwing on_subcall must not cost us the cleaned transcript."""
+    router = AsyncMock()
+    router.route.return_value = _ok("PRIMARY OUTPUT")
+    meter = AsyncMock(side_effect=RuntimeError("db write blew up"))
+    result = await clean_transcript(
+        router, "raw transcript here", _CONFIGS, "ocr_captions",
+        meeting_id="m3", on_subcall=meter,
+    )
+    assert result == "PRIMARY OUTPUT"
+    meter.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_no_metering_callback_when_cleanup_fails():
+    """Both routes failing returns None and never calls on_subcall."""
+    router = AsyncMock()
+    router.route.side_effect = [RuntimeError("primary"), RuntimeError("fallback")]
+    meter = AsyncMock()
+    result = await clean_transcript(
+        router, "raw transcript here", _CONFIGS, "ocr_captions", on_subcall=meter,
+    )
+    assert result is None
+    meter.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_record_and_log_computes_cost_then_records_and_logs():
+    """UsageTracker.record_and_log costs the sub-call from pricing, deducts it,
+    and writes the usage_log row — the metering primitive cleanup relies on."""
+    from app.services.usage_tracker import UsageTracker
+
+    tracker = UsageTracker()
+    tracker.record_cost = AsyncMock()
+    tracker.log_usage = AsyncMock()
+
+    pricing = SimpleNamespace(
+        is_loaded=True,
+        calculate_cost=lambda **kw: {"total_cost": 0.0123},
+    )
+    response = SimpleNamespace(text="x", usage={}, input_tokens=100, output_tokens=50, cost=None)
+    request = SimpleNamespace(provider="openrouter", model="deepseek/deepseek-v3.2-exp")
+    user = SimpleNamespace(id="u1")
+    tier = SimpleNamespace()
+
+    await tracker.record_and_log(
+        db=None, user=user, tier=tier, app_id="shouldersurf",
+        request=request, response=response, elapsed_ms=4200, pricing=pricing,
+    )
+
+    assert response.cost == {"total_cost": 0.0123}
+    tracker.record_cost.assert_awaited_once()
+    assert tracker.record_cost.await_args[0][2] == 0.0123      # cost arg
+    tracker.log_usage.assert_awaited_once()
+    assert tracker.log_usage.await_args.kwargs["app_id"] == "shouldersurf"
+
+
 # --- protected-prompts.json content lock ------------------------------------
 
 

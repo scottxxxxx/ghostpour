@@ -238,3 +238,43 @@ class UsageTracker:
             ),
         )
         await db.commit()
+
+    async def record_and_log(
+        self,
+        db: aiosqlite.Connection,
+        *,
+        user: UserRecord,
+        tier: TierDefinition,
+        app_id: str | None,
+        request: ChatRequest,
+        response: ChatResponse | None,
+        elapsed_ms: int,
+        pricing,
+        status: str = "success",
+    ) -> None:
+        """Cost + meter a single LLM call in one shot: compute cost from the
+        pricing table, deduct it from the user's allocation, and write the
+        usage_log row.
+
+        Mirrors the inline cost/record/log sequence the chat and report handlers
+        run for their primary call. Used for sub-calls that would otherwise go
+        unmetered — e.g. the captions_cleanup pass that runs before analysis and
+        report generation (see app.services.transcript_cleanup), which spends
+        real tokens on a second model but never surfaced in the Query Log, cost
+        totals, or budget before this.
+        """
+        request_cost = 0.0
+        if response and getattr(pricing, "is_loaded", False):
+            cost = pricing.calculate_cost(
+                provider=request.provider,
+                model=request.model,
+                usage=response.usage,
+                input_tokens=response.input_tokens,
+                output_tokens=response.output_tokens,
+            )
+            response.cost = cost
+            request_cost = cost.get("total_cost", 0.0)
+        await self.record_cost(db, user.id, request_cost, tier, user=user)
+        await self.log_usage(
+            db, user.id, request, response, elapsed_ms, status=status, app_id=app_id,
+        )

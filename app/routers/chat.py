@@ -1600,6 +1600,13 @@ async def chat(
                 _ts,
                 locale=_locale,
                 meeting_id=body.get_meta("meeting_id"),
+                # Meter the cleanup as its own usage_log row + cost, so this
+                # second LLM call shows in the Query Log and counts toward
+                # budget instead of running invisibly.
+                on_subcall=lambda creq, cresp, cms: usage_tracker.record_and_log(
+                    db, user=user, tier=tier, app_id=app_id,
+                    request=creq, response=cresp, elapsed_ms=cms, pricing=pricing,
+                ),
             )
             if _cleaned:
                 body = body.model_copy(update={"user_content": _cleaned})
