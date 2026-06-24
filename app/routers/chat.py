@@ -737,6 +737,15 @@ async def usage_me(
         credits_used = dollars_to_credits(monthly_used)
         credits_remaining = max(0, credits_total - credits_used)
 
+    # Per-app tier overrides (#249): replace specific tier values for the
+    # calling app (e.g. TR caps max_images at 1). {} for SS / no header, so the
+    # tier value is left untouched there.
+    from app.routers.config import tier_overrides_for_app
+    _app_overrides = tier_overrides_for_app(getattr(request.state, "app_id", None))
+    _img_cap = _app_overrides.get(
+        "max_images_per_request", tier.max_images_per_request if tier else 0
+    )
+
     result = {
         "user_id": user.id,
         "tier": effective_tier_name,
@@ -774,7 +783,7 @@ async def usage_me(
         "app_config": {
             "summary_mode": tier.summary_mode if tier else "delta",
             "summary_interval_minutes": tier.summary_interval_minutes if tier else 10,
-            "max_images_per_request": tier.max_images_per_request if tier else 0,
+            "max_images_per_request": _img_cap,
         },
         # Search caps + live counter. Lets iOS render an "X of Y used
         # this month" pill near the search toggle WITHOUT firing a
@@ -790,7 +799,7 @@ async def usage_me(
         # Backwards compat: keep top-level fields for existing clients
         "summary_mode": tier.summary_mode if tier else "delta",
         "summary_interval_minutes": tier.summary_interval_minutes if tier else 10,
-        "max_images_per_request": tier.max_images_per_request if tier else 0,
+        "max_images_per_request": _img_cap,
         "features": tier.features if tier else {},
     }
 
@@ -971,6 +980,11 @@ async def list_tiers(request: Request):
                 "category": fdef.category,
             }
 
+    # Per-app tier overrides (#249): TR caps max_images at 1 across the
+    # catalog. {} for SS / no header → tier values served unchanged.
+    from app.routers.config import tier_overrides_for_app
+    app_overrides = tier_overrides_for_app(getattr(request.state, "app_id", None))
+
     tiers_result = {}
     for name, tier in tier_config.tiers.items():
         if name == "admin":
@@ -992,7 +1006,9 @@ async def list_tiers(request: Request):
             "monthly_cost_limit_usd": tier.monthly_cost_limit_usd,
             "summary_mode": tier.summary_mode,
             "summary_interval_minutes": tier.summary_interval_minutes,
-            "max_images_per_request": tier.max_images_per_request,
+            "max_images_per_request": app_overrides.get(
+                "max_images_per_request", tier.max_images_per_request
+            ),
             "features": tier.features,
             "feature_bullets": dt.get("feature_bullets", tier.feature_bullets),
             "storekit_product_id": tier.storekit_product_id,
