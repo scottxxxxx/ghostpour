@@ -2951,3 +2951,155 @@ async def admin_cert_pins_publish(
     except CertPinSigningError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return manifest
+
+
+# --- Promo Campaign Management (#promo, slice 1) ---
+#
+# CRUD for server-decided promo campaigns. GP is the brains: these rows are the
+# authored campaigns the decision engine reads (targeting/frequency/schedule are
+# GP-internal; `variants` carry the SS-facing render payload). The Campaigns
+# dashboard tab drives these endpoints. The decision engine + event ingestion +
+# analytics are separate slices.
+
+_CAMPAIGN_STATUSES = {"draft", "active", "paused", "archived"}
+_CAMPAIGN_JSON_COLS = ("targeting", "frequency", "placements", "variants")
+
+
+class CampaignBody(BaseModel):
+    id: str                                   # marketer-set slug, e.g. tr_crosspromo_2026_07
+    name: str
+    app_id: str                               # which app (X-App-ID) it targets
+    status: str = "draft"
+    starts_at: str | None = None
+    expires_at: str | None = None
+    priority: int = 0
+    mutual_exclusion_group: str | None = None
+    targeting: dict = {}
+    frequency: dict = {}
+    placements: list = []
+    variants: list = []
+
+
+def _campaign_from_row(row) -> dict:
+    """DB row -> API object, parsing the JSON columns back to structures."""
+    d = dict(row)
+    for col in _CAMPAIGN_JSON_COLS:
+        raw = d.get(col)
+        try:
+            d[col] = json.loads(raw) if raw else ({} if col in ("targeting", "frequency") else [])
+        except (json.JSONDecodeError, TypeError):
+            d[col] = {} if col in ("targeting", "frequency") else []
+    return d
+
+
+@router.get("/admin/campaigns")
+async def list_campaigns(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    app: str | None = Query(default=None),
+):
+    """List all promo campaigns (newest first), optionally scoped to an app."""
+    _verify_admin(request, x_admin_key)
+    where, params = "", ()
+    if app:
+        where, params = " WHERE app_id = ?", (app,)
+    cur = await db.execute(
+        f"SELECT * FROM promo_campaigns{where} ORDER BY updated_at DESC", params
+    )
+    rows = await cur.fetchall()
+    return {"campaigns": [_campaign_from_row(r) for r in rows]}
+
+
+@router.get("/admin/campaign/{campaign_id}")
+async def get_campaign(
+    campaign_id: str,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+):
+    _verify_admin(request, x_admin_key)
+    cur = await db.execute("SELECT * FROM promo_campaigns WHERE id = ?", (campaign_id,))
+    row = await cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Campaign '{campaign_id}' not found")
+    return _campaign_from_row(row)
+
+
+def _validate_campaign(body: CampaignBody) -> None:
+    if body.status not in _CAMPAIGN_STATUSES:
+        raise HTTPException(status_code=400, detail=f"status must be one of {sorted(_CAMPAIGN_STATUSES)}")
+    # Variant weights, when present, should sum to 100 (soft check, allowed for draft).
+    weights = [v.get("weight", 0) for v in body.variants if isinstance(v, dict)]
+    if body.status == "active" and weights and sum(weights) != 100:
+        raise HTTPException(status_code=400, detail=f"active campaign variant weights must sum to 100 (got {sum(weights)})")
+
+
+@router.post("/admin/campaigns")
+async def create_campaign(
+    body: CampaignBody,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+):
+    """Create a campaign. id is the marketer-set slug and must be unique."""
+    _verify_admin(request, x_admin_key)
+    _validate_campaign(body)
+    existing = await (await db.execute("SELECT 1 FROM promo_campaigns WHERE id = ?", (body.id,))).fetchone()
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Campaign '{body.id}' already exists")
+    now = datetime.now(timezone.utc).isoformat()
+    await db.execute(
+        """INSERT INTO promo_campaigns
+           (id, name, status, app_id, starts_at, expires_at, priority, mutual_exclusion_group,
+            targeting, frequency, placements, variants, created_at, updated_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (body.id, body.name, body.status, body.app_id, body.starts_at, body.expires_at,
+         body.priority, body.mutual_exclusion_group,
+         json.dumps(body.targeting), json.dumps(body.frequency),
+         json.dumps(body.placements), json.dumps(body.variants), now, now),
+    )
+    await db.commit()
+    return {"status": "created", "id": body.id}
+
+
+@router.put("/admin/campaign/{campaign_id}")
+async def update_campaign(
+    campaign_id: str,
+    body: CampaignBody,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+):
+    """Full update of an existing campaign (preserves created_at)."""
+    _verify_admin(request, x_admin_key)
+    _validate_campaign(body)
+    row = await (await db.execute("SELECT created_at FROM promo_campaigns WHERE id = ?", (campaign_id,))).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Campaign '{campaign_id}' not found")
+    now = datetime.now(timezone.utc).isoformat()
+    await db.execute(
+        """UPDATE promo_campaigns SET name=?, status=?, app_id=?, starts_at=?, expires_at=?,
+           priority=?, mutual_exclusion_group=?, targeting=?, frequency=?, placements=?,
+           variants=?, updated_at=? WHERE id=?""",
+        (body.name, body.status, body.app_id, body.starts_at, body.expires_at, body.priority,
+         body.mutual_exclusion_group, json.dumps(body.targeting), json.dumps(body.frequency),
+         json.dumps(body.placements), json.dumps(body.variants), now, campaign_id),
+    )
+    await db.commit()
+    return {"status": "updated", "id": campaign_id}
+
+
+@router.delete("/admin/campaign/{campaign_id}")
+async def delete_campaign(
+    campaign_id: str,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+):
+    _verify_admin(request, x_admin_key)
+    cur = await db.execute("DELETE FROM promo_campaigns WHERE id = ?", (campaign_id,))
+    await db.commit()
+    if cur.rowcount == 0:
+        raise HTTPException(status_code=404, detail=f"Campaign '{campaign_id}' not found")
+    return {"status": "deleted", "id": campaign_id}
