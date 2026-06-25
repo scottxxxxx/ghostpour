@@ -229,6 +229,9 @@
 
     <h3 id="trend-label">Daily Trend</h3>
     <div class="card" id="daily-trend-chart" style="padding:16px;overflow-x:auto"></div>
+
+    <h3>Cost by Model</h3>
+    <div class="card" id="cost-by-model-chart" style="padding:16px;max-width:560px"></div>
   </div>
 
   <!-- Models -->
@@ -1394,6 +1397,45 @@ async function refresh() {
   } else {
     if (_telCharts['daily-trend-chart']) { _telCharts['daily-trend-chart'].destroy(); delete _telCharts['daily-trend-chart']; }
     trendEl.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:24px">No usage data</div>';
+  }
+
+  // Cost by model — donut of spend share across models in the window. Top
+  // models by cost show individually; the long tail folds into "Other" so the
+  // donut stays legible. Center shows total spend.
+  const costModels = (dash.by_model || [])
+    .filter(m => (m.cost_usd || 0) > 0)
+    .sort((a, b) => b.cost_usd - a.cost_usd);
+  const cbmEl = document.getElementById('cost-by-model-chart');
+  if (costModels.length > 0) {
+    const TOP = 8;
+    const top = costModels.slice(0, TOP);
+    const rest = costModels.slice(TOP);
+    const labels = top.map(m => m.model);
+    const series = top.map(m => +m.cost_usd.toFixed(4));
+    if (rest.length) {
+      labels.push(`Other (${rest.length})`);
+      series.push(+rest.reduce((s, m) => s + m.cost_usd, 0).toFixed(4));
+    }
+    const totalCost = series.reduce((s, v) => s + v, 0);
+    _renderChart('cost-by-model-chart', {
+      chart: {type: 'donut', height: 320, animations: {enabled: false}},
+      series: series,
+      labels: labels,
+      colors: ['#58a6ff', '#bc8cff', '#3fb950', '#d29922', '#ff7b72', '#79c0ff', '#a5d6ff', '#f0883e', '#8b949e'],
+      legend: {position: 'bottom', labels: {colors: _telForeground}, fontSize: '12px', itemMargin: {vertical: 2}},
+      stroke: {colors: ['#0d1117'], width: 2},
+      dataLabels: {enabled: true, formatter: val => val >= 4 ? val.toFixed(0) + '%' : '', style: {fontSize: '11px'}},
+      plotOptions: {pie: {donut: {size: '64%', labels: {
+        show: true,
+        value: {show: true, color: _telForeground, fontSize: '20px', formatter: val => fmtCost(parseFloat(val))},
+        total: {show: true, label: 'Total', color: _telForeground, formatter: () => fmtCost(totalCost)},
+      }}}},
+      tooltip: {y: {formatter: val => fmtCost(val)}},
+      noData: {text: 'No cost in this window.'},
+    });
+  } else {
+    if (_telCharts['cost-by-model-chart']) { _telCharts['cost-by-model-chart'].destroy(); delete _telCharts['cost-by-model-chart']; }
+    cbmEl.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:24px">No model cost in this window</div>';
   }
 
   document.getElementById('dash-subtitle').textContent = `Updated ${new Date().toLocaleTimeString()}`;
