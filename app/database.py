@@ -315,6 +315,61 @@ MIGRATIONS = [
     # when the client doesn't send it (e.g. SS, or older TR builds).
     "ALTER TABLE usage_log ADD COLUMN scenario TEXT",
     "CREATE INDEX IF NOT EXISTS idx_usage_scenario ON usage_log(scenario) WHERE scenario IS NOT NULL",
+    # v28: Server-decided promo campaigns (#promo). GP is the brains: campaigns
+    # are authored here, GP decides per device what/whether/how-often to show via
+    # the app_start ping, and the client is a thin view that renders + reports.
+    # promo_campaigns = the authored definitions (targeting/frequency/schedule are
+    # GP-internal JSON; variants carry the SS-facing render payload).
+    """CREATE TABLE IF NOT EXISTS promo_campaigns (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'draft',     -- draft|active|paused|archived
+        app_id TEXT NOT NULL,                      -- which app (X-App-ID) it targets
+        starts_at TEXT,
+        expires_at TEXT,
+        priority INTEGER NOT NULL DEFAULT 0,
+        mutual_exclusion_group TEXT,
+        targeting TEXT,                            -- JSON: locales/app_version/usage/devices/tiers/...
+        frequency TEXT,                            -- JSON: max_impressions/min_interval/cooldown/...
+        placements TEXT,                           -- JSON array of {placement,priority}
+        variants TEXT,                             -- JSON array (SS-facing render contract)
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_promo_campaigns_app ON promo_campaigns(app_id, status)",
+    # promo_presentations = per (device, campaign) aggregate the decision engine
+    # reads to enforce frequency. Written from the client's impression/dismiss/
+    # click/convert events. device_id is the IDFV anchor (works pre-sign-in).
+    """CREATE TABLE IF NOT EXISTS promo_presentations (
+        device_id TEXT NOT NULL,
+        campaign_id TEXT NOT NULL,
+        variant_id TEXT,
+        app_id TEXT,
+        shown_count INTEGER NOT NULL DEFAULT 0,
+        first_shown_at TEXT,
+        last_shown_at TEXT,                        -- drives min_interval
+        last_dismissed_at TEXT,                    -- drives cooldown_after_dismiss
+        last_clicked_at TEXT,
+        converted_at TEXT,                         -- drives stop_after_convert
+        PRIMARY KEY (device_id, campaign_id)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_promo_pres_campaign ON promo_presentations(campaign_id)",
+    # promo_events = raw event log for analytics: macro funnel, avg view time
+    # (visible_ms), and per-CTA click attribution (cta_id). Per-user history too.
+    """CREATE TABLE IF NOT EXISTS promo_events (
+        id TEXT PRIMARY KEY,
+        created_at TEXT NOT NULL,
+        device_id TEXT,
+        user_id TEXT,
+        campaign_id TEXT,
+        variant_id TEXT,
+        app_id TEXT,
+        event_type TEXT NOT NULL,                  -- impression|dismiss|click|convert
+        visible_ms INTEGER,                        -- impression/dismiss: time visible
+        cta_id TEXT                                -- click: which CTA was tapped
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_promo_events_campaign ON promo_events(campaign_id, event_type)",
+    "CREATE INDEX IF NOT EXISTS idx_promo_events_device ON promo_events(device_id)",
 ]
 
 
