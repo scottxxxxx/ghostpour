@@ -1333,30 +1333,67 @@ async function refresh() {
     card('Cached Tokens', fmt(cache.cached_tokens || 0), 'purple') +
     card('Est. Savings', fmtCost(cache.estimated_savings_usd || 0), 'green');
 
-  // Daily trend (simple CSS bar chart)
+  // Daily trend — cost (columns, left axis) + request volume (line, right
+  // axis), with error days flagged as red markers on the volume line. The
+  // hover tooltip carries all three so the chart reads at a glance and on
+  // inspection. Replaces the old hand-drawn CSS bar strip.
   const daily = dash.daily_usage || [];
+  const trendEl = document.getElementById('daily-trend-chart');
   if (daily.length > 0) {
-    const maxCost = Math.max(...daily.map(d => d.cost), 0.001);
-    const maxReq = Math.max(...daily.map(d => d.requests), 1);
-    document.getElementById('daily-trend-chart').innerHTML =
-      '<div style="display:flex;align-items:flex-end;gap:2px;height:80px">' +
-      daily.map(d => {
-        const h = Math.max(4, (d.cost / maxCost) * 72);
-        const errH = d.errors > 0 ? Math.max(2, (d.errors / maxReq) * 72) : 0;
-        const dayLabel = d.day.slice(5); // MM-DD
-        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px" title="${d.day}: ${d.requests} reqs, ${fmtCost(d.cost)}, ${d.errors} errors">
-          ${errH > 0 ? `<div style="width:100%;max-width:24px;height:${errH}px;background:var(--red);border-radius:2px 2px 0 0;opacity:0.7"></div>` : ''}
-          <div style="width:100%;max-width:24px;height:${h}px;background:var(--accent);border-radius:2px 2px 0 0"></div>
-          <div style="font-size:9px;color:var(--text-dim);transform:rotate(-45deg);white-space:nowrap;margin-top:4px">${dayLabel}</div>
-        </div>`;
-      }).join('') +
-      '</div>' +
-      '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin-top:12px">' +
-      '<span>Blue = cost, Red = errors</span>' +
-      '<span>Max: ' + fmtCost(maxCost) + '/day</span>' +
-      '</div>';
+    trendEl.style.overflowX = 'visible';
+    // Red dot on the requests line for any day that logged errors (only those
+    // days, via discrete markers — keeps the legend to Cost + Requests).
+    const errorMarkers = daily
+      .map((d, i) => d.errors > 0
+        ? {seriesIndex: 1, dataPointIndex: i, fillColor: '#f85149', strokeColor: '#fff', size: 7}
+        : null)
+      .filter(Boolean);
+    _renderChart('daily-trend-chart', {
+      // Animations off: this is an operational chart that auto-refreshes; a
+      // re-animate on every poll is distracting and pointless.
+      chart: {type: 'line', height: 280, toolbar: {show: false}, stacked: false, animations: {enabled: false}},
+      series: [
+        {name: 'Cost', type: 'column', data: daily.map(d => +(d.cost || 0).toFixed(4))},
+        {name: 'Requests', type: 'line', data: daily.map(d => d.requests || 0)},
+      ],
+      colors: ['#58a6ff', '#bc8cff'],
+      stroke: {width: [0, 3], curve: 'smooth'},
+      plotOptions: {bar: {columnWidth: '55%', borderRadius: 3}},
+      dataLabels: {enabled: false},
+      markers: {size: 0, hover: {size: 6}, discrete: errorMarkers},
+      legend: {position: 'top', horizontalAlign: 'left', labels: {colors: _telForeground}},
+      xaxis: {
+        categories: daily.map(d => d.day),
+        labels: {
+          rotate: -45, rotateAlways: daily.length > 12, hideOverlappingLabels: true,
+          formatter: v => (v || '').slice(5), style: {colors: _telForeground, fontSize: '10px'},
+        },
+        axisBorder: {show: false}, axisTicks: {show: false},
+        tooltip: {enabled: false},
+      },
+      yaxis: [
+        {seriesName: 'Cost', title: {text: 'Cost (USD)', style: {color: _telForeground}},
+         labels: {formatter: v => '$' + (v || 0).toFixed(2), style: {colors: _telForeground}}},
+        {seriesName: 'Requests', opposite: true, title: {text: 'Requests', style: {color: _telForeground}},
+         labels: {formatter: v => Math.round(v || 0).toLocaleString(), style: {colors: _telForeground}}},
+      ],
+      tooltip: {
+        shared: true, intersect: false,
+        custom: ({dataPointIndex}) => {
+          const d = daily[dataPointIndex];
+          return '<div style="padding:8px 12px;font-size:12px;line-height:1.7">' +
+            '<div style="color:#8b949e;margin-bottom:2px">' + d.day + '</div>' +
+            '<div><span style="color:#58a6ff">●</span> Cost: <b>' + fmtCost(d.cost) + '</b></div>' +
+            '<div><span style="color:#bc8cff">●</span> Requests: <b>' + fmt(d.requests) + '</b></div>' +
+            '<div style="color:' + (d.errors > 0 ? '#f85149' : '#8b949e') + '">' +
+              '<span>●</span> Errors: <b>' + d.errors + '</b></div>' +
+          '</div>';
+        },
+      },
+    });
   } else {
-    document.getElementById('daily-trend-chart').innerHTML = '<div style="text-align:center;color:var(--text-dim)">No usage data</div>';
+    if (_telCharts['daily-trend-chart']) { _telCharts['daily-trend-chart'].destroy(); delete _telCharts['daily-trend-chart']; }
+    trendEl.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:24px">No usage data</div>';
   }
 
   document.getElementById('dash-subtitle').textContent = `Updated ${new Date().toLocaleTimeString()}`;
