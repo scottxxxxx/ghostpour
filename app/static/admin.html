@@ -235,6 +235,9 @@
 
     <h3>Requests by Scenario</h3>
     <div class="card" id="scenario-chart" style="padding:16px;max-width:560px"></div>
+
+    <h3>Avg Latency by Model</h3>
+    <div class="card" id="latency-by-model-chart" style="padding:16px;max-width:560px"></div>
   </div>
 
   <!-- Models -->
@@ -1465,6 +1468,36 @@ async function refresh() {
   } else {
     if (_telCharts['scenario-chart']) { _telCharts['scenario-chart'].destroy(); delete _telCharts['scenario-chart']; }
     sbsEl.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:24px">No scenario data in this window</div>';
+  }
+
+  // Avg latency by model — horizontal bar, slowest first, colored by a rough
+  // health threshold (green < 5s, amber < 30s, red ≥ 30s) so a slow model
+  // pops at a glance. Latency varies by call_type (reports are legitimately
+  // slow), so treat the colors as a cue, not a verdict — tooltip has requests.
+  const latModels = (dash.by_model || [])
+    .filter(m => (m.avg_latency_ms || 0) > 0 && (m.requests || 0) > 0)
+    .sort((a, b) => b.avg_latency_ms - a.avg_latency_ms);
+  const lbmEl = document.getElementById('latency-by-model-chart');
+  if (latModels.length > 0) {
+    const latColor = ms => ms < 5000 ? '#3fb950' : ms < 30000 ? '#d29922' : '#f85149';
+    _renderChart('latency-by-model-chart', {
+      chart: {type: 'bar', height: Math.max(180, latModels.length * 40 + 48), toolbar: {show: false}, animations: {enabled: false}},
+      series: [{name: 'Avg latency', data: latModels.map(m => m.avg_latency_ms)}],
+      plotOptions: {bar: {horizontal: true, borderRadius: 4, distributed: true, barHeight: '62%'}},
+      colors: latModels.map(m => latColor(m.avg_latency_ms)),
+      xaxis: {categories: latModels.map(m => m.model), labels: {formatter: v => fmtMs(v), style: {colors: _telForeground}}},
+      yaxis: {labels: {style: {colors: _telForeground}}},
+      legend: {show: false},
+      dataLabels: {enabled: true, style: {colors: ['#fff'], fontSize: '12px'}, formatter: val => fmtMs(val)},
+      tooltip: {y: {formatter: (val, opts) => {
+        const m = latModels[opts.dataPointIndex];
+        return fmtMs(val) + ' avg · ' + fmt(m.requests) + ' reqs';
+      }}},
+      noData: {text: 'No latency data in this window.'},
+    });
+  } else {
+    if (_telCharts['latency-by-model-chart']) { _telCharts['latency-by-model-chart'].destroy(); delete _telCharts['latency-by-model-chart']; }
+    lbmEl.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:24px">No latency data in this window</div>';
   }
 
   document.getElementById('dash-subtitle').textContent = `Updated ${new Date().toLocaleTimeString()}`;
