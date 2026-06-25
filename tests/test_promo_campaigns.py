@@ -1,0 +1,89 @@
+"""Promo campaign CRUD (#promo, slice 1).
+
+Foundation for the server-decided promo feature: the dashboard Campaigns tab
+manages campaigns through these admin endpoints. GP owns the campaigns
+(targeting/frequency/schedule are GP-internal; `variants` carry the SS render
+payload). Decision engine, event ingestion, and analytics are later slices.
+"""
+
+ADMIN = {"X-Admin-Key": "test-admin-key"}
+BASE = "/webhooks/admin"
+
+
+def _campaign(**over):
+    c = {
+        "id": "tr_crosspromo_2026_07",
+        "name": "Cross-promote TR",
+        "app_id": "shouldersurf",
+        "status": "draft",
+        "priority": 10,
+        "targeting": {"locales": ["en"], "tiers": ["free"], "meetings_recorded": {"min": 3}},
+        "frequency": {"max_impressions": 3, "min_interval_seconds": 172800},
+        "placements": [{"placement": "launch", "priority": 10}],
+        "variants": [
+            {"variant_id": "A", "weight": 50, "render": "native", "native": {"schema_version": 1, "title": "hi"}},
+            {"variant_id": "B", "weight": 50, "render": "html", "html_url": "https://x/y.html"},
+        ],
+    }
+    c.update(over)
+    return c
+
+
+def test_create_list_get_roundtrip(client):
+    r = client.post(f"{BASE}/campaigns", json=_campaign(), headers=ADMIN)
+    assert r.status_code == 200, r.text
+    assert r.json()["id"] == "tr_crosspromo_2026_07"
+
+    lst = client.get(f"{BASE}/campaigns", headers=ADMIN).json()["campaigns"]
+    assert any(c["id"] == "tr_crosspromo_2026_07" for c in lst)
+
+    g = client.get(f"{BASE}/campaign/tr_crosspromo_2026_07", headers=ADMIN).json()
+    # JSON columns come back as structures, not strings
+    assert g["targeting"]["tiers"] == ["free"]
+    assert g["targeting"]["meetings_recorded"]["min"] == 3
+    assert len(g["variants"]) == 2 and g["variants"][0]["weight"] == 50
+    assert g["placements"][0]["placement"] == "launch"
+
+
+def test_update_preserves_created_at(client):
+    client.post(f"{BASE}/campaigns", json=_campaign(id="c1"), headers=ADMIN)
+    created = client.get(f"{BASE}/campaign/c1", headers=ADMIN).json()["created_at"]
+    r = client.put(f"{BASE}/campaign/c1", json=_campaign(id="c1", name="renamed"), headers=ADMIN)
+    assert r.status_code == 200
+    after = client.get(f"{BASE}/campaign/c1", headers=ADMIN).json()
+    assert after["name"] == "renamed"
+    assert after["created_at"] == created           # preserved
+    assert after["updated_at"] >= created
+
+
+def test_delete(client):
+    client.post(f"{BASE}/campaigns", json=_campaign(id="c2"), headers=ADMIN)
+    assert client.delete(f"{BASE}/campaign/c2", headers=ADMIN).status_code == 200
+    assert client.get(f"{BASE}/campaign/c2", headers=ADMIN).status_code == 404
+
+
+def test_validation_and_conflicts(client):
+    # duplicate id
+    client.post(f"{BASE}/campaigns", json=_campaign(id="dup"), headers=ADMIN)
+    assert client.post(f"{BASE}/campaigns", json=_campaign(id="dup"), headers=ADMIN).status_code == 409
+    # bad status
+    assert client.post(f"{BASE}/campaigns", json=_campaign(id="bs", status="live"), headers=ADMIN).status_code == 400
+    # active campaign whose variant weights don't sum to 100
+    bad = _campaign(id="bw", status="active",
+                    variants=[{"variant_id": "A", "weight": 30}, {"variant_id": "B", "weight": 30}])
+    assert client.post(f"{BASE}/campaigns", json=bad, headers=ADMIN).status_code == 400
+    # 404s
+    assert client.get(f"{BASE}/campaign/nope", headers=ADMIN).status_code == 404
+    assert client.delete(f"{BASE}/campaign/nope", headers=ADMIN).status_code == 404
+
+
+def test_admin_key_required(client):
+    assert client.get(f"{BASE}/campaigns", headers={"X-Admin-Key": "wrong"}).status_code == 403
+
+
+def test_list_scoped_by_app(client):
+    client.post(f"{BASE}/campaigns", json=_campaign(id="ss1", app_id="shouldersurf"), headers=ADMIN)
+    client.post(f"{BASE}/campaigns", json=_campaign(id="tr1", app_id="techrehearsal"), headers=ADMIN)
+    tr = client.get(f"{BASE}/campaigns?app=techrehearsal", headers=ADMIN).json()["campaigns"]
+    ids = {c["id"] for c in tr}
+    assert "tr1" in ids and "ss1" not in ids

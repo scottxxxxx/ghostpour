@@ -330,6 +330,25 @@ async def get_live_log_entry(
 # --- Remote Config Management ---
 
 
+def _config_app(slug: str) -> str:
+    """Bucket a config slug to an app for dashboard grouping.
+
+    Composite slugs (`techrehearsal/jd-analysis`) carry the app in their dir
+    prefix — authoritative post-B2. Flat slugs (pre-B2) are bucketed by the
+    legacy `tr-` convention so the dashboard segregates immediately; the
+    internally-keyed `model-routing` is shared. Display only — no bearing on
+    /v1/config resolution.
+    """
+    if "/" in slug:
+        return slug.split("/", 1)[0]
+    base = slug.split(".", 1)[0]
+    if base.startswith("tr-"):
+        return "techrehearsal"
+    if base == "model-routing":
+        return "shared"
+    return "shouldersurf"
+
+
 @router.get("/admin/configs")
 async def list_configs(
     request: Request,
@@ -352,6 +371,7 @@ async def list_configs(
     for slug, data in sorted(configs.items()):
         result.append({
             "slug": slug,
+            "app": _config_app(slug),
             "version": data.get("version"),
             "keys": list(data.keys()),
             "size": len(json.dumps(data)),
@@ -360,7 +380,41 @@ async def list_configs(
     return {"configs": result}
 
 
-@router.get("/admin/config/{slug}")
+@router.get("/admin/config/{slug:path}/bundle")
+async def get_config_bundle(
+    slug: str,
+    request: Request,
+    x_admin_key: str = Header(...),
+):
+    """Return the bundled (repo-shipped) version of a remote config.
+
+    The active value at /admin/config/{slug} comes from the persistent
+    file on the data volume (dashboard-edited). This endpoint exposes
+    the BUNDLED value from `config/remote/` for diff/sync UIs.
+
+    Declared BEFORE the catch-all `{slug:path}` detail route on purpose: the
+    greedy path converter would otherwise swallow `…/bundle` as a slug.
+    """
+    _verify_admin(request, x_admin_key)
+    from app.routers.config import _BUNDLED_DIR
+
+    bundle_path = _BUNDLED_DIR / f"{slug}.json"
+    if not bundle_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"No bundled file for slug '{slug}' at {bundle_path.name}",
+        )
+    try:
+        data = json.loads(bundle_path.read_text())
+    except (json.JSONDecodeError, OSError) as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not read bundled {slug}.json: {exc}",
+        )
+    return {"slug": slug, "data": data}
+
+
+@router.get("/admin/config/{slug:path}")
 async def get_config_detail(
     slug: str,
     request: Request,
@@ -389,7 +443,7 @@ class UpdateConfigRequest(BaseModel):
     data: dict
 
 
-@router.put("/admin/config/{slug}")
+@router.put("/admin/config/{slug:path}")
 async def update_config(
     slug: str,
     body: UpdateConfigRequest,
@@ -421,7 +475,8 @@ async def update_config(
     if body.data["version"] <= old_version:
         body.data["version"] = old_version + 1
 
-    # Write to disk
+    # Write to disk (create the app subdir on first per-app write)
+    config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(json.dumps(body.data, indent=2, ensure_ascii=False) + "\n")
 
     # Hot-reload all configs
@@ -432,37 +487,6 @@ async def update_config(
         "slug": slug,
         "version": body.data["version"],
     }
-
-
-@router.get("/admin/config/{slug}/bundle")
-async def get_config_bundle(
-    slug: str,
-    request: Request,
-    x_admin_key: str = Header(...),
-):
-    """Return the bundled (repo-shipped) version of a remote config.
-
-    The active value at /admin/config/{slug} comes from the persistent
-    file on the data volume (dashboard-edited). This endpoint exposes
-    the BUNDLED value from `config/remote/` for diff/sync UIs.
-    """
-    _verify_admin(request, x_admin_key)
-    from app.routers.config import _BUNDLED_DIR
-
-    bundle_path = _BUNDLED_DIR / f"{slug}.json"
-    if not bundle_path.exists():
-        raise HTTPException(
-            status_code=404,
-            detail=f"No bundled file for slug '{slug}' at {bundle_path.name}",
-        )
-    try:
-        data = json.loads(bundle_path.read_text())
-    except (json.JSONDecodeError, OSError) as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Could not read bundled {slug}.json: {exc}",
-        )
-    return {"slug": slug, "data": data}
 
 
 class SyncFromBundleRequest(BaseModel):
@@ -519,7 +543,7 @@ def _set_pointer(obj: dict, pointer: str, value: object) -> None:
     cur[tokens[-1]] = value
 
 
-@router.post("/admin/config/{slug}/sync-from-bundle")
+@router.post("/admin/config/{slug:path}/sync-from-bundle")
 async def sync_config_from_bundle(
     slug: str,
     body: SyncFromBundleRequest,
@@ -1114,11 +1138,19 @@ async def dashboard(
     db: aiosqlite.Connection = Depends(get_db),
     x_admin_key: str = Header(...),
     days: int = Query(default=7, ge=1, le=90),
+    app: str | None = Query(default=None),
 ):
     """Admin dashboard: users, usage, costs, latency. Protected by admin key."""
     _verify_admin(request, x_admin_key)
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    # Optional per-app scoping. Empty/absent `app` means all apps. When set,
+    # every usage_log-derived metric below is restricted to that app_id. The
+    # users/trial/allocation counts stay global (users are shared across apps).
+    app_clause = " AND app_id = ?" if app else ""
+    app_clause_l = " AND l.app_id = ?" if app else ""
+    app_params = (app,) if app else ()
 
     # --- Users ---
     cursor = await db.execute("SELECT COUNT(*) FROM users")
@@ -1147,8 +1179,8 @@ async def dashboard(
             MAX(response_time_ms) as max_latency_ms,
             MIN(response_time_ms) as min_latency_ms
            FROM usage_log
-           WHERE request_timestamp >= date('now', ?)""",
-        (f"-{days} days",),
+           WHERE request_timestamp >= date('now', ?)""" + app_clause,
+        (f"-{days} days", *app_params),
     )
     row = await cursor.fetchone()
     usage_summary = {
@@ -1175,10 +1207,10 @@ async def dashboard(
             COALESCE(SUM(estimated_cost_usd), 0) as cost_usd,
             ROUND(AVG(response_time_ms), 0) as avg_latency_ms
            FROM usage_log
-           WHERE request_timestamp >= date('now', ?) AND status = 'success'
+           WHERE request_timestamp >= date('now', ?) AND status = 'success'""" + app_clause + """
            GROUP BY provider, model
            ORDER BY requests DESC""",
-        (f"-{days} days",),
+        (f"-{days} days", *app_params),
     )
     by_model = [
         {
@@ -1193,6 +1225,31 @@ async def dashboard(
         for r in await cursor.fetchall()
     ]
 
+    # --- Usage by scenario (Tech Rehearsal scenario sub-dimension) ---
+    # interview / negotiation / personal / pitch (open vocab). Rows the
+    # client hasn't tagged read as "(untagged)". Honors the app + period
+    # filters like every other usage_log query here.
+    cursor = await db.execute(
+        """SELECT COALESCE(scenario, '(untagged)') as scenario,
+            COUNT(*) as requests,
+            COALESCE(SUM(input_tokens), 0) + COALESCE(SUM(output_tokens), 0) as tokens,
+            COALESCE(SUM(estimated_cost_usd), 0) as cost_usd
+           FROM usage_log
+           WHERE request_timestamp >= date('now', ?) AND status = 'success'""" + app_clause + """
+           GROUP BY scenario
+           ORDER BY requests DESC""",
+        (f"-{days} days", *app_params),
+    )
+    by_scenario = [
+        {
+            "scenario": r["scenario"],
+            "requests": r["requests"],
+            "tokens": r["tokens"],
+            "cost_usd": round(r["cost_usd"], 4),
+        }
+        for r in await cursor.fetchall()
+    ]
+
     # --- Usage by user (top 10) ---
     cursor = await db.execute(
         """SELECT u.id, u.email, u.tier,
@@ -1202,11 +1259,11 @@ async def dashboard(
             MAX(l.request_timestamp) as last_request
            FROM usage_log l
            JOIN users u ON l.user_id = u.id
-           WHERE l.request_timestamp >= date('now', ?) AND l.status = 'success'
+           WHERE l.request_timestamp >= date('now', ?) AND l.status = 'success'""" + app_clause_l + """
            GROUP BY u.id
            ORDER BY total_tokens DESC
            LIMIT 10""",
-        (f"-{days} days",),
+        (f"-{days} days", *app_params),
     )
     top_users = [
         {
@@ -1228,8 +1285,8 @@ async def dashboard(
             COALESCE(SUM(input_tokens), 0) + COALESCE(SUM(output_tokens), 0) as tokens,
             COALESCE(SUM(estimated_cost_usd), 0) as cost_usd
            FROM usage_log
-           WHERE request_timestamp >= ? AND status = 'success'""",
-        (today,),
+           WHERE request_timestamp >= ? AND status = 'success'""" + app_clause,
+        (today, *app_params),
     )
     today_row = await cursor.fetchone()
     today_usage = {
@@ -1241,9 +1298,9 @@ async def dashboard(
     # --- Latency percentiles (last N days) ---
     cursor = await db.execute(
         """SELECT response_time_ms FROM usage_log
-           WHERE request_timestamp >= date('now', ?) AND status = 'success'
+           WHERE request_timestamp >= date('now', ?) AND status = 'success'""" + app_clause + """
            ORDER BY response_time_ms""",
-        (f"-{days} days",),
+        (f"-{days} days", *app_params),
     )
     latencies = [r[0] for r in await cursor.fetchall() if r[0] is not None]
     percentiles = {}
@@ -1301,8 +1358,8 @@ async def dashboard(
             COALESCE(SUM(input_tokens), 0) as total_input,
             COALESCE(SUM(output_tokens), 0) as total_output
            FROM usage_log
-           WHERE request_timestamp >= date('now', ?) AND status = 'success'""",
-        (f"-{days} days",),
+           WHERE request_timestamp >= date('now', ?) AND status = 'success'""" + app_clause,
+        (f"-{days} days", *app_params),
     )
     cache_row = await cursor.fetchone()
     total_cached = cache_row["total_cached"]
@@ -1318,10 +1375,10 @@ async def dashboard(
             COALESCE(SUM(estimated_cost_usd), 0) as cost,
             SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as errors
            FROM usage_log
-           WHERE request_timestamp >= date('now', ?)
+           WHERE request_timestamp >= date('now', ?)""" + app_clause + """
            GROUP BY date(request_timestamp)
            ORDER BY day""",
-        (f"-{days} days",),
+        (f"-{days} days", *app_params),
     )
     daily_usage = [
         {"day": r["day"], "requests": r["requests"], "cost": round(r["cost"], 4), "errors": r["errors"]}
@@ -1338,6 +1395,7 @@ async def dashboard(
         "today": today_usage,
         "usage": usage_summary,
         "by_model": by_model,
+        "by_scenario": by_scenario,
         "top_users": top_users,
         "latency_percentiles": percentiles,
         "allocation_alerts": allocation_alerts,
@@ -1361,9 +1419,14 @@ async def error_log(
     x_admin_key: str = Header(...),
     days: int = Query(default=7, ge=1, le=90),
     limit: int = Query(default=50, ge=1, le=200),
+    app: str | None = Query(default=None),
 ):
     """Recent failed requests for debugging."""
     _verify_admin(request, x_admin_key)
+
+    app_clause = " AND app_id = ?" if app else ""
+    app_clause_l = " AND l.app_id = ?" if app else ""
+    app_params = (app,) if app else ()
 
     cursor = await db.execute(
         """SELECT l.id, l.user_id, u.email, l.provider, l.model,
@@ -1372,10 +1435,10 @@ async def error_log(
            FROM usage_log l
            LEFT JOIN users u ON l.user_id = u.id
            WHERE l.status != 'success'
-             AND l.request_timestamp >= date('now', ?)
+             AND l.request_timestamp >= date('now', ?)""" + app_clause_l + """
            ORDER BY l.request_timestamp DESC
            LIMIT ?""",
-        (f"-{days} days", limit),
+        (f"-{days} days", *app_params, limit),
     )
     errors = [
         {
@@ -1398,10 +1461,10 @@ async def error_log(
         """SELECT status, COUNT(*) as count
            FROM usage_log
            WHERE status != 'success'
-             AND request_timestamp >= date('now', ?)
+             AND request_timestamp >= date('now', ?)""" + app_clause + """
            GROUP BY status
            ORDER BY count DESC""",
-        (f"-{days} days",),
+        (f"-{days} days", *app_params),
     )
     by_status = {r["status"]: r["count"] for r in await cursor.fetchall()}
 
@@ -1410,10 +1473,10 @@ async def error_log(
         """SELECT provider, COUNT(*) as count
            FROM usage_log
            WHERE status != 'success'
-             AND request_timestamp >= date('now', ?)
+             AND request_timestamp >= date('now', ?)""" + app_clause + """
            GROUP BY provider
            ORDER BY count DESC""",
-        (f"-{days} days",),
+        (f"-{days} days", *app_params),
     )
     by_provider = {r["provider"]: r["count"] for r in await cursor.fetchall()}
 
@@ -1489,10 +1552,14 @@ async def user_detail(
     db: aiosqlite.Connection = Depends(get_db),
     x_admin_key: str = Header(...),
     days: int = Query(default=30, ge=1, le=90),
+    app: str | None = Query(default=None),
 ):
     """Detailed user view with budget, usage breakdown by call type, and query history."""
     _verify_admin(request, x_admin_key)
     tier_config = request.app.state.tier_config
+
+    app_clause = " AND app_id = ?" if app else ""
+    app_params = (app,) if app else ()
 
     # User info
     cursor = await db.execute("SELECT * FROM users WHERE id = ?", (user_id,))
@@ -1513,8 +1580,8 @@ async def user_detail(
             COUNT(*) as total_requests
            FROM usage_log
            WHERE user_id = ? AND request_timestamp >= date('now', ?)
-             AND status = 'success'""",
-        (user_id, f"-{days} days"),
+             AND status = 'success'""" + app_clause,
+        (user_id, f"-{days} days", *app_params),
     )
     month_row = await cursor.fetchone()
 
@@ -1541,10 +1608,10 @@ async def user_detail(
             COALESCE(SUM(image_count), 0) as total_images
            FROM usage_log
            WHERE user_id = ? AND request_timestamp >= date('now', ?)
-             AND status = 'success'
+             AND status = 'success'""" + app_clause + """
            GROUP BY call_type
            ORDER BY requests DESC""",
-        (user_id, f"-{days} days"),
+        (user_id, f"-{days} days", *app_params),
     )
     by_call_type = [
         {
@@ -1570,10 +1637,10 @@ async def user_detail(
             ROUND(AVG(response_time_ms), 0) as avg_latency_ms
            FROM usage_log
            WHERE user_id = ? AND request_timestamp >= date('now', ?)
-             AND status = 'success'
+             AND status = 'success'""" + app_clause + """
            GROUP BY prompt_mode
            ORDER BY requests DESC""",
-        (user_id, f"-{days} days"),
+        (user_id, f"-{days} days", *app_params),
     )
     by_prompt_mode = [
         {
@@ -1597,10 +1664,10 @@ async def user_detail(
             ROUND(AVG(response_time_ms), 0) as avg_latency_ms
            FROM usage_log
            WHERE user_id = ? AND request_timestamp >= date('now', ?)
-             AND status = 'success'
+             AND status = 'success'""" + app_clause + """
            GROUP BY provider, model
            ORDER BY requests DESC""",
-        (user_id, f"-{days} days"),
+        (user_id, f"-{days} days", *app_params),
     )
     by_model = [
         {
@@ -1624,10 +1691,10 @@ async def user_detail(
             COALESCE(SUM(estimated_cost_usd), 0) as cost
            FROM usage_log
            WHERE user_id = ? AND request_timestamp >= date('now', ?)
-             AND status = 'success'
+             AND status = 'success'""" + app_clause + """
            GROUP BY date(request_timestamp)
            ORDER BY day""",
-        (user_id, f"-{days} days"),
+        (user_id, f"-{days} days", *app_params),
     )
     daily_trend = [
         {"day": r["day"], "requests": r["requests"], "tokens": r["tokens"], "cost": round(r["cost"], 4)}
@@ -1820,14 +1887,43 @@ async def list_users(
     db: aiosqlite.Connection = Depends(get_db),
     x_admin_key: str = Header(...),
     days: int = Query(default=7, ge=1, le=90),
+    app: str | None = Query(default=None),
 ):
     """List all users with their usage stats, filtered by time period."""
     _verify_admin(request, x_admin_key)
 
+    from app.services.device_models import to_marketing_name
+
     tier_config = request.app.state.tier_config
 
+    # Optional per-app scoping. When `app` is set, every usage_log subquery
+    # below (windowed and lifetime) is restricted to that app_id so the row
+    # reflects a single app end to end; an empty/absent `app` keeps them
+    # global. Telemetry device/locale subqueries stay unscoped — they
+    # describe the user's device, not per-app activity. Each filtered
+    # subquery contributes one `?` (only when `app` is set), in SELECT order.
+    def _app_filt(alias: str) -> str:
+        return f" AND {alias}.app_id = ?" if app else ""
+
+    app_params = (app,) if app else ()
+
+    # When an app is selected, HIDE users with no activity in it: keep only
+    # users with at least one usage_log OR telemetry_events row tagged with
+    # that app_id. So filtering by Tech Rehearsal drops users who only touch
+    # SS, and vice versa. Users are shared across apps, so someone active in
+    # both apps shows up under both filters. The two `?`s bind last (the
+    # outer WHERE follows every SELECT-list subquery in the SQL text).
+    app_user_filter = (
+        " WHERE EXISTS (SELECT 1 FROM usage_log ux"
+        " WHERE ux.user_id = u.id AND ux.app_id = ?)"
+        " OR EXISTS (SELECT 1 FROM telemetry_events tx"
+        " WHERE tx.user_id = u.id AND tx.app_id = ?)"
+        if app else ""
+    )
+    app_user_params = (app, app) if app else ()
+
     cursor = await db.execute(
-        """SELECT u.id, u.apple_sub, u.email, u.display_name, u.tier, u.created_at, u.is_active,
+        f"""SELECT u.id, u.apple_sub, u.email, u.display_name, u.tier, u.created_at, u.is_active,
             u.simulated_tier, u.simulated_exhausted,
             u.monthly_used_usd, u.monthly_cost_limit_usd, u.allocation_resets_at,
             u.is_trial, u.trial_end,
@@ -1835,33 +1931,60 @@ async def list_users(
             -- makes the date filter visible at the call site so future
             -- editors don't confuse these with all-time aggregates.
             (SELECT COUNT(*) FROM usage_log l WHERE l.user_id = u.id AND l.status = 'success'
-             AND l.request_timestamp >= date('now', ?)) as window_requests,
+             AND l.request_timestamp >= date('now', ?){_app_filt('l')}) as window_requests,
             (SELECT COALESCE(SUM(COALESCE(l2.input_tokens,0)), 0)
              FROM usage_log l2 WHERE l2.user_id = u.id AND l2.status = 'success'
-             AND l2.request_timestamp >= date('now', ?)) as window_input_tokens,
+             AND l2.request_timestamp >= date('now', ?){_app_filt('l2')}) as window_input_tokens,
             (SELECT COALESCE(SUM(COALESCE(l2.output_tokens,0)), 0)
              FROM usage_log l2 WHERE l2.user_id = u.id AND l2.status = 'success'
-             AND l2.request_timestamp >= date('now', ?)) as window_output_tokens,
+             AND l2.request_timestamp >= date('now', ?){_app_filt('l2')}) as window_output_tokens,
             (SELECT COALESCE(SUM(l3.estimated_cost_usd), 0)
              FROM usage_log l3 WHERE l3.user_id = u.id AND l3.status = 'success'
-             AND l3.request_timestamp >= date('now', ?)) as window_cost_usd,
+             AND l3.request_timestamp >= date('now', ?){_app_filt('l3')}) as window_cost_usd,
             -- Lifetime aggregates (no date filter). Bounded by the
             -- usage_log table's lifetime, which is never purged today.
-            (SELECT COUNT(*) FROM usage_log lt1 WHERE lt1.user_id = u.id AND lt1.status = 'success')
+            (SELECT COUNT(*) FROM usage_log lt1 WHERE lt1.user_id = u.id AND lt1.status = 'success'{_app_filt('lt1')})
               as lifetime_requests,
             (SELECT COALESCE(SUM(COALESCE(lt2.input_tokens,0)), 0)
-             FROM usage_log lt2 WHERE lt2.user_id = u.id AND lt2.status = 'success')
+             FROM usage_log lt2 WHERE lt2.user_id = u.id AND lt2.status = 'success'{_app_filt('lt2')})
               as lifetime_input_tokens,
             (SELECT COALESCE(SUM(COALESCE(lt3.output_tokens,0)), 0)
-             FROM usage_log lt3 WHERE lt3.user_id = u.id AND lt3.status = 'success')
+             FROM usage_log lt3 WHERE lt3.user_id = u.id AND lt3.status = 'success'{_app_filt('lt3')})
               as lifetime_output_tokens,
             (SELECT COALESCE(SUM(lt4.estimated_cost_usd), 0)
-             FROM usage_log lt4 WHERE lt4.user_id = u.id AND lt4.status = 'success')
+             FROM usage_log lt4 WHERE lt4.user_id = u.id AND lt4.status = 'success'{_app_filt('lt4')})
               as lifetime_cost_usd,
-            (SELECT MAX(l4.request_timestamp) FROM usage_log l4 WHERE l4.user_id = u.id) as last_request
-           FROM users u
+            (SELECT MAX(l4.request_timestamp) FROM usage_log l4 WHERE l4.user_id = u.id{_app_filt('l4')}) as last_request,
+            u.marketing_opt_in,
+            -- Latest non-null device/version/locale from telemetry pings.
+            -- Per-field "latest non-null" so an older build that doesn't send
+            -- device_model/app_locale doesn't blank out a value a newer ping set.
+            (SELECT t.app_locale FROM telemetry_events t
+             WHERE t.user_id = u.id AND t.app_locale IS NOT NULL
+             ORDER BY t.received_at DESC LIMIT 1) as app_locale,
+            (SELECT t.os_version FROM telemetry_events t
+             WHERE t.user_id = u.id AND t.os_version IS NOT NULL
+             ORDER BY t.received_at DESC LIMIT 1) as os_version,
+            (SELECT t.app_version FROM telemetry_events t
+             WHERE t.user_id = u.id AND t.app_version IS NOT NULL
+             ORDER BY t.received_at DESC LIMIT 1) as app_version,
+            (SELECT t.device_model FROM telemetry_events t
+             WHERE t.user_id = u.id AND t.device_model IS NOT NULL
+             ORDER BY t.received_at DESC LIMIT 1) as device_model
+           FROM users u""" + app_user_filter + """
            ORDER BY u.created_at DESC""",
-        (f"-{days} days", f"-{days} days", f"-{days} days", f"-{days} days"),
+        (
+            f"-{days} days", *app_params,   # window_requests
+            f"-{days} days", *app_params,   # window_input_tokens
+            f"-{days} days", *app_params,   # window_output_tokens
+            f"-{days} days", *app_params,   # window_cost_usd
+            *app_params,                    # lifetime_requests
+            *app_params,                    # lifetime_input_tokens
+            *app_params,                    # lifetime_output_tokens
+            *app_params,                    # lifetime_cost_usd
+            *app_params,                    # last_request
+            *app_user_params,               # outer WHERE: hide non-app users
+        ),
     )
     users = []
     for r in await cursor.fetchall():
@@ -1921,6 +2044,13 @@ async def list_users(
             "lifetime_tokens": lifetime_input + lifetime_output,
             "lifetime_cost_usd": round(r["lifetime_cost_usd"] or 0, 4),
             "last_request": r["last_request"],
+            # Profile / device dimensions (marketing opt-in from users;
+            # language/iOS/device from the user's latest telemetry pings).
+            "marketing_opt_in": bool(r["marketing_opt_in"]),
+            "language": r["app_locale"],
+            "ios_version": r["os_version"],
+            "app_version": r["app_version"],
+            "device": to_marketing_name(r["device_model"]),
         })
 
     return {"users": users, "count": len(users)}
@@ -2015,6 +2145,7 @@ async def telemetry_rich(
     db: aiosqlite.Connection = Depends(get_db),
     x_admin_key: str = Header(...),
     days: int = Query(default=30, ge=1, le=90),
+    app: str | None = Query(default=None),
     app_version: str | None = Query(default=None),
     device_model: str | None = Query(default=None),
     model_id: str | None = Query(default=None),
@@ -2038,6 +2169,9 @@ async def telemetry_rich(
     # Build a reusable WHERE clause + bound parameters.
     clauses = ["received_at >= datetime('now', ?)"]
     params: list[object] = [f"-{days} days"]
+    if app:
+        clauses.append("app_id = ?")
+        params.append(app)
     if app_version:
         clauses.append("app_version = ?")
         params.append(app_version)
@@ -2216,7 +2350,8 @@ async def telemetry_rich(
 
     dir_rows = await _all(f"""
         SELECT e.device_id AS device_id,
-          (SELECT u.display_name FROM telemetry_events e3 JOIN users u ON u.id = e3.user_id
+          (SELECT COALESCE(NULLIF(u.display_name, ''), u.email)
+             FROM telemetry_events e3 JOIN users u ON u.id = e3.user_id
              WHERE e3.device_id = e.device_id AND e3.user_id IS NOT NULL
              ORDER BY e3.received_at DESC LIMIT 1) AS name,
           (SELECT app_locale FROM telemetry_events e2 WHERE e2.device_id = e.device_id
@@ -2816,3 +2951,155 @@ async def admin_cert_pins_publish(
     except CertPinSigningError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return manifest
+
+
+# --- Promo Campaign Management (#promo, slice 1) ---
+#
+# CRUD for server-decided promo campaigns. GP is the brains: these rows are the
+# authored campaigns the decision engine reads (targeting/frequency/schedule are
+# GP-internal; `variants` carry the SS-facing render payload). The Campaigns
+# dashboard tab drives these endpoints. The decision engine + event ingestion +
+# analytics are separate slices.
+
+_CAMPAIGN_STATUSES = {"draft", "active", "paused", "archived"}
+_CAMPAIGN_JSON_COLS = ("targeting", "frequency", "placements", "variants")
+
+
+class CampaignBody(BaseModel):
+    id: str                                   # marketer-set slug, e.g. tr_crosspromo_2026_07
+    name: str
+    app_id: str                               # which app (X-App-ID) it targets
+    status: str = "draft"
+    starts_at: str | None = None
+    expires_at: str | None = None
+    priority: int = 0
+    mutual_exclusion_group: str | None = None
+    targeting: dict = {}
+    frequency: dict = {}
+    placements: list = []
+    variants: list = []
+
+
+def _campaign_from_row(row) -> dict:
+    """DB row -> API object, parsing the JSON columns back to structures."""
+    d = dict(row)
+    for col in _CAMPAIGN_JSON_COLS:
+        raw = d.get(col)
+        try:
+            d[col] = json.loads(raw) if raw else ({} if col in ("targeting", "frequency") else [])
+        except (json.JSONDecodeError, TypeError):
+            d[col] = {} if col in ("targeting", "frequency") else []
+    return d
+
+
+@router.get("/admin/campaigns")
+async def list_campaigns(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    app: str | None = Query(default=None),
+):
+    """List all promo campaigns (newest first), optionally scoped to an app."""
+    _verify_admin(request, x_admin_key)
+    where, params = "", ()
+    if app:
+        where, params = " WHERE app_id = ?", (app,)
+    cur = await db.execute(
+        f"SELECT * FROM promo_campaigns{where} ORDER BY updated_at DESC", params
+    )
+    rows = await cur.fetchall()
+    return {"campaigns": [_campaign_from_row(r) for r in rows]}
+
+
+@router.get("/admin/campaign/{campaign_id}")
+async def get_campaign(
+    campaign_id: str,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+):
+    _verify_admin(request, x_admin_key)
+    cur = await db.execute("SELECT * FROM promo_campaigns WHERE id = ?", (campaign_id,))
+    row = await cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Campaign '{campaign_id}' not found")
+    return _campaign_from_row(row)
+
+
+def _validate_campaign(body: CampaignBody) -> None:
+    if body.status not in _CAMPAIGN_STATUSES:
+        raise HTTPException(status_code=400, detail=f"status must be one of {sorted(_CAMPAIGN_STATUSES)}")
+    # Variant weights, when present, should sum to 100 (soft check, allowed for draft).
+    weights = [v.get("weight", 0) for v in body.variants if isinstance(v, dict)]
+    if body.status == "active" and weights and sum(weights) != 100:
+        raise HTTPException(status_code=400, detail=f"active campaign variant weights must sum to 100 (got {sum(weights)})")
+
+
+@router.post("/admin/campaigns")
+async def create_campaign(
+    body: CampaignBody,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+):
+    """Create a campaign. id is the marketer-set slug and must be unique."""
+    _verify_admin(request, x_admin_key)
+    _validate_campaign(body)
+    existing = await (await db.execute("SELECT 1 FROM promo_campaigns WHERE id = ?", (body.id,))).fetchone()
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Campaign '{body.id}' already exists")
+    now = datetime.now(timezone.utc).isoformat()
+    await db.execute(
+        """INSERT INTO promo_campaigns
+           (id, name, status, app_id, starts_at, expires_at, priority, mutual_exclusion_group,
+            targeting, frequency, placements, variants, created_at, updated_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (body.id, body.name, body.status, body.app_id, body.starts_at, body.expires_at,
+         body.priority, body.mutual_exclusion_group,
+         json.dumps(body.targeting), json.dumps(body.frequency),
+         json.dumps(body.placements), json.dumps(body.variants), now, now),
+    )
+    await db.commit()
+    return {"status": "created", "id": body.id}
+
+
+@router.put("/admin/campaign/{campaign_id}")
+async def update_campaign(
+    campaign_id: str,
+    body: CampaignBody,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+):
+    """Full update of an existing campaign (preserves created_at)."""
+    _verify_admin(request, x_admin_key)
+    _validate_campaign(body)
+    row = await (await db.execute("SELECT created_at FROM promo_campaigns WHERE id = ?", (campaign_id,))).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Campaign '{campaign_id}' not found")
+    now = datetime.now(timezone.utc).isoformat()
+    await db.execute(
+        """UPDATE promo_campaigns SET name=?, status=?, app_id=?, starts_at=?, expires_at=?,
+           priority=?, mutual_exclusion_group=?, targeting=?, frequency=?, placements=?,
+           variants=?, updated_at=? WHERE id=?""",
+        (body.name, body.status, body.app_id, body.starts_at, body.expires_at, body.priority,
+         body.mutual_exclusion_group, json.dumps(body.targeting), json.dumps(body.frequency),
+         json.dumps(body.placements), json.dumps(body.variants), now, campaign_id),
+    )
+    await db.commit()
+    return {"status": "updated", "id": campaign_id}
+
+
+@router.delete("/admin/campaign/{campaign_id}")
+async def delete_campaign(
+    campaign_id: str,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+):
+    _verify_admin(request, x_admin_key)
+    cur = await db.execute("DELETE FROM promo_campaigns WHERE id = ?", (campaign_id,))
+    await db.commit()
+    if cur.rowcount == 0:
+        raise HTTPException(status_code=404, detail=f"Campaign '{campaign_id}' not found")
+    return {"status": "deleted", "id": campaign_id}

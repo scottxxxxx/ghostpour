@@ -35,7 +35,9 @@ tiers:
     display_name: "Free"
     description: "Try AI-powered meeting assistance with a small free credit."
     default_model: "anthropic/claude-haiku-4-5-20251001"
-    monthly_cost_limit_usd: 0.35
+    # TestFlight: free cap raised 5x ($0.35 -> $1.75) so beta testers aren't
+    # throttled during the beta. Revisit before GA.
+    monthly_cost_limit_usd: 1.75
     daily_cost_limit_usd: -1
     daily_token_limit: -1
     requests_per_minute: 5
@@ -46,7 +48,7 @@ tiers:
     allowed_models:
       - "claude-haiku-4-5-20251001"
     max_images_per_request: 1
-    hours_per_month: 5
+    hours_per_month: 25
     # Project Chat context cap (chars/4 heuristic; matches iOS fuel gauge).
     # Free: ~3-4 meetings of context. iOS blocks send client-side; server
     # returns 413 + context_too_large CTA as defense in depth.
@@ -57,8 +59,10 @@ tiers:
       meeting_reports: "enabled"
       project_chat: "teaser"
       web_search: "disabled"
+      tag_centroids: "enabled"  # kill switch, default on (fail-open); flip to "disabled" to kill
+      speaker_consolidation: "enabled"  # kill switch, default on (fail-open); flip to "disabled" to kill
     feature_bullets:
-      - "~5 hours/month of AI assistance"
+      - "~25 hours/month of AI assistance"
       - "Real-time auto-summaries"
       - "On-device transcription (unlimited)"
       - "1 image per query"
@@ -89,6 +93,8 @@ tiers:
       meeting_reports: "enabled"
       project_chat: "enabled"
       web_search: "enabled"
+      tag_centroids: "enabled"  # kill switch, default on (fail-open); flip to "disabled" to kill
+      speaker_consolidation: "enabled"  # kill switch, default on (fail-open); flip to "disabled" to kill
     feature_bullets:
       - "Unlimited meetings with AI assistance"
       - "Standard AI"
@@ -125,6 +131,8 @@ tiers:
       meeting_reports: "enabled"
       project_chat: "enabled"
       web_search: "enabled"
+      tag_centroids: "enabled"  # kill switch, default on (fail-open); flip to "disabled" to kill
+      speaker_consolidation: "enabled"  # kill switch, default on (fail-open); flip to "disabled" to kill
     feature_bullets:
       - "Unlimited meetings with AI assistance"
       - "Advanced AI for reports and analysis"
@@ -156,6 +164,8 @@ tiers:
       meeting_reports: "enabled"
       project_chat: "enabled"
       web_search: "enabled"
+      tag_centroids: "enabled"  # kill switch, default on (fail-open); flip to "disabled" to kill
+      speaker_consolidation: "enabled"  # kill switch, default on (fail-open); flip to "disabled" to kill
     feature_bullets:
       - "Unlimited AI assistance"
       - "All models and providers"

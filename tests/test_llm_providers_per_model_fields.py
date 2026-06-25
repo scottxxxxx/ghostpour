@@ -39,7 +39,7 @@ import pytest
 PROVIDER_FILES = [
     "config/remote/llm-providers.json",
     "config/remote/llm-providers.es.json",
-    "config/remote/tr-llm-providers.json",
+    "config/remote/llm-providers.ja.json",
 ]
 
 REQUIRED_FIELDS = (
@@ -219,9 +219,9 @@ def test_locales_agree_on_top_level_fields():
     must be identical across locales."""
     en = _load("config/remote/llm-providers.json")
     es = _load("config/remote/llm-providers.es.json")
-    tr = _load("config/remote/tr-llm-providers.json")
+    ja = _load("config/remote/llm-providers.ja.json")
     en_top = {k: v for k, v in en.items() if k != "providers"}
-    for variant_name, variant in (("es", es), ("tr", tr)):
+    for variant_name, variant in (("es", es), ("ja", ja)):
         v_top = {k: v for k, v in variant.items() if k != "providers"}
         assert en_top == v_top, (
             f"{variant_name} top-level fields drift from en: "
@@ -232,10 +232,10 @@ def test_locales_agree_on_top_level_fields():
 def test_locales_agree_on_provider_level_fields():
     """Provider entries must match across locales except for displayName
     and notes (localized copy). Catches drift like the missing
-    tokenLimitField in tr-llm-providers after PR #187."""
+    tokenLimitField in a locale variant after PR #187."""
     en = _load("config/remote/llm-providers.json")
     es = _load("config/remote/llm-providers.es.json")
-    tr = _load("config/remote/tr-llm-providers.json")
+    ja = _load("config/remote/llm-providers.ja.json")
 
     def _providers_by_id(data: dict) -> dict[str, dict]:
         return {
@@ -245,7 +245,7 @@ def test_locales_agree_on_provider_level_fields():
         }
 
     en_idx = _providers_by_id(en)
-    for variant_name, variant in (("es", es), ("tr", tr)):
+    for variant_name, variant in (("es", es), ("ja", ja)):
         v_idx = _providers_by_id(variant)
         assert set(en_idx) == set(v_idx), (
             f"{variant_name} has different provider set than en: "
@@ -271,7 +271,7 @@ def test_locales_agree_on_per_model_fields():
     in parity without test changes."""
     en = _load("config/remote/llm-providers.json")
     es = _load("config/remote/llm-providers.es.json")
-    tr = _load("config/remote/tr-llm-providers.json")
+    ja = _load("config/remote/llm-providers.ja.json")
 
     def _models_by_id(data: dict) -> dict[str, dict]:
         out: dict[str, dict] = {}
@@ -281,7 +281,7 @@ def test_locales_agree_on_per_model_fields():
         return out
 
     en_idx = _models_by_id(en)
-    for variant_name, variant in (("es", es), ("tr", tr)):
+    for variant_name, variant in (("es", es), ("ja", ja)):
         v_idx = _models_by_id(variant)
         assert set(en_idx) == set(v_idx), (
             f"{variant_name} has different model set than en"

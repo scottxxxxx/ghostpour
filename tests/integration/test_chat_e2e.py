@@ -86,13 +86,40 @@ class TestChatQuota:
 
     def test_chat_allocation_warning_at_80_percent(self, client, tmp_db_path):
         """User near 80% allocation → X-Allocation-Warning header."""
+        from app.models.tier import load_tier_config
         from tests.conftest import _insert_user, _jwt_token
+        # 85% of the live free cap → over the 80% warning threshold, regardless
+        # of the configured cap (survives the TestFlight 5x bump).
+        free_limit = load_tier_config("config/tiers.yml").tiers["free"].monthly_cost_limit_usd
         user_id = "test-near-limit"
-        _insert_user(tmp_db_path, user_id=user_id, tier="free", monthly_limit=0.35, monthly_used=0.30)
+        _insert_user(tmp_db_path, user_id=user_id, tier="free",
+                     monthly_limit=free_limit, monthly_used=round(free_limit * 0.85, 4))
         headers = {"Authorization": f"Bearer {_jwt_token(user_id)}"}
         resp = client.post("/v1/chat", json=chat_request(), headers=headers)
         assert resp.status_code == 200
         assert resp.headers.get("x-allocation-warning") == "true"
+
+    def _last_app_id(self, tmp_db_path, user_id):
+        import sqlite3
+        conn = sqlite3.connect(tmp_db_path)
+        row = conn.execute(
+            "SELECT app_id FROM usage_log WHERE user_id=? ORDER BY request_timestamp DESC LIMIT 1",
+            (user_id,),
+        ).fetchone()
+        conn.close()
+        return row[0] if row else None
+
+    def test_app_id_persisted_from_header(self, client, free_user, mock_provider, tmp_db_path):
+        """X-App-ID is recorded on the usage_log row so analytics split per app."""
+        headers = {**free_user["headers"], "X-App-ID": "techrehearsal"}
+        resp = client.post("/v1/chat", json=chat_request(), headers=headers)
+        assert resp.status_code == 200
+        assert self._last_app_id(tmp_db_path, free_user["user_id"]) == "techrehearsal"
+
+    def test_app_id_defaults_unknown_without_header(self, client, free_user, mock_provider, tmp_db_path):
+        resp = client.post("/v1/chat", json=chat_request(), headers=free_user["headers"])
+        assert resp.status_code == 200
+        assert self._last_app_id(tmp_db_path, free_user["user_id"]) == "unknown"
 
 
 # ---------------------------------------------------------------------------

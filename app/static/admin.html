@@ -25,8 +25,11 @@
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', system-ui, sans-serif;
     background: var(--bg);
     color: var(--text);
-    padding: 20px;
-    max-width: 1200px;
+    padding: 20px 32px;
+    /* Fluid: fill the viewport (minus gutters) up to a generous cap, so wide
+       screens aren't wasted and the wide tables (e.g. Users, with the Detail
+       button in the last column) have room instead of clipping. */
+    max-width: 2400px;
     margin: 0 auto;
   }
   h1 { font-size: 24px; margin-bottom: 4px; }
@@ -115,6 +118,22 @@
     padding: 6px 10px; border-radius: 6px; font-size: 13px;
   }
 
+  /* Campaign editor form fields */
+  .cf { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .cf > span { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+  .cf input, .cf select, .cf textarea {
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    padding: 7px 10px; border-radius: 6px; font-size: 13px; width: 100%; box-sizing: border-box;
+  }
+  .cf textarea.cf-json {
+    font-family: 'SF Mono', Menlo, monospace; font-size: 12px; min-height: 130px;
+    resize: vertical; tab-size: 2;
+  }
+  .badge {
+    display: inline-block; font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.04em; padding: 2px 7px; border-radius: 10px;
+  }
+
   /* Tier cards */
   .tier-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 28px; }
   .tier-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
@@ -161,6 +180,12 @@
       <h2><span id="dash-subtitle">Admin Dashboard</span> <span id="build-badge" style="font-size:11px;color:var(--text-dim);font-weight:normal;margin-left:8px;"></span></h2>
     </div>
     <div style="display:flex;gap:8px;align-items:center;">
+      <select class="period-select" id="app" onchange="refresh()">
+        <option value="" selected>All apps</option>
+        <option value="shouldersurf">Shoulder Surf</option>
+        <option value="techrehearsal">Tech Rehearsal</option>
+        <option value="unknown">Unknown</option>
+      </select>
       <select class="period-select" id="period" onchange="refresh()">
         <option value="1">Today</option>
         <option value="7" selected>Last 7 days</option>
@@ -192,6 +217,7 @@
     <div class="tab" onclick="switchTab('email')">Email</div>
     <div class="tab" onclick="switchTab('alerts')">Alerts</div>
     <div class="tab" onclick="switchTab('configs')">Configs</div>
+    <div class="tab" onclick="switchTab('campaigns')">Campaigns</div>
     <div class="tab" onclick="switchTab('routing')">Model Routing</div>
     <div class="tab" onclick="switchTab('livelog')">Live Log</div>
     <div class="tab" onclick="switchTab('telemetry')">Telemetry</div>
@@ -220,6 +246,15 @@
 
     <h3 id="trend-label">Daily Trend</h3>
     <div class="card" id="daily-trend-chart" style="padding:16px;overflow-x:auto"></div>
+
+    <h3>Cost by Model</h3>
+    <div class="card" id="cost-by-model-chart" style="padding:16px;max-width:560px"></div>
+
+    <h3>Requests by Scenario</h3>
+    <div class="card" id="scenario-chart" style="padding:16px;max-width:560px"></div>
+
+    <h3>Avg Latency by Model</h3>
+    <div class="card" id="latency-by-model-chart" style="padding:16px;max-width:560px"></div>
   </div>
 
   <!-- Models -->
@@ -228,13 +263,29 @@
     <div class="table-wrap"><table id="model-table"><thead><tr>
       <th>Provider</th><th>Model</th><th>Requests</th><th>Input Tokens</th><th>Output Tokens</th><th>Cost</th><th>Avg Latency</th>
     </tr></thead><tbody></tbody></table></div>
+    <h3 style="margin-top:24px;">Usage by Scenario</h3>
+    <div class="table-wrap"><table id="scenario-table"><thead><tr>
+      <th>Scenario</th><th>Requests</th><th>Tokens</th><th>Cost</th>
+    </tr></thead><tbody></tbody></table></div>
   </div>
 
   <!-- Users -->
   <div id="tab-users" class="section">
     <h3>All Users</h3>
     <div class="table-wrap"><table id="user-table"><thead><tr>
-      <th>User</th><th>Tier</th><th>Hours Used</th><th>Allocation</th><th>Resets</th><th id="user-table-window-cost-th">Period Cost</th><th>Lifetime Cost</th><th>Last Active</th><th></th>
+      <th onclick="sortUserTable('user')" style="cursor:pointer">User<span class="sa" data-sk="user"></span></th>
+      <th onclick="sortUserTable('tier')" style="cursor:pointer">Tier<span class="sa" data-sk="tier"></span></th>
+      <th onclick="sortUserTable('hours')" style="cursor:pointer">Hours Used<span class="sa" data-sk="hours"></span></th>
+      <th onclick="sortUserTable('alloc')" style="cursor:pointer">Allocation<span class="sa" data-sk="alloc"></span></th>
+      <th onclick="sortUserTable('resets')" style="cursor:pointer">Resets<span class="sa" data-sk="resets"></span></th>
+      <th onclick="sortUserTable('window')" style="cursor:pointer"><span id="user-table-window-cost-th">Period Cost</span><span class="sa" data-sk="window"></span></th>
+      <th onclick="sortUserTable('lifetime')" style="cursor:pointer">Lifetime Cost<span class="sa" data-sk="lifetime"></span></th>
+      <th onclick="sortUserTable('last')" style="cursor:pointer">Last Active<span class="sa" data-sk="last"></span></th>
+      <th onclick="sortUserTable('marketing')" style="cursor:pointer">Marketing<span class="sa" data-sk="marketing"></span></th>
+      <th onclick="sortUserTable('language')" style="cursor:pointer">Language<span class="sa" data-sk="language"></span></th>
+      <th onclick="sortUserTable('ios')" style="cursor:pointer">iOS<span class="sa" data-sk="ios"></span></th>
+      <th onclick="sortUserTable('device')" style="cursor:pointer">Device<span class="sa" data-sk="device"></span></th>
+      <th></th>
     </tr></thead><tbody></tbody></table></div>
 
     <!-- User detail panel (shown when clicking a user) -->
@@ -361,7 +412,7 @@
         </div>
         <p style="color:var(--text-dim);font-size:12px;margin-bottom:12px">
           Pick top-level keys to copy from the repo-shipped bundle into the live persistent config. Dashboard edits to
-          <em>other</em> keys are preserved. The bundle path is <code style="color:var(--accent)">config/remote/&lt;slug&gt;.json</code>.
+          <em>other</em> keys are preserved. The bundle path is <code style="color:var(--accent)">config/remote/&lt;slug&gt;.json</code> (per-app slugs include their dir, e.g. <code style="color:var(--accent)">techrehearsal/jd-analysis</code>).
         </p>
         <div id="sync-modal-body" style="font-family:'SF Mono',Menlo,monospace;font-size:12px"></div>
         <div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px;align-items:center">
@@ -370,6 +421,47 @@
           <button class="refresh-btn" onclick="applySyncFromBundle()" style="background:var(--accent);color:#000;font-weight:600">Apply selected</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Promo Campaigns (#promo, slice 2) -->
+  <div id="tab-campaigns" class="section">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h3 style="margin:0">Promo Campaigns</h3>
+      <button class="refresh-btn" onclick="newCampaign()" style="background:var(--green);color:#000;font-weight:600">+ New campaign</button>
+    </div>
+    <p style="color:var(--text-dim);font-size:13px;margin-bottom:16px">Server-decided promo campaigns. GP owns targeting, frequency and scheduling; <code style="color:var(--accent)">variants</code> carry the app-facing render payload. The decision engine picks what (and whether) to show per device at <code style="color:var(--accent)">app_start</code>.</p>
+    <div id="campaign-list" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px"></div>
+
+    <!-- Editor -->
+    <div id="campaign-editor-wrap" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:24px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h3 id="campaign-editor-title" style="margin:0"></h3>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span id="campaign-editor-status" style="font-size:12px;color:var(--text-dim)"></span>
+          <button class="refresh-btn" onclick="deleteCampaign()" id="campaign-delete-btn" style="background:var(--bg);color:var(--red);border:1px solid var(--border)">Delete</button>
+          <button class="refresh-btn" onclick="closeCampaign()" style="background:var(--bg);color:var(--text);border:1px solid var(--border)">Cancel</button>
+          <button class="refresh-btn" onclick="saveCampaign()" style="background:var(--green);color:#000;font-weight:600">Save</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:16px">
+        <label class="cf"><span>ID (slug)</span><input id="cf-id" placeholder="tr_crosspromo_2026_07"></label>
+        <label class="cf"><span>Name</span><input id="cf-name" placeholder="Cross-promote Tech Rehearsal"></label>
+        <label class="cf"><span>App</span><select id="cf-app"><option value="shouldersurf">ShoulderSurf</option><option value="techrehearsal">Tech Rehearsal</option></select></label>
+        <label class="cf"><span>Status</span><select id="cf-status"><option value="draft">draft</option><option value="active">active</option><option value="paused">paused</option><option value="archived">archived</option></select></label>
+        <label class="cf"><span>Priority</span><input id="cf-priority" type="number" value="0"></label>
+        <label class="cf"><span>Mutual-exclusion group</span><input id="cf-mxg" placeholder="(optional)"></label>
+        <label class="cf"><span>Starts at (ISO, optional)</span><input id="cf-starts" placeholder="2026-07-01T00:00:00Z"></label>
+        <label class="cf"><span>Expires at (ISO, optional)</span><input id="cf-expires" placeholder="2026-08-01T00:00:00Z"></label>
+      </div>
+      <p style="color:var(--text-dim);font-size:12px;margin:0 0 8px">The four structured fields below are edited as JSON. <code style="color:var(--accent)">variants</code> weights must sum to 100 when the campaign is <em>active</em>.</p>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px">
+        <label class="cf"><span>targeting</span><textarea id="cf-targeting" class="cf-json" spellcheck="false"></textarea></label>
+        <label class="cf"><span>frequency</span><textarea id="cf-frequency" class="cf-json" spellcheck="false"></textarea></label>
+        <label class="cf"><span>placements</span><textarea id="cf-placements" class="cf-json" spellcheck="false"></textarea></label>
+        <label class="cf"><span>variants</span><textarea id="cf-variants" class="cf-json" spellcheck="false"></textarea></label>
+      </div>
+      <div id="campaign-editor-error" style="color:var(--red);font-size:12px;margin-top:10px"></div>
     </div>
   </div>
 
@@ -616,6 +708,7 @@ function switchTab(name) {
   if (name === 'providers') loadProviders();
   if (name === 'errors') loadErrors();
   if (name === 'configs') loadConfigs();
+  if (name === 'campaigns') loadCampaigns();
   if (name === 'livelog') loadLiveLog();
   if (name === 'email') loadEmail();
   if (name === 'alerts') loadAlerts();
@@ -677,6 +770,8 @@ async function loadTelemetry() {
   const model = document.getElementById('tel-model')?.value || '';
 
   const params = new URLSearchParams({days});
+  const app = document.getElementById('app')?.value || '';
+  if (app) params.set('app', app);
   if (version) params.set('app_version', version);
   if (os) params.set('os_version', os);
   if (device) params.set('device_model', device);
@@ -1046,6 +1141,91 @@ async function testSendAlert() {
 
 function fmt(n) { return n == null ? '-' : n.toLocaleString(); }
 function fmtCost(n) { return n == null ? '-' : '$' + n.toFixed(4); }
+
+// --- User table: client-side sortable columns ---------------------------
+// refresh() stashes rows in window._userTableState and calls renderUserRows();
+// header clicks call sortUserTable(key) which re-sorts in place (no refetch).
+let _userSort = { key: 'created_at', dir: -1 };  // default: newest first (matches backend order)
+function _userSortVal(u, key) {
+  switch (key) {
+    case 'user': return (u.display_name || u.email || '').toLowerCase();
+    case 'tier': return u.tier || '';
+    case 'hours': return u.hours_used || 0;
+    case 'alloc': return u.percent_used || 0;
+    case 'resets': return u.allocation_resets_at || '';
+    case 'window': return u.window_cost_usd || 0;
+    case 'lifetime': return u.lifetime_cost_usd || 0;
+    case 'last': return u.last_request || '';
+    case 'marketing': return u.marketing_opt_in ? 1 : 0;
+    case 'language': return (u.language || '').toLowerCase();
+    case 'ios': return u.ios_version || '';
+    case 'device': return (u.device || '').toLowerCase();
+    default: return u.created_at || '';
+  }
+}
+function sortUserTable(key) {
+  if (_userSort.key === key) _userSort.dir = -_userSort.dir;
+  else _userSort = { key, dir: 1 };
+  renderUserRows();
+}
+function renderUserRows() {
+  const st = window._userTableState;
+  if (!st) return;
+  const { rows, tierNames } = st;
+  const dir = _userSort.dir;
+  const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const sorted = rows.slice().sort((a, b) => {
+    const va = _userSortVal(a, _userSort.key), vb = _userSortVal(b, _userSort.key);
+    if (va < vb) return -1 * dir;
+    if (va > vb) return 1 * dir;
+    return 0;
+  });
+  const utbody = document.querySelector('#user-table tbody');
+  utbody.innerHTML = sorted.map(u => {
+    const tierLabel = u.tier_display_name || u.tier;
+    const trialBadge = u.is_trial ? ' <span style="color:var(--accent);font-size:0.75em">TRIAL</span>' : '';
+    const simBadge = u.simulated_tier ? ` <span style="color:#FF9500;font-size:0.75em" title="Simulated as ${u.simulated_tier}">SIM:${u.simulated_tier}</span>` : '';
+    const hrsUsed = u.hours_used != null ? u.hours_used.toFixed(1) : '0';
+    const hrsLimit = u.hours_limit === -1 ? '&infin;' : (u.hours_limit != null ? u.hours_limit.toFixed(1) : '?');
+    const pct = u.percent_used || 0;
+    const pctColor = pct >= 90 ? 'red' : pct >= 70 ? 'orange' : 'green';
+    const barWidth = Math.min(100, pct);
+    const allocBar = `<div style="display:flex;align-items:center;gap:6px">` +
+      `<div style="width:60px;height:6px;background:var(--bg-card);border-radius:3px;overflow:hidden">` +
+      `<div style="width:${barWidth}%;height:100%;background:${pctColor};border-radius:3px"></div></div>` +
+      `<span style="font-size:0.85em">${pct.toFixed(0)}%</span></div>`;
+    const resets = u.allocation_resets_at ? timeAgo(u.allocation_resets_at) : '—';
+    const mkt = u.marketing_opt_in
+      ? '<span style="color:#4CAF50">Yes</span>'
+      : '<span style="color:var(--text-dim)">No</span>';
+    return `<tr>
+    <td>${u.display_name
+      ? `<div>${esc(u.display_name)}</div><div style="font-size:0.8em;color:var(--text-dim)">${u.email?esc(u.email):'Private relay'}</div>`
+      : (u.email?esc(u.email):'<span style="color:var(--text-dim)">Private relay</span>')}</td>
+    <td><span class="badge ${u.tier}">${tierLabel}</span>${trialBadge}${simBadge}</td>
+    <td>${hrsUsed} / ${hrsLimit} hrs</td>
+    <td>${allocBar}</td>
+    <td>${resets}</td>
+    <td>${fmtCost(u.window_cost_usd)}</td>
+    <td>${fmtCost(u.lifetime_cost_usd)}</td>
+    <td>${timeAgo(u.last_request)}</td>
+    <td>${mkt}</td>
+    <td>${u.language ? esc(u.language) : '<span style="color:var(--text-dim)">—</span>'}</td>
+    <td>${u.ios_version ? esc(u.ios_version) : '<span style="color:var(--text-dim)">—</span>'}</td>
+    <td>${u.device ? esc(u.device) : '<span style="color:var(--text-dim)">—</span>'}</td>
+    <td style="display:flex;gap:4px;align-items:center">
+      <select class="period-select" style="font-size:11px;padding:3px 6px" onchange="changeTier('${u.id}',this.value,'${u.tier}')" ${u.tier === 'admin' ? 'disabled' : ''}>
+        ${tierNames.map(t => `<option value="${t}" ${t === u.tier ? 'selected' : ''}>${t}</option>`).join('')}
+      </select>
+      <button class="refresh-btn" onclick="showUserDetail('${u.id}','${u.email||"User"}')">Detail</button>
+    </td>
+  </tr>`;
+  }).join('') || '<tr><td colspan="13" style="text-align:center;color:var(--text-dim)">No users yet</td></tr>';
+  // Update sort-direction arrows on the headers.
+  document.querySelectorAll('#user-table .sa').forEach(s => {
+    s.textContent = s.dataset.sk === _userSort.key ? (dir > 0 ? ' ▲' : ' ▼') : '';
+  });
+}
 function fmtMs(n) { return n == null ? '-' : (n > 1000 ? (n/1000).toFixed(1) + 's' : n + 'ms'); }
 function timeAgo(iso) {
   if (!iso) return 'Never';
@@ -1095,12 +1275,20 @@ async function refreshCertPinBanner() {
   } catch (_) { /* silent */ }
 }
 
+// Selected app filter as a URL suffix ('' = all apps). Read from the one
+// global #app selector so every view scopes to the same app.
+function appQuery() {
+  const app = document.getElementById('app')?.value || '';
+  return app ? `&app=${encodeURIComponent(app)}` : '';
+}
+
 async function refresh() {
   refreshCertPinBanner();
   const days = document.getElementById('period').value;
+  const app = appQuery();
   const [dash, users, tiers] = await Promise.all([
-    fetch(`${BASE}/webhooks/admin/dashboard?days=${days}`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
-    fetch(`${BASE}/webhooks/admin/users?days=${days}`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
+    fetch(`${BASE}/webhooks/admin/dashboard?days=${days}${app}`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
+    fetch(`${BASE}/webhooks/admin/users?days=${days}${app}`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
     fetch(`${BASE}/webhooks/admin/tiers`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
   ]);
 
@@ -1155,47 +1343,21 @@ async function refresh() {
     <td>${fmtCost(m.cost_usd)}</td><td>${fmtMs(m.avg_latency_ms)}</td>
   </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-dim)">No usage data yet</td></tr>';
 
+  // Scenario table (TR scenario sub-dimension; populated once the client tags calls)
+  const stbody = document.querySelector('#scenario-table tbody');
+  stbody.innerHTML = (dash.by_scenario || []).map(s => `<tr>
+    <td>${s.scenario}</td><td>${fmt(s.requests)}</td><td>${fmt(s.tokens)}</td><td>${fmtCost(s.cost_usd)}</td>
+  </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text-dim)">No scenario data yet</td></tr>';
+
   // User table — sync the windowed cost column header with the active period
   // selector so operators see "30d Cost" / "90d Cost" / etc instead of a
   // generic label that doesn't say what window the number covers.
   const _userWinTh = document.getElementById('user-table-window-cost-th');
   if (_userWinTh) _userWinTh.textContent = `${days}d Cost`;
-  const utbody = document.querySelector('#user-table tbody');
-  const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  utbody.innerHTML = users.users.map(u => {
-    const effectiveTier = u.simulated_tier || u.tier;
-    const tierLabel = u.tier_display_name || u.tier;
-    const trialBadge = u.is_trial ? ' <span style="color:var(--accent);font-size:0.75em">TRIAL</span>' : '';
-    const simBadge = u.simulated_tier ? ` <span style="color:#FF9500;font-size:0.75em" title="Simulated as ${u.simulated_tier}">SIM:${u.simulated_tier}</span>` : '';
-    const hrsUsed = u.hours_used != null ? u.hours_used.toFixed(1) : '0';
-    const hrsLimit = u.hours_limit === -1 ? '&infin;' : (u.hours_limit != null ? u.hours_limit.toFixed(1) : '?');
-    const pct = u.percent_used || 0;
-    const pctColor = pct >= 90 ? 'red' : pct >= 70 ? 'orange' : 'green';
-    const barWidth = Math.min(100, pct);
-    const allocBar = `<div style="display:flex;align-items:center;gap:6px">` +
-      `<div style="width:60px;height:6px;background:var(--bg-card);border-radius:3px;overflow:hidden">` +
-      `<div style="width:${barWidth}%;height:100%;background:${pctColor};border-radius:3px"></div></div>` +
-      `<span style="font-size:0.85em">${pct.toFixed(0)}%</span></div>`;
-    const resets = u.allocation_resets_at ? timeAgo(u.allocation_resets_at) : '—';
-    return `<tr>
-    <td>${u.display_name
-      ? `<div>${esc(u.display_name)}</div><div style="font-size:0.8em;color:var(--text-dim)">${u.email?esc(u.email):'Private relay'}</div>`
-      : (u.email?esc(u.email):'<span style="color:var(--text-dim)">Private relay</span>')}</td>
-    <td><span class="badge ${u.tier}">${tierLabel}</span>${trialBadge}${simBadge}</td>
-    <td>${hrsUsed} / ${hrsLimit} hrs</td>
-    <td>${allocBar}</td>
-    <td>${resets}</td>
-    <td>${fmtCost(u.window_cost_usd)}</td>
-    <td>${fmtCost(u.lifetime_cost_usd)}</td>
-    <td>${timeAgo(u.last_request)}</td>
-    <td style="display:flex;gap:4px;align-items:center">
-      <select class="period-select" style="font-size:11px;padding:3px 6px" onchange="changeTier('${u.id}',this.value,'${u.tier}')" ${u.tier === 'admin' ? 'disabled' : ''}>
-        ${tierNames.map(t => `<option value="${t}" ${t === u.tier ? 'selected' : ''}>${t}</option>`).join('')}
-      </select>
-      <button class="refresh-btn" onclick="showUserDetail('${u.id}','${u.email||"User"}')">Detail</button>
-    </td>
-  </tr>`;
-  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--text-dim)">No users yet</td></tr>';
+  // Stash rows + tier list, then render via the sortable renderer so column
+  // header clicks can re-sort without re-fetching.
+  window._userTableState = { rows: users.users, tierNames };
+  renderUserRows();
 
   // Latency percentiles
   const lp = dash.latency_percentiles || {};
@@ -1239,30 +1401,162 @@ async function refresh() {
     card('Cached Tokens', fmt(cache.cached_tokens || 0), 'purple') +
     card('Est. Savings', fmtCost(cache.estimated_savings_usd || 0), 'green');
 
-  // Daily trend (simple CSS bar chart)
+  // Daily trend — cost (columns, left axis) + request volume (line, right
+  // axis), with error days flagged as red markers on the volume line. The
+  // hover tooltip carries all three so the chart reads at a glance and on
+  // inspection. Replaces the old hand-drawn CSS bar strip.
   const daily = dash.daily_usage || [];
+  const trendEl = document.getElementById('daily-trend-chart');
   if (daily.length > 0) {
-    const maxCost = Math.max(...daily.map(d => d.cost), 0.001);
-    const maxReq = Math.max(...daily.map(d => d.requests), 1);
-    document.getElementById('daily-trend-chart').innerHTML =
-      '<div style="display:flex;align-items:flex-end;gap:2px;height:80px">' +
-      daily.map(d => {
-        const h = Math.max(4, (d.cost / maxCost) * 72);
-        const errH = d.errors > 0 ? Math.max(2, (d.errors / maxReq) * 72) : 0;
-        const dayLabel = d.day.slice(5); // MM-DD
-        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px" title="${d.day}: ${d.requests} reqs, ${fmtCost(d.cost)}, ${d.errors} errors">
-          ${errH > 0 ? `<div style="width:100%;max-width:24px;height:${errH}px;background:var(--red);border-radius:2px 2px 0 0;opacity:0.7"></div>` : ''}
-          <div style="width:100%;max-width:24px;height:${h}px;background:var(--accent);border-radius:2px 2px 0 0"></div>
-          <div style="font-size:9px;color:var(--text-dim);transform:rotate(-45deg);white-space:nowrap;margin-top:4px">${dayLabel}</div>
-        </div>`;
-      }).join('') +
-      '</div>' +
-      '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin-top:12px">' +
-      '<span>Blue = cost, Red = errors</span>' +
-      '<span>Max: ' + fmtCost(maxCost) + '/day</span>' +
-      '</div>';
+    trendEl.style.overflowX = 'visible';
+    // Red dot on the requests line for any day that logged errors (only those
+    // days, via discrete markers — keeps the legend to Cost + Requests).
+    const errorMarkers = daily
+      .map((d, i) => d.errors > 0
+        ? {seriesIndex: 1, dataPointIndex: i, fillColor: '#f85149', strokeColor: '#fff', size: 7}
+        : null)
+      .filter(Boolean);
+    _renderChart('daily-trend-chart', {
+      // Animations off: this is an operational chart that auto-refreshes; a
+      // re-animate on every poll is distracting and pointless.
+      chart: {type: 'line', height: 280, toolbar: {show: false}, stacked: false, animations: {enabled: false}},
+      series: [
+        {name: 'Cost', type: 'column', data: daily.map(d => +(d.cost || 0).toFixed(4))},
+        {name: 'Requests', type: 'line', data: daily.map(d => d.requests || 0)},
+      ],
+      colors: ['#58a6ff', '#bc8cff'],
+      stroke: {width: [0, 3], curve: 'smooth'},
+      plotOptions: {bar: {columnWidth: '55%', borderRadius: 3}},
+      dataLabels: {enabled: false},
+      markers: {size: 0, hover: {size: 6}, discrete: errorMarkers},
+      legend: {position: 'top', horizontalAlign: 'left', labels: {colors: _telForeground}},
+      xaxis: {
+        categories: daily.map(d => d.day),
+        labels: {
+          rotate: -45, rotateAlways: daily.length > 12, hideOverlappingLabels: true,
+          formatter: v => (v || '').slice(5), style: {colors: _telForeground, fontSize: '10px'},
+        },
+        axisBorder: {show: false}, axisTicks: {show: false},
+        tooltip: {enabled: false},
+      },
+      yaxis: [
+        {seriesName: 'Cost', title: {text: 'Cost (USD)', style: {color: _telForeground}},
+         labels: {formatter: v => '$' + (v || 0).toFixed(2), style: {colors: _telForeground}}},
+        {seriesName: 'Requests', opposite: true, title: {text: 'Requests', style: {color: _telForeground}},
+         labels: {formatter: v => Math.round(v || 0).toLocaleString(), style: {colors: _telForeground}}},
+      ],
+      tooltip: {
+        shared: true, intersect: false,
+        custom: ({dataPointIndex}) => {
+          const d = daily[dataPointIndex];
+          return '<div style="padding:8px 12px;font-size:12px;line-height:1.7">' +
+            '<div style="color:#8b949e;margin-bottom:2px">' + d.day + '</div>' +
+            '<div><span style="color:#58a6ff">●</span> Cost: <b>' + fmtCost(d.cost) + '</b></div>' +
+            '<div><span style="color:#bc8cff">●</span> Requests: <b>' + fmt(d.requests) + '</b></div>' +
+            '<div style="color:' + (d.errors > 0 ? '#f85149' : '#8b949e') + '">' +
+              '<span>●</span> Errors: <b>' + d.errors + '</b></div>' +
+          '</div>';
+        },
+      },
+    });
   } else {
-    document.getElementById('daily-trend-chart').innerHTML = '<div style="text-align:center;color:var(--text-dim)">No usage data</div>';
+    if (_telCharts['daily-trend-chart']) { _telCharts['daily-trend-chart'].destroy(); delete _telCharts['daily-trend-chart']; }
+    trendEl.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:24px">No usage data</div>';
+  }
+
+  // Cost by model — donut of spend share across models in the window. Top
+  // models by cost show individually; the long tail folds into "Other" so the
+  // donut stays legible. Center shows total spend.
+  const costModels = (dash.by_model || [])
+    .filter(m => (m.cost_usd || 0) > 0)
+    .sort((a, b) => b.cost_usd - a.cost_usd);
+  const cbmEl = document.getElementById('cost-by-model-chart');
+  if (costModels.length > 0) {
+    const TOP = 8;
+    const top = costModels.slice(0, TOP);
+    const rest = costModels.slice(TOP);
+    const labels = top.map(m => m.model);
+    const series = top.map(m => +m.cost_usd.toFixed(4));
+    if (rest.length) {
+      labels.push(`Other (${rest.length})`);
+      series.push(+rest.reduce((s, m) => s + m.cost_usd, 0).toFixed(4));
+    }
+    const totalCost = series.reduce((s, v) => s + v, 0);
+    _renderChart('cost-by-model-chart', {
+      chart: {type: 'donut', height: 320, animations: {enabled: false}},
+      series: series,
+      labels: labels,
+      colors: ['#58a6ff', '#bc8cff', '#3fb950', '#d29922', '#ff7b72', '#79c0ff', '#a5d6ff', '#f0883e', '#8b949e'],
+      legend: {position: 'bottom', labels: {colors: _telForeground}, fontSize: '12px', itemMargin: {vertical: 2}},
+      stroke: {colors: ['#0d1117'], width: 2},
+      dataLabels: {enabled: true, formatter: val => val >= 4 ? val.toFixed(0) + '%' : '', style: {fontSize: '11px'}},
+      plotOptions: {pie: {donut: {size: '64%', labels: {
+        show: true,
+        value: {show: true, color: _telForeground, fontSize: '20px', formatter: val => fmtCost(parseFloat(val))},
+        total: {show: true, label: 'Total', color: _telForeground, formatter: () => fmtCost(totalCost)},
+      }}}},
+      tooltip: {y: {formatter: val => fmtCost(val)}},
+      noData: {text: 'No cost in this window.'},
+    });
+  } else {
+    if (_telCharts['cost-by-model-chart']) { _telCharts['cost-by-model-chart'].destroy(); delete _telCharts['cost-by-model-chart']; }
+    cbmEl.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:24px">No model cost in this window</div>';
+  }
+
+  // Requests by scenario — horizontal bar of request volume per scenario tag
+  // (interview / negotiation / personal / pitch / (untagged); a Tech Rehearsal
+  // dimension). Reads as counts; tooltip carries cost + tokens too.
+  const scenarios = (dash.by_scenario || []).filter(s => (s.requests || 0) > 0);
+  const sbsEl = document.getElementById('scenario-chart');
+  if (scenarios.length > 0) {
+    _renderChart('scenario-chart', {
+      chart: {type: 'bar', height: Math.max(180, scenarios.length * 44 + 48), toolbar: {show: false}, animations: {enabled: false}},
+      series: [{name: 'Requests', data: scenarios.map(s => s.requests)}],
+      plotOptions: {bar: {horizontal: true, borderRadius: 4, distributed: true, barHeight: '62%'}},
+      colors: ['#58a6ff', '#bc8cff', '#3fb950', '#d29922', '#ff7b72', '#79c0ff', '#a5d6ff'],
+      xaxis: {categories: scenarios.map(s => s.scenario), labels: {style: {colors: _telForeground}}},
+      yaxis: {labels: {style: {colors: _telForeground}}},
+      legend: {show: false},
+      dataLabels: {enabled: true, style: {colors: ['#fff'], fontSize: '12px'}, formatter: val => fmt(val)},
+      tooltip: {y: {formatter: (val, opts) => {
+        const s = scenarios[opts.dataPointIndex];
+        return fmt(val) + ' reqs · ' + fmtCost(s.cost_usd) + ' · ' + fmt(s.tokens) + ' tok';
+      }}},
+      noData: {text: 'No scenario-tagged usage in this window.'},
+    });
+  } else {
+    if (_telCharts['scenario-chart']) { _telCharts['scenario-chart'].destroy(); delete _telCharts['scenario-chart']; }
+    sbsEl.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:24px">No scenario data in this window</div>';
+  }
+
+  // Avg latency by model — horizontal bar, slowest first, colored by a rough
+  // health threshold (green < 5s, amber < 30s, red ≥ 30s) so a slow model
+  // pops at a glance. Latency varies by call_type (reports are legitimately
+  // slow), so treat the colors as a cue, not a verdict — tooltip has requests.
+  const latModels = (dash.by_model || [])
+    .filter(m => (m.avg_latency_ms || 0) > 0 && (m.requests || 0) > 0)
+    .sort((a, b) => b.avg_latency_ms - a.avg_latency_ms);
+  const lbmEl = document.getElementById('latency-by-model-chart');
+  if (latModels.length > 0) {
+    const latColor = ms => ms < 5000 ? '#3fb950' : ms < 30000 ? '#d29922' : '#f85149';
+    _renderChart('latency-by-model-chart', {
+      chart: {type: 'bar', height: Math.max(180, latModels.length * 40 + 48), toolbar: {show: false}, animations: {enabled: false}},
+      series: [{name: 'Avg latency', data: latModels.map(m => m.avg_latency_ms)}],
+      plotOptions: {bar: {horizontal: true, borderRadius: 4, distributed: true, barHeight: '62%'}},
+      colors: latModels.map(m => latColor(m.avg_latency_ms)),
+      xaxis: {categories: latModels.map(m => m.model), labels: {formatter: v => fmtMs(v), style: {colors: _telForeground}}},
+      yaxis: {labels: {style: {colors: _telForeground}}},
+      legend: {show: false},
+      dataLabels: {enabled: true, style: {colors: ['#fff'], fontSize: '12px'}, formatter: val => fmtMs(val)},
+      tooltip: {y: {formatter: (val, opts) => {
+        const m = latModels[opts.dataPointIndex];
+        return fmtMs(val) + ' avg · ' + fmt(m.requests) + ' reqs';
+      }}},
+      noData: {text: 'No latency data in this window.'},
+    });
+  } else {
+    if (_telCharts['latency-by-model-chart']) { _telCharts['latency-by-model-chart'].destroy(); delete _telCharts['latency-by-model-chart']; }
+    lbmEl.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:24px">No latency data in this window</div>';
   }
 
   document.getElementById('dash-subtitle').textContent = `Updated ${new Date().toLocaleTimeString()}`;
@@ -1400,7 +1694,7 @@ async function showUserDetail(userId, email) {
   _openDetailUserId = userId;
   _openDetailEmail = email;
   const days = document.getElementById('period').value;
-  const data = await fetch(`${BASE}/webhooks/admin/user/${userId}?days=${days}`, {
+  const data = await fetch(`${BASE}/webhooks/admin/user/${userId}?days=${days}${appQuery()}`, {
     headers: {'X-Admin-Key': adminKey}
   }).then(r => r.json());
 
@@ -1817,7 +2111,7 @@ async function loadEmail() {
 
 async function loadErrors() {
   const days = document.getElementById('period').value;
-  const resp = await fetch(`${BASE}/webhooks/admin/errors?days=${days}`, {headers:{'X-Admin-Key':adminKey}});
+  const resp = await fetch(`${BASE}/webhooks/admin/errors?days=${days}${appQuery()}`, {headers:{'X-Admin-Key':adminKey}});
   if (!resp.ok) return;
   const data = await resp.json();
 
@@ -2021,29 +2315,24 @@ let currentConfigSlug = null;
 
 const LOCALE_NAMES = {en:'English',es:'Spanish',fr:'French',de:'German',pt:'Portuguese',it:'Italian',ja:'Japanese',ko:'Korean',zh:'Chinese',ar:'Arabic',hi:'Hindi',ru:'Russian'};
 
+// Display labels + render order for the per-app config sections (#249).
+const CONFIG_APP_LABELS = {shouldersurf: 'ShoulderSurf', techrehearsal: 'Tech Rehearsal', shared: 'Shared / Internal'};
+const CONFIG_APP_ORDER = ['shouldersurf', 'techrehearsal', 'shared'];
+
 async function loadConfigs() {
   const data = await fetch(`${BASE}/webhooks/admin/configs`, {
     headers: {'X-Admin-Key': adminKey}
   }).then(r => r.json());
 
-  // Group configs: base configs vs locale variants (slug contains a dot like "foo.es")
-  const groups = {};
+  // Bucket by app first (clear per-app segregation), then group base vs
+  // locale variants within each app.
+  const byApp = {};
   for (const c of data.configs) {
-    const dotIdx = c.slug.lastIndexOf('.');
-    const suffix = dotIdx > 0 ? c.slug.substring(dotIdx + 1) : null;
-    const isLocale = suffix && suffix.length === 2 && suffix !== c.slug;
-    if (isLocale) {
-      const base = c.slug.substring(0, dotIdx);
-      if (!groups[base]) groups[base] = {base: null, locales: {}};
-      groups[base].locales[suffix] = c;
-    } else {
-      if (!groups[c.slug]) groups[c.slug] = {base: null, locales: {}};
-      groups[c.slug].base = c;
-    }
+    const app = c.app || 'shared';
+    (byApp[app] = byApp[app] || []).push(c);
   }
 
-  const listEl = document.getElementById('config-list');
-  listEl.innerHTML = Object.entries(groups).map(([name, g]) => {
+  const renderCard = (name, g) => {
     const base = g.base;
     const locales = Object.entries(g.locales);
     // Locale-version drift indicator: when a locale variant's version
@@ -2073,6 +2362,42 @@ async function loadConfigs() {
         ${addLangBtn}
       </div>` : ''}
     </div>`;
+  };
+
+  // Build base/locale groups within an app bucket, then render its cards.
+  const renderApp = (configs) => {
+    const groups = {};
+    for (const c of configs) {
+      const dotIdx = c.slug.lastIndexOf('.');
+      const suffix = dotIdx > 0 ? c.slug.substring(dotIdx + 1) : null;
+      const isLocale = suffix && suffix.length === 2 && suffix !== c.slug;
+      if (isLocale) {
+        const base = c.slug.substring(0, dotIdx);
+        if (!groups[base]) groups[base] = {base: null, locales: {}};
+        groups[base].locales[suffix] = c;
+      } else {
+        if (!groups[c.slug]) groups[c.slug] = {base: null, locales: {}};
+        groups[c.slug].base = c;
+      }
+    }
+    return Object.entries(groups).map(([name, g]) => renderCard(name, g)).join('');
+  };
+
+  // One section per app, in a stable order, any unrecognized apps last.
+  const apps = CONFIG_APP_ORDER.filter(a => byApp[a]).concat(
+    Object.keys(byApp).filter(a => !CONFIG_APP_ORDER.includes(a)).sort()
+  );
+  const listEl = document.getElementById('config-list');
+  listEl.innerHTML = apps.map(app => {
+    const label = CONFIG_APP_LABELS[app] || app;
+    const count = byApp[app].length;
+    return `
+    <div style="grid-column:1/-1;margin:8px 0 2px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:13px;font-weight:600;color:var(--text)">${label}</span>
+      <span style="font-size:11px;color:var(--text-dim)">${count} file${count===1?'':'s'}</span>
+      <span style="flex:1;height:1px;background:var(--border)"></span>
+    </div>
+    ${renderApp(byApp[app])}`;
   }).join('');
 }
 
@@ -2301,6 +2626,236 @@ async function saveConfig() {
     const err = await resp.json();
     statusEl.textContent = 'Error: ' + (err.detail || 'Save failed');
     statusEl.style.color = 'var(--red)';
+  }
+}
+
+// --- Promo Campaigns (#promo, slice 2) ---
+//
+// CRUD UI over the slice-1 admin endpoints (/admin/campaigns). GP owns the
+// campaign definitions; the four structured fields (targeting/frequency/
+// placements/variants) are edited as JSON because their schema is still
+// evolving across the decision-engine slices — a guided form would be
+// premature. `variants` carry the app-facing render payload.
+
+let _campaigns = [];
+let currentCampaignId = null;   // null while creating a new campaign
+
+const _CAMPAIGN_NEW_DEFAULTS = {
+  targeting: {locales: ['en'], tiers: ['free']},
+  frequency: {max_impressions: 3, min_interval_seconds: 172800},
+  placements: [{placement: 'launch', priority: 10}],
+  variants: [{variant_id: 'A', weight: 100, render: 'native', native: {schema_version: 1, title: ''}}],
+};
+
+const _CAMPAIGN_STATUS_COLORS = {
+  draft:    {bg: 'var(--bg)',                fg: 'var(--text-dim)', bd: '1px solid var(--border)'},
+  active:   {bg: 'rgba(63,185,80,0.15)',     fg: 'var(--green)',    bd: '1px solid var(--green)'},
+  paused:   {bg: 'rgba(210,153,34,0.15)',    fg: 'var(--orange)',   bd: '1px solid var(--orange)'},
+  archived: {bg: 'var(--bg)',                fg: 'var(--red)',      bd: '1px solid var(--border)'},
+};
+
+function _cEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+async function loadCampaigns() {
+  const data = await fetch(`${BASE}/webhooks/admin/campaigns`, {
+    headers: {'X-Admin-Key': adminKey}
+  }).then(r => r.json());
+  _campaigns = data.campaigns || [];
+
+  const listEl = document.getElementById('campaign-list');
+  if (!_campaigns.length) {
+    listEl.innerHTML = '<div style="grid-column:1/-1;color:var(--text-dim);padding:24px;text-align:center;border:1px dashed var(--border);border-radius:8px">No campaigns yet. Click “+ New campaign” to author one.</div>';
+    return;
+  }
+
+  // Group by app, reusing the Configs tab's app order + labels.
+  const byApp = {};
+  _campaigns.forEach((c, i) => {
+    const app = c.app_id || 'unknown';
+    (byApp[app] = byApp[app] || []).push(i);
+  });
+  const apps = CONFIG_APP_ORDER.filter(a => byApp[a]).concat(
+    Object.keys(byApp).filter(a => !CONFIG_APP_ORDER.includes(a)).sort()
+  );
+  listEl.innerHTML = apps.map(app => {
+    const label = CONFIG_APP_LABELS[app] || app;
+    const idxs = byApp[app];
+    return `
+    <div style="grid-column:1/-1;margin:8px 0 2px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:13px;font-weight:600;color:var(--text)">${label}</span>
+      <span style="font-size:11px;color:var(--text-dim)">${idxs.length} campaign${idxs.length===1?'':'s'}</span>
+      <span style="flex:1;height:1px;background:var(--border)"></span>
+    </div>
+    ${idxs.map(i => renderCampaignCard(_campaigns[i], i)).join('')}`;
+  }).join('');
+}
+
+function renderCampaignCard(c, i) {
+  const sc = _CAMPAIGN_STATUS_COLORS[c.status] || _CAMPAIGN_STATUS_COLORS.draft;
+  const nVariants = Array.isArray(c.variants) ? c.variants.length : 0;
+  const sched = (c.starts_at || c.expires_at)
+    ? `${(c.starts_at || '').slice(0, 10) || '…'} → ${(c.expires_at || '').slice(0, 10) || '…'}`
+    : 'no schedule';
+  return `
+  <div onclick="editCampaign(${i})" style="cursor:pointer;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;min-width:0;overflow:hidden;transition:border-color 0.2s"
+       onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+    <div style="display:flex;justify-content:space-between;align-items:start;gap:8px;margin-bottom:6px">
+      <span style="color:var(--text);font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_cEsc(c.name)}</span>
+      <span class="badge" style="background:${sc.bg};color:${sc.fg};border:${sc.bd};flex-shrink:0">${_cEsc(c.status)}</span>
+    </div>
+    <div class="mono" style="color:var(--accent);font-size:12px;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_cEsc(c.id)}</div>
+    <div style="color:var(--text-dim);font-size:11px;display:flex;gap:10px;flex-wrap:wrap">
+      <span>priority ${c.priority ?? 0}</span>
+      <span>${nVariants} variant${nVariants===1?'':'s'}</span>
+      <span>${_cEsc(sched)}</span>
+    </div>
+  </div>`;
+}
+
+function _setCf(id, val) { document.getElementById(id).value = val; }
+
+function _showCampaignEditor() {
+  const wrap = document.getElementById('campaign-editor-wrap');
+  document.getElementById('campaign-editor-error').textContent = '';
+  wrap.style.display = 'block';
+  wrap.scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
+function newCampaign() {
+  currentCampaignId = null;
+  const idEl = document.getElementById('cf-id');
+  idEl.disabled = false;
+  _setCf('cf-id', '');
+  _setCf('cf-name', '');
+  // Default to whatever app the global filter is on, else ShoulderSurf.
+  const filterApp = document.getElementById('app')?.value;
+  document.getElementById('cf-app').value = (filterApp === 'shouldersurf' || filterApp === 'techrehearsal') ? filterApp : 'shouldersurf';
+  document.getElementById('cf-status').value = 'draft';
+  _setCf('cf-priority', '0');
+  _setCf('cf-mxg', '');
+  _setCf('cf-starts', '');
+  _setCf('cf-expires', '');
+  _setCf('cf-targeting', JSON.stringify(_CAMPAIGN_NEW_DEFAULTS.targeting, null, 2));
+  _setCf('cf-frequency', JSON.stringify(_CAMPAIGN_NEW_DEFAULTS.frequency, null, 2));
+  _setCf('cf-placements', JSON.stringify(_CAMPAIGN_NEW_DEFAULTS.placements, null, 2));
+  _setCf('cf-variants', JSON.stringify(_CAMPAIGN_NEW_DEFAULTS.variants, null, 2));
+  document.getElementById('campaign-editor-title').textContent = 'New campaign';
+  document.getElementById('campaign-editor-status').textContent = '';
+  document.getElementById('campaign-delete-btn').style.display = 'none';
+  _showCampaignEditor();
+}
+
+function editCampaign(i) {
+  const c = _campaigns[i];
+  if (!c) return;
+  currentCampaignId = c.id;
+  const idEl = document.getElementById('cf-id');
+  _setCf('cf-id', c.id);
+  idEl.disabled = true;   // id is the primary key — immutable on edit
+  _setCf('cf-name', c.name || '');
+  document.getElementById('cf-app').value = c.app_id || 'shouldersurf';
+  document.getElementById('cf-status').value = c.status || 'draft';
+  _setCf('cf-priority', c.priority ?? 0);
+  _setCf('cf-mxg', c.mutual_exclusion_group || '');
+  _setCf('cf-starts', c.starts_at || '');
+  _setCf('cf-expires', c.expires_at || '');
+  _setCf('cf-targeting', JSON.stringify(c.targeting || {}, null, 2));
+  _setCf('cf-frequency', JSON.stringify(c.frequency || {}, null, 2));
+  _setCf('cf-placements', JSON.stringify(c.placements || [], null, 2));
+  _setCf('cf-variants', JSON.stringify(c.variants || [], null, 2));
+  document.getElementById('campaign-editor-title').textContent = c.id;
+  document.getElementById('campaign-editor-status').textContent =
+    c.updated_at ? `updated ${c.updated_at.slice(0, 19).replace('T', ' ')} UTC` : '';
+  document.getElementById('campaign-delete-btn').style.display = '';
+  _showCampaignEditor();
+}
+
+function closeCampaign() {
+  document.getElementById('campaign-editor-wrap').style.display = 'none';
+  currentCampaignId = null;
+}
+
+// Empty targeting/frequency default to {}, placements/variants to [].
+function _parseCfJson(id, label, errs) {
+  const raw = document.getElementById(id).value.trim();
+  const isObj = id === 'cf-targeting' || id === 'cf-frequency';
+  if (!raw) return isObj ? {} : [];
+  try { return JSON.parse(raw); }
+  catch (e) { errs.push(`${label}: ${e.message}`); return null; }
+}
+
+async function saveCampaign() {
+  const errEl = document.getElementById('campaign-editor-error');
+  errEl.textContent = '';
+  const errs = [];
+
+  const id = document.getElementById('cf-id').value.trim();
+  const name = document.getElementById('cf-name').value.trim();
+  if (!id) errs.push('ID is required');
+  if (!name) errs.push('Name is required');
+
+  const targeting = _parseCfJson('cf-targeting', 'targeting', errs);
+  const frequency = _parseCfJson('cf-frequency', 'frequency', errs);
+  const placements = _parseCfJson('cf-placements', 'placements', errs);
+  const variants = _parseCfJson('cf-variants', 'variants', errs);
+
+  const status = document.getElementById('cf-status').value;
+  // Mirror the server's active-weight rule for instant feedback (server still enforces).
+  if (status === 'active' && Array.isArray(variants) && variants.length) {
+    const sum = variants.reduce((a, v) => a + (v && typeof v.weight === 'number' ? v.weight : 0), 0);
+    if (sum !== 100) errs.push(`active campaign variant weights must sum to 100 (got ${sum})`);
+  }
+
+  if (errs.length) { errEl.innerHTML = errs.map(_cEsc).join('<br>'); return; }
+
+  const priority = parseInt(document.getElementById('cf-priority').value, 10);
+  const body = {
+    id, name,
+    app_id: document.getElementById('cf-app').value,
+    status,
+    starts_at: document.getElementById('cf-starts').value.trim() || null,
+    expires_at: document.getElementById('cf-expires').value.trim() || null,
+    priority: Number.isFinite(priority) ? priority : 0,
+    mutual_exclusion_group: document.getElementById('cf-mxg').value.trim() || null,
+    targeting, frequency, placements, variants,
+  };
+
+  const editing = currentCampaignId != null;
+  const url = editing
+    ? `${BASE}/webhooks/admin/campaign/${encodeURIComponent(currentCampaignId)}`
+    : `${BASE}/webhooks/admin/campaigns`;
+  const resp = await fetch(url, {
+    method: editing ? 'PUT' : 'POST',
+    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
+    body: JSON.stringify(body),
+  });
+
+  if (resp.ok) {
+    closeCampaign();
+    loadCampaigns();
+  } else {
+    let detail = 'Save failed';
+    try { detail = (await resp.json()).detail || detail; } catch (e) {}
+    errEl.textContent = `Error ${resp.status}: ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`;
+  }
+}
+
+async function deleteCampaign() {
+  if (currentCampaignId == null) return;
+  if (!confirm(`Delete campaign “${currentCampaignId}”? This can't be undone.`)) return;
+  const resp = await fetch(`${BASE}/webhooks/admin/campaign/${encodeURIComponent(currentCampaignId)}`, {
+    method: 'DELETE',
+    headers: {'X-Admin-Key': adminKey},
+  });
+  if (resp.ok) {
+    closeCampaign();
+    loadCampaigns();
+  } else {
+    let detail = 'Delete failed';
+    try { detail = (await resp.json()).detail || detail; } catch (e) {}
+    document.getElementById('campaign-editor-error').textContent = `Error: ${detail}`;
   }
 }
 

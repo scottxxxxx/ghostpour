@@ -1,5 +1,5 @@
 {
-  "version": 7,
+  "version": 11,
   "models": [
     {"id": "anthropic/claude-opus-4-7", "label": "Opus 4.7"},
     {"id": "anthropic/claude-sonnet-4-6", "label": "Sonnet 4.6"},
@@ -92,28 +92,56 @@
           "label": "JD Analysis",
           "models": {
             "free": "anthropic/claude-sonnet-4-6",
-            "paid": "anthropic/claude-sonnet-4-6"
+            "paid": "anthropic/claude-sonnet-4-6",
+            "default": "anthropic/claude-sonnet-4-6"
           }
         },
         "tr_parse_resume": {
           "label": "Resume Analysis",
           "models": {
             "free": "anthropic/claude-sonnet-4-6",
-            "paid": "anthropic/claude-sonnet-4-6"
+            "paid": "anthropic/claude-sonnet-4-6",
+            "default": "anthropic/claude-sonnet-4-6"
           }
         },
         "tr_mock_interview": {
           "label": "Mock Interview",
           "models": {
             "free": "anthropic/claude-sonnet-4-6",
-            "paid": "anthropic/claude-sonnet-4-6"
+            "paid": "anthropic/claude-sonnet-4-6",
+            "default": "anthropic/claude-sonnet-4-6"
           }
         },
         "tr_response_analysis": {
           "label": "Response Analysis",
           "models": {
             "free": "anthropic/claude-sonnet-4-6",
-            "paid": "anthropic/claude-sonnet-4-6"
+            "paid": "anthropic/claude-sonnet-4-6",
+            "default": "anthropic/claude-sonnet-4-6"
+          }
+        },
+        "tr_research_company": {
+          "label": "Company Research",
+          "models": {
+            "free": "openrouter/perplexity/sonar",
+            "paid": "openrouter/perplexity/sonar",
+            "default": "openrouter/perplexity/sonar"
+          }
+        },
+        "tr_match_analysis": {
+          "label": "Resume-JD Match",
+          "models": {
+            "free": "anthropic/claude-sonnet-4-6",
+            "paid": "anthropic/claude-sonnet-4-6",
+            "default": "anthropic/claude-sonnet-4-6"
+          }
+        },
+        "tr_research_interviewer": {
+          "label": "Interviewer Research",
+          "models": {
+            "free": "anthropic/claude-sonnet-4-6",
+            "paid": "anthropic/claude-sonnet-4-6",
+            "default": "anthropic/claude-sonnet-4-6"
           }
         },
         "query": {

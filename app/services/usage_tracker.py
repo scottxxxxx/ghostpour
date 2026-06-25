@@ -11,6 +11,21 @@ from app.models.user import UserRecord
 from app.services.allocation_reset import lazy_reset_if_due
 
 
+def _normalize_scenario(value: object) -> str | None:
+    """Normalize a client-sent metadata.scenario into a stored tag.
+
+    Tech Rehearsal is scenario-driven (interview / negotiation / personal …)
+    under one app_id; the client tags each call so analytics can slice
+    scenarios without splitting app_id. Vocabulary is intentionally open
+    (extensible), so we don't whitelist — just trim, lowercase, and cap
+    length to keep the column clean. Returns None when not a usable string.
+    """
+    if not isinstance(value, str):
+        return None
+    s = value.strip().lower()[:32]
+    return s or None
+
+
 class UsageTracker:
     def check_model_access(
         self,
@@ -160,6 +175,7 @@ class UsageTracker:
         response_time_ms: int,
         status: str = "success",
         error_msg: str | None = None,
+        app_id: str | None = None,
     ) -> None:
         # Build metadata from usage + cost dicts + raw request/response
         metadata: dict = {}
@@ -196,8 +212,8 @@ class UsageTracker:
                (id, user_id, provider, model, input_tokens, output_tokens,
                 estimated_cost_usd, request_timestamp, response_time_ms,
                 status, error_message, call_type, prompt_mode,
-                image_count, session_duration_sec, cached_tokens, meeting_id, metadata)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                image_count, session_duration_sec, cached_tokens, meeting_id, metadata, app_id, scenario)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 str(uuid.uuid4()),
                 user_id,
@@ -217,6 +233,8 @@ class UsageTracker:
                 cached_tokens,
                 request.get_meta("meeting_id"),
                 metadata_json,
+                app_id,
+                _normalize_scenario(request.get_meta("scenario")),
             ),
         )
         await db.commit()

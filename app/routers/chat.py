@@ -11,7 +11,45 @@ logger = logging.getLogger(__name__)
 # usage_log with status="timeout", and close the connection. Without this
 # cap, a slow-trickle upstream could keep the connection open indefinitely
 # (httpx's per-operation read timeout doesn't bound total wall-clock).
-_CHAT_STREAM_WALL_CLOCK_SECONDS = 90
+_CHAT_STREAM_WALL_CLOCK_SECONDS = 180
+
+# How long the stream may stay silent before we emit a progress heartbeat.
+# Lets a client keep an honest "still working" indicator alive through the
+# pre-first-token gap (model thinking / queued / running web_search) without
+# us fabricating a completion fraction we can't actually know.
+_STREAM_HEARTBEAT_SECONDS = 10
+
+
+def _strip_json_code_fence(text: str) -> str:
+    """Unwrap a response that is wholly a ```code fence``` wrapping valid JSON.
+
+    Several managed JSON call types tell the model "no code fences," but it
+    often wraps the object anyway (```json … ```), forcing the client to
+    strip it. We do it server-side instead. Content-driven and conservative:
+    we only unwrap when the ENTIRE response is a single fenced block whose
+    inner content parses as JSON, so prose/markdown answers (which may contain
+    a legitimate code block, or be a non-JSON brief) are never altered.
+    """
+    if not text:
+        return text
+    s = text.strip()
+    if not (s.startswith("```") and s.endswith("```")):
+        return text
+    inner = s[3:-3].strip()
+    # The opening fence may carry a language tag on its own first line
+    # (```json). Drop it only when it looks like a tag, not the start of JSON.
+    if "\n" in inner:
+        first, rest = inner.split("\n", 1)
+        ft = first.strip()
+        if ft and " " not in ft and "{" not in ft and "[" not in ft:
+            inner = rest
+    inner = inner.strip()
+    try:
+        json.loads(inner)
+    except Exception:
+        return text
+    return inner
+
 
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -798,6 +836,96 @@ async def usage_me(
     return result
 
 
+# --- Timing hints ---------------------------------------------------------
+# Per-call_type latency + output-size percentiles, computed from usage_log,
+# so a client can drive an HONEST progress indicator: a curve shaped to what
+# we've actually measured, never a countdown to a finish we can't predict.
+# When the call streams, the same expected-output-token figure scales the
+# real token-flow signal; when it doesn't, the curve is the fallback. The
+# hints are aggregated per call_type and NEVER per model, so they can't leak
+# which model we picked (the ghost-relay opacity rule).
+_TIMING_HINTS_WINDOW_DAYS = 30
+_TIMING_HINTS_MIN_SAMPLES = 5
+_TIMING_HINTS_TTL_SEC = 600
+# Cache keyed by app_id → (computed_at_monotonic, payload). Slow-changing
+# aggregate, so a short TTL keeps the per-request DB scan off the hot path.
+_timing_hints_cache: dict[str, tuple[float, dict]] = {}
+
+
+def _percentile(sorted_vals: list[int], p: float) -> int:
+    """Nearest-rank percentile of a pre-sorted list (matches dashboard math)."""
+    if not sorted_vals:
+        return 0
+    idx = int(len(sorted_vals) * p)
+    return sorted_vals[min(idx, len(sorted_vals) - 1)]
+
+
+@router.get("/timing-hints")
+async def timing_hints(
+    request: Request,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Per-call_type expected-duration hints for honest progress UI.
+
+    For each call_type the caller's app has run, returns the p50/p90 of
+    response_time_ms and the p50 of output_tokens over the last N days of
+    successful requests. A client uses these to render progress
+    proportionate to what we expect — and, when streaming, to scale the
+    live token-flow against an expected total — instead of a countdown to
+    an unpredictable finish.
+
+    Scoped to the caller's app_id when known, so each app sees its own
+    call types. Aggregated across models on purpose: we never expose
+    per-model timing, which would reveal which model we chose.
+    """
+    app_id = getattr(request.state, "app_id", "unknown")
+
+    now = time.monotonic()
+    cached = _timing_hints_cache.get(app_id)
+    if cached and (now - cached[0]) < _TIMING_HINTS_TTL_SEC:
+        return cached[1]
+
+    # Pull raw per-call_type samples; percentiles are computed in Python
+    # (the row volume is small and SQLite has no native percentile aggregate).
+    sql = (
+        "SELECT call_type, response_time_ms, output_tokens FROM usage_log "
+        "WHERE status = 'success' AND response_time_ms IS NOT NULL "
+        "AND call_type IS NOT NULL "
+        "AND request_timestamp >= date('now', ?)"
+    )
+    params: list[object] = [f"-{_TIMING_HINTS_WINDOW_DAYS} days"]
+    if app_id and app_id != "unknown":
+        sql += " AND app_id = ?"
+        params.append(app_id)
+    cursor = await db.execute(sql, tuple(params))
+    rows = await cursor.fetchall()
+
+    buckets: dict[str, dict[str, list[int]]] = {}
+    for r in rows:
+        b = buckets.setdefault(r["call_type"], {"ms": [], "out": []})
+        b["ms"].append(int(r["response_time_ms"]))
+        if r["output_tokens"] is not None:
+            b["out"].append(int(r["output_tokens"]))
+
+    hints = {}
+    for ct, b in buckets.items():
+        if len(b["ms"]) < _TIMING_HINTS_MIN_SAMPLES:
+            continue  # too few to be honest about; client falls back to its default
+        ms = sorted(b["ms"])
+        out = sorted(b["out"])
+        hints[ct] = {
+            "p50_ms": _percentile(ms, 0.50),
+            "p90_ms": _percentile(ms, 0.90),
+            "p50_output_tokens": _percentile(out, 0.50) if out else None,
+            "samples": len(ms),
+        }
+
+    payload = {"window_days": _TIMING_HINTS_WINDOW_DAYS, "hints": hints}
+    _timing_hints_cache[app_id] = (now, payload)
+    return payload
+
+
 @router.get("/tiers")
 async def list_tiers(request: Request):
     """Return the full tier catalog for display in the iOS subscription UI.
@@ -910,6 +1038,10 @@ async def chat(
     rate_limiter = request.app.state.rate_limiter
     usage_tracker = request.app.state.usage_tracker
     pricing = request.app.state.pricing
+    # App identity (X-App-ID, set by middleware) — threaded into every
+    # usage_log write so analytics can be split per app. Captured by the
+    # nested event_stream() closure too.
+    app_id = getattr(request.state, "app_id", "unknown")
 
     # 1. Look up tier (respects simulation override)
     effective_tier_name = user.effective_tier
@@ -1049,6 +1181,36 @@ async def chat(
             body, result = await hook.before_llm(user, body, tier, state, skip_teasers)
             hook_results[feature_name] = result
 
+    # Safety net: the CQ hook fills the {{context_quilt}} placeholder ONLY
+    # when CQ is enabled AND recall returned content. In every other path —
+    # recall empty, teaser tier, CQ-disabled tier (hook skipped entirely
+    # above), or context_quilt flag off — a literal {{context_quilt}} left in
+    # the client's template would otherwise reach the model verbatim. Strip
+    # any leftover unconditionally so a client can safely leave the literal
+    # placeholder in and never leak it. Only the GP-owned slot is touched;
+    # client-owned placeholders are left alone.
+    if body.system_prompt and "{{context_quilt}}" in body.system_prompt:
+        body = body.model_copy(update={
+            "system_prompt": body.system_prompt.replace("{{context_quilt}}", "")
+        })
+
+    # 2.8. Locale injection — append the language directive to the now-final
+    # system prompt so the model answers in the user's language. Central + in
+    # one place so the rule can't drift across managed calls; no-op for
+    # en/missing. Runs after assembly, sanitization, and feature hooks (the
+    # final prompt) and before the stream branch, so it covers every path and
+    # both prompt origins (GP-assembled and client-sent during migration).
+    # See app.services.locale_injection + docs/handoffs/tr-managed-prompts-and-locale.md.
+    from app.services.locale_injection import (
+        apply as _apply_locale,
+        normalize_locale as _norm_locale,
+    )
+    _output_locale = None  # set to the resolved locale only when injection fired
+    _localized_system = _apply_locale(body.system_prompt, body.get_meta("locale"))
+    if _localized_system != body.system_prompt:
+        body = body.model_copy(update={"system_prompt": _localized_system})
+        _output_locale = _norm_locale(body.get_meta("locale"))
+
     # Effective allocation limit (trial or regular)
     effective_limit = tier.monthly_cost_limit_usd
     if user.is_trial and tier.trial_cost_limit_usd is not None:
@@ -1181,6 +1343,54 @@ async def chat(
                 },
             }
             return JSONResponse(status_code=200, content=block_payload)
+
+    # 5.6b. Tech Rehearsal per-app budget gate. TR free/paid is the
+    # X-TR-Entitlement header, independent of the SS tier above, and TR shares
+    # the SS user row — so it can't use the per-user bucket. Cap TR spend per
+    # UTC month by summing this user's techrehearsal usage_log rows. DORMANT
+    # until apps.techrehearsal.budget.enabled is true (and the marginal-cost
+    # estimate fails open when pricing/model isn't resolvable — the
+    # already-over-cap check still fires).
+    if app_id == "techrehearsal":
+        from app.routers.config import load_apps
+        from app.services import tr_budget
+        _tr_budget_cfg = tr_budget.tr_budget_config(load_apps())
+        if _tr_budget_cfg and _tr_budget_cfg.get("enabled"):
+            _entitlement = request.headers.get("X-TR-Entitlement")
+            _tr_estimate = None
+            if pricing.is_loaded:
+                _tr_estimate = estimate_call_cost_usd(
+                    pricing,
+                    provider=body.provider,
+                    model=body.model,
+                    input_tokens=estimated_input_tokens,
+                    max_output_tokens=body.max_tokens,
+                )
+            _tr_block, _tr_info = await tr_budget.would_exceed_tr_budget(
+                db, user.id, _entitlement, _tr_estimate, _tr_budget_cfg,
+            )
+            if _tr_block:
+                logger.info(
+                    "tr_budget_block user=%s entitlement=%s spent=%.4f cap=%.2f",
+                    user.id, _tr_info["entitlement"], _tr_info["spent"], _tr_info["cap"],
+                )
+                # Lean over-cap envelope: HTTP 200 (not an error, so it won't
+                # trip the client's error / on-device path), empty text, and a
+                # single budget_exhausted flag to branch on. No credits/CTA —
+                # the client renders its own limit-reached state. Confirm the
+                # shape with TR before flipping `enabled` on.
+                return JSONResponse(status_code=200, content={
+                    "text": "",
+                    "model": body.model,
+                    "provider": body.provider,
+                    "ai_tier": _tier_to_ai_tier_lazy(user.effective_tier),
+                    "feature_state": {
+                        "feature": "chat",
+                        "app": "techrehearsal",
+                        "entitlement": _tr_info["entitlement"],
+                        "budget_exhausted": True,
+                    },
+                })
 
     # 5.7. Search gate. Four outcomes:
     #
@@ -1422,11 +1632,18 @@ async def chat(
     except HTTPException:
         elapsed_ms = int((time.monotonic() - start) * 1000)
         await usage_tracker.log_usage(
-            db, user.id, body, None, elapsed_ms, status="error"
+            db, user.id, body, None, elapsed_ms, status="error", app_id=app_id
         )
         raise
 
     elapsed_ms = int((time.monotonic() - start) * 1000)
+
+    # 6.5. Unwrap a stray ```json code fence the model wrapped around a JSON
+    # response (managed JSON call types say "no code fences" but models still
+    # do it). Safe no-op for prose/markdown answers. Non-stream path only;
+    # the JSON call types don't stream.
+    if response and response.text:
+        response.text = _strip_json_code_fence(response.text)
 
     # 7. Calculate cost from pricing data
     request_cost = 0.0
@@ -1445,7 +1662,7 @@ async def chat(
     await usage_tracker.record_cost(db, user.id, request_cost, tier, user=user)
 
     # 9. Log usage
-    await usage_tracker.log_usage(db, user.id, body, response, elapsed_ms)
+    await usage_tracker.log_usage(db, user.id, body, response, elapsed_ms, app_id=app_id)
 
     # 9.1. Search-usage tracking: count search invocations Anthropic
     # actually performed (mirrored into usage["web_search_requests"] by
@@ -1543,6 +1760,12 @@ async def chat(
 
     json_response = JSONResponse(content=response_data)
 
+    # Surface the output-language injection so a Spanish end-to-end run can be
+    # confirmed at the wire (GP injected) vs the model merely happening to
+    # answer in-language. Present only when the directive was actually applied.
+    if _output_locale:
+        json_response.headers["X-Output-Locale"] = _output_locale
+
     if effective_limit != -1:
         new_monthly_used = monthly_used + request_cost
         percent = min(100, new_monthly_used / effective_limit * 100)
@@ -1581,6 +1804,9 @@ async def _handle_stream(
     request-scoped Depends(get_db) closes before the generator finishes.
     """
     from app.database import get_db as _get_db
+    # App identity (X-App-ID) for the per-app analytics tag on usage_log.
+    # Captured by the nested event_stream() closure below.
+    app_id = getattr(request.state, "app_id", "unknown")
     # Pre-compute allocation headers (sent before any body chunks)
     headers = {
         "Content-Type": "text/event-stream",
@@ -1607,14 +1833,48 @@ async def _handle_stream(
     async def event_stream():
         final_response = None
         from app.services.anthropic_or_fallback import route_stream_with_fallback
+        # Tracked across the heartbeat loop so it can be cancelled on any
+        # exit path (see the finally below).
+        pending = None
         try:
             async with asyncio.timeout(_CHAT_STREAM_WALL_CLOCK_SECONDS):
-                async for event in route_stream_with_fallback(
+                # Consume the upstream iterator one event at a time via a
+                # tracked task instead of `async for`, so a silent gap can
+                # emit a heartbeat WITHOUT cancelling the in-flight read.
+                # asyncio.wait (unlike wait_for) does not cancel the pending
+                # task when its own timeout elapses — that's what makes this
+                # safe to run against an async generator.
+                agen = route_stream_with_fallback(
                     provider_router, body, db, request.app.state.settings,
-                ):
+                ).__aiter__()
+                phase = "waiting"  # pre-first-token; flips to "generating"
+                pending = asyncio.ensure_future(agen.__anext__())
+                while True:
+                    done_set, _ = await asyncio.wait(
+                        {pending}, timeout=_STREAM_HEARTBEAT_SECONDS
+                    )
+                    if not done_set:
+                        # No event within the heartbeat window — emit a
+                        # liveness/phase ping; the read keeps running. Phase
+                        # only, no fabricated fraction.
+                        elapsed_ms = int((time.monotonic() - start) * 1000)
+                        hb = json.dumps({
+                            "type": "progress",
+                            "phase": phase,
+                            "elapsed_ms": elapsed_ms,
+                        })
+                        yield f"data: {hb}\n\n"
+                        continue
+                    try:
+                        event = pending.result()
+                    except StopAsyncIteration:
+                        break
+                    pending = asyncio.ensure_future(agen.__anext__())
                     if event.get("done"):
                         final_response = event.get("response")
                     else:
+                        if phase == "waiting":
+                            phase = "generating"
                         # Yield text delta as SSE
                         sse_data = json.dumps({"type": "text", "text": event["text"]})
                         yield f"data: {sse_data}\n\n"
@@ -1623,7 +1883,7 @@ async def _handle_stream(
             elapsed_ms = int((time.monotonic() - start) * 1000)
             async for err_db in _get_db():
                 await usage_tracker.log_usage(
-                    err_db, user.id, body, None, elapsed_ms, status="timeout"
+                    err_db, user.id, body, None, elapsed_ms, status="timeout", app_id=app_id
                 )
             timeout_data = json.dumps({
                 "type": "error",
@@ -1640,7 +1900,7 @@ async def _handle_stream(
             elapsed_ms = int((time.monotonic() - start) * 1000)
             async for err_db in _get_db():
                 await usage_tracker.log_usage(
-                    err_db, user.id, body, None, elapsed_ms, status="error"
+                    err_db, user.id, body, None, elapsed_ms, status="error", app_id=app_id
                 )
 
             detail = exc.detail
@@ -1672,7 +1932,7 @@ async def _handle_stream(
             elapsed_ms = int((time.monotonic() - start) * 1000)
             async for err_db in _get_db():
                 await usage_tracker.log_usage(
-                    err_db, user.id, body, None, elapsed_ms, status="error"
+                    err_db, user.id, body, None, elapsed_ms, status="error", app_id=app_id
                 )
             logger.exception("stream_unexpected_error")
             error_data = json.dumps({
@@ -1682,6 +1942,13 @@ async def _handle_stream(
             })
             yield f"data: {error_data}\n\n"
             return
+
+        finally:
+            # Cancel any in-flight upstream read so an abandoned stream
+            # (wall-clock timeout, provider error, or client disconnect)
+            # doesn't leak the task or hold the upstream connection open.
+            if pending is not None and not pending.done():
+                pending.cancel()
 
         elapsed_ms = int((time.monotonic() - start) * 1000)
 
@@ -1718,7 +1985,7 @@ async def _handle_stream(
 
         async for stream_db in _get_db():
             await usage_tracker.record_cost(stream_db, user.id, request_cost, tier, user=user)
-            await usage_tracker.log_usage(stream_db, user.id, body, final_response, elapsed_ms)
+            await usage_tracker.log_usage(stream_db, user.id, body, final_response, elapsed_ms, app_id=app_id)
 
             if searches_performed > 0:
                 try:

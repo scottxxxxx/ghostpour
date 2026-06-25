@@ -1,11 +1,11 @@
 {
-  "version": 15,
+  "version": 16,
   "defaultPromptReserveTokens": 8000,
   "providers": [
     {
-      "id": "cloudzap",
+      "id": "ghostpour",
       "displayName": "Managed AI",
-      "apiFormat": "cloudzap",
+      "apiFormat": "ghostpour",
       "baseURL": "https://cz.shouldersurf.com/v1/chat",
       "authHeaderName": "Authorization",
       "authHeaderPrefix": "Bearer ",

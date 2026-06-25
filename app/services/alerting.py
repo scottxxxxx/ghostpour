@@ -388,7 +388,15 @@ async def report_incident(
 async def list_incidents(
     db: aiosqlite.Connection, *, limit: int = 100,
 ) -> list[dict]:
-    """For dashboard history view. Includes open + resolved, newest first."""
+    """For dashboard history view. Includes open + resolved, newest first.
+
+    Sweeps stale opens first (same rule and threshold as `report_incident`).
+    Without this, an incident that goes quiet but never gets a re-fire to
+    trigger the sweep stays flagged open forever — e.g. a one-off
+    `openrouter_low_balance` with nothing alerting after it. Sweeping on load
+    means viewing the dashboard reflects the real resolved state.
+    """
+    await _sweep_stale_incidents(db)
     cursor = await db.execute(
         "SELECT id, category, subject, fingerprint, first_seen_at, "
         "       last_seen_at, trigger_count, details_json, "

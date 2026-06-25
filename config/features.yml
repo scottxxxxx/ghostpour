@@ -84,3 +84,40 @@ features:
     # The old free-tier intercept (PR #80) returns this when the policy
     # collapses to "deny without verdict" — should rarely fire post-migration.
     teaser_response: "Project Chat is a Plus feature. Upgrade to ask AI questions across all your meetings in this project."
+
+  # Remote kill switch for the SS client's experimental tag-centroid speaker
+  # path (client-side diarization). GP runs no check()/apply() — it only
+  # publishes the per-tier state string in the features map returned by
+  # GET /v1/usage/me, and the client acts on it.
+  #
+  # INVERTED POLARITY (this is a kill switch, not a premium unlock):
+  #   "disabled"                         -> client suppresses tag adoption
+  #   "enabled" / absent / anything else -> path stays on (fail-open)
+  # So the safe default is "enabled" for every tier; flip to "disabled"
+  # in tiers.yml + restart to kill it remotely with no app release.
+  # Only reaches signed-in SS AI users (the features map ships via
+  # /v1/usage/me); BYOK / on-device / signed-out users govern this with a
+  # local Settings toggle instead. No teaser / upgrade_cta / service_module.
+  tag_centroids:
+    display_name: "Tag-Driven Session Profiles"
+    description: "Experimental client-side speaker diarization using tag centroids. GP-gated remote kill switch."
+    category: "internal"
+
+  # Remote kill switch for the SS client's post-session speaker consolidation
+  # (merges duplicate/split speakers after a meeting) plus the paired
+  # contamination-demotion pass. Same shape and contract as tag_centroids:
+  # GP runs no check()/apply(); it only publishes the per-tier state string in
+  # the features map returned by GET /v1/usage/me, and the client acts on it.
+  #
+  # INVERTED POLARITY (kill switch, not a premium unlock):
+  #   "disabled"                         -> client suppresses consolidation + demotion
+  #   "enabled" / absent / anything else -> path stays on (fail-open)
+  # Safe default is "enabled" for every tier; flip to "disabled" in tiers.yml
+  # + restart to kill it remotely with no app release. The client reads it
+  # fail-open, so absent resolves to on. Only reaches signed-in SS AI users
+  # (the features map ships via /v1/usage/me). No teaser / upgrade_cta /
+  # service_module.
+  speaker_consolidation:
+    display_name: "Post-Session Speaker Consolidation"
+    description: "Merges duplicate speakers after a session and demotes contaminated segments. GP-gated remote kill switch."
+    category: "internal"
