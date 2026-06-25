@@ -232,6 +232,9 @@
 
     <h3>Cost by Model</h3>
     <div class="card" id="cost-by-model-chart" style="padding:16px;max-width:560px"></div>
+
+    <h3>Requests by Scenario</h3>
+    <div class="card" id="scenario-chart" style="padding:16px;max-width:560px"></div>
   </div>
 
   <!-- Models -->
@@ -1436,6 +1439,32 @@ async function refresh() {
   } else {
     if (_telCharts['cost-by-model-chart']) { _telCharts['cost-by-model-chart'].destroy(); delete _telCharts['cost-by-model-chart']; }
     cbmEl.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:24px">No model cost in this window</div>';
+  }
+
+  // Requests by scenario — horizontal bar of request volume per scenario tag
+  // (interview / negotiation / personal / pitch / (untagged); a Tech Rehearsal
+  // dimension). Reads as counts; tooltip carries cost + tokens too.
+  const scenarios = (dash.by_scenario || []).filter(s => (s.requests || 0) > 0);
+  const sbsEl = document.getElementById('scenario-chart');
+  if (scenarios.length > 0) {
+    _renderChart('scenario-chart', {
+      chart: {type: 'bar', height: Math.max(180, scenarios.length * 44 + 48), toolbar: {show: false}, animations: {enabled: false}},
+      series: [{name: 'Requests', data: scenarios.map(s => s.requests)}],
+      plotOptions: {bar: {horizontal: true, borderRadius: 4, distributed: true, barHeight: '62%'}},
+      colors: ['#58a6ff', '#bc8cff', '#3fb950', '#d29922', '#ff7b72', '#79c0ff', '#a5d6ff'],
+      xaxis: {categories: scenarios.map(s => s.scenario), labels: {style: {colors: _telForeground}}},
+      yaxis: {labels: {style: {colors: _telForeground}}},
+      legend: {show: false},
+      dataLabels: {enabled: true, style: {colors: ['#fff'], fontSize: '12px'}, formatter: val => fmt(val)},
+      tooltip: {y: {formatter: (val, opts) => {
+        const s = scenarios[opts.dataPointIndex];
+        return fmt(val) + ' reqs · ' + fmtCost(s.cost_usd) + ' · ' + fmt(s.tokens) + ' tok';
+      }}},
+      noData: {text: 'No scenario-tagged usage in this window.'},
+    });
+  } else {
+    if (_telCharts['scenario-chart']) { _telCharts['scenario-chart'].destroy(); delete _telCharts['scenario-chart']; }
+    sbsEl.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:24px">No scenario data in this window</div>';
   }
 
   document.getElementById('dash-subtitle').textContent = `Updated ${new Date().toLocaleTimeString()}`;
