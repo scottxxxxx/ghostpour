@@ -1194,6 +1194,23 @@ async def chat(
             "system_prompt": body.system_prompt.replace("{{context_quilt}}", "")
         })
 
+    # 2.8. Locale injection — append the language directive to the now-final
+    # system prompt so the model answers in the user's language. Central + in
+    # one place so the rule can't drift across managed calls; no-op for
+    # en/missing. Runs after assembly, sanitization, and feature hooks (the
+    # final prompt) and before the stream branch, so it covers every path and
+    # both prompt origins (GP-assembled and client-sent during migration).
+    # See app.services.locale_injection + docs/handoffs/tr-managed-prompts-and-locale.md.
+    from app.services.locale_injection import (
+        apply as _apply_locale,
+        normalize_locale as _norm_locale,
+    )
+    _output_locale = None  # set to the resolved locale only when injection fired
+    _localized_system = _apply_locale(body.system_prompt, body.get_meta("locale"))
+    if _localized_system != body.system_prompt:
+        body = body.model_copy(update={"system_prompt": _localized_system})
+        _output_locale = _norm_locale(body.get_meta("locale"))
+
     # Effective allocation limit (trial or regular)
     effective_limit = tier.monthly_cost_limit_usd
     if user.is_trial and tier.trial_cost_limit_usd is not None:
@@ -1742,6 +1759,12 @@ async def chat(
         response_data["search_state"] = search_state
 
     json_response = JSONResponse(content=response_data)
+
+    # Surface the output-language injection so a Spanish end-to-end run can be
+    # confirmed at the wire (GP injected) vs the model merely happening to
+    # answer in-language. Present only when the directive was actually applied.
+    if _output_locale:
+        json_response.headers["X-Output-Locale"] = _output_locale
 
     if effective_limit != -1:
         new_monthly_used = monthly_used + request_cost
