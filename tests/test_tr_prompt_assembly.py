@@ -65,9 +65,10 @@ def test_match_prompt_keeps_calibration_guardrails():
         "role_level",
         "candidate_level",
         "candidate_level MUST be at least 0.35 below",
-        # role_level must SPREAD, not render a flat rim-hugging hexagon.
-        "never return a flat bar",
-        "MUST be >= 0.9",
+        # role_level is anchored to the parse demand weights, rescaled to the
+        # top axis so the with-résumé and no-résumé rings line up exactly.
+        "ANCHORED to the demand weights",
+        "divide each axis's demand weight by the LARGEST",
         # a documented strength must not render as a phantom gap.
         "do not show a phantom gap on a documented strength",
         "Never invent skills",
