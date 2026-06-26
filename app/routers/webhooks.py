@@ -2969,6 +2969,14 @@ _CAMPAIGN_JSON_COLS = ("targeting", "frequency", "placements", "variants")
 # display-only. Purchases (storekit_offer/paywall) resolve through StoreKit on
 # device; prices and purchase tokens never ride in the payload.
 _CTA_ACTION_TYPES = {"appstore", "storekit_offer", "paywall", "url", "deeplink", "none"}
+# Per-app allowlist of campaign-authorable deeplink targets. The client
+# allowlists the same routes; GP only authors what it will accept. SS provided
+# (2026-06-26): shouldersurf://record only — meeting/<uuid> and project/<uuid>
+# exist but take the user's own on-device id, so they're not broadcast-authorable.
+# TR routes TBD (they'll send when they add any).
+_DEEPLINK_ALLOWLIST: dict[str, set[str]] = {
+    "shouldersurf": {"shouldersurf://record"},
+}
 
 
 class CampaignBody(BaseModel):
@@ -3055,6 +3063,14 @@ def _validate_campaign(body: CampaignBody) -> None:
                     status_code=400,
                     detail=f"cta action.type must be one of {sorted(_CTA_ACTION_TYPES)} (got {atype!r})",
                 )
+            if atype == "deeplink":
+                allowed = _DEEPLINK_ALLOWLIST.get(body.app_id, set())
+                value = (cta.get("action") or {}).get("value")
+                if value not in allowed:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"deeplink {value!r} not in {body.app_id} allowlist {sorted(allowed)}",
+                    )
             cid = cta.get("cta_id")
             if cid is not None and not isinstance(cid, str):
                 raise HTTPException(status_code=400, detail="cta_id must be a string when present")
