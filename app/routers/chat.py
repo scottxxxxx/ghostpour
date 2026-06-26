@@ -1093,7 +1093,8 @@ async def chat(
     )
 
     # 2. Resolve "auto" model — check model-routing config first, then tier default
-    if body.model == "auto" or body.provider == "auto":
+    managed_routing = body.model == "auto" or body.provider == "auto"
+    if managed_routing:
         resolved_model = _resolve_model_routing(request, body, tier, effective_tier_name)
         if not resolved_model:
             raise HTTPException(
@@ -1148,8 +1149,12 @@ async def chat(
             "user_content": sanitized_content,
         })
 
-    # 3. Check provider + model access
-    usage_tracker.check_model_access(body, tier)
+    # 3. Check provider + model access. The provider/model allowlists are a
+    # BYOK guard on user-pinned targets; a managed (auto) call is routed by GP
+    # to a tier-appropriate target via model-routing, so it must not be re-gated
+    # here (e.g. tr_research_company -> openrouter/sonar, which no customer tier
+    # lists as a BYOK provider). The per-tier image cap still applies.
+    usage_tracker.check_model_access(body, tier, routed=managed_routing)
 
     # 4. Rate limit
     allowed, retry_after = rate_limiter.check(user.id, tier.requests_per_minute)
