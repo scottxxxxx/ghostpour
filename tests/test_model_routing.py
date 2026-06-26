@@ -274,3 +274,30 @@ def test_summary_and_analysis_still_route_directly():
     assert _resolve("summary", None) == HAIKU
     assert _resolve("analysis", None) == SONNET
     assert _resolve("report", None) == SONNET
+
+
+def test_every_routing_target_is_a_registered_provider_model():
+    """Regression guard for the tr_research_company 400 ("Model
+    'perplexity/sonar' not found for provider 'openrouter'"): every
+    model-routing target must be a provider/model actually registered in
+    config/providers.yml, or ProviderRouter.validate_model rejects the call at
+    dispatch. Mirrors that check — only enforced when the provider lists models.
+    """
+    import json
+    import yaml
+
+    routing = json.load(open("config/remote/model-routing.json"))
+    providers = yaml.safe_load(open("config/providers.yml"))["providers"]
+    registered = {p: {m["id"] for m in (cfg.get("models") or [])} for p, cfg in providers.items()}
+
+    bad = []
+    for app, adef in (routing.get("apps") or {}).items():
+        for call_type, cdef in (adef.get("call_types") or {}).items():
+            for tier, target in (cdef.get("models") or {}).items():
+                if not isinstance(target, str) or "/" not in target:
+                    continue
+                provider, model = target.split("/", 1)
+                ids = registered.get(provider)
+                if ids and model not in ids:  # provider lists models -> must contain this one
+                    bad.append(f"{app}.{call_type}.{tier} -> {provider}/{model}")
+    assert not bad, f"routing targets not registered in providers.yml: {bad}"

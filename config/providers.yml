@@ -162,6 +162,13 @@ providers:
       - id: "deepseek/deepseek-v3.2-exp"
         supports_vision: false
         max_tokens_default: 8000
+      # Perplexity Sonar (web-search grounded) — tr_research_company routes here
+      # via model-routing for grounded, cited company research. Verified live on
+      # the OpenRouter model list (127k ctx). DeepSeek above can't web-search, so
+      # company research specifically needs this model.
+      - id: "perplexity/sonar"
+        supports_vision: false
+        max_tokens_default: 4000
 
   # ===========================================================================
   # TEMPLATE: Adding a custom provider via the generic adapter
