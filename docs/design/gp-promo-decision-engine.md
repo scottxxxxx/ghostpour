@@ -50,7 +50,7 @@ Because GP enforces frequency, the client only receives what it needs to render 
         "schema_version": 1,                    // versioned + ADDITIVE; unknown fields ignored
         "title": "...", "body": "...",
         "media": { "type": "image", "url": "https://cdn/.../hero.png" },
-        "ctas": [ { "label": "Try Tech Rehearsal", "action": {"type":"appstore","value":"id000"} } ],
+        "ctas": [ { "label": "Try Tech Rehearsal", "cta_id": "primary", "action": {"type":"appstore","value":"id000"} } ],
         "style": { /* optional layout/style hints */ }
       },
       "html_url": "https://cdn/.../promo_b.html" // when render=html (first-class escape hatch)
@@ -59,9 +59,14 @@ Because GP enforces frequency, the client only receives what it needs to render 
 }
 ```
 
-`cta.action.type`: `appstore | url | deeplink | storekit_offer | none`. Native schema is versioned and
-strictly additive (forward-compatible, same as the iOS config decoder). `html` render serves a
-`html_url`; inline HTML is not used.
+`cta.action.type`: `appstore | storekit_offer | paywall | url | deeplink | none` — a **locked allowlist**,
+enforced server-side in the campaign CRUD; the client allowlists the same set and ignores anything else, so
+a bad payload can't make the app open something it shouldn't. `paywall` opens the app's paywall;
+`storekit_offer` carries a product/offer id the client resolves through StoreKit — prices and purchase
+tokens never ride in the payload. `url` is https-only; `deeplink` must be a route on the client's allowlist;
+`none` is display-only. Each CTA also carries an optional `cta_id` (per-link attribution key, see Events).
+Native schema is versioned and strictly additive (forward-compatible, same as the iOS config decoder).
+`html` render serves a `html_url`; inline HTML is not used.
 
 ## The decision engine (server side)
 
@@ -191,7 +196,10 @@ short-lived "served" marker that the impression event reconciles.
 On `POST /v1/events/ping`, tagged with `campaign_id`, `variant_id`, `device_id`, timestamp, `app_id`:
 - `promo_impression` — it was shown. **Drives the presentations table** (frequency) and the funnel.
 - `promo_dismiss` — optionally with time-to-dismiss, for measurement.
-- `promo_click` — when there's a link/CTA, for measurement.
+- `promo_click` — when there's a link/CTA, for measurement. Carries `cta_id` (which link was tapped) so
+  multi-CTA cards get per-link CTR. GP authors the id per CTA; native cards return it as a field, HTML cards
+  encode it as a `promo_cta_id` query param GP appends to the href (the client reads it off the intercepted
+  tap — no JS bridge). Stored in `promo_events.cta_id`.
 - `promo_convert` — subscribed / installed the cross-promoted app, when detectable.
 
 GP records these and surfaces a per-campaign, per-variant funnel (impression -> click -> convert) with
