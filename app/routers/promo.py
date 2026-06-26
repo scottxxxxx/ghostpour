@@ -24,7 +24,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user_optional
 from app.models.user import UserRecord
 
 router = APIRouter()
@@ -47,18 +47,31 @@ def _parse_campaign(row) -> dict:
     return d
 
 
-def _targeting_matches(targeting: dict, user: UserRecord) -> bool:
-    """MVP targeting: a `users` allowlist (email or user id) and a `tiers`
-    allowlist. Empty/absent rule = no constraint on that dimension."""
+def _targeting_matches(targeting: dict, user: UserRecord | None) -> bool:
+    """MVP targeting. `user` is None for the unsigned base (BYOK / on-device),
+    which is the prime cross-promo audience — a campaign with no user/tier
+    constraint reaches them. Rules that need identity only apply when signed in:
+      - signed_in: true|false|null  — gate on auth state (null = both).
+      - users:     allowlist (email or user id) — signed-in only; anonymous never matches.
+      - tiers:     allowlist — applied only when signed in (tier unknown otherwise).
+    Empty/absent rule = no constraint on that dimension.
+    """
+    signed_in = targeting.get("signed_in")
+    if signed_in is True and user is None:
+        return False
+    if signed_in is False and user is not None:
+        return False
     users = targeting.get("users")
     if users:
+        if user is None:
+            return False
         identity = {user.id}
         if user.email:
             identity.add(user.email)
         if not identity.intersection(users):
             return False
     tiers = targeting.get("tiers")
-    if tiers and user.tier not in tiers:
+    if tiers and (user is None or user.tier not in tiers):
         return False
     return True
 
@@ -97,11 +110,14 @@ async def serve_promo_asset(name: str):
 async def resolve_promo(
     request: Request,
     device_id: str = Query(..., min_length=1),
-    user: UserRecord = Depends(get_current_user),
+    user: UserRecord | None = Depends(get_current_user_optional),
     db: aiosqlite.Connection = Depends(get_db),
 ):
-    """Launch-ping: return the promo to show for this app/user/device, or {}.
+    """Launch-ping: return the promo to show for this app/device, or {}.
 
+    Unauthenticated — anchored on device_id so the whole install base is
+    reachable (signed-in, BYOK, on-device). A bearer token is optional
+    enrichment: when present it unlocks user/tier/signed_in targeting.
     App-scoped by X-App-ID. Highest priority active in-window campaign whose
     targeting matches and whose per-device frequency cap isn't spent.
     """
@@ -149,11 +165,12 @@ class PromoEventBody(BaseModel):
 async def ingest_promo_event(
     body: PromoEventBody,
     request: Request,
-    user: UserRecord = Depends(get_current_user),
+    user: UserRecord | None = Depends(get_current_user_optional),
     db: aiosqlite.Connection = Depends(get_db),
 ):
     """Client-reported promo telemetry. Writes promo_events and advances the
-    per-device presentations row (frequency / cooldown / convert state)."""
+    per-device presentations row (frequency / cooldown / convert state).
+    Unauthenticated — device_id anchors it; user_id is recorded when signed in."""
     if body.event_type not in _PROMO_EVENT_TYPES:
         raise HTTPException(status_code=400, detail=f"event_type must be one of {sorted(_PROMO_EVENT_TYPES)}")
     app_id = getattr(request.state, "app_id", "unknown")
@@ -163,7 +180,7 @@ async def ingest_promo_event(
            (id, created_at, device_id, user_id, campaign_id, variant_id, app_id,
             event_type, visible_ms, cta_id)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (uuid.uuid4().hex, now, body.device_id, user.id, body.campaign_id,
+        (uuid.uuid4().hex, now, body.device_id, user.id if user else None, body.campaign_id,
          body.variant_id, app_id, body.event_type, body.visible_ms, body.cta_id),
     )
     if body.event_type == "impression":

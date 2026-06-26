@@ -88,3 +88,41 @@ def test_draft_campaign_not_resolved(client, pro_user):
     _make_campaign(client, cid="ss_promo_5", status="draft", targeting={"users": [PRO_EMAIL]})
     h = {**pro_user["headers"], "X-App-ID": SS}
     assert client.get("/v1/promo/resolve?device_id=devE", headers=h).json() == {}
+
+
+# --- unauthenticated path: the unsigned base is the prime cross-promo audience ---
+
+def test_resolve_unauthenticated_gets_broad_campaign(client):
+    # No token, just device_id + X-App-ID. A campaign with no user/tier
+    # constraint must reach the unsigned base (BYOK / on-device).
+    _make_campaign(client, cid="ss_broad", targeting={})
+    r = client.get("/v1/promo/resolve?device_id=anon-1", headers={"X-App-ID": SS})
+    assert r.json()["campaign_id"] == "ss_broad"
+
+
+def test_resolve_unauthenticated_skips_user_and_tier_targeted(client):
+    _make_campaign(client, cid="ss_user_only", targeting={"users": ["scott@weirtech.com"]})
+    _make_campaign(client, cid="ss_tier_only", app_id=SS, targeting={"tiers": ["pro"]})
+    h = {"X-App-ID": SS}
+    # anonymous can't satisfy user/tier targeting -> nothing
+    assert client.get("/v1/promo/resolve?device_id=anon-2", headers=h).json() == {}
+
+
+def test_events_unauthenticated_recorded_with_null_user(client):
+    _make_campaign(client, cid="ss_anon_evt", targeting={})
+    h = {"X-App-ID": SS}
+    assert client.post("/v1/promo/events", headers=h, json={
+        "event_type": "impression", "campaign_id": "ss_anon_evt", "device_id": "anon-3"}).status_code == 204
+    assert client.post("/v1/promo/events", headers=h, json={
+        "event_type": "click", "campaign_id": "ss_anon_evt", "device_id": "anon-3", "cta_id": "get_tr"}).status_code == 204
+    rep = client.get("/webhooks/admin/campaign/ss_anon_evt/report", headers=ADMIN).json()
+    assert rep["impressions"] == 1 and rep["clicks"] == 1
+
+
+def test_signed_in_targeting_field(client, pro_user):
+    # signed_in:false -> only the unsigned base sees it
+    _make_campaign(client, cid="ss_anon_only", targeting={"signed_in": False})
+    assert client.get("/v1/promo/resolve?device_id=d1",
+                      headers={"X-App-ID": SS}).json()["campaign_id"] == "ss_anon_only"
+    assert client.get("/v1/promo/resolve?device_id=d1",
+                      headers={**pro_user["headers"], "X-App-ID": SS}).json() == {}
