@@ -16,7 +16,6 @@ import hashlib
 import json
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
 
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -26,10 +25,10 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.dependencies import get_current_user_optional
 from app.models.user import UserRecord
+from app.services import promo_assets
 
 router = APIRouter()
 
-_PROMO_ASSET_DIR = (Path(__file__).parent.parent / "static" / "promo").resolve()
 _PROMO_EVENT_TYPES = {"impression", "dismiss", "click", "convert"}
 _CAMPAIGN_JSON_COLS = ("targeting", "frequency", "placements", "variants")
 
@@ -94,15 +93,15 @@ def _pick_variant(variants: list, device_id: str, campaign_id: str) -> dict | No
 
 @router.get("/promo/assets/{name}")
 async def serve_promo_asset(name: str):
-    """Public: serve a promo HTML creative — the target of a variant's html_url."""
-    if not name.endswith(".html") or "/" in name or "\\" in name or name.startswith("."):
-        raise HTTPException(status_code=404, detail="not found")
-    path = (_PROMO_ASSET_DIR / name).resolve()
-    if path.parent != _PROMO_ASSET_DIR or not path.is_file():
+    """Public: serve a promo HTML creative — the target of a variant's html_url.
+    The live store wins over the bundled default, so creatives hot-reload without
+    a deploy. Short cache so updates propagate fast."""
+    path = promo_assets.resolve_path(name)
+    if path is None:
         raise HTTPException(status_code=404, detail="not found")
     return FileResponse(
         path, media_type="text/html",
-        headers={"Cache-Control": "public, max-age=300"},
+        headers={"Cache-Control": "public, max-age=60"},
     )
 
 
