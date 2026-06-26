@@ -89,7 +89,7 @@ def test_cta_action_type_allowlist(client):
         {"label": "Upgrade", "action": {"type": "paywall"}},
         {"label": "Offer", "action": {"type": "storekit_offer", "value": "prod.month"}},
         {"label": "Site", "action": {"type": "url", "value": "https://x/y"}},
-        {"label": "Open", "action": {"type": "deeplink", "value": "/settings"}},
+        {"label": "Open", "action": {"type": "deeplink", "value": "shouldersurf://record"}},
         {"label": "Dismiss", "action": {"type": "none"}},
     ))
     assert client.post(f"{BASE}/campaigns", json=ok, headers=ADMIN).status_code == 200
@@ -109,6 +109,21 @@ def test_cta_id_optional_string(client):
     bad = _campaign(id="cid_bad", variants=_native(
         {"label": "Get it", "cta_id": 7, "action": {"type": "appstore", "value": "id1"}}))
     assert client.post(f"{BASE}/campaigns", json=bad, headers=ADMIN).status_code == 400
+
+
+def test_deeplink_route_allowlist(client):
+    # SS allowlist: shouldersurf://record is the only campaign-authorable route.
+    ok = _campaign(id="dl_ok", app_id="shouldersurf", variants=_native(
+        {"label": "Record", "action": {"type": "deeplink", "value": "shouldersurf://record"}}))
+    assert client.post(f"{BASE}/campaigns", json=ok, headers=ADMIN).status_code == 200
+    # an unlisted route can't be authored
+    bad = _campaign(id="dl_bad", app_id="shouldersurf", variants=_native(
+        {"label": "Sneaky", "action": {"type": "deeplink", "value": "shouldersurf://settings"}}))
+    assert client.post(f"{BASE}/campaigns", json=bad, headers=ADMIN).status_code == 400
+    # an app with no registered deeplink routes rejects any deeplink
+    tr = _campaign(id="dl_tr", app_id="techrehearsal", variants=_native(
+        {"label": "X", "action": {"type": "deeplink", "value": "techrehearsal://home"}}))
+    assert client.post(f"{BASE}/campaigns", json=tr, headers=ADMIN).status_code == 400
 
 
 def test_admin_key_required(client):
