@@ -3185,3 +3185,40 @@ async def campaign_report(
         "ctr": round(clicks / impressions, 4) if impressions else None,
         "clicks_by_cta": clicks_by_cta,
     }
+
+
+# --- Promo creatives (hot-reloadable, no deploy) -----------------------------
+
+@router.get("/admin/promo-assets")
+async def list_promo_assets(request: Request, x_admin_key: str = Header(...)):
+    """List promo creatives — bundled defaults plus any live-edited store copies."""
+    _verify_admin(request, x_admin_key)
+    from app.services import promo_assets
+    return {"assets": promo_assets.listing()}
+
+
+@router.put("/admin/promo-asset/{name}")
+async def upload_promo_asset(name: str, request: Request, x_admin_key: str = Header(...)):
+    """Upload/replace a promo creative live (raw HTML body). Writes the store
+    copy, which wins over the bundled default at serve time — no code deploy."""
+    _verify_admin(request, x_admin_key)
+    from app.services import promo_assets
+    if promo_assets.safe_name(name) is None:
+        raise HTTPException(status_code=400, detail="name must be a flat *.html filename")
+    content = await request.body()
+    if not content:
+        raise HTTPException(status_code=400, detail="empty body")
+    if len(content) > promo_assets.MAX_BYTES:
+        raise HTTPException(status_code=413, detail=f"creative exceeds {promo_assets.MAX_BYTES} bytes")
+    promo_assets.save(name, content)
+    return {"status": "saved", "name": name, "bytes": len(content), "source": "store"}
+
+
+@router.delete("/admin/promo-asset/{name}")
+async def delete_promo_asset(name: str, request: Request, x_admin_key: str = Header(...)):
+    """Remove the live store copy (serve reverts to the bundled default if any)."""
+    _verify_admin(request, x_admin_key)
+    from app.services import promo_assets
+    if promo_assets.remove(name):
+        return {"status": "deleted", "name": name}
+    raise HTTPException(status_code=404, detail="no live copy (bundled default unaffected)")
