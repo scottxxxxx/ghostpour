@@ -3197,14 +3197,56 @@ async def campaign_events(
 ):
     """Raw interaction timeline for one campaign: each impression/click/dismiss/
     convert with its device, user, what was clicked (cta_id), and dwell
-    (visible_ms). Newest first. Powers the dashboard Activity view."""
+    (visible_ms). Newest first. Enriched with readable user (email/tier) and
+    device (marketing name + locale), reusing the Users-tab pattern. Powers the
+    dashboard Activity view."""
     _verify_admin(request, x_admin_key)
+    from app.services.device_models import to_marketing_name
+
     cur = await db.execute(
         "SELECT created_at, device_id, user_id, event_type, cta_id, visible_ms "
         "FROM promo_events WHERE campaign_id = ? ORDER BY created_at DESC LIMIT ?",
         (campaign_id, limit),
     )
-    return {"campaign_id": campaign_id, "events": [dict(r) for r in await cur.fetchall()]}
+    rows = [dict(r) for r in await cur.fetchall()]
+
+    # Batch-resolve the opaque ids to readable info (2 queries, not N).
+    user_ids = sorted({r["user_id"] for r in rows if r["user_id"]})
+    device_ids = sorted({r["device_id"] for r in rows if r["device_id"]})
+    users: dict[str, dict] = {}
+    if user_ids:
+        ph = ",".join("?" * len(user_ids))
+        for u in await (await db.execute(
+            f"SELECT id, email, display_name, tier FROM users WHERE id IN ({ph})", user_ids
+        )).fetchall():
+            users[u["id"]] = {"email": u["email"], "name": u["display_name"], "tier": u["tier"]}
+    devices: dict[str, dict] = {}
+    if device_ids:
+        ph = ",".join("?" * len(device_ids))
+        # Latest non-null device_model / app_locale per device (newest first, fill once).
+        for t in await (await db.execute(
+            f"SELECT device_id, device_model, app_locale FROM telemetry_events "
+            f"WHERE device_id IN ({ph}) AND (device_model IS NOT NULL OR app_locale IS NOT NULL) "
+            f"ORDER BY received_at DESC", device_ids
+        )).fetchall():
+            d = devices.setdefault(t["device_id"], {"device_model": None, "app_locale": None})
+            if d["device_model"] is None and t["device_model"]:
+                d["device_model"] = t["device_model"]
+            if d["app_locale"] is None and t["app_locale"]:
+                d["app_locale"] = t["app_locale"]
+
+    out = []
+    for r in rows:
+        u = users.get(r["user_id"]) or {}
+        dv = devices.get(r["device_id"]) or {}
+        out.append({
+            **r,
+            "email": u.get("email"),
+            "tier": u.get("tier"),
+            "device": to_marketing_name(dv.get("device_model")),
+            "locale": dv.get("app_locale"),
+        })
+    return {"campaign_id": campaign_id, "events": out}
 
 
 # --- Promo creatives (hot-reloadable, no deploy) -----------------------------

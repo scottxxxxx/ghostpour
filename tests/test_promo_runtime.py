@@ -133,6 +133,9 @@ def test_campaign_events_timeline(client, pro_user):
     assert next(e for e in ev if e["event_type"] == "dismiss")["visible_ms"] == 4200  # dwell
     assert next(e for e in ev if e["event_type"] == "click")["cta_id"] == "get_tr"     # what was clicked
     assert ev[0]["created_at"] >= ev[-1]["created_at"]  # newest first
+    # enriched with readable user (email/tier); device/locale keys present (None w/o telemetry)
+    assert all(e["email"] == PRO_EMAIL and e["tier"] == "pro" for e in ev)
+    assert all("device" in e and "locale" in e for e in ev)
     # admin required
     assert client.get("/webhooks/admin/campaign/ss_evt_tl/events", headers={"X-Admin-Key": "wrong"}).status_code == 403
 
