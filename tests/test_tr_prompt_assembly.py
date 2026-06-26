@@ -60,12 +60,16 @@ def test_match_prompt_keeps_calibration_guardrails():
     sp = cfg["systemPrompt"]
     for phrase in (
         "Use the FULL range",
-        "the radar must agree with your gaps list",
-        # Radar now carries two comparable series per axis (role bar vs you);
-        # the gap rule is keyed off the spread between them, not an absolute cap.
+        "the radar must agree with BOTH your gaps list and your strengths list",
+        # Radar carries two comparable series per axis (role bar vs you).
         "role_level",
         "candidate_level",
         "candidate_level MUST be at least 0.35 below",
+        # role_level must SPREAD, not render a flat rim-hugging hexagon.
+        "never return a flat bar",
+        "MUST be >= 0.9",
+        # a documented strength must not render as a phantom gap.
+        "do not show a phantom gap on a documented strength",
         "Never invent skills",
         "no ```json",  # anti-fence instruction must survive
     ):
