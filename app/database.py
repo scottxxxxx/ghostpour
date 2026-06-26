@@ -235,6 +235,12 @@ MIGRATIONS = [
     # cleanup feature flag is enabled; NULL otherwise. iOS reads this
     # field optionally and falls back to its raw transcript when absent.
     "ALTER TABLE meeting_reports ADD COLUMN cleaned_transcript TEXT",
+    # Persist the cleaned transcript canonically beside the raw one, so the
+    # served transcript can be the cleaned version and the dashboard can show
+    # original-vs-cleaned. `transcript` stays raw; `cleaned_transcript` is the
+    # cleanup output (null until cleanup runs).
+    "ALTER TABLE meeting_transcripts ADD COLUMN cleaned_transcript TEXT",
+    "ALTER TABLE meeting_transcripts ADD COLUMN cleaned_at TEXT",
     # v23: Unauthenticated telemetry events for app/meeting lifecycle
     # tracking. iOS pings on app_start, meeting_start, meeting_stop with
     # an anonymous device_id (identifierForVendor) and, when logged in,

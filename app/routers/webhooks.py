@@ -3284,3 +3284,83 @@ async def delete_promo_asset(name: str, request: Request, x_admin_key: str = Hea
     if promo_assets.remove(name):
         return {"status": "deleted", "name": name}
     raise HTTPException(status_code=404, detail="no live copy (bundled default unaffected)")
+
+
+# --- Transcript cleanup: original vs cleaned --------------------------------
+
+@router.get("/admin/meeting/{meeting_id}/transcripts")
+async def get_meeting_transcripts(
+    meeting_id: str,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+):
+    """Raw (OCR) transcript and the cleaned version for one meeting, for the
+    original-vs-cleaned view. `cleaned` is null until cleanup has run."""
+    _verify_admin(request, x_admin_key)
+    cur = await db.execute(
+        "SELECT transcript, cleaned_transcript, cleaned_at FROM meeting_transcripts WHERE meeting_id = ?",
+        (meeting_id,),
+    )
+    row = await cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail=f"No transcript for meeting '{meeting_id}'")
+    raw = row["transcript"] or ""
+    cleaned = row["cleaned_transcript"]
+    return {
+        "meeting_id": meeting_id,
+        "raw": raw,
+        "cleaned": cleaned,
+        "cleaned_at": row["cleaned_at"],
+        "raw_chars": len(raw),
+        "cleaned_chars": len(cleaned) if cleaned else 0,
+    }
+
+
+@router.post("/admin/meeting/{meeting_id}/clean-transcript")
+async def clean_meeting_transcript(
+    meeting_id: str,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+):
+    """Run the OCR cleanup pass on a meeting's stored raw transcript on demand
+    (bypasses the client transcript_source gate), persist the result, and return
+    both. Lets us clean any meeting and see before/after without the client."""
+    _verify_admin(request, x_admin_key)
+    cur = await db.execute(
+        "SELECT transcript FROM meeting_transcripts WHERE meeting_id = ?", (meeting_id,)
+    )
+    row = await cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail=f"No transcript for meeting '{meeting_id}'")
+    raw = row["transcript"] or ""
+
+    from app.services.transcript_cleanup import clean_transcript
+    cleaned = await clean_transcript(
+        request.app.state.provider_router,
+        raw,
+        request.app.state.remote_configs,
+        "ocr_captions",
+        locale="en",
+        meeting_id=meeting_id,
+    )
+    if not cleaned:
+        raise HTTPException(
+            status_code=502,
+            detail="cleanup produced no output (prompt missing, input empty/too large, or model failed)",
+        )
+    now = datetime.now(timezone.utc).isoformat()
+    await db.execute(
+        "UPDATE meeting_transcripts SET cleaned_transcript = ?, cleaned_at = ? WHERE meeting_id = ?",
+        (cleaned, now, meeting_id),
+    )
+    await db.commit()
+    return {
+        "meeting_id": meeting_id,
+        "raw_chars": len(raw),
+        "cleaned_chars": len(cleaned),
+        "cleaned_at": now,
+        "raw": raw,
+        "cleaned": cleaned,
+    }
