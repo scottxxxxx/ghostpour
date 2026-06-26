@@ -100,7 +100,10 @@ class ProviderAdapter(ABC):
         eliminating ~200-400ms of DNS + TLS overhead per call.
         """
         if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(timeout=120.0)
+            # 180s to cover long LLM calls (e.g. Sonnet tr_parse_jd /
+            # tr_match_analysis legitimately run 90-120s+). Matches the gateway
+            # proxy_read_timeout so the app doesn't cap below it.
+            self._client = httpx.AsyncClient(timeout=180.0)
         return self._client
 
     async def close(self) -> None:
