@@ -77,6 +77,40 @@ def test_validation_and_conflicts(client):
     assert client.delete(f"{BASE}/campaign/nope", headers=ADMIN).status_code == 404
 
 
+def _native(*ctas):
+    return [{"variant_id": "A", "weight": 100, "render": "native",
+             "native": {"schema_version": 1, "title": "hi", "ctas": list(ctas)}}]
+
+
+def test_cta_action_type_allowlist(client):
+    # every locked type is accepted
+    ok = _campaign(id="cta_ok", variants=_native(
+        {"label": "Get it", "action": {"type": "appstore", "value": "id1"}},
+        {"label": "Upgrade", "action": {"type": "paywall"}},
+        {"label": "Offer", "action": {"type": "storekit_offer", "value": "prod.month"}},
+        {"label": "Site", "action": {"type": "url", "value": "https://x/y"}},
+        {"label": "Open", "action": {"type": "deeplink", "value": "/settings"}},
+        {"label": "Dismiss", "action": {"type": "none"}},
+    ))
+    assert client.post(f"{BASE}/campaigns", json=ok, headers=ADMIN).status_code == 200
+    # unknown type is rejected
+    bad = _campaign(id="cta_bad", variants=_native(
+        {"label": "Evil", "action": {"type": "open_url_scheme", "value": "tel://911"}}))
+    assert client.post(f"{BASE}/campaigns", json=bad, headers=ADMIN).status_code == 400
+    # missing action.type is rejected
+    notype = _campaign(id="cta_notype", variants=_native({"label": "Naked"}))
+    assert client.post(f"{BASE}/campaigns", json=notype, headers=ADMIN).status_code == 400
+
+
+def test_cta_id_optional_string(client):
+    good = _campaign(id="cid_ok", variants=_native(
+        {"label": "Get it", "cta_id": "primary", "action": {"type": "appstore", "value": "id1"}}))
+    assert client.post(f"{BASE}/campaigns", json=good, headers=ADMIN).status_code == 200
+    bad = _campaign(id="cid_bad", variants=_native(
+        {"label": "Get it", "cta_id": 7, "action": {"type": "appstore", "value": "id1"}}))
+    assert client.post(f"{BASE}/campaigns", json=bad, headers=ADMIN).status_code == 400
+
+
 def test_admin_key_required(client):
     assert client.get(f"{BASE}/campaigns", headers={"X-Admin-Key": "wrong"}).status_code == 403
 

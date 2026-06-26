@@ -2963,6 +2963,12 @@ async def admin_cert_pins_publish(
 
 _CAMPAIGN_STATUSES = {"draft", "active", "paused", "archived"}
 _CAMPAIGN_JSON_COLS = ("targeting", "frequency", "placements", "variants")
+# Locked allowlist of CTA action targets a native variant may author. The
+# client allowlists the same set and ignores anything else, so an unknown type
+# in a payload can't make the app open something it shouldn't. "none" =
+# display-only. Purchases (storekit_offer/paywall) resolve through StoreKit on
+# device; prices and purchase tokens never ride in the payload.
+_CTA_ACTION_TYPES = {"appstore", "storekit_offer", "paywall", "url", "deeplink", "none"}
 
 
 class CampaignBody(BaseModel):
@@ -3033,6 +3039,25 @@ def _validate_campaign(body: CampaignBody) -> None:
     weights = [v.get("weight", 0) for v in body.variants if isinstance(v, dict)]
     if body.status == "active" and weights and sum(weights) != 100:
         raise HTTPException(status_code=400, detail=f"active campaign variant weights must sum to 100 (got {sum(weights)})")
+    # Each native CTA must declare an action.type from the locked allowlist
+    # (incl. "none"); reject unknown so a payload can't ship a target the client
+    # won't render. Optional per-CTA cta_id is the link-attribution key echoed
+    # back on promo_click (promo_events.cta_id).
+    for v in body.variants:
+        if not isinstance(v, dict):
+            continue
+        for cta in (v.get("native") or {}).get("ctas") or []:
+            if not isinstance(cta, dict):
+                continue
+            atype = (cta.get("action") or {}).get("type")
+            if atype not in _CTA_ACTION_TYPES:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"cta action.type must be one of {sorted(_CTA_ACTION_TYPES)} (got {atype!r})",
+                )
+            cid = cta.get("cta_id")
+            if cid is not None and not isinstance(cid, str):
+                raise HTTPException(status_code=400, detail="cta_id must be a string when present")
 
 
 @router.post("/admin/campaigns")
