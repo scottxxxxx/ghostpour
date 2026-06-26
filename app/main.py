@@ -21,6 +21,7 @@ from app.routers import (
     features,
     health,
     preferences,
+    promo,
     reports,
     resend_webhooks,
     telemetry,
@@ -289,6 +290,7 @@ app.include_router(features.router, prefix="/v1", tags=["features"])
 app.include_router(preferences.router, prefix="/v1", tags=["preferences"])
 app.include_router(unsubscribe.router, tags=["unsubscribe"])
 app.include_router(telemetry.router, prefix="/v1", tags=["telemetry"])
+app.include_router(promo.router, prefix="/v1", tags=["promo"])
 app.include_router(app_version.router, prefix="/v1", tags=["app-version"])
 
 # Context Quilt proxy routes — only included when CQ is configured

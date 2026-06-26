@@ -3128,3 +3128,44 @@ async def delete_campaign(
     if cur.rowcount == 0:
         raise HTTPException(status_code=404, detail=f"Campaign '{campaign_id}' not found")
     return {"status": "deleted", "id": campaign_id}
+
+
+@router.get("/admin/campaign/{campaign_id}/report")
+async def campaign_report(
+    campaign_id: str,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+):
+    """Promo funnel for one campaign from promo_events: impressions, clicks
+    (with per-CTA breakdown), dismisses, converts, CTR. Stand-in for the
+    dashboard reporting slice — lets us read live results before that's built."""
+    _verify_admin(request, x_admin_key)
+    cur = await db.execute(
+        "SELECT event_type, COUNT(*) AS n FROM promo_events WHERE campaign_id = ? GROUP BY event_type",
+        (campaign_id,),
+    )
+    counts = {r["event_type"]: r["n"] for r in await cur.fetchall()}
+    cur = await db.execute(
+        "SELECT COALESCE(cta_id, '(none)') AS cta, COUNT(*) AS n FROM promo_events "
+        "WHERE campaign_id = ? AND event_type = 'click' GROUP BY cta ORDER BY n DESC",
+        (campaign_id,),
+    )
+    clicks_by_cta = {r["cta"]: r["n"] for r in await cur.fetchall()}
+    impressions = counts.get("impression", 0)
+    clicks = counts.get("click", 0)
+    cur = await db.execute(
+        "SELECT COUNT(DISTINCT device_id) AS n FROM promo_events WHERE campaign_id = ?",
+        (campaign_id,),
+    )
+    reach = (await cur.fetchone())["n"]
+    return {
+        "campaign_id": campaign_id,
+        "reach_devices": reach,
+        "impressions": impressions,
+        "clicks": clicks,
+        "dismisses": counts.get("dismiss", 0),
+        "converts": counts.get("convert", 0),
+        "ctr": round(clicks / impressions, 4) if impressions else None,
+        "clicks_by_cta": clicks_by_cta,
+    }

@@ -20,6 +20,20 @@ import pytest
 from app.services.device_models import to_marketing_name
 
 
+@pytest.fixture(autouse=True)
+def _isolate_synced_device_map():
+    """to_marketing_name tests exercise the static fallback table, but any test
+    that builds the `client` fixture (app lifespan) loads the synced device map,
+    which shadows the static table (priority 1). Reset that module global around
+    each test here so these assertions are order-independent — this is a
+    pre-existing pollution, surfaced by the full-suite ordering."""
+    from app.services import device_models_sync
+    saved = device_models_sync._synced
+    device_models_sync._synced = {}
+    yield
+    device_models_sync._synced = saved
+
+
 # --- device_models -------------------------------------------------------
 
 def test_to_marketing_name_known_iphone():

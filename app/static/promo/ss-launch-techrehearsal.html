@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Shoulder Surf — Promo</title>
+<!--
+  GP promo creative · render=html variant · app_id=shouldersurf
+  Served as the campaign variant's `html_url`. The SS app loads this in a
+  webview on launch and intercepts CTA taps. The primary CTA carries
+  ?promo_cta_id=get_tr so SS reports promo_click with cta_id=get_tr
+  (per-link attribution, see promo_events.cta_id). Retheme via the :root vars.
+  Self-contained: no external fonts, images, scripts, or network calls — and
+  NO dialogs (alert/confirm), which would block the webview bridge.
+-->
+<style>
+  :root {
+    --accent: #2F6F4E;          /* SS forest green — retheme here */
+    --accent-press: #245A3E;
+    --bg: #F4F1EA;
+    --card: #FFFFFF;
+    --text: #16201A;
+    --muted: #5B6B61;
+    --hairline: rgba(0,0,0,.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --accent: #6FBF92;
+      --accent-press: #5AA87D;
+      --bg: #0E1411;
+      --card: #161D19;
+      --text: #ECF1ED;
+      --muted: #9DB0A4;
+      --hairline: rgba(255,255,255,.10);
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    padding: env(safe-area-inset-top) 20px env(safe-area-inset-bottom);
+    -webkit-font-smoothing: antialiased;
+  }
+  .card {
+    width: 100%; max-width: 420px;
+    background: var(--card);
+    border: 1px solid var(--hairline);
+    border-radius: 22px;
+    padding: 28px 24px 24px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.12);
+    text-align: center;
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600; letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    border-radius: 999px; padding: 6px 12px; margin-bottom: 18px;
+  }
+  .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  .glyph {
+    width: 64px; height: 64px; margin: 0 auto 18px;
+    border-radius: 18px;
+    background: linear-gradient(145deg, var(--accent), var(--accent-press));
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 30px; font-weight: 700;
+  }
+  h1 { font-size: 22px; line-height: 1.25; margin: 0 0 8px; letter-spacing: -.01em; }
+  p.sub { font-size: 15px; color: var(--muted); margin: 0 0 22px; }
+  .cta {
+    display: block; width: 100%;
+    background: var(--accent); color: #fff;
+    font-size: 16px; font-weight: 600; text-decoration: none;
+    padding: 15px 18px; border-radius: 14px;
+    transition: background .15s ease, transform .05s ease;
+  }
+  .cta:active { background: var(--accent-press); transform: scale(.99); }
+  .fineprint { font-size: 12px; color: var(--muted); margin: 14px 0 0; }
+</style>
+</head>
+<body>
+  <main class="card" role="dialog" aria-label="Tech Rehearsal promotion">
+    <span class="badge"><span class="dot"></span>From the makers of Shoulder Surf</span>
+    <div class="glyph" aria-hidden="true">TR</div>
+    <h1>Walk into your next interview ready, Scott.</h1>
+    <p class="sub">Tech Rehearsal runs realistic mock interviews from a real job posting, scores where you fit, and coaches your answers — same AI that powers Shoulder Surf.</p>
+    <!--
+      HTML render: the app intercepts this tap, reads promo_cta_id for
+      attribution, and (App Store URL) opens it in the in-app App Store card.
+      Replace the App Store id when the listing is live.
+    -->
+    <a class="cta"
+       href="https://apps.apple.com/app/id0000000000?promo_cta_id=get_tr"
+       data-cta-id="get_tr">
+       Try Tech Rehearsal — free
+    </a>
+    <p class="fineprint">Free to start. Your Shoulder Surf subscription is unaffected.</p>
+  </main>
+</body>
+</html>
