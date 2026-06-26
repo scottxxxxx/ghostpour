@@ -463,6 +463,19 @@
       </div>
       <div id="campaign-editor-error" style="color:var(--red);font-size:12px;margin-top:10px"></div>
     </div>
+
+    <!-- Funnel & activity -->
+    <div id="campaign-activity-wrap" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:24px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <h3 id="campaign-activity-title" style="margin:0"></h3>
+        <div style="display:flex;gap:8px">
+          <button class="refresh-btn" onclick="showCampaignActivity(_activityCampaignId)" style="background:var(--bg);color:var(--text);border:1px solid var(--border)">Refresh</button>
+          <button class="refresh-btn" onclick="closeCampaignActivity()" style="background:var(--bg);color:var(--text);border:1px solid var(--border)">Close</button>
+        </div>
+      </div>
+      <div id="campaign-funnel" style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:16px"></div>
+      <div id="campaign-activity-table" style="overflow-x:auto"></div>
+    </div>
   </div>
 
   <!-- Model Routing -->
@@ -2711,12 +2724,71 @@ function renderCampaignCard(c, i) {
       <span>${nVariants} variant${nVariants===1?'':'s'}</span>
       <span>${_cEsc(sched)}</span>
     </div>
+    <div style="margin-top:10px">
+      <button onclick="event.stopPropagation();showCampaignActivity('${c.id}')" style="background:var(--bg);color:var(--accent);border:1px solid var(--border);border-radius:6px;font-size:11px;padding:5px 10px;cursor:pointer">📊 Funnel &amp; activity</button>
+    </div>
   </div>`;
+}
+
+let _activityCampaignId = null;
+
+async function showCampaignActivity(id) {
+  _activityCampaignId = id;
+  document.getElementById('campaign-editor-wrap').style.display = 'none';
+  const wrap = document.getElementById('campaign-activity-wrap');
+  wrap.style.display = 'block';
+  wrap.scrollIntoView({behavior: 'smooth', block: 'start'});
+  document.getElementById('campaign-activity-title').textContent = 'Funnel & activity — ' + id;
+  const funnelEl = document.getElementById('campaign-funnel');
+  const tableEl = document.getElementById('campaign-activity-table');
+  funnelEl.innerHTML = '<span style="color:var(--text-dim)">Loading…</span>';
+  tableEl.innerHTML = '';
+  const hdr = {headers:{'X-Admin-Key':adminKey}};
+  const [rep, ev] = await Promise.all([
+    fetch(`${BASE}/webhooks/admin/campaign/${encodeURIComponent(id)}/report`, hdr).then(r=>r.json()),
+    fetch(`${BASE}/webhooks/admin/campaign/${encodeURIComponent(id)}/events?limit=200`, hdr).then(r=>r.json()),
+  ]);
+  const stat = (label,val) => `<div style="min-width:74px"><div style="font-size:22px;font-weight:700;color:var(--text)">${val}</div><div style="font-size:11px;color:var(--text-dim)">${label}</div></div>`;
+  const byCta = rep.clicks_by_cta || {};
+  const ctaStr = Object.keys(byCta).length ? Object.entries(byCta).map(([k,v])=>`${_cEsc(k)} ${v}`).join(' · ') : '—';
+  funnelEl.innerHTML =
+    stat('Impressions', rep.impressions ?? 0) +
+    stat('Clicks', rep.clicks ?? 0) +
+    stat('Dismisses', rep.dismisses ?? 0) +
+    stat('Converts', rep.converts ?? 0) +
+    stat('CTR', rep.ctr==null ? '—' : (Math.round(rep.ctr*1000)/10)+'%') +
+    stat('Devices', rep.reach_devices ?? 0) +
+    `<div style="flex:1;min-width:150px"><div style="font-size:13px;color:var(--text)">${ctaStr}</div><div style="font-size:11px;color:var(--text-dim)">clicks by CTA</div></div>`;
+  const evs = ev.events || [];
+  if (!evs.length) { tableEl.innerHTML = '<div style="color:var(--text-dim);font-size:12px">No interactions recorded yet.</div>'; return; }
+  const dwell = ms => ms==null ? '' : (ms>=1000 ? (Math.round(ms/100)/10)+'s' : ms+'ms');
+  const evColor = {impression:'var(--text-dim)',click:'var(--green)',dismiss:'var(--text)',convert:'var(--accent)'};
+  const rows = evs.map(e=>`
+    <tr style="border-top:1px solid var(--border)">
+      <td style="padding:6px 8px;font-size:11px;color:var(--text-dim);white-space:nowrap" class="mono">${_cEsc((e.created_at||'').slice(0,19).replace('T',' '))}</td>
+      <td style="padding:6px 8px;font-size:11px" class="mono">${_cEsc((e.device_id||'').slice(0,16))}</td>
+      <td style="padding:6px 8px;font-size:11px"><span style="color:${evColor[e.event_type]||'var(--text)'}">${_cEsc(e.event_type)}</span></td>
+      <td style="padding:6px 8px;font-size:11px;color:var(--accent)" class="mono">${e.cta_id?_cEsc(e.cta_id):''}</td>
+      <td style="padding:6px 8px;font-size:11px;color:var(--text)">${dwell(e.visible_ms)}</td>
+      <td style="padding:6px 8px;font-size:11px;color:var(--text-dim)" class="mono">${e.user_id?_cEsc(String(e.user_id).slice(0,8)):'anon'}</td>
+    </tr>`).join('');
+  tableEl.innerHTML = `<table style="width:100%;border-collapse:collapse">
+    <thead><tr style="text-align:left;color:var(--text-dim);font-size:11px">
+      <th style="padding:6px 8px;font-weight:600">Time (UTC)</th><th style="padding:6px 8px;font-weight:600">Device</th>
+      <th style="padding:6px 8px;font-weight:600">Event</th><th style="padding:6px 8px;font-weight:600">Clicked</th>
+      <th style="padding:6px 8px;font-weight:600">Dwell</th><th style="padding:6px 8px;font-weight:600">User</th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function closeCampaignActivity() {
+  document.getElementById('campaign-activity-wrap').style.display = 'none';
+  _activityCampaignId = null;
 }
 
 function _setCf(id, val) { document.getElementById(id).value = val; }
 
 function _showCampaignEditor() {
+  document.getElementById('campaign-activity-wrap').style.display = 'none';
   const wrap = document.getElementById('campaign-editor-wrap');
   document.getElementById('campaign-editor-error').textContent = '';
   wrap.style.display = 'block';

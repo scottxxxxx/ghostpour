@@ -119,6 +119,24 @@ def test_events_unauthenticated_recorded_with_null_user(client):
     assert rep["impressions"] == 1 and rep["clicks"] == 1
 
 
+def test_campaign_events_timeline(client, pro_user):
+    # The dashboard Activity view reads this: raw interactions with dwell + cta.
+    _make_campaign(client, cid="ss_evt_tl", targeting={"users": [PRO_EMAIL]})
+    h = {**pro_user["headers"], "X-App-ID": SS}
+    client.post("/v1/promo/events", headers=h, json={"event_type": "impression", "campaign_id": "ss_evt_tl", "device_id": "devT"})
+    client.post("/v1/promo/events", headers=h, json={"event_type": "dismiss", "campaign_id": "ss_evt_tl", "device_id": "devT", "visible_ms": 4200})
+    client.post("/v1/promo/events", headers=h, json={"event_type": "click", "campaign_id": "ss_evt_tl", "device_id": "devT", "cta_id": "get_tr"})
+
+    ev = client.get("/webhooks/admin/campaign/ss_evt_tl/events", headers=ADMIN).json()["events"]
+    assert len(ev) == 3
+    assert {e["event_type"] for e in ev} == {"impression", "dismiss", "click"}
+    assert next(e for e in ev if e["event_type"] == "dismiss")["visible_ms"] == 4200  # dwell
+    assert next(e for e in ev if e["event_type"] == "click")["cta_id"] == "get_tr"     # what was clicked
+    assert ev[0]["created_at"] >= ev[-1]["created_at"]  # newest first
+    # admin required
+    assert client.get("/webhooks/admin/campaign/ss_evt_tl/events", headers={"X-Admin-Key": "wrong"}).status_code == 403
+
+
 def test_signed_in_targeting_field(client, pro_user):
     # signed_in:false -> only the unsigned base sees it
     _make_campaign(client, cid="ss_anon_only", targeting={"signed_in": False})

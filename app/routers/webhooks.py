@@ -3187,6 +3187,26 @@ async def campaign_report(
     }
 
 
+@router.get("/admin/campaign/{campaign_id}/events")
+async def campaign_events(
+    campaign_id: str,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    limit: int = Query(default=100, ge=1, le=500),
+):
+    """Raw interaction timeline for one campaign: each impression/click/dismiss/
+    convert with its device, user, what was clicked (cta_id), and dwell
+    (visible_ms). Newest first. Powers the dashboard Activity view."""
+    _verify_admin(request, x_admin_key)
+    cur = await db.execute(
+        "SELECT created_at, device_id, user_id, event_type, cta_id, visible_ms "
+        "FROM promo_events WHERE campaign_id = ? ORDER BY created_at DESC LIMIT ?",
+        (campaign_id, limit),
+    )
+    return {"campaign_id": campaign_id, "events": [dict(r) for r in await cur.fetchall()]}
+
+
 # --- Promo creatives (hot-reloadable, no deploy) -----------------------------
 
 @router.get("/admin/promo-assets")
