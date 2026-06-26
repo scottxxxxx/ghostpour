@@ -99,19 +99,20 @@
     <p class="sub">Tech Rehearsal runs realistic mock interviews from a real job posting, scores where you fit, and coaches your answers — same AI that powers Shoulder Surf.</p>
     <!--
       HTML render: the app intercepts this tap, reads promo_cta_id for
-      attribution, and (App Store URL) opens it in the in-app App Store card.
-      Replace the App Store id when the listing is live.
+      attribution, then opens it. The client reads cta_id from data-cta-id (SS
+      build 622+), so destination URLs stay bare — Apple universal links like
+      the App Store and TestFlight open natively. Replace the App Store id when
+      the listing is live.
     -->
     <a class="cta"
-       href="https://apps.apple.com/app/id0000000000?promo_cta_id=get_tr"
+       href="https://apps.apple.com/app/id0000000000"
        data-cta-id="get_tr">
        Try Tech Rehearsal — free
     </a>
-    <!-- Secondary links — each carries its own promo_cta_id so taps attribute
-         separately (clicks_by_cta in the funnel). -->
+    <!-- Secondary links — cta_id rides on data-cta-id, URLs stay bare. -->
     <div class="secondary">
-      <a href="https://shouldersurf.com?promo_cta_id=ss_site" data-cta-id="ss_site">Visit shouldersurf.com</a>
-      <a href="https://testflight.apple.com/join/ubRWVcXF?promo_cta_id=tf_join" data-cta-id="tf_join">Join the TestFlight beta</a>
+      <a href="https://shouldersurf.com" data-cta-id="ss_site">Visit shouldersurf.com</a>
+      <a href="https://testflight.apple.com/join/ubRWVcXF" data-cta-id="tf_join">Join the TestFlight beta</a>
     </div>
     <p class="fineprint">Free to start. Your Shoulder Surf subscription is unaffected.</p>
   </main>
