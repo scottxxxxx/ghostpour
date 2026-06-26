@@ -46,15 +46,95 @@ def _parse_campaign(row) -> dict:
     return d
 
 
-def _targeting_matches(targeting: dict, user: UserRecord | None) -> bool:
-    """MVP targeting. `user` is None for the unsigned base (BYOK / on-device),
-    which is the prime cross-promo audience — a campaign with no user/tier
-    constraint reaches them. Rules that need identity only apply when signed in:
-      - signed_in: true|false|null  — gate on auth state (null = both).
-      - users:     allowlist (email or user id) — signed-in only; anonymous never matches.
-      - tiers:     allowlist — applied only when signed in (tier unknown otherwise).
-    Empty/absent rule = no constraint on that dimension.
+# Targeting dims that need the server-built device profile (telemetry lookup).
+_PROFILE_KEYS = {"locales", "app_version", "meetings_recorded", "active_within_days", "device_families"}
+
+
+def _semver(v: str) -> tuple:
+    parts = []
+    for p in str(v or "").split(".")[:3]:
+        digits = "".join(ch for ch in p if ch.isdigit())
+        parts.append(int(digits) if digits else 0)
+    while len(parts) < 3:
+        parts.append(0)
+    return tuple(parts)
+
+
+def _version_in_range(version: str | None, rng: dict) -> bool:
+    if not version:
+        return False
+    v = _semver(version)
+    mn, mx = rng.get("min"), rng.get("max")
+    if mn and v < _semver(mn):
+        return False
+    if mx and v > _semver(mx):
+        return False
+    return True
+
+
+def _locale_matches(locale: str | None, targets: list) -> bool:
+    if not locale:
+        return False
+    loc = locale.lower().replace("-", "_")
+    lang = loc.split("_")[0]
+    return any(loc == str(t).lower() or lang == str(t).lower() or loc.startswith(str(t).lower()) for t in targets)
+
+
+def _device_family_matches(device: str | None, families: list) -> bool:
+    if not device:
+        return False
+    norm = "".join(device.lower().split())  # "iPhone 16 Pro Max" -> "iphone16promax"
+    return any(norm.startswith("".join(str(f).lower().split())) for f in families)
+
+
+def _within_days(ts: str, days: int) -> bool:
+    try:
+        t = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - t).total_seconds() <= days * 86400
+    except Exception:
+        return False
+
+
+async def _device_profile(db: aiosqlite.Connection, device_id: str, user: UserRecord | None) -> dict:
+    """Build the device targeting profile from telemetry — no client change.
+    Latest locale / app_version / device family, lifetime meeting count, and
+    last-active recency; tier / signed-in from the optional bearer user."""
+    from app.services.device_models import to_marketing_name
+    prof = {
+        "locale": None, "app_version": None, "device": None,
+        "meetings_recorded": 0, "last_active": None,
+        "tier": user.tier if user else None, "signed_in": user is not None,
+    }
+    latest = await (await db.execute(
+        "SELECT app_locale, app_version, device_model, received_at FROM telemetry_events "
+        "WHERE device_id = ? ORDER BY received_at DESC LIMIT 1", (device_id,)
+    )).fetchone()
+    if latest:
+        prof["locale"] = latest["app_locale"]
+        prof["app_version"] = latest["app_version"]
+        prof["device"] = to_marketing_name(latest["device_model"])
+        prof["last_active"] = latest["received_at"]
+    agg = await (await db.execute(
+        "SELECT SUM(CASE WHEN event_type = 'meeting_start' THEN 1 ELSE 0 END) AS meetings, "
+        "MAX(received_at) AS last_active FROM telemetry_events WHERE device_id = ?", (device_id,)
+    )).fetchone()
+    if agg:
+        prof["meetings_recorded"] = agg["meetings"] or 0
+        prof["last_active"] = agg["last_active"] or prof["last_active"]
+    return prof
+
+
+def _targeting_matches(targeting: dict, user: UserRecord | None, profile: dict | None) -> bool:
+    """Targeting. `user` is None for the unsigned base (BYOK / on-device), the
+    prime cross-promo audience — a campaign with no constraint reaches them.
+    Identity dims (users/tiers/signed_in) apply only when signed in. Profile dims
+    (locales / app_version / meetings_recorded / active_within_days /
+    device_families) use the server-built device profile; a dim we can't verify
+    (no telemetry) does not match. Absent rule = no constraint on that dimension.
     """
+    p = profile or {}
     signed_in = targeting.get("signed_in")
     if signed_in is True and user is None:
         return False
@@ -71,6 +151,27 @@ def _targeting_matches(targeting: dict, user: UserRecord | None) -> bool:
             return False
     tiers = targeting.get("tiers")
     if tiers and (user is None or user.tier not in tiers):
+        return False
+    locales = targeting.get("locales")
+    if locales and not _locale_matches(p.get("locale"), locales):
+        return False
+    av = targeting.get("app_version")
+    if av and not _version_in_range(p.get("app_version"), av):
+        return False
+    mr = targeting.get("meetings_recorded")
+    if mr:
+        n = p.get("meetings_recorded", 0) or 0
+        if mr.get("min") is not None and n < mr["min"]:
+            return False
+        if mr.get("max") is not None and n > mr["max"]:
+            return False
+    awd = targeting.get("active_within_days")
+    if awd:
+        la = p.get("last_active")
+        if not la or not _within_days(la, awd):
+            return False
+    fams = targeting.get("device_families")
+    if fams and not _device_family_matches(p.get("device"), fams):
         return False
     return True
 
@@ -128,13 +229,17 @@ async def resolve_promo(
         (app_id,),
     )
     rows = await cur.fetchall()
-    for row in rows:
-        c = _parse_campaign(row)
+    campaigns = [_parse_campaign(r) for r in rows]
+    # Build the device profile (telemetry lookup) only if some active campaign
+    # targets a profile dim — keeps the common path (no profile targeting) cheap.
+    needs_profile = any(_PROFILE_KEYS & set((c.get("targeting") or {}).keys()) for c in campaigns)
+    profile = await _device_profile(db, device_id, user) if needs_profile else None
+    for c in campaigns:
         if c.get("starts_at") and now < c["starts_at"]:
             continue
         if c.get("expires_at") and now > c["expires_at"]:
             continue
-        if not _targeting_matches(c.get("targeting") or {}, user):
+        if not _targeting_matches(c.get("targeting") or {}, user, profile):
             continue
         max_impressions = (c.get("frequency") or {}).get("max_impressions")
         if max_impressions:

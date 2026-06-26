@@ -147,3 +147,73 @@ def test_signed_in_targeting_field(client, pro_user):
                       headers={"X-App-ID": SS}).json()["campaign_id"] == "ss_anon_only"
     assert client.get("/v1/promo/resolve?device_id=d1",
                       headers={**pro_user["headers"], "X-App-ID": SS}).json() == {}
+
+
+# --- Phase 1: existing-data targeting (locale / version / usage / device) ---
+
+def _insert_telemetry(db_path, device_id, event_type="app_start", *, app_locale=None,
+                      app_version=None, device_model=None, received_at=None):
+    import sqlite3, uuid
+    from datetime import datetime, timezone
+    received_at = received_at or datetime.now(timezone.utc).isoformat()
+    con = sqlite3.connect(db_path)
+    con.execute(
+        "INSERT INTO telemetry_events (id, event_type, device_id, received_at, app_locale, app_version, device_model)"
+        " VALUES (?,?,?,?,?,?,?)",
+        (str(uuid.uuid4()), event_type, device_id, received_at, app_locale, app_version, device_model),
+    )
+    con.commit()
+    con.close()
+
+
+def test_targeting_matcher_helpers():
+    from app.routers.promo import _version_in_range, _locale_matches, _device_family_matches, _within_days
+    from datetime import datetime, timezone, timedelta
+    assert _version_in_range("1.5.0", {"min": "1.4.0", "max": None})
+    assert not _version_in_range("1.3.0", {"min": "1.4.0"})
+    assert not _version_in_range("2.0.0", {"max": "1.9.0"})
+    assert not _version_in_range(None, {"min": "1.0.0"})
+    assert _locale_matches("en_US", ["en"]) and _locale_matches("en_US", ["en_US"])
+    assert not _locale_matches("fr_FR", ["en"]) and not _locale_matches(None, ["en"])
+    assert _device_family_matches("iPhone 16 Pro Max", ["iPhone16"])
+    assert not _device_family_matches("iPhone 15 Pro", ["iPhone16"])
+    now = datetime.now(timezone.utc)
+    assert _within_days(now.isoformat(), 7)
+    assert not _within_days((now - timedelta(days=30)).isoformat(), 7)
+
+
+def test_targeting_locale_via_resolve(client, tmp_db_path):
+    _insert_telemetry(tmp_db_path, "dev-loc", app_locale="en_US", app_version="1.5.0")
+    _make_campaign(client, cid="t_en", targeting={"locales": ["en"]})
+    h = {"X-App-ID": SS}
+    assert client.get("/v1/promo/resolve?device_id=dev-loc", headers=h).json()["campaign_id"] == "t_en"
+    # a device we have no telemetry for can't satisfy a locale constraint
+    assert client.get("/v1/promo/resolve?device_id=dev-unknown", headers=h).json() == {}
+
+
+def test_targeting_app_version_via_resolve(client, tmp_db_path):
+    _insert_telemetry(tmp_db_path, "dev-new", app_locale="en", app_version="1.5.0")
+    _make_campaign(client, cid="t_newbuilds", targeting={"app_version": {"min": "1.4.0"}})
+    assert client.get("/v1/promo/resolve?device_id=dev-new", headers={"X-App-ID": SS}).json()["campaign_id"] == "t_newbuilds"
+
+
+def test_targeting_app_version_excludes_old_build(client, tmp_db_path):
+    _insert_telemetry(tmp_db_path, "dev-old", app_locale="en", app_version="1.3.0")
+    _make_campaign(client, cid="t_min140", targeting={"app_version": {"min": "1.4.0"}})
+    assert client.get("/v1/promo/resolve?device_id=dev-old", headers={"X-App-ID": SS}).json() == {}
+
+
+def test_targeting_usage_band_and_recency_via_resolve(client, tmp_db_path):
+    dev = "dev-power"
+    for _ in range(3):
+        _insert_telemetry(tmp_db_path, dev, event_type="meeting_start", app_locale="en", app_version="1.5.0")
+    _insert_telemetry(tmp_db_path, dev, event_type="app_start", app_locale="en", app_version="1.5.0")
+    _make_campaign(client, cid="t_power", targeting={"meetings_recorded": {"min": 3}, "active_within_days": 7})
+    assert client.get(f"/v1/promo/resolve?device_id={dev}", headers={"X-App-ID": SS}).json()["campaign_id"] == "t_power"
+
+
+def test_targeting_usage_band_excludes_light_user(client, tmp_db_path):
+    dev = "dev-light"
+    _insert_telemetry(tmp_db_path, dev, event_type="meeting_start", app_locale="en", app_version="1.5.0")
+    _make_campaign(client, cid="t_min5", targeting={"meetings_recorded": {"min": 5}})
+    assert client.get(f"/v1/promo/resolve?device_id={dev}", headers={"X-App-ID": SS}).json() == {}
