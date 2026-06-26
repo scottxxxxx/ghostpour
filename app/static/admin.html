@@ -474,6 +474,16 @@
         </div>
       </div>
       <div id="campaign-funnel" style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:16px"></div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:18px">
+        <div style="flex:2;min-width:320px">
+          <div style="font-size:11px;color:var(--text-dim);margin-bottom:2px">Impressions vs clicks over time</div>
+          <div id="promo-chart-time"></div>
+        </div>
+        <div style="flex:1;min-width:240px">
+          <div style="font-size:11px;color:var(--text-dim);margin-bottom:2px">Clicks by CTA</div>
+          <div id="promo-chart-cta"></div>
+        </div>
+      </div>
       <div id="campaign-activity-table" style="overflow-x:auto"></div>
     </div>
   </div>
@@ -2748,36 +2758,87 @@ async function showCampaignActivity(id) {
     fetch(`${BASE}/webhooks/admin/campaign/${encodeURIComponent(id)}/report`, hdr).then(r=>r.json()),
     fetch(`${BASE}/webhooks/admin/campaign/${encodeURIComponent(id)}/events?limit=200`, hdr).then(r=>r.json()),
   ]);
+  const evs = ev.events || [];
+  // average dwell from dismiss events (time-on-card before close)
+  const dwells = evs.filter(e=>e.event_type==='dismiss' && e.visible_ms).map(e=>e.visible_ms);
+  const avgDwell = dwells.length ? Math.round(dwells.reduce((a,b)=>a+b,0)/dwells.length/100)/10 : null;
   const stat = (label,val) => `<div style="min-width:74px"><div style="font-size:22px;font-weight:700;color:var(--text)">${val}</div><div style="font-size:11px;color:var(--text-dim)">${label}</div></div>`;
-  const byCta = rep.clicks_by_cta || {};
-  const ctaStr = Object.keys(byCta).length ? Object.entries(byCta).map(([k,v])=>`${_cEsc(k)} ${v}`).join(' · ') : '—';
   funnelEl.innerHTML =
     stat('Impressions', rep.impressions ?? 0) +
     stat('Clicks', rep.clicks ?? 0) +
     stat('Dismisses', rep.dismisses ?? 0) +
     stat('Converts', rep.converts ?? 0) +
     stat('CTR', rep.ctr==null ? '—' : (Math.round(rep.ctr*1000)/10)+'%') +
-    stat('Devices', rep.reach_devices ?? 0) +
-    `<div style="flex:1;min-width:150px"><div style="font-size:13px;color:var(--text)">${ctaStr}</div><div style="font-size:11px;color:var(--text-dim)">clicks by CTA</div></div>`;
-  const evs = ev.events || [];
-  if (!evs.length) { tableEl.innerHTML = '<div style="color:var(--text-dim);font-size:12px">No interactions recorded yet.</div>'; return; }
+    stat('Avg dwell', avgDwell==null ? '—' : avgDwell+'s') +
+    stat('Devices', rep.reach_devices ?? 0);
+
+  if (!evs.length) {
+    tableEl.innerHTML = '<div style="color:var(--text-dim);font-size:12px">No interactions recorded yet.</div>';
+    ['promo-chart-time','promo-chart-cta'].forEach(d=>{const el=document.getElementById(d); if(el) el.innerHTML='';});
+    return;
+  }
+
+  // --- readable interaction table ---
   const dwell = ms => ms==null ? '' : (ms>=1000 ? (Math.round(ms/100)/10)+'s' : ms+'ms');
   const evColor = {impression:'var(--text-dim)',click:'var(--green)',dismiss:'var(--text)',convert:'var(--accent)'};
-  const rows = evs.map(e=>`
+  const rows = evs.map(e=>{
+    const who = e.email ? _cEsc(e.email) : 'anon';
+    const tier = e.tier ? ` <span style="color:var(--text-dim);font-size:10px">${_cEsc(e.tier)}</span>` : '';
+    const dev = e.device ? _cEsc(e.device) : `<span class="mono" style="color:var(--text-dim)">${_cEsc((e.device_id||'').slice(0,8))}…</span>`;
+    const loc = e.locale ? ` <span style="color:var(--text-dim)">· ${_cEsc(e.locale)}</span>` : '';
+    return `
     <tr style="border-top:1px solid var(--border)">
       <td style="padding:6px 8px;font-size:11px;color:var(--text-dim);white-space:nowrap" class="mono">${_cEsc((e.created_at||'').slice(0,19).replace('T',' '))}</td>
-      <td style="padding:6px 8px;font-size:11px" class="mono">${_cEsc((e.device_id||'').slice(0,16))}</td>
+      <td style="padding:6px 8px;font-size:11px;white-space:nowrap">${who}${tier}</td>
+      <td style="padding:6px 8px;font-size:11px;white-space:nowrap">${dev}${loc}</td>
       <td style="padding:6px 8px;font-size:11px"><span style="color:${evColor[e.event_type]||'var(--text)'}">${_cEsc(e.event_type)}</span></td>
       <td style="padding:6px 8px;font-size:11px;color:var(--accent)" class="mono">${e.cta_id?_cEsc(e.cta_id):''}</td>
       <td style="padding:6px 8px;font-size:11px;color:var(--text)">${dwell(e.visible_ms)}</td>
-      <td style="padding:6px 8px;font-size:11px;color:var(--text-dim)" class="mono">${e.user_id?_cEsc(String(e.user_id).slice(0,8)):'anon'}</td>
-    </tr>`).join('');
+    </tr>`;}).join('');
   tableEl.innerHTML = `<table style="width:100%;border-collapse:collapse">
     <thead><tr style="text-align:left;color:var(--text-dim);font-size:11px">
-      <th style="padding:6px 8px;font-weight:600">Time (UTC)</th><th style="padding:6px 8px;font-weight:600">Device</th>
-      <th style="padding:6px 8px;font-weight:600">Event</th><th style="padding:6px 8px;font-weight:600">Clicked</th>
-      <th style="padding:6px 8px;font-weight:600">Dwell</th><th style="padding:6px 8px;font-weight:600">User</th>
+      <th style="padding:6px 8px;font-weight:600">Time (UTC)</th><th style="padding:6px 8px;font-weight:600">User</th>
+      <th style="padding:6px 8px;font-weight:600">Device</th><th style="padding:6px 8px;font-weight:600">Event</th>
+      <th style="padding:6px 8px;font-weight:600">Clicked</th><th style="padding:6px 8px;font-weight:600">Dwell</th>
     </tr></thead><tbody>${rows}</tbody></table>`;
+
+  // --- charts (ApexCharts via _renderChart) ---
+  const buckets = {};
+  evs.forEach(e=>{
+    const b = (e.created_at||'').slice(0,13); // YYYY-MM-DD HH
+    if (!b) return;
+    const bk = buckets[b] = buckets[b] || {impr:0, click:0};
+    if (e.event_type==='impression') bk.impr++;
+    else if (e.event_type==='click') bk.click++;
+  });
+  const bkeys = Object.keys(buckets).sort();
+  _renderChart('promo-chart-time', {
+    chart: {type:'bar', height:240, toolbar:{show:false}},
+    series: [
+      {name:'Impressions', data: bkeys.map(k=>buckets[k].impr)},
+      {name:'Clicks', data: bkeys.map(k=>buckets[k].click)},
+    ],
+    colors: ['#58a6ff','#3fb950'],
+    plotOptions: {bar:{columnWidth:'60%', borderRadius:3}},
+    dataLabels: {enabled:false},
+    xaxis: {categories: bkeys.map(k=>k.slice(5)+':00'), labels:{style:{colors:_telForeground}}},
+    yaxis: {labels:{style:{colors:_telForeground}}, forceNiceScale:true},
+    legend: {position:'top', horizontalAlign:'left', labels:{colors:_telForeground}},
+    noData: {text:'No activity yet'},
+  });
+  const cta = rep.clicks_by_cta || {};
+  const ckeys = Object.keys(cta);
+  _renderChart('promo-chart-cta', {
+    chart: {type:'bar', height:240, toolbar:{show:false}},
+    series: [{name:'Clicks', data: ckeys.map(k=>cta[k])}],
+    plotOptions: {bar:{horizontal:true, borderRadius:4, distributed:true}},
+    colors: ['#3fb950','#58a6ff','#bc8cff','#d29922','#ff7b72'],
+    xaxis: {categories: ckeys, labels:{style:{colors:_telForeground}}},
+    yaxis: {labels:{style:{colors:_telForeground}}},
+    legend: {show:false},
+    dataLabels: {enabled:true, style:{colors:['#fff']}},
+    noData: {text:'No clicks yet'},
+  });
 }
 
 function closeCampaignActivity() {
