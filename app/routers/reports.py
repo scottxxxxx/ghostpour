@@ -145,6 +145,18 @@ async def generate_report(
         )
         if cleaned_transcript:
             meeting_data = dict(meeting_data, transcript=cleaned_transcript)
+            # Persist the cleaned transcript canonically beside the raw one, so
+            # the served transcript can be the cleaned version and the
+            # original-vs-cleaned view has it. Raw stays in `transcript`.
+            try:
+                from datetime import datetime, timezone
+                await db.execute(
+                    "UPDATE meeting_transcripts SET cleaned_transcript = ?, cleaned_at = ? WHERE meeting_id = ?",
+                    (cleaned_transcript, datetime.now(timezone.utc).isoformat(), meeting_id),
+                )
+                await db.commit()
+            except Exception:
+                logger.exception("failed to persist cleaned transcript meeting=%s", meeting_id)
 
     # 2. Build LLM prompt — localize narrative content from Accept-Language.
     # Wire enums (stoplight color, emoji_label, severity, etc.) stay English

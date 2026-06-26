@@ -218,6 +218,7 @@
     <div class="tab" onclick="switchTab('alerts')">Alerts</div>
     <div class="tab" onclick="switchTab('configs')">Configs</div>
     <div class="tab" onclick="switchTab('campaigns')">Campaigns</div>
+    <div class="tab" onclick="switchTab('transcripts')">Transcripts</div>
     <div class="tab" onclick="switchTab('routing')">Model Routing</div>
     <div class="tab" onclick="switchTab('livelog')">Live Log</div>
     <div class="tab" onclick="switchTab('telemetry')">Telemetry</div>
@@ -485,6 +486,28 @@
         </div>
       </div>
       <div id="campaign-activity-table" style="overflow-x:auto"></div>
+    </div>
+  </div>
+
+  <!-- Transcript cleanup: original vs cleaned -->
+  <div id="tab-transcripts" class="section">
+    <h3 style="margin:0 0 4px">Transcript cleanup</h3>
+    <p style="color:var(--text-dim);font-size:13px;margin:0 0 14px">Compare the raw OCR transcript against the AI-cleaned version for a meeting. <b>Clean now</b> runs the cleanup pass on the stored raw transcript and saves the result (the same pass that should run on the report path).</p>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+      <input id="tx-meeting-id" placeholder="meeting_id (e.g. 3B2BFDE9-EEBB-4C2C-9D6E-5BE63CCBF257)" style="flex:1;min-width:340px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:9px 12px;font-family:monospace;font-size:12px">
+      <button class="refresh-btn" onclick="loadTranscripts()" style="background:var(--bg);color:var(--text);border:1px solid var(--border)">Load</button>
+      <button class="refresh-btn" id="tx-clean-btn" onclick="cleanTranscript()" style="background:var(--green);color:#000;font-weight:600">Clean now</button>
+    </div>
+    <div id="tx-status" style="font-size:12px;color:var(--text-dim);margin-bottom:12px"></div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap">
+      <div style="flex:1;min-width:340px">
+        <div style="font-size:12px;font-weight:600;color:var(--text-dim);margin-bottom:6px">Original (raw OCR) <span id="tx-raw-chars" style="font-weight:400"></span></div>
+        <pre id="tx-raw" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:11px;line-height:1.5;white-space:pre-wrap;word-break:break-word;max-height:520px;overflow:auto;color:var(--text-dim);margin:0"></pre>
+      </div>
+      <div style="flex:1;min-width:340px">
+        <div style="font-size:12px;font-weight:600;color:var(--green);margin-bottom:6px">Cleaned <span id="tx-cleaned-chars" style="font-weight:400;color:var(--text-dim)"></span></div>
+        <pre id="tx-cleaned" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:11px;line-height:1.5;white-space:pre-wrap;word-break:break-word;max-height:520px;overflow:auto;color:var(--text);margin:0"></pre>
+      </div>
     </div>
   </div>
 
@@ -2844,6 +2867,50 @@ async function showCampaignActivity(id) {
 function closeCampaignActivity() {
   document.getElementById('campaign-activity-wrap').style.display = 'none';
   _activityCampaignId = null;
+}
+
+// --- Transcript cleanup: original vs cleaned ---
+function _txMid() { return document.getElementById('tx-meeting-id').value.trim(); }
+function _txRender(d) {
+  document.getElementById('tx-raw').textContent = d.raw || '(empty)';
+  document.getElementById('tx-cleaned').textContent = d.cleaned || '(not cleaned yet — click “Clean now”)';
+  document.getElementById('tx-raw-chars').textContent = d.raw_chars ? `(${d.raw_chars.toLocaleString()} chars)` : '';
+  document.getElementById('tx-cleaned-chars').textContent = d.cleaned_chars
+    ? `(${d.cleaned_chars.toLocaleString()} chars${d.cleaned_at ? ', ' + d.cleaned_at.slice(0,19).replace('T',' ') + ' UTC' : ''})` : '';
+}
+async function loadTranscripts() {
+  const id = _txMid();
+  const st = document.getElementById('tx-status');
+  if (!id) { st.textContent = 'Enter a meeting_id.'; return; }
+  st.textContent = 'Loading…';
+  const r = await fetch(`${BASE}/webhooks/admin/meeting/${encodeURIComponent(id)}/transcripts`, {headers:{'X-Admin-Key':adminKey}});
+  if (!r.ok) { st.textContent = r.status===404 ? 'No transcript for that meeting_id.' : `Error ${r.status}`; return; }
+  const d = await r.json();
+  _txRender(d);
+  st.textContent = d.cleaned ? 'Loaded — cleaned version present.' : 'Loaded — not cleaned yet. Click “Clean now”.';
+}
+async function cleanTranscript() {
+  const id = _txMid();
+  const st = document.getElementById('tx-status');
+  if (!id) { st.textContent = 'Enter a meeting_id.'; return; }
+  const btn = document.getElementById('tx-clean-btn');
+  const old = btn.textContent; btn.disabled = true; btn.textContent = 'Cleaning…';
+  st.textContent = 'Running the cleanup pass (this calls the model)…';
+  try {
+    const r = await fetch(`${BASE}/webhooks/admin/meeting/${encodeURIComponent(id)}/clean-transcript`, {method:'POST', headers:{'X-Admin-Key':adminKey}});
+    if (!r.ok) {
+      let msg = `Error ${r.status}`;
+      try { const e = await r.json(); if (e.detail) msg = typeof e.detail==='string'?e.detail:JSON.stringify(e.detail); } catch(_) {}
+      st.textContent = r.status===404 ? 'No transcript for that meeting_id.' : msg;
+      return;
+    }
+    const d = await r.json();
+    _txRender(d);
+    const pct = d.raw_chars ? Math.round((1 - d.cleaned_chars / d.raw_chars) * 100) : 0;
+    st.textContent = `Cleaned. ${d.raw_chars.toLocaleString()} → ${d.cleaned_chars.toLocaleString()} chars (${pct>=0 ? pct+'% shorter' : (-pct)+'% longer'}).`;
+  } finally {
+    btn.disabled = false; btn.textContent = old;
+  }
 }
 
 function _setCf(id, val) { document.getElementById(id).value = val; }
