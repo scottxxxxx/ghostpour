@@ -80,6 +80,14 @@
     transition: background .15s ease, transform .05s ease;
   }
   .cta:active { background: var(--accent-press); transform: scale(.99); }
+  .secondary { margin-top: 12px; display: flex; flex-direction: column; gap: 9px; }
+  .secondary a {
+    display: block; color: var(--accent); text-decoration: none;
+    font-size: 14px; font-weight: 500;
+    padding: 11px 14px; border: 1px solid var(--hairline); border-radius: 12px;
+    transition: background .15s ease;
+  }
+  .secondary a:active { background: color-mix(in srgb, var(--accent) 10%, transparent); }
   .fineprint { font-size: 12px; color: var(--muted); margin: 14px 0 0; }
 </style>
 </head>
@@ -99,6 +107,12 @@
        data-cta-id="get_tr">
        Try Tech Rehearsal — free
     </a>
+    <!-- Secondary links — each carries its own promo_cta_id so taps attribute
+         separately (clicks_by_cta in the funnel). -->
+    <div class="secondary">
+      <a href="https://shouldersurf.com?promo_cta_id=ss_site" data-cta-id="ss_site">Visit shouldersurf.com</a>
+      <a href="https://testflight.apple.com/join/ubRWVcXF?promo_cta_id=tf_join" data-cta-id="tf_join">Join the TestFlight beta</a>
+    </div>
     <p class="fineprint">Free to start. Your Shoulder Surf subscription is unaffected.</p>
   </main>
 </body>
