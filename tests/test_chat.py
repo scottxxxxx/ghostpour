@@ -106,3 +106,33 @@ def test_subscriber_blocks_too_many_images(tracker: UsageTracker, subscriber_tie
     with pytest.raises(HTTPException) as exc:
         tracker.check_model_access(request, subscriber_tier)
     assert exc.value.status_code == 403
+
+
+def test_routed_call_bypasses_provider_and_model_gate(tracker: UsageTracker, free_tier):
+    # Managed call: GP's router resolved provider+model (client sent auto), so
+    # the BYOK provider/model allowlists must not block it — even though
+    # openrouter + perplexity/sonar are in neither of the free tier's allowlists.
+    # This is the tr_research_company 403 regression.
+    request = ChatRequest(
+        provider="openrouter",
+        model="perplexity/sonar",
+        system_prompt="test",
+        user_content="test",
+    )
+    with pytest.raises(HTTPException):
+        tracker.check_model_access(request, free_tier)            # BYOK pin: blocked
+    tracker.check_model_access(request, free_tier, routed=True)   # GP-routed: allowed
+
+
+def test_routed_call_still_enforces_image_cap(tracker: UsageTracker, free_tier):
+    # The image cap is not a BYOK guard — it must apply even to managed calls.
+    request = ChatRequest(
+        provider="openrouter",
+        model="perplexity/sonar",
+        system_prompt="test",
+        user_content="test",
+        images=["base64data"],
+    )
+    with pytest.raises(HTTPException) as exc:
+        tracker.check_model_access(request, free_tier, routed=True)
+    assert exc.value.status_code == 403

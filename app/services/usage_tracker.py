@@ -31,37 +31,47 @@ class UsageTracker:
         self,
         request: ChatRequest,
         tier: TierDefinition,
+        routed: bool = False,
     ) -> None:
-        """Raise 403 if provider or model not allowed for this tier."""
-        if (
-            "*" not in tier.allowed_providers
-            and request.provider not in tier.allowed_providers
-        ):
-            raise HTTPException(
-                status_code=403,
-                detail={
-                    "code": "forbidden",
-                    "message": (
-                        f"Provider '{request.provider}' not available "
-                        f"on {tier.display_name} tier"
-                    ),
-                },
-            )
+        """Raise 403 if provider/model/images not allowed for this tier.
 
-        if (
-            "*" not in tier.allowed_models
-            and request.model not in tier.allowed_models
-        ):
-            raise HTTPException(
-                status_code=403,
-                detail={
-                    "code": "model_not_allowed",
-                    "message": (
-                        f"Model '{request.model}' not available "
-                        f"on {tier.display_name} tier"
-                    ),
-                },
-            )
+        The provider and model allowlists are a BYOK guard: they gate what a
+        user may explicitly pin. When ``routed`` is True the client sent
+        model/provider=auto and GP's own router chose a tier-appropriate target
+        (e.g. tr_research_company -> openrouter/perplexity/sonar), so those two
+        allowlists do not apply — GP, not the user, picked the provider. The
+        per-tier image cap below still applies in both cases.
+        """
+        if not routed:
+            if (
+                "*" not in tier.allowed_providers
+                and request.provider not in tier.allowed_providers
+            ):
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "code": "forbidden",
+                        "message": (
+                            f"Provider '{request.provider}' not available "
+                            f"on {tier.display_name} tier"
+                        ),
+                    },
+                )
+
+            if (
+                "*" not in tier.allowed_models
+                and request.model not in tier.allowed_models
+            ):
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "code": "model_not_allowed",
+                        "message": (
+                            f"Model '{request.model}' not available "
+                            f"on {tier.display_name} tier"
+                        ),
+                    },
+                )
 
         if request.images:
             if len(request.images) > tier.max_images_per_request:
