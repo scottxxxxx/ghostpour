@@ -61,7 +61,11 @@ def test_match_prompt_keeps_calibration_guardrails():
     for phrase in (
         "Use the FULL range",
         "the radar must agree with your gaps list",
-        "MUST be <= 0.5",
+        # Radar now carries two comparable series per axis (role bar vs you);
+        # the gap rule is keyed off the spread between them, not an absolute cap.
+        "role_level",
+        "candidate_level",
+        "candidate_level MUST be at least 0.35 below",
         "Never invent skills",
         "no ```json",  # anti-fence instruction must survive
     ):
