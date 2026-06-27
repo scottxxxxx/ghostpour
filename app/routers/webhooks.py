@@ -3083,6 +3083,34 @@ def _validate_campaign(body: CampaignBody) -> None:
     for v in body.variants:
         if not isinstance(v, dict):
             continue
+        # Capability gate: min_app_version (when present) must be a version string
+        # like "1.6.0". resolve withholds the variant from clients below it, so
+        # token/storekit cards only reach builds that can render them.
+        mav = v.get("min_app_version")
+        if mav is not None:
+            parts = str(mav).split(".")
+            if not (1 <= len(parts) <= 3 and all(p.isdigit() for p in parts)):
+                raise HTTPException(status_code=400, detail="variant min_app_version must be a version string like 1.6.0")
+        # Native render variants carry a versioned, additive native block. Reject
+        # malformed so GP only authors what the client can render (same posture as
+        # the deeplink allowlist).
+        if v.get("render") == "native":
+            nat = v.get("native")
+            if not isinstance(nat, dict):
+                raise HTTPException(status_code=400, detail="native render variant must carry a native block")
+            if nat.get("schema_version") != 1:
+                raise HTTPException(status_code=400, detail="native.schema_version must be 1")
+            if not nat.get("title") or not isinstance(nat.get("title"), str):
+                raise HTTPException(status_code=400, detail="native.title is required and must be a string")
+            if nat.get("body") is not None and not isinstance(nat.get("body"), str):
+                raise HTTPException(status_code=400, detail="native.body must be a string")
+            media = nat.get("media")
+            if media is not None:
+                url = media.get("url") if isinstance(media, dict) else None
+                if not isinstance(media, dict) or media.get("type") != "image":
+                    raise HTTPException(status_code=400, detail="native.media.type must be 'image'")
+                if not isinstance(url, str) or not url.startswith("https://"):
+                    raise HTTPException(status_code=400, detail="native.media.url must be https")
         for cta in (v.get("native") or {}).get("ctas") or []:
             if not isinstance(cta, dict):
                 continue
