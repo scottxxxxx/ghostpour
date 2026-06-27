@@ -211,6 +211,23 @@ def _targeting_matches(targeting: dict, user: UserRecord | None, profile: dict |
     return True
 
 
+def _variant_renderable(variant: dict, profile: dict | None) -> bool:
+    """Capability gate. A variant with min_app_version only renders on clients at
+    or above that version. Fail closed: an unknown app_version (no telemetry)
+    can't be confirmed capable, so a gated variant is withheld — this is what
+    keeps a personalization token or a storekit_offer card off a build that
+    can't substitute the token or redeem the code. Ungated variants serve to all.
+    """
+    mav = variant.get("min_app_version")
+    if not mav:
+        return True
+    return _version_in_range((profile or {}).get("app_version"), {"min": mav})
+
+
+def _campaign_capability_gated(c: dict) -> bool:
+    return any(isinstance(v, dict) and v.get("min_app_version") for v in (c.get("variants") or []))
+
+
 def _pick_variant(variants: list, device_id: str, campaign_id: str) -> dict | None:
     """Weighted pick, stable per device so a user sees the same variant across
     launches (clean A/B buckets)."""
@@ -266,8 +283,12 @@ async def resolve_promo(
     rows = await cur.fetchall()
     campaigns = [_parse_campaign(r) for r in rows]
     # Build the device profile (telemetry lookup) only if some active campaign
-    # targets a profile dim — keeps the common path (no profile targeting) cheap.
-    needs_profile = any(_PROFILE_KEYS & set((c.get("targeting") or {}).keys()) for c in campaigns)
+    # targets a profile dim OR capability-gates a variant on app_version — keeps
+    # the common path (no profile targeting, no gate) cheap.
+    needs_profile = any(
+        (_PROFILE_KEYS & set((c.get("targeting") or {}).keys())) or _campaign_capability_gated(c)
+        for c in campaigns
+    )
     profile = await _device_profile(db, device_id, user) if needs_profile else None
     for c in campaigns:
         if c.get("starts_at") and now < c["starts_at"]:
@@ -294,7 +315,11 @@ async def resolve_promo(
             )).fetchone()
             if pres and pres["shown_count"] >= max_impressions:
                 continue
-        variant = _pick_variant(c.get("variants") or [], device_id, c["id"])
+        # Capability gate: drop variants this client can't render, then weighted-
+        # pick among the rest. If none are renderable (e.g. all gated above this
+        # build), the campaign yields nothing for this device and we fall through.
+        capable = [v for v in (c.get("variants") or []) if isinstance(v, dict) and _variant_renderable(v, profile)]
+        variant = _pick_variant(capable, device_id, c["id"])
         if not variant:
             continue
         return {"campaign_id": c["id"], "variant": variant}

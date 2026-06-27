@@ -261,6 +261,63 @@ def test_geo_min_audience_met_serves(client, tmp_db_path):
     assert client.get("/v1/promo/resolve?device_id=g1", headers={"X-App-ID": SS}).json()["campaign_id"] == "t_ok"
 
 
+# --- Native render slice: schema validation + min_app_version capability gate ---
+
+def _native_variant(vid, *, weight, min_app_version=None, title="Hi"):
+    v = {"variant_id": vid, "weight": weight, "render": "native",
+         "native": {"schema_version": 1, "title": title}}
+    if min_app_version:
+        v["min_app_version"] = min_app_version
+    return v
+
+
+def test_native_schema_validation(client):
+    def _post(cid, variants, status="draft"):
+        body = {"id": cid, "name": cid, "app_id": SS, "status": status, "priority": 10,
+                "targeting": {}, "frequency": {}, "placements": [], "variants": variants}
+        return client.post("/webhooks/admin/campaigns", json=body, headers=ADMIN)
+    # missing native block on a native variant
+    assert _post("n_bad1", [{"variant_id": "a", "weight": 100, "render": "native"}]).status_code == 400
+    # wrong schema_version
+    assert _post("n_bad2", [{"variant_id": "a", "weight": 100, "render": "native", "native": {"schema_version": 2, "title": "x"}}]).status_code == 400
+    # missing title
+    assert _post("n_bad3", [{"variant_id": "a", "weight": 100, "render": "native", "native": {"schema_version": 1}}]).status_code == 400
+    # non-https media
+    assert _post("n_bad4", [{"variant_id": "a", "weight": 100, "render": "native", "native": {"schema_version": 1, "title": "x", "media": {"type": "image", "url": "http://x/y.png"}}}]).status_code == 400
+    # bad min_app_version
+    assert _post("n_bad5", [{**_native_variant("a", weight=100), "min_app_version": "1.x"}]).status_code == 400
+    # valid native + media + gate
+    ok = [{"variant_id": "a", "weight": 100, "render": "native", "min_app_version": "1.6.0",
+           "native": {"schema_version": 1, "title": "Hi", "body": "there", "media": {"type": "image", "url": "https://cdn/x.png"}}}]
+    assert _post("n_good", ok).status_code == 200
+
+
+def test_capability_gate_withholds_below_min_version(client, tmp_db_path):
+    _insert_telemetry(tmp_db_path, "dev-old", app_version="1.5.0")
+    _insert_telemetry(tmp_db_path, "dev-new", app_version="1.6.0")
+    # native variant gated at 1.6.0, plus an ungated html fallback
+    variants = [
+        _native_variant("native", weight=100, min_app_version="1.6.0"),
+        {"variant_id": "fallback", "weight": 0, "render": "html",
+         "html_url": "https://api.ghostpour.com/v1/promo/assets/ss-launch-techrehearsal.html"},
+    ]
+    _make_campaign(client, cid="cap_gate", variants=variants)
+    h = {"X-App-ID": SS}
+    # capable build gets the native variant
+    assert client.get("/v1/promo/resolve?device_id=dev-new", headers=h).json()["variant"]["variant_id"] == "native"
+    # below-min build falls through to the ungated fallback
+    assert client.get("/v1/promo/resolve?device_id=dev-old", headers=h).json()["variant"]["variant_id"] == "fallback"
+    # unknown app_version (no telemetry) is fail-closed -> also the fallback
+    assert client.get("/v1/promo/resolve?device_id=dev-unknown", headers=h).json()["variant"]["variant_id"] == "fallback"
+
+
+def test_capability_gate_all_gated_yields_nothing(client, tmp_db_path):
+    _insert_telemetry(tmp_db_path, "dev-old2", app_version="1.5.0")
+    _make_campaign(client, cid="all_gated", variants=[_native_variant("native", weight=100, min_app_version="1.6.0")])
+    # the only variant is gated above this build -> campaign yields nothing
+    assert client.get("/v1/promo/resolve?device_id=dev-old2", headers={"X-App-ID": SS}).json() == {}
+
+
 def test_geo_targeting_validation_rejects_bad_shapes(client):
     # min_audience must be a non-negative int; geo must be an object with list members
     def _post(cid, targeting):
