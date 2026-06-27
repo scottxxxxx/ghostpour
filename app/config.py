@@ -35,6 +35,17 @@ class Settings(BaseSettings):
     # Apple Sign In
     apple_bundle_id: str = "com.example.myapp"
 
+    # App Store Server API (outbound, JWT-signed) — used to verify transactions
+    # at signup and to reconcile subscription state against Apple's truth. All
+    # blank by default → the client and the reconciliation sweep stay DORMANT
+    # until the key is provisioned (no behavior change, no failures).
+    app_store_issuer_id: str = ""           # ASC API issuer id (UUID)
+    app_store_key_id: str = ""              # ASC API key id
+    app_store_private_key_b64: str = ""     # base64 of the .p8 EC private key
+    app_store_environment: str = "Sandbox"  # Sandbox (TestFlight) | Production
+    subscription_reconcile_enabled: bool = False
+    subscription_reconcile_interval_seconds: int = 21600  # 6h
+
     # Provider API Keys
     openai_api_key: str = ""
     anthropic_api_key: str = ""
@@ -195,6 +206,7 @@ _SECRET_MANAGER_MAPPINGS: dict[str, str] = {
     "CZ_CQ_CLIENT_SECRET": "cq-client-secret",
     "CZ_TR_CQ_CLIENT_SECRET": "tr-cq-client-secret",
     "CZ_CERT_PIN_SIGNING_KEY_RAW_B64": "cert-pin-signing-key-raw-b64",
+    "CZ_APP_STORE_PRIVATE_KEY_B64": "app-store-private-key-b64",
 }
 
 
