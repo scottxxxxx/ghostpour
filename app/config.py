@@ -86,6 +86,11 @@ class Settings(BaseSettings):
     # apps.yml (apps.techrehearsal.cq); the secret resolves here. Empty until
     # CQ provisions it. See app/services/context_quilt.py _cq_identity().
     tr_cq_client_secret: str = ""
+
+    # GeoIP: path to the local .mmdb (sapics/ip-location-db dbip-city). Geo
+    # lookups are disabled (return null) until the file is present. See
+    # app/services/geoip.py.
+    geoip_db_path: str = "data/geo/dbip-city.mmdb"
     cq_recall_timeout_ms: int = 200    # Max wait for CQ recall (ms)
     # Render-time "(you)" suffix sanitizer in the CQ recall context.
     # Historical patches stored "Name (you)" forms that the LLM would echo
