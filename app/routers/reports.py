@@ -126,14 +126,19 @@ async def generate_report(
     locale = _parse_accept_language(request.headers.get("Accept-Language"))
     cleaned_transcript = None
     settings = request.app.state.settings
+    # Default the source to ocr_captions when the client doesn't send it: SS
+    # meetings are OCR captions today, and that tag is the only thing gating the
+    # cleanup, so without this it never runs. Clients should still send it
+    # explicitly once other sources (e.g. speech-to-text) exist.
+    _src = body.transcript_source or "ocr_captions"
     if meeting_data.get("transcript") and should_clean_transcript(
-        body.transcript_source, settings.captions_cleanup_enabled
+        _src, settings.captions_cleanup_enabled
     ):
         cleaned_transcript = await run_transcript_cleanup(
             provider_router,
             meeting_data["transcript"],
             request.app.state.remote_configs,
-            body.transcript_source,
+            _src,
             locale=locale,
             meeting_id=meeting_id,
             # Meter the cleanup as its own usage_log row + cost (see chat.py).

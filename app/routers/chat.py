@@ -1611,7 +1611,9 @@ async def chat(
             should_clean as _should_clean,
         )
         settings = request.app.state.settings
-        _ts = body.get_meta("transcript_source")
+        # Default to ocr_captions when the client omits it (SS meetings are OCR
+        # captions today; the tag is the only thing gating cleanup).
+        _ts = body.get_meta("transcript_source") or "ocr_captions"
         if _should_clean(_ts, settings.captions_cleanup_enabled):
             from app.routers.config import _parse_accept_language
             _locale = _parse_accept_language(request.headers.get("Accept-Language"))
