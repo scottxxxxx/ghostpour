@@ -39,6 +39,25 @@ def test_geoip_routes_ipv6_to_v6_reader(monkeypatch):
     geoip.reset_cache()
 
 
+def test_geoip_parses_sapics_flat_schema(monkeypatch):
+    from app.services import geoip
+
+    class _FakeReader:
+        def get(self, ip):
+            # sapics/ip-location-db dbip-city flat record (what we actually ship)
+            return {
+                "country_code": "US",
+                "state1": "California",
+                "state2": "",
+                "city": "Mountain View",  # must be dropped
+                "latitude": 37.42,
+                "longitude": -122.08,
+            }
+    monkeypatch.setattr(geoip, "_get_reader", lambda family: _FakeReader())
+    assert geoip.lookup("8.8.8.8") == {"country": "US", "region": "California"}
+    geoip.reset_cache()
+
+
 def test_geoip_empty_record_is_none(monkeypatch):
     from app.services import geoip
 
