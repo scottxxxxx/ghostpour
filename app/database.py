@@ -314,6 +314,11 @@ MIGRATIONS = [
     "CREATE INDEX IF NOT EXISTS idx_usage_app ON usage_log(app_id) WHERE app_id IS NOT NULL",
     "ALTER TABLE telemetry_events ADD COLUMN app_id TEXT",
     "CREATE INDEX IF NOT EXISTS idx_telemetry_app ON telemetry_events(app_id) WHERE app_id IS NOT NULL",
+    # Coarse geo derived from the IP at ingestion (country + region only; never
+    # the raw IP, never city). See app/services/geoip.py. Null until the geo DB
+    # is installed. Powers Phase 2 region targeting.
+    "ALTER TABLE telemetry_events ADD COLUMN country TEXT",
+    "ALTER TABLE telemetry_events ADD COLUMN region TEXT",
     # v27: Per-call scenario sub-dimension. Tech Rehearsal is scenario-driven
     # (interview / negotiation / personal conversations) under ONE app_id, so
     # the client tags each call via metadata.scenario and we persist it here.

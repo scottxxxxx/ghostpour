@@ -3,6 +3,7 @@ uvicorn[standard]==0.34.*
 pydantic==2.*
 pydantic-settings==2.*
 aiosqlite==0.20.*
+maxminddb==2.*
 httpx==0.28.*
 PyJWT[crypto]==2.10.*
 cryptography==44.*
