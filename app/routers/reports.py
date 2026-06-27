@@ -126,11 +126,13 @@ async def generate_report(
     locale = _parse_accept_language(request.headers.get("Accept-Language"))
     cleaned_transcript = None
     settings = request.app.state.settings
-    # Default the source to ocr_captions when the client doesn't send it: SS
-    # meetings are OCR captions today, and that tag is the only thing gating the
-    # cleanup, so without this it never runs. Clients should still send it
-    # explicitly once other sources (e.g. speech-to-text) exist.
-    _src = body.transcript_source or "ocr_captions"
+    # Cleanup is gated purely on the source the client REPORTS — we do not infer
+    # one. SS (build 625+) sends transcript_source on the analysis path
+    # (speech_to_text / ocr_captions / mixed), and only ocr_captions is cleanable.
+    # A null source (older build or a re-analysis path) is left alone rather than
+    # assumed to be OCR: guessing ocr_captions would wrongly run OCR cleanup over
+    # an audio transcript. App reports the source, GP decides cleanup from it.
+    _src = body.transcript_source
     if meeting_data.get("transcript") and should_clean_transcript(
         _src, settings.captions_cleanup_enabled
     ):
