@@ -111,6 +111,24 @@ def test_cta_id_optional_string(client):
     assert client.post(f"{BASE}/campaigns", json=bad, headers=ADMIN).status_code == 400
 
 
+def test_cta_label_required(client):
+    # GP owns the wording, so every native CTA must carry button text.
+    good = _campaign(id="lbl_ok", variants=_native(
+        {"label": "Get it", "action": {"type": "appstore", "value": "id1"}}))
+    assert client.post(f"{BASE}/campaigns", json=good, headers=ADMIN).status_code == 200
+    # missing label is rejected
+    missing = _campaign(id="lbl_missing", variants=_native(
+        {"action": {"type": "appstore", "value": "id1"}}))
+    assert client.post(f"{BASE}/campaigns", json=missing, headers=ADMIN).status_code == 400
+    # empty / non-string label is rejected
+    empty = _campaign(id="lbl_empty", variants=_native(
+        {"label": "", "action": {"type": "appstore", "value": "id1"}}))
+    assert client.post(f"{BASE}/campaigns", json=empty, headers=ADMIN).status_code == 400
+    nonstr = _campaign(id="lbl_nonstr", variants=_native(
+        {"label": 7, "action": {"type": "appstore", "value": "id1"}}))
+    assert client.post(f"{BASE}/campaigns", json=nonstr, headers=ADMIN).status_code == 400
+
+
 def test_deeplink_route_allowlist(client):
     # SS allowlist: shouldersurf://record is the only campaign-authorable route.
     ok = _campaign(id="dl_ok", app_id="shouldersurf", variants=_native(
