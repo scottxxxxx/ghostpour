@@ -69,6 +69,16 @@ def test_geoip_empty_record_is_none(monkeypatch):
     geoip.reset_cache()
 
 
+def test_geoip_reload_endpoint(client):
+    # admin-only; reloads readers and returns a sample (None in test env, no DB)
+    r = client.post("/webhooks/admin/geoip/reload", headers={"X-Admin-Key": "test-admin-key"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["reloaded"] is True and "sample" in body
+    # no admin key -> rejected
+    assert client.post("/webhooks/admin/geoip/reload").status_code in (401, 403, 422)
+
+
 def test_ping_stores_geo(client, tmp_db_path, monkeypatch):
     import uuid, sqlite3
     dev = str(uuid.uuid4())
