@@ -455,9 +455,26 @@
         <label class="cf"><span>Starts at (ISO, optional)</span><input id="cf-starts" placeholder="2026-07-01T00:00:00Z"></label>
         <label class="cf"><span>Expires at (ISO, optional)</span><input id="cf-expires" placeholder="2026-08-01T00:00:00Z"></label>
       </div>
+      <!-- Targeting builder (Phase 1b) — writes the targeting JSON below. -->
+      <div style="border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px">
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px">Targeting builder</div>
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:12px">Fill what you want to constrain; blanks mean no constraint. Writes the <code style="color:var(--accent)">targeting</code> JSON below (which stays the source of truth — you can also edit it directly).</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+          <label class="cf"><span>Signed in</span><select id="tg-signed" onchange="_targetingFromFields()"><option value="">any</option><option value="true">signed-in only</option><option value="false">anonymous only</option></select></label>
+          <label class="cf"><span>Tiers (comma)</span><input id="tg-tiers" placeholder="free, plus, pro" oninput="_targetingFromFields()"></label>
+          <label class="cf"><span>Locales (comma)</span><input id="tg-locales" placeholder="en, en_US" oninput="_targetingFromFields()"></label>
+          <label class="cf"><span>App version min</span><input id="tg-vmin" placeholder="1.4.0" oninput="_targetingFromFields()"></label>
+          <label class="cf"><span>App version max</span><input id="tg-vmax" placeholder="(none)" oninput="_targetingFromFields()"></label>
+          <label class="cf"><span>Active within days</span><input id="tg-active" type="number" min="0" placeholder="e.g. 7" oninput="_targetingFromFields()"></label>
+          <label class="cf"><span>Meetings min</span><input id="tg-mmin" type="number" min="0" placeholder="e.g. 3" oninput="_targetingFromFields()"></label>
+          <label class="cf"><span>Meetings max</span><input id="tg-mmax" type="number" min="0" placeholder="(none)" oninput="_targetingFromFields()"></label>
+          <label class="cf"><span>Device families (comma)</span><input id="tg-devices" placeholder="iPhone16, iPhone15" oninput="_targetingFromFields()"></label>
+          <label class="cf" style="grid-column:1/-1"><span>Users (emails or ids, comma)</span><input id="tg-users" placeholder="scott@weirtech.com" oninput="_targetingFromFields()"></label>
+        </div>
+      </div>
       <p style="color:var(--text-dim);font-size:12px;margin:0 0 8px">The four structured fields below are edited as JSON. <code style="color:var(--accent)">variants</code> weights must sum to 100 when the campaign is <em>active</em>.</p>
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px">
-        <label class="cf"><span>targeting</span><textarea id="cf-targeting" class="cf-json" spellcheck="false"></textarea></label>
+        <label class="cf"><span>targeting</span><textarea id="cf-targeting" class="cf-json" spellcheck="false" oninput="_fieldsFromTargeting()"></textarea></label>
         <label class="cf"><span>frequency</span><textarea id="cf-frequency" class="cf-json" spellcheck="false"></textarea></label>
         <label class="cf"><span>placements</span><textarea id="cf-placements" class="cf-json" spellcheck="false"></textarea></label>
         <label class="cf"><span>variants</span><textarea id="cf-variants" class="cf-json" spellcheck="false"></textarea></label>
@@ -2915,6 +2932,39 @@ async function cleanTranscript() {
 
 function _setCf(id, val) { document.getElementById(id).value = val; }
 
+// --- Targeting builder (Phase 1b): structured fields <-> targeting JSON ---
+function _tgList(id) { return document.getElementById(id).value.split(',').map(s => s.trim()).filter(Boolean); }
+function _tgNum(id) { const v = document.getElementById(id).value.trim(); return v === '' ? null : Number(v); }
+function _targetingFromFields() {
+  const t = {};
+  const signed = document.getElementById('tg-signed').value;
+  if (signed === 'true') t.signed_in = true; else if (signed === 'false') t.signed_in = false;
+  const tiers = _tgList('tg-tiers'); if (tiers.length) t.tiers = tiers;
+  const users = _tgList('tg-users'); if (users.length) t.users = users;
+  const locales = _tgList('tg-locales'); if (locales.length) t.locales = locales;
+  const vmin = document.getElementById('tg-vmin').value.trim(), vmax = document.getElementById('tg-vmax').value.trim();
+  if (vmin || vmax) t.app_version = { min: vmin || null, max: vmax || null };
+  const mmin = _tgNum('tg-mmin'), mmax = _tgNum('tg-mmax');
+  if (mmin !== null || mmax !== null) t.meetings_recorded = { min: mmin, max: mmax };
+  const active = _tgNum('tg-active'); if (active !== null) t.active_within_days = active;
+  const devices = _tgList('tg-devices'); if (devices.length) t.device_families = devices;
+  document.getElementById('cf-targeting').value = JSON.stringify(t, null, 2);
+}
+function _fieldsFromTargeting() {
+  let t = {};
+  try { t = JSON.parse(document.getElementById('cf-targeting').value || '{}'); } catch (_) { return; }
+  document.getElementById('tg-signed').value = t.signed_in === true ? 'true' : (t.signed_in === false ? 'false' : '');
+  document.getElementById('tg-tiers').value = (t.tiers || []).join(', ');
+  document.getElementById('tg-users').value = (t.users || []).join(', ');
+  document.getElementById('tg-locales').value = (t.locales || []).join(', ');
+  document.getElementById('tg-vmin').value = (t.app_version && t.app_version.min) || '';
+  document.getElementById('tg-vmax').value = (t.app_version && t.app_version.max) || '';
+  document.getElementById('tg-mmin').value = (t.meetings_recorded && t.meetings_recorded.min != null) ? t.meetings_recorded.min : '';
+  document.getElementById('tg-mmax').value = (t.meetings_recorded && t.meetings_recorded.max != null) ? t.meetings_recorded.max : '';
+  document.getElementById('tg-active').value = (t.active_within_days != null) ? t.active_within_days : '';
+  document.getElementById('tg-devices').value = (t.device_families || []).join(', ');
+}
+
 function _showCampaignEditor() {
   document.getElementById('campaign-activity-wrap').style.display = 'none';
   const wrap = document.getElementById('campaign-editor-wrap');
@@ -2938,6 +2988,7 @@ function newCampaign() {
   _setCf('cf-starts', '');
   _setCf('cf-expires', '');
   _setCf('cf-targeting', JSON.stringify(_CAMPAIGN_NEW_DEFAULTS.targeting, null, 2));
+  _fieldsFromTargeting();
   _setCf('cf-frequency', JSON.stringify(_CAMPAIGN_NEW_DEFAULTS.frequency, null, 2));
   _setCf('cf-placements', JSON.stringify(_CAMPAIGN_NEW_DEFAULTS.placements, null, 2));
   _setCf('cf-variants', JSON.stringify(_CAMPAIGN_NEW_DEFAULTS.variants, null, 2));
@@ -2962,6 +3013,7 @@ function editCampaign(i) {
   _setCf('cf-starts', c.starts_at || '');
   _setCf('cf-expires', c.expires_at || '');
   _setCf('cf-targeting', JSON.stringify(c.targeting || {}, null, 2));
+  _fieldsFromTargeting();
   _setCf('cf-frequency', JSON.stringify(c.frequency || {}, null, 2));
   _setCf('cf-placements', JSON.stringify(c.placements || [], null, 2));
   _setCf('cf-variants', JSON.stringify(c.variants || [], null, 2));
