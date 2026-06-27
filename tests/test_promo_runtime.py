@@ -152,15 +152,16 @@ def test_signed_in_targeting_field(client, pro_user):
 # --- Phase 1: existing-data targeting (locale / version / usage / device) ---
 
 def _insert_telemetry(db_path, device_id, event_type="app_start", *, app_locale=None,
-                      app_version=None, device_model=None, received_at=None):
+                      app_version=None, device_model=None, received_at=None,
+                      country=None, region=None):
     import sqlite3, uuid
     from datetime import datetime, timezone
     received_at = received_at or datetime.now(timezone.utc).isoformat()
     con = sqlite3.connect(db_path)
     con.execute(
-        "INSERT INTO telemetry_events (id, event_type, device_id, received_at, app_locale, app_version, device_model)"
-        " VALUES (?,?,?,?,?,?,?)",
-        (str(uuid.uuid4()), event_type, device_id, received_at, app_locale, app_version, device_model),
+        "INSERT INTO telemetry_events (id, event_type, device_id, received_at, app_locale, app_version, device_model, country, region)"
+        " VALUES (?,?,?,?,?,?,?,?,?)",
+        (str(uuid.uuid4()), event_type, device_id, received_at, app_locale, app_version, device_model, country, region),
     )
     con.commit()
     con.close()
@@ -217,3 +218,59 @@ def test_targeting_usage_band_excludes_light_user(client, tmp_db_path):
     _insert_telemetry(tmp_db_path, dev, event_type="meeting_start", app_locale="en", app_version="1.5.0")
     _make_campaign(client, cid="t_min5", targeting={"meetings_recorded": {"min": 5}})
     assert client.get(f"/v1/promo/resolve?device_id={dev}", headers={"X-App-ID": SS}).json() == {}
+
+
+# --- Phase 2: geo targeting (country / region) + min_audience privacy floor ---
+
+def test_geo_country_targeting_via_resolve(client, tmp_db_path):
+    _insert_telemetry(tmp_db_path, "dev-us", country="US", region="California")
+    _make_campaign(client, cid="t_us", targeting={"geo": {"countries": ["US"]}})
+    h = {"X-App-ID": SS}
+    assert client.get("/v1/promo/resolve?device_id=dev-us", headers=h).json()["campaign_id"] == "t_us"
+    # a device we have no geo for can't satisfy a geo constraint
+    assert client.get("/v1/promo/resolve?device_id=dev-nogeo", headers=h).json() == {}
+
+
+def test_geo_country_excludes_other_country(client, tmp_db_path):
+    _insert_telemetry(tmp_db_path, "dev-gb", country="GB", region="England")
+    _make_campaign(client, cid="t_usonly", targeting={"geo": {"countries": ["US"]}})
+    assert client.get("/v1/promo/resolve?device_id=dev-gb", headers={"X-App-ID": SS}).json() == {}
+
+
+def test_geo_region_targeting_via_resolve(client, tmp_db_path):
+    _insert_telemetry(tmp_db_path, "dev-ca", country="US", region="California")
+    _insert_telemetry(tmp_db_path, "dev-tx", country="US", region="Texas")
+    _make_campaign(client, cid="t_ca", targeting={"geo": {"countries": ["US"], "regions": ["California"]}})
+    h = {"X-App-ID": SS}
+    assert client.get("/v1/promo/resolve?device_id=dev-ca", headers=h).json()["campaign_id"] == "t_ca"
+    # right country, wrong region -> excluded (country AND region)
+    assert client.get("/v1/promo/resolve?device_id=dev-tx", headers=h).json() == {}
+
+
+def test_geo_min_audience_withholds_small_segment(client, tmp_db_path):
+    # only one device in the targeted geo; floor of 3 withholds it
+    _insert_telemetry(tmp_db_path, "dev-solo", country="US", region="Wyoming")
+    _make_campaign(client, cid="t_floor", targeting={"geo": {"regions": ["Wyoming"]}, "min_audience": 3})
+    assert client.get("/v1/promo/resolve?device_id=dev-solo", headers={"X-App-ID": SS}).json() == {}
+
+
+def test_geo_min_audience_met_serves(client, tmp_db_path):
+    for d in ("g1", "g2", "g3"):
+        _insert_telemetry(tmp_db_path, d, country="US", region="Ohio")
+    _make_campaign(client, cid="t_ok", targeting={"geo": {"regions": ["Ohio"]}, "min_audience": 3})
+    assert client.get("/v1/promo/resolve?device_id=g1", headers={"X-App-ID": SS}).json()["campaign_id"] == "t_ok"
+
+
+def test_geo_targeting_validation_rejects_bad_shapes(client):
+    # min_audience must be a non-negative int; geo must be an object with list members
+    def _post(cid, targeting):
+        body = {
+            "id": cid, "name": cid, "app_id": SS, "status": "draft", "priority": 10,
+            "targeting": targeting, "frequency": {}, "placements": [], "variants": [],
+        }
+        return client.post("/webhooks/admin/campaigns", json=body, headers=ADMIN)
+    assert _post("t_bad1", {"min_audience": -1}).status_code == 400
+    assert _post("t_bad2", {"geo": {"countries": "US"}}).status_code == 400
+    assert _post("t_bad3", {"geo": []}).status_code == 400
+    # valid geo + floor accepted
+    assert _post("t_good", {"geo": {"countries": ["US"]}, "min_audience": 50}).status_code == 200

@@ -469,6 +469,10 @@
           <label class="cf"><span>Meetings min</span><input id="tg-mmin" type="number" min="0" placeholder="e.g. 3" oninput="_targetingFromFields()"></label>
           <label class="cf"><span>Meetings max</span><input id="tg-mmax" type="number" min="0" placeholder="(none)" oninput="_targetingFromFields()"></label>
           <label class="cf"><span>Device families (comma)</span><input id="tg-devices" placeholder="iPhone16, iPhone15" oninput="_targetingFromFields()"></label>
+          <label class="cf"><span>Geo countries (ISO, comma)</span><input id="tg-countries" placeholder="US, CA, GB" oninput="_targetingFromFields()"></label>
+          <label class="cf"><span>Geo regions (name, comma)</span><input id="tg-regions" placeholder="California, Texas" oninput="_targetingFromFields()"></label>
+          <label class="cf"><span>Min audience (geo privacy floor)</span><input id="tg-minaud" type="number" min="0" placeholder="omit = no floor" oninput="_targetingFromFields()"></label>
+          <p class="cf" style="grid-column:1/-1;margin:2px 0 0;font-size:11px;color:#888">Geo is coarse (country + region; no city). Region names follow the data source. Set Min audience to withhold a geo-targeted card until the segment is large enough to be non-identifying. IP geolocation by DB-IP (db-ip.com), CC BY 4.0.</p>
           <label class="cf" style="grid-column:1/-1"><span>Users (emails or ids, comma)</span><input id="tg-users" placeholder="scott@weirtech.com" oninput="_targetingFromFields()"></label>
         </div>
       </div>
@@ -2948,6 +2952,14 @@ function _targetingFromFields() {
   if (mmin !== null || mmax !== null) t.meetings_recorded = { min: mmin, max: mmax };
   const active = _tgNum('tg-active'); if (active !== null) t.active_within_days = active;
   const devices = _tgList('tg-devices'); if (devices.length) t.device_families = devices;
+  const countries = _tgList('tg-countries').map(c => c.toUpperCase());
+  const regions = _tgList('tg-regions');
+  if (countries.length || regions.length) {
+    t.geo = {};
+    if (countries.length) t.geo.countries = countries;
+    if (regions.length) t.geo.regions = regions;
+  }
+  const minaud = _tgNum('tg-minaud'); if (minaud !== null) t.min_audience = minaud;
   document.getElementById('cf-targeting').value = JSON.stringify(t, null, 2);
 }
 function _fieldsFromTargeting() {
@@ -2963,6 +2975,9 @@ function _fieldsFromTargeting() {
   document.getElementById('tg-mmax').value = (t.meetings_recorded && t.meetings_recorded.max != null) ? t.meetings_recorded.max : '';
   document.getElementById('tg-active').value = (t.active_within_days != null) ? t.active_within_days : '';
   document.getElementById('tg-devices').value = (t.device_families || []).join(', ');
+  document.getElementById('tg-countries').value = ((t.geo && t.geo.countries) || []).join(', ');
+  document.getElementById('tg-regions').value = ((t.geo && t.geo.regions) || []).join(', ');
+  document.getElementById('tg-minaud').value = (t.min_audience != null) ? t.min_audience : '';
 }
 
 function _showCampaignEditor() {

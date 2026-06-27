@@ -543,6 +543,22 @@ def _set_pointer(obj: dict, pointer: str, value: object) -> None:
     cur[tokens[-1]] = value
 
 
+@router.post("/admin/geoip/reload")
+async def reload_geoip(
+    request: Request,
+    x_admin_key: str = Header(...),
+):
+    """Drop the cached GeoIP readers so the next lookup re-opens the .mmdb files.
+    The refresh cron downloads fresh dbip-city files into the volume, then calls
+    this to hot-swap them without a container restart. Returns whether each
+    family's DB is present + a sample lookup so the cron can verify the swap."""
+    _verify_admin(request, x_admin_key)
+    from app.services import geoip
+    geoip.reset_cache()
+    sample = {"v4": geoip.lookup("8.8.8.8"), "v6": geoip.lookup("2001:4860:4860::8888")}
+    return {"reloaded": True, "sample": sample}
+
+
 @router.post("/admin/config/{slug:path}/sync-from-bundle")
 async def sync_config_from_bundle(
     slug: str,
@@ -3047,6 +3063,19 @@ def _validate_campaign(body: CampaignBody) -> None:
     weights = [v.get("weight", 0) for v in body.variants if isinstance(v, dict)]
     if body.status == "active" and weights and sum(weights) != 100:
         raise HTTPException(status_code=400, detail=f"active campaign variant weights must sum to 100 (got {sum(weights)})")
+    # Geo targeting shape: countries/regions are lists; min_audience (the privacy
+    # floor) is a non-negative int. Reject malformed so a campaign can't ship a
+    # geo block the decision engine silently ignores.
+    geo = body.targeting.get("geo")
+    if geo is not None:
+        if not isinstance(geo, dict):
+            raise HTTPException(status_code=400, detail="targeting.geo must be an object")
+        for k in ("countries", "regions"):
+            if k in geo and not isinstance(geo[k], list):
+                raise HTTPException(status_code=400, detail=f"targeting.geo.{k} must be a list")
+    min_aud = body.targeting.get("min_audience")
+    if min_aud is not None and (not isinstance(min_aud, int) or isinstance(min_aud, bool) or min_aud < 0):
+        raise HTTPException(status_code=400, detail="targeting.min_audience must be a non-negative integer")
     # Each native CTA must declare an action.type from the locked allowlist
     # (incl. "none"); reject unknown so a payload can't ship a target the client
     # won't render. Optional per-CTA cta_id is the link-attribution key echoed
