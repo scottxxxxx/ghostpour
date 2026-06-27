@@ -32,6 +32,15 @@ apps:
   techrehearsal:
     dir: techrehearsal
     label: Tech Rehearsal
+    # Per-app CQ identity (#cq). TR is a separate ContextQuilt app with its own
+    # CQ app_id, so its writes must reach CQ tagged as bc6efb4c (not the default
+    # ShoulderSurf/ghostpour identity) or CQ validates them against the wrong
+    # schema. GP authenticates to CQ as this app using `secret_setting` (resolved
+    # from Secret Manager, empty until CQ provisions it). See
+    # app/services/context_quilt.py _cq_identity().
+    cq:
+      app_id: "bc6efb4c-2854-49c0-9e8d-437c99610588"
+      secret_setting: tr_cq_client_secret
     # Per-app budget gate (#249, app/services/tr_budget.py). DORMANT until
     # `enabled: true`. TR free/paid is the X-TR-Entitlement header, independent
     # of the SS tier; caps are USD spend per UTC calendar month, summed from

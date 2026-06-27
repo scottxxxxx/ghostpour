@@ -24,9 +24,8 @@ logger = logging.getLogger(__name__)
 # Shared HTTP client (created on first use)
 _client: httpx.AsyncClient | None = None
 
-# JWT token cache
-_token: str | None = None
-_token_expires_at: float = 0
+# JWT token cache, keyed by CQ app_id — per-app identities each cache their own.
+_tokens: dict[str, tuple[str, float]] = {}  # cq_app_id -> (token, expires_at)
 
 
 def _get_client() -> httpx.AsyncClient:
@@ -40,42 +39,58 @@ def _get_client() -> httpx.AsyncClient:
     return _client
 
 
-async def _get_auth_headers() -> dict[str, str]:
-    """Get auth headers for CQ requests. Uses JWT if configured, else X-App-ID."""
-    global _token, _token_expires_at
-
+def _cq_identity(app_id: str | None) -> tuple[str, str]:
+    """The (cq_app_id, cq_client_secret) GP authenticates to CQ with for a given
+    GP app. Per-app identities (apps.yml apps.<id>.cq) let a second CQ app (Tech
+    Rehearsal, its own CQ app_id) ride GP under its own identity so CQ loads the
+    right schema. Falls back to the default (ShoulderSurf / ghostpour) identity."""
     settings = get_settings()
+    default = (settings.cq_app_id, settings.cq_client_secret)
+    if not app_id:
+        return default
+    try:
+        from app.routers.config import load_apps
+        entry = (load_apps().get("apps", {}).get(app_id.strip().lower()) or {}).get("cq") or {}
+    except Exception:
+        return default
+    cq_app = entry.get("app_id")
+    if not cq_app:
+        return default
+    secret = getattr(settings, entry.get("secret_setting") or "", "") or ""
+    return (cq_app, secret)
 
-    if not settings.cq_client_secret:
-        # Legacy fallback: X-App-ID header
-        return {"X-App-ID": settings.cq_app_id}
 
-    # JWT auth: refresh token if expired or about to expire (30s buffer)
-    if _token and time.time() < _token_expires_at - 30:
-        return {"Authorization": f"Bearer {_token}"}
+async def _get_auth_headers(app_id: str | None = None) -> dict[str, str]:
+    """Auth headers for CQ requests, for the CQ identity of `app_id` (the default
+    identity when None). JWT bearer when a secret is configured, else X-App-ID."""
+    cq_app, cq_secret = _cq_identity(app_id)
 
-    # Fetch new token
+    if not cq_secret:
+        # Legacy / not-yet-provisioned: forward the app tag (CQ may accept it).
+        return {"X-App-ID": cq_app}
+
+    # JWT auth, cached per CQ app: refresh if expired or within the 30s buffer.
+    cached = _tokens.get(cq_app)
+    if cached and time.time() < cached[1] - 30:
+        return {"Authorization": f"Bearer {cached[0]}"}
+
     try:
         client = _get_client()
         resp = await client.post(
             "/v1/auth/token",
-            data={
-                "username": settings.cq_app_id,
-                "password": settings.cq_client_secret,
-            },
+            data={"username": cq_app, "password": cq_secret},
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
         resp.raise_for_status()
         token_data = resp.json()
-        _token = token_data["access_token"]
-        _token_expires_at = time.time() + token_data.get("expires_in", 3600)
-        logger.info("cq_token_refreshed", extra={"expires_in": token_data.get("expires_in")})
-        return {"Authorization": f"Bearer {_token}"}
+        token = token_data["access_token"]
+        _tokens[cq_app] = (token, time.time() + token_data.get("expires_in", 3600))
+        logger.info("cq_token_refreshed", extra={"cq_app": cq_app, "expires_in": token_data.get("expires_in")})
+        return {"Authorization": f"Bearer {token}"}
 
     except Exception as e:
-        logger.warning("cq_token_error", extra={"error": str(e)})
-        # Fall back to X-App-ID if token fetch fails
-        return {"X-App-ID": settings.cq_app_id}
+        logger.warning("cq_token_error", extra={"error": str(e), "cq_app": cq_app})
+        return {"X-App-ID": cq_app}
 
 
 async def recall(
