@@ -87,10 +87,12 @@ class Settings(BaseSettings):
     # CQ provisions it. See app/services/context_quilt.py _cq_identity().
     tr_cq_client_secret: str = ""
 
-    # GeoIP: path to the local .mmdb (sapics/ip-location-db dbip-city). Geo
-    # lookups are disabled (return null) until the file is present. See
-    # app/services/geoip.py.
-    geoip_db_path: str = "data/geo/dbip-city.mmdb"
+    # GeoIP: paths to the local .mmdb files (sapics/ip-location-db dbip-city,
+    # pulled from GitHub Releases). sapics splits IPv4/IPv6 into two files, so
+    # we keep both and route by IP family at lookup time. Geo is disabled
+    # (returns null) until the files are present. See app/services/geoip.py.
+    geoip_db_path: str = "data/geo/dbip-city-ipv4.mmdb"
+    geoip_db_ipv6_path: str = "data/geo/dbip-city-ipv6.mmdb"
     cq_recall_timeout_ms: int = 200    # Max wait for CQ recall (ms)
     # Render-time "(you)" suffix sanitizer in the CQ recall context.
     # Historical patches stored "Name (you)" forms that the LLM would echo

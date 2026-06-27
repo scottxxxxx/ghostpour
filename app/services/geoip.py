@@ -1,12 +1,14 @@
-"""IP -> coarse geography (country + region) from a local MaxMind-format DB.
+"""IP -> coarse geography (country + region) from local MaxMind-format DBs.
 
 Provider-agnostic: reads any .mmdb via the maxminddb reader. We ship the
 sapics/ip-location-db `dbip-city` database (pulled from GitHub Releases, not npm
-— the npm/main builds carry a data-bug notice; the corrected data is in Releases
-/ main-test). City is intentionally NOT stored (granularity: country + region).
+— the npm/main builds carry a data-bug notice; the corrected data is in the
+Releases). sapics splits IPv4 and IPv6 into two files, so we open one reader per
+family and route by IP at lookup time (a ':' in the address => IPv6). City is
+intentionally NOT stored (granularity: country + region).
 
-Graceful: if the DB file is absent or a lookup fails, returns None — geo stays
-null and nothing breaks. The reader is opened lazily and cached.
+Graceful: if a DB file is absent or a lookup fails, returns None — geo stays
+null and nothing breaks. Readers are opened lazily and cached per family.
 
 Privacy: the raw IP is looked up at ingestion and only the derived country +
 region are kept. The raw IP is never stored (it's hashed separately).
@@ -25,45 +27,57 @@ logger = logging.getLogger(__name__)
 
 ATTRIBUTION = "IP geolocation by DB-IP (https://db-ip.com), CC BY 4.0"
 
-_reader = None
-_reader_loaded = False
+# family ("v4"/"v6") -> open reader (or absent if not yet loaded / unavailable)
+_readers: dict = {}
+# families whose load has been attempted (so a missing file isn't retried each call)
+_loaded: set = set()
 _lock = threading.Lock()
 
 
-def _get_reader():
-    """Open + cache the .mmdb reader. None when the DB file is absent/unreadable."""
-    global _reader, _reader_loaded
-    if _reader_loaded:
-        return _reader
+def _family(ip: str) -> str:
+    return "v6" if ":" in ip else "v4"
+
+
+def _db_path(family: str) -> str:
+    s = get_settings()
+    return s.geoip_db_ipv6_path if family == "v6" else s.geoip_db_path
+
+
+def _get_reader(family: str):
+    """Open + cache the .mmdb reader for an IP family. None when its DB file is
+    absent/unreadable."""
+    if family in _loaded:
+        return _readers.get(family)
     with _lock:
-        if _reader_loaded:
-            return _reader
-        _reader_loaded = True
-        path = get_settings().geoip_db_path
+        if family in _loaded:
+            return _readers.get(family)
+        _loaded.add(family)
+        path = _db_path(family)
         if not path or not os.path.isfile(path):
-            logger.warning("geoip db not present (%s) — geo lookups disabled until it's installed", path)
+            logger.warning(
+                "geoip %s db not present (%s) — %s lookups disabled until it's installed",
+                family, path, family,
+            )
             return None
         try:
             import maxminddb
-            _reader = maxminddb.open_database(path)
-            logger.info("geoip db loaded: %s", path)
+            _readers[family] = maxminddb.open_database(path)
+            logger.info("geoip %s db loaded: %s", family, path)
         except Exception as e:  # noqa: BLE001 - never let geo break ingestion
-            logger.warning("geoip db open failed (%s): %s", path, e)
-            _reader = None
-        return _reader
+            logger.warning("geoip %s db open failed (%s): %s", family, path, e)
+        return _readers.get(family)
 
 
 def reset_cache() -> None:
-    """Drop the cached reader (e.g. after the DB file is refreshed). Tests use this."""
-    global _reader, _reader_loaded
+    """Drop the cached readers (e.g. after the DB files are refreshed). Tests use this."""
     with _lock:
-        try:
-            if _reader is not None:
-                _reader.close()
-        except Exception:  # noqa: BLE001
-            pass
-        _reader = None
-        _reader_loaded = False
+        for r in _readers.values():
+            try:
+                r.close()
+            except Exception:  # noqa: BLE001
+                pass
+        _readers.clear()
+        _loaded.clear()
 
 
 def lookup(ip: str | None) -> dict | None:
@@ -74,7 +88,7 @@ def lookup(ip: str | None) -> dict | None:
     """
     if not ip:
         return None
-    reader = _get_reader()
+    reader = _get_reader(_family(ip))
     if reader is None:
         return None
     try:

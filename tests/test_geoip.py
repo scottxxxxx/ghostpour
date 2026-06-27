@@ -19,9 +19,23 @@ def test_geoip_parses_record_drops_city(monkeypatch):
                 "subdivisions": [{"iso_code": "CA", "names": {"en": "California"}}],
                 "city": {"names": {"en": "San Francisco"}},  # must be dropped
             }
-    monkeypatch.setattr(geoip, "_reader", _FakeReader())
-    monkeypatch.setattr(geoip, "_reader_loaded", True)
+    monkeypatch.setattr(geoip, "_get_reader", lambda family: _FakeReader())
     assert geoip.lookup("1.2.3.4") == {"country": "US", "region": "CA"}
+    geoip.reset_cache()
+
+
+def test_geoip_routes_ipv6_to_v6_reader(monkeypatch):
+    from app.services import geoip
+
+    seen = []
+
+    class _R:
+        def get(self, ip):
+            return {"country": {"iso_code": "DE"}}
+    monkeypatch.setattr(geoip, "_get_reader", lambda family: (seen.append(family) or _R()))
+    geoip.lookup("2001:db8::1")
+    geoip.lookup("8.8.8.8")
+    assert seen == ["v6", "v4"]
     geoip.reset_cache()
 
 
@@ -31,8 +45,7 @@ def test_geoip_empty_record_is_none(monkeypatch):
     class _R:
         def get(self, ip):
             return {}
-    monkeypatch.setattr(geoip, "_reader", _R())
-    monkeypatch.setattr(geoip, "_reader_loaded", True)
+    monkeypatch.setattr(geoip, "_get_reader", lambda family: _R())
     assert geoip.lookup("1.2.3.4") is None
     geoip.reset_cache()
 
