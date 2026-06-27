@@ -81,10 +81,15 @@ def reset_cache() -> None:
 
 
 def lookup(ip: str | None) -> dict | None:
-    """Return {'country': 'US', 'region': 'CA'} for an IP, or None.
+    """Return {'country': 'US', 'region': '...'} for an IP, or None.
 
-    country = ISO 3166-1 alpha-2; region = the first subdivision's ISO code
-    (falling back to its English name). City is deliberately dropped.
+    country = ISO 3166-1 alpha-2. region = the first-level subdivision; its ISO
+    code when available, otherwise its name (the sapics dbip-city build we ship
+    only carries the name, e.g. 'California'). City is deliberately dropped.
+
+    Two record schemas are accepted so the reader stays provider-agnostic:
+      - sapics/ip-location-db (flat): {country_code, state1, state2, city, ...}
+      - MaxMind GeoIP2-City (nested): {country:{iso_code}, subdivisions:[...]}
     """
     if not ip:
         return None
@@ -97,11 +102,15 @@ def lookup(ip: str | None) -> dict | None:
         return None
     if not isinstance(rec, dict):
         return None
-    country = (rec.get("country") or {}).get("iso_code")
+    # country: nested GeoIP2 first, then flat sapics country_code.
+    country = (rec.get("country") or {}).get("iso_code") or rec.get("country_code")
+    # region: GeoIP2 subdivisions[0] (iso/name), then flat sapics state1.
     region = None
     subs = rec.get("subdivisions") or []
     if subs and isinstance(subs[0], dict):
         region = subs[0].get("iso_code") or (subs[0].get("names") or {}).get("en")
+    if not region:
+        region = rec.get("state1") or None
     if not country and not region:
         return None
-    return {"country": country, "region": region}
+    return {"country": country or None, "region": region or None}
