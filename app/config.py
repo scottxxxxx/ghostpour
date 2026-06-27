@@ -79,8 +79,13 @@ class Settings(BaseSettings):
 
     # Context Quilt integration
     cq_base_url: str = ""              # e.g., "https://cq.example.com"
-    cq_app_id: str = "cloudzap"        # App identifier for CQ (UUID or legacy string)
+    cq_app_id: str = "cloudzap"        # Default CQ app identity (ShoulderSurf rides this)
     cq_client_secret: str = ""         # Client secret for CQ JWT auth (empty = use X-App-ID fallback)
+    # Per-app CQ identity: a second CQ app (Tech Rehearsal) rides GP under its
+    # own CQ app_id + secret so CQ loads the right schema. app_id is set in
+    # apps.yml (apps.techrehearsal.cq); the secret resolves here. Empty until
+    # CQ provisions it. See app/services/context_quilt.py _cq_identity().
+    tr_cq_client_secret: str = ""
     cq_recall_timeout_ms: int = 200    # Max wait for CQ recall (ms)
     # Render-time "(you)" suffix sanitizer in the CQ recall context.
     # Historical patches stored "Name (you)" forms that the LLM would echo
@@ -181,6 +186,7 @@ _SECRET_MANAGER_MAPPINGS: dict[str, str] = {
     "CZ_KIMI_API_KEY": "kimi-api-key",
     "CZ_QWEN_API_KEY": "qwen-api-key",
     "CZ_CQ_CLIENT_SECRET": "cq-client-secret",
+    "CZ_TR_CQ_CLIENT_SECRET": "tr-cq-client-secret",
     "CZ_CERT_PIN_SIGNING_KEY_RAW_B64": "cert-pin-signing-key-raw-b64",
 }
 
