@@ -195,6 +195,17 @@ async def lifespan(app: FastAPI):
             "allocation_reset_sweep daemon failed to start: %s", e,
         )
 
+    # Subscription reconciliation sweep — pulls Apple's authoritative state and
+    # fixes drift from dropped Server Notifications. Dormant unless enabled +
+    # App Store Server API configured (the daemon returns immediately if not).
+    try:
+        from app.services.subscription_reconcile import run_daemon as _sr_daemon
+        app.state.subscription_reconcile_daemon = asyncio.create_task(_sr_daemon(app))
+    except Exception as e:
+        logging.getLogger("app.main").warning(
+            "subscription_reconcile daemon failed to start: %s", e,
+        )
+
     # Roll up telemetry events into telemetry_daily_rollups. Idempotent
     # (INSERT OR REPLACE on day+metric PK), recomputes the trailing
     # window so any late-arriving events get folded in. Fail-soft: a
