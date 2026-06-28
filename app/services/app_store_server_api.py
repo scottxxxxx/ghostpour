@@ -45,6 +45,17 @@ def is_configured() -> bool:
     return bool(s.app_store_issuer_id and s.app_store_key_id and s.app_store_private_key_b64)
 
 
+def _bid() -> str:
+    """The single bundle id for the JWT `bid` claim. apple_bundle_id may be a
+    comma-joined list (gateway serves several apps); the Server API needs one —
+    the app that owns the subscriptions. Explicit app_store_bundle_id wins,
+    else the first entry of apple_bundle_id."""
+    s = get_settings()
+    if s.app_store_bundle_id:
+        return s.app_store_bundle_id.strip()
+    return s.apple_bundle_id.split(",")[0].strip()
+
+
 def _base_url() -> str:
     return _SANDBOX_BASE if get_settings().app_store_environment != "Production" else _PROD_BASE
 
@@ -65,7 +76,7 @@ def _signed_jwt() -> str:
         "iat": now,
         "exp": now + 1200,
         "aud": "appstoreconnect-v1",
-        "bid": s.apple_bundle_id,
+        "bid": _bid(),
     }
     return jwt.encode(payload, _private_key_pem(), algorithm="ES256", headers=headers)
 
