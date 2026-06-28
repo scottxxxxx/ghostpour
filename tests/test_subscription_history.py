@@ -209,6 +209,42 @@ async def test_reconcile_marks_ever_subscribed_when_in_sync(client, tmp_db_path,
         assert u["first_subscribed_at"] == "2026-01-10T00:00:00+00:00"
 
 
+@pytest.mark.asyncio
+async def test_reconcile_marks_ever_subscribed_when_lapsed(client, tmp_db_path, monkeypatch):
+    # Apple shows an EXPIRED sub: drift-fix down to free, but still ever_subscribed.
+    from app.config import get_settings
+    from app.models.tier import load_tier_config
+    from app.services import app_store_server_api as assa
+    from app.services import subscription_reconcile as recon
+    _seed_user(tmp_db_path, "r2", tier="pro")
+    conn = sqlite3.connect(tmp_db_path)
+    conn.execute("UPDATE users SET original_transaction_id='otid-r2' WHERE id='r2'")
+    conn.commit(); conn.close()
+
+    async def fake_state(otid):
+        return {"entitled": False, "status": 2, "tier": "pro", "product_id": "x",
+                "expires_at": "2026-02-01T00:00:00+00:00",
+                "original_purchase_date": "2026-01-05T00:00:00+00:00",
+                "environment": "Sandbox", "original_transaction_id": otid}
+    monkeypatch.setattr(assa, "is_configured", lambda: True)
+    monkeypatch.setattr(assa, "get_subscription_state", fake_state)
+    tc = load_tier_config(get_settings().tier_config_path)
+
+    async with aiosqlite.connect(tmp_db_path) as db:
+        db.row_factory = aiosqlite.Row
+        row = await (await db.execute(
+            "SELECT id, tier, original_transaction_id FROM users WHERE id='r2'"
+        )).fetchone()
+        res = await recon.reconcile_user(db, row, tc)
+        assert res == "pro->free"  # drift corrected (lapsed)
+        u = await (await db.execute(
+            "SELECT tier, ever_subscribed, first_subscribed_at FROM users WHERE id='r2'"
+        )).fetchone()
+        assert u["tier"] == "free"
+        assert u["ever_subscribed"] == 1  # lapsed but ever subscribed
+        assert u["first_subscribed_at"] == "2026-01-05T00:00:00+00:00"
+
+
 # --- promo targeting ---------------------------------------------------------
 
 def test_never_subscribed_targeting():
