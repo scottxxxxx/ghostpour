@@ -421,6 +421,15 @@ async def verify_receipt(
             )
         await db.commit()
 
+        # A verified receipt (even an idempotent re-verify) means this user has
+        # a subscription, so mark the eligibility cache. Undated: don't overwrite
+        # a known first_subscribed_at; reconcile fills the real date from Apple.
+        try:
+            from app.services import subscriptions as subs
+            await subs.mark_ever_subscribed(db, user.id)
+        except Exception as e:
+            logger.warning("mark_ever_subscribed (trial) failed: %s", e)
+
         # Read back the preserved allocation_resets_at for the response
         cursor = await db.execute(
             "SELECT allocation_resets_at, trial_end FROM users WHERE id = ?",
@@ -518,6 +527,15 @@ async def verify_receipt(
             ),
         )
     await db.commit()
+
+    # A verified paid receipt (incl. idempotent re-verify) means this user is a
+    # subscriber — mark the eligibility cache. Undated so it won't overwrite a
+    # known first_subscribed_at; reconcile backfills the real date from Apple.
+    try:
+        from app.services import subscriptions as subs
+        await subs.mark_ever_subscribed(db, user.id)
+    except Exception as e:
+        logger.warning("mark_ever_subscribed (paid) failed: %s", e)
 
     # Read back preserved allocation_resets_at
     cursor = await db.execute(
