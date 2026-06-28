@@ -65,10 +65,17 @@ async def reconcile_user(db: aiosqlite.Connection, user_row, tier_config) -> str
         apple_tier = state["tier"]
         if apple_tier is None:
             return None  # entitled but product not mapped to a tier — don't guess
+        # Apple confirms a paid subscription (now or in the past): make sure the
+        # ever_subscribed / first_subscribed_at caches reflect it, using Apple's
+        # authoritative originalPurchaseDate, even when the tier is already in
+        # sync and there's no drift to fix.
+        await subs.mark_ever_subscribed(
+            db, user_row["id"], when=state.get("original_purchase_date"),
+        )
     else:
         apple_tier = "free"
     if apple_tier == cur_tier:
-        return None  # in sync
+        return None  # in sync (cache already advanced above if entitled)
 
     await _apply_tier(db, user_row["id"], apple_tier, tier_config)
     await subs.record_subscription_event(

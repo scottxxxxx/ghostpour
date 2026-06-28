@@ -146,6 +146,7 @@ async def get_subscription_state(original_transaction_id: str) -> dict | None:
                 "status": status,
                 "product_id": txn.get("productId"),
                 "expires_at": _ms_to_iso(txn.get("expiresDate")),
+                "original_purchase_date": _ms_to_iso(txn.get("originalPurchaseDate")),
             }
             # Prefer an entitled status if any group is active.
             if best is None or (status in _ENTITLED_STATUSES and best["status"] not in _ENTITLED_STATUSES):
@@ -159,6 +160,7 @@ async def get_subscription_state(original_transaction_id: str) -> dict | None:
         "tier": tier,
         "product_id": best.get("product_id"),
         "expires_at": best.get("expires_at"),
+        "original_purchase_date": best.get("original_purchase_date"),
         "environment": environment,
         "original_transaction_id": original_transaction_id,
     }

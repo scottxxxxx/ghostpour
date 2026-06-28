@@ -49,6 +49,30 @@ def price_for_tier(tier: str | None) -> float | None:
     return TIER_PRICE_USD.get(tier)
 
 
+async def mark_ever_subscribed(
+    db: aiosqlite.Connection, user_id: str, when: str | None = None, commit: bool = True
+) -> None:
+    """Set the ever_subscribed / first_subscribed_at caches for a user Apple
+    confirms has subscribed (now or in the past). `ever_subscribed` is sticky
+    once set; `first_subscribed_at` only moves earlier and is only written when
+    we actually have a date (`when`), so an undated mark never overwrites a known
+    first-subscribed timestamp with a wrong/now value."""
+    if when:
+        await db.execute(
+            """UPDATE users SET
+                ever_subscribed = 1,
+                first_subscribed_at = CASE
+                    WHEN first_subscribed_at IS NULL OR ? < first_subscribed_at
+                    THEN ? ELSE first_subscribed_at END
+               WHERE id = ?""",
+            (when, when, user_id),
+        )
+    else:
+        await db.execute("UPDATE users SET ever_subscribed = 1 WHERE id = ?", (user_id,))
+    if commit:
+        await db.commit()
+
+
 async def record_subscription_event(
     db: aiosqlite.Connection,
     *,
@@ -94,18 +118,9 @@ async def record_subscription_event(
             _now_iso(), json.dumps(raw) if raw is not None else None,
         ),
     )
-    # Advance the caches when this event marks a paid state. first_subscribed_at
-    # is the earliest paid event we've seen, so use MIN against any existing.
+    # Advance the caches when this event marks a paid state.
     if event_type in _MARKS_EVER_SUBSCRIBED or is_paid_tier(to_tier):
-        await db.execute(
-            """UPDATE users SET
-                ever_subscribed = 1,
-                first_subscribed_at = CASE
-                    WHEN first_subscribed_at IS NULL OR ? < first_subscribed_at
-                    THEN ? ELSE first_subscribed_at END
-               WHERE id = ?""",
-            (eff, eff, user_id),
-        )
+        await mark_ever_subscribed(db, user_id, when=eff, commit=False)
     if commit:
         await db.commit()
     logger.info(

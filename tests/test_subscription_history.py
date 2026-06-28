@@ -161,6 +161,54 @@ def test_admin_key_required(client):
     assert client.get("/webhooks/admin/subscriptions", headers={"X-Admin-Key": "x"}).status_code == 403
 
 
+# --- ever_subscribed marking (Apple-confirmed) -------------------------------
+
+@pytest.mark.asyncio
+async def test_mark_ever_subscribed_keeps_earliest(client, tmp_db_path):
+    _seed_user(tmp_db_path, "m1")
+    async with aiosqlite.connect(tmp_db_path) as db:
+        db.row_factory = aiosqlite.Row
+        await subs.mark_ever_subscribed(db, "m1", when="2026-05-01T00:00:00+00:00")
+        await subs.mark_ever_subscribed(db, "m1", when="2026-02-01T00:00:00+00:00")  # earlier wins
+        await subs.mark_ever_subscribed(db, "m1", when="2026-09-01T00:00:00+00:00")  # later ignored
+        await subs.mark_ever_subscribed(db, "m1")  # undated must not clobber the date
+        row = await (await db.execute(
+            "SELECT ever_subscribed, first_subscribed_at FROM users WHERE id='m1'"
+        )).fetchone()
+        assert row["ever_subscribed"] == 1
+        assert row["first_subscribed_at"] == "2026-02-01T00:00:00+00:00"
+
+
+@pytest.mark.asyncio
+async def test_reconcile_marks_ever_subscribed_when_in_sync(client, tmp_db_path, monkeypatch):
+    from app.services import app_store_server_api as assa
+    from app.services import subscription_reconcile as recon
+    _seed_user(tmp_db_path, "r1", tier="pro")
+    conn = sqlite3.connect(tmp_db_path)
+    conn.execute("UPDATE users SET original_transaction_id='otid-r1' WHERE id='r1'")
+    conn.commit(); conn.close()
+
+    async def fake_state(otid):
+        return {"entitled": True, "status": 1, "tier": "pro", "product_id": "x",
+                "expires_at": None, "original_purchase_date": "2026-01-10T00:00:00+00:00",
+                "environment": "Sandbox", "original_transaction_id": otid}
+    monkeypatch.setattr(assa, "is_configured", lambda: True)
+    monkeypatch.setattr(assa, "get_subscription_state", fake_state)
+
+    async with aiosqlite.connect(tmp_db_path) as db:
+        db.row_factory = aiosqlite.Row
+        row = await (await db.execute(
+            "SELECT id, tier, original_transaction_id FROM users WHERE id='r1'"
+        )).fetchone()
+        res = await recon.reconcile_user(db, row, None)  # pro==pro, no drift fix
+        assert res is None
+        u = await (await db.execute(
+            "SELECT ever_subscribed, first_subscribed_at FROM users WHERE id='r1'"
+        )).fetchone()
+        assert u["ever_subscribed"] == 1
+        assert u["first_subscribed_at"] == "2026-01-10T00:00:00+00:00"
+
+
 # --- promo targeting ---------------------------------------------------------
 
 def test_never_subscribed_targeting():
