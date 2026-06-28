@@ -19,6 +19,8 @@ class UserRecord(BaseModel):
     is_trial: bool = False
     trial_start: str | None = None
     trial_end: str | None = None
+    ever_subscribed: bool = False
+    first_subscribed_at: str | None = None
     memory_used_this_period: int = 0
     memory_period: str | None = None  # "YYYY-MM" UTC; null until first capture
     memory_last_origin_id: str | None = None  # set at capture-transcript time

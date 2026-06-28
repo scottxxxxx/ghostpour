@@ -7,6 +7,7 @@ import aiosqlite
 import httpx
 import yaml
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
 from app.database import get_db
@@ -3304,6 +3305,104 @@ async def campaign_events(
             "locale": dv.get("app_locale"),
         })
     return {"campaign_id": campaign_id, "events": out}
+
+
+# --- Subscription history / bookkeeping --------------------------------------
+
+@router.get("/admin/subscriptions")
+async def subscriptions_report(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+):
+    """Bookkeeping report: top-line summary + month-by-month tier history.
+
+    Built from the append-only subscription_events log (users.tier is only the
+    current state). Powers the dashboard Subscriptions tab."""
+    _verify_admin(request, x_admin_key)
+    from app.services import subscriptions as subs
+    return {
+        "summary": await subs.summary(db),
+        "monthly": await subs.monthly_aggregates(db),
+    }
+
+
+@router.get("/admin/subscriptions/events")
+async def subscriptions_events(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    limit: int = Query(default=200, ge=1, le=1000),
+):
+    """Newest subscription events across all users (enriched with email/tier)."""
+    _verify_admin(request, x_admin_key)
+    from app.services import subscriptions as subs
+    return {"events": await subs.recent_events(db, limit=limit)}
+
+
+@router.get("/admin/subscriptions/export.csv")
+async def subscriptions_export_csv(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+):
+    """Month-by-month report as CSV for spreadsheets / accounting."""
+    _verify_admin(request, x_admin_key)
+    from app.services import subscriptions as subs
+    months = await subs.monthly_aggregates(db)
+    tiers = sorted({t for m in months for t in m["active_by_tier"]})
+    header = ["month", *[f"active_{t}" for t in tiers], "active_total",
+              "new_subscriptions", "churns", "gross_usd", "net_usd"]
+    lines = [",".join(header)]
+    for m in months:
+        row = [m["month"], *[str(m["active_by_tier"].get(t, 0)) for t in tiers],
+               str(m["active_total"]), str(m["new_subscriptions"]),
+               str(m["churns"]), f"{m['gross_usd']:.2f}", f"{m['net_usd']:.2f}"]
+        lines.append(",".join(row))
+    return PlainTextResponse("\n".join(lines), media_type="text/csv")
+
+
+@router.get("/admin/user/{user_id}/subscription")
+async def user_subscription(
+    user_id: str,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+):
+    """One user's subscription state + full event timeline."""
+    _verify_admin(request, x_admin_key)
+    from app.services import subscriptions as subs
+    urow = await (await db.execute(
+        "SELECT id, email, tier, ever_subscribed, first_subscribed_at, "
+        "original_transaction_id, is_trial FROM users WHERE id = ?", (user_id,),
+    )).fetchone()
+    if not urow:
+        raise HTTPException(status_code=404, detail=f"User '{user_id}' not found")
+    return {
+        "user": {
+            "id": urow["id"], "email": urow["email"], "tier": urow["tier"],
+            "ever_subscribed": bool(urow["ever_subscribed"]),
+            "first_subscribed_at": urow["first_subscribed_at"],
+            "is_trial": bool(urow["is_trial"]),
+            "linked_to_apple": bool(urow["original_transaction_id"]),
+        },
+        "timeline": await subs.user_timeline(db, user_id),
+    }
+
+
+@router.post("/admin/subscriptions/reconcile")
+async def subscriptions_reconcile(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+):
+    """Trigger a reconciliation sweep against Apple's App Store Server API now.
+
+    Returns {checked, fixed, fixes}. No-op ({skipped:'not_configured'}) until
+    the App Store Server API key is provisioned."""
+    _verify_admin(request, x_admin_key)
+    from app.services import subscription_reconcile as recon
+    return await recon.sweep(db)
 
 
 # --- Promo creatives (hot-reloadable, no deploy) -----------------------------

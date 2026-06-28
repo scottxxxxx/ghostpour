@@ -107,6 +107,7 @@ async def _device_profile(db: aiosqlite.Connection, device_id: str, user: UserRe
         "meetings_recorded": 0, "last_active": None,
         "country": None, "region": None,
         "tier": user.tier if user else None, "signed_in": user is not None,
+        "ever_subscribed": user.ever_subscribed if user else None,
     }
     latest = await (await db.execute(
         "SELECT app_locale, app_version, device_model, received_at, country, region "
@@ -182,6 +183,17 @@ def _targeting_matches(targeting: dict, user: UserRecord | None, profile: dict |
     tiers = targeting.get("tiers")
     if tiers and (user is None or user.tier not in tiers):
         return False
+    # Subscription history (e.g. offer-code "never subscribed" eligibility).
+    # Anonymous = no record on our side = treated as never-subscribed: this
+    # maximizes reach for never-subscribed campaigns, and Apple enforces the
+    # real offer-code eligibility at redemption anyway. A known subscriber is
+    # only matched by ever_subscribed:true.
+    sub = targeting.get("subscription")
+    if sub and "ever_subscribed" in sub:
+        want = bool(sub["ever_subscribed"])
+        have = bool(user.ever_subscribed) if user is not None else False
+        if have != want:
+            return False
     locales = targeting.get("locales")
     if locales and not _locale_matches(p.get("locale"), locales):
         return False

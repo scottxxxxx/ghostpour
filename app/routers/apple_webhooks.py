@@ -22,6 +22,7 @@ from pydantic import BaseModel
 from app.config import get_settings
 from app.database import get_db
 from app.services import context_quilt as cq
+from app.services import subscriptions as subs
 from app.services.allocation_reset import compute_next_reset
 from app.services.apple_notifications import (
     AppleJWSError,
@@ -31,6 +32,16 @@ from app.services.apple_notifications import (
 logger = logging.getLogger("ghostpour.apple_webhooks")
 
 router = APIRouter()
+
+
+def _ms_to_iso(ms) -> str | None:
+    """Apple timestamps arrive as ms since epoch. Return ISO UTC, or None."""
+    if ms is None:
+        return None
+    try:
+        return datetime.fromtimestamp(int(ms) / 1000, tz=timezone.utc).isoformat()
+    except (TypeError, ValueError, OSError):
+        return None
 
 
 class AppleNotificationRequest(BaseModel):
@@ -253,6 +264,27 @@ async def apple_notifications(
         except (TypeError, ValueError):
             apple_expires_ms = None
 
+    # Common fields + a helper for the append-only subscription history log.
+    # Bookkeeping must never break the webhook, so failures are swallowed.
+    _txn_id = transaction_info.get("transactionId")
+    _product_id = transaction_info.get("productId")
+    _environment = transaction_info.get("environment") or data.get("environment")
+    _expires_iso = _ms_to_iso(apple_expires_ms)
+
+    async def _record(event_type: str, *, from_tier: str | None, to_tier: str | None) -> None:
+        try:
+            await subs.record_subscription_event(
+                db, user_id=user_id, event_type=event_type,
+                from_tier=from_tier, to_tier=to_tier,
+                notification_type=notification_type, subtype=subtype or None,
+                product_id=_product_id,
+                original_transaction_id=original_transaction_id,
+                transaction_id=_txn_id, expires_at=_expires_iso,
+                environment=_environment, source="assn",
+            )
+        except Exception as e:
+            logger.warning("subscription_event record failed (type=%s): %s", event_type, e)
+
     # Handle notification by type
     if notification_type in _UPGRADE_TYPES:
         # SUBSCRIBED or DID_RENEW — set tier based on product_id
@@ -272,6 +304,7 @@ async def apple_notifications(
             # across renewals indefinitely. Fix: reset counters and roll
             # allocation_resets_at to Apple's new expiresDate.
             await _renew_same_tier(db, user_id, apple_expires_ms)
+            await _record("renewed", from_tier=old_tier, to_tier=old_tier)
             logger.info(
                 "Apple notification: renewal applied for user %s (tier=%s, expires_ms=%s)",
                 user_id, old_tier, apple_expires_ms,
@@ -280,6 +313,10 @@ async def apple_notifications(
 
         new_tier = await _upgrade_to_tier(
             db, user_id, new_tier_name, tier_config, apple_expires_ms,
+        )
+        await _record(
+            "subscribed" if old_tier in ("free", None) else "upgraded",
+            from_tier=old_tier, to_tier=new_tier,
         )
         logger.info(
             "Apple notification: upgraded user %s from %s to %s (type=%s)",
@@ -296,6 +333,10 @@ async def apple_notifications(
             return {"status": "received", "action": "none", "tier": "free"}
 
         new_tier = await _downgrade_to_free(db, user_id, tier_config)
+        await _record(
+            "revoked" if notification_type == "REVOKE" else "expired",
+            from_tier=old_tier, to_tier=new_tier,
+        )
         logger.info(
             "Apple notification: downgraded user %s from %s to free (type=%s subtype=%s)",
             user_id, old_tier, notification_type, subtype,
@@ -311,6 +352,7 @@ async def apple_notifications(
             return {"status": "received", "action": "none", "tier": "free"}
 
         new_tier = await _downgrade_to_free(db, user_id, tier_config)
+        await _record("refunded", from_tier=old_tier, to_tier=new_tier)
         logger.info(
             "Apple notification: refund for user %s, downgraded from %s to free",
             user_id, old_tier,
@@ -325,6 +367,7 @@ async def apple_notifications(
         # Apple retries billing for up to 60 days. The user keeps access
         # during the grace period. We'll downgrade on GRACE_PERIOD_EXPIRED
         # or EXPIRED if billing never succeeds.
+        await _record("billing_failed", from_tier=old_tier, to_tier=old_tier)
         logger.warning(
             "Apple notification: billing failed for user %s (tier=%s, subtype=%s). "
             "Keeping tier active during retry period.",
