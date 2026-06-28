@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     app_store_key_id: str = ""              # ASC API key id
     app_store_private_key_b64: str = ""     # base64 of the .p8 EC private key
     app_store_environment: str = "Sandbox"  # Sandbox (TestFlight) | Production
+    # The single bundle id the App Store Server API JWT `bid` claim must carry.
+    # apple_bundle_id can be a comma-joined list (this gateway serves several
+    # apps); the Server API needs ONE — the app that owns the subscriptions.
+    # Blank => fall back to the first entry of apple_bundle_id.
+    app_store_bundle_id: str = ""
     subscription_reconcile_enabled: bool = False
     subscription_reconcile_interval_seconds: int = 21600  # 6h
 
