@@ -18,6 +18,18 @@ from app import database
 BUNDLED_DIR = (Path(__file__).resolve().parent.parent / "static" / "promo")
 MAX_BYTES = 512_000
 
+# HTML creatives plus image media a native card can reference (media.url).
+_CONTENT_TYPES = {
+    ".html": "text/html",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".svg": "image/svg+xml",
+    ".gif": "image/gif",
+}
+ALLOWED_EXTS = tuple(_CONTENT_TYPES)
+
 
 def store_dir() -> Path:
     """Persistent, writable creative dir — beside the SQLite DB so it shares the
@@ -27,10 +39,17 @@ def store_dir() -> Path:
 
 
 def safe_name(name: str) -> str | None:
-    """Allow only a flat *.html filename — no path separators, no dotfiles."""
-    if not name.endswith(".html") or "/" in name or "\\" in name or name.startswith("."):
+    """Allow a flat HTML-or-image filename — no path separators, no dotfiles."""
+    if "/" in name or "\\" in name or name.startswith("."):
+        return None
+    if not name.lower().endswith(ALLOWED_EXTS):
         return None
     return name
+
+
+def media_type_for(name: str) -> str:
+    """Content-type by extension; default to a safe binary type."""
+    return _CONTENT_TYPES.get(Path(name).suffix.lower(), "application/octet-stream")
 
 
 def resolve_path(name: str) -> Path | None:
@@ -73,10 +92,12 @@ def remove(name: str) -> bool:
 def listing() -> list[dict]:
     """All creatives by name; a store copy shadows bundled and is tagged source=store."""
     out: dict[str, dict] = {}
-    for src in BUNDLED_DIR.glob("*.html"):
-        out[src.name] = {"name": src.name, "source": "bundled", "bytes": src.stat().st_size}
+    for src in BUNDLED_DIR.iterdir():
+        if src.is_file() and safe_name(src.name):
+            out[src.name] = {"name": src.name, "source": "bundled", "bytes": src.stat().st_size}
     sd = store_dir()
     if sd.exists():
-        for src in sd.glob("*.html"):
-            out[src.name] = {"name": src.name, "source": "store", "bytes": src.stat().st_size}
+        for src in sd.iterdir():
+            if src.is_file() and safe_name(src.name):
+                out[src.name] = {"name": src.name, "source": "store", "bytes": src.stat().st_size}
     return sorted(out.values(), key=lambda d: d["name"])
