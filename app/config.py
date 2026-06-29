@@ -51,6 +51,16 @@ class Settings(BaseSettings):
     subscription_reconcile_enabled: bool = False
     subscription_reconcile_interval_seconds: int = 21600  # 6h
 
+    # App Store CONNECT API key — for minting subscription offer codes.
+    # DISTINCT from the App Store Server API key above: that one is an In-App
+    # Purchase key (signs storekit Server API calls); minting offer codes is the
+    # App Store Connect API (api.appstoreconnect.apple.com), which needs a team
+    # key (Admin/App Manager role, AuthKey_*.p8). Blank by default → the minting
+    # client stays DORMANT until the key is provisioned.
+    asc_connect_issuer_id: str = ""          # Connect API issuer id (UUID)
+    asc_connect_key_id: str = ""             # Connect API key id
+    asc_connect_private_key_b64: str = ""    # base64 of the .p8 EC private key
+
     # Provider API Keys
     openai_api_key: str = ""
     anthropic_api_key: str = ""
@@ -212,6 +222,7 @@ _SECRET_MANAGER_MAPPINGS: dict[str, str] = {
     "CZ_TR_CQ_CLIENT_SECRET": "tr-cq-client-secret",
     "CZ_CERT_PIN_SIGNING_KEY_RAW_B64": "cert-pin-signing-key-raw-b64",
     "CZ_APP_STORE_PRIVATE_KEY_B64": "app-store-private-key-b64",
+    "CZ_ASC_CONNECT_PRIVATE_KEY_B64": "asc-connect-private-key-b64",
 }
 
 
