@@ -111,6 +111,24 @@ def test_cta_id_optional_string(client):
     assert client.post(f"{BASE}/campaigns", json=bad, headers=ADMIN).status_code == 400
 
 
+def test_paywall_action_shape(client):
+    # bare paywall (default), placement id, and a featured plan are all valid
+    ok = _campaign(id="pw_ok", variants=_native(
+        {"label": "Upgrade", "action": {"type": "paywall"}},
+        {"label": "Go Pro", "action": {"type": "paywall", "value": "promo_slot", "plan": "pro"}},
+        {"label": "Plus", "action": {"type": "paywall", "plan": "plus"}},
+    ))
+    assert client.post(f"{BASE}/campaigns", json=ok, headers=ADMIN).status_code == 200
+    # unknown plan rejected
+    badplan = _campaign(id="pw_badplan", variants=_native(
+        {"label": "X", "action": {"type": "paywall", "plan": "gold"}}))
+    assert client.post(f"{BASE}/campaigns", json=badplan, headers=ADMIN).status_code == 400
+    # non-string placement id rejected
+    badval = _campaign(id="pw_badval", variants=_native(
+        {"label": "X", "action": {"type": "paywall", "value": 7}}))
+    assert client.post(f"{BASE}/campaigns", json=badval, headers=ADMIN).status_code == 400
+
+
 def test_deeplink_route_allowlist(client):
     # SS allowlist: shouldersurf://record is the only campaign-authorable route.
     ok = _campaign(id="dl_ok", app_id="shouldersurf", variants=_native(
