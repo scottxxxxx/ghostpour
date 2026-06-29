@@ -3423,6 +3423,33 @@ async def subscriptions_reconcile(
     return await recon.sweep(db)
 
 
+class MintOfferCodesRequest(BaseModel):
+    """Mint a batch of one-time-use codes against a configured offer."""
+    offer_code_id: str
+    number_of_codes: int = 10
+    expiration_date: str  # ISO-8601 date "YYYY-MM-DD"
+
+
+@router.post("/admin/offer-codes/mint")
+async def mint_offer_codes(
+    body: MintOfferCodesRequest, request: Request, x_admin_key: str = Header(...)
+):
+    """Mint one-time-use subscription offer codes via the App Store Connect API
+    and return the redeemable code strings.
+
+    `offer_code_id` is the configured `subscriptionOfferCodes` resource (set up
+    once by hand in App Store Connect). 400 with a clear message until the
+    Connect API key is provisioned. Apple requires 10-10000 codes per batch."""
+    _verify_admin(request, x_admin_key)
+    from app.services import offer_codes
+    try:
+        return await offer_codes.mint_and_fetch(
+            body.offer_code_id, body.number_of_codes, body.expiration_date
+        )
+    except offer_codes.OfferCodeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 # --- Promo creatives (hot-reloadable, no deploy) -----------------------------
 
 @router.get("/admin/promo-assets")
