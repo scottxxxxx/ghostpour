@@ -2986,6 +2986,9 @@ _CAMPAIGN_JSON_COLS = ("targeting", "frequency", "placements", "variants")
 # display-only. Purchases (storekit_offer/paywall) resolve through StoreKit on
 # device; prices and purchase tokens never ride in the payload.
 _CTA_ACTION_TYPES = {"appstore", "storekit_offer", "paywall", "url", "deeplink", "none"}
+# Plans a paywall CTA may feature (action.plan). Absent => default paywall, no
+# featured plan. Matches the paid subscription tiers.
+_PAYWALL_PLANS = {"plus", "pro"}
 # Per-app allowlist of campaign-authorable deeplink targets. The client
 # allowlists the same routes; GP only authors what it will accept. SS provided
 # (2026-06-26): shouldersurf://record only — meeting/<uuid> and project/<uuid>
@@ -3129,6 +3132,15 @@ def _validate_campaign(body: CampaignBody) -> None:
                         status_code=400,
                         detail=f"deeplink {value!r} not in {body.app_id} allowlist {sorted(allowed)}",
                     )
+            if atype == "paywall":
+                # value = optional placement id (string); absent => default paywall.
+                # plan = optional featured plan; client highlights plus|pro.
+                pv = (cta.get("action") or {}).get("value")
+                if pv is not None and not isinstance(pv, str):
+                    raise HTTPException(status_code=400, detail="paywall action.value must be a placement-id string when present")
+                plan = (cta.get("action") or {}).get("plan")
+                if plan is not None and plan not in _PAYWALL_PLANS:
+                    raise HTTPException(status_code=400, detail=f"paywall action.plan must be one of {sorted(_PAYWALL_PLANS)} when present")
             cid = cta.get("cta_id")
             if cid is not None and not isinstance(cid, str):
                 raise HTTPException(status_code=400, detail="cta_id must be a string when present")

@@ -36,6 +36,14 @@ when present; `media` is image + https when present. CTA `action.type` stays on 
 locked allowlist (`appstore | storekit_offer | paywall | url | deeplink | none`),
 deeplinks on the per-app allowlist, `cta_id` a string when present.
 
+### `paywall` action (locked with SS 2026-06-28, client build 632)
+
+Opens the app's paywall. `action.value` = optional placement id string (absent =
+default paywall; the client maps ids to screens). `action.plan` = optional featured
+plan, `plus | pro` (absent = no featured plan). Pro-vs-Plus lives on `action.plan`,
+not on the offer-code path — an offer code is already bound to a plan in App Store
+Connect, and the plan is attributed via `campaign_id` + `cta_id`.
+
 ## Capability gate (foundation — shipped)
 
 Per-variant `min_app_version`. In `resolve`, after the campaign is chosen, variants
