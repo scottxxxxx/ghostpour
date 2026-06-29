@@ -258,14 +258,15 @@ def _pick_variant(variants: list, device_id: str, campaign_id: str) -> dict | No
 
 @router.get("/promo/assets/{name}")
 async def serve_promo_asset(name: str):
-    """Public: serve a promo HTML creative — the target of a variant's html_url.
-    The live store wins over the bundled default, so creatives hot-reload without
-    a deploy. Short cache so updates propagate fast."""
+    """Public: serve a promo creative — an HTML card (a variant's html_url) or an
+    image a native card references (media.url). The live store wins over the
+    bundled default, so creatives hot-reload without a deploy. Short cache so
+    updates propagate fast."""
     path = promo_assets.resolve_path(name)
     if path is None:
         raise HTTPException(status_code=404, detail="not found")
     return FileResponse(
-        path, media_type="text/html",
+        path, media_type=promo_assets.media_type_for(name),
         headers={"Cache-Control": "public, max-age=60"},
     )
 

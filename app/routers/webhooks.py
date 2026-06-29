@@ -3435,12 +3435,12 @@ async def list_promo_assets(request: Request, x_admin_key: str = Header(...)):
 
 @router.put("/admin/promo-asset/{name}")
 async def upload_promo_asset(name: str, request: Request, x_admin_key: str = Header(...)):
-    """Upload/replace a promo creative live (raw HTML body). Writes the store
-    copy, which wins over the bundled default at serve time — no code deploy."""
+    """Upload/replace a promo creative live (raw HTML or image body). Writes the
+    store copy, which wins over the bundled default at serve time — no code deploy."""
     _verify_admin(request, x_admin_key)
     from app.services import promo_assets
     if promo_assets.safe_name(name) is None:
-        raise HTTPException(status_code=400, detail="name must be a flat *.html filename")
+        raise HTTPException(status_code=400, detail="name must be a flat .html/.png/.jpg/.webp/.svg/.gif filename")
     content = await request.body()
     if not content:
         raise HTTPException(status_code=400, detail="empty body")
