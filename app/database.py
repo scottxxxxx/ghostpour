@@ -381,6 +381,40 @@ MIGRATIONS = [
     )""",
     "CREATE INDEX IF NOT EXISTS idx_promo_events_campaign ON promo_events(campaign_id, event_type)",
     "CREATE INDEX IF NOT EXISTS idx_promo_events_device ON promo_events(device_id)",
+    # subscription_events = append-only log of every subscription lifecycle
+    # transition. users.tier holds only the CURRENT tier; this is the history
+    # that answers "ever subscribed?", "first subscribed when?", and the
+    # month-by-month tier report (bookkeeping). Fed in real time by the Apple
+    # Server Notifications webhook + verify-receipt, and by the reconciliation
+    # sweep when it corrects drift. Truth is the event log; users.ever_subscribed
+    # / first_subscribed_at are denormalized caches for the hot path.
+    """CREATE TABLE IF NOT EXISTS subscription_events (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        event_type TEXT NOT NULL,                  -- normalized: subscribed|renewed|upgraded|downgraded|expired|revoked|refunded|billing_failed|reconciled
+        notification_type TEXT,                    -- raw Apple notificationType
+        subtype TEXT,                              -- raw Apple subtype
+        from_tier TEXT,
+        to_tier TEXT,
+        product_id TEXT,
+        original_transaction_id TEXT,
+        transaction_id TEXT,
+        expires_at TEXT,                           -- Apple expiresDate (ISO), the period end
+        environment TEXT,                          -- Production|Sandbox
+        source TEXT NOT NULL DEFAULT 'assn',       -- assn|verify_receipt|reconciliation
+        price_usd REAL,                            -- list price for the period (bookkeeping)
+        effective_at TEXT NOT NULL,                -- Apple's event timestamp (or now)
+        recorded_at TEXT NOT NULL,                 -- when GP wrote the row
+        raw TEXT                                   -- decoded transaction JSON, for audit
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_sub_events_user ON subscription_events(user_id, effective_at)",
+    "CREATE INDEX IF NOT EXISTS idx_sub_events_type ON subscription_events(event_type)",
+    "CREATE INDEX IF NOT EXISTS idx_sub_events_effective ON subscription_events(effective_at)",
+    # Denormalized caches on users for the offer-code eligibility hot path
+    # (never-subscribed targeting) and fast dashboard reads. Source of truth is
+    # subscription_events; these are kept in lockstep by the same writers.
+    "ALTER TABLE users ADD COLUMN ever_subscribed INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN first_subscribed_at TEXT",
 ]
 
 

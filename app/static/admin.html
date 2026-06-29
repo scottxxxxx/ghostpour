@@ -218,6 +218,7 @@
     <div class="tab" onclick="switchTab('alerts')">Alerts</div>
     <div class="tab" onclick="switchTab('configs')">Configs</div>
     <div class="tab" onclick="switchTab('campaigns')">Campaigns</div>
+    <div class="tab" onclick="switchTab('subscriptions')">Subscriptions</div>
     <div class="tab" onclick="switchTab('transcripts')">Transcripts</div>
     <div class="tab" onclick="switchTab('routing')">Model Routing</div>
     <div class="tab" onclick="switchTab('livelog')">Live Log</div>
@@ -581,6 +582,37 @@
     </div>
   </div>
 
+  <!-- Subscriptions -->
+  <div id="tab-subscriptions" class="section">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 style="margin:0">Subscriptions</h3>
+      <div style="display:flex;gap:8px;align-items:center">
+        <a class="refresh-btn" href="#" onclick="downloadSubsCsv(event)" style="text-decoration:none">Export CSV</a>
+        <button class="refresh-btn" onclick="reconcileSubs()" title="Pull Apple's authoritative state and fix drift">Reconcile w/ Apple</button>
+        <button class="refresh-btn" onclick="loadSubscriptions()">Refresh</button>
+      </div>
+    </div>
+    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Bookkeeping from the append-only subscription event log (users hold only the current tier). "Ever subscribed" feeds offer-code eligibility. MRR is list price; net is after Apple's 15% cut. Reconcile pulls Apple's authoritative state and fixes drift — dormant until the App Store Server API key is provisioned.</p>
+    <div class="cards" id="sub-kpis"></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px;margin-top:16px">
+      <div class="card" style="padding:16px;grid-column:span 2"><h4 style="margin:0 0 8px">Active subscribers by tier (month-end)</h4><div id="sub-chart-active"></div></div>
+      <div class="card" style="padding:16px;grid-column:span 2"><h4 style="margin:0 0 8px">New vs churned per month</h4><div id="sub-chart-flow"></div></div>
+      <div class="card" style="padding:16px;grid-column:span 2"><h4 style="margin:0 0 8px">Net revenue per month (after Apple's cut)</h4><div id="sub-chart-rev"></div></div>
+      <div class="card" style="padding:16px;grid-column:span 2">
+        <h4 style="margin:0 0 8px">Month-by-month</h4>
+        <div class="table-wrap"><table id="sub-monthly-table"><thead><tr>
+          <th>Month</th><th>Active</th><th>By tier</th><th>New</th><th>Churn</th><th>Gross</th><th>Net</th>
+        </tr></thead><tbody></tbody></table></div>
+      </div>
+      <div class="card" style="padding:16px;grid-column:span 2">
+        <h4 style="margin:0 0 8px">Recent events</h4>
+        <div class="table-wrap"><table id="sub-events-table"><thead><tr>
+          <th>When</th><th>User</th><th>Event</th><th>From → To</th><th>Source</th><th>Env</th>
+        </tr></thead><tbody></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Live Log -->
   <div id="tab-livelog" class="section">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -776,6 +808,7 @@ function switchTab(name) {
   if (name === 'errors') loadErrors();
   if (name === 'configs') loadConfigs();
   if (name === 'campaigns') loadCampaigns();
+  if (name === 'subscriptions') loadSubscriptions();
   if (name === 'livelog') loadLiveLog();
   if (name === 'email') loadEmail();
   if (name === 'alerts') loadAlerts();
@@ -827,6 +860,124 @@ function _telPopulateOpts(selectId, prefix, values, current) {
     (values || []).map(v => `<option value="${v}" ${v === current ? 'selected' : ''}>${v}</option>`)
   );
   sel.innerHTML = opts.join('');
+}
+
+// --- Subscriptions tab -------------------------------------------------------
+async function loadSubscriptions() {
+  try {
+    const [repResp, evResp] = await Promise.all([
+      fetch(`${BASE}/webhooks/admin/subscriptions`, {headers:{'X-Admin-Key':adminKey}}),
+      fetch(`${BASE}/webhooks/admin/subscriptions/events?limit=200`, {headers:{'X-Admin-Key':adminKey}}),
+    ]);
+    if (!repResp.ok) {
+      document.getElementById('sub-kpis').innerHTML =
+        `<div class="card" style="grid-column:span 4">Subscriptions load failed (${repResp.status})</div>`;
+      return;
+    }
+    const rep = await repResp.json();
+    const events = evResp.ok ? (await evResp.json()).events : [];
+    _renderSubscriptions(rep, events);
+  } catch (e) {
+    document.getElementById('sub-kpis').innerHTML =
+      `<div class="card" style="grid-column:span 4">Subscriptions error: ${e.message}</div>`;
+  }
+}
+
+function _renderSubscriptions(rep, events) {
+  const s = rep.summary || {};
+  const tierStr = Object.entries(s.active_by_tier || {}).map(([t, n]) => `${n} ${t}`).join(', ') || '—';
+  document.getElementById('sub-kpis').innerHTML = [
+    {label: 'Paid now', value: (s.paid_now || 0).toLocaleString(), hint: tierStr},
+    {label: 'Ever subscribed', value: (s.ever_subscribed || 0).toLocaleString(), hint: 'feeds offer-code eligibility'},
+    {label: 'Current MRR (gross)', value: '$' + (s.current_mrr_gross_usd || 0).toLocaleString()},
+    {label: 'Current MRR (net)', value: '$' + (s.current_mrr_net_usd || 0).toLocaleString(), hint: "after Apple's 15%"},
+    {label: 'Total users', value: (s.total_users || 0).toLocaleString()},
+    {label: 'Events logged', value: (s.total_events || 0).toLocaleString()},
+  ].map(c => `
+    <div class="card">
+      <div class="card-label">${c.label}</div>
+      <div class="card-value">${c.value}</div>
+      ${c.hint ? `<div class="card-hint">${c.hint}</div>` : ''}
+    </div>`).join('');
+
+  const months = rep.monthly || [];
+  const cats = months.map(m => m.month);
+  const tiers = Array.from(new Set(months.flatMap(m => Object.keys(m.active_by_tier || {})))).sort();
+  const colors = ['#58a6ff', '#3fb950', '#d29922', '#bc8cff', '#ff7b72'];
+
+  _renderChart('sub-chart-active', {
+    series: tiers.length ? tiers.map(t => ({name: t, data: months.map(m => m.active_by_tier[t] || 0)})) : [{name: '(no data)', data: []}],
+    chart: {type: 'bar', stacked: true, height: 280},
+    plotOptions: {bar: {columnWidth: '55%'}},
+    dataLabels: {enabled: false},
+    xaxis: {categories: cats, labels: {style: {colors: _telForeground}}},
+    yaxis: {labels: {style: {colors: _telForeground}}},
+    legend: {position: 'top'}, colors,
+    noData: {text: 'No subscription events yet.'},
+  });
+
+  _renderChart('sub-chart-flow', {
+    series: [
+      {name: 'New', data: months.map(m => m.new_subscriptions)},
+      {name: 'Churned', data: months.map(m => -(m.churns))},
+    ],
+    chart: {type: 'bar', stacked: true, height: 280},
+    plotOptions: {bar: {columnWidth: '55%'}},
+    dataLabels: {enabled: false},
+    xaxis: {categories: cats, labels: {style: {colors: _telForeground}}},
+    yaxis: {labels: {style: {colors: _telForeground}}},
+    legend: {position: 'top'}, colors: ['#3fb950', '#ff7b72'],
+    noData: {text: 'No subscription events yet.'},
+  });
+
+  _renderChart('sub-chart-rev', {
+    series: [{name: 'Net revenue', data: months.map(m => m.net_usd)}],
+    chart: {type: 'area', height: 280},
+    stroke: {curve: 'smooth', width: 2},
+    fill: {type: 'gradient', gradient: {opacityFrom: 0.5, opacityTo: 0.1}},
+    dataLabels: {enabled: false},
+    xaxis: {categories: cats, labels: {style: {colors: _telForeground}}},
+    yaxis: {labels: {style: {colors: _telForeground}, formatter: v => '$' + Math.round(v)}},
+    colors: ['#3fb950'],
+    noData: {text: 'No revenue yet.'},
+  });
+
+  const mt = document.querySelector('#sub-monthly-table tbody');
+  mt.innerHTML = months.slice().reverse().map(m => {
+    const bt = Object.entries(m.active_by_tier || {}).map(([t, n]) => `${n} ${t}`).join(', ') || '—';
+    return `<tr><td>${m.month}</td><td>${m.active_total}</td><td>${bt}</td><td>${m.new_subscriptions}</td><td>${m.churns}</td><td>$${m.gross_usd.toFixed(2)}</td><td>$${m.net_usd.toFixed(2)}</td></tr>`;
+  }).join('') || '<tr><td colspan="7" style="color:var(--text-dim)">No data yet</td></tr>';
+
+  const et = document.querySelector('#sub-events-table tbody');
+  et.innerHTML = events.map(e =>
+    `<tr><td>${(e.effective_at || '').replace('T', ' ').slice(0, 16)}</td><td>${e.email || e.user_id || '—'}</td><td>${e.event_type}</td><td>${e.from_tier || '—'} → ${e.to_tier || '—'}</td><td>${e.source || ''}</td><td>${e.environment || ''}</td></tr>`
+  ).join('') || '<tr><td colspan="6" style="color:var(--text-dim)">No events yet</td></tr>';
+}
+
+async function reconcileSubs() {
+  if (!confirm("Pull Apple's subscription state and fix any drift now?")) return;
+  try {
+    const r = await fetch(`${BASE}/webhooks/admin/subscriptions/reconcile`, {method: 'POST', headers: {'X-Admin-Key': adminKey}});
+    const d = await r.json();
+    if (d.skipped) alert('Reconcile is dormant: App Store Server API key not configured.');
+    else alert(`Reconcile done — checked ${d.checked}, fixed ${d.fixed}.`);
+  } catch (e) {
+    alert('Reconcile failed: ' + e.message);
+  }
+  loadSubscriptions();
+}
+
+function downloadSubsCsv(ev) {
+  ev.preventDefault();
+  fetch(`${BASE}/webhooks/admin/subscriptions/export.csv`, {headers: {'X-Admin-Key': adminKey}})
+    .then(r => r.text()).then(txt => {
+      const blob = new Blob([txt], {type: 'text/csv'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'subscriptions.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
 }
 
 async function loadTelemetry() {

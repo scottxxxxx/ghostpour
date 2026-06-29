@@ -392,6 +392,21 @@ async def verify_receipt(
                 new_tier=new_tier_name,
                 event_type="trial_start",
             ))
+            # History log: a trial start is a subscription in Apple's eyes (an
+            # introductory offer), so it marks the user as no longer a "new
+            # subscriber" for offer-code eligibility. Revenue for the trial
+            # period is $0.
+            try:
+                from app.services import subscriptions as subs
+                await subs.record_subscription_event(
+                    db, user_id=user.id, event_type="subscribed", subtype="trial",
+                    from_tier=old_tier_name, to_tier=new_tier_name,
+                    product_id=body.product_id, transaction_id=body.transaction_id,
+                    original_transaction_id=body.transaction_id,
+                    source="verify_receipt", price_usd=0.0,
+                )
+            except Exception as e:
+                logger.warning("subscription_event (trial) record failed: %s", e)
         else:
             # Idempotent re-verification — only update limit, txn_id, and timestamp.
             # Preserve monthly_used_usd, allocation_resets_at, trial_start, trial_end.
@@ -405,6 +420,15 @@ async def verify_receipt(
                 (trial_limit, now.isoformat(), body.transaction_id, user.id),
             )
         await db.commit()
+
+        # A verified receipt (even an idempotent re-verify) means this user has
+        # a subscription, so mark the eligibility cache. Undated: don't overwrite
+        # a known first_subscribed_at; reconcile fills the real date from Apple.
+        try:
+            from app.services import subscriptions as subs
+            await subs.mark_ever_subscribed(db, user.id)
+        except Exception as e:
+            logger.warning("mark_ever_subscribed (trial) failed: %s", e)
 
         # Read back the preserved allocation_resets_at for the response
         cursor = await db.execute(
@@ -466,6 +490,28 @@ async def verify_receipt(
             new_tier=new_tier_name,
             event_type=event_type,
         ))
+        # History log: record the paid state change (new sub, trial conversion,
+        # upgrade, or downgrade). Re-verifications (no state change) are skipped
+        # so the log isn't spammed on every app launch.
+        try:
+            from app.services import subscriptions as subs
+            _rank = {"free": 0, "plus": 1, "pro": 2, "admin": 3}
+            if trial_to_paid or old_tier_name in ("free", None):
+                _sub_evt = "subscribed"
+            elif _rank.get(new_tier_name, 0) >= _rank.get(old_tier_name, 0):
+                _sub_evt = "upgraded"
+            else:
+                _sub_evt = "downgraded"
+            await subs.record_subscription_event(
+                db, user_id=user.id, event_type=_sub_evt,
+                subtype="conversion" if trial_to_paid else None,
+                from_tier=old_tier_name, to_tier=new_tier_name,
+                product_id=body.product_id, transaction_id=body.transaction_id,
+                original_transaction_id=body.transaction_id,
+                source="verify_receipt",
+            )
+        except Exception as e:
+            logger.warning("subscription_event (paid) record failed: %s", e)
     else:
         # Idempotent re-verification — preserve allocation state
         await db.execute(
@@ -481,6 +527,15 @@ async def verify_receipt(
             ),
         )
     await db.commit()
+
+    # A verified paid receipt (incl. idempotent re-verify) means this user is a
+    # subscriber — mark the eligibility cache. Undated so it won't overwrite a
+    # known first_subscribed_at; reconcile backfills the real date from Apple.
+    try:
+        from app.services import subscriptions as subs
+        await subs.mark_ever_subscribed(db, user.id)
+    except Exception as e:
+        logger.warning("mark_ever_subscribed (paid) failed: %s", e)
 
     # Read back preserved allocation_resets_at
     cursor = await db.execute(
