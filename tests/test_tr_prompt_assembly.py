@@ -77,6 +77,22 @@ def test_match_prompt_keeps_calibration_guardrails():
         assert phrase in sp, f"missing calibration guardrail: {phrase!r}"
 
 
+def test_match_prompt_gaps_carry_closeability_guidance():
+    """Each gap must tell the user whether sharing real experience can close it
+    and, when it can, give a concrete example of what to share — so users don't
+    waste effort on gaps nothing they say could satisfy."""
+    cfg = json.load(open("config/remote/tr-match-analysis.json"))
+    sp = cfg["systemPrompt"]
+    # the gap object schema exposes both new fields
+    for field in ('"closeable": boolean', '"share_prompt": string'):
+        assert field in sp, f"gap schema missing field: {field!r}"
+    # the guidance distinguishes closeable-by-evidence from hard requirements
+    assert "closeable = true when" in sp
+    assert "closeable = false when nothing they could say" in sp
+    # and tells the model to split a proprietary core from its adjacent skill
+    assert "split them" in sp
+
+
 def test_interviewer_assembly_preserves_image():
     """tr_research_interviewer is a vision call: the LinkedIn screenshot
     rides in `images`, separate from the prompt. The chat handler assembles
