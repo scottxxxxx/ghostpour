@@ -74,22 +74,83 @@ day telemetry retention (acceptable to SS for now; a true install-age would come
 a client-sent install date later, not a retention change). Usage bands are
 within-retention, which is the right signal for active/heavy-user targeting.
 
-## Item 3 — promo codes (shape locked, gated on pool handoff)
+## Item 3 — promo codes (shape locked, GP owns minting)
 
-`storekit_offer` action with the one-time Offer Code as `action.value`, redeemed
-through Apple (no typing). Offer Codes, not signed Promotional Offers (parked for
-win-back). **SS mints** the pool on their App Store Connect (seed 500) and hands GP
-the pool over a secure channel; **GP distributes** — one code per device, tracked
-against `promo_presentations`, and reports the issuance rate so SS tops up before the
-pool runs dry. GP never holds SS's App Store Connect credentials. The distribution
-machinery (pool store + per-device issuance + resolve-time injection) is buildable
-now; going live is gated only on the pool handoff.
+A `storekit_offer` CTA carries a one-time Subscription Offer Code as `action.value`,
+redeemed through Apple's own sheet (`presentOfferCodeRedeemSheet` / redemption URL),
+never a custom coupon field. Offer Codes — not signed Promotional Offers (parked for
+win-back), not Introductory Offers (broad public first-time discounts).
+
+**Ownership (corrected 2026-06-27): GP owns minting AND distribution; the app only
+redeems.** SS and the apps live under one weirtech Apple account we control, so
+there is no cross-party handoff. The app's whole role here is to present Apple's
+redeem sheet for the code GP hands it (plus the on-device `{first_name}` substitution
+from Item 1). Everything else is GP.
+
+GP mints programmatically through the App Store Connect API:
+`POST /v1/subscriptionOfferCodeOneTimeUseCodes` creates a batch (`numberOfCodes`,
+`expirationDate`), then `GET /v1/subscriptionOfferCodeOneTimeUseCodes/{id}/values`
+pulls the code strings back as CSV — no manual ASC download. Apple limits: ≤150,000
+codes per quarter per app, codes expire ≤6 months from creation.
+
+The only piece Apple forces into App Store Connect is a **one-time** setup, not an
+ongoing task: the Subscription Offer Code *configuration* on our auto-renewable
+subscription (eligibility, discount, duration). After that, batch generation,
+retrieval, issuance, and reporting are fully GP-driven.
+
+**Eligibility caveat:** Apple "New subscribers" eligibility means *never subscribed*.
+A previously-subscribed, now-lapsed, now-free user is rejected at the sheet. So the
+recipient targeting for these codes must be "never subscribed," not merely "currently
+on the free tier." Lapsed-now-free win-back is a separate path (Promotional Offers),
+out of scope here.
+
+**Entitlement:** redemption happens entirely Apple-side, so GP learns of it via App
+Store Server Notifications (or receipt validation) and reflects the upgraded tier
+server-side. This is **not** optional — GP gates tier and budget server-side, so ASSN
+is how the upgrade and the issuance→redemption funnel close.
+
+### Build surface
+
+- **Credential.** A scoped App Store Connect API key (issuer id + key id + `.p8`),
+  least-privilege role, in Secret Manager (same posture as other secrets; supersedes
+  the old "GP never holds ASC credentials" assumption, which only fit a cross-party
+  framing). The key + the offer config are the sole human setup step.
+- **ASC mint client** (`app/services/offer_codes.py`): JWT-signed ASC API client;
+  `mint_batch(count, expires_at)` → POST batch, then GET `/values`, returns code
+  strings. Idempotent per batch id; never re-pulls a consumed batch.
+- **Pool store** (table `promo_offer_codes`): `code` (unique), `batch_id`,
+  `expires_at`, `state` (available|issued|redeemed|expired), `device_id`,
+  `issued_at`, `redeemed_at`. A low-water-mark check triggers a refill mint.
+- **Per-device atomic issuance.** At resolve, a `storekit_offer` variant claims one
+  `available` non-expired code in a single transaction (`UPDATE ... WHERE
+  state='available' ... LIMIT 1 RETURNING code`), so no code issues twice under
+  concurrency. Re-presenting to the same device returns its already-issued code, not
+  a new one (idempotent per device, tracked against `promo_presentations`).
+- **Resolve-time injection.** `resolve` fills the chosen variant's
+  `storekit_offer.action.value` with the claimed bare code; the app builds the
+  prefilled redeem URL / presents the sheet. Pool exhaustion → withhold the variant
+  (fail closed, same as the capability gate), never serve an empty offer.
+- **`storekit_offer` value validation.** In `_validate_campaign`, an authored
+  `storekit_offer` declares the offer/product reference, not a literal code (GP
+  injects the code at resolve); reject a hand-authored raw code.
+- **ASSN webhook** (`/webhooks/appstore/notifications`): on redeem, mark the code
+  `redeemed`, flip the user's tier, and feed the redemption funnel.
+- **Reporting.** Issuance + redemption rates per campaign in the dashboard funnel;
+  low-pool alert via the existing alert categories so we refill before it runs dry.
+
+Schema + ownership are locked; go-live needs only the ASC API key and the offer
+config. No SS dependency beyond the redeem-sheet button they already planned.
 
 ## Build order
 
 1. Foundation — native schema validation + `min_app_version` capability gate. **Shipped.**
 2. Item 2 usage dims (`sessions_this_week`, bounded `days_since_install`). No client dep.
 3. Item 1 personalization token contract + token-requires-gate enforcement + dashboard.
-4. Item 3 Offer Code pool store + distribution + `storekit_offer` value validation. Go-live on pool handoff.
+4. Item 3 — ASC mint client + offer-code pool store + per-device atomic issuance +
+   resolve injection + `storekit_offer` value validation + ASSN entitlement webhook.
+   Go-live needs the ASC API key + the one-time offer config; no SS dependency.
 
-Open from SS: the `min_app_version` value(s) for the renderer build(s); the Offer Code pool.
+Open: SS sends the renderer build's `min_app_version` (DONE for native — app 1.14).
+For Item 3, the human setup is ours: create the scoped ASC API key (→ Secret Manager)
+and the Subscription Offer Code config (eligibility = New subscribers) on the
+auto-renewable subscription.
