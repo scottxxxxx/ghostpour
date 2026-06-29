@@ -25,7 +25,7 @@ Served verbatim on a resolved variant when `render: "native"`:
     "body": "...",                        // optional string
     "media": { "type": "image", "url": "https://..." },  // optional; image only, https only
     "personalization": { "first_name_fallback": "there" }, // see item 1
-    "ctas": [ { "cta_id": "...", "action": { "type": "...", "value": "..." } } ]
+    "ctas": [ { "label": "...", "cta_id": "...", "action": { "type": "...", "value": "..." } } ]
   }
 }
 ```
@@ -34,7 +34,8 @@ Validated on campaign create/update (`_validate_campaign`): `render: native` req
 a `native` block with `schema_version == 1` and a string `title`; `body` is a string
 when present; `media` is image + https when present. CTA `action.type` stays on the
 locked allowlist (`appstore | storekit_offer | paywall | url | deeplink | none`),
-deeplinks on the per-app allowlist, `cta_id` a string when present.
+deeplinks on the per-app allowlist, `cta_id` a string when present, and `label`
+(the button text, GP-owned wording) a required non-empty string per CTA.
 
 ### `paywall` action (locked with SS 2026-06-28, client build 632)
 

@@ -3144,6 +3144,12 @@ def _validate_campaign(body: CampaignBody) -> None:
             cid = cta.get("cta_id")
             if cid is not None and not isinstance(cid, str):
                 raise HTTPException(status_code=400, detail="cta_id must be a string when present")
+            # Every native CTA needs button text. GP owns the wording (title,
+            # body, and the CTA label), and a label-less CTA would render an
+            # empty button. Served verbatim; the client reads native.ctas[].label.
+            label = cta.get("label")
+            if not label or not isinstance(label, str):
+                raise HTTPException(status_code=400, detail="cta label is required and must be a non-empty string")
 
 
 @router.post("/admin/campaigns")
