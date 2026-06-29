@@ -1,5 +1,5 @@
 {
-  "version": 11,
+  "version": 12,
   "models": [
     {"id": "anthropic/claude-opus-4-7", "label": "Opus 4.7"},
     {"id": "anthropic/claude-sonnet-4-6", "label": "Sonnet 4.6"},
@@ -142,6 +142,14 @@
             "free": "anthropic/claude-sonnet-4-6",
             "paid": "anthropic/claude-sonnet-4-6",
             "default": "anthropic/claude-sonnet-4-6"
+          }
+        },
+        "tr_resume_enhance": {
+          "label": "Resume Strengthen",
+          "models": {
+            "free": "anthropic/claude-haiku-4-5-20251001",
+            "paid": "anthropic/claude-haiku-4-5-20251001",
+            "default": "anthropic/claude-haiku-4-5-20251001"
           }
         },
         "query": {
