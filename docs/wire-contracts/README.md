@@ -35,6 +35,7 @@ without moving the schema, that's a coordination bug.
 | `project-chat-prompt-assembly.md` | active (2026-05-06) | SS-side `system_prompt` assembly for Project Chat — meeting manifest, per-meeting headers, summary/transcript/Q&A sub-sections |
 | `memory-capture.md` | active | Memory capture verdict matrix, synthetic CTA card injection, quota mechanics |
 | `reasoning-control.md` | active | Per-model reasoningLevels, server-side mapping to provider params |
+| `tr-match-analysis.md` | active (2026-06-30) | TR résumé/JD fit response: scores, strengths, `gaps[]` (`closeable`/`share_prompt` for the Strengthen flow), fit radar; GP-assembled vs client-embedded prompt source |
 
 ## Why this directory exists
 
