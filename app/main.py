@@ -285,6 +285,11 @@ app.add_middleware(StreamingBypassMiddleware)
 # StreamingBypassMiddleware handles all logging as pure ASGI middleware
 # to avoid BaseHTTPMiddleware's body materialization killing SSE streaming.
 
+# Force-upgrade enforcement (#force-version-gate). Pure ASGI for the same
+# streaming reason; fails open, off by default (min_supported_blocking).
+from app.middleware.version_enforcement import VersionEnforcementMiddleware  # noqa: E402
+app.add_middleware(VersionEnforcementMiddleware)
+
 app.include_router(health.router, tags=["health"])
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(chat.router, prefix="/v1", tags=["chat"])
