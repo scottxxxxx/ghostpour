@@ -320,14 +320,25 @@ async def resolve_promo(
             countries, regions = _geo_constraint(tgt)
             if (countries or regions) and await _geo_audience(db, countries, regions) < min_aud:
                 continue
-        max_impressions = (c.get("frequency") or {}).get("max_impressions")
-        if max_impressions:
+        # Per-device presentation state: impression-frequency cap + convert
+        # suppression. The client reports `convert` (subscribe within 24h of a
+        # paywall/storekit_offer CTA tap) but does NOT self-suppress, so by
+        # default we stop showing a campaign once this device has converted on
+        # it. A campaign can opt back in with frequency.repeat_after_convert.
+        freq = c.get("frequency") or {}
+        max_impressions = freq.get("max_impressions")
+        repeat_after_convert = bool(freq.get("repeat_after_convert"))
+        if max_impressions or not repeat_after_convert:
             pres = await (await db.execute(
-                "SELECT shown_count FROM promo_presentations WHERE device_id = ? AND campaign_id = ?",
+                "SELECT shown_count, converted_at FROM promo_presentations "
+                "WHERE device_id = ? AND campaign_id = ?",
                 (device_id, c["id"]),
             )).fetchone()
-            if pres and pres["shown_count"] >= max_impressions:
-                continue
+            if pres:
+                if pres["converted_at"] and not repeat_after_convert:
+                    continue
+                if max_impressions and pres["shown_count"] >= max_impressions:
+                    continue
         # Capability gate: drop variants this client can't render, then weighted-
         # pick among the rest. If none are renderable (e.g. all gated above this
         # build), the campaign yields nothing for this device and we fall through.

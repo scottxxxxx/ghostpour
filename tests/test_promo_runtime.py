@@ -84,6 +84,34 @@ def test_frequency_cap_hides_after_max(client, pro_user):
     assert client.get("/v1/promo/resolve?device_id=devD", headers=h).json() == {}
 
 
+def test_convert_suppresses_campaign_for_that_device(client, pro_user):
+    # The client reports `convert` but doesn't self-suppress, so once a device
+    # converts on a campaign GP stops resolving it for that device by default.
+    _make_campaign(client, cid="ss_promo_conv", targeting={"users": [PRO_EMAIL]})
+    h = {**pro_user["headers"], "X-App-ID": SS}
+    assert client.get("/v1/promo/resolve?device_id=devCV", headers=h).json()["campaign_id"] == "ss_promo_conv"
+    # impression creates the presentation row; then the device converts
+    client.post("/v1/promo/events", headers=h, json={
+        "event_type": "impression", "campaign_id": "ss_promo_conv", "variant_id": "html", "device_id": "devCV"})
+    client.post("/v1/promo/events", headers=h, json={
+        "event_type": "convert", "campaign_id": "ss_promo_conv", "variant_id": "html", "device_id": "devCV"})
+    # converted -> suppressed for this device, but a fresh device still sees it
+    assert client.get("/v1/promo/resolve?device_id=devCV", headers=h).json() == {}
+    assert client.get("/v1/promo/resolve?device_id=devCV2", headers=h).json()["campaign_id"] == "ss_promo_conv"
+
+
+def test_repeat_after_convert_opt_out_keeps_showing(client, pro_user):
+    # A campaign can opt back in to showing after a convert.
+    _make_campaign(client, cid="ss_promo_repeat", targeting={"users": [PRO_EMAIL]},
+                   frequency={"repeat_after_convert": True})
+    h = {**pro_user["headers"], "X-App-ID": SS}
+    client.post("/v1/promo/events", headers=h, json={
+        "event_type": "impression", "campaign_id": "ss_promo_repeat", "variant_id": "html", "device_id": "devRP"})
+    client.post("/v1/promo/events", headers=h, json={
+        "event_type": "convert", "campaign_id": "ss_promo_repeat", "variant_id": "html", "device_id": "devRP"})
+    assert client.get("/v1/promo/resolve?device_id=devRP", headers=h).json()["campaign_id"] == "ss_promo_repeat"
+
+
 def test_draft_campaign_not_resolved(client, pro_user):
     _make_campaign(client, cid="ss_promo_5", status="draft", targeting={"users": [PRO_EMAIL]})
     h = {**pro_user["headers"], "X-App-ID": SS}
