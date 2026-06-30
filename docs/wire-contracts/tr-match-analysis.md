@@ -6,7 +6,7 @@ strengths, gaps, and fit-radar data the TR app renders. This doc is the
 diff target for that JSON shape — especially the `gaps[]` objects, which
 back the "Strengthen" flow.
 
-Last updated: 2026-06-30. Served prompt version: 6 (`config/remote/tr-match-analysis.json`).
+Last updated: 2026-06-30. Served prompt version: 7 (`config/remote/tr-match-analysis.json`).
 
 ## Who assembles the prompt (read this first)
 
@@ -54,6 +54,7 @@ determines which fields you get back**:
       "severity": "medium",                            // "high" | "medium" | "low"
       "closeable": true,                               // bool — see below
       "share_prompt": "Share a specific project where you wrote raw SQL against a Postgres or MySQL database — schema design, query optimization, or migration.",
+      "example_excerpt": "• Designed and tuned the Postgres schema behind our billing pipeline, cutting p95 query latency from 800ms to 120ms across 50M+ rows.",
       "fix": "Name Postgres/MySQL explicitly in a skills entry or bullet rather than only 'SQL data modeling with Prisma'."
     }
   ],
@@ -69,14 +70,15 @@ determines which fields you get back**:
 ## `gaps[]` field semantics (the Strengthen flow)
 
 Each gap is one missing/weak area that is a real requirement of *this*
-JD. The five fields:
+JD. The fields:
 
 | field | type | meaning |
 |---|---|---|
 | `keyword` | string | Short label for the gap. Shown as the "GAP TO CLOSE" title. |
 | `severity` | `"high" \| "medium" \| "low"` | How important to this JD. Order is most-important-first. |
 | `closeable` | bool | **Can the candidate close/narrow this by sharing real experience they may not have surfaced** (an adjacent project, a tool they've used, an outcome they drove)? `false` when nothing they say could satisfy it — a proprietary platform they couldn't have used, a credential they don't hold, a raw years/scale bar. **Gate the Strengthen affordance on this:** `true` → offer the evidence input + Strengthen button; `false` → show `fix` as interview-prep guidance, no button. |
-| `share_prompt` | string | **When `closeable`: one concrete example of what to share**, specific enough that the candidate can self-check whether they have it. Use it as the hint/placeholder for the evidence text field. **When not `closeable`: empty string `""`.** May also be `null`/absent if the model omits it — treat `null`/`""` as "no example, fall back to showing `fix`". |
+| `share_prompt` | string | **When `closeable`: one concrete example of what to share**, specific enough that the candidate can self-check whether they have it. A short hint/question, not a draft. **When not `closeable`: empty string `""`.** May also be `null`/absent if the model omits it — treat `null`/`""` as "no hint, fall back to showing `fix`". |
+| `example_excerpt` | string | **When `closeable`: a concrete, first-person, résumé-ready draft (1-3 sentences) that WOULD close the gap** — grounded in the candidate's real background (their actual employers/tools/domain) with `[placeholders]` where specifics need filling. **Seed the evidence text box with this as real, editable content** (NOT greyed placeholder text): the user edits it to match what they actually did, then submits. **When not `closeable`: empty string `""`.** Treat `null`/`""` as "no draft — leave the box empty." |
 | `fix` | string | One sentence on how to address it. For `closeable:false` gaps it's framed as interview-prep, not a résumé edit. |
 
 Split behavior: when a requirement has both a not-closeable core (a
@@ -89,8 +91,10 @@ part `closeable:false`, the learnable part `closeable:true` with a
 
 - Treat `closeable` absent/`null` as **`true`** (fail toward offering the
   flow; matches how old saved reports decode).
-- Treat `share_prompt` absent/`null`/`""` as **no example** — render
+- Treat `share_prompt` absent/`null`/`""` as **no hint** — render
   `fix` instead; never block on it.
+- Treat `example_excerpt` absent/`null`/`""` as **no draft** — leave the
+  evidence box empty; never block on it.
 - Unknown future fields: ignore. Additive changes won't bump the shape.
 
 ## Getting `closeable`/`share_prompt` populated

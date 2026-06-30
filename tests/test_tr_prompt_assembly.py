@@ -100,14 +100,17 @@ def test_match_prompt_gaps_carry_closeability_guidance():
     waste effort on gaps nothing they say could satisfy."""
     cfg = json.load(open("config/remote/tr-match-analysis.json"))
     sp = cfg["systemPrompt"]
-    # the gap object schema exposes both new fields
-    for field in ('"closeable": boolean', '"share_prompt": string'):
+    # the gap object schema exposes the closeability + Strengthen fields
+    for field in ('"closeable": boolean', '"share_prompt": string', '"example_excerpt": string'):
         assert field in sp, f"gap schema missing field: {field!r}"
     # the guidance distinguishes closeable-by-evidence from hard requirements
     assert "closeable = true when" in sp
     assert "closeable = false when nothing they could say" in sp
     # and tells the model to split a proprietary core from its adjacent skill
     assert "split them" in sp
+    # example_excerpt is an editable first-person draft, empty when not closeable
+    assert "a concrete, first-person draft" in sp
+    assert "edit to match what they actually did" in sp
 
 
 def test_interviewer_assembly_preserves_image():
