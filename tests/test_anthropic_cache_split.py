@@ -126,3 +126,40 @@ def test_split_preserves_other_body_fields():
     assert "tools" in body
     assert body["messages"][0]["role"] == "user"
     assert len(body["system"]) == 3
+
+
+def test_temperature_sent_when_set_and_no_thinking():
+    request = ChatRequest(
+        provider="anthropic",
+        model="claude-sonnet-4-6",
+        system_prompt="base",
+        user_content="hi",
+        temperature=0.3,
+    )
+    body, _ = _adapter()._build_body(request)
+    assert body["temperature"] == 0.3
+
+
+def test_temperature_omitted_when_unset():
+    request = ChatRequest(
+        provider="anthropic", model="claude-sonnet-4-6",
+        system_prompt="base", user_content="hi",
+    )
+    body, _ = _adapter()._build_body(request)
+    assert "temperature" not in body  # None => provider default
+
+
+def test_temperature_suppressed_when_thinking_on():
+    # Anthropic rejects temperature != 1 with extended thinking, so the adapter
+    # must NOT send temperature when a thinking block is present.
+    request = ChatRequest(
+        provider="anthropic",
+        model="claude-sonnet-4-6",
+        system_prompt="base",
+        user_content="hi",
+        temperature=0.3,
+        reasoning="high",
+    )
+    body, _ = _adapter()._build_body(request)
+    if "thinking" in body:
+        assert "temperature" not in body
