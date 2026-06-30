@@ -234,8 +234,18 @@ Resolution: `X-App-ID` slug → `config/apps.yml` `bundle_id` → this registry'
 floor. Logic in `app/services/version_gate.py`, enforced by
 `app/middleware/version_enforcement.py` (pure ASGI, streaming-safe).
 
-> Flipping the floor/flag is a YAML edit + deploy today. An admin endpoint for
-> an instant runtime flip (the break-glass security cutoff) is the follow-up.
+**Operational — break-glass instant flip.** Routine floor bumps go through the
+YAML + a normal deploy. For a security cutoff that can't wait, an admin endpoint
+flips the floor/flag/blocklist at runtime, in memory, effective on the next
+request, persisted to an overlay beside the DB so it survives restart (a restart
+mid-incident must not un-block). Behind the admin key.
+
+- `POST /webhooks/admin/app-version/override` — body `{bundle_id, platform?,
+  min_supported_version?, min_supported_blocking?, blocked_versions?}`; sets only
+  the provided fields, reloads live, returns the effective platform block.
+- `DELETE /webhooks/admin/app-version/override/{bundle_id}?platform=ios` — stand
+  down: clears the override, reverts to the YAML floor.
+- `GET /webhooks/admin/app-version` — effective registry + raw overlay.
 
 ## Out of scope
 

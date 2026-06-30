@@ -14,6 +14,7 @@ complexity today.
 
 from __future__ import annotations
 
+import copy
 import logging
 from pathlib import Path
 from typing import Any
@@ -42,6 +43,69 @@ def load_registry(path: str | Path) -> dict[str, Any]:
         logger.warning("app_versions registry %s root is not a mapping", p)
         return {}
     return data
+
+
+# --- Runtime override overlay (#force-version-gate, break-glass cutoff) -------
+#
+# The bundle YAML is load-at-startup. For a SECURITY cutoff a config PR + deploy
+# is too slow, so an admin override is persisted to a small overlay file beside
+# the SQLite DB (so it rides the same volume and survives restart — critical, a
+# restart mid-incident must NOT un-block a flagged build) and deep-merged onto
+# the bundle registry. The admin endpoint writes the overlay and reloads the live
+# app.state in one shot, so a flip takes effect on the very next request.
+
+
+def overlay_path() -> Path:
+    """Persistent overlay file, beside the SQLite DB (per-test tmp under tests)."""
+    from app import database
+    base = Path(database._db_path).parent if getattr(database, "_db_path", None) else Path("data")
+    return base / "app-versions-overlay.yml"
+
+
+def load_overlay() -> dict[str, Any]:
+    """The admin override overlay, or {} when none/malformed (fail safe — a bad
+    overlay must not erase the bundle floors)."""
+    p = overlay_path()
+    if not p.exists():
+        return {}
+    try:
+        data = yaml.safe_load(p.read_text()) or {}
+    except yaml.YAMLError as e:
+        logger.warning("app-versions overlay %s malformed: %s", p, e)
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def save_overlay(overlay: dict[str, Any]) -> None:
+    p = overlay_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(yaml.safe_dump(overlay, sort_keys=True))
+
+
+def merge_overlay(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
+    """Deep-merge the overlay onto the base registry at the bundle ->
+    platforms -> platform key level (overlay keys win; everything else kept)."""
+    out = copy.deepcopy(base)
+    for bundle, b_over in (overlay or {}).items():
+        if not isinstance(b_over, dict):
+            continue
+        plats_over = b_over.get("platforms") or {}
+        entry = out.setdefault(bundle, {})
+        plats = entry.setdefault("platforms", {})
+        if not isinstance(plats, dict):
+            plats = entry["platforms"] = {}
+        for plat, keys in plats_over.items():
+            if isinstance(keys, dict):
+                plats.setdefault(plat, {}).update(keys)
+    return out
+
+
+def load_effective(path: str | Path) -> dict[str, Any]:
+    """The registry the gateway actually serves and enforces: bundle YAML with
+    any admin overlay merged on top."""
+    base = load_registry(path)
+    overlay = load_overlay()
+    return merge_overlay(base, overlay) if overlay else base
 
 
 def get_version_info(registry: dict[str, Any], bundle_id: str) -> dict | None:
