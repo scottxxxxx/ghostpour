@@ -107,6 +107,11 @@ class AnthropicAdapter(ProviderAdapter):
         }
         if thinking:
             body["thinking"] = thinking
+        # GP-controlled sampling temperature (e.g. low for reproducible structured
+        # output). Anthropic requires temperature=1 when extended thinking is on,
+        # so only send an explicit temperature when there is no thinking block.
+        elif request.temperature is not None:
+            body["temperature"] = request.temperature
         # Effort-path models (Sonnet 4.6, Opus 4.7): attach output_config.effort
         # alongside `thinking: {type: "adaptive"}`. Per Anthropic's docs the
         # effort parameter is what controls thinking depth on these models;

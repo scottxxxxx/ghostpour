@@ -38,6 +38,7 @@ class ChatRequest(BaseModel):
     user_content: str
     images: list[str] | None = None
     max_tokens: int | None = None
+    temperature: float | None = None  # GP-controlled; None => provider default
     stream: bool = False
     reasoning: ReasoningLevel | None = None
 

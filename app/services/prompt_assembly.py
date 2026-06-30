@@ -55,6 +55,7 @@ def assemble_prompt(
     system_prompt = config.get("systemPrompt", "")
     user_template = config.get("userPromptTemplate", "")
     max_tokens = config.get("maxTokens")
+    temperature = config.get("temperature")
 
     if not system_prompt:
         logger.warning("prompt_assembly: empty systemPrompt in %s", config_slug)
@@ -87,6 +88,10 @@ def assemble_prompt(
     }
     if max_tokens:
         result["max_tokens"] = max_tokens
+    # GP-controlled sampling temperature (optional). Low values make a
+    # structured call (e.g. tr_parse_jd radar axes) reproducible run-to-run.
+    if temperature is not None:
+        result["temperature"] = temperature
 
     logger.info("prompt_assembly: assembled %s (system=%d chars, user=%d chars)",
                 config_slug, len(system_prompt), len(assembled_user))

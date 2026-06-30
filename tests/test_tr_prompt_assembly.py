@@ -32,6 +32,23 @@ def test_call_types_are_mapped():
         assert _CALL_TYPE_TO_CONFIG.get(call_type) == slug
 
 
+def test_parse_jd_low_temperature_passes_through_assembly():
+    # tr_parse_jd runs at a low temperature so the radar axes are reproducible
+    # run-to-run; assembly must surface it so chat.py can set it on the request.
+    cfg = json.load(open("config/remote/tr-jd-analysis.json"))
+    assert cfg["temperature"] == 0.3
+    assembled = assemble_prompt("tr_parse_jd", "JD TEXT", {"tr-jd-analysis": cfg})
+    assert assembled["temperature"] == 0.3
+
+
+def test_temperature_absent_when_config_omits_it():
+    # Configs without a temperature key must not inject one (provider default).
+    cfg = json.load(open("config/remote/tr-match-analysis.json"))
+    assert "temperature" not in cfg
+    assembled = assemble_prompt("tr_match_analysis", "DATA", {"tr-match-analysis": cfg})
+    assert "temperature" not in assembled
+
+
 def test_configs_have_required_shape():
     for _, slug, head in CASES:
         cfg = json.load(open(f"config/remote/{slug}.json"))
