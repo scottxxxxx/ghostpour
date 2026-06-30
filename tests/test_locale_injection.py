@@ -58,6 +58,16 @@ def test_directive_keeps_json_keys_english():
     assert "reorder" in low or "rename" in low
 
 
+def test_directive_protects_enum_tokens_and_verbatim_labels():
+    # Structured clients (tr_match_analysis) parse by fixed enum tokens and by
+    # fit_by_dimension labels that mirror the input axes verbatim. The directive
+    # must keep those from being translated on a non-English run.
+    low = language_directive("es").lower()
+    assert "enumerated token" in low          # severity/level tokens guarded
+    assert "high" in low and "strong" in low  # names the actual tokens
+    assert "verbatim" in low and "byte-for-byte" in low  # input-copied labels guarded
+
+
 def test_unknown_language_still_injects_with_code():
     # A non-English code we don't have a name for still injects, naming the ISO
     # code rather than silently defaulting to English.
@@ -110,7 +120,7 @@ def test_composition_with_assembled_managed_prompt():
     localized = apply(assembled["system_prompt"], "es")
     assert assembled["system_prompt"] in localized      # original kept verbatim
     assert "Spanish" in localized                        # directive appended
-    assert "keep every key" in localized                 # JSON keys guarded
+    assert "every key and field name" in localized       # JSON keys guarded
 
 
 # --- integration: the directive reaches the prompt sent to the provider ----
@@ -128,7 +138,7 @@ def test_directive_reaches_routed_prompt(client, free_user, mock_provider):
     routed = mock_provider.call_args.args[0]            # ChatRequest passed to route()
     assert "Base prompt." in routed.system_prompt
     assert "Spanish" in routed.system_prompt
-    assert "keep every key" in routed.system_prompt
+    assert "every key and field name" in routed.system_prompt
     # observability header confirms injection fired at the wire
     assert resp.headers.get("X-Output-Locale") == "es"
 

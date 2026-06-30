@@ -60,11 +60,15 @@ def language_directive(locale: str | None) -> str | None:
     lang = name or "that language"
     return (
         "\n\n--- RESPONSE LANGUAGE ---\n"
-        f"Respond in {target}. Write all human-readable text the user will read in "
-        f"{lang}. If your response is JSON or other structured data, translate only "
-        "the human-readable string values — keep every key, field name, and the "
-        "overall structure exactly as specified, in English. Do not translate, "
-        "rename, add, remove, or reorder keys."
+        f"Respond in {target}. Write all free-text the user will read (descriptions, "
+        f"titles, sentences) in {lang}. If your response is JSON or other structured "
+        "data, translate ONLY those free-text values. Keep every key and field name "
+        "in English and the overall structure exactly as specified. Do NOT translate "
+        "fixed enumerated token values — for example severity or level values like "
+        '"high"/"medium"/"low" or "strong"/"ok"/"weak" — emit those in English exactly '
+        "as the schema specifies. Any field the schema says must copy an input value "
+        "verbatim (e.g. axis labels) must be copied byte-for-byte from the input, never "
+        "translated. Do not translate, rename, add, remove, or reorder keys."
     )
 
 
