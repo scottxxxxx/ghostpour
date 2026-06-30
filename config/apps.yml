@@ -29,9 +29,15 @@ apps:
   shouldersurf:
     dir: shouldersurf
     label: ShoulderSurf
+    # Apple bundle id — the key into config/app-versions.yml. The force-upgrade
+    # version gate (app/services/version_gate.py) resolves X-App-ID -> this -> the
+    # app's version floor. No bundle_id => the gate can't resolve a floor and
+    # fails open (never blocks).
+    bundle_id: com.shouldersurf.ShoulderSurf
   techrehearsal:
     dir: techrehearsal
     label: Tech Rehearsal
+    bundle_id: com.weirtech.techrehearsal
     # Per-app CQ identity (#cq). TR is a separate ContextQuilt app with its own
     # CQ app_id, so its writes must reach CQ tagged as bc6efb4c (not the default
     # ShoulderSurf/ghostpour identity) or CQ validates them against the wrong

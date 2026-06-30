@@ -192,6 +192,51 @@ an error" UX. Always lag.
 - 2026-06-09: PR #233 — build bumped 447 → 450 (447 was an internal-only build,
   superseded before release). Examples here track the live value.
 
+## Force-upgrade gate (#force-version-gate, 2026-06-30)
+
+Two layers that let us force users off a bad build (security / critical
+compat break), not just nudge. Agreed with SS; default-off and fail-open.
+
+**Registry fields** (added to `platforms.ios`, additive on the wire):
+
+- `min_supported_blocking` (bool, default `false`). Today
+  `min_supported_version` drives a *non-blocking* "update required" banner.
+  When this is `true`, that floor becomes a true hard gate: iOS full-screens,
+  AND the gateway 426s the app's below-floor calls. Off by default so a
+  mistaken `min_supported_version` bump can never brick the install base.
+- `blocked_versions` (list of strings, default `[]`). Surgical cutoff of an
+  exact marketing version or build number even when above the floor — for a
+  single compromised build. Matched against `X-App-Version` or `X-App-Build`.
+
+**Server enforcement.** The gateway returns **`426 Upgrade Required`** on the
+LLM (`/v1/chat`), Context Quilt (`/v1/quilt`, `/v1/capture-transcript`), and
+config (`/v1/config`) paths when the calling build is below an actively-blocking
+floor or is in `blocked_versions`. Cuts a compromised build off immediately,
+mid-session, independent of the user updating.
+
+- **Fail open.** Missing/unparseable `X-App-Version`, unknown app, or no floor
+  config => never block. We only 426 when we positively know the build is below
+  a blocking floor (or is blocklisted).
+- **Exempt:** `/v1/app/version` and `/auth` — a blocked client must reach the
+  version endpoint to learn the new floor + upgrade URL, and refresh tokens.
+- **426 body** (top-level): `{ "code": "upgrade_required", "message": str,
+  "upgrade_url": str, "min_supported_version": str }`. Client keys on
+  `code == "upgrade_required"`, shows `message`, wires Update to `upgrade_url`.
+
+**Request headers** (iOS sends on every call, alongside `X-App-ID`):
+
+- `X-App-Version` — `CFBundleShortVersionString` (e.g. `"1.14"`); compared to
+  `min_supported_version` on the same semver axis.
+- `X-App-Build` — `CFBundleVersion` (e.g. `"644"`); used for build-level
+  blocklisting when the marketing version can't tell two installs apart.
+
+Resolution: `X-App-ID` slug → `config/apps.yml` `bundle_id` → this registry's
+floor. Logic in `app/services/version_gate.py`, enforced by
+`app/middleware/version_enforcement.py` (pure ASGI, streaming-safe).
+
+> Flipping the floor/flag is a YAML edit + deploy today. An admin endpoint for
+> an instant runtime flip (the break-glass security cutoff) is the follow-up.
+
 ## Out of scope
 
 - Authentication: this endpoint is intentionally unauthenticated.

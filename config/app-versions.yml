@@ -52,3 +52,14 @@ com.shouldersurf.ShoulderSurf:
       # Hard floor. Client refuses to operate below this. Bump only
       # when an older build has a real correctness or security issue.
       min_supported_version: "1.0"
+      # Force-upgrade switch (#force-version-gate). FALSE = today's behavior:
+      # min_supported_version drives a non-blocking "update required" banner only.
+      # TRUE = a true hard gate: the client full-screens, AND the gateway rejects
+      # this app's below-floor calls (LLM / Context Quilt / config) with HTTP 426.
+      # Off by default so a mistaken min_supported_version bump can never brick
+      # every install at once. See app/services/version_gate.py.
+      min_supported_blocking: false
+      # Surgical cutoff: exact marketing versions or build numbers to 426 even
+      # when above the floor (one compromised build). Strings, matched against
+      # X-App-Version or X-App-Build. Empty = none blocked.
+      blocked_versions: []
