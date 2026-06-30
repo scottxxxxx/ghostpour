@@ -3452,6 +3452,85 @@ async def mint_offer_codes(
 
 # --- Promo creatives (hot-reloadable, no deploy) -----------------------------
 
+# --- Force-upgrade: instant runtime flip (#force-version-gate break-glass) ----
+
+
+class AppVersionOverrideRequest(BaseModel):
+    """Patch a bundle/platform's force-upgrade floor at runtime. Only the
+    provided fields change; omit a field to leave it as-is."""
+    bundle_id: str
+    platform: str = "ios"
+    min_supported_version: str | None = None
+    min_supported_blocking: bool | None = None
+    blocked_versions: list[str] | None = None
+
+
+def _reload_app_versions(request: Request):
+    from app.services import app_version as av
+    from app.config import get_settings
+    request.app.state.app_versions = av.load_effective(get_settings().app_versions_path)
+    return request.app.state.app_versions
+
+
+@router.get("/admin/app-version")
+async def get_app_version_state(request: Request, x_admin_key: str = Header(...)):
+    """Effective force-upgrade registry (bundle YAML + runtime overlay) plus the
+    raw overlay, so an operator can see exactly what's flipped."""
+    _verify_admin(request, x_admin_key)
+    from app.services import app_version as av
+    return {
+        "effective": getattr(request.app.state, "app_versions", {}) or {},
+        "overlay": av.load_overlay(),
+    }
+
+
+@router.post("/admin/app-version/override")
+async def app_version_override(
+    body: AppVersionOverrideRequest, request: Request, x_admin_key: str = Header(...)
+):
+    """Break-glass: flip a build off NOW. Persists an override to the overlay and
+    reloads the live registry in one shot, so the version gate enforces it on the
+    very next request — no PR, no deploy. Set min_supported_blocking=true to hard
+    gate below the floor, and/or blocked_versions to cut off specific builds."""
+    _verify_admin(request, x_admin_key)
+    from app.services import app_version as av
+    overlay = av.load_overlay()
+    plat = overlay.setdefault(body.bundle_id, {}).setdefault("platforms", {}).setdefault(body.platform, {})
+    if body.min_supported_version is not None:
+        plat["min_supported_version"] = body.min_supported_version
+    if body.min_supported_blocking is not None:
+        plat["min_supported_blocking"] = body.min_supported_blocking
+    if body.blocked_versions is not None:
+        plat["blocked_versions"] = body.blocked_versions
+    av.save_overlay(overlay)
+    eff = _reload_app_versions(request)
+    effective_plat = (eff.get(body.bundle_id, {}).get("platforms", {}) or {}).get(body.platform, {})
+    return {"status": "applied", "bundle_id": body.bundle_id, "platform": body.platform,
+            "effective": effective_plat, "overlay": plat}
+
+
+@router.delete("/admin/app-version/override/{bundle_id:path}")
+async def app_version_override_clear(
+    bundle_id: str, request: Request, platform: str = "ios", x_admin_key: str = Header(...)
+):
+    """Revert a bundle/platform to its YAML floor (clears the runtime override)
+    and reloads live. Use this to STAND DOWN an incident cutoff."""
+    _verify_admin(request, x_admin_key)
+    from app.services import app_version as av
+    overlay = av.load_overlay()
+    changed = False
+    if bundle_id in overlay:
+        plats = (overlay[bundle_id].get("platforms") or {})
+        if platform in plats:
+            del plats[platform]
+            changed = True
+        if not plats:
+            del overlay[bundle_id]
+    av.save_overlay(overlay)
+    _reload_app_versions(request)
+    return {"status": "cleared" if changed else "no_override", "bundle_id": bundle_id, "platform": platform}
+
+
 @router.get("/admin/promo-assets")
 async def list_promo_assets(request: Request, x_admin_key: str = Header(...)):
     """List promo creatives — bundled defaults plus any live-edited store copies."""

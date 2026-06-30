@@ -107,7 +107,9 @@ async def lifespan(app: FastAPI):
     # Per-app version registry. Backs GET /v1/app/version. Missing file
     # is non-fatal; the endpoint just 404s every call until the file
     # lands. See app/services/app_version.py.
-    from app.services.app_version import load_registry as _load_app_versions
+    # Effective registry = bundle YAML + any persisted admin override overlay
+    # (#force-version-gate break-glass), so a runtime cutoff survives restart.
+    from app.services.app_version import load_effective as _load_app_versions
     app.state.app_versions = _load_app_versions(settings.app_versions_path)
     logging.getLogger("app.main").info(
         "app_versions loaded apps=%d path=%s",
