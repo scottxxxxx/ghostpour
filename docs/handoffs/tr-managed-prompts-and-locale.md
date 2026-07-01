@@ -64,7 +64,11 @@ section labels the prompt expects:
 - `tr_match_analysis` — **raw resume text + JD** in one blob (TR does not parse the resume separately;
   there is no `tr_parse_resume` step — see note below). The blob must also include the **ROLE EMPHASIS
   AXES** = the JD dimension labels from `tr_parse_jd`, so the radar labels line up. Structured output,
-  exact-key parsed → English-keys guard applies.
+  exact-key parsed → English-keys guard applies. **Gap shape is v7 (stable):
+  `{keyword, severity, closeable, share_prompt, example_excerpt, fix}`** — `closeable` gates the
+  Strengthen affordance, `share_prompt` is the hint line, `example_excerpt` seeds the editable box
+  (empty `""` when `closeable=false`). Full schema + client null-handling in
+  `docs/wire-contracts/tr-match-analysis.md`. `fit_by_dimension` labels mirror the parse_jd axes verbatim.
 - `tr_research_interviewer` — a short text plus the LinkedIn **screenshot in `images`** (vision call).
 - `tr_research_company` — company name / context (routes to a search-grounded model).
 
@@ -124,6 +128,12 @@ clear to ship the injection.
 
 ## Change log
 
+- 2026-06-30 — Cutover live for `tr_parse_jd`, `tr_match_analysis`, `tr_research_company` (TR dropped
+  their `system_prompt`; GP assembles). Gap shape firmed to **v7**: added `closeable` (Strengthen gate),
+  `share_prompt` (hint), and `example_excerpt` (editable box seed). Ready-but-not-yet-cutover (live
+  server configs, same pattern): `tr_mock_interview`, `tr_response_analysis`, `tr_research_interviewer`.
+  Still client-authored (no server config; contracts to firm up first): `tr_intake`, `tr_brief_analysis`,
+  `tr_debrief`, `tr_rewrite`. Locale directive hardened to keep enum tokens + verbatim axis labels English.
 - 2026-06-24 — TR reviewed and is on board with the model. Updates from their reply: locale signal
   confirmed present on every managed call (incl. provider-added ones) → injection greenlit, nothing
   owed by TR. `tr_parse_resume` dropped (not a real call type; raw résumé goes into
