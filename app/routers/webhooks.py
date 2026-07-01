@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from app.database import get_db
 from app.services.allocation_reset import compute_next_reset
+from app.services.display_labels import display_call_type
 
 router = APIRouter()
 
@@ -1467,7 +1468,7 @@ async def error_log(
             "error_message": r["error_message"],
             "response_time_ms": r["response_time_ms"],
             "timestamp": r["request_timestamp"],
-            "call_type": r["call_type"],
+            "call_type": display_call_type(r["call_type"], r["prompt_mode"]),
             "prompt_mode": r["prompt_mode"],
         }
         for r in await cursor.fetchall()
@@ -1612,10 +1613,15 @@ async def user_detail(
         monthly_limit = -1
     monthly_used = month_row["total_cost"]
 
-    # Usage by call type
+    # Usage by call type. The SummaryConsolidation pass ships as
+    # call_type="analysis"; relabel it "consolidation" for display so it
+    # doesn't merge with genuine PostSessionAnalysis. Grouping on the CASE
+    # (not on call_type) keeps the AVG latency weighted correctly. Mirrors
+    # display_labels.display_call_type — keep the two in sync.
     cursor = await db.execute(
         """SELECT
-            call_type,
+            CASE WHEN call_type = 'analysis' AND prompt_mode = 'SummaryConsolidation'
+                 THEN 'consolidation' ELSE call_type END AS call_type,
             COUNT(*) as requests,
             COALESCE(SUM(input_tokens), 0) as input_tokens,
             COALESCE(SUM(output_tokens), 0) as output_tokens,
@@ -1626,7 +1632,8 @@ async def user_detail(
            FROM usage_log
            WHERE user_id = ? AND request_timestamp >= date('now', ?)
              AND status = 'success'""" + app_clause + """
-           GROUP BY call_type
+           GROUP BY CASE WHEN call_type = 'analysis' AND prompt_mode = 'SummaryConsolidation'
+                 THEN 'consolidation' ELSE call_type END
            ORDER BY requests DESC""",
         (user_id, f"-{days} days", *app_params),
     )
@@ -1887,7 +1894,7 @@ async def user_queries(
             "latency_ms": row["response_time_ms"],
             "status": row["status"],
             "error": row["error_message"],
-            "call_type": row["call_type"],
+            "call_type": display_call_type(row["call_type"], row["prompt_mode"]),
             "prompt_mode": row["prompt_mode"],
             "image_count": row["image_count"],
             "timestamp": row["request_timestamp"],
