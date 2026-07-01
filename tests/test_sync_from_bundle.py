@@ -355,6 +355,74 @@ def test_sync_requires_admin_key(client):
     assert resp.status_code in (401, 422)
 
 
+# ---------------------------------------------------------------------------
+# Array-index (JSON pointer through a list) syncing — the gap that left a
+# BYOK model add stranded: detect_overlay_drift emits `/providers/3/models`,
+# but the pointer helpers couldn't walk the list index.
+# ---------------------------------------------------------------------------
+
+
+def _write_array_bundle() -> None:
+    """Bundle shaped like llm-providers.json: a `providers` list of dicts,
+    each carrying a `models` list. The second provider gained a model."""
+    bundle_path = _bundle_dir() / "sync-test.json"
+    bundle_path.write_text(json.dumps({
+        "version": 9,
+        "providers": [
+            {"id": "openai", "models": [{"id": "gpt-x"}]},
+            {"id": "anthropic", "models": [{"id": "sonnet-4-6"}, {"id": "sonnet-5"}]},
+        ],
+    }, indent=2))
+
+
+def test_sync_array_index_pointer_replaces_nested_list(client):
+    """The regression: sync a pointer that walks a list index
+    (`/providers/1/models`) — the added model lands, sibling providers
+    are untouched. Before the fix this 400'd as 'not in bundled file'."""
+    _write_array_bundle()
+    persistent_path = _persistent_dir() / "sync-test.json"
+    persistent_path.write_text(json.dumps({
+        "version": 7,
+        "providers": [
+            {"id": "openai", "models": [{"id": "gpt-x"}]},
+            {"id": "anthropic", "models": [{"id": "sonnet-4-6"}]},  # missing sonnet-5
+        ],
+    }))
+
+    resp = client.post(
+        "/webhooks/admin/config/sync-test/sync-from-bundle",
+        headers=_KEY,
+        json={"keys": ["/providers/1/models"]},
+    )
+    assert resp.status_code == 200, resp.text
+    persisted = json.loads(persistent_path.read_text())
+    assert persisted["providers"][1]["models"] == [
+        {"id": "sonnet-4-6"}, {"id": "sonnet-5"},
+    ]
+    assert persisted["providers"][0] == {"id": "openai", "models": [{"id": "gpt-x"}]}
+
+
+def test_pointer_helpers_walk_and_set_list_indices():
+    """Unit coverage for the RFC 6901 array-index support in the helpers."""
+    from app.routers.webhooks import _resolve_pointer, _set_pointer
+
+    doc = {"a": [{"b": 1}, {"b": 2}], "flat": [10, 11]}
+    assert _resolve_pointer(doc, "/a/1/b") == (True, 2)
+    assert _resolve_pointer(doc, "/flat/0") == (True, 10)
+    assert _resolve_pointer(doc, "/a/5/b") == (False, None)   # index out of range
+    assert _resolve_pointer(doc, "/a/x") == (False, None)     # non-numeric on list
+
+    _set_pointer(doc, "/a/0/b", 99)                            # replace nested leaf
+    assert doc["a"][0]["b"] == 99
+    _set_pointer(doc, "/flat/-", 12)                           # RFC 6901 append
+    _set_pointer(doc, "/flat/3", 13)                           # index == len appends
+    assert doc["flat"] == [10, 11, 12, 13]
+
+    import pytest as _pytest
+    with _pytest.raises(ValueError):
+        _set_pointer(doc, "/a/9/b", 0)                         # traverse missing index
+
+
 def test_sync_hot_reloads_remote_configs(client):
     """After sync, /v1/config/{slug} should serve the new value
     immediately — no container restart required."""

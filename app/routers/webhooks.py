@@ -515,8 +515,24 @@ def _unescape_pointer_token(tok: str) -> str:
     return tok.replace("~1", "/").replace("~0", "~")
 
 
+def _as_list_index(token: str) -> int | None:
+    """Parse an RFC 6901 array-index token to a non-negative int, or None if
+    it isn't one. Per RFC 6901, indices are digits with no leading zero (bare
+    "0" is allowed). The end-of-array token "-" is not a resolvable index."""
+    if token == "0":
+        return 0
+    if token.isdigit() and token[0] != "0":
+        return int(token)
+    return None
+
+
 def _resolve_pointer(obj: dict, pointer: str) -> tuple[bool, object]:
-    """Resolve a JSON pointer against `obj`. Returns (found, value)."""
+    """Resolve a JSON pointer against `obj`. Returns (found, value).
+
+    Walks dicts by key and lists by numeric array index, so a pointer like
+    `/providers/3/models` — the shape detect_overlay_drift emits for a
+    nested-array change — resolves instead of failing at the list.
+    """
     if pointer == "":
         return True, obj
     if not pointer.startswith("/"):
@@ -524,25 +540,59 @@ def _resolve_pointer(obj: dict, pointer: str) -> tuple[bool, object]:
     cur: object = obj
     for raw in pointer.split("/")[1:]:
         tok = _unescape_pointer_token(raw)
-        if not isinstance(cur, dict) or tok not in cur:
+        if isinstance(cur, dict):
+            if tok not in cur:
+                return False, None
+            cur = cur[tok]
+        elif isinstance(cur, list):
+            idx = _as_list_index(tok)
+            if idx is None or idx >= len(cur):
+                return False, None
+            cur = cur[idx]
+        else:
             return False, None
-        cur = cur[tok]
     return True, cur
 
 
 def _set_pointer(obj: dict, pointer: str, value: object) -> None:
-    """Set a value at a JSON pointer, creating intermediate dicts as needed."""
+    """Set a value at a JSON pointer, creating intermediate dicts as needed.
+
+    Walks lists by numeric array index; an existing dict/list intermediate is
+    traversed, never clobbered. A leaf list index replaces that element, and
+    the RFC 6901 end token "-" (or an index equal to the list length) appends.
+    """
     if pointer == "" or not pointer.startswith("/"):
         raise ValueError(f"Pointer must start with '/': {pointer!r}")
     tokens = [_unescape_pointer_token(t) for t in pointer.split("/")[1:]]
-    cur: dict = obj
+    cur: object = obj
     for tok in tokens[:-1]:
-        nxt = cur.get(tok)
-        if not isinstance(nxt, dict):
-            nxt = {}
-            cur[tok] = nxt
-        cur = nxt
-    cur[tokens[-1]] = value
+        if isinstance(cur, list):
+            idx = _as_list_index(tok)
+            if idx is None or idx >= len(cur):
+                raise ValueError(f"pointer traverses missing list index {tok!r}: {pointer!r}")
+            cur = cur[idx]
+        elif isinstance(cur, dict):
+            nxt = cur.get(tok)
+            if not isinstance(nxt, (dict, list)):
+                nxt = {}
+                cur[tok] = nxt
+            cur = nxt
+        else:
+            raise ValueError(f"pointer traverses a scalar: {pointer!r}")
+    last = tokens[-1]
+    if isinstance(cur, list):
+        if last == "-":
+            cur.append(value)
+            return
+        idx = _as_list_index(last)
+        if idx is None or idx > len(cur):
+            raise ValueError(f"pointer sets invalid list index {last!r}: {pointer!r}")
+        if idx == len(cur):
+            cur.append(value)
+        else:
+            cur[idx] = value
+    else:
+        cur[last] = value
 
 
 @router.post("/admin/geoip/reload")
