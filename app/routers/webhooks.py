@@ -1775,6 +1775,17 @@ async def user_detail(
         for r in await cursor.fetchall()
     ]
 
+    # Most recent coarse location for this user (country + region derived from
+    # the IP via GeoIP at telemetry ingestion; city and raw IP are never stored).
+    # Null when the user has no geo-tagged telemetry (e.g. geo DB not installed).
+    loc_row = await (await db.execute(
+        "SELECT country, region FROM telemetry_events "
+        "WHERE user_id = ? AND country IS NOT NULL "
+        "ORDER BY received_at DESC LIMIT 1",
+        (user_id,),
+    )).fetchone()
+    location = {"country": loc_row["country"], "region": loc_row["region"]} if loc_row else None
+
     return {
         "user": {
             "id": row["id"],
@@ -1782,6 +1793,7 @@ async def user_detail(
             "tier": user_tier,
             "created_at": row["created_at"],
             "is_active": bool(row["is_active"]),
+            "location": location,
         },
         "budget": {
             "tier": user_tier,
@@ -2044,7 +2056,16 @@ async def list_users(
              ORDER BY t.received_at DESC LIMIT 1) as app_version,
             (SELECT t.device_model FROM telemetry_events t
              WHERE t.user_id = u.id AND t.device_model IS NOT NULL
-             ORDER BY t.received_at DESC LIMIT 1) as device_model
+             ORDER BY t.received_at DESC LIMIT 1) as device_model,
+            -- Coarse location: latest non-null country/region from telemetry
+            -- (GeoIP-derived at ingestion; never city, never raw IP). Unscoped
+            -- like the other device columns — location is the user's, not per-app.
+            (SELECT t.country FROM telemetry_events t
+             WHERE t.user_id = u.id AND t.country IS NOT NULL
+             ORDER BY t.received_at DESC LIMIT 1) as country,
+            (SELECT t.region FROM telemetry_events t
+             WHERE t.user_id = u.id AND t.region IS NOT NULL
+             ORDER BY t.received_at DESC LIMIT 1) as region
            FROM users u""" + app_user_filter + """
            ORDER BY u.created_at DESC""",
         (
@@ -2125,6 +2146,10 @@ async def list_users(
             "ios_version": r["os_version"],
             "app_version": r["app_version"],
             "device": to_marketing_name(r["device_model"]),
+            "location": (
+                {"country": r["country"], "region": r["region"]}
+                if r["country"] else None
+            ),
         })
 
     return {"users": users, "count": len(users)}
@@ -2463,6 +2488,22 @@ async def telemetry_rich(
         key=lambda x: -x["devices"],
     )
 
+    # --- Location breakdown: distinct users/devices by country + region --
+    # Coarse GeoIP (country + region only; city and raw IP are never stored).
+    # Honors the same filters. A null country means the geo DB isn't installed
+    # or the ping predates geo capture — excluded from the breakdown.
+    by_location = await _all(f"""
+        SELECT country,
+               COALESCE(NULLIF(region, ''), NULL) AS region,
+               COUNT(DISTINCT device_id) AS devices,
+               COUNT(DISTINCT user_id) AS users,
+               COUNT(*) AS events
+        FROM telemetry_events
+        WHERE {where} AND country IS NOT NULL
+        GROUP BY country, region
+        ORDER BY devices DESC, users DESC
+    """)
+
     return {
         "days": days,
         "filters": {
@@ -2489,6 +2530,7 @@ async def telemetry_rich(
         "by_language": by_language,
         "devices": devices,
         "os_versions": os_versions,
+        "by_location": by_location,
         "heatmap": heatmap,
         "funnel": funnel,
         "options": {k: sorted(v) for k, v in options.items()},

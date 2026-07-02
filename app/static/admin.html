@@ -287,6 +287,7 @@
       <th onclick="sortUserTable('language')" style="cursor:pointer">Language<span class="sa" data-sk="language"></span></th>
       <th onclick="sortUserTable('ios')" style="cursor:pointer">iOS<span class="sa" data-sk="ios"></span></th>
       <th onclick="sortUserTable('device')" style="cursor:pointer">Device<span class="sa" data-sk="device"></span></th>
+      <th onclick="sortUserTable('location')" style="cursor:pointer" title="Coarse location (region, country) from the user's latest telemetry — GeoIP-derived, no city">Location<span class="sa" data-sk="location"></span></th>
       <th></th>
     </tr></thead><tbody></tbody></table></div>
 
@@ -571,6 +572,12 @@
       <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Meetings by device</h4><div id="tel-chart-devices"></div></div>
       <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Devices by iOS version</h4><div id="tel-chart-os"></div></div>
       <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Devices by language</h4><div id="tel-chart-language"></div></div>
+      <div class="card" style="padding:16px;grid-column:span 2">
+        <h4 style="margin:0 0 8px">Users by location <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— coarse (region, country); GeoIP-derived, no city</span></h4>
+        <div class="table-wrap"><table id="tel-location"><thead><tr>
+          <th>Country</th><th>Region</th><th>Devices</th><th>Users</th><th>Events</th>
+        </tr></thead><tbody></tbody></table></div>
+      </div>
       <div class="card" style="padding:16px;grid-column:span 2"><h4 style="margin:0 0 8px">Meeting starts by hour × day-of-week (UTC)</h4><div id="tel-chart-heatmap"></div></div>
       <div class="card" style="padding:16px;grid-column:span 2"><h4 style="margin:0 0 8px">Funnel: app start → meeting start → meeting stop</h4><div id="tel-chart-funnel"></div></div>
       <div class="card" style="padding:16px;grid-column:span 2">
@@ -1106,6 +1113,18 @@ function _renderTelemetry(d, current) {
 
   // --- Directory table: name (if known) + language, per device ---
   const telEsc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  // --- Location table: distinct devices/users by country + region ---
+  const locBody = document.querySelector('#tel-location tbody');
+  if (locBody) {
+    locBody.innerHTML = (d.by_location || []).map(x => `<tr>
+      <td>${telEsc(x.country)}</td>
+      <td>${x.region ? telEsc(x.region) : '<span style="color:var(--text-dim)">—</span>'}</td>
+      <td>${(x.devices || 0).toLocaleString()}</td>
+      <td>${(x.users || 0).toLocaleString()}</td>
+      <td>${(x.events || 0).toLocaleString()}</td>
+    </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-dim)">No location data in this window (geo DB installed?).</td></tr>';
+  }
   const dirBody = document.querySelector('#tel-directory tbody');
   if (dirBody) {
     const dim = v => v ? telEsc(v) : '<span style="color:var(--text-dim)">—</span>';
@@ -1378,6 +1397,7 @@ function _userSortVal(u, key) {
     case 'language': return (u.language || '').toLowerCase();
     case 'ios': return u.ios_version || '';
     case 'device': return (u.device || '').toLowerCase();
+    case 'location': return u.location ? `${u.location.country||''} ${u.location.region||''}`.trim().toLowerCase() : '';
     default: return u.created_at || '';
   }
 }
@@ -1431,6 +1451,7 @@ function renderUserRows() {
     <td>${u.language ? esc(u.language) : '<span style="color:var(--text-dim)">—</span>'}</td>
     <td>${u.ios_version ? esc(u.ios_version) : '<span style="color:var(--text-dim)">—</span>'}</td>
     <td>${u.device ? esc(u.device) : '<span style="color:var(--text-dim)">—</span>'}</td>
+    <td>${u.location ? esc([u.location.region, u.location.country].filter(Boolean).join(', ')) : '<span style="color:var(--text-dim)">—</span>'}</td>
     <td style="display:flex;gap:4px;align-items:center">
       <select class="period-select" style="font-size:11px;padding:3px 6px" onchange="changeTier('${u.id}',this.value,'${u.tier}')" ${u.tier === 'admin' ? 'disabled' : ''}>
         ${tierNames.map(t => `<option value="${t}" ${t === u.tier ? 'selected' : ''}>${t}</option>`).join('')}
@@ -1438,7 +1459,7 @@ function renderUserRows() {
       <button class="refresh-btn" onclick="showUserDetail('${u.id}','${u.email||"User"}')">Detail</button>
     </td>
   </tr>`;
-  }).join('') || '<tr><td colspan="13" style="text-align:center;color:var(--text-dim)">No users yet</td></tr>';
+  }).join('') || '<tr><td colspan="14" style="text-align:center;color:var(--text-dim)">No users yet</td></tr>';
   // Update sort-direction arrows on the headers.
   document.querySelectorAll('#user-table .sa').forEach(s => {
     s.textContent = s.dataset.sk === _userSort.key ? (dir > 0 ? ' ▲' : ' ▼') : '';
@@ -1918,7 +1939,10 @@ async function showUserDetail(userId, email) {
 
   const detailEl = document.getElementById('user-detail');
   detailEl.style.display = 'block';
-  document.getElementById('user-detail-title').innerHTML = `${email} (${data.user.tier}) <span class="mono" style="font-size:11px;color:var(--text-dim);margin-left:8px">${data.user.id}</span>`;
+  const _loc = data.user.location;
+  const _locStr = _loc ? [_loc.region, _loc.country].filter(Boolean).join(', ') : null;
+  document.getElementById('user-detail-title').innerHTML = `${email} (${data.user.tier}) <span class="mono" style="font-size:11px;color:var(--text-dim);margin-left:8px">${data.user.id}</span>`
+    + (_locStr ? ` <span style="font-size:11px;color:var(--text-dim);margin-left:8px" title="Coarse location from latest telemetry (GeoIP, no city)">📍 ${esc(_locStr)}</span>` : '');
   detailEl.scrollIntoView({behavior: 'smooth', block: 'start'});
 
   // Budget cards
