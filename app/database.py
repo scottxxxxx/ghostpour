@@ -415,6 +415,29 @@ MIGRATIONS = [
     # subscription_events; these are kept in lockstep by the same writers.
     "ALTER TABLE users ADD COLUMN ever_subscribed INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE users ADD COLUMN first_subscribed_at TEXT",
+    # offer_code_pool = the pool of one-time-use App Store offer codes GP holds
+    # and hands out, one per user, behind a storekit_offer promo CTA. Loaded from
+    # a Connect-API-minted batch (offer_codes.py); dispensed reserve-once at promo
+    # resolve time (offer_dispense.py) and injected into the CTA's action.value.
+    # A code belongs to an (offer_id, environment) pool so a sandbox test campaign
+    # and the live production campaign never cross-contaminate. reserved_by_user is
+    # the idempotency key (device fallback when signed out): the same actor always
+    # gets the same code back rather than burning a new one each cold-launch resolve.
+    """CREATE TABLE IF NOT EXISTS offer_code_pool (
+        code TEXT PRIMARY KEY,                     -- redeemable one-time-use code string
+        offer_id TEXT NOT NULL,                    -- ASC subscriptionOfferCodes id
+        product_id TEXT,                           -- e.g. com.weirtech.shouldersurf.sub.pro.monthly
+        environment TEXT NOT NULL,                 -- sandbox|production
+        batch_id TEXT,                             -- ASC one-time-use batch id (provenance)
+        status TEXT NOT NULL DEFAULT 'available',  -- available|reserved
+        reserved_by_user TEXT,                     -- user_id the code is reserved to
+        reserved_by_device TEXT,                   -- device_id fallback when unauthenticated
+        reserved_at TEXT,
+        created_at TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_offer_pool_dispense ON offer_code_pool(offer_id, environment, status)",
+    "CREATE INDEX IF NOT EXISTS idx_offer_pool_user ON offer_code_pool(reserved_by_user, offer_id, environment)",
+    "CREATE INDEX IF NOT EXISTS idx_offer_pool_device ON offer_code_pool(reserved_by_device, offer_id, environment)",
 ]
 
 
