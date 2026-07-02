@@ -12,6 +12,7 @@ See docs/design/gp-promo-decision-engine.md. Reporting funnel: GET
 /webhooks/admin/campaign/{id}/report.
 """
 
+import copy
 import hashlib
 import json
 import uuid
@@ -25,7 +26,7 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.dependencies import get_current_user_optional
 from app.models.user import UserRecord
-from app.services import promo_assets
+from app.services import offer_dispense, promo_assets
 
 router = APIRouter()
 
@@ -346,8 +347,53 @@ async def resolve_promo(
         variant = _pick_variant(capable, device_id, c["id"])
         if not variant:
             continue
+        variant = await _inject_storekit_offer_codes(db, variant, user, device_id)
         return {"campaign_id": c["id"], "variant": variant}
     return {}
+
+
+def _is_dispensable_offer_cta(cta) -> bool:
+    """A storekit_offer CTA GP fills at resolve time carries both an `offer_id`
+    and an `environment` (which pool to draw from). A CTA with a hardcoded
+    `value` and no offer_id is left exactly as authored."""
+    action = cta.get("action") if isinstance(cta, dict) else None
+    return (
+        isinstance(action, dict)
+        and action.get("type") == "storekit_offer"
+        and bool(action.get("offer_id"))
+        and bool(action.get("environment"))
+    )
+
+
+async def _inject_storekit_offer_codes(db, variant, user, device_id):
+    """Fill each dispensable storekit_offer CTA's `action.value` with a code
+    reserved for this actor; DROP the CTA when its pool is exhausted (rather than
+    ship an empty value). Returns the (possibly rewritten) variant, mutating only
+    a local copy so the DB-parsed campaign is never touched."""
+    native = variant.get("native") if isinstance(variant, dict) else None
+    ctas = native.get("ctas") if isinstance(native, dict) else None
+    if not isinstance(ctas, list) or not any(_is_dispensable_offer_cta(c) for c in ctas):
+        return variant
+
+    v = copy.deepcopy(variant)
+    user_id = user.id if user else None
+    kept = []
+    for cta in v["native"]["ctas"]:
+        if _is_dispensable_offer_cta(cta):
+            action = cta["action"]
+            code = await offer_dispense.dispense(
+                db,
+                offer_id=action["offer_id"],
+                environment=action["environment"],
+                user_id=user_id,
+                device_id=device_id,
+            )
+            if not code:
+                continue  # pool exhausted → suppress this CTA
+            cta = {**cta, "action": {**action, "value": code}}
+        kept.append(cta)
+    v["native"]["ctas"] = kept
+    return v
 
 
 class PromoEventBody(BaseModel):

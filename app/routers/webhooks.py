@@ -3507,6 +3507,57 @@ async def mint_offer_codes(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+class LoadPoolRequest(BaseModel):
+    """Load a minted (or sandbox) batch's codes into the dispense pool for an
+    (offer_id, environment). Idempotent — re-loading the same batch is a no-op."""
+    offer_id: str                        # ASC subscriptionOfferCodes id
+    environment: str                     # sandbox|production
+    batch_id: str                        # ASC one-time-use batch id to pull values from
+    product_id: str | None = None
+
+
+@router.post("/admin/offer-codes/load-pool")
+async def load_offer_code_pool(
+    body: LoadPoolRequest,
+    request: Request,
+    x_admin_key: str = Header(...),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Pull a batch's code strings from the Connect API and load them into the
+    dispense pool as 'available'. Use after minting a production batch (or with
+    the existing sandbox batch id) to stock a campaign's storekit_offer CTA."""
+    _verify_admin(request, x_admin_key)
+    if body.environment not in ("sandbox", "production"):
+        raise HTTPException(status_code=400, detail="environment must be sandbox|production")
+    from app.services import offer_codes, offer_dispense
+    try:
+        codes = await offer_codes.fetch_code_values(body.batch_id)
+    except offer_codes.OfferCodeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    result = await offer_dispense.load_pool(
+        db, offer_id=body.offer_id, environment=body.environment,
+        codes=codes, batch_id=body.batch_id, product_id=body.product_id,
+    )
+    status = await offer_dispense.pool_status(
+        db, offer_id=body.offer_id, environment=body.environment
+    )
+    return {**result, "pool": status}
+
+
+@router.get("/admin/offer-codes/pool-status")
+async def offer_code_pool_status(
+    request: Request,
+    offer_id: str,
+    environment: str,
+    x_admin_key: str = Header(...),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Available / reserved counts for a dispense pool — the exhaustion gauge."""
+    _verify_admin(request, x_admin_key)
+    from app.services import offer_dispense
+    return await offer_dispense.pool_status(db, offer_id=offer_id, environment=environment)
+
+
 # --- Promo creatives (hot-reloadable, no deploy) -----------------------------
 
 # --- Force-upgrade: instant runtime flip (#force-version-gate break-glass) ----
