@@ -107,10 +107,11 @@ async def test_dormant_and_unknown_entitlement_never_block():
     await db.close()
 
 
-def test_apps_yml_ships_dormant_with_caps():
-    # The shipped registry must be dormant by default with the agreed caps.
+def test_apps_yml_enabled_with_caps():
+    # Budget gate ENABLED at the 2026-07-05 cutover flip (TR entitlement build
+    # verified live in the field), with the agreed caps.
     from app.routers.config import load_apps
     cfg = tr_budget.tr_budget_config(load_apps(force=True))
     assert cfg is not None
-    assert cfg["enabled"] is False
+    assert cfg["enabled"] is True
     assert cfg["monthly_cost_limit_usd"] == {"free": 5.0, "paid": 25.0}
