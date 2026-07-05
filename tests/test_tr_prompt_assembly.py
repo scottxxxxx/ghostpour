@@ -35,7 +35,7 @@ def test_call_types_are_mapped():
 def test_parse_jd_low_temperature_passes_through_assembly():
     # tr_parse_jd runs at a low temperature so the radar axes are reproducible
     # run-to-run; assembly must surface it so chat.py can set it on the request.
-    cfg = json.load(open("config/remote/tr-jd-analysis.json"))
+    cfg = json.load(open("config/remote/techrehearsal/jd-analysis.json"))
     assert cfg["temperature"] == 0.3
     assembled = assemble_prompt("tr_parse_jd", "JD TEXT", {"tr-jd-analysis": cfg})
     assert assembled["temperature"] == 0.3
@@ -43,7 +43,7 @@ def test_parse_jd_low_temperature_passes_through_assembly():
 
 def test_temperature_absent_when_config_omits_it():
     # Configs without a temperature key must not inject one (provider default).
-    cfg = json.load(open("config/remote/tr-match-analysis.json"))
+    cfg = json.load(open("config/remote/techrehearsal/match-analysis.json"))
     assert "temperature" not in cfg
     assembled = assemble_prompt("tr_match_analysis", "DATA", {"tr-match-analysis": cfg})
     assert "temperature" not in assembled
@@ -98,7 +98,7 @@ def test_match_prompt_gaps_carry_closeability_guidance():
     """Each gap must tell the user whether sharing real experience can close it
     and, when it can, give a concrete example of what to share — so users don't
     waste effort on gaps nothing they say could satisfy."""
-    cfg = json.load(open("config/remote/tr-match-analysis.json"))
+    cfg = json.load(open("config/remote/techrehearsal/match-analysis.json"))
     sp = cfg["systemPrompt"]
     # the gap object schema exposes the closeability + Strengthen fields
     for field in ('"closeable": boolean', '"share_prompt": string', '"example_excerpt": string'):
