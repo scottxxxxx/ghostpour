@@ -21,16 +21,32 @@ import re
 
 logger = logging.getLogger("ghostpour.prompt_assembly")
 
-# Map call_type → config slug for server-side prompt assembly
+# Map call_type → config slug for server-side prompt assembly. Post-B2 (#249)
+# these are per-app composite slugs (techrehearsal/<name>); _resolve_config
+# falls back to the legacy flat `tr-<name>` slug so assembly works whether or
+# not the prod persistent dir has been migrated yet.
 _CALL_TYPE_TO_CONFIG = {
-    "tr_parse_jd": "tr-jd-analysis",
-    "tr_parse_resume": "tr-resume-analysis",
-    "tr_mock_interview": "tr-mock-interview",
-    "tr_response_analysis": "tr-response-analysis",
-    "tr_match_analysis": "tr-match-analysis",
-    "tr_research_interviewer": "tr-research-interviewer",
-    "tr_research_company": "tr-company-research",
+    "tr_parse_jd": "techrehearsal/jd-analysis",
+    "tr_parse_resume": "techrehearsal/resume-analysis",
+    "tr_mock_interview": "techrehearsal/mock-interview",
+    "tr_response_analysis": "techrehearsal/response-analysis",
+    "tr_match_analysis": "techrehearsal/match-analysis",
+    "tr_research_interviewer": "techrehearsal/research-interviewer",
+    "tr_research_company": "techrehearsal/company-research",
 }
+
+
+def _resolve_config(config_slug: str, remote_configs: dict) -> dict | None:
+    """Look up a prompt config by its composite slug, falling back to the
+    legacy flat `tr-<name>` slug during the B2 migration window (when the
+    prod persistent dir may still hold the prefixed flat file)."""
+    cfg = remote_configs.get(config_slug)
+    if cfg is not None:
+        return cfg
+    if "/" in config_slug:
+        legacy = "tr-" + config_slug.split("/", 1)[1]
+        return remote_configs.get(legacy)
+    return None
 
 
 def assemble_prompt(
@@ -47,7 +63,7 @@ def assemble_prompt(
     if not config_slug:
         return None
 
-    config = remote_configs.get(config_slug)
+    config = _resolve_config(config_slug, remote_configs)
     if not config:
         logger.warning("prompt_assembly: no config for slug %s (call_type=%s)", config_slug, call_type)
         return None
