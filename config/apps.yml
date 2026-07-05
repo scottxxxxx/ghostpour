@@ -50,11 +50,11 @@ apps:
     # Per-app budget gate (#249, app/services/tr_budget.py). DORMANT until
     # `enabled: true`. TR free/paid is the X-TR-Entitlement header, independent
     # of the SS tier; caps are USD spend per UTC calendar month, summed from
-    # this user's techrehearsal usage_log rows. Enable ONLY after TR's
-    # entitlement-carrying build is live in the field (marker
-    # tr-2026-06-22-entitlement-1 on X-TR-Build) so real calls send the header.
+    # this user's techrehearsal usage_log rows. ENABLED 2026-07-05: TR's
+    # cutover build (tr-2026-06-30-match-cutover-1 on X-TR-Build) verified live
+    # in the field with X-TR-Entitlement on every call.
     budget:
-      enabled: false
+      enabled: true
       monthly_cost_limit_usd:
         free: 5.0
         paid: 25.0
