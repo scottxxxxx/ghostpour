@@ -147,6 +147,35 @@ def test_interviewer_assembly_preserves_image():
     assert updated.images == ["BASE64IMAGEDATA"]  # image preserved through assembly
 
 
+def test_response_analysis_follow_up_mode_gets_judge_prompt():
+    """tr_response_analysis serves TWO prompts distinguished by prompt_mode:
+    the mid-interview follow-up judge (InterviewFollowUp) and the end-of-session
+    scorecard (InterviewScorecard / default). #273 ported only the scorecard, so
+    post-cutover judge calls silently got the scorecard schema back and the TR
+    client never asked follow-ups. Guard the mode split and the judge contract."""
+    cfg = json.load(open("config/remote/techrehearsal/response-analysis.json"))
+    cfgs = {"techrehearsal/response-analysis": cfg}
+
+    judge = assemble_prompt("tr_response_analysis", "Q&A", cfgs, prompt_mode="InterviewFollowUp")
+    assert judge["system_prompt"].startswith("You are a seasoned, kind interviewer")
+    for field in ('"should_follow_up": boolean', '"follow_up": string', '"stalled": boolean'):
+        assert field in judge["system_prompt"], f"judge contract missing: {field!r}"
+    assert "per_question" not in judge["system_prompt"]
+    # fields absent from the mode override inherit the top level
+    assert judge["max_tokens"] == 4096
+    assert judge["user_content"] == "Q&A"  # data blob still passes through
+
+
+def test_response_analysis_scorecard_and_default_get_scorecard_prompt():
+    cfg = json.load(open("config/remote/techrehearsal/response-analysis.json"))
+    cfgs = {"techrehearsal/response-analysis": cfg}
+    for mode in ("InterviewScorecard", None, "SomeFutureMode"):
+        r = assemble_prompt("tr_response_analysis", "Q&A", cfgs, prompt_mode=mode)
+        assert r["system_prompt"].startswith("You are an interview coach grading a full mock interview")
+        assert '"per_question"' in r["system_prompt"]
+        assert "should_follow_up" not in r["system_prompt"]
+
+
 def test_returns_none_when_config_absent():
     # Mirrors today's behavior before deploy: no config => no server assembly,
     # so the client's own prompt is used (nothing breaks until cutover).

@@ -14,6 +14,12 @@ Each prompt config has:
   - systemPrompt: the system message (used as-is)
   - userPromptTemplate: template with {{placeholders}} replaced by user data
   - maxTokens: override for max_tokens (optional)
+  - modes: per-prompt_mode overrides (optional). A call type can serve several
+    distinct prompts distinguished by the client's prompt_mode meta (e.g.
+    tr_response_analysis is both the mid-interview follow-up judge and the
+    end-of-session scorecard). modes[<prompt_mode>] holds the fields that
+    differ; anything absent inherits the top-level value. An unknown or
+    missing prompt_mode gets the top-level prompt unchanged.
 """
 
 import logging
@@ -53,6 +59,7 @@ def assemble_prompt(
     call_type: str,
     user_content: str,
     remote_configs: dict,
+    prompt_mode: str | None = None,
 ) -> dict | None:
     """Assemble system_prompt + user_content from a prompt config.
 
@@ -67,6 +74,10 @@ def assemble_prompt(
     if not config:
         logger.warning("prompt_assembly: no config for slug %s (call_type=%s)", config_slug, call_type)
         return None
+
+    mode_overrides = (config.get("modes") or {}).get(prompt_mode) if prompt_mode else None
+    if mode_overrides:
+        config = {**config, **mode_overrides}
 
     system_prompt = config.get("systemPrompt", "")
     user_template = config.get("userPromptTemplate", "")
@@ -109,6 +120,7 @@ def assemble_prompt(
     if temperature is not None:
         result["temperature"] = temperature
 
-    logger.info("prompt_assembly: assembled %s (system=%d chars, user=%d chars)",
-                config_slug, len(system_prompt), len(assembled_user))
+    logger.info("prompt_assembly: assembled %s%s (system=%d chars, user=%d chars)",
+                config_slug, f" mode={prompt_mode}" if mode_overrides else "",
+                len(system_prompt), len(assembled_user))
     return result
