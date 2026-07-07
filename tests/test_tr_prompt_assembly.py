@@ -32,20 +32,32 @@ def test_call_types_are_mapped():
         assert _CALL_TYPE_TO_CONFIG.get(call_type) == slug
 
 
-def test_parse_jd_low_temperature_passes_through_assembly():
-    # tr_parse_jd runs at a low temperature so the radar axes are reproducible
+def test_parse_jd_zero_temperature_passes_through_assembly():
+    # tr_parse_jd runs at temperature 0.0 so the radar axes are reproducible
     # run-to-run; assembly must surface it so chat.py can set it on the request.
+    # 0.0 is falsy — this also guards the `is not None` plumbing end to end.
     cfg = json.load(open("config/remote/techrehearsal/jd-analysis.json"))
-    assert cfg["temperature"] == 0.3
+    assert cfg["temperature"] == 0.0
     assembled = assemble_prompt("tr_parse_jd", "JD TEXT", {"tr-jd-analysis": cfg})
+    assert assembled["temperature"] == 0.0
+
+
+def test_match_low_temperature_passes_through_assembly():
+    # tr_match_analysis carries 0.3: the radar numbers must be stable across
+    # the strengthen-loop re-match, while example_excerpt prose stays natural.
+    cfg = json.load(open("config/remote/techrehearsal/match-analysis.json"))
+    assert cfg["temperature"] == 0.3
+    assembled = assemble_prompt("tr_match_analysis", "DATA", {"tr-match-analysis": cfg})
     assert assembled["temperature"] == 0.3
 
 
 def test_temperature_absent_when_config_omits_it():
     # Configs without a temperature key must not inject one (provider default).
-    cfg = json.load(open("config/remote/techrehearsal/match-analysis.json"))
+    # mock-interview deliberately omits it — question variety across runs is a
+    # feature there, not jitter.
+    cfg = json.load(open("config/remote/techrehearsal/mock-interview.json"))
     assert "temperature" not in cfg
-    assembled = assemble_prompt("tr_match_analysis", "DATA", {"tr-match-analysis": cfg})
+    assembled = assemble_prompt("tr_mock_interview", "DATA", {"tr-mock-interview": cfg})
     assert "temperature" not in assembled
 
 
