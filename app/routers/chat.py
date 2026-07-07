@@ -1188,7 +1188,10 @@ async def chat(
         call_type = body.get_meta("call_type")
         if call_type:
             assembled = assemble_prompt(
-                call_type, body.user_content, request.app.state.remote_configs
+                call_type,
+                body.user_content,
+                request.app.state.remote_configs,
+                prompt_mode=body.get_meta("prompt_mode"),
             )
             if assembled:
                 updates = {
