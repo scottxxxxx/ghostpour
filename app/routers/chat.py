@@ -1192,6 +1192,8 @@ async def chat(
                 body.user_content,
                 request.app.state.remote_configs,
                 prompt_mode=body.get_meta("prompt_mode"),
+                scenario_kind=body.get_meta("scenario_kind"),
+                scenario=body.get_meta("scenario"),
             )
             if assembled:
                 updates = {
