@@ -1,14 +1,27 @@
 {
-  "version": 12,
+  "version": 13,
   "models": [
-    {"id": "anthropic/claude-opus-4-7", "label": "Opus 4.7"},
-    {"id": "anthropic/claude-sonnet-4-6", "label": "Sonnet 4.6"},
-    {"id": "anthropic/claude-haiku-4-5-20251001", "label": "Haiku 4.5"}
+    {
+      "id": "anthropic/claude-opus-4-7",
+      "label": "Opus 4.7"
+    },
+    {
+      "id": "anthropic/claude-sonnet-4-6",
+      "label": "Sonnet 4.6"
+    },
+    {
+      "id": "anthropic/claude-haiku-4-5-20251001",
+      "label": "Haiku 4.5"
+    }
   ],
   "apps": {
     "shouldersurf": {
       "label": "Shoulder Surf",
-      "tiers": ["free", "plus", "pro"],
+      "tiers": [
+        "free",
+        "plus",
+        "pro"
+      ],
       "call_types": {
         "summary": {
           "label": "Auto Summary",
@@ -86,7 +99,10 @@
     },
     "techrehearsal": {
       "label": "Tech Rehearsal",
-      "tiers": ["free", "paid"],
+      "tiers": [
+        "free",
+        "paid"
+      ],
       "call_types": {
         "tr_parse_jd": {
           "label": "JD Analysis",
@@ -157,6 +173,38 @@
           "models": {
             "free": "anthropic/claude-haiku-4-5-20251001",
             "paid": "anthropic/claude-sonnet-4-6"
+          }
+        },
+        "tr_intake": {
+          "label": "Intake (personal scenarios)",
+          "models": {
+            "free": "anthropic/claude-haiku-4-5-20251001",
+            "paid": "anthropic/claude-haiku-4-5-20251001",
+            "default": "anthropic/claude-haiku-4-5-20251001"
+          }
+        },
+        "tr_brief_analysis": {
+          "label": "Brief Analysis",
+          "models": {
+            "free": "anthropic/claude-sonnet-4-6",
+            "paid": "anthropic/claude-sonnet-4-6",
+            "default": "anthropic/claude-sonnet-4-6"
+          }
+        },
+        "tr_debrief": {
+          "label": "Debrief",
+          "models": {
+            "free": "anthropic/claude-sonnet-4-6",
+            "paid": "anthropic/claude-sonnet-4-6",
+            "default": "anthropic/claude-sonnet-4-6"
+          }
+        },
+        "tr_rewrite": {
+          "label": "Say It Better (rewrite)",
+          "models": {
+            "free": "anthropic/claude-haiku-4-5-20251001",
+            "paid": "anthropic/claude-haiku-4-5-20251001",
+            "default": "anthropic/claude-haiku-4-5-20251001"
           }
         }
       }

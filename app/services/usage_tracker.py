@@ -26,6 +26,16 @@ def _normalize_scenario(value: object) -> str | None:
     return s or None
 
 
+def _normalize_scenario_kind(value: object) -> str | None:
+    """Like _normalize_scenario but CASE-PRESERVING: scenario_kind is TR's
+    camelCase ScenarioKind enum (jobInterview, payNegotiation, ...) and the
+    stored value should match what prompt assembly branched on verbatim."""
+    if not isinstance(value, str):
+        return None
+    s = value.strip()[:40]
+    return s or None
+
+
 class UsageTracker:
     def check_model_access(
         self,
@@ -229,8 +239,8 @@ class UsageTracker:
                (id, user_id, provider, model, input_tokens, output_tokens,
                 estimated_cost_usd, request_timestamp, response_time_ms,
                 status, error_message, call_type, prompt_mode,
-                image_count, session_duration_sec, cached_tokens, meeting_id, metadata, app_id, scenario)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                image_count, session_duration_sec, cached_tokens, meeting_id, metadata, app_id, scenario, scenario_kind)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 str(uuid.uuid4()),
                 user_id,
@@ -252,6 +262,7 @@ class UsageTracker:
                 metadata_json,
                 app_id,
                 _normalize_scenario(request.get_meta("scenario")),
+                _normalize_scenario_kind(request.get_meta("scenario_kind")),
             ),
         )
         await db.commit()

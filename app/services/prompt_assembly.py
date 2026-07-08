@@ -16,10 +16,18 @@ Each prompt config has:
   - maxTokens: override for max_tokens (optional)
   - modes: per-prompt_mode overrides (optional). A call type can serve several
     distinct prompts distinguished by the client's prompt_mode meta (e.g.
-    tr_response_analysis is both the mid-interview follow-up judge and the
-    end-of-session scorecard). modes[<prompt_mode>] holds the fields that
-    differ; anything absent inherits the top-level value. An unknown or
-    missing prompt_mode gets the top-level prompt unchanged.
+    tr_response_analysis is both the mid-interview judge and the end-of-session
+    scorecard). modes[<prompt_mode>] holds the fields that differ; anything
+    absent inherits the top-level value. An unknown or missing prompt_mode gets
+    the top-level prompt unchanged.
+  - scenarios: per-scenario_kind interpolation (optional). TR's scenario-driven
+    prompts embed {{scenario_guidance}} and {{counterpart}} in systemPrompt;
+    scenarios[<scenario_kind>] supplies {"guidance", "counterpart"} for the
+    fine-grained kind (jobInterview, payNegotiation, hardConversation, ...).
+    Lookup order: scenarios[scenario_kind] → scenarios[scenario] (the coarse
+    4-bucket analytics tag, as fallback for older clients that don't send the
+    kind) → scenarioDefaults. Empty guidance is substituted cleanly (no
+    dangling double space). See docs/handoffs/tr-remaining-five-prompts-handoff.md.
 """
 
 import logging
@@ -39,6 +47,12 @@ _CALL_TYPE_TO_CONFIG = {
     "tr_match_analysis": "techrehearsal/match-analysis",
     "tr_research_interviewer": "techrehearsal/research-interviewer",
     "tr_research_company": "techrehearsal/company-research",
+    # The five remaining client prompts (docs/handoffs/tr-remaining-five-prompts-handoff.md)
+    "tr_intake": "techrehearsal/intake",
+    "tr_brief_analysis": "techrehearsal/brief-analysis",
+    "tr_debrief": "techrehearsal/debrief",
+    "tr_rewrite": "techrehearsal/rewrite",
+    "tr_resume_enhance": "techrehearsal/resume-enhance",
 }
 
 
@@ -55,11 +69,44 @@ def _resolve_config(config_slug: str, remote_configs: dict) -> dict | None:
     return None
 
 
+def _apply_scenario(
+    system_prompt: str,
+    config: dict,
+    scenario_kind: str | None,
+    scenario: str | None,
+) -> str:
+    """Interpolate {{scenario_guidance}} / {{counterpart}} from the config's
+    scenarios map. No-op when the config has no scenarios map or the template
+    carries no placeholders."""
+    scen_map = config.get("scenarios")
+    if not scen_map:
+        return system_prompt
+    entry = (
+        (scenario_kind and scen_map.get(scenario_kind))
+        or (scenario and scen_map.get(scenario))
+        or config.get("scenarioDefaults")
+        or {}
+    )
+    guidance = entry.get("guidance", "")
+    counterpart = entry.get("counterpart", "")
+    if guidance:
+        system_prompt = system_prompt.replace("{{scenario_guidance}}", guidance)
+    else:
+        # Drop the placeholder AND one adjacent space so an empty guidance
+        # doesn't leave "conversation.  The" style double spaces behind.
+        system_prompt = system_prompt.replace(" {{scenario_guidance}}", "")
+        system_prompt = system_prompt.replace("{{scenario_guidance}} ", "")
+        system_prompt = system_prompt.replace("{{scenario_guidance}}", "")
+    return system_prompt.replace("{{counterpart}}", counterpart)
+
+
 def assemble_prompt(
     call_type: str,
     user_content: str,
     remote_configs: dict,
     prompt_mode: str | None = None,
+    scenario_kind: str | None = None,
+    scenario: str | None = None,
 ) -> dict | None:
     """Assemble system_prompt + user_content from a prompt config.
 
@@ -87,6 +134,8 @@ def assemble_prompt(
     if not system_prompt:
         logger.warning("prompt_assembly: empty systemPrompt in %s", config_slug)
         return None
+
+    system_prompt = _apply_scenario(system_prompt, config, scenario_kind, scenario)
 
     # Replace {{placeholders}} in the user template with the raw user content.
     # The primary placeholder varies by config type:
@@ -120,7 +169,10 @@ def assemble_prompt(
     if temperature is not None:
         result["temperature"] = temperature
 
-    logger.info("prompt_assembly: assembled %s%s (system=%d chars, user=%d chars)",
+    scenario_note = ""
+    if config.get("scenarios"):
+        scenario_note = f" kind={scenario_kind or scenario or 'default'}"
+    logger.info("prompt_assembly: assembled %s%s%s (system=%d chars, user=%d chars)",
                 config_slug, f" mode={prompt_mode}" if mode_overrides else "",
-                len(system_prompt), len(assembled_user))
+                scenario_note, len(system_prompt), len(assembled_user))
     return result

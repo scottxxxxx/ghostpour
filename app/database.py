@@ -438,6 +438,14 @@ MIGRATIONS = [
     "CREATE INDEX IF NOT EXISTS idx_offer_pool_dispense ON offer_code_pool(offer_id, environment, status)",
     "CREATE INDEX IF NOT EXISTS idx_offer_pool_user ON offer_code_pool(reserved_by_user, offer_id, environment)",
     "CREATE INDEX IF NOT EXISTS idx_offer_pool_device ON offer_code_pool(reserved_by_device, offer_id, environment)",
+    # Fine-grained scenario kind alongside the coarse `scenario` bucket. TR's
+    # prompts branch on ScenarioKind (jobInterview / payNegotiation /
+    # hardConversation / ...), the client sends metadata.scenario_kind on every
+    # call (additive, 2026-07-02), and server-side assembly selects guidance by
+    # it — persist it so analytics and prompt debugging see the same axis the
+    # assembly used. Case is preserved (camelCase enum values from TR).
+    "ALTER TABLE usage_log ADD COLUMN scenario_kind TEXT",
+    "CREATE INDEX IF NOT EXISTS idx_usage_scenario_kind ON usage_log(scenario_kind) WHERE scenario_kind IS NOT NULL",
 ]
 
 
