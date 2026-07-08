@@ -60,7 +60,13 @@ section labels the prompt expects:
 - `tr_parse_jd` — the job posting text.
 - `tr_mock_interview` — role + company/interviewer background + question, with the section labels
   (COMPANY BACKGROUND / INTERVIEWER BACKGROUND / ROLE / QUESTION N).
-- `tr_response_analysis` — role + the Q&A transcript.
+- `tr_response_analysis` — role + the Q&A transcript. **Serves TWO prompts selected by `prompt_mode`**
+  (#358, 2026-07-08): `InterviewFollowUp` → the mid-interview judge, contract
+  `{should_follow_up, follow_up, stalled}`; `InterviewScorecard` (and any other/missing mode) → the
+  end-of-session scorecard, contract `{overall, headline, biggest_gap_title, biggest_gap_detail,
+  per_question[]}`. Mechanism: prompt configs support an optional `modes` map of per-prompt_mode field
+  overrides (absent fields inherit the top level; unknown mode = top-level prompt), so send `prompt_mode`
+  on every response_analysis call. The judge prompt is the pre-cutover client prompt verbatim.
 - `tr_match_analysis` — **raw resume text + JD** in one blob (TR does not parse the resume separately;
   there is no `tr_parse_resume` step — see note below). The blob must also include the **ROLE EMPHASIS
   AXES** = the JD dimension labels from `tr_parse_jd`, so the radar labels line up. Structured output,
