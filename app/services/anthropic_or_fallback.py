@@ -106,8 +106,13 @@ async def _alert_on_fallback(
 
 
 def _or_request(request: ChatRequest, or_model: str) -> ChatRequest:
-    """Clone a request to retarget OpenRouter with the translated id."""
-    return request.model_copy(update={
+    """Clone a request to retarget OpenRouter with the translated id.
+    Passthrough documents are flattened to extracted text first — the OR
+    adapters don't render document blocks, so leaving them on the request
+    would silently drop the attachment's content from the fallback answer."""
+    from app.services.documents import flatten_documents_for_or
+
+    return flatten_documents_for_or(request).model_copy(update={
         "provider": "openrouter",
         "model": or_model,
     })

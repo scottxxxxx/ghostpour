@@ -82,6 +82,22 @@ class AnthropicAdapter(ProviderAdapter):
     def _build_body(self, request: ChatRequest) -> tuple[dict, dict]:
         """Build Anthropic request body and headers. Shared by stream and non-stream."""
         content_parts: list[dict] = []
+        if request.documents:
+            # Documents passthrough (#359): app/services/documents.py has
+            # already gated these to PDF on the managed Pro path; render
+            # each as a native document block so vision sees layout.
+            for doc in request.documents:
+                block: dict = {
+                    "type": "document",
+                    "source": {
+                        "type": "base64",
+                        "media_type": doc.media_type,
+                        "data": doc.data,
+                    },
+                }
+                if doc.name:
+                    block["title"] = doc.name
+                content_parts.append(block)
         if request.images:
             for img_b64 in request.images[:5]:
                 content_parts.append({
