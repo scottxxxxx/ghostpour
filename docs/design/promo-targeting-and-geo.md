@@ -142,11 +142,18 @@ locale + device; it gains country/region once collected.
 - **Phase 3 (optional):** client sends profile on resolve (real-time); A/B
   holdout analytics by segment.
 
-## 9. Open decisions for approval
+## 9. Decisions — APPROVED (Scott, 2026-07-08)
 
-1. Geo source: **MaxMind GeoLite2 City** (recommended) vs edge header.
-2. Profile source: **server-side telemetry lookup** for v1 (recommended) vs
-   client-sends-on-resolve.
-3. Privacy: default **city on or off**; EU consent vs legitimate-interest;
-   minimum-audience floor (proposed 25); city retention.
-4. Build order within Phase 1 (all at once vs locale+version first).
+1. Geo source: **MaxMind GeoLite2 City**. (Country/region via GeoLite2 was
+   already live in telemetry by approval time — #354 shipped ingestion +
+   dashboard breakdown — so this confirms the status quo and extends the
+   same DB to city.)
+2. Profile source: **server-side telemetry lookup** for v1. No client
+   change for non-geo dimensions.
+3. Privacy: **city targeting ON from day one**, minimum-audience floor of
+   **25** enforced at both campaign authoring and resolve. Defaults unless
+   Scott revises: EU basis = legitimate interest with privacy-policy
+   disclosure (consistent with existing analytics posture); city retention
+   follows the same policy as the existing country/region telemetry fields.
+4. Build order: **Phase 1 all at once** — every dimension including geo
+   evaluation ships in one build.
