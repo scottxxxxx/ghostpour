@@ -446,6 +446,11 @@ MIGRATIONS = [
     # assembly used. Case is preserved (camelCase enum values from TR).
     "ALTER TABLE usage_log ADD COLUMN scenario_kind TEXT",
     "CREATE INDEX IF NOT EXISTS idx_usage_scenario_kind ON usage_log(scenario_kind) WHERE scenario_kind IS NOT NULL",
+    # City joins country/region per the approved targeting design (#318 §9:
+    # city targeting on from day one, min-audience floor 25 enforced at
+    # campaign authoring AND resolve). Derived from IP at ingestion like the
+    # other two; raw IP still never stored. NULL until the client's next ping.
+    "ALTER TABLE telemetry_events ADD COLUMN city TEXT",
 ]
 
 

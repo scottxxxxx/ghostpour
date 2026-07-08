@@ -131,7 +131,9 @@ async def ping(
             )
 
     # Derive coarse geo from the raw IP, then it's discarded (only the hash and
-    # the derived country/region persist; never the raw IP, never city).
+    # the derived country/region/city persist; never the raw IP, no lat/long).
+    # City collection approved 2026-07-08 (#318 §9) — targeting on it is
+    # guarded by the min-audience floor at campaign authoring and resolve.
     from app.services import geoip
     geo = geoip.lookup(ip) or {}
 
@@ -139,8 +141,8 @@ async def ping(
         """INSERT INTO telemetry_events
            (id, event_type, device_id, user_id, meeting_id, model_id,
             app_version, os_version, duration_seconds, ip_hash, received_at,
-            device_model, app_locale, app_id, country, region)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            device_model, app_locale, app_id, country, region, city)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             str(uuid.uuid4()),
             body.event_type,
@@ -158,6 +160,7 @@ async def ping(
             getattr(request.state, "app_id", "unknown"),
             geo.get("country"),
             geo.get("region"),
+            geo.get("city"),
         ),
     )
     await db.commit()

@@ -473,8 +473,9 @@
           <label class="cf"><span>Device families (comma)</span><input id="tg-devices" placeholder="iPhone16, iPhone15" oninput="_targetingFromFields()"></label>
           <label class="cf"><span>Geo countries (ISO, comma)</span><input id="tg-countries" placeholder="US, CA, GB" oninput="_targetingFromFields()"></label>
           <label class="cf"><span>Geo regions (name, comma)</span><input id="tg-regions" placeholder="California, Texas" oninput="_targetingFromFields()"></label>
-          <label class="cf"><span>Min audience (geo privacy floor)</span><input id="tg-minaud" type="number" min="0" placeholder="omit = no floor" oninput="_targetingFromFields()"></label>
-          <p class="cf" style="grid-column:1/-1;margin:2px 0 0;font-size:11px;color:#888">Geo is coarse (country + region; no city). Region names follow the data source. Set Min audience to withhold a geo-targeted card until the segment is large enough to be non-identifying. IP geolocation by DB-IP (db-ip.com), CC BY 4.0.</p>
+          <label class="cf"><span>Geo cities (name, comma)</span><input id="tg-cities" placeholder="San Francisco, Austin" oninput="_targetingFromFields()"></label>
+          <label class="cf"><span>Min audience (raises the floor)</span><input id="tg-minaud" type="number" min="25" placeholder="enforced minimum 25" oninput="_targetingFromFields()"></label>
+          <p class="cf" style="grid-column:1/-1;margin:2px 0 0;font-size:11px;color:#888">Geo levels AND together (country + region + city). Region/city names follow the data source; city matching is case-insensitive. Any geo-targeted campaign is withheld until its matched segment has at least <b>25 devices</b> (privacy floor, enforced at activation and at resolve); Min audience can only raise that floor. IP geolocation by DB-IP (db-ip.com), CC BY 4.0.</p>
           <label class="cf" style="grid-column:1/-1"><span>Users (emails or ids, comma)</span><input id="tg-users" placeholder="scott@weirtech.com" oninput="_targetingFromFields()"></label>
         </div>
       </div>
@@ -3129,10 +3130,12 @@ function _targetingFromFields() {
   const devices = _tgList('tg-devices'); if (devices.length) t.device_families = devices;
   const countries = _tgList('tg-countries').map(c => c.toUpperCase());
   const regions = _tgList('tg-regions');
-  if (countries.length || regions.length) {
+  const cities = _tgList('tg-cities');
+  if (countries.length || regions.length || cities.length) {
     t.geo = {};
     if (countries.length) t.geo.countries = countries;
     if (regions.length) t.geo.regions = regions;
+    if (cities.length) t.geo.cities = cities;
   }
   const minaud = _tgNum('tg-minaud'); if (minaud !== null) t.min_audience = minaud;
   document.getElementById('cf-targeting').value = JSON.stringify(t, null, 2);
@@ -3152,6 +3155,7 @@ function _fieldsFromTargeting() {
   document.getElementById('tg-devices').value = (t.device_families || []).join(', ');
   document.getElementById('tg-countries').value = ((t.geo && t.geo.countries) || []).join(', ');
   document.getElementById('tg-regions').value = ((t.geo && t.geo.regions) || []).join(', ');
+  document.getElementById('tg-cities').value = ((t.geo && t.geo.cities) || []).join(', ');
   document.getElementById('tg-minaud').value = (t.min_audience != null) ? t.min_audience : '';
 }
 

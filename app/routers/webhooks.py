@@ -3166,14 +3166,14 @@ def _validate_campaign(body: CampaignBody) -> None:
     weights = [v.get("weight", 0) for v in body.variants if isinstance(v, dict)]
     if body.status == "active" and weights and sum(weights) != 100:
         raise HTTPException(status_code=400, detail=f"active campaign variant weights must sum to 100 (got {sum(weights)})")
-    # Geo targeting shape: countries/regions are lists; min_audience (the privacy
-    # floor) is a non-negative int. Reject malformed so a campaign can't ship a
-    # geo block the decision engine silently ignores.
+    # Geo targeting shape: countries/regions/cities are lists; min_audience (the
+    # privacy floor raise) is a non-negative int. Reject malformed so a campaign
+    # can't ship a geo block the decision engine silently ignores.
     geo = body.targeting.get("geo")
     if geo is not None:
         if not isinstance(geo, dict):
             raise HTTPException(status_code=400, detail="targeting.geo must be an object")
-        for k in ("countries", "regions"):
+        for k in ("countries", "regions", "cities"):
             if k in geo and not isinstance(geo[k], list):
                 raise HTTPException(status_code=400, detail=f"targeting.geo.{k} must be a list")
     min_aud = body.targeting.get("min_audience")
@@ -3251,6 +3251,33 @@ def _validate_campaign(body: CampaignBody) -> None:
                 raise HTTPException(status_code=400, detail="cta label is required and must be a non-empty string")
 
 
+
+async def _enforce_geo_floor_on_activation(db, body: CampaignBody) -> None:
+    """#318 §9: a geo-targeted campaign may only go ACTIVE when its matched geo
+    segment meets the enforced min-audience floor (25, raisable via
+    targeting.min_audience). Draft/paused saves are allowed regardless so a
+    campaign can be authored ahead of audience growth; resolve enforces the
+    same floor continuously as defense in depth."""
+    if body.status != "active":
+        return
+    from app.routers.promo import GEO_MIN_AUDIENCE_FLOOR, _geo_audience, _geo_constraint, _geo_floor
+
+    countries, regions, cities = _geo_constraint(body.targeting)
+    if not (countries or regions or cities):
+        return
+    floor = _geo_floor(body.targeting)
+    audience = await _geo_audience(db, countries, regions, cities)
+    if audience < floor:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Geo-targeted campaign cannot activate: matched audience is "
+                f"{audience} devices, below the privacy floor of {floor} "
+                f"(enforced minimum {GEO_MIN_AUDIENCE_FLOOR}). Broaden the geo "
+                f"constraint or save as draft/paused until the segment grows."
+            ),
+        )
+
 @router.post("/admin/campaigns")
 async def create_campaign(
     body: CampaignBody,
@@ -3261,6 +3288,7 @@ async def create_campaign(
     """Create a campaign. id is the marketer-set slug and must be unique."""
     _verify_admin(request, x_admin_key)
     _validate_campaign(body)
+    await _enforce_geo_floor_on_activation(db, body)
     existing = await (await db.execute("SELECT 1 FROM promo_campaigns WHERE id = ?", (body.id,))).fetchone()
     if existing:
         raise HTTPException(status_code=409, detail=f"Campaign '{body.id}' already exists")
@@ -3290,6 +3318,7 @@ async def update_campaign(
     """Full update of an existing campaign (preserves created_at)."""
     _verify_admin(request, x_admin_key)
     _validate_campaign(body)
+    await _enforce_geo_floor_on_activation(db, body)
     row = await (await db.execute("SELECT created_at FROM promo_campaigns WHERE id = ?", (campaign_id,))).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail=f"Campaign '{campaign_id}' not found")

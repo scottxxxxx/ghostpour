@@ -106,12 +106,12 @@ async def _device_profile(db: aiosqlite.Connection, device_id: str, user: UserRe
     prof = {
         "locale": None, "app_version": None, "device": None,
         "meetings_recorded": 0, "last_active": None,
-        "country": None, "region": None,
+        "country": None, "region": None, "city": None,
         "tier": user.tier if user else None, "signed_in": user is not None,
         "ever_subscribed": user.ever_subscribed if user else None,
     }
     latest = await (await db.execute(
-        "SELECT app_locale, app_version, device_model, received_at, country, region "
+        "SELECT app_locale, app_version, device_model, received_at, country, region, city "
         "FROM telemetry_events WHERE device_id = ? ORDER BY received_at DESC LIMIT 1", (device_id,)
     )).fetchone()
     if latest:
@@ -121,6 +121,7 @@ async def _device_profile(db: aiosqlite.Connection, device_id: str, user: UserRe
         prof["last_active"] = latest["received_at"]
         prof["country"] = latest["country"]
         prof["region"] = latest["region"]
+        prof["city"] = latest["city"]
     agg = await (await db.execute(
         "SELECT SUM(CASE WHEN event_type = 'meeting_start' THEN 1 ELSE 0 END) AS meetings, "
         "MAX(received_at) AS last_active FROM telemetry_events WHERE device_id = ?", (device_id,)
@@ -131,17 +132,33 @@ async def _device_profile(db: aiosqlite.Connection, device_id: str, user: UserRe
     return prof
 
 
-def _geo_constraint(targeting: dict) -> tuple[list, list]:
-    """(countries, regions) the campaign's geo block constrains on. Either may be
-    empty (no constraint on that level). Absent geo block => both empty."""
+# Anti-deanonymization floor for geo-targeted campaigns (#318 §9 approved):
+# a campaign with ANY geo constraint is withheld while its matched geo segment
+# is below this many distinct devices. targeting.min_audience can only RAISE
+# the floor, never lower it. Enforced here at resolve and at campaign
+# authoring (activation) in the admin CRUD.
+GEO_MIN_AUDIENCE_FLOOR = 25
+
+
+def _geo_floor(targeting: dict) -> int:
+    return max(GEO_MIN_AUDIENCE_FLOOR, int(targeting.get("min_audience") or 0))
+
+
+def _geo_constraint(targeting: dict) -> tuple[list, list, list]:
+    """(countries, regions, cities) the campaign's geo block constrains on. Any
+    may be empty (no constraint on that level). Absent geo block => all empty."""
     g = targeting.get("geo") or {}
-    return list(g.get("countries") or []), list(g.get("regions") or [])
+    return (
+        list(g.get("countries") or []),
+        list(g.get("regions") or []),
+        list(g.get("cities") or []),
+    )
 
 
-async def _geo_audience(db: aiosqlite.Connection, countries: list, regions: list) -> int:
+async def _geo_audience(db: aiosqlite.Connection, countries: list, regions: list, cities: list) -> int:
     """Distinct devices seen (within telemetry retention) whose stored geo matches
-    the constraint — the privacy floor for `min_audience`. country/region are
-    ANDed when both are present, matching _targeting_matches."""
+    the constraint — the privacy floor input. Levels are ANDed when several are
+    present, matching _targeting_matches. City compares case-insensitively."""
     clauses, params = [], []
     if countries:
         clauses.append(f"country IN ({','.join('?' * len(countries))})")
@@ -149,6 +166,9 @@ async def _geo_audience(db: aiosqlite.Connection, countries: list, regions: list
     if regions:
         clauses.append(f"region IN ({','.join('?' * len(regions))})")
         params += [str(r) for r in regions]
+    if cities:
+        clauses.append(f"LOWER(city) IN ({','.join('?' * len(cities))})")
+        params += [str(c).lower() for c in cities]
     if not clauses:
         return 0
     row = await (await db.execute(
@@ -216,11 +236,15 @@ def _targeting_matches(targeting: dict, user: UserRecord | None, profile: dict |
     fams = targeting.get("device_families")
     if fams and not _device_family_matches(p.get("device"), fams):
         return False
-    countries, regions = _geo_constraint(targeting)
+    countries, regions, cities = _geo_constraint(targeting)
     if countries and p.get("country") not in countries:
         return False
     if regions and p.get("region") not in regions:
         return False
+    if cities:
+        city = (p.get("city") or "").lower()
+        if not city or city not in {str(c).lower() for c in cities}:
+            return False
     return True
 
 
@@ -312,14 +336,13 @@ async def resolve_promo(
         tgt = c.get("targeting") or {}
         if not _targeting_matches(tgt, user, profile):
             continue
-        # Privacy floor: a geo-targeted campaign with min_audience set is
-        # withheld while its targeted geo segment is too small to be non-
-        # identifying. Omitted => no floor. Only meaningful with a geo
-        # constraint (without geo the segment is the whole app).
-        min_aud = tgt.get("min_audience")
-        if min_aud:
-            countries, regions = _geo_constraint(tgt)
-            if (countries or regions) and await _geo_audience(db, countries, regions) < min_aud:
+        # Privacy floor (#318 §9): EVERY geo-targeted campaign is withheld
+        # while its targeted geo segment is below the enforced floor —
+        # min(25) with targeting.min_audience able to raise it. Non-geo
+        # campaigns are unaffected (the segment is the whole app).
+        countries, regions, cities = _geo_constraint(tgt)
+        if countries or regions or cities:
+            if await _geo_audience(db, countries, regions, cities) < _geo_floor(tgt):
                 continue
         # Per-device presentation state: impression-frequency cap + convert
         # suppression. The client reports `convert` (subscribe within 24h of a

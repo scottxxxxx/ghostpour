@@ -181,15 +181,44 @@ def test_signed_in_targeting_field(client, pro_user):
 
 def _insert_telemetry(db_path, device_id, event_type="app_start", *, app_locale=None,
                       app_version=None, device_model=None, received_at=None,
-                      country=None, region=None):
+                      country=None, region=None, city=None):
     import sqlite3, uuid
     from datetime import datetime, timezone
     received_at = received_at or datetime.now(timezone.utc).isoformat()
     con = sqlite3.connect(db_path)
     con.execute(
-        "INSERT INTO telemetry_events (id, event_type, device_id, received_at, app_locale, app_version, device_model, country, region)"
-        " VALUES (?,?,?,?,?,?,?,?,?)",
-        (str(uuid.uuid4()), event_type, device_id, received_at, app_locale, app_version, device_model, country, region),
+        "INSERT INTO telemetry_events (id, event_type, device_id, received_at, app_locale, app_version, device_model, country, region, city)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?)",
+        (str(uuid.uuid4()), event_type, device_id, received_at, app_locale, app_version, device_model, country, region, city),
+    )
+    con.commit()
+    con.close()
+
+
+def _seed_geo(db_path, n, prefix, **geo):
+    """Seed n distinct devices in a geo segment — the enforced min-audience
+    floor (25) means geo tests must build a real segment before a geo-targeted
+    campaign can activate or resolve."""
+    for i in range(n):
+        _insert_telemetry(db_path, f"{prefix}-{i}", **geo)
+
+
+def _insert_campaign_raw(db_path, cid, targeting, app_id=SS):
+    """Insert an ACTIVE campaign directly into sqlite, bypassing the admin
+    CRUD's activation-time floor check — lets resolve-side floor enforcement
+    be tested in isolation (defense in depth)."""
+    import json as _json, sqlite3
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    con = sqlite3.connect(db_path)
+    con.execute(
+        "INSERT INTO promo_campaigns (id, name, status, app_id, priority, targeting, frequency, placements, variants, created_at, updated_at)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        (cid, cid, "active", app_id, 10, _json.dumps(targeting), "{}",
+         _json.dumps([{"placement": "launch", "priority": 10}]),
+         _json.dumps([{"variant_id": "html", "weight": 100, "render": "html",
+                       "html_url": "https://api.ghostpour.com/v1/promo/assets/ss-launch-techrehearsal.html"}]),
+         now, now),
     )
     con.commit()
     con.close()
@@ -248,45 +277,106 @@ def test_targeting_usage_band_excludes_light_user(client, tmp_db_path):
     assert client.get(f"/v1/promo/resolve?device_id={dev}", headers={"X-App-ID": SS}).json() == {}
 
 
-# --- Phase 2: geo targeting (country / region) + min_audience privacy floor ---
+# --- Geo targeting (country / region / city) + the ENFORCED min-audience floor.
+# #318 §9 (2026-07-08): every geo-targeted campaign carries a floor of
+# GEO_MIN_AUDIENCE_FLOOR (25) devices; targeting.min_audience can only raise
+# it. Enforced at activation (admin CRUD) and again at resolve.
+
+FLOOR = 25  # mirrors app.routers.promo.GEO_MIN_AUDIENCE_FLOOR
+
+
+def test_geo_floor_constant_is_25():
+    from app.routers.promo import GEO_MIN_AUDIENCE_FLOOR
+    assert GEO_MIN_AUDIENCE_FLOOR == FLOOR == 25
+
 
 def test_geo_country_targeting_via_resolve(client, tmp_db_path):
-    _insert_telemetry(tmp_db_path, "dev-us", country="US", region="California")
+    _seed_geo(tmp_db_path, FLOOR, "us", country="US", region="California")
     _make_campaign(client, cid="t_us", targeting={"geo": {"countries": ["US"]}})
     h = {"X-App-ID": SS}
-    assert client.get("/v1/promo/resolve?device_id=dev-us", headers=h).json()["campaign_id"] == "t_us"
+    assert client.get("/v1/promo/resolve?device_id=us-0", headers=h).json()["campaign_id"] == "t_us"
     # a device we have no geo for can't satisfy a geo constraint
     assert client.get("/v1/promo/resolve?device_id=dev-nogeo", headers=h).json() == {}
 
 
 def test_geo_country_excludes_other_country(client, tmp_db_path):
+    _seed_geo(tmp_db_path, FLOOR, "us", country="US", region="California")
     _insert_telemetry(tmp_db_path, "dev-gb", country="GB", region="England")
     _make_campaign(client, cid="t_usonly", targeting={"geo": {"countries": ["US"]}})
     assert client.get("/v1/promo/resolve?device_id=dev-gb", headers={"X-App-ID": SS}).json() == {}
 
 
 def test_geo_region_targeting_via_resolve(client, tmp_db_path):
-    _insert_telemetry(tmp_db_path, "dev-ca", country="US", region="California")
+    _seed_geo(tmp_db_path, FLOOR, "ca", country="US", region="California")
     _insert_telemetry(tmp_db_path, "dev-tx", country="US", region="Texas")
     _make_campaign(client, cid="t_ca", targeting={"geo": {"countries": ["US"], "regions": ["California"]}})
     h = {"X-App-ID": SS}
-    assert client.get("/v1/promo/resolve?device_id=dev-ca", headers=h).json()["campaign_id"] == "t_ca"
+    assert client.get("/v1/promo/resolve?device_id=ca-0", headers=h).json()["campaign_id"] == "t_ca"
     # right country, wrong region -> excluded (country AND region)
     assert client.get("/v1/promo/resolve?device_id=dev-tx", headers=h).json() == {}
 
 
-def test_geo_min_audience_withholds_small_segment(client, tmp_db_path):
-    # only one device in the targeted geo; floor of 3 withholds it
-    _insert_telemetry(tmp_db_path, "dev-solo", country="US", region="Wyoming")
-    _make_campaign(client, cid="t_floor", targeting={"geo": {"regions": ["Wyoming"]}, "min_audience": 3})
-    assert client.get("/v1/promo/resolve?device_id=dev-solo", headers={"X-App-ID": SS}).json() == {}
+def test_geo_city_targeting_case_insensitive(client, tmp_db_path):
+    _seed_geo(tmp_db_path, FLOOR, "sf", country="US", region="California", city="San Francisco")
+    _insert_telemetry(tmp_db_path, "dev-la", country="US", region="California", city="Los Angeles")
+    _make_campaign(client, cid="t_sf", targeting={"geo": {"cities": ["san francisco"]}})
+    h = {"X-App-ID": SS}
+    assert client.get("/v1/promo/resolve?device_id=sf-0", headers=h).json()["campaign_id"] == "t_sf"
+    # same region, wrong city -> excluded; no city on record -> excluded
+    assert client.get("/v1/promo/resolve?device_id=dev-la", headers=h).json() == {}
+    assert client.get("/v1/promo/resolve?device_id=dev-nogeo", headers=h).json() == {}
 
 
-def test_geo_min_audience_met_serves(client, tmp_db_path):
-    for d in ("g1", "g2", "g3"):
-        _insert_telemetry(tmp_db_path, d, country="US", region="Ohio")
-    _make_campaign(client, cid="t_ok", targeting={"geo": {"regions": ["Ohio"]}, "min_audience": 3})
-    assert client.get("/v1/promo/resolve?device_id=g1", headers={"X-App-ID": SS}).json()["campaign_id"] == "t_ok"
+def test_geo_floor_withholds_small_segment_at_resolve(client, tmp_db_path):
+    # bypass the CRUD (raw insert) to prove resolve enforces the floor on its
+    # own: FLOOR-1 devices in the segment -> withheld even with no
+    # min_audience set (the 25 floor is not opt-in).
+    _seed_geo(tmp_db_path, FLOOR - 1, "wy", country="US", region="Wyoming")
+    _insert_campaign_raw(tmp_db_path, "t_floor", {"geo": {"regions": ["Wyoming"]}})
+    assert client.get("/v1/promo/resolve?device_id=wy-0", headers={"X-App-ID": SS}).json() == {}
+
+
+def test_geo_floor_met_serves(client, tmp_db_path):
+    _seed_geo(tmp_db_path, FLOOR, "oh", country="US", region="Ohio")
+    _make_campaign(client, cid="t_ok", targeting={"geo": {"regions": ["Ohio"]}})
+    assert client.get("/v1/promo/resolve?device_id=oh-0", headers={"X-App-ID": SS}).json()["campaign_id"] == "t_ok"
+
+
+def test_geo_min_audience_can_only_raise_the_floor(client, tmp_db_path):
+    # segment of 30; min_audience 40 raises the floor above the segment ->
+    # withheld. min_audience below 25 would be ignored (floor stays 25).
+    _seed_geo(tmp_db_path, 30, "nv", country="US", region="Nevada")
+    _insert_campaign_raw(tmp_db_path, "t_raise", {"geo": {"regions": ["Nevada"]}, "min_audience": 40})
+    assert client.get("/v1/promo/resolve?device_id=nv-0", headers={"X-App-ID": SS}).json() == {}
+    from app.routers.promo import _geo_floor
+    assert _geo_floor({"min_audience": 3}) == FLOOR   # can't lower
+    assert _geo_floor({"min_audience": 40}) == 40     # can raise
+    assert _geo_floor({}) == FLOOR
+
+
+def test_geo_activation_blocked_below_floor(client, tmp_db_path):
+    # authoring-time enforcement: activating a geo campaign whose segment is
+    # below the floor is a 400 with the audience count in the message...
+    _seed_geo(tmp_db_path, 3, "mt", country="US", region="Montana")
+    body = {
+        "id": "t_block", "name": "t_block", "app_id": SS, "status": "active", "priority": 10,
+        "targeting": {"geo": {"regions": ["Montana"]}}, "frequency": {},
+        "placements": [{"placement": "launch", "priority": 10}],
+        "variants": [{"variant_id": "html", "weight": 100, "render": "html",
+                      "html_url": "https://api.ghostpour.com/v1/promo/assets/ss-launch-techrehearsal.html"}],
+    }
+    r = client.post("/webhooks/admin/campaigns", json=body, headers=ADMIN)
+    assert r.status_code == 400
+    assert "3 devices" in r.json()["detail"] and "25" in r.json()["detail"]
+    # ...but the same campaign saves fine as draft (author ahead of growth)
+    draft = {**body, "id": "t_draft", "name": "t_draft", "status": "draft"}
+    assert client.post("/webhooks/admin/campaigns", json=draft, headers=ADMIN).status_code == 200
+    # flipping the draft to active re-runs the check
+    r = client.put("/webhooks/admin/campaign/t_draft", json={**draft, "status": "active"}, headers=ADMIN)
+    assert r.status_code == 400
+    # non-geo campaigns are unaffected by the floor at activation
+    nogeo = {**body, "id": "t_nogeo", "name": "t_nogeo", "targeting": {}}
+    assert client.post("/webhooks/admin/campaigns", json=nogeo, headers=ADMIN).status_code == 200
 
 
 # --- Native render slice: schema validation + min_app_version capability gate ---
@@ -358,4 +448,5 @@ def test_geo_targeting_validation_rejects_bad_shapes(client):
     assert _post("t_bad2", {"geo": {"countries": "US"}}).status_code == 400
     assert _post("t_bad3", {"geo": []}).status_code == 400
     # valid geo + floor accepted
+    assert _post("t_badcity", {"geo": {"cities": "San Francisco"}}).status_code == 400
     assert _post("t_good", {"geo": {"countries": ["US"]}, "min_audience": 50}).status_code == 200
