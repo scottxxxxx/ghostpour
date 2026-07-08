@@ -10,5 +10,15 @@
     }
   },
   "flags": {},
-  "intervals": {}
+  "intervals": {},
+  "documents": {
+    "enabled": false,
+    "min_tier": "pro",
+    "accepted_types": [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    ],
+    "per_file_max_mb": 25,
+    "max_files": 2
+  }
 }

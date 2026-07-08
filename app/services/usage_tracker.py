@@ -197,6 +197,13 @@ class UsageTracker:
             metadata["raw_request"] = response.raw_request_json
         if response and response.raw_response_json:
             metadata["raw_response"] = response.raw_response_json
+        # Documents passthrough (#359): count + raw byte total, set by
+        # app/services/documents.py regardless of which path each file took.
+        if request.get_meta("document_count"):
+            metadata["documents"] = {
+                "count": request.get_meta("document_count"),
+                "raw_bytes": request.get_meta("document_bytes"),
+            }
 
         metadata_json = json.dumps(metadata, ensure_ascii=False) if metadata else None
 

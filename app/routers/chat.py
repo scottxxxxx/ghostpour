@@ -1649,6 +1649,21 @@ async def chat(
             ),
         })
 
+    # 5.95. Documents passthrough (#359). Runs AFTER the context-cap gate on
+    # purpose: documents ride outside the char gauge (images precedent), so
+    # server-side extraction text must not retroactively trip the 413 the
+    # client's gauge never saw. Splits each attachment between native
+    # passthrough (managed Pro on Anthropic, PDF) and server-side extraction
+    # inlined into user_content — a downgrade, never an error or client retry.
+    if body.documents:
+        from app.services.documents import process_documents
+        body = await process_documents(
+            body,
+            remote_configs=request.app.state.remote_configs,
+            tier_name=user.effective_tier,
+            managed_routing=managed_routing,
+        )
+
     # 6. Stream or non-stream based on request + call_type
     # Only stream interactive queries; background tasks (summary, analysis) get full JSON.
     # Project Chat is also forced non-streaming so feature_state can land

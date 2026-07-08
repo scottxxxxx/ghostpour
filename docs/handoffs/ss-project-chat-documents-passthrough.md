@@ -60,8 +60,9 @@ has** and inlines it with the standard framing. The request succeeds in
 one round trip and the response is indistinguishable from today's
 client extracted flow. "Falls back to today's behavior" means exactly
 this; it never means a client retry. The only hard errors are transport
-level: `document_too_large` (raw bytes over the served cap) and
-`document_unreadable` (bytes that do not parse as the declared type), both
+level: `document_too_large` (raw bytes over the served cap),
+`too_many_documents` (over the served max_files), and
+`document_unreadable` (bytes that do not parse as the declared type), all
 of which the client can prevent at attach time using the served caps.
 
 A note on pinned models: requests with a user pinned model/provider that

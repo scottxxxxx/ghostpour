@@ -31,12 +31,25 @@ _CHAT_META_FIELDS = (
 ReasoningLevel = str  # any literal from the model's reasoningLevels array
 
 
+class DocumentAttachment(BaseModel):
+    """A user-attached file passed through raw (#359 documents spec).
+
+    `data` is base64 of the file exactly as picked — no client conversion.
+    Caps are defined against the RAW byte size (before base64), served in
+    client-config's `documents` key and enforced server-side.
+    """
+    name: str = ""       # user-visible filename, reused in prompt framing
+    media_type: str      # declared MIME type
+    data: str            # base64 of raw file bytes
+
+
 class ChatRequest(BaseModel):
     provider: str
     model: str
     system_prompt: str = ""
     user_content: str
     images: list[str] | None = None
+    documents: list[DocumentAttachment] | None = None
     max_tokens: int | None = None
     temperature: float | None = None  # GP-controlled; None => provider default
     stream: bool = False
