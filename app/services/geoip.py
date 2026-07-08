@@ -1,17 +1,19 @@
-"""IP -> coarse geography (country + region) from local MaxMind-format DBs.
+"""IP -> coarse geography (country + region + city) from local MaxMind-format DBs.
 
 Provider-agnostic: reads any .mmdb via the maxminddb reader. We ship the
 sapics/ip-location-db `dbip-city` database (pulled from GitHub Releases, not npm
 — the npm/main builds carry a data-bug notice; the corrected data is in the
 Releases). sapics splits IPv4 and IPv6 into two files, so we open one reader per
 family and route by IP at lookup time (a ':' in the address => IPv6). City is
-intentionally NOT stored (granularity: country + region).
+stored since the #318 targeting approval (2026-07-08): city targeting is on,
+guarded by the min-audience floor enforced at campaign authoring and resolve.
 
 Graceful: if a DB file is absent or a lookup fails, returns None — geo stays
 null and nothing breaks. Readers are opened lazily and cached per family.
 
 Privacy: the raw IP is looked up at ingestion and only the derived country +
-region are kept. The raw IP is never stored (it's hashed separately).
+region + city are kept. The raw IP is never stored (it's hashed separately).
+No lat/long, no street address.
 
 Attribution: the dbip-city data is CC BY 4.0; surface ATTRIBUTION wherever geo
 is displayed (dashboard + privacy note).
@@ -81,11 +83,14 @@ def reset_cache() -> None:
 
 
 def lookup(ip: str | None) -> dict | None:
-    """Return {'country': 'US', 'region': '...'} for an IP, or None.
+    """Return {'country': 'US', 'region': '...', 'city': '...'} for an IP, or None.
 
     country = ISO 3166-1 alpha-2. region = the first-level subdivision; its ISO
     code when available, otherwise its name (the sapics dbip-city build we ship
-    only carries the name, e.g. 'California'). City is deliberately dropped.
+    only carries the name, e.g. 'California'). city = the locality name —
+    extracted since the #318 approval (city targeting on from day one; the
+    min-audience floor is enforced downstream at authoring and resolve).
+    Still no lat/long, no street, never the raw IP.
 
     Two record schemas are accepted so the reader stays provider-agnostic:
       - sapics/ip-location-db (flat): {country_code, state1, state2, city, ...}
@@ -111,6 +116,8 @@ def lookup(ip: str | None) -> dict | None:
         region = subs[0].get("iso_code") or (subs[0].get("names") or {}).get("en")
     if not region:
         region = rec.get("state1") or None
+    # city: GeoIP2 city.names.en, then flat sapics city.
+    city = (rec.get("city") or {}).get("names", {}).get("en") if isinstance(rec.get("city"), dict) else rec.get("city")
     if not country and not region:
         return None
-    return {"country": country or None, "region": region or None}
+    return {"country": country or None, "region": region or None, "city": city or None}

@@ -1,4 +1,7 @@
-"""GeoIP service + telemetry ingestion of coarse geo (country + region)."""
+"""GeoIP service + telemetry ingestion of coarse geo (country + region + city).
+
+City is stored since the #318 approval (2026-07-08): city targeting on from
+day one, min-audience floor enforced at campaign authoring and resolve."""
 
 
 def test_geoip_graceful_without_db():
@@ -9,7 +12,7 @@ def test_geoip_graceful_without_db():
     assert geoip.lookup("8.8.8.8") is None
 
 
-def test_geoip_parses_record_drops_city(monkeypatch):
+def test_geoip_parses_nested_record_with_city(monkeypatch):
     from app.services import geoip
 
     class _FakeReader:
@@ -17,10 +20,10 @@ def test_geoip_parses_record_drops_city(monkeypatch):
             return {
                 "country": {"iso_code": "US"},
                 "subdivisions": [{"iso_code": "CA", "names": {"en": "California"}}],
-                "city": {"names": {"en": "San Francisco"}},  # must be dropped
+                "city": {"names": {"en": "San Francisco"}},  # kept since #318
             }
     monkeypatch.setattr(geoip, "_get_reader", lambda family: _FakeReader())
-    assert geoip.lookup("1.2.3.4") == {"country": "US", "region": "CA"}
+    assert geoip.lookup("1.2.3.4") == {"country": "US", "region": "CA", "city": "San Francisco"}
     geoip.reset_cache()
 
 
@@ -49,12 +52,13 @@ def test_geoip_parses_sapics_flat_schema(monkeypatch):
                 "country_code": "US",
                 "state1": "California",
                 "state2": "",
-                "city": "Mountain View",  # must be dropped
+                "city": "Mountain View",  # kept since #318
                 "latitude": 37.42,
                 "longitude": -122.08,
             }
     monkeypatch.setattr(geoip, "_get_reader", lambda family: _FakeReader())
-    assert geoip.lookup("8.8.8.8") == {"country": "US", "region": "California"}
+    # lat/long still dropped; city now kept
+    assert geoip.lookup("8.8.8.8") == {"country": "US", "region": "California", "city": "Mountain View"}
     geoip.reset_cache()
 
 
@@ -82,10 +86,10 @@ def test_geoip_reload_endpoint(client):
 def test_ping_stores_geo(client, tmp_db_path, monkeypatch):
     import uuid, sqlite3
     dev = str(uuid.uuid4())
-    monkeypatch.setattr("app.services.geoip.lookup", lambda ip: {"country": "US", "region": "CA"})
+    monkeypatch.setattr("app.services.geoip.lookup", lambda ip: {"country": "US", "region": "CA", "city": "San Jose"})
     r = client.post("/v1/events/ping", json={"event_type": "app_start", "device_id": dev})
     assert r.status_code == 204, r.text
     con = sqlite3.connect(tmp_db_path)
     con.row_factory = sqlite3.Row
-    row = con.execute("SELECT country, region FROM telemetry_events WHERE device_id=?", (dev,)).fetchone()
-    assert row["country"] == "US" and row["region"] == "CA"
+    row = con.execute("SELECT country, region, city FROM telemetry_events WHERE device_id=?", (dev,)).fetchone()
+    assert row["country"] == "US" and row["region"] == "CA" and row["city"] == "San Jose"
