@@ -70,6 +70,17 @@ carry `documents` anyway (stale client state, config race) also downgrade
 to server side extraction. User files are never forwarded to user keyed
 targets.
 
+**Scanned PDFs are in scope on the passthrough branch.** A PDF with no
+text layer (a scan or a photo export) that rides passthrough is read
+visually and just works; the client should NOT pre reject it with a "no
+readable text" error when the passthrough branch condition holds. On the
+extraction fallback (Plus tier, pinned model, flag off) a scanned PDF
+yields no extractable text: the request still succeeds (never an error),
+the model is told the attachment had no readable text, and answer quality
+reflects that. So keep the "no readable text" pre check on the client
+extraction path where it genuinely protects the user, and drop it on the
+passthrough branch.
+
 ### 3. Size caps
 
 Caps are defined against **raw file size before base64**, served in config
@@ -125,8 +136,34 @@ Client rule set:
 - Ships behind the config key: `enabled: false` until the server work is
   deployed and verified, so SS can build against the spec immediately.
 
+## Format roadmap (agreed with SS 2026-07-08)
+
+The wire is bytes plus MIME and the picker list is served, so format
+growth is a config flip. Positions per format:
+
+- **pdf, pptx** — launch pair, as shipped.
+- **docx** — server extractor already implemented (structured OOXML text,
+  tables included, same approach as pptx); joins `accepted_types` as an
+  early config addition once the launch pair is verified e2e. Extraction
+  path only for now (no native docx document block on the model side);
+  chart and layout fidelity for docx arrives if or when a server side
+  convert to PDF step ever lands.
+- **xlsx** — agreed it is extraction hostile (structure IS the content).
+  Early config addition, not launch: we will build a structured
+  sheet-to-CSV-text extraction with row caps before adding it to the
+  served list. Not vision; structured text.
+- **iWork (key / pages / numbers)** — NOT on our roadmap; parsing these
+  server side is not reasonable. Build the picker copy for "export to
+  PDF" messaging.
+- **Text native (txt, md, csv, rtf, html)** — stay client extracted
+  permanently, per SS. They lose nothing in extraction, work on every
+  path including on device, and cost fewer tokens. No bytes for these.
+- **Legacy doc / ppt** — future config additions at most, no commitment.
+
 ## Timing
 
 SS plans to build this together with References v2 (same plus menu branch
 point). This spec is stable for that purpose; if anything moves during
-implementation we version it here first.
+implementation we version it here first. Phase 2 (returned files) will be
+designed with SS at the table from the start — it shapes their attachment
+UX.

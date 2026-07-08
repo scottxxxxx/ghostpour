@@ -38,6 +38,11 @@ logger = logging.getLogger("ghostpour.documents")
 
 PDF_MIME = "application/pdf"
 PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+# docx is NOT in the launch accepted_types — extractor support ships ahead of
+# the config flip so adding it to the served list later is config-only, and a
+# stray docx that arrives early extracts properly instead of hitting the
+# unsupported-format marker.
+DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 _DEFAULTS = {
     "enabled": False,
@@ -86,6 +91,12 @@ def _extract_pdf_text(raw: bytes, name: str) -> str:
         text = "\n".join(pages).strip()
     except Exception:
         raise _err("document_unreadable", f'Attachment "{name}" does not parse as PDF.')
+    if not text:
+        # Scanned / image-only PDF on the extraction path. Never an error
+        # (spec: downgrade always succeeds) — tell the model what happened.
+        # On the passthrough path the same file is read visually and works.
+        return ("(This document has no extractable text — likely a scanned or "
+                "image-only PDF. Its visual content is not available on this path.)")
     return text[:_MAX_EXTRACT_CHARS]
 
 
@@ -134,11 +145,41 @@ def _frame(name: str, text: str) -> str:
     return f'--- Attached: "{label}" ---\n{text}\n--- End of "{label}" ---'
 
 
+def _extract_docx_text(raw: bytes, name: str) -> str:
+    """Body text straight from the OOXML — <w:t> runs grouped per paragraph
+    (<w:p>), which covers table cell text in document order. Same
+    no-extra-dependency approach as the pptx extractor."""
+    from defusedxml import ElementTree as DET
+
+    W_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(raw))
+        info = zf.getinfo("word/document.xml")
+        if info.file_size > _MAX_XML_PART_BYTES:
+            raise ValueError("document.xml too large")
+        root = DET.fromstring(zf.read("word/document.xml"))
+        paras = []
+        for p in root.iter(f"{W_NS}p"):
+            runs = [t.text for t in p.iter(f"{W_NS}t") if t.text]
+            if runs:
+                paras.append("".join(runs))
+        text = "\n".join(paras).strip()
+        if not text:
+            raise ValueError("no text")
+    except HTTPException:
+        raise
+    except Exception:
+        raise _err("document_unreadable", f'Attachment "{name}" does not parse as DOCX.')
+    return text[:_MAX_EXTRACT_CHARS]
+
+
 def _extract_to_text(doc: DocumentAttachment, raw: bytes) -> str:
     if doc.media_type == PDF_MIME:
         return _extract_pdf_text(raw, doc.name)
     if doc.media_type == PPTX_MIME:
         return _extract_pptx_text(raw, doc.name)
+    if doc.media_type == DOCX_MIME:
+        return _extract_docx_text(raw, doc.name)
     # Unknown type on the extraction path: config pulled the format after
     # the client attached it. Best effort — refuse quietly with a marker
     # rather than failing the whole chat.

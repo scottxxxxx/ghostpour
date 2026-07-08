@@ -198,6 +198,94 @@ async def test_document_unreadable(data, media_type):
     assert ei.value.detail["code"] == "document_unreadable"
 
 
+# --- docx extraction (extractor ships ahead of the config flip) ---
+
+def _min_docx() -> bytes:
+    doc = (
+        '<?xml version="1.0"?>'
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        "<w:body>"
+        "<w:p><w:r><w:t>Quarterly summary</w:t></w:r></w:p>"
+        "<w:tbl><w:tr><w:tc><w:p><w:r><w:t>Budget: on track</w:t></w:r></w:p></w:tc></w:tr></w:tbl>"
+        "</w:body></w:document>"
+    )
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("[Content_Types].xml", "<Types/>")
+        zf.writestr("word/document.xml", doc)
+    return buf.getvalue()
+
+
+def test_docx_not_in_launch_accepted_types():
+    from app.services.documents import DOCX_MIME, load_documents_config
+
+    assert DOCX_MIME not in load_documents_config({})["accepted_types"]
+
+
+@pytest.mark.asyncio
+async def test_stray_docx_extracts_properly_before_config_flip():
+    from app.services.documents import DOCX_MIME
+
+    body = _body([_doc(_min_docx(), DOCX_MIME, "notes.docx")])
+    out = await process_documents(
+        body, remote_configs=_configs(), tier_name="pro", managed_routing=True
+    )
+    assert out.documents is None  # not accepted → extraction path
+    assert "Quarterly summary" in out.user_content
+    assert "Budget: on track" in out.user_content  # table cell text survives
+
+
+@pytest.mark.asyncio
+async def test_docx_garbage_is_unreadable():
+    from app.services.documents import DOCX_MIME
+
+    doc = DocumentAttachment(
+        name="bad.docx", media_type=DOCX_MIME,
+        data=base64.b64encode(b"not a zip at all").decode(),
+    )
+    with pytest.raises(HTTPException) as ei:
+        await process_documents(
+            _body([doc]), remote_configs=_configs(),
+            tier_name="plus", managed_routing=True,
+        )
+    assert ei.value.detail["code"] == "document_unreadable"
+
+
+# --- scanned PDFs (spec: in scope on passthrough; marker on extraction) ---
+
+_SCANNED_PDF = b"""%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >> endobj
+xref
+0 4
+0000000000 65535 f
+trailer << /Size 4 /Root 1 0 R >>
+startxref
+0
+%%EOF"""
+
+
+@pytest.mark.asyncio
+async def test_scanned_pdf_rides_passthrough_untouched():
+    body = _body([_doc(_SCANNED_PDF, PDF_MIME, "scan.pdf")])
+    out = await process_documents(
+        body, remote_configs=_configs(), tier_name="pro", managed_routing=True
+    )
+    assert out.documents and len(out.documents) == 1  # vision path handles it
+
+
+@pytest.mark.asyncio
+async def test_scanned_pdf_extraction_succeeds_with_marker():
+    body = _body([_doc(_SCANNED_PDF, PDF_MIME, "scan.pdf")])
+    out = await process_documents(
+        body, remote_configs=_configs(), tier_name="plus", managed_routing=True
+    )
+    assert out.documents is None
+    assert "no extractable text" in out.user_content  # marker, not an error
+    assert out.user_content.rstrip().endswith("Update this deck")
+
+
 # --- adapter + fallback wiring ---
 
 def test_anthropic_builder_renders_document_block():
