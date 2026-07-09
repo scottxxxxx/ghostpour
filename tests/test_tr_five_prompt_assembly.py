@@ -148,6 +148,30 @@ def test_user_content_passes_through_untouched():
         assert r["max_tokens"] == 4096
 
 
+def test_debrief_calibration_guards():
+    """TR calibration round (2026-07-09): ASR framing, anchored dimension
+    scores, monotonicity on applied feedback, and permission to return an
+    empty what_to_change (kill the feedback treadmill)."""
+    cfg = json.load(open("config/remote/techrehearsal/debrief.json"))
+    sp = cfg["systemPrompt"]
+    for phrase in (
+        "dictated speech",
+        "NEVER cite transcription artifacts",
+        "SCORE ANCHORS",
+        "Use the full range",
+        "MUST NOT score lower than the previous scores",
+        "EMPTY what_to_change list rather than inventing criticism",
+        "do not manufacture feedback",
+    ):
+        assert phrase in sp, f"missing calibration guard: {phrase!r}"
+    assert cfg["temperature"] == 0.2
+    r = _asm("tr_debrief", kind="jobInterview")
+    assert r["temperature"] == 0.2
+    # scenario interpolation and the five score names survive the calibration edit
+    assert "debriefing a job interview answer or exchange" in r["system_prompt"]
+    assert 'Use exactly those five score names, in that order.' in r["system_prompt"]
+
+
 def test_scenario_kind_normalizer_preserves_case():
     from app.services.usage_tracker import _normalize_scenario_kind
 
