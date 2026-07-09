@@ -200,9 +200,14 @@ def test_scorecard_calibration_guards():
     scorecard = assemble_prompt("tr_response_analysis", "X", cfgs, prompt_mode="InterviewScorecard")
     judge = assemble_prompt("tr_response_analysis", "X", cfgs, prompt_mode="InterviewFollowUp")
     assert scorecard["temperature"] == 0.2 and judge["temperature"] == 0.2
-    # the follow-up judge PROMPT is untouched by the scorecard calibration
-    assert "speech-to-text transcript" not in judge["system_prompt"]
+    # follow-up judge got its own ASR framing (TR opted in 2026-07-09: a
+    # spurious probe about a garble burns the candidate's time box live)
     assert judge["system_prompt"].startswith("You are a seasoned, kind interviewer")
+    assert "speech-to-text transcript" in judge["system_prompt"]
+    assert "NEVER ask a follow-up about a transcription artifact" in judge["system_prompt"]
+    # contract untouched
+    for field in ('"should_follow_up": boolean', '"follow_up": string', '"stalled": boolean'):
+        assert field in judge["system_prompt"]
 
 
 def test_returns_none_when_config_absent():
