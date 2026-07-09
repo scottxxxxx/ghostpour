@@ -19,6 +19,7 @@
       "application/vnd.openxmlformats-officedocument.presentationml.presentation"
     ],
     "per_file_max_mb": 25,
-    "max_files": 2
+    "max_files": 2,
+    "allowed_users": []
   }
 }

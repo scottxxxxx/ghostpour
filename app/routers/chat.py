@@ -1664,6 +1664,7 @@ async def chat(
             remote_configs=request.app.state.remote_configs,
             tier_name=user.effective_tier,
             managed_routing=managed_routing,
+            user_identity={x for x in (user.id, user.email) if x},
         )
 
     # 6. Stream or non-stream based on request + call_type

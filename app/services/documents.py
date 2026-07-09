@@ -50,6 +50,11 @@ _DEFAULTS = {
     "accepted_types": [PDF_MIME, PPTX_MIME],
     "per_file_max_mb": 25,
     "max_files": 2,
+    # Per-account enablement for e2e / canary: identities (user id or email)
+    # here get the passthrough path even while `enabled` is false and
+    # regardless of tier. Pairs with SS's client debug override that forces
+    # their gate open. Test hook, not a product surface.
+    "allowed_users": [],
 }
 
 _TIER_RANK = {"free": 0, "plus": 1, "pro": 2}
@@ -192,6 +197,7 @@ async def process_documents(
     remote_configs: dict,
     tier_name: str,
     managed_routing: bool,
+    user_identity: set[str] | None = None,
 ) -> ChatRequest:
     """Validate caps, then split each document between the passthrough path
     (kept on body.documents for the provider adapter to render) and the
@@ -220,11 +226,13 @@ async def process_documents(
         decoded.append(raw)
 
     tier_ok = _TIER_RANK.get(tier_name, 0) >= _TIER_RANK.get(cfg["min_tier"], 2)
+    # allowed_users overrides `enabled` AND the tier gate (e2e/canary hook);
+    # routing + provider stay mechanical requirements either way.
+    listed = bool(user_identity and set(user_identity) & set(cfg.get("allowed_users") or []))
     passthrough_allowed = (
-        bool(cfg["enabled"])
+        (bool(cfg["enabled"]) and tier_ok or listed)
         and managed_routing
         and body.provider == "anthropic"
-        and tier_ok
     )
 
     keep: list[DocumentAttachment] = []
