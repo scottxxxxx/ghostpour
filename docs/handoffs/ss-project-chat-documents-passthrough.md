@@ -162,11 +162,26 @@ Client rule set:
   gating config (#93 lineage).
 - Server side extraction path: PDF text layer extraction; PPTX text via
   the XML. Used for every downgrade case.
-- Provider ceilings (server policy, invisible to the client): the model
-  side caps requests at 32MB and PDFs at 600 pages, which the wire caps
-  (25MB raw x 2) can exceed once encoded. Passthrough therefore enforces a
-  combined encoded budget (~30MB) and the PDF page cap; anything over
-  DOWNGRADES to extraction per the standard semantics — never an error.
+- Provider ceilings, now SERVED for client pre-check (addendum
+  2026-07-09): the model side caps requests at 32MB and PDFs at 600
+  pages, which the wire caps (25MB raw x 2) can exceed once encoded. The
+  documents config gains a `passthrough` subkey the client should read:
+
+  ```json
+  "passthrough": {"max_pdf_pages": 600, "max_total_mb": 22}
+  ```
+
+  Semantics: these bound the NATIVE path only. `max_total_mb` is the
+  combined RAW size (plain file-size math, no base64 accounting) of
+  documents that can ride natively in one request; `max_pdf_pages` is the
+  per-PDF page cap. Both are cheap on-device checks (PDFKit gives page
+  count) — pre-check at attach so the user learns BEFORE a round trip
+  that a file will be sent as extracted text rather than read natively.
+  Over-limit attachments still send fine within the wire caps; the server
+  enforces the same served values and DOWNGRADES them to extraction —
+  never an error. The values change when our routing changes (a config
+  edit, no app release), which is the point: the client should never
+  hardcode them.
 - Metering: usage_log metadata gains document count and total raw bytes,
   alongside the existing image_count. Cost attribution flows through
   record_cost as usual.

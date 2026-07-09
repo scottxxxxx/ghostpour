@@ -55,6 +55,12 @@ _DEFAULTS = {
     # regardless of tier. Pairs with SS's client debug override that forces
     # their gate open. Test hook, not a product surface.
     "allowed_users": [],
+    # Provider-derived ceilings for the NATIVE path, served so the client can
+    # pre-check at attach time (PDF page count and combined raw size are both
+    # cheap on device) instead of paying a round trip that would downgrade.
+    # These change when routing changes — a config edit, no app release. They
+    # bound passthrough only; per_file_max_mb/max_files bound the wire.
+    "passthrough": {"max_pdf_pages": 600, "max_total_mb": 22},
 }
 
 _TIER_RANK = {"free": 0, "plus": 1, "pro": 2}
@@ -65,13 +71,13 @@ _MAX_EXTRACT_CHARS = 200_000
 _MAX_PPTX_SLIDES = 300
 _MAX_XML_PART_BYTES = 30 * 1024 * 1024  # zip-bomb guard per slide part
 
-# Provider ceilings (server policy): the model API caps requests at 32MB and
-# PDFs at 600 pages. The served wire caps (25MB raw x 2 files) can exceed both
-# once base64-encoded, so passthrough enforces its own budget and everything
-# over it DOWNGRADES to extraction — never an error (spec: "internal server
-# policy limit"). 30MB encoded leaves headroom for prompt + system content.
-_MAX_PASSTHROUGH_ENCODED_BYTES = 30 * 1024 * 1024
-_MAX_PDF_PASSTHROUGH_PAGES = 600
+# Provider ceilings: the model API caps requests at 32MB and PDFs at 600
+# pages. The served wire caps (25MB raw x 2 files) can exceed both once
+# base64-encoded, so passthrough enforces the config-served budget
+# (documents.passthrough — 22MB combined raw ≈ 29MB encoded leaves headroom
+# for prompt + system content) and everything over it DOWNGRADES to
+# extraction — never an error. The client reads the same values to pre-check
+# at attach time; the numbers below are the fallback when config is absent.
 
 
 def load_documents_config(remote_configs: dict) -> dict:
@@ -255,30 +261,34 @@ async def process_documents(
         and body.provider == "anthropic"
     )
 
+    pt_cfg = {**_DEFAULTS["passthrough"], **(cfg.get("passthrough") or {})}
+    max_pages = int(pt_cfg["max_pdf_pages"])
+    raw_budget = int(pt_cfg["max_total_mb"]) * 1024 * 1024
+
     keep: list[DocumentAttachment] = []
     extracted: list[str] = []
-    encoded_budget = _MAX_PASSTHROUGH_ENCODED_BYTES
     for doc, raw in zip(docs, decoded):
         accepted = doc.media_type in cfg["accepted_types"]
         # v1 passthrough is PDF-only: PPTX has no native document block, so
         # its "interpretation" is the structured text extraction below.
         rides = passthrough_allowed and accepted and doc.media_type == PDF_MIME
         if rides:
-            # Provider ceilings: the combined encoded payload must fit the
-            # model API's request limit, and PDFs over its page cap are
-            # rejected there with no fallback. Over-limit docs DOWNGRADE.
-            if len(doc.data) > encoded_budget:
+            # Provider ceilings (config-served, mirrored by the client's
+            # attach-time pre-check): combined RAW size budget + PDF page
+            # cap. Over-limit docs DOWNGRADE — the provider would reject
+            # them with no fallback path.
+            if len(raw) > raw_budget:
                 logger.info("documents: '%s' over passthrough size budget — extracting", doc.name)
                 rides = False
             else:
                 pages = await asyncio.to_thread(_pdf_page_count, raw)
-                if pages is not None and pages > _MAX_PDF_PASSTHROUGH_PAGES:
+                if pages is not None and pages > max_pages:
                     logger.info("documents: '%s' has %d pages (cap %d) — extracting",
-                                doc.name, pages, _MAX_PDF_PASSTHROUGH_PAGES)
+                                doc.name, pages, max_pages)
                     rides = False
         if rides:
             keep.append(doc)
-            encoded_budget -= len(doc.data)
+            raw_budget -= len(raw)
         else:
             text = await asyncio.to_thread(_extract_to_text, doc, raw)
             extracted.append(_frame(doc.name, text))

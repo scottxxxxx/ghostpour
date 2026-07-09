@@ -231,17 +231,24 @@ async def test_allowed_users_get_passthrough_while_dark():
 # --- provider ceilings (size budget + page cap → downgrade, never error) ---
 
 @pytest.mark.asyncio
-async def test_oversized_passthrough_downgrades_to_extraction(monkeypatch):
-    # Two docs that each fit the wire cap but together exceed the provider
-    # request budget: the first rides, the second downgrades to extraction.
-    from app.services import documents as docs_mod
-    monkeypatch.setattr(docs_mod, "_MAX_PASSTHROUGH_ENCODED_BYTES", len(base64.b64encode(_MIN_PDF)) + 10)
+async def test_oversized_passthrough_downgrades_to_extraction():
+    # Two docs that each fit the wire cap but together exceed the served
+    # passthrough budget: the first rides, the second downgrades. The budget
+    # comes from the documents.passthrough config key (client pre-checks the
+    # same numbers), floored to 1MB here via a tiny max_total_mb... a 480-byte
+    # fixture can't exceed 1MB, so pad the second doc instead.
+    # >1MB raw, still a cheap parse: comment padding sits after the header,
+    # so the EOF/xref scan at the tail stays tiny (trailing junk instead sends
+    # pypdf into a pathological backwards line-scan).
+    head, rest = _MIN_PDF.split(b"\n", 1)
+    big = head + b"\n" + (b"% pad\n" * 180_000) + rest
+    cfgs = _configs(passthrough={"max_pdf_pages": 600, "max_total_mb": 1})
     body = _body([
         _doc(_MIN_PDF, PDF_MIME, "first.pdf"),
-        _doc(_MIN_PDF, PDF_MIME, "second.pdf"),
+        _doc(big, PDF_MIME, "second.pdf"),
     ])
     out = await process_documents(
-        body, remote_configs=_configs(), tier_name="pro", managed_routing=True
+        body, remote_configs=cfgs, tier_name="pro", managed_routing=True
     )
     assert out.documents and len(out.documents) == 1
     assert out.documents[0].name == "first.pdf"
@@ -250,15 +257,26 @@ async def test_oversized_passthrough_downgrades_to_extraction(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_pdf_over_page_cap_downgrades(monkeypatch):
-    from app.services import documents as docs_mod
-    monkeypatch.setattr(docs_mod, "_MAX_PDF_PASSTHROUGH_PAGES", 0)  # every PDF is "too long"
+async def test_pdf_over_page_cap_downgrades():
+    # Page cap served via config: max_pdf_pages 0 makes every PDF "too long".
+    cfgs = _configs(passthrough={"max_pdf_pages": 0, "max_total_mb": 22})
     body = _body([_doc(_MIN_PDF, PDF_MIME, "long.pdf")])
     out = await process_documents(
-        body, remote_configs=_configs(), tier_name="pro", managed_routing=True
+        body, remote_configs=cfgs, tier_name="pro", managed_routing=True
     )
     assert out.documents is None
     assert "Hello ABM" in out.user_content  # extraction path, request succeeded
+
+
+def test_passthrough_limits_served_in_bundled_config():
+    import json
+    for f in ("client-config.json", "client-config.es.json", "client-config.ja.json"):
+        pt = json.load(open(f"config/remote/{f}"))["documents"]["passthrough"]
+        assert pt["max_pdf_pages"] == 600
+        assert pt["max_total_mb"] == 22
+    # defaults match the bundle so an absent key behaves identically
+    from app.services.documents import load_documents_config
+    assert load_documents_config({})["passthrough"] == {"max_pdf_pages": 600, "max_total_mb": 22}
 
 
 # --- docx extraction (extractor ships ahead of the config flip) ---

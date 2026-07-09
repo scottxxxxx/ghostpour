@@ -20,6 +20,10 @@
     ],
     "per_file_max_mb": 25,
     "max_files": 2,
-    "allowed_users": []
+    "allowed_users": [],
+    "passthrough": {
+      "max_pdf_pages": 600,
+      "max_total_mb": 22
+    }
   }
 }
