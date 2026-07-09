@@ -302,6 +302,9 @@ def test_anthropic_builder_renders_document_block():
     assert len(doc_blocks) == 1
     assert doc_blocks[0]["source"]["media_type"] == PDF_MIME
     assert doc_blocks[0]["title"] == "report.pdf"
+    # References resend the same bytes every send — the cache breakpoint on
+    # the LAST document block makes repeat sends bill at cache-read rates.
+    assert doc_blocks[-1]["cache_control"] == {"type": "ephemeral"}
     assert parts[-1] == {"type": "text", "text": "Update this deck"}
 
 

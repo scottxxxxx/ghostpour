@@ -1,8 +1,33 @@
 # Project Chat documents passthrough — wire spec (phase 1)
 
-Status: PROPOSED 2026-07-08. Answers SS's four spec questions from their
-acceptance note. Phase 1 is input fidelity only; returning generated files
-is a separate phase 2 design.
+Status: FROZEN 2026-07-08 (server shipped #360, dark behind config; format
+roadmap #363; References addendum below). Answers SS's four spec questions
+from their acceptance note. Phase 1 is input fidelity only; returning
+generated files is a separate phase 2 design.
+
+## References addendum (2026-07-09)
+
+SS extends document attachments to their saved **References library**: a
+file imported once and attached to many sends. Decisions:
+
+- **The wire is origin-agnostic.** A saved reference and a one-off chat
+  attachment send the identical `documents` entry; GP neither knows nor
+  cares which it was. No new fields.
+- **Launch contract is RESEND**: the client sends the base64 bytes on every
+  request that attaches the reference, under the served caps
+  (per_file_max_mb / max_files apply **per request**, references and
+  one-off attachments combined). No upload-once / reference-by-id shape in
+  phase 1 — that would make GP a store of user files (ownership, retention,
+  deletion lifecycle) which phase 2's returned-files design will justify
+  properly; designing it twice is worse than once.
+- **Repeat-send cost is handled on our side**: resending the same document
+  within a short window bills its tokens at a small fraction of full input
+  price (server-side caching, transparent, no wire impact). SS does not
+  need to build anything for this.
+- One product note for SS: a sticky reference attached to EVERY send of a
+  long session still re-reads the document each turn. Attach-per-message
+  (user intent) will feel better on budgets than attach-per-session
+  (ambient), whatever the UI ends up being.
 
 ## Behavior summary
 
