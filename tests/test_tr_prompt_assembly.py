@@ -176,6 +176,35 @@ def test_response_analysis_scorecard_and_default_get_scorecard_prompt():
         assert "should_follow_up" not in r["system_prompt"]
 
 
+def test_scorecard_calibration_guards():
+    """TR calibration round (2026-07-09): ASR-noise framing, observable tier
+    anchors (top tier not held in reserve), and a mechanical overall derived
+    from the tier mix — guard so an edit can't regress the judge back to a
+    compressed, unanchored scale."""
+    cfg = json.load(open("config/remote/techrehearsal/response-analysis.json"))
+    sp = cfg["systemPrompt"]
+    for phrase in (
+        "speech-to-text transcript",
+        "NEVER cite transcription artifacts",
+        "Judge what the candidate plainly meant",
+        "do not hold the top tier in reserve",
+        "missing at most ONE Bar Raiser element",
+        "Bar Raiser 95, Strong 80, Meets 60, Weak 35",
+        "Different tier mixes MUST produce different overalls",
+    ):
+        assert phrase in sp, f"missing calibration guard: {phrase!r}"
+    # judge determinism: temperature pinned and flows through assembly for
+    # BOTH modes (modes inherit absent fields, incl. temperature)
+    assert cfg["temperature"] == 0.2
+    cfgs = {"techrehearsal/response-analysis": cfg}
+    scorecard = assemble_prompt("tr_response_analysis", "X", cfgs, prompt_mode="InterviewScorecard")
+    judge = assemble_prompt("tr_response_analysis", "X", cfgs, prompt_mode="InterviewFollowUp")
+    assert scorecard["temperature"] == 0.2 and judge["temperature"] == 0.2
+    # the follow-up judge PROMPT is untouched by the scorecard calibration
+    assert "speech-to-text transcript" not in judge["system_prompt"]
+    assert judge["system_prompt"].startswith("You are a seasoned, kind interviewer")
+
+
 def test_returns_none_when_config_absent():
     # Mirrors today's behavior before deploy: no config => no server assembly,
     # so the client's own prompt is used (nothing breaks until cutover).
