@@ -1775,16 +1775,20 @@ async def user_detail(
         for r in await cursor.fetchall()
     ]
 
-    # Most recent coarse location for this user (country + region derived from
-    # the IP via GeoIP at telemetry ingestion; city and raw IP are never stored).
-    # Null when the user has no geo-tagged telemetry (e.g. geo DB not installed).
+    # Most recent coarse location for this user (country + region + city
+    # derived from the IP via GeoIP at telemetry ingestion; the raw IP is never
+    # stored, no lat/long). City collected since #318/#364 (2026-07-08) — null
+    # on rows ingested before that or when the geo DB lacks it.
     loc_row = await (await db.execute(
-        "SELECT country, region FROM telemetry_events "
+        "SELECT country, region, city FROM telemetry_events "
         "WHERE user_id = ? AND country IS NOT NULL "
         "ORDER BY received_at DESC LIMIT 1",
         (user_id,),
     )).fetchone()
-    location = {"country": loc_row["country"], "region": loc_row["region"]} if loc_row else None
+    location = (
+        {"country": loc_row["country"], "region": loc_row["region"], "city": loc_row["city"]}
+        if loc_row else None
+    )
 
     return {
         "user": {
@@ -2057,15 +2061,18 @@ async def list_users(
             (SELECT t.device_model FROM telemetry_events t
              WHERE t.user_id = u.id AND t.device_model IS NOT NULL
              ORDER BY t.received_at DESC LIMIT 1) as device_model,
-            -- Coarse location: latest non-null country/region from telemetry
-            -- (GeoIP-derived at ingestion; never city, never raw IP). Unscoped
+            -- Coarse location: latest non-null country/region/city from
+            -- telemetry (GeoIP-derived at ingestion; never the raw IP). Unscoped
             -- like the other device columns — location is the user's, not per-app.
             (SELECT t.country FROM telemetry_events t
              WHERE t.user_id = u.id AND t.country IS NOT NULL
              ORDER BY t.received_at DESC LIMIT 1) as country,
             (SELECT t.region FROM telemetry_events t
              WHERE t.user_id = u.id AND t.region IS NOT NULL
-             ORDER BY t.received_at DESC LIMIT 1) as region
+             ORDER BY t.received_at DESC LIMIT 1) as region,
+            (SELECT t.city FROM telemetry_events t
+             WHERE t.user_id = u.id AND t.city IS NOT NULL
+             ORDER BY t.received_at DESC LIMIT 1) as city
            FROM users u""" + app_user_filter + """
            ORDER BY u.created_at DESC""",
         (
@@ -2147,7 +2154,7 @@ async def list_users(
             "app_version": r["app_version"],
             "device": to_marketing_name(r["device_model"]),
             "location": (
-                {"country": r["country"], "region": r["region"]}
+                {"country": r["country"], "region": r["region"], "city": r["city"]}
                 if r["country"] else None
             ),
         })

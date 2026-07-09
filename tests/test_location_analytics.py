@@ -38,7 +38,7 @@ def test_user_detail_exposes_latest_location(client, tmp_db_path):
                       when="2026-07-01T00:00:00+00:00")
 
     d = client.get("/webhooks/admin/user/u_loc?days=90", headers=ADMIN).json()
-    assert d["user"]["location"] == {"country": "United States", "region": "California"}
+    assert d["user"]["location"] == {"country": "United States", "region": "California", "city": None}
 
 
 def test_user_detail_null_location_when_no_geo(client, tmp_db_path):
@@ -53,7 +53,7 @@ def test_users_list_includes_location(client, tmp_db_path):
                       country="Canada", region="Ontario")
     users = client.get("/webhooks/admin/users?days=30", headers=ADMIN).json()["users"]
     row = next(u for u in users if u["id"] == "u_list")
-    assert row["location"] == {"country": "Canada", "region": "Ontario"}
+    assert row["location"] == {"country": "Canada", "region": "Ontario", "city": None}
 
 
 def test_telemetry_rich_geo_breakdown(client, tmp_db_path):
