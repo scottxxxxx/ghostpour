@@ -65,6 +65,14 @@ _MAX_EXTRACT_CHARS = 200_000
 _MAX_PPTX_SLIDES = 300
 _MAX_XML_PART_BYTES = 30 * 1024 * 1024  # zip-bomb guard per slide part
 
+# Provider ceilings (server policy): the model API caps requests at 32MB and
+# PDFs at 600 pages. The served wire caps (25MB raw x 2 files) can exceed both
+# once base64-encoded, so passthrough enforces its own budget and everything
+# over it DOWNGRADES to extraction — never an error (spec: "internal server
+# policy limit"). 30MB encoded leaves headroom for prompt + system content.
+_MAX_PASSTHROUGH_ENCODED_BYTES = 30 * 1024 * 1024
+_MAX_PDF_PASSTHROUGH_PAGES = 600
+
 
 def load_documents_config(remote_configs: dict) -> dict:
     """The `documents` key from client-config, merged over defaults.
@@ -83,6 +91,18 @@ def _decode(doc: DocumentAttachment) -> bytes:
         return base64.b64decode(doc.data, validate=True)
     except Exception:
         raise _err("document_unreadable", f'Attachment "{doc.name}" is not valid base64.')
+
+
+def _pdf_page_count(raw: bytes) -> int | None:
+    """Page count for the passthrough page-cap guard. None = unparseable here;
+    let the normal paths handle it (passthrough sends it to the provider as-is
+    for bytes pypdf can't read but the provider might)."""
+    from pypdf import PdfReader
+
+    try:
+        return len(PdfReader(io.BytesIO(raw)).pages)
+    except Exception:
+        return None
 
 
 def _extract_pdf_text(raw: bytes, name: str) -> str:
@@ -237,12 +257,28 @@ async def process_documents(
 
     keep: list[DocumentAttachment] = []
     extracted: list[str] = []
+    encoded_budget = _MAX_PASSTHROUGH_ENCODED_BYTES
     for doc, raw in zip(docs, decoded):
         accepted = doc.media_type in cfg["accepted_types"]
         # v1 passthrough is PDF-only: PPTX has no native document block, so
         # its "interpretation" is the structured text extraction below.
-        if passthrough_allowed and accepted and doc.media_type == PDF_MIME:
+        rides = passthrough_allowed and accepted and doc.media_type == PDF_MIME
+        if rides:
+            # Provider ceilings: the combined encoded payload must fit the
+            # model API's request limit, and PDFs over its page cap are
+            # rejected there with no fallback. Over-limit docs DOWNGRADE.
+            if len(doc.data) > encoded_budget:
+                logger.info("documents: '%s' over passthrough size budget — extracting", doc.name)
+                rides = False
+            else:
+                pages = await asyncio.to_thread(_pdf_page_count, raw)
+                if pages is not None and pages > _MAX_PDF_PASSTHROUGH_PAGES:
+                    logger.info("documents: '%s' has %d pages (cap %d) — extracting",
+                                doc.name, pages, _MAX_PDF_PASSTHROUGH_PAGES)
+                    rides = False
+        if rides:
             keep.append(doc)
+            encoded_budget -= len(doc.data)
         else:
             text = await asyncio.to_thread(_extract_to_text, doc, raw)
             extracted.append(_frame(doc.name, text))

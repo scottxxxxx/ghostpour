@@ -162,6 +162,11 @@ Client rule set:
   gating config (#93 lineage).
 - Server side extraction path: PDF text layer extraction; PPTX text via
   the XML. Used for every downgrade case.
+- Provider ceilings (server policy, invisible to the client): the model
+  side caps requests at 32MB and PDFs at 600 pages, which the wire caps
+  (25MB raw x 2) can exceed once encoded. Passthrough therefore enforces a
+  combined encoded budget (~30MB) and the PDF page cap; anything over
+  DOWNGRADES to extraction per the standard semantics — never an error.
 - Metering: usage_log metadata gains document count and total raw bytes,
   alongside the existing image_count. Cost attribution flows through
   record_cost as usual.

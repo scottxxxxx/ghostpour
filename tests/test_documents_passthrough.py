@@ -228,6 +228,39 @@ async def test_allowed_users_get_passthrough_while_dark():
     assert out3.documents is None
 
 
+# --- provider ceilings (size budget + page cap → downgrade, never error) ---
+
+@pytest.mark.asyncio
+async def test_oversized_passthrough_downgrades_to_extraction(monkeypatch):
+    # Two docs that each fit the wire cap but together exceed the provider
+    # request budget: the first rides, the second downgrades to extraction.
+    from app.services import documents as docs_mod
+    monkeypatch.setattr(docs_mod, "_MAX_PASSTHROUGH_ENCODED_BYTES", len(base64.b64encode(_MIN_PDF)) + 10)
+    body = _body([
+        _doc(_MIN_PDF, PDF_MIME, "first.pdf"),
+        _doc(_MIN_PDF, PDF_MIME, "second.pdf"),
+    ])
+    out = await process_documents(
+        body, remote_configs=_configs(), tier_name="pro", managed_routing=True
+    )
+    assert out.documents and len(out.documents) == 1
+    assert out.documents[0].name == "first.pdf"
+    assert '--- Attached: "second.pdf" ---' in out.user_content
+    assert "Hello ABM" in out.user_content  # extracted, not dropped
+
+
+@pytest.mark.asyncio
+async def test_pdf_over_page_cap_downgrades(monkeypatch):
+    from app.services import documents as docs_mod
+    monkeypatch.setattr(docs_mod, "_MAX_PDF_PASSTHROUGH_PAGES", 0)  # every PDF is "too long"
+    body = _body([_doc(_MIN_PDF, PDF_MIME, "long.pdf")])
+    out = await process_documents(
+        body, remote_configs=_configs(), tier_name="pro", managed_routing=True
+    )
+    assert out.documents is None
+    assert "Hello ABM" in out.user_content  # extraction path, request succeeded
+
+
 # --- docx extraction (extractor ships ahead of the config flip) ---
 
 def _min_docx() -> bytes:
