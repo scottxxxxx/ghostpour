@@ -146,6 +146,13 @@ Client rule set:
 - Missing, stale, or malformed key = extraction path, exactly as SS
   proposed. A config hiccup degrades to today's behavior, never breaks
   attach.
+- `allowed_users` (server-read only, ships empty): identities (user id or
+  email) listed here get the passthrough path even while `enabled` is
+  false and regardless of tier — the per-account e2e/canary hook, meant to
+  pair with the client's debug override that forces the gate open. The
+  client never reads this key. Dark-server behavior for everyone else is
+  unchanged: documents that arrive while `enabled` is false are extracted
+  server side and inlined (never ignored, never an error).
 - Adding formats later (legacy ppt, docx) is a served list change on our
   side. No app update, no wire change.
 

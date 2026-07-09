@@ -198,6 +198,36 @@ async def test_document_unreadable(data, media_type):
     assert ei.value.detail["code"] == "document_unreadable"
 
 
+@pytest.mark.asyncio
+async def test_allowed_users_get_passthrough_while_dark():
+    # e2e/canary hook: a listed identity rides passthrough even with
+    # enabled:false AND a below-min tier; routing/provider stay required.
+    cfgs = _configs(enabled=False, allowed_users=["ss-test@shouldersurf.com"])
+    body = _body([_doc(_MIN_PDF, PDF_MIME, "report.pdf")])
+    out = await process_documents(
+        body, remote_configs=cfgs, tier_name="plus", managed_routing=True,
+        user_identity={"u-123", "ss-test@shouldersurf.com"},
+    )
+    assert out.documents and len(out.documents) == 1
+
+    # unlisted identity: dark server still extracts (never ignores)
+    out2 = await process_documents(
+        _body([_doc(_MIN_PDF, PDF_MIME, "report.pdf")]),
+        remote_configs=cfgs, tier_name="pro", managed_routing=True,
+        user_identity={"someone-else@x.com"},
+    )
+    assert out2.documents is None
+    assert "Hello ABM" in out2.user_content
+
+    # listed but user-pinned model: mechanics still win — extraction
+    out3 = await process_documents(
+        _body([_doc(_MIN_PDF, PDF_MIME, "report.pdf")]),
+        remote_configs=cfgs, tier_name="pro", managed_routing=False,
+        user_identity={"ss-test@shouldersurf.com"},
+    )
+    assert out3.documents is None
+
+
 # --- docx extraction (extractor ships ahead of the config flip) ---
 
 def _min_docx() -> bytes:
