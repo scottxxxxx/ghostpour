@@ -98,6 +98,12 @@ class AnthropicAdapter(ProviderAdapter):
                 if doc.name:
                     block["title"] = doc.name
                 content_parts.append(block)
+            # Saved References resend the SAME bytes on every send of a chat
+            # session (launch contract: resend, no server-side file store). A
+            # cache breakpoint after the documents means repeat sends bill the
+            # document tokens at cache-read rates instead of full input price.
+            # Uses breakpoint 3 of 4 (system prefix + recall hold the first two).
+            content_parts[-1]["cache_control"] = {"type": "ephemeral"}
         if request.images:
             for img_b64 in request.images[:5]:
                 content_parts.append({
