@@ -389,19 +389,82 @@ def test_anthropic_builder_renders_document_block():
     assert parts[-1] == {"type": "text", "text": "Update this deck"}
 
 
-def test_or_fallback_flattens_documents_to_text():
+@pytest.mark.asyncio
+async def test_or_fallback_flattens_documents_to_text():
     body = _body([_doc(_MIN_PDF, PDF_MIME, "report.pdf")])
-    out = flatten_documents_for_or(body)
+    out = await flatten_documents_for_or(body)
     assert out.documents is None
     assert "Hello ABM" in out.user_content
     assert out.user_content.rstrip().endswith("Update this deck")
 
 
-def test_or_retarget_strips_document_blocks():
+@pytest.mark.asyncio
+async def test_or_retarget_strips_document_blocks():
     from app.services.anthropic_or_fallback import _or_request
 
     body = _body([_doc(_MIN_PDF, PDF_MIME, "report.pdf")])
-    out = _or_request(body, "anthropic/claude-sonnet-4.6")
+    out = await _or_request(body, "anthropic/claude-sonnet-4.6")
     assert out.provider == "openrouter"
     assert out.documents is None
     assert "Hello ABM" in out.user_content
+
+
+# --- parse deadline (bounded executor) ---
+
+def _slow(*_a, **_k):
+    import time
+    time.sleep(2)
+    return "never returned in time"
+
+
+def _fresh_executor(monkeypatch):
+    """Each timeout test gets its own executor — a leaked _slow thread from a
+    prior test would otherwise occupy the shared 2-worker pool and starve
+    this test's submissions past the shrunken deadline."""
+    from concurrent.futures import ThreadPoolExecutor
+    import app.services.documents as docs_mod
+    monkeypatch.setattr(docs_mod, "_EXTRACT_EXECUTOR",
+                        ThreadPoolExecutor(max_workers=2, thread_name_prefix="doc-extract-test"))
+
+
+@pytest.mark.asyncio
+async def test_extraction_timeout_is_document_unreadable(monkeypatch):
+    import app.services.documents as docs_mod
+    _fresh_executor(monkeypatch)
+    monkeypatch.setattr(docs_mod, "_EXTRACT_TIMEOUT_S", 0.1)
+    monkeypatch.setattr(docs_mod, "_extract_to_text", _slow)
+    body = _body([_doc(_MIN_PDF, PDF_MIME, "report.pdf")], provider="openrouter")
+    with pytest.raises(HTTPException) as exc:
+        await process_documents(
+            body, remote_configs=_configs(), tier_name="pro", managed_routing=True,
+        )
+    assert exc.value.detail["code"] == "document_unreadable"
+    assert "too long" in exc.value.detail["message"]
+
+
+@pytest.mark.asyncio
+async def test_page_count_timeout_downgrades_to_extraction(monkeypatch):
+    import app.services.documents as docs_mod
+    _fresh_executor(monkeypatch)
+    monkeypatch.setattr(docs_mod, "_EXTRACT_TIMEOUT_S", 0.1)
+    monkeypatch.setattr(docs_mod, "_pdf_page_count", _slow)
+    body = _body([_doc(_MIN_PDF, PDF_MIME, "report.pdf")])
+    out = await process_documents(
+        body, remote_configs=_configs(), tier_name="pro", managed_routing=True,
+    )
+    # passthrough-eligible, but the unvettable PDF downgrades to extraction
+    assert out.documents is None
+    assert "Hello ABM" in out.user_content
+
+
+@pytest.mark.asyncio
+async def test_flatten_timeout_degrades_to_marker_not_error(monkeypatch):
+    import app.services.documents as docs_mod
+    _fresh_executor(monkeypatch)
+    monkeypatch.setattr(docs_mod, "_EXTRACT_TIMEOUT_S", 0.1)
+    monkeypatch.setattr(docs_mod, "_extract_to_text", _slow)
+    body = _body([_doc(_MIN_PDF, PDF_MIME, "report.pdf")])
+    out = await flatten_documents_for_or(body)
+    assert out.documents is None
+    assert "(content unavailable)" in out.user_content
+    assert out.user_content.rstrip().endswith("Update this deck")
