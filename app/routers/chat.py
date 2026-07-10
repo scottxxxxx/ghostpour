@@ -1121,6 +1121,17 @@ async def chat(
     # nested event_stream() closure too.
     app_id = getattr(request.state, "app_id", "unknown")
 
+    # Stamp the middleware-minted X-Request-ID into the request meta bag so
+    # log_usage lands it in usage_log metadata — partner harnesses quote this
+    # response header verbatim when reporting runs, and until now it matched
+    # nothing we store. Overwrites any client-sent value: the server-minted
+    # id is the one on the wire.
+    _rid = getattr(request.state, "request_id", None)
+    if _rid:
+        if body.metadata is None:
+            body.metadata = {}
+        body.metadata["request_id"] = _rid
+
     # 1. Look up tier (respects simulation override)
     effective_tier_name = user.effective_tier
     tier = tier_config.tiers.get(effective_tier_name)

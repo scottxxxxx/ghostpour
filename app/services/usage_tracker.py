@@ -220,6 +220,11 @@ class UsageTracker:
                 "count": request.get_meta("generated_count"),
                 "bytes": request.get_meta("generated_bytes"),
             }
+        # Request correlation: the X-Request-ID response-header value (minted
+        # by the logging middleware, stamped into the meta bag by the chat
+        # handler) — makes partner-quoted ids a one-line usage_log query.
+        if request.get_meta("request_id"):
+            metadata["request_id"] = request.get_meta("request_id")
 
         metadata_json = json.dumps(metadata, ensure_ascii=False) if metadata else None
 
