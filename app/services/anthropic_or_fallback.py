@@ -105,14 +105,15 @@ async def _alert_on_fallback(
         logger.warning("anthropic fallback alert dispatch failed: %s", e)
 
 
-def _or_request(request: ChatRequest, or_model: str) -> ChatRequest:
+async def _or_request(request: ChatRequest, or_model: str) -> ChatRequest:
     """Clone a request to retarget OpenRouter with the translated id.
     Passthrough documents are flattened to extracted text first — the OR
     adapters don't render document blocks, so leaving them on the request
     would silently drop the attachment's content from the fallback answer."""
     from app.services.documents import flatten_documents_for_or
 
-    return flatten_documents_for_or(request).model_copy(update={
+    flattened = await flatten_documents_for_or(request)
+    return flattened.model_copy(update={
         "provider": "openrouter",
         "model": or_model,
     })
@@ -148,7 +149,7 @@ async def route_with_fallback(
             db, settings,
             original_model=request.model, or_model=or_model, failure=exc,
         )
-        return await provider_router.route(_or_request(request, or_model))
+        return await provider_router.route(await _or_request(request, or_model))
 
 
 async def route_stream_with_fallback(
@@ -185,7 +186,7 @@ async def route_stream_with_fallback(
             original_model=request.model, or_model=or_model,
             failure=RuntimeError("anthropic stream returned no events"),
         )
-        async for event in provider_router.route_stream(_or_request(request, or_model)):
+        async for event in provider_router.route_stream(await _or_request(request, or_model)):
             yield event
         return
     except Exception as exc:
@@ -199,7 +200,7 @@ async def route_stream_with_fallback(
             db, settings,
             original_model=request.model, or_model=or_model, failure=exc,
         )
-        async for event in provider_router.route_stream(_or_request(request, or_model)):
+        async for event in provider_router.route_stream(await _or_request(request, or_model)):
             yield event
         return
 

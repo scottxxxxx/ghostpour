@@ -30,11 +30,35 @@ import logging
 import re
 import zipfile
 
+from concurrent.futures import ThreadPoolExecutor
+
 from fastapi import HTTPException
 
 from app.models.chat import ChatRequest, DocumentAttachment
 
 logger = logging.getLogger("ghostpour.documents")
+
+# Parsing gets its own tiny executor + deadline: pypdf can spin for minutes
+# on crafted or degenerate files (seen live with a padded fixture), and a
+# parse that slow on the shared asyncio pool starves every other to_thread
+# user in the process. A timed-out parse keeps burning its thread until it
+# finishes (Python threads can't be killed) — the 2-worker bound is the real
+# containment; the timeout just fails the request fast instead of hanging it.
+_EXTRACT_MAX_WORKERS = 2
+_EXTRACT_TIMEOUT_S = 10.0
+_EXTRACT_EXECUTOR = ThreadPoolExecutor(
+    max_workers=_EXTRACT_MAX_WORKERS, thread_name_prefix="doc-extract"
+)
+
+
+async def _run_bounded(fn, *args):
+    """Run a parse function on the dedicated executor with the deadline.
+    Reads _EXTRACT_TIMEOUT_S at call time so tests can shrink it."""
+    loop = asyncio.get_running_loop()
+    return await asyncio.wait_for(
+        loop.run_in_executor(_EXTRACT_EXECUTOR, fn, *args),
+        timeout=_EXTRACT_TIMEOUT_S,
+    )
 
 PDF_MIME = "application/pdf"
 PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
@@ -281,8 +305,15 @@ async def process_documents(
                 logger.info("documents: '%s' over passthrough size budget — extracting", doc.name)
                 rides = False
             else:
-                pages = await asyncio.to_thread(_pdf_page_count, raw)
-                if pages is not None and pages > max_pages:
+                try:
+                    pages = await _run_bounded(_pdf_page_count, raw)
+                except TimeoutError:
+                    # A PDF whose page count can't be read inside the deadline
+                    # is pathological; don't ship it to the provider unvetted.
+                    logger.warning("documents: '%s' page-count timed out — extracting", doc.name)
+                    pages = None
+                    rides = False
+                if rides and pages is not None and pages > max_pages:
                     logger.info("documents: '%s' has %d pages (cap %d) — extracting",
                                 doc.name, pages, max_pages)
                     rides = False
@@ -290,7 +321,14 @@ async def process_documents(
             keep.append(doc)
             raw_budget -= len(raw)
         else:
-            text = await asyncio.to_thread(_extract_to_text, doc, raw)
+            try:
+                text = await _run_bounded(_extract_to_text, doc, raw)
+            except TimeoutError:
+                logger.warning("documents: '%s' extraction timed out", doc.name)
+                raise _err(
+                    "document_unreadable",
+                    f'Attachment "{doc.name}" took too long to process.',
+                )
             extracted.append(_frame(doc.name, text))
 
     user_content = body.user_content
@@ -315,19 +353,22 @@ async def process_documents(
     })
 
 
-def flatten_documents_for_or(body: ChatRequest) -> ChatRequest:
+async def flatten_documents_for_or(body: ChatRequest) -> ChatRequest:
     """OpenRouter fallback path: OR adapters don't render document blocks,
     so passthrough documents would silently vanish. Extract them to framed
-    text instead so the fallback answer still sees the content."""
+    text instead so the fallback answer still sees the content. Async so the
+    parse rides the bounded executor — previously it ran on the event loop,
+    where one degenerate PDF would stall the whole process."""
     if not body.documents:
         return body
     extracted = []
     for doc in body.documents:
         try:
             raw = base64.b64decode(doc.data, validate=True)
-            extracted.append(_frame(doc.name, _extract_to_text(doc, raw)))
+            text = await _run_bounded(_extract_to_text, doc, raw)
+            extracted.append(_frame(doc.name, text))
         except Exception:
-            # Never let fallback flattening kill the retry.
+            # Never let fallback flattening kill the retry (timeout included).
             extracted.append(_frame(doc.name, "(content unavailable)"))
     blocks = "\n\n".join(extracted)
     return body.model_copy(update={
