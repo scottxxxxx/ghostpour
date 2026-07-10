@@ -74,7 +74,20 @@ Additive response field on the chat response (decoder-safe):
 ]
 ```
 
-- `url` is GP-served, authenticated (bearer), and time-limited.
+- `url` is GP-served, authenticated (bearer), and time-limited. Per SS's
+  position (2026-07-10): it is a **fetch window, not storage** — the client
+  downloads immediately on response and persists the file inside the
+  meeting record (as it does audio/images), so expiry is HOURS (proposed
+  24h), and a meeting transcript never carries dead links.
+- **Generation-turn progress signal**: the turn emits an early wire signal
+  that generation is underway — an SSE event (`generation_started`, with an
+  optional measured `expected_seconds` per the honest-progress rules: real
+  signals, elapsed time, no fake percent) fired when the model first
+  invokes the generation machinery. Without it the client can't
+  distinguish a generation turn from a slow chat turn, which is exactly
+  the window where users kill the app. Mechanism reuses the SSE heartbeat
+  infrastructure from the honest-progress work; exact event shape is a
+  build-phase detail.
 - Absent field = no files (every response today). Nothing else on the
   wire changes; the request side is phase 1's `documents` field.
 - Config: the existing `documents` key grows a `generation` subkey
@@ -88,17 +101,20 @@ Phase 1 deliberately refused to make GP a store of user files. Phase 2
 cannot: generated artifacts must live somewhere the client can fetch
 them. Designed once, properly:
 
+SS's client-persists-immediately position (2026-07-10) shrinks this from
+a file store to a **staging area**:
+
 - New table `generated_files(id, user_id, app_id, name, media_type,
   size_bytes, storage_path, created_at, expires_at)` + bytes on disk
-  under the persistent volume (Litestream/DR posture documented).
+  under the persistent volume.
 - **Ownership**: files belong to the requesting user; the serve endpoint
   authenticates and checks ownership.
-- **Retention**: default 30 days, then purged (startup sweep, same
-  pattern as meeting_reports). The client's "save as Reference" is the
-  user's way to keep one — the durable copy lives in their References,
-  on their device/their storage, not on GP.
-- **Quota**: per-user cap (e.g. 500MB live storage); generation refuses
-  politely when full.
+- **Retention: hours, not days** — proposed 24h expiry, purge sweep on
+  startup + interval. The durable copy is the client's (meeting record /
+  save-as-Reference); GP holds bytes only long enough for the fetch and
+  a reasonable retry window. No DR obligation beyond the window; no
+  meaningful quota question (staging footprint is self-limiting), just a
+  sanity cap on concurrent live bytes per user.
 - This same store CAN later back References upload-once/reference-by-id
   (the phase-1 deferral) — but that is NOT in phase 2 scope; resend
   works and stays.
@@ -128,20 +144,22 @@ Same philosophy as phase 1 — downgrade, never dead-end:
   comes back; `generated_files` is best-effort.
 - Input side unchanged: phase-1 caps and ceilings govern what goes in.
 
-## 7. Client UX (SS's table — open by design)
+## 7. Client UX (SS's positions, received 2026-07-10)
 
-Decisions that are SS's to make, listed so the doc is a shared artifact:
+SS took their seat and decided; recorded here as the shared contract:
 
-- Render of a returned file in the chat transcript (card? inline
-  preview? QuickLook?).
-- Download / share / **save as Reference** affordances — save-as-Reference
-  is the one we'd advocate for hardest, since it closes the iterate loop
-  (story 3) with zero new wire.
-- Whether generation is a distinct user intent ("Make me a…" affordance)
-  or purely emergent from chat.
-- Progress UX: generation runs longer than a chat turn (tens of seconds
-  to minutes). Timing-hints / SSE heartbeat patterns from the honest-
-  progress work apply.
+- **Download-on-land + persist in the meeting record** (like audio/images).
+  GP URLs are a fetch window; transcripts never carry dead links.
+- **Card in the transcript turn**: filename, format tag, size — same
+  visual family as References. Tap = QuickLook preview.
+- **Affordances**: Share (system sheet, covers save-to-Files) and the
+  primary — **Save as Reference**, mapping straight onto the phase-1
+  reference store. A saved generated file becomes an ordinary reference,
+  subject to the same served caps/ceilings, no special-casing. This
+  closes the iterate loop (story 3) with zero new wire.
+- **Progress**: distinct generating state with honest elapsed time (no
+  fake percent), narration text streaming alongside — needs the early
+  generation signal specced in §3.
 
 ## 8. Phasing
 
@@ -161,7 +179,8 @@ Decisions that are SS's to make, listed so the doc is a shared artifact:
    path).
 2. Launch formats: xlsx + pptx + docx + pdf all at once, or xlsx-first
    (highest fidelity gap today)?
-3. Retention window (proposed 30 days) and per-user quota (proposed 500MB).
+3. Staging expiry (proposed 24h — SS asked for "hours not days") and the
+   concurrent-live-bytes sanity cap.
 4. Gate: Pro tier vs entitlement-matrix cell from day one (depends on
    entitlements design timing).
 5. Phasing confirmation: 2a → 2b → 2c.
