@@ -196,11 +196,17 @@ def test_compare_reality_config_and_contract_guards():
         "never penalize the brevity of the recap",
         # missing practice analysis
         "compare against the REHEARSAL PLAN alone and say so in the verdict",
+        # thin-recap calibration (2026-07-10 field failure: a two-line recap
+        # produced a wall of red MISSED sections for topics it never mentioned)
+        "In a USER RECAP, absence is NOT evidence",
+        "do NOT create a section for it",
+        "punishes the brevity of the recap",
+        "fewer grounded sections always beat padded ones",
         # output contract
         '"delta": one of "landed" | "drifted" | "missed" | "unplanned"',
         '"next_best_focus"',
         "2-4 word noun phrase",
-        "Use 3-7 sections; don't pad",
+
         "no ```json",
     ):
         assert phrase in sp, f"missing contract guard: {phrase!r}"
