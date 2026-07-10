@@ -50,6 +50,11 @@ class ChatRequest(BaseModel):
     user_content: str
     images: list[str] | None = None
     documents: list[DocumentAttachment] | None = None
+    # Server-set ONLY (phase 2a document generation): the chat router
+    # overwrites this from its gate on every request — a client-sent value
+    # never survives. When True the anthropic adapter arms the execution
+    # sandbox + document skills and collects generated artifacts.
+    generation: bool = False
     max_tokens: int | None = None
     temperature: float | None = None  # GP-controlled; None => provider default
     stream: bool = False

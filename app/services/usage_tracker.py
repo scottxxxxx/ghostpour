@@ -214,6 +214,12 @@ class UsageTracker:
                 "count": request.get_meta("document_count"),
                 "raw_bytes": request.get_meta("document_bytes"),
             }
+        # Document generation (phase 2a): staged artifact count + bytes.
+        if request.get_meta("generated_count"):
+            metadata["generated"] = {
+                "count": request.get_meta("generated_count"),
+                "bytes": request.get_meta("generated_bytes"),
+            }
 
         metadata_json = json.dumps(metadata, ensure_ascii=False) if metadata else None
 

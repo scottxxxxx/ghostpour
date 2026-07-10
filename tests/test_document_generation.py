@@ -1,0 +1,256 @@
+"""Document generation phase 2a: staging store, serve endpoint, gate,
+adapter arming, artifact collection, response wire field.
+
+Design: docs/design/documents-phase2-returned-files.md. Ships dark
+(documents.generation.enabled false); allowed_users (shared with phase 1)
+is the e2e lane.
+"""
+
+import json
+
+import pytest
+
+from app.services.document_generation import (
+    _walk_file_ids,
+    generation_gate,
+    load_generation_config,
+)
+
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+def _configs(gen=None, allowed=None):
+    docs = {"enabled": False, "allowed_users": allowed or []}
+    if gen is not None:
+        docs["generation"] = gen
+    return {"client-config": {"documents": docs}}
+
+
+# --- config + gate ---
+
+def test_generation_defaults_ship_dark():
+    cfg = load_generation_config({})
+    assert cfg["enabled"] is False
+    assert cfg["min_tier"] == "pro"
+    assert len(cfg["formats"]) == 4  # all four launch formats (§9 decision 2)
+    assert cfg["max_files_out"] == 2 and cfg["max_file_out_mb"] == 25
+
+
+def test_bundled_config_ships_generation_dark():
+    for f in ("client-config.json", "client-config.es.json", "client-config.ja.json"):
+        gen = json.load(open(f"config/remote/{f}"))["documents"]["generation"]
+        assert gen["enabled"] is False and gen["min_tier"] == "pro"
+        assert len(gen["formats"]) == 4
+
+
+def _gate(**over):
+    kw = dict(
+        remote_configs=_configs(gen={"enabled": True, "min_tier": "pro"}),
+        tier_name="pro", managed_routing=True, provider="anthropic",
+        prompt_mode="ProjectChat", user_identity={"u1"},
+    )
+    kw.update(over)
+    return generation_gate(**kw)
+
+
+def test_gate_matrix():
+    assert _gate() is True
+    assert _gate(prompt_mode="PostMeetingChat") is True
+    # every mechanical requirement individually closes the gate
+    assert _gate(prompt_mode=None) is False
+    assert _gate(prompt_mode="InterviewScorecard") is False
+    assert _gate(managed_routing=False) is False
+    assert _gate(provider="openrouter") is False
+    # enabled+tier path
+    assert _gate(tier_name="plus") is False
+    assert _gate(remote_configs=_configs(gen={"enabled": False})) is False
+    # allowed_users overrides enabled AND tier (e2e lane, shared w/ phase 1)
+    assert _gate(
+        remote_configs=_configs(gen={"enabled": False}, allowed=["scott@x.com"]),
+        tier_name="plus", user_identity={"scott@x.com"},
+    ) is True
+
+
+# --- adapter arming ---
+
+def _adapter():
+    from app.services.providers.anthropic import AnthropicAdapter
+    return AnthropicAdapter(
+        api_key="test", base_url="https://example.invalid/v1/messages",
+        auth_header="x-api-key", auth_prefix="",
+    )
+
+
+def _body(generation):
+    from app.models.chat import ChatRequest
+    return ChatRequest(
+        provider="anthropic", model="claude-sonnet-4-6",
+        system_prompt="sys", user_content="make me a spreadsheet",
+        generation=generation, max_tokens=4096,
+    )
+
+
+def test_adapter_arms_generation():
+    api_body, headers = _adapter()._build_body(_body(True))
+    skills = {s["skill_id"] for s in api_body["container"]["skills"]}
+    assert skills == {"xlsx", "pptx", "docx", "pdf"}
+    assert any(t["type"] == "code_execution_20260521" for t in api_body["tools"])
+    assert api_body["max_tokens"] >= 16000
+    # spike-mandated: cache breakpoint on the user content ($1.04 -> $0.33)
+    text_parts = [p for p in api_body["messages"][0]["content"] if p["type"] == "text"]
+    assert text_parts[-1]["cache_control"] == {"type": "ephemeral"}
+    assert "code-execution-2025-08-25" in headers["anthropic-beta"]
+    assert "skills-2025-10-02" in headers["anthropic-beta"]
+
+
+def test_adapter_unarmed_is_untouched():
+    api_body, headers = _adapter()._build_body(_body(False))
+    assert "container" not in api_body
+    assert "tools" not in api_body
+    assert api_body["max_tokens"] == 4096
+    assert "anthropic-beta" not in headers or "skills" not in headers.get("anthropic-beta", "")
+
+
+# --- artifact collection ---
+
+def test_walk_file_ids_finds_and_dedups():
+    raw = json.dumps({"content": [
+        {"type": "text", "text": "done"},
+        {"type": "bash_code_execution_tool_result", "content": {
+            "type": "bash_code_execution_result",
+            "content": [{"type": "bash_code_execution_output", "file_id": "file_A"}]}},
+        {"type": "bash_code_execution_tool_result", "content": {
+            "type": "bash_code_execution_result",
+            "content": [{"type": "bash_code_execution_output", "file_id": "file_A"},
+                        {"type": "bash_code_execution_output", "file_id": "file_B"}]}},
+    ]})
+    assert _walk_file_ids(raw) == ["file_A", "file_B"]
+    assert _walk_file_ids("not json") == []
+    assert _walk_file_ids(json.dumps({"content": [{"type": "text", "text": "hi"}]})) == []
+
+
+@pytest.mark.asyncio
+async def test_collect_downloads_validates_and_stages(tmp_path, monkeypatch):
+    import aiosqlite
+    from app.services import generated_files as staging
+    from app.services.document_generation import collect_generated_files
+
+    monkeypatch.setattr(staging, "STAGING_DIR", tmp_path / "gen")
+
+    class _Resp:
+        def __init__(self, status, payload=None, content=b""):
+            self.status_code, self._p, self.content = status, payload, content
+        def json(self):
+            return self._p
+
+    calls = {}
+    class _Client:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def get(self, url, headers=None):
+            calls.setdefault("urls", []).append(url)
+            if url.endswith("/content"):
+                return _Resp(200, content=b"PK\x03\x04 fake xlsx bytes")
+            if url.endswith("file_big"):
+                return _Resp(200, {"filename": "huge.xlsx", "mime_type": XLSX,
+                                   "size_bytes": 99 * 1024 * 1024})
+            if url.endswith("file_txt"):
+                return _Resp(200, {"filename": "notes.txt", "mime_type": "text/plain",
+                                   "size_bytes": 10})
+            return _Resp(200, {"filename": "tracker.xlsx", "mime_type": XLSX,
+                               "size_bytes": 20})
+    import app.services.document_generation as dg
+    monkeypatch.setattr(dg.httpx, "AsyncClient", _Client)
+
+    raw = json.dumps({"content": [
+        {"type": "bash_code_execution_tool_result", "content": {
+            "content": [{"type": "bash_code_execution_output", "file_id": "file_ok"},
+                        {"type": "bash_code_execution_output", "file_id": "file_big"},
+                        {"type": "bash_code_execution_output", "file_id": "file_txt"}]}},
+    ]})
+
+    async with aiosqlite.connect(":memory:") as db:
+        db.row_factory = aiosqlite.Row
+        await db.execute("""CREATE TABLE generated_files (
+            id TEXT PRIMARY KEY, user_id TEXT NOT NULL, app_id TEXT,
+            name TEXT NOT NULL, media_type TEXT NOT NULL, size_bytes INTEGER NOT NULL,
+            storage_path TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL)""")
+        out = await collect_generated_files(
+            db, raw_response_json=raw, api_key="k",
+            remote_configs=_configs(gen={"enabled": True}),
+            user_id="u1", app_id="shouldersurf",
+        )
+    # max_files_out=2 truncates to [file_ok, file_big]; big skipped on size;
+    # only the valid xlsx stages
+    assert len(out) == 1
+    g = out[0]
+    assert g["name"] == "tracker.xlsx" and g["media_type"] == XLSX
+    assert g["url"].startswith("/v1/generated-files/gpf_")
+    assert g["size_bytes"] == len(b"PK\x03\x04 fake xlsx bytes")
+
+
+# --- staging store semantics ---
+
+@pytest.mark.asyncio
+async def test_staging_expiry_ownership_and_cap(tmp_path, monkeypatch):
+    import aiosqlite
+    from app.services import generated_files as staging
+
+    monkeypatch.setattr(staging, "STAGING_DIR", tmp_path / "gen")
+    async with aiosqlite.connect(":memory:") as db:
+        db.row_factory = aiosqlite.Row
+        await db.execute("""CREATE TABLE generated_files (
+            id TEXT PRIMARY KEY, user_id TEXT NOT NULL, app_id TEXT,
+            name TEXT NOT NULL, media_type TEXT NOT NULL, size_bytes INTEGER NOT NULL,
+            storage_path TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL)""")
+
+        row = await staging.stage(db, user_id="u1", app_id="ss",
+                                  name="a.xlsx", media_type=XLSX, content=b"x" * 100)
+        assert row and row["expires_at"] > row["url"]  # sanity: fields present
+        # owner fetch works; other user 404-equivalent
+        assert await staging.fetch(db, row["file_id"], "u1") is not None
+        assert await staging.fetch(db, row["file_id"], "someone-else") is None
+        # live cap: a stage that would exceed 50MB is refused, not an error
+        monkeypatch.setattr(staging, "PER_USER_LIVE_CAP_BYTES", 150)
+        assert await staging.stage(db, user_id="u1", app_id="ss",
+                                   name="b.xlsx", media_type=XLSX, content=b"y" * 100) is None
+        # expiry: force-expire then purge deletes row + bytes
+        await db.execute("UPDATE generated_files SET expires_at = '2000-01-01T00:00:00+00:00'")
+        await db.commit()
+        assert await staging.fetch(db, row["file_id"], "u1") is None
+        n = await staging.purge_expired(db)
+        assert n == 1
+        left = await (await db.execute("SELECT COUNT(*) AS n FROM generated_files")).fetchone()
+        assert left["n"] == 0
+
+
+# --- serve endpoint (via app test client) ---
+
+def test_serve_endpoint_auth_ownership_expiry(client, pro_user, tmp_db_path, tmp_path, monkeypatch):
+    import sqlite3
+    from datetime import datetime, timedelta, timezone
+
+    blob = tmp_path / "gpf_test"
+    blob.write_bytes(b"PK\x03\x04 artifact")
+    future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    past = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+    con = sqlite3.connect(tmp_db_path)
+    uid = pro_user["user_id"] if "user_id" in pro_user else None
+    if uid is None:
+        row = con.execute("SELECT id FROM users WHERE email LIKE 'test-pro-user%'").fetchone()
+        uid = row[0]
+    con.execute("INSERT INTO generated_files VALUES (?,?,?,?,?,?,?,?,?)",
+                ("gpf_live", uid, "shouldersurf", "t.xlsx", XLSX, 11, str(blob), future, future))
+    con.execute("INSERT INTO generated_files VALUES (?,?,?,?,?,?,?,?,?)",
+                ("gpf_dead", uid, "shouldersurf", "t.xlsx", XLSX, 11, str(blob), past, past))
+    con.commit(); con.close()
+
+    h = pro_user["headers"]
+    r = client.get("/v1/generated-files/gpf_live", headers=h)
+    assert r.status_code == 200
+    assert r.content == b"PK\x03\x04 artifact"
+    assert "no-store" in r.headers.get("cache-control", "")
+    assert client.get("/v1/generated-files/gpf_dead", headers=h).status_code == 404
+    assert client.get("/v1/generated-files/gpf_missing", headers=h).status_code == 404
+    assert client.get("/v1/generated-files/gpf_live").status_code in (401, 403, 422)  # no auth
