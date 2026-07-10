@@ -1,6 +1,37 @@
 # `tr_compare_reality` — data contract (v1, user-reviewed, sent to GP 2026-07-09)
 
-**Status: PROPOSED — NO GP CONFIG EXISTS YET. Do not ship a client call until GP
+**Status: LIVE** — config shipped #374, TR flipped + harness-verified
+2026-07-10 (14 checks, both capture modes). The original status text below
+is preserved for history.
+
+## Calibration refinement (2026-07-10, agreed by both teams — prompt v2/v3)
+
+First-device-use field failure: a two-line recap produced red `missed`
+sections for every planned topic the recap never mentioned — silence
+converted into failure, which the calibration clause forbids. Both teams
+independently diagnosed the same root cause (the delta enum has no
+"unknown" state, so the model force-fit `missed`). Live behavior now:
+
+- **Evidence rule is capture-mode explicit.** RECORDED TRANSCRIPT: absence
+  IS evidence — a planned topic that never appears is genuinely `missed`.
+  USER RECAP: absence is NOT evidence — `missed` only when the user's own
+  account indicates the topic never came up or wasn't delivered.
+- **Silence produces no section.** A topic the capture gives no evidence
+  about (positive or negative) gets no section at all; its prep reminder
+  folds into `coaching`.
+- **Thin recaps teach.** When a recap is too thin to verify the plan, one
+  coaching line encourages a fuller recap next time (what was asked, what
+  they said, how it landed). A thin recap may honestly yield only 1-2
+  sections; fewer grounded sections beat padded ones.
+- Verdict behavior unchanged (it already stated coverage honestly). No
+  wire change; TR's parse untouched. TR adds a thin-recap fixture to the
+  standing replay.
+
+**Lesson for future contracts:** a closed enum (like `delta`) needs an
+explicit not-reported story per capture/trust mode, or the model will
+force-fit the least-wrong value.
+
+**Original status text (historical): PROPOSED — NO GP CONFIG EXISTS YET. Do not ship a client call until GP
 confirms the config is live (the `tr_parse_resume` rule: a promptless call to an
 unconfigured call_type 400s).** Standing process: this contract → GP authors the
 managed config → TR flips the client promptless → harness verify with heads-up.

@@ -76,6 +76,13 @@ section labels the prompt expects:
   (empty `""` when `closeable=false`). Full schema + client null-handling in
   `docs/wire-contracts/tr-match-analysis.md`. `fit_by_dimension` labels mirror the parse_jd axes verbatim.
 - `tr_research_interviewer` — a short text plus the LinkedIn **screenshot in `images`** (vision call).
+- `tr_compare_reality` — plan-anchored real-vs-rehearsal comparison (contract:
+  `tr-compare-reality-contract.md`, live 2026-07-10). Scenario-branched via
+  `scenario_kind`; `metadata.capture` (`transcript`|`recap`) is analytics-only —
+  the labeled blob section is the model-facing trust signal. Calibration:
+  anchored to the plan, `drifted` may be empty, applied coaching never reads
+  worse, and (refinement 2026-07-10) recap silence is unknown, not `missed` —
+  see the amendment block in the contract doc.
 - `tr_research_company` — company name / context (routes to a search-grounded model).
 
 > **No `tr_parse_resume`.** Confirmed by TR 2026-06-24: the résumé is never parsed as its own step;
