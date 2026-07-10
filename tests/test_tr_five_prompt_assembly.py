@@ -201,6 +201,7 @@ def test_compare_reality_config_and_contract_guards():
         "In a USER RECAP, absence is NOT evidence",
         "do NOT create a section for it",
         "punishes the brevity of the recap",
+        "ONE coaching line encouraging a fuller recap",
         "fewer grounded sections always beat padded ones",
         # output contract
         '"delta": one of "landed" | "drifted" | "missed" | "unplanned"',
