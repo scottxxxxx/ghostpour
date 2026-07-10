@@ -160,6 +160,10 @@ Client rule set:
 
 - Tier gate enforced at /v1/chat, same pattern as the Project Chat
   gating config (#93 lineage).
+- Documents upgrade the turn (server routing policy, 2026-07-10): a
+  document-carrying send resolves through the chat surface's first-send
+  model lane even when the client marks it a follow-up. Invisible on the
+  wire; it keeps the served passthrough ceilings coherent on every turn.
 - Server side extraction path: PDF text layer extraction; PPTX text via
   the XML. Used for every downgrade case.
 - Provider ceilings, now SERVED for client pre-check (addendum

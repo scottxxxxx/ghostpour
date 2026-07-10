@@ -227,7 +227,14 @@ def _resolve_model_routing(
     surface = surface_dials.get(prompt_mode)
     if surface is not None:
         first_row, follow_up_row = surface
-        if call_type == follow_up_row:
+        # Documents upgrade the turn (decided 2026-07-10): a send carrying
+        # the documents field resolves through the surface's FIRST-SEND dial
+        # even when iOS marks it a follow-up. Reading a document is
+        # first-class work — and the cheap follow-up lane's provider-side
+        # PDF page ceiling is lower than the served passthrough caps assume,
+        # so document turns must ride the full-model lane for the caps to
+        # stay coherent.
+        if call_type == follow_up_row and not body.documents:
             model = _model_from_row(follow_up_row)
             if model:
                 return model
