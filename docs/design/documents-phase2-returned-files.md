@@ -172,16 +172,16 @@ SS took their seat and decided; recorded here as the shared contract:
 - **2c — iterate loops**: returned file → Reference → re-attach. Mostly
   client UX (save-as-Reference) + regression coverage.
 
-## 9. Open decisions for approval
+## 9. Decisions — APPROVED (Scott, 2026-07-10)
 
-1. Architecture: sandbox + provider files (recommended) vs GP-local
-   generation vs hybrid (local template-edit fast path + sandbox general
-   path).
-2. Launch formats: xlsx + pptx + docx + pdf all at once, or xlsx-first
-   (highest fidelity gap today)?
-3. Staging expiry (proposed 24h — SS asked for "hours not days") and the
-   concurrent-live-bytes sanity cap.
-4. Gate: Pro tier vs entitlement-matrix cell from day one (depends on
-   entitlements design timing).
-5. Phasing confirmation: 2a → 2b → 2c.
-6. SS's §7 UX decisions — theirs, gathered in their design pass.
+1. Architecture: **sandbox + provider files**. Loop-continuation plumbing
+   is the risk concentration; validated by a thin 2a spike (one xlsx from
+   a meeting transcript, end to end, with a real cost number) before the
+   full build.
+2. Launch formats: **all four** (xlsx, pptx, docx, pdf).
+3. Staging: **6h expiry / 50MB per-user live cap** — SS said hours not
+   days; retries past 6h regenerate.
+4. Gate: **Pro tier now**, feature named `document_generation` so the
+   entitlements-matrix migration (separate design) is pure data.
+5. Phasing: **2a → 2b → 2c** as specced.
+6. SS's §7 UX decisions: received 2026-07-10 and recorded in §7.
