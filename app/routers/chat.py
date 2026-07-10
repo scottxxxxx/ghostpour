@@ -1674,6 +1674,13 @@ async def chat(
             user_identity={x for x in (user.id, user.email) if x},
         )
 
+    # 5.96. Document generation is SERVER-armed only — a client-sent
+    # generation flag never survives (it would bypass the gate and arm the
+    # sandbox on any request). The non-streaming path re-arms below when
+    # the gate passes.
+    if body.generation:
+        body = body.model_copy(update={"generation": False})
+
     # 6. Stream or non-stream based on request + call_type
     # Only stream interactive queries; background tasks (summary, analysis) get full JSON.
     # Project Chat is also forced non-streaming so feature_state can land
@@ -1696,6 +1703,23 @@ async def chat(
         )
 
     # --- Non-streaming path (original) ---
+
+    # 5.97. Document generation arming (phase 2a). Gate mirrors documents
+    # passthrough (config-enabled+tier, or allowed_users for e2e); surfaces
+    # are the chat modes; managed anthropic only. When armed, the adapter
+    # attaches the sandbox + document skills and this path collects the
+    # artifacts after the response.
+    from app.services.document_generation import generation_gate
+    _gen_armed = generation_gate(
+        remote_configs=request.app.state.remote_configs,
+        tier_name=user.effective_tier,
+        managed_routing=managed_routing,
+        provider=body.provider,
+        prompt_mode=body.get_meta("prompt_mode"),
+        user_identity={x for x in (user.id, user.email) if x},
+    )
+    if _gen_armed:
+        body = body.model_copy(update={"generation": True})
 
     # 5.9. Transcript cleanup for analysis calls. When call_type=="analysis"
     # carries a transcript_source the cleanup module knows how to handle
@@ -1760,6 +1784,26 @@ async def chat(
     # the JSON call types don't stream.
     if response and response.text:
         response.text = _strip_json_code_fence(response.text)
+
+    # 6.7. Collect generated artifacts (phase 2a) — best-effort, never
+    # blocks the text answer. Staged rows ride the response as
+    # `generated_files`; count/bytes land in usage metering below.
+    generated_payload: list[dict] = []
+    if body.generation and response and response.raw_response_json:
+        from app.services.document_generation import collect_generated_files
+        generated_payload = await collect_generated_files(
+            db,
+            raw_response_json=response.raw_response_json,
+            api_key=request.app.state.settings.anthropic_api_key,
+            remote_configs=request.app.state.remote_configs,
+            user_id=user.id,
+            app_id=app_id,
+        )
+        if generated_payload:
+            _gmeta = dict(body.metadata or {})
+            _gmeta["generated_count"] = len(generated_payload)
+            _gmeta["generated_bytes"] = sum(g["size_bytes"] for g in generated_payload)
+            body = body.model_copy(update={"metadata": _gmeta})
 
     # 7. Calculate cost from pricing data
     request_cost = 0.0
@@ -1873,6 +1917,11 @@ async def chat(
     # message needs to surface.
     if search_state is not None:
         response_data["search_state"] = search_state
+
+    # Generated artifacts (phase 2a): additive — absent when none. The
+    # client downloads immediately (URLs are a 6h fetch window, not storage).
+    if generated_payload:
+        response_data["generated_files"] = generated_payload
 
     json_response = JSONResponse(content=response_data)
 

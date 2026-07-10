@@ -451,6 +451,23 @@ MIGRATIONS = [
     # campaign authoring AND resolve). Derived from IP at ingestion like the
     # other two; raw IP still never stored. NULL until the client's next ping.
     "ALTER TABLE telemetry_events ADD COLUMN city TEXT",
+    # Phase-2a document generation staging (docs/design/documents-phase2-
+    # returned-files.md §4): NOT a file store — a 6h fetch window. The client
+    # downloads on response-land and keeps the durable copy; a purge sweep
+    # (startup + hourly) deletes expired rows and their bytes.
+    """CREATE TABLE IF NOT EXISTS generated_files (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        app_id TEXT,
+        name TEXT NOT NULL,
+        media_type TEXT NOT NULL,
+        size_bytes INTEGER NOT NULL,
+        storage_path TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_generated_files_user ON generated_files(user_id, expires_at)",
+    "CREATE INDEX IF NOT EXISTS idx_generated_files_expiry ON generated_files(expires_at)",
 ]
 
 
