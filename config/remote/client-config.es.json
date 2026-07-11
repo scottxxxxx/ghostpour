@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "limits": {
     "project_chat": {
       "max_input_chars": {
@@ -35,7 +35,19 @@
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
       ],
       "max_files_out": 2,
-      "max_file_out_mb": 25
+      "max_file_out_mb": 25,
+      "confirmation": {
+        "enabled": false,
+        "expected_seconds": 150,
+        "poll_after_seconds": 5,
+        "offer_text": "Parece una solicitud de archivo. ¿Generar {format} a partir de este proyecto? Tarda unos dos minutos.",
+        "format_nouns": {
+          "xlsx": "una hoja de cálculo",
+          "docx": "un documento de Word",
+          "pptx": "una presentación",
+          "pdf": "un PDF"
+        }
+      }
     }
   }
 }

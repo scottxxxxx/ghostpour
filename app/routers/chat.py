@@ -234,7 +234,11 @@ def _resolve_model_routing(
         # PDF page ceiling is lower than the served passthrough caps assume,
         # so document turns must ride the full-model lane for the caps to
         # stay coherent.
-        if call_type == follow_up_row and not body.documents:
+        # Confirmed generation turns upgrade the turn too (same coherence
+        # rule): the artifact's quality rides the first-send lane, not
+        # whatever lane the follow-up happened to be on.
+        if (call_type == follow_up_row and not body.documents
+                and not body.get_meta("generation_confirmed")):
             model = _model_from_row(follow_up_row)
             if model:
                 return model
@@ -1729,6 +1733,38 @@ async def chat(
         prompt_mode=body.get_meta("prompt_mode"),
         user_identity={x for x in (user.id, user.email) if x},
     )
+    # 5.975. Confirmation envelope (handoff Part 1). While confirmation is
+    # dark the arming rule stays gate-based (today's e2e lane). Once live:
+    # a confirmed resend arms; an unconfirmed file intent gets the offer
+    # envelope BEFORE any provider work (the budget gate already passed
+    # above, so a blocked user sees the budget CTA, never the offer);
+    # everything else is a normal chat turn — arming is confirmed-only.
+    _gen_expected_seconds = None
+    if _gen_armed:
+        from app.routers.config import _parse_accept_language
+        from app.services.document_generation import (
+            build_offer_envelope,
+            classify_generation_intent,
+            load_generation_config,
+        )
+        _confirmation = load_generation_config(
+            request.app.state.remote_configs,
+            locale=_parse_accept_language(request.headers.get("Accept-Language")),
+        )["confirmation"]
+        _gen_expected_seconds = int(_confirmation["expected_seconds"])
+        if _confirmation["enabled"] and not body.get_meta("generation_confirmed"):
+            _gen_armed = False
+            _intent = await classify_generation_intent(
+                provider_router, body.user_content,
+                on_subcall=lambda creq, cresp, cms: usage_tracker.record_and_log(
+                    db, user=user, tier=tier, app_id=app_id,
+                    request=creq, response=cresp, elapsed_ms=cms, pricing=pricing,
+                ),
+            )
+            if _intent and _intent.get("file_request"):
+                return JSONResponse(content=build_offer_envelope(
+                    _confirmation, _intent.get("format")))
+
     if _gen_armed:
         body = body.model_copy(update={"generation": True})
 
@@ -1749,7 +1785,9 @@ async def chat(
                 "generated_files": _stored["generated_files"],
                 "replayed": True,
             })
-        if _stored is None and not generation_turns.begin(user.id, _generation_id):
+        if _stored is None and not generation_turns.begin(
+                user.id, _generation_id,
+                expected_seconds=_gen_expected_seconds or generation_turns.DEFAULT_EXPECTED_SECONDS):
             raise HTTPException(
                 status_code=409,
                 detail={
