@@ -342,7 +342,11 @@ def test_raw_provider_payloads_never_reach_the_wire(client, free_user, mock_prov
 
 # --- confirmation envelope (handoff Part 1) ---
 
-def test_confirmation_defaults_ship_dark_and_bundles_agree():
+def test_confirmation_defaults_dark_but_bundles_live_and_agree():
+    # Code DEFAULTS stay dark (a missing/stale config must never enable the
+    # flow); the BUNDLES ship enabled since 2026-07-11 — while
+    # generation.enabled is false this reaches only the allowed_users lane
+    # (the gate runs before the confirmation logic).
     from app.services.document_generation import load_generation_config
     conf = load_generation_config({})["confirmation"]
     assert conf["enabled"] is False
@@ -350,7 +354,7 @@ def test_confirmation_defaults_ship_dark_and_bundles_agree():
     assert set(conf["format_nouns"]) == {"xlsx", "docx", "pptx", "pdf"}
     for f in ("client-config.json", "client-config.es.json", "client-config.ja.json"):
         c = json.load(open(f"config/remote/{f}"))["documents"]["generation"]["confirmation"]
-        assert c["enabled"] is False
+        assert c["enabled"] is True
         assert "{format}" in c["offer_text"]
         assert set(c["format_nouns"]) == {"xlsx", "docx", "pptx", "pdf"}
 
