@@ -185,3 +185,85 @@ SS took their seat and decided; recorded here as the shared contract:
    entitlements-matrix migration (separate design) is pure data.
 5. Phasing: **2a → 2b → 2c** as specced.
 6. SS's §7 UX decisions: received 2026-07-10 and recorded in §7.
+
+## 10. Confirmation envelope (designed 2026-07-11, Scott GO)
+
+Born from the first live device generation: the turn succeeded server-side
+in 124s and the client's 120s timeout discarded it — the user paid for a
+file they never saw. Root cause is structural: the client cannot know a
+turn will generate, because the server decides after the send is in
+flight. The confirmation envelope moves that decision to a visible
+checkpoint.
+
+### Flow
+
+1. **Intent check (server).** On generation-eligible turns (gate passes:
+   surface, tier/allowed_users, managed, anthropic), GP runs a cheap
+   intent classifier over the user ask (Haiku, temp 0, strict schema,
+   ~$0.001) — "is this a request to produce a file?" Fail-open: classifier
+   error or NO → the turn proceeds as normal chat, exactly today's
+   behavior minus arming.
+2. **Offer (envelope).** On YES, GP does NOT run the main turn. It returns
+   the standard feature-state envelope immediately (fast, no LLM answer):
+
+   ```json
+   {
+     "feature_state": {
+       "feature": "document_generation",
+       "state": "confirmation_required",
+       "cta": {
+         "kind": "generation_offer",
+         "text": "This looks like a file request. Generate a spreadsheet
+                  from this project? Takes about two minutes.",
+         "action": "confirm_generation",
+         "details": {
+           "expected_format": "xlsx",
+           "expected_seconds": 150
+         }
+       }
+     }
+   }
+   ```
+
+   `text` is served + localized (3 locales) like every CTA.
+   `expected_format` is the classifier's best guess (advisory, not
+   binding); `expected_seconds` follows the honest-progress principle —
+   measured per call shape, not aspirational. `details` is add-only: a
+   future `cost_credits` field slots here if consumable credits ever ship.
+3. **Confirmed resend (client).** The button resends the same request with
+   `metadata.generation_confirmed = true`. The client now KNOWS this is a
+   generation turn: long timeout (300s), long-running progress UI
+   proportional to `expected_seconds`, not a chat spinner.
+4. **Server on confirmed resend:** skips the classifier, arms generation.
+   The confirmed flag is only honored when the gate passes (flag alone
+   grants nothing — a spoofed flag on an ineligible account is a normal
+   chat turn).
+
+### Arming rule change
+
+Once this ships, generation arms ONLY on `generation_confirmed = true`.
+Consequences, all deliberate:
+
+- The un-signaled 2-minute turn — the entire 408 bug class — becomes
+  impossible.
+- No accidental sandbox cost from casually phrased asks.
+- Classifier false negatives are recoverable: SS adds a manual "generate
+  as file" affordance that sends the confirmed flag directly, no
+  classifier involved. False positives are harmless: the user ignores the
+  button, resends, or edits.
+
+### Interaction with the streaming design
+
+Complementary, not competing. The envelope fixes expectation, consent,
+and the timeout class NOW, with today's non-streaming Project Chat. The
+streaming build (generation_started + SSE heartbeats) later makes the
+confirmed turn's progress live instead of estimated, and unlocks Meeting
+Chat generation — confirmed turns simply start riding SSE when it lands.
+
+### Rollout
+
+Dark behind `documents.generation.confirmation` (config flip), same
+allowed_users e2e lane. Old clients never see the envelope while dark;
+after the flip, a client that doesn't render the CTA shape degrades to
+"no file generated" (never a broken turn) — same degradation contract as
+every feature-state envelope.
