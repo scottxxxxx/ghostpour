@@ -1976,6 +1976,13 @@ async def chat(
 
     # 10. Build response with allocation headers
     response_data = response.model_dump()
+    # Raw provider wire payloads are metering/debug internals (usage_log
+    # metadata), never client wire: raw_request carries the assembled
+    # system prompt (GP-owned for managed calls) and raw_response the
+    # provider's identity and internal blocks — and together they tripled
+    # response size (caught by SS's 74KB console forensics, 2026-07-11).
+    response_data.pop("raw_request_json", None)
+    response_data.pop("raw_response_json", None)
 
     # Search-state sidecar (independent of feature_state, which is owned
     # by the project_chat / budget paths). Always populated when the
