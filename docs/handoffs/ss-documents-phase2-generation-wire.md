@@ -1,8 +1,9 @@
 # Phase 2 generation wire — confirmation envelope + streaming (working doc)
 
-Status: PROPOSED to SS 2026-07-11. Iterating by message exchange, no
-meeting. SS owes in writing: confirm-button + progress UX, stale-card
-regenerate affordance, xlsx reference messaging. Pin by editing this doc.
+Status: ITERATING by message exchange, no meeting. SS UX positions
+received 2026-07-11 (their durable copy: docs/DOCUMENTS_PHASE2_UX.md in
+the SS repo) — assume our wire-edge answers as spec. Part 4 answers their
+one open design question (mid-turn death rescue). Pin by editing this doc.
 
 Companion: `docs/design/documents-phase2-returned-files.md` (approved
 phase-2 design; §10 is the envelope's origin). Phase-1 spec:
@@ -173,3 +174,69 @@ per SS, and this sketch is the mechanism.
   not in `accepted_types` — extraction-hostile). Full-circle re-attach
   for spreadsheets arrives with 2b sandbox reading. Until then the
   Reference card should message it honestly; SS proposes the copy.
+
+---
+
+## Part 4 — Mid-turn death rescue (answering SS's open question, 2026-07-11)
+
+The question: the app dies mid-generation (user backgrounds out, iOS
+kills it, phone dies), GP completes and stages the file, the response
+lands on a dead connection. Pending-generations lookup, or idempotent
+confirmed resend? **Answer: both, as one mechanism, keyed by one value —
+and SS persists exactly one uuid of per-turn state.**
+
+Field evidence this matters: the very first live generation already hit
+this shape (completed server-side, client gone at response time — that
+one was a timeout, but the wire outcome is identical to an app death).
+
+### Mechanism
+
+1. **Client mints a `generation_id`** (uuid) and sends it in
+   `metadata.generation_id` on every confirmed resend. Required on
+   confirmed sends once this ships.
+2. **GP records the turn against that id**: staged artifacts, the model's
+   text answer, and terminal status, all retained on the same 6h clock as
+   the staging bytes (one expiry, one purge). This is new-but-tiny
+   retention — confirmed generation turns only, gone in 6h.
+3. **Rescue lookup:** `GET /v1/generations/{generation_id}` — same JWT
+   bearer, owner-scoped, uniform 404 for not-yours / expired / never-
+   arrived. Responses:
+   - `200 {status: "done", text, generated_files: [...same entries as the
+     live response, sha256 included...]}` — reconstruct the full turn:
+     chat bubble + file cards, download as normal.
+   - `200 {status: "failed", error: {...}}` — render the failure +
+     regenerate affordance.
+   - `200 {status: "running", elapsed_seconds}` — turn still in flight
+     (in-memory registry; see caveat below). Keep polling.
+   - `404` — unknown here: never arrived, expired, or GP restarted
+     mid-turn. After the client's own patience window: regenerate card.
+4. **Idempotency falls out for free:** a confirmed resend whose
+   `generation_id` is already terminal returns the stored result — no
+   re-run, no second sandbox bill. Same id currently running → `409
+   generation_in_progress`; the client switches to the lookup. Blind
+   retry with the same id is therefore always safe.
+
+### What SS persists per confirmed turn
+
+The `generation_id` plus where the result belongs (meeting/project +
+transcript position). Nothing else — no partial response state, no URL,
+no metadata. On relaunch: for each unresolved persisted id, poll the
+lookup; `done` reconstructs, `failed`/timeout offers regenerate.
+
+### Caveats, stated honestly
+
+- `running` status lives in memory: a GP deploy/restart mid-turn kills
+  the in-flight turn anyway (its provider connection dies with the
+  process), so post-restart those ids resolve 404 → regenerate. Rare and
+  self-consistent; not worth durable in-flight state.
+- The stored `text` makes the rescue reconstruct the WHOLE turn, not
+  just the file. This is the one place GP briefly retains an SS chat
+  answer; 6h, purged with staging, generation turns only.
+- Interaction with Part 2: `generation_result` over SSE and the rescue
+  lookup return the same body shape — one parser on the client.
+
+### Status
+
+PROPOSED. Not built. If SS confirms the shape, GP builds envelope +
+transport + rescue as one phase-2 server package (they share the
+generation_id plumbing end to end).
