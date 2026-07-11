@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+import hashlib
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -76,6 +77,10 @@ async def stage(
         "name": name,
         "media_type": media_type,
         "size_bytes": len(content),
+        # SS renders the transcript card from this entry while the bytes
+        # download behind it; sha256 lets the client verify the download
+        # against what was staged (SS ask, 2026-07-11).
+        "sha256": hashlib.sha256(content).hexdigest(),
         "url": f"/v1/generated-files/{fid}",
         "expires_at": expires.isoformat(),
     }
