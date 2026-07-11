@@ -71,7 +71,16 @@ class AnthropicAdapter(ProviderAdapter):
         text_parts = [
             block["text"] for block in data.get("content", []) if block.get("type") == "text"
         ]
-        text = "\n".join(text_parts) if text_parts else ""
+        if request.generation and text_parts:
+            # A generation turn's content interleaves working narration with
+            # tool blocks — reading the skill, fixing its own script errors —
+            # which is not a chat bubble (SS field report, 2026-07-11). The
+            # final text block is the model's closing summary; the full
+            # working transcript stays in raw_response_json for logs and the
+            # future curated narration stream.
+            text = text_parts[-1]
+        else:
+            text = "\n".join(text_parts) if text_parts else ""
 
         # Capture the full usage block from the provider
         # Anthropic returns: input_tokens, output_tokens,

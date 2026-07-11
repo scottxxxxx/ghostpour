@@ -306,3 +306,35 @@ async def test_non_generation_turn_still_falls_back(monkeypatch):
     out = await fb.route_with_fallback(router, _body(False), db=None, settings=MagicMock())
     assert out is ok
     assert router.route.await_count == 2
+
+
+# --- chat bubble = closing summary, not working transcript ---
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("generation,expected_text", [
+    (True, "Done — your tracker is attached."),                 # last block only
+    (False, "Let me think.\nDone — your tracker is attached."),  # unchanged join
+])
+async def test_generation_bubble_is_closing_summary(monkeypatch, generation, expected_text):
+    adapter = _adapter()
+
+    async def fake_post(url, body, headers, timeout=None):
+        return 200, {"content": [
+            {"type": "text", "text": "Let me think."},
+            {"type": "server_tool_use", "id": "t1", "name": "bash_code_execution", "input": {}},
+            {"type": "bash_code_execution_tool_result", "content": {}},
+            {"type": "text", "text": "Done — your tracker is attached."},
+        ], "stop_reason": "end_turn", "usage": {}}, "", ""
+    monkeypatch.setattr(adapter, "_post", fake_post)
+
+    resp = await adapter.send_request(_body(generation))
+    assert resp.text == expected_text
+
+
+def test_raw_provider_payloads_never_reach_the_wire(client, free_user, mock_provider):
+    from tests.conftest import chat_request
+    r = client.post("/v1/chat", json=chat_request(), headers=free_user["headers"])
+    body = r.json()
+    assert "raw_request_json" not in body
+    assert "raw_response_json" not in body
+    assert "text" in body and "model" in body  # normal shape intact
