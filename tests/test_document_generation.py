@@ -188,6 +188,8 @@ async def test_collect_downloads_validates_and_stages(tmp_path, monkeypatch):
     assert g["name"] == "tracker.xlsx" and g["media_type"] == XLSX
     assert g["url"].startswith("/v1/generated-files/gpf_")
     assert g["size_bytes"] == len(b"PK\x03\x04 fake xlsx bytes")
+    import hashlib
+    assert g["sha256"] == hashlib.sha256(b"PK\x03\x04 fake xlsx bytes").hexdigest()
 
 
 # --- staging store semantics ---
