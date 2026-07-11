@@ -468,6 +468,24 @@ MIGRATIONS = [
     )""",
     "CREATE INDEX IF NOT EXISTS idx_generated_files_user ON generated_files(user_id, expires_at)",
     "CREATE INDEX IF NOT EXISTS idx_generated_files_expiry ON generated_files(expires_at)",
+    # Generation turn records (phase 2 rescue, handoff Part 4): terminal
+    # state of confirmed generation turns keyed by the CLIENT-minted
+    # generation_id, same 6h clock as staging. files_json snapshots the
+    # generated_files wire entries so the rescue returns them verbatim.
+    """CREATE TABLE IF NOT EXISTS generations (
+        generation_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        app_id TEXT,
+        status TEXT NOT NULL,
+        text TEXT,
+        error_json TEXT,
+        files_json TEXT,
+        started_at TEXT NOT NULL,
+        completed_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        PRIMARY KEY (generation_id, user_id)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_generations_expiry ON generations(expires_at)",
 ]
 
 

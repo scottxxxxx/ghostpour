@@ -1732,6 +1732,34 @@ async def chat(
     if _gen_armed:
         body = body.model_copy(update={"generation": True})
 
+    # 5.98. Generation turn records (phase 2 rescue, handoff Part 4). When
+    # an armed turn carries a client-minted generation_id: an already-
+    # terminal id replays the stored result (no second sandbox bill), a
+    # still-running id 409s with honest-progress fields, and a fresh id is
+    # registered so GET /v1/generations/{id} can rescue the turn after a
+    # mid-turn app death. Sends without the id keep today's behavior.
+    _generation_id = body.get_meta("generation_id") if _gen_armed else None
+    if _generation_id:
+        from app.services import generation_turns
+
+        _stored = await generation_turns.lookup_terminal(db, user.id, _generation_id)
+        if _stored is not None and _stored["status"] == "done":
+            return JSONResponse(content={
+                "text": _stored["text"],
+                "generated_files": _stored["generated_files"],
+                "replayed": True,
+            })
+        if _stored is None and not generation_turns.begin(user.id, _generation_id):
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "generation_in_progress",
+                    **{k: v for k, v in generation_turns.running_info(
+                        user.id, _generation_id).items() if k != "status"},
+                },
+            )
+        # a stored "failed" falls through: the resend is the retry
+
     # 5.9. Transcript cleanup for analysis calls. When call_type=="analysis"
     # carries a transcript_source the cleanup module knows how to handle
     # (today: "ocr_captions") and the server flag is on, run an LLM cleanup
@@ -1780,11 +1808,31 @@ async def chat(
         response = await route_with_fallback(
             provider_router, body, db, request.app.state.settings,
         )
-    except HTTPException:
+    except HTTPException as _route_exc:
         elapsed_ms = int((time.monotonic() - start) * 1000)
         await usage_tracker.log_usage(
             db, user.id, body, None, elapsed_ms, status="error", app_id=app_id
         )
+        if _generation_id:
+            from app.services import generation_turns
+            _detail = _route_exc.detail if isinstance(_route_exc.detail, dict) else {
+                "message": str(_route_exc.detail)}
+            await generation_turns.finish(
+                db, user_id=user.id, app_id=app_id, generation_id=_generation_id,
+                status="failed", error=_detail,
+            )
+        raise
+    except Exception:
+        # Generation turns bypass the OR fallback, so raw transport errors
+        # (e.g. ReadTimeout) can reach here — record the failure so the
+        # rescue lookup answers honestly, then re-raise unchanged.
+        if _generation_id:
+            from app.services import generation_turns
+            await generation_turns.finish(
+                db, user_id=user.id, app_id=app_id, generation_id=_generation_id,
+                status="failed", error={"code": "provider_error",
+                                        "message": "generation leg failed"},
+            )
         raise
 
     elapsed_ms = int((time.monotonic() - start) * 1000)
@@ -1815,6 +1863,14 @@ async def chat(
             _gmeta["generated_count"] = len(generated_payload)
             _gmeta["generated_bytes"] = sum(g["size_bytes"] for g in generated_payload)
             body = body.model_copy(update={"metadata": _gmeta})
+
+    if _generation_id:
+        from app.services import generation_turns
+        await generation_turns.finish(
+            db, user_id=user.id, app_id=app_id, generation_id=_generation_id,
+            status="done", text=(response.text or ""),
+            generated_files=generated_payload,
+        )
 
     # 7. Calculate cost from pricing data
     request_cost = 0.0

@@ -1,9 +1,11 @@
 # Phase 2 generation wire — confirmation envelope + streaming (working doc)
 
-Status: ITERATING by message exchange, no meeting. SS UX positions
-received 2026-07-11 (their durable copy: docs/DOCUMENTS_PHASE2_UX.md in
-the SS repo) — assume our wire-edge answers as spec. Part 4 answers their
-one open design question (mid-turn death rescue). Pin by editing this doc.
+Status: PINNED 2026-07-11 — SS confirmed Part 4 (+ honest-progress
+refinement on 409/running bodies) and their UX positions
+(docs/DOCUMENTS_PHASE2_UX.md, SS repo: confirm button, generating state,
+four-state file card, stale card w/ pre-confirmed regenerate, spreadsheet
+honesty state) conflict with nothing here. GP building the server
+package. Changes from here: edit this doc.
 
 Companion: `docs/design/documents-phase2-returned-files.md` (approved
 phase-2 design; §10 is the envelope's origin). Phase-1 spec:
@@ -206,15 +208,22 @@ one was a timeout, but the wire outcome is identical to an app death).
      chat bubble + file cards, download as normal.
    - `200 {status: "failed", error: {...}}` — render the failure +
      regenerate affordance.
-   - `200 {status: "running", elapsed_seconds}` — turn still in flight
-     (in-memory registry; see caveat below). Keep polling.
+   - `200 {status: "running", started_at, elapsed_seconds,
+     expected_seconds, poll_after_seconds}` — turn still in flight
+     (in-memory registry; see caveat below). A relaunched client resumes
+     the honest progress card from the TRUE elapsed time — never an
+     elapsed-from-zero timer (SS refinement, 2026-07-11). Poll again
+     after `poll_after_seconds`.
    - `404` — unknown here: never arrived, expired, or GP restarted
      mid-turn. After the client's own patience window: regenerate card.
 4. **Idempotency falls out for free:** a confirmed resend whose
    `generation_id` is already terminal returns the stored result — no
-   re-run, no second sandbox bill. Same id currently running → `409
-   generation_in_progress`; the client switches to the lookup. Blind
-   retry with the same id is therefore always safe.
+   re-run, no second sandbox bill. Same id currently running → `409`
+   whose body carries `{code: "generation_in_progress", started_at,
+   elapsed_seconds, expected_seconds, poll_after_seconds}` — the same
+   honest-progress fields as the running lookup, so the client resumes
+   the correct progress card directly from the 409. Blind retry with the
+   same id is therefore always safe.
 
 ### What SS persists per confirmed turn
 
@@ -237,6 +246,5 @@ lookup; `done` reconstructs, `failed`/timeout offers regenerate.
 
 ### Status
 
-PROPOSED. Not built. If SS confirms the shape, GP builds envelope +
-transport + rescue as one phase-2 server package (they share the
-generation_id plumbing end to end).
+**CONFIRMED by SS 2026-07-11 — FROZEN, building** (envelope + transport +
+rescue as one server package; shared generation_id plumbing).

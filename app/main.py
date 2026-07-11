@@ -12,6 +12,7 @@ from app.middleware.request_logging import RequestLoggingMiddleware, StreamingBy
 from app.models.feature import load_feature_config
 from app.models.tier import load_tier_config
 from app.routers import generated_files as generated_files_router
+from app.routers import generations as generations_router
 from app.routers import (
     app_version,
     apple_webhooks,
@@ -235,12 +236,14 @@ async def lifespan(app: FastAPI):
     async def _generated_files_sweep_loop():
         import aiosqlite
         from app.services.generated_files import purge_expired
+        from app.services.generation_turns import purge_expired as purge_turns
         db_path = settings.database_url.replace("sqlite+aiosqlite:///", "")
         while True:
             try:
                 async with aiosqlite.connect(db_path) as db:
                     db.row_factory = aiosqlite.Row
                     await purge_expired(db)
+                    await purge_turns(db)  # same 6h clock, same sweep
             except Exception as e:  # noqa: BLE001 — sweep must never die
                 logging.getLogger("app.main").warning(
                     "generated_files sweep failed: %s", e,
@@ -321,6 +324,7 @@ app.include_router(health.router, tags=["health"])
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(chat.router, prefix="/v1", tags=["chat"])
 app.include_router(generated_files_router.router, prefix="/v1", tags=["generated-files"])
+app.include_router(generations_router.router, prefix="/v1", tags=["generations"])
 # cert_pins must be registered BEFORE config so the explicit
 # `/v1/config/cert-pins` path wins over config's path-parameter
 # `/v1/config/{name}` catch-all.
