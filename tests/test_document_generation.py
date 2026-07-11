@@ -430,3 +430,58 @@ async def test_classifier_meters_via_on_subcall():
     assert out["file_request"] is True
     assert seen["call_type"] == "generation_intent"
     assert seen["model"].startswith("claude-haiku")
+
+
+# --- transport Phase A (e2e through the app) ---
+
+def _enable_confirmed_generation(client):
+    docs = client.app.state.remote_configs["client-config"].setdefault("documents", {})
+    docs["generation"] = {"enabled": True, "min_tier": "free",
+                          "confirmation": {"enabled": True, "expected_seconds": 150}}
+
+
+def test_confirmed_turn_rides_sse_and_records_rescue_row(client, free_user, mock_provider, tmp_db_path):
+    import json as _json
+    import sqlite3
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        metadata={"generation_confirmed": True, "generation_id": "gen-sse-e2e"},
+        user_content="Build me a tracking spreadsheet",
+    ), headers=free_user["headers"])
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/event-stream")
+    assert "event: generation_started" in r.text
+    assert "event: generation_result" in r.text
+    started = _json.loads(
+        r.text.split("event: generation_started\ndata: ")[1].split("\n")[0])
+    assert started["expected_seconds"] == 150
+    result = _json.loads(
+        r.text.split("event: generation_result\ndata: ")[1].split("\n")[0])
+    assert result["text"]                       # the normal JSON body, verbatim
+    assert "raw_request_json" not in result     # wire-slim holds on SSE too
+
+    con = sqlite3.connect(tmp_db_path)
+    row = con.execute("SELECT status, user_id FROM generations "
+                      "WHERE generation_id='gen-sse-e2e'").fetchone()
+    con.close()
+    assert row is not None and row[0] == "done"
+
+
+def test_unconfirmed_turn_fails_open_to_normal_json(client, free_user, mock_provider):
+    from tests.conftest import chat_request
+    _enable_confirmed_generation(client)
+    # confirmation live + no confirmed flag: the classifier runs against the
+    # mock provider, whose reply parses as junk -> fail-open -> normal chat,
+    # NOT armed, NOT an envelope, NOT SSE.
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        user_content="Build me a tracking spreadsheet",
+    ), headers=free_user["headers"])
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/json")
+    body = r.json()
+    assert "feature_state" not in body
+    assert body.get("generated_files") is None or "generated_files" not in body
