@@ -12,6 +12,7 @@ returns; collection errors log and yield an empty list, never an exception.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 
@@ -37,6 +38,24 @@ _GEN_DEFAULTS = {
     "max_file_out_mb": 25,
 }
 
+# Confirmation envelope (handoff Part 1). While `enabled` is false the
+# arming rule stays gate-based (the dark e2e lane); once true, generation
+# arms ONLY on a confirmed resend and unconfirmed file intents get the
+# offer envelope instead of a silent multi-minute turn.
+_CONFIRMATION_DEFAULTS = {
+    "enabled": False,
+    "expected_seconds": 150,
+    "poll_after_seconds": 5,
+    "offer_text": ("This looks like a file request. Generate {format} from "
+                   "this project? Takes about two minutes."),
+    "format_nouns": {
+        "xlsx": "a spreadsheet",
+        "docx": "a Word document",
+        "pptx": "a slide deck",
+        "pdf": "a PDF",
+    },
+}
+
 # Chat surfaces where generation may arm. Non-streaming only (the router
 # enforces that separately — ProjectChat is forced non-streaming already).
 _GENERATION_SURFACES = {"ProjectChat", "PostMeetingChat"}
@@ -45,9 +64,92 @@ _FILES_BASE = "https://api.anthropic.com/v1/files"
 _FILES_BETA = "files-api-2025-04-14"
 
 
-def load_generation_config(remote_configs: dict) -> dict:
-    docs = (remote_configs.get("client-config") or {}).get("documents") or {}
-    return {**_GEN_DEFAULTS, **(docs.get("generation") or {})}
+def load_generation_config(remote_configs: dict, locale: str | None = None) -> dict:
+    """Generation config with nested confirmation merge. `locale` picks the
+    localized client-config variant for served envelope text; the base
+    config remains authoritative for every gate decision."""
+    slug = "client-config"
+    cfg_src = remote_configs.get(slug) or {}
+    if locale and remote_configs.get(f"{slug}.{locale}"):
+        cfg_src = remote_configs[f"{slug}.{locale}"]
+    docs = cfg_src.get("documents") or {}
+    gen = {**_GEN_DEFAULTS, **(docs.get("generation") or {})}
+    gen["confirmation"] = {**_CONFIRMATION_DEFAULTS,
+                           **((docs.get("generation") or {}).get("confirmation") or {})}
+    return gen
+
+
+_CLASSIFIER_MODEL = "claude-haiku-4-5-20251001"
+_CLASSIFIER_SYSTEM = (
+    "You classify whether a chat message asks the assistant to CREATE a "
+    "downloadable file (spreadsheet, document, presentation, or PDF). "
+    "Asking a question ABOUT an attached file is NOT a file request; only "
+    "requests to produce/build/export/write a file count. Reply with ONLY "
+    'this JSON, no prose: {"file_request": true|false, '
+    '"format": "xlsx"|"docx"|"pptx"|"pdf"|null} where format is your best '
+    "guess of the desired output format (null when file_request is false)."
+)
+
+
+async def classify_generation_intent(provider_router, user_content: str,
+                                     on_subcall=None) -> dict | None:
+    """Cheap pre-flight intent check (handoff Part 1 step 1). Fail-open:
+    ANY failure returns None and the turn proceeds as normal chat. The tail
+    of user_content carries the actual question on context-bearing surfaces.
+    on_subcall(request, response, elapsed_ms) meters the classifier call."""
+    import time as _time
+
+    from app.models.chat import ChatRequest
+    request = ChatRequest(
+        provider="anthropic",
+        model=_CLASSIFIER_MODEL,
+        system_prompt=_CLASSIFIER_SYSTEM,
+        user_content=user_content[-2000:],
+        max_tokens=50,
+        temperature=0.0,
+        call_type="generation_intent",
+        prompt_mode="GenerationIntent",
+    )
+    start = _time.monotonic()
+    try:
+        response = await asyncio.wait_for(provider_router.route(request), timeout=10.0)
+        elapsed_ms = int((_time.monotonic() - start) * 1000)
+        if on_subcall is not None:
+            await on_subcall(request, response, elapsed_ms)
+        txt = response.text or ""
+        parsed = json.loads(txt[txt.index("{"): txt.rindex("}") + 1])
+        if not isinstance(parsed.get("file_request"), bool):
+            return None
+        fmt = parsed.get("format")
+        if fmt not in ("xlsx", "docx", "pptx", "pdf"):
+            fmt = None
+        return {"file_request": parsed["file_request"], "format": fmt}
+    except Exception as e:
+        logger.info("generation intent classifier failed open: %s", e)
+        return None
+
+
+def build_offer_envelope(confirmation_cfg: dict, fmt: str | None) -> dict:
+    """The confirmation_required feature-state envelope (handoff Part 1
+    step 2). `details` is add-only — cost_credits slots here if consumable
+    credits ever ship."""
+    fmt = fmt or "xlsx"
+    noun = (confirmation_cfg.get("format_nouns") or {}).get(fmt, "a file")
+    return {
+        "feature_state": {
+            "feature": "document_generation",
+            "state": "confirmation_required",
+            "cta": {
+                "kind": "generation_offer",
+                "text": str(confirmation_cfg["offer_text"]).replace("{format}", noun),
+                "action": "confirm_generation",
+                "details": {
+                    "expected_format": fmt,
+                    "expected_seconds": int(confirmation_cfg["expected_seconds"]),
+                },
+            },
+        },
+    }
 
 
 def generation_gate(

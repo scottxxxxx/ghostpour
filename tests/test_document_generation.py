@@ -338,3 +338,95 @@ def test_raw_provider_payloads_never_reach_the_wire(client, free_user, mock_prov
     assert "raw_request_json" not in body
     assert "raw_response_json" not in body
     assert "text" in body and "model" in body  # normal shape intact
+
+
+# --- confirmation envelope (handoff Part 1) ---
+
+def test_confirmation_defaults_ship_dark_and_bundles_agree():
+    from app.services.document_generation import load_generation_config
+    conf = load_generation_config({})["confirmation"]
+    assert conf["enabled"] is False
+    assert conf["expected_seconds"] == 150 and conf["poll_after_seconds"] == 5
+    assert set(conf["format_nouns"]) == {"xlsx", "docx", "pptx", "pdf"}
+    for f in ("client-config.json", "client-config.es.json", "client-config.ja.json"):
+        c = json.load(open(f"config/remote/{f}"))["documents"]["generation"]["confirmation"]
+        assert c["enabled"] is False
+        assert "{format}" in c["offer_text"]
+        assert set(c["format_nouns"]) == {"xlsx", "docx", "pptx", "pdf"}
+
+
+def test_locale_variant_supplies_envelope_text():
+    from app.services.document_generation import load_generation_config
+    configs = {
+        "client-config": {"documents": {"generation": {"confirmation": {"offer_text": "EN {format}"}}}},
+        "client-config.es": {"documents": {"generation": {"confirmation": {"offer_text": "ES {format}"}}}},
+    }
+    assert load_generation_config(configs)["confirmation"]["offer_text"] == "EN {format}"
+    assert load_generation_config(configs, locale="es")["confirmation"]["offer_text"] == "ES {format}"
+    # unknown locale falls back to base
+    assert load_generation_config(configs, locale="fr")["confirmation"]["offer_text"] == "EN {format}"
+
+
+def test_build_offer_envelope_shape():
+    from app.services.document_generation import _CONFIRMATION_DEFAULTS, build_offer_envelope
+    env = build_offer_envelope(_CONFIRMATION_DEFAULTS, "docx")
+    fs = env["feature_state"]
+    assert fs["feature"] == "document_generation"
+    assert fs["state"] == "confirmation_required"
+    cta = fs["cta"]
+    assert cta["kind"] == "generation_offer" and cta["action"] == "confirm_generation"
+    assert "a Word document" in cta["text"]
+    assert cta["details"] == {"expected_format": "docx", "expected_seconds": 150}
+    # unknown/None format degrades to the default noun path, never a KeyError
+    assert build_offer_envelope(_CONFIRMATION_DEFAULTS, None)["feature_state"]["cta"]["details"]["expected_format"] == "xlsx"
+
+
+@pytest.mark.asyncio
+async def test_classifier_fail_open_and_strict_parse():
+    from unittest.mock import AsyncMock, MagicMock
+    from app.services.document_generation import classify_generation_intent
+
+    # provider error -> None (fail-open)
+    router = MagicMock()
+    router.route = AsyncMock(side_effect=RuntimeError("boom"))
+    assert await classify_generation_intent(router, "make me a spreadsheet") is None
+
+    # junk text -> None
+    router.route = AsyncMock(return_value=MagicMock(text="I think probably yes?"))
+    assert await classify_generation_intent(router, "make me a spreadsheet") is None
+
+    # valid YES with prose wrapping -> parsed, format normalized
+    router.route = AsyncMock(return_value=MagicMock(
+        text='Sure: {"file_request": true, "format": "docx"} done'))
+    out = await classify_generation_intent(router, "write this up as a word doc")
+    assert out == {"file_request": True, "format": "docx"}
+
+    # valid NO -> file_request False
+    router.route = AsyncMock(return_value=MagicMock(
+        text='{"file_request": false, "format": null}'))
+    out = await classify_generation_intent(router, "what did we decide?")
+    assert out == {"file_request": False, "format": None}
+
+    # bogus format value normalizes to None rather than leaking to the wire
+    router.route = AsyncMock(return_value=MagicMock(
+        text='{"file_request": true, "format": "exe"}'))
+    out = await classify_generation_intent(router, "make me a file")
+    assert out == {"file_request": True, "format": None}
+
+
+@pytest.mark.asyncio
+async def test_classifier_meters_via_on_subcall():
+    from unittest.mock import AsyncMock, MagicMock
+    from app.services.document_generation import classify_generation_intent
+
+    router = MagicMock()
+    router.route = AsyncMock(return_value=MagicMock(
+        text='{"file_request": true, "format": "xlsx"}'))
+    seen = {}
+    async def subcall(creq, cresp, cms):
+        seen["call_type"] = creq.get_meta("call_type")
+        seen["model"] = creq.model
+    out = await classify_generation_intent(router, "build a tracker", on_subcall=subcall)
+    assert out["file_request"] is True
+    assert seen["call_type"] == "generation_intent"
+    assert seen["model"].startswith("claude-haiku")
