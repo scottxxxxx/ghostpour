@@ -1845,10 +1845,12 @@ async def chat(
     # closure so the generation transport (Phase A) can drive the same
     # pipeline behind SSE heartbeats. The JSON path awaits it directly —
     # identical behavior, one indentation level down.
-    async def _run_turn_tail() -> JSONResponse:
-        # `body` is rebound below (generated-count metadata) — without the
-        # nonlocal, that assignment would shadow the enclosing name and the
-        # first read here would raise UnboundLocalError.
+    async def _run_turn_tail(db=db) -> JSONResponse:
+        # `db` is a PARAMETER (defaulting to the request-scoped connection):
+        # the SSE transport runs this closure while the response streams —
+        # AFTER dependency teardown closes the request's connection — so it
+        # passes its own. `body` is rebound below (generated-count metadata);
+        # without the nonlocal the first read would raise UnboundLocalError.
         nonlocal body
         # 6. Route to provider
         start = time.monotonic()
@@ -2098,7 +2100,15 @@ async def chat(
             "expected_seconds": _expected,
             "expected_format": body.get_meta("expected_format"),
         })
-        _task = asyncio.create_task(_run_turn_tail())
+        # Own DB connection: this generator outlives the request scope (the
+        # dependency-injected connection is already torn down while the
+        # stream body runs — caught by CI, ValueError: no active connection).
+        import aiosqlite as _aiosqlite
+        _db_path = request.app.state.settings.database_url.replace(
+            "sqlite+aiosqlite:///", "")
+        _sse_db = await _aiosqlite.connect(_db_path)
+        _sse_db.row_factory = _aiosqlite.Row
+        _task = asyncio.create_task(_run_turn_tail(db=_sse_db))
         while True:
             done, _ = await asyncio.wait({_task}, timeout=5)
             if done:
@@ -2119,6 +2129,8 @@ async def chat(
             logger.exception("generation transport: turn failed")
             yield _sse("generation_error", {"code": "provider_error",
                                             "message": "generation failed"})
+        finally:
+            await _sse_db.close()
 
     return StreamingResponse(_generation_events(), media_type="text/event-stream")
 
