@@ -216,6 +216,21 @@ growth is a config flip. Positions per format:
   path including on device, and cost fewer tokens. No bytes for these.
 - **Legacy doc / ppt** — future config additions at most, no commitment.
 
+### Future note: served `native_types` (SS ask, 2026-07-11)
+
+Which formats read natively is currently a client side constant (PDF
+only, matching provider reality); the client's advisory copy branches on
+it. If native reading ever expands to another type — e.g. a provider
+grows a native docx block, or a server side convert-to-PDF step lands —
+the expansion ships as a served `native_types` list next to
+`accepted_types` in the documents key, so the client's advisory copy
+follows GP routing without an app release. Same add-only philosophy as
+the rest of the key: a client that doesn't know the field keeps its
+PDF-only constant and stays correct (the server verdict is authoritative
+either way; the list only drives attach-time messaging). Do NOT add the
+field until it would carry more than PDF — an early field that never
+varies is decoder surface for nothing.
+
 ## Timing
 
 SS plans to build this together with References v2 (same plus menu branch
