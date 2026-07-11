@@ -256,3 +256,53 @@ def test_serve_endpoint_auth_ownership_expiry(client, pro_user, tmp_db_path, tmp
     assert client.get("/v1/generated-files/gpf_dead", headers=h).status_code == 404
     assert client.get("/v1/generated-files/gpf_missing", headers=h).status_code == 404
     assert client.get("/v1/generated-files/gpf_live").status_code in (401, 403, 422)  # no auth
+
+
+# --- generation reliability: per-leg timeout + no OR fallback ---
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("generation,expected_timeout", [(True, 400.0), (False, None)])
+async def test_generation_leg_gets_extended_timeout(monkeypatch, generation, expected_timeout):
+    adapter = _adapter()
+    seen = {}
+
+    async def fake_post(url, body, headers, timeout=None):
+        seen["timeout"] = timeout
+        return 200, {"content": [{"type": "text", "text": "ok"}],
+                     "stop_reason": "end_turn", "usage": {}}, "", ""
+    monkeypatch.setattr(adapter, "_post", fake_post)
+
+    await adapter.send_request(_body(generation))
+    assert seen["timeout"] == expected_timeout
+
+
+@pytest.mark.asyncio
+async def test_generation_turn_never_falls_back_to_or(monkeypatch):
+    import httpx as _httpx
+    from unittest.mock import AsyncMock, MagicMock
+    from app.services.anthropic_or_fallback import route_with_fallback
+
+    router = MagicMock()
+    router.route = AsyncMock(side_effect=_httpx.ReadTimeout("leg timed out"))
+    settings = MagicMock()
+
+    with pytest.raises(_httpx.ReadTimeout):
+        await route_with_fallback(router, _body(True), db=None, settings=settings)
+    # one attempt, no OR retry — a fallback would mean a second route() call
+    assert router.route.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_non_generation_turn_still_falls_back(monkeypatch):
+    import httpx as _httpx
+    from unittest.mock import AsyncMock, MagicMock
+    import app.services.anthropic_or_fallback as fb
+
+    ok = MagicMock(name="or_response")
+    router = MagicMock()
+    router.route = AsyncMock(side_effect=[_httpx.ReadTimeout("boom"), ok])
+    monkeypatch.setattr(fb, "_alert_on_fallback", AsyncMock())
+
+    out = await fb.route_with_fallback(router, _body(False), db=None, settings=MagicMock())
+    assert out is ok
+    assert router.route.await_count == 2

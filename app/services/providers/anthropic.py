@@ -18,11 +18,17 @@ class AnthropicAdapter(ProviderAdapter):
     # Generation turns run a server-side tool loop that can pause and need
     # continuation; bound the replays so a pathological turn can't spin.
     _MAX_GENERATION_CONTINUATIONS = 4
+    _GENERATION_TIMEOUT_S = 400.0  # per leg; see send_request
 
     async def send_request(self, request: ChatRequest) -> ChatResponse:
         body, headers = self._build_body(request)
+        # Generation turns run a server-side sandbox loop with real runtime
+        # variance (first live runs: 124s and 180s+) — the shared client's
+        # 180s default sits INSIDE that envelope, so armed turns get their
+        # own ceiling. Applies per continuation leg, not to the whole turn.
+        timeout = self._GENERATION_TIMEOUT_S if request.generation else None
         status, data, raw_req, raw_resp = await self._post(
-            self.base_url, body, headers
+            self.base_url, body, headers, timeout=timeout
         )
 
         # pause_turn continuation (generation turns only): the server-side
@@ -45,7 +51,7 @@ class AnthropicAdapter(ProviderAdapter):
                     {"role": "assistant", "content": data["content"]}
                 ]
                 status, data, raw_req, raw_resp = await self._post(
-                    self.base_url, cont, headers
+                    self.base_url, cont, headers, timeout=timeout
                 )
 
         if status != 200:

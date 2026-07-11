@@ -130,6 +130,13 @@ async def route_with_fallback(
     Anthropic-direct calls."""
     if request.provider != "anthropic":
         return await provider_router.route(request)
+    if request.generation:
+        # Generation turns never fall back: OR can't arm the sandbox, so a
+        # fallback silently converts "make me a file" into a text answer —
+        # and a timed-out Anthropic leg may have completed and billed with
+        # nobody collecting the artifact. Fail honestly; the client's
+        # confirm-button retry is the recovery.
+        return await provider_router.route(request)
 
     or_model = translate_to_or_model_id(request.model)
     if or_model is None:
@@ -165,7 +172,9 @@ async def route_stream_with_fallback(
 
     Implementation: peek the first event, if the upstream raises before
     yielding anything, fall back. Otherwise pass through."""
-    if request.provider != "anthropic":
+    if request.provider != "anthropic" or request.generation:
+        # Generation is never streamed today, but keep the no-fallback rule
+        # symmetric with route_with_fallback if that ever changes.
         async for event in provider_router.route_stream(request):
             yield event
         return

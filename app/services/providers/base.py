@@ -113,16 +113,21 @@ class ProviderAdapter(ABC):
             self._client = None
 
     async def _post(
-        self, url: str, body: dict, headers: dict
+        self, url: str, body: dict, headers: dict, timeout: float | None = None
     ) -> tuple[int, dict, str, str]:
         """POST to provider and return (status, parsed_json, raw_request, raw_response).
 
-        raw_request has base64 redacted for readability.
+        raw_request has base64 redacted for readability. `timeout` overrides
+        the shared client's 180s default per request — generation turns
+        legitimately outrun it.
         """
         raw_request = self._redact_base64(self._pretty_json(body))
 
         client = self._get_client()
-        resp = await client.post(url, json=body, headers=headers)
+        resp = await client.post(
+            url, json=body, headers=headers,
+            timeout=timeout if timeout is not None else httpx.USE_CLIENT_DEFAULT,
+        )
 
         try:
             resp_json = resp.json()
