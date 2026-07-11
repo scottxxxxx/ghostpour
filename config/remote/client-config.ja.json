@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "limits": {
     "project_chat": {
       "max_input_chars": {
@@ -12,7 +12,7 @@
   "flags": {},
   "intervals": {},
   "documents": {
-    "enabled": false,
+    "enabled": true,
     "min_tier": "pro",
     "accepted_types": [
       "application/pdf",

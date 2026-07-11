@@ -89,12 +89,17 @@ def test_defaults_when_key_absent():
     assert PDF_MIME in cfg["accepted_types"] and PPTX_MIME in cfg["accepted_types"]
 
 
-def test_bundled_client_config_ships_disabled():
+def test_bundled_client_config_documents_live_and_pro_gated():
+    # Flipped live 2026-07-11 after the e2e matrix closed. The load-bearing
+    # invariants now: pro gate intact, all three locales agree, and the
+    # bundle never ships a populated allowed_users (e2e ids live in the
+    # overlay only).
     import json
     for f in ("client-config.json", "client-config.es.json", "client-config.ja.json"):
         docs = json.load(open(f"config/remote/{f}"))["documents"]
-        assert docs["enabled"] is False
+        assert docs["enabled"] is True
         assert docs["min_tier"] == "pro"
+        assert docs["allowed_users"] == []
 
 
 # --- passthrough path ---
