@@ -212,6 +212,16 @@ class AnthropicAdapter(ProviderAdapter):
                 {"type": "anthropic", "skill_id": s, "version": "latest"}
                 for s in ("xlsx", "pptx", "docx", "pdf")
             ]}
+            # Toolchain steering: the first live docx (docx.js) produced a
+            # file Word rejects while every lenient reader accepts it —
+            # python-docx output is Word-derived and safe. Steering fixes
+            # the source; the collection-side rebuild is the backstop.
+            body["system"] = list(body["system"]) + [{
+                "type": "text",
+                "text": ("When creating Word (.docx) files in the sandbox, "
+                         "use the python-docx library — do not use docx.js "
+                         "or hand-written OOXML; Word rejects their output."),
+            }]
             body.setdefault("tools", []).append(
                 {"type": "code_execution_20260521", "name": "code_execution"}
             )
