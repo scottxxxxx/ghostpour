@@ -413,7 +413,9 @@ async def test_classifier_fail_open_and_strict_parse():
     # valid NO -> file_request False
     router.route = AsyncMock(return_value=MagicMock(
         text='{"file_request": false, "format": null}'))
-    out = await classify_generation_intent(router, "what did we decide?")
+    # (input mentions "report" so the prefilter admits it; the classifier
+    # still says no — prefilter is recall-biased, classifier decides)
+    out = await classify_generation_intent(router, "what did we decide about the report?")
     assert out == {"file_request": False, "format": None, "gist": ""}
 
     # bogus format value normalizes to None rather than leaking to the wire
@@ -760,3 +762,72 @@ def test_model_not_found_error_hides_the_catalog(client):
     msg = ei.value.detail["message"]
     assert "Available" not in msg
     assert "claude" not in msg.lower()                   # no catalog ids leak
+
+
+# --- Meeting Chat parity + classifier prefilter ---
+
+def test_prefilter_vocabulary():
+    from app.services.document_generation import looks_like_file_ask
+    assert looks_like_file_ask("can you make a spreadsheet of the top 4")
+    assert looks_like_file_ask("quiero un informe de la reunión")
+    assert looks_like_file_ask("会議のレポートを作って")
+    assert not looks_like_file_ask("what time is the standup tomorrow?")
+    assert not looks_like_file_ask("who owns the auth fix?")
+
+
+@pytest.mark.asyncio
+async def test_classifier_skips_llm_when_prefilter_misses():
+    from unittest.mock import AsyncMock, MagicMock
+    from app.services.document_generation import classify_generation_intent
+    router = MagicMock()
+    router.route = AsyncMock()
+    out = await classify_generation_intent(router, "what time is the standup?")
+    assert out is None
+    router.route.assert_not_awaited()          # no LLM call, no latency tax
+
+
+def test_meeting_chat_file_ask_draws_offer_despite_stream_true(client, free_user,
+                                                               mock_provider, monkeypatch):
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    monkeypatch.setattr(dg, "classify_generation_intent", AsyncMock(
+        return_value={"file_request": True, "format": "xlsx", "gist": "of action items"}))
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="PostMeetingChat", call_type="meeting_chat",
+        stream=True, user_content="make a spreadsheet of the action items",
+    ), headers=free_user["headers"])
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/json")   # single JSON on the SSE request
+    fs = r.json()["feature_state"]
+    assert fs["state"] == "confirmation_required"
+    assert fs["cta"]["details"]["offer_id"]
+
+
+def test_meeting_chat_confirm_rides_generation_sse(client, free_user, mock_provider,
+                                                   tmp_db_path, monkeypatch):
+    import sqlite3
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from app.services import generation_offers as go
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    uid = free_user.get("user_id")
+    if uid is None:
+        con = sqlite3.connect(tmp_db_path)
+        uid = con.execute("SELECT id FROM users WHERE email LIKE 'test-free-user%'").fetchone()[0]
+        con.close()
+    oid = go.create(uid, "xlsx", "of action items")
+    monkeypatch.setattr(dg, "interpret_offer_reply",
+                        AsyncMock(return_value={"confirm": True, "format": "xlsx"}))
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="PostMeetingChat", call_type="meeting_chat", stream=True,
+        metadata={"offer_id": oid, "generation_id": "gen-mc-parity"},
+        user_content="yes please",
+    ), headers=free_user["headers"])
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/event-stream")
+    assert "event: generation_result" in r.text

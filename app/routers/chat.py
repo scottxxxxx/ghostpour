@@ -1696,29 +1696,6 @@ async def chat(
     if body.generation:
         body = body.model_copy(update={"generation": False})
 
-    # 6. Stream or non-stream based on request + call_type
-    # Only stream interactive queries; background tasks (summary, analysis) get full JSON.
-    # Project Chat is also forced non-streaming so feature_state can land
-    # cleanly in the JSON body (SSE injection of structured trailer fields
-    # would require a separate event type and client-side merge).
-    call_type = body.get_meta("call_type")
-    is_project_chat = body.get_meta("prompt_mode") == "ProjectChat"
-    should_stream = (
-        body.stream
-        and call_type not in ("summary", "analysis")
-        and not is_project_chat
-    )
-
-    if should_stream:
-        return await _handle_stream(
-            body, request, user, db, provider_router, usage_tracker,
-            pricing, tier, feature_hooks, hook_results,
-            monthly_used, overage_balance, effective_limit,
-            search_state,
-        )
-
-    # --- Non-streaming path (original) ---
-
     # 5.97. Document generation arming (phase 2a). Gate mirrors documents
     # passthrough (config-enabled+tier, or allowed_users for e2e); surfaces
     # are the chat modes; managed anthropic only. When armed, the adapter
@@ -1807,6 +1784,36 @@ async def chat(
 
     if _gen_armed:
         body = body.model_copy(update={"generation": True})
+
+    # 6. Stream or non-stream based on request + call_type
+    # Only stream interactive queries; background tasks (summary, analysis) get full JSON.
+    # Project Chat is also forced non-streaming so feature_state can land
+    # cleanly in the JSON body (SSE injection of structured trailer fields
+    # would require a separate event type and client-side merge).
+    call_type = body.get_meta("call_type")
+    is_project_chat = body.get_meta("prompt_mode") == "ProjectChat"
+    # Meeting Chat parity (2026-07-12): the gate + confirmation machinery now
+    # runs BEFORE this branch, so a streaming surface can draw an offer (a
+    # single JSON on the SSE request — the same shape Project Chat clients
+    # already handle) and an armed turn diverts to the generation transport
+    # instead of the token stream. What admitted Project Chat all along was
+    # its forced-non-stream route, not the stream flag — reconciled with SS.
+    should_stream = (
+        body.stream
+        and call_type not in ("summary", "analysis")
+        and not is_project_chat
+        and not body.generation
+    )
+
+    if should_stream:
+        return await _handle_stream(
+            body, request, user, db, provider_router, usage_tracker,
+            pricing, tier, feature_hooks, hook_results,
+            monthly_used, overage_balance, effective_limit,
+            search_state,
+        )
+
+    # --- Non-streaming path (original) ---
 
     # 5.98. Generation turn records (phase 2 rescue, handoff Part 4). When
     # an armed turn carries a client-minted generation_id: an already-
