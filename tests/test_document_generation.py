@@ -599,7 +599,7 @@ def test_offer_store_one_shot_and_ttl(monkeypatch):
     assert go.take("u2", oid) is None            # not yours
     offer = go.take("u1", oid)
     assert offer == {"format": "docx", "gist": "for onboarding",
-                     "expires": offer["expires"]}
+                     "template_id": None, "expires": offer["expires"]}
     assert go.take("u1", oid) is None            # one-shot: dead after a reply
     oid2 = go.create("u1", "xlsx", "")
     monkeypatch.setattr(go, "OFFER_TTL_S", 0)
@@ -872,3 +872,108 @@ async def test_interpreter_prefers_verbatim_reply_text():
     sent = router.route.await_args.args[0].user_content
     assert sent.endswith("USER REPLY: Yes")
     assert out["confirm"] is True
+
+
+# --- template registry (Smartsheet Gantt pilot) ---
+
+_PLAN = {
+    "project": "ABM IT Helpdesk",
+    "tasks": [
+        {"id": 1, "name": "Authentication / 401 Fix", "type": "phase", "parent_id": None,
+         "owner": None, "status": "in_progress", "start": "2026-07-08", "end": "2026-07-15",
+         "depends_on": []},
+        {"id": 2, "name": "Share proxy logs", "type": "task", "parent_id": 1,
+         "owner": "Sarah Park", "status": "complete", "start": "2026-07-08",
+         "end": "2026-07-08", "depends_on": []},
+        {"id": 3, "name": "Investigate 401s", "type": "task", "parent_id": 1,
+         "owner": "Chirag Amin", "status": "blocked", "start": "2026-07-08",
+         "end": "2026-07-14", "depends_on": [2]},
+        {"id": 4, "name": "Verify auth-profile", "type": "task", "parent_id": 1,
+         "owner": "Tom Lee", "status": "not_started", "start": "2026-07-09",
+         "end": "2026-07-11", "depends_on": []},
+        {"id": 5, "name": "Production release", "type": "milestone", "parent_id": 1,
+         "owner": None, "status": "not_started", "start": "2026-07-15",
+         "end": "2026-07-15", "depends_on": [3]},
+    ],
+}
+
+
+def test_gantt_renderer_matches_reference_vocabulary():
+    import datetime
+    import io
+    import openpyxl
+    from app.services.doc_templates import render_gantt
+    blob = render_gantt(_PLAN, today=datetime.date(2026, 7, 12))
+    wb = openpyxl.load_workbook(io.BytesIO(blob))
+    ws = wb["Gantt View"]
+    assert ws.freeze_panes == "G3"
+    levels = {ws.row_dimensions[r].outline_level
+              for r in ws.row_dimensions if ws.row_dimensions[r].outline_level}
+    assert levels == {1, 2}                       # working collapse hierarchy
+    texts = [str(c.value) for row in ws.iter_rows() for c in row if c.value]
+    joined = " ".join(texts)
+    assert "STATUS KEY" in joined
+    assert "\U0001f3c1" in joined or "🏁" in joined  # milestone flag
+    assert "⚑" in joined and "⚐" in joined          # at-risk flags both states
+    assert "↳" in joined                             # same-day handoff (task 3 after 2)
+    fills = {c.fill.fgColor.rgb for row in ws.iter_rows() for c in row
+             if c.fill and isinstance(c.fill.fgColor.rgb, str)}
+    for hex6 in ("FFA8B9C9", "FF6E7B8A", "FF3D4653", "FFF3F3F3", "FFFFF6DE", "FFE0341E"):
+        assert hex6 in fills, hex6                  # reference palette, exact
+    # determinism: same plan, same bytes
+    assert render_gantt(_PLAN, today=datetime.date(2026, 7, 12)) == blob
+
+
+def test_template_match_and_parse():
+    from app.services.doc_templates import match_template, parse_extraction
+    assert match_template("can you build a gantt chart of our plan?") == "gantt_smartsheet"
+    assert match_template("make me a spreadsheet of insults") is None
+    assert parse_extraction('Sure: {"project": "X", "tasks": []} done') == {"project": "X", "tasks": []}
+
+
+def test_template_offer_intercepts_and_confirm_renders(client, free_user, mock_provider,
+                                                       tmp_db_path, monkeypatch):
+    import json as _json
+    import sqlite3
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from app.services import generation_offers as go
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    monkeypatch.setattr(dg, "classify_generation_intent", AsyncMock(
+        return_value={"file_request": True, "format": "xlsx", "gist": "of our project plan"}))
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        user_content="build a gantt chart of our project plan",
+    ), headers=free_user["headers"])
+    cta = r.json()["feature_state"]["cta"]
+    assert cta["details"]["template_id"] == "gantt_smartsheet"
+    assert "polished" in cta["text"] and "custom" in cta["text"]   # open door
+    oid = cta["details"]["offer_id"]
+
+    # confirm: extraction turn (mock provider returns the plan JSON), then
+    # the deterministic renderer stages a real xlsx
+    uid = free_user.get("user_id")
+    if uid is None:
+        con = sqlite3.connect(tmp_db_path)
+        uid = con.execute("SELECT id FROM users WHERE email LIKE 'test-free-user%'").fetchone()[0]
+        con.close()
+    monkeypatch.setattr(dg, "interpret_offer_reply", AsyncMock(
+        return_value={"confirm": True, "format": "xlsx"}))
+    mock_provider.canned_response.text = _json.dumps(_PLAN)
+    mock_provider.return_value = mock_provider.canned_response
+    r2 = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        metadata={"offer_id": oid, "generation_id": "gen-tmpl-1"},
+        user_content="yes the polished one",
+    ), headers=free_user["headers"])
+    assert r2.status_code == 200
+    assert r2.headers["content-type"].startswith("text/event-stream")
+    result = _json.loads(r2.text.split("event: generation_result\ndata: ")[1].split("\n")[0])
+    assert result["generated_files"][0]["name"] == "Project_Gantt.xlsx"
+    assert "Built your xlsx" in result["text"]
+    # extraction turn was NOT a sandbox turn: no container arming happened
+    sent = mock_provider.await_args_list[-1].args[0]
+    assert sent.generation is False
+    assert "JSON" in sent.system_prompt          # extraction prompt replaced client prompt
