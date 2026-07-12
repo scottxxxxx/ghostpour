@@ -21,11 +21,14 @@ OFFER_TTL_S = 600  # an offer nobody replies to dies quietly
 _OFFERS: dict[tuple[str, str], dict] = {}
 
 
-def create(user_id: str, fmt: str, gist: str) -> str:
-    """Remember a live offer; returns its offer_id (rides the envelope)."""
+def create(user_id: str, fmt: str, gist: str, template_id: str | None = None) -> str:
+    """Remember a live offer; returns its offer_id (rides the envelope).
+    template_id marks a registry-matched offer: a confirm routes to the
+    deterministic template lane instead of ad-hoc sandbox generation."""
     offer_id = uuid.uuid4().hex[:12]
     _OFFERS[(user_id, offer_id)] = {
-        "format": fmt, "gist": gist, "expires": time.monotonic() + OFFER_TTL_S,
+        "format": fmt, "gist": gist, "template_id": template_id,
+        "expires": time.monotonic() + OFFER_TTL_S,
     }
     # opportunistic sweep — the map only ever holds in-flight conversations
     now = time.monotonic()

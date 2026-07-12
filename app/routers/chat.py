@@ -1718,6 +1718,7 @@ async def chat(
     # everything else is a normal chat turn — arming is confirmed-only.
     _gen_expected_seconds = None
     _gen_confirmation_enabled = False
+    _template_id = None
     if _gen_armed:
         from app.routers.config import _parse_accept_language
         from app.services.document_generation import (
@@ -1758,6 +1759,7 @@ async def chat(
                     verbatim=bool(_reply_verbatim), on_subcall=_meter)
                 if _reply["confirm"]:
                     _gen_armed = True
+                    _template_id = _offer.get("template_id")
                     _meta = dict(body.metadata or {})
                     _meta["generation_confirmed"] = True  # transport + rescue reuse
                     body = body.model_copy(update={"metadata": _meta})
@@ -1782,15 +1784,45 @@ async def chat(
                     provider_router, body.user_content, on_subcall=_meter,
                 )
                 if _intent and _intent.get("file_request"):
+                    from app.services.doc_templates import TEMPLATES, match_template
+                    _tmpl = match_template(body.user_content)
                     _offer_id = generation_offers.create(
                         user.id, _intent.get("format") or "xlsx",
-                        _intent.get("gist") or "")
-                    return JSONResponse(content=build_offer_envelope(
+                        _intent.get("gist") or "", template_id=_tmpl)
+                    _envelope = build_offer_envelope(
                         _confirmation, _intent.get("format"),
-                        gist=_intent.get("gist") or "", offer_id=_offer_id))
+                        gist=_intent.get("gist") or "", offer_id=_offer_id)
+                    if _tmpl:
+                        # registry interception: propose the optimized build,
+                        # keep the custom door open (a custom description
+                        # falls through as normal chat and re-offers).
+                        # en-only v1; served copy when templates localize.
+                        _t = TEMPLATES[_tmpl]
+                        _cta = _envelope["feature_state"]["cta"]
+                        _cta["text"] = (
+                            f"Sounds like you want a project timeline"
+                            f"{(' ' + _intent.get('gist')) if _intent.get('gist') else ''}. "
+                            f"I can build {_t['offer_noun']} in about "
+                            f"{_t['expected_seconds']} seconds — or describe "
+                            f"exactly what you have in mind and I'll build "
+                            f"that custom instead. Want the polished one?")
+                        _cta["details"]["template_id"] = _tmpl
+                        _cta["details"]["expected_seconds"] = _t["expected_seconds"]
+                    return JSONResponse(content=_envelope)
 
-    if _gen_armed:
+    if _gen_armed and not _template_id:
         body = body.model_copy(update={"generation": True})
+    elif _gen_armed and _template_id:
+        # Template lane: no sandbox — the model's whole job is emitting the
+        # plan as JSON; the registry's deterministic renderer draws the file.
+        from app.services.doc_templates import TEMPLATES
+        _t = TEMPLATES[_template_id]
+        body = body.model_copy(update={
+            "system_prompt": _t["extraction_prompt"],
+            "temperature": 0.2,
+            "max_tokens": 8000,
+        })
+        _gen_expected_seconds = _t["expected_seconds"]
 
     # 6. Stream or non-stream based on request + call_type
     # Only stream interactive queries; background tasks (summary, analysis) get full JSON.
@@ -1951,6 +1983,28 @@ async def chat(
         # blocks the text answer. Staged rows ride the response as
         # `generated_files`; count/bytes land in usage metering below.
         generated_payload: list[dict] = []
+        if _template_id and response and response.text:
+            # Template lane execution: parse the extraction, render
+            # deterministically, stage through the same pipeline as sandbox
+            # artifacts. Failures fall back to the raw model text so the
+            # user never gets a dead turn.
+            try:
+                from app.services import generated_files as _staging
+                from app.services.doc_templates import TEMPLATES, parse_extraction
+                _t = TEMPLATES[_template_id]
+                _plan = parse_extraction(response.text)
+                _bytes = await asyncio.to_thread(_t["renderer"], _plan)
+                _row = await _staging.stage(
+                    db, user_id=user.id, app_id=app_id,
+                    name=_t["filename"], media_type=_t["media_type"], content=_bytes)
+                if _row:
+                    generated_payload = [_row]
+                    _n = len(_plan.get("tasks") or [])
+                    response.text = (f"Built your {_t['format']} — "
+                                     f"{_n} tasks and milestones from "
+                                     f"{_plan.get('project') or 'the project'}.")
+            except Exception:
+                logger.exception("template lane render failed — serving raw text")
         if body.generation and response and response.raw_response_json:
             from app.services.document_generation import collect_generated_files
             generated_payload = await collect_generated_files(
@@ -2133,7 +2187,7 @@ async def chat(
     # or error. The client's only timeout is "no event for 30s". Unconfirmed
     # armed turns (the dark e2e lane) keep the plain JSON path.
     _gen_sse = bool(
-        body.generation
+        (body.generation or _template_id)
         and body.get_meta("generation_confirmed")
         and _gen_confirmation_enabled
     )
