@@ -48,6 +48,7 @@ _CONFIRMATION_DEFAULTS = {
     "poll_after_seconds": 5,
     "offer_text": ("This looks like a file request. Generate {format} from "
                    "this project? Takes about two minutes."),
+    "offer_text_gist": "Sounds like you want {format} {gist}. Want me to build it?",
     "format_nouns": {
         "xlsx": "a spreadsheet",
         "docx": "a Word document",
@@ -88,8 +89,11 @@ _CLASSIFIER_SYSTEM = (
     "Asking a question ABOUT an attached file is NOT a file request; only "
     "requests to produce/build/export/write a file count. Reply with ONLY "
     'this JSON, no prose: {"file_request": true|false, '
-    '"format": "xlsx"|"docx"|"pptx"|"pdf"|null} where format is your best '
-    "guess of the desired output format (null when file_request is false)."
+    '"format": "xlsx"|"docx"|"pptx"|"pdf"|null, "gist": "..."} where format '
+    "is your best guess of the desired output format (null when "
+    "file_request is false) and gist is a short lowercase phrase IN THE "
+    "LANGUAGE OF THE MESSAGE describing what the file is for, e.g. "
+    '"for onboarding new people" ("" when file_request is false).'
 )
 
 
@@ -125,33 +129,97 @@ async def classify_generation_intent(provider_router, user_content: str,
         fmt = parsed.get("format")
         if fmt not in ("xlsx", "docx", "pptx", "pdf"):
             fmt = None
-        return {"file_request": parsed["file_request"], "format": fmt}
+        gist = parsed.get("gist")
+        gist = gist.strip() if isinstance(gist, str) else ""
+        return {"file_request": parsed["file_request"], "format": fmt,
+                "gist": gist[:120]}
     except Exception as e:
         logger.info("generation intent classifier failed open: %s", e)
         return None
 
 
-def build_offer_envelope(confirmation_cfg: dict, fmt: str | None) -> dict:
+_INTERPRETER_SYSTEM = (
+    "The assistant just offered to build a file for the user and the user "
+    "replied. Decide whether the reply ACCEPTS the offer. Acceptance "
+    "includes casual agreement (yes / go ahead / sure / do it, in any "
+    "language) and agreement WITH a changed format or tweak (\"actually "
+    "make it a spreadsheet\"). A refusal, an unrelated question, or "
+    "anything ambiguous is NOT acceptance. Reply with ONLY this JSON: "
+    '{"confirm": true|false, "format": "xlsx"|"docx"|"pptx"|"pdf"|null} '
+    "where format is the user's revised choice, or null to keep the "
+    "offered format (always null when confirm is false)."
+)
+
+
+async def interpret_offer_reply(provider_router, offer: dict, reply_text: str,
+                                on_subcall=None) -> dict:
+    """Judge a chat reply against a live offer (handoff Part 1 v2).
+    Fail-open: any failure is a non-confirm — the turn proceeds as normal
+    chat and the user can simply ask again."""
+    import time as _time
+
+    from app.models.chat import ChatRequest
+    request = ChatRequest(
+        provider="anthropic",
+        model=_CLASSIFIER_MODEL,
+        system_prompt=_INTERPRETER_SYSTEM,
+        user_content=(f"OFFER: a {offer['format']} file {offer.get('gist') or ''}\n"
+                      f"USER REPLY: {reply_text[-1000:]}"),
+        max_tokens=50,
+        temperature=0.0,
+        call_type="generation_intent",
+        prompt_mode="GenerationOfferReply",
+    )
+    start = _time.monotonic()
+    try:
+        response = await asyncio.wait_for(provider_router.route(request), timeout=10.0)
+        elapsed_ms = int((_time.monotonic() - start) * 1000)
+        if on_subcall is not None:
+            await on_subcall(request, response, elapsed_ms)
+        txt = response.text or ""
+        parsed = json.loads(txt[txt.index("{"): txt.rindex("}") + 1])
+        confirm = parsed.get("confirm") is True
+        fmt = parsed.get("format")
+        if fmt not in ("xlsx", "docx", "pptx", "pdf"):
+            fmt = None
+        return {"confirm": confirm, "format": fmt or offer["format"]}
+    except Exception as e:
+        logger.info("offer reply interpreter failed open: %s", e)
+        return {"confirm": False, "format": offer["format"]}
+
+
+def build_offer_envelope(confirmation_cfg: dict, fmt: str | None,
+                         gist: str = "", offer_id: str | None = None) -> dict:
     """The confirmation_required feature-state envelope (handoff Part 1
     step 2). `details` is add-only — cost_credits slots here if consumable
     credits ever ship."""
     fmt = fmt or "xlsx"
     noun = (confirmation_cfg.get("format_nouns") or {}).get(fmt, "a file")
-    return {
+    gist = (gist or "").strip()
+    template = confirmation_cfg.get("offer_text_gist") if gist else None
+    text = str(template or confirmation_cfg["offer_text"])
+    text = text.replace("{format}", noun).replace("{gist}", gist)
+    payload = {
         "feature_state": {
             "feature": "document_generation",
             "state": "confirmation_required",
             "cta": {
                 "kind": "generation_offer",
-                "text": str(confirmation_cfg["offer_text"]).replace("{format}", noun),
+                # rendered VERBATIM as an assistant chat message (SS design
+                # revision 2026-07-12) and persisted in chat history
+                "text": text,
                 "action": "confirm_generation",
                 "details": {
                     "expected_format": fmt,
                     "expected_seconds": int(confirmation_cfg["expected_seconds"]),
+                    "gist": gist,
                 },
             },
         },
     }
+    if offer_id:
+        payload["feature_state"]["cta"]["details"]["offer_id"] = offer_id
+    return payload
 
 
 def generation_gate(

@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "limits": {
     "project_chat": {
       "max_input_chars": {
@@ -46,7 +46,8 @@
           "docx": "un documento de Word",
           "pptx": "una presentación",
           "pdf": "un PDF"
-        }
+        },
+        "offer_text_gist": "Parece que quieres {format} {gist}. ¿Quieres que lo prepare?"
       }
     }
   }

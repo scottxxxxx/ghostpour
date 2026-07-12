@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "limits": {
     "project_chat": {
       "max_input_chars": {
@@ -46,7 +46,8 @@
           "docx": "Word文書",
           "pptx": "スライド資料",
           "pdf": "PDF"
-        }
+        },
+        "offer_text_gist": "{gist}の{format}をご希望のようですね。作成しましょうか？"
       }
     }
   }

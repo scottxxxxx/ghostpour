@@ -85,6 +85,57 @@ Once this ships, generation arms ONLY on `generation_confirmed = true`.
 
 ---
 
+## Part 1 v2 — Conversational confirmation (SS design revision, PINNED 2026-07-12)
+
+Supersedes the button-primary flow. The offer IS a chat message; the
+reply IS the confirmation. The manual generate-as-file path with
+`generation_confirmed` stays exactly as designed (explicit fallback).
+
+### Flow
+
+1. Intent check unchanged — but the classifier now also returns a `gist`
+   (short phrase, in the user's language) and the envelope's `cta.text`
+   is composed conversationally from served, localized templates:
+   "Sounds like you want a Word document for onboarding new people. Want
+   me to build it?" The client renders that text VERBATIM as an assistant
+   chat message and persists it in history as an assistant turn.
+2. The envelope's `cta.details` now carries `offer_id` (and `gist`). GP
+   remembers the live offer server-side for ONE reply (10-minute TTL).
+3. **Echo fields (Q2):** the next send in that conversation carries
+   `metadata.offer_id` (from the envelope) and `metadata.generation_id`
+   (client-minted, as in Part 4). Field names exactly those.
+4. **Reply interpretation (Q1):** GP judges the reply against the offer
+   on that same send — no extra round trip. A yes (any language, any
+   casual phrasing) arms generation on THAT turn: the minted
+   generation_id becomes the rescue id, the turn re-resolves onto the
+   first-send lane, and the response is the Part 2 SSE event stream. A
+   no / unrelated reply is a normal chat turn; both ids are discarded.
+   Either way the offer is dead after one reply — and a fresh file
+   intent in the reply itself simply produces a fresh offer.
+5. **Modification replies (Q4): confirm-with-revised-intent.** "Actually
+   make it a spreadsheet" arms generation immediately with the revised
+   format — no second offer, no extra round trip. The interpreter
+   returns the revised format; the generation turn reads the
+   conversation (original ask + offer + reply) for full context.
+6. **Artifacts (Q5): nothing changes.** Chat-confirmed turns are the
+   same armed turns: `generation_result` carries `generated_files`
+   identically, download-on-land and file cards as agreed.
+
+### Client contract notes
+
+- A send that echoes an `offer_id` must be prepared for EITHER a normal
+  JSON answer or the generation SSE stream — SS stated this property and
+  it is load-bearing: the client never needs to know how GP judged.
+- The offer store is in-memory (same argument as the running registry):
+  a GP restart kills pending offers; the echoed id finds nothing and the
+  turn is normal chat. The user asks again, or uses the manual path.
+- The generation turn relies on the client's conversation assembly
+  carrying the original ask and the persisted offer message — which SS's
+  history-persistence position already guarantees.
+- Interpreter cost ~$0.001 (same classifier model), metered as
+  `generation_intent` usage rows. Fail-open: interpreter failure =
+  non-confirm, never a broken turn.
+
 ## Part 2 — Streaming wire sketch (generation transport)
 
 ### Shape
