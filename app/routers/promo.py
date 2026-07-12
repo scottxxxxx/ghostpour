@@ -265,6 +265,31 @@ def _campaign_capability_gated(c: dict) -> bool:
     return any(isinstance(v, dict) and v.get("min_app_version") for v in (c.get("variants") or []))
 
 
+def _primary_subtag(locale: str | None) -> str | None:
+    if not locale:
+        return None
+    return locale.lower().replace("-", "_").split("_")[0] or None
+
+
+def _localize_variant(variant: dict, locale_tag: str | None) -> dict:
+    """Apply the variant's per-locale content override and strip the
+    authoring-side content_locales map from the wire. Overrides are PARTIAL:
+    only the native fields a locale provides are replaced (title / body /
+    ctas / media — ctas wholesale, so labels and actions stay paired).
+    Unknown locale or no override -> the authored default, unchanged."""
+    served = {k: v for k, v in variant.items() if k != "content_locales"}
+    override = (variant.get("content_locales") or {}).get(locale_tag or "")
+    if not isinstance(override, dict):
+        return served
+    native = dict(served.get("native") or {})
+    for k in ("title", "body", "ctas", "media"):
+        if k in override:
+            native[k] = override[k]
+    if native:
+        served["native"] = native
+    return served
+
+
 def _pick_variant(variants: list, device_id: str, campaign_id: str) -> dict | None:
     """Weighted pick, stable per device so a user sees the same variant across
     launches (clean A/B buckets)."""
@@ -323,11 +348,21 @@ async def resolve_promo(
     # Build the device profile (telemetry lookup) only if some active campaign
     # targets a profile dim OR capability-gates a variant on app_version — keeps
     # the common path (no profile targeting, no gate) cheap.
-    needs_profile = any(
+    # Content locale: the request's Accept-Language wins (the client's
+    # EFFECTIVE app language when SS sends it); telemetry app_locale is the
+    # fallback signal (system locale — the two can differ, seen live).
+    from app.routers.config import _parse_accept_language
+    header_locale = _parse_accept_language(request.headers.get("Accept-Language"))
+    needs_locale_profile = header_locale is None and any(
+        isinstance(v, dict) and v.get("content_locales")
+        for c in campaigns for v in (c.get("variants") or [])
+    )
+    needs_profile = needs_locale_profile or any(
         (_PROFILE_KEYS & set((c.get("targeting") or {}).keys())) or _campaign_capability_gated(c)
         for c in campaigns
     )
     profile = await _device_profile(db, device_id, user) if needs_profile else None
+    locale_tag = _primary_subtag(header_locale or (profile or {}).get("locale"))
     for c in campaigns:
         if c.get("starts_at") and now < c["starts_at"]:
             continue
@@ -370,6 +405,7 @@ async def resolve_promo(
         variant = _pick_variant(capable, device_id, c["id"])
         if not variant:
             continue
+        variant = _localize_variant(variant, locale_tag)
         variant = await _inject_storekit_offer_codes(db, variant, user, device_id)
         return {"campaign_id": c["id"], "variant": variant}
     return {}
