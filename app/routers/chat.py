@@ -2029,6 +2029,14 @@ async def chat(
                     response.text = (f"Built your {_t['format']} — "
                                      f"{_n} tasks and milestones from "
                                      f"{_plan.get('project') or 'the project'}.")
+                    # metering stamp (the sandbox block below is skipped on
+                    # the template lane — first live run staged+delivered
+                    # but showed gen {} in usage metadata)
+                    _gmeta = dict(body.metadata or {})
+                    _gmeta["generated_count"] = 1
+                    _gmeta["generated_bytes"] = _row["size_bytes"]
+                    _gmeta["template_id"] = _template_id
+                    body = body.model_copy(update={"metadata": _gmeta})
             except Exception:
                 logger.exception("template lane render failed — serving raw text")
         if body.generation and response and response.raw_response_json:
