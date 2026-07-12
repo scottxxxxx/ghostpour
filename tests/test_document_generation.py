@@ -599,7 +599,8 @@ def test_offer_store_one_shot_and_ttl(monkeypatch):
     assert go.take("u2", oid) is None            # not yours
     offer = go.take("u1", oid)
     assert offer == {"format": "docx", "gist": "for onboarding",
-                     "template_id": None, "expires": offer["expires"]}
+                     "template_id": None, "ask_content": "",
+                     "expires": offer["expires"]}
     assert go.take("u1", oid) is None            # one-shot: dead after a reply
     oid2 = go.create("u1", "xlsx", "")
     monkeypatch.setattr(go, "OFFER_TTL_S", 0)
@@ -984,3 +985,43 @@ def test_template_match_survives_long_prompts_with_leading_keyword():
     long_spec = "Build me a project Gantt chart as an Excel file. " + ("Timeline details and colors. " * 200)
     assert len(long_spec) > 2000                      # keyword far outside any tail window
     assert match_template(long_spec) == "gantt_smartsheet"
+
+
+def test_confirmed_turn_runs_on_originating_ask_content(client, free_user, mock_provider,
+                                                        tmp_db_path, monkeypatch):
+    """First live template run: the reply send carried 410 chars of chat
+    history and the extraction asked the USER for the plan. The confirmed
+    turn must run against the originating ask's content instead."""
+    import json as _json
+    import sqlite3
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from app.services import generation_offers as go
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    meeting_context = ("MEETING CONTENT: auth phase Jul 8-15 owned by Chirag; "
+                       "release milestone Jul 15. " * 20)
+    monkeypatch.setattr(dg, "classify_generation_intent", AsyncMock(
+        return_value={"file_request": True, "format": "xlsx", "gist": "plan"}))
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        user_content=meeting_context + " build a gantt chart of this",
+    ), headers=free_user["headers"])
+    oid = r.json()["feature_state"]["cta"]["details"]["offer_id"]
+
+    monkeypatch.setattr(dg, "interpret_offer_reply", AsyncMock(
+        return_value={"confirm": True, "format": "xlsx"}))
+    mock_provider.canned_response.text = _json.dumps(_PLAN)
+    mock_provider.return_value = mock_provider.canned_response
+    r2 = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        metadata={"offer_id": oid, "generation_id": "gen-ctx-1",
+                  "reply_text": "yes"},
+        user_content="Previous conversation: Q/A only. Current question: yes",
+    ), headers=free_user["headers"])
+    assert r2.status_code == 200
+    sent = mock_provider.await_args_list[-1].args[0]
+    assert "MEETING CONTENT" in sent.user_content            # originating context restored
+    assert "confirmed the file build with: yes" in sent.user_content
+    assert "Previous conversation: Q/A only" not in sent.user_content
