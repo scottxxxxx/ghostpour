@@ -977,3 +977,10 @@ def test_template_offer_intercepts_and_confirm_renders(client, free_user, mock_p
     sent = mock_provider.await_args_list[-1].args[0]
     assert sent.generation is False
     assert "JSON" in sent.system_prompt          # extraction prompt replaced client prompt
+
+
+def test_template_match_survives_long_prompts_with_leading_keyword():
+    from app.services.doc_templates import match_template
+    long_spec = "Build me a project Gantt chart as an Excel file. " + ("Timeline details and colors. " * 200)
+    assert len(long_spec) > 2000                      # keyword far outside any tail window
+    assert match_template(long_spec) == "gantt_smartsheet"

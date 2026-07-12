@@ -222,9 +222,14 @@ TEMPLATES = {
 
 
 def match_template(text: str) -> str | None:
-    tail = (text or "")[-2000:].lower()
+    """Scan the WHOLE ask (capped), not a tail window: the first live miss
+    was a 400-word library prompt that said "Gantt" once, in its opening
+    sentence — a tail slice cut the keyword out of its own prompt. A plain
+    substring scan over 50K chars is microseconds; there's no reason to
+    window it."""
+    hay = (text or "")[-50000:].lower()
     for tid, t in TEMPLATES.items():
-        if any(h in tail for h in t["hints"]):
+        if any(h in hay for h in t["hints"]):
             return tid
     return None
 
