@@ -100,12 +100,36 @@ _CLASSIFIER_SYSTEM = (
 )
 
 
+# Recall-biased vocabulary prefilter: the Haiku classifier costs ~900ms on
+# every gate-passing send, which post-flip is every Pro chat message. Only
+# invoke it when the ask plausibly mentions making a file — the classifier
+# stays the decider (this list over-triggers by design), and misses have
+# the manual generate-as-file path. en/es/ja.
+_FILE_ASK_HINTS = (
+    "spreadsheet", "excel", "xlsx", "workbook", "word doc", "docx",
+    "powerpoint", "pptx", "slide", "deck", "pdf", "file", "report",
+    "chart", "gantt", "tracker", "export", "download", "document",
+    "hoja de cálculo", "archivo", "documento", "informe", "presentación",
+    "diapositiva", "gráfico",
+    "スプレッドシート", "ファイル", "文書", "ドキュメント", "資料",
+    "レポート", "エクセル", "ワード", "パワーポイント", "シート", "グラフ",
+)
+
+
+def looks_like_file_ask(text: str) -> bool:
+    tail = (text or "")[-2000:].lower()
+    return any(h in tail for h in _FILE_ASK_HINTS)
+
+
 async def classify_generation_intent(provider_router, user_content: str,
                                      on_subcall=None) -> dict | None:
     """Cheap pre-flight intent check (handoff Part 1 step 1). Fail-open:
     ANY failure returns None and the turn proceeds as normal chat. The tail
     of user_content carries the actual question on context-bearing surfaces.
     on_subcall(request, response, elapsed_ms) meters the classifier call."""
+    if not looks_like_file_ask(user_content):
+        return None
+
     import time as _time
 
     from app.models.chat import ChatRequest
