@@ -547,3 +547,18 @@ def test_adapter_steers_docx_toolchain_on_generation():
     api_body2, _ = _adapter()._build_body(_body(False))
     sys_texts2 = " ".join(b.get("text", "") for b in api_body2["system"])
     assert "python-docx" not in sys_texts2
+
+
+def test_docx_rebuild_checklist_glyphs_drop_the_bullet():
+    import io
+    import docx
+    from app.services.docx_rebuild import rebuild_docx
+    d = docx.Document()
+    d.add_paragraph("\u2610 Request ServiceNow access", style="List Bullet")
+    d.add_paragraph("Regular bullet item", style="List Bullet")
+    buf = io.BytesIO(); d.save(buf)
+    out = docx.Document(io.BytesIO(rebuild_docx(buf.getvalue())))
+    check = next(p for p in out.paragraphs if "ServiceNow" in p.text)
+    plain = next(p for p in out.paragraphs if "Regular bullet" in p.text)
+    assert check.style.name == "Normal"        # glyph is the marker
+    assert plain.style.name == "List Bullet"   # real bullets keep the style

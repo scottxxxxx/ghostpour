@@ -220,7 +220,10 @@ class AnthropicAdapter(ProviderAdapter):
                 "type": "text",
                 "text": ("When creating Word (.docx) files in the sandbox, "
                          "use the python-docx library — do not use docx.js "
-                         "or hand-written OOXML; Word rejects their output."),
+                         "or hand-written OOXML; Word rejects their output. "
+                         "For checklists, use plain paragraphs starting with "
+                         "the ballot-box glyph — never checkbox glyphs inside "
+                         "bulleted list items (double markers)."),
             }]
             body.setdefault("tools", []).append(
                 {"type": "code_execution_20260521", "name": "code_execution"}
