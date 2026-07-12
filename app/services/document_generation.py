@@ -46,14 +46,17 @@ _CONFIRMATION_DEFAULTS = {
     "enabled": False,
     "expected_seconds": 150,
     "poll_after_seconds": 5,
-    "offer_text": ("This looks like a file request. Generate {format} from "
-                   "this project? Takes about two minutes."),
-    "offer_text_gist": "Sounds like you want {format} {gist}. Want me to build it?",
+    "offer_text": ("That sounds like a file request. I can build {format} you "
+                   "can download and share — it takes about two minutes — or "
+                   "just answer right here in chat. Want the file?"),
+    "offer_text_gist": ("Sounds like you want {format} {gist}. Building the "
+                        "real file takes about two minutes — or I can just lay "
+                        "it out right here in chat. Want the file?"),
     "format_nouns": {
-        "xlsx": "a spreadsheet",
-        "docx": "a Word document",
-        "pptx": "a slide deck",
-        "pdf": "a PDF",
+        "xlsx": "a native Excel spreadsheet (.xlsx)",
+        "docx": "a native Word document (.docx)",
+        "pptx": "a native PowerPoint deck (.pptx)",
+        "pdf": "a PDF file",
     },
 }
 
@@ -143,8 +146,9 @@ _INTERPRETER_SYSTEM = (
     "replied. Decide whether the reply ACCEPTS the offer. Acceptance "
     "includes casual agreement (yes / go ahead / sure / do it, in any "
     "language) and agreement WITH a changed format or tweak (\"actually "
-    "make it a spreadsheet\"). A refusal, an unrelated question, or "
-    "anything ambiguous is NOT acceptance. Reply with ONLY this JSON: "
+    "make it a spreadsheet\"). A refusal, an unrelated question, "
+    "anything ambiguous, or asking for the content INLINE instead — "
+    "\"just show me here\", \"a table in chat is fine\" — is NOT acceptance. Reply with ONLY this JSON: "
     '{"confirm": true|false, "format": "xlsx"|"docx"|"pptx"|"pdf"|null} '
     "where format is the user's revised choice, or null to keep the "
     "offered format (always null when confirm is false)."

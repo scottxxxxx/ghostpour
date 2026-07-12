@@ -1779,11 +1779,20 @@ async def chat(
                     body = body.model_copy(update={"metadata": _meta})
                     # the routing dial resolved before we knew this was a
                     # generation turn — re-resolve so it rides the first-send
-                    # lane (same coherence rule as button-confirmed turns)
+                    # lane (same coherence rule as button-confirmed turns).
+                    # Routing rows are "provider/model" strings: split exactly
+                    # like the first-pass resolution, or the provider receives
+                    # a vendor-prefixed id it rejects (first live chat-confirm
+                    # failed on 'anthropic/claude-sonnet-4-6').
                     _re_model = _resolve_model_routing(
                         request, body, tier, effective_tier_name)
-                    if _re_model and _re_model != body.model:
-                        body = body.model_copy(update={"model": _re_model})
+                    if _re_model:
+                        _parts = _re_model.split("/", 1)
+                        if len(_parts) == 2:
+                            body = body.model_copy(update={
+                                "provider": _parts[0], "model": _parts[1]})
+                        elif _re_model != body.model:
+                            body = body.model_copy(update={"model": _re_model})
             if not _gen_armed:
                 _intent = await classify_generation_intent(
                     provider_router, body.user_content, on_subcall=_meter,

@@ -1,5 +1,5 @@
 {
-  "version": 7,
+  "version": 8,
   "limits": {
     "project_chat": {
       "max_input_chars": {
@@ -40,14 +40,14 @@
         "enabled": true,
         "expected_seconds": 150,
         "poll_after_seconds": 5,
-        "offer_text": "ファイル作成のリクエストのようです。このプロジェクトから{format}を生成しますか？約2分かかります。",
+        "offer_text": "ファイル作成のリクエストのようです。ダウンロードして共有できる{format}を作成できます（約2分）。このチャットで直接お答えすることもできます。ファイルを作成しますか？",
         "format_nouns": {
-          "xlsx": "スプレッドシート",
-          "docx": "Word文書",
-          "pptx": "スライド資料",
-          "pdf": "PDF"
+          "xlsx": "Excelスプレッドシート（.xlsx）",
+          "docx": "Word文書（.docx）",
+          "pptx": "PowerPointプレゼン（.pptx）",
+          "pdf": "PDFファイル"
         },
-        "offer_text_gist": "{gist}の{format}をご希望のようですね。作成しましょうか？"
+        "offer_text_gist": "{gist}の{format}をご希望のようですね。実ファイルの作成には約2分かかります。このチャットに直接表示することもできます。ファイルを作成しますか？"
       }
     }
   }
