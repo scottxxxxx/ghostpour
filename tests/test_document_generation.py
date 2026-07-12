@@ -1030,3 +1030,40 @@ def test_confirmed_turn_runs_on_originating_ask_content(client, free_user, mock_
     assert sent.system_prompt.startswith("You are a helpful assistant.")
     assert "FILE BUILD OVERRIDE" in sent.system_prompt
     assert "JSON ONLY" in sent.system_prompt
+
+
+def test_template_lane_stamps_generation_metering(client, free_user, mock_provider,
+                                                  tmp_db_path, monkeypatch):
+    import json as _json
+    import sqlite3
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from app.services import generation_offers as go
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    uid = free_user.get("user_id")
+    if uid is None:
+        con = sqlite3.connect(tmp_db_path)
+        uid = con.execute("SELECT id FROM users WHERE email LIKE 'test-free-user%'").fetchone()[0]
+        con.close()
+    oid = go.create(uid, "xlsx", "plan", template_id="gantt_smartsheet",
+                    ask_content="meetings say things")
+    monkeypatch.setattr(dg, "interpret_offer_reply", AsyncMock(
+        return_value={"confirm": True, "format": "xlsx"}))
+    mock_provider.canned_response.text = _json.dumps(_PLAN)
+    mock_provider.return_value = mock_provider.canned_response
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        metadata={"offer_id": oid, "generation_id": "gen-meter-1", "reply_text": "yes"},
+        user_content="yes",
+    ), headers=free_user["headers"])
+    assert r.status_code == 200
+    con = sqlite3.connect(tmp_db_path)
+    con.row_factory = sqlite3.Row
+    row = con.execute("SELECT metadata FROM usage_log WHERE user_id = ? "
+                      "ORDER BY request_timestamp DESC LIMIT 1", (uid,)).fetchone()
+    con.close()
+    md = _json.loads(row["metadata"])
+    assert md.get("generated") == {"count": 1, "bytes": md["generated"]["bytes"]}
+    assert md["generated"]["bytes"] > 1000
