@@ -21,13 +21,22 @@ OFFER_TTL_S = 600  # an offer nobody replies to dies quietly
 _OFFERS: dict[tuple[str, str], dict] = {}
 
 
-def create(user_id: str, fmt: str, gist: str, template_id: str | None = None) -> str:
+_ASK_CONTENT_CAP = 200_000
+
+
+def create(user_id: str, fmt: str, gist: str, template_id: str | None = None,
+           ask_content: str = "") -> str:
     """Remember a live offer; returns its offer_id (rides the envelope).
     template_id marks a registry-matched offer: a confirm routes to the
-    deterministic template lane instead of ad-hoc sandbox generation."""
+    deterministic template lane instead of ad-hoc sandbox generation.
+    ask_content is the ORIGINATING send's user_content — reply sends carry
+    chat history only (client assembly), so the confirmed turn must run
+    against the content the user was actually asking about (first live
+    template run got 410 chars of Q/A and asked the user for the plan)."""
     offer_id = uuid.uuid4().hex[:12]
     _OFFERS[(user_id, offer_id)] = {
         "format": fmt, "gist": gist, "template_id": template_id,
+        "ask_content": (ask_content or "")[:_ASK_CONTENT_CAP],
         "expires": time.monotonic() + OFFER_TTL_S,
     }
     # opportunistic sweep — the map only ever holds in-flight conversations

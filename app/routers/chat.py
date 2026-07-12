@@ -1762,7 +1762,20 @@ async def chat(
                     _template_id = _offer.get("template_id")
                     _meta = dict(body.metadata or {})
                     _meta["generation_confirmed"] = True  # transport + rescue reuse
-                    body = body.model_copy(update={"metadata": _meta})
+                    _updates: dict = {"metadata": _meta}
+                    # The confirmed turn runs against the ORIGINATING ask's
+                    # content (stored on the offer): reply sends assemble
+                    # chat history only, and both lanes — extraction and
+                    # sandbox — need the meeting content the user asked
+                    # about, plus the reply for any revisions.
+                    if _offer.get("ask_content"):
+                        _reply_line = (body.get_meta("reply_text")
+                                       or body.user_content[-500:])
+                        _updates["user_content"] = (
+                            _offer["ask_content"]
+                            + "\n\nThe user confirmed the file build with: "
+                            + str(_reply_line)[:500])
+                    body = body.model_copy(update=_updates)
                     # the routing dial resolved before we knew this was a
                     # generation turn — re-resolve so it rides the first-send
                     # lane (same coherence rule as button-confirmed turns).
@@ -1788,7 +1801,8 @@ async def chat(
                     _tmpl = match_template(body.user_content)
                     _offer_id = generation_offers.create(
                         user.id, _intent.get("format") or "xlsx",
-                        _intent.get("gist") or "", template_id=_tmpl)
+                        _intent.get("gist") or "", template_id=_tmpl,
+                        ask_content=body.user_content or "")
                     _envelope = build_offer_envelope(
                         _confirmation, _intent.get("format"),
                         gist=_intent.get("gist") or "", offer_id=_offer_id)
