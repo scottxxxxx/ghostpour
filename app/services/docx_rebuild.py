@@ -29,6 +29,11 @@ logger = logging.getLogger("ghostpour.docx_rebuild")
 
 _W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
+# Checklist glyphs the model likes to put INSIDE bulleted items — when a
+# list paragraph's text starts with one, the glyph IS the marker and adding
+# a bullet style would render "• ☐ item" (seen on the first live artifact).
+_CHECKLIST_GLYPHS = ("\u2610", "\u2611", "\u2612", "\u25a1", "\u2713", "\u2714")
+
 
 def _numbering_formats(src) -> dict[str, str]:
     """numId -> level-0 numFmt ("bullet" / "decimal" / ...) from the source
@@ -62,6 +67,11 @@ def _copy_paragraph(p, out, num_formats: dict[str, str], out_styles: set[str]) -
         # style-based markup (headings, style-based lists, quotes): keep any
         # style the Word-derived template also defines
         style = src_style
+    if (style in ("List Bullet", "List Number")
+            and p.text.lstrip().startswith(_CHECKLIST_GLYPHS)):
+        # checklist item (either list mechanism): the leading glyph IS the
+        # marker — a bullet style would render the "• ☐ item" double marker
+        style = None
     new = out.add_paragraph(style=style)
     if p.alignment is not None:
         new.alignment = p.alignment
