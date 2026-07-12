@@ -352,12 +352,12 @@ def test_confirmation_defaults_dark_but_bundles_live_and_agree():
     assert conf["enabled"] is False
     assert conf["expected_seconds"] == 150 and conf["poll_after_seconds"] == 5
     assert set(conf["format_nouns"]) == {"xlsx", "docx", "pptx", "pdf"}
-    # back to dark 2026-07-12: the envelope reached Scott's device before the
-    # SS client could render it ("Failed to parse CloudZap response") — flips
-    # on again when their offer-rendering build lands
+    # re-lit 2026-07-12 on SS's client-ready signal (offer rendering live);
+    # still reaches only the allowed_users lane while generation.enabled is
+    # false. Policy: ALWAYS ASK (Scott).
     for f in ("client-config.json", "client-config.es.json", "client-config.ja.json"):
         c = json.load(open(f"config/remote/{f}"))["documents"]["generation"]["confirmation"]
-        assert c["enabled"] is False
+        assert c["enabled"] is True
         assert "{format}" in c["offer_text"]
         assert set(c["format_nouns"]) == {"xlsx", "docx", "pptx", "pdf"}
 

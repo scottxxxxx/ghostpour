@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 7,
   "limits": {
     "project_chat": {
       "max_input_chars": {
@@ -37,7 +37,7 @@
       "max_files_out": 2,
       "max_file_out_mb": 25,
       "confirmation": {
-        "enabled": false,
+        "enabled": true,
         "expected_seconds": 150,
         "poll_after_seconds": 5,
         "offer_text": "ファイル作成のリクエストのようです。このプロジェクトから{format}を生成しますか？約2分かかります。",
