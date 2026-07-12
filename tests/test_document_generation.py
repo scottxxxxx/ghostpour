@@ -1025,3 +1025,8 @@ def test_confirmed_turn_runs_on_originating_ask_content(client, free_user, mock_
     assert "MEETING CONTENT" in sent.user_content            # originating context restored
     assert "confirmed the file build with: yes" in sent.user_content
     assert "Previous conversation: Q/A only" not in sent.user_content
+    # the client's system prompt (where Project Chat carries meeting
+    # summaries) survives, with the extraction directive appended
+    assert sent.system_prompt.startswith("You are a helpful assistant.")
+    assert "FILE BUILD OVERRIDE" in sent.system_prompt
+    assert "JSON ONLY" in sent.system_prompt

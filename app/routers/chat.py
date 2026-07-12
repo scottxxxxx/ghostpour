@@ -1829,10 +1829,22 @@ async def chat(
     elif _gen_armed and _template_id:
         # Template lane: no sandbox — the model's whole job is emitting the
         # plan as JSON; the registry's deterministic renderer draws the file.
+        # The client-assembled system prompt CARRIES the project context
+        # (meeting summaries — 7K chars on live Project Chat turns), so the
+        # extraction directive APPENDS as an override instead of replacing
+        # it: the first two live runs replaced it and the model, seeing no
+        # meetings, asked the user to paste their plan.
         from app.services.doc_templates import TEMPLATES
         _t = TEMPLATES[_template_id]
+        _client_sys = (body.system_prompt or "").strip()
+        _extraction_sys = (
+            _client_sys + "\n\n--- FILE BUILD OVERRIDE ---\n"
+            + _t["extraction_prompt"]
+            + " Ignore all earlier instructions about tone, style, or answer "
+              "formatting — output only the JSON object."
+        ) if _client_sys else _t["extraction_prompt"]
         body = body.model_copy(update={
-            "system_prompt": _t["extraction_prompt"],
+            "system_prompt": _extraction_sys,
             "temperature": 0.2,
             "max_tokens": 8000,
         })
