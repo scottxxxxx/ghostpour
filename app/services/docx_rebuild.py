@@ -80,6 +80,46 @@ def _copy_paragraph(p, out, num_formats: dict[str, str], out_styles: set[str]) -
         r.bold, r.italic, r.underline = run.bold, run.italic, run.underline
 
 
+def _page_field(paragraph, instr: str) -> None:
+    """Append a simple field (PAGE / NUMPAGES) to a paragraph."""
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+    fld = OxmlElement("w:fldSimple")
+    fld.set(qn("w:instr"), f" {instr} ")
+    r = OxmlElement("w:r")
+    t = OxmlElement("w:t")
+    t.text = "1"
+    r.append(t)
+    fld.append(r)
+    paragraph._p.append(fld)
+
+
+def _apply_title_and_chrome(out) -> None:
+    """Document chrome: promote the leading heading to the Title style, put
+    the title in the page header, and a 'Page X of Y' field in the footer."""
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+    title_text = ""
+    if out.paragraphs:
+        first = out.paragraphs[0]
+        if first.style.name.startswith("Heading"):
+            first.style = out.styles["Title"]
+        title_text = first.text
+
+    section = out.sections[0]
+    if title_text:
+        h = section.header.paragraphs[0]
+        h.text = title_text
+        h.style = out.styles["Header"]
+    f = section.footer.paragraphs[0]
+    f.style = out.styles["Footer"]
+    f.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    f.add_run("Page ")
+    _page_field(f, "PAGE")
+    f.add_run(" of ")
+    _page_field(f, "NUMPAGES")
+
+
 def rebuild_docx(content: bytes) -> bytes:
     """Rebuild a .docx into python-docx-authored, Word-safe form.
     Returns the original bytes unchanged on any failure."""
@@ -114,6 +154,8 @@ def rebuild_docx(content: bytes) -> bytes:
         first = out.paragraphs[0]
         if not first.text and len(out.paragraphs) > 1:
             first._p.getparent().remove(first._p)
+
+        _apply_title_and_chrome(out)
 
         buf = BytesIO()
         out.save(buf)

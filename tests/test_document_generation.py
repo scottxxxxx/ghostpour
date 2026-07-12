@@ -524,7 +524,7 @@ def test_docx_rebuild_preserves_content_and_produces_valid_docx():
     assert "Onboarding Guide" in texts
     assert any("Welcome aboard" == t for t in texts)
     heading = next(p for p in d.paragraphs if p.text == "Onboarding Guide")
-    assert heading.style.name == "Heading 1"
+    assert heading.style.name == "Title"  # leading heading promoted to Title
     bullets = [p for p in d.paragraphs if p.text in ("First item", "Second item")]
     assert all(p.style.name == "List Bullet" for p in bullets)
     bold_run = next(r for p in d.paragraphs for r in p.runs if r.text == "aboard")
@@ -562,3 +562,23 @@ def test_docx_rebuild_checklist_glyphs_drop_the_bullet():
     plain = next(p for p in out.paragraphs if "Regular bullet" in p.text)
     assert check.style.name == "Normal"        # glyph is the marker
     assert plain.style.name == "List Bullet"   # real bullets keep the style
+
+
+def test_docx_rebuild_title_header_and_page_footer():
+    import io
+    import docx
+    from app.services.docx_rebuild import rebuild_docx
+    d = docx.Document()
+    d.add_heading("Quarterly Plan", level=1)
+    d.add_heading("Goals", level=2)
+    d.add_paragraph("Ship phase two.")
+    buf = io.BytesIO(); d.save(buf)
+    out = docx.Document(io.BytesIO(rebuild_docx(buf.getvalue())))
+    assert out.paragraphs[0].style.name == "Title"
+    assert out.paragraphs[0].text == "Quarterly Plan"
+    goals = next(p for p in out.paragraphs if p.text == "Goals")
+    assert goals.style.name == "Heading 2"          # section headings untouched
+    sec = out.sections[0]
+    assert sec.header.paragraphs[0].text == "Quarterly Plan"
+    footer_xml = sec.footer.paragraphs[0]._p.xml
+    assert 'w:instr=" PAGE "' in footer_xml and 'w:instr=" NUMPAGES "' in footer_xml

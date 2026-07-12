@@ -223,7 +223,8 @@ class AnthropicAdapter(ProviderAdapter):
                          "or hand-written OOXML; Word rejects their output. "
                          "For checklists, use plain paragraphs starting with "
                          "the ballot-box glyph — never checkbox glyphs inside "
-                         "bulleted list items (double markers)."),
+                         "bulleted list items (double markers). Style the "
+                         "document title as Title, sections as Heading 1-3."),
             }]
             body.setdefault("tools", []).append(
                 {"type": "code_execution_20260521", "name": "code_execution"}
