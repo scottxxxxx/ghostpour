@@ -831,3 +831,29 @@ def test_meeting_chat_confirm_rides_generation_sse(client, free_user, mock_provi
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("text/event-stream")
     assert "event: generation_result" in r.text
+
+
+def test_isolate_reply_from_reinjected_attachment():
+    from app.services.document_generation import _isolate_reply
+    template = "RAG status: Red/Yellow/Green. " * 60          # ~1.8K of template
+    assembled = f'--- Attached: "Asana report" ---\n{template}\n--- End ---\nCurrent question: Yes'
+    assert _isolate_reply(assembled) == "Yes"                  # the actual reply, nothing else
+    assembled2 = f'context stuff\nUser question: yes, the word doc please'
+    assert _isolate_reply(assembled2) == "yes, the word doc please"
+    # no marker -> plain tail (pre-injection behavior)
+    assert _isolate_reply("just go ahead") == "just go ahead"
+
+
+@pytest.mark.asyncio
+async def test_interpreter_judges_reply_not_template(monkeypatch):
+    from unittest.mock import AsyncMock, MagicMock
+    from app.services.document_generation import interpret_offer_reply
+    router = MagicMock()
+    router.route = AsyncMock(return_value=MagicMock(text='{"confirm": true, "format": null}'))
+    template = "Variance: [Variance]. Red/Yellow escalation. " * 50
+    assembled = f'--- Attached: "Asana report" ---\n{template}\nCurrent question: Yes'
+    out = await interpret_offer_reply(router, {"format": "docx", "gist": "x"}, assembled)
+    sent = router.route.await_args.args[0].user_content
+    assert "USER REPLY: Yes" in sent
+    assert "Red/Yellow" not in sent               # template never reaches the judge
+    assert out == {"confirm": True, "format": "docx"}

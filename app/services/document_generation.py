@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 
 import aiosqlite
 import httpx
@@ -165,12 +166,31 @@ async def classify_generation_intent(provider_router, user_content: str,
         return None
 
 
+_REPLY_MARKER = re.compile(r"(?:current|user)\s+question\s*:\s*", re.I)
+
+
+def _isolate_reply(reply_text: str) -> str:
+    """Pull the user's actual reply out of the assembled send. Clients
+    re-inject attachment blocks into echo sends (by contract), so the raw
+    user_content tail is mostly document text with the reply at the very
+    end — feeding that to the judge made it fish template fragments out as
+    "the reply" (first live case: judged Scott's bare "Yes" ambiguous while
+    quoting 'y Red/Yellow?', a string from his attached template). Slice
+    after the last question marker when present; plain tail otherwise."""
+    matches = list(_REPLY_MARKER.finditer(reply_text or ""))
+    if matches:
+        return reply_text[matches[-1].end():][:1000]
+    return (reply_text or "")[-1000:]
+
+
 _INTERPRETER_SYSTEM = (
     "The assistant just offered to build a file for the user and the user "
     "replied. Decide whether the reply ACCEPTS the offer. Acceptance "
     "includes casual agreement (yes / go ahead / sure / do it, in any "
     "language) and agreement WITH a changed format or tweak (\"actually "
-    "make it a spreadsheet\"). A refusal, an unrelated question, "
+    "make it a spreadsheet\"). The reply may carry attached-document "
+    "context; judge ONLY the user's own words, never text quoted from an "
+    "attached document. A refusal, an unrelated question, "
     "anything ambiguous, or asking for the content INLINE instead — "
     "\"just show me here\", \"a table in chat is fine\" — is NOT acceptance. Reply with ONLY this JSON: "
     '{"confirm": true|false, "format": "xlsx"|"docx"|"pptx"|"pdf"|null} '
@@ -192,7 +212,7 @@ async def interpret_offer_reply(provider_router, offer: dict, reply_text: str,
         model=_CLASSIFIER_MODEL,
         system_prompt=_INTERPRETER_SYSTEM,
         user_content=(f"OFFER: a {offer['format']} file {offer.get('gist') or ''}\n"
-                      f"USER REPLY: {reply_text[-1000:]}"),
+                      f"USER REPLY: {_isolate_reply(reply_text)}"),
         max_tokens=50,
         temperature=0.0,
         call_type="generation_intent",
