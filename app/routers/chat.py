@@ -1756,16 +1756,45 @@ async def chat(
         _gen_confirmation_enabled = bool(_confirmation["enabled"])
         if _confirmation["enabled"] and not body.get_meta("generation_confirmed"):
             _gen_armed = False
-            _intent = await classify_generation_intent(
-                provider_router, body.user_content,
-                on_subcall=lambda creq, cresp, cms: usage_tracker.record_and_log(
-                    db, user=user, tier=tier, app_id=app_id,
-                    request=creq, response=cresp, elapsed_ms=cms, pricing=pricing,
-                ),
+            _meter = lambda creq, cresp, cms: usage_tracker.record_and_log(  # noqa: E731
+                db, user=user, tier=tier, app_id=app_id,
+                request=creq, response=cresp, elapsed_ms=cms, pricing=pricing,
             )
-            if _intent and _intent.get("file_request"):
-                return JSONResponse(content=build_offer_envelope(
-                    _confirmation, _intent.get("format")))
+            # Conversational confirmation (handoff Part 1 v2): a send echoing
+            # a live offer_id is the user's REPLY to our offer. GP judges it
+            # server-side — a yes (including yes-with-revised-format) arms
+            # generation on THIS very turn; anything else is a normal chat
+            # turn. The offer dies either way (one-reply lifetime).
+            from app.services import generation_offers
+            _offer_echo = body.get_meta("offer_id")
+            _offer = generation_offers.take(user.id, _offer_echo) if _offer_echo else None
+            if _offer is not None:
+                from app.services.document_generation import interpret_offer_reply
+                _reply = await interpret_offer_reply(
+                    provider_router, _offer, body.user_content, on_subcall=_meter)
+                if _reply["confirm"]:
+                    _gen_armed = True
+                    _meta = dict(body.metadata or {})
+                    _meta["generation_confirmed"] = True  # transport + rescue reuse
+                    body = body.model_copy(update={"metadata": _meta})
+                    # the routing dial resolved before we knew this was a
+                    # generation turn — re-resolve so it rides the first-send
+                    # lane (same coherence rule as button-confirmed turns)
+                    _re_model = _resolve_model_routing(
+                        request, body, tier, effective_tier_name)
+                    if _re_model and _re_model != body.model:
+                        body = body.model_copy(update={"model": _re_model})
+            if not _gen_armed:
+                _intent = await classify_generation_intent(
+                    provider_router, body.user_content, on_subcall=_meter,
+                )
+                if _intent and _intent.get("file_request"):
+                    _offer_id = generation_offers.create(
+                        user.id, _intent.get("format") or "xlsx",
+                        _intent.get("gist") or "")
+                    return JSONResponse(content=build_offer_envelope(
+                        _confirmation, _intent.get("format"),
+                        gist=_intent.get("gist") or "", offer_id=_offer_id))
 
     if _gen_armed:
         body = body.model_copy(update={"generation": True})

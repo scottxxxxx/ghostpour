@@ -380,7 +380,7 @@ def test_build_offer_envelope_shape():
     cta = fs["cta"]
     assert cta["kind"] == "generation_offer" and cta["action"] == "confirm_generation"
     assert "a Word document" in cta["text"]
-    assert cta["details"] == {"expected_format": "docx", "expected_seconds": 150}
+    assert cta["details"] == {"expected_format": "docx", "expected_seconds": 150, "gist": ""}
     # unknown/None format degrades to the default noun path, never a KeyError
     assert build_offer_envelope(_CONFIRMATION_DEFAULTS, None)["feature_state"]["cta"]["details"]["expected_format"] == "xlsx"
 
@@ -403,19 +403,19 @@ async def test_classifier_fail_open_and_strict_parse():
     router.route = AsyncMock(return_value=MagicMock(
         text='Sure: {"file_request": true, "format": "docx"} done'))
     out = await classify_generation_intent(router, "write this up as a word doc")
-    assert out == {"file_request": True, "format": "docx"}
+    assert out == {"file_request": True, "format": "docx", "gist": ""}
 
     # valid NO -> file_request False
     router.route = AsyncMock(return_value=MagicMock(
         text='{"file_request": false, "format": null}'))
     out = await classify_generation_intent(router, "what did we decide?")
-    assert out == {"file_request": False, "format": None}
+    assert out == {"file_request": False, "format": None, "gist": ""}
 
     # bogus format value normalizes to None rather than leaking to the wire
     router.route = AsyncMock(return_value=MagicMock(
         text='{"file_request": true, "format": "exe"}'))
     out = await classify_generation_intent(router, "make me a file")
-    assert out == {"file_request": True, "format": None}
+    assert out == {"file_request": True, "format": None, "gist": ""}
 
 
 @pytest.mark.asyncio
@@ -582,3 +582,126 @@ def test_docx_rebuild_title_header_and_page_footer():
     assert sec.header.paragraphs[0].text == "Quarterly Plan"
     footer_xml = sec.footer.paragraphs[0]._p.xml
     assert 'w:instr=" PAGE "' in footer_xml and 'w:instr=" NUMPAGES "' in footer_xml
+
+
+# --- conversational confirmation (Part 1 v2) ---
+
+def test_offer_store_one_shot_and_ttl(monkeypatch):
+    from app.services import generation_offers as go
+    oid = go.create("u1", "docx", "for onboarding")
+    assert go.take("u2", oid) is None            # not yours
+    offer = go.take("u1", oid)
+    assert offer == {"format": "docx", "gist": "for onboarding",
+                     "expires": offer["expires"]}
+    assert go.take("u1", oid) is None            # one-shot: dead after a reply
+    oid2 = go.create("u1", "xlsx", "")
+    monkeypatch.setattr(go, "OFFER_TTL_S", 0)
+    key = ("u1", oid2)
+    go._OFFERS[key]["expires"] -= 9999
+    assert go.take("u1", oid2) is None           # expired
+
+
+def test_offer_envelope_conversational_with_gist_and_offer_id():
+    from app.services.document_generation import _CONFIRMATION_DEFAULTS, build_offer_envelope
+    env = build_offer_envelope(_CONFIRMATION_DEFAULTS, "docx",
+                               gist="for onboarding new people", offer_id="abc123")
+    cta = env["feature_state"]["cta"]
+    assert cta["text"] == ("Sounds like you want a Word document for "
+                           "onboarding new people. Want me to build it?")
+    assert cta["details"]["offer_id"] == "abc123"
+    assert cta["details"]["gist"] == "for onboarding new people"
+    # no gist -> falls back to the original template, no dangling braces
+    env2 = build_offer_envelope(_CONFIRMATION_DEFAULTS, "xlsx", gist="", offer_id="x")
+    assert "{" not in env2["feature_state"]["cta"]["text"]
+
+
+@pytest.mark.asyncio
+async def test_interpreter_confirms_declines_and_revises():
+    from unittest.mock import AsyncMock, MagicMock
+    from app.services.document_generation import interpret_offer_reply
+    offer = {"format": "docx", "gist": "for onboarding"}
+
+    router = MagicMock()
+    router.route = AsyncMock(return_value=MagicMock(
+        text='{"confirm": true, "format": null}'))
+    out = await interpret_offer_reply(router, offer, "yes go ahead")
+    assert out == {"confirm": True, "format": "docx"}      # offered format kept
+
+    router.route = AsyncMock(return_value=MagicMock(
+        text='{"confirm": true, "format": "xlsx"}'))
+    out = await interpret_offer_reply(router, offer, "actually make it a spreadsheet")
+    assert out == {"confirm": True, "format": "xlsx"}      # revised intent
+
+    router.route = AsyncMock(return_value=MagicMock(
+        text='{"confirm": false, "format": null}'))
+    out = await interpret_offer_reply(router, offer, "no, what time is the standup?")
+    assert out["confirm"] is False
+
+    router.route = AsyncMock(side_effect=RuntimeError("boom"))
+    out = await interpret_offer_reply(router, offer, "yes")
+    assert out["confirm"] is False                          # fail-open = not armed
+
+
+def test_chat_confirm_arms_generation_on_the_reply_turn(client, free_user, mock_provider,
+                                                        tmp_db_path, monkeypatch):
+    import sqlite3
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from app.services import generation_offers as go
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    uid = free_user.get("user_id")
+    if uid is None:
+        con = sqlite3.connect(tmp_db_path)
+        uid = con.execute("SELECT id FROM users WHERE email LIKE 'test-free-user%'").fetchone()[0]
+        con.close()
+    oid = go.create(uid, "docx", "for onboarding")
+    monkeypatch.setattr(dg, "interpret_offer_reply",
+                        AsyncMock(return_value={"confirm": True, "format": "docx"}))
+
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        metadata={"offer_id": oid, "generation_id": "gen-chat-yes"},
+        user_content="yes, go ahead",
+    ), headers=free_user["headers"])
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/event-stream")
+    assert "event: generation_result" in r.text
+    con = sqlite3.connect(tmp_db_path)
+    row = con.execute("SELECT status FROM generations WHERE generation_id='gen-chat-yes'").fetchone()
+    con.close()
+    assert row and row[0] == "done"
+    assert go.take(uid, oid) is None            # offer consumed
+
+
+def test_chat_decline_is_a_normal_turn(client, free_user, mock_provider,
+                                       tmp_db_path, monkeypatch):
+    import sqlite3
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from app.services import generation_offers as go
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    uid = free_user.get("user_id")
+    if uid is None:
+        con = sqlite3.connect(tmp_db_path)
+        uid = con.execute("SELECT id FROM users WHERE email LIKE 'test-free-user%'").fetchone()[0]
+        con.close()
+    oid = go.create(uid, "docx", "for onboarding")
+    monkeypatch.setattr(dg, "interpret_offer_reply",
+                        AsyncMock(return_value={"confirm": False, "format": "docx"}))
+
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        metadata={"offer_id": oid, "generation_id": "gen-chat-no"},
+        user_content="no thanks, what time is the standup?",
+    ), headers=free_user["headers"])
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/json")
+    assert "feature_state" not in r.json()      # mock classifier junk fails open
+    con = sqlite3.connect(tmp_db_path)
+    row = con.execute("SELECT 1 FROM generations WHERE generation_id='gen-chat-no'").fetchone()
+    con.close()
+    assert row is None                           # ids discarded on decline
