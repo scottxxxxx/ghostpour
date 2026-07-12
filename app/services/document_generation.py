@@ -200,7 +200,7 @@ _INTERPRETER_SYSTEM = (
 
 
 async def interpret_offer_reply(provider_router, offer: dict, reply_text: str,
-                                on_subcall=None) -> dict:
+                                verbatim: bool = False, on_subcall=None) -> dict:
     """Judge a chat reply against a live offer (handoff Part 1 v2).
     Fail-open: any failure is a non-confirm — the turn proceeds as normal
     chat and the user can simply ask again."""
@@ -212,7 +212,7 @@ async def interpret_offer_reply(provider_router, offer: dict, reply_text: str,
         model=_CLASSIFIER_MODEL,
         system_prompt=_INTERPRETER_SYSTEM,
         user_content=(f"OFFER: a {offer['format']} file {offer.get('gist') or ''}\n"
-                      f"USER REPLY: {_isolate_reply(reply_text)}"),
+                      f"USER REPLY: {reply_text[:1000] if verbatim else _isolate_reply(reply_text)}"),
         max_tokens=50,
         temperature=0.0,
         call_type="generation_intent",
