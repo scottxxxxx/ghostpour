@@ -62,6 +62,8 @@ _GENERATION_SURFACES = {"ProjectChat", "PostMeetingChat"}
 
 _FILES_BASE = "https://api.anthropic.com/v1/files"
 _FILES_BETA = "files-api-2025-04-14"
+_DOCX_OUT = ("application/vnd.openxmlformats-officedocument."
+             "wordprocessingml.document")
 
 
 def load_generation_config(remote_configs: dict, locale: str | None = None) -> dict:
@@ -238,9 +240,16 @@ async def collect_generated_files(
                 if content_r.status_code != 200 or len(content_r.content) > max_bytes:
                     logger.warning("generation: download %s -> %s", fid, content_r.status_code)
                     continue
+                content = content_r.content
+                if mime == _DOCX_OUT:
+                    # Word-compat backstop (2026-07-11 field finding): rebuild
+                    # sandbox-authored docx on a Word-derived template.
+                    # Fail-open — a rebuild error keeps the original bytes.
+                    from app.services.docx_rebuild import rebuild_docx
+                    content = await asyncio.to_thread(rebuild_docx, content)
                 row = await staging.stage(
                     db, user_id=user_id, app_id=app_id,
-                    name=name, media_type=mime, content=content_r.content,
+                    name=name, media_type=mime, content=content,
                 )
                 if row:
                     staged.append(row)

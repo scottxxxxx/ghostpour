@@ -489,3 +489,61 @@ def test_unconfirmed_turn_fails_open_to_normal_json(client, free_user, mock_prov
     body = r.json()
     assert "feature_state" not in body
     assert body.get("generated_files") is None or "generated_files" not in body
+
+
+# --- docx Word-compat rebuild (backstop) ---
+
+def _make_source_docx():
+    import io
+    import docx
+    d = docx.Document()
+    d.add_heading("Onboarding Guide", level=1)
+    p = d.add_paragraph()
+    r = p.add_run("Welcome ")
+    r2 = p.add_run("aboard")
+    r2.bold = True
+    d.add_paragraph("First item", style="List Bullet")
+    d.add_paragraph("Second item", style="List Bullet")
+    t = d.add_table(rows=2, cols=2)
+    t.rows[0].cells[0].text = "Owner"
+    t.rows[0].cells[1].text = "Task"
+    t.rows[1].cells[0].text = "Scott"
+    t.rows[1].cells[1].text = "Review"
+    buf = io.BytesIO()
+    d.save(buf)
+    return buf.getvalue()
+
+
+def test_docx_rebuild_preserves_content_and_produces_valid_docx():
+    import io
+    import docx
+    from app.services.docx_rebuild import rebuild_docx
+    rebuilt = rebuild_docx(_make_source_docx())
+    d = docx.Document(io.BytesIO(rebuilt))
+    texts = [p.text for p in d.paragraphs]
+    assert "Onboarding Guide" in texts
+    assert any("Welcome aboard" == t for t in texts)
+    heading = next(p for p in d.paragraphs if p.text == "Onboarding Guide")
+    assert heading.style.name == "Heading 1"
+    bullets = [p for p in d.paragraphs if p.text in ("First item", "Second item")]
+    assert all(p.style.name == "List Bullet" for p in bullets)
+    bold_run = next(r for p in d.paragraphs for r in p.runs if r.text == "aboard")
+    assert bold_run.bold is True
+    assert len(d.tables) == 1
+    assert d.tables[0].rows[1].cells[0].text == "Scott"
+
+
+def test_docx_rebuild_fails_open_on_garbage():
+    from app.services.docx_rebuild import rebuild_docx
+    garbage = b"not a docx at all"
+    assert rebuild_docx(garbage) == garbage
+
+
+def test_adapter_steers_docx_toolchain_on_generation():
+    api_body, _ = _adapter()._build_body(_body(True))
+    sys_texts = " ".join(b.get("text", "") for b in api_body["system"])
+    assert "python-docx" in sys_texts and "docx.js" in sys_texts
+    # non-generation turns get no steering
+    api_body2, _ = _adapter()._build_body(_body(False))
+    sys_texts2 = " ".join(b.get("text", "") for b in api_body2["system"])
+    assert "python-docx" not in sys_texts2
