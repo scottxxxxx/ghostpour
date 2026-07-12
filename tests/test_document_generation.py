@@ -857,3 +857,18 @@ async def test_interpreter_judges_reply_not_template(monkeypatch):
     assert "USER REPLY: Yes" in sent
     assert "Red/Yellow" not in sent               # template never reaches the judge
     assert out == {"confirm": True, "format": "docx"}
+
+
+@pytest.mark.asyncio
+async def test_interpreter_prefers_verbatim_reply_text():
+    from unittest.mock import AsyncMock, MagicMock
+    from app.services.document_generation import interpret_offer_reply
+    router = MagicMock()
+    router.route = AsyncMock(return_value=MagicMock(text='{"confirm": true, "format": null}'))
+    # verbatim=True bypasses marker isolation entirely — SS sends the raw reply
+    out = await interpret_offer_reply(
+        router, {"format": "xlsx", "gist": "x"},
+        "Yes", verbatim=True)
+    sent = router.route.await_args.args[0].user_content
+    assert sent.endswith("USER REPLY: Yes")
+    assert out["confirm"] is True

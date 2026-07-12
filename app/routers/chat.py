@@ -1747,8 +1747,15 @@ async def chat(
             _offer = generation_offers.take(user.id, _offer_echo) if _offer_echo else None
             if _offer is not None:
                 from app.services.document_generation import interpret_offer_reply
+                # SS's next build sends the user's verbatim reply as
+                # metadata.reply_text — preferred over marker isolation of
+                # the assembled user_content (which stays as the fallback
+                # for older clients).
+                _reply_verbatim = body.get_meta("reply_text")
                 _reply = await interpret_offer_reply(
-                    provider_router, _offer, body.user_content, on_subcall=_meter)
+                    provider_router, _offer,
+                    _reply_verbatim if _reply_verbatim else body.user_content,
+                    verbatim=bool(_reply_verbatim), on_subcall=_meter)
                 if _reply["confirm"]:
                     _gen_armed = True
                     _meta = dict(body.metadata or {})
