@@ -907,7 +907,9 @@ def test_gantt_renderer_matches_reference_vocabulary():
     blob = render_gantt(_PLAN, today=datetime.date(2026, 7, 12))
     wb = openpyxl.load_workbook(io.BytesIO(blob))
     ws = wb["Gantt View"]
-    assert ws.freeze_panes == "G3"
+    assert ws.freeze_panes == "H3"
+    owners = [str(c.value) for row in ws.iter_rows(min_col=7, max_col=7) for c in row if c.value]
+    assert "Sarah Park" in owners and "Chirag Amin" in owners   # full names beside chips
     levels = {ws.row_dimensions[r].outline_level
               for r in ws.row_dimensions if ws.row_dimensions[r].outline_level}
     assert levels == {1, 2}                       # working collapse hierarchy

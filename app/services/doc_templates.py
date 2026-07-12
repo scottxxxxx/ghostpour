@@ -88,7 +88,7 @@ def render_gantt(data: dict, *, today: date | None = None) -> bytes:
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Gantt View"
-    FIRST_DAY_COL = 7  # A:dot B:name C:risk D:start E:end F:owner
+    FIRST_DAY_COL = 8  # A:dot B:name C:risk D:start E:end F:chip G:owner name
 
     # two-row timeline header: week-of labels over Mondays + day letters
     for i, d in enumerate(days):
@@ -106,15 +106,20 @@ def render_gantt(data: dict, *, today: date | None = None) -> bytes:
             c.font = Font(size=8, bold=True, color="FF" + _C["risk"])
     for col, (head, width) in enumerate(
             [("Status", 7), ("Task Name", 38), ("At\nRisk", 5),
-             ("Start\nDate", 11), ("End\nDate", 11), ("Owner", 7)], start=1):
+             ("Start\nDate", 11), ("End\nDate", 11), ("", 4),
+             ("Assigned To", 16)], start=1):
         c = ws.cell(2, col, head)
         c.font = Font(bold=True, size=9)
         c.alignment = Alignment(wrap_text=True, vertical="center")
+        c.fill = fill("E9E9E9")   # header band (Scott: "lost the cool highlighting")
         ws.column_dimensions[get_column_letter(col)].width = width
 
-    # status key block
+    # status key block — amber header band like the reference
     row = 3
-    ws.cell(row, 2, "  STATUS KEY").font = Font(bold=True, size=9)
+    kc = ws.cell(row, 2, "  STATUS KEY")
+    kc.font = Font(bold=True, size=9)
+    kc.fill = fill("FDF3E3")
+    ws.cell(row, 1).fill = fill("F5A623")
     for label, key in (("COMPLETED", "complete"), ("IN PROGRESS", "in_progress"),
                        ("ON HOLD", "on_hold"), ("NOT STARTED", "not_started")):
         row += 1
@@ -178,6 +183,8 @@ def render_gantt(data: dict, *, today: date | None = None) -> bytes:
             ws.cell(row, 5, t["end"]).font = Font(size=8, color="FF" + text_hex)
             owner = (t.get("owner") or "").strip()
             if owner:
+                # chip = colored initials; FULL NAME beside it (Scott's
+                # review: "I don't get the full name, just the letter")
                 initials = "".join(w[0] for w in owner.split()[:2]).upper()
                 hex_c = chip_cache.setdefault(
                     owner, _C["chips"][int(hashlib.sha256(owner.encode()).hexdigest(), 16) % len(_C["chips"])])
@@ -185,6 +192,8 @@ def render_gantt(data: dict, *, today: date | None = None) -> bytes:
                 chip.fill = fill(hex_c)
                 chip.font = Font(bold=True, size=8, color="FFFFFFFF")
                 chip.alignment = Alignment(horizontal="center")
+                nm = ws.cell(row, 7, owner)
+                nm.font = Font(size=8, color="FF" + text_hex)
             ws.row_dimensions[row].outline_level = 2
             timeline(row, t, _C["risk"] if risky else _C["bar"], text_hex)
             # ↳ handoff glyph: predecessor ends the day this task starts
@@ -198,7 +207,7 @@ def render_gantt(data: dict, *, today: date | None = None) -> bytes:
                     break
             row += 1
 
-    ws.freeze_panes = "G3"
+    ws.freeze_panes = "H3"
     ws.sheet_properties.outlinePr.summaryBelow = False
     buf = BytesIO()
     wb.save(buf)
