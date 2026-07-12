@@ -382,7 +382,9 @@ def test_build_offer_envelope_shape():
     assert fs["state"] == "confirmation_required"
     cta = fs["cta"]
     assert cta["kind"] == "generation_offer" and cta["action"] == "confirm_generation"
-    assert "a Word document" in cta["text"]
+    assert "a native Word document (.docx)" in cta["text"]
+    assert "two minutes" in cta["text"]                 # sets the wait expectation
+    assert "right here in chat" in cta["text"]          # offers the inline alternative
     assert cta["details"] == {"expected_format": "docx", "expected_seconds": 150, "gist": ""}
     # unknown/None format degrades to the default noun path, never a KeyError
     assert build_offer_envelope(_CONFIRMATION_DEFAULTS, None)["feature_state"]["cta"]["details"]["expected_format"] == "xlsx"
@@ -609,8 +611,10 @@ def test_offer_envelope_conversational_with_gist_and_offer_id():
     env = build_offer_envelope(_CONFIRMATION_DEFAULTS, "docx",
                                gist="for onboarding new people", offer_id="abc123")
     cta = env["feature_state"]["cta"]
-    assert cta["text"] == ("Sounds like you want a Word document for "
-                           "onboarding new people. Want me to build it?")
+    assert cta["text"] == ("Sounds like you want a native Word document "
+                           "(.docx) for onboarding new people. Building the "
+                           "real file takes about two minutes — or I can just "
+                           "lay it out right here in chat. Want the file?")
     assert cta["details"]["offer_id"] == "abc123"
     assert cta["details"]["gist"] == "for onboarding new people"
     # no gist -> falls back to the original template, no dangling braces
@@ -708,3 +712,51 @@ def test_chat_decline_is_a_normal_turn(client, free_user, mock_provider,
     row = con.execute("SELECT 1 FROM generations WHERE generation_id='gen-chat-no'").fetchone()
     con.close()
     assert row is None                           # ids discarded on decline
+
+
+def test_chat_confirm_resolution_splits_provider_prefixed_rows(client, free_user, mock_provider,
+                                                               tmp_db_path, monkeypatch):
+    """First live chat-confirm failed on 'anthropic/claude-sonnet-4-6': the
+    lane re-resolution must split provider/model rows exactly like the
+    first-pass resolution — the provider must NEVER see a vendor prefix."""
+    import sqlite3
+    from unittest.mock import AsyncMock
+    import app.routers.chat as chat_mod
+    import app.services.document_generation as dg
+    from app.services import generation_offers as go
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    uid = free_user.get("user_id")
+    if uid is None:
+        con = sqlite3.connect(tmp_db_path)
+        uid = con.execute("SELECT id FROM users WHERE email LIKE 'test-free-user%'").fetchone()[0]
+        con.close()
+    oid = go.create(uid, "xlsx", "gantt for tasks")
+    monkeypatch.setattr(dg, "interpret_offer_reply",
+                        AsyncMock(return_value={"confirm": True, "format": "xlsx"}))
+    monkeypatch.setattr(chat_mod, "_resolve_model_routing",
+                        lambda *a, **k: "anthropic/claude-sonnet-4-6")
+
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        metadata={"offer_id": oid, "generation_id": "gen-split-test"},
+        user_content="Yeah",
+    ), headers=free_user["headers"])
+    assert r.status_code == 200
+    assert "event: generation_result" in r.text          # NOT generation_error
+    # the request the provider actually received: prefix split, never a "/"
+    sent = mock_provider.await_args_list[-1].args[0]
+    assert sent.provider == "anthropic"
+    assert sent.model == "claude-sonnet-4-6"
+
+
+def test_model_not_found_error_hides_the_catalog(client):
+    import pytest as _pytest
+    from fastapi import HTTPException
+    router = client.app.state.provider_router
+    with _pytest.raises(HTTPException) as ei:
+        router.validate_model("anthropic", "claude-nonexistent-9")
+    msg = ei.value.detail["message"]
+    assert "Available" not in msg
+    assert "claude" not in msg.lower()                   # no catalog ids leak

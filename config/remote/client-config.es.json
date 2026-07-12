@@ -1,5 +1,5 @@
 {
-  "version": 7,
+  "version": 8,
   "limits": {
     "project_chat": {
       "max_input_chars": {
@@ -40,14 +40,14 @@
         "enabled": true,
         "expected_seconds": 150,
         "poll_after_seconds": 5,
-        "offer_text": "Parece una solicitud de archivo. ¿Generar {format} a partir de este proyecto? Tarda unos dos minutos.",
+        "offer_text": "Parece una solicitud de archivo. Puedo crear {format} para descargar y compartir, tarda unos dos minutos, o responder aquí mismo en el chat. ¿Quieres el archivo?",
         "format_nouns": {
-          "xlsx": "una hoja de cálculo",
-          "docx": "un documento de Word",
-          "pptx": "una presentación",
-          "pdf": "un PDF"
+          "xlsx": "una hoja de cálculo de Excel (.xlsx)",
+          "docx": "un documento de Word (.docx)",
+          "pptx": "una presentación de PowerPoint (.pptx)",
+          "pdf": "un archivo PDF"
         },
-        "offer_text_gist": "Parece que quieres {format} {gist}. ¿Quieres que lo prepare?"
+        "offer_text_gist": "Parece que quieres {format} {gist}. Crear el archivo real tarda unos dos minutos, o puedo mostrarlo aquí mismo en el chat. ¿Quieres el archivo?"
       }
     }
   }
