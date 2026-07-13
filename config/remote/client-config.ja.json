@@ -1,5 +1,5 @@
 {
-  "version": 8,
+  "version": 9,
   "limits": {
     "project_chat": {
       "max_input_chars": {
@@ -47,7 +47,8 @@
           "pptx": "PowerPointプレゼン（.pptx）",
           "pdf": "PDFファイル"
         },
-        "offer_text_gist": "{gist}の{format}をご希望のようですね。実ファイルの作成には約2分かかります。このチャットに直接表示することもできます。ファイルを作成しますか？"
+        "offer_text_gist": "{gist}の{format}をご希望のようですね。実ファイルの作成には約2分かかります。このチャットに直接表示することもできます。ファイルを作成しますか？",
+        "teaser_text": "これをダウンロードできるファイルにしますか？"
       }
     }
   }

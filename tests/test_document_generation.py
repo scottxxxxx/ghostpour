@@ -481,20 +481,22 @@ def test_confirmed_turn_rides_sse_and_records_rescue_row(client, free_user, mock
     assert row is not None and row[0] == "done"
 
 
-def test_unconfirmed_turn_fails_open_to_normal_json(client, free_user, mock_provider):
+def test_unconfirmed_soft_turn_fails_open_to_normal_json(client, free_user, mock_provider):
     from tests.conftest import chat_request
     _enable_confirmed_generation(client)
-    # confirmation live + no confirmed flag: the classifier runs against the
-    # mock provider, whose reply parses as junk -> fail-open -> normal chat,
-    # NOT armed, NOT an envelope, NOT SSE.
+    # confirmation live + no confirmed flag + SOFT phrasing (explicit verbs
+    # now short-circuit to a guaranteed offer): the classifier runs against
+    # the mock provider, whose reply parses as junk -> fail-open -> normal
+    # chat with the soft-intent TEASER attached, never a dead turn.
     r = client.post("/v1/chat", json=chat_request(
         prompt_mode="ProjectChat", call_type="query",
-        user_content="Build me a tracking spreadsheet",
+        user_content="what did we say about the spreadsheet yesterday?",
     ), headers=free_user["headers"])
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("application/json")
     body = r.json()
-    assert "feature_state" not in body
+    assert body["text"]
+    assert body["feature_state"]["cta"]["kind"] == "generation_teaser"
     assert body.get("generated_files") is None or "generated_files" not in body
 
 
@@ -1083,3 +1085,49 @@ def test_report_stoplight_is_calibrated():
     assert "EVIDENCE-ANCHORED" in prompt
     assert "no agreed path forward" in prompt          # red criteria observable
     assert "Borderline rule" in prompt                 # ties resolve deterministically
+
+
+def test_explicit_file_asks_are_a_guaranteed_catch():
+    from app.services.document_generation import explicit_file_ask
+    for ask, fmt in (("make me a file of the risks", None),
+                     ("please generate a spreadsheet from this", "xlsx"),
+                     ("build the docx we discussed", "docx"),
+                     ("can you create a PowerPoint for the exec review", "pptx")):
+        out = explicit_file_ask("meeting context blah. " * 50 + ask)
+        assert out is not None and out["file_request"] is True, ask
+        assert out["format"] == fmt, ask
+    assert explicit_file_ask("what did we decide about the file server?") is None
+
+
+def test_explicit_catch_offers_even_when_classifier_is_down(client, free_user,
+                                                            mock_provider, monkeypatch):
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from tests.conftest import chat_request
+    _enable_confirmed_generation(client)
+    monkeypatch.setattr(dg, "classify_generation_intent",
+                        AsyncMock(side_effect=RuntimeError("classifier down")))
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        user_content="generate a spreadsheet of our action items",
+    ), headers=free_user["headers"])
+    assert r.json()["feature_state"]["state"] == "confirmation_required"
+
+
+def test_soft_vocabulary_gets_teaser_not_offer(client, free_user, mock_provider, monkeypatch):
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from tests.conftest import chat_request
+    _enable_confirmed_generation(client)
+    monkeypatch.setattr(dg, "classify_generation_intent", AsyncMock(
+        return_value={"file_request": False, "format": None, "gist": ""}))
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        user_content="what did the report say about the deadline?",
+    ), headers=free_user["headers"])
+    body = r.json()
+    assert body["text"]                                        # normal answer
+    fs = body["feature_state"]
+    assert fs["state"] == "available"
+    assert fs["cta"]["kind"] == "generation_teaser"
+    assert fs["cta"]["text"] == "Want this as a real downloadable file?"

@@ -1719,6 +1719,7 @@ async def chat(
     _gen_expected_seconds = None
     _gen_confirmation_enabled = False
     _template_id = None
+    _gen_teaser_text = ""
     if _gen_armed:
         from app.routers.config import _parse_accept_language
         from app.services.document_generation import (
@@ -1793,9 +1794,24 @@ async def chat(
                         elif _re_model != body.model:
                             body = body.model_copy(update={"model": _re_model})
             if not _gen_armed:
-                _intent = await classify_generation_intent(
-                    provider_router, body.user_content, on_subcall=_meter,
+                # guaranteed catch first (deterministic, no LLM); the
+                # classifier only judges the softer phrasings
+                from app.services.document_generation import (
+                    explicit_file_ask,
+                    looks_like_file_ask,
                 )
+                _intent = explicit_file_ask(body.user_content)
+                if _intent is None:
+                    _intent = await classify_generation_intent(
+                        provider_router, body.user_content, on_subcall=_meter,
+                    )
+                # teaser candidate: file vocabulary present but no request
+                # judged — the answer carries a served "want this as a real
+                # file?" CTA; the tap resends with generation_confirmed
+                # (SS renders the envelope family already)
+                if ((_intent is None or not _intent.get("file_request"))
+                        and looks_like_file_ask(body.user_content)):
+                    _gen_teaser_text = str(_confirmation.get("teaser_text") or "")
                 if _intent and _intent.get("file_request"):
                     from app.services.doc_templates import TEMPLATES, match_template
                     _tmpl = match_template(body.user_content)
@@ -2187,6 +2203,20 @@ async def chat(
         # client downloads immediately (URLs are a 6h fetch window, not storage).
         if generated_payload:
             response_data["generated_files"] = generated_payload
+        if _gen_teaser_text and not generated_payload:
+            # soft-intent teaser (SS design, replacing their manual toggle):
+            # same envelope family they render everywhere; the tap resends
+            # this ask with generation_confirmed
+            response_data["feature_state"] = {
+                "feature": "document_generation",
+                "state": "available",
+                "cta": {
+                    "kind": "generation_teaser",
+                    "text": _gen_teaser_text,
+                    "action": "confirm_generation",
+                    "details": {},
+                },
+            }
 
         json_response = JSONResponse(content=response_data)
 
