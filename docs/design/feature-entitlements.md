@@ -1,7 +1,8 @@
 # Feature entitlements — visibility, matrix, grants
 
-Status: DRAFT for approval (SS ask, 2026-07-09). Nothing here touches the
-documents rollout; this is about where the next features land.
+Status: APPROVED 2026-07-13 — all four §5 decisions decided (Scott).
+Nothing here touches the documents rollout mid-flight; this is about
+where the next features land.
 
 ## 1. What SS asked for
 
@@ -85,6 +86,10 @@ enforcement would read a different home than the dashboard shows).
 - Migration lands dark: first ship the resolver reading a seeded matrix
   bit-identical to current tiers.yml assignments (no behavior change),
   verify, then delete the YAML blocks.
+- documents' `min_tier` folds into the matrix in this phase (per §5.4):
+  once the documents rollout is declared done, documents becomes a
+  matrix row and the client-config documents key is served DERIVED from
+  it — no client wire change; `allowed_users` waits for Phase 3.
 
 Decision this bakes in: availability changes (documents moving Pro→Plus)
 become a dashboard cell flip, no deploy, no client change.
@@ -125,7 +130,21 @@ become a dashboard cell flip, no deploy, no client change.
    decision engine's job (targeting, frequency, priority, reporting);
    entitlements only answer "what may this user do." Marketing never
    writes entitlement rows.
-3. Phase order confirmation: 1 (read-only) → 2 (matrix) → 3 (grants), with
-   3 gated on getting serious about IAP add-ons.
-4. Whether documents' min_tier folds into the matrix at phase 2 or stays
-   config-shaped until phase 3 migrates allowed_users too.
+3. ~~Phase order~~ — DECIDED 2026-07-13 (Scott): confirmed as written,
+   1 → 2 → 3, with 3 gated on IAP add-ons getting real. Phase 1's
+   source-of-truth view doubles as the verification surface for the
+   Phase 2 migration (prove bit-identical resolution before the YAML
+   blocks are deleted). No early grants table — documents'
+   `allowed_users` covers the only test-grant lane that exists today.
+4. ~~documents min_tier timing~~ — DECIDED 2026-07-13 (Scott): folds
+   into the matrix at PHASE 2 — the motivating dashboard flip
+   ("SS Plus can generate files") IS documents, so the matrix must own
+   it or Phase 2 can't do its job. Two conditions:
+   - Sequencing: the fold lands only after the documents rollout is
+     declared done (timing condition; the mid-rollout non-goal stands).
+   - No client wire change: the client-config documents key becomes
+     DERIVED from the matrix and is served unchanged; SS moves to the
+     resolved `features` dict on their own schedule. Tri-state maps
+     cleanly (teaser CTA behavior already shipped for documents).
+   `allowed_users` still migrates at Phase 3 — it is a per-user grant
+   and waits for the grants table.
