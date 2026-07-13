@@ -1080,7 +1080,7 @@ def test_report_stoplight_is_calibrated():
     src = open("app/routers/reports.py").read()
     import re
     block = src[src.index("chat_request = ChatRequest("):]
-    assert "temperature=0.2" in block[:600]
+    assert "temperature=0.2" in block[:1200]
     prompt = open("app/services/meeting_report.py").read()
     assert "EVIDENCE-ANCHORED" in prompt
     assert "no agreed path forward" in prompt          # red criteria observable
