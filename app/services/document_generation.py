@@ -133,11 +133,26 @@ _EXPLICIT_NOUNS = {
 }
 
 
+_QUESTION_MARKER = re.compile(r"(?:current|user)\s+question\s*:\s*", re.I)
+
+
+def _question_portion(text: str) -> str:
+    """The user's actual question, not the attachment injection blocks.
+    With conversation-scoped attachments (SS design, 2026-07-13) the
+    reference text rides EVERY turn — intent checks judging the full tail
+    would re-trigger classifiers and teasers on every follow-up because
+    the document vocabulary is always present. Slice after the last
+    question marker when the client assembly provides one; whole text
+    otherwise."""
+    m = list(_QUESTION_MARKER.finditer(text or ""))
+    return text[m[-1].end():] if m else (text or "")
+
+
 def explicit_file_ask(text: str) -> dict | None:
     """Deterministic catch for explicit generation asks. Returns an intent
     dict ({file_request, format, gist}) or None. A miss on an explicit
     phrase is a bug here, never a UX gap."""
-    tail = (text or "")[-4000:].lower()
+    tail = _question_portion(text)[-4000:].lower()
     for fmt, noun in _EXPLICIT_NOUNS.items():
         if re.search(rf"{_EXPLICIT_VERBS}\b[^.!?\n]{{0,60}}?\b{noun}", tail):
             return {"file_request": True, "format": fmt, "gist": ""}
@@ -155,6 +170,7 @@ async def classify_generation_intent(provider_router, user_content: str,
     ANY failure returns None and the turn proceeds as normal chat. The tail
     of user_content carries the actual question on context-bearing surfaces.
     on_subcall(request, response, elapsed_ms) meters the classifier call."""
+    user_content = _question_portion(user_content)
     if not looks_like_file_ask(user_content):
         return None
 

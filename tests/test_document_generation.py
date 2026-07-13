@@ -1193,3 +1193,16 @@ def test_generation_survives_client_disconnect(client, free_user, mock_provider,
         if row is None:
             time.sleep(0.5)
     assert row is not None and row[0] == "done"
+
+
+def test_intent_checks_ignore_persistent_injection_blocks():
+    """Conversation-scoped attachments ride every turn — the injection
+    text must not re-trigger intent machinery on unrelated follow-ups."""
+    from app.services.document_generation import _question_portion, explicit_file_ask, looks_like_file_ask
+    turn = ('--- Attached: "plan.xlsx" ---\nspreadsheet of files and documents\n'
+            '--- End ---\nCurrent question: who owns the auth fix?')
+    assert _question_portion(turn) == "who owns the auth fix?"
+    assert not looks_like_file_ask(_question_portion(turn))
+    assert explicit_file_ask(turn) is None            # despite "spreadsheet" in the block
+    turn2 = turn.replace("who owns the auth fix?", "now generate a spreadsheet of it")
+    assert explicit_file_ask(turn2)["file_request"] is True
