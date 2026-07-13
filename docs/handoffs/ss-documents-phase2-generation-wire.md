@@ -340,3 +340,45 @@ Poll `GET /v1/generations/{id}` only while a surface holding an
 unresolved id is in the FOREGROUND, at `poll_after_seconds` cadence;
 stop when backgrounded. Open-time polling plus the in-band result is
 the intended pattern — never a background timer.
+
+---
+
+## Part 6 — Conversation-scoped references: the `reference_text` field (PROPOSED 2026-07-13)
+
+Companion to conversation-scoped attachments. The native-documents half
+already caches (breakpoint after the last document block — the measured
+77%); the TEXT-injection half re-bills every turn because it lives
+inside the question string, past the cache boundary. The fix spends our
+SPARE fourth cache breakpoint — no system-prompt contract change.
+
+### Wire
+
+- New add-only request field: `reference_text` (string) — the assembled
+  injection blocks for the conversation's text references, sent on every
+  turn, byte-identical while the chip set is unchanged.
+- `user_content` then carries ONLY context/history/question — no
+  injection blocks.
+- GP renders `reference_text` as its own content part between the
+  document blocks and the question part, with `cache_control` on it.
+  One cache bust at attach/removal; cached reads every turn after.
+- Old clients keep concatenating into `user_content` — everything still
+  works, just uncached (the field is pure optimization).
+
+### Breakpoint budget (the one design detail)
+
+Four breakpoints total: system prefix, recall block, documents,
+reference_text = full. Generation-armed turns also want one on the final
+user text (the $1.04→$0.33 spike lesson). Priority rule when all
+contend, armed turns only: the reference_text breakpoint yields to the
+generation breakpoint — the sandbox loop re-reads the whole prompt each
+internal round, so caching the LARGEST stable prefix (through
+reference_text via the generation breakpoint on the final part) is
+strictly better there anyway. GP owns this logic; SS never sees it.
+
+### Economics, stated honestly
+
+~1–3K tokens per turn cached instead of re-billed ≈ $0.003–0.009/turn on
+the strong lane; a dime over a long conversation. Cheap to build, so it
+ships as the fast-follow to conversation-scoped chips rather than
+waiting for metering pain. System-prompt placement is OFF the table —
+same economics, worse contract risk.
