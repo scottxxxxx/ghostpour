@@ -1756,6 +1756,16 @@ async def chat(
             from app.services import generation_offers
             _offer_echo = body.get_meta("offer_id")
             _offer = generation_offers.take(user.id, _offer_echo) if _offer_echo else None
+            # Observability (2026-07-13 meeting-chat echo incident): metadata
+            # KEY NAMES only — values can carry user content. This is the
+            # wire evidence for "did the client echo at all / did the echo
+            # miss the store" the next time a reply falls through.
+            logger.info(
+                "generation_offer_reply_check echo=%s hit=%s meta_keys=%s",
+                "present" if _offer_echo else "absent",
+                _offer is not None,
+                sorted((body.metadata or {}).keys()),
+            )
             if _offer is not None:
                 from app.services.document_generation import interpret_offer_reply
                 # SS's next build sends the user's verbatim reply as
@@ -1847,6 +1857,12 @@ async def chat(
                             f"that custom instead. Want the polished one?")
                         _cta["details"]["template_id"] = _tmpl
                         _cta["details"]["expected_seconds"] = _t["expected_seconds"]
+                    logger.info(
+                        "generation_offer_served offer_id=%s surface=%s "
+                        "template=%s format=%s stream_requested=%s",
+                        _offer_id, body.get_meta("prompt_mode"), _tmpl,
+                        _intent.get("format"), bool(body.stream),
+                    )
                     return JSONResponse(content=_envelope)
 
     if _gen_armed and not _template_id:
