@@ -118,9 +118,13 @@ become a dashboard cell flip, no deploy, no client change.
    single source of truth. Full matrix in `entitlements.json`, tiers.yml
    `features:` blocks deleted in the same phase, enforcement and served
    config read the same live object. No fallback/override layering.
-2. Grant semantics: is `teaser` grantable per user, or are grants
-   binary enabled/disabled? (Recommended: binary — teaser is a marketing
-   state, not an entitlement.)
+2. ~~Grant semantics~~ — DECIDED 2026-07-13 (Scott): grants are BINARY
+   (enabled/disabled). Teaser stays a tier-level matrix state. Principle:
+   targeted teasing is a campaign, not a grant — showing a teaser/CTA to
+   a targeted user group (locale, usage hours, app starts) is the promo
+   decision engine's job (targeting, frequency, priority, reporting);
+   entitlements only answer "what may this user do." Marketing never
+   writes entitlement rows.
 3. Phase order confirmation: 1 (read-only) → 2 (matrix) → 3 (grants), with
    3 gated on getting serious about IAP add-ons.
 4. Whether documents' min_tier folds into the matrix at phase 2 or stays
