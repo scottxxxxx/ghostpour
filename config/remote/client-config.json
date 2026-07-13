@@ -1,5 +1,5 @@
 {
-  "version": 8,
+  "version": 9,
   "limits": {
     "project_chat": {
       "max_input_chars": {
@@ -47,7 +47,8 @@
           "pptx": "a native PowerPoint deck (.pptx)",
           "pdf": "a PDF file"
         },
-        "offer_text_gist": "Sounds like you want {format} {gist}. Building the real file takes about two minutes — or I can just lay it out right here in chat. Want the file?"
+        "offer_text_gist": "Sounds like you want {format} {gist}. Building the real file takes about two minutes — or I can just lay it out right here in chat. Want the file?",
+        "teaser_text": "Want this as a real downloadable file?"
       }
     }
   }

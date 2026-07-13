@@ -53,6 +53,7 @@ _CONFIRMATION_DEFAULTS = {
     "offer_text_gist": ("Sounds like you want {format} {gist}. Building the "
                         "real file takes about two minutes — or I can just lay "
                         "it out right here in chat. Want the file?"),
+    "teaser_text": "Want this as a real downloadable file?",
     "format_nouns": {
         "xlsx": "a native Excel spreadsheet (.xlsx)",
         "docx": "a native Word document (.docx)",
@@ -115,6 +116,32 @@ _FILE_ASK_HINTS = (
     "スプレッドシート", "ファイル", "文書", "ドキュメント", "資料",
     "レポート", "エクセル", "ワード", "パワーポイント", "シート", "グラフ",
 )
+
+
+# Explicit file verbs are a GUARANTEED catch (SS contract, 2026-07-12,
+# replacing their removed manual toggle): "make me a file", "generate a
+# spreadsheet", "build the docx" must never depend on a sampled classifier.
+# Deterministic pattern -> file_request True with the noun's format; the
+# LLM classifier only handles everything softer.
+_EXPLICIT_VERBS = r"(?:make|generate|build|create|produce|export)"
+_EXPLICIT_NOUNS = {
+    "xlsx": r"(?:spreadsheet|excel|xlsx|workbook|hoja de c\u00e1lculo|\u30b9\u30d7\u30ec\u30c3\u30c9\u30b7\u30fc\u30c8|\u30a8\u30af\u30bb\u30eb)",
+    "docx": r"(?:word doc\w*|docx|documento de word|\u30ef\u30fc\u30c9)",
+    "pptx": r"(?:powerpoint|pptx|slide deck|deck|presentaci\u00f3n|\u30d1\u30ef\u30fc\u30dd\u30a4\u30f3\u30c8)",
+    "pdf": r"(?:pdf)",
+    None: r"(?:file|document|archivo|\u30d5\u30a1\u30a4\u30eb)",
+}
+
+
+def explicit_file_ask(text: str) -> dict | None:
+    """Deterministic catch for explicit generation asks. Returns an intent
+    dict ({file_request, format, gist}) or None. A miss on an explicit
+    phrase is a bug here, never a UX gap."""
+    tail = (text or "")[-4000:].lower()
+    for fmt, noun in _EXPLICIT_NOUNS.items():
+        if re.search(rf"{_EXPLICIT_VERBS}\b[^.!?\n]{{0,60}}?\b{noun}", tail):
+            return {"file_request": True, "format": fmt, "gist": ""}
+    return None
 
 
 def looks_like_file_ask(text: str) -> bool:
