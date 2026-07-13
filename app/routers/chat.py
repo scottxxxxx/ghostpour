@@ -2278,7 +2278,18 @@ async def chat(
             "sqlite+aiosqlite:///", "")
         _sse_db = await _aiosqlite.connect(_db_path)
         _sse_db.row_factory = _aiosqlite.Row
-        _task = asyncio.create_task(_run_turn_tail(db=_sse_db))
+
+        async def _tail_owning_db():
+            # The TASK owns the connection, not the generator: a client
+            # disconnect cancels the generator, but the turn must run to
+            # completion and write its rescue row + stage its artifact —
+            # that's the entire paid-but-unseen case rescue exists for.
+            try:
+                return await _run_turn_tail(db=_sse_db)
+            finally:
+                await _sse_db.close()
+
+        _task = asyncio.create_task(_tail_owning_db())
         while True:
             done, _ = await asyncio.wait({_task}, timeout=5)
             if done:
@@ -2302,8 +2313,6 @@ async def chat(
             logger.exception("generation transport: turn failed")
             yield _sse("generation_error", {"code": "provider_error",
                                             "message": "generation failed"})
-        finally:
-            await _sse_db.close()
 
     return StreamingResponse(_generation_events(), media_type="text/event-stream")
 

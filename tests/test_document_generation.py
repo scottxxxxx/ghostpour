@@ -1148,3 +1148,48 @@ def test_reports_route_carries_tr_budget_pre_gate():
     block = src[i:i+900]
     assert "would_exceed_tr_budget" in block
     assert "429" in block and "allocation_exhausted" in block   # TR's exact shape
+
+
+def test_generation_survives_client_disconnect(client, free_user, mock_provider,
+                                               tmp_db_path, monkeypatch):
+    """Kill-test hardening: the client vanishing mid-stream must not stop
+    the turn — the rescue row and artifact are the whole point."""
+    import json as _json
+    import sqlite3
+    import time
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from app.services import generation_offers as go
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    uid = free_user.get("user_id")
+    if uid is None:
+        con = sqlite3.connect(tmp_db_path)
+        uid = con.execute("SELECT id FROM users WHERE email LIKE 'test-free-user%'").fetchone()[0]
+        con.close()
+    oid = go.create(uid, "xlsx", "plan", template_id="gantt_smartsheet",
+                    ask_content="ctx")
+    monkeypatch.setattr(dg, "interpret_offer_reply", AsyncMock(
+        return_value={"confirm": True, "format": "xlsx"}))
+    mock_provider.canned_response.text = _json.dumps(_PLAN)
+    mock_provider.return_value = mock_provider.canned_response
+
+    # open the stream and abandon it after the FIRST event (simulated kill)
+    with client.stream("POST", "/v1/chat", json=chat_request(
+            prompt_mode="ProjectChat", call_type="query",
+            metadata={"offer_id": oid, "generation_id": "gen-kill-1", "reply_text": "yes"},
+            user_content="yes"), headers=free_user["headers"]) as r:
+        for _ in r.iter_lines():
+            break                                   # got generation_started; die
+
+    # the turn must still complete and write its rescue row
+    deadline = time.time() + 15
+    row = None
+    while time.time() < deadline and row is None:
+        con = sqlite3.connect(tmp_db_path)
+        row = con.execute("SELECT status FROM generations WHERE generation_id='gen-kill-1'").fetchone()
+        con.close()
+        if row is None:
+            time.sleep(0.5)
+    assert row is not None and row[0] == "done"
