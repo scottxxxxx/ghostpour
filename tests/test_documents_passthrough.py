@@ -475,29 +475,29 @@ async def test_flatten_timeout_degrades_to_marker_not_error(monkeypatch):
     assert out.user_content.rstrip().endswith("Update this deck")
 
 
-def test_error_details_are_typed_fields():
+@pytest.mark.asyncio
+async def test_error_details_are_typed_fields():
     """Part 5 contract: interpolated values ride details as typed fields."""
-    import asyncio
     big = b"x" * (2 * 1024 * 1024)
     body = _body([_doc(big, PDF_MIME, "huge.pdf")])
     with pytest.raises(HTTPException) as ei:
-        asyncio.get_event_loop().run_until_complete(process_documents(
+        await process_documents(
             body, remote_configs=_configs(per_file_max_mb=1),
-            tier_name="pro", managed_routing=True))
+            tier_name="pro", managed_routing=True)
     d = ei.value.detail
     assert d["code"] == "document_too_large"
     assert d["details"] == {"file": "huge.pdf", "size_mb": 2, "max_mb": 1}
 
     docs = [_doc(_MIN_PDF, PDF_MIME, f"{i}.pdf") for i in range(3)]
     with pytest.raises(HTTPException) as ei:
-        asyncio.get_event_loop().run_until_complete(process_documents(
+        await process_documents(
             _body(docs), remote_configs=_configs(max_files=2),
-            tier_name="pro", managed_routing=True))
+            tier_name="pro", managed_routing=True)
     assert ei.value.detail["details"] == {"max_files": 2}
 
     bad = DocumentAttachment(name="bad.bin", media_type=PDF_MIME, data="!!!")
     with pytest.raises(HTTPException) as ei:
-        asyncio.get_event_loop().run_until_complete(process_documents(
+        await process_documents(
             _body([bad]), remote_configs=_configs(),
-            tier_name="plus", managed_routing=True))
+            tier_name="plus", managed_routing=True)
     assert ei.value.detail["details"] == {"file": "bad.bin"}
