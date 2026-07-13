@@ -234,6 +234,12 @@ async def generate_report(
         system_prompt=system_prompt,
         user_content=user_message,
         max_tokens=4096,
+        # Pinned low (TR field report 2026-07-12): back-to-back
+        # regenerations of the same conversation flipped the stoplight
+        # red -> yellow with no input change. Same rule as parse, match,
+        # and the judges: rerunning the same conversation must not change
+        # the verdict.
+        temperature=0.2,
         call_type="report",
         prompt_mode="MeetingReport",
         meeting_id=meeting_id,
