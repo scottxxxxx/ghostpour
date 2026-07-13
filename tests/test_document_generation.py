@@ -1069,3 +1069,17 @@ def test_template_lane_stamps_generation_metering(client, free_user, mock_provid
     md = _json.loads(row["metadata"])
     assert md.get("generated") == {"count": 1, "bytes": md["generated"]["bytes"]}
     assert md["generated"]["bytes"] > 1000
+
+
+def test_report_stoplight_is_calibrated():
+    # TR field report: same conversation, different verdicts. Temperature
+    # pinned + evidence-anchored bands (same closed-enum lesson as
+    # compare-reality's delta field).
+    src = open("app/routers/reports.py").read()
+    import re
+    block = src[src.index("chat_request = ChatRequest("):]
+    assert "temperature=0.2" in block[:600]
+    prompt = open("app/services/meeting_report.py").read()
+    assert "EVIDENCE-ANCHORED" in prompt
+    assert "no agreed path forward" in prompt          # red criteria observable
+    assert "Borderline rule" in prompt                 # ties resolve deterministically

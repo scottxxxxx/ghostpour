@@ -172,7 +172,12 @@ Rules:
 - If the action text itself states who will do it (for example "Joy to validate the QA items" or "Priya and Sam to draft the spec"), set owner to that person's name, or both names joined with " & " when two people share it. Only fall back to "Multiple" when the responsible person genuinely cannot be determined from the text, even when the speaker who said it is unknown or labeled as multiple.
 - Use the confirmed attendee list for names, not the transcript (transcription often mangles names)
 - The sentiment_score is 0 to 100 where 50 is neutral, above 50 is positive, below 50 is negative
-- The stoplight color is red (blocked/critical), orange (high urgency, needs prompt attention), yellow (medium, some open items but not blocking), or green (low urgency, on track)
+- The stoplight color is an EVIDENCE-ANCHORED classification, not a vibe. Apply the first band whose criteria the transcript observably meets, and make the stoplight's `label`/summary cite the specific evidence (the blocker, deadline, or open item) that drove the color:
+  - red: a stated blocker with no agreed path forward, a missed or unmeetable committed date, or an explicit escalation ("we cannot ship", "this blocks the release")
+  - orange: a blocker WITH an agreed owner and path but the committed date is at risk, or a critical dependency on someone outside the meeting
+  - yellow: open items or unassigned questions that do not threaten a committed date
+  - green: no blockers and no threatened dates; routine progress
+  Borderline rule: when evidence sits between two bands, choose the more urgent band only if a committed date is involved; otherwise the calmer band. The same conversation must always classify the same way.
 - The sentiment_arc should have 8 to 14 data points representing the emotional trajectory across the meeting. Each point's `value` is on the SAME 0-100 scale as sentiment_score (0 = very negative, 50 = neutral, 100 = very positive), and `mood` is one of "confident", "tense", "concern", or "neutral".
 - USE THE FULL 0-100 RANGE on the arc. Do NOT cluster all values around 50. Calibrate to the actual emotional content:
   - Casual / amused / mocking conversation, jokes, laughter: peaks 70-90, baseline 55-70.
