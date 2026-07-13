@@ -343,7 +343,7 @@ the intended pattern — never a background timer.
 
 ---
 
-## Part 6 — Conversation-scoped references: the `reference_text` field (PROPOSED 2026-07-13)
+## Part 6 — Conversation-scoped references: the `reference_text` field (SHIPPED 2026-07-13, PR #422 — live on prod; send it whenever your chips build lands)
 
 Companion to conversation-scoped attachments. The native-documents half
 already caches (breakpoint after the last document block — the measured
