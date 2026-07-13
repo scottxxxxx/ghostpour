@@ -501,3 +501,36 @@ async def test_error_details_are_typed_fields():
             _body([bad]), remote_configs=_configs(),
             tier_name="plus", managed_routing=True)
     assert ei.value.detail["details"] == {"file": "bad.bin"}
+
+
+@pytest.mark.asyncio
+async def test_xlsx_extracts_as_structured_sheets():
+    import io as _io
+    import openpyxl
+    from app.services.documents import XLSX_MIME
+    wb = openpyxl.Workbook()
+    ws = wb.active; ws.title = "Tasks"
+    ws.append(["Task", "Owner", "Status"])
+    ws.append(["Fix 401", "Chirag", "Blocked"])
+    ws2 = wb.create_sheet("Budget")
+    ws2.append(["Item", "Cost"]); ws2.append(["Proxy", 1200])
+    buf = _io.BytesIO(); wb.save(buf)
+    body = _body([_doc(buf.getvalue(), XLSX_MIME, "plan.xlsx")])
+    out = await process_documents(body, remote_configs=_configs(),
+                                  tier_name="pro", managed_routing=True)
+    assert out.documents is None                       # extraction lane, never passthrough
+    assert "=== Sheet: Tasks ===" in out.user_content
+    assert "Fix 401,Chirag,Blocked" in out.user_content
+    assert "=== Sheet: Budget ===" in out.user_content
+    assert "Proxy,1200" in out.user_content
+
+
+@pytest.mark.asyncio
+async def test_xlsx_garbage_is_unreadable_with_details():
+    from app.services.documents import XLSX_MIME
+    bad = _doc(b"not a zip", XLSX_MIME, "bad.xlsx")
+    with pytest.raises(HTTPException) as ei:
+        await process_documents(_body([bad]), remote_configs=_configs(),
+                                tier_name="pro", managed_routing=True)
+    assert ei.value.detail["code"] == "document_unreadable"
+    assert ei.value.detail["details"] == {"file": "bad.xlsx"}

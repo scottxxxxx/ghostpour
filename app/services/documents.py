@@ -67,6 +67,10 @@ PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presen
 # stray docx that arrives early extracts properly instead of hitting the
 # unsupported-format marker.
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+_MAX_XLSX_SHEETS = 10
+_MAX_XLSX_ROWS_PER_SHEET = 300
 
 _DEFAULTS = {
     "enabled": False,
@@ -238,6 +242,37 @@ def _extract_docx_text(raw: bytes, name: str) -> str:
     return text[:_MAX_EXTRACT_CHARS]
 
 
+def _extract_xlsx_text(raw: bytes, name: str) -> str:
+    """Structured sheet extraction: each sheet rendered as CSV-style rows
+    under a sheet header. Spreadsheets are structure-IS-the-content, so
+    cells keep their tabular positions (empty cells as blanks) instead of
+    flattening to prose. Row/sheet caps keep tokens sane; the global char
+    cap still applies."""
+    import csv
+    import io as _io
+
+    import openpyxl
+    try:
+        wb = openpyxl.load_workbook(_io.BytesIO(raw), read_only=True, data_only=True)
+    except Exception:
+        raise _err("document_unreadable",
+                   f'Attachment "{name}" does not parse as XLSX.',
+                   details={"file": name})
+    out = _io.StringIO()
+    for sheet in wb.worksheets[:_MAX_XLSX_SHEETS]:
+        out.write(f"=== Sheet: {sheet.title} ===\n")
+        w = csv.writer(out)
+        for i, row in enumerate(sheet.iter_rows(values_only=True)):
+            if i >= _MAX_XLSX_ROWS_PER_SHEET:
+                out.write(f"... ({sheet.max_row - _MAX_XLSX_ROWS_PER_SHEET} more rows omitted)\n")
+                break
+            if any(v is not None for v in row):
+                w.writerow(["" if v is None else v for v in row])
+        out.write("\n")
+    wb.close()
+    return out.getvalue()[:_MAX_EXTRACT_CHARS]
+
+
 def _extract_to_text(doc: DocumentAttachment, raw: bytes) -> str:
     if doc.media_type == PDF_MIME:
         return _extract_pdf_text(raw, doc.name)
@@ -245,6 +280,8 @@ def _extract_to_text(doc: DocumentAttachment, raw: bytes) -> str:
         return _extract_pptx_text(raw, doc.name)
     if doc.media_type == DOCX_MIME:
         return _extract_docx_text(raw, doc.name)
+    if doc.media_type == XLSX_MIME:
+        return _extract_xlsx_text(raw, doc.name)
     # Unknown type on the extraction path: config pulled the format after
     # the client attached it. Best effort — refuse quietly with a marker
     # rather than failing the whole chat.
