@@ -181,6 +181,28 @@ async def generate_report(
     )
     report_provider = "anthropic"
 
+    # 3.4. Tech Rehearsal per-app budget pre-gate (mirrors chat 5.6b; TR
+    # field ask 2026-07-13). Spend already RECORDS correctly on this route;
+    # this closes the pre-block gap. Shape per TR's client contract: 429
+    # with code allocation_exhausted routes to their upgrade flow.
+    app_id_for_gate = getattr(request.state, "app_id", "unknown")
+    if app_id_for_gate == "techrehearsal":
+        from app.routers.config import load_apps
+        from app.services import tr_budget
+        _tr_cfg = tr_budget.tr_budget_config(load_apps())
+        if _tr_cfg and _tr_cfg.get("enabled"):
+            _tr_block, _tr_info = await tr_budget.would_exceed_tr_budget(
+                db, user.id, request.headers.get("X-TR-Entitlement"),
+                None, _tr_cfg,  # no marginal estimate: already-over check only
+            )
+            if _tr_block:
+                logger.info("tr_budget_block report user=%s spent=%.4f cap=%.2f",
+                            user.id, _tr_info["spent"], _tr_info["cap"])
+                raise HTTPException(status_code=429, detail={
+                    "code": "allocation_exhausted",
+                    "message": "Monthly allowance reached.",
+                })
+
     # 3.5. Pre-call budget gate. If running this report would push the
     # user past their effective_limit + overage tolerance, return the
     # canned/sample report verbatim and persist it with

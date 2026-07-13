@@ -1140,3 +1140,11 @@ def test_report_chat_request_carries_request_id_metadata():
     src = open("app/routers/reports.py").read()
     block = src[src.index("chat_request = ChatRequest("):]
     assert '"request_id": getattr(request.state, "request_id"' in block[:800]
+
+
+def test_reports_route_carries_tr_budget_pre_gate():
+    src = open("app/routers/reports.py").read()
+    i = src.index("techrehearsal")
+    block = src[i:i+900]
+    assert "would_exceed_tr_budget" in block
+    assert "429" in block and "allocation_exhausted" in block   # TR's exact shape
