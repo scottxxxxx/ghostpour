@@ -182,7 +182,10 @@ async def classify_generation_intent(provider_router, user_content: str,
         model=_CLASSIFIER_MODEL,
         system_prompt=_CLASSIFIER_SYSTEM,
         user_content=user_content[-2000:],
-        max_tokens=50,
+        # 150, not 50: the JSON carries a free-text gist — a long one hit
+        # the 50 cap live (2026-07-13, finish_reason=max_tokens) and only
+        # parsed by luck; truncation means fail-open, a silently lost offer.
+        max_tokens=150,
         temperature=0.0,
         call_type="generation_intent",
         prompt_mode="GenerationIntent",
@@ -256,7 +259,9 @@ async def interpret_offer_reply(provider_router, offer: dict, reply_text: str,
         system_prompt=_INTERPRETER_SYSTEM,
         user_content=(f"OFFER: a {offer['format']} file {offer.get('gist') or ''}\n"
                       f"USER REPLY: {reply_text[:1000] if verbatim else _isolate_reply(reply_text)}"),
-        max_tokens=50,
+        # same headroom as the intent classifier: a truncated verdict here
+        # silently drops a user's YES (fail-open reads as a normal turn).
+        max_tokens=150,
         temperature=0.0,
         call_type="generation_intent",
         prompt_mode="GenerationOfferReply",
