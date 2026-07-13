@@ -534,3 +534,45 @@ async def test_xlsx_garbage_is_unreadable_with_details():
                                 tier_name="pro", managed_routing=True)
     assert ei.value.detail["code"] == "document_unreadable"
     assert ei.value.detail["details"] == {"file": "bad.xlsx"}
+
+
+# --- reference_text (Part 6: conversation-scoped reference caching) ---
+
+def _adapter():
+    from app.services.providers.anthropic import AnthropicAdapter
+    return AnthropicAdapter(api_key="t", base_url="https://x.invalid/v1/messages",
+                            auth_header="x-api-key", auth_prefix="")
+
+
+def test_reference_text_renders_as_cached_part():
+    body = ChatRequest(provider="anthropic", model="claude-sonnet-4-6",
+                       system_prompt="sys", user_content="make the bars blue",
+                       reference_text='--- Attached: "plan.xlsx" ---\nrows...')
+    api_body, _ = _adapter()._build_body(body)
+    parts = api_body["messages"][0]["content"]
+    assert parts[0]["text"].startswith("--- Attached")
+    assert parts[0]["cache_control"] == {"type": "ephemeral"}   # the spare 4th breakpoint
+    assert parts[-1] == {"type": "text", "text": "make the bars blue"}
+
+
+def test_reference_part_yields_on_generation_turns():
+    body = ChatRequest(provider="anthropic", model="claude-sonnet-4-6",
+                       system_prompt="sys", user_content="yes build it",
+                       generation=True, reference_text="ref block")
+    api_body, _ = _adapter()._build_body(body)
+    parts = api_body["messages"][0]["content"]
+    ref = next(p for p in parts if p.get("text") == "ref block")
+    assert "cache_control" not in ref                            # yields (Part 6 rule)
+    assert parts[-1]["cache_control"] == {"type": "ephemeral"}   # generation breakpoint wins
+
+
+@pytest.mark.asyncio
+async def test_or_fallback_folds_reference_text():
+    from app.services.anthropic_or_fallback import _or_request
+    body = ChatRequest(provider="anthropic", model="claude-sonnet-4-6",
+                       system_prompt="s", user_content="question",
+                       reference_text="REF BLOCK")
+    out = await _or_request(body, "anthropic/claude-sonnet-4.6")
+    assert out.reference_text is None
+    assert out.user_content.startswith("REF BLOCK")
+    assert out.user_content.endswith("question")

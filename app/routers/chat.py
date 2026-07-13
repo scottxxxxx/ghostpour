@@ -1673,6 +1673,15 @@ async def chat(
             ),
         })
 
+    # 5.94. Non-anthropic lanes render user_content only — fold
+    # reference_text in so BYOK/pinned sends never lose chip content
+    # (anthropic renders it as its own cached part in the adapter).
+    if body.reference_text and body.provider != "anthropic":
+        body = body.model_copy(update={
+            "user_content": body.reference_text + "\n\n" + body.user_content,
+            "reference_text": None,
+        })
+
     # 5.95. Documents passthrough (#359). Runs AFTER the context-cap gate on
     # purpose: documents ride outside the char gauge (images precedent), so
     # server-side extraction text must not retroactively trip the 413 the

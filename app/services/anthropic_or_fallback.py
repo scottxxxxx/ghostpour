@@ -113,10 +113,14 @@ async def _or_request(request: ChatRequest, or_model: str) -> ChatRequest:
     from app.services.documents import flatten_documents_for_or
 
     flattened = await flatten_documents_for_or(request)
-    return flattened.model_copy(update={
-        "provider": "openrouter",
-        "model": or_model,
-    })
+    updates = {"provider": "openrouter", "model": or_model}
+    if flattened.reference_text:
+        # OR adapters render user_content only — fold the reference part in
+        # so the fallback answer still sees the chips' content
+        updates["user_content"] = (flattened.reference_text + "\n\n"
+                                   + flattened.user_content)
+        updates["reference_text"] = None
+    return flattened.model_copy(update=updates)
 
 
 async def route_with_fallback(

@@ -146,6 +146,16 @@ class AnthropicAdapter(ProviderAdapter):
             # document tokens at cache-read rates instead of full input price.
             # Uses breakpoint 3 of 4 (system prefix + recall hold the first two).
             content_parts[-1]["cache_control"] = {"type": "ephemeral"}
+        if request.reference_text:
+            ref_part: dict = {"type": "text", "text": request.reference_text}
+            if not request.generation:
+                # spare fourth breakpoint (Part 6): one bust at attach or
+                # removal, cached reads every following turn. On armed
+                # turns this part YIELDS — the generation breakpoint on
+                # the final text part caches the prefix THROUGH this part,
+                # which the sandbox loop re-reads every internal round.
+                ref_part["cache_control"] = {"type": "ephemeral"}
+            content_parts.append(ref_part)
         if request.images:
             for img_b64 in request.images[:5]:
                 content_parts.append({
