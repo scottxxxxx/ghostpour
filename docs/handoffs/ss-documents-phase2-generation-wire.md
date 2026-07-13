@@ -299,3 +299,44 @@ lookup; `done` reconstructs, `failed`/timeout offers regenerate.
 
 **CONFIRMED by SS 2026-07-11 — FROZEN, building** (envelope + transport +
 rescue as one server package; shared generation_id plumbing).
+
+---
+
+## Part 5 — Error contract: codes + typed details (SHIPPED 2026-07-12)
+
+Codes are the contract; `message` is the developer-facing English
+fallback; `details` carries every interpolated value as a TYPED field so
+the client composes localized strings from data. Model and provider
+identities never appear in any field.
+
+HTTP error bodies: `{"detail": {"code", "message", "details?"}}`.
+The `generation_error` SSE event carries the SAME family in its data:
+`{"code", "message", "details?"}`.
+
+| code | details fields |
+|---|---|
+| `document_too_large` | `file`, `size_mb`, `max_mb` |
+| `too_many_documents` | `max_files` |
+| `document_unreadable` | `file` (covers bad base64, unparseable bytes, and parse timeouts) |
+| `generation_in_progress` (409) | `started_at`, `elapsed_seconds`, `expected_seconds`, `poll_after_seconds` |
+| `invalid_request` | none today |
+| `rate_limited` | none today (retry-after rides the header) |
+| `provider_error` | none (deliberately opaque) |
+| budget envelope codes | unchanged — the existing CTA family you already render |
+
+Add-only promise: codes never disappear or change meaning; new codes and
+new details fields may appear. Unknown fields are ignorable.
+
+### Phase tokens (Part 2 heartbeats) — for your localization map
+
+`phase` is a fixed enum of wire tokens, never display strings:
+`starting`, `working`, `executing`, `collecting`. Map and localize
+client-side; new tokens may appear (ignore unknown gracefully). Real
+phase signals arrive with Phase B; the tokens are stable now.
+
+### Rescue polling pattern (pinned from Q8)
+
+Poll `GET /v1/generations/{id}` only while a surface holding an
+unresolved id is in the FOREGROUND, at `poll_after_seconds` cadence;
+stop when backgrounded. Open-time polling plus the in-band result is
+the intended pattern — never a background timer.
