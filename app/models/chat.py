@@ -84,6 +84,13 @@ class ChatRequest(BaseModel):
     # "speech_to_text", or "mixed". Drives server-side cleanup routing; see
     # app.services.transcript_cleanup. Absent for non-analysis calls.
     transcript_source: str | None = None
+    # Conversation-scoped text references (handoff Part 6): the assembled
+    # injection blocks, byte-identical across turns while the chip set is
+    # unchanged. Rendered as an own cached content part on the anthropic
+    # path; folded into user_content elsewhere. Add-only optimization —
+    # clients that concatenate into user_content lose nothing but the
+    # cache discount.
+    reference_text: str | None = None
 
     @model_validator(mode="before")
     @classmethod
