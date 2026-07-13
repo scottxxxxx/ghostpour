@@ -1904,11 +1904,19 @@ async def chat(
     # already handle) and an armed turn diverts to the generation transport
     # instead of the token stream. What admitted Project Chat all along was
     # its forced-non-stream route, not the stream flag — reconciled with SS.
+    # Template-armed turns (confirmed registry offers) must divert exactly
+    # like sandbox-armed ones: the model's whole output is the extraction
+    # JSON, and only the non-streaming path runs the renderer. Live bug
+    # 2026-07-13 18:54Z — a confirmed Gantt turn on meeting chat token-
+    # streamed the raw task-graph JSON into the chat bubble and no file
+    # was ever built (Project Chat was immune via its forced-non-stream
+    # route, which is why every template test read green).
     should_stream = (
         body.stream
         and call_type not in ("summary", "analysis")
         and not is_project_chat
         and not body.generation
+        and not _template_id
     )
 
     if should_stream:

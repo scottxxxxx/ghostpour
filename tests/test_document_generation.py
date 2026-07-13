@@ -1206,3 +1206,55 @@ def test_intent_checks_ignore_persistent_injection_blocks():
     assert explicit_file_ask(turn) is None            # despite "spreadsheet" in the block
     turn2 = turn.replace("who owns the auth fix?", "now generate a spreadsheet of it")
     assert explicit_file_ask(turn2)["file_request"] is True
+
+
+def test_template_confirm_on_streaming_surface_rides_generation_transport(
+        client, free_user, mock_provider, tmp_db_path, monkeypatch):
+    """Live bug 2026-07-13 18:54Z: a confirmed template turn on meeting
+    chat (stream=true) token-streamed the raw extraction JSON into the
+    chat and never ran the renderer. Template-armed turns must divert to
+    the generation transport on streaming surfaces, exactly like
+    sandbox-armed ones."""
+    import json as _json
+    import sqlite3
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from app.services import generation_offers as go
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    uid = free_user.get("user_id")
+    if uid is None:
+        con = sqlite3.connect(tmp_db_path)
+        uid = con.execute("SELECT id FROM users WHERE email LIKE 'test-free-user%'").fetchone()[0]
+        con.close()
+    oid = go.create(uid, "xlsx", "gantt of open items",
+                    template_id="gantt_smartsheet",
+                    ask_content="Build a nice Gantt chart of the open items")
+    monkeypatch.setattr(dg, "interpret_offer_reply", AsyncMock(
+        return_value={"confirm": True, "format": "xlsx"}))
+    mock_provider.canned_response.text = _json.dumps(_PLAN)
+    mock_provider.return_value = mock_provider.canned_response
+
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="PostMeetingChat", call_type="meeting_chat", stream=True,
+        metadata={"offer_id": oid, "generation_id": "gen-tmpl-mc-1",
+                  "reply_text": "Yes"},
+        user_content="Yes",
+    ), headers=free_user["headers"])
+    assert r.status_code == 200
+    # the failure mode was a token stream of raw JSON; the contract is the
+    # generation transport with a rendered file and friendly text
+    assert r.headers["content-type"].startswith("text/event-stream")
+    assert "event: generation_started" in r.text
+    result = _json.loads(
+        r.text.split("event: generation_result\ndata: ")[1].split("\n")[0])
+    assert result["generated_files"][0]["name"] == "Project_Gantt.xlsx"
+    assert "Built your xlsx" in result["text"]
+    assert not result["text"].lstrip().startswith("{")
+
+    con = sqlite3.connect(tmp_db_path)
+    row = con.execute("SELECT status FROM generations "
+                      "WHERE generation_id='gen-tmpl-mc-1'").fetchone()
+    con.close()
+    assert row and row[0] == "done"
