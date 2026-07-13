@@ -1258,3 +1258,76 @@ def test_template_confirm_on_streaming_surface_rides_generation_transport(
                       "WHERE generation_id='gen-tmpl-mc-1'").fetchone()
     con.close()
     assert row and row[0] == "done"
+
+
+def test_parse_extraction_recovers_plan_from_narration_json_and_html():
+    """Live 2026-07-13 19:16Z: the extraction turn narrated, emitted the
+    plan JSON, then a full HTML page. The old first-{-to-last-} slice
+    spanned into the HTML's CSS braces and failed a turn that carried a
+    valid plan."""
+    import json as _json
+    from app.services.doc_templates import parse_extraction
+
+    disobedient = (
+        "I'll create a Smartsheet-style Gantt chart based on the meeting "
+        "activities. Let me first extract the project plan, then render "
+        "it visually.\n\n"
+        + _json.dumps(_PLAN)
+        + "\n\nNow here's the Smartsheet-style Gantt chart:\n\n"
+        "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<style>\n"
+        "* { box-sizing: border-box; margin: 0; padding: 0; }\n"
+        ".ss-header { background: linear-gradient(135deg, #0a2342 0%, "
+        "#123); color: #fff; padding: 14px 24px; }\n"
+        "</style>\n</head>\n<body></body>\n</html>"
+    )
+    assert parse_extraction(disobedient) == _PLAN
+    # a stray small object in the narration must not shadow the plan
+    assert parse_extraction('{"note": "extracting"} ' + _json.dumps(_PLAN)) == _PLAN
+    # clean output still parses; garbage still raises
+    assert parse_extraction(_json.dumps(_PLAN)) == _PLAN
+    import pytest as _pytest
+    with _pytest.raises(Exception):
+        parse_extraction("no json here at all")
+
+
+def test_template_render_survives_disobedient_extraction_e2e(
+        client, free_user, mock_provider, tmp_db_path, monkeypatch):
+    """Same flow as the 19:16Z failure, e2e: model narrates + JSON + HTML,
+    the renderer must still produce the file and friendly text."""
+    import json as _json
+    import sqlite3
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from app.services import generation_offers as go
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    uid = free_user.get("user_id")
+    if uid is None:
+        con = sqlite3.connect(tmp_db_path)
+        uid = con.execute("SELECT id FROM users WHERE email LIKE 'test-free-user%'").fetchone()[0]
+        con.close()
+    oid = go.create(uid, "xlsx", "gantt of open items",
+                    template_id="gantt_smartsheet",
+                    ask_content="Build a Gantt chart of open items")
+    monkeypatch.setattr(dg, "interpret_offer_reply", AsyncMock(
+        return_value={"confirm": True, "format": "xlsx"}))
+    mock_provider.canned_response.text = (
+        "Let me extract then render.\n" + _json.dumps(_PLAN)
+        + "\n<!DOCTYPE html><html><head><style>body { margin: 0; }"
+          "</style></head><body></body></html>")
+    mock_provider.return_value = mock_provider.canned_response
+
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="PostMeetingChat", call_type="meeting_chat", stream=True,
+        metadata={"offer_id": oid, "generation_id": "gen-tmpl-html-1",
+                  "reply_text": "Yes"},
+        user_content="Yes",
+    ), headers=free_user["headers"])
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/event-stream")
+    result = _json.loads(
+        r.text.split("event: generation_result\ndata: ")[1].split("\n")[0])
+    assert result["generated_files"][0]["name"] == "Project_Gantt.xlsx"
+    assert "Built your xlsx" in result["text"]
+    assert "<!DOCTYPE" not in result["text"]

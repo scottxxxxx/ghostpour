@@ -244,6 +244,29 @@ def match_template(text: str) -> str | None:
 
 
 def parse_extraction(text: str) -> dict:
-    """Strict-ish JSON recovery from the extraction turn."""
+    """JSON recovery from the extraction turn. Models sometimes narrate
+    around the object or append a rendering despite the output-only-JSON
+    instruction (live 2026-07-13 19:16Z: prose + valid plan JSON + a full
+    HTML page — the old first-{-to-last-} slice ended inside the HTML's
+    CSS braces and failed on a turn that carried a perfectly good plan).
+    Decode balanced objects wherever they start and prefer the one that
+    looks like a plan; fall back to the largest object found."""
     t = text or ""
-    return json.loads(t[t.index("{"): t.rindex("}") + 1])
+    dec = json.JSONDecoder()
+    candidates: list[dict] = []
+    i = t.find("{")
+    while i != -1:
+        try:
+            obj, end = dec.raw_decode(t, i)
+            if isinstance(obj, dict):
+                if "tasks" in obj:
+                    return obj
+                candidates.append(obj)
+                i = t.find("{", end)
+                continue
+        except json.JSONDecodeError:
+            pass
+        i = t.find("{", i + 1)
+    if candidates:
+        return max(candidates, key=lambda o: len(json.dumps(o)))
+    raise ValueError("no JSON object in extraction text")
