@@ -15,11 +15,44 @@ from .reasoning import (
 class AnthropicAdapter(ProviderAdapter):
     """Anthropic Messages API — custom format, not OpenAI-compatible."""
 
+    # Generation turns run a server-side tool loop that can pause and need
+    # continuation; bound the replays so a pathological turn can't spin.
+    _MAX_GENERATION_CONTINUATIONS = 4
+    _GENERATION_TIMEOUT_S = 400.0  # per leg; see send_request
+
     async def send_request(self, request: ChatRequest) -> ChatResponse:
         body, headers = self._build_body(request)
+        # Generation turns run a server-side sandbox loop with real runtime
+        # variance (first live runs: 124s and 180s+) — the shared client's
+        # 180s default sits INSIDE that envelope, so armed turns get their
+        # own ceiling. Applies per continuation leg, not to the whole turn.
+        timeout = self._GENERATION_TIMEOUT_S if request.generation else None
         status, data, raw_req, raw_resp = await self._post(
-            self.base_url, body, headers
+            self.base_url, body, headers, timeout=timeout
         )
+
+        # pause_turn continuation (generation turns only): the server-side
+        # sandbox loop hit its iteration limit mid-work. Re-send with the
+        # assistant content appended and the same container so it resumes.
+        # No extra user message — the API detects the trailing server_tool_use.
+        if request.generation:
+            replays = 0
+            while (
+                status == 200
+                and data.get("stop_reason") == "pause_turn"
+                and replays < self._MAX_GENERATION_CONTINUATIONS
+            ):
+                replays += 1
+                cont = dict(body)
+                container_id = (data.get("container") or {}).get("id")
+                if container_id:
+                    cont["container"] = container_id
+                cont["messages"] = body["messages"] + [
+                    {"role": "assistant", "content": data["content"]}
+                ]
+                status, data, raw_req, raw_resp = await self._post(
+                    self.base_url, cont, headers, timeout=timeout
+                )
 
         if status != 200:
             error_msg = "Unknown error"
@@ -38,7 +71,16 @@ class AnthropicAdapter(ProviderAdapter):
         text_parts = [
             block["text"] for block in data.get("content", []) if block.get("type") == "text"
         ]
-        text = "\n".join(text_parts) if text_parts else ""
+        if request.generation and text_parts:
+            # A generation turn's content interleaves working narration with
+            # tool blocks — reading the skill, fixing its own script errors —
+            # which is not a chat bubble (SS field report, 2026-07-11). The
+            # final text block is the model's closing summary; the full
+            # working transcript stays in raw_response_json for logs and the
+            # future curated narration stream.
+            text = text_parts[-1]
+        else:
+            text = "\n".join(text_parts) if text_parts else ""
 
         # Capture the full usage block from the provider
         # Anthropic returns: input_tokens, output_tokens,
@@ -104,6 +146,16 @@ class AnthropicAdapter(ProviderAdapter):
             # document tokens at cache-read rates instead of full input price.
             # Uses breakpoint 3 of 4 (system prefix + recall hold the first two).
             content_parts[-1]["cache_control"] = {"type": "ephemeral"}
+        if request.reference_text:
+            ref_part: dict = {"type": "text", "text": request.reference_text}
+            if not request.generation:
+                # spare fourth breakpoint (Part 6): one bust at attach or
+                # removal, cached reads every following turn. On armed
+                # turns this part YIELDS — the generation breakpoint on
+                # the final text part caches the prefix THROUGH this part,
+                # which the sandbox loop re-reads every internal round.
+                ref_part["cache_control"] = {"type": "ephemeral"}
+            content_parts.append(ref_part)
         if request.images:
             for img_b64 in request.images[:5]:
                 content_parts.append({
@@ -157,7 +209,49 @@ class AnthropicAdapter(ProviderAdapter):
                 }
             ]
 
-        return body, self._build_headers()
+        headers = self._build_headers()
+
+        # Document generation (phase 2a). Gated upstream; the adapter arms
+        # the execution sandbox + the four document skills, raises the
+        # output ceiling, and — the 2a-spike-mandated part — puts a cache
+        # breakpoint on the user content: the server-side tool loop re-reads
+        # the whole prompt on every internal iteration, and caching it cut
+        # the measured per-generation cost from $1.04 to $0.33.
+        if request.generation:
+            body["container"] = {"skills": [
+                {"type": "anthropic", "skill_id": s, "version": "latest"}
+                for s in ("xlsx", "pptx", "docx", "pdf")
+            ]}
+            # Toolchain steering: the first live docx (docx.js) produced a
+            # file Word rejects while every lenient reader accepts it —
+            # python-docx output is Word-derived and safe. Steering fixes
+            # the source; the collection-side rebuild is the backstop.
+            body["system"] = list(body["system"]) + [{
+                "type": "text",
+                "text": ("When creating Word (.docx) files in the sandbox, "
+                         "use the python-docx library — do not use docx.js "
+                         "or hand-written OOXML; Word rejects their output. "
+                         "For checklists, use plain paragraphs starting with "
+                         "the ballot-box glyph — never checkbox glyphs inside "
+                         "bulleted list items (double markers). Style the "
+                         "document title as Title, sections as Heading 1-3."),
+            }]
+            body.setdefault("tools", []).append(
+                {"type": "code_execution_20260521", "name": "code_execution"}
+            )
+            body["max_tokens"] = max(body.get("max_tokens") or 0, 16000)
+            content = body["messages"][0]["content"]
+            for part in reversed(content):
+                if part.get("type") == "text":
+                    part["cache_control"] = {"type": "ephemeral"}
+                    break
+            extra = "code-execution-2025-08-25,skills-2025-10-02"
+            headers["anthropic-beta"] = (
+                headers["anthropic-beta"] + "," + extra
+                if headers.get("anthropic-beta") else extra
+            )
+
+        return body, headers
 
     async def send_request_stream(self, request: ChatRequest) -> AsyncIterator[dict]:
         """Stream an Anthropic Messages API request, yielding event dicts.

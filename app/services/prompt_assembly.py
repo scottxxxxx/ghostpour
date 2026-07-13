@@ -53,6 +53,7 @@ _CALL_TYPE_TO_CONFIG = {
     "tr_debrief": "techrehearsal/debrief",
     "tr_rewrite": "techrehearsal/rewrite",
     "tr_resume_enhance": "techrehearsal/resume-enhance",
+    "tr_compare_reality": "techrehearsal/compare-reality",
 }
 
 

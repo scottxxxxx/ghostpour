@@ -105,17 +105,22 @@ async def _alert_on_fallback(
         logger.warning("anthropic fallback alert dispatch failed: %s", e)
 
 
-def _or_request(request: ChatRequest, or_model: str) -> ChatRequest:
+async def _or_request(request: ChatRequest, or_model: str) -> ChatRequest:
     """Clone a request to retarget OpenRouter with the translated id.
     Passthrough documents are flattened to extracted text first — the OR
     adapters don't render document blocks, so leaving them on the request
     would silently drop the attachment's content from the fallback answer."""
     from app.services.documents import flatten_documents_for_or
 
-    return flatten_documents_for_or(request).model_copy(update={
-        "provider": "openrouter",
-        "model": or_model,
-    })
+    flattened = await flatten_documents_for_or(request)
+    updates = {"provider": "openrouter", "model": or_model}
+    if flattened.reference_text:
+        # OR adapters render user_content only — fold the reference part in
+        # so the fallback answer still sees the chips' content
+        updates["user_content"] = (flattened.reference_text + "\n\n"
+                                   + flattened.user_content)
+        updates["reference_text"] = None
+    return flattened.model_copy(update=updates)
 
 
 async def route_with_fallback(
@@ -128,6 +133,13 @@ async def route_with_fallback(
     in code paths that explicitly want the fallback behavior on
     Anthropic-direct calls."""
     if request.provider != "anthropic":
+        return await provider_router.route(request)
+    if request.generation:
+        # Generation turns never fall back: OR can't arm the sandbox, so a
+        # fallback silently converts "make me a file" into a text answer —
+        # and a timed-out Anthropic leg may have completed and billed with
+        # nobody collecting the artifact. Fail honestly; the client's
+        # confirm-button retry is the recovery.
         return await provider_router.route(request)
 
     or_model = translate_to_or_model_id(request.model)
@@ -148,7 +160,7 @@ async def route_with_fallback(
             db, settings,
             original_model=request.model, or_model=or_model, failure=exc,
         )
-        return await provider_router.route(_or_request(request, or_model))
+        return await provider_router.route(await _or_request(request, or_model))
 
 
 async def route_stream_with_fallback(
@@ -164,7 +176,9 @@ async def route_stream_with_fallback(
 
     Implementation: peek the first event, if the upstream raises before
     yielding anything, fall back. Otherwise pass through."""
-    if request.provider != "anthropic":
+    if request.provider != "anthropic" or request.generation:
+        # Generation is never streamed today, but keep the no-fallback rule
+        # symmetric with route_with_fallback if that ever changes.
         async for event in provider_router.route_stream(request):
             yield event
         return
@@ -185,7 +199,7 @@ async def route_stream_with_fallback(
             original_model=request.model, or_model=or_model,
             failure=RuntimeError("anthropic stream returned no events"),
         )
-        async for event in provider_router.route_stream(_or_request(request, or_model)):
+        async for event in provider_router.route_stream(await _or_request(request, or_model)):
             yield event
         return
     except Exception as exc:
@@ -199,7 +213,7 @@ async def route_stream_with_fallback(
             db, settings,
             original_model=request.model, or_model=or_model, failure=exc,
         )
-        async for event in provider_router.route_stream(_or_request(request, or_model)):
+        async for event in provider_router.route_stream(await _or_request(request, or_model)):
             yield event
         return
 

@@ -227,7 +227,18 @@ def _resolve_model_routing(
     surface = surface_dials.get(prompt_mode)
     if surface is not None:
         first_row, follow_up_row = surface
-        if call_type == follow_up_row:
+        # Documents upgrade the turn (decided 2026-07-10): a send carrying
+        # the documents field resolves through the surface's FIRST-SEND dial
+        # even when iOS marks it a follow-up. Reading a document is
+        # first-class work — and the cheap follow-up lane's provider-side
+        # PDF page ceiling is lower than the served passthrough caps assume,
+        # so document turns must ride the full-model lane for the caps to
+        # stay coherent.
+        # Confirmed generation turns upgrade the turn too (same coherence
+        # rule): the artifact's quality rides the first-send lane, not
+        # whatever lane the follow-up happened to be on.
+        if (call_type == follow_up_row and not body.documents
+                and not body.get_meta("generation_confirmed")):
             model = _model_from_row(follow_up_row)
             if model:
                 return model
@@ -1114,6 +1125,17 @@ async def chat(
     # nested event_stream() closure too.
     app_id = getattr(request.state, "app_id", "unknown")
 
+    # Stamp the middleware-minted X-Request-ID into the request meta bag so
+    # log_usage lands it in usage_log metadata — partner harnesses quote this
+    # response header verbatim when reporting runs, and until now it matched
+    # nothing we store. Overwrites any client-sent value: the server-minted
+    # id is the one on the wire.
+    _rid = getattr(request.state, "request_id", None)
+    if _rid:
+        if body.metadata is None:
+            body.metadata = {}
+        body.metadata["request_id"] = _rid
+
     # 1. Look up tier (respects simulation override)
     effective_tier_name = user.effective_tier
     tier = tier_config.tiers.get(effective_tier_name)
@@ -1651,6 +1673,15 @@ async def chat(
             ),
         })
 
+    # 5.94. Non-anthropic lanes render user_content only — fold
+    # reference_text in so BYOK/pinned sends never lose chip content
+    # (anthropic renders it as its own cached part in the adapter).
+    if body.reference_text and body.provider != "anthropic":
+        body = body.model_copy(update={
+            "user_content": body.reference_text + "\n\n" + body.user_content,
+            "reference_text": None,
+        })
+
     # 5.95. Documents passthrough (#359). Runs AFTER the context-cap gate on
     # purpose: documents ride outside the char gauge (images precedent), so
     # server-side extraction text must not retroactively trip the 413 the
@@ -1667,6 +1698,183 @@ async def chat(
             user_identity={x for x in (user.id, user.email) if x},
         )
 
+    # 5.96. Document generation is SERVER-armed only — a client-sent
+    # generation flag never survives (it would bypass the gate and arm the
+    # sandbox on any request). The non-streaming path re-arms below when
+    # the gate passes.
+    if body.generation:
+        body = body.model_copy(update={"generation": False})
+
+    # 5.97. Document generation arming (phase 2a). Gate mirrors documents
+    # passthrough (config-enabled+tier, or allowed_users for e2e); surfaces
+    # are the chat modes; managed anthropic only. When armed, the adapter
+    # attaches the sandbox + document skills and this path collects the
+    # artifacts after the response.
+    from app.services.document_generation import generation_gate
+    _gen_armed = generation_gate(
+        remote_configs=request.app.state.remote_configs,
+        tier_name=user.effective_tier,
+        managed_routing=managed_routing,
+        provider=body.provider,
+        prompt_mode=body.get_meta("prompt_mode"),
+        user_identity={x for x in (user.id, user.email) if x},
+    )
+    # 5.975. Confirmation envelope (handoff Part 1). While confirmation is
+    # dark the arming rule stays gate-based (today's e2e lane). Once live:
+    # a confirmed resend arms; an unconfirmed file intent gets the offer
+    # envelope BEFORE any provider work (the budget gate already passed
+    # above, so a blocked user sees the budget CTA, never the offer);
+    # everything else is a normal chat turn — arming is confirmed-only.
+    _gen_expected_seconds = None
+    _gen_confirmation_enabled = False
+    _template_id = None
+    _gen_teaser_text = ""
+    if _gen_armed:
+        from app.routers.config import _parse_accept_language
+        from app.services.document_generation import (
+            build_offer_envelope,
+            classify_generation_intent,
+            load_generation_config,
+        )
+        _confirmation = load_generation_config(
+            request.app.state.remote_configs,
+            locale=_parse_accept_language(request.headers.get("Accept-Language")),
+        )["confirmation"]
+        _gen_expected_seconds = int(_confirmation["expected_seconds"])
+        _gen_confirmation_enabled = bool(_confirmation["enabled"])
+        if _confirmation["enabled"] and not body.get_meta("generation_confirmed"):
+            _gen_armed = False
+            _meter = lambda creq, cresp, cms: usage_tracker.record_and_log(  # noqa: E731
+                db, user=user, tier=tier, app_id=app_id,
+                request=creq, response=cresp, elapsed_ms=cms, pricing=pricing,
+            )
+            # Conversational confirmation (handoff Part 1 v2): a send echoing
+            # a live offer_id is the user's REPLY to our offer. GP judges it
+            # server-side — a yes (including yes-with-revised-format) arms
+            # generation on THIS very turn; anything else is a normal chat
+            # turn. The offer dies either way (one-reply lifetime).
+            from app.services import generation_offers
+            _offer_echo = body.get_meta("offer_id")
+            _offer = generation_offers.take(user.id, _offer_echo) if _offer_echo else None
+            if _offer is not None:
+                from app.services.document_generation import interpret_offer_reply
+                # SS's next build sends the user's verbatim reply as
+                # metadata.reply_text — preferred over marker isolation of
+                # the assembled user_content (which stays as the fallback
+                # for older clients).
+                _reply_verbatim = body.get_meta("reply_text")
+                _reply = await interpret_offer_reply(
+                    provider_router, _offer,
+                    _reply_verbatim if _reply_verbatim else body.user_content,
+                    verbatim=bool(_reply_verbatim), on_subcall=_meter)
+                if _reply["confirm"]:
+                    _gen_armed = True
+                    _template_id = _offer.get("template_id")
+                    _meta = dict(body.metadata or {})
+                    _meta["generation_confirmed"] = True  # transport + rescue reuse
+                    _updates: dict = {"metadata": _meta}
+                    # The confirmed turn runs against the ORIGINATING ask's
+                    # content (stored on the offer): reply sends assemble
+                    # chat history only, and both lanes — extraction and
+                    # sandbox — need the meeting content the user asked
+                    # about, plus the reply for any revisions.
+                    if _offer.get("ask_content"):
+                        _reply_line = (body.get_meta("reply_text")
+                                       or body.user_content[-500:])
+                        _updates["user_content"] = (
+                            _offer["ask_content"]
+                            + "\n\nThe user confirmed the file build with: "
+                            + str(_reply_line)[:500])
+                    body = body.model_copy(update=_updates)
+                    # the routing dial resolved before we knew this was a
+                    # generation turn — re-resolve so it rides the first-send
+                    # lane (same coherence rule as button-confirmed turns).
+                    # Routing rows are "provider/model" strings: split exactly
+                    # like the first-pass resolution, or the provider receives
+                    # a vendor-prefixed id it rejects (first live chat-confirm
+                    # failed on 'anthropic/claude-sonnet-4-6').
+                    _re_model = _resolve_model_routing(
+                        request, body, tier, effective_tier_name)
+                    if _re_model:
+                        _parts = _re_model.split("/", 1)
+                        if len(_parts) == 2:
+                            body = body.model_copy(update={
+                                "provider": _parts[0], "model": _parts[1]})
+                        elif _re_model != body.model:
+                            body = body.model_copy(update={"model": _re_model})
+            if not _gen_armed:
+                # guaranteed catch first (deterministic, no LLM); the
+                # classifier only judges the softer phrasings
+                from app.services.document_generation import (
+                    explicit_file_ask,
+                    looks_like_file_ask,
+                )
+                _intent = explicit_file_ask(body.user_content)
+                if _intent is None:
+                    _intent = await classify_generation_intent(
+                        provider_router, body.user_content, on_subcall=_meter,
+                    )
+                # teaser candidate: file vocabulary present but no request
+                # judged — the answer carries a served "want this as a real
+                # file?" CTA; the tap resends with generation_confirmed
+                # (SS renders the envelope family already)
+                if ((_intent is None or not _intent.get("file_request"))
+                        and looks_like_file_ask(body.user_content)):
+                    _gen_teaser_text = str(_confirmation.get("teaser_text") or "")
+                if _intent and _intent.get("file_request"):
+                    from app.services.doc_templates import TEMPLATES, match_template
+                    _tmpl = match_template(body.user_content)
+                    _offer_id = generation_offers.create(
+                        user.id, _intent.get("format") or "xlsx",
+                        _intent.get("gist") or "", template_id=_tmpl,
+                        ask_content=body.user_content or "")
+                    _envelope = build_offer_envelope(
+                        _confirmation, _intent.get("format"),
+                        gist=_intent.get("gist") or "", offer_id=_offer_id)
+                    if _tmpl:
+                        # registry interception: propose the optimized build,
+                        # keep the custom door open (a custom description
+                        # falls through as normal chat and re-offers).
+                        # en-only v1; served copy when templates localize.
+                        _t = TEMPLATES[_tmpl]
+                        _cta = _envelope["feature_state"]["cta"]
+                        _cta["text"] = (
+                            f"Sounds like you want a project timeline"
+                            f"{(' ' + _intent.get('gist')) if _intent.get('gist') else ''}. "
+                            f"I can build {_t['offer_noun']} in about "
+                            f"{_t['expected_seconds']} seconds — or describe "
+                            f"exactly what you have in mind and I'll build "
+                            f"that custom instead. Want the polished one?")
+                        _cta["details"]["template_id"] = _tmpl
+                        _cta["details"]["expected_seconds"] = _t["expected_seconds"]
+                    return JSONResponse(content=_envelope)
+
+    if _gen_armed and not _template_id:
+        body = body.model_copy(update={"generation": True})
+    elif _gen_armed and _template_id:
+        # Template lane: no sandbox — the model's whole job is emitting the
+        # plan as JSON; the registry's deterministic renderer draws the file.
+        # The client-assembled system prompt CARRIES the project context
+        # (meeting summaries — 7K chars on live Project Chat turns), so the
+        # extraction directive APPENDS as an override instead of replacing
+        # it: the first two live runs replaced it and the model, seeing no
+        # meetings, asked the user to paste their plan.
+        from app.services.doc_templates import TEMPLATES
+        _t = TEMPLATES[_template_id]
+        _client_sys = (body.system_prompt or "").strip()
+        _extraction_sys = (
+            _client_sys + "\n\n--- FILE BUILD OVERRIDE ---\n"
+            + _t["extraction_prompt"]
+            + " Ignore all earlier instructions about tone, style, or answer "
+              "formatting — output only the JSON object."
+        ) if _client_sys else _t["extraction_prompt"]
+        body = body.model_copy(update={
+            "system_prompt": _extraction_sys,
+            "temperature": 0.2,
+            "max_tokens": 8000,
+        })
+        _gen_expected_seconds = _t["expected_seconds"]
+
     # 6. Stream or non-stream based on request + call_type
     # Only stream interactive queries; background tasks (summary, analysis) get full JSON.
     # Project Chat is also forced non-streaming so feature_state can land
@@ -1674,10 +1882,17 @@ async def chat(
     # would require a separate event type and client-side merge).
     call_type = body.get_meta("call_type")
     is_project_chat = body.get_meta("prompt_mode") == "ProjectChat"
+    # Meeting Chat parity (2026-07-12): the gate + confirmation machinery now
+    # runs BEFORE this branch, so a streaming surface can draw an offer (a
+    # single JSON on the SSE request — the same shape Project Chat clients
+    # already handle) and an armed turn diverts to the generation transport
+    # instead of the token stream. What admitted Project Chat all along was
+    # its forced-non-stream route, not the stream flag — reconciled with SS.
     should_stream = (
         body.stream
         and call_type not in ("summary", "analysis")
         and not is_project_chat
+        and not body.generation
     )
 
     if should_stream:
@@ -1689,6 +1904,36 @@ async def chat(
         )
 
     # --- Non-streaming path (original) ---
+
+    # 5.98. Generation turn records (phase 2 rescue, handoff Part 4). When
+    # an armed turn carries a client-minted generation_id: an already-
+    # terminal id replays the stored result (no second sandbox bill), a
+    # still-running id 409s with honest-progress fields, and a fresh id is
+    # registered so GET /v1/generations/{id} can rescue the turn after a
+    # mid-turn app death. Sends without the id keep today's behavior.
+    _generation_id = body.get_meta("generation_id") if _gen_armed else None
+    if _generation_id:
+        from app.services import generation_turns
+
+        _stored = await generation_turns.lookup_terminal(db, user.id, _generation_id)
+        if _stored is not None and _stored["status"] == "done":
+            return JSONResponse(content={
+                "text": _stored["text"],
+                "generated_files": _stored["generated_files"],
+                "replayed": True,
+            })
+        if _stored is None and not generation_turns.begin(
+                user.id, _generation_id,
+                expected_seconds=_gen_expected_seconds or generation_turns.DEFAULT_EXPECTED_SECONDS):
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "generation_in_progress",
+                    **{k: v for k, v in generation_turns.running_info(
+                        user.id, _generation_id).items() if k != "status"},
+                },
+            )
+        # a stored "failed" falls through: the resend is the retry
 
     # 5.9. Transcript cleanup for analysis calls. When call_type=="analysis"
     # carries a transcript_source the cleanup module knows how to handle
@@ -1731,167 +1976,354 @@ async def chat(
                 body = body.model_copy(update={"user_content": _cleaned})
                 cleaned_for_response = _cleaned
 
-    # 6. Route to provider
-    start = time.monotonic()
-    try:
-        from app.services.anthropic_or_fallback import route_with_fallback
-        response = await route_with_fallback(
-            provider_router, body, db, request.app.state.settings,
-        )
-    except HTTPException:
-        elapsed_ms = int((time.monotonic() - start) * 1000)
-        await usage_tracker.log_usage(
-            db, user.id, body, None, elapsed_ms, status="error", app_id=app_id
-        )
-        raise
-
-    elapsed_ms = int((time.monotonic() - start) * 1000)
-
-    # 6.5. Unwrap a stray ```json code fence the model wrapped around a JSON
-    # response (managed JSON call types say "no code fences" but models still
-    # do it). Safe no-op for prose/markdown answers. Non-stream path only;
-    # the JSON call types don't stream.
-    if response and response.text:
-        response.text = _strip_json_code_fence(response.text)
-
-    # 7. Calculate cost from pricing data
-    request_cost = 0.0
-    if pricing.is_loaded:
-        cost = pricing.calculate_cost(
-            provider=body.provider,
-            model=body.model,
-            usage=response.usage,
-            input_tokens=response.input_tokens,
-            output_tokens=response.output_tokens,
-        )
-        response.cost = cost
-        request_cost = cost.get("total_cost", 0.0)
-
-    # 8. Record cost against allocation/overage
-    await usage_tracker.record_cost(db, user.id, request_cost, tier, user=user)
-
-    # 9. Log usage
-    await usage_tracker.log_usage(db, user.id, body, response, elapsed_ms, app_id=app_id)
-
-    # 9.1. Search-usage tracking: count search invocations Anthropic
-    # actually performed (mirrored into usage["web_search_requests"] by
-    # AnthropicAdapter), increment the per-user counter, and write an
-    # audit row per search-bearing response. Fail-open: if the increment
-    # fails (e.g., transient DB error), the user effectively gets the
-    # search free for this request — accept it rather than block them.
-    try:
-        searches_performed = int(
-            (response.usage or {}).get("web_search_requests") or 0
-        )
-    except (TypeError, ValueError):
-        searches_performed = 0
-
-    # Surface "did search actually run?" as an explicit boolean so iOS
-    # can branch on it (rather than inferring from CTA presence). Fires
-    # for every request that had search_state populated — present even
-    # when the user is under all caps and gets a counter pill with no
-    # CTA. False when the gate stripped the flag (hard cap) OR when the
-    # provider doesn't support search.
-    if search_state is not None:
-        search_state["was_used"] = searches_performed > 0
-
-    if searches_performed > 0:
+    # Steps 6-10 (route -> collect -> meter -> assemble) run inside a
+    # closure so the generation transport (Phase A) can drive the same
+    # pipeline behind SSE heartbeats. The JSON path awaits it directly —
+    # identical behavior, one indentation level down.
+    async def _run_turn_tail(db=db) -> JSONResponse:
+        # `db` is a PARAMETER (defaulting to the request-scoped connection):
+        # the SSE transport runs this closure while the response streams —
+        # AFTER dependency teardown closes the request's connection — so it
+        # passes its own. `body` is rebound below (generated-count metadata);
+        # without the nonlocal the first read would raise UnboundLocalError.
+        nonlocal body
+        # 6. Route to provider
+        start = time.monotonic()
         try:
-            await db.execute(
-                "UPDATE users SET searches_used = searches_used + ? WHERE id = ?",
-                (searches_performed, user.id),
+            from app.services.anthropic_or_fallback import route_with_fallback
+            response = await route_with_fallback(
+                provider_router, body, db, request.app.state.settings,
             )
-            # Bump the on-the-wire counter to match the post-increment
-            # DB state so iOS's `updateSearchUsage(from: search_state)`
-            # advances the pill in lockstep with this response. Without
-            # this, search_state.used is the pre-LLM snapshot and iOS
-            # writes back the same value it already had — the pill
-            # appears frozen until /v1/usage/me is fetched on app
-            # foreground (observed bug, request 19:46:00 UTC 2026-05-07).
-            if search_state is not None and search_state.get("used") is not None:
-                search_state["used"] = search_state["used"] + searches_performed
-            # Audit row: one per response. Cost = $10 / 1000 searches
-            # (Anthropic flat fee for web_search tool usage); the input
-            # tokens consumed by returned search content are tracked
-            # separately under usage_log.estimated_cost_usd.
-            import uuid as _uuid
-            await db.execute(
-                """INSERT INTO search_usage
-                   (id, user_id, request_timestamp, meeting_id, provider,
-                    model, searches_count, search_cost_usd)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    str(_uuid.uuid4()),
-                    user.id,
-                    datetime.now(timezone.utc).isoformat(),
-                    body.get_meta("meeting_id"),
-                    body.provider,
-                    body.model,
-                    searches_performed,
-                    searches_performed * 0.01,
-                ),
+        except HTTPException as _route_exc:
+            elapsed_ms = int((time.monotonic() - start) * 1000)
+            await usage_tracker.log_usage(
+                db, user.id, body, None, elapsed_ms, status="error", app_id=app_id
             )
-            await db.commit()
-        except Exception as e:
-            logger.warning(
-                "search_usage tracking failed for user %s: %s — "
-                "search ran, counter not incremented (fail-open)",
-                user.id, e,
+            if _generation_id:
+                from app.services import generation_turns
+                _detail = _route_exc.detail if isinstance(_route_exc.detail, dict) else {
+                    "message": str(_route_exc.detail)}
+                await generation_turns.finish(
+                    db, user_id=user.id, app_id=app_id, generation_id=_generation_id,
+                    status="failed", error=_detail,
+                )
+            raise
+        except Exception:
+            # Generation turns bypass the OR fallback, so raw transport errors
+            # (e.g. ReadTimeout) can reach here — record the failure so the
+            # rescue lookup answers honestly, then re-raise unchanged.
+            if _generation_id:
+                from app.services import generation_turns
+                await generation_turns.finish(
+                    db, user_id=user.id, app_id=app_id, generation_id=_generation_id,
+                    status="failed", error={"code": "provider_error",
+                                            "message": "generation leg failed"},
+                )
+            raise
+
+        elapsed_ms = int((time.monotonic() - start) * 1000)
+
+        # 6.5. Unwrap a stray ```json code fence the model wrapped around a JSON
+        # response (managed JSON call types say "no code fences" but models still
+        # do it). Safe no-op for prose/markdown answers. Non-stream path only;
+        # the JSON call types don't stream.
+        if response and response.text:
+            response.text = _strip_json_code_fence(response.text)
+
+        # 6.7. Collect generated artifacts (phase 2a) — best-effort, never
+        # blocks the text answer. Staged rows ride the response as
+        # `generated_files`; count/bytes land in usage metering below.
+        generated_payload: list[dict] = []
+        if _template_id and response and response.text:
+            # Template lane execution: parse the extraction, render
+            # deterministically, stage through the same pipeline as sandbox
+            # artifacts. Failures fall back to the raw model text so the
+            # user never gets a dead turn.
+            try:
+                from app.services import generated_files as _staging
+                from app.services.doc_templates import TEMPLATES, parse_extraction
+                _t = TEMPLATES[_template_id]
+                _plan = parse_extraction(response.text)
+                _bytes = await asyncio.to_thread(_t["renderer"], _plan)
+                _row = await _staging.stage(
+                    db, user_id=user.id, app_id=app_id,
+                    name=_t["filename"], media_type=_t["media_type"], content=_bytes)
+                if _row:
+                    generated_payload = [_row]
+                    _n = len(_plan.get("tasks") or [])
+                    response.text = (f"Built your {_t['format']} — "
+                                     f"{_n} tasks and milestones from "
+                                     f"{_plan.get('project') or 'the project'}.")
+                    # metering stamp (the sandbox block below is skipped on
+                    # the template lane — first live run staged+delivered
+                    # but showed gen {} in usage metadata)
+                    _gmeta = dict(body.metadata or {})
+                    _gmeta["generated_count"] = 1
+                    _gmeta["generated_bytes"] = _row["size_bytes"]
+                    _gmeta["template_id"] = _template_id
+                    body = body.model_copy(update={"metadata": _gmeta})
+            except Exception:
+                logger.exception("template lane render failed — serving raw text")
+        if body.generation and response and response.raw_response_json:
+            from app.services.document_generation import collect_generated_files
+            generated_payload = await collect_generated_files(
+                db,
+                raw_response_json=response.raw_response_json,
+                api_key=request.app.state.settings.anthropic_api_key,
+                remote_configs=request.app.state.remote_configs,
+                user_id=user.id,
+                app_id=app_id,
+            )
+            if generated_payload:
+                _gmeta = dict(body.metadata or {})
+                _gmeta["generated_count"] = len(generated_payload)
+                _gmeta["generated_bytes"] = sum(g["size_bytes"] for g in generated_payload)
+                body = body.model_copy(update={"metadata": _gmeta})
+
+        if _generation_id:
+            from app.services import generation_turns
+            await generation_turns.finish(
+                db, user_id=user.id, app_id=app_id, generation_id=_generation_id,
+                status="done", text=(response.text or ""),
+                generated_files=generated_payload,
             )
 
-    # 9.5. Feature hooks (after LLM) — async, non-blocking
-    for feature_name, hook in feature_hooks.items():
-        state = tier.feature_state(feature_name)
-        if feature_name in hook_results:
-            await hook.after_llm(user, body, response, hook_results[feature_name], state)
+        # 7. Calculate cost from pricing data
+        request_cost = 0.0
+        if pricing.is_loaded:
+            cost = pricing.calculate_cost(
+                provider=body.provider,
+                model=body.model,
+                usage=response.usage,
+                input_tokens=response.input_tokens,
+                output_tokens=response.output_tokens,
+            )
+            response.cost = cost
+            request_cost = cost.get("total_cost", 0.0)
 
-    # Server-controlled tier label. Decoupled from `response.model` so we
-    # can swap models per tier without breaking iOS attribution UI.
-    from app.services.ai_tier import tier_to_ai_tier
-    response.ai_tier = tier_to_ai_tier(effective_tier_name)
+        # 8. Record cost against allocation/overage
+        await usage_tracker.record_cost(db, user.id, request_cost, tier, user=user)
 
-    # Surface the cleaned transcript (if cleanup ran for this analysis call)
-    # so iOS can persist it to MeetingRecord.cleanedTranscript. Absent when
-    # cleanup was skipped or failed — iOS falls back to raw silently.
-    if cleaned_for_response is not None:
-        response.cleaned_transcript = cleaned_for_response
+        # 9. Log usage
+        await usage_tracker.log_usage(db, user.id, body, response, elapsed_ms, app_id=app_id)
 
-    # 10. Build response with allocation headers
-    response_data = response.model_dump()
+        # 9.1. Search-usage tracking: count search invocations Anthropic
+        # actually performed (mirrored into usage["web_search_requests"] by
+        # AnthropicAdapter), increment the per-user counter, and write an
+        # audit row per search-bearing response. Fail-open: if the increment
+        # fails (e.g., transient DB error), the user effectively gets the
+        # search free for this request — accept it rather than block them.
+        try:
+            searches_performed = int(
+                (response.usage or {}).get("web_search_requests") or 0
+            )
+        except (TypeError, ValueError):
+            searches_performed = 0
 
-    # Search-state sidecar (independent of feature_state, which is owned
-    # by the project_chat / budget paths). Always populated when the
-    # request had search_enabled=true so iOS can render a "searches used
-    # this month" pill, with `cta` non-null only when a soft- or hard-cap
-    # message needs to surface.
-    if search_state is not None:
-        response_data["search_state"] = search_state
+        # Surface "did search actually run?" as an explicit boolean so iOS
+        # can branch on it (rather than inferring from CTA presence). Fires
+        # for every request that had search_state populated — present even
+        # when the user is under all caps and gets a counter pill with no
+        # CTA. False when the gate stripped the flag (hard cap) OR when the
+        # provider doesn't support search.
+        if search_state is not None:
+            search_state["was_used"] = searches_performed > 0
 
-    json_response = JSONResponse(content=response_data)
+        if searches_performed > 0:
+            try:
+                await db.execute(
+                    "UPDATE users SET searches_used = searches_used + ? WHERE id = ?",
+                    (searches_performed, user.id),
+                )
+                # Bump the on-the-wire counter to match the post-increment
+                # DB state so iOS's `updateSearchUsage(from: search_state)`
+                # advances the pill in lockstep with this response. Without
+                # this, search_state.used is the pre-LLM snapshot and iOS
+                # writes back the same value it already had — the pill
+                # appears frozen until /v1/usage/me is fetched on app
+                # foreground (observed bug, request 19:46:00 UTC 2026-05-07).
+                if search_state is not None and search_state.get("used") is not None:
+                    search_state["used"] = search_state["used"] + searches_performed
+                # Audit row: one per response. Cost = $10 / 1000 searches
+                # (Anthropic flat fee for web_search tool usage); the input
+                # tokens consumed by returned search content are tracked
+                # separately under usage_log.estimated_cost_usd.
+                import uuid as _uuid
+                await db.execute(
+                    """INSERT INTO search_usage
+                       (id, user_id, request_timestamp, meeting_id, provider,
+                        model, searches_count, search_cost_usd)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        str(_uuid.uuid4()),
+                        user.id,
+                        datetime.now(timezone.utc).isoformat(),
+                        body.get_meta("meeting_id"),
+                        body.provider,
+                        body.model,
+                        searches_performed,
+                        searches_performed * 0.01,
+                    ),
+                )
+                await db.commit()
+            except Exception as e:
+                logger.warning(
+                    "search_usage tracking failed for user %s: %s — "
+                    "search ran, counter not incremented (fail-open)",
+                    user.id, e,
+                )
 
-    # Surface the output-language injection so a Spanish end-to-end run can be
-    # confirmed at the wire (GP injected) vs the model merely happening to
-    # answer in-language. Present only when the directive was actually applied.
-    if _output_locale:
-        json_response.headers["X-Output-Locale"] = _output_locale
-
-    if effective_limit != -1:
-        new_monthly_used = monthly_used + request_cost
-        percent = min(100, new_monthly_used / effective_limit * 100)
-        json_response.headers["X-Allocation-Percent"] = f"{percent:.1f}"
-        if percent >= 80:
-            json_response.headers["X-Allocation-Warning"] = "true"
-        json_response.headers["X-Monthly-Used"] = f"{new_monthly_used:.4f}"
-        json_response.headers["X-Monthly-Limit"] = f"{effective_limit:.2f}"
-
-    # Feature response headers
-    for feature_name, hook in feature_hooks.items():
-        if feature_name in hook_results:
+        # 9.5. Feature hooks (after LLM) — async, non-blocking
+        for feature_name, hook in feature_hooks.items():
             state = tier.feature_state(feature_name)
-            for k, v in hook.response_headers(hook_results[feature_name], state).items():
-                json_response.headers[k] = v
+            if feature_name in hook_results:
+                await hook.after_llm(user, body, response, hook_results[feature_name], state)
 
-    return json_response
+        # Server-controlled tier label. Decoupled from `response.model` so we
+        # can swap models per tier without breaking iOS attribution UI.
+        from app.services.ai_tier import tier_to_ai_tier
+        response.ai_tier = tier_to_ai_tier(effective_tier_name)
+
+        # Surface the cleaned transcript (if cleanup ran for this analysis call)
+        # so iOS can persist it to MeetingRecord.cleanedTranscript. Absent when
+        # cleanup was skipped or failed — iOS falls back to raw silently.
+        if cleaned_for_response is not None:
+            response.cleaned_transcript = cleaned_for_response
+
+        # 10. Build response with allocation headers
+        response_data = response.model_dump()
+        # Raw provider wire payloads are metering/debug internals (usage_log
+        # metadata), never client wire: raw_request carries the assembled
+        # system prompt (GP-owned for managed calls) and raw_response the
+        # provider's identity and internal blocks — and together they tripled
+        # response size (caught by SS's 74KB console forensics, 2026-07-11).
+        response_data.pop("raw_request_json", None)
+        response_data.pop("raw_response_json", None)
+
+        # Search-state sidecar (independent of feature_state, which is owned
+        # by the project_chat / budget paths). Always populated when the
+        # request had search_enabled=true so iOS can render a "searches used
+        # this month" pill, with `cta` non-null only when a soft- or hard-cap
+        # message needs to surface.
+        if search_state is not None:
+            response_data["search_state"] = search_state
+
+        # Generated artifacts (phase 2a): additive — absent when none. The
+        # client downloads immediately (URLs are a 6h fetch window, not storage).
+        if generated_payload:
+            response_data["generated_files"] = generated_payload
+        if _gen_teaser_text and not generated_payload:
+            # soft-intent teaser (SS design, replacing their manual toggle):
+            # same envelope family they render everywhere; the tap resends
+            # this ask with generation_confirmed
+            response_data["feature_state"] = {
+                "feature": "document_generation",
+                "state": "available",
+                "cta": {
+                    "kind": "generation_teaser",
+                    "text": _gen_teaser_text,
+                    "action": "confirm_generation",
+                    "details": {},
+                },
+            }
+
+        json_response = JSONResponse(content=response_data)
+
+        # Surface the output-language injection so a Spanish end-to-end run can be
+        # confirmed at the wire (GP injected) vs the model merely happening to
+        # answer in-language. Present only when the directive was actually applied.
+        if _output_locale:
+            json_response.headers["X-Output-Locale"] = _output_locale
+
+        if effective_limit != -1:
+            new_monthly_used = monthly_used + request_cost
+            percent = min(100, new_monthly_used / effective_limit * 100)
+            json_response.headers["X-Allocation-Percent"] = f"{percent:.1f}"
+            if percent >= 80:
+                json_response.headers["X-Allocation-Warning"] = "true"
+            json_response.headers["X-Monthly-Used"] = f"{new_monthly_used:.4f}"
+            json_response.headers["X-Monthly-Limit"] = f"{effective_limit:.2f}"
+
+        # Feature response headers
+        for feature_name, hook in feature_hooks.items():
+            if feature_name in hook_results:
+                state = tier.feature_state(feature_name)
+                for k, v in hook.response_headers(hook_results[feature_name], state).items():
+                    json_response.headers[k] = v
+
+        return json_response
+
+    # 6b. Generation transport, Phase A (handoff Part 2). A CONFIRMED
+    # generation turn is answered as SSE on every surface: started ->
+    # timer-based heartbeats (honest: elapsed vs served expectation, no
+    # fake precision) -> result carrying the byte-identical JSON body ->
+    # or error. The client's only timeout is "no event for 30s". Unconfirmed
+    # armed turns (the dark e2e lane) keep the plain JSON path.
+    _gen_sse = bool(
+        (body.generation or _template_id)
+        and body.get_meta("generation_confirmed")
+        and _gen_confirmation_enabled
+    )
+    if not _gen_sse:
+        return await _run_turn_tail()
+
+    import json as _json
+
+    def _sse(event: str, data: dict) -> str:
+        return f"event: {event}\ndata: {_json.dumps(data)}\n\n"
+
+    async def _generation_events():
+        _t0 = time.monotonic()
+        _expected = _gen_expected_seconds or 150
+        yield _sse("generation_started", {
+            "expected_seconds": _expected,
+            "expected_format": body.get_meta("expected_format"),
+        })
+        # Own DB connection: this generator outlives the request scope (the
+        # dependency-injected connection is already torn down while the
+        # stream body runs — caught by CI, ValueError: no active connection).
+        import aiosqlite as _aiosqlite
+        _db_path = request.app.state.settings.database_url.replace(
+            "sqlite+aiosqlite:///", "")
+        _sse_db = await _aiosqlite.connect(_db_path)
+        _sse_db.row_factory = _aiosqlite.Row
+
+        async def _tail_owning_db():
+            # The TASK owns the connection, not the generator: a client
+            # disconnect cancels the generator, but the turn must run to
+            # completion and write its rescue row + stage its artifact —
+            # that's the entire paid-but-unseen case rescue exists for.
+            try:
+                return await _run_turn_tail(db=_sse_db)
+            finally:
+                await _sse_db.close()
+
+        _task = asyncio.create_task(_tail_owning_db())
+        while True:
+            done, _ = await asyncio.wait({_task}, timeout=5)
+            if done:
+                break
+            yield _sse("generation_progress", {
+                "elapsed_seconds": int(time.monotonic() - _t0),
+                "expected_seconds": _expected,
+                "phase": "working",
+            })
+        try:
+            _resp = _task.result()
+            yield _sse("generation_result", _json.loads(bytes(_resp.body)))
+        except HTTPException as e:
+            _detail = e.detail if isinstance(e.detail, dict) else {"message": str(e.detail)}
+            _ev = {"code": _detail.get("code", "provider_error"),
+                   "message": _detail.get("message", "generation failed")}
+            if isinstance(_detail.get("details"), dict):
+                _ev["details"] = _detail["details"]   # same typed family as HTTP errors
+            yield _sse("generation_error", _ev)
+        except Exception:
+            logger.exception("generation transport: turn failed")
+            yield _sse("generation_error", {"code": "provider_error",
+                                            "message": "generation failed"})
+
+    return StreamingResponse(_generation_events(), media_type="text/event-stream")
 
 
 async def _handle_stream(

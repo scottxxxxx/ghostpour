@@ -3221,7 +3221,25 @@ def _validate_campaign(body: CampaignBody) -> None:
                     raise HTTPException(status_code=400, detail="native.media.type must be 'image'")
                 if not isinstance(url, str) or not url.startswith("https://"):
                     raise HTTPException(status_code=400, detail="native.media.url must be https")
-        for cta in (v.get("native") or {}).get("ctas") or []:
+        # Per-locale content overrides (partial native blocks). Validate the
+        # shape and every override's CTAs against the same allowlist as the
+        # base block — a locale variant must not smuggle an unknown action.
+        locs = v.get("content_locales")
+        if locs is not None:
+            if not isinstance(locs, dict) or not all(
+                    isinstance(k, str) and isinstance(o, dict) for k, o in locs.items()):
+                raise HTTPException(
+                    status_code=400,
+                    detail="variant content_locales must map locale tags to override objects")
+            for o in locs.values():
+                if "title" in o and (not o["title"] or not isinstance(o["title"], str)):
+                    raise HTTPException(status_code=400, detail="content_locales title must be a non-empty string")
+                if "body" in o and o["body"] is not None and not isinstance(o["body"], str):
+                    raise HTTPException(status_code=400, detail="content_locales body must be a string")
+        _cta_sources = [(v.get("native") or {}).get("ctas") or []]
+        for o in (locs or {}).values():
+            _cta_sources.append(o.get("ctas") or [])
+        for cta in [c for src_ in _cta_sources for c in src_]:
             if not isinstance(cta, dict):
                 continue
             atype = (cta.get("action") or {}).get("type")

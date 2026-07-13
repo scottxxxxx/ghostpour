@@ -450,3 +450,69 @@ def test_geo_targeting_validation_rejects_bad_shapes(client):
     # valid geo + floor accepted
     assert _post("t_badcity", {"geo": {"cities": "San Francisco"}}).status_code == 400
     assert _post("t_good", {"geo": {"countries": ["US"]}, "min_audience": 50}).status_code == 200
+
+
+# --- per-locale content (content_locales) ---
+
+_NATIVE_ES = {
+    "variant_id": "native", "weight": 100, "render": "native",
+    "native": {
+        "schema_version": 1,
+        "title": "Hey there,",
+        "body": "Native card rendered by ShoulderSurf.",
+        "ctas": [{"cta_id": "open", "label": "Open ShoulderSurf",
+                  "action": {"type": "none"}}],
+    },
+    "content_locales": {
+        "es": {"title": "Hola,",
+               "body": "Tarjeta nativa de ShoulderSurf.",
+               "ctas": [{"cta_id": "open", "label": "Abrir ShoulderSurf",
+                         "action": {"type": "none"}}]},
+        "ja": {"title": "こんにちは"},
+    },
+}
+
+
+def test_resolve_localizes_by_accept_language(client, pro_user):
+    _make_campaign(client, cid="loc1", variants=[dict(_NATIVE_ES)])
+    h = {**pro_user["headers"], "X-App-ID": SS}
+
+    es = client.get("/v1/promo/resolve?device_id=devL",
+                    headers={**h, "Accept-Language": "es-MX"}).json()
+    assert es["variant"]["native"]["title"] == "Hola,"
+    assert es["variant"]["native"]["ctas"][0]["label"] == "Abrir ShoulderSurf"
+    assert "content_locales" not in es["variant"]          # authoring-side only
+
+    # partial override: ja replaces title, keeps base body/ctas
+    ja = client.get("/v1/promo/resolve?device_id=devL",
+                    headers={**h, "Accept-Language": "ja"}).json()
+    assert ja["variant"]["native"]["title"] == "こんにちは"
+    assert ja["variant"]["native"]["body"] == "Native card rendered by ShoulderSurf."
+
+    # en / unknown -> authored default
+    en = client.get("/v1/promo/resolve?device_id=devL",
+                    headers={**h, "Accept-Language": "en-US"}).json()
+    assert en["variant"]["native"]["title"] == "Hey there,"
+    none = client.get("/v1/promo/resolve?device_id=devL", headers=h).json()
+    assert none["variant"]["native"]["title"] == "Hey there,"
+
+
+def test_campaign_validation_rejects_bad_content_locales(client):
+    import copy
+    bad = copy.deepcopy(_NATIVE_ES)
+    bad["content_locales"] = {"es": "not an object"}
+    body = {
+        "id": "locbad", "name": "locbad", "app_id": SS, "status": "active",
+        "priority": 1, "targeting": {}, "frequency": {},
+        "placements": [{"placement": "launch", "priority": 1}],
+        "variants": [bad],
+    }
+    r = client.post("/webhooks/admin/campaigns", json=body, headers=ADMIN)
+    assert r.status_code == 400
+    # locale override CTA with unknown action type is rejected like base CTAs
+    bad2 = copy.deepcopy(_NATIVE_ES)
+    bad2["content_locales"]["es"]["ctas"] = [
+        {"cta_id": "x", "label": "X", "action": {"type": "rm_rf"}}]
+    body["variants"] = [bad2]
+    r = client.post("/webhooks/admin/campaigns", json=body, headers=ADMIN)
+    assert r.status_code == 400

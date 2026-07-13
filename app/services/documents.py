@@ -30,11 +30,35 @@ import logging
 import re
 import zipfile
 
+from concurrent.futures import ThreadPoolExecutor
+
 from fastapi import HTTPException
 
 from app.models.chat import ChatRequest, DocumentAttachment
 
 logger = logging.getLogger("ghostpour.documents")
+
+# Parsing gets its own tiny executor + deadline: pypdf can spin for minutes
+# on crafted or degenerate files (seen live with a padded fixture), and a
+# parse that slow on the shared asyncio pool starves every other to_thread
+# user in the process. A timed-out parse keeps burning its thread until it
+# finishes (Python threads can't be killed) — the 2-worker bound is the real
+# containment; the timeout just fails the request fast instead of hanging it.
+_EXTRACT_MAX_WORKERS = 2
+_EXTRACT_TIMEOUT_S = 10.0
+_EXTRACT_EXECUTOR = ThreadPoolExecutor(
+    max_workers=_EXTRACT_MAX_WORKERS, thread_name_prefix="doc-extract"
+)
+
+
+async def _run_bounded(fn, *args):
+    """Run a parse function on the dedicated executor with the deadline.
+    Reads _EXTRACT_TIMEOUT_S at call time so tests can shrink it."""
+    loop = asyncio.get_running_loop()
+    return await asyncio.wait_for(
+        loop.run_in_executor(_EXTRACT_EXECUTOR, fn, *args),
+        timeout=_EXTRACT_TIMEOUT_S,
+    )
 
 PDF_MIME = "application/pdf"
 PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
@@ -43,6 +67,10 @@ PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presen
 # stray docx that arrives early extracts properly instead of hitting the
 # unsupported-format marker.
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+_MAX_XLSX_SHEETS = 10
+_MAX_XLSX_ROWS_PER_SHEET = 300
 
 _DEFAULTS = {
     "enabled": False,
@@ -55,6 +83,12 @@ _DEFAULTS = {
     # regardless of tier. Pairs with SS's client debug override that forces
     # their gate open. Test hook, not a product surface.
     "allowed_users": [],
+    # Provider-derived ceilings for the NATIVE path, served so the client can
+    # pre-check at attach time (PDF page count and combined raw size are both
+    # cheap on device) instead of paying a round trip that would downgrade.
+    # These change when routing changes — a config edit, no app release. They
+    # bound passthrough only; per_file_max_mb/max_files bound the wire.
+    "passthrough": {"max_pdf_pages": 600, "max_total_mb": 22},
 }
 
 _TIER_RANK = {"free": 0, "plus": 1, "pro": 2}
@@ -65,6 +99,14 @@ _MAX_EXTRACT_CHARS = 200_000
 _MAX_PPTX_SLIDES = 300
 _MAX_XML_PART_BYTES = 30 * 1024 * 1024  # zip-bomb guard per slide part
 
+# Provider ceilings: the model API caps requests at 32MB and PDFs at 600
+# pages. The served wire caps (25MB raw x 2 files) can exceed both once
+# base64-encoded, so passthrough enforces the config-served budget
+# (documents.passthrough — 22MB combined raw ≈ 29MB encoded leaves headroom
+# for prompt + system content) and everything over it DOWNGRADES to
+# extraction — never an error. The client reads the same values to pre-check
+# at attach time; the numbers below are the fallback when config is absent.
+
 
 def load_documents_config(remote_configs: dict) -> dict:
     """The `documents` key from client-config, merged over defaults.
@@ -74,15 +116,34 @@ def load_documents_config(remote_configs: dict) -> dict:
     return {**_DEFAULTS, **cfg}
 
 
-def _err(code: str, message: str) -> HTTPException:
-    return HTTPException(status_code=400, detail={"code": code, "message": message})
+def _err(code: str, message: str, details: dict | None = None) -> HTTPException:
+    """Wire error. `details` carries the interpolated values as TYPED fields
+    (SS composes localized messages from them; codes are the contract,
+    message is the developer-facing fallback)."""
+    d: dict = {"code": code, "message": message}
+    if details:
+        d["details"] = details
+    return HTTPException(status_code=400, detail=d)
 
 
 def _decode(doc: DocumentAttachment) -> bytes:
     try:
         return base64.b64decode(doc.data, validate=True)
     except Exception:
-        raise _err("document_unreadable", f'Attachment "{doc.name}" is not valid base64.')
+        raise _err("document_unreadable", f'Attachment "{doc.name}" is not valid base64.',
+                   details={"file": doc.name})
+
+
+def _pdf_page_count(raw: bytes) -> int | None:
+    """Page count for the passthrough page-cap guard. None = unparseable here;
+    let the normal paths handle it (passthrough sends it to the provider as-is
+    for bytes pypdf can't read but the provider might)."""
+    from pypdf import PdfReader
+
+    try:
+        return len(PdfReader(io.BytesIO(raw)).pages)
+    except Exception:
+        return None
 
 
 def _extract_pdf_text(raw: bytes, name: str) -> str:
@@ -95,7 +156,8 @@ def _extract_pdf_text(raw: bytes, name: str) -> str:
             pages.append(page.extract_text() or "")
         text = "\n".join(pages).strip()
     except Exception:
-        raise _err("document_unreadable", f'Attachment "{name}" does not parse as PDF.')
+        raise _err("document_unreadable", f'Attachment "{name}" does not parse as PDF.',
+                   details={"file": name})
     if not text:
         # Scanned / image-only PDF on the extraction path. Never an error
         # (spec: downgrade always succeeds) — tell the model what happened.
@@ -132,7 +194,8 @@ def _extract_pptx_text(raw: bytes, name: str) -> str:
     except HTTPException:
         raise
     except Exception:
-        raise _err("document_unreadable", f'Attachment "{name}" does not parse as PPTX.')
+        raise _err("document_unreadable", f'Attachment "{name}" does not parse as PPTX.',
+                   details={"file": name})
     return text[:_MAX_EXTRACT_CHARS]
 
 
@@ -174,8 +237,40 @@ def _extract_docx_text(raw: bytes, name: str) -> str:
     except HTTPException:
         raise
     except Exception:
-        raise _err("document_unreadable", f'Attachment "{name}" does not parse as DOCX.')
+        raise _err("document_unreadable", f'Attachment "{name}" does not parse as DOCX.',
+                   details={"file": name})
     return text[:_MAX_EXTRACT_CHARS]
+
+
+def _extract_xlsx_text(raw: bytes, name: str) -> str:
+    """Structured sheet extraction: each sheet rendered as CSV-style rows
+    under a sheet header. Spreadsheets are structure-IS-the-content, so
+    cells keep their tabular positions (empty cells as blanks) instead of
+    flattening to prose. Row/sheet caps keep tokens sane; the global char
+    cap still applies."""
+    import csv
+    import io as _io
+
+    import openpyxl
+    try:
+        wb = openpyxl.load_workbook(_io.BytesIO(raw), read_only=True, data_only=True)
+    except Exception:
+        raise _err("document_unreadable",
+                   f'Attachment "{name}" does not parse as XLSX.',
+                   details={"file": name})
+    out = _io.StringIO()
+    for sheet in wb.worksheets[:_MAX_XLSX_SHEETS]:
+        out.write(f"=== Sheet: {sheet.title} ===\n")
+        w = csv.writer(out)
+        for i, row in enumerate(sheet.iter_rows(values_only=True)):
+            if i >= _MAX_XLSX_ROWS_PER_SHEET:
+                out.write(f"... ({sheet.max_row - _MAX_XLSX_ROWS_PER_SHEET} more rows omitted)\n")
+                break
+            if any(v is not None for v in row):
+                w.writerow(["" if v is None else v for v in row])
+        out.write("\n")
+    wb.close()
+    return out.getvalue()[:_MAX_EXTRACT_CHARS]
 
 
 def _extract_to_text(doc: DocumentAttachment, raw: bytes) -> str:
@@ -185,6 +280,8 @@ def _extract_to_text(doc: DocumentAttachment, raw: bytes) -> str:
         return _extract_pptx_text(raw, doc.name)
     if doc.media_type == DOCX_MIME:
         return _extract_docx_text(raw, doc.name)
+    if doc.media_type == XLSX_MIME:
+        return _extract_xlsx_text(raw, doc.name)
     # Unknown type on the extraction path: config pulled the format after
     # the client attached it. Best effort — refuse quietly with a marker
     # rather than failing the whole chat.
@@ -212,7 +309,8 @@ async def process_documents(
     per_file_max = int(cfg["per_file_max_mb"]) * 1024 * 1024
 
     if len(docs) > max_files:
-        raise _err("too_many_documents", f"Max {max_files} documents per request.")
+        raise _err("too_many_documents", f"Max {max_files} documents per request.",
+                   details={"max_files": max_files})
 
     decoded: list[bytes] = []
     for doc in docs:
@@ -222,6 +320,9 @@ async def process_documents(
                 "document_too_large",
                 f'Attachment "{doc.name}" is {len(raw) // (1024 * 1024)}MB; '
                 f'max is {cfg["per_file_max_mb"]}MB.',
+                details={"file": doc.name,
+                         "size_mb": len(raw) // (1024 * 1024),
+                         "max_mb": int(cfg["per_file_max_mb"])},
             )
         decoded.append(raw)
 
@@ -235,16 +336,51 @@ async def process_documents(
         and body.provider == "anthropic"
     )
 
+    pt_cfg = {**_DEFAULTS["passthrough"], **(cfg.get("passthrough") or {})}
+    max_pages = int(pt_cfg["max_pdf_pages"])
+    raw_budget = int(pt_cfg["max_total_mb"]) * 1024 * 1024
+
     keep: list[DocumentAttachment] = []
     extracted: list[str] = []
     for doc, raw in zip(docs, decoded):
         accepted = doc.media_type in cfg["accepted_types"]
         # v1 passthrough is PDF-only: PPTX has no native document block, so
         # its "interpretation" is the structured text extraction below.
-        if passthrough_allowed and accepted and doc.media_type == PDF_MIME:
+        rides = passthrough_allowed and accepted and doc.media_type == PDF_MIME
+        if rides:
+            # Provider ceilings (config-served, mirrored by the client's
+            # attach-time pre-check): combined RAW size budget + PDF page
+            # cap. Over-limit docs DOWNGRADE — the provider would reject
+            # them with no fallback path.
+            if len(raw) > raw_budget:
+                logger.info("documents: '%s' over passthrough size budget — extracting", doc.name)
+                rides = False
+            else:
+                try:
+                    pages = await _run_bounded(_pdf_page_count, raw)
+                except TimeoutError:
+                    # A PDF whose page count can't be read inside the deadline
+                    # is pathological; don't ship it to the provider unvetted.
+                    logger.warning("documents: '%s' page-count timed out — extracting", doc.name)
+                    pages = None
+                    rides = False
+                if rides and pages is not None and pages > max_pages:
+                    logger.info("documents: '%s' has %d pages (cap %d) — extracting",
+                                doc.name, pages, max_pages)
+                    rides = False
+        if rides:
             keep.append(doc)
+            raw_budget -= len(raw)
         else:
-            text = await asyncio.to_thread(_extract_to_text, doc, raw)
+            try:
+                text = await _run_bounded(_extract_to_text, doc, raw)
+            except TimeoutError:
+                logger.warning("documents: '%s' extraction timed out", doc.name)
+                raise _err(
+                    "document_unreadable",
+                    f'Attachment "{doc.name}" took too long to process.',
+                    details={"file": doc.name},
+                )
             extracted.append(_frame(doc.name, text))
 
     user_content = body.user_content
@@ -269,19 +405,22 @@ async def process_documents(
     })
 
 
-def flatten_documents_for_or(body: ChatRequest) -> ChatRequest:
+async def flatten_documents_for_or(body: ChatRequest) -> ChatRequest:
     """OpenRouter fallback path: OR adapters don't render document blocks,
     so passthrough documents would silently vanish. Extract them to framed
-    text instead so the fallback answer still sees the content."""
+    text instead so the fallback answer still sees the content. Async so the
+    parse rides the bounded executor — previously it ran on the event loop,
+    where one degenerate PDF would stall the whole process."""
     if not body.documents:
         return body
     extracted = []
     for doc in body.documents:
         try:
             raw = base64.b64decode(doc.data, validate=True)
-            extracted.append(_frame(doc.name, _extract_to_text(doc, raw)))
+            text = await _run_bounded(_extract_to_text, doc, raw)
+            extracted.append(_frame(doc.name, text))
         except Exception:
-            # Never let fallback flattening kill the retry.
+            # Never let fallback flattening kill the retry (timeout included).
             extracted.append(_frame(doc.name, "(content unavailable)"))
     blocks = "\n\n".join(extracted)
     return body.model_copy(update={

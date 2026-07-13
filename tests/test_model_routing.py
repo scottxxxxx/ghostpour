@@ -214,6 +214,33 @@ def test_project_chat_follow_up_routes_to_dedicated_follow_up_dial():
     assert _resolve("project_chat_follow_up", "ProjectChat") == HAIKU
 
 
+def _resolve_with_documents(call_type: str | None, prompt_mode: str | None, tier: str = "pro"):
+    from app.models.chat import DocumentAttachment
+    request = _mk_request(remote_configs={"model-routing": _routing_full()})
+    body = ChatRequest(
+        provider="auto", model="auto",
+        system_prompt="", user_content="hi",
+        call_type=call_type, prompt_mode=prompt_mode,
+        documents=[DocumentAttachment(name="f.pdf", media_type="application/pdf", data="QQ==")],
+    )
+    return _resolve_model_routing(request, body, _TIER, tier)
+
+
+def test_documents_upgrade_follow_up_to_first_send_dial():
+    """Documents upgrade the turn (2026-07-10): a document-carrying send
+    resolves through the surface's first-send dial even on follow-ups —
+    the cheap lane's provider-side PDF page ceiling is lower than the
+    served passthrough caps assume, and reading a document is first-class
+    work. Applies to both chat surfaces; non-document follow-ups keep the
+    cheap lane."""
+    assert _resolve_with_documents("project_chat_follow_up", "ProjectChat") == SONNET
+    assert _resolve_with_documents("meeting_chat_follow_up", "PostMeetingChat") == SONNET
+    # first sends unchanged; non-document follow-ups unchanged
+    assert _resolve_with_documents("project_chat", "ProjectChat") == SONNET
+    assert _resolve("project_chat_follow_up", "ProjectChat") == HAIKU
+    assert _resolve("meeting_chat_follow_up", "PostMeetingChat") == HAIKU
+
+
 def test_project_chat_follow_up_falls_back_when_row_missing_tier():
     """Surgical: project_chat_follow_up.pro dial removed → defensive
     fallback to project_chat first-send dial, not the unrelated `query`

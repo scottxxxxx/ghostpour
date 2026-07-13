@@ -160,8 +160,32 @@ Client rule set:
 
 - Tier gate enforced at /v1/chat, same pattern as the Project Chat
   gating config (#93 lineage).
+- Documents upgrade the turn (server routing policy, 2026-07-10): a
+  document-carrying send resolves through the chat surface's first-send
+  model lane even when the client marks it a follow-up. Invisible on the
+  wire; it keeps the served passthrough ceilings coherent on every turn.
 - Server side extraction path: PDF text layer extraction; PPTX text via
   the XML. Used for every downgrade case.
+- Provider ceilings, now SERVED for client pre-check (addendum
+  2026-07-09): the model side caps requests at 32MB and PDFs at 600
+  pages, which the wire caps (25MB raw x 2) can exceed once encoded. The
+  documents config gains a `passthrough` subkey the client should read:
+
+  ```json
+  "passthrough": {"max_pdf_pages": 600, "max_total_mb": 22}
+  ```
+
+  Semantics: these bound the NATIVE path only. `max_total_mb` is the
+  combined RAW size (plain file-size math, no base64 accounting) of
+  documents that can ride natively in one request; `max_pdf_pages` is the
+  per-PDF page cap. Both are cheap on-device checks (PDFKit gives page
+  count) — pre-check at attach so the user learns BEFORE a round trip
+  that a file will be sent as extracted text rather than read natively.
+  Over-limit attachments still send fine within the wire caps; the server
+  enforces the same served values and DOWNGRADES them to extraction —
+  never an error. The values change when our routing changes (a config
+  edit, no app release), which is the point: the client should never
+  hardcode them.
 - Metering: usage_log metadata gains document count and total raw bytes,
   alongside the existing image_count. Cost attribution flows through
   record_cost as usual.
@@ -191,6 +215,21 @@ growth is a config flip. Positions per format:
   permanently, per SS. They lose nothing in extraction, work on every
   path including on device, and cost fewer tokens. No bytes for these.
 - **Legacy doc / ppt** — future config additions at most, no commitment.
+
+### Future note: served `native_types` (SS ask, 2026-07-11)
+
+Which formats read natively is currently a client side constant (PDF
+only, matching provider reality); the client's advisory copy branches on
+it. If native reading ever expands to another type — e.g. a provider
+grows a native docx block, or a server side convert-to-PDF step lands —
+the expansion ships as a served `native_types` list next to
+`accepted_types` in the documents key, so the client's advisory copy
+follows GP routing without an app release. Same add-only philosophy as
+the rest of the key: a client that doesn't know the field keeps its
+PDF-only constant and stays correct (the server verdict is authoritative
+either way; the list only drives attach-time messaging). Do NOT add the
+field until it would carry more than PDF — an early field that never
+varies is decoder surface for nothing.
 
 ## Timing
 

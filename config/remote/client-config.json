@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 12,
   "limits": {
     "project_chat": {
       "max_input_chars": {
@@ -12,14 +12,46 @@
   "flags": {},
   "intervals": {},
   "documents": {
-    "enabled": false,
+    "enabled": true,
     "min_tier": "pro",
     "accepted_types": [
       "application/pdf",
-      "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     ],
     "per_file_max_mb": 25,
     "max_files": 2,
-    "allowed_users": []
+    "allowed_users": [],
+    "passthrough": {
+      "max_pdf_pages": 600,
+      "max_total_mb": 22
+    },
+    "generation": {
+      "enabled": true,
+      "min_tier": "pro",
+      "formats": [
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      ],
+      "max_files_out": 2,
+      "max_file_out_mb": 25,
+      "confirmation": {
+        "enabled": true,
+        "expected_seconds": 150,
+        "poll_after_seconds": 5,
+        "offer_text": "That sounds like a file request. I can build {format} you can download and share — it takes about two minutes — or just answer right here in chat. Want the file?",
+        "format_nouns": {
+          "xlsx": "a native Excel spreadsheet (.xlsx)",
+          "docx": "a native Word document (.docx)",
+          "pptx": "a native PowerPoint deck (.pptx)",
+          "pdf": "a PDF file"
+        },
+        "offer_text_gist": "Sounds like you want {format} {gist}. Building the real file takes about two minutes — or I can just lay it out right here in chat. Want the file?",
+        "teaser_text": "Want this as a real downloadable file?"
+      }
+    }
   }
 }

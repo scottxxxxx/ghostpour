@@ -89,12 +89,17 @@ def test_defaults_when_key_absent():
     assert PDF_MIME in cfg["accepted_types"] and PPTX_MIME in cfg["accepted_types"]
 
 
-def test_bundled_client_config_ships_disabled():
+def test_bundled_client_config_documents_live_and_pro_gated():
+    # Flipped live 2026-07-11 after the e2e matrix closed. The load-bearing
+    # invariants now: pro gate intact, all three locales agree, and the
+    # bundle never ships a populated allowed_users (e2e ids live in the
+    # overlay only).
     import json
     for f in ("client-config.json", "client-config.es.json", "client-config.ja.json"):
         docs = json.load(open(f"config/remote/{f}"))["documents"]
-        assert docs["enabled"] is False
+        assert docs["enabled"] is True
         assert docs["min_tier"] == "pro"
+        assert docs["allowed_users"] == []
 
 
 # --- passthrough path ---
@@ -228,6 +233,57 @@ async def test_allowed_users_get_passthrough_while_dark():
     assert out3.documents is None
 
 
+# --- provider ceilings (size budget + page cap → downgrade, never error) ---
+
+@pytest.mark.asyncio
+async def test_oversized_passthrough_downgrades_to_extraction():
+    # Two docs that each fit the wire cap but together exceed the served
+    # passthrough budget: the first rides, the second downgrades. The budget
+    # comes from the documents.passthrough config key (client pre-checks the
+    # same numbers), floored to 1MB here via a tiny max_total_mb... a 480-byte
+    # fixture can't exceed 1MB, so pad the second doc instead.
+    # >1MB raw, still a cheap parse: comment padding sits after the header,
+    # so the EOF/xref scan at the tail stays tiny (trailing junk instead sends
+    # pypdf into a pathological backwards line-scan).
+    head, rest = _MIN_PDF.split(b"\n", 1)
+    big = head + b"\n" + (b"% pad\n" * 180_000) + rest
+    cfgs = _configs(passthrough={"max_pdf_pages": 600, "max_total_mb": 1})
+    body = _body([
+        _doc(_MIN_PDF, PDF_MIME, "first.pdf"),
+        _doc(big, PDF_MIME, "second.pdf"),
+    ])
+    out = await process_documents(
+        body, remote_configs=cfgs, tier_name="pro", managed_routing=True
+    )
+    assert out.documents and len(out.documents) == 1
+    assert out.documents[0].name == "first.pdf"
+    assert '--- Attached: "second.pdf" ---' in out.user_content
+    assert "Hello ABM" in out.user_content  # extracted, not dropped
+
+
+@pytest.mark.asyncio
+async def test_pdf_over_page_cap_downgrades():
+    # Page cap served via config: max_pdf_pages 0 makes every PDF "too long".
+    cfgs = _configs(passthrough={"max_pdf_pages": 0, "max_total_mb": 22})
+    body = _body([_doc(_MIN_PDF, PDF_MIME, "long.pdf")])
+    out = await process_documents(
+        body, remote_configs=cfgs, tier_name="pro", managed_routing=True
+    )
+    assert out.documents is None
+    assert "Hello ABM" in out.user_content  # extraction path, request succeeded
+
+
+def test_passthrough_limits_served_in_bundled_config():
+    import json
+    for f in ("client-config.json", "client-config.es.json", "client-config.ja.json"):
+        pt = json.load(open(f"config/remote/{f}"))["documents"]["passthrough"]
+        assert pt["max_pdf_pages"] == 600
+        assert pt["max_total_mb"] == 22
+    # defaults match the bundle so an absent key behaves identically
+    from app.services.documents import load_documents_config
+    assert load_documents_config({})["passthrough"] == {"max_pdf_pages": 600, "max_total_mb": 22}
+
+
 # --- docx extraction (extractor ships ahead of the config flip) ---
 
 def _min_docx() -> bytes:
@@ -338,19 +394,185 @@ def test_anthropic_builder_renders_document_block():
     assert parts[-1] == {"type": "text", "text": "Update this deck"}
 
 
-def test_or_fallback_flattens_documents_to_text():
+@pytest.mark.asyncio
+async def test_or_fallback_flattens_documents_to_text():
     body = _body([_doc(_MIN_PDF, PDF_MIME, "report.pdf")])
-    out = flatten_documents_for_or(body)
+    out = await flatten_documents_for_or(body)
     assert out.documents is None
     assert "Hello ABM" in out.user_content
     assert out.user_content.rstrip().endswith("Update this deck")
 
 
-def test_or_retarget_strips_document_blocks():
+@pytest.mark.asyncio
+async def test_or_retarget_strips_document_blocks():
     from app.services.anthropic_or_fallback import _or_request
 
     body = _body([_doc(_MIN_PDF, PDF_MIME, "report.pdf")])
-    out = _or_request(body, "anthropic/claude-sonnet-4.6")
+    out = await _or_request(body, "anthropic/claude-sonnet-4.6")
     assert out.provider == "openrouter"
     assert out.documents is None
     assert "Hello ABM" in out.user_content
+
+
+# --- parse deadline (bounded executor) ---
+
+def _slow(*_a, **_k):
+    import time
+    time.sleep(2)
+    return "never returned in time"
+
+
+def _fresh_executor(monkeypatch):
+    """Each timeout test gets its own executor — a leaked _slow thread from a
+    prior test would otherwise occupy the shared 2-worker pool and starve
+    this test's submissions past the shrunken deadline."""
+    from concurrent.futures import ThreadPoolExecutor
+    import app.services.documents as docs_mod
+    monkeypatch.setattr(docs_mod, "_EXTRACT_EXECUTOR",
+                        ThreadPoolExecutor(max_workers=2, thread_name_prefix="doc-extract-test"))
+
+
+@pytest.mark.asyncio
+async def test_extraction_timeout_is_document_unreadable(monkeypatch):
+    import app.services.documents as docs_mod
+    _fresh_executor(monkeypatch)
+    monkeypatch.setattr(docs_mod, "_EXTRACT_TIMEOUT_S", 0.1)
+    monkeypatch.setattr(docs_mod, "_extract_to_text", _slow)
+    body = _body([_doc(_MIN_PDF, PDF_MIME, "report.pdf")], provider="openrouter")
+    with pytest.raises(HTTPException) as exc:
+        await process_documents(
+            body, remote_configs=_configs(), tier_name="pro", managed_routing=True,
+        )
+    assert exc.value.detail["code"] == "document_unreadable"
+    assert "too long" in exc.value.detail["message"]
+
+
+@pytest.mark.asyncio
+async def test_page_count_timeout_downgrades_to_extraction(monkeypatch):
+    import app.services.documents as docs_mod
+    _fresh_executor(monkeypatch)
+    monkeypatch.setattr(docs_mod, "_EXTRACT_TIMEOUT_S", 0.1)
+    monkeypatch.setattr(docs_mod, "_pdf_page_count", _slow)
+    body = _body([_doc(_MIN_PDF, PDF_MIME, "report.pdf")])
+    out = await process_documents(
+        body, remote_configs=_configs(), tier_name="pro", managed_routing=True,
+    )
+    # passthrough-eligible, but the unvettable PDF downgrades to extraction
+    assert out.documents is None
+    assert "Hello ABM" in out.user_content
+
+
+@pytest.mark.asyncio
+async def test_flatten_timeout_degrades_to_marker_not_error(monkeypatch):
+    import app.services.documents as docs_mod
+    _fresh_executor(monkeypatch)
+    monkeypatch.setattr(docs_mod, "_EXTRACT_TIMEOUT_S", 0.1)
+    monkeypatch.setattr(docs_mod, "_extract_to_text", _slow)
+    body = _body([_doc(_MIN_PDF, PDF_MIME, "report.pdf")])
+    out = await flatten_documents_for_or(body)
+    assert out.documents is None
+    assert "(content unavailable)" in out.user_content
+    assert out.user_content.rstrip().endswith("Update this deck")
+
+
+@pytest.mark.asyncio
+async def test_error_details_are_typed_fields():
+    """Part 5 contract: interpolated values ride details as typed fields."""
+    big = b"x" * (2 * 1024 * 1024)
+    body = _body([_doc(big, PDF_MIME, "huge.pdf")])
+    with pytest.raises(HTTPException) as ei:
+        await process_documents(
+            body, remote_configs=_configs(per_file_max_mb=1),
+            tier_name="pro", managed_routing=True)
+    d = ei.value.detail
+    assert d["code"] == "document_too_large"
+    assert d["details"] == {"file": "huge.pdf", "size_mb": 2, "max_mb": 1}
+
+    docs = [_doc(_MIN_PDF, PDF_MIME, f"{i}.pdf") for i in range(3)]
+    with pytest.raises(HTTPException) as ei:
+        await process_documents(
+            _body(docs), remote_configs=_configs(max_files=2),
+            tier_name="pro", managed_routing=True)
+    assert ei.value.detail["details"] == {"max_files": 2}
+
+    bad = DocumentAttachment(name="bad.bin", media_type=PDF_MIME, data="!!!")
+    with pytest.raises(HTTPException) as ei:
+        await process_documents(
+            _body([bad]), remote_configs=_configs(),
+            tier_name="plus", managed_routing=True)
+    assert ei.value.detail["details"] == {"file": "bad.bin"}
+
+
+@pytest.mark.asyncio
+async def test_xlsx_extracts_as_structured_sheets():
+    import io as _io
+    import openpyxl
+    from app.services.documents import XLSX_MIME
+    wb = openpyxl.Workbook()
+    ws = wb.active; ws.title = "Tasks"
+    ws.append(["Task", "Owner", "Status"])
+    ws.append(["Fix 401", "Chirag", "Blocked"])
+    ws2 = wb.create_sheet("Budget")
+    ws2.append(["Item", "Cost"]); ws2.append(["Proxy", 1200])
+    buf = _io.BytesIO(); wb.save(buf)
+    body = _body([_doc(buf.getvalue(), XLSX_MIME, "plan.xlsx")])
+    out = await process_documents(body, remote_configs=_configs(),
+                                  tier_name="pro", managed_routing=True)
+    assert out.documents is None                       # extraction lane, never passthrough
+    assert "=== Sheet: Tasks ===" in out.user_content
+    assert "Fix 401,Chirag,Blocked" in out.user_content
+    assert "=== Sheet: Budget ===" in out.user_content
+    assert "Proxy,1200" in out.user_content
+
+
+@pytest.mark.asyncio
+async def test_xlsx_garbage_is_unreadable_with_details():
+    from app.services.documents import XLSX_MIME
+    bad = _doc(b"not a zip", XLSX_MIME, "bad.xlsx")
+    with pytest.raises(HTTPException) as ei:
+        await process_documents(_body([bad]), remote_configs=_configs(),
+                                tier_name="pro", managed_routing=True)
+    assert ei.value.detail["code"] == "document_unreadable"
+    assert ei.value.detail["details"] == {"file": "bad.xlsx"}
+
+
+# --- reference_text (Part 6: conversation-scoped reference caching) ---
+
+def _adapter():
+    from app.services.providers.anthropic import AnthropicAdapter
+    return AnthropicAdapter(api_key="t", base_url="https://x.invalid/v1/messages",
+                            auth_header="x-api-key", auth_prefix="")
+
+
+def test_reference_text_renders_as_cached_part():
+    body = ChatRequest(provider="anthropic", model="claude-sonnet-4-6",
+                       system_prompt="sys", user_content="make the bars blue",
+                       reference_text='--- Attached: "plan.xlsx" ---\nrows...')
+    api_body, _ = _adapter()._build_body(body)
+    parts = api_body["messages"][0]["content"]
+    assert parts[0]["text"].startswith("--- Attached")
+    assert parts[0]["cache_control"] == {"type": "ephemeral"}   # the spare 4th breakpoint
+    assert parts[-1] == {"type": "text", "text": "make the bars blue"}
+
+
+def test_reference_part_yields_on_generation_turns():
+    body = ChatRequest(provider="anthropic", model="claude-sonnet-4-6",
+                       system_prompt="sys", user_content="yes build it",
+                       generation=True, reference_text="ref block")
+    api_body, _ = _adapter()._build_body(body)
+    parts = api_body["messages"][0]["content"]
+    ref = next(p for p in parts if p.get("text") == "ref block")
+    assert "cache_control" not in ref                            # yields (Part 6 rule)
+    assert parts[-1]["cache_control"] == {"type": "ephemeral"}   # generation breakpoint wins
+
+
+@pytest.mark.asyncio
+async def test_or_fallback_folds_reference_text():
+    from app.services.anthropic_or_fallback import _or_request
+    body = ChatRequest(provider="anthropic", model="claude-sonnet-4-6",
+                       system_prompt="s", user_content="question",
+                       reference_text="REF BLOCK")
+    out = await _or_request(body, "anthropic/claude-sonnet-4.6")
+    assert out.reference_text is None
+    assert out.user_content.startswith("REF BLOCK")
+    assert out.user_content.endswith("question")

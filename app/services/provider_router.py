@@ -1,4 +1,6 @@
 import yaml
+import logging
+
 from fastapi import HTTPException
 
 from app.config import Settings
@@ -8,6 +10,8 @@ from app.services.providers.base import ProviderAdapter
 from app.services.providers.gemini import GeminiAdapter
 from app.services.providers.generic import GenericAdapter
 from app.services.providers.openai_compat import OpenAICompatAdapter
+
+logger = logging.getLogger("ghostpour.provider_router")
 
 ADAPTER_MAP: dict[str, type[ProviderAdapter]] = {
     "openai": OpenAICompatAdapter,
@@ -97,14 +101,18 @@ class ProviderRouter:
 
         model_ids = [m["id"] for m in models]
         if model not in model_ids:
+            # Full catalog goes to LOGS only — client-facing error strings
+            # must not enumerate our provider's model ids (relay opacity;
+            # leaked to a device 2026-07-12 via a generation_error event).
+            logger.warning(
+                "validate_model rejected model=%r provider=%r available=%s",
+                model, provider, model_ids,
+            )
             raise HTTPException(
                 status_code=400,
                 detail={
                     "code": "invalid_request",
-                    "message": (
-                        f"Model '{model}' not found for provider '{provider}'. "
-                        f"Available: {model_ids}"
-                    ),
+                    "message": "The requested model is not available.",
                 },
             )
 

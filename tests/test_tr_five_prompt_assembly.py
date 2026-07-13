@@ -172,6 +172,61 @@ def test_debrief_calibration_guards():
     assert 'Use exactly those five score names, in that order.' in r["system_prompt"]
 
 
+def test_compare_reality_config_and_contract_guards():
+    """tr_compare_reality (docs/handoffs/tr-compare-reality-contract.md):
+    plan-anchored comparison of a real conversation vs the rehearsal. Guards
+    pin the calibration clauses (drifted may be empty, applied coaching never
+    reads worse), both capture modes' trust framing, the missing-practice-
+    analysis rule, the output contract, and the judge-grade dials."""
+    from app.services.prompt_assembly import _CALL_TYPE_TO_CONFIG, assemble_prompt
+
+    assert _CALL_TYPE_TO_CONFIG["tr_compare_reality"] == "techrehearsal/compare-reality"
+    cfg = json.load(open("config/remote/techrehearsal/compare-reality.json"))
+    sp = cfg["systemPrompt"]
+    for phrase in (
+        # calibration (the debrief-treadmill lessons, contractually required)
+        "ANCHORED TO THE PLAN",
+        '"drifted" may be EMPTY',
+        "Do not invent criticism",
+        "never characterize the user as worse off for following the coaching",
+        # capture-mode trust framing
+        "speech-to-text output",
+        "NEVER cite transcription artifacts",
+        "self-reported and unverified",
+        "never penalize the brevity of the recap",
+        # missing practice analysis
+        "compare against the REHEARSAL PLAN alone and say so in the verdict",
+        # thin-recap calibration (2026-07-10 field failure: a two-line recap
+        # produced a wall of red MISSED sections for topics it never mentioned)
+        "In a USER RECAP, absence is NOT evidence",
+        "do NOT create a section for it",
+        "punishes the brevity of the recap",
+        "ONE coaching line encouraging a fuller recap",
+        "fewer grounded sections always beat padded ones",
+        # output contract
+        '"delta": one of "landed" | "drifted" | "missed" | "unplanned"',
+        '"next_best_focus"',
+        "2-4 word noun phrase",
+
+        "no ```json",
+    ):
+        assert phrase in sp, f"missing contract guard: {phrase!r}"
+    # judge-grade dials: reproducible comparisons, analysis-lane routing
+    assert cfg["temperature"] == 0.2
+    r = json.load(open("config/remote/model-routing.json"))
+    models = r["apps"]["techrehearsal"]["call_types"]["tr_compare_reality"]["models"]
+    assert all("sonnet" in models[k] for k in ("free", "paid", "default"))
+
+    cfgs = {"techrehearsal/compare-reality": cfg}
+    job = assemble_prompt("tr_compare_reality", "BLOB", cfgs, scenario_kind="jobInterview")
+    assert "comparing a real job interview against their rehearsal" in job["system_prompt"]
+    assert "The counterpart is the Interviewer." in job["system_prompt"]
+    assert job["temperature"] == 0.2 and job["max_tokens"] == 4096
+    hard = assemble_prompt("tr_compare_reality", "BLOB", cfgs, scenario_kind="hardConversation")
+    assert "emotionally hard personal conversation" in hard["system_prompt"]
+    assert job["system_prompt"] != hard["system_prompt"]
+
+
 def test_scenario_kind_normalizer_preserves_case():
     from app.services.usage_tracker import _normalize_scenario_kind
 

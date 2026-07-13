@@ -1,5 +1,5 @@
 {
-  "version": 13,
+  "version": 14,
   "models": [
     {
       "id": "anthropic/claude-opus-4-7",
@@ -205,6 +205,14 @@
             "free": "anthropic/claude-haiku-4-5-20251001",
             "paid": "anthropic/claude-haiku-4-5-20251001",
             "default": "anthropic/claude-haiku-4-5-20251001"
+          }
+        },
+        "tr_compare_reality": {
+          "label": "Compare to Reality",
+          "models": {
+            "free": "anthropic/claude-sonnet-4-6",
+            "paid": "anthropic/claude-sonnet-4-6",
+            "default": "anthropic/claude-sonnet-4-6"
           }
         }
       }
