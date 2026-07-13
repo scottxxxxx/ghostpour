@@ -234,6 +234,10 @@ async def generate_report(
         system_prompt=system_prompt,
         user_content=user_message,
         max_tokens=4096,
+        # request-id correlation (#380 extended): partners quote the
+        # X-Request-ID header; the chat route stamps it, this route didn't —
+        # TR's determinism-fixture ids couldn't match their own rows.
+        metadata={"request_id": getattr(request.state, "request_id", None)},
         # Pinned low (TR field report 2026-07-12): back-to-back
         # regenerations of the same conversation flipped the stoplight
         # red -> yellow with no input change. Same rule as parse, match,
