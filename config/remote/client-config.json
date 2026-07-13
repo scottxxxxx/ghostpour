@@ -1,5 +1,5 @@
 {
-  "version": 9,
+  "version": 10,
   "limits": {
     "project_chat": {
       "max_input_chars": {
@@ -26,7 +26,7 @@
       "max_total_mb": 22
     },
     "generation": {
-      "enabled": false,
+      "enabled": true,
       "min_tier": "pro",
       "formats": [
         "application/pdf",

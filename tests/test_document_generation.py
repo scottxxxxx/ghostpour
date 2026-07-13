@@ -36,10 +36,13 @@ def test_generation_defaults_ship_dark():
     assert cfg["max_files_out"] == 2 and cfg["max_file_out_mb"] == 25
 
 
-def test_bundled_config_ships_generation_dark():
+def test_bundled_config_generation_live_pro_gated():
+    # FLIPPED LIVE 2026-07-13 (Scott: TestFlight-scale user base, wants the
+    # feature in hand this week). Load-bearing invariants: pro gate intact,
+    # locales agree, all four formats.
     for f in ("client-config.json", "client-config.es.json", "client-config.ja.json"):
         gen = json.load(open(f"config/remote/{f}"))["documents"]["generation"]
-        assert gen["enabled"] is False and gen["min_tier"] == "pro"
+        assert gen["enabled"] is True and gen["min_tier"] == "pro"
         assert len(gen["formats"]) == 4
 
 
