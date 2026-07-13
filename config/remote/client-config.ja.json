@@ -1,5 +1,5 @@
 {
-  "version": 11,
+  "version": 12,
   "limits": {
     "project_chat": {
       "max_input_chars": {
@@ -17,7 +17,8 @@
     "accepted_types": [
       "application/pdf",
       "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     ],
     "per_file_max_mb": 25,
     "max_files": 2,
