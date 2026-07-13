@@ -2263,8 +2263,11 @@ async def chat(
             yield _sse("generation_result", _json.loads(bytes(_resp.body)))
         except HTTPException as e:
             _detail = e.detail if isinstance(e.detail, dict) else {"message": str(e.detail)}
-            yield _sse("generation_error", {"code": _detail.get("code", "provider_error"),
-                                            "message": _detail.get("message", "generation failed")})
+            _ev = {"code": _detail.get("code", "provider_error"),
+                   "message": _detail.get("message", "generation failed")}
+            if isinstance(_detail.get("details"), dict):
+                _ev["details"] = _detail["details"]   # same typed family as HTTP errors
+            yield _sse("generation_error", _ev)
         except Exception:
             logger.exception("generation transport: turn failed")
             yield _sse("generation_error", {"code": "provider_error",

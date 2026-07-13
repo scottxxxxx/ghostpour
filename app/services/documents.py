@@ -112,15 +112,22 @@ def load_documents_config(remote_configs: dict) -> dict:
     return {**_DEFAULTS, **cfg}
 
 
-def _err(code: str, message: str) -> HTTPException:
-    return HTTPException(status_code=400, detail={"code": code, "message": message})
+def _err(code: str, message: str, details: dict | None = None) -> HTTPException:
+    """Wire error. `details` carries the interpolated values as TYPED fields
+    (SS composes localized messages from them; codes are the contract,
+    message is the developer-facing fallback)."""
+    d: dict = {"code": code, "message": message}
+    if details:
+        d["details"] = details
+    return HTTPException(status_code=400, detail=d)
 
 
 def _decode(doc: DocumentAttachment) -> bytes:
     try:
         return base64.b64decode(doc.data, validate=True)
     except Exception:
-        raise _err("document_unreadable", f'Attachment "{doc.name}" is not valid base64.')
+        raise _err("document_unreadable", f'Attachment "{doc.name}" is not valid base64.',
+                   details={"file": doc.name})
 
 
 def _pdf_page_count(raw: bytes) -> int | None:
@@ -145,7 +152,8 @@ def _extract_pdf_text(raw: bytes, name: str) -> str:
             pages.append(page.extract_text() or "")
         text = "\n".join(pages).strip()
     except Exception:
-        raise _err("document_unreadable", f'Attachment "{name}" does not parse as PDF.')
+        raise _err("document_unreadable", f'Attachment "{name}" does not parse as PDF.',
+                   details={"file": name})
     if not text:
         # Scanned / image-only PDF on the extraction path. Never an error
         # (spec: downgrade always succeeds) — tell the model what happened.
@@ -182,7 +190,8 @@ def _extract_pptx_text(raw: bytes, name: str) -> str:
     except HTTPException:
         raise
     except Exception:
-        raise _err("document_unreadable", f'Attachment "{name}" does not parse as PPTX.')
+        raise _err("document_unreadable", f'Attachment "{name}" does not parse as PPTX.',
+                   details={"file": name})
     return text[:_MAX_EXTRACT_CHARS]
 
 
@@ -224,7 +233,8 @@ def _extract_docx_text(raw: bytes, name: str) -> str:
     except HTTPException:
         raise
     except Exception:
-        raise _err("document_unreadable", f'Attachment "{name}" does not parse as DOCX.')
+        raise _err("document_unreadable", f'Attachment "{name}" does not parse as DOCX.',
+                   details={"file": name})
     return text[:_MAX_EXTRACT_CHARS]
 
 
@@ -262,7 +272,8 @@ async def process_documents(
     per_file_max = int(cfg["per_file_max_mb"]) * 1024 * 1024
 
     if len(docs) > max_files:
-        raise _err("too_many_documents", f"Max {max_files} documents per request.")
+        raise _err("too_many_documents", f"Max {max_files} documents per request.",
+                   details={"max_files": max_files})
 
     decoded: list[bytes] = []
     for doc in docs:
@@ -272,6 +283,9 @@ async def process_documents(
                 "document_too_large",
                 f'Attachment "{doc.name}" is {len(raw) // (1024 * 1024)}MB; '
                 f'max is {cfg["per_file_max_mb"]}MB.',
+                details={"file": doc.name,
+                         "size_mb": len(raw) // (1024 * 1024),
+                         "max_mb": int(cfg["per_file_max_mb"])},
             )
         decoded.append(raw)
 
@@ -328,6 +342,7 @@ async def process_documents(
                 raise _err(
                     "document_unreadable",
                     f'Attachment "{doc.name}" took too long to process.',
+                    details={"file": doc.name},
                 )
             extracted.append(_frame(doc.name, text))
 
