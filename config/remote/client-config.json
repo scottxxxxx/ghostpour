@@ -1,5 +1,5 @@
 {
-  "version": 10,
+  "version": 11,
   "limits": {
     "project_chat": {
       "max_input_chars": {
@@ -16,7 +16,8 @@
     "min_tier": "pro",
     "accepted_types": [
       "application/pdf",
-      "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     ],
     "per_file_max_mb": 25,
     "max_files": 2,
