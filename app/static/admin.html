@@ -211,6 +211,7 @@
     <div class="tab" onclick="switchTab('models')">Models</div>
     <div class="tab" onclick="switchTab('users')">Users</div>
     <div class="tab" onclick="switchTab('tiers')">Tiers</div>
+    <div class="tab" onclick="switchTab('entitlements')">Entitlements</div>
     <div class="tab" onclick="switchTab('latency')">Latency</div>
     <div class="tab" onclick="switchTab('providers')">Providers</div>
     <div class="tab" onclick="switchTab('errors')">Errors</div>
@@ -514,6 +515,16 @@
   </div>
 
   <!-- Transcript cleanup: original vs cleaned -->
+  <div id="tab-entitlements" class="section">
+    <h3 style="margin:0 0 4px">Entitlements</h3>
+    <p style="color:var(--text-dim);font-size:13px;margin:0 0 14px">Read-only view of everything that decides what a user may do: the features × tiers matrix, the config-shaped knobs outside it, and where each served value comes from. What the server actually does right now — defaults merged, overlay wins.</p>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px">
+      <select id="ent-app" class="period-select" onchange="loadEntitlements(this.value)"></select>
+      <button class="refresh-btn" onclick="loadEntitlements(document.getElementById('ent-app').value)" style="background:var(--bg);color:var(--text);border:1px solid var(--border)">Refresh</button>
+    </div>
+    <div id="ent-content"><div style="color:var(--text-dim)">Loading…</div></div>
+  </div>
+
   <div id="tab-transcripts" class="section">
     <h3 style="margin:0 0 4px">Transcript cleanup</h3>
     <p style="color:var(--text-dim);font-size:13px;margin:0 0 14px">Compare the raw OCR transcript against the AI-cleaned version for a meeting. <b>Clean now</b> runs the cleanup pass on the stored raw transcript and saves the result (the same pass that should run on the report path).</p>
@@ -813,6 +824,7 @@ function switchTab(name) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   if (name === 'providers') loadProviders();
+  if (name === 'entitlements') loadEntitlements();
   if (name === 'errors') loadErrors();
   if (name === 'configs') loadConfigs();
   if (name === 'campaigns') loadCampaigns();
@@ -3075,6 +3087,101 @@ function _txRender(d) {
   document.getElementById('tx-cleaned-chars').textContent = d.cleaned_chars
     ? `(${d.cleaned_chars.toLocaleString()} chars${d.cleaned_at ? ', ' + d.cleaned_at.slice(0,19).replace('T',' ') + ' UTC' : ''})` : '';
 }
+
+// ---------------------------------------------------------------------------
+// Entitlements tab — read-only aggregation (entitlements Phase 1).
+// Matrix from tiers.yml × features.yml; knobs resolved through the same
+// loaders enforcement uses; provenance from the drift machinery.
+// ---------------------------------------------------------------------------
+function entEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+async function loadEntitlements(appId) {
+  const box = document.getElementById('ent-content');
+  box.innerHTML = '<div style="color:var(--text-dim)">Loading…</div>';
+  const q = appId ? `?app=${encodeURIComponent(appId)}` : '';
+  const r = await fetch(`${BASE}/webhooks/admin/entitlements${q}`,
+    {headers: {'X-Admin-Key': adminKey}});
+  if (!r.ok) {
+    box.innerHTML = `<div style="color:var(--red)">Failed to load entitlements (${r.status})</div>`;
+    return;
+  }
+  const d = await r.json();
+
+  const sel = document.getElementById('ent-app');
+  sel.innerHTML = d.apps.map(a =>
+    `<option value="${entEsc(a.id)}" ${a.id === d.app.id ? 'selected' : ''}>${entEsc(a.label)}</option>`).join('');
+
+  const stateColors = {enabled: 'var(--green)', teaser: 'var(--orange)', disabled: 'var(--text-dim)'};
+  const cell = s => `<td style="color:${stateColors[s] || 'var(--text-dim)'};font-weight:600">${entEsc(s)}</td>`;
+  const overridden = Object.keys(d.provenance.tier_overrides || {});
+
+  // Features × tiers matrix
+  let h = `<h4 style="margin:0 0 8px">Features × tiers <span style="color:var(--text-dim);font-weight:400;font-size:12px">(${entEsc(d.provenance.matrix_source)})</span></h4>`;
+  h += '<div class="table-wrap"><table><thead><tr><th>Feature</th>'
+    + d.tiers.map(t => `<th>${entEsc(t)}</th>`).join('') + '</tr></thead><tbody>';
+  for (const [name, f] of Object.entries(d.matrix)) {
+    h += `<tr><td><b>${entEsc(f.display_name)}</b>`
+      + `<div style="color:var(--text-dim);font-size:11px;max-width:420px">${entEsc(f.description || '')}</div>`
+      + (f.category === 'internal' ? '<span class="badge free">internal</span>' : '')
+      + '</td>'
+      + d.tiers.map(t => cell(f.tiers[t])).join('')
+      + '</tr>';
+  }
+  h += '</tbody></table></div>';
+
+  // Per-tier knobs
+  const k = d.knobs;
+  const knobRow = (label, vals, fmt2) => `<tr><td>${label}</td>`
+    + d.tiers.map(t => `<td>${fmt2 ? fmt2(vals[t], t) : entEsc(vals[t] == null ? '—' : vals[t])}</td>`).join('') + '</tr>';
+  h += '<h4 style="margin:22px 0 8px">Per-tier knobs <span style="color:var(--text-dim);font-weight:400;font-size:12px">(config-shaped, outside the matrix)</span></h4>';
+  h += '<div class="table-wrap"><table><thead><tr><th>Knob</th>'
+    + d.tiers.map(t => `<th>${entEsc(t)}</th>`).join('') + '</tr></thead><tbody>';
+  h += knobRow('Project Chat max input chars', k.project_chat_max_input_chars,
+    v => v == null ? '—' : (v === -1 ? 'uncapped' : Number(v).toLocaleString()));
+  h += knobRow('Searches / month', Object.fromEntries(d.tiers.map(t => [t, k.search[t].searches_per_month])),
+    v => v === 0 ? '<span style="color:var(--text-dim)">0 (disabled)</span>' : Number(v).toLocaleString());
+  h += knobRow('Search soft threshold', Object.fromEntries(d.tiers.map(t => [t, k.search[t].searches_soft_threshold])));
+  h += knobRow('Max images / request', k.max_images_per_request,
+    v => entEsc(v) + (overridden.includes('max_images_per_request')
+      ? ' <span class="badge rate_limited" title="apps.yml tier_overrides">app override</span>' : ''));
+  h += '</tbody></table></div>';
+
+  // Documents + generation knobs
+  const docs = k.documents, gen = k.document_generation;
+  const onOff = v => v
+    ? '<span style="color:var(--green);font-weight:600">enabled</span>'
+    : '<span style="color:var(--text-dim);font-weight:600">disabled</span>';
+  const kv = (label, val) => `<tr><td style="width:280px">${label}</td><td>${val}</td></tr>`;
+  h += '<h4 style="margin:22px 0 8px">Documents</h4><div class="table-wrap"><table><tbody>';
+  h += kv('Passthrough', onOff(docs.enabled) + ` <span style="color:var(--text-dim)">min tier: ${entEsc(docs.min_tier)}</span>`);
+  h += kv('Accepted types', `<span class="mono">${entEsc((docs.accepted_types || []).join(', '))}</span>`);
+  h += kv('Caps', `${entEsc(docs.per_file_max_mb)} MB/file · ${entEsc(docs.max_files)} files · passthrough ${entEsc((docs.passthrough || {}).max_pdf_pages)} pages / ${entEsc((docs.passthrough || {}).max_total_mb)} MB total`);
+  h += kv('allowed_users (test lane)', (docs.allowed_users || []).length
+    ? `<span class="mono">${entEsc((docs.allowed_users || []).join(', '))}</span>`
+    : '<span style="color:var(--text-dim)">empty</span>');
+  h += kv('Generation', onOff(gen.enabled) + ` <span style="color:var(--text-dim)">min tier: ${entEsc(gen.min_tier)}</span>`);
+  h += kv('Generation formats', `<span class="mono">${entEsc((gen.formats || []).join(', '))}</span> · out caps ${entEsc(gen.max_files_out)} files / ${entEsc(gen.max_file_out_mb)} MB`);
+  h += kv('Confirmation flow', onOff((gen.confirmation || {}).enabled) + ` <span style="color:var(--text-dim)">expected ~${entEsc((gen.confirmation || {}).expected_seconds)}s</span>`);
+  h += '</tbody></table></div>';
+
+  // Provenance
+  h += '<h4 style="margin:22px 0 8px">Provenance <span style="color:var(--text-dim);font-weight:400;font-size:12px">(served = overlay; drift = overlay differs from repo bundle)</span></h4>';
+  h += '<div class="table-wrap"><table><tbody>';
+  for (const [name, p] of Object.entries(d.provenance.configs)) {
+    const drift = (p.drifted_pointers || []);
+    h += kv(`<span class="mono">${entEsc(name)}</span>`,
+      `<span class="mono">${entEsc(p.slug || 'not loaded')}</span> · v${entEsc(p.version)} · `
+      + (drift.length
+        ? `<span style="color:var(--orange)">drift: ${drift.map(entEsc).join(', ')}</span>`
+        : '<span style="color:var(--green)">in sync with bundle</span>'));
+  }
+  h += '</tbody></table></div>';
+
+  box.innerHTML = h;
+}
+
 async function loadTranscripts() {
   const id = _txMid();
   const st = document.getElementById('tx-status');
