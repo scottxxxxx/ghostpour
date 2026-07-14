@@ -1878,6 +1878,33 @@ def test_template_format_veto_blocks_history_mismatch(
     assert "template_id" not in r2.json()["feature_state"]["cta"]["details"]
 
 
+def test_plain_offer_gist_composes_guard():
+    """Second live jam 2026-07-14 22:25:27Z (Scott's device): plain offer
+    read 'Sounds like you want a native Word document (.docx) seinfeld
+    personality assignments for meeting attendees.' Noun-phrase gists now
+    fall back to the no-gist offer copy; qualifier gists still ride."""
+    from app.services.document_generation import (
+        _CONFIRMATION_DEFAULTS,
+        build_offer_envelope,
+        gist_composes,
+    )
+
+    assert gist_composes("for onboarding new people") == "for onboarding new people"
+    assert gist_composes("of the migration plan") == "of the migration plan"
+    assert gist_composes("seinfeld personality assignments for attendees") == ""
+    assert gist_composes("convert content to spreadsheet") == ""
+    assert gist_composes("para el plan del proyecto") == "para el plan del proyecto"
+    assert gist_composes(None) == "" and gist_composes("  ") == ""
+
+    env = build_offer_envelope(
+        _CONFIRMATION_DEFAULTS, "docx",
+        gist="seinfeld personality assignments for meeting attendees")
+    text = env["feature_state"]["cta"]["text"]
+    assert text.startswith("That sounds like a file request.")  # no-gist copy
+    assert "seinfeld" not in text
+    assert env["feature_state"]["cta"]["details"]["gist"] == ""
+
+
 def test_match_template_format_veto_unit():
     from app.services.doc_templates import match_template
     assert match_template("build a gantt chart") == "gantt_smartsheet"

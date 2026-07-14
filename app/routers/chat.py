@@ -1902,16 +1902,10 @@ async def chat(
                         # en-only v1; served copy when templates localize.
                         _t = TEMPLATES[_tmpl]
                         _cta = _envelope["feature_state"]["cta"]
-                        # The classifier's gist is meant to be a qualifier
-                        # ("for onboarding new people") but can come back a
-                        # verb phrase ("convert content to spreadsheet")
-                        # that jams the sentence (live 2026-07-14, SS) —
-                        # include it only when it composes.
-                        _gist = (_intent.get("gist") or "").strip()
-                        if not _gist.startswith(
-                                ("for ", "of ", "about ", "covering ",
-                                 "showing ", "tracking ")):
-                            _gist = ""
+                        # Qualifier gists only — shared guard with the
+                        # plain-offer copy (live 2026-07-14 twice).
+                        from app.services.document_generation import gist_composes
+                        _gist = gist_composes(_intent.get("gist"))
                         _cta["text"] = (
                             f"Sounds like you want a project timeline"
                             f"{(' ' + _gist) if _gist else ''}. "
