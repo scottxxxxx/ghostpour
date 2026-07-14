@@ -249,6 +249,37 @@ def test_targeting_locale_via_resolve(client, tmp_db_path):
     assert client.get("/v1/promo/resolve?device_id=dev-unknown", headers=h).json() == {}
 
 
+def test_targeting_locale_prefers_header_over_system_locale(client, tmp_db_path):
+    """SS sends the app's RUNNING language on resolve (their 2026-07-14
+    fix). Eligibility must read the same signal as content localization:
+    a system-en device running the UI in es matches an es-targeted
+    campaign via the header; with no header the system-locale fallback
+    keeps today's behavior."""
+    h = {"X-App-ID": SS}
+    _insert_telemetry(tmp_db_path, "dev-es-ui", app_locale="en_US", app_version="1.5.0")
+    _make_campaign(client, cid="t_es", targeting={"locales": ["es"]})
+    r = client.get("/v1/promo/resolve?device_id=dev-es-ui",
+                   headers={**h, "Accept-Language": "es-MX"}).json()
+    assert r.get("campaign_id") == "t_es"
+    # no header -> telemetry system locale (en) does not match the es campaign
+    assert client.get("/v1/promo/resolve?device_id=dev-es-ui", headers=h).json() == {}
+
+
+def test_explicit_en_header_beats_spanish_system_locale(client, pro_user, tmp_db_path):
+    """The promo parser keeps an explicit "en" (the config-file parser
+    maps en -> None): an English UI on a Spanish-system device gets the
+    authored default copy, never the system locale's. Header absent keeps
+    the telemetry fallback."""
+    _insert_telemetry(tmp_db_path, "dev-en-ui", app_locale="es_ES", app_version="1.5.0")
+    _make_campaign(client, cid="loc_en", variants=[dict(_NATIVE_ES)])
+    h = {**pro_user["headers"], "X-App-ID": SS}
+    r = client.get("/v1/promo/resolve?device_id=dev-en-ui",
+                   headers={**h, "Accept-Language": "en-US"}).json()
+    assert r["variant"]["native"]["title"] == "Hey there,"
+    r2 = client.get("/v1/promo/resolve?device_id=dev-en-ui", headers=h).json()
+    assert r2["variant"]["native"]["title"] == "Hola,"
+
+
 def test_targeting_app_version_via_resolve(client, tmp_db_path):
     _insert_telemetry(tmp_db_path, "dev-new", app_locale="en", app_version="1.5.0")
     _make_campaign(client, cid="t_newbuilds", targeting={"app_version": {"min": "1.4.0"}})
