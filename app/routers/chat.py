@@ -1746,6 +1746,27 @@ async def chat(
         )["confirmation"]
         _gen_expected_seconds = int(_confirmation["expected_seconds"])
         _gen_confirmation_enabled = bool(_confirmation["enabled"])
+        if _confirmation["enabled"] and body.get_meta("generation_confirmed"):
+            # Pill tap at a teaser (SS sends the offer_id echo AND the
+            # generation_confirmed resend together, 2026-07-14): confirmed
+            # skips the reply-interpret block below, so spend the echoed
+            # offer here and inherit what it carries. Without this a tap at
+            # a template-matched teaser rides the sandbox lane while a
+            # typed yes at the SAME teaser rides the template lane, and the
+            # originating ask content is lost.
+            from app.services import generation_offers
+            _offer_echo = body.get_meta("offer_id")
+            _offer = (generation_offers.take(user.id, _offer_echo)
+                      if _offer_echo else None)
+            logger.info(
+                "generation_offer_confirmed_check echo=%s hit=%s",
+                "present" if _offer_echo else "absent", _offer is not None)
+            if _offer is not None:
+                _template_id = _offer.get("template_id")
+                if _offer.get("ask_content"):
+                    body = body.model_copy(update={
+                        "user_content": _offer["ask_content"]
+                        + "\n\nThe user confirmed the file build."})
         if _confirmation["enabled"] and not body.get_meta("generation_confirmed"):
             _gen_armed = False
             _meter = lambda creq, cresp, cms: usage_tracker.record_and_log(  # noqa: E731

@@ -1483,3 +1483,65 @@ def test_teaser_mints_offer_and_typed_yes_arms(
                       "WHERE generation_id='gen-teaser-yes-1'").fetchone()
     con.close()
     assert row and row[0] == "done"
+
+
+def test_pill_tap_at_teaser_inherits_the_minted_offer(
+        client, free_user, mock_provider, tmp_db_path, monkeypatch):
+    """SS's pill tap sends generation_confirmed AND the offer_id echo
+    together (their 2026-07-14 fix). Confirmed used to short-circuit the
+    reply-interpret block, so the echoed offer was never spent and its
+    template_id/ask_content never inherited — a tap at a template-matched
+    teaser rode the sandbox lane blind while a typed yes at the same
+    teaser rode the template lane with full context."""
+    import json as _json
+    import sqlite3
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    monkeypatch.setattr(dg, "classify_generation_intent", AsyncMock(
+        return_value={"file_request": False, "format": None, "gist": ""}))
+    meeting_context = ("MEETING CONTENT: auth phase Jul 8-15 owned by Chirag; "
+                       "release milestone Jul 15. " * 20)
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        user_content=meeting_context
+        + " Current question: what did the report say about the gantt chart?",
+    ), headers=free_user["headers"])
+    cta = r.json()["feature_state"]["cta"]
+    assert cta["kind"] == "generation_teaser"
+    oid = cta["details"]["offer_id"]
+    assert oid
+
+    # the pill tap is consent already — the reply judge must NOT run
+    _interpret = AsyncMock(side_effect=AssertionError(
+        "interpret_offer_reply must not run on a confirmed turn"))
+    monkeypatch.setattr(dg, "interpret_offer_reply", _interpret)
+    mock_provider.canned_response.text = _json.dumps(_PLAN)
+    mock_provider.return_value = mock_provider.canned_response
+    r2 = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        metadata={"offer_id": oid, "generation_id": "gen-teaser-tap-1",
+                  "generation_confirmed": True},
+        user_content="Previous conversation: Q/A only. Current question: "
+                     "what did the report say about the gantt chart?",
+    ), headers=free_user["headers"])
+    assert r2.status_code == 200
+    assert r2.headers["content-type"].startswith("text/event-stream")
+    result = _json.loads(r2.text.split(
+        "event: generation_result\ndata: ")[1].split("\n")[0])
+    # template lane, not sandbox: the registry renderer drew the file
+    assert result["generated_files"][0]["name"] == "Project_Gantt.xlsx"
+    sent = mock_provider.await_args_list[-1].args[0]
+    assert sent.generation is False
+    assert "FILE BUILD OVERRIDE" in sent.system_prompt
+    # originating ask inherited from the offer, decoy history dropped
+    assert "MEETING CONTENT" in sent.user_content
+    assert "confirmed the file build" in sent.user_content
+    assert "Previous conversation: Q/A only" not in sent.user_content
+    con = sqlite3.connect(tmp_db_path)
+    row = con.execute("SELECT status FROM generations "
+                      "WHERE generation_id='gen-teaser-tap-1'").fetchone()
+    con.close()
+    assert row and row[0] == "done"
