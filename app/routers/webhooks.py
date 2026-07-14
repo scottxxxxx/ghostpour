@@ -1,4 +1,5 @@
 import json
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -13,6 +14,8 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.services.allocation_reset import compute_next_reset
 from app.services.display_labels import display_call_type
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -718,6 +721,19 @@ class TunableTierFieldRequest(BaseModel):
     feature: str       # "project_chat" | "meeting_reports" | "context_quilt" | "search"
     field: str         # "max_input_tokens" | "searches_per_month" | "searches_soft_threshold" | ...
     value: int | None  # new value (None clears the field)
+
+
+class EntitlementsDocumentsRequest(BaseModel):
+    """Targeted edit of the documents knobs from the Entitlements tab
+    (Phase 1.5). `scope` picks the block — "passthrough" is the top-level
+    documents gate, "generation" the nested file-generation gate. Partial
+    update: only provided fields change. Writes ALL locale variants in
+    lockstep (enabled/min_tier are locale-independent feature numbers;
+    every historical flip kept the three files aligned)."""
+
+    scope: str
+    enabled: bool | None = None
+    min_tier: str | None = None
 
 
 class ProjectChatCapRequest(BaseModel):
@@ -1681,6 +1697,21 @@ async def get_entitlements(
     # does (defaults merged), not what a file happens to contain.
     docs_cfg = load_documents_config(remote_configs)
     gen_cfg = load_generation_config(remote_configs)
+    # Derived per-tier availability, computed with the SAME rank logic the
+    # gates use — this is the "which subscription level gets file
+    # creation" answer, rendered in the per-tier table. Unranked tiers
+    # (admin) read disabled because the real gate's tier check fails them
+    # today (pre-existing _TIER_RANK gap, reported truthfully).
+    from app.services.document_generation import _TIER_RANK
+
+    def _tier_availability(cfg: dict) -> dict:
+        return {
+            t: bool(cfg.get("enabled"))
+            and t in _TIER_RANK
+            and _TIER_RANK[t] >= _TIER_RANK.get(cfg.get("min_tier"), 2)
+            for t in tier_names
+        }
+
     search = {}
     for t in tier_names:
         sc = get_search_caps(remote_configs, t, locale=None)
@@ -1689,8 +1720,14 @@ async def get_entitlements(
             "searches_soft_threshold": sc.searches_soft_threshold,
         }
     knobs = {
-        "documents": {k: v for k, v in docs_cfg.items() if k != "generation"},
-        "document_generation": gen_cfg,
+        "documents": {
+            **{k: v for k, v in docs_cfg.items() if k != "generation"},
+            "tier_availability": _tier_availability(docs_cfg),
+        },
+        "document_generation": {
+            **gen_cfg,
+            "tier_availability": _tier_availability(gen_cfg),
+        },
         "project_chat_max_input_chars": {
             t: project_chat_max_input_chars(remote_configs, t)
             for t in tier_names},
@@ -1739,6 +1776,84 @@ async def get_entitlements(
         "matrix": matrix,
         "knobs": knobs,
         "provenance": provenance,
+    }
+
+
+@router.put("/admin/entitlements/documents")
+async def update_entitlements_documents(
+    body: EntitlementsDocumentsRequest,
+    request: Request,
+    x_admin_key: str = Header(...),
+):
+    """Entitlements Phase 1.5 (Scott 2026-07-14): edit the documents knobs
+    (enabled / min_tier for passthrough and generation) straight from the
+    Entitlements tab. Writes the persistent client-config overlay — the
+    single home documents keeps until the Phase 2 matrix fold — across ALL
+    locale variants in lockstep, bumps each changed file's version, and
+    hot-reloads remote_configs so enforcement flips on the same request.
+    Closed enums on every field: a malformed write never lands.
+    """
+    _verify_admin(request, x_admin_key)
+
+    from app.routers.config import CONFIG_DIR, load_remote_configs
+
+    if body.scope not in ("passthrough", "generation"):
+        raise HTTPException(
+            status_code=400,
+            detail='scope must be "passthrough" or "generation"')
+    if body.enabled is None and body.min_tier is None:
+        raise HTTPException(
+            status_code=400,
+            detail="provide at least one of enabled / min_tier")
+    if body.min_tier is not None and body.min_tier not in (
+            "free", "plus", "pro"):
+        raise HTTPException(
+            status_code=400,
+            detail='min_tier must be "free", "plus", or "pro"')
+
+    files_updated: list[dict] = []
+    for slug in ("client-config", "client-config.es", "client-config.ja"):
+        path = CONFIG_DIR / f"{slug}.json"
+        if not path.exists():
+            continue
+        try:
+            data = json.loads(path.read_text())
+        except (json.JSONDecodeError, OSError) as exc:
+            raise HTTPException(
+                status_code=500, detail=f"Could not read {slug}.json: {exc}")
+        docs = data.setdefault("documents", {})
+        block = (docs if body.scope == "passthrough"
+                 else docs.setdefault("generation", {}))
+        changes: dict = {}
+        if body.enabled is not None and block.get("enabled") != body.enabled:
+            changes["enabled"] = {
+                "old": block.get("enabled"), "new": body.enabled}
+            block["enabled"] = body.enabled
+        if (body.min_tier is not None
+                and block.get("min_tier") != body.min_tier):
+            changes["min_tier"] = {
+                "old": block.get("min_tier"), "new": body.min_tier}
+            block["min_tier"] = body.min_tier
+        if changes:
+            data["version"] = (data.get("version") or 0) + 1
+            path.write_text(
+                json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+            files_updated.append(
+                {"slug": slug, "version": data["version"], **changes})
+
+    if files_updated:
+        request.app.state.remote_configs = load_remote_configs()
+        logger.info(
+            "entitlements_documents_updated scope=%s enabled=%s min_tier=%s "
+            "files=%s",
+            body.scope, body.enabled, body.min_tier,
+            [f["slug"] + ":v" + str(f["version"]) for f in files_updated],
+        )
+
+    return {
+        "status": "updated" if files_updated else "unchanged",
+        "scope": body.scope,
+        "files_updated": files_updated,
     }
 
 

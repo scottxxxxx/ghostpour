@@ -517,7 +517,7 @@
   <!-- Transcript cleanup: original vs cleaned -->
   <div id="tab-entitlements" class="section">
     <h3 style="margin:0 0 4px">Entitlements</h3>
-    <p style="color:var(--text-dim);font-size:13px;margin:0 0 14px">Read-only view of everything that decides what a user may do: the features × tiers matrix, the config-shaped knobs outside it, and where each served value comes from. What the server actually does right now — defaults merged, overlay wins.</p>
+    <p style="color:var(--text-dim);font-size:13px;margin:0 0 14px">Everything that decides what a user may do: the features × tiers matrix, the config-shaped knobs outside it, and where each served value comes from. What the server actually does right now — defaults merged, overlay wins. The Documents knobs (enabled + min tier) are editable here and take effect immediately; matrix cells become editable with the Phase 2 migration.</p>
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px">
       <select id="ent-app" class="period-select" onchange="loadEntitlements(this.value)"></select>
       <button class="refresh-btn" onclick="loadEntitlements(document.getElementById('ent-app').value)" style="background:var(--bg);color:var(--text);border:1px solid var(--border)">Refresh</button>
@@ -3138,6 +3138,11 @@ async function loadEntitlements(appId) {
   h += '<h4 style="margin:22px 0 8px">Per-tier knobs <span style="color:var(--text-dim);font-weight:400;font-size:12px">(config-shaped, outside the matrix)</span></h4>';
   h += '<div class="table-wrap"><table><thead><tr><th>Knob</th>'
     + d.tiers.map(t => `<th>${entEsc(t)}</th>`).join('') + '</tr></thead><tbody>';
+  const availCell = v => v
+    ? '<span style="color:var(--green);font-weight:600">enabled</span>'
+    : '<span style="color:var(--text-dim);font-weight:600">disabled</span>';
+  h += knobRow('Document passthrough', (k.documents.tier_availability || {}), availCell);
+  h += knobRow('File generation', (k.document_generation.tier_availability || {}), availCell);
   h += knobRow('Project Chat max input chars', k.project_chat_max_input_chars,
     v => v == null ? '—' : (v === -1 ? 'uncapped' : Number(v).toLocaleString()));
   h += knobRow('Searches / month', Object.fromEntries(d.tiers.map(t => [t, k.search[t].searches_per_month])),
@@ -3154,14 +3159,27 @@ async function loadEntitlements(appId) {
     ? '<span style="color:var(--green);font-weight:600">enabled</span>'
     : '<span style="color:var(--text-dim);font-weight:600">disabled</span>';
   const kv = (label, val) => `<tr><td style="width:280px">${label}</td><td>${val}</td></tr>`;
-  h += '<h4 style="margin:22px 0 8px">Documents</h4><div class="table-wrap"><table><tbody>';
-  h += kv('Passthrough', onOff(docs.enabled) + ` <span style="color:var(--text-dim)">min tier: ${entEsc(docs.min_tier)}</span>`);
+  const enabledSel = (scope, cur) =>
+    `<select class="period-select" style="color:${cur ? 'var(--green)' : 'var(--text-dim)'};font-weight:600" onchange="saveDocKnob('${scope}',{enabled:this.value==='enabled'})">`
+    + `<option value="enabled" ${cur ? 'selected' : ''}>enabled</option>`
+    + `<option value="disabled" ${!cur ? 'selected' : ''}>disabled</option></select>`;
+  const tierSel = (scope, cur) =>
+    `<select class="period-select" onchange="saveDocKnob('${scope}',{min_tier:this.value})">`
+    + ['free', 'plus', 'pro'].map(t =>
+      `<option value="${t}" ${t === cur ? 'selected' : ''}>${t}</option>`).join('')
+    + '</select>';
+  h += '<h4 style="margin:22px 0 8px">Documents <span id="ent-doc-status" style="color:var(--text-dim);font-weight:400;font-size:12px"></span></h4><div class="table-wrap"><table><tbody>';
+  h += kv('Passthrough', enabledSel('passthrough', docs.enabled)
+    + ' <span style="color:var(--text-dim)">min tier:</span> '
+    + tierSel('passthrough', docs.min_tier));
   h += kv('Accepted types', `<span class="mono">${entEsc((docs.accepted_types || []).join(', '))}</span>`);
   h += kv('Caps', `${entEsc(docs.per_file_max_mb)} MB/file · ${entEsc(docs.max_files)} files · passthrough ${entEsc((docs.passthrough || {}).max_pdf_pages)} pages / ${entEsc((docs.passthrough || {}).max_total_mb)} MB total`);
   h += kv('allowed_users (test lane)', (docs.allowed_users || []).length
     ? `<span class="mono">${entEsc((docs.allowed_users || []).join(', '))}</span>`
     : '<span style="color:var(--text-dim)">empty</span>');
-  h += kv('Generation', onOff(gen.enabled) + ` <span style="color:var(--text-dim)">min tier: ${entEsc(gen.min_tier)}</span>`);
+  h += kv('Generation', enabledSel('generation', gen.enabled)
+    + ' <span style="color:var(--text-dim)">min tier:</span> '
+    + tierSel('generation', gen.min_tier));
   h += kv('Generation formats', `<span class="mono">${entEsc((gen.formats || []).join(', '))}</span> · out caps ${entEsc(gen.max_files_out)} files / ${entEsc(gen.max_file_out_mb)} MB`);
   h += kv('Confirmation flow', onOff((gen.confirmation || {}).enabled) + ` <span style="color:var(--text-dim)">expected ~${entEsc((gen.confirmation || {}).expected_seconds)}s</span>`);
   h += '</tbody></table></div>';
@@ -3180,6 +3198,26 @@ async function loadEntitlements(appId) {
   h += '</tbody></table></div>';
 
   box.innerHTML = h;
+}
+
+async function saveDocKnob(scope, fields) {
+  const st = document.getElementById('ent-doc-status');
+  if (st) st.textContent = 'Saving…';
+  const r = await fetch(`${BASE}/webhooks/admin/entitlements/documents`, {
+    method: 'PUT',
+    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
+    body: JSON.stringify({scope, ...fields}),
+  });
+  if (!r.ok) {
+    if (st) st.textContent = `Save failed (${r.status})`;
+    return;
+  }
+  const d = await r.json();
+  await loadEntitlements(document.getElementById('ent-app').value);
+  const st2 = document.getElementById('ent-doc-status');
+  if (st2) st2.textContent = d.status === 'updated'
+    ? 'Saved: ' + d.files_updated.map(f => `${f.slug} v${f.version}`).join(', ')
+    : 'No change';
 }
 
 async function loadTranscripts() {
