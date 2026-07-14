@@ -1613,6 +1613,135 @@ async def get_tiers(
     return {"tiers": tiers}
 
 
+@router.get("/admin/entitlements")
+async def get_entitlements(
+    request: Request,
+    x_admin_key: str = Header(...),
+    app: str | None = Query(default=None),
+):
+    """Entitlements Phase 1 (docs/design/feature-entitlements.md §3):
+    read-only, per-app aggregation of everything that decides what a user
+    may do — the features × tiers matrix, the config-shaped knobs that
+    grew outside it, and where each served value comes from (bundle vs
+    overlay, via the drift machinery). Pure read; the editable matrix is
+    Phase 2, and this view doubles as its migration-verification surface.
+    """
+    _verify_admin(request, x_admin_key)
+
+    from app.routers.config import (
+        detect_overlay_drift,
+        load_apps,
+        load_remote_configs,
+        resolve_app_dir,
+        tier_overrides_for_app,
+    )
+    from app.services.client_config import project_chat_max_input_chars
+    from app.services.document_generation import load_generation_config
+    from app.services.documents import load_documents_config
+    from app.services.search_caps import get_search_caps
+
+    apps = load_apps()
+    app_id = (app or apps.get("default_app") or "shouldersurf").strip().lower()
+    if app is not None and app_id not in (apps.get("apps") or {}):
+        raise HTTPException(status_code=404, detail=f"Unknown app '{app}'")
+    app_dir = resolve_app_dir(app_id)
+    overrides = tier_overrides_for_app(app_id)
+
+    # Same freshness rule as get_tiers: re-read the persistent overlay so
+    # direct edits show up without a restart.
+    request.app.state.remote_configs = load_remote_configs()
+    remote_configs = request.app.state.remote_configs
+
+    tier_config = request.app.state.tier_config
+    feature_config = request.app.state.feature_config
+    tier_names = list(tier_config.tiers)
+
+    # 1. The features × tiers matrix (tiers.yml assignments × features.yml
+    # definitions). Union both directions so a tier cell referencing an
+    # undefined feature — or a defined feature no tier mentions — still
+    # renders; a missing cell resolves "disabled", same as feature_state().
+    feature_names = sorted(
+        set(feature_config.features)
+        | {f for t in tier_config.tiers.values() for f in t.features})
+    matrix = {}
+    for fname in feature_names:
+        fdef = feature_config.features.get(fname)
+        matrix[fname] = {
+            "display_name": fdef.display_name if fdef else fname,
+            "description": fdef.description if fdef else None,
+            "teaser_description": fdef.teaser_description if fdef else None,
+            "upgrade_cta": fdef.upgrade_cta if fdef else None,
+            "category": fdef.category if fdef else None,
+            "tiers": {t: tier_config.tiers[t].feature_state(fname)
+                      for t in tier_names},
+        }
+
+    # 2. Config-shaped knobs outside the matrix, resolved through the SAME
+    # loaders enforcement uses — the view shows what the server actually
+    # does (defaults merged), not what a file happens to contain.
+    docs_cfg = load_documents_config(remote_configs)
+    gen_cfg = load_generation_config(remote_configs)
+    search = {}
+    for t in tier_names:
+        sc = get_search_caps(remote_configs, t, locale=None)
+        search[t] = {
+            "searches_per_month": sc.searches_per_month,
+            "searches_soft_threshold": sc.searches_soft_threshold,
+        }
+    knobs = {
+        "documents": {k: v for k, v in docs_cfg.items() if k != "generation"},
+        "document_generation": gen_cfg,
+        "project_chat_max_input_chars": {
+            t: project_chat_max_input_chars(remote_configs, t)
+            for t in tier_names},
+        "search": search,
+        "max_images_per_request": {
+            t: overrides.get("max_images_per_request",
+                             tier_config.tiers[t].max_images_per_request)
+            for t in tier_names},
+    }
+
+    # 3. Provenance: served value = overlay; drifted pointers = overlay
+    # differs from the repo bundle (#240's view of truth). The matrix
+    # itself is boot-loaded repo YAML until Phase 2 moves it.
+    drift = detect_overlay_drift()
+    configs_prov = {}
+    for name in ("client-config", "tiers"):
+        # The exact slugs the knob loaders read. Enforcement is
+        # app-agnostic today — documents/limits/search all read the flat
+        # files; per-app dirs affect config SERVING, not these knobs — so
+        # provenance must name the flat slug or it would misreport in any
+        # environment where a per-app dir also exists.
+        entry = remote_configs.get(name) or {}
+        configs_prov[name] = {
+            "slug": name if name in remote_configs else None,
+            "version": entry.get("version"),
+            "drifted_pointers": drift.get(name, []),
+        }
+    provenance = {
+        "matrix_source": ("config/tiers.yml x config/features.yml "
+                          "(repo YAML, boot-loaded; editable matrix lands "
+                          "in Phase 2)"),
+        "configs": configs_prov,
+        "tier_overrides": overrides,
+    }
+
+    return {
+        "app": {
+            "id": app_id,
+            "label": ((apps.get("apps") or {}).get(app_id) or {}).get(
+                "label", app_id),
+            "dir": app_dir,
+        },
+        "apps": [{"id": aid, "label": (a or {}).get("label", aid)}
+                 for aid, a in (apps.get("apps") or {}).items()],
+        "tiers": tier_names,
+        "matrix": matrix,
+        "knobs": knobs,
+        "provenance": provenance,
+    }
+
+
 @router.get("/admin/user/{user_id}")
 async def user_detail(
     user_id: str,
