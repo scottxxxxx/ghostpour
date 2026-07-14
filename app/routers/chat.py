@@ -1719,6 +1719,9 @@ async def chat(
         prompt_mode=body.get_meta("prompt_mode"),
         user_identity={x for x in (user.id, user.email) if x},
     )
+    # Remember raw gate state before confirmation logic flips arming off:
+    # capable-but-unarmed turns get the capability line below.
+    _gen_capable = _gen_armed
     # 5.975. Confirmation envelope (handoff Part 1). While confirmation is
     # dark the arming rule stays gate-based (today's e2e lane). Once live:
     # a confirmed resend arms; an unconfirmed file intent gets the offer
@@ -1897,6 +1900,27 @@ async def chat(
             "max_tokens": 8000,
         })
         _gen_expected_seconds = _t["expected_seconds"]
+    elif _gen_capable:
+        # Capability line for gate-passing UNARMED turns. The client-
+        # assembled prompt knows nothing about the file feature, so the
+        # model's stock self-knowledge takes over — live 2026-07-14 it
+        # told a Pro user "I don't have the ability to generate or
+        # deliver actual downloadable files" three bubbles under a file
+        # it built. Gate state is per-turn server knowledge (tier +
+        # routing + surface), which is why this rides here and not in
+        # the client prompt: a static client line would lie to
+        # Free/BYOK users.
+        _cap_line = (
+            "FILE CAPABILITY: this product builds and delivers real "
+            "downloadable files (Excel, Word, PowerPoint, PDF). When the "
+            "user asks for a file, the platform detects it and handles "
+            "the build. Never claim you cannot create or deliver files; "
+            "answer naturally, and if the user wants a file, tell them "
+            "to ask for it directly.")
+        _sys = (body.system_prompt or "").rstrip()
+        body = body.model_copy(update={
+            "system_prompt": (_sys + "\n\n" + _cap_line) if _sys else _cap_line,
+        })
 
     # 6. Stream or non-stream based on request + call_type
     # Only stream interactive queries; background tasks (summary, analysis) get full JSON.
