@@ -298,6 +298,25 @@ async def interpret_offer_reply(provider_router, offer: dict, reply_text: str,
         return {"confirm": False, "format": offer["format"]}
 
 
+_GIST_QUALIFIER_PREFIXES = (
+    "for ", "of ", "about ", "covering ", "showing ", "tracking ",
+    "para ", "de ", "sobre ",  # es
+)
+
+
+def gist_composes(gist: str | None) -> str:
+    """The classifier's gist is meant to be a qualifier ("for onboarding
+    new people") that reads inside "you want {format} {gist}". Verb and
+    noun phrases jam the sentence — live 2026-07-14 twice: "convert
+    content to spreadsheet" in the template intercept, then "seinfeld
+    personality assignments for meeting attendees" in the plain offer.
+    Keep the gist only when it composes; return "" otherwise so callers
+    fall back to their no-gist copy. Unprefixed languages (ja) drop the
+    gist, which is the safe reading."""
+    g = (gist or "").strip()
+    return g if g.lower().startswith(_GIST_QUALIFIER_PREFIXES) else ""
+
+
 def build_offer_envelope(confirmation_cfg: dict, fmt: str | None,
                          gist: str = "", offer_id: str | None = None) -> dict:
     """The confirmation_required feature-state envelope (handoff Part 1
@@ -305,7 +324,7 @@ def build_offer_envelope(confirmation_cfg: dict, fmt: str | None,
     credits ever ship."""
     fmt = fmt or "xlsx"
     noun = (confirmation_cfg.get("format_nouns") or {}).get(fmt, "a file")
-    gist = (gist or "").strip()
+    gist = gist_composes(gist)
     template = confirmation_cfg.get("offer_text_gist") if gist else None
     text = str(template or confirmation_cfg["offer_text"])
     text = text.replace("{format}", noun).replace("{gist}", gist)
