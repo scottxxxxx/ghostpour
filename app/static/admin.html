@@ -1837,21 +1837,19 @@ function renderTiers(tiers) {
       `<span class="model-tag ${m === '*' ? 'wildcard' : ''}">${m === '*' ? 'All Models' : m}</span>`
     ).join('');
 
-    // Feature states
+    // Feature states are read-only here (Phase 2): the entitlements
+    // matrix is the single editing surface. The old per-tier selects
+    // wrote the ephemeral in-image tiers.yml and silently reverted on
+    // every deploy.
     const featureEntries = Object.entries(t.features || {});
-    const featuresHtml = featureEntries.length ? featureEntries.map(([fname, fstate]) => {
+    const featuresHtml = (featureEntries.length ? featureEntries.map(([fname, fstate]) => {
       const stateColors = {enabled: 'var(--green)', teaser: 'var(--orange)', disabled: 'var(--text-dim)'};
-      const stateColor = stateColors[fstate] || 'var(--text-dim)';
       return `<div style="display:flex;align-items:center;gap:8px;margin:4px 0">
         <span style="font-size:12px;min-width:100px">${fname}</span>
-        <select class="period-select" style="font-size:11px;padding:2px 6px;color:${stateColor}"
-          onchange="toggleFeature('${name}','${fname}',this.value)">
-          <option value="enabled" ${fstate==='enabled'?'selected':''}>enabled</option>
-          <option value="teaser" ${fstate==='teaser'?'selected':''}>teaser</option>
-          <option value="disabled" ${fstate==='disabled'?'selected':''}>disabled</option>
-        </select>
+        <span style="font-size:11px;font-weight:600;color:${stateColors[fstate] || 'var(--text-dim)'}">${fstate}</span>
       </div>`;
-    }).join('') : '<div style="font-size:12px;color:var(--text-dim)">No features configured</div>';
+    }).join('') : '<div style="font-size:12px;color:var(--text-dim)">No features configured</div>')
+      + '<div style="font-size:11px;color:var(--text-dim);margin-top:6px">Edit in the <a href="#" onclick="switchTab(\'entitlements\');return false" style="color:var(--accent)">Entitlements</a> tab</div>';
 
     let borderColor = 'var(--border)';
     if (isSimulatedTier) borderColor = 'var(--orange)';
@@ -2403,23 +2401,6 @@ async function changeTier(userId, newTier, oldTier) {
   });
 
   if (resp.ok) {
-    refresh();
-  } else {
-    const err = await resp.json();
-    alert('Failed: ' + (err.detail || 'Unknown error'));
-    refresh();
-  }
-}
-
-async function toggleFeature(tierName, featureName, newState) {
-  const resp = await fetch(`${BASE}/webhooks/admin/update-feature-state`, {
-    method: 'POST',
-    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
-    body: JSON.stringify({tier: tierName, feature: featureName, state: newState}),
-  });
-
-  if (resp.ok) {
-    const data = await resp.json();
     refresh();
   } else {
     const err = await resp.json();

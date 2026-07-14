@@ -60,6 +60,16 @@ gets file creation" is answerable at a glance.
 
 ### Phase 2 — the editable matrix (single source of truth)
 
+**MATRIX MIGRATION SHIPPED 2026-07-14** (Scott pulled it forward after
+the Tiers-tab feature editor was found writing the ephemeral in-image
+tiers.yml — toggles silently reverted on every deploy): entitlements.json
+seeded bit-identical (proven in tests before deletion), single resolver
+live at every call site, closed-enum validation on both write paths,
+matrix cells editable on the Entitlements tab, tiers.yml features blocks
++ TierDefinition.features + the YAML-writing endpoint deleted. The
+documents min_tier fold (§5.4) remains deferred until the documents
+rollout is declared done. Per-app matrices remain issue #356.
+
 DECIDED 2026-07-13 (Scott): no fallback layer. The matrix lives in exactly
 one place, the dashboard edits it, and server-side enforcement reads the
 same object the app-facing config is served from. An earlier draft had

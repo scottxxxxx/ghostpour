@@ -54,13 +54,6 @@ tiers:
     # returns 413 + context_too_large CTA as defense in depth.
     max_input_tokens: 50000
     storekit_product_id: ""
-    features:
-      context_quilt: "disabled"
-      meeting_reports: "enabled"
-      project_chat: "teaser"
-      web_search: "disabled"
-      tag_centroids: "enabled"  # kill switch, default on (fail-open); flip to "disabled" to kill
-      speaker_consolidation: "enabled"  # kill switch, default on (fail-open); flip to "disabled" to kill
     feature_bullets:
       - "~25 hours/month of AI assistance"
       - "Real-time auto-summaries"
@@ -88,13 +81,6 @@ tiers:
     # footguns. Plus has unlimited budget so this isn't a cost gate.
     max_input_tokens: 150000
     storekit_product_id: "com.weirtech.shouldersurf.sub.plus.monthly"
-    features:
-      context_quilt: "teaser"
-      meeting_reports: "enabled"
-      project_chat: "enabled"
-      web_search: "enabled"
-      tag_centroids: "enabled"  # kill switch, default on (fail-open); flip to "disabled" to kill
-      speaker_consolidation: "enabled"  # kill switch, default on (fail-open); flip to "disabled" to kill
     feature_bullets:
       - "Unlimited meetings with AI assistance"
       - "Standard AI"
@@ -126,13 +112,6 @@ tiers:
     # budget at this tier.
     max_input_tokens: 180000
     storekit_product_id: "com.weirtech.shouldersurf.sub.pro.monthly"
-    features:
-      context_quilt: "enabled"
-      meeting_reports: "enabled"
-      project_chat: "enabled"
-      web_search: "enabled"
-      tag_centroids: "enabled"  # kill switch, default on (fail-open); flip to "disabled" to kill
-      speaker_consolidation: "enabled"  # kill switch, default on (fail-open); flip to "disabled" to kill
     feature_bullets:
       - "Unlimited meetings with AI assistance"
       - "Advanced AI for reports and analysis"
@@ -159,13 +138,6 @@ tiers:
     max_images_per_request: 10
     hours_per_month: -1
     storekit_product_id: ""
-    features:
-      context_quilt: "enabled"
-      meeting_reports: "enabled"
-      project_chat: "enabled"
-      web_search: "enabled"
-      tag_centroids: "enabled"  # kill switch, default on (fail-open); flip to "disabled" to kill
-      speaker_consolidation: "enabled"  # kill switch, default on (fail-open); flip to "disabled" to kill
     feature_bullets:
       - "Unlimited AI assistance"
       - "All models and providers"

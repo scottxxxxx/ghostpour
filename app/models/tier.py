@@ -26,8 +26,10 @@ class TierDefinition(BaseModel):
     max_input_tokens: int = -1
     storekit_product_id: str = ""       # StoreKit product ID for this tier
     app_product_ids: dict[str, str] = {}  # optional per-app overrides
-    # Generic feature gating: feature_name -> "enabled" | "teaser" | "disabled"
-    features: dict[str, str] = {}
+    # Feature gating moved to the entitlements matrix (Phase 2,
+    # feature-entitlements.md): app.services.entitlements.entitlement_state
+    # reading the persistent `entitlements` remote config is the ONLY home —
+    # no fallback field here, by decision (§5.1).
     # Display bullets for subscription UI
     feature_bullets: list[str] = []
 
@@ -39,17 +41,6 @@ class TierDefinition(BaseModel):
         if self.storekit_product_id:
             return {"default": self.storekit_product_id}
         return {}
-
-    def feature_state(self, feature_name: str) -> str:
-        """Get the state of a feature for this tier. Defaults to 'disabled'."""
-        return self.features.get(feature_name, "disabled")
-
-    def is_feature_enabled(self, feature_name: str) -> bool:
-        return self.feature_state(feature_name) == "enabled"
-
-    def is_feature_teaser(self, feature_name: str) -> bool:
-        return self.feature_state(feature_name) == "teaser"
-
 
 class TierConfig(BaseModel):
     tiers: dict[str, TierDefinition]
