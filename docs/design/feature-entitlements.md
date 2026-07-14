@@ -48,6 +48,16 @@ app:
 Pure read. This answers "what does my app actually do right now" in one
 place.
 
+**Phase 1.5 (Scott, 2026-07-14, shipped same day as Phase 1):** the
+documents knobs — `enabled` + `min_tier` for passthrough and generation —
+are editable from the Entitlements tab via a targeted
+`PUT /webhooks/admin/entitlements/documents`. This is NOT the Phase 2
+matrix: it writes the existing client-config overlay (documents' single
+home until the Phase 2 fold) across all locale variants in lockstep,
+closed-enum validated, hot-reloaded. The view also renders derived
+per-tier availability rows for both knobs so "which subscription level
+gets file creation" is answerable at a glance.
+
 ### Phase 2 — the editable matrix (single source of truth)
 
 DECIDED 2026-07-13 (Scott): no fallback layer. The matrix lives in exactly
