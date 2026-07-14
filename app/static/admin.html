@@ -3129,20 +3129,32 @@ async function loadEntitlements(appId) {
       + d.tiers.map(t => cell(f.tiers[t])).join('')
       + '</tr>';
   }
+  // Documents rows ride in the same table: they're gated by the config
+  // knobs below (min tier + enabled), not by matrix cells — the Phase 2
+  // migration makes them real matrix rows. Cells here are derived from
+  // the same rank logic the gate enforces.
+  const k = d.knobs;
+  const cfgRow = (label, desc, avail) =>
+    `<tr><td><b>${entEsc(label)}</b>`
+    + `<div style="color:var(--text-dim);font-size:11px;max-width:420px">${entEsc(desc)}</div>`
+    + '<span class="badge free" title="Gated by min tier + enabled in the Documents section below (not matrix cells) until the Phase 2 matrix fold. Edit it there.">config-gated · edit in Documents below</span>'
+    + '</td>'
+    + d.tiers.map(t => cell(avail[t] ? 'enabled' : 'disabled')).join('')
+    + '</tr>';
+  h += cfgRow('Document Attachments',
+    'Attach PDFs and office files for the AI to read natively (passthrough; below-cap fallback is text extraction).',
+    k.documents.tier_availability || {});
+  h += cfgRow('File Generation',
+    'Build downloadable Excel, Word, PowerPoint, and PDF files from chat (offers, templates, rescue).',
+    k.document_generation.tier_availability || {});
   h += '</tbody></table></div>';
 
   // Per-tier knobs
-  const k = d.knobs;
   const knobRow = (label, vals, fmt2) => `<tr><td>${label}</td>`
     + d.tiers.map(t => `<td>${fmt2 ? fmt2(vals[t], t) : entEsc(vals[t] == null ? '—' : vals[t])}</td>`).join('') + '</tr>';
   h += '<h4 style="margin:22px 0 8px">Per-tier knobs <span style="color:var(--text-dim);font-weight:400;font-size:12px">(config-shaped, outside the matrix)</span></h4>';
   h += '<div class="table-wrap"><table><thead><tr><th>Knob</th>'
     + d.tiers.map(t => `<th>${entEsc(t)}</th>`).join('') + '</tr></thead><tbody>';
-  const availCell = v => v
-    ? '<span style="color:var(--green);font-weight:600">enabled</span>'
-    : '<span style="color:var(--text-dim);font-weight:600">disabled</span>';
-  h += knobRow('Document passthrough', (k.documents.tier_availability || {}), availCell);
-  h += knobRow('File generation', (k.document_generation.tier_availability || {}), availCell);
   h += knobRow('Project Chat max input chars', k.project_chat_max_input_chars,
     v => v == null ? '—' : (v === -1 ? 'uncapped' : Number(v).toLocaleString()));
   h += knobRow('Searches / month', Object.fromEntries(d.tiers.map(t => [t, k.search[t].searches_per_month])),
