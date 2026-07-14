@@ -1733,6 +1733,7 @@ async def chat(
     _template_id = None
     _gen_teaser_text = ""
     _gen_teaser_offer_id = None
+    _gen_upsell_line = None
     if _gen_armed:
         from app.routers.config import _parse_accept_language
         from app.services.document_generation import (
@@ -1955,6 +1956,67 @@ async def chat(
         body = body.model_copy(update={
             "system_prompt": (_sys + "\n\n" + _cap_line) if _sys else _cap_line,
         })
+    else:
+        # Below-tier upsell (Scott 2026-07-14): when the ONLY thing between
+        # this turn and the generation gate is the subscription tier, a
+        # detected file ask gets a served, tier-aware line prepended to the
+        # reply. {tier} resolves from the served min_tier at request time,
+        # so an availability move (Pro -> Plus) updates the line with no
+        # code change. Detection is the deterministic layer only — explicit
+        # catch + vocabulary prefilter, both on the question portion
+        # (#420/#430) — below-tier turns never spend on the classifier.
+        from app.routers.config import _parse_accept_language
+        from app.services.document_generation import (
+            _question_portion,
+            explicit_file_ask,
+            generation_tier_shortfall,
+            load_generation_config,
+            looks_like_file_ask,
+        )
+        _short = generation_tier_shortfall(
+            remote_configs=request.app.state.remote_configs,
+            tier_name=user.effective_tier,
+            managed_routing=managed_routing,
+            provider=body.provider,
+            prompt_mode=body.get_meta("prompt_mode"),
+        )
+        if _short:
+            _ucfg = load_generation_config(
+                request.app.state.remote_configs,
+                locale=_parse_accept_language(
+                    request.headers.get("Accept-Language")),
+            )["upsell"]
+            _qp = _question_portion(body.user_content)
+            if (_ucfg["enabled"] and _ucfg.get("text")
+                    and (explicit_file_ask(_qp) is not None
+                         or looks_like_file_ask(_qp))):
+                _tier_def = request.app.state.tier_config.tiers.get(_short)
+                _tier_label = (_tier_def.display_name if _tier_def
+                               else _short.title())
+                _gen_upsell_line = str(_ucfg["text"]).replace(
+                    "{tier}", _tier_label)
+                # Coherence: the model must not contradict the injected
+                # line ("I cannot create files") or double-promise a file
+                # it will never build on this turn.
+                _upsell_sys = (
+                    "FILE UPSELL CONTEXT: the user has already been shown "
+                    "a notice that building real downloadable files "
+                    "(Excel, Word, PowerPoint, PDF) is available on the "
+                    f"{_tier_label} plan. Answer the request normally in "
+                    "chat text. Never promise to produce or attach a "
+                    "downloadable file, never claim files are impossible, "
+                    "and do not repeat the notice.")
+                _sys = (body.system_prompt or "").rstrip()
+                body = body.model_copy(update={
+                    "system_prompt": (_sys + "\n\n" + _upsell_sys)
+                    if _sys else _upsell_sys,
+                })
+                logger.info(
+                    "generation_upsell_injected min_tier=%s tier=%s "
+                    "surface=%s",
+                    _short, user.effective_tier,
+                    body.get_meta("prompt_mode"),
+                )
 
     # 6. Stream or non-stream based on request + call_type
     # Only stream interactive queries; background tasks (summary, analysis) get full JSON.
@@ -1990,6 +2052,7 @@ async def chat(
             pricing, tier, feature_hooks, hook_results,
             monthly_used, overage_balance, effective_limit,
             search_state,
+            upsell_line=_gen_upsell_line,
         )
 
     # --- Non-streaming path (original) ---
@@ -2289,6 +2352,13 @@ async def chat(
         response_data.pop("raw_request_json", None)
         response_data.pop("raw_response_json", None)
 
+        # Below-tier upsell: the served tier-aware line leads the reply.
+        # Unarmed by construction (the gate failed on tier), so this never
+        # coexists with generated_files or the pro teaser envelope.
+        if _gen_upsell_line and response_data.get("text"):
+            response_data["text"] = (
+                _gen_upsell_line + "\n\n" + response_data["text"])
+
         # Search-state sidecar (independent of feature_state, which is owned
         # by the project_chat / budget paths). Always populated when the
         # request had search_enabled=true so iOS can render a "searches used
@@ -2423,6 +2493,7 @@ async def _handle_stream(
     pricing, tier, feature_hooks, hook_results,
     monthly_used, overage_balance, effective_limit,
     search_state: dict | None = None,
+    upsell_line: str | None = None,
 ):
     """SSE streaming path for interactive chat queries.
 
@@ -2466,6 +2537,11 @@ async def _handle_stream(
     async def event_stream():
         final_response = None
         from app.services.anthropic_or_fallback import route_stream_with_fallback
+        if upsell_line:
+            # Below-tier upsell rides the stream as a synthetic first text
+            # delta — same event shape the client already concatenates.
+            yield "data: " + json.dumps(
+                {"type": "text", "text": upsell_line + "\n\n"}) + "\n\n"
         # Tracked across the heartbeat loop so it can be cancelled on any
         # exit path (see the finally below).
         pending = None

@@ -1579,3 +1579,188 @@ def test_below_tier_explicit_file_ask_is_a_plain_chat_turn(
     sent = mock_provider.await_args_list[-1].args[0]
     assert sent.generation is False
     assert "FILE CAPABILITY" not in (sent.system_prompt or "")
+    # upsell not opted in (defaults ship dark) -> reply text untouched
+    assert body["text"] == "Test response from mock provider."
+
+
+# --- below-tier upsell line (Scott 2026-07-14) ---
+
+def _enable_generation_with_upsell(client, min_tier="pro", upsell=None):
+    docs = client.app.state.remote_configs["client-config"].setdefault(
+        "documents", {})
+    docs["generation"] = {
+        "enabled": True, "min_tier": min_tier,
+        "confirmation": {"enabled": True, "expected_seconds": 150},
+        "upsell": upsell if upsell is not None else {"enabled": True},
+    }
+
+
+def test_tier_shortfall_matrix():
+    from app.services.document_generation import generation_tier_shortfall
+
+    def _short(**over):
+        kw = dict(
+            remote_configs={"client-config": {"documents": {"generation": {
+                "enabled": True, "min_tier": "pro"}}}},
+            tier_name="free", managed_routing=True, provider="anthropic",
+            prompt_mode="ProjectChat",
+        )
+        kw.update(over)
+        return generation_tier_shortfall(**kw)
+
+    assert _short() == "pro"
+    assert _short(tier_name="plus") == "pro"
+    assert _short(prompt_mode="PostMeetingChat") == "pro"
+    # at or above min_tier -> no shortfall (the real gate passes)
+    assert _short(tier_name="pro") is None
+    # unranked tiers (admin) fail the real gate's tier check today, but
+    # they are never a shortfall — upselling an admin would be wrong
+    assert _short(tier_name="admin") is None
+    # any mechanical gate failure is NOT a tier shortfall
+    assert _short(prompt_mode=None) is None
+    assert _short(prompt_mode="InterviewScorecard") is None
+    assert _short(managed_routing=False) is None
+    assert _short(provider="openrouter") is None
+    assert _short(remote_configs={"client-config": {"documents": {
+        "generation": {"enabled": False, "min_tier": "pro"}}}}) is None
+
+
+def test_below_tier_file_ask_gets_tier_aware_upsell_line(
+        client, free_user, mock_provider, monkeypatch):
+    """The served line leads the reply, {tier} resolves to the served
+    min_tier's display name, the coherence line steers the model, and the
+    classifier never runs (deterministic detection only)."""
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from tests.conftest import chat_request
+
+    _enable_generation_with_upsell(client)
+    monkeypatch.setattr(dg, "classify_generation_intent", AsyncMock(
+        side_effect=AssertionError(
+            "classifier must not run for a below-tier user")))
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        user_content="Current question: create an excel file of our plan",
+    ), headers=free_user["headers"])
+    assert r.status_code == 200
+    body = r.json()
+    assert body["text"].startswith(
+        "If you were a Pro subscriber, I could generate a Word or Excel "
+        "file for you.\n\n")
+    assert body["text"].endswith("Test response from mock provider.")
+    sent = mock_provider.await_args_list[-1].args[0]
+    assert "FILE UPSELL CONTEXT" in sent.system_prompt
+    assert "Pro plan" in sent.system_prompt
+    assert sent.generation is False
+    cta = (body.get("feature_state") or {}).get("cta") or {}
+    assert cta.get("kind") not in ("generation_offer", "generation_teaser")
+
+
+def test_upsell_tier_name_follows_served_min_tier(
+        client, free_user, mock_provider):
+    """Scott's core requirement: never assume the feature is Pro. Move
+    min_tier to plus in served config and the line follows."""
+    from tests.conftest import chat_request
+
+    _enable_generation_with_upsell(client, min_tier="plus")
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        user_content="Current question: create an excel file of our plan",
+    ), headers=free_user["headers"])
+    assert r.json()["text"].startswith("If you were a Plus subscriber")
+
+
+def test_at_or_above_min_tier_gets_no_upsell_line(
+        client, pro_user, mock_provider, monkeypatch):
+    """A pro user on a pro-gated feature rides the normal armed/teaser
+    machinery — never the upsell."""
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from tests.conftest import chat_request
+
+    _enable_generation_with_upsell(client)
+    monkeypatch.setattr(dg, "classify_generation_intent", AsyncMock(
+        return_value={"file_request": False, "format": None, "gist": ""}))
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        user_content="Current question: summarize the meeting",
+    ), headers=pro_user["headers"])
+    assert "If you were a" not in r.json()["text"]
+
+
+def test_below_tier_non_file_ask_gets_no_upsell_line(
+        client, free_user, mock_provider):
+    from tests.conftest import chat_request
+
+    _enable_generation_with_upsell(client)
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        user_content="Current question: summarize the last meeting",
+    ), headers=free_user["headers"])
+    assert r.json()["text"] == "Test response from mock provider."
+    assert "If you were a" not in r.json()["text"]
+
+
+def test_upsell_line_rides_the_stream_as_first_delta(
+        client, free_user, monkeypatch):
+    """Meeting chat streams tokens — the upsell line arrives as a
+    synthetic first text delta in the same event shape the client
+    already concatenates."""
+    import json as _json
+    from app.models.chat import ChatResponse
+    from tests.conftest import chat_request
+
+    _enable_generation_with_upsell(client)
+
+    def _fake_stream(provider_router, body, db, settings):
+        async def _gen():
+            yield {"text": "Here is the plan in chat."}
+            yield {"done": True, "response": ChatResponse(
+                text="Here is the plan in chat.", input_tokens=10,
+                output_tokens=5, model="claude-haiku-4-5-20251001",
+                provider="anthropic",
+                usage={"input_tokens": 10, "output_tokens": 5})}
+        return _gen()
+
+    monkeypatch.setattr(
+        "app.services.anthropic_or_fallback.route_stream_with_fallback",
+        _fake_stream)
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="PostMeetingChat", call_type="query", stream=True,
+        user_content="Current question: create an excel file of our plan",
+    ), headers=free_user["headers"])
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/event-stream")
+    texts = [_json.loads(line[len("data: "):])
+             for line in r.text.splitlines()
+             if line.startswith("data: ")]
+    text_events = [e["text"] for e in texts if e.get("type") == "text"]
+    assert text_events[0].startswith("If you were a Pro subscriber")
+    assert text_events[1] == "Here is the plan in chat."
+
+
+def test_upsell_text_is_locale_served(client, free_user, mock_provider):
+    from tests.conftest import chat_request
+
+    _enable_generation_with_upsell(client)
+    es = client.app.state.remote_configs.setdefault("client-config.es", {})
+    es.setdefault("documents", {})["generation"] = {
+        "enabled": True, "min_tier": "pro",
+        "upsell": {"enabled": True,
+                   "text": "Con una suscripción {tier} podría generar el archivo."},
+    }
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        user_content="Current question: create an excel file of our plan",
+    ), headers={**free_user["headers"], "Accept-Language": "es-MX"})
+    assert r.json()["text"].startswith(
+        "Con una suscripción Pro podría generar el archivo.")
+
+
+def test_bundled_upsell_live_all_locales():
+    for f in ("client-config.json", "client-config.es.json",
+              "client-config.ja.json"):
+        up = json.load(open(f"config/remote/{f}"))["documents"]["generation"]["upsell"]
+        assert up["enabled"] is True
+        assert "{tier}" in up["text"]
+        assert "—" not in up["text"]  # served copy carries no em dashes

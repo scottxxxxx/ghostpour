@@ -51,6 +51,10 @@
         },
         "offer_text_gist": "Sounds like you want {format} {gist}. Building the real file takes about two minutes — or I can just lay it out right here in chat. Want the file?",
         "teaser_text": "Want this as a real downloadable file?"
+      },
+      "upsell": {
+        "enabled": true,
+        "text": "If you were a {tier} subscriber, I could generate a Word or Excel file for you."
       }
     }
   }

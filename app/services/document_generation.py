@@ -62,6 +62,18 @@ _CONFIRMATION_DEFAULTS = {
     },
 }
 
+# Below-tier upsell (Scott 2026-07-14): when the ONLY thing between a
+# detected file ask and the generation gate is the subscription tier, a
+# served line is prepended to the reply. {tier} resolves to the served
+# min_tier's display name at request time — a future Pro->Plus move
+# updates the line with zero code change. Dark default; the bundle flips
+# it (plain text in an existing field, no new wire shape).
+_UPSELL_DEFAULTS = {
+    "enabled": False,
+    "text": ("If you were a {tier} subscriber, I could generate a Word "
+             "or Excel file for you."),
+}
+
 # Chat surfaces where generation may arm. Non-streaming only (the router
 # enforces that separately — ProjectChat is forced non-streaming already).
 _GENERATION_SURFACES = {"ProjectChat", "PostMeetingChat"}
@@ -84,6 +96,8 @@ def load_generation_config(remote_configs: dict, locale: str | None = None) -> d
     gen = {**_GEN_DEFAULTS, **(docs.get("generation") or {})}
     gen["confirmation"] = {**_CONFIRMATION_DEFAULTS,
                            **((docs.get("generation") or {}).get("confirmation") or {})}
+    gen["upsell"] = {**_UPSELL_DEFAULTS,
+                     **((docs.get("generation") or {}).get("upsell") or {})}
     return gen
 
 
@@ -339,6 +353,37 @@ def generation_gate(
     listed = bool(user_identity and set(user_identity) & set(docs.get("allowed_users") or []))
     tier_ok = _TIER_RANK.get(tier_name, 0) >= _TIER_RANK.get(cfg["min_tier"], 2)
     return (bool(cfg["enabled"]) and tier_ok) or listed
+
+
+def generation_tier_shortfall(
+    *,
+    remote_configs: dict,
+    tier_name: str,
+    managed_routing: bool,
+    provider: str,
+    prompt_mode: str | None,
+) -> str | None:
+    """The served min_tier when this turn fails the generation gate ONLY
+    on subscription tier: every mechanical requirement passes and the
+    feature is enabled, but the user's plan sits below min_tier. None in
+    every other case. Drives the below-tier upsell line; allowed_users is
+    deliberately not consulted — a listed identity passes the real gate
+    before this is ever reached."""
+    if prompt_mode not in _GENERATION_SURFACES:
+        return None
+    if not managed_routing or provider != "anthropic":
+        return None
+    cfg = load_generation_config(remote_configs)
+    if not cfg["enabled"]:
+        return None
+    if tier_name not in _TIER_RANK:
+        # Unranked tiers (admin) fail the real gate's tier check today, but
+        # upselling them would be wrong — only a KNOWN below-min tier is a
+        # shortfall.
+        return None
+    if _TIER_RANK[tier_name] >= _TIER_RANK.get(cfg["min_tier"], 2):
+        return None
+    return str(cfg["min_tier"])
 
 
 def _walk_file_ids(raw_response_json: str) -> list[str]:
