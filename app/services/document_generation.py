@@ -48,10 +48,10 @@ _CONFIRMATION_DEFAULTS = {
     "expected_seconds": 150,
     "poll_after_seconds": 5,
     "offer_text": ("That sounds like a file request. I can build {format} you "
-                   "can download and share — it takes about two minutes — or "
+                   "can download and share (takes about two minutes), or "
                    "just answer right here in chat. Want the file?"),
     "offer_text_gist": ("Sounds like you want {format} {gist}. Building the "
-                        "real file takes about two minutes — or I can just lay "
+                        "real file takes about two minutes, or I can just lay "
                         "it out right here in chat. Want the file?"),
     "teaser_text": "Want this as a real downloadable file?",
     "format_nouns": {

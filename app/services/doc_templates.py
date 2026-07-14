@@ -225,7 +225,7 @@ TEMPLATES = {
         "filename": "Project_Gantt.xlsx",
         "expected_seconds": 45,  # measured 2026-07-12: 6s toy plan, 48s real 12-meeting project
         "offer_noun": "my polished Gantt chart (collapsible phases, status "
-                      "colors, critical dates — a native Excel file)",
+                      "colors, critical dates, a native Excel file)",
     },
 }
 

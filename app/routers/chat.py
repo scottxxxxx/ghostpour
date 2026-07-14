@@ -1896,11 +1896,21 @@ async def chat(
                         # en-only v1; served copy when templates localize.
                         _t = TEMPLATES[_tmpl]
                         _cta = _envelope["feature_state"]["cta"]
+                        # The classifier's gist is meant to be a qualifier
+                        # ("for onboarding new people") but can come back a
+                        # verb phrase ("convert content to spreadsheet")
+                        # that jams the sentence (live 2026-07-14, SS) —
+                        # include it only when it composes.
+                        _gist = (_intent.get("gist") or "").strip()
+                        if not _gist.startswith(
+                                ("for ", "of ", "about ", "covering ",
+                                 "showing ", "tracking ")):
+                            _gist = ""
                         _cta["text"] = (
                             f"Sounds like you want a project timeline"
-                            f"{(' ' + _intent.get('gist')) if _intent.get('gist') else ''}. "
+                            f"{(' ' + _gist) if _gist else ''}. "
                             f"I can build {_t['offer_noun']} in about "
-                            f"{_t['expected_seconds']} seconds — or describe "
+                            f"{_t['expected_seconds']} seconds, or describe "
                             f"exactly what you have in mind and I'll build "
                             f"that custom instead. Want the polished one?")
                         _cta["details"]["template_id"] = _tmpl
@@ -2023,6 +2033,28 @@ async def chat(
                     body.get_meta("prompt_mode"),
                 )
 
+    # Teaser envelope, built once and served on BOTH transports: the JSON
+    # body attaches it as feature_state; streaming surfaces carry it on the
+    # SSE done event (same vehicle as search_state, same reasoning — the
+    # 2026-07-14 device test showed Meeting Chat teasers computed, offer
+    # minted, then silently dropped because only the JSON tail attached
+    # them; the model's capability-line prose was the only nudge left).
+    _teaser_state = None
+    if _gen_teaser_text:
+        _teaser_state = {
+            "feature": "document_generation",
+            "state": "available",
+            "cta": {
+                "kind": "generation_teaser",
+                "text": _gen_teaser_text,
+                "action": "confirm_generation",
+                # add-only: offer_id lets a TYPED yes ride the offer
+                # echo lane; the pill tap keeps generation_confirmed
+                "details": ({"offer_id": _gen_teaser_offer_id}
+                            if _gen_teaser_offer_id else {}),
+            },
+        }
+
     # 6. Stream or non-stream based on request + call_type
     # Only stream interactive queries; background tasks (summary, analysis) get full JSON.
     # Project Chat is also forced non-streaming so feature_state can land
@@ -2058,6 +2090,7 @@ async def chat(
             monthly_used, overage_balance, effective_limit,
             search_state,
             upsell_line=_gen_upsell_line,
+            teaser_state=_teaser_state,
         )
 
     # --- Non-streaming path (original) ---
@@ -2378,23 +2411,12 @@ async def chat(
         # client downloads immediately (URLs are a 6h fetch window, not storage).
         if generated_payload:
             response_data["generated_files"] = generated_payload
-        if _gen_teaser_text and not generated_payload:
+        if _teaser_state and not generated_payload:
             # soft-intent teaser (SS design, replacing their manual toggle):
             # same envelope family they render everywhere; the tap resends
-            # this ask with generation_confirmed
-            response_data["feature_state"] = {
-                "feature": "document_generation",
-                "state": "available",
-                "cta": {
-                    "kind": "generation_teaser",
-                    "text": _gen_teaser_text,
-                    "action": "confirm_generation",
-                    # add-only: offer_id lets a TYPED yes ride the offer
-                    # echo lane; the pill tap keeps generation_confirmed
-                    "details": ({"offer_id": _gen_teaser_offer_id}
-                                if _gen_teaser_offer_id else {}),
-                },
-            }
+            # this ask with generation_confirmed. Built once above so the
+            # streaming done event serves the identical shape.
+            response_data["feature_state"] = _teaser_state
 
         json_response = JSONResponse(content=response_data)
 
@@ -2503,6 +2525,7 @@ async def _handle_stream(
     monthly_used, overage_balance, effective_limit,
     search_state: dict | None = None,
     upsell_line: str | None = None,
+    teaser_state: dict | None = None,
 ):
     """SSE streaming path for interactive chat queries.
 
@@ -2771,6 +2794,10 @@ async def _handle_stream(
         }
         if search_state is not None:
             done_data["search_state"] = search_state
+        if teaser_state is not None:
+            # Streaming surfaces get the teaser here — same envelope shape
+            # the JSON path serves as feature_state (add-only on done).
+            done_data["feature_state"] = teaser_state
         if effective_limit != -1:
             new_used = monthly_used + request_cost
             done_data["allocation_percent"] = min(100, new_used / effective_limit * 100)

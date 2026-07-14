@@ -621,7 +621,7 @@ def test_offer_envelope_conversational_with_gist_and_offer_id():
     cta = env["feature_state"]["cta"]
     assert cta["text"] == ("Sounds like you want a native Word document "
                            "(.docx) for onboarding new people. Building the "
-                           "real file takes about two minutes — or I can just "
+                           "real file takes about two minutes, or I can just "
                            "lay it out right here in chat. Want the file?")
     assert cta["details"]["offer_id"] == "abc123"
     assert cta["details"]["gist"] == "for onboarding new people"
@@ -1755,6 +1755,105 @@ def test_upsell_text_is_locale_served(client, free_user, mock_provider):
     ), headers={**free_user["headers"], "Accept-Language": "es-MX"})
     assert r.json()["text"].startswith(
         "Con una suscripción Pro podría generar el archivo.")
+
+
+def test_teaser_rides_the_stream_done_event(client, free_user, monkeypatch):
+    """Meeting Chat device test 2026-07-14 (SS): the teaser was computed
+    and its offer minted, but streaming surfaces never attached the
+    envelope — the JSON tail was the only carrier. The teaser now rides
+    the SSE done event (same vehicle as search_state), identical shape."""
+    import json as _json
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from app.models.chat import ChatResponse
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    monkeypatch.setattr(dg, "classify_generation_intent", AsyncMock(
+        return_value={"file_request": False, "format": None, "gist": ""}))
+
+    def _fake_stream(provider_router, body, db, settings):
+        async def _gen():
+            yield {"text": "A gantt would have phases and dates."}
+            yield {"done": True, "response": ChatResponse(
+                text="A gantt would have phases and dates.", input_tokens=10,
+                output_tokens=5, model="claude-haiku-4-5-20251001",
+                provider="anthropic",
+                usage={"input_tokens": 10, "output_tokens": 5})}
+        return _gen()
+
+    monkeypatch.setattr(
+        "app.services.anthropic_or_fallback.route_stream_with_fallback",
+        _fake_stream)
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="PostMeetingChat", call_type="query", stream=True,
+        user_content="Current question: what would a gantt chart of this "
+                     "project look like?",
+    ), headers=free_user["headers"])
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/event-stream")
+    events = [_json.loads(line[len("data: "):])
+              for line in r.text.splitlines() if line.startswith("data: ")]
+    done = next(e for e in events if e.get("type") == "done")
+    fs = done.get("feature_state")
+    assert fs and fs["cta"]["kind"] == "generation_teaser"
+    assert fs["cta"]["details"]["offer_id"]  # typed-yes lane armed
+
+
+def test_template_offer_gist_only_when_it_composes(
+        client, free_user, mock_provider, monkeypatch):
+    """Live 2026-07-14 (SS): classifier gist 'convert content to
+    spreadsheet' jammed into 'Sounds like you want a project timeline
+    convert content to spreadsheet.' Verb-phrase gists are dropped;
+    qualifier gists still ride."""
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    monkeypatch.setattr(dg, "classify_generation_intent", AsyncMock(
+        return_value={"file_request": True, "format": "xlsx",
+                      "gist": "convert content to spreadsheet"}))
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        user_content="Current question: can you turn this gantt plan "
+                     "into an Excel document?",
+    ), headers=free_user["headers"])
+    text = r.json()["feature_state"]["cta"]["text"]
+    assert text.startswith("Sounds like you want a project timeline. ")
+    assert "convert content" not in text
+    assert "—" not in text  # served copy carries no em dashes
+
+    monkeypatch.setattr(dg, "classify_generation_intent", AsyncMock(
+        return_value={"file_request": True, "format": "xlsx",
+                      "gist": "for the migration project"}))
+    r2 = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        user_content="Current question: can you turn this gantt plan "
+                     "into an Excel document?",
+    ), headers=free_user["headers"])
+    assert "a project timeline for the migration project." \
+        in r2.json()["feature_state"]["cta"]["text"]
+
+
+def test_served_generation_copy_carries_no_em_dashes():
+    """SS device test 2026-07-14: offer copy reached the screen with em
+    dashes. Guard every served string source: code defaults, template
+    offer nouns, and all three locale bundles."""
+    from app.services.doc_templates import TEMPLATES
+    from app.services.document_generation import (
+        _CONFIRMATION_DEFAULTS,
+        _UPSELL_DEFAULTS,
+    )
+
+    assert "—" not in json.dumps(_CONFIRMATION_DEFAULTS, ensure_ascii=False)
+    assert "—" not in json.dumps(_UPSELL_DEFAULTS, ensure_ascii=False)
+    for t in TEMPLATES.values():
+        assert "—" not in t["offer_noun"]
+    for f in ("client-config.json", "client-config.es.json",
+              "client-config.ja.json"):
+        gen = json.load(open(f"config/remote/{f}"))["documents"]["generation"]
+        assert "—" not in json.dumps(gen, ensure_ascii=False), f
 
 
 def test_bundled_upsell_live_all_locales():
