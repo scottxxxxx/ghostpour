@@ -90,16 +90,28 @@ def test_defaults_when_key_absent():
 
 
 def test_bundled_client_config_documents_live_and_pro_gated():
-    # Flipped live 2026-07-11 after the e2e matrix closed. The load-bearing
-    # invariants now: pro gate intact, all three locales agree, and the
-    # bundle never ships a populated allowed_users (e2e ids live in the
-    # overlay only).
+    # Flipped live 2026-07-11 after the e2e matrix closed. POLICY CHANGE
+    # 2026-07-14 (Scott): the FLAT bundle now carries the permanent test
+    # lane so a fresh deploy / DR restore seeds it (overlay-only meant a
+    # restore silently lost it) and the provenance drift row stays clean.
+    # Load-bearing invariants: pro gate intact, all three locales agree,
+    # test-lane entries are OPAQUE UUIDS ONLY — the repo is public, so an
+    # email in this list would publish PII (the gate matches id OR email;
+    # always bake the id). Locale variants stay empty (enforcement reads
+    # the flat file only).
     import json
+    import re
+    uuid_re = re.compile(r"^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$")
     for f in ("client-config.json", "client-config.es.json", "client-config.ja.json"):
         docs = json.load(open(f"config/remote/{f}"))["documents"]
         assert docs["enabled"] is True
         assert docs["min_tier"] == "pro"
-        assert docs["allowed_users"] == []
+    flat = json.load(open("config/remote/client-config.json"))["documents"]
+    assert flat["allowed_users"], "flat bundle carries the permanent test lane"
+    for entry in flat["allowed_users"]:
+        assert uuid_re.match(entry), f"non-UUID in public bundle: {entry!r}"
+    for f in ("client-config.es.json", "client-config.ja.json"):
+        assert json.load(open(f"config/remote/{f}"))["documents"]["allowed_users"] == []
 
 
 # --- passthrough path ---
