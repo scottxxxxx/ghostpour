@@ -229,12 +229,10 @@ async def capture_transcript(
         )
 
     # Resolve tier-based verdict for the CQ extraction call.
-    tier_config = request.app.state.tier_config
     feature_config = request.app.state.feature_config
-    tier = tier_config.tiers.get(user.effective_tier)
-    feature_state = (
-        tier.feature_state("context_quilt") if tier else "disabled"
-    )
+    from app.services.entitlements import entitlement_state
+    feature_state = entitlement_state(
+        request.app.state.remote_configs, user.effective_tier, "context_quilt")
     cq_def = feature_config.features.get("context_quilt")
     free_quota_per_month = cq_def.free_quota_per_month if cq_def else 1
 

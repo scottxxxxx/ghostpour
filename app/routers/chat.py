@@ -63,6 +63,7 @@ from app.models.chat import ChatRequest, ChatResponse
 from app.models.user import UserRecord
 from app.services import context_quilt as cq
 from app.services.allocation_reset import compute_next_reset, lazy_reset_if_due
+from app.services.entitlements import entitlement_state, resolved_features
 
 router = APIRouter()
 
@@ -866,7 +867,8 @@ async def usage_me(
         "summary_mode": tier.summary_mode if tier else "delta",
         "summary_interval_minutes": tier.summary_interval_minutes if tier else 10,
         "max_images_per_request": _img_cap,
-        "features": tier.features if tier else {},
+        "features": resolved_features(
+            request.app.state.remote_configs, user.effective_tier),
     }
 
     if is_simulated:
@@ -1075,7 +1077,8 @@ async def list_tiers(request: Request):
             "max_images_per_request": app_overrides.get(
                 "max_images_per_request", tier.max_images_per_request
             ),
-            "features": tier.features,
+            "features": resolved_features(
+                request.app.state.remote_configs, name),
             "feature_bullets": dt.get("feature_bullets", tier.feature_bullets),
             "storekit_product_id": tier.storekit_product_id,
         }
@@ -1281,7 +1284,9 @@ async def chat(
     hook_results: dict[str, dict] = {}
 
     for feature_name, hook in feature_hooks.items():
-        state = tier.feature_state(feature_name)
+        state = entitlement_state(
+                request.app.state.remote_configs, user.effective_tier,
+                feature_name)
         if state != "disabled":
             body, result = await hook.before_llm(user, body, tier, state, skip_teasers)
             hook_results[feature_name] = result
@@ -2327,7 +2332,9 @@ async def chat(
 
         # 9.5. Feature hooks (after LLM) — async, non-blocking
         for feature_name, hook in feature_hooks.items():
-            state = tier.feature_state(feature_name)
+            state = entitlement_state(
+                request.app.state.remote_configs, user.effective_tier,
+                feature_name)
             if feature_name in hook_results:
                 await hook.after_llm(user, body, response, hook_results[feature_name], state)
 
@@ -2409,7 +2416,9 @@ async def chat(
         # Feature response headers
         for feature_name, hook in feature_hooks.items():
             if feature_name in hook_results:
-                state = tier.feature_state(feature_name)
+                state = entitlement_state(
+                request.app.state.remote_configs, user.effective_tier,
+                feature_name)
                 for k, v in hook.response_headers(hook_results[feature_name], state).items():
                     json_response.headers[k] = v
 
@@ -2528,7 +2537,9 @@ async def _handle_stream(
     # Feature hook headers
     for feature_name, hook in feature_hooks.items():
         if feature_name in hook_results:
-            state = tier.feature_state(feature_name)
+            state = entitlement_state(
+                request.app.state.remote_configs, user.effective_tier,
+                feature_name)
             for k, v in hook.response_headers(hook_results[feature_name], state).items():
                 headers[k] = v
 
@@ -2737,7 +2748,9 @@ async def _handle_stream(
                     )
 
             for feature_name, hook in feature_hooks.items():
-                state = tier.feature_state(feature_name)
+                state = entitlement_state(
+                request.app.state.remote_configs, user.effective_tier,
+                feature_name)
                 if feature_name in hook_results:
                     await hook.after_llm(user, body, final_response, hook_results[feature_name], state)
 

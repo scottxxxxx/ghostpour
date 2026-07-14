@@ -461,6 +461,23 @@ async def update_config(
     if "version" not in body.data:
         raise HTTPException(status_code=400, detail="Config must have a 'version' field")
 
+    # Entitlements matrix writes are closed-enum validated (Phase 2,
+    # feature-entitlements.md): a malformed matrix never loads — reject
+    # the write and the last good config stays live. Locale/per-app
+    # variants of the slug get the same check.
+    if slug == "entitlements" or slug.endswith("/entitlements"):
+        from app.services.entitlements import validate_matrix
+        problems = validate_matrix(
+            body.data,
+            known_features=set(request.app.state.feature_config.features),
+            known_tiers=set(request.app.state.tier_config.tiers),
+        )
+        if problems:
+            raise HTTPException(
+                status_code=400,
+                detail={"code": "invalid_entitlements_matrix",
+                        "problems": problems})
+
     from app.routers.config import CONFIG_DIR, load_remote_configs
 
     config_path = CONFIG_DIR / f"{slug}.json"
@@ -721,6 +738,17 @@ class TunableTierFieldRequest(BaseModel):
     feature: str       # "project_chat" | "meeting_reports" | "context_quilt" | "search"
     field: str         # "max_input_tokens" | "searches_per_month" | "searches_soft_threshold" | ...
     value: int | None  # new value (None clears the field)
+
+
+class EntitlementsMatrixCellRequest(BaseModel):
+    """Single-cell edit of the entitlements matrix from the dashboard.
+    Same closed enums as the full-config PUT; writes the persistent
+    `entitlements` overlay and hot-reloads, so the flip IS the
+    enforcement change (Phase 2 single source)."""
+
+    feature: str
+    tier: str
+    state: str
 
 
 class EntitlementsDocumentsRequest(BaseModel):
@@ -1588,6 +1616,7 @@ async def get_tiers(
     _verify_admin(request, x_admin_key)
 
     from app.routers.config import load_remote_configs
+    from app.services.entitlements import resolved_features as _resolved_features
     from app.services.tunable_config import project_chat_max_input_tokens
 
     # Refresh remote_configs so any direct edit to /app/data/remote-config/
@@ -1616,7 +1645,9 @@ async def get_tiers(
             "allowed_models": tier.allowed_models,
             "max_images_per_request": tier.max_images_per_request,
             "storekit_product_id": tier.storekit_product_id,
-            "features": tier.features,
+            # Phase 2: feature states live in the entitlements matrix (the
+            # persistent remote config), not tiers.yml — read the resolver.
+            "features": _resolved_features(remote_configs, name),
             # JSON-sourced tunables (dashboard-editable, JSON file is the
             # source of truth, yaml is the fallback default).
             "max_input_tokens": project_chat_max_input_tokens(
@@ -1672,13 +1703,18 @@ async def get_entitlements(
     feature_config = request.app.state.feature_config
     tier_names = list(tier_config.tiers)
 
-    # 1. The features × tiers matrix (tiers.yml assignments × features.yml
-    # definitions). Union both directions so a tier cell referencing an
-    # undefined feature — or a defined feature no tier mentions — still
-    # renders; a missing cell resolves "disabled", same as feature_state().
+    # 1. The features × tiers matrix — Phase 2: cells come from the
+    # entitlements remote config through the SAME resolver enforcement
+    # uses (features.yml still carries definitions/copy). Union both
+    # directions so a matrix row missing a definition — or a defined
+    # feature missing from the matrix — still renders; a missing cell
+    # resolves "disabled", same as the resolver.
+    from app.services.entitlements import (
+        entitlement_matrix,
+        entitlement_state,
+    )
     feature_names = sorted(
-        set(feature_config.features)
-        | {f for t in tier_config.tiers.values() for f in t.features})
+        set(feature_config.features) | set(entitlement_matrix(remote_configs)))
     matrix = {}
     for fname in feature_names:
         fdef = feature_config.features.get(fname)
@@ -1688,7 +1724,7 @@ async def get_entitlements(
             "teaser_description": fdef.teaser_description if fdef else None,
             "upgrade_cta": fdef.upgrade_cta if fdef else None,
             "category": fdef.category if fdef else None,
-            "tiers": {t: tier_config.tiers[t].feature_state(fname)
+            "tiers": {t: entitlement_state(remote_configs, t, fname)
                       for t in tier_names},
         }
 
@@ -1743,7 +1779,7 @@ async def get_entitlements(
     # itself is boot-loaded repo YAML until Phase 2 moves it.
     drift = detect_overlay_drift()
     configs_prov = {}
-    for name in ("client-config", "tiers"):
+    for name in ("entitlements", "client-config", "tiers"):
         # The exact slugs the knob loaders read. Enforcement is
         # app-agnostic today — documents/limits/search all read the flat
         # files; per-app dirs affect config SERVING, not these knobs — so
@@ -1756,9 +1792,9 @@ async def get_entitlements(
             "drifted_pointers": drift.get(name, []),
         }
     provenance = {
-        "matrix_source": ("config/tiers.yml x config/features.yml "
-                          "(repo YAML, boot-loaded; editable matrix lands "
-                          "in Phase 2)"),
+        "matrix_source": ("entitlements remote config (persistent, "
+                          "dashboard-edited, hot-reloaded) x features.yml "
+                          "definitions"),
         "configs": configs_prov,
         "tier_overrides": overrides,
     }
@@ -1776,6 +1812,68 @@ async def get_entitlements(
         "matrix": matrix,
         "knobs": knobs,
         "provenance": provenance,
+    }
+
+
+@router.put("/admin/entitlements/matrix")
+async def update_entitlements_matrix_cell(
+    body: EntitlementsMatrixCellRequest,
+    request: Request,
+    x_admin_key: str = Header(...),
+):
+    """Flip one features × tiers cell (Phase 2). Validates against the
+    closed enums, writes the persistent entitlements overlay, bumps its
+    version, and hot-reloads remote_configs — enforcement, the served
+    /v1/config/entitlements, and the dashboard all read the same object,
+    so the flip takes effect on the next request."""
+    _verify_admin(request, x_admin_key)
+
+    from app.routers.config import CONFIG_DIR, load_remote_configs
+    from app.services.entitlements import SLUG, STATES
+
+    if body.feature not in request.app.state.feature_config.features:
+        raise HTTPException(
+            status_code=400, detail=f"Unknown feature '{body.feature}'")
+    if body.tier not in request.app.state.tier_config.tiers:
+        raise HTTPException(
+            status_code=400, detail=f"Unknown tier '{body.tier}'")
+    if body.state not in STATES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"state must be one of {', '.join(STATES)}")
+
+    path = CONFIG_DIR / f"{SLUG}.json"
+    if not path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="entitlements config not seeded yet (restart seeds it "
+                   "from the bundle)")
+    try:
+        data = json.loads(path.read_text())
+    except (json.JSONDecodeError, OSError) as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Could not read {SLUG}.json: {exc}")
+
+    matrix = data.setdefault("matrix", {})
+    cells = matrix.setdefault(body.feature, {})
+    old_state = cells.get(body.tier)
+    if old_state == body.state:
+        return {"status": "unchanged", "feature": body.feature,
+                "tier": body.tier, "state": body.state}
+    cells[body.tier] = body.state
+    data["version"] = (data.get("version") or 0) + 1
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+    request.app.state.remote_configs = load_remote_configs()
+    logger.info(
+        "entitlements_matrix_cell_updated feature=%s tier=%s %s->%s v%s",
+        body.feature, body.tier, old_state, body.state, data["version"])
+    return {
+        "status": "updated",
+        "feature": body.feature,
+        "tier": body.tier,
+        "old_state": old_state,
+        "new_state": body.state,
+        "version": data["version"],
     }
 
 
