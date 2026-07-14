@@ -73,6 +73,21 @@ def _version_in_range(version: str | None, rng: dict) -> bool:
     return True
 
 
+def _request_locale(header: str | None) -> str | None:
+    """Primary language subtag from Accept-Language, KEEPING an explicit
+    "en". config._parse_accept_language maps en -> None because it picks
+    locale FILE suffixes (en = the unsuffixed default) — but promo needs
+    the header's actual language: SS sends the app's RUNNING language
+    (their 2026-07-14 fix), so an explicit en must beat the telemetry
+    system-locale fallback or an English UI on a Spanish-system device
+    draws Spanish copy and es-targeted campaigns."""
+    if not header:
+        return None
+    first = header.split(",")[0].strip().split(";")[0].strip()
+    lang = first.split("-")[0].lower()
+    return lang or None
+
+
 def _locale_matches(locale: str | None, targets: list) -> bool:
     if not locale:
         return False
@@ -178,13 +193,19 @@ async def _geo_audience(db: aiosqlite.Connection, countries: list, regions: list
     return (row["n"] if row else 0) or 0
 
 
-def _targeting_matches(targeting: dict, user: UserRecord | None, profile: dict | None) -> bool:
+def _targeting_matches(targeting: dict, user: UserRecord | None, profile: dict | None,
+                       header_locale: str | None = None) -> bool:
     """Targeting. `user` is None for the unsigned base (BYOK / on-device), the
     prime cross-promo audience — a campaign with no constraint reaches them.
     Identity dims (users/tiers/signed_in) apply only when signed in. Profile dims
     (locales / app_version / meetings_recorded / active_within_days /
     device_families) use the server-built device profile; a dim we can't verify
     (no telemetry) does not match. Absent rule = no constraint on that dimension.
+    Exception: the locales dim prefers `header_locale` (the client's EFFECTIVE
+    app language from Accept-Language, sent by SS since their 2026-07-14 fix)
+    over the profile's system locale — eligibility and content localization
+    must read the same signal, or a system-en device running the UI in es is
+    skipped by an es-targeted campaign whose copy would have served in Spanish.
     """
     p = profile or {}
     signed_in = targeting.get("signed_in")
@@ -216,7 +237,7 @@ def _targeting_matches(targeting: dict, user: UserRecord | None, profile: dict |
         if have != want:
             return False
     locales = targeting.get("locales")
-    if locales and not _locale_matches(p.get("locale"), locales):
+    if locales and not _locale_matches(header_locale or p.get("locale"), locales):
         return False
     av = targeting.get("app_version")
     if av and not _version_in_range(p.get("app_version"), av):
@@ -350,9 +371,10 @@ async def resolve_promo(
     # the common path (no profile targeting, no gate) cheap.
     # Content locale: the request's Accept-Language wins (the client's
     # EFFECTIVE app language when SS sends it); telemetry app_locale is the
-    # fallback signal (system locale — the two can differ, seen live).
-    from app.routers.config import _parse_accept_language
-    header_locale = _parse_accept_language(request.headers.get("Accept-Language"))
+    # fallback signal (system locale — the two can differ, seen live). The
+    # promo-local parser keeps an explicit "en" (unlike the config-file
+    # parser) so an English UI never inherits the system locale.
+    header_locale = _request_locale(request.headers.get("Accept-Language"))
     needs_locale_profile = header_locale is None and any(
         isinstance(v, dict) and v.get("content_locales")
         for c in campaigns for v in (c.get("variants") or [])
@@ -369,7 +391,8 @@ async def resolve_promo(
         if c.get("expires_at") and now > c["expires_at"]:
             continue
         tgt = c.get("targeting") or {}
-        if not _targeting_matches(tgt, user, profile):
+        if not _targeting_matches(tgt, user, profile,
+                                  header_locale=header_locale):
             continue
         # Privacy floor (#318 §9): EVERY geo-targeted campaign is withheld
         # while its targeted geo segment is below the enforced floor —
