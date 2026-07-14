@@ -1836,6 +1836,56 @@ def test_template_offer_gist_only_when_it_composes(
         in r2.json()["feature_state"]["cta"]["text"]
 
 
+def test_template_format_veto_blocks_history_mismatch(
+        client, free_user, mock_provider, monkeypatch):
+    """Live 2026-07-14 21:58:42Z (Scott's device): 'make a word document
+    that identifies the roles on today's call' drew the xlsx Gantt offer —
+    'gantt' rode the carried conversation history, and the template's
+    format never had to agree with the classifier's docx read. The FORMAT
+    VETO closes it. History matching itself deliberately stays (anaphoric
+    'make IT into excel' asks carry the keyword only in history — pinned
+    by the surface-parity test)."""
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    monkeypatch.setattr(dg, "classify_generation_intent", AsyncMock(
+        return_value={"file_request": True, "format": "docx",
+                      "gist": "for the roles on the call"}))
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        user_content="Previous conversation: we discussed the gantt chart "
+                     "and the project timeline milestones. Current question: "
+                     "can you make a word document that identifies the "
+                     "different roles and contributions of the people on "
+                     "today's call?",
+    ), headers=free_user["headers"])
+    cta = r.json()["feature_state"]["cta"]
+    assert "template_id" not in cta["details"]        # no gantt interception
+    assert "Gantt" not in cta["text"]
+    assert "Word document" in cta["text"] or "docx" in cta["text"]
+
+    # format veto alone: gantt vocabulary IN the question, but the user
+    # wants a Word file -> the xlsx template must not intercept
+    monkeypatch.setattr(dg, "classify_generation_intent", AsyncMock(
+        return_value={"file_request": True, "format": "docx", "gist": ""}))
+    r2 = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        user_content="Current question: write a word doc summary of our "
+                     "gantt timeline",
+    ), headers=free_user["headers"])
+    assert "template_id" not in r2.json()["feature_state"]["cta"]["details"]
+
+
+def test_match_template_format_veto_unit():
+    from app.services.doc_templates import match_template
+    assert match_template("build a gantt chart") == "gantt_smartsheet"
+    assert match_template("build a gantt chart", format="xlsx") == "gantt_smartsheet"
+    assert match_template("build a gantt chart", format="docx") is None
+    assert match_template("build a gantt chart", format=None) == "gantt_smartsheet"
+
+
 def test_served_generation_copy_carries_no_em_dashes():
     """SS device test 2026-07-14: offer copy reached the screen with em
     dashes. Guard every served string source: code defaults, template
