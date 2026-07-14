@@ -230,14 +230,24 @@ TEMPLATES = {
 }
 
 
-def match_template(text: str) -> str | None:
-    """Scan the WHOLE ask (capped), not a tail window: the first live miss
-    was a 400-word library prompt that said "Gantt" once, in its opening
-    sentence — a tail slice cut the keyword out of its own prompt. A plain
-    substring scan over 50K chars is microseconds; there's no reason to
-    window it."""
+def match_template(text: str, format: str | None = None) -> str | None:
+    """Scan the WHOLE given text (capped), not a tail window: the first
+    live miss was a 400-word library prompt that said "Gantt" once, in its
+    opening sentence — a tail slice cut the keyword out of its own prompt.
+    Callers pass the full assembled content DELIBERATELY, unlike the
+    intent checks (#420): anaphoric asks ("make IT into an excel doc")
+    carry the template keyword only in history, and that case is live-
+    proven wanted (2026-07-13 16:52 offer).
+
+    `format` is the classifier's read of the DESIRED output ("docx"...):
+    a template that builds a different format is vetoed. This is what
+    contains the history scan's false-positive class — live 2026-07-14
+    21:58Z, a Word roles-doc ask drew the xlsx Gantt offer off 'gantt'
+    in carried history; the veto blocks it while anaphora keeps working."""
     hay = (text or "")[-50000:].lower()
     for tid, t in TEMPLATES.items():
+        if format and t["format"] != format:
+            continue
         if any(h in hay for h in t["hints"]):
             return tid
     return None

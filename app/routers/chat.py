@@ -1877,11 +1877,17 @@ async def chat(
                         user.id,
                         (_intent or {}).get("format") or "xlsx",
                         (_intent or {}).get("gist") or "",
-                        template_id=_mt(body.user_content),
+                        template_id=_mt(body.user_content,
+                                        format=(_intent or {}).get("format")),
                         ask_content=body.user_content or "")
                 if _intent and _intent.get("file_request"):
                     from app.services.doc_templates import TEMPLATES, match_template
-                    _tmpl = match_template(body.user_content)
+                    # Format veto (live 2026-07-14 21:58:42Z: a docx
+                    # roles-doc ask drew the xlsx Gantt offer off 'gantt'
+                    # in carried history). History matching itself stays —
+                    # anaphoric asks ("make IT into excel") need it.
+                    _tmpl = match_template(body.user_content,
+                                           format=_intent.get("format"))
                     _offer_id = generation_offers.create(
                         user.id, _intent.get("format") or "xlsx",
                         _intent.get("gist") or "", template_id=_tmpl,
