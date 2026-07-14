@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "matrix": {
+    "context_quilt": {
+      "free": "disabled",
+      "plus": "teaser",
+      "pro": "enabled",
+      "admin": "enabled"
+    },
+    "meeting_reports": {
+      "free": "enabled",
+      "plus": "enabled",
+      "pro": "enabled",
+      "admin": "enabled"
+    },
+    "project_chat": {
+      "free": "teaser",
+      "plus": "enabled",
+      "pro": "enabled",
+      "admin": "enabled"
+    },
+    "speaker_consolidation": {
+      "free": "enabled",
+      "plus": "enabled",
+      "pro": "enabled",
+      "admin": "enabled"
+    },
+    "tag_centroids": {
+      "free": "enabled",
+      "plus": "enabled",
+      "pro": "enabled",
+      "admin": "enabled"
+    },
+    "web_search": {
+      "free": "disabled",
+      "plus": "enabled",
+      "pro": "enabled",
+      "admin": "enabled"
+    }
+  }
+}

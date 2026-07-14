@@ -106,6 +106,22 @@ async def lifespan(app: FastAPI):
     app.state.config_drift = config_drift
     app.state.remote_configs = config.load_remote_configs()
 
+    # Entitlements matrix completeness (Phase 2, feature-entitlements.md):
+    # a missing known feature × tier cell resolves "disabled" silently, so
+    # surface any at boot. Warning only — never enforced.
+    from app.services.entitlements import completeness_warnings
+    _missing_cells = completeness_warnings(
+        app.state.remote_configs,
+        known_features=set(app.state.feature_config.features),
+        known_tiers=set(app.state.tier_config.tiers),
+    )
+    if _missing_cells:
+        logging.getLogger("app.main").warning(
+            "entitlements_matrix_incomplete cells=%d sample=%s — these "
+            "resolve 'disabled'; author them in the entitlements config",
+            len(_missing_cells), _missing_cells[:8],
+        )
+
     # Per-app version registry. Backs GET /v1/app/version. Missing file
     # is non-fatal; the endpoint just 404s every call until the file
     # lands. See app/services/app_version.py.

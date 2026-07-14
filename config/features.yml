@@ -121,3 +121,15 @@ features:
     display_name: "Post-Session Speaker Consolidation"
     description: "Merges duplicate speakers after a session and demotes contaminated segments. GP-gated remote kill switch."
     category: "internal"
+
+  # Web search on chat turns (Anthropic server tool). Availability is the
+  # matrix state; the monthly caps + soft threshold live in tiers.json
+  # feature_definitions.search and are edited on the Tiers tab. The chat
+  # route enforces both (state gate + counter). Defined here so the
+  # entitlements matrix validates it as a known feature — it had lived
+  # only in the tiers.yml assignments.
+  web_search:
+    display_name: "Web Search"
+    description: "Let the AI search the web during chat for current information, with per-tier monthly caps."
+    upgrade_cta: "Upgrade to Plus to let your AI search the web"
+    category: "intelligence"

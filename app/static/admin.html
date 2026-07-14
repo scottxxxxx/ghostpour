@@ -517,7 +517,7 @@
   <!-- Transcript cleanup: original vs cleaned -->
   <div id="tab-entitlements" class="section">
     <h3 style="margin:0 0 4px">Entitlements</h3>
-    <p style="color:var(--text-dim);font-size:13px;margin:0 0 14px">Everything that decides what a user may do: the features × tiers matrix, the config-shaped knobs outside it, and where each served value comes from. What the server actually does right now — defaults merged, overlay wins. The Documents knobs (enabled + min tier) are editable here and take effect immediately; matrix cells become editable with the Phase 2 migration.</p>
+    <p style="color:var(--text-dim);font-size:13px;margin:0 0 14px">Everything that decides what a user may do: the features × tiers matrix, the config-shaped knobs outside it, and where each served value comes from. What the server actually does right now — defaults merged, overlay wins. Matrix cells and the Documents knobs are editable here and take effect immediately (the matrix is the persistent entitlements config, the single source enforcement reads).</p>
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px">
       <select id="ent-app" class="period-select" onchange="loadEntitlements(this.value)"></select>
       <button class="refresh-btn" onclick="loadEntitlements(document.getElementById('ent-app').value)" style="background:var(--bg);color:var(--text);border:1px solid var(--border)">Refresh</button>
@@ -3115,10 +3115,16 @@ async function loadEntitlements(appId) {
 
   const stateColors = {enabled: 'var(--green)', teaser: 'var(--orange)', disabled: 'var(--text-dim)'};
   const cell = s => `<td style="color:${stateColors[s] || 'var(--text-dim)'};font-weight:600">${entEsc(s)}</td>`;
+  const matrixCell = (feature, tier, cur) =>
+    `<td><select class="period-select" style="color:${stateColors[cur] || 'var(--text-dim)'};font-weight:600" onchange="saveMatrixCell('${entEsc(feature)}','${entEsc(tier)}',this.value)">`
+    + ['enabled', 'teaser', 'disabled'].map(s =>
+      `<option value="${s}" ${s === cur ? 'selected' : ''}>${s}</option>`).join('')
+    + '</select></td>';
   const overridden = Object.keys(d.provenance.tier_overrides || {});
 
-  // Features × tiers matrix
-  let h = `<h4 style="margin:0 0 8px">Features × tiers <span style="color:var(--text-dim);font-weight:400;font-size:12px">(${entEsc(d.provenance.matrix_source)})</span></h4>`;
+  // Features × tiers matrix — cells are live (Phase 2): a change writes
+  // the persistent entitlements config and is enforcement immediately.
+  let h = `<h4 style="margin:0 0 8px">Features × tiers <span id="ent-matrix-status" style="color:var(--text-dim);font-weight:400;font-size:12px">(${entEsc(d.provenance.matrix_source)})</span></h4>`;
   h += '<div class="table-wrap"><table><thead><tr><th>Feature</th>'
     + d.tiers.map(t => `<th>${entEsc(t)}</th>`).join('') + '</tr></thead><tbody>';
   for (const [name, f] of Object.entries(d.matrix)) {
@@ -3126,7 +3132,7 @@ async function loadEntitlements(appId) {
       + `<div style="color:var(--text-dim);font-size:11px;max-width:420px">${entEsc(f.description || '')}</div>`
       + (f.category === 'internal' ? '<span class="badge free">internal</span>' : '')
       + '</td>'
-      + d.tiers.map(t => cell(f.tiers[t])).join('')
+      + d.tiers.map(t => matrixCell(name, t, f.tiers[t])).join('')
       + '</tr>';
   }
   // Documents rows ride in the same table: they're gated by the config
@@ -3210,6 +3216,26 @@ async function loadEntitlements(appId) {
   h += '</tbody></table></div>';
 
   box.innerHTML = h;
+}
+
+async function saveMatrixCell(feature, tier, state) {
+  const st = document.getElementById('ent-matrix-status');
+  if (st) st.textContent = 'Saving…';
+  const r = await fetch(`${BASE}/webhooks/admin/entitlements/matrix`, {
+    method: 'PUT',
+    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
+    body: JSON.stringify({feature, tier, state}),
+  });
+  if (!r.ok) {
+    if (st) st.textContent = `Save failed (${r.status})`;
+    return;
+  }
+  const d = await r.json();
+  await loadEntitlements(document.getElementById('ent-app').value);
+  const st2 = document.getElementById('ent-matrix-status');
+  if (st2) st2.textContent = d.status === 'updated'
+    ? `Saved: ${d.feature} · ${d.tier} ${d.old_state || 'unset'} → ${d.new_state} (v${d.version})`
+    : 'No change';
 }
 
 async function saveDocKnob(scope, fields) {

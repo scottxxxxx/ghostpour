@@ -24,8 +24,10 @@ from pathlib import Path
 
 import pytest
 
-_LOCALE_FILES = ["client-config.json", "client-config.es.json",
-                 "client-config.ja.json"]
+_DOC_LOCALE_FILES = ["client-config.json", "client-config.es.json",
+                     "client-config.ja.json"]
+# every persistent file any test in this module writes (snapshot set)
+_LOCALE_FILES = _DOC_LOCALE_FILES + ["entitlements.json"]
 
 
 @pytest.fixture(autouse=True)
@@ -126,13 +128,115 @@ def test_techrehearsal_applies_tier_overrides(client):
 def test_provenance_names_slugs_and_drift_shape(client):
     data = _get(client).json()
     prov = data["provenance"]["configs"]
-    assert set(prov) == {"client-config", "tiers"}
+    assert set(prov) == {"entitlements", "client-config", "tiers"}
     for entry in prov.values():
         assert entry["slug"] is None or isinstance(entry["slug"], str)
         assert isinstance(entry["drifted_pointers"], list)
     # SS (default app) resolves the flat slugs today
     assert prov["client-config"]["slug"] == "client-config"
     assert prov["client-config"]["version"] is not None
+    # Phase 2: the matrix's own config is a provenance row
+    assert prov["entitlements"]["slug"] == "entitlements"
+
+
+# --- Phase 2: the matrix is the single source ---
+
+def test_bundle_matrix_bit_identical_to_tiers_yml():
+    """The migration invariant (feature-entitlements.md §5.3): the seeded
+    matrix resolves every cell exactly as the tiers.yml assignments it
+    replaces. This test proves it BEFORE the YAML blocks are deleted."""
+    import yaml
+
+    bundle = json.load(open("config/remote/entitlements.json"))["matrix"]
+    tiers = yaml.safe_load(open("config/tiers.yml"))["tiers"]
+    features = {f for t in tiers.values() for f in (t.get("features") or {})}
+    assert set(bundle) == features
+    for fname in features:
+        for tname, tdef in tiers.items():
+            expected = (tdef.get("features") or {}).get(fname, "disabled")
+            assert bundle[fname][tname] == expected, (fname, tname)
+
+
+def test_resolver_defaults_and_validation():
+    from app.services.entitlements import (
+        completeness_warnings,
+        entitlement_state,
+        validate_matrix,
+    )
+
+    rc = {"entitlements": {"version": 1, "matrix": {
+        "project_chat": {"free": "teaser", "pro": "enabled"}}}}
+    assert entitlement_state(rc, "free", "project_chat") == "teaser"
+    assert entitlement_state(rc, "pro", "project_chat") == "enabled"
+    assert entitlement_state(rc, "plus", "project_chat") == "disabled"  # missing cell
+    assert entitlement_state(rc, "pro", "nope") == "disabled"           # missing feature
+    assert entitlement_state({}, "pro", "project_chat") == "disabled"   # no config
+
+    known_f, known_t = {"project_chat"}, {"free", "plus", "pro"}
+    assert validate_matrix({"matrix": {"project_chat": {"free": "teaser"}}},
+                           known_features=known_f, known_tiers=known_t) == []
+    bad = validate_matrix(
+        {"matrix": {"ghost": {"free": "enabled"},
+                    "project_chat": {"gold": "enabled", "free": "on"}}},
+        known_features=known_f, known_tiers=known_t)
+    assert any("unknown feature 'ghost'" in p for p in bad)
+    assert any("unknown tier 'gold'" in p for p in bad)
+    assert any("invalid state 'on'" in p for p in bad)
+    assert validate_matrix({}, known_features=known_f, known_tiers=known_t)
+
+    warns = completeness_warnings(rc, known_features={"project_chat"},
+                                  known_tiers=known_t)
+    assert warns == ["project_chat.plus"]
+
+
+def test_matrix_cell_put_flips_enforcement(client, free_user):
+    from app.routers.config import CONFIG_DIR
+    from app.services.entitlements import entitlement_state
+
+    def _cell(body, key="test-admin-key"):
+        return client.put("/webhooks/admin/entitlements/matrix", json=body,
+                          headers={"X-Admin-Key": key})
+
+    assert _cell({"feature": "web_search", "tier": "free",
+                  "state": "enabled"}, key="wrong").status_code == 403
+    assert _cell({"feature": "ghost", "tier": "free",
+                  "state": "enabled"}).status_code == 400
+    assert _cell({"feature": "web_search", "tier": "gold",
+                  "state": "enabled"}).status_code == 400
+    assert _cell({"feature": "web_search", "tier": "free",
+                  "state": "on"}).status_code == 400
+
+    before = json.loads(
+        (CONFIG_DIR / "entitlements.json").read_text())["version"]
+    r = _cell({"feature": "web_search", "tier": "free", "state": "enabled"})
+    assert r.status_code == 200 and r.json()["status"] == "updated"
+    assert r.json()["version"] == before + 1
+    # hot-reload: the resolver enforcement reads sees it immediately
+    assert entitlement_state(client.app.state.remote_configs,
+                             "free", "web_search") == "enabled"
+    # the GET view reflects it
+    data = _get(client).json()
+    assert data["matrix"]["web_search"]["tiers"]["free"] == "enabled"
+    # a signed-in free user's served features map reflects it
+    me = client.get("/v1/usage/me", headers=free_user["headers"]).json()
+    assert me["features"]["web_search"] == "enabled"
+    # idempotent resend
+    assert _cell({"feature": "web_search", "tier": "free",
+                  "state": "enabled"}).json()["status"] == "unchanged"
+
+
+def test_config_put_validates_entitlements_matrix(client):
+    good = {"version": 999,
+            "matrix": {"web_search": {"free": "disabled", "plus": "enabled",
+                                      "pro": "enabled", "admin": "enabled"}}}
+    r = client.put("/webhooks/admin/config/entitlements", json={"data": good},
+                   headers={"X-Admin-Key": "test-admin-key"})
+    assert r.status_code == 200
+    bad = {"version": 1000, "matrix": {"ghost": {"free": "enabled"}}}
+    r2 = client.put("/webhooks/admin/config/entitlements", json={"data": bad},
+                    headers={"X-Admin-Key": "test-admin-key"})
+    assert r2.status_code == 400
+    assert "unknown feature 'ghost'" in str(r2.json())
 
 
 # --- Phase 1.5: derived availability + the documents-knob editor ---
@@ -174,7 +278,7 @@ def test_put_generation_min_tier_writes_lockstep_and_hot_reloads(client):
     from app.services.document_generation import load_generation_config
 
     before = {f: json.loads((CONFIG_DIR / f).read_text()).get("version")
-              for f in _LOCALE_FILES if (CONFIG_DIR / f).exists()}
+              for f in _DOC_LOCALE_FILES if (CONFIG_DIR / f).exists()}
     r = _put(client, {"scope": "generation", "min_tier": "plus"})
     assert r.status_code == 200
     d = r.json()
@@ -212,7 +316,7 @@ def test_put_passthrough_enabled_toggles_documents_gate(client):
     assert data["knobs"]["documents"]["enabled"] is False
     assert not any(data["knobs"]["documents"]["tier_availability"].values())
     # generation block untouched by a passthrough-scope write
-    for f in _LOCALE_FILES:
+    for f in _DOC_LOCALE_FILES:
         from app.routers.config import CONFIG_DIR
         if (CONFIG_DIR / f).exists():
             gen = json.loads(
