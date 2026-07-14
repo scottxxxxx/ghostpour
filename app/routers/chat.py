@@ -1732,6 +1732,7 @@ async def chat(
     _gen_confirmation_enabled = False
     _template_id = None
     _gen_teaser_text = ""
+    _gen_teaser_offer_id = None
     if _gen_armed:
         from app.routers.config import _parse_accept_language
         from app.services.document_generation import (
@@ -1839,6 +1840,18 @@ async def chat(
                 if ((_intent is None or not _intent.get("file_request"))
                         and looks_like_file_ask(_question_portion(body.user_content))):
                     _gen_teaser_text = str(_confirmation.get("teaser_text") or "")
+                    # Teasers mint an offer too (joint call w/ SS
+                    # 2026-07-14): a typed "yes" then rides the same
+                    # echo → interpret → arm plumbing as real offers,
+                    # while the pill tap keeps the generation_confirmed
+                    # resend. Same one-reply lifetime and TTL.
+                    from app.services.doc_templates import match_template as _mt
+                    _gen_teaser_offer_id = generation_offers.create(
+                        user.id,
+                        (_intent or {}).get("format") or "xlsx",
+                        (_intent or {}).get("gist") or "",
+                        template_id=_mt(body.user_content),
+                        ask_content=body.user_content or "")
                 if _intent and _intent.get("file_request"):
                     from app.services.doc_templates import TEMPLATES, match_template
                     _tmpl = match_template(body.user_content)
@@ -2278,7 +2291,10 @@ async def chat(
                     "kind": "generation_teaser",
                     "text": _gen_teaser_text,
                     "action": "confirm_generation",
-                    "details": {},
+                    # add-only: offer_id lets a TYPED yes ride the offer
+                    # echo lane; the pill tap keeps generation_confirmed
+                    "details": ({"offer_id": _gen_teaser_offer_id}
+                                if _gen_teaser_offer_id else {}),
                 },
             }
 
