@@ -1440,3 +1440,46 @@ def test_armed_template_turn_gets_extraction_not_capability_line(
     sent = mock_provider.await_args_list[-1].args[0]
     assert "FILE BUILD OVERRIDE" in sent.system_prompt or "JSON" in sent.system_prompt
     assert "FILE CAPABILITY" not in sent.system_prompt
+
+
+def test_teaser_mints_offer_and_typed_yes_arms(
+        client, free_user, mock_provider, tmp_db_path, monkeypatch):
+    """Joint call with SS 2026-07-14: teasers mint an offer so a TYPED
+    yes rides the same echo lane as real offers (the pill tap keeps the
+    generation_confirmed resend)."""
+    import json as _json
+    import sqlite3
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    monkeypatch.setattr(dg, "classify_generation_intent", AsyncMock(
+        return_value={"file_request": False, "format": None, "gist": ""}))
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        user_content="Current question: what did the report say about the gantt chart?",
+    ), headers=free_user["headers"])
+    cta = r.json()["feature_state"]["cta"]
+    assert cta["kind"] == "generation_teaser"
+    oid = cta["details"]["offer_id"]
+    assert oid
+
+    monkeypatch.setattr(dg, "interpret_offer_reply", AsyncMock(
+        return_value={"confirm": True, "format": "xlsx"}))
+    mock_provider.canned_response.text = _json.dumps(_PLAN)
+    mock_provider.return_value = mock_provider.canned_response
+    r2 = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        metadata={"offer_id": oid, "generation_id": "gen-teaser-yes-1",
+                  "reply_text": "Yes"},
+        user_content="Yes",
+    ), headers=free_user["headers"])
+    assert r2.status_code == 200
+    assert r2.headers["content-type"].startswith("text/event-stream")
+    assert "event: generation_result" in r2.text
+    con = sqlite3.connect(tmp_db_path)
+    row = con.execute("SELECT status FROM generations "
+                      "WHERE generation_id='gen-teaser-yes-1'").fetchone()
+    con.close()
+    assert row and row[0] == "done"
