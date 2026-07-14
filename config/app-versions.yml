@@ -29,13 +29,15 @@ com.shouldersurf.ShoulderSurf:
         # Bump on every release. Client shows a dismissible toast when
         # the device's CFBundleShortVersionString is below this.
         #
-        # Current shipping build is 1.13 (build 535 on TestFlight),
-        # installable 2026-06-14 (per SS). Carries the generic minAppBuild
-        # filter and the Qwen enable_thinking write, so it drives the
-        # qwen3.7 models correctly (PR #248 floor is 534; 535 clears it).
+        # Current shipping build is 1.14 (build 724 on TestFlight),
+        # installable 2026-07-13 (per Scott). First build carrying the
+        # generation client: offer envelope arming + offer_id echo on
+        # both chat surfaces (the July 12 parity lane), decode-failure
+        # logging, and the usage/me hardening follow-up is theirs to
+        # ship. Also clears the qwen3.7 minAppBuild floor (534, #248).
         # Bump on every TestFlight or App Store release that goes out
         # to users. Soft-banner pipeline verified end-to-end 2026-06-06.
-        version: "1.13"
+        version: "1.14"
         # CFBundleVersion (numeric string). Clients only consult this
         # when their marketing version equals `version` above:
         #   - TestFlight installs whose build number is < this show the
@@ -43,7 +45,7 @@ com.shouldersurf.ShoulderSurf:
         #   - App Store installs ignore it entirely.
         # Bump alongside `version` on every release. The bump pair from
         # SS will always come as "version + build", e.g. "1.13 build 450".
-        build: "535"
+        build: "724"
         # Tap target for the upgrade prompt. Currently the live
         # TestFlight invite linked from the beta button on
         # shouldersurf.com. Swap to https://apps.apple.com/app/id<APPID>
