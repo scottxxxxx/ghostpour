@@ -66,20 +66,25 @@ def test_unknown_app_returns_404(client):
     assert _get(client, params={"app": "nope"}).status_code == 404
 
 
-def test_matrix_mirrors_tier_config_exactly(client):
+def test_matrix_mirrors_the_resolver_exactly(client):
+    """The view IS the enforcement read: every cell equals the single
+    resolver over the live remote configs (Phase 2 single source)."""
+    from app.services.entitlements import entitlement_matrix, entitlement_state
+
     resp = _get(client)
     assert resp.status_code == 200
     data = resp.json()
     tier_config = client.app.state.tier_config
     assert data["tiers"] == list(tier_config.tiers)
+    rc = client.app.state.remote_configs
     for fname, f in data["matrix"].items():
         for t in data["tiers"]:
-            assert f["tiers"][t] == tier_config.tiers[t].feature_state(fname)
+            assert f["tiers"][t] == entitlement_state(rc, t, fname)
             assert f["tiers"][t] in ("enabled", "teaser", "disabled")
-    # every feature a tier references and every defined feature is a row
+    # every matrix row and every defined feature renders
     feature_config = client.app.state.feature_config
-    referenced = {f for t in tier_config.tiers.values() for f in t.features}
-    assert set(data["matrix"]) == set(feature_config.features) | referenced
+    assert set(data["matrix"]) == \
+        set(feature_config.features) | set(entitlement_matrix(rc))
     # definitions ride along for the dashboard
     pc = data["matrix"].get("project_chat")
     assert pc and pc["display_name"] and pc["description"]
@@ -141,20 +146,24 @@ def test_provenance_names_slugs_and_drift_shape(client):
 
 # --- Phase 2: the matrix is the single source ---
 
-def test_bundle_matrix_bit_identical_to_tiers_yml():
-    """The migration invariant (feature-entitlements.md §5.3): the seeded
-    matrix resolves every cell exactly as the tiers.yml assignments it
-    replaces. This test proves it BEFORE the YAML blocks are deleted."""
+def test_matrix_single_home_invariants():
+    """Post-deletion guards (feature-entitlements.md §5.1, no second home):
+    tiers.yml carries NO features blocks, and the bundle matrix is
+    complete — every features.yml feature has a valid state for every
+    tier. (The pre-deletion bit-identical proof ran in PR #440.)"""
     import yaml
 
-    bundle = json.load(open("config/remote/entitlements.json"))["matrix"]
     tiers = yaml.safe_load(open("config/tiers.yml"))["tiers"]
-    features = {f for t in tiers.values() for f in (t.get("features") or {})}
+    assert all("features" not in t for t in tiers.values())
+
+    from app.models.feature import load_feature_config
+    bundle = json.load(open("config/remote/entitlements.json"))["matrix"]
+    features = set(load_feature_config("config/features.yml").features)
     assert set(bundle) == features
     for fname in features:
-        for tname, tdef in tiers.items():
-            expected = (tdef.get("features") or {}).get(fname, "disabled")
-            assert bundle[fname][tname] == expected, (fname, tname)
+        for tname in tiers:
+            assert bundle[fname][tname] in ("enabled", "teaser", "disabled"), \
+                (fname, tname)
 
 
 def test_resolver_defaults_and_validation():

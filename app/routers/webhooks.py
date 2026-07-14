@@ -45,12 +45,6 @@ class AdminCaptureTranscriptRequest(BaseModel):
     project_id: str | None = None
 
 
-class UpdateFeatureStateRequest(BaseModel):
-    tier: str
-    feature: str
-    state: str  # "enabled", "teaser", "disabled"
-
-
 @router.post("/admin/set-tier")
 async def set_tier(
     body: SetTierRequest,
@@ -186,56 +180,6 @@ async def simulate_tier(
         "real_tier": real_tier,
         "simulated_tier": body.tier,
         "exhausted": body.exhausted,
-    }
-
-
-@router.post("/admin/update-feature-state")
-async def update_feature_state(
-    body: UpdateFeatureStateRequest,
-    request: Request,
-    x_admin_key: str = Header(...),
-):
-    """Toggle a feature's state for a specific tier. Writes to tiers.yml and reloads."""
-    _verify_admin(request, x_admin_key)
-
-    if body.state not in ("enabled", "teaser", "disabled"):
-        raise HTTPException(status_code=400, detail=f"Invalid state: {body.state}. Must be enabled, teaser, or disabled")
-
-    tier_config = request.app.state.tier_config
-    if body.tier not in tier_config.tiers:
-        raise HTTPException(status_code=400, detail=f"Unknown tier: {body.tier}")
-
-    # Load current YAML
-    tiers_path = Path(__file__).parent.parent.parent / "config" / "tiers.yml"
-
-    with open(tiers_path) as f:
-        raw = yaml.safe_load(f)
-
-    # Update the feature state
-    tier_data = raw["tiers"].get(body.tier)
-    if not tier_data:
-        raise HTTPException(status_code=400, detail=f"Tier {body.tier} not found in tiers.yml")
-
-    if "features" not in tier_data:
-        tier_data["features"] = {}
-
-    old_state = tier_data["features"].get(body.feature, "disabled")
-    tier_data["features"][body.feature] = body.state
-
-    # Write back
-    with open(tiers_path, "w") as f:
-        yaml.dump(raw, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
-
-    # Reload tier config in app state
-    from app.models.tier import load_tier_config
-    request.app.state.tier_config = load_tier_config(str(tiers_path))
-
-    return {
-        "status": "ok",
-        "tier": body.tier,
-        "feature": body.feature,
-        "old_state": old_state,
-        "new_state": body.state,
     }
 
 

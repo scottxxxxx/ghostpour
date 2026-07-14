@@ -6,14 +6,18 @@ the path, anything else (incl. "enabled"/absent) is fail-open. Default is
 "enabled" for every tier so shipping nothing preserves today's behavior.
 """
 
+import json
+
 from app.models.tier import load_tier_config
 
 
 def test_all_tiers_default_enabled():
+    # Phase 2: the matrix bundle is the single home for feature states
+    matrix = json.load(open("config/remote/entitlements.json"))["matrix"]
     tc = load_tier_config("config/tiers.yml")
     assert tc.tiers, "no tiers loaded"
-    for name, tier in tc.tiers.items():
-        assert tier.features.get("tag_centroids") == "enabled", (
+    for name in tc.tiers:
+        assert matrix["tag_centroids"].get(name) == "enabled", (
             f"{name} should default tag_centroids=enabled (fail-open kill switch)"
         )
 
