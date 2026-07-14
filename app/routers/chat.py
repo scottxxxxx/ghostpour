@@ -1816,6 +1816,7 @@ async def chat(
                 # guaranteed catch first (deterministic, no LLM); the
                 # classifier only judges the softer phrasings
                 from app.services.document_generation import (
+                    _question_portion,
                     explicit_file_ask,
                     looks_like_file_ask,
                 )
@@ -1827,9 +1828,13 @@ async def chat(
                 # teaser candidate: file vocabulary present but no request
                 # judged — the answer carries a served "want this as a real
                 # file?" CTA; the tap resends with generation_confirmed
-                # (SS renders the envelope family already)
+                # (SS renders the envelope family already). Judge the
+                # QUESTION PORTION like every other intent check (#420):
+                # the assembled tail of a file-heavy conversation always
+                # carries file vocabulary, and scanning it teased a bare
+                # "Test" follow-up (live 2026-07-14, post-generation chat).
                 if ((_intent is None or not _intent.get("file_request"))
-                        and looks_like_file_ask(body.user_content)):
+                        and looks_like_file_ask(_question_portion(body.user_content))):
                     _gen_teaser_text = str(_confirmation.get("teaser_text") or "")
                 if _intent and _intent.get("file_request"):
                     from app.services.doc_templates import TEMPLATES, match_template

@@ -1331,3 +1331,46 @@ def test_template_render_survives_disobedient_extraction_e2e(
     assert result["generated_files"][0]["name"] == "Project_Gantt.xlsx"
     assert "Built your xlsx" in result["text"]
     assert "<!DOCTYPE" not in result["text"]
+
+
+def test_bare_followup_in_file_heavy_conversation_gets_no_teaser(
+        client, free_user, mock_provider):
+    """Live 2026-07-14: 'Test' sent into a post-generation Project Chat
+    drew the teaser — the hint check scanned the whole assembled tail
+    (gantt/file/xlsx vocabulary everywhere) instead of the question
+    portion (#420's rule). A bare follow-up must be a plain answer."""
+    from tests.conftest import chat_request
+    _enable_confirmed_generation(client)
+    assembled = (
+        "Previous conversation in this chat: "
+        "Q: Build a Gantt chart from these meetings A: Built your xlsx — "
+        "38 tasks and milestones (Project_Gantt.xlsx, a native Excel "
+        "file). Download the spreadsheet and open the report.\n\n"
+        "Current question: Test"
+    )
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        user_content=assembled,
+    ), headers=free_user["headers"])
+    body = r.json()
+    assert body["text"]
+    fs = body.get("feature_state") or {}
+    cta = fs.get("cta") or {}
+    assert cta.get("kind") != "generation_teaser"
+
+
+def test_file_vocabulary_in_the_question_itself_still_teases(
+        client, free_user, mock_provider, monkeypatch):
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from tests.conftest import chat_request
+    _enable_confirmed_generation(client)
+    monkeypatch.setattr(dg, "classify_generation_intent", AsyncMock(
+        return_value={"file_request": False, "format": None, "gist": ""}))
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        user_content=("Previous conversation in this chat: Q: hello A: hi\n\n"
+                      "Current question: what did the report say about the deadline?"),
+    ), headers=free_user["headers"])
+    fs = r.json()["feature_state"]
+    assert fs["cta"]["kind"] == "generation_teaser"
