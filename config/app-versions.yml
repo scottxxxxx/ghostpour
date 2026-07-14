@@ -29,7 +29,7 @@ com.shouldersurf.ShoulderSurf:
         # Bump on every release. Client shows a dismissible toast when
         # the device's CFBundleShortVersionString is below this.
         #
-        # Current shipping build is 1.14 (build 724 on TestFlight),
+        # Current shipping build is 1.14 (build 725 on TestFlight),
         # installable 2026-07-13 (per Scott). First build carrying the
         # generation client: offer envelope arming + offer_id echo on
         # both chat surfaces (the July 12 parity lane), decode-failure
@@ -45,7 +45,7 @@ com.shouldersurf.ShoulderSurf:
         #   - App Store installs ignore it entirely.
         # Bump alongside `version` on every release. The bump pair from
         # SS will always come as "version + build", e.g. "1.13 build 450".
-        build: "724"
+        build: "725"
         # Tap target for the upgrade prompt. Currently the live
         # TestFlight invite linked from the beta button on
         # shouldersurf.com. Swap to https://apps.apple.com/app/id<APPID>
