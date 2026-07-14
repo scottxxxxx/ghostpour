@@ -1374,3 +1374,69 @@ def test_file_vocabulary_in_the_question_itself_still_teases(
     ), headers=free_user["headers"])
     fs = r.json()["feature_state"]
     assert fs["cta"]["kind"] == "generation_teaser"
+
+
+def test_capable_unarmed_turn_carries_file_capability_line(
+        client, free_user, mock_provider):
+    """Live 2026-07-14: on a normal turn the model told a generation-
+    capable user it 'doesn't have the ability to generate files'. Gate-
+    passing UNARMED turns now append a server-side capability line (gate
+    state is per-turn server knowledge; a static client line would lie
+    to Free/BYOK users)."""
+    from tests.conftest import chat_request
+    _enable_confirmed_generation(client)
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        system_prompt="You are a helpful assistant.",
+        user_content="Current question: summarize the last meeting",
+    ), headers=free_user["headers"])
+    assert r.status_code == 200
+    sent = mock_provider.await_args_list[-1].args[0]
+    assert "FILE CAPABILITY" in sent.system_prompt
+    assert sent.system_prompt.startswith("You are a helpful assistant.")
+
+
+def test_gate_failing_turn_gets_no_capability_line(client, free_user, mock_provider):
+    from tests.conftest import chat_request
+    # generation NOT enabled -> gate fails -> stock prompt untouched
+    docs = client.app.state.remote_configs["client-config"].setdefault("documents", {})
+    docs["generation"] = {"enabled": False}
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        user_content="Current question: summarize the last meeting",
+    ), headers=free_user["headers"])
+    assert r.status_code == 200
+    sent = mock_provider.await_args_list[-1].args[0]
+    assert "FILE CAPABILITY" not in (sent.system_prompt or "")
+
+
+def test_armed_template_turn_gets_extraction_not_capability_line(
+        client, free_user, mock_provider, tmp_db_path, monkeypatch):
+    import json as _json
+    import sqlite3
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from app.services import generation_offers as go
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    uid = free_user.get("user_id")
+    if uid is None:
+        con = sqlite3.connect(tmp_db_path)
+        uid = con.execute("SELECT id FROM users WHERE email LIKE 'test-free-user%'").fetchone()[0]
+        con.close()
+    oid = go.create(uid, "xlsx", "gantt", template_id="gantt_smartsheet",
+                    ask_content="Build a gantt chart")
+    monkeypatch.setattr(dg, "interpret_offer_reply", AsyncMock(
+        return_value={"confirm": True, "format": "xlsx"}))
+    mock_provider.canned_response.text = _json.dumps(_PLAN)
+    mock_provider.return_value = mock_provider.canned_response
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        metadata={"offer_id": oid, "generation_id": "gen-cap-t1"},
+        user_content="yes",
+    ), headers=free_user["headers"])
+    assert r.status_code == 200
+    sent = mock_provider.await_args_list[-1].args[0]
+    assert "FILE BUILD OVERRIDE" in sent.system_prompt or "JSON" in sent.system_prompt
+    assert "FILE CAPABILITY" not in sent.system_prompt
