@@ -1545,3 +1545,37 @@ def test_pill_tap_at_teaser_inherits_the_minted_offer(
                       "WHERE generation_id='gen-teaser-tap-1'").fetchone()
     con.close()
     assert row and row[0] == "done"
+
+
+def test_below_tier_explicit_file_ask_is_a_plain_chat_turn(
+        client, free_user, mock_provider, monkeypatch):
+    """Production gate shape (enabled, min_tier=pro) with a FREE user
+    explicitly asking for a file. The tier check is unit-pinned in
+    test_gate_matrix; this pins the e2e cell through /v1/chat: no offer,
+    no teaser, no classifier spend, no capability line, no arming — a
+    completely normal chat turn."""
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from tests.conftest import chat_request
+
+    docs = client.app.state.remote_configs["client-config"].setdefault(
+        "documents", {})
+    docs["generation"] = {
+        "enabled": True, "min_tier": "pro",
+        "confirmation": {"enabled": True, "expected_seconds": 150}}
+    monkeypatch.setattr(dg, "classify_generation_intent", AsyncMock(
+        side_effect=AssertionError(
+            "intent classifier must not run for a below-tier user")))
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        user_content="Current question: create an excel file of our "
+                     "project plan with all the milestones",
+    ), headers=free_user["headers"])
+    assert r.status_code == 200
+    body = r.json()
+    cta = (body.get("feature_state") or {}).get("cta") or {}
+    assert cta.get("kind") not in ("generation_offer", "generation_teaser")
+    assert "generated_files" not in body
+    sent = mock_provider.await_args_list[-1].args[0]
+    assert sent.generation is False
+    assert "FILE CAPABILITY" not in (sent.system_prompt or "")
