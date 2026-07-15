@@ -1950,13 +1950,20 @@ def test_bundled_upsell_live_all_locales():
 def test_artifact_filename_is_distinctive():
     """Five identical Project_Gantt.xlsx rows in the References list made
     artifacts indistinguishable (Scott 2026-07-14): template artifacts now
-    carry the extracted project slug and a MMDDYY build stamp."""
+    carry the extracted project slug and a MMDDYY stamp from the MEETING
+    date (Scott's call), with the UTC build date only as fallback."""
     from app.services.doc_templates import TEMPLATES, artifact_filename
     t = TEMPLATES["gantt_smartsheet"]
-    name = artifact_filename(t, {"project": "Kore Platform Rollout"})
-    assert re.fullmatch(r"Kore_Platform_Rollout_Gantt_\d{6}\.xlsx", name)
-    # no project in the plan -> base + stamp
+    # meeting date from the plan wins (and makes the name deterministic)
+    name = artifact_filename(t, {"project": "Kore Platform Rollout",
+                                 "meeting_date": "2026-07-14"})
+    assert name == "Kore_Platform_Rollout_Gantt_071426.xlsx"
+    # no or broken meeting date -> UTC build-date fallback
     assert re.fullmatch(r"Gantt_\d{6}\.xlsx", artifact_filename(t, {}))
+    assert re.fullmatch(
+        r"Kore_Gantt_\d{6}\.xlsx",
+        artifact_filename(t, {"project": "Kore", "meeting_date": "next tuesday"}))
     # hostile characters sanitize, long names cap
-    name2 = artifact_filename(t, {"project": "a/b\\c: d*e?" + "x" * 100})
-    assert re.fullmatch(r"a_b_c_d_e_x{30}_Gantt_\d{6}\.xlsx", name2)
+    name2 = artifact_filename(t, {"project": "a/b\\c: d*e?" + "x" * 100,
+                                  "meeting_date": "2026-07-14"})
+    assert re.fullmatch(r"a_b_c_d_e_x{30}_Gantt_071426\.xlsx", name2)

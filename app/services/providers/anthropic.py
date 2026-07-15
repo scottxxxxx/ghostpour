@@ -244,8 +244,11 @@ class AnthropicAdapter(ProviderAdapter):
                          "Name every file you create so a person browsing a "
                          "folder immediately knows what it is: a short "
                          "lowercase subject slug from the actual content, "
-                         f"then the date stamp {_stamp}, like "
-                         f"acme_onboarding_roadmap_{_stamp}.xlsx. Never use "
+                         "then a MMDDYY date stamp using the date of the "
+                         "meeting the content is about (the most recent one "
+                         f"when several; use {_stamp} only when no meeting "
+                         "date is evident), like "
+                         "acme_onboarding_roadmap_071026.xlsx. Never use "
                          "generic names like output.xlsx, document.docx, or "
                          "file.pdf."),
             }]
