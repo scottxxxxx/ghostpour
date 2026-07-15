@@ -1291,6 +1291,35 @@ async def chat(
             body, result = await hook.before_llm(user, body, tier, state, skip_teasers)
             hook_results[feature_name] = result
 
+    # Memory capability line (the #431 pattern, for memory instead of
+    # files): a Meeting Memory user whose chat send arrived WITHOUT the
+    # context_quilt flag gets a steering line so a memory ask is answered
+    # honestly instead of denied — live 2026-07-15, SS follow-up sends
+    # drop the flag even with the chip on, and the model told Scott it
+    # had "no access to Context Quilt". Only when the flag is absent:
+    # with the flag on, recall ran and its block (or its emptiness)
+    # speaks for itself. Server-side because gate state is per-turn
+    # knowledge — a static client line would lie to below-tier users.
+    if (not body.context_quilt
+            and body.get_meta("prompt_mode") in ("ProjectChat", "PostMeetingChat")
+            and entitlement_state(request.app.state.remote_configs,
+                                  user.effective_tier,
+                                  "context_quilt") == "enabled"):
+        _mem_line = (
+            "MEMORY CAPABILITY: this product has Meeting Memory (Context "
+            "Quilt): it recalls the user's previous meetings automatically "
+            "when it is included in a conversation's context. It is NOT "
+            "included in this conversation's context. If the user asks you "
+            "to use it, tell them Meeting Memory is not part of this "
+            "conversation's included context and that starting a new "
+            "conversation with Meeting Memory included will bring it in. "
+            "Never claim the product lacks memory or that you have no "
+            "access to Context Quilt.")
+        _sys_mem = (body.system_prompt or "").rstrip()
+        body = body.model_copy(update={
+            "system_prompt": (_sys_mem + "\n\n" + _mem_line)
+            if _sys_mem else _mem_line})
+
     # Safety net: the CQ hook fills the {{context_quilt}} placeholder ONLY
     # when CQ is enabled AND recall returned content. In every other path —
     # recall empty, teaser tier, CQ-disabled tier (hook skipped entirely
