@@ -2231,17 +2231,22 @@ async def chat(
             # user never gets a dead turn.
             try:
                 from app.services import generated_files as _staging
-                from app.services.doc_templates import TEMPLATES, parse_extraction
+                from app.services.doc_templates import (
+                    TEMPLATES,
+                    artifact_filename,
+                    parse_extraction,
+                )
                 _t = TEMPLATES[_template_id]
                 _plan = parse_extraction(response.text)
                 _bytes = await asyncio.to_thread(_t["renderer"], _plan)
                 _row = await _staging.stage(
                     db, user_id=user.id, app_id=app_id,
-                    name=_t["filename"], media_type=_t["media_type"], content=_bytes)
+                    name=artifact_filename(_t, _plan),
+                    media_type=_t["media_type"], content=_bytes)
                 if _row:
                     generated_payload = [_row]
                     _n = len(_plan.get("tasks") or [])
-                    response.text = (f"Built your {_t['format']} — "
+                    response.text = (f"Built your {_t['format']} with "
                                      f"{_n} tasks and milestones from "
                                      f"{_plan.get('project') or 'the project'}.")
                     # metering stamp (the sandbox block below is skipped on

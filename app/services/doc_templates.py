@@ -20,7 +20,8 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from datetime import date, datetime, timedelta
+import re
+from datetime import date, datetime, timedelta, timezone
 from io import BytesIO
 
 logger = logging.getLogger("ghostpour.doc_templates")
@@ -222,12 +223,26 @@ TEMPLATES = {
         "renderer": render_gantt,
         "format": "xlsx",
         "media_type": XLSX_MIME,
-        "filename": "Project_Gantt.xlsx",
+        "filename": "Gantt.xlsx",
         "expected_seconds": 45,  # measured 2026-07-12: 6s toy plan, 48s real 12-meeting project
         "offer_noun": "my polished Gantt chart (collapsible phases, status "
                       "colors, critical dates, a native Excel file)",
     },
 }
+
+
+def artifact_filename(template: dict, plan: dict) -> str:
+    """Distinctive artifact name: <Project>_<Base>_<MMDDYY>.<ext>.
+    Five identical Project_Gantt.xlsx rows in the client's References
+    made artifacts indistinguishable (Scott 2026-07-14) — the project
+    slug comes from the extracted plan and the stamp is the build date,
+    so a person browsing saved files knows what each one is for.
+    No project in the plan -> <Base>_<MMDDYY>.<ext>."""
+    base, ext = template["filename"].rsplit(".", 1)
+    slug = re.sub(r"[^A-Za-z0-9]+", "_",
+                  str(plan.get("project") or "")).strip("_")[:40]
+    stamp = datetime.now(timezone.utc).strftime("%m%d%y")
+    return "_".join(p for p in (slug, base, stamp) if p) + "." + ext
 
 
 def match_template(text: str, format: str | None = None) -> str | None:

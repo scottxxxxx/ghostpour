@@ -7,6 +7,7 @@ is the e2e lane.
 """
 
 import json
+import re
 
 import pytest
 
@@ -979,7 +980,8 @@ def test_template_offer_intercepts_and_confirm_renders(client, free_user, mock_p
     assert r2.status_code == 200
     assert r2.headers["content-type"].startswith("text/event-stream")
     result = _json.loads(r2.text.split("event: generation_result\ndata: ")[1].split("\n")[0])
-    assert result["generated_files"][0]["name"] == "Project_Gantt.xlsx"
+    assert re.fullmatch(r"([A-Za-z0-9_]+_)?Gantt_\d{6}\.xlsx",
+                        result["generated_files"][0]["name"])
     assert "Built your xlsx" in result["text"]
     # extraction turn was NOT a sandbox turn: no container arming happened
     sent = mock_provider.await_args_list[-1].args[0]
@@ -1249,7 +1251,8 @@ def test_template_confirm_on_streaming_surface_rides_generation_transport(
     assert "event: generation_started" in r.text
     result = _json.loads(
         r.text.split("event: generation_result\ndata: ")[1].split("\n")[0])
-    assert result["generated_files"][0]["name"] == "Project_Gantt.xlsx"
+    assert re.fullmatch(r"([A-Za-z0-9_]+_)?Gantt_\d{6}\.xlsx",
+                        result["generated_files"][0]["name"])
     assert "Built your xlsx" in result["text"]
     assert not result["text"].lstrip().startswith("{")
 
@@ -1328,7 +1331,8 @@ def test_template_render_survives_disobedient_extraction_e2e(
     assert r.headers["content-type"].startswith("text/event-stream")
     result = _json.loads(
         r.text.split("event: generation_result\ndata: ")[1].split("\n")[0])
-    assert result["generated_files"][0]["name"] == "Project_Gantt.xlsx"
+    assert re.fullmatch(r"([A-Za-z0-9_]+_)?Gantt_\d{6}\.xlsx",
+                        result["generated_files"][0]["name"])
     assert "Built your xlsx" in result["text"]
     assert "<!DOCTYPE" not in result["text"]
 
@@ -1532,7 +1536,8 @@ def test_pill_tap_at_teaser_inherits_the_minted_offer(
     result = _json.loads(r2.text.split(
         "event: generation_result\ndata: ")[1].split("\n")[0])
     # template lane, not sandbox: the registry renderer drew the file
-    assert result["generated_files"][0]["name"] == "Project_Gantt.xlsx"
+    assert re.fullmatch(r"([A-Za-z0-9_]+_)?Gantt_\d{6}\.xlsx",
+                        result["generated_files"][0]["name"])
     sent = mock_provider.await_args_list[-1].args[0]
     assert sent.generation is False
     assert "FILE BUILD OVERRIDE" in sent.system_prompt
@@ -1940,3 +1945,18 @@ def test_bundled_upsell_live_all_locales():
         assert up["enabled"] is True
         assert "{tier}" in up["text"]
         assert "—" not in up["text"]  # served copy carries no em dashes
+
+
+def test_artifact_filename_is_distinctive():
+    """Five identical Project_Gantt.xlsx rows in the References list made
+    artifacts indistinguishable (Scott 2026-07-14): template artifacts now
+    carry the extracted project slug and a MMDDYY build stamp."""
+    from app.services.doc_templates import TEMPLATES, artifact_filename
+    t = TEMPLATES["gantt_smartsheet"]
+    name = artifact_filename(t, {"project": "Kore Platform Rollout"})
+    assert re.fullmatch(r"Kore_Platform_Rollout_Gantt_\d{6}\.xlsx", name)
+    # no project in the plan -> base + stamp
+    assert re.fullmatch(r"Gantt_\d{6}\.xlsx", artifact_filename(t, {}))
+    # hostile characters sanitize, long names cap
+    name2 = artifact_filename(t, {"project": "a/b\\c: d*e?" + "x" * 100})
+    assert re.fullmatch(r"a_b_c_d_e_x{30}_Gantt_\d{6}\.xlsx", name2)
