@@ -31,6 +31,7 @@ XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 _GANTT_SCHEMA_PROMPT = (
     "Extract this project's plan from the conversation and meeting content "
     "as JSON ONLY — no prose, no code fences. Schema: {\"project\": str, "
+    "\"meeting_date\": \"YYYY-MM-DD\"|null, "
     "\"tasks\": [{\"id\": int, \"name\": str, \"type\": \"phase\"|\"task\"|"
     "\"milestone\", \"parent_id\": int|null, \"owner\": str|null, "
     "\"status\": \"complete\"|\"in_progress\"|\"on_hold\"|\"not_started\"|"
@@ -38,7 +39,10 @@ _GANTT_SCHEMA_PROMPT = (
     "\"depends_on\": [int]}]}. Rules: phases have parent_id null; tasks and "
     "milestones carry the id of their phase; milestones have start equal to "
     "end; dates must be consistent with dependencies (a task never starts "
-    "before its predecessor ends); owner is the person's name as spoken. "
+    "before its predecessor ends); owner is the person's name as spoken; "
+    "meeting_date is the date of the meeting this plan comes from as stated "
+    "in the content (the most recent one when several), null when no date "
+    "is evident. "
     "Extract every task and milestone discussed. Output only the JSON object."
 )
 
@@ -235,13 +239,19 @@ def artifact_filename(template: dict, plan: dict) -> str:
     """Distinctive artifact name: <Project>_<Base>_<MMDDYY>.<ext>.
     Five identical Project_Gantt.xlsx rows in the client's References
     made artifacts indistinguishable (Scott 2026-07-14) — the project
-    slug comes from the extracted plan and the stamp is the build date,
-    so a person browsing saved files knows what each one is for.
-    No project in the plan -> <Base>_<MMDDYY>.<ext>."""
+    slug comes from the extracted plan, and the stamp is the MEETING
+    date the extraction read from the content (Scott's call: the
+    artifact describes the meeting, not the build; also keeps the name
+    deterministic per plan). Falls back to the UTC build date when the
+    plan carries no parsable date. No project -> <Base>_<MMDDYY>.<ext>."""
     base, ext = template["filename"].rsplit(".", 1)
     slug = re.sub(r"[^A-Za-z0-9]+", "_",
                   str(plan.get("project") or "")).strip("_")[:40]
-    stamp = datetime.now(timezone.utc).strftime("%m%d%y")
+    try:
+        stamp = datetime.strptime(
+            str(plan.get("meeting_date")), "%Y-%m-%d").strftime("%m%d%y")
+    except ValueError:
+        stamp = datetime.now(timezone.utc).strftime("%m%d%y")
     return "_".join(p for p in (slug, base, stamp) if p) + "." + ext
 
 
