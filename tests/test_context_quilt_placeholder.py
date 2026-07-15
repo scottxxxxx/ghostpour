@@ -42,3 +42,62 @@ def test_placeholder_filled_in_place_when_cq_enabled(
     assert "{{context_quilt}}" not in sent.system_prompt
     # Recalled context landed where the placeholder was.
     assert "User prefers concise answers" in sent.system_prompt
+
+
+# --- memory capability line (the #431 pattern, for memory) ---
+
+def test_memory_capability_line_when_flag_absent(client, pro_user, mock_provider):
+    """Live 2026-07-15: SS follow-up sends drop the context_quilt flag
+    even with the chip on; the model told Scott it had 'no access to
+    Context Quilt'. Meeting Memory users now get a steering line on
+    chat turns that arrive without the flag."""
+    from tests.conftest import chat_request
+
+    r = client.post("/v1/chat", json=chat_request(
+        user_content="Use context quilt to find past interactions with Mike",
+        metadata={"prompt_mode": "PostMeetingChat",
+                  "call_type": "meeting_chat_follow_up"},
+    ), headers=pro_user["headers"])
+    assert r.status_code == 200
+    sent = mock_provider.await_args_list[-1].args[0]
+    assert "MEMORY CAPABILITY" in sent.system_prompt
+    assert "NOT included in this conversation" in sent.system_prompt
+
+
+def test_no_memory_line_when_recall_ran(client, pro_user, mock_provider, mock_cq):
+    """With the flag on, recall speaks for itself — the line would lie
+    ('not included') when the block IS included."""
+    from tests.conftest import chat_request
+
+    r = client.post("/v1/chat", json=chat_request(
+        user_content="What do you remember about Mike?",
+        context_quilt=True,
+        metadata={"prompt_mode": "PostMeetingChat",
+                  "call_type": "meeting_chat"},
+    ), headers=pro_user["headers"])
+    assert r.status_code == 200
+    sent = mock_provider.await_args_list[-1].args[0]
+    assert "MEMORY CAPABILITY" not in sent.system_prompt
+    assert "CONTEXT FROM PREVIOUS MEETINGS" in sent.system_prompt
+
+
+def test_no_memory_line_below_tier_or_off_surface(client, free_user, mock_provider):
+    """Free tier has Meeting Memory disabled in the matrix — a static
+    line would lie to them. And non-chat surfaces never get it."""
+    from tests.conftest import chat_request
+
+    r = client.post("/v1/chat", json=chat_request(
+        user_content="Use context quilt for past meetings",
+        metadata={"prompt_mode": "PostMeetingChat",
+                  "call_type": "meeting_chat_follow_up"},
+    ), headers=free_user["headers"])
+    assert "MEMORY CAPABILITY" not in \
+        mock_provider.await_args_list[-1].args[0].system_prompt
+
+    r2 = client.post("/v1/chat", json=chat_request(
+        user_content="Summarize the meeting",
+        metadata={"call_type": "analysis"},
+    ), headers=free_user["headers"])
+    assert r2.status_code == 200
+    assert "MEMORY CAPABILITY" not in \
+        mock_provider.await_args_list[-1].args[0].system_prompt
