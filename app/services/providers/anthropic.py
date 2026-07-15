@@ -1,3 +1,4 @@
+import datetime as _dt
 import json
 from collections.abc import AsyncIterator
 
@@ -226,6 +227,11 @@ class AnthropicAdapter(ProviderAdapter):
             # file Word rejects while every lenient reader accepts it —
             # python-docx output is Word-derived and safe. Steering fixes
             # the source; the collection-side rebuild is the backstop.
+            # Naming steering: generated files land in the user's saved
+            # References, where five artifacts named alike are
+            # indistinguishable (Scott 2026-07-14). The model knows the
+            # content; the server supplies the date.
+            _stamp = _dt.datetime.now(_dt.timezone.utc).strftime("%m%d%y")
             body["system"] = list(body["system"]) + [{
                 "type": "text",
                 "text": ("When creating Word (.docx) files in the sandbox, "
@@ -234,7 +240,14 @@ class AnthropicAdapter(ProviderAdapter):
                          "For checklists, use plain paragraphs starting with "
                          "the ballot-box glyph — never checkbox glyphs inside "
                          "bulleted list items (double markers). Style the "
-                         "document title as Title, sections as Heading 1-3."),
+                         "document title as Title, sections as Heading 1-3. "
+                         "Name every file you create so a person browsing a "
+                         "folder immediately knows what it is: a short "
+                         "lowercase subject slug from the actual content, "
+                         f"then the date stamp {_stamp}, like "
+                         f"acme_onboarding_roadmap_{_stamp}.xlsx. Never use "
+                         "generic names like output.xlsx, document.docx, or "
+                         "file.pdf."),
             }]
             body.setdefault("tools", []).append(
                 {"type": "code_execution_20260521", "name": "code_execution"}
