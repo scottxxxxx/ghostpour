@@ -62,14 +62,49 @@ def _d(s):
     return datetime.strptime(str(s)[:10], "%Y-%m-%d").date()
 
 
+def _dep_code(pred: dict, succ: dict) -> str:
+    """Two-letter dependency nomenclature, DERIVED from the extracted
+    dates — never asked of the model (Scott 2026-07-15: the model would
+    invent the minority types; dates it already committed to are
+    arithmetic). Starts align -> SS, ends align -> FF, everything else —
+    including anything ambiguous — defaults to FS. The user can always
+    correct a cell."""
+    if _d(succ["start"]) == _d(pred["start"]):
+        return "SS"
+    if _d(succ["end"]) == _d(pred["end"]):
+        return "FF"
+    return "FS"
+
+
+_STATUS_LABELS = {
+    "complete": "Complete", "in_progress": "In Progress",
+    "on_hold": "On Hold", "not_started": "Not Started", "blocked": "Blocked",
+}
+
+
 def render_gantt(data: dict, *, today: date | None = None) -> bytes:
-    """Deterministic Smartsheet-style Gantt from extracted plan JSON."""
+    """Deterministic Smartsheet-style Gantt from extracted plan JSON.
+
+    LIVE GRID (Scott 2026-07-15): the timeline bars are conditional
+    formatting formulas over real date cells, not painted fills — edit a
+    Start/End date in Excel and the bar redraws; flip the Status dropdown
+    and the dot recolors; the today column tracks TODAY(). Row 1 is a
+    hidden axis of real dates the formulas compare against (the axis
+    itself is fixed at build; bars clip at its edges). Weak viewers that
+    skip conditional formatting show a plain grid — real Excel and Google
+    Sheets render fully."""
     import openpyxl
+    from openpyxl.formatting.rule import FormulaRule
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
+    from openpyxl.worksheet.datavalidation import DataValidation
 
     def fill(hex6):
         return PatternFill("solid", fgColor="FF" + hex6)
+
+    def dxf_fill(hex6):
+        return PatternFill(start_color="FF" + hex6, end_color="FF" + hex6,
+                           fill_type="solid")
 
     tasks = data.get("tasks") or []
     if not tasks:
@@ -77,7 +112,10 @@ def render_gantt(data: dict, *, today: date | None = None) -> bytes:
     today = today or date.today()
     start = min(_d(t["start"]) for t in tasks)
     end = max(_d(t["end"]) for t in tasks)
-    days = [(start + timedelta(n)) for n in range((end - start).days + 1)][:180]
+    # +14 days of runway so a user can push dates right and the bars
+    # still have axis to land on
+    days = [(start + timedelta(n))
+            for n in range((end - start).days + 15)][:180]
 
     by_id = {t["id"]: t for t in tasks}
     phases = [t for t in tasks if t.get("type") == "phase"]
@@ -93,34 +131,56 @@ def render_gantt(data: dict, *, today: date | None = None) -> bytes:
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Gantt View"
-    FIRST_DAY_COL = 8  # A:dot B:name C:risk D:start E:end F:chip G:owner name
+    # A:dot B:name C:risk D:status E:start F:end G:predecessors H:chip I:owner
+    FIRST_DAY_COL = 10
+    KEY_TOP = 4          # status key block under the 3 header rows
+    first_bar_row = KEY_TOP + 6   # key rows + blank + project row
 
-    # two-row timeline header: week-of labels over Mondays + day letters
+    # Pre-pass: worksheet row of every task, so Predecessors can cite
+    # rows in either direction (forward deps included).
+    row_of: dict = {}
+    r = first_bar_row
+    for phase in phases:
+        r += 1
+        row_of[phase["id"]] = r
+        for t in children.get(phase["id"], []):
+            r += 1
+            row_of[t["id"]] = r
+    last_row = r
+    last_col = FIRST_DAY_COL + len(days) - 1
+    grid = lambda row: (f"{get_column_letter(FIRST_DAY_COL)}{row}:"  # noqa: E731
+                        f"{get_column_letter(last_col)}{row}")
+
+    # Row 1 (hidden): the real-date axis every bar formula compares
+    # against. Rows 2-3: week-of labels + day letters (visual only).
     for i, d in enumerate(days):
         col = FIRST_DAY_COL + i
         ws.column_dimensions[get_column_letter(col)].width = 3
+        ax = ws.cell(1, col, d)
+        ax.number_format = "yyyy-mm-dd"
         if d.weekday() == 0:
-            c = ws.cell(1, col, f"Week of {d.strftime('%b %d')}")
+            c = ws.cell(2, col, f"Week of {d.strftime('%b %d')}")
             c.font = Font(size=8, bold=True)
         letter = "MTWTFSS"[d.weekday()]
-        c = ws.cell(2, col, letter)
+        c = ws.cell(3, col, letter)
         c.alignment = Alignment(horizontal="center")
         c.font = Font(size=8, bold=True,
                       color="FF" + (_C["risk"] if d.weekday() >= 5 else "3D4653"))
         if d == today:
             c.font = Font(size=8, bold=True, color="FF" + _C["risk"])
+    ws.row_dimensions[1].hidden = True
     for col, (head, width) in enumerate(
-            [("Status", 7), ("Task Name", 38), ("At\nRisk", 5),
-             ("Start\nDate", 11), ("End\nDate", 11), ("", 4),
-             ("Assigned To", 16)], start=1):
-        c = ws.cell(2, col, head)
+            [("", 7), ("Task Name", 38), ("At\nRisk", 5), ("Status", 12),
+             ("Start\nDate", 11), ("End\nDate", 11), ("Predecessors", 12),
+             ("", 4), ("Assigned To", 16)], start=1):
+        c = ws.cell(3, col, head)
         c.font = Font(bold=True, size=9)
         c.alignment = Alignment(wrap_text=True, vertical="center")
         c.fill = fill("E9E9E9")   # header band (Scott: "lost the cool highlighting")
         ws.column_dimensions[get_column_letter(col)].width = width
 
     # status key block — amber header band like the reference
-    row = 3
+    row = KEY_TOP
     kc = ws.cell(row, 2, "  STATUS KEY")
     kc.font = Font(bold=True, size=9)
     kc.fill = fill("FDF3E3")
@@ -132,49 +192,59 @@ def render_gantt(data: dict, *, today: date | None = None) -> bytes:
         ws.cell(row, 2, f"      {label}").font = Font(size=8)
     row += 2
 
-    def timeline(r, t, bar_hex, label_hex, slim=False):
-        s, e = _d(t["start"]), _d(t["end"])
-        end_col = None
-        for i, d in enumerate(days):
-            col = FIRST_DAY_COL + i
-            cell = ws.cell(r, col)
-            if d.weekday() >= 5:
-                cell.fill = fill(_C["weekend"])
-            if d == today:
-                cell.fill = fill(_C["today"])
-            if s <= d <= e:
-                cell.fill = fill(bar_hex)
-                end_col = col
-        if t.get("type") == "milestone" and end_col:
-            m = ws.cell(r, end_col, "◆")
-            m.font = Font(color="FF" + _C["risk"], bold=True)
-            m.alignment = Alignment(horizontal="center")
-        elif end_col and not slim and end_col + 1 <= FIRST_DAY_COL + len(days) - 1:
-            lab = ws.cell(r, end_col + 1, " " + t["name"][:40])
-            lab.font = Font(size=8, color="FF" + label_hex)
-        if slim:
-            ws.row_dimensions[r].height = 12
+    def date_cells(r, s, e, hex_color=None, size=8):
+        for col, d in ((5, s), (6, e)):
+            c = ws.cell(r, col, d)
+            c.number_format = "yyyy-mm-dd"
+            c.font = Font(size=size,
+                          color="FF" + (hex_color or "3D4653"))
+
+    def bar_rules(r, bar_hex, risk_aware=False):
+        """The live bars: in-range fill; risk-aware rows get a red rule
+        first (blocked, or not started past its start, judged LIVE via
+        TODAY())."""
+        E, F = f"$E{r}", f"$F{r}"
+        ax = f"{get_column_letter(FIRST_DAY_COL)}$1"
+        in_range = f"AND({ax}>={E},{ax}<={F})"
+        if risk_aware:
+            risky = (f"AND({ax}>={E},{ax}<={F},OR($D{r}=\"Blocked\","
+                     f"AND($D{r}=\"Not Started\",{E}<TODAY())))")
+            ws.conditional_formatting.add(grid(r), FormulaRule(
+                formula=[risky], fill=dxf_fill(_C["risk"]), stopIfTrue=True))
+        ws.conditional_formatting.add(grid(r), FormulaRule(
+            formula=[in_range], fill=dxf_fill(bar_hex), stopIfTrue=True))
 
     # project row
-    proj = {"name": data.get("project") or "Project",
-            "start": str(start), "end": str(end), "type": "summary"}
-    ws.cell(row, 2, f"  {proj['name']}").font = Font(bold=True, color="FFFFFFFF")
+    ws.cell(row, 2, f"  {data.get('project') or 'Project'}").font = \
+        Font(bold=True, color="FFFFFFFF")
     for c in range(1, FIRST_DAY_COL):
         ws.cell(row, c).fill = fill(_C["project"])
-    ws.cell(row, 4, str(start)); ws.cell(row, 5, str(end))
-    timeline(row, proj, _C["summary"], _C["summary"], slim=True)
+    date_cells(row, start, end, hex_color="FFFFFF", size=9)
+    ws.row_dimensions[row].height = 12
+    bar_rules(row, _C["summary"])
     row += 1
+
+    dv = DataValidation(
+        type="list",
+        formula1='"Complete,In Progress,On Hold,Not Started,Blocked"',
+        allow_blank=True)
+    ws.add_data_validation(dv)
 
     chip_cache: dict = {}
     for phase in phases:
-        kids = children.get(phase["id"], [])
-        ws.cell(row, 1, "●").font = Font(color="FF" + _C["status"].get(phase.get("status", "in_progress"), _C["bar"]))
+        assert row == row_of[phase["id"]]
+        ws.cell(row, 1, "●").font = Font(
+            color="FF" + _C["status"].get(phase.get("status", "in_progress"), _C["bar"]))
         ws.cell(row, 2, f"  −  {phase['name']}").font = Font(bold=True, size=9)
-        ws.cell(row, 4, phase["start"]); ws.cell(row, 5, phase["end"])
+        ws.cell(row, 4, _STATUS_LABELS.get(phase.get("status", ""), "")).font = Font(size=8)
+        date_cells(row, _d(phase["start"]), _d(phase["end"]))
         ws.row_dimensions[row].outline_level = 1
-        timeline(row, phase, _C["summary"], _C["summary"], slim=True)
+        ws.row_dimensions[row].height = 12
+        bar_rules(row, _C["summary"])
+        dv.add(f"D{row}")
         row += 1
-        for t in kids:
+        for t in children.get(phase["id"], []):
+            assert row == row_of[t["id"]]
             risky = at_risk(t)
             text_hex = _C["risk"] if risky else "3D4653"
             ws.cell(row, 1, "●" if t["type"] != "milestone" else "").font = \
@@ -184,8 +254,19 @@ def render_gantt(data: dict, *, today: date | None = None) -> bytes:
             fl = ws.cell(row, 3, "⚑" if risky else "⚐")
             fl.font = Font(color="FF" + (_C["risk"] if risky else "9AA4AF"))
             fl.alignment = Alignment(horizontal="center")
-            ws.cell(row, 4, t["start"]).font = Font(size=8, color="FF" + text_hex)
-            ws.cell(row, 5, t["end"]).font = Font(size=8, color="FF" + text_hex)
+            st = ws.cell(row, 4, _STATUS_LABELS.get(t.get("status", ""), ""))
+            st.font = Font(size=8, color="FF" + text_hex)
+            dv.add(f"D{row}")
+            date_cells(row, _d(t["start"]), _d(t["end"]), hex_color=text_hex)
+            # Predecessors: Smartsheet nomenclature, dates-derived (FS
+            # default; SS/FF only when the extracted dates say so)
+            codes = ", ".join(
+                f"{row_of[dep]}{_dep_code(by_id[dep], t)}"
+                for dep in (t.get("depends_on") or []) if dep in by_id and dep in row_of)
+            if codes:
+                pc = ws.cell(row, 7, codes)
+                pc.font = Font(size=8, color="FF" + text_hex)
+                pc.alignment = Alignment(horizontal="center")
             owner = (t.get("owner") or "").strip()
             if owner:
                 # chip = colored initials; FULL NAME beside it (Scott's
@@ -193,26 +274,42 @@ def render_gantt(data: dict, *, today: date | None = None) -> bytes:
                 initials = "".join(w[0] for w in owner.split()[:2]).upper()
                 hex_c = chip_cache.setdefault(
                     owner, _C["chips"][int(hashlib.sha256(owner.encode()).hexdigest(), 16) % len(_C["chips"])])
-                chip = ws.cell(row, 6, initials)
+                chip = ws.cell(row, 8, initials)
                 chip.fill = fill(hex_c)
                 chip.font = Font(bold=True, size=8, color="FFFFFFFF")
                 chip.alignment = Alignment(horizontal="center")
-                nm = ws.cell(row, 7, owner)
+                nm = ws.cell(row, 9, owner)
                 nm.font = Font(size=8, color="FF" + text_hex)
             ws.row_dimensions[row].outline_level = 2
-            timeline(row, t, _C["risk"] if risky else _C["bar"], text_hex)
-            # ↳ handoff glyph: predecessor ends the day this task starts
-            for dep in t.get("depends_on") or []:
-                pred = by_id.get(dep)
-                if pred and abs((_d(t["start"]) - _d(pred["end"])).days) <= 1:
-                    gap = FIRST_DAY_COL + (_d(t["start"]) - start).days
-                    if ws.cell(row, gap).value is None:
-                        g = ws.cell(row, gap, "↳")
-                        g.font = Font(size=8, color="FF" + _C["summary"])
-                    break
+            if t["type"] == "milestone":
+                # the ◆ marker is a formula so it moves with the date
+                for i in range(len(days)):
+                    col = FIRST_DAY_COL + i
+                    L = get_column_letter(col)
+                    m = ws.cell(row, col, f'=IF({L}$1=$F{row},"◆","")')
+                    m.font = Font(color="FF" + _C["risk"], bold=True)
+                    m.alignment = Alignment(horizontal="center")
+            else:
+                bar_rules(row, _C["bar"], risk_aware=True)
             row += 1
 
-    ws.freeze_panes = "H3"
+    # grid-wide dynamics AFTER the bar rules so bars win: the today
+    # column tracks TODAY(); weekends shade by formula
+    ax0 = f"{get_column_letter(FIRST_DAY_COL)}$1"
+    full_grid = (f"{get_column_letter(FIRST_DAY_COL)}{first_bar_row}:"
+                 f"{get_column_letter(last_col)}{last_row}")
+    ws.conditional_formatting.add(full_grid, FormulaRule(
+        formula=[f"{ax0}=TODAY()"], fill=dxf_fill(_C["today"]), stopIfTrue=True))
+    ws.conditional_formatting.add(full_grid, FormulaRule(
+        formula=[f"WEEKDAY({ax0},2)>5"], fill=dxf_fill(_C["weekend"])))
+    # live status dots: flipping the Status dropdown recolors column A
+    dot_range = f"A{first_bar_row + 1}:A{last_row}"
+    for key, label in _STATUS_LABELS.items():
+        ws.conditional_formatting.add(dot_range, FormulaRule(
+            formula=[f'$D{first_bar_row + 1}="{label}"'],
+            font=Font(color="FF" + _C["status"].get(key, _C["bar"]))))
+
+    ws.freeze_panes = "J4"
     ws.sheet_properties.outlinePr.summaryBelow = False
     buf = BytesIO()
     wb.save(buf)

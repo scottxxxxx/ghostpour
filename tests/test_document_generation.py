@@ -913,8 +913,8 @@ def test_gantt_renderer_matches_reference_vocabulary():
     blob = render_gantt(_PLAN, today=datetime.date(2026, 7, 12))
     wb = openpyxl.load_workbook(io.BytesIO(blob))
     ws = wb["Gantt View"]
-    assert ws.freeze_panes == "H3"
-    owners = [str(c.value) for row in ws.iter_rows(min_col=7, max_col=7) for c in row if c.value]
+    assert ws.freeze_panes == "J4"
+    owners = [str(c.value) for row in ws.iter_rows(min_col=9, max_col=9) for c in row if c.value]
     assert "Sarah Park" in owners and "Chirag Amin" in owners   # full names beside chips
     levels = {ws.row_dimensions[r].outline_level
               for r in ws.row_dimensions if ws.row_dimensions[r].outline_level}
@@ -924,13 +924,50 @@ def test_gantt_renderer_matches_reference_vocabulary():
     assert "STATUS KEY" in joined
     assert "\U0001f3c1" in joined or "🏁" in joined  # milestone flag
     assert "⚑" in joined and "⚐" in joined          # at-risk flags both states
-    assert "↳" in joined                             # same-day handoff (task 3 after 2)
-    fills = {c.fill.fgColor.rgb for row in ws.iter_rows() for c in row
-             if c.fill and isinstance(c.fill.fgColor.rgb, str)}
+    assert "◆" in joined                             # milestone marker (formula-driven)
+    # Predecessors column: dates-derived nomenclature (Scott 2026-07-15).
+    # Task 3 shares task 2's start -> SS; milestone 5 follows 3's end -> FS.
+    preds = [str(c.value) for row in ws.iter_rows(min_col=7, max_col=7)
+             for c in row if c.value and re.fullmatch(r"[\d]+(FS|SS|FF)(, [\d]+(FS|SS|FF))*", str(c.value))]
+    assert any(p.endswith("SS") for p in preds)
+    assert any(p.endswith("FS") for p in preds)
+    # LIVE GRID: bars/today/weekend/risk are conditional-formatting rules
+    # over the hidden real-date axis row, so user date edits redraw them
+    assert ws.row_dimensions[1].hidden
+    axis = [c.value for c in ws[1] if c.value is not None]
+    assert all(isinstance(v, datetime.datetime) for v in axis)
+    rules = [r for rng in ws.conditional_formatting for r in rng.rules]
+    formulas = " | ".join(f for r in rules for f in (r.formula or []))
+    assert "TODAY()" in formulas                      # live today + risk logic
+    assert "WEEKDAY(" in formulas                     # live weekend shading
+    assert ">=$E" in formulas and "<=$F" in formulas  # bars keyed to date cells
+    # reference palette, exact — now carried by the CF fills + static bands
+    cf_hex = {r.dxf.fill.fgColor.rgb for r in rules
+              if r.dxf is not None and r.dxf.fill is not None
+              and isinstance(r.dxf.fill.fgColor.rgb, str)}
+    static_hex = {c.fill.fgColor.rgb for row in ws.iter_rows() for c in row
+                  if c.fill and isinstance(c.fill.fgColor.rgb, str)}
+    fills = cf_hex | static_hex
     for hex6 in ("FFA8B9C9", "FF6E7B8A", "FF3D4653", "FFF3F3F3", "FFFFF6DE", "FFE0341E"):
-        assert hex6 in fills, hex6                  # reference palette, exact
+        assert hex6 in fills, hex6
+    # start/end are real dates (formulas compare against them)
+    d_cells = [c.value for row in ws.iter_rows(min_col=5, max_col=6) for c in row
+               if isinstance(c.value, datetime.datetime)]
+    assert d_cells, "start/end must be date-typed for the live grid"
+    # status dropdown present (drives dot recolor + risk rule)
+    assert ws.data_validations.dataValidation
     # determinism: same plan, same bytes
     assert render_gantt(_PLAN, today=datetime.date(2026, 7, 12)) == blob
+
+
+def test_dep_code_derivation_unit():
+    from app.services.doc_templates import _dep_code
+    a = {"start": "2026-07-01", "end": "2026-07-05"}
+    assert _dep_code(a, {"start": "2026-07-06", "end": "2026-07-09"}) == "FS"
+    assert _dep_code(a, {"start": "2026-07-01", "end": "2026-07-09"}) == "SS"
+    assert _dep_code(a, {"start": "2026-07-03", "end": "2026-07-05"}) == "FF"
+    # ambiguity defaults to FS (overlap without aligned edges)
+    assert _dep_code(a, {"start": "2026-07-03", "end": "2026-07-08"}) == "FS"
 
 
 def test_template_match_and_parse():
