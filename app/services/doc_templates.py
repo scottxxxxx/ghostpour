@@ -299,11 +299,18 @@ def render_gantt(data: dict, *, today: date | None = None) -> bytes:
                 nm.font = Font(size=8, color="FF" + text_hex)
             ws.row_dimensions[row].outline_level = 2
             if t["type"] == "milestone":
-                # the ◆ marker is a formula so it moves with the date
+                # The ◆ marker is a formula so it moves with the date —
+                # SAME formula shape as the bar cells (Scott 2026-07-16:
+                # Excel's inconsistent-formula check stamped green
+                # triangles along every milestone row because its formula
+                # differed from its neighbors'). A milestone's start
+                # equals its end, so the range test marks exactly one day.
                 for i in range(len(days)):
                     col = FIRST_DAY_COL + i
                     L = get_column_letter(col)
-                    m = ws.cell(row, col, f'=IF({L}$1=$F{row},"◆","")')
+                    m = ws.cell(row, col,
+                                f'=IF(AND({L}$1>=$E{row},{L}$1<=$F{row}),'
+                                f'"◆","")')
                     m.font = Font(color="FF" + _C["risk"], bold=True)
                     m.alignment = Alignment(horizontal="center")
             else:
