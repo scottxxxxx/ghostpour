@@ -120,6 +120,12 @@ class Settings(BaseSettings):
     geoip_db_path: str = "data/geo/dbip-city-ipv4.mmdb"
     geoip_db_ipv6_path: str = "data/geo/dbip-city-ipv6.mmdb"
     cq_recall_timeout_ms: int = 200    # Max wait for CQ recall (ms)
+    # The rundown dossier is the deliberate heavyweight path (user asked
+    # for everything; the turn runs a minute regardless) — reusing the
+    # 200ms recall budget starved it on a cold cache (live 2026-07-16
+    # 15:06Z: dossier timeout, then the recall fallback timed out too,
+    # turn answered memory-blind).
+    cq_dossier_timeout_ms: int = 5000
     # Correction lane (Context Flow Contract item 9). DARK until CQ's
     # worker handler for interaction_type=correction is live — shipping
     # first would bounce corrections at their ingest gate and lose them
