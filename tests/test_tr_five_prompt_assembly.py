@@ -235,3 +235,19 @@ def test_scenario_kind_normalizer_preserves_case():
     assert _normalize_scenario_kind("") is None
     assert _normalize_scenario_kind(None) is None
     assert _normalize_scenario_kind("x" * 100) == "x" * 40
+
+
+def test_rewrite_mandate_fixes_approach_and_consumes_assessment():
+    """Scott 2026-07-16 ('Say it better' returned his weak answer ~90%
+    identical): the rewrite must fix the APPROACH, not tidy wording, and
+    when the client includes the analysis verdict (HOW IT WAS ASSESSED)
+    the rewrite must clear it. The jobInterview persona on his hard
+    conversation was the client's scenario_kind bug (relayed), but the
+    mandate applies to every scenario."""
+    r = _asm("tr_rewrite", kind="hardConversation")["system_prompt"]
+    assert "fix the APPROACH" in r
+    assert "failed rewrite" in r
+    assert "HOW IT WAS ASSESSED" in r
+    assert "would no longer apply" in r
+    # hard-conversation guidance rides along (the right coach this time)
+    assert "empathy" in r.lower()
