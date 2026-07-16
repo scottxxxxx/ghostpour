@@ -275,10 +275,11 @@ async def test_rundown_falls_open_to_recall():
 
 # --- correction lane (Context Flow Contract item 9, dark) ---
 
-def _settings_stub(corrections=True):
+def _settings_stub(corrections=True, completions=False):
     from unittest.mock import MagicMock
     s = MagicMock()
     s.cq_corrections_enabled = corrections
+    s.cq_completions_enabled = completions
     s.cq_disable_you_suffix_sanitizer = False
     return s
 
@@ -360,3 +361,79 @@ async def test_correction_lane_dark_by_default():
         await asyncio.sleep(0)
     capture.assert_not_awaited()
     assert "MEMORY CORRECTION" not in new_body.system_prompt
+
+
+# --- completion lane (Context Flow Contract item 10, dark) ---
+
+def test_completion_detection_precision():
+    """Higher stakes than corrections: a false positive CLOSES a real
+    commitment. Declarative done-statements only, never questions or
+    futures."""
+    from app.services.context_quilt import is_completion_ask
+    assert is_completion_ask("Mark that as done, the SDK deployed")
+    assert is_completion_ask("That blocker is resolved, Doug confirmed")
+    assert is_completion_ask("you can close that out")
+    assert not is_completion_ask("is that blocker done yet?")
+    assert not is_completion_ask("when will that be done?")
+    assert not is_completion_ask("what's left to get this done?")
+
+
+@pytest.mark.asyncio
+async def test_completion_fires_capture_and_steers():
+    import asyncio
+    hook = ContextQuiltHook()
+    body = ChatRequest(
+        provider="anthropic", model="claude-haiku-4-5-20251001",
+        system_prompt="BASE",
+        user_content="Current question: mark that as done, Srikanth "
+                     "shipped the attachment fix",
+        context_quilt=True,
+        metadata={"prompt_mode": "ProjectChat", "project_id": "proj-1"},
+    )
+    with patch("app.services.features.context_quilt_hook.get_settings",
+               return_value=_settings_stub(corrections=False, completions=True)), \
+         patch("app.services.features.context_quilt_hook.cq.recall",
+               new_callable=AsyncMock,
+               return_value={"context": "[blocker] attachment fix",
+                             "matched_entities": []}), \
+         patch("app.services.features.context_quilt_hook.cq.capture",
+               new_callable=AsyncMock) as capture:
+        new_body, _ = await hook.before_llm(
+            user=_user("pro"), body=body, tier=None,
+            feature_state="enabled", skip_teasers=set())
+        await asyncio.sleep(0)
+    capture.assert_awaited_once()
+    kw = capture.await_args.kwargs
+    assert kw["interaction_type"] == "completion"
+    assert kw["content"].startswith("mark that as done")
+    assert kw["context_block"] == "[blocker] attachment fix"
+    assert "MEMORY COMPLETION" in new_body.system_prompt
+    assert "never say it is already closed" in new_body.system_prompt
+    # correction lane stayed quiet (its flag is off + phrasing differs)
+    assert "MEMORY CORRECTION" not in new_body.system_prompt
+
+
+@pytest.mark.asyncio
+async def test_completion_lane_dark_by_default():
+    import asyncio
+    hook = ContextQuiltHook()
+    body = ChatRequest(
+        provider="anthropic", model="claude-haiku-4-5-20251001",
+        system_prompt="BASE",
+        user_content="mark that as done",
+        context_quilt=True,
+        metadata={"prompt_mode": "ProjectChat", "project_id": "proj-1"},
+    )
+    with patch("app.services.features.context_quilt_hook.get_settings",
+               return_value=_settings_stub(corrections=False, completions=False)), \
+         patch("app.services.features.context_quilt_hook.cq.recall",
+               new_callable=AsyncMock,
+               return_value={"context": "", "matched_entities": []}), \
+         patch("app.services.features.context_quilt_hook.cq.capture",
+               new_callable=AsyncMock) as capture:
+        new_body, _ = await hook.before_llm(
+            user=_user("pro"), body=body, tier=None,
+            feature_state="enabled", skip_teasers=set())
+        await asyncio.sleep(0)
+    capture.assert_not_awaited()
+    assert "MEMORY COMPLETION" not in new_body.system_prompt
