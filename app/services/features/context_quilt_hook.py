@@ -65,6 +65,41 @@ class ContextQuiltHook:
             cq_metadata["token_budget"] = 1200
 
         if feature_state == "enabled":
+            # Rundown routing (Context Flow Contract v1, item 3): an
+            # inventory-style ask with a project scope gets the complete
+            # meeting-grouped dossier instead of the ranked recall block —
+            # recall is the wrong tool for "give me everything" by design
+            # (live 2026-07-15: the rundown query matched 1 entity while
+            # CQ held 98 scoped patches). Deterministic detection on the
+            # question portion; ANY miss or failure falls open to recall.
+            if body.get_meta("project_id"):
+                from app.services.document_generation import _question_portion
+                if cq.is_rundown_ask(_question_portion(body.user_content)):
+                    dossier = await cq.quilt_dossier(
+                        user.id, body.get_meta("project_id"))
+                    if dossier and (dossier.get("meetings")
+                                    or dossier.get("facts")
+                                    or dossier.get("action_items")):
+                        block = cq.format_dossier(dossier)
+                        if "{{context_quilt}}" in body.system_prompt:
+                            new_system = body.system_prompt.replace(
+                                "{{context_quilt}}", block)
+                        else:
+                            new_system = block + "\n\n" + body.system_prompt
+                        new_meta = dict(body.metadata or {})
+                        new_meta["cq_recall_block"] = block
+                        body = body.model_copy(update={
+                            "system_prompt": new_system,
+                            "metadata": new_meta,
+                        })
+                        result["cq_result"] = {
+                            "context": block, "matched_entities": [],
+                            "patch_count": sum(
+                                len(m.get("patches") or [])
+                                for m in dossier.get("meetings") or []),
+                            "dossier": True,
+                        }
+                        return body, result
             # Full CQ: recall + inject
             cq_result = await cq.recall(
                 user_id=user.id,
