@@ -65,6 +65,51 @@ class ContextQuiltHook:
             cq_metadata["token_budget"] = 1200
 
         if feature_state == "enabled":
+            # Correction lane (Contract item 9, dark until CQ's handler is
+            # live): the user is correcting stored memory in place. Detect
+            # now; FIRE after recall/dossier injection so the freshly
+            # injected block rides as the candidate set — CQ's within-day
+            # byte stability makes this turn's block the same one the user
+            # was looking at. Capture carries the user's words + scope,
+            # NEVER the model's response. The steering line keeps the
+            # acknowledgment honest: capture confirms QUEUEING, not
+            # application, so the words are "updating", never "updated".
+            _correction_qp = None
+            if get_settings().cq_corrections_enabled:
+                from app.services.document_generation import _question_portion
+                _qp = _question_portion(body.user_content)
+                if cq.is_correction_ask(_qp):
+                    _correction_qp = _qp
+
+            def _fire_correction(b: ChatRequest) -> ChatRequest:
+                if _correction_qp is None:
+                    return b
+                asyncio.create_task(cq.capture(
+                    user_id=user.id,
+                    interaction_type="correction",
+                    content=_correction_qp,
+                    origin_id=b.get_meta("origin_id"),
+                    origin_type=b.get_meta("origin_type"),
+                    project=b.get_meta("project"),
+                    project_id=b.get_meta("project_id"),
+                    prompt_mode=b.get_meta("prompt_mode"),
+                    display_name=user.display_name,
+                    email=user.email,
+                    subscription_tier=user.effective_tier,
+                    context_block=(b.metadata or {}).get("cq_recall_block"),
+                ))
+                steer = (
+                    "MEMORY CORRECTION: the user is correcting stored "
+                    "memory. Their correction has been queued to the "
+                    "memory system; it applies shortly, not instantly, and "
+                    "the context above may still show the old version this "
+                    "turn. Acknowledge naturally that the record is being "
+                    "updated (say it is updating, never that it is already "
+                    "updated), treat the user's stated version as correct, "
+                    "and answer any remaining question normally.")
+                return b.model_copy(update={
+                    "system_prompt": b.system_prompt + "\n\n" + steer})
+
             # Rundown routing (Context Flow Contract v1, item 3): an
             # inventory-style ask with a project scope gets the complete
             # meeting-grouped dossier instead of the ranked recall block —
@@ -99,7 +144,7 @@ class ContextQuiltHook:
                                 for m in dossier.get("meetings") or []),
                             "dossier": True,
                         }
-                        return body, result
+                        return _fire_correction(body), result
             # Full CQ: recall + inject
             cq_result = await cq.recall(
                 user_id=user.id,
@@ -147,6 +192,8 @@ class ContextQuiltHook:
                 body = body.model_copy(update={
                     "system_prompt": body.system_prompt + f"\n\n{cq_result['communication_style']}"
                 })
+
+            body = _fire_correction(body)
 
         elif feature_state == "teaser" and "context_quilt" not in skip_teasers:
             # Teaser: recall for metadata only, don't inject

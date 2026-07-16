@@ -120,6 +120,12 @@ class Settings(BaseSettings):
     geoip_db_path: str = "data/geo/dbip-city-ipv4.mmdb"
     geoip_db_ipv6_path: str = "data/geo/dbip-city-ipv6.mmdb"
     cq_recall_timeout_ms: int = 200    # Max wait for CQ recall (ms)
+    # Correction lane (Context Flow Contract item 9). DARK until CQ's
+    # worker handler for interaction_type=correction is live — shipping
+    # first would bounce corrections at their ingest gate and lose them
+    # (their never-lose-a-memory rule). Flip: CZ_CQ_CORRECTIONS_ENABLED=true
+    # in the prod env + restart, on CQ's go signal.
+    cq_corrections_enabled: bool = False
     # Render-time "(you)" suffix sanitizer in the CQ recall context.
     # Historical patches stored "Name (you)" forms that the LLM would echo
     # back. CQ #43 (extraction voice rules) and #93 (self-typed-patch voice

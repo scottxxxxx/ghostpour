@@ -173,6 +173,7 @@ async def capture(
     identification_source: str | None = None,
     subscription_tier: str | None = None,
     language: str | None = None,
+    context_block: str | None = None,
 ):
     """
     Send query+response to Context Quilt for learning. Fire-and-forget (async).
@@ -196,6 +197,11 @@ async def capture(
     }
     if response:
         body["response"] = response
+    if context_block:
+        # Correction lane (contract item 9): the recall block that was on
+        # the user's screen — CQ builds its contradicted-patch candidate
+        # set from these lines first, scoped matching second.
+        body["context_block"] = context_block
 
     # Normalize origin: prefer explicit origin_id/origin_type; fall back to
     # translating the deprecated meeting_id alias.
@@ -409,3 +415,34 @@ def format_dossier(data: dict, limit: int = DOSSIER_LIMIT) -> str:
     if total >= limit:
         header += f"\n(dossier capped at the {limit} most recent patches)"
     return header + "\n\n" + "\n".join(lines).strip()
+
+
+# --- Correction lane (Context Flow Contract item 9) ---
+#
+# A user who spots a wrong memory in a chat answer corrects it in place
+# ("set the record straight, Robin owns that"). GP detects it
+# deterministically and captures interaction_type="correction" carrying
+# the user's words (NEVER the model's response) plus scope and the
+# recall block that was in context. CQ extracts the corrected fact as a
+# declared patch, matches the contradicted patch (in-context candidates
+# first), archives it, connects with role "replaces". Unmatched
+# corrections land as regular declared patches — never dropped — so
+# this list optimizes PRECISION: a false positive creates a junk patch.
+
+_CORRECTION_HINTS = (
+    # en
+    "set the record straight", "correct the record", "correct that memory",
+    "correction:", "for the record,", "update the record",
+    "update your memory", "fix the memory", "fix that memory",
+    "that memory is wrong", "the record should say",
+    "your memory is wrong about", "remember it as",
+    # es
+    "corrige el registro", "para que conste,", "corrige esa memoria",
+    # ja
+    "記録を訂正", "記憶を修正",
+)
+
+
+def is_correction_ask(question: str) -> bool:
+    q = (question or "").lower()
+    return any(h in q for h in _CORRECTION_HINTS)

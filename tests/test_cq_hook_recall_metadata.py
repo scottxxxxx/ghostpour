@@ -268,3 +268,92 @@ async def test_rundown_falls_open_to_recall():
         "give me everything you have about this project",
         {"prompt_mode": "ProjectChat", "project_id": "proj-1"}, None)
     dossier.assert_awaited_once(); recall.assert_awaited_once()
+
+
+# --- correction lane (Context Flow Contract item 9, dark) ---
+
+def _settings_stub(corrections=True):
+    from unittest.mock import MagicMock
+    s = MagicMock()
+    s.cq_corrections_enabled = corrections
+    s.cq_disable_you_suffix_sanitizer = False
+    return s
+
+
+def test_correction_detection_precision():
+    from app.services.context_quilt import is_correction_ask
+    assert is_correction_ask("Set the record straight, Robin owns that")
+    assert is_correction_ask("correction: the deadline moved to August")
+    assert is_correction_ask("update your memory, the bonus was approved")
+    # precision: ordinary chat must never fire (false positive = junk patch)
+    assert not is_correction_ask("what's wrong with the deployment?")
+    assert not is_correction_ask("is that record from the June meeting?")
+    assert not is_correction_ask("summarize the meeting")
+
+
+@pytest.mark.asyncio
+async def test_correction_fires_capture_with_block_and_steers():
+    import asyncio
+    hook = ContextQuiltHook()
+    body = ChatRequest(
+        provider="anthropic", model="claude-haiku-4-5-20251001",
+        system_prompt="BASE {{context_quilt}}",
+        user_content="Previous conversation: stuff. Current question: "
+                     "Set the record straight, Robin owns the CBE fix, not Cindy",
+        context_quilt=True,
+        metadata={"prompt_mode": "ProjectChat", "project": "Kore",
+                  "project_id": "proj-1"},
+    )
+    recall_text = "[todo] CBE fix [owner: Cindy]"
+    with patch("app.services.features.context_quilt_hook.get_settings",
+               return_value=_settings_stub(True)), \
+         patch("app.services.features.context_quilt_hook.cq.recall",
+               new_callable=AsyncMock,
+               return_value={"context": recall_text, "matched_entities": []}), \
+         patch("app.services.features.context_quilt_hook.cq.capture",
+               new_callable=AsyncMock) as capture:
+        new_body, _ = await hook.before_llm(
+            user=_user("pro"), body=body, tier=None,
+            feature_state="enabled", skip_teasers=set())
+        await asyncio.sleep(0)   # let the fire-and-forget task run
+    capture.assert_awaited_once()
+    kw = capture.await_args.kwargs
+    assert kw["interaction_type"] == "correction"
+    # user's words only, question portion only, never the model response
+    assert kw["content"].startswith("Set the record straight")
+    assert "Previous conversation" not in kw["content"]
+    assert "response" not in kw or kw.get("response") is None
+    # the freshly injected block rides as the candidate set
+    assert kw["context_block"] == recall_text
+    assert kw["project_id"] == "proj-1"
+    # honest acknowledgment steering: updating, never updated
+    assert "MEMORY CORRECTION" in new_body.system_prompt
+    assert "never that it is already" in new_body.system_prompt
+    # normal recall still ran and injected
+    assert recall_text in new_body.system_prompt
+
+
+@pytest.mark.asyncio
+async def test_correction_lane_dark_by_default():
+    import asyncio
+    hook = ContextQuiltHook()
+    body = ChatRequest(
+        provider="anthropic", model="claude-haiku-4-5-20251001",
+        system_prompt="BASE",
+        user_content="Set the record straight, Robin owns that",
+        context_quilt=True,
+        metadata={"prompt_mode": "ProjectChat", "project_id": "proj-1"},
+    )
+    with patch("app.services.features.context_quilt_hook.get_settings",
+               return_value=_settings_stub(False)), \
+         patch("app.services.features.context_quilt_hook.cq.recall",
+               new_callable=AsyncMock,
+               return_value={"context": "", "matched_entities": []}), \
+         patch("app.services.features.context_quilt_hook.cq.capture",
+               new_callable=AsyncMock) as capture:
+        new_body, _ = await hook.before_llm(
+            user=_user("pro"), body=body, tier=None,
+            feature_state="enabled", skip_teasers=set())
+        await asyncio.sleep(0)
+    capture.assert_not_awaited()
+    assert "MEMORY CORRECTION" not in new_body.system_prompt
