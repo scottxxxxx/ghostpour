@@ -446,3 +446,31 @@ _CORRECTION_HINTS = (
 def is_correction_ask(question: str) -> bool:
     q = (question or "").lower()
     return any(h in q for h in _CORRECTION_HINTS)
+
+
+# --- Completion lane (Context Flow Contract item 10) ---
+#
+# "That blocker is done" said in chat actually closes it — same pipe as
+# tap-to-complete, flowing the completed array through delta sync. The
+# stakes are HIGHER than corrections: a false-positive correction makes
+# a junk patch; a false-positive completion closes a real commitment.
+# The hint list is therefore even tighter — explicit done/resolved
+# statements only, never questions or futures.
+
+_COMPLETION_HINTS = (
+    # en — declarative completion statements
+    "mark that as done", "mark it as done", "mark that complete",
+    "mark it complete", "that blocker is done", "that blocker is resolved",
+    "that task is done", "that's done now", "that is done now",
+    "we finished that", "consider it done", "that commitment is complete",
+    "close that out", "you can close that",
+    # es
+    "marca eso como hecho", "eso ya está resuelto", "ciérralo",
+    # ja
+    "完了にして", "それは完了した",
+)
+
+
+def is_completion_ask(question: str) -> bool:
+    q = (question or "").lower()
+    return any(h in q for h in _COMPLETION_HINTS)

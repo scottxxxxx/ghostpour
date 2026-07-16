@@ -132,6 +132,11 @@ class Settings(BaseSettings):
     # (their never-lose-a-memory rule). Flip: CZ_CQ_CORRECTIONS_ENABLED=true
     # in the prod env + restart, on CQ's go signal.
     cq_corrections_enabled: bool = False
+    # Completion lane (contract item 10): 'that blocker is done' said
+    # in chat closes it through the tap-to-complete pipe. CQ's worker
+    # half is live dark; flip on their go. Separate flag — each lane
+    # flips on its own signal.
+    cq_completions_enabled: bool = False
     # Render-time "(you)" suffix sanitizer in the CQ recall context.
     # Historical patches stored "Name (you)" forms that the LLM would echo
     # back. CQ #43 (extraction voice rules) and #93 (self-typed-patch voice
