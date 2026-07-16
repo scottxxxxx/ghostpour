@@ -297,3 +297,115 @@ async def notify_tier_change(
             "cq_tier_change_error",
             extra={"user_id": user_id, "event": event_type, "error": str(e)},
         )
+
+
+# --- Rundown routing (Context Flow Contract v1, item 3) ---
+#
+# Recall is a ranked injection block by design; inventory-style questions
+# ("give me everything across all meetings") need the whole project
+# dossier. GP detects those deterministically on the question portion,
+# fails open to normal recall, and injects the meeting-grouped quilt
+# instead of the recall block.
+
+_RUNDOWN_HINTS = (
+    # en
+    "everything you have", "everything you know", "everything you remember",
+    "everything from memory", "everything in memory", "all memories",
+    "all the memories", "all your memories", "complete rundown",
+    "full rundown", "complete summary across", "complete history",
+    "brain dump", "as much information as you can",
+    "all commitments and blockers across",
+    # es
+    "todo lo que sabes", "todo lo que tienes", "todas las memorias",
+    "resumen completo de todo",
+    # ja
+    "すべての記憶", "全ての記憶", "覚えていることをすべて",
+)
+
+DOSSIER_LIMIT = 150  # CQ suggested 100-150; tune after the three-way test
+
+
+def is_rundown_ask(question: str) -> bool:
+    """Deterministic, conservative: misses fall open to normal recall
+    (the contract's design), so the list optimizes precision."""
+    q = (question or "").lower()
+    return any(h in q for h in _RUNDOWN_HINTS)
+
+
+async def quilt_dossier(user_id: str, project_id: str,
+                        limit: int = DOSSIER_LIMIT) -> dict | None:
+    """GET /v1/quilt/{user_id}?project_id&group_by=origin&limit — the
+    complete scoped memory, meeting-grouped, newest first. None on any
+    failure (caller falls back to recall)."""
+    settings = get_settings()
+    if not settings.cq_base_url:
+        return None
+    try:
+        client = _get_client()
+        resp = await client.get(
+            f"/v1/quilt/{user_id}",
+            params={"project_id": project_id, "group_by": "origin",
+                    "limit": limit},
+            headers=await _get_auth_headers(),
+            timeout=httpx.Timeout(settings.cq_recall_timeout_ms / 1000.0),
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        logger.info(
+            "cq_dossier_ok project=%s meetings=%d flat_facts=%d actions=%d",
+            project_id, len(data.get("meetings") or []),
+            len(data.get("facts") or []), len(data.get("action_items") or []),
+        )
+        return data
+    except Exception as e:
+        logger.warning("cq_dossier_failed project=%s: %s — falling back to recall",
+                       project_id, e)
+        return None
+
+
+def _format_patch(p: dict) -> str:
+    bits = [f"[{p.get('patch_type') or p.get('category') or 'fact'}] {p.get('fact', '')}".rstrip()]
+    if p.get("owner"):
+        bits.append(f"(owner: {p['owner']})")
+    if p.get("deadline_date") or p.get("deadline"):
+        bits.append(f"(deadline: {p.get('deadline_date') or p.get('deadline')})")
+    return " ".join(bits)
+
+
+def format_dossier(data: dict, limit: int = DOSSIER_LIMIT) -> str:
+    """The injection block. Meeting-grouped, newest first (CQ's ordering);
+    origin-less patches (user-scoped) follow in flat sections. server_time
+    is never rendered — the block must stay byte-stable within CQ's
+    stability window (contract item 6) for prompt caching."""
+    lines: list[str] = []
+    seen: set = set()
+    total = 0
+    meetings = data.get("meetings") or []
+    for i, m in enumerate(meetings, 1):
+        patches = m.get("patches") or []
+        if not patches:
+            continue
+        stamp = (patches[0].get("created_at") or "")[:10]
+        lines.append(f"## Meeting {i} of {len(meetings)}"
+                     + (f" — {stamp}" if stamp else ""))
+        for p in patches:
+            if p.get("patch_id") in seen:
+                continue
+            seen.add(p.get("patch_id"))
+            lines.append(_format_patch(p))
+            total += 1
+        lines.append("")
+    flat = [p for key in ("action_items", "facts")
+            for p in (data.get(key) or []) if p.get("patch_id") not in seen]
+    if flat:
+        lines.append("## Not tied to a specific meeting")
+        for p in flat:
+            seen.add(p.get("patch_id"))
+            lines.append(_format_patch(p))
+            total += 1
+        lines.append("")
+    header = (f"[PROJECT MEMORY DOSSIER — complete stored memory: "
+              f"{total} patches across {len(meetings)} meetings]")
+    if total >= limit:
+        header += f"\n(dossier capped at the {limit} most recent patches)"
+    return header + "\n\n" + "\n".join(lines).strip()
