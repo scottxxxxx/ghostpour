@@ -109,3 +109,59 @@ async def test_no_recall_metadata_for_teaser_state():
         )
 
     assert (new_body.metadata or {}).get("cq_recall_block") is None
+
+
+# --- memory contract v1 keys (CQ working session 2026-07-15/16) ---
+
+@pytest.mark.asyncio
+async def test_project_chat_recall_carries_contract_keys():
+    """memory_signals passes through from the client; token_budget 1200
+    is GP-set on ProjectChat recalls."""
+    hook = ContextQuiltHook()
+    body = ChatRequest(
+        provider="anthropic",
+        model="claude-haiku-4-5-20251001",
+        system_prompt="BASE",
+        user_content="what are the open commitments?",
+        context_quilt=True,
+        metadata={"prompt_mode": "ProjectChat", "project": "Kore",
+                  "project_id": "proj-uuid-1", "memory_signals": True},
+    )
+    with patch(
+        "app.services.features.context_quilt_hook.cq.recall",
+        new_callable=AsyncMock,
+        return_value={"context": "ctx", "matched_entities": []},
+    ) as recall:
+        await hook.before_llm(
+            user=_user("pro"), body=body, tier=None,
+            feature_state="enabled", skip_teasers=set())
+    sent = recall.await_args.kwargs["metadata"]
+    assert sent["memory_signals"] is True
+    assert sent["token_budget"] == 1200
+    assert sent["project_id"] == "proj-uuid-1"
+
+
+@pytest.mark.asyncio
+async def test_non_project_surfaces_keep_default_budget():
+    """Meeting Chat (and anything else) keeps CQ's default budget, and
+    memory_signals is absent unless the client sent it."""
+    hook = ContextQuiltHook()
+    body = ChatRequest(
+        provider="anthropic",
+        model="claude-haiku-4-5-20251001",
+        system_prompt="BASE",
+        user_content="hi",
+        context_quilt=True,
+        metadata={"prompt_mode": "PostMeetingChat", "project": "Kore"},
+    )
+    with patch(
+        "app.services.features.context_quilt_hook.cq.recall",
+        new_callable=AsyncMock,
+        return_value={"context": "ctx", "matched_entities": []},
+    ) as recall:
+        await hook.before_llm(
+            user=_user("pro"), body=body, tier=None,
+            feature_state="enabled", skip_teasers=set())
+    sent = recall.await_args.kwargs["metadata"]
+    assert "token_budget" not in sent
+    assert "memory_signals" not in sent

@@ -50,6 +50,19 @@ class ContextQuiltHook:
         cq_metadata["locale"] = body.get_meta("locale") or "en"
         if body.get_meta("owner_speaker_label"):
             cq_metadata["owner_speaker_label"] = body.get_meta("owner_speaker_label")
+        # Memory contract v1 (CQ working session 2026-07-15/16). The
+        # allowlist IS the extension point — CQ names a key, we add a line:
+        # memory_signals: client passthrough; CQ renders explicit "(no
+        # stored memory about: X)" lines inside the block so the model
+        # stops inventing around gaps. SS flips it per surface.
+        if body.get_meta("memory_signals") is not None:
+            cq_metadata["memory_signals"] = body.get_meta("memory_signals")
+        # token_budget: GP-set per surface — project chats get the scoped
+        # block budget (commitments/blockers with the overdue guarantee
+        # need more room than the 700-token default); other surfaces keep
+        # CQ's default.
+        if body.get_meta("prompt_mode") == "ProjectChat":
+            cq_metadata["token_budget"] = 1200
 
         if feature_state == "enabled":
             # Full CQ: recall + inject
