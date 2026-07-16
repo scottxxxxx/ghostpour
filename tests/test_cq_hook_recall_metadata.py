@@ -226,6 +226,9 @@ async def test_rundown_ask_routes_to_dossier_not_recall():
     dossier.assert_awaited_once()
     recall.assert_not_awaited()
     assert "PROJECT MEMORY DOSSIER" in new_body.system_prompt
+    # the rundown answer needs output room: first live run truncated at
+    # the standard 4096 ceiling (out_tokens == max_tokens)
+    assert new_body.max_tokens == 8000
     assert "{{context_quilt}}" not in new_body.system_prompt
     assert new_body.metadata["cq_recall_block"].startswith("[PROJECT MEMORY DOSSIER")
     assert result["cq_result"]["dossier"] is True
