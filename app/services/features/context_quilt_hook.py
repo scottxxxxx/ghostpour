@@ -136,6 +136,11 @@ class ContextQuiltHook:
                         body = body.model_copy(update={
                             "system_prompt": new_system,
                             "metadata": new_meta,
+                            # A rundown answer summarizes the whole dossier
+                            # — the first live run hit the standard 4096
+                            # output ceiling mid-write (2026-07-16
+                            # 14:38:44Z, out_tokens == max_tokens exactly).
+                            "max_tokens": max(body.max_tokens or 0, 8000),
                         })
                         result["cq_result"] = {
                             "context": block, "matched_entities": [],
