@@ -353,7 +353,7 @@ async def quilt_dossier(user_id: str, project_id: str,
             params={"project_id": project_id, "group_by": "origin",
                     "limit": limit},
             headers=await _get_auth_headers(),
-            timeout=httpx.Timeout(settings.cq_recall_timeout_ms / 1000.0),
+            timeout=httpx.Timeout(settings.cq_dossier_timeout_ms / 1000.0),
         )
         resp.raise_for_status()
         data = resp.json()
@@ -364,8 +364,8 @@ async def quilt_dossier(user_id: str, project_id: str,
         )
         return data
     except Exception as e:
-        logger.warning("cq_dossier_failed project=%s: %s — falling back to recall",
-                       project_id, e)
+        logger.warning("cq_dossier_failed project=%s: %s %s — falling back to recall",
+                       project_id, type(e).__name__, e)
         return None
 
 
