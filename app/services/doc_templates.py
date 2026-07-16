@@ -200,19 +200,36 @@ def render_gantt(data: dict, *, today: date | None = None) -> bytes:
                           color="FF" + (hex_color or "3D4653"))
 
     def bar_rules(r, bar_hex, risk_aware=False):
-        """The live bars: in-range fill; risk-aware rows get a red rule
-        first (blocked, or not started past its start, judged LIVE via
-        TODAY())."""
+        """The live bars, drawn twice from the same date cells so every
+        viewer shows them (Scott's Numbers finding 2026-07-16: Numbers
+        computes formulas but refuses conditional FORMATTING, so
+        fill-only bars vanished there):
+
+        1. A full-block character (█) via per-cell formula, font-colored
+           to the bar — Numbers renders colored character bars; in Excel
+           the same-color character melts invisibly into the fill.
+        2. Conditional-formatting fills for Excel/Sheets, with the FONT
+           recolored in the same rule so a live status flip (risk red)
+           recolors the characters too and nothing clashes.
+        """
         E, F = f"$E{r}", f"$F{r}"
         ax = f"{get_column_letter(FIRST_DAY_COL)}$1"
         in_range = f"AND({ax}>={E},{ax}<={F})"
+        for i in range(len(days)):
+            col = FIRST_DAY_COL + i
+            L = get_column_letter(col)
+            c = ws.cell(r, col, f'=IF(AND({L}$1>={E},{L}$1<={F}),"█","")')
+            c.font = Font(color="FF" + bar_hex, size=9)
+            c.alignment = Alignment(horizontal="center")
         if risk_aware:
             risky = (f"AND({ax}>={E},{ax}<={F},OR($D{r}=\"Blocked\","
                      f"AND($D{r}=\"Not Started\",{E}<TODAY())))")
             ws.conditional_formatting.add(grid(r), FormulaRule(
-                formula=[risky], fill=dxf_fill(_C["risk"]), stopIfTrue=True))
+                formula=[risky], fill=dxf_fill(_C["risk"]),
+                font=Font(color="FF" + _C["risk"]), stopIfTrue=True))
         ws.conditional_formatting.add(grid(r), FormulaRule(
-            formula=[in_range], fill=dxf_fill(bar_hex), stopIfTrue=True))
+            formula=[in_range], fill=dxf_fill(bar_hex),
+            font=Font(color="FF" + bar_hex), stopIfTrue=True))
 
     # project row
     ws.cell(row, 2, f"  {data.get('project') or 'Project'}").font = \

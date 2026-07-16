@@ -925,6 +925,9 @@ def test_gantt_renderer_matches_reference_vocabulary():
     assert "\U0001f3c1" in joined or "🏁" in joined  # milestone flag
     assert "⚑" in joined and "⚐" in joined          # at-risk flags both states
     assert "◆" in joined                             # milestone marker (formula-driven)
+    # bars are ALSO characters (Numbers renders no conditional formatting —
+    # live 2026-07-16): per-cell block-char formulas keyed to the date cells
+    assert 'IF(AND(' in joined and "█" in joined
     # Predecessors column: dates-derived nomenclature (Scott 2026-07-15).
     # Task 3 shares task 2's start -> SS; milestone 5 follows 3's end -> FS.
     preds = [str(c.value) for row in ws.iter_rows(min_col=7, max_col=7)
