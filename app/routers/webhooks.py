@@ -3797,6 +3797,24 @@ async def subscriptions_events(
     return {"events": await subs.recent_events(db, limit=limit)}
 
 
+@router.get("/admin/subscriptions/redemptions")
+async def subscriptions_redemptions(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    offer_id: str | None = Query(default=None),
+    limit: int = Query(default=500, ge=1, le=1000),
+):
+    """Redemption attribution by ASC offer pool (SS emailed offer codes).
+
+    The client sends offer_id (StoreKit transaction.offer.id) on
+    /v1/verify-receipt; this answers "which accounts redeemed from which
+    offer pool". Pass ?offer_id= to narrow the row list to one pool."""
+    _verify_admin(request, x_admin_key)
+    from app.services import subscriptions as subs
+    return await subs.redemptions_by_offer(db, offer_id=offer_id, limit=limit)
+
+
 @router.get("/admin/subscriptions/export.csv")
 async def subscriptions_export_csv(
     request: Request,

@@ -91,6 +91,7 @@ async def record_subscription_event(
     price_usd: float | None = None,
     effective_at: str | None = None,
     raw: dict | None = None,
+    offer_id: str | None = None,
     commit: bool = True,
 ) -> str:
     """Append one subscription event and keep the user-row caches in lockstep.
@@ -109,13 +110,13 @@ async def record_subscription_event(
             (id, user_id, event_type, notification_type, subtype, from_tier,
              to_tier, product_id, original_transaction_id, transaction_id,
              expires_at, environment, source, price_usd, effective_at,
-             recorded_at, raw)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+             recorded_at, raw, offer_id)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (
             event_id, user_id, event_type, notification_type, subtype, from_tier,
             to_tier, product_id, original_transaction_id, transaction_id,
             expires_at, environment, source, price_usd, eff,
-            _now_iso(), json.dumps(raw) if raw is not None else None,
+            _now_iso(), json.dumps(raw) if raw is not None else None, offer_id,
         ),
     )
     # Advance the caches when this event marks a paid state.
@@ -237,7 +238,7 @@ async def user_timeline(db: aiosqlite.Connection, user_id: str) -> list[dict]:
     rows = await (await db.execute(
         "SELECT event_type, notification_type, subtype, from_tier, to_tier, "
         "product_id, expires_at, environment, source, price_usd, effective_at, "
-        "recorded_at FROM subscription_events WHERE user_id = ? "
+        "recorded_at, offer_id FROM subscription_events WHERE user_id = ? "
         "ORDER BY effective_at ASC, recorded_at ASC",
         (user_id,),
     )).fetchall()
@@ -249,10 +250,42 @@ async def recent_events(db: aiosqlite.Connection, limit: int = 200) -> list[dict
     limit = max(1, min(limit, 1000))
     rows = await (await db.execute(
         "SELECT e.user_id, e.event_type, e.from_tier, e.to_tier, e.product_id, "
-        "e.environment, e.source, e.price_usd, e.effective_at, "
+        "e.environment, e.source, e.price_usd, e.effective_at, e.offer_id, "
         "u.email, u.tier AS current_tier "
         "FROM subscription_events e LEFT JOIN users u ON u.id = e.user_id "
         "ORDER BY e.effective_at DESC, e.recorded_at DESC LIMIT ?",
         (limit,),
     )).fetchall()
     return [dict(r) for r in rows]
+
+
+async def redemptions_by_offer(
+    db: aiosqlite.Connection, offer_id: str | None = None, limit: int = 500
+) -> dict:
+    """Redemption attribution for ASC offer pools (SS email-code campaigns,
+    2026-07-17). offer_id here is the ASC offer reference the client reads
+    from StoreKit's transaction.offer.id — Apple never exposes the redeemed
+    code string, so this is the finest grain available; SS joins it against
+    their send log for per-user, per-code attribution.
+
+    Returns {"offers": [...per-offer counts...], "redemptions": [...rows...]};
+    pass offer_id to narrow the row list to one pool."""
+    limit = max(1, min(limit, 1000))
+    counts = await (await db.execute(
+        "SELECT offer_id, COUNT(*) AS redemptions, COUNT(DISTINCT user_id) AS users, "
+        "MIN(effective_at) AS first_at, MAX(effective_at) AS last_at "
+        "FROM subscription_events WHERE offer_id IS NOT NULL "
+        "GROUP BY offer_id ORDER BY last_at DESC"
+    )).fetchall()
+    where, params = "e.offer_id IS NOT NULL", []
+    if offer_id:
+        where, params = "e.offer_id = ?", [offer_id]
+    rows = await (await db.execute(
+        "SELECT e.offer_id, e.user_id, e.event_type, e.subtype, e.from_tier, "
+        "e.to_tier, e.product_id, e.environment, e.source, e.effective_at, "
+        "u.email, u.tier AS current_tier "
+        f"FROM subscription_events e LEFT JOIN users u ON u.id = e.user_id "
+        f"WHERE {where} ORDER BY e.effective_at DESC, e.recorded_at DESC LIMIT ?",
+        (*params, limit),
+    )).fetchall()
+    return {"offers": [dict(r) for r in counts], "redemptions": [dict(r) for r in rows]}

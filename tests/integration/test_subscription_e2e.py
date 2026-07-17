@@ -411,3 +411,102 @@ class TestUsageMe:
         assert "Plus" in cta["text"]
         # Crude but durable signal: Spanish copy mentions "Actualiza"
         assert "Actualiza" in cta["text"] or "agotado" in cta["text"]
+
+
+class TestOfferIdAttribution:
+    """ASC offer redemption attribution (SS emailed offer codes, 2026-07-17).
+
+    The client sends offer_id (StoreKit transaction.offer.id) on
+    /v1/verify-receipt; GP stores it on the subscription_events row and
+    reports it via /webhooks/admin/subscriptions/redemptions. Apple never
+    exposes the redeemed code string, so offer_id is the finest grain — SS
+    joins it against their send log for per-user, per-code attribution.
+    """
+
+    ADMIN = {"X-Admin-Key": "test-admin-key"}
+
+    def test_offer_id_stored_on_subscription_event(self, client, tmp_db_path):
+        _insert_user(tmp_db_path, user_id="email-offer-user", tier="free", monthly_limit=0.05)
+        headers = {"Authorization": f"Bearer {_jwt_token('email-offer-user')}"}
+        resp = client.post(
+            "/v1/verify-receipt",
+            json={
+                "product_id": _PRO_PRODUCT,
+                "transaction_id": "txn_email_offer",
+                "offer_id": "ss_email_launch_2026",
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        conn = sqlite3.connect(tmp_db_path)
+        row = conn.execute(
+            "SELECT offer_id, event_type, to_tier FROM subscription_events "
+            "WHERE user_id = ?", ("email-offer-user",),
+        ).fetchone()
+        conn.close()
+        assert row is not None
+        assert row[0] == "ss_email_launch_2026"
+        assert row[2] == "pro"
+
+    def test_offer_id_absent_stays_null(self, client, tmp_db_path):
+        """Additive field: clients that don't send it produce NULL rows,
+        which the redemptions report excludes."""
+        _insert_user(tmp_db_path, user_id="no-offer-user", tier="free", monthly_limit=0.05)
+        headers = {"Authorization": f"Bearer {_jwt_token('no-offer-user')}"}
+        resp = client.post(
+            "/v1/verify-receipt",
+            json={"product_id": _PLUS_PRODUCT, "transaction_id": "txn_plain"},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        conn = sqlite3.connect(tmp_db_path)
+        row = conn.execute(
+            "SELECT offer_id FROM subscription_events WHERE user_id = ?",
+            ("no-offer-user",),
+        ).fetchone()
+        conn.close()
+        assert row is not None and row[0] is None
+
+    def test_redemptions_report_groups_and_filters(self, client, tmp_db_path):
+        for i, (uid, offer) in enumerate([
+            ("redeem-a", "ss_email_launch_2026"),
+            ("redeem-b", "ss_email_launch_2026"),
+            ("redeem-c", "ss_cta_pool"),
+        ]):
+            _insert_user(tmp_db_path, user_id=uid, tier="free", monthly_limit=0.05)
+            r = client.post(
+                "/v1/verify-receipt",
+                json={
+                    "product_id": _PRO_PRODUCT,
+                    "transaction_id": f"txn_redeem_{i}",
+                    "offer_id": offer,
+                },
+                headers={"Authorization": f"Bearer {_jwt_token(uid)}"},
+            )
+            assert r.status_code == 200
+
+        resp = client.get("/webhooks/admin/subscriptions/redemptions", headers=self.ADMIN)
+        assert resp.status_code == 200
+        body = resp.json()
+        by_offer = {o["offer_id"]: o for o in body["offers"]}
+        assert by_offer["ss_email_launch_2026"]["redemptions"] == 2
+        assert by_offer["ss_email_launch_2026"]["users"] == 2
+        assert by_offer["ss_cta_pool"]["redemptions"] == 1
+        assert len(body["redemptions"]) == 3
+
+        # ?offer_id= narrows the row list to one pool
+        resp = client.get(
+            "/webhooks/admin/subscriptions/redemptions",
+            params={"offer_id": "ss_email_launch_2026"},
+            headers=self.ADMIN,
+        )
+        rows = resp.json()["redemptions"]
+        assert {r["user_id"] for r in rows} == {"redeem-a", "redeem-b"}
+        assert all(r["offer_id"] == "ss_email_launch_2026" for r in rows)
+
+    def test_redemptions_report_requires_admin_key(self, client):
+        resp = client.get(
+            "/webhooks/admin/subscriptions/redemptions",
+            headers={"X-Admin-Key": "wrong"},
+        )
+        assert resp.status_code == 403
