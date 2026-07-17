@@ -302,9 +302,9 @@ def test_negotiation_anchors_branch():
     """Multi-category grader eval 2026-07-17 (~/tr_eval results2): the
     NEGOTIATION anchors beat the STAR baseline on the prod model for
     both pay (MAE 9.4->5.8, band 67->100%) and purchase (9.8->6.8,
-    67->92%). Protect/repair keep the hard-conversation anchors (they
-    beat the dedicated candidates); pitch keeps STAR (beat its
-    candidate) — the eval prevented shipping two regressions."""
+    67->92%); pitch keeps STAR (beat its candidate) — the eval
+    prevented shipping regressions. Repair/protect later got dedicated
+    v2 anchors (see test_repair_protect_anchors_v2)."""
     for kind in ("payNegotiation", "purchaseNegotiation", "negotiation"):
         sp = _asm("tr_response_analysis", kind=kind)["system_prompt"]
         assert "credible alternative" in sp
@@ -312,3 +312,27 @@ def test_negotiation_anchors_branch():
         assert "STAR arc" not in sp
     # pitch deliberately stays on the STAR default (won its eval cell)
     assert "STAR arc" in _asm("tr_response_analysis", kind="pitch")["system_prompt"]
+
+
+def test_repair_protect_anchors_v2():
+    """Blind-grade calibration 2026-07-17: Scott's 15 blind grades
+    exposed the grader's real failure mode — polite-but-flawed
+    hard-conversation replies inflated by ~2 bands (excuse-led apology,
+    boundary undermined by an unearned concession, both graded via the
+    generic hard anchors). Dedicated v2 anchors won the re-eval
+    (repair MAE 10.6->8.3 band 58->75%, protect 7.8->7.2 band
+    83->92%); the clinical-tone deflator variant LOST on the bad-news
+    beats, so hardConversation keeps the original anchors."""
+    repair = _asm("tr_response_analysis", kind="repairConversation")["system_prompt"]
+    assert "Warm delivery does not rescue an excuse-first apology" in repair
+    assert "shifts the labor of repair onto the hurt person" in repair
+    protect = _asm("tr_response_analysis", kind="protectConversation")["system_prompt"]
+    assert "a no followed by a yes is a yes" in protect
+    for sp in (repair, protect):
+        assert "cannot be below Strong" in sp        # gap-size rule survives
+        assert "STAR arc" not in sp
+        assert "per_question" in sp                  # shared mechanics tail
+    # bad-news kinds keep the original hard anchors (v2 lost that cell)
+    hard = _asm("tr_response_analysis", kind="hardConversation")["system_prompt"]
+    assert "acknowledges what the other person is feeling" in hard
+    assert "robotic voice" not in hard
