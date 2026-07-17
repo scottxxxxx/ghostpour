@@ -54,6 +54,10 @@ _CALL_TYPE_TO_CONFIG = {
     "tr_rewrite": "techrehearsal/rewrite",
     "tr_resume_enhance": "techrehearsal/resume-enhance",
     "tr_compare_reality": "techrehearsal/compare-reality",
+    # Live counterpart turns (2026-07-16, Scott's finding: the rehearsal
+    # counterpart was a pre-generated script that ignored his answers) —
+    # the model plays the other person per turn, in character.
+    "tr_counterpart_turn": "techrehearsal/counterpart-turn",
 }
 
 
@@ -88,6 +92,7 @@ def _apply_scenario(
         or config.get("scenarioDefaults")
         or {}
     )
+    defaults = config.get("scenarioDefaults") or {}
     guidance = entry.get("guidance", "")
     counterpart = entry.get("counterpart", "")
     if guidance:
@@ -98,6 +103,13 @@ def _apply_scenario(
         system_prompt = system_prompt.replace(" {{scenario_guidance}}", "")
         system_prompt = system_prompt.replace("{{scenario_guidance}} ", "")
         system_prompt = system_prompt.replace("{{scenario_guidance}}", "")
+    # {{rating_anchors}}: per-scenario grading anchors (2026-07-16 grader
+    # eval — the STAR rubric was scoring hard conversations; anchors now
+    # branch by kind). Falls back to scenarioDefaults so an unknown kind
+    # keeps today's behavior instead of shipping an anchorless grader.
+    if "{{rating_anchors}}" in system_prompt:
+        anchors = entry.get("rating_anchors") or defaults.get("rating_anchors", "")
+        system_prompt = system_prompt.replace("{{rating_anchors}}", anchors)
     return system_prompt.replace("{{counterpart}}", counterpart)
 
 

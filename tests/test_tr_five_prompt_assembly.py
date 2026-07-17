@@ -18,6 +18,7 @@ FIVE = {
     "tr_debrief": "techrehearsal/debrief",
     "tr_rewrite": "techrehearsal/rewrite",
     "tr_resume_enhance": "techrehearsal/resume-enhance",
+    "tr_response_analysis": "techrehearsal/response-analysis",
 }
 
 
@@ -251,3 +252,47 @@ def test_rewrite_mandate_fixes_approach_and_consumes_assessment():
     assert "would no longer apply" in r
     # hard-conversation guidance rides along (the right coach this time)
     assert "empathy" in r.lower()
+
+
+def test_response_analysis_anchors_branch_by_scenario():
+    """Grader eval 2026-07-16: the STAR rubric was scoring hard
+    conversations (prod combo was the worst orderer in the eval, rho
+    0.762 vs 0.97 calibrated). Anchors now branch by scenario_kind;
+    unknown kinds fall back to the interview anchors (today's
+    behavior), never an anchorless grader."""
+    hard = _asm("tr_response_analysis", kind="hardConversation")["system_prompt"]
+    assert "acknowledges what the other person is feeling" in hard
+    assert "false reassurance" in hard.lower()
+    assert "cannot be below Strong" in hard          # gap-size rule
+    assert "STAR arc" not in hard                    # interview rubric gone
+    assert "{{rating_anchors}}" not in hard
+
+    interview = _asm("tr_response_analysis", kind="jobInterview")["system_prompt"]
+    assert "STAR arc" in interview                   # unchanged for interviews
+    assert "Bar Raiser" in interview
+
+    fallback = _asm("tr_response_analysis", kind="somethingNew")["system_prompt"]
+    assert "STAR arc" in fallback                    # default = today's grader
+    # shared mechanics survive in every variant
+    for sp in (hard, interview, fallback):
+        assert "per_question" in sp and "TRANSCRIPT NOTE" in sp
+
+
+def test_counterpart_turn_config():
+    """Live counterpart lane (2026-07-16): the rehearsal counterpart was
+    a pre-generated script that ignored the user's answers. The model
+    now plays the other person per turn, scenario-aware, in character."""
+    import json as _json
+    from app.services.prompt_assembly import _CALL_TYPE_TO_CONFIG
+    assert _CALL_TYPE_TO_CONFIG["tr_counterpart_turn"] == "techrehearsal/counterpart-turn"
+    cfgs = dict(_cfgs())
+    cfgs["techrehearsal/counterpart-turn"] = _json.load(
+        open("config/remote/techrehearsal/counterpart-turn.json"))
+    r = assemble_prompt("tr_counterpart_turn", "THE BRIEF: ...",
+                        cfgs, scenario_kind="hardConversation")
+    sp = r["system_prompt"]
+    assert "never ask it again" in sp                 # continuity mandate
+    assert "shock and disbelief first" in sp          # scenario realism
+    assert "conversation_over" in sp                  # JSON contract
+    assert "never break character" in sp.lower() or "never break character" in sp
+    assert r.get("temperature") == 0.8 and r.get("max_tokens") == 300
