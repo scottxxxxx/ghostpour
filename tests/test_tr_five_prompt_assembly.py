@@ -296,3 +296,19 @@ def test_counterpart_turn_config():
     assert "conversation_over" in sp                  # JSON contract
     assert "never break character" in sp.lower() or "never break character" in sp
     assert r.get("temperature") == 0.8 and r.get("max_tokens") == 300
+
+
+def test_negotiation_anchors_branch():
+    """Multi-category grader eval 2026-07-17 (~/tr_eval results2): the
+    NEGOTIATION anchors beat the STAR baseline on the prod model for
+    both pay (MAE 9.4->5.8, band 67->100%) and purchase (9.8->6.8,
+    67->92%). Protect/repair keep the hard-conversation anchors (they
+    beat the dedicated candidates); pitch keeps STAR (beat its
+    candidate) — the eval prevented shipping two regressions."""
+    for kind in ("payNegotiation", "purchaseNegotiation", "negotiation"):
+        sp = _asm("tr_response_analysis", kind=kind)["system_prompt"]
+        assert "credible alternative" in sp
+        assert "cannot be below Strong" in sp
+        assert "STAR arc" not in sp
+    # pitch deliberately stays on the STAR default (won its eval cell)
+    assert "STAR arc" in _asm("tr_response_analysis", kind="pitch")["system_prompt"]
