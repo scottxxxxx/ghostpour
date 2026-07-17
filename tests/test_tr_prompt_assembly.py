@@ -14,7 +14,7 @@ from app.services.prompt_assembly import _CALL_TYPE_TO_CONFIG, assemble_prompt
 
 CASES = [
     ("tr_mock_interview", "techrehearsal/mock-interview", "You are an expert technical interviewer"),
-    ("tr_response_analysis", "techrehearsal/response-analysis", "You are an interview coach"),
+    ("tr_response_analysis", "techrehearsal/response-analysis", "You are a coach grading a full rehearsal session."),
     ("tr_match_analysis", "techrehearsal/match-analysis", "You are an expert technical recruiter"),
     ("tr_research_interviewer", "techrehearsal/research-interviewer", "You are looking at a screenshot"),
 ]
@@ -171,7 +171,7 @@ def test_response_analysis_scorecard_and_default_get_scorecard_prompt():
     cfgs = {"techrehearsal/response-analysis": cfg}
     for mode in ("InterviewScorecard", None, "SomeFutureMode"):
         r = assemble_prompt("tr_response_analysis", "Q&A", cfgs, prompt_mode=mode)
-        assert r["system_prompt"].startswith("You are an interview coach grading a full mock interview")
+        assert r["system_prompt"].startswith("You are a coach grading a full rehearsal session.")
         assert '"per_question"' in r["system_prompt"]
         assert "should_follow_up" not in r["system_prompt"]
 
@@ -182,7 +182,13 @@ def test_scorecard_calibration_guards():
     from the tier mix — guard so an edit can't regress the judge back to a
     compressed, unanchored scale."""
     cfg = json.load(open("config/remote/techrehearsal/response-analysis.json"))
-    sp = cfg["systemPrompt"]
+    # Post scenario-anchors split (2026-07-16): STAR anchors live in the
+    # scenarios map; shared mechanics stay in the base prompt. Guard the
+    # ASSEMBLED interview prompt (default kind = today's behavior) so the
+    # judge can't regress regardless of where each phrase lives.
+    from app.services.prompt_assembly import assemble_prompt as _ap
+    sp = _ap("tr_response_analysis", "Q&A",
+             {"techrehearsal/response-analysis": cfg})["system_prompt"]
     for phrase in (
         "speech-to-text transcript",
         "NEVER cite transcription artifacts",
