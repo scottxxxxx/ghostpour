@@ -405,11 +405,17 @@ MIGRATIONS = [
         price_usd REAL,                            -- list price for the period (bookkeeping)
         effective_at TEXT NOT NULL,                -- Apple's event timestamp (or now)
         recorded_at TEXT NOT NULL,                 -- when GP wrote the row
-        raw TEXT                                   -- decoded transaction JSON, for audit
+        raw TEXT,                                  -- decoded transaction JSON, for audit
+        offer_id TEXT                              -- ASC offer reference (StoreKit transaction.offer.id); per-pool redemption attribution
     )""",
     "CREATE INDEX IF NOT EXISTS idx_sub_events_user ON subscription_events(user_id, effective_at)",
     "CREATE INDEX IF NOT EXISTS idx_sub_events_type ON subscription_events(event_type)",
     "CREATE INDEX IF NOT EXISTS idx_sub_events_effective ON subscription_events(effective_at)",
+    # ASC offer attribution (SS emailed offer codes, 2026-07-17): client sends
+    # offer_id on /v1/verify-receipt; "which accounts redeemed from the email
+    # offer" = GET /webhooks/admin/subscriptions/redemptions.
+    "ALTER TABLE subscription_events ADD COLUMN offer_id TEXT",
+    "CREATE INDEX IF NOT EXISTS idx_sub_events_offer ON subscription_events(offer_id) WHERE offer_id IS NOT NULL",
     # Denormalized caches on users for the offer-code eligibility hot path
     # (never-subscribed targeting) and fast dashboard reads. Source of truth is
     # subscription_events; these are kept in lockstep by the same writers.

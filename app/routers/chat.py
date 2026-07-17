@@ -271,6 +271,8 @@ class VerifyReceiptRequest(BaseModel):
     offer_type: str | None = None  # "introductory" for free trial, None for paid
     offer_price: float | None = None  # 0.00 for free trial
     is_trial: bool | None = None  # Explicit trial flag from client (preferred over inference)
+    offer_id: str | None = None  # ASC offer reference (StoreKit transaction.offer.id) —
+    # per-pool redemption attribution (Apple never exposes the redeemed code string)
 
 
 # Map StoreKit product IDs to tier names
@@ -416,6 +418,7 @@ async def verify_receipt(
                     product_id=body.product_id, transaction_id=body.transaction_id,
                     original_transaction_id=body.transaction_id,
                     source="verify_receipt", price_usd=0.0,
+                    offer_id=body.offer_id,
                 )
             except Exception as e:
                 logger.warning("subscription_event (trial) record failed: %s", e)
@@ -521,6 +524,7 @@ async def verify_receipt(
                 product_id=body.product_id, transaction_id=body.transaction_id,
                 original_transaction_id=body.transaction_id,
                 source="verify_receipt",
+                offer_id=body.offer_id,
             )
         except Exception as e:
             logger.warning("subscription_event (paid) record failed: %s", e)
