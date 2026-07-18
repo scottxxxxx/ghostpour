@@ -52,3 +52,34 @@ def test_dump_failure_never_raises(monkeypatch, tmp_path):
     # unwritable target: the dump dir path exists as a FILE
     (tmp_path / "cq_recall_debug").write_text("in the way")
     _debug_dump_recall({"a": 1}, {"context": ""})  # must not raise
+
+
+def test_recall_degrade_is_loud(monkeypatch, caplog):
+    """A recall timeout returns empty AND logs at ERROR with context —
+    the 2026-07-18 contract-test turn lost its memory block silently and
+    was only caught forensically. Degrades must be visible as they
+    happen."""
+    import asyncio
+    import logging
+    from unittest.mock import AsyncMock, MagicMock
+
+    import httpx
+
+    from app.services import context_quilt as cq
+
+    client = MagicMock()
+    client.post = AsyncMock(side_effect=httpx.TimeoutException("too slow"))
+    monkeypatch.setattr(cq, "_get_client", lambda: client)
+    monkeypatch.setattr(cq, "_get_auth_headers", AsyncMock(return_value={}))
+
+    with caplog.at_level(logging.ERROR, logger="app.services.context_quilt"):
+        result = asyncio.run(cq.recall(
+            user_id="u-1", text="q",
+            metadata={"project": "Kore", "memory_signals": True}))
+
+    assert result == {"context": "", "matched_entities": [], "patch_count": 0}
+    degraded = [r for r in caplog.records if "cq_recall_degraded" in r.getMessage()]
+    assert len(degraded) == 1
+    assert degraded[0].levelno == logging.ERROR
+    assert degraded[0].project == "Kore"
+    assert degraded[0].memory_signals is True

@@ -119,7 +119,14 @@ class Settings(BaseSettings):
     # (returns null) until the files are present. See app/services/geoip.py.
     geoip_db_path: str = "data/geo/dbip-city-ipv4.mmdb"
     geoip_db_ipv6_path: str = "data/geo/dbip-city-ipv6.mmdb"
-    cq_recall_timeout_ms: int = 200    # Max wait for CQ recall (ms)
+    # Max wait for CQ recall (ms). 500 ratified 2026-07-18: CQ renders are
+    # bimodal (35-60ms fast mode, 140-190ms slow mode on entity-rich
+    # follow-up texts, ~3 in 8 runs), so 200 regularly ate follow-up turns
+    # as chats grow; 500 clears worst observed by >2x with network
+    # headroom. CQ is hunting the slow mode; if their p99 drops, 500
+    # becomes generous, which is the right way around. Prod overrides via
+    # CZ_CQ_RECALL_TIMEOUT_MS in .env.prod — keep the two in agreement.
+    cq_recall_timeout_ms: int = 500
     # The rundown dossier is the deliberate heavyweight path (user asked
     # for everything; the turn runs a minute regardless) — reusing the
     # 200ms recall budget starved it on a cold cache (live 2026-07-16
