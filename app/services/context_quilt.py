@@ -151,18 +151,18 @@ async def recall(
 
     timeout_sec = settings.cq_recall_timeout_ms / 1000.0
 
+    body: dict[str, Any] = {
+        "user_id": user_id,
+        "text": text,
+    }
+    merged_metadata = dict(metadata) if metadata else {}
+    if subscription_tier:
+        merged_metadata["subscription_tier"] = subscription_tier
+    if merged_metadata:
+        body["metadata"] = merged_metadata
+
     try:
         client = _get_client()
-        body: dict[str, Any] = {
-            "user_id": user_id,
-            "text": text,
-        }
-        merged_metadata = dict(metadata) if metadata else {}
-        if subscription_tier:
-            merged_metadata["subscription_tier"] = subscription_tier
-        if merged_metadata:
-            body["metadata"] = merged_metadata
-
         auth_headers = await _get_auth_headers()
         resp = await client.post(
             "/v1/recall",
@@ -185,11 +185,30 @@ async def recall(
         _debug_dump_recall(body, result)
         return result
 
+    # Degrades are ERROR, not WARNING: the turn still answers, but WITHOUT
+    # its memory block, and the user can't tell (2026-07-18: a 200ms
+    # timeout silently ate the contract-test turn and was only caught
+    # forensically). Context fields make the lost turn identifiable
+    # without a dump.
     except httpx.TimeoutException:
-        logger.warning("cq_recall_timeout", extra={"timeout_ms": settings.cq_recall_timeout_ms})
+        logger.error(
+            "cq_recall_degraded reason=timeout — turn proceeds WITHOUT memory block",
+            extra={
+                "timeout_ms": settings.cq_recall_timeout_ms,
+                "project": merged_metadata.get("project"),
+                "memory_signals": merged_metadata.get("memory_signals", "absent"),
+            },
+        )
         return {"context": "", "matched_entities": [], "patch_count": 0}
     except Exception as e:
-        logger.warning("cq_recall_error", extra={"error": str(e)})
+        logger.error(
+            "cq_recall_degraded reason=error — turn proceeds WITHOUT memory block",
+            extra={
+                "error": str(e),
+                "project": merged_metadata.get("project"),
+                "memory_signals": merged_metadata.get("memory_signals", "absent"),
+            },
+        )
         return {"context": "", "matched_entities": [], "patch_count": 0}
 
 
