@@ -93,8 +93,13 @@ def _apply_scenario(
         or {}
     )
     defaults = config.get("scenarioDefaults") or {}
-    guidance = entry.get("guidance", "")
-    counterpart = entry.get("counterpart", "")
+    # Fall back to scenarioDefaults per key, same as rating_anchors below.
+    # A scenario entry that defines guidance but not counterpart otherwise
+    # renders "You are playing: ." — an empty identity anchor (the 2026-07-17
+    # counterpart role-inversion: the model consoled the news-breaker instead
+    # of playing the 12-year-old hearing it).
+    guidance = entry.get("guidance") or defaults.get("guidance", "")
+    counterpart = entry.get("counterpart") or defaults.get("counterpart", "")
     if guidance:
         system_prompt = system_prompt.replace("{{scenario_guidance}}", guidance)
     else:

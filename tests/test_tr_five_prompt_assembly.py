@@ -298,6 +298,37 @@ def test_counterpart_turn_config():
     assert r.get("temperature") == 0.8 and r.get("max_tokens") == 300
 
 
+def test_counterpart_slot_never_renders_empty():
+    """2026-07-17 role inversion: scenario entries defined guidance but not
+    counterpart, and _apply_scenario read counterpart off the matched entry
+    with no scenarioDefaults fallback — every named kind rendered
+    "You are playing: ." (blank identity anchor). Haiku then consoled the
+    news-breaker instead of playing the 12-year-old hearing the news.
+    Counterpart (and guidance) now fall back per key, same as
+    rating_anchors; the hard-conversation kinds also pin an explicit
+    receiving-the-news persona."""
+    import json as _json
+    cfgs = dict(_cfgs())
+    cfgs["techrehearsal/counterpart-turn"] = _json.load(
+        open("config/remote/techrehearsal/counterpart-turn.json"))
+
+    hard = assemble_prompt("tr_counterpart_turn", "THE BRIEF: ...",
+                           cfgs, scenario_kind="hardConversation")["system_prompt"]
+    assert "You are playing: ." not in hard
+    assert "RECEIVING the news" in hard
+
+    # kinds without their own counterpart value fall back to scenarioDefaults
+    interview = assemble_prompt("tr_counterpart_turn", "THE BRIEF: ...",
+                                cfgs, scenario_kind="jobInterview")["system_prompt"]
+    assert "You are playing: ." not in interview
+    assert "You are playing: the person described in the brief." in interview
+
+    # unknown kind (scenarioDefaults entry path) keeps working too
+    unknown = assemble_prompt("tr_counterpart_turn", "THE BRIEF: ...",
+                              cfgs, scenario_kind="somethingNew")["system_prompt"]
+    assert "You are playing: ." not in unknown
+
+
 def test_negotiation_anchors_branch():
     """Multi-category grader eval 2026-07-17 (~/tr_eval results2): the
     NEGOTIATION anchors beat the STAR baseline on the prod model for
