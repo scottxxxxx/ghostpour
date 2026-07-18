@@ -11,8 +11,11 @@ Auth: If CQ_CLIENT_SECRET is set, uses JWT bearer tokens (auto-refreshing).
 Otherwise falls back to X-App-ID header (legacy, for backwards compat).
 """
 
+import json
 import logging
 import time
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -20,6 +23,38 @@ import httpx
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+# Ring size for the recall debug dumps (see _debug_dump_recall).
+_RECALL_DUMP_KEEP = 5
+
+
+def _debug_dump_recall(body: dict, result: dict) -> None:
+    """Persist the exact outbound /v1/recall body and CQ's exact response
+    to a small ring of files beside the DB (same volume convention as the
+    version-gate overlay). Lane verification against CQ needs both ends
+    byte-exact: the outbound metadata proves what GP forwarded
+    (memory_signals passthrough), and the returned block diffs line for
+    line against CQ's reference render (recall output is byte-stable
+    within a UTC day). The only other copy of the block lives inside
+    usage_log raw_request, already wrapped for the LLM. Never allowed to
+    break recall."""
+    try:
+        from app import database
+        base = (
+            Path(database._db_path).parent
+            if getattr(database, "_db_path", None)
+            else Path("data")
+        )
+        dump_dir = base / "cq_recall_debug"
+        dump_dir.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%f")
+        (dump_dir / f"recall-{ts}.json").write_text(
+            json.dumps({"sent": body, "received": result}, ensure_ascii=False, indent=2)
+        )
+        for old in sorted(dump_dir.glob("recall-*.json"))[:-_RECALL_DUMP_KEEP]:
+            old.unlink()
+    except Exception as e:  # noqa: BLE001
+        logger.warning("cq_recall_debug_dump_failed", extra={"error": str(e)})
 
 # Shared HTTP client (created on first use)
 _client: httpx.AsyncClient | None = None
@@ -142,8 +177,12 @@ async def recall(
             extra={
                 "matched": len(result.get("matched_entities", [])),
                 "patch_count": result.get("patch_count", 0),
+                # Contract v1 lane check: what GP actually forwarded, so a
+                # device-side flip is verifiable from this one log line.
+                "memory_signals": merged_metadata.get("memory_signals", "absent"),
             },
         )
+        _debug_dump_recall(body, result)
         return result
 
     except httpx.TimeoutException:
