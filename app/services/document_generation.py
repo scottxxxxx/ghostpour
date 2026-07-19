@@ -173,6 +173,32 @@ def explicit_file_ask(text: str) -> dict | None:
     return None
 
 
+# The SS client injects "[N image(s) attached for visual context]" into
+# user_content when a send carries photos. On a confirmed generation turn
+# this marker WITHOUT actual image blocks means the model would be told
+# about an image it cannot see — and it invents rather than fails
+# (2026-07-19: "reproduce this Excel" produced a fabricated sales sheet
+# with placeholder names).
+_IMAGE_MARKER_RE = re.compile(r"\[\s*\d+\s+image\(s\)\s+attached", re.IGNORECASE)
+
+# Steering for a disarmed image-guard turn: the honest answer instead of
+# a blind build. Plain chat lane; no wire change, no client handling.
+IMAGE_GUARD_STEERING = (
+    "\n\nFILE BUILD NOTICE: The user confirmed building a file from an "
+    "attached photo, but the photo did not arrive with this confirmation "
+    "message. Do not build the file and do not invent or describe file "
+    "contents. Tell the user plainly that the photo did not come through "
+    "with the confirmation, and ask them to send one new message with the "
+    "photo attached and the request repeated. That message will build the "
+    "file from the real image."
+)
+
+
+def ask_references_images(text: str) -> bool:
+    """True when the assembled ask claims attached images (client marker)."""
+    return bool(_IMAGE_MARKER_RE.search(text or ""))
+
+
 def looks_like_file_ask(text: str) -> bool:
     tail = (text or "")[-2000:].lower()
     return any(h in tail for h in _FILE_ASK_HINTS)

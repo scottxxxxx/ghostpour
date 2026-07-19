@@ -1769,6 +1769,7 @@ async def chat(
     _gen_expected_seconds = None
     _gen_confirmation_enabled = False
     _template_id = None
+    _img_guarded = False  # image-guard disarmed this turn: no re-offer
     _gen_teaser_text = ""
     _gen_teaser_offer_id = None
     _gen_upsell_line = None
@@ -1806,7 +1807,32 @@ async def chat(
                     body = body.model_copy(update={
                         "user_content": _offer["ask_content"]
                         + "\n\nThe user confirmed the file build."})
-        if _confirmation["enabled"] and not body.get_meta("generation_confirmed"):
+                # Image-sourced builds: the photo rides the ORIGINATING send;
+                # confirming sends assemble chat history only. Inherit the
+                # stored images, and if none are available anywhere for an
+                # ask that references attached images, DISARM — an
+                # image-blind generation invents rather than fails
+                # (2026-07-19 fabricated-spreadsheet incident).
+                from app.services.document_generation import (
+                    IMAGE_GUARD_STEERING,
+                    ask_references_images,
+                )
+                if _offer.get("images") and not body.images:
+                    body = body.model_copy(update={"images": _offer["images"]})
+                if not body.images and (
+                        _offer.get("images_dropped")
+                        or ask_references_images(_offer.get("ask_content") or "")):
+                    logger.warning("generation_image_guard disarm=confirmed_echo")
+                    _img_guarded = True
+                    _meta_g = dict(body.metadata or {})
+                    _meta_g["generation_confirmed"] = False
+                    body = body.model_copy(update={
+                        "metadata": _meta_g,
+                        "system_prompt": (body.system_prompt or "")
+                        + IMAGE_GUARD_STEERING})
+                    _template_id = None
+        if (_confirmation["enabled"] and not _img_guarded
+                and not body.get_meta("generation_confirmed")):
             _gen_armed = False
             _meter = lambda creq, cresp, cms: usage_tracker.record_and_log(  # noqa: E731
                 db, user=user, tier=tier, app_id=app_id,
@@ -1842,11 +1868,30 @@ async def chat(
                     _reply_verbatim if _reply_verbatim else body.user_content,
                     verbatim=bool(_reply_verbatim), on_subcall=_meter)
                 if _reply["confirm"]:
-                    _gen_armed = True
-                    _template_id = _offer.get("template_id")
+                    # Image inherit + guard (2026-07-19 fabricated-spreadsheet
+                    # incident): the photo rides the ORIGINATING send; the
+                    # typed-yes reply carries chat history only. Inherit the
+                    # stored images; an image-referencing ask with no image
+                    # anywhere disarms — the model invents rather than fails.
+                    from app.services.document_generation import (
+                        IMAGE_GUARD_STEERING,
+                        ask_references_images,
+                    )
+                    if _offer.get("images") and not body.images:
+                        body = body.model_copy(update={"images": _offer["images"]})
+                    _img_guarded = (not body.images and (
+                        _offer.get("images_dropped")
+                        or ask_references_images(_offer.get("ask_content") or "")))
+                    if _img_guarded:
+                        logger.warning("generation_image_guard disarm=typed_yes")
+                    _gen_armed = not _img_guarded
+                    _template_id = _offer.get("template_id") if _gen_armed else None
                     _meta = dict(body.metadata or {})
-                    _meta["generation_confirmed"] = True  # transport + rescue reuse
+                    _meta["generation_confirmed"] = _gen_armed  # transport + rescue reuse
                     _updates: dict = {"metadata": _meta}
+                    if _img_guarded:
+                        _updates["system_prompt"] = (
+                            (body.system_prompt or "") + IMAGE_GUARD_STEERING)
                     # The confirmed turn runs against the ORIGINATING ask's
                     # content (stored on the offer): reply sends assemble
                     # chat history only, and both lanes — extraction and
@@ -1867,16 +1912,18 @@ async def chat(
                     # like the first-pass resolution, or the provider receives
                     # a vendor-prefixed id it rejects (first live chat-confirm
                     # failed on 'anthropic/claude-sonnet-4-6').
-                    _re_model = _resolve_model_routing(
-                        request, body, tier, effective_tier_name)
-                    if _re_model:
-                        _parts = _re_model.split("/", 1)
-                        if len(_parts) == 2:
-                            body = body.model_copy(update={
-                                "provider": _parts[0], "model": _parts[1]})
-                        elif _re_model != body.model:
-                            body = body.model_copy(update={"model": _re_model})
-            if not _gen_armed:
+                    # Guarded turns stay on the already-resolved chat lane.
+                    if _gen_armed:
+                        _re_model = _resolve_model_routing(
+                            request, body, tier, effective_tier_name)
+                        if _re_model:
+                            _parts = _re_model.split("/", 1)
+                            if len(_parts) == 2:
+                                body = body.model_copy(update={
+                                    "provider": _parts[0], "model": _parts[1]})
+                            elif _re_model != body.model:
+                                body = body.model_copy(update={"model": _re_model})
+            if not _gen_armed and not _img_guarded:
                 # guaranteed catch first (deterministic, no LLM); the
                 # classifier only judges the softer phrasings
                 from app.services.document_generation import (
@@ -1912,7 +1959,8 @@ async def chat(
                         (_intent or {}).get("gist") or "",
                         template_id=_mt(body.user_content,
                                         format=(_intent or {}).get("format")),
-                        ask_content=body.user_content or "")
+                        ask_content=body.user_content or "",
+                        images=body.images)
                 if _intent and _intent.get("file_request"):
                     from app.services.doc_templates import TEMPLATES, match_template
                     # Format veto (live 2026-07-14 21:58:42Z: a docx
@@ -1924,7 +1972,8 @@ async def chat(
                     _offer_id = generation_offers.create(
                         user.id, _intent.get("format") or "xlsx",
                         _intent.get("gist") or "", template_id=_tmpl,
-                        ask_content=body.user_content or "")
+                        ask_content=body.user_content or "",
+                        images=body.images)
                     _envelope = build_offer_envelope(
                         _confirmation, _intent.get("format"),
                         gist=_intent.get("gist") or "", offer_id=_offer_id)
