@@ -606,6 +606,7 @@ def test_offer_store_one_shot_and_ttl(monkeypatch):
     offer = go.take("u1", oid)
     assert offer == {"format": "docx", "gist": "for onboarding",
                      "template_id": None, "ask_content": "",
+                     "images": [], "images_dropped": False,
                      "expires": offer["expires"]}
     assert go.take("u1", oid) is None            # one-shot: dead after a reply
     oid2 = go.create("u1", "xlsx", "")
@@ -613,6 +614,34 @@ def test_offer_store_one_shot_and_ttl(monkeypatch):
     key = ("u1", oid2)
     go._OFFERS[key]["expires"] -= 9999
     assert go.take("u1", oid2) is None           # expired
+
+
+def test_offer_store_keeps_originating_images_with_cap():
+    """2026-07-19 fabricated-spreadsheet incident: reply sends carry chat
+    history only, so an image-sourced build must inherit the ORIGINATING
+    photo from the offer — and over-cap images are dropped WITH a marker
+    so the arming path can refuse to generate blind."""
+    from app.services import generation_offers as go
+    oid = go.create("u1", "xlsx", "from image", images=["aW1nMQ==", "aW1nMg=="])
+    offer = go.take("u1", oid)
+    assert offer["images"] == ["aW1nMQ==", "aW1nMg=="]
+    assert offer["images_dropped"] is False
+
+    big = "x" * (go._IMAGES_CAP_CHARS + 1)
+    oid2 = go.create("u1", "xlsx", "huge", images=[big])
+    offer2 = go.take("u1", oid2)
+    assert offer2["images"] == []
+    assert offer2["images_dropped"] is True
+
+
+def test_ask_references_images_marker():
+    from app.services.document_generation import ask_references_images
+    assert ask_references_images(
+        "Project: X\n[1 image(s) attached for visual context]\nGive me an "
+        "excel file from this image")
+    assert ask_references_images("[3 image(s) attached for visual context]")
+    assert not ask_references_images("make me a spreadsheet of Q3 sales")
+    assert not ask_references_images("")
 
 
 def test_offer_envelope_conversational_with_gist_and_offer_id():
@@ -689,6 +718,85 @@ def test_chat_confirm_arms_generation_on_the_reply_turn(client, free_user, mock_
     con.close()
     assert row and row[0] == "done"
     assert go.take(uid, oid) is None            # offer consumed
+
+
+def test_typed_yes_inherits_offer_images_and_arms(client, free_user, mock_provider,
+                                                  tmp_db_path, monkeypatch):
+    """Image-sourced ask + stored images: the confirmed turn inherits the
+    photo from the offer and generation proceeds (2026-07-19 incident,
+    fixed half: the build sees the real image)."""
+    import sqlite3
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from app.services import generation_offers as go
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    uid = free_user.get("user_id")
+    if uid is None:
+        con = sqlite3.connect(tmp_db_path)
+        uid = con.execute("SELECT id FROM users WHERE email LIKE 'test-free-user%'").fetchone()[0]
+        con.close()
+    oid = go.create(
+        uid, "xlsx", "reproduce data from image",
+        ask_content="[1 image(s) attached for visual context]\n"
+                    "Give me an Excel reproduction of what you see in this image",
+        images=["ZmFrZWpwZWc="])
+    monkeypatch.setattr(dg, "interpret_offer_reply",
+                        AsyncMock(return_value={"confirm": True, "format": "xlsx"}))
+
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="PostMeetingChat", call_type="query",
+        metadata={"offer_id": oid, "generation_id": "gen-img-yes"},
+        user_content="Yes",
+    ), headers=free_user["headers"])
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/event-stream")
+    assert "event: generation_result" in r.text
+    con = sqlite3.connect(tmp_db_path)
+    row = con.execute("SELECT status FROM generations WHERE generation_id='gen-img-yes'").fetchone()
+    con.close()
+    assert row and row[0] == "done"
+
+
+def test_typed_yes_image_guard_disarms_when_photo_missing(client, free_user, mock_provider,
+                                                          tmp_db_path, monkeypatch):
+    """Image-sourced ask, NO image anywhere (offer minted without images,
+    reply send image-less): the guard disarms instead of generating —
+    an image-blind build invents rather than fails (2026-07-19: fabricated
+    sales sheet with placeholder names). The turn answers as normal chat
+    with the re-attach steering, and must NOT re-offer."""
+    import sqlite3
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from app.services import generation_offers as go
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    uid = free_user.get("user_id")
+    if uid is None:
+        con = sqlite3.connect(tmp_db_path)
+        uid = con.execute("SELECT id FROM users WHERE email LIKE 'test-free-user%'").fetchone()[0]
+        con.close()
+    oid = go.create(
+        uid, "xlsx", "reproduce data from image",
+        ask_content="[1 image(s) attached for visual context]\n"
+                    "Give me an Excel reproduction of what you see in this image")
+    monkeypatch.setattr(dg, "interpret_offer_reply",
+                        AsyncMock(return_value={"confirm": True, "format": "xlsx"}))
+
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="PostMeetingChat", call_type="query",
+        metadata={"offer_id": oid, "generation_id": "gen-img-guard"},
+        user_content="Yes",
+    ), headers=free_user["headers"])
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/json")  # not SSE
+    assert "feature_state" not in r.json()       # no re-offer loop
+    con = sqlite3.connect(tmp_db_path)
+    row = con.execute("SELECT 1 FROM generations WHERE generation_id='gen-img-guard'").fetchone()
+    con.close()
+    assert row is None                            # nothing generated
 
 
 def test_chat_decline_is_a_normal_turn(client, free_user, mock_provider,
