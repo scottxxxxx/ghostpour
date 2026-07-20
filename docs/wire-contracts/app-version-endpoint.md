@@ -5,9 +5,29 @@ soft banner iOS renders on launch. Multi-tenant by bundle id from day
 one so the gateway can serve any app on top of GhostPour without
 changing the wire shape.
 
-Last updated: 2026-06-10.
+Last updated: 2026-07-20.
 
 ## Concepts
+
+- **Distribution channel (`X-App-Distribution`)** — optional header the
+  client sets from StoreKit 2 `AppTransaction.environment`:
+  `production`, `sandbox`, or `xcode`. GP maps it to a channel
+  (`production` -> appstore; `sandbox`/`xcode` -> testflight) and, when
+  the registry has a `latest_by_channel` block, serves that channel's
+  `latest`. This keeps TestFlight and App Store separate: a TestFlight
+  user is nudged to the latest beta with the TestFlight invite URL, an
+  App Store user to the latest App Store release with the App Store URL,
+  and neither is ever routed to a build they can't install. Absent or
+  unrecognized -> the top-level `latest` fallback (pre-channel behavior),
+  so header-less clients are unaffected. Same signal the distribution
+  telemetry ping uses, so the client wires `AppTransaction.environment`
+  once and it serves both. The response `Vary`s on this header.
+- **`latest_by_channel`** — optional server-side map of channel ->
+  `latest` block (`testflight`, `appstore`). Resolved on the way out and
+  never emitted on the wire; the client only ever sees one resolved
+  `latest`. The App Store variant sits at version `0.0` until launch so
+  no App Store user is ever below it (no toast, no misroute) until an
+  operator sets the shipped App Store version.
 
 - **Bundle id on the request** — the app identifies itself with its
   `CFBundleIdentifier` (e.g. `com.shouldersurf.ShoulderSurf`) sent on
@@ -35,9 +55,12 @@ Last updated: 2026-06-10.
 ```
 GET /v1/app/version
 X-App-Bundle-Id: <bundle id>          [required]
+X-App-Distribution: <environment>     [optional: production | sandbox | xcode]
 ```
 
 No `Authorization` header. The call fires pre-login on app launch.
+`X-App-Distribution` is optional; omitting it yields the fallback
+`latest` (unchanged pre-channel behavior).
 Trust comes from the request being explicit about which app is asking,
 not from a JWT — an attacker poking the endpoint just gets back the
 same public version data anyone with TestFlight can already see.
