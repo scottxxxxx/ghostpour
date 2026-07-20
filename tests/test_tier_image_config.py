@@ -28,6 +28,20 @@ def test_tiers_payload_surfaces_images(client):
     assert pro["images"]["jpeg_quality"] == 0.8
 
 
+def test_capture_guidance_served_for_every_tier(client):
+    # Capture guidance rides the same images block SS already reads; the
+    # client renders it as a pre-capture hint. Served for all tiers, and
+    # dash-free per the served-copy rule (the model copies punctuation it
+    # sees, and these strings are user-facing).
+    tiers = client.get("/webhooks/admin/tiers", headers=ADMIN).json()["tiers"]
+    for name in ("free", "plus", "pro"):
+        guide = tiers[name]["images"]["capture_guidance"]
+        assert guide["title"]
+        assert len(guide["tips"]) >= 3
+        blob = guide["title"] + " ".join(guide["tips"])
+        assert "—" not in blob and "–" not in blob  # no em/en dashes
+
+
 def test_tunable_endpoint_edits_image_config_including_float(client):
     # int field
     r = client.put("/webhooks/admin/tunable/tier-field",
@@ -43,3 +57,10 @@ def test_tunable_endpoint_edits_image_config_including_float(client):
                     headers=ADMIN)
     assert r2.status_code == 200
     assert tier_feature_block(client.app.state.remote_configs, "pro", "images")["jpeg_quality"] == 0.9
+    # Restore: the tunable endpoint persists to the overlay beside the DB,
+    # so leaving the mutation in place poisons sibling tests that assert the
+    # bundle defaults (the overlay shadows the bundle). Put it back.
+    for field, val in (("max_long_edge", 1568), ("jpeg_quality", 0.8)):
+        client.put("/webhooks/admin/tunable/tier-field",
+                   json={"tier": "pro", "feature": "images",
+                         "field": field, "value": val}, headers=ADMIN)

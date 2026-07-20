@@ -1,5 +1,5 @@
 {
-  "version": 21,
+  "version": 22,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -22,7 +22,19 @@
         {"label": "Max images", "value": "1 per query", "icon": "photo"}
       ],
       "feature_definitions": {
-        "images": {"max_long_edge": 1568, "jpeg_quality": 0.8},
+        "images": {
+          "max_long_edge": 1568,
+          "jpeg_quality": 0.8,
+          "capture_guidance": {
+            "title": "For the sharpest read",
+            "tips": [
+              "Fill the frame with the sheet so the text is as large as possible",
+              "Hold steady until the text looks sharp before you shoot",
+              "Light the whole sheet evenly and avoid glare or shadows",
+              "Line the camera up straight on rather than at an angle"
+            ]
+          }
+        },
         "project_chat": {"max_input_tokens": 50000},
         "budget": {
           "cta_exhausted": {
@@ -81,7 +93,19 @@
         {"label": "Meeting Memory", "value": "upgrade to Pro", "icon": "brain", "state": "teaser"}
       ],
       "feature_definitions": {
-        "images": {"max_long_edge": 1568, "jpeg_quality": 0.8},
+        "images": {
+          "max_long_edge": 1568,
+          "jpeg_quality": 0.8,
+          "capture_guidance": {
+            "title": "For the sharpest read",
+            "tips": [
+              "Fill the frame with the sheet so the text is as large as possible",
+              "Hold steady until the text looks sharp before you shoot",
+              "Light the whole sheet evenly and avoid glare or shadows",
+              "Line the camera up straight on rather than at an angle"
+            ]
+          }
+        },
         "project_chat": {"max_input_tokens": 150000},
         "search": {
           "searches_per_month": 75,
@@ -133,7 +157,19 @@
         {"label": "Meeting Memory", "value": "enabled", "icon": "brain", "state": "enabled"}
       ],
       "feature_definitions": {
-        "images": {"max_long_edge": 1568, "jpeg_quality": 0.8},
+        "images": {
+          "max_long_edge": 1568,
+          "jpeg_quality": 0.8,
+          "capture_guidance": {
+            "title": "For the sharpest read",
+            "tips": [
+              "Fill the frame with the sheet so the text is as large as possible",
+              "Hold steady until the text looks sharp before you shoot",
+              "Light the whole sheet evenly and avoid glare or shadows",
+              "Line the camera up straight on rather than at an angle"
+            ]
+          }
+        },
         "project_chat": {"max_input_tokens": 180000},
         "generation": {"generations_per_month": 100},
         "search": {

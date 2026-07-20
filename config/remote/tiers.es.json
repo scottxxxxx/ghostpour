@@ -1,5 +1,5 @@
 {
-  "version": 21,
+  "version": 22,
   "tiers": {
     "free": {
       "display_name": "Gratis",
@@ -22,7 +22,19 @@
         {"label": "Imágenes máx.", "value": "1 por consulta", "icon": "photo"}
       ],
       "feature_definitions": {
-        "images": {"max_long_edge": 1568, "jpeg_quality": 0.8},
+        "images": {
+          "max_long_edge": 1568,
+          "jpeg_quality": 0.8,
+          "capture_guidance": {
+            "title": "Para la lectura más nítida",
+            "tips": [
+              "Llena el encuadre con la hoja para que el texto sea lo más grande posible",
+              "Mantén el pulso firme hasta que el texto se vea nítido antes de disparar",
+              "Ilumina toda la hoja de forma uniforme y evita reflejos o sombras",
+              "Alinea la cámara de frente en lugar de en ángulo"
+            ]
+          }
+        },
         "project_chat": {"max_input_tokens": 50000},
         "budget": {
           "cta_exhausted": {
@@ -81,7 +93,19 @@
         {"label": "Memoria de Reuniones", "value": "actualiza a Pro", "icon": "brain", "state": "teaser"}
       ],
       "feature_definitions": {
-        "images": {"max_long_edge": 1568, "jpeg_quality": 0.8},
+        "images": {
+          "max_long_edge": 1568,
+          "jpeg_quality": 0.8,
+          "capture_guidance": {
+            "title": "Para la lectura más nítida",
+            "tips": [
+              "Llena el encuadre con la hoja para que el texto sea lo más grande posible",
+              "Mantén el pulso firme hasta que el texto se vea nítido antes de disparar",
+              "Ilumina toda la hoja de forma uniforme y evita reflejos o sombras",
+              "Alinea la cámara de frente en lugar de en ángulo"
+            ]
+          }
+        },
         "project_chat": {"max_input_tokens": 150000},
         "search": {
           "searches_per_month": 75,
@@ -133,7 +157,19 @@
         {"label": "Memoria de Reuniones", "value": "activado", "icon": "brain", "state": "enabled"}
       ],
       "feature_definitions": {
-        "images": {"max_long_edge": 1568, "jpeg_quality": 0.8},
+        "images": {
+          "max_long_edge": 1568,
+          "jpeg_quality": 0.8,
+          "capture_guidance": {
+            "title": "Para la lectura más nítida",
+            "tips": [
+              "Llena el encuadre con la hoja para que el texto sea lo más grande posible",
+              "Mantén el pulso firme hasta que el texto se vea nítido antes de disparar",
+              "Ilumina toda la hoja de forma uniforme y evita reflejos o sombras",
+              "Alinea la cámara de frente en lugar de en ángulo"
+            ]
+          }
+        },
         "project_chat": {"max_input_tokens": 180000},
         "generation": {"generations_per_month": 100},
         "search": {
