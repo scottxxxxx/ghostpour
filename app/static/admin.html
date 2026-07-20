@@ -1921,6 +1921,19 @@ function renderTiers(tiers) {
         </div>
         <div id="src-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px">0 = search disabled (Free)</div>
       </div>
+      <div style="margin-top:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:6px">
+        <div class="lbl" style="margin-bottom:6px">File generation cap (per month)</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:11px;color:var(--text-dim);width:60px">Builds</span>
+          <input type="number" id="gen-cap-${name}" value="${t.generations_per_month != null ? t.generations_per_month : ''}"
+                 placeholder="uncapped"
+                 style="flex:1;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:12px;font-family:monospace"
+                 min="0" step="5">
+          <button class="refresh-btn" style="background:var(--accent);color:#000;font-weight:600;padding:6px 12px"
+                  onclick="saveGenerationCap('${name}')">Save</button>
+        </div>
+        <div id="gen-cap-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px">empty = uncapped; at cap the user is told in chat and answered inline</div>
+      </div>
       <div class="model-list">
         <div class="lbl" style="margin-bottom:4px">Providers</div>
         ${providerTags}
@@ -2536,6 +2549,54 @@ async function saveSearchCap(tierName, field) {
     status.textContent = fileCount > 0
       ? `Saved ${field}. Updated ${fileCount} file(s).`
       : `No change (${field}: value already matched).`;
+    status.style.color = 'var(--green)';
+    refresh();
+  } else {
+    const err = await resp.json().catch(() => ({}));
+    status.textContent = 'Error: ' + (err.detail || 'save failed');
+    status.style.color = 'var(--red)';
+  }
+}
+
+// --- File generation cap ---
+//
+// Same endpoint and lockstep-locale semantics as the search caps; the
+// value lands as tiers.{tier}.feature_definitions.generation
+// .generations_per_month and hot-reloads, so a save here changes
+// enforcement on the very next /v1/chat call. Empty input = null =
+// uncapped (the entitlement still gates who can generate at all).
+async function saveGenerationCap(tierName) {
+  const input = document.getElementById(`gen-cap-${tierName}`);
+  const status = document.getElementById('gen-cap-status-' + tierName);
+
+  let value;
+  if (input.value === '' || input.value === null) {
+    value = null;   // uncapped
+  } else {
+    value = parseInt(input.value, 10);
+    if (isNaN(value) || value < 0) {
+      status.textContent = 'Must be a non-negative integer (or empty for uncapped).';
+      status.style.color = 'var(--red)';
+      return;
+    }
+  }
+
+  status.textContent = 'Saving generation cap…';
+  status.style.color = 'var(--orange)';
+
+  const resp = await fetch(`${BASE}/webhooks/admin/tunable/tier-field`, {
+    method: 'PUT',
+    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
+    body: JSON.stringify({tier: tierName, feature: 'generation',
+                          field: 'generations_per_month', value: value}),
+  });
+
+  if (resp.ok) {
+    const data = await resp.json();
+    const fileCount = (data.files_updated || []).length;
+    status.textContent = fileCount > 0
+      ? `Saved. Updated ${fileCount} file(s); live on the next chat call.`
+      : 'No change (value already matched).';
     status.style.color = 'var(--green)';
     refresh();
   } else {
