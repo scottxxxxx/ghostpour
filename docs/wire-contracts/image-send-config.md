@@ -88,6 +88,33 @@ the `jpeg_quality` float). `capture_guidance` is structured, so edit it
 via the config bundle + sync-from-bundle path rather than the scalar
 tunable. Lockstep across locale files (`.es`, `.ja`).
 
+## Reactive capture-quality note (server-side, no client work)
+
+Rather than only nudging up front, GP can surface the guidance
+*reactively*, in the chat reply, when a document reproduction turn was
+built from an image that reads as too soft. This needs no client render
+work: it appends to the reply text the client already shows.
+
+- **Trigger**: generation armed AND an artifact was produced AND an image
+  was attached AND the served flag is on AND the image scores below the
+  blur threshold. Scoped to the reproduction lane so casual "what is in
+  this photo" queries are never touched.
+- **Signal**: variance of a Laplacian-filtered grayscale of the submitted
+  image (the standard sharpness metric). Resolution is deliberately *not*
+  used, our sweep showed pixel count is a poor legibility proxy. Note the
+  JPEG floor: block artifacts hold the metric around 160 even for a very
+  blurred image, so the threshold sits above that.
+- **Flag**: `client-config.image_quality_note = {enabled: bool,
+  blur_threshold: number}`. Absent or `enabled:false` means the note
+  never fires (ships dark). `blur_threshold` default 200, tunable without
+  a build.
+- **Copy**: reuses the same `capture_guidance` tips from the images
+  block, so there is one source of truth for the advice. Framed as a
+  partial-result nudge, not a scolding.
+
+Fail-open throughout: any decode or config hiccup means no note, never a
+blocked reply. Pillow only, no numpy.
+
 ## Client obligation
 
 Read `tiers.<tier>.feature_definitions.images` at runtime. Honor

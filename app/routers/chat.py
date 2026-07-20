@@ -2556,6 +2556,20 @@ async def chat(
         if generated_payload:
             response_data["generated_files"] = generated_payload
 
+        # Reactive capture-quality note (2026-07-20): when a reproduction
+        # actually produced a file FROM a submitted image, and that image
+        # reads as too soft, append the served capture guidance to the
+        # reply. Reactive-in-the-reply beats nagging up front, and scoping
+        # to this lane (generated_payload + images) keeps casual photo
+        # queries untouched. Gated by served flag, fail-open.
+        if generated_payload and body.images and response_data.get("text"):
+            from app.services.image_quality import maybe_capture_quality_note
+            _quality_note = maybe_capture_quality_note(
+                body.images, request.app.state.remote_configs, user.tier)
+            if _quality_note:
+                response_data["text"] = (
+                    response_data["text"] + "\n\n" + _quality_note)
+
         # Native action block (SS request 2026-07-19): additive, absent by
         # default. Action-items-shaped asks on the chat surfaces get a
         # structured reminders payload extracted from the finished answer

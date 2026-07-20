@@ -18,3 +18,4 @@ pypdf==5.*
 defusedxml==0.7.*
 python-docx==1.*
 openpyxl==3.*
+Pillow==11.*
