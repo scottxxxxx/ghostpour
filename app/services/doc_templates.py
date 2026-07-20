@@ -335,9 +335,47 @@ def render_gantt(data: dict, *, today: date | None = None) -> bytes:
 
     ws.freeze_panes = "J4"
     ws.sheet_properties.outlinePr.summaryBelow = False
+    # Determinism is a CLAIMED property (same-plan-same-bytes, asserted by
+    # the acceptance test and relied on for artifact byte-stability), but
+    # openpyxl stamps wall-clock time in two places: docProps/core.xml
+    # created/modified, and every zip member's DOS mtime (2s resolution).
+    # Renders straddling a second boundary produced different bytes —
+    # a latent CI flake that struck twice on 2026-07-19. Freeze both.
+    from datetime import datetime as _dt
+    wb.properties.created = _dt(2026, 1, 1)
+    wb.properties.modified = _dt(2026, 1, 1)
     buf = BytesIO()
     wb.save(buf)
-    return buf.getvalue()
+    return _normalize_zip(buf.getvalue())
+
+
+def _normalize_zip(blob: bytes) -> bytes:
+    """Re-pack the xlsx with fixed member timestamps (content, order, and
+    compression preserved) so identical content is identical bytes."""
+    import zipfile
+    src = zipfile.ZipFile(BytesIO(blob))
+    out = BytesIO()
+    import re as _re
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+        for name in src.namelist():
+            data = src.read(name)
+            if name == "docProps/core.xml":
+                # openpyxl overwrites dcterms:modified with wall-clock at
+                # save time (setting wb.properties beforehand is futile) —
+                # pin both stamps here instead.
+                for tag in (b"created", b"modified"):
+                    # keep the element's own attributes (openpyxl declares
+                    # xmlns:xsi element-scoped) — pin only the text value
+                    data = _re.sub(
+                        b"(<dcterms:" + tag + b"[^>]*>)[^<]*(</dcterms:"
+                        + tag + b">)",
+                        lambda m: m.group(1) + b"2026-01-01T00:00:00Z"
+                        + m.group(2),
+                        data)
+            zi = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+            zi.compress_type = zipfile.ZIP_DEFLATED
+            z.writestr(zi, data)
+    return out.getvalue()
 
 
 TEMPLATES = {
