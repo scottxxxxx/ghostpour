@@ -2555,6 +2555,27 @@ async def chat(
         # client downloads immediately (URLs are a 6h fetch window, not storage).
         if generated_payload:
             response_data["generated_files"] = generated_payload
+
+        # Native action block (SS request 2026-07-19): additive, absent by
+        # default. Action-items-shaped asks on the chat surfaces get a
+        # structured reminders payload extracted from the finished answer
+        # (post-answer sub-call — display text stays clean, no sentinels).
+        # Never on armed generation turns; fail-open everywhere.
+        if (not body.generation and not _template_id and not generated_payload
+                and response_data.get("text")):
+            from app.services.native_actions import maybe_extract_native_action
+            _native_action = await maybe_extract_native_action(
+                provider_router, request.app.state.remote_configs,
+                prompt_mode=body.get_meta("prompt_mode"),
+                question=body.user_content or "",
+                answer_text=response_data["text"],
+                on_subcall=lambda creq, cresp, cms: usage_tracker.record_and_log(
+                    db, user=user, tier=tier, app_id=app_id,
+                    request=creq, response=cresp, elapsed_ms=cms,
+                    pricing=pricing),
+            )
+            if _native_action:
+                response_data["native_action"] = _native_action
         if _teaser_state and not generated_payload:
             # soft-intent teaser (SS design, replacing their manual toggle):
             # same envelope family they render everywhere; the tap resends
@@ -2942,6 +2963,28 @@ async def _handle_stream(
             # Streaming surfaces get the teaser here — same envelope shape
             # the JSON path serves as feature_state (add-only on done).
             done_data["feature_state"] = teaser_state
+        # Native action block on the streaming done event — same additive
+        # contract as the JSON path (SS request 2026-07-19). Extraction
+        # runs after the text finished streaming, so it only delays the
+        # done event, never the visible answer.
+        if final_response and final_response.text:
+            from app.services.native_actions import maybe_extract_native_action
+
+            async def _meter_native(creq, cresp, cms):
+                await usage_tracker.record_and_log(
+                    stream_db, user=user, tier=tier, app_id=app_id,
+                    request=creq, response=cresp, elapsed_ms=cms,
+                    pricing=pricing)
+
+            _native_action = await maybe_extract_native_action(
+                provider_router, request.app.state.remote_configs,
+                prompt_mode=body.get_meta("prompt_mode"),
+                question=body.user_content or "",
+                answer_text=final_response.text,
+                on_subcall=_meter_native,
+            )
+            if _native_action:
+                done_data["native_action"] = _native_action
         if effective_limit != -1:
             new_used = monthly_used + request_cost
             done_data["allocation_percent"] = min(100, new_used / effective_limit * 100)
