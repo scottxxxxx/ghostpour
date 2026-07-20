@@ -1578,6 +1578,9 @@ async def get_tiers(
         # dashboard renders whatever's persisted (admin tunable edits
         # land in the JSON, not yaml).
         sc = get_search_caps(remote_configs, name, locale=None)
+        from app.services.document_generation import (
+            generation_monthly_cap as _gen_cap,
+        )
         tiers[name] = {
             "display_name": tier.display_name,
             "default_model": tier.default_model,
@@ -1599,6 +1602,7 @@ async def get_tiers(
             ),
             "searches_per_month": sc.searches_per_month,
             "searches_soft_threshold": sc.searches_soft_threshold,
+            "generations_per_month": _gen_cap(remote_configs, name),
         }
 
     return {"tiers": tiers}

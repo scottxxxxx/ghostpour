@@ -750,6 +750,26 @@ def test_generations_used_counts_only_file_producing_builds(client, free_user,
     assert used == 1
 
 
+def test_dashboard_edits_generation_cap_and_it_enforces(client):
+    """The generic tier-field tunable writes generation.generations_per_month
+    (lockstep locales, hot reload) — the dashboard's Save button IS the
+    enforcement change."""
+    from app.services.document_generation import generation_monthly_cap
+    r = client.put("/webhooks/admin/tunable/tier-field",
+                   json={"tier": "pro", "feature": "generation",
+                         "field": "generations_per_month", "value": 7},
+                   headers={"X-Admin-Key": "test-admin-key"})
+    assert r.status_code == 200
+    assert generation_monthly_cap(client.app.state.remote_configs, "pro") == 7
+    # clearing = uncapped
+    r2 = client.put("/webhooks/admin/tunable/tier-field",
+                    json={"tier": "pro", "feature": "generation",
+                          "field": "generations_per_month", "value": None},
+                    headers={"X-Admin-Key": "test-admin-key"})
+    assert r2.status_code == 200
+    assert generation_monthly_cap(client.app.state.remote_configs, "pro") is None
+
+
 def test_offer_envelope_conversational_with_gist_and_offer_id():
     from app.services.document_generation import _CONFIRMATION_DEFAULTS, build_offer_envelope
     env = build_offer_envelope(_CONFIRMATION_DEFAULTS, "docx",
