@@ -1,5 +1,6 @@
 {
-  "version": 12,
+  "version": 13,
+  "native_actions": {"enabled": true, "kinds": ["reminders"]},
   "limits": {
     "project_chat": {
       "max_input_chars": {
