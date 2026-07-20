@@ -6,8 +6,9 @@ retention, and feed the result into CTA/promo targeting. One event on the
 existing anonymous ping. GP defines the wire, the app emits it, same
 pattern as the distribution signal.
 
-Last updated: 2026-07-20. Status: GP ingestion live; step vocabulary
-proposed below, pending SS confirmation against their actual screens.
+Last updated: 2026-07-20. Status: LIVE end to end. GP ingestion deployed;
+SS client emit built and verified against the live endpoint; step
+vocabulary finalized below from SS's screen list.
 
 ## Join key and privacy
 
@@ -69,27 +70,32 @@ events (422 either way).
 - **`steps`** (array of `{step, dwell_ms}`) — per-page dwell, in order.
   `step` is a canonical id (below); `dwell_ms` is milliseconds on that page.
 
-## Step vocabulary (PROPOSED — confirm against real screens)
+## Step vocabulary (FINALIZED 2026-07-20 from SS's screen list)
 
-Canonical `step` ids so the funnel is consistent across builds. GP does
-not hard-validate these at ingestion (any id is stored, so the vocabulary
-can evolve without a GP deploy), but both sides agree the canonical set
-here so analysis lines up. The semantically important ones we correlate
-on are fixed; the informational pages should use stable snake_case ids
-that SS sends from their actual screen inventory.
+Canonical `step` ids, in order. GP does not hard-validate these at
+ingestion (any id is stored, so the vocabulary can evolve without a GP
+deploy), but both sides agree the set here so analysis lines up.
 
-Fixed (we correlate on these):
-- `name_entry`
-- `voice_enrollment`
-- `auth_choice`
+1. `highlights`
+2. `tour_1` … `tour_N` — the intro tour slides, positional. Currently
+   ~12 core slides, but the count varies by release, so these ids are
+   dynamic. Permissive ingestion is exactly why this is fine: N can move
+   release to release with no GP change. Treat `tour_*` as one funnel
+   stage when aggregating unless a specific slide matters.
+3. `name_entry` — fixed, correlated
+4. `auth_choice` — fixed, correlated
+5. `voice_enrollment` — fixed, correlated
+6. `complete` — terminal screen
 
-Proposed for the rest (SS to confirm/replace with real screen ids):
-- `welcome`
-- `value_prop` (or the actual per-screen ids if there are several)
-- `permissions` (notifications / mic, if a distinct page)
+The three we correlate on (`name_entry`, `auth_choice`,
+`voice_enrollment`) map exactly to SS's screens.
 
-**SS action:** send the real ordered screen list so we lock the final
-vocabulary in this doc.
+**Not instrumented:** the Terms & Privacy consent gate runs before this
+flow as a separate screen and is out of the funnel today. It's a
+mandatory gate (everyone passes it or doesn't use the app), so dwell
+there is low-signal; left out on purpose. If we ever want it, SS adds a
+`terms` step ahead of `highlights`, no GP change needed (permissive
+ingestion).
 
 ## Storage
 
