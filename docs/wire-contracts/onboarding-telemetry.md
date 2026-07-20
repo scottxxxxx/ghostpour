@@ -62,9 +62,17 @@ events (422 either way).
   dwell paused on backgrounding.
 - **`completed`** (bool, required) — finished vs abandoned.
 - **`tour_skipped`** (bool) — user tapped skip on the intro tour.
-- **`name_provided`** (bool) — a name was entered. The name itself is not sent.
-- **`voice_enrolled`** (bool) — voice enrollment finished. The audio is not sent.
-- **`auth_choice`** (`"apple"` | `"on_device"` | null) — sign-in path chosen.
+- **`name_provided`** (bool) — END-STATE: an owner name exists now, read
+  from live app state at emit time (not a this-run flag). True even for a
+  returning user whose `name_entry` step was dropped because they already
+  named themselves. The name itself is not sent.
+- **`voice_enrolled`** (bool) — END-STATE: an owner voice profile exists
+  now. True even when `voice_enrollment` was skipped as already done. The
+  audio is not sent.
+- **`auth_choice`** (`"apple"` | `"on_device"` | null) — END-STATE: the
+  current auth path, read at emit time. Reported even when the step was
+  dropped; a dropped `auth_choice` means already signed in, so it reports
+  `apple`.
 - **`abandoned_at_step`** (string | null) — the step id they dropped on;
   null when `completed` is true.
 - **`steps`** (array of `{step, dwell_ms}`) — per-page dwell, in order.
