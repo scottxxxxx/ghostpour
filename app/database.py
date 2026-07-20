@@ -492,6 +492,15 @@ MIGRATIONS = [
         PRIMARY KEY (generation_id, user_id)
     )""",
     "CREATE INDEX IF NOT EXISTS idx_generations_expiry ON generations(expires_at)",
+    # Quiet per-tier monthly generation count cap (2026-07-19).
+    # generations_used mirrors searches_used: rolling counter for the
+    # current allocation period, incremented on each DONE generation and
+    # reset by the same lazy-reset path as monthly_used_usd. Counting
+    # from the generations table won't work — its rows expire on the 6h
+    # staging clock. Deliberately NO client surface (unlike search's
+    # "N of M" counter): at cap the generation lane goes dormant and
+    # file asks get the inline-chat alternative.
+    "ALTER TABLE users ADD COLUMN generations_used INTEGER NOT NULL DEFAULT 0",
 ]
 
 

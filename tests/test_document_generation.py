@@ -644,6 +644,112 @@ def test_ask_references_images_marker():
     assert not ask_references_images("")
 
 
+def test_generation_monthly_cap_parse():
+    from app.services.document_generation import generation_monthly_cap
+    cfgs = {"tiers": {"tiers": {
+        "pro": {"feature_definitions": {"generation": {"generations_per_month": 100}}},
+        "plus": {"feature_definitions": {"generation": {"generations_per_month": None}}},
+        "free": {"feature_definitions": {}},
+    }}}
+    assert generation_monthly_cap(cfgs, "pro") == 100
+    assert generation_monthly_cap(cfgs, "plus") is None      # explicit null = uncapped
+    assert generation_monthly_cap(cfgs, "free") is None      # no block = uncapped
+    assert generation_monthly_cap(cfgs, "unknown") is None
+    assert generation_monthly_cap({}, "pro") is None
+
+
+def test_generation_cap_quietly_disarms_everything(client, free_user, mock_provider,
+                                                   tmp_db_path):
+    """Quiet monthly count cap (2026-07-19): at cap, a confirmed explicit
+    file ask neither arms generation nor draws an offer — the turn is a
+    plain chat answer. No CTA, no error, no counter surface."""
+    import sqlite3
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    client.app.state.remote_configs.setdefault("tiers", {"tiers": {}})[
+        "tiers"].setdefault("free", {}).setdefault(
+        "feature_definitions", {})["generation"] = {"generations_per_month": 0}
+
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        metadata={"generation_confirmed": True, "generation_id": "gen-capped"},
+        user_content="Build me a tracking spreadsheet",
+    ), headers=free_user["headers"])
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/json")   # not SSE
+    assert "feature_state" not in r.json()                            # no offer/teaser
+    con = sqlite3.connect(tmp_db_path)
+    # the id-bearing turn still records a terminal row (rescue-resolution
+    # contract) — but as a plain chat answer: no files staged, no count
+    row = con.execute(
+        "SELECT files_json FROM generations WHERE generation_id='gen-capped'").fetchone()
+    used = con.execute(
+        "SELECT generations_used FROM users WHERE email LIKE 'test-free-user%'").fetchone()[0]
+    con.close()
+    assert row is not None and row[0] == "[]"
+    assert used == 0
+    # honest at-cap notice rode the routed request's system prompt
+    routed = mock_provider.call_args[0][0]
+    assert "FILE GENERATION NOTICE" in (routed.system_prompt or "")
+    assert "resets on" in routed.system_prompt
+
+
+def test_generations_used_counts_only_file_producing_builds(client, free_user,
+                                                            mock_provider, tmp_db_path,
+                                                            monkeypatch):
+    """generations_used counts builds that staged artifacts (driven here
+    through the template lane, which stages a real file). Plain chat
+    turns carrying a rescue generation_id record done rows too (rescue
+    resolution) — those must NOT count. The increment lives in the
+    router, not generation_turns.finish, so the terminal-record service
+    stays usable against the bare generations DDL."""
+    import json as _json
+    import sqlite3
+    from unittest.mock import AsyncMock
+    import app.services.document_generation as dg
+    from app.services import generation_offers as go
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    uid = free_user.get("user_id")
+    if uid is None:
+        con = sqlite3.connect(tmp_db_path)
+        uid = con.execute("SELECT id FROM users WHERE email LIKE 'test-free-user%'").fetchone()[0]
+        con.close()
+
+    plan = {"project": "Count Test", "tasks": [
+        {"id": 1, "name": "Phase", "type": "phase", "parent_id": None,
+         "owner": None, "status": "in_progress",
+         "start": "2026-07-01", "end": "2026-07-05", "depends_on": []},
+        {"id": 2, "name": "Do the thing", "type": "task", "parent_id": 1,
+         "owner": "Scott", "status": "in_progress",
+         "start": "2026-07-01", "end": "2026-07-05", "depends_on": []},
+    ]}
+    mock_provider.return_value = mock_provider.canned_response.model_copy(
+        update={"text": _json.dumps(plan)})
+
+    oid = go.create(uid, "xlsx", "gantt", template_id="gantt_smartsheet",
+                    ask_content="build a gantt chart for the plan")
+    monkeypatch.setattr(dg, "interpret_offer_reply",
+                        AsyncMock(return_value={"confirm": True, "format": "xlsx"}))
+
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        metadata={"offer_id": oid, "generation_id": "gen-count-tmpl"},
+        user_content="Yes",
+    ), headers=free_user["headers"])
+    assert r.status_code == 200
+    assert "event: generation_result" in r.text
+
+    con = sqlite3.connect(tmp_db_path)
+    used = con.execute("SELECT generations_used FROM users WHERE id = ?", (uid,)).fetchone()[0]
+    files = con.execute("SELECT files_json FROM generations WHERE generation_id='gen-count-tmpl'").fetchone()[0]
+    con.close()
+    assert files != "[]"     # the build staged a real artifact
+    assert used == 1
+
+
 def test_offer_envelope_conversational_with_gist_and_offer_id():
     from app.services.document_generation import _CONFIRMATION_DEFAULTS, build_offer_envelope
     env = build_offer_envelope(_CONFIRMATION_DEFAULTS, "docx",
