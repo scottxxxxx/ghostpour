@@ -2306,6 +2306,7 @@ async def list_users(
         f"""SELECT u.id, u.apple_sub, u.email, u.display_name, u.tier, u.created_at, u.is_active,
             u.simulated_tier, u.simulated_exhausted,
             u.monthly_used_usd, u.monthly_cost_limit_usd, u.allocation_resets_at,
+            u.searches_used, u.generations_used,
             u.is_trial, u.trial_end,
             -- Windowed totals (last `days` days). The "window_" prefix
             -- makes the date filter visible at the call site so future
@@ -2423,6 +2424,8 @@ async def list_users(
             "hours_used": round(hours_used, 1),
             "hours_limit": round(hours_limit, 1) if hours_limit != -1 else -1,
             "allocation_resets_at": r["allocation_resets_at"],
+            "searches_used": int(r["searches_used"] or 0),
+            "generations_used": int(r["generations_used"] or 0),
             # Windowed totals — bound by the `days` query parameter.
             "window_requests": r["window_requests"],
             "window_input_tokens": window_input,

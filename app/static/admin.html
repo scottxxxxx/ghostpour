@@ -281,6 +281,7 @@
       <th onclick="sortUserTable('hours')" style="cursor:pointer">Hours Used<span class="sa" data-sk="hours"></span></th>
       <th onclick="sortUserTable('alloc')" style="cursor:pointer">Allocation<span class="sa" data-sk="alloc"></span></th>
       <th onclick="sortUserTable('resets')" style="cursor:pointer">Resets<span class="sa" data-sk="resets"></span></th>
+      <th onclick="sortUserTable('genbuilds')" style="cursor:pointer" title="File generations this allocation period / tier cap (uncapped shows no denominator)">Files<span class="sa" data-sk="genbuilds"></span></th>
       <th onclick="sortUserTable('window')" style="cursor:pointer"><span id="user-table-window-cost-th">Period Cost</span><span class="sa" data-sk="window"></span></th>
       <th onclick="sortUserTable('lifetime')" style="cursor:pointer">Lifetime Cost<span class="sa" data-sk="lifetime"></span></th>
       <th onclick="sortUserTable('last')" style="cursor:pointer">Last Active<span class="sa" data-sk="last"></span></th>
@@ -483,7 +484,14 @@
       <p style="color:var(--text-dim);font-size:12px;margin:0 0 8px">The four structured fields below are edited as JSON. <code style="color:var(--accent)">variants</code> weights must sum to 100 when the campaign is <em>active</em>.</p>
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px">
         <label class="cf"><span>targeting</span><textarea id="cf-targeting" class="cf-json" spellcheck="false" oninput="_fieldsFromTargeting()"></textarea></label>
-        <label class="cf"><span>frequency</span><textarea id="cf-frequency" class="cf-json" spellcheck="false"></textarea></label>
+        <label class="cf"><span>frequency</span>
+          <div style="display:flex;gap:6px;align-items:center;margin:2px 0 5px">
+            <span style="font-size:11px;color:var(--text-dim)">Max impressions per device</span>
+            <input type="number" id="cf-freq-maximp" min="0" step="1" placeholder="unlimited"
+                   style="width:90px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 6px;font-size:12px;font-family:monospace"
+                   oninput="_frequencyFromField()">
+          </div>
+          <textarea id="cf-frequency" class="cf-json" spellcheck="false" oninput="_fieldFromFrequency()"></textarea></label>
         <label class="cf"><span>placements</span><textarea id="cf-placements" class="cf-json" spellcheck="false"></textarea></label>
         <label class="cf"><span>variants</span><textarea id="cf-variants" class="cf-json" spellcheck="false"></textarea></label>
       </div>
@@ -1403,6 +1411,7 @@ function _userSortVal(u, key) {
     case 'hours': return u.hours_used || 0;
     case 'alloc': return u.percent_used || 0;
     case 'resets': return u.allocation_resets_at || '';
+    case 'genbuilds': return u.generations_used || 0;
     case 'window': return u.window_cost_usd || 0;
     case 'lifetime': return u.lifetime_cost_usd || 0;
     case 'last': return u.last_request || '';
@@ -1446,6 +1455,14 @@ function renderUserRows() {
       `<div style="width:${barWidth}%;height:100%;background:${pctColor};border-radius:3px"></div></div>` +
       `<span style="font-size:0.85em">${pct.toFixed(0)}%</span></div>`;
     const resets = u.allocation_resets_at ? timeAgo(u.allocation_resets_at) : '—';
+    // Files-generated this period, with the tier cap as denominator when
+    // one is configured (tierCaps loaded from the entitlements payload).
+    const genCap = (window.tierGenCaps || {})[u.simulated_tier || u.tier];
+    const genUsed = u.generations_used || 0;
+    const genOver = genCap != null && genUsed >= genCap;
+    const genBuilds = genCap != null
+      ? `<span style="color:${genOver ? 'var(--red)' : 'inherit'}">${genUsed} / ${genCap}</span>`
+      : `${genUsed}`;
     const mkt = u.marketing_opt_in
       ? '<span style="color:#4CAF50">Yes</span>'
       : '<span style="color:var(--text-dim)">No</span>';
@@ -1457,6 +1474,7 @@ function renderUserRows() {
     <td>${hrsUsed} / ${hrsLimit} hrs</td>
     <td>${allocBar}</td>
     <td>${resets}</td>
+    <td>${genBuilds}</td>
     <td>${fmtCost(u.window_cost_usd)}</td>
     <td>${fmtCost(u.lifetime_cost_usd)}</td>
     <td>${timeAgo(u.last_request)}</td>
@@ -1472,7 +1490,7 @@ function renderUserRows() {
       <button class="refresh-btn" onclick="showUserDetail('${u.id}','${u.email||"User"}')">Detail</button>
     </td>
   </tr>`;
-  }).join('') || '<tr><td colspan="14" style="text-align:center;color:var(--text-dim)">No users yet</td></tr>';
+  }).join('') || '<tr><td colspan="15" style="text-align:center;color:var(--text-dim)">No users yet</td></tr>';
   // Update sort-direction arrows on the headers.
   document.querySelectorAll('#user-table .sa').forEach(s => {
     s.textContent = s.dataset.sk === _userSort.key ? (dir > 0 ? ' ▲' : ' ▼') : '';
@@ -1820,6 +1838,9 @@ async function refresh() {
 }
 
 function renderTiers(tiers) {
+  // Expose per-tier generation caps for the users table's Files column.
+  window.tierGenCaps = Object.fromEntries(
+    Object.entries(tiers).map(([n, t]) => [n, t.generations_per_month]));
   const grid = document.getElementById('tier-grid');
   const tierColors = { free: 'var(--text-dim)', subscriber: 'var(--green)', admin: 'var(--purple)' };
 
@@ -3384,6 +3405,26 @@ function _fieldsFromTargeting() {
   document.getElementById('tg-minaud').value = (t.min_audience != null) ? t.min_audience : '';
 }
 
+// Frequency <-> labeled field, bidirectional like the targeting builder.
+// The JSON textarea stays the source of truth (it can carry other keys
+// like min_interval_seconds / repeat_after_convert), so the field only
+// sets/clears max_impressions and preserves the rest.
+function _frequencyFromField() {
+  let f = {};
+  try { f = JSON.parse(document.getElementById('cf-frequency').value || '{}'); } catch (_) { return; }
+  const v = document.getElementById('cf-freq-maximp').value.trim();
+  if (v === '') { delete f.max_impressions; }
+  else { const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) f.max_impressions = n; }
+  _setCf('cf-frequency', JSON.stringify(f, null, 2));
+}
+
+function _fieldFromFrequency() {
+  let f = {};
+  try { f = JSON.parse(document.getElementById('cf-frequency').value || '{}'); } catch (_) { return; }
+  document.getElementById('cf-freq-maximp').value =
+    (f.max_impressions != null) ? f.max_impressions : '';
+}
+
 function _showCampaignEditor() {
   document.getElementById('campaign-activity-wrap').style.display = 'none';
   const wrap = document.getElementById('campaign-editor-wrap');
@@ -3409,6 +3450,7 @@ function newCampaign() {
   _setCf('cf-targeting', JSON.stringify(_CAMPAIGN_NEW_DEFAULTS.targeting, null, 2));
   _fieldsFromTargeting();
   _setCf('cf-frequency', JSON.stringify(_CAMPAIGN_NEW_DEFAULTS.frequency, null, 2));
+  _fieldFromFrequency();
   _setCf('cf-placements', JSON.stringify(_CAMPAIGN_NEW_DEFAULTS.placements, null, 2));
   _setCf('cf-variants', JSON.stringify(_CAMPAIGN_NEW_DEFAULTS.variants, null, 2));
   document.getElementById('campaign-editor-title').textContent = 'New campaign';
@@ -3434,6 +3476,7 @@ function editCampaign(i) {
   _setCf('cf-targeting', JSON.stringify(c.targeting || {}, null, 2));
   _fieldsFromTargeting();
   _setCf('cf-frequency', JSON.stringify(c.frequency || {}, null, 2));
+  _fieldFromFrequency();
   _setCf('cf-placements', JSON.stringify(c.placements || [], null, 2));
   _setCf('cf-variants', JSON.stringify(c.variants || [], null, 2));
   document.getElementById('campaign-editor-title').textContent = c.id;
