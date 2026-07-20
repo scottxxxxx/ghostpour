@@ -211,6 +211,17 @@ GENERATION_CAP_STEERING = (
 )
 
 
+def tier_feature_block(remote_configs: dict, tier: str, feature: str) -> dict | None:
+    """Return tiers.<tier>.feature_definitions.<feature> as a dict, or None.
+    Generic reader for per-tier operational config GP dictates to clients
+    (e.g. the images downscale/quality block). Numeric-only content, so the
+    base tiers config is authoritative."""
+    cfg = (remote_configs or {}).get("tiers") or {}
+    block = (cfg.get("tiers", {}).get(tier, {})
+             .get("feature_definitions", {}).get(feature))
+    return block if isinstance(block, dict) else None
+
+
 def generation_monthly_cap(remote_configs: dict, tier: str) -> int | None:
     """Quiet per-tier monthly generation count cap (2026-07-19).
 
