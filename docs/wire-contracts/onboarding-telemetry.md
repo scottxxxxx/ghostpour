@@ -88,7 +88,19 @@ deploy), but both sides agree the set here so analysis lines up.
 6. `complete` — terminal screen
 
 The three we correlate on (`name_entry`, `auth_choice`,
-`voice_enrollment`) map exactly to SS's screens.
+`voice_enrollment`) map exactly to SS's screens. `complete` is the final
+"Get Started" page. For this build the tour is exactly 12 slides
+(`tour_1`..`tour_12`), count and order stable, though the slide set can
+change release to release.
+
+**Conditional steps (critical for analysis):** `name_entry`,
+`auth_choice`, and `voice_enrollment` are dropped up front for a
+returning user who has already done them, so their step list is shorter.
+Absence of one of these from `steps` means "not shown," NOT "abandoned"
+or "declined". Do not infer a skip from a missing step. Read the outcome
+from the booleans (`name_provided`, `voice_enrolled`) and `auth_choice`,
+not from step presence. `abandoned_at_step` carries whichever id was on
+screen at background if they never reached `complete`.
 
 **Not instrumented:** the Terms & Privacy consent gate runs before this
 flow as a separate screen and is out of the funnel today. It's a
