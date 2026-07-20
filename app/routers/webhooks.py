@@ -2872,6 +2872,102 @@ async def telemetry_rich(
     }
 
 
+@router.get("/admin/telemetry/onboarding")
+async def telemetry_onboarding(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    days: int = Query(default=30, ge=1, le=90),
+    app: str | None = Query(default=None),
+    distribution: str | None = Query(default=None),
+):
+    """Onboarding funnel rollups for the dashboard, off the
+    onboarding_events table (one row per finished-or-abandoned onboarding).
+    Returns completion, tour-skip, the outcome-boolean cohort rates, the
+    auth split, and where abandoners dropped. The booleans are END-STATE
+    (name_provided / voice_enrolled reflect whether the user has done it at
+    all, not just this run), so the rates read as "share of onboarders who
+    have a name / a voice profile / signed in with Apple". Optional
+    `distribution` filter lets the operator exclude dev/TestFlight (e.g.
+    `distribution=production`) to look at a real cohort."""
+    _verify_admin(request, x_admin_key)
+
+    clauses = ["received_at >= datetime('now', ?)"]
+    params: list[object] = [f"-{days} days"]
+    if app:
+        clauses.append("app_id = ?")
+        params.append(app)
+    if distribution:
+        clauses.append("distribution = ?")
+        params.append(distribution)
+    where = " AND ".join(clauses)
+
+    async def _all(sql: str) -> list[dict]:
+        cur = await db.execute(sql, tuple(params))
+        return [dict(r) for r in await cur.fetchall()]
+
+    k = (await _all(f"""
+        SELECT
+          COUNT(*) AS total,
+          SUM(CASE WHEN completed=1 THEN 1 ELSE 0 END) AS completed,
+          SUM(CASE WHEN completed=0 THEN 1 ELSE 0 END) AS abandoned,
+          SUM(CASE WHEN tour_skipped=1 THEN 1 ELSE 0 END) AS tour_skipped,
+          SUM(CASE WHEN name_provided=1 THEN 1 ELSE 0 END) AS name_provided,
+          SUM(CASE WHEN voice_enrolled=1 THEN 1 ELSE 0 END) AS voice_enrolled,
+          AVG(total_duration_ms) AS avg_duration_ms
+        FROM onboarding_events WHERE {where}
+    """))[0]
+    total = int(k.get("total") or 0)
+
+    def _pct(n: object) -> float:
+        return round(100.0 * int(n or 0) / total, 1) if total else 0.0
+
+    avg_ms = k.get("avg_duration_ms")
+    kpis = {
+        "total": total,
+        "completed": int(k.get("completed") or 0),
+        "abandoned": int(k.get("abandoned") or 0),
+        "completion_rate": _pct(k.get("completed")),
+        "tour_skipped_rate": _pct(k.get("tour_skipped")),
+        "name_provided_rate": _pct(k.get("name_provided")),
+        "voice_enrolled_rate": _pct(k.get("voice_enrolled")),
+        "avg_duration_sec": round(avg_ms / 1000.0, 1) if avg_ms is not None else None,
+    }
+    completion = [
+        {"label": "Completed", "n": kpis["completed"]},
+        {"label": "Abandoned", "n": kpis["abandoned"]},
+    ]
+    _AUTH_LABELS = {"apple": "Signed in with Apple",
+                    "on_device": "On-device (not signed in)"}
+    raw_auth = await _all(f"""
+        SELECT COALESCE(auth_choice, 'unknown') AS auth_choice, COUNT(*) AS n
+        FROM onboarding_events WHERE {where}
+        GROUP BY auth_choice ORDER BY n DESC
+    """)
+    auth = [
+        {
+            "choice": r["auth_choice"],
+            "label": _AUTH_LABELS.get(r["auth_choice"])
+            or ("Not reached" if r["auth_choice"] == "unknown" else r["auth_choice"]),
+            "n": r["n"],
+        }
+        for r in raw_auth
+    ]
+    # Drop-off: where the abandoners were when they left. abandoned_at_step
+    # is a column, so no JSON parsing; and it sidesteps the non-monotonic
+    # steps array (back-navigation logs revisits) which is not a clean
+    # funnel to read positionally.
+    raw_drop = await _all(f"""
+        SELECT COALESCE(abandoned_at_step, 'unknown') AS step, COUNT(*) AS n
+        FROM onboarding_events WHERE {where} AND completed=0
+        GROUP BY step ORDER BY n DESC
+    """)
+    drop_off = [{"step": r["step"], "n": r["n"]} for r in raw_drop]
+
+    return {"days": days, "kpis": kpis, "completion": completion,
+            "auth": auth, "drop_off": drop_off}
+
+
 # --- Email management (Resend webhook events + suppression list) ---
 
 
