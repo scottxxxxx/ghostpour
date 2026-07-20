@@ -27,6 +27,7 @@ hashed (SHA-256) before persistence so we don't store raw IPs.
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import uuid
 from datetime import datetime, timezone
@@ -34,13 +35,14 @@ from typing import Literal
 
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.database import get_db
 
 router = APIRouter()
 
-_EVENT_TYPES = ("app_start", "meeting_start", "meeting_stop")
+_EVENT_TYPES = ("app_start", "meeting_start", "meeting_stop",
+                "onboarding_completed")
 
 # UUID v4-ish shape; iOS identifierForVendor is a UUID. Loose enough to
 # accept any uppercased/lowercased UUID without being strict about version.
@@ -53,8 +55,33 @@ _UUID_RE = re.compile(
 _PING_RPM_PER_IP = 60
 
 
+class OnboardingStep(BaseModel):
+    """One onboarding page and how long the user dwelled on it. `step` is a
+    canonical id from the agreed vocabulary (see the wire contract). Dwell is
+    measured off the pager, paused on backgrounding."""
+    step: str = Field(..., min_length=1, max_length=48)
+    dwell_ms: int = Field(..., ge=0, le=86_400_000)  # 24h/step sanity cap
+
+
+class OnboardingPayload(BaseModel):
+    """First-run onboarding funnel outcome. All behavioral, no PII: the name
+    and the voice-enrollment audio never leave the device, only booleans.
+    Carried on event_type='onboarding_completed', flushed on background if
+    onboarding is still in progress so we capture drop-off, not just
+    completers. Joined to conversion on device_id."""
+    total_duration_ms: int | None = Field(default=None, ge=0, le=7 * 86_400_000)
+    completed: bool                                  # completed vs abandoned
+    tour_skipped: bool = False
+    name_provided: bool = False
+    voice_enrolled: bool = False
+    auth_choice: Literal["apple", "on_device"] | None = None
+    abandoned_at_step: str | None = Field(default=None, max_length=48)
+    steps: list[OnboardingStep] = Field(default_factory=list, max_length=40)
+
+
 class PingEvent(BaseModel):
-    event_type: Literal["app_start", "meeting_start", "meeting_stop"]
+    event_type: Literal["app_start", "meeting_start", "meeting_stop",
+                        "onboarding_completed"]
     device_id: str = Field(..., min_length=1, max_length=128)
     user_id: str | None = Field(default=None, max_length=64)
     meeting_id: str | None = Field(default=None, max_length=64)
@@ -69,11 +96,24 @@ class PingEvent(BaseModel):
     # BCP-47ish locale string from `Locale.current.identifier` (e.g.
     # "en_US", "ja_JP"). Used for market segmentation in the dashboard.
     app_locale: str | None = Field(default=None, max_length=16)
+    # Onboarding funnel outcome, present only on event_type=='onboarding_completed'.
+    onboarding: OnboardingPayload | None = None
     # Distribution channel, from StoreKit 2 AppTransaction.environment
     # (Apple-signed, present for every install): "production" = App Store,
     # "sandbox" = TestFlight, "xcode" = local dev. Lets the dashboard split
     # TestFlight vs App Store usage. Optional so older builds still validate.
     distribution: str | None = Field(default=None, max_length=16)
+
+    @model_validator(mode="after")
+    def _require_onboarding_payload(self):
+        # The onboarding block is mandatory for its event and meaningless on
+        # the lifecycle events; keep the two shapes from bleeding into each
+        # other.
+        if self.event_type == "onboarding_completed" and self.onboarding is None:
+            raise ValueError("onboarding payload required for onboarding_completed")
+        if self.event_type != "onboarding_completed" and self.onboarding is not None:
+            raise ValueError("onboarding payload only valid on onboarding_completed")
+        return self
 
 
 def _client_ip(request: Request) -> str:
@@ -134,6 +174,42 @@ async def ping(
                     "details": {"retry_after": retry_after},
                 },
             )
+
+    # Onboarding funnel: a richer, distinct event that lands in its own table
+    # (one row per finished-or-abandoned onboarding), keyed by device_id for
+    # the conversion join. No geo needed (first-run, not geo-targeted), so
+    # branch before the lookup.
+    if body.event_type == "onboarding_completed":
+        ob = body.onboarding
+        await db.execute(
+            """INSERT INTO onboarding_events
+               (id, device_id, app_id, received_at, total_duration_ms,
+                completed, tour_skipped, name_provided, voice_enrolled,
+                auth_choice, abandoned_at_step, steps, app_version,
+                os_version, device_model, app_locale, distribution)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                str(uuid.uuid4()),
+                body.device_id,
+                getattr(request.state, "app_id", "unknown"),
+                datetime.now(timezone.utc).isoformat(),
+                ob.total_duration_ms,
+                int(ob.completed),
+                int(ob.tour_skipped),
+                int(ob.name_provided),
+                int(ob.voice_enrolled),
+                ob.auth_choice,
+                ob.abandoned_at_step,
+                json.dumps([s.model_dump() for s in ob.steps]),
+                body.app_version,
+                body.os_version,
+                body.device_model,
+                body.app_locale,
+                body.distribution,
+            ),
+        )
+        await db.commit()
+        return Response(status_code=204)
 
     # Derive coarse geo from the raw IP, then it's discarded (only the hash and
     # the derived country/region/city persist; never the raw IP, no lat/long).
