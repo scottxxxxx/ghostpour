@@ -592,6 +592,7 @@
       <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Meetings by device</h4><div id="tel-chart-devices"></div></div>
       <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Devices by iOS version</h4><div id="tel-chart-os"></div></div>
       <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Devices by language</h4><div id="tel-chart-language"></div></div>
+      <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Devices by distribution (TestFlight vs App Store)</h4><div id="tel-chart-distribution"></div></div>
       <div class="card" style="padding:16px;grid-column:span 2">
         <h4 style="margin:0 0 8px">Users by location <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— aggregated at region level; per-user city shows in the Users table</span></h4>
         <div class="table-wrap"><table id="tel-location"><thead><tr>
@@ -1130,6 +1131,18 @@ function _renderTelemetry(d, current) {
     plotOptions: {pie: {donut: {size: '60%'}}},
     dataLabels: {enabled: true, formatter: (val) => `${val.toFixed(0)}%`},
     noData: {text: 'No locale data yet (iOS sends app_locale in 1.13+ builds).'},
+  });
+
+  // --- Donut: devices by distribution channel (TestFlight vs App Store) ---
+  _renderChart('tel-chart-distribution', {
+    series: (d.distribution || []).map(x => x.devices),
+    chart: {type: 'donut', height: 280},
+    labels: (d.distribution || []).map(x => x.label),
+    legend: {position: 'bottom'},
+    colors: ['#3fb950','#d29922','#58a6ff','#8b949e'],
+    plotOptions: {pie: {donut: {size: '60%'}}},
+    dataLabels: {enabled: true, formatter: (val) => `${val.toFixed(0)}%`},
+    noData: {text: 'No distribution data yet (iOS sends it once the AppTransaction field ships).'},
   });
 
   // --- Directory table: name (if known) + language, per device ---

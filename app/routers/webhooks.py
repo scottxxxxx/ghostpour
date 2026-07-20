@@ -2690,6 +2690,35 @@ async def telemetry_rich(
         ORDER BY devices DESC
     """)
 
+    # --- Distinct devices by distribution channel ------------------------
+    # TestFlight vs App Store, from StoreKit 2 AppTransaction.environment.
+    # NULL means an older build that predates the field; label it so it
+    # doesn't read as an unknown channel. Decays as old builds churn out.
+    raw_distribution = await _all(f"""
+        SELECT COALESCE(distribution, 'unknown') AS distribution,
+               COUNT(DISTINCT device_id) AS devices,
+               SUM(CASE WHEN event_type='app_start' THEN 1 ELSE 0 END) AS app_starts
+        FROM telemetry_events
+        WHERE {where}
+        GROUP BY distribution
+        ORDER BY devices DESC
+    """)
+    _DIST_LABELS = {"production": "App Store", "sandbox": "TestFlight",
+                    "xcode": "Xcode (dev)"}
+    distribution = [
+        {
+            "channel": r["distribution"],
+            "label": (
+                _DIST_LABELS.get(r["distribution"])
+                or ("Field missing (older build)"
+                    if r["distribution"] == "unknown" else r["distribution"])
+            ),
+            "devices": r["devices"],
+            "app_starts": int(r["app_starts"] or 0),
+        }
+        for r in raw_distribution
+    ]
+
     # --- Heatmap: meetings by (day_of_week, hour) ------------------------
     # SQLite: strftime('%w') = day of week 0-6 (Sun=0). strftime('%H') = hour.
     heat_rows = await _all(f"""
@@ -2835,6 +2864,7 @@ async def telemetry_rich(
         "by_language": by_language,
         "devices": devices,
         "os_versions": os_versions,
+        "distribution": distribution,
         "by_location": by_location,
         "heatmap": heatmap,
         "funnel": funnel,

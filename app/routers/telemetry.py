@@ -69,6 +69,11 @@ class PingEvent(BaseModel):
     # BCP-47ish locale string from `Locale.current.identifier` (e.g.
     # "en_US", "ja_JP"). Used for market segmentation in the dashboard.
     app_locale: str | None = Field(default=None, max_length=16)
+    # Distribution channel, from StoreKit 2 AppTransaction.environment
+    # (Apple-signed, present for every install): "production" = App Store,
+    # "sandbox" = TestFlight, "xcode" = local dev. Lets the dashboard split
+    # TestFlight vs App Store usage. Optional so older builds still validate.
+    distribution: str | None = Field(default=None, max_length=16)
 
 
 def _client_ip(request: Request) -> str:
@@ -141,8 +146,9 @@ async def ping(
         """INSERT INTO telemetry_events
            (id, event_type, device_id, user_id, meeting_id, model_id,
             app_version, os_version, duration_seconds, ip_hash, received_at,
-            device_model, app_locale, app_id, country, region, city)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            device_model, app_locale, app_id, country, region, city,
+            distribution)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             str(uuid.uuid4()),
             body.event_type,
@@ -161,6 +167,7 @@ async def ping(
             geo.get("country"),
             geo.get("region"),
             geo.get("city"),
+            body.distribution,
         ),
     )
     await db.commit()
