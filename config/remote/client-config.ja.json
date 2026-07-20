@@ -1,6 +1,7 @@
 {
-  "version": 13,
+  "version": 14,
   "native_actions": {"enabled": true, "kinds": ["reminders"]},
+  "image_quality_note": {"enabled": false, "blur_threshold": 200},
   "limits": {
     "project_chat": {
       "max_input_chars": {
