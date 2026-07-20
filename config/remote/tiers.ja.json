@@ -1,5 +1,5 @@
 {
-  "version": 21,
+  "version": 22,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -22,7 +22,19 @@
         {"label": "最大画像数", "value": "1クエリにつき1枚", "icon": "photo"}
       ],
       "feature_definitions": {
-        "images": {"max_long_edge": 1568, "jpeg_quality": 0.8},
+        "images": {
+          "max_long_edge": 1568,
+          "jpeg_quality": 0.8,
+          "capture_guidance": {
+            "title": "くっきり読み取るために",
+            "tips": [
+              "文字ができるだけ大きく写るよう、シート全体で画面いっぱいに写してください",
+              "文字がはっきり見えるまで手を止めてから撮影してください",
+              "シート全体を均一に照らし、反射や影を避けてください",
+              "斜めからではなく、正面からカメラを合わせてください"
+            ]
+          }
+        },
         "project_chat": {"max_input_tokens": 50000},
         "budget": {
           "cta_exhausted": {
@@ -81,7 +93,19 @@
         {"label": "ミーティングメモリー", "value": "Proにアップグレード", "icon": "brain", "state": "teaser"}
       ],
       "feature_definitions": {
-        "images": {"max_long_edge": 1568, "jpeg_quality": 0.8},
+        "images": {
+          "max_long_edge": 1568,
+          "jpeg_quality": 0.8,
+          "capture_guidance": {
+            "title": "くっきり読み取るために",
+            "tips": [
+              "文字ができるだけ大きく写るよう、シート全体で画面いっぱいに写してください",
+              "文字がはっきり見えるまで手を止めてから撮影してください",
+              "シート全体を均一に照らし、反射や影を避けてください",
+              "斜めからではなく、正面からカメラを合わせてください"
+            ]
+          }
+        },
         "project_chat": {"max_input_tokens": 150000},
         "search": {
           "searches_per_month": 75,
@@ -133,7 +157,19 @@
         {"label": "ミーティングメモリー", "value": "有効", "icon": "brain", "state": "enabled"}
       ],
       "feature_definitions": {
-        "images": {"max_long_edge": 1568, "jpeg_quality": 0.8},
+        "images": {
+          "max_long_edge": 1568,
+          "jpeg_quality": 0.8,
+          "capture_guidance": {
+            "title": "くっきり読み取るために",
+            "tips": [
+              "文字ができるだけ大きく写るよう、シート全体で画面いっぱいに写してください",
+              "文字がはっきり見えるまで手を止めてから撮影してください",
+              "シート全体を均一に照らし、反射や影を避けてください",
+              "斜めからではなく、正面からカメラを合わせてください"
+            ]
+          }
+        },
         "project_chat": {"max_input_tokens": 180000},
         "generation": {"generations_per_month": 100},
         "search": {

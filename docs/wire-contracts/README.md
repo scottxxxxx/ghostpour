@@ -36,6 +36,7 @@ without moving the schema, that's a coordination bug.
 | `memory-capture.md` | active | Memory capture verdict matrix, synthetic CTA card injection, quota mechanics |
 | `reasoning-control.md` | active | Per-model reasoningLevels, server-side mapping to provider params |
 | `tr-match-analysis.md` | active (2026-06-30) | TR résumé/JD fit response: scores, strengths, `gaps[]` (`closeable`/`share_prompt` for the Strengthen flow), fit radar; GP-assembled vs client-embedded prompt source |
+| `image-send-config.md` | active (2026-07-20) | Per-tier `feature_definitions.images`: `max_long_edge` downscale cap, `jpeg_quality`, and user-facing `capture_guidance` hints; SS reads at runtime |
 
 ## Why this directory exists
 
