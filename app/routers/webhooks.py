@@ -679,9 +679,9 @@ class TunableTierFieldRequest(BaseModel):
     For required numeric fields the caller should pass a concrete int
     (e.g., 0 to disable rather than null)."""
     tier: str          # "free" | "plus" | "pro" | "admin"
-    feature: str       # "project_chat" | "meeting_reports" | "context_quilt" | "search"
-    field: str         # "max_input_tokens" | "searches_per_month" | "searches_soft_threshold" | ...
-    value: int | None  # new value (None clears the field)
+    feature: str       # "project_chat" | "search" | "generation" | "images" | ...
+    field: str         # "max_input_tokens" | "searches_per_month" | "max_long_edge" | "jpeg_quality" | ...
+    value: int | float | None  # new value (float for jpeg_quality; None clears)
 
 
 class EntitlementsMatrixCellRequest(BaseModel):
@@ -1580,6 +1580,7 @@ async def get_tiers(
         sc = get_search_caps(remote_configs, name, locale=None)
         from app.services.document_generation import (
             generation_monthly_cap as _gen_cap,
+            tier_feature_block as _tier_feature_block,
         )
         tiers[name] = {
             "display_name": tier.display_name,
@@ -1603,6 +1604,10 @@ async def get_tiers(
             "searches_per_month": sc.searches_per_month,
             "searches_soft_threshold": sc.searches_soft_threshold,
             "generations_per_month": _gen_cap(remote_configs, name),
+            # Per-tier image send config GP dictates to SS (chat +
+            # generation send path): downscale long-edge + JPEG quality.
+            # SS-AI tiers only; BYOK is SS's own call. 2026-07-20.
+            "images": _tier_feature_block(remote_configs, name, "images"),
         }
 
     return {"tiers": tiers}

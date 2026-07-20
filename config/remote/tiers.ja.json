@@ -1,5 +1,5 @@
 {
-  "version": 20,
+  "version": 21,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -22,6 +22,7 @@
         {"label": "最大画像数", "value": "1クエリにつき1枚", "icon": "photo"}
       ],
       "feature_definitions": {
+        "images": {"max_long_edge": 1568, "jpeg_quality": 0.8},
         "project_chat": {"max_input_tokens": 50000},
         "budget": {
           "cta_exhausted": {
@@ -80,6 +81,7 @@
         {"label": "ミーティングメモリー", "value": "Proにアップグレード", "icon": "brain", "state": "teaser"}
       ],
       "feature_definitions": {
+        "images": {"max_long_edge": 1568, "jpeg_quality": 0.8},
         "project_chat": {"max_input_tokens": 150000},
         "search": {
           "searches_per_month": 75,
@@ -131,6 +133,7 @@
         {"label": "ミーティングメモリー", "value": "有効", "icon": "brain", "state": "enabled"}
       ],
       "feature_definitions": {
+        "images": {"max_long_edge": 1568, "jpeg_quality": 0.8},
         "project_chat": {"max_input_tokens": 180000},
         "generation": {"generations_per_month": 100},
         "search": {

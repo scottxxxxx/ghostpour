@@ -1955,6 +1955,28 @@ function renderTiers(tiers) {
         </div>
         <div id="gen-cap-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px">empty = uncapped; at cap the user is told in chat and answered inline</div>
       </div>
+      <div style="margin-top:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:6px">
+        <div class="lbl" style="margin-bottom:6px">Image send config (SS AI tiers; chat + generation)</div>
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
+          <span style="font-size:11px;color:var(--text-dim);width:80px">Long edge px</span>
+          <input type="number" id="img-edge-${name}" value="${t.images && t.images.max_long_edge != null ? t.images.max_long_edge : ''}"
+                 placeholder="e.g. 1568"
+                 style="flex:1;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:12px;font-family:monospace"
+                 min="256" step="64">
+          <button class="refresh-btn" style="background:var(--accent);color:#000;font-weight:600;padding:6px 12px"
+                  onclick="saveImageConfig('${name}','max_long_edge')">Save</button>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:11px;color:var(--text-dim);width:80px">JPEG quality</span>
+          <input type="number" id="img-q-${name}" value="${t.images && t.images.jpeg_quality != null ? t.images.jpeg_quality : ''}"
+                 placeholder="0.0-1.0"
+                 style="flex:1;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:12px;font-family:monospace"
+                 min="0" max="1" step="0.05">
+          <button class="refresh-btn" style="background:var(--accent);color:#000;font-weight:600;padding:6px 12px"
+                  onclick="saveImageConfig('${name}','jpeg_quality')">Save</button>
+        </div>
+        <div id="img-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px">GP dictates; SS honors on the chat and generation send path. Model reads to 1568px.</div>
+      </div>
       <div class="model-list">
         <div class="lbl" style="margin-bottom:4px">Providers</div>
         ${providerTags}
@@ -2617,6 +2639,51 @@ async function saveGenerationCap(tierName) {
     const fileCount = (data.files_updated || []).length;
     status.textContent = fileCount > 0
       ? `Saved. Updated ${fileCount} file(s); live on the next chat call.`
+      : 'No change (value already matched).';
+    status.style.color = 'var(--green)';
+    refresh();
+  } else {
+    const err = await resp.json().catch(() => ({}));
+    status.textContent = 'Error: ' + (err.detail || 'save failed');
+    status.style.color = 'var(--red)';
+  }
+}
+
+// --- Image send config (per tier) ---
+//
+// GP dictates the downscale long-edge and JPEG quality SS applies on the
+// chat and generation send path, per subscription tier. Writes
+// tiers.{tier}.feature_definitions.images.{field} via the same tunable
+// endpoint (lockstep locales, hot reload); SS reads it at runtime, so a
+// save here retargets what the client sends without a client build.
+async function saveImageConfig(tierName, field) {
+  const isEdge = field === 'max_long_edge';
+  const input = document.getElementById(`${isEdge ? 'img-edge' : 'img-q'}-${tierName}`);
+  const status = document.getElementById('img-status-' + tierName);
+  const raw = input.value.trim();
+  if (raw === '') {
+    status.textContent = isEdge ? 'Long edge is required (px).' : 'Quality is required (0.0-1.0).';
+    status.style.color = 'var(--red)';
+    return;
+  }
+  let value = isEdge ? parseInt(raw, 10) : parseFloat(raw);
+  if (isNaN(value) || value < 0 || (!isEdge && value > 1)) {
+    status.textContent = isEdge ? 'Must be a positive integer (px).' : 'Must be between 0.0 and 1.0.';
+    status.style.color = 'var(--red)';
+    return;
+  }
+  status.textContent = 'Saving image config…';
+  status.style.color = 'var(--orange)';
+  const resp = await fetch(`${BASE}/webhooks/admin/tunable/tier-field`, {
+    method: 'PUT',
+    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
+    body: JSON.stringify({tier: tierName, feature: 'images', field: field, value: value}),
+  });
+  if (resp.ok) {
+    const data = await resp.json();
+    const fileCount = (data.files_updated || []).length;
+    status.textContent = fileCount > 0
+      ? `Saved. Updated ${fileCount} file(s); SS picks it up on next config fetch.`
       : 'No change (value already matched).';
     status.style.color = 'var(--green)';
     refresh();
