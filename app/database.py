@@ -319,6 +319,14 @@ MIGRATIONS = [
     # is installed. Powers Phase 2 region targeting.
     "ALTER TABLE telemetry_events ADD COLUMN country TEXT",
     "ALTER TABLE telemetry_events ADD COLUMN region TEXT",
+    # v29: Distribution channel (2026-07-20). Sourced client-side from
+    # StoreKit 2 AppTransaction.environment, which is Apple-signed and
+    # present for every install even for non-purchasers: "production" =
+    # App Store, "sandbox" = TestFlight, "xcode" = local dev build. Lets
+    # the dashboard split TestFlight vs App Store usage as both channels
+    # ship new versions. NULL for older builds that don't send it.
+    "ALTER TABLE telemetry_events ADD COLUMN distribution TEXT",
+    "CREATE INDEX IF NOT EXISTS idx_telemetry_distribution ON telemetry_events(distribution) WHERE distribution IS NOT NULL",
     # v27: Per-call scenario sub-dimension. Tech Rehearsal is scenario-driven
     # (interview / negotiation / personal conversations) under ONE app_id, so
     # the client tags each call via metadata.scenario and we persist it here.

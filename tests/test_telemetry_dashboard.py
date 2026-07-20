@@ -128,11 +128,28 @@ def test_rich_endpoint_returns_expected_shape(client):
     data = resp.json()
     for key in (
         "days", "filters", "kpis", "version_series", "models",
-        "devices", "os_versions", "heatmap", "funnel", "options",
+        "devices", "os_versions", "distribution", "heatmap", "funnel", "options",
     ):
         assert key in data, f"missing key {key}"
     for opt_key in ("app_versions", "os_versions", "device_models", "model_ids"):
         assert opt_key in data["options"]
+
+
+def test_distribution_breakdown_labels_channels(client):
+    # StoreKit 2 AppTransaction.environment values -> friendly labels.
+    _seed_event(client, distribution="production")
+    _seed_event(client, distribution="production")
+    _seed_event(client, distribution="sandbox")
+    _seed_event(client)  # older build, no distribution -> "unknown" bucket
+    resp = client.get(
+        "/webhooks/admin/telemetry/rich?days=30",
+        headers={"X-Admin-Key": "test-admin-key"},
+    )
+    dist = {row["channel"]: row for row in resp.json()["distribution"]}
+    assert dist["production"]["label"] == "App Store"
+    assert dist["production"]["devices"] == 2
+    assert dist["sandbox"]["label"] == "TestFlight"
+    assert dist["unknown"]["label"] == "Field missing (older build)"
 
 
 def test_rich_endpoint_kpi_shape(client):
