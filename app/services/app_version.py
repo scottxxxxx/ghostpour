@@ -108,10 +108,19 @@ def load_effective(path: str | Path) -> dict[str, Any]:
     return merge_overlay(base, overlay) if overlay else base
 
 
-def get_version_info(registry: dict[str, Any], bundle_id: str) -> dict | None:
+def get_version_info(
+    registry: dict[str, Any], bundle_id: str, channel: str | None = None
+) -> dict | None:
     """Look up a single app's version block. Returns the wire-shape
     response dict on hit, None on miss. None lets the router decide
-    the HTTP status."""
+    the HTTP status.
+
+    `channel` (normalized: "appstore" | "testflight" | None) selects the
+    per-channel `latest` when a `latest_by_channel` block is present, so a
+    TestFlight user is nudged to the latest beta and an App Store user to
+    the latest App Store release, each with the correct upgrade_url. When
+    absent or unmatched, the top-level `latest` is served as the fallback
+    (today's behavior), so header-less clients are unaffected."""
     entry = registry.get(bundle_id)
     if not entry or not isinstance(entry, dict):
         return None
@@ -123,11 +132,11 @@ def get_version_info(registry: dict[str, Any], bundle_id: str) -> dict | None:
         return None
     return {
         "bundle_id": bundle_id,
-        "platforms": _emit_with_flat_aliases(platforms),
+        "platforms": _emit_with_flat_aliases(platforms, channel),
     }
 
 
-def _emit_with_flat_aliases(platforms: dict) -> dict:
+def _emit_with_flat_aliases(platforms: dict, channel: str | None = None) -> dict:
     """Return platforms with the `latest` block mirrored as flat
     `latest_version` + `upgrade_url` siblings.
 
@@ -152,7 +161,16 @@ def _emit_with_flat_aliases(platforms: dict) -> dict:
             out[platform_key] = p
             continue
         merged = dict(p)
-        latest = p.get("latest")
+        # Resolve the per-channel latest, then drop the internal map so the
+        # client only ever sees one resolved `latest` (never all channels).
+        # No channel, or no matching block, leaves the top-level `latest`
+        # in place as the fallback.
+        by_channel = merged.pop("latest_by_channel", None)
+        if channel and isinstance(by_channel, dict):
+            chosen = by_channel.get(channel)
+            if isinstance(chosen, dict):
+                merged["latest"] = chosen
+        latest = merged.get("latest")
         if isinstance(latest, dict):
             if "version" in latest and "latest_version" not in merged:
                 merged["latest_version"] = latest["version"]

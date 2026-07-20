@@ -74,6 +74,54 @@ def test_get_version_info_hit():
     assert info["platforms"]["ios"]["latest"]["upgrade_url"] == "https://x.test"
 
 
+_CHANNEL_REGISTRY = {
+    "com.example.app": {
+        "platforms": {
+            "ios": {
+                "latest": {"version": "1.0", "build": "1",
+                           "upgrade_url": "https://fallback.test"},
+                "latest_by_channel": {
+                    "testflight": {"version": "1.14", "build": "749",
+                                   "upgrade_url": "https://testflight.test"},
+                    "appstore": {"version": "0.0", "build": "0",
+                                 "upgrade_url": ""},
+                },
+            },
+        },
+    },
+}
+
+
+def test_channel_selects_testflight_latest():
+    info = get_version_info(_CHANNEL_REGISTRY, "com.example.app", "testflight")
+    ios = info["platforms"]["ios"]
+    assert ios["latest"]["version"] == "1.14"
+    assert ios["latest_version"] == "1.14"  # flat alias too
+    assert ios["upgrade_url"] == "https://testflight.test"
+
+
+def test_channel_selects_appstore_latest():
+    info = get_version_info(_CHANNEL_REGISTRY, "com.example.app", "appstore")
+    ios = info["platforms"]["ios"]
+    assert ios["latest"]["version"] == "0.0"  # inert until App Store launch
+
+
+def test_no_channel_falls_back_to_latest():
+    info = get_version_info(_CHANNEL_REGISTRY, "com.example.app", None)
+    assert info["platforms"]["ios"]["latest"]["version"] == "1.0"
+
+
+def test_unknown_channel_falls_back_to_latest():
+    info = get_version_info(_CHANNEL_REGISTRY, "com.example.app", "nonsense")
+    assert info["platforms"]["ios"]["latest"]["version"] == "1.0"
+
+
+def test_latest_by_channel_never_leaks_to_wire():
+    for ch in (None, "testflight", "appstore"):
+        info = get_version_info(_CHANNEL_REGISTRY, "com.example.app", ch)
+        assert "latest_by_channel" not in info["platforms"]["ios"]
+
+
 def test_get_version_info_miss():
     assert get_version_info({}, "anything") is None
 
@@ -266,3 +314,67 @@ def test_empty_bundle_id_string_returns_400(client_with_versions):
         headers={"X-App-Bundle-Id": "   "},
     )
     assert resp.status_code == 400
+
+
+@pytest.fixture
+def client_with_channels(client):
+    """Registry with per-channel latest, to exercise the X-App-Distribution
+    header mapping end to end through the endpoint."""
+    from app.main import app
+    registry = {
+        "com.shouldersurf.ShoulderSurf": {
+            "platforms": {
+                "ios": {
+                    "latest": {"version": "1.0", "build": "1",
+                               "upgrade_url": "https://fallback.test"},
+                    "latest_by_channel": {
+                        "testflight": {"version": "1.14", "build": "749",
+                                       "upgrade_url": "https://testflight.test"},
+                        "appstore": {"version": "0.0", "build": "0",
+                                     "upgrade_url": ""},
+                    },
+                },
+            },
+        },
+    }
+    prior = getattr(app.state, "app_versions", None)
+    app.state.app_versions = registry
+    yield client
+    if prior is not None:
+        app.state.app_versions = prior
+
+
+def _latest_for(client_with_channels, distribution):
+    headers = {"X-App-Bundle-Id": "com.shouldersurf.ShoulderSurf"}
+    if distribution is not None:
+        headers["X-App-Distribution"] = distribution
+    resp = client_with_channels.get("/v1/app/version", headers=headers)
+    assert resp.status_code == 200
+    return resp.json()["platforms"]["ios"]["latest"]
+
+
+def test_endpoint_production_maps_to_appstore(client_with_channels):
+    assert _latest_for(client_with_channels, "production")["version"] == "0.0"
+
+
+def test_endpoint_sandbox_maps_to_testflight(client_with_channels):
+    latest = _latest_for(client_with_channels, "sandbox")
+    assert latest["version"] == "1.14"
+    assert latest["upgrade_url"] == "https://testflight.test"
+
+
+def test_endpoint_xcode_maps_to_testflight(client_with_channels):
+    assert _latest_for(client_with_channels, "xcode")["version"] == "1.14"
+
+
+def test_endpoint_no_distribution_header_falls_back(client_with_channels):
+    assert _latest_for(client_with_channels, None)["version"] == "1.0"
+
+
+def test_endpoint_sets_vary_on_distribution(client_with_channels):
+    resp = client_with_channels.get(
+        "/v1/app/version",
+        headers={"X-App-Bundle-Id": "com.shouldersurf.ShoulderSurf",
+                 "X-App-Distribution": "production"},
+    )
+    assert "X-App-Distribution" in resp.headers.get("Vary", "")

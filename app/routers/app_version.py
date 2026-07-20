@@ -25,12 +25,20 @@ logger = logging.getLogger("ghostpour.app_version")
 
 router = APIRouter()
 
+# StoreKit 2 AppTransaction.environment -> registry channel key. Production
+# installs are App Store; sandbox is TestFlight; a local Xcode/dev build is
+# beta-like, so it tracks the TestFlight channel. Anything unrecognized (or
+# absent) resolves to None and gets the fallback `latest`.
+_CHANNEL_MAP = {"production": "appstore", "sandbox": "testflight",
+                "xcode": "testflight"}
+
 
 @router.get("/app/version")
 async def get_app_version(
     request: Request,
     response: Response,
     x_app_bundle_id: str | None = Header(default=None),
+    x_app_distribution: str | None = Header(default=None),
 ):
     if not x_app_bundle_id or not x_app_bundle_id.strip():
         raise HTTPException(
@@ -41,8 +49,9 @@ async def get_app_version(
             },
         )
     bundle_id = x_app_bundle_id.strip()
+    channel = _CHANNEL_MAP.get((x_app_distribution or "").strip().lower())
     registry = getattr(request.app.state, "app_versions", {}) or {}
-    info = get_version_info(registry, bundle_id)
+    info = get_version_info(registry, bundle_id, channel)
     if info is None:
         raise HTTPException(
             status_code=404,
@@ -51,5 +60,9 @@ async def get_app_version(
                 "message": f"No version metadata for bundle id {bundle_id!r}.",
             },
         )
+    # Response now depends on the distribution header, so caches must key on
+    # it too, otherwise a TestFlight response could be served to an App Store
+    # client and vice versa.
     response.headers["Cache-Control"] = "public, max-age=300"
+    response.headers["Vary"] = "X-App-Bundle-Id, X-App-Distribution"
     return info

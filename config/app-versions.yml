@@ -52,6 +52,29 @@ com.shouldersurf.ShoulderSurf:
         # shouldersurf.com. Swap to https://apps.apple.com/app/id<APPID>
         # once the app is in the App Store.
         upgrade_url: "https://testflight.apple.com/join/ubRWVcXF"
+      # Per-channel latest (2026-07-20). The client sends X-App-Distribution
+      # from StoreKit 2 AppTransaction.environment: production -> appstore,
+      # sandbox/xcode -> testflight. GP serves the matching block so a
+      # TestFlight user is nudged to the latest beta (TestFlight invite) and
+      # an App Store user to the latest App Store release (App Store link),
+      # never crossing the streams. Clients that don't send the header fall
+      # back to the `latest` block above (today's behavior). Bump the
+      # relevant channel on each release.
+      latest_by_channel:
+        testflight:
+          version: "1.14"
+          build: "749"
+          upgrade_url: "https://testflight.apple.com/join/ubRWVcXF"
+        appstore:
+          # SET AT APP STORE LAUNCH. version "0.0" means "no App Store
+          # release yet": no App Store user is ever below it, so no update
+          # toast fires and we never route an App Store user to a build that
+          # isn't on the App Store. At launch, set version + build to the
+          # shipped App Store build and upgrade_url to
+          # https://apps.apple.com/app/id<APPID>.
+          version: "0.0"
+          build: "0"
+          upgrade_url: ""
       # Hard floor. Client refuses to operate below this. Bump only
       # when an older build has a real correctness or security issue.
       min_supported_version: "1.0"
