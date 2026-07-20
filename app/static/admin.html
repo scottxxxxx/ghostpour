@@ -608,6 +608,14 @@
         </tr></thead><tbody></tbody></table></div>
       </div>
     </div>
+    <h3 style="margin:28px 0 8px">Onboarding funnel</h3>
+    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">First-run onboarding outcomes from the <code>onboarding_completed</code> event. Booleans are end-state — name / voice / Apple sign-in reflect whether the user has done it at all, not just this run. Dev and TestFlight rows are included; the correlation view will filter by distribution when a real cohort matters.</p>
+    <div class="cards" id="onb-kpis"></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px;margin-top:16px">
+      <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Completion (completed vs abandoned)</h4><div id="onb-chart-completion"></div></div>
+      <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Auth choice</h4><div id="onb-chart-auth"></div></div>
+      <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Where abandoners dropped</h4><div id="onb-chart-dropoff"></div></div>
+    </div>
   </div>
 
   <!-- Subscriptions -->
@@ -1035,10 +1043,75 @@ async function loadTelemetry() {
     }
     const d = await resp.json();
     _renderTelemetry(d, {version, os, device, model});
+    _loadOnboarding(days, app);
   } catch (e) {
     document.getElementById('tel-kpis').innerHTML =
       `<div class="card" style="grid-column: span 4">Telemetry error: ${e.message}</div>`;
   }
+}
+
+async function _loadOnboarding(days, app) {
+  // Additive section: onboarding_events is a separate table, so it's a
+  // separate fetch. Never blocks the main telemetry render.
+  const params = new URLSearchParams({days});
+  if (app) params.set('app', app);
+  try {
+    const resp = await fetch(`${BASE}/webhooks/admin/telemetry/onboarding?${params}`, {
+      headers: {'X-Admin-Key': adminKey},
+    });
+    if (!resp.ok) return;
+    _renderOnboarding(await resp.json());
+  } catch (e) { /* onboarding is additive; a failure here is non-fatal */ }
+}
+
+function _renderOnboarding(d) {
+  const k = d.kpis || {};
+  const fmtDur = (s) => s == null ? '—' : (s >= 60 ? `${Math.round(s / 60)}m ${Math.round(s) % 60}s` : `${Math.round(s)}s`);
+  document.getElementById('onb-kpis').innerHTML = [
+    {label: 'Onboardings', value: (k.total || 0).toLocaleString(), hint: `last ${d.days}d`},
+    {label: 'Completion rate', value: `${k.completion_rate || 0}%`, hint: `${(k.completed || 0).toLocaleString()} of ${(k.total || 0).toLocaleString()}`},
+    {label: 'Tour skipped', value: `${k.tour_skipped_rate || 0}%`},
+    {label: 'Provided a name', value: `${k.name_provided_rate || 0}%`, hint: 'end-state'},
+    {label: 'Voice enrolled', value: `${k.voice_enrolled_rate || 0}%`, hint: 'end-state'},
+    {label: 'Avg duration', value: fmtDur(k.avg_duration_sec)},
+  ].map(c => `
+    <div class="card">
+      <div class="card-label">${c.label}</div>
+      <div class="card-value">${c.value}</div>
+      ${c.hint ? `<div class="card-hint">${c.hint}</div>` : ''}
+    </div>
+  `).join('');
+
+  _renderChart('onb-chart-completion', {
+    series: (d.completion || []).map(x => x.n),
+    chart: {type: 'donut', height: 280},
+    labels: (d.completion || []).map(x => x.label),
+    legend: {position: 'bottom'},
+    colors: ['#3fb950', '#ff7b72'],
+    plotOptions: {pie: {donut: {size: '60%'}}},
+    dataLabels: {enabled: true, formatter: (v) => `${v.toFixed(0)}%`},
+    noData: {text: 'No onboarding events in this window yet.'},
+  });
+  _renderChart('onb-chart-auth', {
+    series: (d.auth || []).map(x => x.n),
+    chart: {type: 'donut', height: 280},
+    labels: (d.auth || []).map(x => x.label),
+    legend: {position: 'bottom'},
+    colors: ['#58a6ff', '#d29922', '#8b949e'],
+    plotOptions: {pie: {donut: {size: '60%'}}},
+    dataLabels: {enabled: true, formatter: (v) => `${v.toFixed(0)}%`},
+    noData: {text: 'No onboarding events in this window yet.'},
+  });
+  _renderChart('onb-chart-dropoff', {
+    series: [{name: 'Abandoned', data: (d.drop_off || []).map(x => x.n)}],
+    chart: {type: 'bar', height: 280},
+    plotOptions: {bar: {horizontal: true, borderRadius: 4, distributed: true}},
+    xaxis: {categories: (d.drop_off || []).map(x => x.step)},
+    legend: {show: false},
+    dataLabels: {enabled: true},
+    colors: ['#ff7b72', '#d29922', '#bc8cff', '#58a6ff', '#3fb950', '#79c0ff'],
+    noData: {text: 'No abandoned onboardings in this window.'},
+  });
 }
 
 function _renderTelemetry(d, current) {

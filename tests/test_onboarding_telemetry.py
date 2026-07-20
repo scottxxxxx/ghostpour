@@ -120,3 +120,50 @@ def test_lifecycle_ping_still_works(client, tmp_db_path):
     ).fetchone()[0]
     conn.close()
     assert n == 1
+
+
+# --- /admin/telemetry/onboarding dashboard endpoint ----------------------
+
+ADMIN = {"X-Admin-Key": "test-admin-key"}
+
+
+def test_onboarding_dashboard_shape_and_rates(client):
+    # 2 completed, 1 abandoned
+    client.post("/v1/events/ping", json=_full_payload())  # completed, apple
+    client.post("/v1/events/ping", json=_full_payload(onboarding={
+        "total_duration_ms": 30000, "completed": True, "name_provided": True,
+        "voice_enrolled": False, "auth_choice": "on_device",
+        "steps": [{"step": "highlights", "dwell_ms": 1000}]}))
+    client.post("/v1/events/ping", json=_full_payload(onboarding={
+        "total_duration_ms": 5000, "completed": False,
+        "abandoned_at_step": "highlights",
+        "steps": [{"step": "highlights", "dwell_ms": 5000}]}))
+    d = client.get("/webhooks/admin/telemetry/onboarding?days=30", headers=ADMIN).json()
+    for key in ("days", "kpis", "completion", "auth", "drop_off"):
+        assert key in d
+    k = d["kpis"]
+    assert k["total"] == 3
+    assert k["completed"] == 2 and k["abandoned"] == 1
+    assert k["completion_rate"] == round(100 * 2 / 3, 1)
+    # 2 of 3 report a name (the abandoned one defaulted name_provided false)
+    assert k["name_provided_rate"] == round(100 * 2 / 3, 1)
+    auth = {a["choice"]: a for a in d["auth"]}
+    assert auth["apple"]["label"] == "Signed in with Apple"
+    assert auth["on_device"]["label"] == "On-device (not signed in)"
+    drop = {x["step"]: x["n"] for x in d["drop_off"]}
+    assert drop.get("highlights") == 1  # only the abandoned one
+
+
+def test_onboarding_dashboard_distribution_filter(client):
+    client.post("/v1/events/ping", json=_full_payload(distribution="production"))
+    client.post("/v1/events/ping", json=_full_payload(distribution="xcode"))
+    prod = client.get(
+        "/webhooks/admin/telemetry/onboarding?days=30&distribution=production",
+        headers=ADMIN).json()
+    assert prod["kpis"]["total"] == 1  # xcode excluded
+
+
+def test_onboarding_dashboard_requires_admin(client):
+    r = client.get("/webhooks/admin/telemetry/onboarding?days=30",
+                   headers={"X-Admin-Key": "wrong-key"})
+    assert r.status_code != 200
