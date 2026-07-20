@@ -476,6 +476,7 @@ async def verify_receipt(
                 monthly_used_usd = 0,
                 overage_balance_usd = 0,
                 searches_used = 0,
+                generations_used = 0,
                 allocation_resets_at = ?,
                 updated_at = ?,
                 simulated_tier = NULL,
@@ -670,6 +671,7 @@ async def sync_subscription(
                 monthly_used_usd = 0,
                 overage_balance_usd = 0,
                 searches_used = 0,
+                generations_used = 0,
                 allocation_resets_at = ?,
                 is_trial = 0,
                 trial_start = NULL,
@@ -1786,6 +1788,49 @@ async def chat(
         )["confirmation"]
         _gen_expected_seconds = int(_confirmation["expected_seconds"])
         _gen_confirmation_enabled = bool(_confirmation["enabled"])
+        # Quiet monthly count cap (2026-07-19): at cap the whole lane goes
+        # dormant for the rest of the allocation period — no offer, no
+        # teaser, confirmed flags ignored; file asks get the inline-chat
+        # alternative. No CTA, no counter surface (deliberately unlike
+        # search). Counter resets with the allocation cycle.
+        from app.services.document_generation import generation_monthly_cap
+        _gen_cap = generation_monthly_cap(
+            request.app.state.remote_configs, effective_tier_name)
+        if _gen_cap is not None and _confirmation["enabled"]:
+            _cap_row = await (await db.execute(
+                "SELECT generations_used, allocation_resets_at FROM users "
+                "WHERE id = ?", (user.id,))).fetchone()
+            _gens_used = int(_cap_row["generations_used"] or 0) if _cap_row else 0
+            if _gens_used >= _gen_cap:
+                logger.warning(
+                    "generation_cap_reached tier=%s used=%s cap=%s",
+                    effective_tier_name, _gens_used, _gen_cap)
+                _confirmation = dict(_confirmation)
+                _confirmation["enabled"] = False
+                _gen_confirmation_enabled = False
+                _was_confirmed = bool(body.get_meta("generation_confirmed"))
+                if _was_confirmed:
+                    _cap_meta = dict(body.metadata or {})
+                    _cap_meta["generation_confirmed"] = False
+                    body = body.model_copy(update={"metadata": _cap_meta})
+                # Honest at-cap answer (Scott 2026-07-19): file-ish asks
+                # get told in chat that the allowance is used and when it
+                # resets; the model answers inline. Non-file turns carry
+                # no notice.
+                from app.services.document_generation import (
+                    GENERATION_CAP_STEERING,
+                    _question_portion,
+                    looks_like_file_ask,
+                )
+                if _was_confirmed or looks_like_file_ask(
+                        _question_portion(body.user_content)):
+                    _reset_raw = (_cap_row["allocation_resets_at"]
+                                  if _cap_row else None) or ""
+                    _reset_date = (_reset_raw[:10] if len(_reset_raw) >= 10
+                                   else "the first day of the next billing period")
+                    body = body.model_copy(update={
+                        "system_prompt": (body.system_prompt or "")
+                        + GENERATION_CAP_STEERING.format(reset_date=_reset_date)})
         if _confirmation["enabled"] and body.get_meta("generation_confirmed"):
             # Pill tap at a teaser (SS sends the offer_id echo AND the
             # generation_confirmed resend together, 2026-07-14): confirmed
@@ -2364,6 +2409,18 @@ async def chat(
                 status="done", text=(response.text or ""),
                 generated_files=generated_payload,
             )
+        if generated_payload:
+            # Monthly count cap (2026-07-19): count builds that staged
+            # artifacts — both lanes (sandbox + template). Failures burn
+            # no quota, and neither do plain chat turns that carry a
+            # rescue generation_id (those record terminal rows above
+            # without files). Lives here, not in generation_turns.finish:
+            # quota is the router's concern, and the terminal-record
+            # service stays usable against the bare generations DDL.
+            await db.execute(
+                "UPDATE users SET generations_used = generations_used + 1 "
+                "WHERE id = ?", (user.id,))
+            await db.commit()
 
         # 7. Calculate cost from pricing data
         request_cost = 0.0

@@ -132,6 +132,7 @@
       ],
       "feature_definitions": {
         "project_chat": {"max_input_tokens": 180000},
+        "generation": {"generations_per_month": 100},
         "search": {
           "searches_per_month": 120,
           "searches_soft_threshold": 80,

@@ -94,6 +94,7 @@ async def lazy_reset_if_due(
       - monthly_used_usd → 0
       - overage_balance_usd → 0
       - searches_used → 0
+      - generations_used → 0
       - allocation_resets_at → rolled forward past `now`
     """
     if now is None:
@@ -119,6 +120,7 @@ async def lazy_reset_if_due(
               SET monthly_used_usd = 0,
                   overage_balance_usd = 0,
                   searches_used = 0,
+                  generations_used = 0,
                   allocation_resets_at = ?,
                   updated_at = ?
             WHERE id = ?

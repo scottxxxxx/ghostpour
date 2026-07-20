@@ -199,6 +199,38 @@ def ask_references_images(text: str) -> bool:
     return bool(_IMAGE_MARKER_RE.search(text or ""))
 
 
+# At-cap steering for file-ish asks (Scott 2026-07-19: tell the user in
+# chat rather than letting the lane go silently dormant). Factual, states
+# what happens and when it resets; the model still answers inline.
+GENERATION_CAP_STEERING = (
+    "\n\nFILE GENERATION NOTICE: This account has used all of its included "
+    "file generations for the current billing period. The allowance resets "
+    "on {reset_date}. If the user is asking for a generated file, tell them "
+    "this plainly, and provide the content inline in chat instead. Do not "
+    "offer to build a file this period."
+)
+
+
+def generation_monthly_cap(remote_configs: dict, tier: str) -> int | None:
+    """Quiet per-tier monthly generation count cap (2026-07-19).
+
+    Read from the tiers remote config:
+    tiers.<tier>.feature_definitions.generation.generations_per_month.
+    Absent block or null value = uncapped. Deliberately QUIET — no CTA
+    copy, no client counter (unlike search's "N of M" surface): at cap
+    the generation lane goes dormant for the rest of the allocation
+    period and file asks get the model's inline-chat alternative.
+    Numeric-only, so the base config is authoritative; localized tiers
+    files carry the same block to survive locale resolution."""
+    cfg = (remote_configs or {}).get("tiers") or {}
+    block = (cfg.get("tiers", {}).get(tier, {})
+             .get("feature_definitions", {}).get("generation"))
+    if not isinstance(block, dict):
+        return None
+    cap = block.get("generations_per_month")
+    return int(cap) if cap is not None else None
+
+
 def looks_like_file_ask(text: str) -> bool:
     tail = (text or "")[-2000:].lower()
     return any(h in tail for h in _FILE_ASK_HINTS)
