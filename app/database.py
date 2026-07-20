@@ -509,6 +509,35 @@ MIGRATIONS = [
     # "N of M" counter): at cap the generation lane goes dormant and
     # file asks get the inline-chat alternative.
     "ALTER TABLE users ADD COLUMN generations_used INTEGER NOT NULL DEFAULT 0",
+    # v30: Onboarding funnel telemetry (2026-07-20). One row per finished-or-
+    # abandoned first-run onboarding, emitted on the anonymous ping as
+    # event_type='onboarding_completed'. All behavioral, no PII: the name and
+    # the voice-enrollment audio never leave the device, only booleans. Keyed
+    # by device_id so it JOINs to future usage + conversion (the ping carries
+    # user_id once signed in, bridging device -> account). `steps` is a JSON
+    # array of {step, dwell_ms} for the per-page funnel; the flat columns are
+    # the cohort dimensions we correlate against retention/conversion.
+    """CREATE TABLE IF NOT EXISTS onboarding_events (
+        id TEXT PRIMARY KEY,
+        device_id TEXT NOT NULL,
+        app_id TEXT,
+        received_at TEXT NOT NULL,
+        total_duration_ms INTEGER,
+        completed INTEGER,                         -- 1 completed, 0 abandoned
+        tour_skipped INTEGER,
+        name_provided INTEGER,
+        voice_enrolled INTEGER,
+        auth_choice TEXT,                          -- apple | on_device | NULL
+        abandoned_at_step TEXT,                    -- NULL when completed
+        steps TEXT,                                -- JSON [{step, dwell_ms}, ...]
+        app_version TEXT,
+        os_version TEXT,
+        device_model TEXT,
+        app_locale TEXT,
+        distribution TEXT
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_onboarding_device ON onboarding_events(device_id)",
+    "CREATE INDEX IF NOT EXISTS idx_onboarding_received ON onboarding_events(received_at)",
 ]
 
 

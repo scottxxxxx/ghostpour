@@ -37,6 +37,7 @@ without moving the schema, that's a coordination bug.
 | `reasoning-control.md` | active | Per-model reasoningLevels, server-side mapping to provider params |
 | `tr-match-analysis.md` | active (2026-06-30) | TR résumé/JD fit response: scores, strengths, `gaps[]` (`closeable`/`share_prompt` for the Strengthen flow), fit radar; GP-assembled vs client-embedded prompt source |
 | `image-send-config.md` | active (2026-07-20) | Per-tier `feature_definitions.images`: `max_long_edge` downscale cap, `jpeg_quality`, and user-facing `capture_guidance` hints; SS reads at runtime |
+| `onboarding-telemetry.md` | active (2026-07-20) | `onboarding_completed` event on the anonymous ping: per-step dwell + outcome booleans (no PII), joined to conversion on `device_id` |
 
 ## Why this directory exists
 
