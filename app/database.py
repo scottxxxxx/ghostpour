@@ -622,6 +622,15 @@ async def init_db(database_url: str) -> None:
             "DELETE FROM meeting_reports WHERE created_at < datetime('now', '-30 days')"
         )
 
+        # Purge plan snapshots older than 365 days (Scott, 2026-07-21:
+        # "set the snapshot TTL to a year and ship it"). Snapshots are the
+        # dated plan versions slip tracking diffs against; a year of
+        # baseline is generous for slip, and the bound keeps GP from
+        # quietly becoming a forever-archive of structured project state.
+        await db.execute(
+            "DELETE FROM plan_snapshots WHERE created_at < datetime('now', '-365 days')"
+        )
+
         # Purge meeting transcripts older than 30 days (Scott, 2026-07-21).
         # The durable copies live where they should: the phone keeps the
         # transcript the user sees, CQ keeps the distilled memory. GP's copy
