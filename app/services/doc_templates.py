@@ -115,9 +115,17 @@ def render_gantt(data: dict, *, today: date | None = None) -> bytes:
     return _serialize_wb(_build_gantt_wb(data, today=today))
 
 
-def _build_gantt_wb(data: dict, *, today: date | None = None):
+def _build_gantt_wb(data: dict, *, today: date | None = None,
+                    detail_cols: bool = False):
     """Build the Gantt View workbook (shared by the simple and detailed
     renderers; the detailed one appends sheets to the same workbook).
+
+    detail_cols (detailed style only): adds % Done and Effort columns
+    BETWEEN Assigned To and the day grid, and a live completed-portion
+    overlay on each bar driven by the % cell (edit the percent in Excel
+    and the done-portion redraws, same live-grid rule as everything
+    else). Column positions A-I are unchanged so every $D/$E/$F formula
+    is shared between styles; only the day-grid origin shifts.
 
     LIVE GRID (Scott 2026-07-15): the timeline bars are conditional
     formatting formulas over real date cells, not painted fills — edit a
@@ -166,7 +174,8 @@ def _build_gantt_wb(data: dict, *, today: date | None = None):
     ws = wb.active
     ws.title = "Gantt View"
     # A:dot B:name C:risk D:status E:start F:end G:predecessors H:chip I:owner
-    FIRST_DAY_COL = 10
+    FIRST_DAY_COL = 12 if detail_cols else 10
+    PCT_COL = "J"   # % Done, only written when detail_cols
     KEY_TOP = 4          # status key block under the 3 header rows
     first_bar_row = KEY_TOP + 6   # key rows + blank + project row
 
@@ -203,10 +212,12 @@ def _build_gantt_wb(data: dict, *, today: date | None = None):
         if d == today:
             c.font = Font(size=8, bold=True, color="FF" + _C["risk"])
     ws.row_dimensions[1].hidden = True
-    for col, (head, width) in enumerate(
-            [("", 7), ("Task Name", 38), ("At\nRisk", 5), ("Status", 12),
-             ("Start\nDate", 11), ("End\nDate", 11), ("Predecessors", 12),
-             ("", 4), ("Assigned To", 16)], start=1):
+    _heads = [("", 7), ("Task Name", 38), ("At\nRisk", 5), ("Status", 12),
+              ("Start\nDate", 11), ("End\nDate", 11), ("Predecessors", 12),
+              ("", 4), ("Assigned To", 16)]
+    if detail_cols:
+        _heads += [("%\nDone", 7), ("Effort", 10)]
+    for col, (head, width) in enumerate(_heads, start=1):
         c = ws.cell(3, col, head)
         c.font = Font(bold=True, size=9)
         c.alignment = Alignment(wrap_text=True, vertical="center")
@@ -233,7 +244,7 @@ def _build_gantt_wb(data: dict, *, today: date | None = None):
             c.font = Font(size=size,
                           color="FF" + (hex_color or "3D4653"))
 
-    def bar_rules(r, bar_hex, risk_aware=False):
+    def bar_rules(r, bar_hex, risk_aware=False, pct_overlay=False):
         """The live bars, drawn twice from the same date cells so every
         viewer shows them (Scott's Numbers finding 2026-07-16: Numbers
         computes formulas but refuses conditional FORMATTING, so
@@ -261,6 +272,19 @@ def _build_gantt_wb(data: dict, *, today: date | None = None):
             ws.conditional_formatting.add(grid(r), FormulaRule(
                 formula=[risky], fill=dxf_fill(_C["risk"]),
                 font=Font(color="FF" + _C["risk"]), stopIfTrue=True))
+        if pct_overlay:
+            # Completed-portion overlay (detailed style): the leading
+            # share of the bar recolors to the status-complete blue,
+            # driven live by the % Done cell. Added BEFORE the base bar
+            # rule so it wins where both match; blank % means no
+            # overlay and the plain bar shows.
+            P = f"${PCT_COL}{r}"
+            done_f = (f"AND({P}<>\"\",{ax}>={E},"
+                      f"{ax}<={E}+({F}-{E})*{P})")
+            ws.conditional_formatting.add(grid(r), FormulaRule(
+                formula=[done_f], fill=dxf_fill(_C["status"]["complete"]),
+                font=Font(color="FF" + _C["status"]["complete"]),
+                stopIfTrue=True))
         ws.conditional_formatting.add(grid(r), FormulaRule(
             formula=[in_range], fill=dxf_fill(bar_hex),
             font=Font(color="FF" + bar_hex), stopIfTrue=True))
@@ -331,6 +355,18 @@ def _build_gantt_wb(data: dict, *, today: date | None = None):
                 chip.alignment = Alignment(horizontal="center")
                 nm = ws.cell(row, 9, owner)
                 nm.font = Font(size=8, color="FF" + text_hex)
+            if detail_cols:
+                pct = t.get("percent_complete")
+                if isinstance(pct, int) and 0 <= pct <= 100:
+                    pcell = ws.cell(row, 10, pct / 100)
+                    pcell.number_format = "0%"
+                    pcell.font = Font(size=8, color="FF" + text_hex)
+                    pcell.alignment = Alignment(horizontal="center")
+                eff = t.get("effort")
+                if isinstance(eff, str) and eff.strip():
+                    ecell = ws.cell(row, 11, eff.strip())
+                    ecell.font = Font(size=8, color="FF" + text_hex)
+                    ecell.alignment = Alignment(horizontal="center")
             ws.row_dimensions[row].outline_level = 2
             if t["type"] == "milestone":
                 # The ◆ marker is a formula so it moves with the date —
@@ -348,7 +384,8 @@ def _build_gantt_wb(data: dict, *, today: date | None = None):
                     m.font = Font(color="FF" + _C["risk"], bold=True)
                     m.alignment = Alignment(horizontal="center")
             else:
-                bar_rules(row, _C["bar"], risk_aware=True)
+                bar_rules(row, _C["bar"], risk_aware=True,
+                          pct_overlay=detail_cols)
             row += 1
 
     # grid-wide dynamics AFTER the bar rules so bars win: the today
@@ -367,7 +404,7 @@ def _build_gantt_wb(data: dict, *, today: date | None = None):
             formula=[f'$D{first_bar_row + 1}="{label}"'],
             font=Font(color="FF" + _C["status"].get(key, _C["bar"]))))
 
-    ws.freeze_panes = "J4"
+    ws.freeze_panes = f"{get_column_letter(FIRST_DAY_COL)}4"
     ws.sheet_properties.outlinePr.summaryBelow = False
     return wb
 
@@ -391,9 +428,13 @@ def render_gantt_detailed(data: dict, *, today: date | None = None) -> bytes:
     """Detailed variant: the identical Gantt View sheet plus three additive
     sheets computed from the same extracted plan.
 
-    Progress carries percent complete and stated effort, both STRICTLY
-    blank when nobody said them (the extraction schema forbids estimating;
-    an empty cell reads more honestly than an invented number). Workload
+    The Gantt View itself carries % Done and Effort columns plus a live
+    completed-portion bar overlay (Scott 2026-07-21: progress must be
+    visible ON the timeline view, not exiled to a side sheet). Progress
+    repeats percent and effort beside the receipts refs; both are
+    STRICTLY blank when nobody said them (the extraction schema forbids
+    estimating; an empty cell reads more honestly than an invented
+    number). Workload
     is live COUNTIFS arithmetic over Progress (owner by week-due), so
     editing dates in Excel re-flags overloaded weeks. Receipts quotes the
     meeting line behind every extracted value; Progress rows cite [R#]
@@ -403,7 +444,7 @@ def render_gantt_detailed(data: dict, *, today: date | None = None) -> bytes:
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
 
-    wb = _build_gantt_wb(data, today=today)
+    wb = _build_gantt_wb(data, today=today, detail_cols=True)
     tasks = data.get("tasks") or []
     rows = [t for t in tasks if t.get("type") != "phase"]
 

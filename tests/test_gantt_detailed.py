@@ -73,10 +73,30 @@ def test_render_detailed_adds_sheets_and_stays_honest():
     wb = openpyxl.load_workbook(io.BytesIO(blob))
     assert wb.sheetnames == ["Gantt View", "Progress", "Workload", "Receipts"]
 
-    # the Gantt View sheet is the SAME sheet the simple renderer draws
+    # simple keeps its exact layout; detailed shifts the day grid right
+    # to make room for the on-view % Done / Effort columns
     simple = openpyxl.load_workbook(io.BytesIO(
         render_gantt(_DPLAN, today=datetime.date(2026, 7, 21))))
-    assert simple["Gantt View"].freeze_panes == wb["Gantt View"].freeze_panes
+    assert simple["Gantt View"].freeze_panes == "J4"
+    gv = wb["Gantt View"]
+    assert gv.freeze_panes == "L4"
+    # progress is ON the timeline view: stated percent + effort as columns
+    gv_rows = {str(gv.cell(r, 2).value or "").strip(): r
+               for r in range(1, 40) if gv.cell(r, 2).value}
+    payments_r = gv_rows["Payments integration"]
+    sync_r = gv_rows["Offline sync"]
+    assert gv.cell(payments_r, 10).value == 0.7
+    assert gv.cell(payments_r, 10).number_format == "0%"
+    assert gv.cell(payments_r, 11).value is None      # effort not stated
+    assert gv.cell(sync_r, 11).value == "3 days"
+    assert gv.cell(sync_r, 10).value is None          # fixture states no %
+    crash_r = gv_rows["Crash SDK swap"]
+    assert gv.cell(crash_r, 10).value is None         # % not stated -> blank
+    # live completed-portion overlay keyed to the % cell
+    gv_formulas = " | ".join(
+        f for rng in gv.conditional_formatting for rule in rng.rules
+        for f in (rule.formula or []))
+    assert "*$J" in gv_formulas
 
     prog = wb["Progress"]
     rows = {prog.cell(r, 1).value: r for r in range(5, 9)}
