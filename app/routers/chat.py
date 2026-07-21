@@ -2443,7 +2443,14 @@ async def chat(
                 )
                 _t = TEMPLATES[_template_id]
                 _plan = parse_extraction(response.text)
-                _bytes = await asyncio.to_thread(_t["renderer"], _plan)
+                # Slip needs the project's prior plan versions (v2): fetch
+                # async here, hand them to the (threaded) renderer. Every
+                # renderer accepts the kwarg; the simple style ignores it.
+                from app.services import plan_snapshots as _snaps
+                _history = await _snaps.history(
+                    db, user_id=user.id, project_id=body.project_id)
+                _bytes = await asyncio.to_thread(
+                    _t["renderer"], _plan, history=_history)
                 _row = await _staging.stage(
                     db, user_id=user.id, app_id=app_id,
                     name=artifact_filename(_t, _plan),
