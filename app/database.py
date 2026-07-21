@@ -622,6 +622,17 @@ async def init_db(database_url: str) -> None:
             "DELETE FROM meeting_reports WHERE created_at < datetime('now', '-30 days')"
         )
 
+        # Purge meeting transcripts older than 30 days (Scott, 2026-07-21).
+        # The durable copies live where they should: the phone keeps the
+        # transcript the user sees, CQ keeps the distilled memory. GP's copy
+        # exists for report generation (minutes-to-hours after capture),
+        # report regeneration insurance (aligned with the 30d report purge
+        # above), and cleanup debugging (dashboard Transcripts tab). Full
+        # meeting content held forever was liability, not value.
+        await db.execute(
+            "DELETE FROM meeting_transcripts WHERE created_at < datetime('now', '-30 days')"
+        )
+
         # Purge email_events older than 90 days. Webhook event audit log
         # — kept long enough for spam-complaint / bounce attribution
         # debugging, then dropped to bound disk + Litestream replication
