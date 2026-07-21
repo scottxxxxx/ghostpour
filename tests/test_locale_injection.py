@@ -153,3 +153,45 @@ def test_no_directive_routed_for_english(client, free_user, mock_provider):
     routed = mock_provider.call_args.args[0]
     assert routed.system_prompt == "Base prompt."       # untouched
     assert "X-Output-Locale" not in resp.headers
+
+
+def test_accept_language_fallback_injects_without_metadata_locale(client, free_user, mock_provider):
+    """SS sends Accept-Language (device locale) but not metadata.locale. The
+    /v1/chat path must fall back to it so managed output is still forced into
+    the user's language."""
+    resp = client.post(
+        "/v1/chat",
+        json=chat_request(system_prompt="Base prompt."),  # no locale in body
+        headers={**free_user["headers"], "Accept-Language": "ja-JP,ja;q=0.9"},
+    )
+    assert resp.status_code == 200, resp.text
+    routed = mock_provider.call_args.args[0]
+    assert "Base prompt." in routed.system_prompt
+    assert "Japanese" in routed.system_prompt
+    assert resp.headers.get("X-Output-Locale") == "ja"
+
+
+def test_accept_language_english_is_noop(client, free_user, mock_provider):
+    resp = client.post(
+        "/v1/chat",
+        json=chat_request(system_prompt="Base prompt."),
+        headers={**free_user["headers"], "Accept-Language": "en-US"},
+    )
+    assert resp.status_code == 200, resp.text
+    routed = mock_provider.call_args.args[0]
+    assert routed.system_prompt == "Base prompt."       # untouched
+    assert "X-Output-Locale" not in resp.headers
+
+
+def test_metadata_locale_wins_over_accept_language(client, free_user, mock_provider):
+    """An explicit per-call locale beats the device default."""
+    resp = client.post(
+        "/v1/chat",
+        json=chat_request(system_prompt="Base prompt.", locale="es"),
+        headers={**free_user["headers"], "Accept-Language": "ja-JP"},
+    )
+    assert resp.status_code == 200, resp.text
+    routed = mock_provider.call_args.args[0]
+    assert "Spanish" in routed.system_prompt
+    assert "Japanese" not in routed.system_prompt
+    assert resp.headers.get("X-Output-Locale") == "es"

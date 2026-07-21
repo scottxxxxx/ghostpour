@@ -1351,10 +1351,22 @@ async def chat(
         normalize_locale as _norm_locale,
     )
     _output_locale = None  # set to the resolved locale only when injection fired
-    _localized_system = _apply_locale(body.system_prompt, body.get_meta("locale"))
+    # Prefer an explicit per-call metadata.locale; fall back to the device
+    # locale from Accept-Language when it's absent. SS sends Accept-Language
+    # but not metadata.locale today, so without this fallback managed output
+    # is never forced into the user's language (verified: 0 of 303 recent SS
+    # calls carried metadata.locale). No-op for English (the parser maps
+    # en -> None). The report path (reports.py) already resolves locale this
+    # way, so this brings /v1/chat in line.
+    _effective_locale = body.get_meta("locale")
+    if not _norm_locale(_effective_locale):
+        from app.routers.config import _parse_accept_language
+        _effective_locale = _parse_accept_language(
+            request.headers.get("Accept-Language"))
+    _localized_system = _apply_locale(body.system_prompt, _effective_locale)
     if _localized_system != body.system_prompt:
         body = body.model_copy(update={"system_prompt": _localized_system})
-        _output_locale = _norm_locale(body.get_meta("locale"))
+        _output_locale = _norm_locale(_effective_locale)
 
     # Effective allocation limit (trial or regular)
     effective_limit = tier.monthly_cost_limit_usd
