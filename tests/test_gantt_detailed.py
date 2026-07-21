@@ -151,6 +151,92 @@ _HISTORY = [
 ]
 
 
+def _gv_rows(gv):
+    return {str(gv.cell(r, 2).value or "").replace("🏁", "").replace("−", "").strip(): r
+            for r in range(1, 40) if gv.cell(r, 2).value}
+
+
+def test_dependency_push_and_rollup_formulas():
+    """Editing a predecessor's dates must push its dependents (Scott
+    2026-07-21): dependent Start = driver cell + extracted lag, End =
+    Start + duration; phases and the project row roll up MIN/MAX live.
+    Independent tasks keep static dates."""
+    import datetime
+    import io
+
+    import openpyxl
+
+    from app.services.doc_templates import render_gantt
+    blob = render_gantt(_DPLAN, today=datetime.date(2026, 7, 21))
+    gv = openpyxl.load_workbook(io.BytesIO(blob))["Gantt View"]
+    rows = _gv_rows(gv)
+    rc, rb = rows["Crash SDK swap"], rows["Beta build"]
+    # beta (milestone) depends on crash sdk: FS with the extracted 6-day lag
+    assert gv.cell(rb, 5).value == f"=F{rc}+6"
+    assert gv.cell(rb, 6).value == f"=E{rb}"          # zero duration
+    # independent task keeps static, editable dates
+    assert isinstance(gv.cell(rows["Payments integration"], 5).value,
+                      datetime.datetime)
+    # phase rolls up its 4 contiguous children; project rolls up the phase
+    rp = rows["Release 1.2"]
+    assert gv.cell(rp, 5).value == f"=MIN(E{rp + 1}:E{rp + 4})"
+    assert gv.cell(rp, 6).value == f"=MAX(F{rp + 1}:F{rp + 4})"
+    rproj = rp - 1
+    assert gv.cell(rproj, 5).value == f"=MIN(E{rp})"
+
+
+def test_multi_predecessor_uses_max_of_drivers():
+    import io
+
+    import openpyxl
+
+    from app.services.doc_templates import render_gantt
+    plan = {"project": "X", "tasks": [
+        {"id": 1, "name": "P", "type": "phase", "parent_id": None,
+         "owner": None, "status": "in_progress", "start": "2026-07-01",
+         "end": "2026-07-20", "depends_on": []},
+        {"id": 2, "name": "A", "type": "task", "parent_id": 1, "owner": None,
+         "status": "complete", "start": "2026-07-01", "end": "2026-07-10",
+         "depends_on": []},
+        {"id": 3, "name": "B", "type": "task", "parent_id": 1, "owner": None,
+         "status": "complete", "start": "2026-07-01", "end": "2026-07-12",
+         "depends_on": []},
+        {"id": 4, "name": "C", "type": "task", "parent_id": 1, "owner": None,
+         "status": "not_started", "start": "2026-07-15", "end": "2026-07-20",
+         "depends_on": [2, 3]},
+    ]}
+    gv = openpyxl.load_workbook(io.BytesIO(render_gantt(plan)))["Gantt View"]
+    rows = _gv_rows(gv)
+    ra, rb2, rc2 = rows["A"], rows["B"], rows["C"]
+    assert gv.cell(rc2, 5).value == f"=MAX(F{ra}+5,F{rb2}+3)"
+
+
+def test_cyclic_dependencies_fall_back_to_static_dates():
+    import datetime
+    import io
+
+    import openpyxl
+
+    from app.services.doc_templates import render_gantt
+    plan = {"project": "X", "tasks": [
+        {"id": 1, "name": "P", "type": "phase", "parent_id": None,
+         "owner": None, "status": "in_progress", "start": "2026-07-01",
+         "end": "2026-07-20", "depends_on": []},
+        {"id": 2, "name": "A", "type": "task", "parent_id": 1, "owner": None,
+         "status": "in_progress", "start": "2026-07-01", "end": "2026-07-10",
+         "depends_on": [3]},
+        {"id": 3, "name": "B", "type": "task", "parent_id": 1, "owner": None,
+         "status": "in_progress", "start": "2026-07-11", "end": "2026-07-20",
+         "depends_on": [2]},
+    ]}
+    gv = openpyxl.load_workbook(io.BytesIO(render_gantt(plan)))["Gantt View"]
+    for r in range(1, 20):
+        for c in (5, 6):
+            v = gv.cell(r, c).value
+            assert not (isinstance(v, str) and v.startswith("=")), (r, c, v)
+    assert isinstance(gv.cell(_gv_rows(gv)["A"], 5).value, datetime.datetime)
+
+
 def test_milestone_rows_carry_ignored_errors_mark():
     """Green-triangle regression (Scott 2026-07-21): the milestone glyph
     formula differs from its bar-row neighbors, so Excel's inconsistent-

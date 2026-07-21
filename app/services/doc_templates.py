@@ -240,12 +240,77 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
         ws.cell(row, 2, f"      {label}").font = Font(size=8)
     row += 2
 
-    def date_cells(r, s, e, hex_color=None, size=8):
+    def date_cells(r, s, e, hex_color=None, size=8, formulas=None):
+        """Write Start/End as dates, or as live formulas when the row's
+        dates are DRIVEN (dependency push, phase/project rollups). The
+        format and font are identical either way; a driven cell shows the
+        same date until an upstream edit moves it."""
         for col, d in ((5, s), (6, e)):
-            c = ws.cell(r, col, d)
+            f = (formulas or (None, None))[col - 5]
+            c = ws.cell(r, col, f if f else d)
             c.number_format = "yyyy-mm-dd"
             c.font = Font(size=size,
                           color="FF" + (hex_color or "3D4653"))
+
+    # Dependency-driven scheduling (Scott 2026-07-21: "if someone were to
+    # change something it wouldn't push out any other task"): a task with
+    # predecessors gets Start = MAX over predecessors of (driver cell +
+    # the LAG the extracted schedule already shows), and End = Start +
+    # its extracted duration. SS predecessors drive from the pred's
+    # Start cell, everything else from its End cell. Initial values are
+    # byte-for-byte the extracted dates; editing a predecessor pushes
+    # every dependent (and the bars redraw — they key off these cells).
+    # A cyclic dependency graph disables ALL date formulas (static
+    # fallback) rather than shipping circular references; users can
+    # still edit dates, they just don't cascade.
+    _adj = {t["id"]: [d for d in (t.get("depends_on") or []) if d in by_id]
+            for t in tasks}
+    _indeg = {tid: len(deps) for tid, deps in _adj.items()}
+    _queue = [tid for tid, n in _indeg.items() if n == 0]
+    _seen = 0
+    _dependents = {tid: [] for tid in _adj}
+    for tid, deps in _adj.items():
+        for d in deps:
+            _dependents[d].append(tid)
+    while _queue:
+        u = _queue.pop()
+        _seen += 1
+        for v in _dependents[u]:
+            _indeg[v] -= 1
+            if _indeg[v] == 0:
+                _queue.append(v)
+    _deps_acyclic = _seen == len(_adj)
+
+    def _off(expr: str, days_off: int) -> str:
+        if days_off > 0:
+            return f"{expr}+{days_off}"
+        if days_off < 0:
+            return f"{expr}{days_off}"
+        return expr
+
+    def dep_formulas(t) -> tuple[str, str] | None:
+        """(start_formula, end_formula) for a dependent task, or None
+        when its dates stay static."""
+        deps = _adj.get(t["id"]) or []
+        if not deps or not _deps_acyclic:
+            return None
+        terms = []
+        for dep in deps:
+            p = by_id[dep]
+            prow = row_of.get(dep)
+            if prow is None:
+                return None
+            if _dep_code(p, t) == "SS":
+                terms.append(_off(f"E{prow}",
+                                  (_d(t["start"]) - _d(p["start"])).days))
+            else:
+                terms.append(_off(f"F{prow}",
+                                  (_d(t["start"]) - _d(p["end"])).days))
+        ef = "=" + (terms[0] if len(terms) == 1
+                    else "MAX(" + ",".join(terms) + ")")
+        r = row_of[t["id"]]
+        ff = "=" + _off(f"E{r}", (_d(t["end"]) - _d(t["start"])).days)
+        return ef, ff
 
     def bar_rules(r, bar_hex, risk_aware=False, pct_overlay=False):
         """The live bars, drawn twice from the same date cells so every
@@ -292,12 +357,19 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
             formula=[in_range], fill=dxf_fill(bar_hex),
             font=Font(color="FF" + bar_hex), stopIfTrue=True))
 
-    # project row
+    # project row — dates roll up live from the phase rows
     ws.cell(row, 2, f"  {data.get('project') or 'Project'}").font = \
         Font(bold=True, color="FFFFFFFF")
     for c in range(1, FIRST_DAY_COL):
         ws.cell(row, c).fill = fill(_C["project"])
-    date_cells(row, start, end, hex_color="FFFFFF", size=9)
+    _proj_formulas = None
+    if phases and _deps_acyclic:
+        _prows = [row_of[p["id"]] for p in phases]
+        _proj_formulas = (
+            "=MIN(" + ",".join(f"E{r}" for r in _prows) + ")",
+            "=MAX(" + ",".join(f"F{r}" for r in _prows) + ")")
+    date_cells(row, start, end, hex_color="FFFFFF", size=9,
+               formulas=_proj_formulas)
     ws.row_dimensions[row].height = 12
     bar_rules(row, _C["summary"])
     row += 1
@@ -315,7 +387,14 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
             color="FF" + _C["status"].get(phase.get("status", "in_progress"), _C["bar"]))
         ws.cell(row, 2, f"  −  {phase['name']}").font = Font(bold=True, size=9)
         ws.cell(row, 4, _STATUS_LABELS.get(phase.get("status", ""), "")).font = Font(size=8)
-        date_cells(row, _d(phase["start"]), _d(phase["end"]))
+        _kids = children.get(phase["id"], [])
+        _phase_formulas = None
+        if _kids and _deps_acyclic:
+            # children occupy the contiguous rows right under the phase
+            _phase_formulas = (f"=MIN(E{row + 1}:E{row + len(_kids)})",
+                               f"=MAX(F{row + 1}:F{row + len(_kids)})")
+        date_cells(row, _d(phase["start"]), _d(phase["end"]),
+                   formulas=_phase_formulas)
         ws.row_dimensions[row].outline_level = 1
         ws.row_dimensions[row].height = 12
         bar_rules(row, _C["summary"])
@@ -335,7 +414,8 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
             st = ws.cell(row, 4, _STATUS_LABELS.get(t.get("status", ""), ""))
             st.font = Font(size=8, color="FF" + text_hex)
             dv.add(f"D{row}")
-            date_cells(row, _d(t["start"]), _d(t["end"]), hex_color=text_hex)
+            date_cells(row, _d(t["start"]), _d(t["end"]), hex_color=text_hex,
+                       formulas=dep_formulas(t))
             # Predecessors: Smartsheet nomenclature, dates-derived (FS
             # default; SS/FF only when the extracted dates say so)
             codes = ", ".join(
@@ -409,14 +489,15 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
 
     ws.freeze_panes = f"{get_column_letter(FIRST_DAY_COL)}4"
     ws.sheet_properties.outlinePr.summaryBelow = False
-    # Milestone rows compute "◆" between bar rows computing "█": Excel's
-    # inconsistent-formula checker stamps green triangles across the row
-    # (Scott 2026-07-21, row-12 screenshot; the 2026-07-16 same-shape fix
-    # helped only when milestones sat at a table edge). Declare the whole
-    # day grid ignored for that check, the same mark Excel writes when a
-    # user clicks "Ignore Error". openpyxl 3.1 has no serializer for it,
-    # so _normalize_zip injects the element from this stash.
-    wb._gp_ignored_errors = {ws.title: full_grid}
+    # Milestone rows compute "◆" between bar rows computing "█", and the
+    # Start/End columns now mix static dates with dependency formulas:
+    # both trip Excel's inconsistent-formula checker (Scott 2026-07-21,
+    # row-12 screenshot). Declare the day grid AND the date columns
+    # ignored for that check, the same mark Excel writes when a user
+    # clicks "Ignore Error". openpyxl 3.1 has no serializer for it, so
+    # _normalize_zip injects the element from this stash.
+    wb._gp_ignored_errors = {
+        ws.title: f"{full_grid} E{first_bar_row}:F{last_row}"}
     return wb
 
 
