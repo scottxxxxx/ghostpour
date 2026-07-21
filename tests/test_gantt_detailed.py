@@ -107,23 +107,24 @@ def test_render_detailed_adds_sheets_and_stays_honest():
     rows = {prog.cell(r, 1).value: r for r in range(5, 9)}
     # stated percent lands, formatted as a percent
     pr = rows["Payments integration"]
-    assert prog.cell(pr, 5).value == 0.7
-    assert prog.cell(pr, 5).number_format == "0%"
+    assert prog.cell(pr, 6).value == 0.7
+    assert prog.cell(pr, 6).number_format == "0%"
     # blank-when-not-stated: no percent for sync, no effort for payments
     sr = rows["Offline sync"]
-    assert prog.cell(sr, 5).value is None
-    assert prog.cell(sr, 6).value == "3 days"
-    assert prog.cell(pr, 6).value is None
+    assert prog.cell(sr, 6).value is None
+    assert prog.cell(sr, 7).value == "3 days"
+    assert prog.cell(pr, 7).value is None
     # receipts refs cite into the Receipts sheet
-    assert prog.cell(pr, 7).value == "R1"
-    assert prog.cell(sr, 7).value == "R2"
+    assert prog.cell(pr, 8).value == "R1"
+    assert prog.cell(sr, 8).value == "R2"
 
     wl = wb["Workload"]
     formulas = [str(c.value) for row in wl.iter_rows() for c in row
                 if isinstance(c.value, str) and c.value.startswith("=")]
     assert formulas and all("COUNTIFS(Progress!" in f for f in formulas)
-    # both Jordan tasks and Maya's task produce owner rows
-    owners = [wl.cell(r, 1).value for r in (5, 6)]
+    # both Jordan tasks and Maya's task produce owner rows (below the
+    # DUE-that-week label row)
+    owners = [wl.cell(r, 1).value for r in (6, 7)]
     assert owners == ["Jordan Lee", "Maya Chen"]
     rules = [r for rng in wl.conditional_formatting for r in rng.rules]
     assert any(r.operator == "greaterThanOrEqual" for r in rules if hasattr(r, "operator"))
@@ -235,6 +236,60 @@ def test_cyclic_dependencies_fall_back_to_static_dates():
             v = gv.cell(r, c).value
             assert not (isinstance(v, str) and v.startswith("=")), (r, c, v)
     assert isinstance(gv.cell(_gv_rows(gv)["A"], 5).value, datetime.datetime)
+
+
+def test_critic_pass_features():
+    """2026-07-21 critic pass: beyond-chart arrows, phase % rollup,
+    in-flight workload, overdue highlighting, overlay legend, slip-days
+    red rule."""
+    import datetime
+    import io
+
+    import openpyxl
+
+    from app.services.doc_templates import render_gantt_detailed
+    blob = render_gantt_detailed(_DPLAN, today=datetime.date(2026, 7, 21),
+                                 history=_HISTORY)
+    wb = openpyxl.load_workbook(io.BytesIO(blob))
+    gv = wb["Gantt View"]
+
+    # beyond-chart indicator: every bar row ends with the arrow formula
+    arrows = [str(c.value) for row in gv.iter_rows() for c in row
+              if isinstance(c.value, str) and '"→"' in str(c.value)]
+    assert arrows and all(v.startswith("=IF($F") for v in arrows)
+
+    # phase % Done rollup formula on the phase row
+    rows = _gv_rows(gv)
+    rp = rows["Release 1.2"]
+    pf = gv.cell(rp, 10).value
+    assert isinstance(pf, str) and "SUMPRODUCT" in pf and "$J" in pf
+    assert gv.cell(rp, 10).number_format == "0%"
+
+    # overlay legend under the status key
+    texts = " ".join(str(c.value) for row in gv.iter_rows(max_row=10)
+                     for c in row if c.value)
+    assert "completed share" in texts
+
+    # overdue rule on Progress (due behind TODAY, not Complete)
+    prog = wb["Progress"]
+    pfs = " ".join(f for rng in prog.conditional_formatting
+                   for rule in rng.rules for f in (rule.formula or []))
+    assert "TODAY()" in pfs and 'Complete' in pfs
+
+    # in-flight matrix present and reading start+due from Progress
+    wl = wb["Workload"]
+    labels = [str(wl.cell(r, 1).value) for r in range(1, 30)
+              if wl.cell(r, 1).value]
+    assert "DUE that week" in labels and "ACTIVE during week" in labels
+    active_f = [str(c.value) for row in wl.iter_rows() for c in row
+                if isinstance(c.value, str) and "Progress!$D$5" in str(c.value)]
+    assert active_f and all('"<="' in f and '">="' in f for f in active_f)
+
+    # slip-days red rule
+    sl = wb["Slip"]
+    ops = [getattr(rule, "operator", None) for rng in sl.conditional_formatting
+           for rule in rng.rules]
+    assert "greaterThan" in ops
 
 
 def test_milestone_rows_carry_ignored_errors_mark():
