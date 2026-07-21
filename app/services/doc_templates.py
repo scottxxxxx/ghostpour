@@ -157,10 +157,11 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
     today = today or date.today()
     start = min(_d(t["start"]) for t in tasks)
     end = max(_d(t["end"]) for t in tasks)
-    # +14 days of runway so a user can push dates right and the bars
-    # still have axis to land on
+    # +28 days of runway so a user can push dates right and the bars
+    # still have axis to land on (was +14; critic pass 2026-07-21 —
+    # dependency push makes multi-week slides one edit away)
     days = [(start + timedelta(n))
-            for n in range((end - start).days + 15)][:180]
+            for n in range((end - start).days + 29)][:180]
 
     by_id = {t["id"]: t for t in tasks}
     phases = [t for t in tasks if t.get("type") == "phase"]
@@ -215,6 +216,10 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
         if d == today:
             c.font = Font(size=8, bold=True, color="FF" + _C["risk"])
     ws.row_dimensions[1].hidden = True
+    # beyond-chart indicator column (critic pass 2026-07-21): a bar
+    # pushed past the axis edge used to vanish silently; now the row's
+    # last cell shows a red arrow, live off the End cell.
+    ws.column_dimensions[get_column_letter(last_col + 1)].width = 3
     _heads = [("", 7), ("Task Name", 38), ("At\nRisk", 5), ("Status", 12),
               ("Start\nDate", 11), ("End\nDate", 11), ("Predecessors", 12),
               ("", 4), ("Assigned To", 16)]
@@ -238,6 +243,12 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
         row += 1
         ws.cell(row, 1, "●").font = Font(color="FF" + _C["status"][key], size=11)
         ws.cell(row, 2, f"      {label}").font = Font(size=8)
+    if detail_cols:
+        # explain the done-portion overlay (critic pass 2026-07-21)
+        lg = ws.cell(row + 1, 2,
+                     "      █ darker bar section = completed share, "
+                     "drives from % Done")
+        lg.font = Font(size=8, color="FF" + _C["status"]["complete"])
     row += 2
 
     def date_cells(r, s, e, hex_color=None, size=8, formulas=None):
@@ -356,6 +367,10 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
         ws.conditional_formatting.add(grid(r), FormulaRule(
             formula=[in_range], fill=dxf_fill(bar_hex),
             font=Font(color="FF" + bar_hex), stopIfTrue=True))
+        ind = ws.cell(r, last_col + 1,
+                      f'=IF($F{r}>{get_column_letter(last_col)}$1,"→","")')
+        ind.font = Font(bold=True, color="FF" + _C["risk"])
+        ind.alignment = Alignment(horizontal="center")
 
     # project row — dates roll up live from the phase rows
     ws.cell(row, 2, f"  {data.get('project') or 'Project'}").font = \
@@ -395,9 +410,25 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
                                f"=MAX(F{row + 1}:F{row + len(_kids)})")
         date_cells(row, _d(phase["start"]), _d(phase["end"]),
                    formulas=_phase_formulas)
+        if detail_cols and _kids:
+            # phase % Done rolls up live: duration-weighted over children
+            # whose percent was STATED; blank when none was (critic pass
+            # 2026-07-21 — tasks had %, the levels PMs read didn't)
+            c1, cn = row + 1, row + len(_kids)
+            pf = ('=IF(SUMPRODUCT(($F{c1}:$F{cn}-$E{c1}:$E{cn}+1)*'
+                  '($J{c1}:$J{cn}<>""))=0,"",'
+                  'SUMPRODUCT(($F{c1}:$F{cn}-$E{c1}:$E{cn}+1)*'
+                  'N($J{c1}:$J{cn}))/'
+                  'SUMPRODUCT(($F{c1}:$F{cn}-$E{c1}:$E{cn}+1)*'
+                  '($J{c1}:$J{cn}<>"")))'
+                  ).replace("{c1}", str(c1)).replace("{cn}", str(cn))
+            ppc = ws.cell(row, 10, pf)
+            ppc.number_format = "0%"
+            ppc.font = Font(bold=True, size=8)
+            ppc.alignment = Alignment(horizontal="center")
         ws.row_dimensions[row].outline_level = 1
         ws.row_dimensions[row].height = 12
-        bar_rules(row, _C["summary"])
+        bar_rules(row, _C["summary"], pct_overlay=detail_cols)
         dv.add(f"D{row}")
         row += 1
         for t in children.get(phase["id"], []):
@@ -466,6 +497,11 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
                                 f'"◆","")')
                     m.font = Font(color="FF" + _C["risk"], bold=True)
                     m.alignment = Alignment(horizontal="center")
+                mi = ws.cell(row, last_col + 1,
+                             f'=IF($F{row}>{get_column_letter(last_col)}$1,'
+                             f'"→","")')
+                mi.font = Font(bold=True, color="FF" + _C["risk"])
+                mi.alignment = Alignment(horizontal="center")
             else:
                 bar_rules(row, _C["bar"], risk_aware=True,
                           pct_overlay=detail_cols)
@@ -496,8 +532,11 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
     # ignored for that check, the same mark Excel writes when a user
     # clicks "Ignore Error". openpyxl 3.1 has no serializer for it, so
     # _normalize_zip injects the element from this stash.
+    _ind_L = get_column_letter(last_col + 1)
     wb._gp_ignored_errors = {
-        ws.title: f"{full_grid} E{first_bar_row}:F{last_row}"}
+        ws.title: (f"{full_grid} E{first_bar_row}:F{last_row}"
+                   f" {_ind_L}{first_bar_row}:{_ind_L}{last_row}"
+                   f" J{first_bar_row}:J{last_row}")}
     return wb
 
 
@@ -624,7 +663,7 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
                 "it. [R#] points to the verbatim line on the Receipts "
                 "sheet.")
     ws["A2"].font = sub_font
-    heads = ["Task", "Owner", "Status", "Due", "% Complete",
+    heads = ["Task", "Owner", "Status", "Start", "Due", "% Complete",
              "Effort (as stated)", "Receipts"]
     for ci, h in enumerate(heads, 1):
         c = ws.cell(4, ci, h)
@@ -635,24 +674,36 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
         ws.cell(ri, 1, t["name"]).font = Font(bold=True, size=9)
         ws.cell(ri, 2, (t.get("owner") or "").strip())
         ws.cell(ri, 3, _STATUS_LABELS.get(t.get("status", ""), ""))
-        dc = ws.cell(ri, 4, _d(t["end"]))
+        sc0 = ws.cell(ri, 4, _d(t["start"]))
+        sc0.number_format = "yyyy-mm-dd"
+        dc = ws.cell(ri, 5, _d(t["end"]))
         dc.number_format = "yyyy-mm-dd"
         pct = t.get("percent_complete")
         if isinstance(pct, int) and 0 <= pct <= 100:
-            pc = ws.cell(ri, 5, pct / 100)
+            pc = ws.cell(ri, 6, pct / 100)
             pc.number_format = "0%"
         eff = t.get("effort")
         if isinstance(eff, str) and eff.strip():
-            ws.cell(ri, 6, eff.strip())
+            ws.cell(ri, 7, eff.strip())
         refs = refs_of.get(t["id"])
         if refs:
-            rc = ws.cell(ri, 7, ", ".join(refs))
+            rc = ws.cell(ri, 8, ", ".join(refs))
             rc.font = Font(size=8, color="FF666666")
-        for ci in range(1, 8):
+        for ci in range(1, 9):
             ws.cell(ri, ci).border = box
     last_progress_row = 4 + len(rows)
-    for col, w in {"A": 34, "B": 14, "C": 12, "D": 12, "E": 11,
-                   "F": 16, "G": 14}.items():
+    # Overdue screams (critic pass 2026-07-21): due date behind TODAY()
+    # while status is anything but Complete lights the row red, live.
+    if rows:
+        ws.conditional_formatting.add(
+            f"A5:H{last_progress_row}",
+            FormulaRule(
+                formula=['AND($E5<TODAY(),$C5<>"Complete",$C5<>"")'],
+                fill=PatternFill(start_color="FF" + red_lt,
+                                 end_color="FF" + red_lt, fill_type="solid"),
+                font=Font(color="FF9A1B12")))
+    for col, w in {"A": 34, "B": 14, "C": 12, "D": 12, "E": 12, "F": 11,
+                   "G": 16, "H": 14}.items():
         ws.column_dimensions[col].width = w
     ws.freeze_panes = "A5"
 
@@ -661,8 +712,10 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
     wl["A1"] = "Workload, tasks due per person per week"
     wl["A1"].font = Font(bold=True, size=13, color="FF" + navy)
     wl["A2"] = ("Computed live from the Progress sheet, so edited dates "
-                "re-flag automatically. 3 or more due in one week shows "
-                "red, 2 shows amber. The gold header is the current week.")
+                "re-flag automatically. 3 or more in one week shows red, "
+                "2 shows amber. The gold header is the current week. Due = "
+                "deadlines landing that week; Active = tasks in flight "
+                "during it.")
     wl["A2"].font = sub_font
     start = min(_d(t["start"]) for t in tasks)
     end = max(_d(t["end"]) for t in tasks)
@@ -686,27 +739,49 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
         wl.column_dimensions[L].width = 9
     owners = sorted({(t.get("owner") or "").strip()
                      for t in rows if (t.get("owner") or "").strip()})
-    for oi, owner in enumerate(owners, 5):
+    wl.cell(5, 1, "DUE that week").font = Font(bold=True, size=8,
+                                               color="FF666666")
+    for oi, owner in enumerate(owners, 6):
         wl.cell(oi, 1, owner).font = Font(bold=True, size=9)
         for wi in range(n_weeks):
             L = get_column_letter(2 + wi)
             f = (f"=COUNTIFS(Progress!$B$5:$B${last_progress_row},$A{oi},"
-                 f"Progress!$D$5:$D${last_progress_row},\">=\"&{L}$3,"
-                 f"Progress!$D$5:$D${last_progress_row},\"<=\"&{L}$4)")
+                 f"Progress!$E$5:$E${last_progress_row},\">=\"&{L}$3,"
+                 f"Progress!$E$5:$E${last_progress_row},\"<=\"&{L}$4)")
+            c = wl.cell(oi, 2 + wi, f)
+            c.alignment = Alignment(horizontal="center")
+            c.border = box
+    # In-flight matrix (critic pass 2026-07-21): deadlines are not the
+    # only load — a person carrying three long overlapping tasks showed
+    # zero except in due weeks. Active = start on or before the week's
+    # end AND due on or after its start.
+    a0 = 6 + len(owners) + 1
+    wl.cell(a0, 1, "ACTIVE during week").font = Font(bold=True, size=8,
+                                                     color="FF666666")
+    for oi, owner in enumerate(owners, a0 + 1):
+        wl.cell(oi, 1, owner).font = Font(bold=True, size=9)
+        for wi in range(n_weeks):
+            L = get_column_letter(2 + wi)
+            f = (f"=COUNTIFS(Progress!$B$5:$B${last_progress_row},$A{oi},"
+                 f"Progress!$D$5:$D${last_progress_row},\"<=\"&{L}$4,"
+                 f"Progress!$E$5:$E${last_progress_row},\">=\"&{L}$3)")
             c = wl.cell(oi, 2 + wi, f)
             c.alignment = Alignment(horizontal="center")
             c.border = box
     if owners:
-        rng = (f"B5:{get_column_letter(1 + n_weeks)}{4 + len(owners)}")
-        wl.conditional_formatting.add(rng, CellIsRule(
-            operator="greaterThanOrEqual", formula=["3"],
-            fill=PatternFill(start_color="FF" + red_lt,
-                             end_color="FF" + red_lt, fill_type="solid"),
-            font=Font(bold=True, color="FF9A1B12")))
-        wl.conditional_formatting.add(rng, CellIsRule(
-            operator="equal", formula=["2"],
-            fill=PatternFill(start_color="FF" + amber_lt,
-                             end_color="FF" + amber_lt, fill_type="solid")))
+        endL = get_column_letter(1 + n_weeks)
+        for rng in (f"B6:{endL}{5 + len(owners)}",
+                    f"B{a0 + 1}:{endL}{a0 + len(owners)}"):
+            wl.conditional_formatting.add(rng, CellIsRule(
+                operator="greaterThanOrEqual", formula=["3"],
+                fill=PatternFill(start_color="FF" + red_lt,
+                                 end_color="FF" + red_lt, fill_type="solid"),
+                font=Font(bold=True, color="FF9A1B12")))
+            wl.conditional_formatting.add(rng, CellIsRule(
+                operator="equal", formula=["2"],
+                fill=PatternFill(start_color="FF" + amber_lt,
+                                 end_color="FF" + amber_lt,
+                                 fill_type="solid")))
         # current-week header tracks TODAY() live, like the Gantt grid
         hdr_rng = f"B3:{get_column_letter(1 + n_weeks)}3"
         wl.conditional_formatting.add(hdr_rng, FormulaRule(
@@ -766,6 +841,12 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
             mv.font = Font(bold=True, color="FF9A3412")
         for ci in range(1, 9):
             sl.cell(ri, ci).border = box
+    if slip_rows:
+        # positive slip reads red, live (critic pass 2026-07-21)
+        sl.conditional_formatting.add(
+            f"G5:G{4 + len(slip_rows)}",
+            CellIsRule(operator="greaterThan", formula=["0"],
+                       font=Font(bold=True, color="FF9A1B12")))
     if not (history or []):
         note_r = 5 + len(slip_rows) + 1
         sl.cell(note_r, 1,
