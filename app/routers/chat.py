@@ -1783,6 +1783,10 @@ async def chat(
     _gen_expected_seconds = None
     _gen_confirmation_enabled = False
     _template_id = None
+    # Style word from a judged offer reply ("detailed please"): consumed by
+    # the template lane's style resolution below. None on pill taps and
+    # every non-reply path; the saved per-project preference covers those.
+    _style_reply = None
     _img_guarded = False  # image-guard disarmed this turn: no re-offer
     _gen_teaser_text = ""
     _gen_teaser_offer_id = None
@@ -1924,6 +1928,7 @@ async def chat(
                     provider_router, _offer,
                     _reply_verbatim if _reply_verbatim else body.user_content,
                     verbatim=bool(_reply_verbatim), on_subcall=_meter)
+                _style_reply = _reply.get("style")
                 if _reply["confirm"]:
                     # Image inherit + guard (2026-07-19 fabricated-spreadsheet
                     # incident): the photo rides the ORIGINATING send; the
@@ -2045,15 +2050,56 @@ async def chat(
                         # plain-offer copy (live 2026-07-14 twice).
                         from app.services.document_generation import gist_composes
                         _gist = gist_composes(_intent.get("gist"))
-                        _cta["text"] = (
-                            f"Sounds like you want a project timeline"
-                            f"{(' ' + _gist) if _gist else ''}. "
-                            f"I can build {_t['offer_noun']} in about "
-                            f"{_t['expected_seconds']} seconds, or describe "
-                            f"exactly what you have in mind and I'll build "
-                            f"that custom instead. Want the polished one?")
+                        _lead = (f"Sounds like you want a project timeline"
+                                 f"{(' ' + _gist) if _gist else ''}. ")
+                        # Detailed gantt v1: the gantt offer carries the
+                        # style question exactly until this project has a
+                        # saved answer; the reply word resolves + persists
+                        # at arm time (template lane below). Other
+                        # templates keep the stock copy.
+                        _style_pref = None
+                        if _tmpl == "gantt_smartsheet" and body.project_id:
+                            from app.services import project_prefs
+                            _style_pref = await project_prefs.get_pref(
+                                db, user.id, body.project_id, "gantt_style")
+                        if _tmpl == "gantt_smartsheet" and _style_pref is None:
+                            _dt_entry = TEMPLATES["gantt_detailed"]
+                            _cta["text"] = (
+                                _lead
+                                + f"I can build {_t['offer_noun']} in about "
+                                f"{_t['expected_seconds']} seconds, or a "
+                                f"detailed workbook that adds percent "
+                                f"complete as people stated it, per-person "
+                                f"workload flags, and a receipts sheet "
+                                f"quoting the meeting line behind every "
+                                f"value, in about "
+                                f"{_dt_entry['expected_seconds']} seconds. "
+                                f"Say simple or detailed, or describe "
+                                f"exactly what you have in mind and I'll "
+                                f"build that custom instead.")
+                        elif _tmpl == "gantt_smartsheet" and _style_pref == "detailed":
+                            _dt_entry = TEMPLATES["gantt_detailed"]
+                            _cta["text"] = (
+                                _lead
+                                + f"I can build {_dt_entry['offer_noun']} in "
+                                f"about {_dt_entry['expected_seconds']} "
+                                f"seconds, the detailed style this project "
+                                f"uses. Say simple to switch back, or "
+                                f"describe exactly what you have in mind "
+                                f"and I'll build that custom instead. Want "
+                                f"the detailed one?")
+                        else:
+                            _cta["text"] = (
+                                _lead
+                                + f"I can build {_t['offer_noun']} in about "
+                                f"{_t['expected_seconds']} seconds, or describe "
+                                f"exactly what you have in mind and I'll build "
+                                f"that custom instead. Want the polished one?")
                         _cta["details"]["template_id"] = _tmpl
-                        _cta["details"]["expected_seconds"] = _t["expected_seconds"]
+                        _cta["details"]["expected_seconds"] = (
+                            TEMPLATES["gantt_detailed"]["expected_seconds"]
+                            if _style_pref == "detailed"
+                            else _t["expected_seconds"])
                     logger.info(
                         "generation_offer_served offer_id=%s surface=%s "
                         "template=%s format=%s stream_requested=%s",
@@ -2072,7 +2118,27 @@ async def chat(
         # extraction directive APPENDS as an override instead of replacing
         # it: the first two live runs replaced it and the model, seeing no
         # meetings, asked the user to paste their plan.
-        from app.services.doc_templates import TEMPLATES
+        from app.services.doc_templates import STYLE_TO_TEMPLATE, TEMPLATES
+        if _template_id == "gantt_smartsheet":
+            # Style resolution (detailed gantt v1): offers store the FAMILY
+            # template; the concrete entry resolves HERE, the single point
+            # both confirm paths (typed reply + pill tap) flow through.
+            # Reply word wins over the saved per-project preference wins
+            # over simple; an explicitly stated word persists per project,
+            # so the offer asks once and later gantts just build.
+            from app.services import project_prefs
+            _style = _style_reply if _style_reply in ("simple", "detailed") else None
+            _style_pref = None
+            if body.project_id:
+                _style_pref = await project_prefs.get_pref(
+                    db, user.id, body.project_id, "gantt_style")
+                if _style and _style != _style_pref:
+                    await project_prefs.set_pref(
+                        db, user.id, body.project_id, "gantt_style", _style)
+            _template_id = STYLE_TO_TEMPLATE.get(
+                _style or _style_pref or "simple", "gantt_smartsheet")
+            logger.info("gantt_style_resolved style=%s pref=%s template=%s",
+                        _style, _style_pref, _template_id)
         _t = TEMPLATES[_template_id]
         _client_sys = (body.system_prompt or "").strip()
         _extraction_sys = (
@@ -2086,7 +2152,7 @@ async def chat(
         body = body.model_copy(update={
             "system_prompt": _extraction_sys,
             "temperature": 0.2,
-            "max_tokens": 8000,
+            "max_tokens": _t.get("max_tokens", 8000),
         })
         _gen_expected_seconds = _t["expected_seconds"]
     elif _gen_capable:
@@ -2395,7 +2461,25 @@ async def chat(
                     _gmeta["generated_count"] = 1
                     _gmeta["generated_bytes"] = _row["size_bytes"]
                     _gmeta["template_id"] = _template_id
+                    # Dedicated call_type for the extraction leg: without it
+                    # the extraction absorbs into the surface's chat
+                    # call_type and is invisible in cost + timing-hint
+                    # curves (the captions_cleanup lesson). Stamped in
+                    # metadata AFTER routing ran, so it changes metering
+                    # only, never model resolution.
+                    _gmeta["call_type"] = f"doc_extract_{_template_id}"
                     body = body.model_copy(update={"metadata": _gmeta})
+                    # Plan snapshot (detailed gantt v2 groundwork): persist
+                    # the extracted task list so slip is computable against
+                    # dated history later. Best-effort, never kills a turn.
+                    try:
+                        from app.services import plan_snapshots as _snaps
+                        await _snaps.record(
+                            db, user_id=user.id, app_id=app_id,
+                            project_id=body.project_id,
+                            template_id=_template_id, plan=_plan)
+                    except Exception:
+                        logger.exception("plan snapshot write failed")
             except Exception:
                 logger.exception("template lane render failed — serving raw text")
         if body.generation and response and response.raw_response_json:
