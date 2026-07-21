@@ -174,6 +174,40 @@ def test_milestone_rows_carry_ignored_errors_mark():
                 assert b"ignoredErrors" not in z.read(n)
 
 
+@pytest.mark.asyncio
+async def test_history_keeps_one_version_per_as_of(client, tmp_db_path):
+    """Regenerating after the same meeting replaces that day's version;
+    it must never read as schedule movement (live 2026-07-21: duplicate
+    same-day snapshots + extraction jitter showed 4 phantom moves)."""
+    import json as _json
+    import sqlite3
+
+    import aiosqlite
+
+    from app.services import plan_snapshots
+    con = sqlite3.connect(tmp_db_path)
+    rows = [
+        ("s1", "2026-06-22", "2026-06-22T10:00:00+00:00", "2026-07-10"),
+        ("s2", "2026-07-20", "2026-07-20T10:00:00+00:00", "2026-07-17"),
+        ("s3", "2026-07-20", "2026-07-20T11:00:00+00:00", "2026-07-24"),
+    ]
+    for sid, as_of, created, end in rows:
+        con.execute(
+            "INSERT INTO plan_snapshots VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (sid, "u-hist", "shouldersurf", "p-hist", "gantt_detailed",
+             "X", as_of,
+             _json.dumps([{"name": "Payments", "type": "task",
+                           "end": end}]), created))
+    con.commit()
+    con.close()
+    async with aiosqlite.connect(tmp_db_path) as db:
+        hist = await plan_snapshots.history(db, user_id="u-hist",
+                                            project_id="p-hist")
+    assert [v["as_of"] for v in hist] == ["2026-06-22", "2026-07-20"]
+    # the later build of Jul 20 won
+    assert hist[1]["tasks"][0]["end"] == "2026-07-24"
+
+
 def test_compute_slip_unit():
     from app.services.doc_templates import _compute_slip
     rows = {r["task"]["name"]: r for r in _compute_slip(_DPLAN["tasks"], _HISTORY)}
