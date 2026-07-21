@@ -575,6 +575,32 @@ MIGRATIONS = [
     )""",
     "CREATE INDEX IF NOT EXISTS idx_ad_attribution_status ON ad_attribution(status)",
     "CREATE INDEX IF NOT EXISTS idx_ad_attribution_user ON ad_attribution(user_id)",
+    # v32: Detailed gantt v1 (2026-07-21). project_prefs = per-(user,
+    # project) preferences resolved server-side; first key gantt_style
+    # ("simple"|"detailed"), set by the user's reply word at a gantt offer.
+    # plan_snapshots = the extracted task list of every rendered gantt
+    # (both styles), the dated history v2 slip tracking computes against.
+    # No purge on either: prefs are tiny, slip wants the full trail.
+    """CREATE TABLE IF NOT EXISTS project_prefs (
+        user_id TEXT NOT NULL,
+        project_id TEXT NOT NULL,
+        key TEXT NOT NULL,
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (user_id, project_id, key)
+    )""",
+    """CREATE TABLE IF NOT EXISTS plan_snapshots (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        app_id TEXT,
+        project_id TEXT,
+        template_id TEXT NOT NULL,
+        project_name TEXT,
+        meeting_date TEXT,
+        tasks_json TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_plan_snapshots_user ON plan_snapshots(user_id, project_id, created_at)",
 ]
 
 

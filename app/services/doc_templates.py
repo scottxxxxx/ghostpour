@@ -46,6 +46,34 @@ _GANTT_SCHEMA_PROMPT = (
     "Extract every task and milestone discussed. Output only the JSON object."
 )
 
+_GANTT_DETAILED_SCHEMA_PROMPT = (
+    "Extract this project's plan from the conversation and meeting content "
+    "as JSON ONLY, no prose, no code fences. Schema: {\"project\": str, "
+    "\"meeting_date\": \"YYYY-MM-DD\"|null, "
+    "\"tasks\": [{\"id\": int, \"name\": str, \"type\": \"phase\"|\"task\"|"
+    "\"milestone\", \"parent_id\": int|null, \"owner\": str|null, "
+    "\"status\": \"complete\"|\"in_progress\"|\"on_hold\"|\"not_started\"|"
+    "\"blocked\", \"start\": \"YYYY-MM-DD\", \"end\": \"YYYY-MM-DD\", "
+    "\"depends_on\": [int], \"percent_complete\": int|null, "
+    "\"effort\": str|null, \"evidence\": [{\"field\": str, \"quote\": str, "
+    "\"speaker\": str|null}]}]}. Rules: phases have parent_id null; tasks "
+    "and milestones carry the id of their phase; milestones have start "
+    "equal to end; dates must be consistent with dependencies (a task "
+    "never starts before its predecessor ends); owner is the person's name "
+    "as spoken; meeting_date is the date of the meeting this plan comes "
+    "from as stated in the content (the most recent one when several), "
+    "null when no date is evident. percent_complete and effort are "
+    "STRICTLY what a person stated in the content (\"about 80 percent\" "
+    "is 80; \"two days of work\" is \"2 days\"): when nobody stated a "
+    "value, use null. Never estimate, and never infer a percent from "
+    "status. evidence lists short verbatim quotes from the content that "
+    "support extracted values (dates, status, percent_complete, effort, "
+    "owner), with field naming which value each quote supports; include "
+    "speaker when identifiable; omit evidence you do not have rather than "
+    "paraphrasing. Extract every task and milestone discussed. Output "
+    "only the JSON object."
+)
+
 # palette lifted from the reference artifact (ABM_Gantt_Smartsheet_Style)
 _C = {
     "bar": "A8B9C9", "summary": "6E7B8A", "project": "3D4653",
@@ -83,7 +111,13 @@ _STATUS_LABELS = {
 
 
 def render_gantt(data: dict, *, today: date | None = None) -> bytes:
-    """Deterministic Smartsheet-style Gantt from extracted plan JSON.
+    """Deterministic Smartsheet-style Gantt from extracted plan JSON."""
+    return _serialize_wb(_build_gantt_wb(data, today=today))
+
+
+def _build_gantt_wb(data: dict, *, today: date | None = None):
+    """Build the Gantt View workbook (shared by the simple and detailed
+    renderers; the detailed one appends sheets to the same workbook).
 
     LIVE GRID (Scott 2026-07-15): the timeline bars are conditional
     formatting formulas over real date cells, not painted fills — edit a
@@ -335,6 +369,10 @@ def render_gantt(data: dict, *, today: date | None = None) -> bytes:
 
     ws.freeze_panes = "J4"
     ws.sheet_properties.outlinePr.summaryBelow = False
+    return wb
+
+
+def _serialize_wb(wb) -> bytes:
     # Determinism is a CLAIMED property (same-plan-same-bytes, asserted by
     # the acceptance test and relied on for artifact byte-stability), but
     # openpyxl stamps wall-clock time in two places: docProps/core.xml
@@ -347,6 +385,181 @@ def render_gantt(data: dict, *, today: date | None = None) -> bytes:
     buf = BytesIO()
     wb.save(buf)
     return _normalize_zip(buf.getvalue())
+
+
+def render_gantt_detailed(data: dict, *, today: date | None = None) -> bytes:
+    """Detailed variant: the identical Gantt View sheet plus three additive
+    sheets computed from the same extracted plan.
+
+    Progress carries percent complete and stated effort, both STRICTLY
+    blank when nobody said them (the extraction schema forbids estimating;
+    an empty cell reads more honestly than an invented number). Workload
+    is live COUNTIFS arithmetic over Progress (owner by week-due), so
+    editing dates in Excel re-flags overloaded weeks. Receipts quotes the
+    meeting line behind every extracted value; Progress rows cite [R#]
+    refs into it. A Slip sheet is deliberately absent until plan-snapshot
+    history exists (v2)."""
+    from openpyxl.formatting.rule import CellIsRule, FormulaRule
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.utils import get_column_letter
+
+    wb = _build_gantt_wb(data, today=today)
+    tasks = data.get("tasks") or []
+    rows = [t for t in tasks if t.get("type") != "phase"]
+
+    navy, amber_lt, red_lt, gray_lt = "1F3A5F", "FBF0D5", "F6D3CE", "F2F3F5"
+    hdr_font = Font(bold=True, color="FFFFFFFF", size=10)
+    hdr_fill = PatternFill("solid", fgColor="FF" + navy)
+    sub_font = Font(size=9, color="FF666666", italic=True)
+    thin = Side(style="thin", color="FFD9D9D9")
+    box = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    # ---- Receipts numbering: plan order, evidence order ----
+    receipts: list[tuple[str, dict, dict]] = []   # (ref, task, evidence item)
+    refs_of: dict[int, list[str]] = {}
+    for t in rows:
+        for ev in (t.get("evidence") or []):
+            if not isinstance(ev, dict) or not str(ev.get("quote") or "").strip():
+                continue
+            ref = f"R{len(receipts) + 1}"
+            receipts.append((ref, t, ev))
+            refs_of.setdefault(t["id"], []).append(ref)
+
+    # ---- Progress sheet ----
+    ws = wb.create_sheet("Progress")
+    ws["A1"] = "Progress, from what people actually said"
+    ws["A1"].font = Font(bold=True, size=13, color="FF" + navy)
+    ws["A2"] = ("Percent complete and effort appear only when someone "
+                "stated them in a meeting; a blank cell means nobody said "
+                "it. [R#] points to the verbatim line on the Receipts "
+                "sheet.")
+    ws["A2"].font = sub_font
+    heads = ["Task", "Owner", "Status", "Due", "% Complete",
+             "Effort (as stated)", "Receipts"]
+    for ci, h in enumerate(heads, 1):
+        c = ws.cell(4, ci, h)
+        c.font = hdr_font
+        c.fill = hdr_fill
+        c.alignment = Alignment(horizontal="center", vertical="center")
+    for ri, t in enumerate(rows, 5):
+        ws.cell(ri, 1, t["name"]).font = Font(bold=True, size=9)
+        ws.cell(ri, 2, (t.get("owner") or "").strip())
+        ws.cell(ri, 3, _STATUS_LABELS.get(t.get("status", ""), ""))
+        dc = ws.cell(ri, 4, _d(t["end"]))
+        dc.number_format = "yyyy-mm-dd"
+        pct = t.get("percent_complete")
+        if isinstance(pct, int) and 0 <= pct <= 100:
+            pc = ws.cell(ri, 5, pct / 100)
+            pc.number_format = "0%"
+        eff = t.get("effort")
+        if isinstance(eff, str) and eff.strip():
+            ws.cell(ri, 6, eff.strip())
+        refs = refs_of.get(t["id"])
+        if refs:
+            rc = ws.cell(ri, 7, ", ".join(refs))
+            rc.font = Font(size=8, color="FF666666")
+        for ci in range(1, 8):
+            ws.cell(ri, ci).border = box
+    last_progress_row = 4 + len(rows)
+    for col, w in {"A": 34, "B": 14, "C": 12, "D": 12, "E": 11,
+                   "F": 16, "G": 14}.items():
+        ws.column_dimensions[col].width = w
+    ws.freeze_panes = "A5"
+
+    # ---- Workload sheet (live COUNTIFS over Progress) ----
+    wl = wb.create_sheet("Workload")
+    wl["A1"] = "Workload, tasks due per person per week"
+    wl["A1"].font = Font(bold=True, size=13, color="FF" + navy)
+    wl["A2"] = ("Computed live from the Progress sheet, so edited dates "
+                "re-flag automatically. 3 or more due in one week shows "
+                "red, 2 shows amber. The gold header is the current week.")
+    wl["A2"].font = sub_font
+    start = min(_d(t["start"]) for t in tasks)
+    end = max(_d(t["end"]) for t in tasks)
+    w0 = start - timedelta(days=start.weekday())
+    n_weeks = min(((end - w0).days // 7) + 1, 26)
+    weeks = [w0 + timedelta(days=7 * i) for i in range(n_weeks)]
+    wl.cell(3, 1, "Owner").font = hdr_font
+    wl.cell(3, 1).fill = hdr_fill
+    wl.cell(4, 1, "week ending").font = Font(size=8, color="FF888888")
+    for wi, ws_start in enumerate(weeks):
+        L = get_column_letter(2 + wi)
+        cs = wl.cell(3, 2 + wi, ws_start)
+        cs.number_format = "mmm d"
+        cs.font = hdr_font
+        cs.fill = hdr_fill
+        cs.alignment = Alignment(horizontal="center")
+        ce = wl.cell(4, 2 + wi, ws_start + timedelta(days=6))
+        ce.number_format = "mmm d"
+        ce.font = Font(size=8, color="FF888888")
+        ce.alignment = Alignment(horizontal="center")
+        wl.column_dimensions[L].width = 9
+    owners = sorted({(t.get("owner") or "").strip()
+                     for t in rows if (t.get("owner") or "").strip()})
+    for oi, owner in enumerate(owners, 5):
+        wl.cell(oi, 1, owner).font = Font(bold=True, size=9)
+        for wi in range(n_weeks):
+            L = get_column_letter(2 + wi)
+            f = (f"=COUNTIFS(Progress!$B$5:$B${last_progress_row},$A{oi},"
+                 f"Progress!$D$5:$D${last_progress_row},\">=\"&{L}$3,"
+                 f"Progress!$D$5:$D${last_progress_row},\"<=\"&{L}$4)")
+            c = wl.cell(oi, 2 + wi, f)
+            c.alignment = Alignment(horizontal="center")
+            c.border = box
+    if owners:
+        rng = (f"B5:{get_column_letter(1 + n_weeks)}{4 + len(owners)}")
+        wl.conditional_formatting.add(rng, CellIsRule(
+            operator="greaterThanOrEqual", formula=["3"],
+            fill=PatternFill(start_color="FF" + red_lt,
+                             end_color="FF" + red_lt, fill_type="solid"),
+            font=Font(bold=True, color="FF9A1B12")))
+        wl.conditional_formatting.add(rng, CellIsRule(
+            operator="equal", formula=["2"],
+            fill=PatternFill(start_color="FF" + amber_lt,
+                             end_color="FF" + amber_lt, fill_type="solid")))
+        # current-week header tracks TODAY() live, like the Gantt grid
+        hdr_rng = f"B3:{get_column_letter(1 + n_weeks)}3"
+        wl.conditional_formatting.add(hdr_rng, FormulaRule(
+            formula=["AND(B$3<=TODAY(),TODAY()<=B$4)"],
+            fill=PatternFill(start_color="FF8A6D1D", end_color="FF8A6D1D",
+                             fill_type="solid")))
+    wl.column_dimensions["A"].width = 16
+
+    # ---- Receipts sheet ----
+    rc = wb.create_sheet("Receipts")
+    rc["A1"] = "Receipts, the meeting line behind every value"
+    rc["A1"].font = Font(bold=True, size=13, color="FF" + navy)
+    rc["A2"] = ("The plan is generated from the meetings, so provenance is "
+                "automatic. Quotes are verbatim from the source content.")
+    rc["A2"].font = sub_font
+    for ci, h in enumerate(["Ref", "Task", "Supports", "Speaker",
+                            "Verbatim line"], 1):
+        c = rc.cell(4, ci, h)
+        c.font = hdr_font
+        c.fill = hdr_fill
+    for ri, (ref, t, ev) in enumerate(receipts, 5):
+        rc.cell(ri, 1, ref).font = Font(bold=True, size=9)
+        rc.cell(ri, 2, t["name"]).font = Font(size=9)
+        rc.cell(ri, 3, str(ev.get("field") or "")).font = Font(size=9)
+        rc.cell(ri, 4, str(ev.get("speaker") or "")).font = Font(size=9)
+        q = rc.cell(ri, 5, f'"{str(ev.get("quote")).strip()}"')
+        q.font = Font(size=9)
+        q.alignment = Alignment(wrap_text=True)
+        for ci in range(1, 6):
+            rc.cell(ri, ci).border = box
+            if ri % 2 == 0:
+                rc.cell(ri, ci).fill = PatternFill("solid",
+                                                   fgColor="FF" + gray_lt)
+    for col, w in {"A": 6, "B": 30, "C": 16, "D": 12, "E": 64}.items():
+        rc.column_dimensions[col].width = w
+    rc.freeze_panes = "A5"
+
+    return _serialize_wb(wb)
+
+
+# The user's style word maps to a concrete registry entry at arm time
+# (offers store the FAMILY template; see the template lane in chat.py).
+STYLE_TO_TEMPLATE = {"simple": "gantt_smartsheet", "detailed": "gantt_detailed"}
 
 
 def _normalize_zip(blob: bytes) -> bytes:
@@ -390,6 +603,24 @@ TEMPLATES = {
         "expected_seconds": 45,  # measured 2026-07-12: 6s toy plan, 48s real 12-meeting project
         "offer_noun": "my polished Gantt chart (collapsible phases, status "
                       "colors, critical dates, a native Excel file)",
+    },
+    # Detailed variant (v1, 2026-07-21). hints EMPTY on purpose:
+    # match_template never picks it directly — the family match is always
+    # gantt_smartsheet, and the user's style choice (reply word or saved
+    # per-project preference) swaps to this entry at arm time in chat.py.
+    "gantt_detailed": {
+        "hints": (),
+        "extraction_prompt": _GANTT_DETAILED_SCHEMA_PROMPT,
+        "renderer": render_gantt_detailed,
+        "format": "xlsx",
+        "media_type": XLSX_MIME,
+        "filename": "Gantt_Detailed.xlsx",
+        "expected_seconds": 60,  # richer extraction output than simple's 45
+        "max_tokens": 12000,     # evidence quotes fatten the JSON
+        "offer_noun": "my detailed Gantt workbook (the live timeline plus "
+                      "percent complete as people stated it, per-person "
+                      "workload flags, and a receipts sheet quoting the "
+                      "meeting line behind every value)",
     },
 }
 

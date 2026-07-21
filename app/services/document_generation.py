@@ -322,9 +322,13 @@ _INTERPRETER_SYSTEM = (
     "attached document. A refusal, an unrelated question, "
     "anything ambiguous, or asking for the content INLINE instead — "
     "\"just show me here\", \"a table in chat is fine\" — is NOT acceptance. Reply with ONLY this JSON: "
-    '{"confirm": true|false, "format": "xlsx"|"docx"|"pptx"|"pdf"|null} '
+    '{"confirm": true|false, "format": "xlsx"|"docx"|"pptx"|"pdf"|null, '
+    '"style": "simple"|"detailed"|null} '
     "where format is the user's revised choice, or null to keep the "
-    "offered format (always null when confirm is false)."
+    "offered format (always null when confirm is false), and style is set "
+    "ONLY when the offer presented a simple and a detailed version and the "
+    "user's own words chose one (\"detailed please\", \"the simple one\"); "
+    "null otherwise."
 )
 
 
@@ -361,10 +365,14 @@ async def interpret_offer_reply(provider_router, offer: dict, reply_text: str,
         fmt = parsed.get("format")
         if fmt not in ("xlsx", "docx", "pptx", "pdf"):
             fmt = None
-        return {"confirm": confirm, "format": fmt or offer["format"]}
+        style = parsed.get("style")
+        if style not in ("simple", "detailed"):
+            style = None
+        return {"confirm": confirm, "format": fmt or offer["format"],
+                "style": style}
     except Exception as e:
         logger.info("offer reply interpreter failed open: %s", e)
-        return {"confirm": False, "format": offer["format"]}
+        return {"confirm": False, "format": offer["format"], "style": None}
 
 
 _GIST_QUALIFIER_PREFIXES = (

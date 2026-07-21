@@ -796,12 +796,12 @@ async def test_interpreter_confirms_declines_and_revises():
     router.route = AsyncMock(return_value=MagicMock(
         text='{"confirm": true, "format": null}'))
     out = await interpret_offer_reply(router, offer, "yes go ahead")
-    assert out == {"confirm": True, "format": "docx"}      # offered format kept
+    assert out == {"confirm": True, "format": "docx", "style": None}      # offered format kept
 
     router.route = AsyncMock(return_value=MagicMock(
         text='{"confirm": true, "format": "xlsx"}'))
     out = await interpret_offer_reply(router, offer, "actually make it a spreadsheet")
-    assert out == {"confirm": True, "format": "xlsx"}      # revised intent
+    assert out == {"confirm": True, "format": "xlsx", "style": None}      # revised intent
 
     router.route = AsyncMock(return_value=MagicMock(
         text='{"confirm": false, "format": null}'))
@@ -1097,7 +1097,7 @@ async def test_interpreter_judges_reply_not_template(monkeypatch):
     sent = router.route.await_args.args[0].user_content
     assert "USER REPLY: Yes" in sent
     assert "Red/Yellow" not in sent               # template never reaches the judge
-    assert out == {"confirm": True, "format": "docx"}
+    assert out == {"confirm": True, "format": "docx", "style": None}
 
 
 @pytest.mark.asyncio
@@ -1232,7 +1232,9 @@ def test_template_offer_intercepts_and_confirm_renders(client, free_user, mock_p
     ), headers=free_user["headers"])
     cta = r.json()["feature_state"]["cta"]
     assert cta["details"]["template_id"] == "gantt_smartsheet"
-    assert "polished" in cta["text"] and "custom" in cta["text"]   # open door
+    # first gantt offer (no per-project style saved) carries the style
+    # question; the custom door stays open either way
+    assert "simple or detailed" in cta["text"] and "custom" in cta["text"]
     oid = cta["details"]["offer_id"]
 
     # confirm: extraction turn (mock provider returns the plan JSON), then
