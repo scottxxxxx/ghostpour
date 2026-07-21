@@ -71,7 +71,12 @@ def test_render_detailed_adds_sheets_and_stays_honest():
     from app.services.doc_templates import render_gantt, render_gantt_detailed
     blob = render_gantt_detailed(_DPLAN, today=datetime.date(2026, 7, 21))
     wb = openpyxl.load_workbook(io.BytesIO(blob))
-    assert wb.sheetnames == ["Gantt View", "Progress", "Workload", "Receipts"]
+    assert wb.sheetnames == ["Gantt View", "Progress", "Workload", "Slip",
+                             "Receipts"]
+    # no history: slip sheet states that tracking starts now
+    slip_texts = " ".join(str(c.value) for row in wb["Slip"].iter_rows()
+                          for c in row if c.value)
+    assert "History starts with this version" in slip_texts
 
     # simple keeps its exact layout; detailed shifts the day grid right
     # to make room for the on-view % Done / Effort columns
@@ -132,6 +137,135 @@ def test_render_detailed_adds_sheets_and_stays_honest():
 
     # determinism: same plan, same bytes
     assert render_gantt_detailed(_DPLAN, today=datetime.date(2026, 7, 21)) == blob
+
+
+_HISTORY = [
+    {"as_of": "2026-06-22", "created_at": "2026-06-22T18:00:00+00:00",
+     "tasks": [{"id": 9, "name": "payments integration", "type": "task",
+                "parent_id": 1, "owner": "Maya Chen", "status": "in_progress",
+                "start": "2026-07-06", "end": "2026-07-10", "depends_on": []}]},
+    {"as_of": "2026-07-06", "created_at": "2026-07-06T18:00:00+00:00",
+     "tasks": [{"id": 4, "name": "Payments Integration", "type": "task",
+                "parent_id": 1, "owner": "Maya Chen", "status": "in_progress",
+                "start": "2026-07-06", "end": "2026-07-17", "depends_on": []}]},
+]
+
+
+def test_milestone_rows_carry_ignored_errors_mark():
+    """Green-triangle regression (Scott 2026-07-21): the milestone glyph
+    formula differs from its bar-row neighbors, so Excel's inconsistent-
+    formula checker flags the whole row unless the file itself declares
+    the day grid ignored. Both styles get the mark."""
+    import datetime
+    import io
+    import zipfile
+
+    from app.services.doc_templates import render_gantt, render_gantt_detailed
+    for blob in (render_gantt(_DPLAN, today=datetime.date(2026, 7, 21)),
+                 render_gantt_detailed(_DPLAN, today=datetime.date(2026, 7, 21))):
+        xml = zipfile.ZipFile(io.BytesIO(blob)).read(
+            "xl/worksheets/sheet1.xml").decode()
+        assert "<ignoredErrors><ignoredError sqref=" in xml
+        assert 'formula="1"' in xml
+        # only the Gantt View sheet carries it
+        z = zipfile.ZipFile(io.BytesIO(blob))
+        for n in z.namelist():
+            if n.startswith("xl/worksheets/") and n != "xl/worksheets/sheet1.xml":
+                assert b"ignoredErrors" not in z.read(n)
+
+
+def test_compute_slip_unit():
+    from app.services.doc_templates import _compute_slip
+    rows = {r["task"]["name"]: r for r in _compute_slip(_DPLAN["tasks"], _HISTORY)}
+    p = rows["Payments integration"]   # matched despite case drift + id churn
+    assert str(p["baseline"]) == "2026-07-10"
+    assert p["baseline_as_of"] == "2026-06-22"
+    assert str(p["current"]) == "2026-07-24"
+    assert p["moves"] == 2
+    assert p["first_tracked"] is False
+    s = rows["Offline sync"]           # never in history: first tracked now
+    assert s["first_tracked"] is True and s["moves"] == 0
+    assert s["baseline"] == s["current"]
+
+
+def test_render_detailed_slip_sheet_from_history():
+    import datetime
+    import io
+
+    import openpyxl
+
+    from app.services.doc_templates import render_gantt_detailed
+    blob = render_gantt_detailed(_DPLAN, today=datetime.date(2026, 7, 21),
+                                 history=_HISTORY)
+    wb = openpyxl.load_workbook(io.BytesIO(blob))
+    sl = wb["Slip"]
+    rows = {str(sl.cell(r, 1).value): r for r in range(5, 20)
+            if sl.cell(r, 1).value}
+    pr = rows["Payments integration"]
+    assert sl.cell(pr, 3).value.date() == datetime.date(2026, 7, 10)
+    assert sl.cell(pr, 4).value == "2026-06-22"
+    assert sl.cell(pr, 5).value.date() == datetime.date(2026, 7, 24)
+    assert sl.cell(pr, 6).value == 2
+    assert sl.cell(pr, 7).value == f"=E{pr}-C{pr}"   # live slip-days formula
+    assert "as of Jul 06" in str(sl.cell(pr, 8).value)
+    sr = rows["Offline sync"]
+    assert sl.cell(sr, 4).value == "first tracked now"
+    assert sl.cell(sr, 6).value == 0
+    # determinism holds with history in play
+    assert render_gantt_detailed(_DPLAN, today=datetime.date(2026, 7, 21),
+                                 history=_HISTORY) == blob
+
+
+def test_e2e_slip_reads_project_snapshots(client, free_user, mock_provider,
+                                          tmp_db_path, monkeypatch):
+    import datetime
+    import io
+    import json as _json
+    import sqlite3
+    from unittest.mock import AsyncMock
+
+    import openpyxl
+
+    import app.services.document_generation as dg
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    con = sqlite3.connect(tmp_db_path)
+    for i, ver in enumerate(_HISTORY):
+        con.execute(
+            "INSERT INTO plan_snapshots VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (f"snap-{i}", free_user["user_id"], "shouldersurf", "proj-slip",
+             "gantt_detailed", "Field Kit", ver["as_of"],
+             _json.dumps(ver["tasks"]), ver["created_at"]))
+    con.commit()
+    con.close()
+
+    cta = _offer_gantt(client, free_user, monkeypatch, project_id="proj-slip")
+    monkeypatch.setattr(dg, "interpret_offer_reply", AsyncMock(
+        return_value={"confirm": True, "format": "xlsx", "style": "detailed"}))
+    mock_provider.canned_response.text = _json.dumps(_DPLAN)
+    mock_provider.return_value = mock_provider.canned_response
+    r = client.post("/v1/chat", json={
+        **chat_request(prompt_mode="ProjectChat", call_type="query",
+                       user_content="detailed please"),
+        "project_id": "proj-slip",
+        "metadata": {"offer_id": cta["details"]["offer_id"],
+                     "generation_id": "gen-slip-1"},
+    }, headers=free_user["headers"])
+    assert r.status_code == 200
+    con = sqlite3.connect(tmp_db_path)
+    path = con.execute(
+        "SELECT storage_path FROM generated_files WHERE user_id=?"
+        " ORDER BY created_at DESC LIMIT 1",
+        (free_user["user_id"],)).fetchone()[0]
+    con.close()
+    wb = openpyxl.load_workbook(io.BytesIO(open(path, "rb").read()))
+    sl = wb["Slip"]
+    rows = {str(sl.cell(r, 1).value): r for r in range(5, 20)
+            if sl.cell(r, 1).value}
+    pr = rows["Payments integration"]
+    assert sl.cell(pr, 6).value == 2                  # two moves, from history
+    assert sl.cell(pr, 3).value.date() == datetime.date(2026, 7, 10)
 
 
 @pytest.mark.asyncio

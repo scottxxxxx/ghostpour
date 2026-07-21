@@ -110,8 +110,11 @@ _STATUS_LABELS = {
 }
 
 
-def render_gantt(data: dict, *, today: date | None = None) -> bytes:
-    """Deterministic Smartsheet-style Gantt from extracted plan JSON."""
+def render_gantt(data: dict, *, today: date | None = None,
+                 history: list[dict] | None = None) -> bytes:
+    """Deterministic Smartsheet-style Gantt from extracted plan JSON.
+    `history` is accepted for renderer-signature parity (the template
+    lane passes it to every renderer) and unused by the simple style."""
     return _serialize_wb(_build_gantt_wb(data, today=today))
 
 
@@ -406,6 +409,14 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
 
     ws.freeze_panes = f"{get_column_letter(FIRST_DAY_COL)}4"
     ws.sheet_properties.outlinePr.summaryBelow = False
+    # Milestone rows compute "◆" between bar rows computing "█": Excel's
+    # inconsistent-formula checker stamps green triangles across the row
+    # (Scott 2026-07-21, row-12 screenshot; the 2026-07-16 same-shape fix
+    # helped only when milestones sat at a table edge). Declare the whole
+    # day grid ignored for that check, the same mark Excel writes when a
+    # user clicks "Ignore Error". openpyxl 3.1 has no serializer for it,
+    # so _normalize_zip injects the element from this stash.
+    wb._gp_ignored_errors = {ws.title: full_grid}
     return wb
 
 
@@ -419,12 +430,67 @@ def _serialize_wb(wb) -> bytes:
     from datetime import datetime as _dt
     wb.properties.created = _dt(2026, 1, 1)
     wb.properties.modified = _dt(2026, 1, 1)
+    # sheet title -> zip member name, for the ignored-errors injection
+    ignored = {
+        f"xl/worksheets/sheet{i + 1}.xml": sqref
+        for i, title in enumerate(wb.sheetnames)
+        for t, sqref in (getattr(wb, "_gp_ignored_errors", {}) or {}).items()
+        if t == title
+    }
     buf = BytesIO()
     wb.save(buf)
-    return _normalize_zip(buf.getvalue())
+    return _normalize_zip(buf.getvalue(), ignored_errors=ignored)
 
 
-def render_gantt_detailed(data: dict, *, today: date | None = None) -> bytes:
+def _slip_key(name: str) -> str:
+    """Task identity across extraction runs: normalized name. Extraction
+    won't spell a task identically every time ("Payments integration" vs
+    "Payments Integration"), so match case/space/punctuation-blind and
+    let anything that still misses fall out as "first tracked" rather
+    than fabricate a lineage."""
+    return re.sub(r"[^a-z0-9]+", " ", (name or "").lower()).strip()
+
+
+def _compute_slip(tasks: list[dict], history: list[dict]) -> list[dict]:
+    """Per-task due-date movement across dated plan versions.
+
+    For each current non-phase task: walk history (oldest first, as-of
+    ordered by the caller), collect its end date wherever the normalized
+    name matches, append the current end, collapse consecutive equals.
+    baseline = first tracked end; moves = number of changes; slip_days =
+    current minus baseline. Tasks with no history rows are "first
+    tracked" (baseline = current, zero moves) — honest, not padded."""
+    out = []
+    for t in tasks:
+        if t.get("type") == "phase":
+            continue
+        key = _slip_key(t.get("name"))
+        seq: list[tuple[str, date]] = []
+        for ver in history or []:
+            for ht in ver.get("tasks") or []:
+                if ht.get("type") != "phase" and _slip_key(ht.get("name")) == key:
+                    try:
+                        seq.append((ver["as_of"], _d(ht["end"])))
+                    except (KeyError, ValueError):
+                        pass
+                    break
+        cur_end = _d(t["end"])
+        if not seq or seq[-1][1] != cur_end:
+            seq.append(("current", cur_end))
+        changes = [seq[0]]
+        for item in seq[1:]:
+            if item[1] != changes[-1][1]:
+                changes.append(item)
+        out.append({
+            "task": t, "baseline": seq[0][1], "baseline_as_of": seq[0][0],
+            "current": cur_end, "moves": len(changes) - 1,
+            "trail": changes, "first_tracked": len(seq) == 1,
+        })
+    return out
+
+
+def render_gantt_detailed(data: dict, *, today: date | None = None,
+                          history: list[dict] | None = None) -> bytes:
     """Detailed variant: the identical Gantt View sheet plus three additive
     sheets computed from the same extracted plan.
 
@@ -436,10 +502,12 @@ def render_gantt_detailed(data: dict, *, today: date | None = None) -> bytes:
     estimating; an empty cell reads more honestly than an invented
     number). Workload
     is live COUNTIFS arithmetic over Progress (owner by week-due), so
-    editing dates in Excel re-flags overloaded weeks. Receipts quotes the
-    meeting line behind every extracted value; Progress rows cite [R#]
-    refs into it. A Slip sheet is deliberately absent until plan-snapshot
-    history exists (v2)."""
+    editing dates in Excel re-flags overloaded weeks. Slip (v2,
+    2026-07-21) compares this plan's due dates against the project's
+    prior snapshot versions (as-of ordered by meeting date): baseline,
+    current, times moved, slip days. Receipts quotes the meeting line
+    behind every extracted value; Progress rows cite [R#] refs into
+    it."""
     from openpyxl.formatting.rule import CellIsRule, FormulaRule
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
@@ -566,6 +634,68 @@ def render_gantt_detailed(data: dict, *, today: date | None = None) -> bytes:
                              fill_type="solid")))
     wl.column_dimensions["A"].width = 16
 
+    # ---- Slip sheet (v2: snapshot history) ----
+    sl = wb.create_sheet("Slip")
+    sl["A1"] = "Slip, how due dates moved across plan versions"
+    sl["A1"].font = Font(bold=True, size=13, color="FF" + navy)
+    sl["A2"] = ("Every generated plan is a dated version, so slip is "
+                "computed, not remembered. Baseline is the due date in "
+                "the earliest version that tracks the task; the trail "
+                "shows each move with the meeting it came from.")
+    sl["A2"].font = sub_font
+    slip_heads = ["Task", "Owner", "Baseline due", "As of", "Current due",
+                  "Times moved", "Slip (days)", "Trail"]
+    for ci, h in enumerate(slip_heads, 1):
+        c = sl.cell(4, ci, h)
+        c.font = hdr_font
+        c.fill = hdr_fill
+        c.alignment = Alignment(horizontal="center", vertical="center",
+                                wrap_text=True)
+    slip_rows = _compute_slip(tasks, history)
+    for ri, srow in enumerate(slip_rows, 5):
+        t = srow["task"]
+        sl.cell(ri, 1, t["name"]).font = Font(bold=True, size=9)
+        sl.cell(ri, 2, (t.get("owner") or "").strip())
+        bc = sl.cell(ri, 3, srow["baseline"])
+        bc.number_format = "yyyy-mm-dd"
+        sl.cell(ri, 4, "first tracked now" if srow["first_tracked"]
+                else srow["baseline_as_of"]).font = Font(size=8,
+                                                         color="FF666666")
+        cc = sl.cell(ri, 5, srow["current"])
+        cc.number_format = "yyyy-mm-dd"
+        mv = sl.cell(ri, 6, srow["moves"])
+        mv.alignment = Alignment(horizontal="center")
+        sc = sl.cell(ri, 7, f"=E{ri}-C{ri}")
+        sc.number_format = "0"
+        sc.alignment = Alignment(horizontal="center")
+        def _as_of(label: str) -> str:
+            try:
+                return datetime.strptime(label, "%Y-%m-%d").strftime("%b %d")
+            except ValueError:
+                return label
+        trail = " → ".join(
+            f"{d.strftime('%b %d')} (as of {_as_of(label)})"
+            if label != "current" else f"{d.strftime('%b %d')} (current)"
+            for label, d in srow["trail"])
+        sl.cell(ri, 8, trail if srow["moves"] else "").font = Font(size=8)
+        if srow["moves"] >= 2:
+            for ci in range(1, 9):
+                sl.cell(ri, ci).fill = PatternFill("solid",
+                                                   fgColor="FF" + amber_lt)
+            mv.font = Font(bold=True, color="FF9A3412")
+        for ci in range(1, 9):
+            sl.cell(ri, ci).border = box
+    if not (history or []):
+        note_r = 5 + len(slip_rows) + 1
+        sl.cell(note_r, 1,
+                "History starts with this version: every future gantt "
+                "for this project adds a dated version to compare "
+                "against.").font = sub_font
+    for col, w in {"A": 30, "B": 14, "C": 12, "D": 15, "E": 12, "F": 11,
+                   "G": 10, "H": 52}.items():
+        sl.column_dimensions[col].width = w
+    sl.freeze_panes = "A5"
+
     # ---- Receipts sheet ----
     rc = wb.create_sheet("Receipts")
     rc["A1"] = "Receipts, the meeting line behind every value"
@@ -603,9 +733,16 @@ def render_gantt_detailed(data: dict, *, today: date | None = None) -> bytes:
 STYLE_TO_TEMPLATE = {"simple": "gantt_smartsheet", "detailed": "gantt_detailed"}
 
 
-def _normalize_zip(blob: bytes) -> bytes:
+def _normalize_zip(blob: bytes,
+                   ignored_errors: dict[str, str] | None = None) -> bytes:
     """Re-pack the xlsx with fixed member timestamps (content, order, and
-    compression preserved) so identical content is identical bytes."""
+    compression preserved) so identical content is identical bytes.
+
+    ignored_errors maps zip member name -> A1 range: injects the
+    <ignoredErrors> element (the mark Excel writes on "Ignore Error") so
+    the inconsistent-formula checker stays quiet over the day grid.
+    Inserted immediately before </worksheet>, after pageMargins, which is
+    a schema-valid position for sheets without drawings/tables."""
     import zipfile
     src = zipfile.ZipFile(BytesIO(blob))
     out = BytesIO()
@@ -613,6 +750,13 @@ def _normalize_zip(blob: bytes) -> bytes:
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         for name in src.namelist():
             data = src.read(name)
+            sqref = (ignored_errors or {}).get(name)
+            if sqref:
+                data = data.replace(
+                    b"</worksheet>",
+                    b'<ignoredErrors><ignoredError sqref="'
+                    + sqref.encode() + b'" formula="1"/></ignoredErrors>'
+                    b"</worksheet>")
             if name == "docProps/core.xml":
                 # openpyxl overwrites dcterms:modified with wall-clock at
                 # save time (setting wb.properties beforehand is futile) —

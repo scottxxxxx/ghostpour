@@ -18,6 +18,34 @@ from datetime import datetime, timezone
 import aiosqlite
 
 
+async def history(db: aiosqlite.Connection, *, user_id: str,
+                  project_id: str | None) -> list[dict]:
+    """Prior plan versions for slip computation, oldest first.
+
+    Ordered by MEETING date (the "as of" the plan itself claims), not
+    build time: a user regenerating an old plan later must not corrupt
+    the slip timeline. created_at breaks ties between same-meeting
+    builds. No project, no history (slip needs a stable plan identity)."""
+    if not project_id:
+        return []
+    cur = await db.execute(
+        "SELECT tasks_json, meeting_date, created_at FROM plan_snapshots"
+        " WHERE user_id = ? AND project_id = ?"
+        " ORDER BY COALESCE(meeting_date, substr(created_at, 1, 10)),"
+        " created_at LIMIT 100",
+        (user_id, project_id),
+    )
+    out = []
+    for tasks_json, meeting_date, created_at in await cur.fetchall():
+        try:
+            tasks = json.loads(tasks_json)
+        except ValueError:
+            continue
+        out.append({"as_of": meeting_date or created_at[:10],
+                    "created_at": created_at, "tasks": tasks})
+    return out
+
+
 async def record(db: aiosqlite.Connection, *, user_id: str, app_id: str,
                  project_id: str | None, template_id: str,
                  plan: dict) -> None:
