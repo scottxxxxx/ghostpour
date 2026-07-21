@@ -538,6 +538,43 @@ MIGRATIONS = [
     )""",
     "CREATE INDEX IF NOT EXISTS idx_onboarding_device ON onboarding_events(device_id)",
     "CREATE INDEX IF NOT EXISTS idx_onboarding_received ON onboarding_events(received_at)",
+    # v31: Apple Ads install attribution (2026-07-21). One row per (device,
+    # app): the AdServices token iOS posts on first launch, exchanged at
+    # Apple's AdServices API for campaign/ad group/keyword by the sweep
+    # daemon (app/services/apple_ads_attribution.py). status vocabulary:
+    # pending (awaiting exchange), attributed, organic (attribution=false),
+    # no_token (authenticated link call arrived before any token), expired
+    # (>24h unexchanged), error (Apple rejected the token).
+    # standard_payload=1 marks personalized-ads-off installs whose ids are
+    # the literal placeholder 1234567890 ("Apple Ads, keyword unknown").
+    # user_id is backfilled by the authenticated link call and joins to
+    # subscription_events / users.ever_subscribed for CAC. token is cleared
+    # after any terminal exchange outcome. No purge: rows are tiny and CAC
+    # analysis wants history.
+    """CREATE TABLE IF NOT EXISTS ad_attribution (
+        id TEXT PRIMARY KEY,
+        device_id TEXT NOT NULL,
+        app_id TEXT NOT NULL,
+        user_id TEXT,
+        status TEXT NOT NULL DEFAULT 'pending',
+        attribution INTEGER,
+        campaign_id INTEGER,
+        ad_group_id INTEGER,
+        keyword_id INTEGER,
+        ad_id INTEGER,
+        conversion_type TEXT,
+        click_date TEXT,
+        country_or_region TEXT,
+        standard_payload INTEGER NOT NULL DEFAULT 0,
+        token TEXT,
+        app_version TEXT,
+        first_launch_at TEXT,
+        created_at TEXT NOT NULL,
+        exchanged_at TEXT,
+        UNIQUE(device_id, app_id)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_ad_attribution_status ON ad_attribution(status)",
+    "CREATE INDEX IF NOT EXISTS idx_ad_attribution_user ON ad_attribution(user_id)",
 ]
 
 

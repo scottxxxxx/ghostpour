@@ -2968,6 +2968,98 @@ async def telemetry_onboarding(
             "auth": auth, "drop_off": drop_off}
 
 
+@router.get("/admin/acquisition")
+async def acquisition_report(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    days: int = Query(default=30, ge=1, le=365),
+    app: str | None = Query(default=None),
+):
+    """Apple Ads install-attribution rollups for the Acquisition tab, off
+    the ad_attribution table (one row per device+app, written by
+    POST /v1/attribution and resolved by the AdServices exchange sweep).
+
+    Phase 1: raw campaign/keyword ids with install → linked → activated →
+    subscribed counts. Names + spend (true CAC) arrive with the Apple Ads
+    Campaign Management API integration (phase 2). Placeholder rows
+    (standard_payload=1, personalized ads off) are counted separately and
+    excluded from the keyword table since their ids are the literal
+    1234567890. "activated" = the device has at least one meeting_start in
+    raw telemetry_events, which is purged at 30 days, so it undercounts on
+    longer windows."""
+    _verify_admin(request, x_admin_key)
+
+    clauses = ["a.created_at >= datetime('now', ?)"]
+    params: list[object] = [f"-{days} days"]
+    if app:
+        clauses.append("a.app_id = ?")
+        params.append(app)
+    where = " AND ".join(clauses)
+
+    async def _all(sql: str) -> list[dict]:
+        cur = await db.execute(sql, tuple(params))
+        return [dict(r) for r in await cur.fetchall()]
+
+    k = (await _all(f"""
+        SELECT
+          COUNT(*) AS total,
+          SUM(CASE WHEN a.status='attributed' AND a.standard_payload=0 THEN 1 ELSE 0 END) AS attributed,
+          SUM(CASE WHEN a.status='attributed' AND a.standard_payload=1 THEN 1 ELSE 0 END) AS attributed_limited,
+          SUM(CASE WHEN a.status='organic' THEN 1 ELSE 0 END) AS organic,
+          SUM(CASE WHEN a.status='pending' THEN 1 ELSE 0 END) AS pending,
+          SUM(CASE WHEN a.status IN ('no_token','expired','error') THEN 1 ELSE 0 END) AS unknown,
+          SUM(CASE WHEN a.user_id IS NOT NULL THEN 1 ELSE 0 END) AS linked,
+          SUM(CASE WHEN u.ever_subscribed=1 THEN 1 ELSE 0 END) AS subscribed
+        FROM ad_attribution a LEFT JOIN users u ON u.id = a.user_id
+        WHERE {where}
+    """))[0]
+    kpis = {key: int(k.get(key) or 0) for key in (
+        "total", "attributed", "attributed_limited", "organic",
+        "pending", "unknown", "linked", "subscribed",
+    )}
+    source = [
+        {"label": "Apple Ads (keyword-level)", "n": kpis["attributed"]},
+        {"label": "Apple Ads (limited ads)", "n": kpis["attributed_limited"]},
+        {"label": "Organic / other", "n": kpis["organic"]},
+        {"label": "Pending exchange", "n": kpis["pending"]},
+        {"label": "Unknown", "n": kpis["unknown"]},
+    ]
+
+    campaigns = await _all(f"""
+        SELECT a.campaign_id,
+          COUNT(*) AS installs,
+          SUM(CASE WHEN a.user_id IS NOT NULL THEN 1 ELSE 0 END) AS linked,
+          SUM(CASE WHEN act.device_id IS NOT NULL THEN 1 ELSE 0 END) AS activated,
+          SUM(CASE WHEN u.ever_subscribed=1 THEN 1 ELSE 0 END) AS subscribed
+        FROM ad_attribution a
+        LEFT JOIN users u ON u.id = a.user_id
+        LEFT JOIN (SELECT DISTINCT device_id FROM telemetry_events
+                   WHERE event_type='meeting_start') act
+          ON act.device_id = a.device_id
+        WHERE a.status='attributed' AND {where}
+        GROUP BY a.campaign_id ORDER BY installs DESC LIMIT 50
+    """)
+
+    keywords = await _all(f"""
+        SELECT a.keyword_id, a.campaign_id,
+          COUNT(*) AS installs,
+          SUM(CASE WHEN a.user_id IS NOT NULL THEN 1 ELSE 0 END) AS linked,
+          SUM(CASE WHEN act.device_id IS NOT NULL THEN 1 ELSE 0 END) AS activated,
+          SUM(CASE WHEN u.ever_subscribed=1 THEN 1 ELSE 0 END) AS subscribed
+        FROM ad_attribution a
+        LEFT JOIN users u ON u.id = a.user_id
+        LEFT JOIN (SELECT DISTINCT device_id FROM telemetry_events
+                   WHERE event_type='meeting_start') act
+          ON act.device_id = a.device_id
+        WHERE a.status='attributed' AND a.standard_payload=0 AND {where}
+        GROUP BY a.keyword_id, a.campaign_id ORDER BY installs DESC LIMIT 100
+    """)
+
+    return {"days": days, "kpis": kpis, "source": source,
+            "campaigns": campaigns, "keywords": keywords}
+
+
 # --- Email management (Resend webhook events + suppression list) ---
 
 

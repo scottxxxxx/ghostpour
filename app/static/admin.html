@@ -219,6 +219,7 @@
     <div class="tab" onclick="switchTab('alerts')">Alerts</div>
     <div class="tab" onclick="switchTab('configs')">Configs</div>
     <div class="tab" onclick="switchTab('campaigns')">Campaigns</div>
+    <div class="tab" onclick="switchTab('acquisition')">Acquisition</div>
     <div class="tab" onclick="switchTab('subscriptions')">Subscriptions</div>
     <div class="tab" onclick="switchTab('transcripts')">Transcripts</div>
     <div class="tab" onclick="switchTab('routing')">Model Routing</div>
@@ -523,6 +524,41 @@
   </div>
 
   <!-- Transcript cleanup: original vs cleaned -->
+  <!-- Acquisition -->
+  <div id="tab-acquisition" class="section">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <h3 style="margin:0">Acquisition</h3>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="acq-days" onchange="loadAcquisition()" class="period-select">
+          <option value="7">7 days</option>
+          <option value="14">14 days</option>
+          <option value="30" selected>30 days</option>
+          <option value="60">60 days</option>
+          <option value="90">90 days</option>
+          <option value="365">1 year</option>
+        </select>
+        <button class="refresh-btn" onclick="loadAcquisition()">Refresh</button>
+      </div>
+    </div>
+    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Apple Ads install attribution from the AdServices token iOS posts on first launch. "Limited ads" installs came from Apple Ads but the device opted out of personalized ads, so Apple hides campaign and keyword ids. Campaign and keyword names plus spend (true CAC) arrive with the Apple Ads API integration (phase 2); until then rows show raw ids. "Activated" = device has at least one meeting_start in raw telemetry (30-day retention, so it undercounts on longer ranges). Reddit / campaign-link installs are not here; read those in App Store Connect Analytics.</p>
+    <div class="cards" id="acq-kpis"></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px;margin-top:16px">
+      <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Install source</h4><div id="acq-chart-source"></div></div>
+      <div class="card" style="padding:16px">
+        <h4 style="margin:0 0 8px">By campaign</h4>
+        <div class="table-wrap"><table id="acq-campaign-table"><thead><tr>
+          <th>Campaign</th><th>Installs</th><th>Linked</th><th>Activated</th><th>Subscribed</th>
+        </tr></thead><tbody></tbody></table></div>
+      </div>
+      <div class="card" style="padding:16px;grid-column:span 2">
+        <h4 style="margin:0 0 8px">By keyword</h4>
+        <div class="table-wrap"><table id="acq-keyword-table"><thead><tr>
+          <th>Keyword</th><th>Campaign</th><th>Installs</th><th>Linked</th><th>Activated</th><th>Subscribed</th>
+        </tr></thead><tbody></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
   <div id="tab-entitlements" class="section">
     <h3 style="margin:0 0 4px">Entitlements</h3>
     <p style="color:var(--text-dim);font-size:13px;margin:0 0 14px">Everything that decides what a user may do: the features × tiers matrix, the config-shaped knobs outside it, and where each served value comes from. What the server actually does right now — defaults merged, overlay wins. Matrix cells and the Documents knobs are editable here and take effect immediately (the matrix is the persistent entitlements config, the single source enforcement reads).</p>
@@ -850,6 +886,7 @@ function switchTab(name) {
   if (name === 'email') loadEmail();
   if (name === 'alerts') loadAlerts();
   if (name === 'telemetry') loadTelemetry();
+  if (name === 'acquisition') loadAcquisition();
 }
 
 // ---------------------------------------------------------------------------
@@ -1112,6 +1149,76 @@ function _renderOnboarding(d) {
     colors: ['#ff7b72', '#d29922', '#bc8cff', '#58a6ff', '#3fb950', '#79c0ff'],
     noData: {text: 'No abandoned onboardings in this window.'},
   });
+}
+
+// ---------------------------------------------------------------------------
+// Acquisition tab — Apple Ads install attribution (ad_attribution table)
+// Backed by /admin/acquisition. Phase 1 shows raw campaign/keyword ids;
+// names + spend land with the Apple Ads API integration (phase 2).
+// ---------------------------------------------------------------------------
+
+const _ACQ_PLACEHOLDER = 1234567890;
+const _acqId = (v) => v == null ? 'n/a' : (v === _ACQ_PLACEHOLDER ? 'unknown (limited ads)' : String(v));
+
+async function loadAcquisition() {
+  const days = document.getElementById('acq-days')?.value || 30;
+  const params = new URLSearchParams({days});
+  const app = document.getElementById('app')?.value || '';
+  if (app) params.set('app', app);
+  try {
+    const resp = await fetch(`${BASE}/webhooks/admin/acquisition?${params}`, {
+      headers: {'X-Admin-Key': adminKey},
+    });
+    if (!resp.ok) {
+      document.getElementById('acq-kpis').innerHTML =
+        `<div class="card" style="grid-column: span 4">Acquisition load failed (${resp.status})</div>`;
+      return;
+    }
+    _renderAcquisition(await resp.json());
+  } catch (e) {
+    document.getElementById('acq-kpis').innerHTML =
+      `<div class="card" style="grid-column: span 4">Acquisition error: ${e.message}</div>`;
+  }
+}
+
+function _renderAcquisition(d) {
+  const k = d.kpis || {};
+  document.getElementById('acq-kpis').innerHTML = [
+    {label: 'Installs reporting', value: (k.total || 0).toLocaleString(), hint: `last ${d.days}d`},
+    {label: 'Apple Ads', value: (k.attributed || 0).toLocaleString(), hint: 'keyword-level'},
+    {label: 'Apple Ads (limited)', value: (k.attributed_limited || 0).toLocaleString(), hint: 'personalized ads off'},
+    {label: 'Organic / other', value: (k.organic || 0).toLocaleString(), hint: 'not an Apple Ads tap'},
+    {label: 'Pending', value: (k.pending || 0).toLocaleString(), hint: 'awaiting exchange'},
+    {label: 'Linked accounts', value: (k.linked || 0).toLocaleString(), hint: 'device joined to a user'},
+    {label: 'Subscribed', value: (k.subscribed || 0).toLocaleString(), hint: 'ever-subscribed linked users'},
+  ].map(c => `
+    <div class="card">
+      <div class="card-label">${c.label}</div>
+      <div class="card-value">${c.value}</div>
+      ${c.hint ? `<div class="card-hint">${c.hint}</div>` : ''}
+    </div>
+  `).join('');
+
+  _renderChart('acq-chart-source', {
+    series: (d.source || []).map(x => x.n),
+    chart: {type: 'donut', height: 280},
+    labels: (d.source || []).map(x => x.label),
+    legend: {position: 'bottom'},
+    colors: ['#3fb950', '#58a6ff', '#8b949e', '#d29922', '#ff7b72'],
+    plotOptions: {pie: {donut: {size: '60%'}}},
+    dataLabels: {enabled: true, formatter: (v) => `${v.toFixed(0)}%`},
+    noData: {text: 'No attribution rows in this window yet.'},
+  });
+
+  const camps = d.campaigns || [];
+  document.querySelector('#acq-campaign-table tbody').innerHTML = camps.length
+    ? camps.map(r => `<tr><td>${_acqId(r.campaign_id)}</td><td>${r.installs}</td><td>${r.linked}</td><td>${r.activated}</td><td>${r.subscribed}</td></tr>`).join('')
+    : '<tr><td colspan="5" style="color:var(--text-dim)">No attributed installs yet.</td></tr>';
+
+  const kws = d.keywords || [];
+  document.querySelector('#acq-keyword-table tbody').innerHTML = kws.length
+    ? kws.map(r => `<tr><td>${_acqId(r.keyword_id)}</td><td>${_acqId(r.campaign_id)}</td><td>${r.installs}</td><td>${r.linked}</td><td>${r.activated}</td><td>${r.subscribed}</td></tr>`).join('')
+    : '<tr><td colspan="6" style="color:var(--text-dim)">No keyword-level installs yet.</td></tr>';
 }
 
 function _renderTelemetry(d, current) {

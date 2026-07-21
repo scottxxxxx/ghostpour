@@ -14,6 +14,7 @@ from app.models.tier import load_tier_config
 from app.routers import generated_files as generated_files_router
 from app.routers import generations as generations_router
 from app.routers import (
+    acquisition,
     app_version,
     apple_webhooks,
     auth,
@@ -226,6 +227,17 @@ async def lifespan(app: FastAPI):
             "subscription_reconcile daemon failed to start: %s", e,
         )
 
+    # Apple Ads attribution exchange sweep — exchanges pending AdServices
+    # tokens (POST /v1/attribution) at Apple's API every minute and expires
+    # rows past the 24h token-validity window. Fail-soft.
+    try:
+        from app.services.apple_ads_attribution import run_daemon as _aa_daemon
+        app.state.ad_attribution_daemon = asyncio.create_task(_aa_daemon(app))
+    except Exception as e:
+        logging.getLogger("app.main").warning(
+            "ad_attribution daemon failed to start: %s", e,
+        )
+
     # Roll up telemetry events into telemetry_daily_rollups. Idempotent
     # (INSERT OR REPLACE on day+metric PK), recomputes the trailing
     # window so any late-arriving events get folded in. Fail-soft: a
@@ -299,6 +311,15 @@ async def lifespan(app: FastAPI):
         except (asyncio.CancelledError, Exception):
             pass
 
+    # Stop the ad attribution sweep daemon cleanly on shutdown.
+    aa_daemon = getattr(app.state, "ad_attribution_daemon", None)
+    if aa_daemon is not None and not aa_daemon.done():
+        aa_daemon.cancel()
+        try:
+            await aa_daemon
+        except (asyncio.CancelledError, Exception):
+            pass
+
     # Stop the allocation reset sweep daemon cleanly on shutdown.
     ar_daemon = getattr(app.state, "allocation_reset_sweep_daemon", None)
     if ar_daemon is not None and not ar_daemon.done():
@@ -355,6 +376,7 @@ app.include_router(preferences.router, prefix="/v1", tags=["preferences"])
 app.include_router(unsubscribe.router, tags=["unsubscribe"])
 app.include_router(telemetry.router, prefix="/v1", tags=["telemetry"])
 app.include_router(promo.router, prefix="/v1", tags=["promo"])
+app.include_router(acquisition.router, prefix="/v1", tags=["acquisition"])
 app.include_router(app_version.router, prefix="/v1", tags=["app-version"])
 
 # Context Quilt proxy routes — only included when CQ is configured
