@@ -637,10 +637,16 @@
       </div>
       <div class="card" style="padding:16px;grid-column:span 2"><h4 style="margin:0 0 8px">Meeting starts by hour × day-of-week (UTC)</h4><div id="tel-chart-heatmap"></div></div>
       <div class="card" style="padding:16px;grid-column:span 2"><h4 style="margin:0 0 8px">Funnel: app start → meeting start → meeting stop</h4><div id="tel-chart-funnel"></div></div>
+      <div class="card" style="padding:16px">
+        <h4 style="margin:0 0 8px">Devices by build <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— build column fills as clients send app_build</span></h4>
+        <div class="table-wrap"><table id="tel-builds"><thead><tr>
+          <th>Version</th><th>Build</th><th>Devices</th><th>Events</th><th>Last seen</th>
+        </tr></thead><tbody></tbody></table></div>
+      </div>
       <div class="card" style="padding:16px;grid-column:span 2">
         <h4 style="margin:0 0 8px">User directory — name (if signed in) + language, by device</h4>
         <div class="table-wrap"><table id="tel-directory"><thead><tr>
-          <th>Name</th><th>Language</th><th>Device</th><th>App</th><th>Events</th><th>Last seen</th>
+          <th>Name</th><th>Language</th><th>Device</th><th>App</th><th>Build</th><th>Events</th><th>Last seen</th>
         </tr></thead><tbody></tbody></table></div>
       </div>
     </div>
@@ -1347,9 +1353,24 @@ function _renderTelemetry(d, current) {
       <td>${u.language ? `${telEsc(u.language)}${u.locale ? ` <span style="color:var(--text-dim);font-size:0.85em">(${telEsc(u.locale)})</span>` : ''}` : dim(null)}</td>
       <td>${dim(u.device)}</td>
       <td>${dim(u.app_version)}</td>
+      <td>${dim(u.app_build)}</td>
       <td>${(u.events || 0).toLocaleString()}</td>
       <td>${u.last_seen ? timeAgo(u.last_seen) : dim(null)}</td>
-    </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text-dim)">No telemetry in this window.</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-dim)">No telemetry in this window.</td></tr>';
+  }
+
+  // --- Devices by build (blind-spot fix 2026-07-22): version+build
+  // composite so same-marketing-version builds are distinguishable
+  const buildBody = document.querySelector('#tel-builds tbody');
+  if (buildBody) {
+    const dim2 = v => v ? telEsc(v) : '<span style="color:var(--text-dim)">not sent</span>';
+    buildBody.innerHTML = (d.builds || []).map(b => `<tr>
+      <td>${telEsc(b.version)}</td>
+      <td>${dim2(b.build)}</td>
+      <td>${(b.devices || 0).toLocaleString()}</td>
+      <td>${(b.events || 0).toLocaleString()}</td>
+      <td>${b.last_seen ? timeAgo(b.last_seen) : ''}</td>
+    </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-dim)">No telemetry in this window.</td></tr>';
   }
 
   // --- Heatmap: meetings by dow × hour ---
