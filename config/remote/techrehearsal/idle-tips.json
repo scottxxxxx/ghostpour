@@ -1,12 +1,12 @@
 {
- "version": 2,
+ "version": 3,
  "tips": [
- "Tap me to start a session",
- "I'll transcribe your meeting in real time",
- "Ask me questions during your meeting",
+ "Tap me to start listening",
+ "I'll transcribe your conversation in real time",
+ "Ask me questions during your conversation",
  "I can identify who's speaking",
  "Try capturing a photo for visual context",
- "I'll summarize your meeting automatically",
+ "I'll summarize your conversation automatically",
  "I work through your AirPods, invisible to others",
  "Swipe down on the query button to choose context range"
  ]
