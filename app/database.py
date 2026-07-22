@@ -601,6 +601,10 @@ MIGRATIONS = [
         created_at TEXT NOT NULL
     )""",
     "CREATE INDEX IF NOT EXISTS idx_plan_snapshots_user ON plan_snapshots(user_id, project_id, created_at)",
+    # v33: telemetry build number (2026-07-22). CFBundleVersion on pings,
+    # closing the same-marketing-version blind spot: builds 749 and 777
+    # were both "1.14" and indistinguishable on the wire.
+    "ALTER TABLE telemetry_events ADD COLUMN app_build TEXT",
 ]
 
 
