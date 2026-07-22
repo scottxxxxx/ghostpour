@@ -171,8 +171,12 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
             children[t["parent_id"]].append(t)
 
     def at_risk(t):
+        # blocked; never started though its start passed; or OVERDUE —
+        # end behind today while anything but complete (folded in from
+        # the retired Progress sheet, Scott 2026-07-21)
         return t["status"] == "blocked" or (
-            t["status"] == "not_started" and _d(t["start"]) < today)
+            t["status"] == "not_started" and _d(t["start"]) < today) or (
+            t["status"] != "complete" and _d(t["end"]) < today)
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -347,7 +351,8 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
             c.alignment = Alignment(horizontal="center")
         if risk_aware:
             risky = (f"AND({ax}>={E},{ax}<={F},OR($D{r}=\"Blocked\","
-                     f"AND($D{r}=\"Not Started\",{E}<TODAY())))")
+                     f"AND($D{r}=\"Not Started\",{E}<TODAY()),"
+                     f"AND($D{r}<>\"Complete\",$D{r}<>\"\",{F}<TODAY())))")
             ws.conditional_formatting.add(grid(r), FormulaRule(
                 formula=[risky], fill=dxf_fill(_C["risk"]),
                 font=Font(color="FF" + _C["risk"]), stopIfTrue=True))
@@ -410,10 +415,18 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
                                f"=MAX(F{row + 1}:F{row + len(_kids)})")
         date_cells(row, _d(phase["start"]), _d(phase["end"]),
                    formulas=_phase_formulas)
-        if detail_cols and _kids:
-            # phase % Done rolls up live: duration-weighted over children
-            # whose percent was STATED; blank when none was (critic pass
-            # 2026-07-21 — tasks had %, the levels PMs read didn't)
+        _cov = 0.0
+        if _kids:
+            _tot = sum((_d(k["end"]) - _d(k["start"])).days + 1 for k in _kids)
+            _stated = sum((_d(k["end"]) - _d(k["start"])).days + 1
+                          for k in _kids
+                          if isinstance(k.get("percent_complete"), int))
+            _cov = (_stated / _tot) if _tot else 0.0
+        if detail_cols and _kids and _cov >= 0.5:
+            # phase % Done rolls up live, duration-weighted over children
+            # whose percent was STATED — and only when stated percents
+            # cover at least HALF the phase duration (coverage gate,
+            # 2026-07-21: one stated child was wearing a phase costume)
             c1, cn = row + 1, row + len(_kids)
             pf = ('=IF(SUMPRODUCT(($F{c1}:$F{cn}-$E{c1}:$E{cn}+1)*'
                   '($J{c1}:$J{cn}<>""))=0,"",'
@@ -611,26 +624,22 @@ def _compute_slip(tasks: list[dict], history: list[dict]) -> list[dict]:
 
 def render_gantt_detailed(data: dict, *, today: date | None = None,
                           history: list[dict] | None = None) -> bytes:
-    """Detailed variant: the identical Gantt View sheet plus three additive
-    sheets computed from the same extracted plan.
-
-    The Gantt View itself carries % Done and Effort columns plus a live
-    completed-portion bar overlay (Scott 2026-07-21: progress must be
-    visible ON the timeline view, not exiled to a side sheet). Progress
-    repeats percent and effort beside the receipts refs; both are
-    STRICTLY blank when nobody said them (the extraction schema forbids
-    estimating; an empty cell reads more honestly than an invented
-    number). Workload
-    is live COUNTIFS arithmetic over Progress (owner by week-due), so
-    editing dates in Excel re-flags overloaded weeks. Slip (v2,
-    2026-07-21) compares this plan's due dates against the project's
-    prior snapshot versions (as-of ordered by meeting date): baseline,
-    current, times moved, slip days. Receipts quotes the meeting line
-    behind every extracted value; Progress rows cite [R#] refs into
-    it."""
-    from openpyxl.formatting.rule import CellIsRule, FormulaRule
+    """Detailed variant, LEAN (Scott 2026-07-21): the Gantt View plus
+    exactly two sheets, Slip and Receipts. Everything task-level lives ON
+    the timeline view: live dependency-driven dates, % Done and Effort
+    (STRICTLY blank when nobody stated them; the extraction schema
+    forbids estimating), the completed-portion bar overlay, overdue
+    folded into the live risk rules, beyond-chart arrows. Phase % rolls
+    up only when stated percents cover at least half the phase duration.
+    Slip compares this plan against the project's prior snapshot
+    versions (as-of ordered by meeting date). Receipts quotes the
+    meeting line behind every extracted value. The retired Progress and
+    Workload sheets are deliberate cuts, not omissions: Progress became
+    redundant with the on-view columns, and active-per-week counted
+    calendar spans dressed up as workload (the only-what-the-meeting-
+    knows rule)."""
+    from openpyxl.formatting.rule import CellIsRule
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-    from openpyxl.utils import get_column_letter
 
     wb = _build_gantt_wb(data, today=today, detail_cols=True)
     tasks = data.get("tasks") or []
@@ -645,150 +654,11 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
 
     # ---- Receipts numbering: plan order, evidence order ----
     receipts: list[tuple[str, dict, dict]] = []   # (ref, task, evidence item)
-    refs_of: dict[int, list[str]] = {}
     for t in rows:
         for ev in (t.get("evidence") or []):
             if not isinstance(ev, dict) or not str(ev.get("quote") or "").strip():
                 continue
-            ref = f"R{len(receipts) + 1}"
-            receipts.append((ref, t, ev))
-            refs_of.setdefault(t["id"], []).append(ref)
-
-    # ---- Progress sheet ----
-    ws = wb.create_sheet("Progress")
-    ws["A1"] = "Progress, from what people actually said"
-    ws["A1"].font = Font(bold=True, size=13, color="FF" + navy)
-    ws["A2"] = ("Percent complete and effort appear only when someone "
-                "stated them in a meeting; a blank cell means nobody said "
-                "it. [R#] points to the verbatim line on the Receipts "
-                "sheet.")
-    ws["A2"].font = sub_font
-    heads = ["Task", "Owner", "Status", "Start", "Due", "% Complete",
-             "Effort (as stated)", "Receipts"]
-    for ci, h in enumerate(heads, 1):
-        c = ws.cell(4, ci, h)
-        c.font = hdr_font
-        c.fill = hdr_fill
-        c.alignment = Alignment(horizontal="center", vertical="center")
-    for ri, t in enumerate(rows, 5):
-        ws.cell(ri, 1, t["name"]).font = Font(bold=True, size=9)
-        ws.cell(ri, 2, (t.get("owner") or "").strip())
-        ws.cell(ri, 3, _STATUS_LABELS.get(t.get("status", ""), ""))
-        sc0 = ws.cell(ri, 4, _d(t["start"]))
-        sc0.number_format = "yyyy-mm-dd"
-        dc = ws.cell(ri, 5, _d(t["end"]))
-        dc.number_format = "yyyy-mm-dd"
-        pct = t.get("percent_complete")
-        if isinstance(pct, int) and 0 <= pct <= 100:
-            pc = ws.cell(ri, 6, pct / 100)
-            pc.number_format = "0%"
-        eff = t.get("effort")
-        if isinstance(eff, str) and eff.strip():
-            ws.cell(ri, 7, eff.strip())
-        refs = refs_of.get(t["id"])
-        if refs:
-            rc = ws.cell(ri, 8, ", ".join(refs))
-            rc.font = Font(size=8, color="FF666666")
-        for ci in range(1, 9):
-            ws.cell(ri, ci).border = box
-    last_progress_row = 4 + len(rows)
-    # Overdue screams (critic pass 2026-07-21): due date behind TODAY()
-    # while status is anything but Complete lights the row red, live.
-    if rows:
-        ws.conditional_formatting.add(
-            f"A5:H{last_progress_row}",
-            FormulaRule(
-                formula=['AND($E5<TODAY(),$C5<>"Complete",$C5<>"")'],
-                fill=PatternFill(start_color="FF" + red_lt,
-                                 end_color="FF" + red_lt, fill_type="solid"),
-                font=Font(color="FF9A1B12")))
-    for col, w in {"A": 34, "B": 14, "C": 12, "D": 12, "E": 12, "F": 11,
-                   "G": 16, "H": 14}.items():
-        ws.column_dimensions[col].width = w
-    ws.freeze_panes = "A5"
-
-    # ---- Workload sheet (live COUNTIFS over Progress) ----
-    wl = wb.create_sheet("Workload")
-    wl["A1"] = "Workload, tasks due per person per week"
-    wl["A1"].font = Font(bold=True, size=13, color="FF" + navy)
-    wl["A2"] = ("Computed live from the Progress sheet, so edited dates "
-                "re-flag automatically. 3 or more in one week shows red, "
-                "2 shows amber. The gold header is the current week. Due = "
-                "deadlines landing that week; Active = tasks in flight "
-                "during it.")
-    wl["A2"].font = sub_font
-    start = min(_d(t["start"]) for t in tasks)
-    end = max(_d(t["end"]) for t in tasks)
-    w0 = start - timedelta(days=start.weekday())
-    n_weeks = min(((end - w0).days // 7) + 1, 26)
-    weeks = [w0 + timedelta(days=7 * i) for i in range(n_weeks)]
-    wl.cell(3, 1, "Owner").font = hdr_font
-    wl.cell(3, 1).fill = hdr_fill
-    wl.cell(4, 1, "week ending").font = Font(size=8, color="FF888888")
-    for wi, ws_start in enumerate(weeks):
-        L = get_column_letter(2 + wi)
-        cs = wl.cell(3, 2 + wi, ws_start)
-        cs.number_format = "mmm d"
-        cs.font = hdr_font
-        cs.fill = hdr_fill
-        cs.alignment = Alignment(horizontal="center")
-        ce = wl.cell(4, 2 + wi, ws_start + timedelta(days=6))
-        ce.number_format = "mmm d"
-        ce.font = Font(size=8, color="FF888888")
-        ce.alignment = Alignment(horizontal="center")
-        wl.column_dimensions[L].width = 9
-    owners = sorted({(t.get("owner") or "").strip()
-                     for t in rows if (t.get("owner") or "").strip()})
-    wl.cell(5, 1, "DUE that week").font = Font(bold=True, size=8,
-                                               color="FF666666")
-    for oi, owner in enumerate(owners, 6):
-        wl.cell(oi, 1, owner).font = Font(bold=True, size=9)
-        for wi in range(n_weeks):
-            L = get_column_letter(2 + wi)
-            f = (f"=COUNTIFS(Progress!$B$5:$B${last_progress_row},$A{oi},"
-                 f"Progress!$E$5:$E${last_progress_row},\">=\"&{L}$3,"
-                 f"Progress!$E$5:$E${last_progress_row},\"<=\"&{L}$4)")
-            c = wl.cell(oi, 2 + wi, f)
-            c.alignment = Alignment(horizontal="center")
-            c.border = box
-    # In-flight matrix (critic pass 2026-07-21): deadlines are not the
-    # only load — a person carrying three long overlapping tasks showed
-    # zero except in due weeks. Active = start on or before the week's
-    # end AND due on or after its start.
-    a0 = 6 + len(owners) + 1
-    wl.cell(a0, 1, "ACTIVE during week").font = Font(bold=True, size=8,
-                                                     color="FF666666")
-    for oi, owner in enumerate(owners, a0 + 1):
-        wl.cell(oi, 1, owner).font = Font(bold=True, size=9)
-        for wi in range(n_weeks):
-            L = get_column_letter(2 + wi)
-            f = (f"=COUNTIFS(Progress!$B$5:$B${last_progress_row},$A{oi},"
-                 f"Progress!$D$5:$D${last_progress_row},\"<=\"&{L}$4,"
-                 f"Progress!$E$5:$E${last_progress_row},\">=\"&{L}$3)")
-            c = wl.cell(oi, 2 + wi, f)
-            c.alignment = Alignment(horizontal="center")
-            c.border = box
-    if owners:
-        endL = get_column_letter(1 + n_weeks)
-        for rng in (f"B6:{endL}{5 + len(owners)}",
-                    f"B{a0 + 1}:{endL}{a0 + len(owners)}"):
-            wl.conditional_formatting.add(rng, CellIsRule(
-                operator="greaterThanOrEqual", formula=["3"],
-                fill=PatternFill(start_color="FF" + red_lt,
-                                 end_color="FF" + red_lt, fill_type="solid"),
-                font=Font(bold=True, color="FF9A1B12")))
-            wl.conditional_formatting.add(rng, CellIsRule(
-                operator="equal", formula=["2"],
-                fill=PatternFill(start_color="FF" + amber_lt,
-                                 end_color="FF" + amber_lt,
-                                 fill_type="solid")))
-        # current-week header tracks TODAY() live, like the Gantt grid
-        hdr_rng = f"B3:{get_column_letter(1 + n_weeks)}3"
-        wl.conditional_formatting.add(hdr_rng, FormulaRule(
-            formula=["AND(B$3<=TODAY(),TODAY()<=B$4)"],
-            fill=PatternFill(start_color="FF8A6D1D", end_color="FF8A6D1D",
-                             fill_type="solid")))
-    wl.column_dimensions["A"].width = 16
+            receipts.append((f"R{len(receipts) + 1}", t, ev))
 
     # ---- Slip sheet (v2: snapshot history) ----
     sl = wb.create_sheet("Slip")

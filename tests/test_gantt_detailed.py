@@ -71,8 +71,7 @@ def test_render_detailed_adds_sheets_and_stays_honest():
     from app.services.doc_templates import render_gantt, render_gantt_detailed
     blob = render_gantt_detailed(_DPLAN, today=datetime.date(2026, 7, 21))
     wb = openpyxl.load_workbook(io.BytesIO(blob))
-    assert wb.sheetnames == ["Gantt View", "Progress", "Workload", "Slip",
-                             "Receipts"]
+    assert wb.sheetnames == ["Gantt View", "Slip", "Receipts"]
     # no history: slip sheet states that tracking starts now
     slip_texts = " ".join(str(c.value) for row in wb["Slip"].iter_rows()
                           for c in row if c.value)
@@ -102,33 +101,6 @@ def test_render_detailed_adds_sheets_and_stays_honest():
         f for rng in gv.conditional_formatting for rule in rng.rules
         for f in (rule.formula or []))
     assert "*$J" in gv_formulas
-
-    prog = wb["Progress"]
-    rows = {prog.cell(r, 1).value: r for r in range(5, 9)}
-    # stated percent lands, formatted as a percent
-    pr = rows["Payments integration"]
-    assert prog.cell(pr, 6).value == 0.7
-    assert prog.cell(pr, 6).number_format == "0%"
-    # blank-when-not-stated: no percent for sync, no effort for payments
-    sr = rows["Offline sync"]
-    assert prog.cell(sr, 6).value is None
-    assert prog.cell(sr, 7).value == "3 days"
-    assert prog.cell(pr, 7).value is None
-    # receipts refs cite into the Receipts sheet
-    assert prog.cell(pr, 8).value == "R1"
-    assert prog.cell(sr, 8).value == "R2"
-
-    wl = wb["Workload"]
-    formulas = [str(c.value) for row in wl.iter_rows() for c in row
-                if isinstance(c.value, str) and c.value.startswith("=")]
-    assert formulas and all("COUNTIFS(Progress!" in f for f in formulas)
-    # both Jordan tasks and Maya's task produce owner rows (below the
-    # DUE-that-week label row)
-    owners = [wl.cell(r, 1).value for r in (6, 7)]
-    assert owners == ["Jordan Lee", "Maya Chen"]
-    rules = [r for rng in wl.conditional_formatting for r in rng.rules]
-    assert any(r.operator == "greaterThanOrEqual" for r in rules if hasattr(r, "operator"))
-    assert any("TODAY()" in f for r in rules for f in (r.formula or []))
 
     rc = wb["Receipts"]
     assert rc.cell(5, 1).value == "R1"
@@ -258,32 +230,41 @@ def test_critic_pass_features():
               if isinstance(c.value, str) and '"→"' in str(c.value)]
     assert arrows and all(v.startswith("=IF($F") for v in arrows)
 
-    # phase % Done rollup formula on the phase row
+    # phase % rollup is coverage-gated: _DPLAN has one stated child
+    # covering 41% of phase duration, so the phase cell stays BLANK
     rows = _gv_rows(gv)
     rp = rows["Release 1.2"]
-    pf = gv.cell(rp, 10).value
-    assert isinstance(pf, str) and "SUMPRODUCT" in pf and "$J" in pf
-    assert gv.cell(rp, 10).number_format == "0%"
+    assert gv.cell(rp, 10).value is None
 
     # overlay legend under the status key
     texts = " ".join(str(c.value) for row in gv.iter_rows(max_row=10)
                      for c in row if c.value)
     assert "completed share" in texts
 
-    # overdue rule on Progress (due behind TODAY, not Complete)
-    prog = wb["Progress"]
-    pfs = " ".join(f for rng in prog.conditional_formatting
+    # overdue folded into the live risk rules on the Gantt View itself
+    gfs = " ".join(f for rng in gv.conditional_formatting
                    for rule in rng.rules for f in (rule.formula or []))
-    assert "TODAY()" in pfs and 'Complete' in pfs
+    assert '<>"Complete"' in gfs and "TODAY()" in gfs
 
-    # in-flight matrix present and reading start+due from Progress
-    wl = wb["Workload"]
-    labels = [str(wl.cell(r, 1).value) for r in range(1, 30)
-              if wl.cell(r, 1).value]
-    assert "DUE that week" in labels and "ACTIVE during week" in labels
-    active_f = [str(c.value) for row in wl.iter_rows() for c in row
-                if isinstance(c.value, str) and "Progress!$D$5" in str(c.value)]
-    assert active_f and all('"<="' in f and '">="' in f for f in active_f)
+    # coverage gate opens when stated percents cover >= half the phase
+    import datetime as _dt
+    from app.services.doc_templates import render_gantt_detailed as _rgd
+    hi = {"project": "Y", "tasks": [
+        {"id": 1, "name": "P", "type": "phase", "parent_id": None,
+         "owner": None, "status": "in_progress", "start": "2026-07-01",
+         "end": "2026-07-10", "depends_on": []},
+        {"id": 2, "name": "A", "type": "task", "parent_id": 1, "owner": None,
+         "status": "in_progress", "start": "2026-07-01", "end": "2026-07-08",
+         "depends_on": [], "percent_complete": 50},
+        {"id": 3, "name": "B", "type": "task", "parent_id": 1, "owner": None,
+         "status": "in_progress", "start": "2026-07-09", "end": "2026-07-10",
+         "depends_on": []},
+    ]}
+    gv2 = openpyxl.load_workbook(io.BytesIO(
+        _rgd(hi, today=_dt.date(2026, 7, 21))))["Gantt View"]
+    r2 = _gv_rows(gv2)["P"]
+    pf2 = gv2.cell(r2, 10).value
+    assert isinstance(pf2, str) and "SUMPRODUCT" in pf2
 
     # slip-days red rule
     sl = wb["Slip"]
