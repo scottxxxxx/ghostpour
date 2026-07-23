@@ -36,13 +36,16 @@ _GANTT_SCHEMA_PROMPT = (
     "\"milestone\", \"parent_id\": int|null, \"owner\": str|null, "
     "\"status\": \"complete\"|\"in_progress\"|\"on_hold\"|\"not_started\"|"
     "\"blocked\", \"start\": \"YYYY-MM-DD\", \"end\": \"YYYY-MM-DD\", "
-    "\"depends_on\": [int]}]}. Rules: phases have parent_id null; tasks and "
+    "\"depends_on\": [int], \"percent_complete\": int|null}]}. "
+    "Rules: phases have parent_id null; tasks and "
     "milestones carry the id of their phase; milestones have start equal to "
     "end; dates must be consistent with dependencies (a task never starts "
     "before its predecessor ends); owner is the person's name as spoken; "
     "meeting_date is the date of the meeting this plan comes from as stated "
     "in the content (the most recent one when several), null when no date "
-    "is evident. "
+    "is evident. percent_complete is STRICTLY what a person stated in the "
+    "content (\"about 80 percent\" is 80): when nobody stated a value, use "
+    "null; never estimate, and never infer a percent from status. "
     "Extract every task and milestone discussed. Output only the JSON object."
 )
 
@@ -78,6 +81,7 @@ _GANTT_DETAILED_SCHEMA_PROMPT = (
 _C = {
     "bar": "A8B9C9", "summary": "6E7B8A", "project": "3D4653",
     "weekend": "F3F3F3", "today": "FFF6DE", "risk": "E0341E",
+    "risk_done": "9A1B12", "risk_rest": "F1948A",
     "grid": "E9E9E9", "white": "FFFFFF",
     "status": {"complete": "1F4E9C", "in_progress": "2E9E4F",
                "on_hold": "F5A623", "not_started": "E0341E",
@@ -181,11 +185,40 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Gantt View"
+
+    # As-of stamp + one-line status strip (PM audit 2026-07-23: a plan
+    # without a timestamp is a rumor, and the 40-second reader needs a
+    # sentence, not a chart). Static snapshot text; the as-of date is
+    # exactly what makes that honest.
+    _real = [t for t in tasks if t.get("type") != "phase"]
+    _wsum = sum((_d(t["end"]) - _d(t["start"])).days for t in _real)
+    _psum = sum((_d(t["end"]) - _d(t["start"])).days * (
+        (t.get("percent_complete") or 0) / 100
+        if isinstance(t.get("percent_complete"), int)
+        else (1.0 if t.get("status") == "complete" else 0.0))
+        for t in _real)
+    _overall = round(100 * _psum / _wsum) if _wsum else None
+    _risk_n = sum(1 for t in _real if at_risk(t))
+    _next_ms = min(
+        (t for t in _real if t.get("type") == "milestone"
+         and t.get("status") != "complete" and _d(t["start"]) >= today),
+        key=lambda t: _d(t["start"]), default=None)
+    _bits = [f"As of the {data.get('meeting_date') or today.isoformat()} "
+             f"standup", f"generated {today.isoformat()}",
+             f"{len(_real)} tasks"]
+    if _overall is not None:
+        _bits.append(f"{_overall}% complete overall")
+    _bits.append(f"{_risk_n} at risk" if _risk_n else "none at risk")
+    if _next_ms:
+        _bits.append(f"next milestone: {_next_ms['name']} "
+                     f"{_d(_next_ms['start']).strftime('%b %d')}")
+    strip = ws.cell(2, 2, "  " + "  ·  ".join(_bits))
+    strip.font = Font(bold=True, size=9, color="FF3D4653")
     # A:dot B:name C:risk D:status E:start F:end G:predecessors H:chip I:owner
-    FIRST_DAY_COL = 12 if detail_cols else 10
+    FIRST_DAY_COL = 12 if detail_cols else 11
     PCT_COL = "J"   # % Done, only written when detail_cols
     KEY_TOP = 4          # status key block under the 3 header rows
-    first_bar_row = KEY_TOP + 6   # key rows + blank + project row
+    first_bar_row = KEY_TOP + 8   # key + overlay/blank/phase legend lines + project row
 
     # Pre-pass: worksheet row of every task, so Predecessors can cite
     # rows in either direction (forward deps included).
@@ -227,8 +260,9 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
     _heads = [("", 7), ("Task Name", 38), ("At\nRisk", 5), ("Status", 12),
               ("Start\nDate", 11), ("End\nDate", 11), ("Predecessors", 12),
               ("", 4), ("Assigned To", 16)]
+    _heads += [("%\nDone", 7)]
     if detail_cols:
-        _heads += [("%\nDone", 7), ("Effort", 10)]
+        _heads += [("Effort", 10)]
     for col, (head, width) in enumerate(_heads, start=1):
         c = ws.cell(3, col, head)
         c.font = Font(bold=True, size=9)
@@ -247,13 +281,19 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
         row += 1
         ws.cell(row, 1, "●").font = Font(color="FF" + _C["status"][key], size=11)
         ws.cell(row, 2, f"      {label}").font = Font(size=8)
-    if detail_cols:
-        # explain the done-portion overlay (critic pass 2026-07-21)
-        lg = ws.cell(row + 1, 2,
-                     "      █ darker bar section = completed share, "
-                     "drives from % Done")
-        lg.font = Font(size=8, color="FF" + _C["status"]["complete"])
-    row += 2
+    lg = ws.cell(row + 1, 2,
+                 "      █ darker bar section = completed share, drives "
+                 "from % Done (deep red when the task is at risk)")
+    lg.font = Font(size=8, color="FF" + _C["status"]["complete"])
+    lg2 = ws.cell(row + 2, 2,
+                  "      blank % Done = nobody stated it in a meeting; "
+                  "values are never estimated")
+    lg2.font = Font(size=8, color="FF9AA4AF")
+    lg3 = ws.cell(row + 3, 2,
+                  "      phase % = duration-weighted; unstarted tasks "
+                  "count as 0, Complete tasks as 100")
+    lg3.font = Font(size=8, color="FF9AA4AF")
+    row += 4
 
     def date_cells(r, s, e, hex_color=None, size=8, formulas=None):
         """Write Start/End as dates, or as live formulas when the row's
@@ -349,24 +389,30 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
             c = ws.cell(r, col, f'=IF(AND({L}$1>={E},{L}$1<={F}),"█","")')
             c.font = Font(color="FF" + bar_hex, size=9)
             c.alignment = Alignment(horizontal="center")
-        if risk_aware:
-            risky = (f"AND({ax}>={E},{ax}<={F},OR($D{r}=\"Blocked\","
+        P = f"${PCT_COL}{r}"
+        _in_done = f"{ax}>={E},{ax}<={E}+({F}-{E})*{P}"
+        _riskcond = (f"OR($D{r}=\"Blocked\","
                      f"AND($D{r}=\"Not Started\",{E}<TODAY()),"
-                     f"AND($D{r}<>\"Complete\",$D{r}<>\"\",{F}<TODAY())))")
+                     f"AND($D{r}<>\"Complete\",$D{r}<>\"\",{F}<TODAY()))")
+        if pct_overlay and risk_aware:
+            # At-risk rows mirror the healthy scheme in the red family
+            # (Scott 2026-07-23): completed share deep red, remaining
+            # share light red, so a late task still shows what's banked.
             ws.conditional_formatting.add(grid(r), FormulaRule(
-                formula=[risky], fill=dxf_fill(_C["risk"]),
-                font=Font(color="FF" + _C["risk"]), stopIfTrue=True))
+                formula=[f"AND({P}<>\"\",{_in_done},{_riskcond})"],
+                fill=dxf_fill(_C["risk_done"]),
+                font=Font(color="FF" + _C["risk_done"]), stopIfTrue=True))
+        if risk_aware:
+            risky = f"AND({ax}>={E},{ax}<={F},{_riskcond})"
+            ws.conditional_formatting.add(grid(r), FormulaRule(
+                formula=[risky], fill=dxf_fill(_C["risk_rest"]),
+                font=Font(color="FF" + _C["risk_rest"]), stopIfTrue=True))
         if pct_overlay:
-            # Completed-portion overlay (detailed style): the leading
-            # share of the bar recolors to the status-complete blue,
-            # driven live by the % Done cell. Added BEFORE the base bar
-            # rule so it wins where both match; blank % means no
-            # overlay and the plain bar shows.
-            P = f"${PCT_COL}{r}"
-            done_f = (f"AND({P}<>\"\",{ax}>={E},"
-                      f"{ax}<={E}+({F}-{E})*{P})")
+            # Healthy rows: completed share in status-complete blue over
+            # the gray base bar. Blank % means no overlay.
             ws.conditional_formatting.add(grid(r), FormulaRule(
-                formula=[done_f], fill=dxf_fill(_C["status"]["complete"]),
+                formula=[f"AND({P}<>\"\",{_in_done})"],
+                fill=dxf_fill(_C["status"]["complete"]),
                 font=Font(color="FF" + _C["status"]["complete"]),
                 stopIfTrue=True))
         ws.conditional_formatting.add(grid(r), FormulaRule(
@@ -391,7 +437,7 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
     date_cells(row, start, end, hex_color="FFFFFF", size=9,
                formulas=_proj_formulas)
     ws.row_dimensions[row].height = 12
-    bar_rules(row, _C["summary"])
+    bar_rules(row, _C["project"])
     row += 1
 
     dv = DataValidation(
@@ -415,25 +461,21 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
                                f"=MAX(F{row + 1}:F{row + len(_kids)})")
         date_cells(row, _d(phase["start"]), _d(phase["end"]),
                    formulas=_phase_formulas)
-        _cov = 0.0
-        if _kids:
-            _tot = sum((_d(k["end"]) - _d(k["start"])).days + 1 for k in _kids)
-            _stated = sum((_d(k["end"]) - _d(k["start"])).days + 1
-                          for k in _kids
-                          if isinstance(k.get("percent_complete"), int))
-            _cov = (_stated / _tot) if _tot else 0.0
-        if detail_cols and _kids and _cov >= 0.5:
-            # phase % Done rolls up live, duration-weighted over children
-            # whose percent was STATED — and only when stated percents
-            # cover at least HALF the phase duration (coverage gate,
-            # 2026-07-21: one stated child was wearing a phase costume)
+        _weighted = any((_d(k["end"]) - _d(k["start"])).days > 0
+                        for k in _kids)
+        if _kids and _weighted:
+            # phase % Done rolls up live, duration-weighted over ALL
+            # non-milestone children (Scott 2026-07-23): stated percent
+            # when spoken, 100 when status is Complete, 0 otherwise —
+            # unstarted work counts against the phase instead of being
+            # ignored. Milestones drop out via zero duration weight.
+            # Plain range arithmetic only (the N() Excel trap).
             c1, cn = row + 1, row + len(_kids)
-            pf = ('=IF(SUMPRODUCT(($F{c1}:$F{cn}-$E{c1}:$E{cn}+1)*'
-                  '($J{c1}:$J{cn}<>""))=0,"",'
-                  'SUMPRODUCT(($F{c1}:$F{cn}-$E{c1}:$E{cn}+1)*'
-                  'N($J{c1}:$J{cn}))/'
-                  'SUMPRODUCT(($F{c1}:$F{cn}-$E{c1}:$E{cn}+1)*'
-                  '($J{c1}:$J{cn}<>"")))'
+            pf = ('=IF(SUMPRODUCT(($F{c1}:$F{cn}-$E{c1}:$E{cn}))=0,"",'
+                  'SUMPRODUCT(($F{c1}:$F{cn}-$E{c1}:$E{cn})*'
+                  '(($J{c1}:$J{cn})+($J{c1}:$J{cn}="")*'
+                  '($D{c1}:$D{cn}="Complete")))/'
+                  'SUMPRODUCT(($F{c1}:$F{cn}-$E{c1}:$E{cn})))'
                   ).replace("{c1}", str(c1)).replace("{cn}", str(cn))
             ppc = ws.cell(row, 10, pf)
             ppc.number_format = "0%"
@@ -441,7 +483,7 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
             ppc.alignment = Alignment(horizontal="center")
         ws.row_dimensions[row].outline_level = 1
         ws.row_dimensions[row].height = 12
-        bar_rules(row, _C["summary"], pct_overlay=detail_cols)
+        bar_rules(row, _C["summary"], pct_overlay=True)
         dv.add(f"D{row}")
         row += 1
         for t in children.get(phase["id"], []):
@@ -482,13 +524,13 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
                 chip.alignment = Alignment(horizontal="center")
                 nm = ws.cell(row, 9, owner)
                 nm.font = Font(size=8, color="FF" + text_hex)
+            pct = t.get("percent_complete")
+            if isinstance(pct, int) and 0 <= pct <= 100:
+                pcell = ws.cell(row, 10, pct / 100)
+                pcell.number_format = "0%"
+                pcell.font = Font(size=8, color="FF" + text_hex)
+                pcell.alignment = Alignment(horizontal="center")
             if detail_cols:
-                pct = t.get("percent_complete")
-                if isinstance(pct, int) and 0 <= pct <= 100:
-                    pcell = ws.cell(row, 10, pct / 100)
-                    pcell.number_format = "0%"
-                    pcell.font = Font(size=8, color="FF" + text_hex)
-                    pcell.alignment = Alignment(horizontal="center")
                 eff = t.get("effort")
                 if isinstance(eff, str) and eff.strip():
                     ecell = ws.cell(row, 11, eff.strip())
@@ -516,8 +558,7 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
                 mi.font = Font(bold=True, color="FF" + _C["risk"])
                 mi.alignment = Alignment(horizontal="center")
             else:
-                bar_rules(row, _C["bar"], risk_aware=True,
-                          pct_overlay=detail_cols)
+                bar_rules(row, _C["bar"], risk_aware=True, pct_overlay=True)
             row += 1
 
     # grid-wide dynamics AFTER the bar rules so bars win: the today
@@ -538,6 +579,17 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
 
     ws.freeze_panes = f"{get_column_letter(FIRST_DAY_COL)}4"
     ws.sheet_properties.outlinePr.summaryBelow = False
+    # Print setup (PM audit 2026-07-23: print-to-PDF for a steering
+    # meeting must not sprawl across six portrait pages). Landscape,
+    # squeeze to one page wide, header rows repeat on every page.
+    from openpyxl.worksheet.properties import PageSetupProperties
+    ws.print_area = (f"A2:{get_column_letter(last_col + 1)}"
+                     f"{last_row + 2}")
+    ws.print_title_rows = "2:3"
+    ws.page_setup.orientation = "landscape"
+    ws.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
     # Milestone rows compute "◆" between bar rows computing "█", and the
     # Start/End columns now mix static dates with dependency formulas:
     # both trip Excel's inconsistent-formula checker (Scott 2026-07-21,
@@ -735,6 +787,10 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
     rc["A2"] = ("The plan is generated from the meetings, so provenance is "
                 "automatic. Quotes are verbatim from the source content.")
     rc["A2"].font = sub_font
+    rc["A3"] = ("Forwarding note: this sheet quotes people by name. "
+                "Consider removing it before sending the workbook outside "
+                "the team.")
+    rc["A3"].font = Font(size=9, bold=True, color="FF9A3412")
     for ci, h in enumerate(["Ref", "Task", "Supports", "Speaker",
                             "Verbatim line"], 1):
         c = rc.cell(4, ci, h)
@@ -819,7 +875,8 @@ TEMPLATES = {
         "filename": "Gantt.xlsx",
         "expected_seconds": 45,  # measured 2026-07-12: 6s toy plan, 48s real 12-meeting project
         "offer_noun": "my polished Gantt chart (collapsible phases, status "
-                      "colors, critical dates, a native Excel file)",
+                      "colors, stated progress on the bars, critical "
+                      "dates, a native Excel file)",
     },
     # Detailed variant (v1, 2026-07-21). hints EMPTY on purpose:
     # match_template never picks it directly — the family match is always
@@ -834,10 +891,10 @@ TEMPLATES = {
         "filename": "Gantt_Detailed.xlsx",
         "expected_seconds": 60,  # richer extraction output than simple's 45
         "max_tokens": 12000,     # evidence quotes fatten the JSON
-        "offer_noun": "my detailed Gantt workbook (the live timeline plus "
-                      "percent complete as people stated it, per-person "
-                      "workload flags, and a receipts sheet quoting the "
-                      "meeting line behind every value)",
+        "offer_noun": "my detailed Gantt workbook (the live timeline plus a "
+                      "slip history of how due dates moved, stated effort, "
+                      "and a receipts sheet quoting the meeting line "
+                      "behind every value)",
     },
 }
 
