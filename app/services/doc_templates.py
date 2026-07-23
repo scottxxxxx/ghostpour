@@ -30,7 +30,7 @@ XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 _GANTT_SCHEMA_PROMPT = (
     "Extract this project's plan from the conversation and meeting content "
-    "as JSON ONLY — no prose, no code fences. Schema: {\"project\": str, "
+    "as JSON ONLY, no prose, no code fences. Schema: {\"project\": str, "
     "\"meeting_date\": \"YYYY-MM-DD\"|null, "
     "\"tasks\": [{\"id\": int, \"name\": str, \"type\": \"phase\"|\"task\"|"
     "\"milestone\", \"parent_id\": int|null, \"owner\": str|null, "
@@ -46,6 +46,8 @@ _GANTT_SCHEMA_PROMPT = (
     "is evident. percent_complete is STRICTLY what a person stated in the "
     "content (\"about 80 percent\" is 80): when nobody stated a value, use "
     "null; never estimate, and never infer a percent from status. "
+    "Compose project and name strings without em or en dashes, even when "
+    "the source content uses them: rewrite with a hyphen, colon, or comma. "
     "Extract every task and milestone discussed. Output only the JSON object."
 )
 
@@ -73,8 +75,11 @@ _GANTT_DETAILED_SCHEMA_PROMPT = (
     "support extracted values (dates, status, percent_complete, effort, "
     "owner), with field naming which value each quote supports; include "
     "speaker when identifiable; omit evidence you do not have rather than "
-    "paraphrasing. Extract every task and milestone discussed. Output "
-    "only the JSON object."
+    "paraphrasing. Compose project, name, and effort strings without em "
+    "or en dashes, even when the source content uses them: rewrite with a "
+    "hyphen, colon, or comma. Evidence quotes are the one exception and "
+    "stay verbatim, exactly as spoken. Extract every task and milestone "
+    "discussed. Output only the JSON object."
 )
 
 # palette lifted from the reference artifact (ABM_Gantt_Smartsheet_Style)
