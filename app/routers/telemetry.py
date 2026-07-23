@@ -87,6 +87,11 @@ class PingEvent(BaseModel):
     meeting_id: str | None = Field(default=None, max_length=64)
     model_id: str | None = Field(default=None, max_length=128)
     app_version: str | None = Field(default=None, max_length=32)
+    # CFBundleVersion (numeric build string, e.g. "777"). Closes the
+    # same-marketing-version blind spot (2026-07-22: builds 749 and 777
+    # were both "1.14" and indistinguishable on the wire). Optional so
+    # older builds still validate.
+    app_build: str | None = Field(default=None, max_length=16)
     os_version: str | None = Field(default=None, max_length=32)
     duration_seconds: int | None = Field(default=None, ge=0, le=86400 * 7)
     # Raw Apple sysctl `hw.machine` code (e.g. "iPhone17,3"). Server maps
@@ -221,10 +226,10 @@ async def ping(
     await db.execute(
         """INSERT INTO telemetry_events
            (id, event_type, device_id, user_id, meeting_id, model_id,
-            app_version, os_version, duration_seconds, ip_hash, received_at,
-            device_model, app_locale, app_id, country, region, city,
-            distribution)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            app_version, app_build, os_version, duration_seconds, ip_hash,
+            received_at, device_model, app_locale, app_id, country, region,
+            city, distribution)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             str(uuid.uuid4()),
             body.event_type,
@@ -233,6 +238,7 @@ async def ping(
             body.meeting_id,
             body.model_id,
             body.app_version,
+            body.app_build,
             body.os_version,
             body.duration_seconds,
             ip_h,

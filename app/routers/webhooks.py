@@ -2738,6 +2738,23 @@ async def telemetry_rich(
         {"stage": "Meeting stop", "n": int(kpis.get("meeting_stops") or 0)},
     ]
 
+    # --- Per-build breakdown (2026-07-22 blind-spot fix): version + build
+    # composite, so same-marketing-version builds (749 vs 777, both
+    # "1.14") are distinguishable once clients send app_build. Additive:
+    # the version chart and filters keep their raw app_version semantics.
+    builds = await _all(f"""
+        SELECT COALESCE(app_version, 'unknown') AS version,
+               COALESCE(app_build, '') AS build,
+               COUNT(DISTINCT device_id) AS devices,
+               COUNT(*) AS events,
+               MAX(received_at) AS last_seen
+        FROM telemetry_events
+        WHERE {where}
+        GROUP BY version, build
+        ORDER BY last_seen DESC
+        LIMIT 50
+    """)
+
     # --- Filter options (so the dashboard can populate dropdowns) ---------
     # Strip filter so dropdowns show ALL options, not just ones matching
     # the current filter set. Otherwise picking "iPhone 16" hides every
@@ -2791,6 +2808,8 @@ async def telemetry_rich(
              AND e2.app_locale IS NOT NULL ORDER BY e2.received_at DESC LIMIT 1) AS locale,
           (SELECT app_version FROM telemetry_events e4 WHERE e4.device_id = e.device_id
              AND e4.app_version IS NOT NULL ORDER BY e4.received_at DESC LIMIT 1) AS app_version,
+          (SELECT app_build FROM telemetry_events e5 WHERE e5.device_id = e.device_id
+             AND e5.app_build IS NOT NULL ORDER BY e5.received_at DESC LIMIT 1) AS app_build,
           MAX(e.device_model) AS device_model,
           COUNT(*) AS events,
           MAX(e.received_at) AS last_seen,
@@ -2811,6 +2830,7 @@ async def telemetry_rich(
             "language": lang,
             "device": to_marketing_name(r["device_model"]) if r["device_model"] else None,
             "app_version": r["app_version"],
+            "app_build": r["app_build"],
             "events": r["events"],
             "last_seen": r["last_seen"],
             "signed_in": bool(r["signed_in"]),
@@ -2859,6 +2879,7 @@ async def telemetry_rich(
             ),
         },
         "version_series": version_series,
+        "builds": builds,
         "models": models,
         "directory": directory,
         "by_language": by_language,
