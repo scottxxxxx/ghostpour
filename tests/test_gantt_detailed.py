@@ -306,6 +306,22 @@ def test_simple_style_shows_stated_progress():
     assert "completed share" in texts               # legend in both styles
 
 
+def test_extraction_prompts_ban_dashes_in_composed_strings():
+    """No-dash rule for served LLM output (Scott, standing): both schema
+    prompts instruct the model to compose names without em/en dashes
+    (verbatim evidence quotes excepted), and the prompts themselves carry
+    no dash characters for the model to copy."""
+    from app.services.doc_templates import (
+        _GANTT_DETAILED_SCHEMA_PROMPT,
+        _GANTT_SCHEMA_PROMPT,
+    )
+    for prompt in (_GANTT_SCHEMA_PROMPT, _GANTT_DETAILED_SCHEMA_PROMPT):
+        assert "without em or en dashes" in prompt
+        assert "—" not in prompt and "–" not in prompt
+    assert "stay verbatim" in _GANTT_DETAILED_SCHEMA_PROMPT
+    assert "verbatim" not in _GANTT_SCHEMA_PROMPT.split("em or en dashes")[1]
+
+
 def test_milestone_rows_carry_ignored_errors_mark():
     """Green-triangle regression (Scott 2026-07-21): the milestone glyph
     formula differs from its bar-row neighbors, so Excel's inconsistent-
