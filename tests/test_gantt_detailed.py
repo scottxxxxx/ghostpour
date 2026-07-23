@@ -81,7 +81,7 @@ def test_render_detailed_adds_sheets_and_stays_honest():
     # to make room for the on-view % Done / Effort columns
     simple = openpyxl.load_workbook(io.BytesIO(
         render_gantt(_DPLAN, today=datetime.date(2026, 7, 21))))
-    assert simple["Gantt View"].freeze_panes == "J4"
+    assert simple["Gantt View"].freeze_panes == "K4"
     gv = wb["Gantt View"]
     assert gv.freeze_panes == "L4"
     # progress is ON the timeline view: stated percent + effort as columns
@@ -230,11 +230,16 @@ def test_critic_pass_features():
               if isinstance(c.value, str) and '"→"' in str(c.value)]
     assert arrows and all(v.startswith("=IF($F") for v in arrows)
 
-    # phase % rollup is coverage-gated: _DPLAN has one stated child
-    # covering 41% of phase duration, so the phase cell stays BLANK
+    # phase % rollup weights ALL non-milestone children (Scott
+    # 2026-07-23): stated percent when spoken, Complete counts 100,
+    # everything else 0 — so it renders even with partial stated
+    # coverage, and stays plain range arithmetic (no N(), the
+    # LibreOffice-vs-Excel broadcast trap)
     rows = _gv_rows(gv)
     rp = rows["Release 1.2"]
-    assert gv.cell(rp, 10).value is None
+    pf = gv.cell(rp, 10).value
+    assert isinstance(pf, str) and "SUMPRODUCT" in pf
+    assert "N(" not in pf
 
     # overlay legend under the status key
     texts = " ".join(str(c.value) for row in gv.iter_rows(max_row=10)
@@ -246,7 +251,8 @@ def test_critic_pass_features():
                    for rule in rng.rules for f in (rule.formula or []))
     assert '<>"Complete"' in gfs and "TODAY()" in gfs
 
-    # coverage gate opens when stated percents cover >= half the phase
+    # rollup renders with a single stated child too (the old coverage
+    # gate is gone: unstated work now counts as 0 instead of hiding)
     import datetime as _dt
     from app.services.doc_templates import render_gantt_detailed as _rgd
     hi = {"project": "Y", "tasks": [
@@ -271,6 +277,33 @@ def test_critic_pass_features():
     ops = [getattr(rule, "operator", None) for rng in sl.conditional_formatting
            for rule in rng.rules]
     assert "greaterThan" in ops
+
+
+def test_simple_style_shows_stated_progress():
+    """Progress in BOTH styles (Scott 2026-07-22): the simple gantt gets
+    the % Done column, bar overlay, and phase rollup; effort and the
+    Slip/Receipts sheets remain the detailed differentiators."""
+    import datetime
+    import io
+
+    import openpyxl
+
+    from app.services.doc_templates import render_gantt
+    blob = render_gantt(_DPLAN, today=datetime.date(2026, 7, 21))
+    wb = openpyxl.load_workbook(io.BytesIO(blob))
+    assert wb.sheetnames == ["Gantt View"]          # still single-sheet
+    gv = wb["Gantt View"]
+    rows = _gv_rows(gv)
+    assert gv.cell(3, 10).value == "%\nDone"
+    assert gv.cell(rows["Payments integration"], 10).value == 0.7
+    assert gv.cell(rows["Crash SDK swap"], 10).value is None  # not stated
+    assert gv.cell(3, 11).value != "Effort"         # col 11 is the day grid, not Effort
+    fs = " | ".join(f for rng in gv.conditional_formatting
+                    for rule in rng.rules for f in (rule.formula or []))
+    assert "*$J" in fs                              # live done-portion overlay
+    texts = " ".join(str(c.value) for row in gv.iter_rows(max_row=10)
+                     for c in row if c.value)
+    assert "completed share" in texts               # legend in both styles
 
 
 def test_milestone_rows_carry_ignored_errors_mark():

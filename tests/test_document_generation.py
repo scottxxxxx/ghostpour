@@ -1147,7 +1147,7 @@ def test_gantt_renderer_matches_reference_vocabulary():
     blob = render_gantt(_PLAN, today=datetime.date(2026, 7, 12))
     wb = openpyxl.load_workbook(io.BytesIO(blob))
     ws = wb["Gantt View"]
-    assert ws.freeze_panes == "J4"
+    assert ws.freeze_panes == "K4"   # day grid shifted right for the % Done column (2026-07-22)
     owners = [str(c.value) for row in ws.iter_rows(min_col=9, max_col=9) for c in row if c.value]
     assert "Sarah Park" in owners and "Chirag Amin" in owners   # full names beside chips
     levels = {ws.row_dimensions[r].outline_level
@@ -1178,14 +1178,18 @@ def test_gantt_renderer_matches_reference_vocabulary():
     assert "TODAY()" in formulas                      # live today + risk logic
     assert "WEEKDAY(" in formulas                     # live weekend shading
     assert ">=$E" in formulas and "<=$F" in formulas  # bars keyed to date cells
-    # reference palette, exact — now carried by the CF fills + static bands
+    # reference palette, exact — now carried by the CF fills + static bands.
+    # At-risk bars paint in the red family (2026-07-23): deep red for the
+    # completed share, light red for the remainder — the flat E0341E fill
+    # is gone from the grid (it survives as font color on flags/dots).
     cf_hex = {r.dxf.fill.fgColor.rgb for r in rules
               if r.dxf is not None and r.dxf.fill is not None
               and isinstance(r.dxf.fill.fgColor.rgb, str)}
     static_hex = {c.fill.fgColor.rgb for row in ws.iter_rows() for c in row
                   if c.fill and isinstance(c.fill.fgColor.rgb, str)}
     fills = cf_hex | static_hex
-    for hex6 in ("FFA8B9C9", "FF6E7B8A", "FF3D4653", "FFF3F3F3", "FFFFF6DE", "FFE0341E"):
+    for hex6 in ("FFA8B9C9", "FF6E7B8A", "FF3D4653", "FFF3F3F3", "FFFFF6DE",
+                 "FF9A1B12", "FFF1948A"):
         assert hex6 in fills, hex6
     # start/end are real dates (formulas compare against them)
     d_cells = [c.value for row in ws.iter_rows(min_col=5, max_col=6) for c in row
