@@ -29,12 +29,11 @@ com.shouldersurf.ShoulderSurf:
         # Bump on every release. Client shows a dismissible toast when
         # the device's CFBundleShortVersionString is below this.
         #
-        # Current shipping build is 1.14 (build 777 on TestFlight),
-        # installable confirmed 2026-07-22 (SS signal + TestFlight
-        # showing "1.14 (777) Install" on Scott's device — the canonical
-        # installability proof the bump rule wants). Same build is in
-        # App Review for the App Store launch; the appstore channel
-        # below flips at approval per the launch runbook.
+        # Current shipping build is 1.14 (build 791 on TestFlight),
+        # installable confirmed 2026-07-24 (Scott sees 791 in TestFlight,
+        # the canonical installability proof the bump rule wants). Build
+        # 777 is still the one in App Review; the appstore channel below
+        # flips to it at approval per the launch runbook.
         # Bump on every TestFlight or App Store release that goes out
         # to users. Soft-banner pipeline verified end-to-end 2026-06-06.
         version: "1.14"
@@ -45,7 +44,7 @@ com.shouldersurf.ShoulderSurf:
         #   - App Store installs ignore it entirely.
         # Bump alongside `version` on every release. The bump pair from
         # SS will always come as "version + build", e.g. "1.13 build 450".
-        build: "777"
+        build: "791"
         # Tap target for the upgrade prompt. Currently the live
         # TestFlight invite linked from the beta button on
         # shouldersurf.com. Swap to https://apps.apple.com/app/id<APPID>
@@ -62,7 +61,7 @@ com.shouldersurf.ShoulderSurf:
       latest_by_channel:
         testflight:
           version: "1.14"
-          build: "777"
+          build: "791"
           upgrade_url: "https://testflight.apple.com/join/ubRWVcXF"
         appstore:
           # SET AT APP STORE LAUNCH. version "0.0" means "no App Store
