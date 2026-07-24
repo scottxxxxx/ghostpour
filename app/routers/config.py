@@ -452,6 +452,16 @@ async def get_config(name: str, request: Request):
         return JSONResponse(status_code=404, content={"error": f"Unknown config: {name}"})
 
     data = configs[resolved_name]
+
+    # Server-only configs (2026-07-24): prompt-bearing managed configs and
+    # model-routing are GP-internal material — no client fetches them (both
+    # app fetch lists confirmed empirically + by the TR team), so serving
+    # them publicly was pure exposure. Marked configs answer exactly like
+    # an unknown slug so the namespace stays unconfirmable from outside.
+    # Admin routes read app.state directly and are unaffected.
+    if data.get("server_only"):
+        logger.info("Config request blocked (server_only): %s", resolved_name)
+        return JSONResponse(status_code=404, content={"error": f"Unknown config: {name}"})
     server_version = data["version"]
 
     # Check if client already has this version

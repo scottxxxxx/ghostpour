@@ -1,5 +1,6 @@
 {
   "version": 16,
+  "server_only": true,
   "models": [
     {
       "id": "anthropic/claude-opus-4-7",

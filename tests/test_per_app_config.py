@@ -157,3 +157,63 @@ def test_bundle_route_declared_before_catchall():
     bundle = paths.index("/webhooks/admin/config/{slug:path}/bundle")
     detail = paths.index("/webhooks/admin/config/{slug:path}")
     assert bundle < detail
+
+
+# --- server-only gate (2026-07-24) -----------------------------------------
+
+def test_server_only_config_404s_like_unknown(client):
+    client.app.state.remote_configs = {
+        "techrehearsal/intake": {"version": 7, "server_only": True,
+                                 "systemPrompt": "secret"},
+    }
+    r = _get(client, "tr-intake", "techrehearsal")
+    assert r.status_code == 404
+    # indistinguishable from a slug that does not exist
+    r2 = _get(client, "tr-no-such-config", "techrehearsal")
+    assert r.json() == {"error": "Unknown config: tr-intake"}
+    assert r2.status_code == 404
+    assert "secret" not in r.text
+
+
+def test_server_only_never_falls_through_to_flat(client):
+    # a gated per-app file must not leak via the flat fallback either
+    client.app.state.remote_configs = {
+        "model-routing": {"version": 16, "server_only": True,
+                          "apps": {}},
+    }
+    r = _get(client, "model-routing", "shouldersurf")
+    assert r.status_code == 404
+    r2 = _get(client, "model-routing")  # no header at all
+    assert r2.status_code == 404
+
+
+def test_client_facing_configs_stay_served(client):
+    client.app.state.remote_configs = {
+        "techrehearsal/jd-analysis": {"version": 9, "systemPrompt": "byok"},
+        "techrehearsal/protected-prompts": {"version": 7},
+        "techrehearsal/practice-openers": {"version": 1},
+        "techrehearsal/idle-tips": {"version": 4},
+    }
+    for name in ("tr-jd-analysis", "tr-protected-prompts",
+                 "tr-practice-openers", "tr-idle-tips"):
+        r = _get(client, name, "techrehearsal")
+        assert r.status_code == 200, name
+
+
+def test_all_bundled_tr_prompt_configs_carry_the_flag():
+    """The gate list is data, so pin it: every managed TR prompt config
+    in the bundle is server_only, and the six client-fetched slugs
+    (TR's authoritative list, 2026-07-24) are not."""
+    import pathlib
+    fetched = {"idle-tips", "protected-prompts", "llm-providers",
+               "model-capabilities", "jd-analysis", "practice-openers"}
+    tr_dir = pathlib.Path("config/remote/techrehearsal")
+    for path in tr_dir.glob("*.json"):
+        data = json.loads(path.read_text())
+        if path.stem in fetched:
+            assert not data.get("server_only"), path.name
+        else:
+            assert data.get("server_only") is True, path.name
+    routing = json.loads(
+        pathlib.Path("config/remote/model-routing.json").read_text())
+    assert routing.get("server_only") is True
