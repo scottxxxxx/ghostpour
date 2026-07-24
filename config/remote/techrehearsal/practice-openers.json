@@ -1,0 +1,12 @@
+{
+ "version": 1,
+ "openers": {
+  "payNegotiation": "Good to see you. You said you wanted to grab some time, what's on your mind?",
+  "purchaseNegotiation": "Hey there, welcome in. What can I help you find today?",
+  "pitch": "Okay, you've got the room. What are we looking at?",
+  "protectConversation": "Hey, it's me. Got a minute? There's something I need to talk to you about.",
+  "hardConversation": "Hey. You said you wanted to talk to me about something. What's going on?",
+  "repairConversation": "Hey. You said you wanted to talk to me about something. What's going on?",
+  "default": "Hey. You said you wanted to talk to me about something. What's going on?"
+ }
+}
