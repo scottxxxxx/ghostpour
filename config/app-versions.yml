@@ -64,15 +64,21 @@ com.shouldersurf.ShoulderSurf:
           build: "791"
           upgrade_url: "https://testflight.apple.com/join/ubRWVcXF"
         appstore:
-          # SET AT APP STORE LAUNCH. version "0.0" means "no App Store
-          # release yet": no App Store user is ever below it, so no update
-          # toast fires and we never route an App Store user to a build that
-          # isn't on the App Store. At launch, set version + build to the
-          # shipped App Store build and upgrade_url to
-          # https://apps.apple.com/app/id<APPID>.
-          version: "0.0"
-          build: "0"
-          upgrade_url: ""
+          # PRE-STAGED 2026-07-24 (Scott's call): the App Store has never
+          # had an approved version, so no App Store user can exist below
+          # the first approved build. ASC canonical state at pre-stage:
+          # apple_id 6760098225, one version ever, 1.0 (build 777),
+          # WAITING_FOR_REVIEW. Presetting 1.0/777 means approval day
+          # needs no registry scramble and can never fire a false toast:
+          # the first App Store install is at or above this pair by
+          # construction. If review forces a resubmit at a higher build,
+          # update this pair at approval per the launch runbook.
+          version: "1.0"
+          build: "777"
+          # Real App Store link (apple_id from ASC). Dead until approval,
+          # but unreachable until then too: only appstore-distribution
+          # clients read this block and none exist pre-approval.
+          upgrade_url: "https://apps.apple.com/app/id6760098225"
       # Hard floor. Client refuses to operate below this. Bump only
       # when an older build has a real correctness or security issue.
       min_supported_version: "1.0"
