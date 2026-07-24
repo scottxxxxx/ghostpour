@@ -33,7 +33,18 @@ Client owns the session loop (one call per user turn).
   realistic result; a short user acknowledgment (OK, go ahead) is the
   cue to skip the wait; dead-time beats (numbers, paperwork, calls)
   resolve between lines. Wire shape unchanged, zero client work.
-- 2026-07-23 #504: spaced-hyphen imitation banned alongside dashes.
+- 2026-07-23 #502 (TR-side session): OPENING THE SCENE. When the
+  conversation contains only a start-of-conversation marker, the
+  counterpart speaks first, grounded in the brief's specifics (a
+  salesperson greets the customer about the exact item they came for);
+  generic "what's on your mind" openers banned when the brief says why
+  both parties are here. The TR client generates this opener in the
+  background during setup, with hardcoded canned lines as fallback
+  (fallback templates moving to served config, TR work in flight
+  2026-07-24).
+- 2026-07-23 #504: spaced-hyphen imitation banned alongside dashes
+  (models were faking dashes with "word - word", caught live in a
+  generated opener).
 - 2026-07-23 #505: model dial added. The lane had NO routing row and
   fell to the tier default (Haiku) whenever it ran, despite
   recommendedModel Sonnet. Now dialed Sonnet 4.6 at every tier and
