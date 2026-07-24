@@ -1,5 +1,5 @@
 {
-  "version": 14,
+  "version": 16,
   "models": [
     {
       "id": "anthropic/claude-opus-4-7",
@@ -209,6 +209,13 @@
         },
         "tr_compare_reality": {
           "label": "Compare to Reality",
+          "models": {
+            "free": "anthropic/claude-sonnet-4-6",
+            "paid": "anthropic/claude-sonnet-4-6",
+            "default": "anthropic/claude-sonnet-4-6"
+          }
+        },
+        "tr_counterpart_turn": {
           "models": {
             "free": "anthropic/claude-sonnet-4-6",
             "paid": "anthropic/claude-sonnet-4-6",
