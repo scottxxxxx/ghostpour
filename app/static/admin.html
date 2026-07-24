@@ -271,6 +271,13 @@
     <div class="table-wrap"><table id="scenario-table"><thead><tr>
       <th>Scenario</th><th>Requests</th><th>Tokens</th><th>Cost</th>
     </tr></thead><tbody></tbody></table></div>
+    <h3 style="margin-top:24px;">Model Routing Dials <span id="routing-status" style="font-size:12px;font-weight:normal;margin-left:8px;"></span></h3>
+    <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;">
+      These dials are the live source of truth: Save writes the model-routing config and applies to the
+      next matching request, no deploy needed. A blank cell means no dial, the request falls back to the
+      tier's default model.
+    </div>
+    <div id="routing-editor"></div>
   </div>
 
   <!-- Users -->
@@ -882,6 +889,7 @@ function switchTab(name) {
   document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', t.textContent.toLowerCase().includes(name.slice(0,4))));
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'models') loadRouting();
   if (name === 'providers') loadProviders();
   if (name === 'entitlements') loadEntitlements();
   if (name === 'errors') loadErrors();
@@ -2917,6 +2925,103 @@ const LOCALE_NAMES = {en:'English',es:'Spanish',fr:'French',de:'German',pt:'Port
 // Display labels + render order for the per-app config sections (#249).
 const CONFIG_APP_LABELS = {shouldersurf: 'ShoulderSurf', techrehearsal: 'Tech Rehearsal', shared: 'Shared / Internal'};
 const CONFIG_APP_ORDER = ['shouldersurf', 'techrehearsal', 'shared'];
+
+// ---- Model Routing dials editor (Models tab) ----
+// The persistent model-routing config is the live source of truth for
+// per-call_type model resolution: PUT writes it to disk and hot-reloads
+// app.state.remote_configs, so a saved dial applies to the very next
+// matching request. Blank cell = no dial = tier default model.
+let routingDoc = null;
+const ROUTING_TIER_ORDER = ['free', 'plus', 'pro', 'paid', 'default'];
+
+async function loadRouting() {
+  const el = document.getElementById('routing-editor');
+  const resp = await fetch(`${BASE}/webhooks/admin/config/model-routing`, {
+    headers: {'X-Admin-Key': adminKey}
+  });
+  if (!resp.ok) {
+    el.textContent = `Could not load model-routing (${resp.status})`;
+    return;
+  }
+  routingDoc = (await resp.json()).data;
+  document.getElementById('routing-status').textContent = `v${routingDoc.version} (live)`;
+  document.getElementById('routing-status').style.color = 'var(--text-dim)';
+  renderRouting();
+}
+
+function renderRouting() {
+  const el = document.getElementById('routing-editor');
+  const catalog = (routingDoc.models || []).map(m => m.id);
+  let html = '';
+  for (const [app, appCfg] of Object.entries(routingDoc.apps || {})) {
+    const cts = appCfg.call_types || {};
+    const tierSet = new Set();
+    Object.values(cts).forEach(ct => Object.keys(ct.models || {}).forEach(t => tierSet.add(t)));
+    const tiers = ROUTING_TIER_ORDER.filter(t => tierSet.has(t));
+    tierSet.forEach(t => { if (!ROUTING_TIER_ORDER.includes(t)) tiers.push(t); });
+    html += `<h4 style="margin:14px 0 6px;">${app}</h4>`;
+    html += '<div class="table-wrap"><table><thead><tr><th>Call Type</th>'
+          + tiers.map(t => `<th>${t}</th>`).join('') + '</tr></thead><tbody>';
+    for (const ct of Object.keys(cts).sort()) {
+      html += `<tr><td style="font-family:monospace;font-size:12px;">${ct}</td>` + tiers.map(t => {
+        const cur = (cts[ct].models || {})[t] || '';
+        const ids = [...new Set(catalog.concat(cur ? [cur] : []))];
+        const opts = ['<option value="">(none)</option>']
+          .concat(ids.map(id => `<option value="${id}"${id === cur ? ' selected' : ''}>${id}</option>`));
+        return `<td><select data-rapp="${app}" data-rct="${ct}" data-rtier="${t}" onchange="routingDirty()" style="max-width:220px;">${opts.join('')}</select></td>`;
+      }).join('') + '</tr>';
+    }
+    html += '</tbody></table></div>';
+    html += `<div style="margin:4px 0 10px;"><input id="routing-new-${app}" placeholder="new call_type"
+      style="font-family:monospace;font-size:12px;width:220px;">
+      <button class="refresh-btn" onclick="addRoutingRow('${app}')" style="font-size:11px;padding:2px 8px;">+ Dial</button></div>`;
+  }
+  html += `<button class="refresh-btn" onclick="saveRouting()" style="margin-top:6px;">Save Routing</button>`;
+  el.innerHTML = html;
+}
+
+function routingDirty() {
+  const s = document.getElementById('routing-status');
+  s.textContent = 'unsaved changes';
+  s.style.color = 'var(--orange)';
+}
+
+function addRoutingRow(app) {
+  const input = document.getElementById(`routing-new-${app}`);
+  const name = (input.value || '').trim();
+  if (!name) return;
+  const cts = routingDoc.apps[app].call_types = routingDoc.apps[app].call_types || {};
+  if (!cts[name]) cts[name] = {models: {}};
+  renderRouting();
+  routingDirty();
+}
+
+async function saveRouting() {
+  const s = document.getElementById('routing-status');
+  // Fold the select states back into the doc: set chosen dials, drop blanks.
+  document.querySelectorAll('#routing-editor select[data-rapp]').forEach(sel => {
+    const ct = routingDoc.apps[sel.dataset.rapp].call_types[sel.dataset.rct];
+    ct.models = ct.models || {};
+    if (sel.value) ct.models[sel.dataset.rtier] = sel.value;
+    else delete ct.models[sel.dataset.rtier];
+  });
+  s.textContent = 'Saving...';
+  s.style.color = 'var(--orange)';
+  const resp = await fetch(`${BASE}/webhooks/admin/config/model-routing`, {
+    method: 'PUT',
+    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
+    body: JSON.stringify({data: routingDoc}),
+  });
+  if (resp.ok) {
+    const result = await resp.json();
+    s.textContent = `Saved! v${result.version}, live for the next matching request`;
+    s.style.color = 'var(--green)';
+    loadRouting();
+  } else {
+    s.textContent = `Save failed (${resp.status})`;
+    s.style.color = 'var(--red)';
+  }
+}
 
 async function loadConfigs() {
   const data = await fetch(`${BASE}/webhooks/admin/configs`, {
