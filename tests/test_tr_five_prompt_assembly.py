@@ -67,7 +67,10 @@ def test_intake_personal_kinds_get_distinct_guidance():
     assert len({hard, repair, protect}) == 3
     # one-question-at-a-time contract survives interpolation
     for p in (hard, repair, protect):
-        assert "Ask ONE short, gentle question at a time" in p
+        # intake v5: "gentle" moved into the personal scenarios' guidance; the
+        # shared prompt says "natural" so entity scenarios (car deal, raise)
+        # don't inherit a therapy register.
+        assert "Ask ONE short, natural question at a time" in p
         assert '"next_question"' in p and '"done"' in p
 
 
