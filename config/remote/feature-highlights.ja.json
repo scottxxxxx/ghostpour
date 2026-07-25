@@ -1,5 +1,5 @@
 {
- "version": 5,
+ "version": 6,
  "highlights": [
   {
    "id": "copilot",
@@ -16,7 +16,7 @@
   {
    "id": "search",
    "icon": "globe",
-   "text": "ディープリサーチはPlusとProで利用可能",
+   "text": "Web検索はPlusとProで利用可能",
    "highlighted": false
   },
   {

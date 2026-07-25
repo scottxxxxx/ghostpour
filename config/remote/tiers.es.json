@@ -1,5 +1,5 @@
 {
- "version": 32,
+ "version": 33,
  "tiers": {
   "free": {
    "display_name": "Gratis",
@@ -62,7 +62,7 @@
      "cta_hard_cap": {
       "kind": "search_paywall_required",
       "header_icon": "globe",
-      "title": "Investigación profunda",
+      "title": "Búsqueda web",
       "body": "Trae información actualizada de la web a tus consultas: noticias actuales, documentación reciente y datos en vivo que tu modelo no podría conocer de otra forma.",
       "bullets_label": "PRUÉBALO PARA",
       "bullets": [
@@ -79,7 +79,7 @@
         "label": "Precios actuales, disponibilidad o cambios de producto"
        }
       ],
-      "footer": "La investigación profunda está disponible con una suscripción Plus o Pro, cuando uses SS AI como tu modelo.",
+      "footer": "La búsqueda web está disponible con una suscripción Plus o Pro, cuando uses SS AI como tu modelo.",
       "primary_action": {
        "label": "Actualizar",
        "action": "open_paywall"
@@ -115,7 +115,7 @@
     "Resúmenes automáticos en tiempo real",
     "Informes de reuniones compartibles",
     "Chat de proyecto entre reuniones",
-    "Investigación profunda (75/mes)",
+    "Búsqueda web (75/mes)",
     "3 imágenes por consulta"
    ],
    "feature_items": [
@@ -140,7 +140,7 @@
      "icon": "chat"
     },
     {
-     "label": "Investigación profunda (75/mes)",
+     "label": "Búsqueda web (75/mes)",
      "icon": "search"
     },
     {
@@ -170,7 +170,7 @@
      "icon": "photo"
     },
     {
-     "label": "Investigación profunda",
+     "label": "Búsqueda web",
      "value": "75 al mes",
      "icon": "search"
     },
@@ -196,8 +196,8 @@
      "searches_soft_threshold": null,
      "cta_hard_cap": {
       "kind": "search_cap_exhausted",
-      "title": "Límite de investigación profunda alcanzado",
-      "body": "Has usado tus {total} consultas de investigación de este mes. Actualiza a Pro para tener un límite mayor.",
+      "title": "Límite de búsqueda web alcanzado",
+      "body": "Has usado tus {total} búsquedas de este mes. Actualiza a Pro para tener un límite mayor.",
       "primary_action": {
        "label": "Actualizar",
        "action": "open_paywall"
@@ -210,8 +210,8 @@
      "cta_soft_cap": null,
      "cta_unavailable": {
       "kind": "search_unavailable_for_provider",
-      "title": "La investigación profunda no está disponible para este modelo",
-      "body": "Cambia a SS AI para usar la investigación profunda en esta consulta.",
+      "title": "La búsqueda web no está disponible para este modelo",
+      "body": "Cambia a SS AI para usar la búsqueda web en esta consulta.",
       "primary_action": {
        "label": "OK",
        "action": "dismiss"
@@ -239,7 +239,7 @@
    "feature_bullets": [
     "IA avanzada para informes y análisis",
     "Resúmenes completos o incrementales (tu elección)",
-    "Investigación profunda (120/mes)",
+    "Búsqueda web (120/mes)",
     "Memoria de Reuniones: la IA recuerda reuniones pasadas",
     "Generación de archivos: Excel, Word, PowerPoint, PDF",
     "Adjunta documentos al chat (2 archivos, 25 MB cada uno)",
@@ -255,7 +255,7 @@
      "icon": "doc"
     },
     {
-     "label": "Investigación profunda (120/mes)",
+     "label": "Búsqueda web (120/mes)",
      "icon": "search"
     },
     {
@@ -297,7 +297,7 @@
      "icon": "photo"
     },
     {
-     "label": "Investigación profunda",
+     "label": "Búsqueda web",
      "value": "120 al mes",
      "icon": "search"
     },
@@ -327,8 +327,8 @@
      "searches_soft_threshold": 80,
      "cta_hard_cap": {
       "kind": "search_cap_exhausted",
-      "title": "Límite de investigación profunda alcanzado",
-      "body": "Has usado tus {total} consultas de investigación de este mes. Las consultas se reanudan el {reset_date}.",
+      "title": "Límite de búsqueda web alcanzado",
+      "body": "Has usado tus {total} búsquedas de este mes. Las búsquedas se reanudan el {reset_date}.",
       "primary_action": {
        "label": "OK",
        "action": "dismiss"
@@ -336,13 +336,13 @@
      },
      "cta_soft_cap": {
       "kind": "search_soft_cap_warning",
-      "title": "Te acercas al límite mensual de investigación",
-      "body": "Has usado {used} de {total} consultas de investigación este mes."
+      "title": "Te acercas al límite mensual de búsquedas",
+      "body": "Has usado {used} de {total} búsquedas este mes."
      },
      "cta_unavailable": {
       "kind": "search_unavailable_for_provider",
-      "title": "La investigación profunda no está disponible para este modelo",
-      "body": "Cambia a SS AI para usar la investigación profunda en esta consulta.",
+      "title": "La búsqueda web no está disponible para este modelo",
+      "body": "Cambia a SS AI para usar la búsqueda web en esta consulta.",
       "primary_action": {
        "label": "OK",
        "action": "dismiss"
@@ -401,10 +401,10 @@
    }
   },
   "search": {
-   "display_name": "Investigación profunda",
+   "display_name": "Búsqueda web",
    "description": "Pídele a tu IA que busque información actualizada en la web durante una consulta.",
-   "teaser_description": "La investigación profunda es una función de pago.",
-   "upgrade_cta": "Actualiza a Plus para activar la investigación profunda"
+   "teaser_description": "La búsqueda web es una función de pago.",
+   "upgrade_cta": "Actualiza a Plus para activar la búsqueda web"
   }
  }
 }

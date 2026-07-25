@@ -1,5 +1,5 @@
 {
- "version": 33,
+ "version": 34,
  "tiers": {
   "free": {
    "display_name": "Free",
@@ -62,7 +62,7 @@
      "cta_hard_cap": {
       "kind": "search_paywall_required",
       "header_icon": "globe",
-      "title": "Deep Research",
+      "title": "Web Search",
       "body": "Pull fresh information from the web into your queries, current news, recent docs, and live data your model wouldn't otherwise know about.",
       "bullets_label": "TRY IT FOR",
       "bullets": [
@@ -79,7 +79,7 @@
         "label": "Current pricing, availability, or product changes"
        }
       ],
-      "footer": "Deep research is available with a Plus or Pro subscription, when using SS AI as your model.",
+      "footer": "Web search is available with a Plus or Pro subscription, when using SS AI as your model.",
       "primary_action": {
        "label": "Upgrade",
        "action": "open_paywall"
@@ -115,7 +115,7 @@
     "Real-time auto-summaries",
     "Shareable meeting reports",
     "Project chat across meetings",
-    "Deep research (75/mo)",
+    "Web search (75/mo)",
     "3 images per query"
    ],
    "feature_items": [
@@ -140,7 +140,7 @@
      "icon": "chat"
     },
     {
-     "label": "Deep research (75/mo)",
+     "label": "Web search (75/mo)",
      "icon": "search"
     },
     {
@@ -170,7 +170,7 @@
      "icon": "photo"
     },
     {
-     "label": "Deep research",
+     "label": "Web search",
      "value": "75 per month",
      "icon": "search"
     },
@@ -196,8 +196,8 @@
      "searches_soft_threshold": null,
      "cta_hard_cap": {
       "kind": "search_cap_exhausted",
-      "title": "Deep research limit reached",
-      "body": "You've used all {total} deep research queries this month. Upgrade to Pro for higher limits.",
+      "title": "Web search limit reached",
+      "body": "You've used all {total} searches this month. Upgrade to Pro for higher limits.",
       "primary_action": {
        "label": "Upgrade",
        "action": "open_paywall"
@@ -210,8 +210,8 @@
      "cta_soft_cap": null,
      "cta_unavailable": {
       "kind": "search_unavailable_for_provider",
-      "title": "Deep research not available for this model",
-      "body": "Switch to SS AI to use deep research on this query.",
+      "title": "Web search not available for this model",
+      "body": "Switch to SS AI to use web search on this query.",
       "primary_action": {
        "label": "OK",
        "action": "dismiss"
@@ -239,7 +239,7 @@
    "feature_bullets": [
     "Advanced AI for reports and analysis",
     "Full or delta summaries (your choice)",
-    "Deep research (120/mo)",
+    "Web search (120/mo)",
     "Meeting Memory: AI remembers past meetings",
     "File generation: Excel, Word, PowerPoint, PDF",
     "Attach documents to chat (2 files, 25 MB each)",
@@ -255,7 +255,7 @@
      "icon": "doc"
     },
     {
-     "label": "Deep research (120/mo)",
+     "label": "Web search (120/mo)",
      "icon": "search"
     },
     {
@@ -297,7 +297,7 @@
      "icon": "photo"
     },
     {
-     "label": "Deep research",
+     "label": "Web search",
      "value": "120 per month",
      "icon": "search"
     },
@@ -327,8 +327,8 @@
      "searches_soft_threshold": 80,
      "cta_hard_cap": {
       "kind": "search_cap_exhausted",
-      "title": "Deep research limit reached",
-      "body": "You've used all {total} deep research queries this month. Research queries resume on {reset_date}.",
+      "title": "Web search limit reached",
+      "body": "You've used all {total} searches this month. Searches resume on {reset_date}.",
       "primary_action": {
        "label": "OK",
        "action": "dismiss"
@@ -336,13 +336,13 @@
      },
      "cta_soft_cap": {
       "kind": "search_soft_cap_warning",
-      "title": "Approaching your monthly research limit",
-      "body": "You've used {used} of {total} research queries this month."
+      "title": "Approaching your monthly search limit",
+      "body": "You've used {used} of {total} searches this month."
      },
      "cta_unavailable": {
       "kind": "search_unavailable_for_provider",
-      "title": "Deep research not available for this model",
-      "body": "Switch to SS AI to use deep research on this query.",
+      "title": "Web search not available for this model",
+      "body": "Switch to SS AI to use web search on this query.",
       "primary_action": {
        "label": "OK",
        "action": "dismiss"
@@ -405,10 +405,10 @@
   },
   "search": {
    "category": "intelligence",
-   "display_name": "Deep Research",
+   "display_name": "Web Search",
    "description": "Ask your AI to look up current information from the web during a query.",
-   "teaser_description": "Deep research is a paid feature.",
-   "upgrade_cta": "Upgrade to Plus to enable deep research"
+   "teaser_description": "Web search is a paid feature.",
+   "upgrade_cta": "Upgrade to Plus to enable web search"
   }
  }
 }

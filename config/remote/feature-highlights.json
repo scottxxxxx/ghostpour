@@ -1,5 +1,5 @@
 {
- "version": 5,
+ "version": 6,
  "highlights": [
   {
    "id": "copilot",
@@ -16,7 +16,7 @@
   {
    "id": "search",
    "icon": "globe",
-   "text": "Deep research included on Plus and Pro",
+   "text": "Web search included on Plus and Pro",
    "highlighted": false
   },
   {
