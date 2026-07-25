@@ -1,14 +1,14 @@
 {
-  "version": 4,
-  "tips": [
-    "Tap me to start a session",
-    "I'll transcribe your meeting in real time",
-    "Ask me questions during your meeting",
-    "I can identify who's speaking",
-    "Try capturing a photo for visual context",
-    "I'll summarize your meeting automatically",
-    "I work through your AirPods — invisible to others",
-    "Before tapping on a query button, you can choose how much of the meeting to include.",
-    "You can now add reference documents to your project and meeting chats"
-  ]
+ "version": 5,
+ "tips": [
+  "Tap me to start a session",
+  "I'll transcribe your meeting in real time",
+  "Ask me questions during your meeting",
+  "I can identify who's speaking",
+  "Try capturing a photo for visual context",
+  "I'll summarize your meeting automatically",
+  "I work through your earbuds, invisible to others",
+  "Before tapping on a query button, you can choose how much of the meeting to include.",
+  "You can now add reference documents to your project and meeting chats"
+ ]
 }
