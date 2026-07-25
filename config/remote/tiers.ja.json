@@ -1,5 +1,5 @@
 {
- "version": 34,
+ "version": 35,
  "tiers": {
   "free": {
    "display_name": "無料",
@@ -63,7 +63,7 @@
       "kind": "search_paywall_required",
       "header_icon": "globe",
       "title": "Web検索",
-      "body": "クエリにWebからの最新情報を取り込みましょう。最新ニュース、最近のドキュメント、モデルが本来知り得ないライブデータを活用できます。",
+      "body": "質問にWebからの最新情報を取り込みましょう。最新ニュース、最近のドキュメント、モデルが本来知り得ないライブデータを活用できます。",
       "bullets_label": "こんな用途に",
       "bullets": [
        {
@@ -206,7 +206,7 @@
      "cta_unavailable": {
       "kind": "search_unavailable_for_provider",
       "title": "このモデルではWeb検索は利用できません",
-      "body": "このクエリでWeb検索を使うには、SS AIに切り替えてください。",
+      "body": "この質問でWeb検索を使うには、SS AIに切り替えてください。",
       "primary_action": {
        "label": "OK",
        "action": "dismiss"
@@ -337,7 +337,7 @@
      "cta_unavailable": {
       "kind": "search_unavailable_for_provider",
       "title": "このモデルではWeb検索は利用できません",
-      "body": "このクエリでWeb検索を使うには、SS AIに切り替えてください。",
+      "body": "この質問でWeb検索を使うには、SS AIに切り替えてください。",
       "primary_action": {
        "label": "OK",
        "action": "dismiss"
@@ -397,7 +397,7 @@
   },
   "search": {
    "display_name": "Web検索",
-   "description": "クエリ中にAIにWebから最新情報を取得させることができます。",
+   "description": "質問への回答中にAIがWebから最新情報を取得できます。",
    "teaser_description": "Web検索は有料機能です。",
    "upgrade_cta": "PlusにアップグレードしてWeb検索を有効にする"
   }
