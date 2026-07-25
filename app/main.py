@@ -14,6 +14,7 @@ from app.models.tier import load_tier_config
 from app.routers import generated_files as generated_files_router
 from app.routers import generations as generations_router
 from app.routers import (
+    account,
     acquisition,
     app_version,
     apple_webhooks,
@@ -378,6 +379,7 @@ app.include_router(telemetry.router, prefix="/v1", tags=["telemetry"])
 app.include_router(promo.router, prefix="/v1", tags=["promo"])
 app.include_router(acquisition.router, prefix="/v1", tags=["acquisition"])
 app.include_router(app_version.router, prefix="/v1", tags=["app-version"])
+app.include_router(account.router, prefix="/v1", tags=["account"])
 
 # Context Quilt proxy routes — only included when CQ is configured
 if get_settings().cq_base_url:
