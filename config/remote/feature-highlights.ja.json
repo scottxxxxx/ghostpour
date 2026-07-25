@@ -1,5 +1,5 @@
 {
- "version": 6,
+ "version": 7,
  "highlights": [
   {
    "id": "copilot",
@@ -16,7 +16,7 @@
   {
    "id": "search",
    "icon": "globe",
-   "text": "Web検索はPlusとProで利用可能",
+   "text": "Web検索：最新情報を回答に反映（PlusとPro）",
    "highlighted": false
   },
   {
