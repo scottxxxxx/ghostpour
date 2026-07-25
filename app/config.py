@@ -61,6 +61,15 @@ class Settings(BaseSettings):
     asc_connect_key_id: str = ""             # Connect API key id
     asc_connect_private_key_b64: str = ""    # base64 of the .p8 EC private key
 
+    # Sign in with Apple key — mints the client secret for Apple's
+    # /auth/token + /auth/revoke (account deletion, 5.1.1(v)). A DEDICATED
+    # SIWA-capability .p8 from App Store Connect Keys, distinct from both
+    # Apple keys above. Blank => revocation is skipped on delete (the data
+    # purge still runs).
+    siwa_team_id: str = ""                   # Apple developer team id
+    siwa_key_id: str = ""                    # SIWA key id
+    siwa_private_key_b64: str = ""           # base64 of the .p8 EC private key
+
     # Provider API Keys
     openai_api_key: str = ""
     anthropic_api_key: str = ""

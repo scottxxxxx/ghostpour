@@ -328,7 +328,9 @@ async def notify_tier_change(
     policy without GP having to encode the policy on its side.
 
     event_type values: "upgrade", "downgrade", "cancellation", "refund",
-    "expire", "trial_start", "trial_to_paid". Idempotent on
+    "expire", "trial_start", "trial_to_paid", "account_deleted"
+    (new_tier "deleted"; CQ's cue to purge everything it holds for the
+    user — wired 2026-07-25 for App Review 5.1.1(v)). Idempotent on
     (user_id, occurred_at) on the CQ side.
     """
     settings = get_settings()

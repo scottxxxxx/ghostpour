@@ -115,9 +115,13 @@ Same as `cq.capture()` and `cq.recall()`.
   dedicated transition endpoint is cleaner. CQ derives "what tier was
   this user at when this patch was created" from the transition log
   plus the `subscription_tier` stamp on the patch itself.
-- **Account deletion events.** Not yet wired. When/if GP adds a
-  user-delete endpoint, the contract here would extend with
-  `event_type: "account_deleted"`.
+- **Account deletion events.** WIRED 2026-07-25 (App Review 5.1.1(v)):
+  `POST /v1/account/delete` on GP purges all GP-side user data and
+  fires the transition endpoint with `event_type: "account_deleted"`,
+  `new_tier: "deleted"` (old_tier = the tier at deletion). This event
+  is CQ's cue to purge everything it holds for the user; per the
+  ownership split below, the purge itself is CQ policy, the signal is
+  the request.
 - **Calendar-month boundary defense.** GP's free quota uses calendar
   months (not rolling 30-day windows). A user could capture at 23:59
   Apr 30 and again at 00:01 May 1 within "their 1/month." Acceptable
