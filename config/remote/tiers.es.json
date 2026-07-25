@@ -1,5 +1,5 @@
 {
- "version": 30,
+ "version": 31,
  "tiers": {
   "free": {
    "display_name": "Gratis",
@@ -141,7 +141,7 @@
     },
     {
      "label": "Búsqueda web (75/mes)",
-     "icon": "globe"
+     "icon": "search"
     },
     {
      "label": "3 imágenes por consulta",
@@ -256,7 +256,7 @@
     },
     {
      "label": "Búsqueda web (120/mes)",
-     "icon": "globe"
+     "icon": "search"
     },
     {
      "label": "Memoria de Reuniones: la IA recuerda reuniones pasadas",

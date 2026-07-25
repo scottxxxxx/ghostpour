@@ -1,5 +1,5 @@
 {
- "version": 31,
+ "version": 32,
  "tiers": {
   "free": {
    "display_name": "Free",
@@ -141,7 +141,7 @@
     },
     {
      "label": "Web search (75/mo)",
-     "icon": "globe"
+     "icon": "search"
     },
     {
      "label": "3 images per query",
@@ -256,7 +256,7 @@
     },
     {
      "label": "Web search (120/mo)",
-     "icon": "globe"
+     "icon": "search"
     },
     {
      "label": "Meeting Memory: AI remembers past meetings",
