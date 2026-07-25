@@ -278,6 +278,12 @@ class UsageTracker:
         )
         await db.commit()
 
+        # Whale alert: every cost path funnels through this insert, so
+        # this is the one chokepoint. Best-effort by contract.
+        if estimated_cost:
+            from app.services.cost_alerts import check_whale
+            await check_whale(db, user_id)
+
     async def record_and_log(
         self,
         db: aiosqlite.Connection,
