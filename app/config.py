@@ -78,6 +78,11 @@ class Settings(BaseSettings):
     # inactive (fail-safe to REAL deletion). Blank = off.
     account_delete_dryrun_until: str = ""
 
+    # Whale alert (docs/decisions/cost-and-limits.md, 2026-07-25): ops
+    # email when any user's month-to-date provider cost crosses this.
+    # 0 disables. Not a user-facing cap.
+    cost_alert_threshold_usd: float = 10.0
+
     # Provider API Keys
     openai_api_key: str = ""
     anthropic_api_key: str = ""

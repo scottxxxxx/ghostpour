@@ -115,6 +115,17 @@ KNOWN_CATEGORIES: dict[str, dict] = {
             "key path silently rots."
         ),
     },
+    "user_cost_whale": {
+        "label": "User cost crossed the whale threshold",
+        "description": (
+            "A single user's month-to-date provider cost crossed the "
+            "configured threshold (usage_log ledger, tier-flip proof). "
+            "Not a failure and not user-visible: review the user's "
+            "usage mix and decide whether the attachment-allowance "
+            "discussion in docs/decisions/cost-and-limits.md should "
+            "move."
+        ),
+    },
     "cert_pin_auto_republish": {
         "label": "Cert pin auto-republish needs attention",
         "description": (
