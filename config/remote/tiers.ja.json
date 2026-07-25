@@ -1,5 +1,5 @@
 {
- "version": 31,
+ "version": 32,
  "tiers": {
   "free": {
    "display_name": "無料",
@@ -62,7 +62,7 @@
      "cta_hard_cap": {
       "kind": "search_paywall_required",
       "header_icon": "globe",
-      "title": "Web検索",
+      "title": "ディープリサーチ",
       "body": "クエリにWebからの最新情報を取り込みましょう。最新ニュース、最近のドキュメント、モデルが本来知り得ないライブデータを活用できます。",
       "bullets_label": "こんな用途に",
       "bullets": [
@@ -79,7 +79,7 @@
         "label": "現在の価格、在庫、製品の変更"
        }
       ],
-      "footer": "Web検索はPlusまたはProのサブスクリプションでSS AIをモデルとして使用する場合に利用できます。",
+      "footer": "ディープリサーチはPlusまたはProのサブスクリプションでSS AIをモデルとして使用する場合に利用できます。",
       "primary_action": {
        "label": "アップグレード",
        "action": "open_paywall"
@@ -115,7 +115,7 @@
     "リアルタイム自動要約",
     "共有可能なミーティングレポート",
     "ミーティング間のプロジェクトチャット",
-    "Web検索（月75回）",
+    "ディープリサーチ（月75回）",
     "1クエリにつき画像3枚"
    ],
    "feature_items": [
@@ -140,7 +140,7 @@
      "icon": "chat"
     },
     {
-     "label": "Web検索（月75回）",
+     "label": "ディープリサーチ（月75回）",
      "icon": "search"
     },
     {
@@ -170,7 +170,7 @@
      "icon": "photo"
     },
     {
-     "label": "ウェブ検索",
+     "label": "ディープリサーチ",
      "value": "月75回",
      "icon": "search"
     },
@@ -196,7 +196,7 @@
      "searches_soft_threshold": null,
      "cta_hard_cap": {
       "kind": "search_cap_exhausted",
-      "title": "Web検索の上限に達しました",
+      "title": "ディープリサーチの上限に達しました",
       "body": "今月の{total}回の検索をすべて使い切りました。Proにアップグレードするとより多くの検索が可能です。",
       "primary_action": {
        "label": "アップグレード",
@@ -210,8 +210,8 @@
      "cta_soft_cap": null,
      "cta_unavailable": {
       "kind": "search_unavailable_for_provider",
-      "title": "このモデルではWeb検索は利用できません",
-      "body": "このクエリでWeb検索を使うには、SS AIに切り替えてください。",
+      "title": "このモデルではディープリサーチは利用できません",
+      "body": "このクエリでディープリサーチを使うには、SS AIに切り替えてください。",
       "primary_action": {
        "label": "OK",
        "action": "dismiss"
@@ -239,7 +239,7 @@
    "feature_bullets": [
     "レポートと分析のためのアドバンストAI",
     "全文または差分要約（選択可能）",
-    "Web検索（月120回）",
+    "ディープリサーチ（月120回）",
     "ミーティングメモリー：AIが過去の会議を記憶",
     "ファイル生成：Excel、Word、PowerPoint、PDF",
     "チャットにドキュメントを添付（2ファイル、各25MB）",
@@ -255,7 +255,7 @@
      "icon": "doc"
     },
     {
-     "label": "Web検索（月120回）",
+     "label": "ディープリサーチ（月120回）",
      "icon": "search"
     },
     {
@@ -297,7 +297,7 @@
      "icon": "photo"
     },
     {
-     "label": "ウェブ検索",
+     "label": "ディープリサーチ",
      "value": "月120回",
      "icon": "search"
     },
@@ -327,7 +327,7 @@
      "searches_soft_threshold": 80,
      "cta_hard_cap": {
       "kind": "search_cap_exhausted",
-      "title": "Web検索の上限に達しました",
+      "title": "ディープリサーチの上限に達しました",
       "body": "今月の{total}回の検索をすべて使い切りました。検索は{reset_date}に再開されます。",
       "primary_action": {
        "label": "OK",
@@ -341,8 +341,8 @@
      },
      "cta_unavailable": {
       "kind": "search_unavailable_for_provider",
-      "title": "このモデルではWeb検索は利用できません",
-      "body": "このクエリでWeb検索を使うには、SS AIに切り替えてください。",
+      "title": "このモデルではディープリサーチは利用できません",
+      "body": "このクエリでディープリサーチを使うには、SS AIに切り替えてください。",
       "primary_action": {
        "label": "OK",
        "action": "dismiss"
@@ -401,10 +401,10 @@
    }
   },
   "search": {
-   "display_name": "Web検索",
+   "display_name": "ディープリサーチ",
    "description": "クエリ中にAIにWebから最新情報を取得させることができます。",
-   "teaser_description": "Web検索は有料機能です。",
-   "upgrade_cta": "PlusにアップグレードしてWeb検索を有効にする"
+   "teaser_description": "ディープリサーチは有料機能です。",
+   "upgrade_cta": "Plusにアップグレードしてディープリサーチを有効にする"
   }
  }
 }
