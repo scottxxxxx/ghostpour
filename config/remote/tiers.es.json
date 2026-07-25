@@ -1,14 +1,14 @@
 {
- "version": 33,
+ "version": 34,
  "tiers": {
   "free": {
    "display_name": "Gratis",
    "description": "Prueba la asistencia de IA para reuniones con un pequeño crédito gratuito.",
    "feature_bullets": [
     "~5 horas/mes de asistencia de IA",
-    "Resúmenes automáticos en tiempo real",
+    "Resúmenes escritos mientras sigues en la reunión",
     "Transcripción en el dispositivo (ilimitada)",
-    "1 imagen por consulta"
+    "1 foto o imagen por pregunta"
    ],
    "feature_items": [
     {
@@ -16,7 +16,7 @@
      "icon": "checkmark"
     },
     {
-     "label": "Resúmenes automáticos en tiempo real",
+     "label": "Resúmenes escritos mientras sigues en la reunión",
      "icon": "doc"
     },
     {
@@ -24,7 +24,7 @@
      "icon": "checkmark"
     },
     {
-     "label": "1 imagen por consulta",
+     "label": "1 foto o imagen por pregunta",
      "icon": "photo"
     }
    ],
@@ -36,12 +36,12 @@
     },
     {
      "label": "Modo de resumen",
-     "value": "Solo delta",
+     "value": "Solo lo nuevo",
      "icon": "doc"
     },
     {
      "label": "Imágenes máx.",
-     "value": "1 por consulta",
+     "value": "1 por pregunta",
      "icon": "photo"
     }
    ],
@@ -111,12 +111,11 @@
    "description": "Asistencia de IA ilimitada para reuniones. Resúmenes, informes y chat de proyecto.",
    "feature_bullets": [
     "Reuniones ilimitadas con asistencia de IA",
-    "IA estándar",
-    "Resúmenes automáticos en tiempo real",
+    "Resúmenes escritos mientras sigues en la reunión",
     "Informes de reuniones compartibles",
-    "Chat de proyecto entre reuniones",
-    "Búsqueda web (75/mes)",
-    "3 imágenes por consulta"
+    "Haz preguntas sobre todas las reuniones de un proyecto",
+    "Búsqueda web: información actual en tus respuestas (75/mes)",
+    "3 fotos o imágenes por pregunta"
    ],
    "feature_items": [
     {
@@ -124,11 +123,7 @@
      "icon": "checkmark"
     },
     {
-     "label": "IA estándar",
-     "icon": "checkmark"
-    },
-    {
-     "label": "Resúmenes automáticos en tiempo real",
+     "label": "Resúmenes escritos mientras sigues en la reunión",
      "icon": "doc"
     },
     {
@@ -136,15 +131,15 @@
      "icon": "share"
     },
     {
-     "label": "Chat de proyecto entre reuniones",
+     "label": "Haz preguntas sobre todas las reuniones de un proyecto",
      "icon": "chat"
     },
     {
-     "label": "Búsqueda web (75/mes)",
+     "label": "Búsqueda web: información actual en tus respuestas (75/mes)",
      "icon": "search"
     },
     {
-     "label": "3 imágenes por consulta",
+     "label": "3 fotos o imágenes por pregunta",
      "icon": "photo"
     }
    ],
@@ -156,7 +151,7 @@
     },
     {
      "label": "Modo de resumen",
-     "value": "Solo delta",
+     "value": "Solo lo nuevo",
      "icon": "doc"
     },
     {
@@ -166,7 +161,7 @@
     },
     {
      "label": "Imágenes máx.",
-     "value": "3 por consulta",
+     "value": "3 por pregunta",
      "icon": "photo"
     },
     {
@@ -237,25 +232,25 @@
    "display_name": "Pro",
    "description": "Todo lo de Plus con IA avanzada, generación de archivos reales y Memoria de Reuniones.",
    "feature_bullets": [
-    "IA avanzada para informes y análisis",
-    "Resúmenes completos o incrementales (tu elección)",
-    "Búsqueda web (120/mes)",
+    "IA avanzada para informes y análisis más profundos",
+    "Resumen completo o solo lo nuevo, tú eliges",
+    "Búsqueda web: información actual en tus respuestas (120/mes)",
     "Memoria de Reuniones: la IA recuerda reuniones pasadas",
-    "Generación de archivos: Excel, Word, PowerPoint, PDF",
+    "Crea archivos reales para compartir: Excel, Word, PowerPoint, PDF",
     "Adjunta documentos al chat (2 archivos, 25 MB cada uno)",
-    "5 imágenes por consulta"
+    "5 fotos o imágenes por pregunta"
    ],
    "feature_items": [
     {
-     "label": "IA avanzada para informes y análisis",
+     "label": "IA avanzada para informes y análisis más profundos",
      "icon": "checkmark.plus"
     },
     {
-     "label": "Resúmenes completos o incrementales (tu elección)",
+     "label": "Resumen completo o solo lo nuevo, tú eliges",
      "icon": "doc"
     },
     {
-     "label": "Búsqueda web (120/mes)",
+     "label": "Búsqueda web: información actual en tus respuestas (120/mes)",
      "icon": "search"
     },
     {
@@ -263,7 +258,7 @@
      "icon": "brain"
     },
     {
-     "label": "Generación de archivos: Excel, Word, PowerPoint, PDF",
+     "label": "Crea archivos reales para compartir: Excel, Word, PowerPoint, PDF",
      "icon": "filegen"
     },
     {
@@ -271,7 +266,7 @@
      "icon": "paperclip"
     },
     {
-     "label": "5 imágenes por consulta",
+     "label": "5 fotos o imágenes por pregunta",
      "icon": "photo"
     }
    ],
@@ -283,7 +278,7 @@
     },
     {
      "label": "Modo de resumen",
-     "value": "Completo o delta (tu elección)",
+     "value": "Completo o solo lo nuevo (tu elección)",
      "icon": "doc"
     },
     {
@@ -293,7 +288,7 @@
     },
     {
      "label": "Imágenes máx.",
-     "value": "5 por consulta",
+     "value": "5 por pregunta",
      "icon": "photo"
     },
     {
