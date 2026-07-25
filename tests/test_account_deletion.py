@@ -174,3 +174,75 @@ def test_revoke_runs_when_configured(client, app_env, monkeypatch):
                     json={"apple_authorization_code": "c_def"})
     assert r.status_code == 200
     assert called == ["c_def"]
+
+
+def test_dryrun_window_returns_200_and_purges_nothing(client, app_env, monkeypatch):
+    """App Review recording window (SS ask 2026-07-25): production 200
+    shape, zero side effects, SS/headerless scope only."""
+    import datetime as dt
+
+    from app.config import get_settings
+    _insert_user(_db(app_env), "dry-user", tier="pro")
+    until = (dt.datetime.now(dt.timezone.utc)
+             + dt.timedelta(hours=1)).isoformat()
+    monkeypatch.setattr(get_settings(), "account_delete_dryrun_until", until)
+
+    fired = []
+
+    async def _capture(*a, **k):
+        fired.append(a)
+
+    import app.services.context_quilt as cq
+    monkeypatch.setattr(cq, "notify_tier_change", _capture)
+    revoked = []
+
+    async def _rv(code):
+        revoked.append(code)
+        return True
+
+    from app.services import siwa_revocation
+    monkeypatch.setattr(siwa_revocation, "is_configured", lambda: True)
+    monkeypatch.setattr(siwa_revocation, "revoke_with_authorization_code", _rv)
+
+    r = client.post("/v1/account/delete",
+                    headers={"Authorization": f"Bearer {_jwt_token('dry-user')}"},
+                    json={"apple_authorization_code": "c_live"})
+    assert r.status_code == 200
+    assert r.json() == {"status": "deleted"}
+    conn = sqlite3.connect(_db(app_env))
+    assert conn.execute("SELECT COUNT(*) FROM users WHERE id='dry-user'").fetchone()[0] == 1
+    assert fired == [] and revoked == []
+
+
+def test_dryrun_expired_or_malformed_deletes_for_real(client, app_env, monkeypatch):
+    import datetime as dt
+
+    from app.config import get_settings
+    for uid, until in (("exp-user",
+                        (dt.datetime.now(dt.timezone.utc)
+                         - dt.timedelta(minutes=1)).isoformat()),
+                       ("mal-user", "not-a-timestamp")):
+        _insert_user(_db(app_env), uid)
+        monkeypatch.setattr(get_settings(), "account_delete_dryrun_until", until)
+        r = client.post("/v1/account/delete",
+                        headers={"Authorization": f"Bearer {_jwt_token(uid)}"})
+        assert r.status_code == 200
+        conn = sqlite3.connect(_db(app_env))
+        assert conn.execute("SELECT COUNT(*) FROM users WHERE id=?",
+                            (uid,)).fetchone()[0] == 0, (uid, until)
+
+
+def test_dryrun_never_applies_to_other_apps(client, app_env, monkeypatch):
+    import datetime as dt
+
+    from app.config import get_settings
+    _insert_user(_db(app_env), "tr-user")
+    until = (dt.datetime.now(dt.timezone.utc)
+             + dt.timedelta(hours=1)).isoformat()
+    monkeypatch.setattr(get_settings(), "account_delete_dryrun_until", until)
+    r = client.post("/v1/account/delete",
+                    headers={"Authorization": f"Bearer {_jwt_token('tr-user')}",
+                             "X-App-ID": "techrehearsal"})
+    assert r.status_code == 200
+    conn = sqlite3.connect(_db(app_env))
+    assert conn.execute("SELECT COUNT(*) FROM users WHERE id='tr-user'").fetchone()[0] == 0
