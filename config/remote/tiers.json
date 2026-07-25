@@ -1,5 +1,5 @@
 {
- "version": 30,
+ "version": 31,
  "tiers": {
   "free": {
    "display_name": "Free",
@@ -237,11 +237,8 @@
    "display_name": "Pro",
    "description": "Everything in Plus with advanced AI, real file generation, and Meeting Memory.",
    "feature_bullets": [
-    "Unlimited meetings with AI assistance",
     "Advanced AI for reports and analysis",
     "Full or delta summaries (your choice)",
-    "Shareable meeting reports",
-    "Project chat across meetings",
     "Web search (120/mo)",
     "Meeting Memory: AI remembers past meetings",
     "File generation: Excel, Word, PowerPoint, PDF",
@@ -250,24 +247,12 @@
    ],
    "feature_items": [
     {
-     "label": "Unlimited meetings with AI assistance",
-     "icon": "checkmark"
-    },
-    {
      "label": "Advanced AI for reports and analysis",
      "icon": "checkmark.plus"
     },
     {
      "label": "Full or delta summaries (your choice)",
      "icon": "doc"
-    },
-    {
-     "label": "Shareable meeting reports",
-     "icon": "share"
-    },
-    {
-     "label": "Project chat across meetings",
-     "icon": "chat"
     },
     {
      "label": "Web search (120/mo)",

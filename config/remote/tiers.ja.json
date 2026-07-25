@@ -1,5 +1,5 @@
 {
- "version": 29,
+ "version": 30,
  "tiers": {
   "free": {
    "display_name": "無料",
@@ -237,11 +237,8 @@
    "display_name": "Pro",
    "description": "Plusの全機能に加え、高度なAI、ファイル生成、ミーティングメモリー。",
    "feature_bullets": [
-    "無制限のAIアシスタント付きミーティング",
     "レポートと分析のためのアドバンストAI",
     "全文または差分要約（選択可能）",
-    "共有可能なミーティングレポート",
-    "ミーティング間のプロジェクトチャット",
     "Web検索（月120回）",
     "ミーティングメモリー：AIが過去の会議を記憶",
     "ファイル生成：Excel、Word、PowerPoint、PDF",
@@ -250,24 +247,12 @@
    ],
    "feature_items": [
     {
-     "label": "無制限のAIアシスタント付きミーティング",
-     "icon": "checkmark"
-    },
-    {
      "label": "レポートと分析のためのアドバンストAI",
      "icon": "checkmark.plus"
     },
     {
      "label": "全文または差分要約（選択可能）",
      "icon": "doc"
-    },
-    {
-     "label": "共有可能なミーティングレポート",
-     "icon": "share"
-    },
-    {
-     "label": "ミーティング間のプロジェクトチャット",
-     "icon": "chat"
     },
     {
      "label": "Web検索（月120回）",

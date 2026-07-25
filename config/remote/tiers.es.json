@@ -1,5 +1,5 @@
 {
- "version": 29,
+ "version": 30,
  "tiers": {
   "free": {
    "display_name": "Gratis",
@@ -237,11 +237,8 @@
    "display_name": "Pro",
    "description": "Todo lo de Plus con IA avanzada, generación de archivos reales y Memoria de Reuniones.",
    "feature_bullets": [
-    "Reuniones ilimitadas con asistencia de IA",
     "IA avanzada para informes y análisis",
     "Resúmenes completos o incrementales (tu elección)",
-    "Informes de reuniones compartibles",
-    "Chat de proyecto entre reuniones",
     "Búsqueda web (120/mes)",
     "Memoria de Reuniones: la IA recuerda reuniones pasadas",
     "Generación de archivos: Excel, Word, PowerPoint, PDF",
@@ -250,24 +247,12 @@
    ],
    "feature_items": [
     {
-     "label": "Reuniones ilimitadas con asistencia de IA",
-     "icon": "checkmark"
-    },
-    {
      "label": "IA avanzada para informes y análisis",
      "icon": "checkmark.plus"
     },
     {
      "label": "Resúmenes completos o incrementales (tu elección)",
      "icon": "doc"
-    },
-    {
-     "label": "Informes de reuniones compartibles",
-     "icon": "share"
-    },
-    {
-     "label": "Chat de proyecto entre reuniones",
-     "icon": "chat"
     },
     {
      "label": "Búsqueda web (120/mes)",
