@@ -1,5 +1,5 @@
 {
- "version": 29,
+ "version": 30,
  "tiers": {
   "free": {
    "display_name": "Free",
@@ -235,7 +235,7 @@
   },
   "pro": {
    "display_name": "Pro",
-   "description": "Everything in Plus with advanced AI for deeper reports and Meeting Memory.",
+   "description": "Everything in Plus with advanced AI, real file generation, and Meeting Memory.",
    "feature_bullets": [
     "Unlimited meetings with AI assistance",
     "Advanced AI for reports and analysis",
@@ -244,6 +244,8 @@
     "Project chat across meetings",
     "Web search (120/mo)",
     "Meeting Memory: AI remembers past meetings",
+    "File generation: Excel, Word, PowerPoint, PDF",
+    "Attach documents to chat (2 files, 25 MB each)",
     "5 images per query"
    ],
    "feature_items": [
@@ -274,6 +276,14 @@
     {
      "label": "Meeting Memory: AI remembers past meetings",
      "icon": "brain"
+    },
+    {
+     "label": "File generation: Excel, Word, PowerPoint, PDF",
+     "icon": "filegen"
+    },
+    {
+     "label": "Attach documents to chat (2 files, 25 MB each)",
+     "icon": "paperclip"
     },
     {
      "label": "5 images per query",
