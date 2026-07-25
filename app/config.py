@@ -70,6 +70,14 @@ class Settings(BaseSettings):
     siwa_key_id: str = ""                    # SIWA key id
     siwa_private_key_b64: str = ""           # base64 of the .p8 EC private key
 
+    # Account-delete dry-run window (App Review video recording): while
+    # the current UTC time is BEFORE this ISO-8601 timestamp, SS-scoped
+    # deletes return the production 200 shape but purge nothing, revoke
+    # nothing, and emit nothing. Hard expiry by design — the endpoint
+    # reverts to real deletion on its own; a malformed value counts as
+    # inactive (fail-safe to REAL deletion). Blank = off.
+    account_delete_dryrun_until: str = ""
+
     # Provider API Keys
     openai_api_key: str = ""
     anthropic_api_key: str = ""

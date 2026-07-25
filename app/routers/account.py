@@ -63,6 +63,29 @@ async def delete_account(
         return {"status": "deleted"}
     old_tier = row["tier"]
 
+    # Dry-run window (SS ask 2026-07-25, App Review video recording):
+    # scoped to SS-identified/headerless requests only — any other app
+    # identity keeps the real path. Auto-expires; malformed timestamp
+    # fails safe to real deletion.
+    from app.config import get_settings
+    _dry_until_raw = get_settings().account_delete_dryrun_until
+    if _dry_until_raw:
+        from datetime import datetime, timezone
+        try:
+            _dry_until = datetime.fromisoformat(_dry_until_raw)
+        except ValueError:
+            logger.error("account_delete: malformed dryrun_until %r — "
+                         "treating as INACTIVE, real deletion proceeds",
+                         _dry_until_raw)
+            _dry_until = None
+        _app = getattr(request.state, "app_id", "unknown")
+        if (_dry_until and datetime.now(timezone.utc) < _dry_until
+                and _app in ("shouldersurf", "unknown", None)):
+            logger.warning(
+                "account_delete DRYRUN: 200 without purge for user %s "
+                "(app=%s, window ends %s)", user_id[:8], _app, _dry_until_raw)
+            return {"status": "deleted"}
+
     await delete_user_data(db, user_id)
 
     # CQ purge trigger: the account_deleted event on the tier-change
