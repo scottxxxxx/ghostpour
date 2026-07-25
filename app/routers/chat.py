@@ -834,6 +834,26 @@ async def usage_me(
             "used": credits_used,
             "total": credits_total,
             "remaining": credits_remaining,
+            # Hours view of the SAME dollars (SS ask 2026-07-25): one
+            # object carries both units so the meter can speak hours
+            # without a client-side re-derivation drifting from billing.
+            # Nominal per-tier rate (the tier's default-model lane);
+            # actual burn varies with routing mix, so client copy should
+            # say "about". -1 mirrors the unlimited sentinel.
+            # Anchored to the tier's MARKETED hours_per_month and scaled
+            # by the actual dollar fraction used, so the meter always
+            # agrees with the "~N hours/month" promise and counts down
+            # with real spend. Not the nominal-rate derivation: that
+            # overpromises whenever the real usage mix runs pricier than
+            # the default lane.
+            "hours_used": (round(min(1.0, monthly_used / monthly_limit)
+                                 * hours_limit, 2)
+                           if monthly_limit > 0 and hours_limit != -1 else -1),
+            "hours_total": (round(float(hours_limit), 2)
+                            if monthly_limit != -1 and hours_limit != -1 else -1),
+            "hours_remaining": (round(max(0.0, 1 - monthly_used / monthly_limit)
+                                      * hours_limit, 2)
+                                if monthly_limit > 0 and hours_limit != -1 else -1),
             "resets_at": resets_at,
         },
         "hours": {

@@ -48,7 +48,7 @@ tiers:
     allowed_models:
       - "claude-haiku-4-5-20251001"
     max_images_per_request: 1
-    hours_per_month: 25
+    hours_per_month: 5
     # Project Chat context cap (chars/4 heuristic; matches iOS fuel gauge).
     # Free: ~3-4 meetings of context. iOS blocks send client-side; server
     # returns 413 + context_too_large CTA as defense in depth.
