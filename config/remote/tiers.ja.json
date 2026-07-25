@@ -1,5 +1,5 @@
 {
- "version": 30,
+ "version": 31,
  "tiers": {
   "free": {
    "display_name": "無料",
@@ -141,7 +141,7 @@
     },
     {
      "label": "Web検索（月75回）",
-     "icon": "globe"
+     "icon": "search"
     },
     {
      "label": "1クエリにつき画像3枚",
@@ -256,7 +256,7 @@
     },
     {
      "label": "Web検索（月120回）",
-     "icon": "globe"
+     "icon": "search"
     },
     {
      "label": "ミーティングメモリー：AIが過去の会議を記憶",
