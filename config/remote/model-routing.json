@@ -1,5 +1,5 @@
 {
-  "version": 16,
+  "version": 18,
   "server_only": true,
   "models": [
     {
@@ -57,7 +57,7 @@
           }
         },
         "query_follow_up": {
-          "label": "Interactive Query — Follow-up",
+          "label": "Interactive Query (Follow-up)",
           "models": {
             "free": "anthropic/claude-haiku-4-5-20251001",
             "plus": "anthropic/claude-haiku-4-5-20251001",
@@ -73,7 +73,7 @@
           }
         },
         "meeting_chat_follow_up": {
-          "label": "Meeting Chat — Follow-up",
+          "label": "Meeting Chat (Follow-up)",
           "models": {
             "free": "anthropic/claude-haiku-4-5-20251001",
             "plus": "anthropic/claude-haiku-4-5-20251001",
@@ -89,7 +89,7 @@
           }
         },
         "project_chat_follow_up": {
-          "label": "Project Chat — Follow-up",
+          "label": "Project Chat (Follow-up)",
           "models": {
             "free": "anthropic/claude-haiku-4-5-20251001",
             "plus": "anthropic/claude-haiku-4-5-20251001",
