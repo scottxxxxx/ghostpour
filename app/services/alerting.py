@@ -115,6 +115,16 @@ KNOWN_CATEGORIES: dict[str, dict] = {
             "key path silently rots."
         ),
     },
+    "subscription_purchase": {
+        "label": "New paid subscription",
+        "description": (
+            "Someone paid: a new subscription, a trial start, or a "
+            "trial converting to paid. One email per event (the "
+            "incident subject embeds the timestamp, so these never "
+            "dedup). Purely good news; unsubscribe this category if "
+            "the volume ever makes it noise."
+        ),
+    },
     "user_cost_whale": {
         "label": "User cost crossed the whale threshold",
         "description": (

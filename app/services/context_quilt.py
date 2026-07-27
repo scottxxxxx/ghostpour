@@ -333,6 +333,14 @@ async def notify_tier_change(
     user — wired 2026-07-25 for App Review 5.1.1(v)). Idempotent on
     (user_id, occurred_at) on the CQ side.
     """
+    # Purchase ops alert (2026-07-27): every tier transition already
+    # funnels through here from all seven call sites, so this is the one
+    # chokepoint. Must run BEFORE the cq_base_url early-return — the
+    # operator wants the email even when CQ is unreachable/unconfigured.
+    # No-ops for non-paid event types; never raises.
+    from app.services.subscription_alerts import notify_purchase
+    await notify_purchase(user_id, old_tier, new_tier, event_type)
+
     settings = get_settings()
     if not settings.cq_base_url:
         return
