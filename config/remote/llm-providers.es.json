@@ -1,5 +1,5 @@
 {
- "version": 19,
+ "version": 21,
  "defaultPromptReserveTokens": 8000,
  "providers": [
   {
@@ -343,7 +343,7 @@
      "id": "claude-opus-5",
      "displayName": "Claude Opus 5",
      "description": "El Opus mas reciente de Anthropic; trabajo agentico y empresarial de primer nivel, pensamiento adaptativo, contexto de 1M.",
-     "isDefault": false,
+     "isDefault": true,
      "supportsVision": true,
      "contextWindow": 1000000,
      "inputCostPerMillion": 5.0,
@@ -372,7 +372,7 @@
      "id": "claude-opus-4-8",
      "displayName": "Claude Opus 4.8",
      "description": "El Opus mas capaz; trabajo agentico de largo plazo de ultima generacion, pensamiento adaptativo, contexto de 1M.",
-     "isDefault": true,
+     "isDefault": false,
      "supportsVision": true,
      "contextWindow": 1000000,
      "inputCostPerMillion": 5.0,
