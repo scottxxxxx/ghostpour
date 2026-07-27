@@ -270,6 +270,13 @@ async def apple_notifications(
     _product_id = transaction_info.get("productId")
     _environment = transaction_info.get("environment") or data.get("environment")
     _expires_iso = _ms_to_iso(apple_expires_ms)
+    # Offer attribution (2026-07-27): when the purchase redeemed an offer
+    # (offer codes are offerType 3), Apple's transaction carries the OFFER's
+    # reference name — never the individual code string, so the reference
+    # name is the finest server-side grain. Capturing it here (not only on
+    # verify-receipt) matters because codes can be redeemed directly in the
+    # App Store app without Shoulder Surf ever launching.
+    _offer_id = transaction_info.get("offerIdentifier")
 
     async def _record(event_type: str, *, from_tier: str | None, to_tier: str | None) -> None:
         try:
@@ -281,6 +288,7 @@ async def apple_notifications(
                 original_transaction_id=original_transaction_id,
                 transaction_id=_txn_id, expires_at=_expires_iso,
                 environment=_environment, source="assn",
+                offer_id=_offer_id,
             )
         except Exception as e:
             logger.warning("subscription_event record failed (type=%s): %s", event_type, e)
@@ -324,6 +332,7 @@ async def apple_notifications(
         )
         asyncio.create_task(cq.notify_tier_change(
             user_id=user_id, old_tier=old_tier, new_tier=new_tier, event_type="upgrade",
+            offer_id=_offer_id,
         ))
         return {"status": "received", "action": "upgraded", "old_tier": old_tier, "new_tier": new_tier}
 

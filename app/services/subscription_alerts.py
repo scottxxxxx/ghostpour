@@ -24,7 +24,8 @@ PAID_EVENTS = {"upgrade", "trial_start", "trial_to_paid"}
 
 
 async def notify_purchase(user_id: str, old_tier: str, new_tier: str,
-                          event_type: str) -> None:
+                          event_type: str,
+                          offer_id: str | None = None) -> None:
     """Best-effort: never raises into the caller. Opens its own DB
     connection because callers run inside fire-and-forget tasks whose
     request-scoped connection may already be gone."""
@@ -60,6 +61,10 @@ async def notify_purchase(user_id: str, old_tier: str, new_tier: str,
                     "old_tier": old_tier,
                     "new_tier": new_tier,
                     "occurred_at": now.isoformat(),
+                    # ASC offer reference name when the purchase came from
+                    # an offer code — the "which friend/campaign was this"
+                    # signal in the operator's inbox.
+                    **({"offer": offer_id} if offer_id else {}),
                 },
                 from_addr=settings.alert_email_from,
             )

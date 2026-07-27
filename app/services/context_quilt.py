@@ -321,6 +321,7 @@ async def notify_tier_change(
     new_tier: str,
     event_type: str,
     occurred_at: str | None = None,
+    offer_id: str | None = None,
 ):
     """Notify Context Quilt of a subscription tier transition.
 
@@ -338,8 +339,12 @@ async def notify_tier_change(
     # chokepoint. Must run BEFORE the cq_base_url early-return — the
     # operator wants the email even when CQ is unreachable/unconfigured.
     # No-ops for non-paid event types; never raises.
+    # offer_id (ASC offer reference name, when the purchase redeemed an
+    # offer code) feeds ONLY the ops email — it is not part of the CQ
+    # wire shape below.
     from app.services.subscription_alerts import notify_purchase
-    await notify_purchase(user_id, old_tier, new_tier, event_type)
+    await notify_purchase(user_id, old_tier, new_tier, event_type,
+                          offer_id=offer_id)
 
     settings = get_settings()
     if not settings.cq_base_url:

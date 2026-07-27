@@ -40,6 +40,21 @@ async def test_paid_events_email_and_never_dedup(client, app_env):
 
 
 @pytest.mark.anyio
+async def test_offer_id_lands_in_alert_details(client, app_env):
+    """Offer-code redemptions carry the ASC offer reference name into the
+    ops email so the operator can tell which campaign/friend code it was."""
+    from app.services.subscription_alerts import notify_purchase
+    _insert_user(_db(app_env), "buyer-offer")
+    await notify_purchase("buyer-offer", "free", "pro", "upgrade",
+                          offer_id="friend-launch-1")
+    await notify_purchase("buyer-offer", "free", "pro", "upgrade")
+    rows = _incidents(_db(app_env))
+    assert len(rows) == 2
+    with_offer = [r for r in rows if "friend-launch-1" in r[1]]
+    assert len(with_offer) == 1
+
+
+@pytest.mark.anyio
 async def test_non_paid_events_stay_silent(client, app_env):
     from app.services.subscription_alerts import notify_purchase
     _insert_user(_db(app_env), "leaver-1")
