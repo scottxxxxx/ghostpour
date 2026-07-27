@@ -96,6 +96,16 @@ def test_parse_codes_csv_drops_header_and_blanks():
     assert codes == ["ABC-123", "DEF-456"]
 
 
+def test_parse_codes_csv_takes_first_column_of_two_column_rows():
+    """Apple's values CSV grew a redeem-URL second column (live 2026-07-27)."""
+    text = (
+        "Code,URL\n"
+        "WR3RXM34PF,https://apps.apple.com/redeem?ctx=offercodes&id=1&code=WR3RXM34PF\n"
+        "T84HKP77X6,https://apps.apple.com/redeem?ctx=offercodes&id=1&code=T84HKP77X6\n"
+    )
+    assert offer_codes._parse_codes_csv(text) == ["WR3RXM34PF", "T84HKP77X6"]
+
+
 @pytest.mark.asyncio
 async def test_mint_and_fetch_builds_request_and_parses_values(client, monkeypatch):
     _provision(monkeypatch)
@@ -109,9 +119,15 @@ async def test_mint_and_fetch_builds_request_and_parses_values(client, monkeypat
     assert data["type"] == "subscriptionOfferCodeOneTimeUseCodes"
     assert data["attributes"]["numberOfCodes"] == 10
     assert data["attributes"]["expirationDate"] == "2026-12-31"
-    assert data["attributes"]["active"] is True
+    # "active" must NOT be sent: Apple rejects it on CREATE (live 2026-07-27).
+    assert "active" not in data["attributes"]
+    assert "environment" not in data["attributes"]  # omitted unless requested
     rel = data["relationships"]["offerCode"]["data"]
     assert rel == {"type": "subscriptionOfferCodes", "id": "OFFER42"}
+    # environment attribute passes through when explicitly requested.
+    await offer_codes.mint_one_time_use_codes(
+        "OFFER42", 10, "2026-12-31", environment="SANDBOX")
+    assert _FakeClient.captured["json"]["data"]["attributes"]["environment"] == "SANDBOX"
 
 
 def test_admin_mint_endpoint_dormant_returns_400(client):

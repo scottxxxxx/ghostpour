@@ -85,15 +85,22 @@ def _auth_headers() -> dict[str, str]:
 
 
 async def mint_one_time_use_codes(
-    offer_code_id: str, number_of_codes: int, expiration_date: str
+    offer_code_id: str, number_of_codes: int, expiration_date: str,
+    environment: str | None = None,
 ) -> str:
     """Create a batch of one-time-use codes for an existing offer.
 
     Args:
       offer_code_id: id of the configured `subscriptionOfferCodes` resource.
-      number_of_codes: 10..10000 (Apple's bounds).
+      number_of_codes: 10..10000 client-side bound; Apple additionally
+        enforces a PRODUCTION minimum of 500 per batch (live-probed
+        2026-07-27: 10/25/100 rejected "Invalid number of codes", 500+
+        accepted; SANDBOX accepts 10).
       expiration_date: ISO-8601 date "YYYY-MM-DD" (codes expire 12:00am PT that
-        day; sandbox max 6 months out).
+        day; max 6 months out).
+      environment: optional "PRODUCTION" | "SANDBOX" (Apple default is
+        production). Sandbox batch creation via API is new since our
+        June build, which predates the attribute.
 
     Returns the created batch resource id (pass to fetch_code_values).
     Raises OfferCodeError on misconfig or a non-2xx Apple response.
@@ -104,14 +111,19 @@ async def mint_one_time_use_codes(
         raise OfferCodeError(
             f"number_of_codes must be {MIN_CODES}-{MAX_CODES} (got {number_of_codes})"
         )
+    # No "active" attribute: Apple rejects it on CREATE since at least
+    # 2026-07 (ENTITY_ERROR.ATTRIBUTE.NOT_ALLOWED); batches are born
+    # active and deactivated via PATCH.
+    attributes: dict = {
+        "numberOfCodes": number_of_codes,
+        "expirationDate": expiration_date,
+    }
+    if environment:
+        attributes["environment"] = environment
     body = {
         "data": {
             "type": "subscriptionOfferCodeOneTimeUseCodes",
-            "attributes": {
-                "numberOfCodes": number_of_codes,
-                "expirationDate": expiration_date,
-                "active": True,
-            },
+            "attributes": attributes,
             "relationships": {
                 "offerCode": {
                     "data": {"type": "subscriptionOfferCodes", "id": offer_code_id}
@@ -153,11 +165,14 @@ async def fetch_code_values(batch_id: str) -> list[str]:
 
 
 def _parse_codes_csv(text: str) -> list[str]:
-    """Pull code strings from Apple's CSV. Drops a leading 'Code' header and any
-    blank lines; codes are single-column alphanumeric tokens."""
+    """Pull code strings from Apple's CSV. Drops a header row and blank lines.
+
+    The CSV grew a second column since our June build: rows are now
+    "CODE,https://apps.apple.com/redeem?..." (observed live 2026-07-27),
+    where they used to be the bare code. Take the first column either way."""
     codes: list[str] = []
     for line in text.splitlines():
-        tok = line.strip().strip('"')
+        tok = line.strip().split(",")[0].strip().strip('"')
         if not tok or tok.lower() == "code":
             continue
         codes.append(tok)
