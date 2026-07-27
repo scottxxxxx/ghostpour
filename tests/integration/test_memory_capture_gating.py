@@ -302,7 +302,9 @@ class TestCtaLocalization:
             _setup_async_client_mock(MockClient, mock_resp)
             resp = client_with_cq.get(
                 f"/v1/quilt/{free_user['user_id']}",
-                headers={**free_user["headers"], "Accept-Language": "fr"},
+                # "fr" became a real served locale on 2026-07-27, so the
+                # unknown-locale example moved to German (still unserved).
+                headers={**free_user["headers"], "Accept-Language": "de"},
             )
 
         assert resp.status_code == 200
