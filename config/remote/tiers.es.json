@@ -1,18 +1,18 @@
 {
- "version": 34,
+ "version": 35,
  "tiers": {
   "free": {
    "display_name": "Gratis",
    "description": "Prueba la asistencia de IA para reuniones con un pequeño crédito gratuito.",
    "feature_bullets": [
-    "~5 horas/mes de asistencia de IA",
+    "Una asignacion mensual de creditos de IA, suficiente para uso habitual",
     "Resúmenes escritos mientras sigues en la reunión",
     "Transcripción en el dispositivo (ilimitada)",
     "1 foto o imagen por pregunta"
    ],
    "feature_items": [
     {
-     "label": "~5 horas/mes de asistencia de IA",
+     "label": "Una asignacion mensual de creditos de IA, suficiente para uso habitual",
      "icon": "checkmark"
     },
     {
