@@ -489,3 +489,35 @@ class TestIncidentHistoryEndpoint:
         assert len(history) >= 1
         assert history[0]["category"] == "cq_unreachable"
         assert history[0]["subject"].startswith("test-send/")
+
+
+class TestEmailTone:
+    """Per-category tone (2026-07-27): a purchase email arrived wearing the
+    'Critical failure detected' banner. Good-news and attention categories
+    now render their own banner; failure stays the default. Subject lines
+    use a colon, never a dash."""
+
+    def test_purchase_email_celebrates(self):
+        from app.services.alerting import _render_email_html
+        subject_line, html = _render_email_html(
+            "subscription_purchase", "abc123:upgrade", {"event": "upgrade"},
+            "inc-1", "2026-07-27T00:00:00+00:00")
+        assert "Good news" in html
+        assert "Critical failure" not in html
+        assert "good-news alerts" in html
+        assert "—" not in subject_line and "–" not in subject_line
+
+    def test_attention_category_is_not_critical(self):
+        from app.services.alerting import _render_email_html
+        _, html = _render_email_html(
+            "assn_unmatched", "1110000019", {}, "inc-2",
+            "2026-07-27T00:00:00+00:00")
+        assert "Needs attention" in html
+        assert "Critical failure" not in html
+
+    def test_failure_categories_keep_the_alarm(self):
+        from app.services.alerting import _render_email_html
+        _, html = _render_email_html(
+            "provider_auth_failed", "openai", {}, "inc-3",
+            "2026-07-27T00:00:00+00:00")
+        assert "Critical failure detected" in html

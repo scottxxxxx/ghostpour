@@ -116,6 +116,7 @@ KNOWN_CATEGORIES: dict[str, dict] = {
         ),
     },
     "subscription_purchase": {
+        "tone": "good_news",
         "label": "New paid subscription",
         "description": (
             "Someone paid: a new subscription, a trial start, or a "
@@ -126,6 +127,7 @@ KNOWN_CATEGORIES: dict[str, dict] = {
         ),
     },
     "user_cost_whale": {
+        "tone": "attention",
         "label": "User cost crossed the whale threshold",
         "description": (
             "A single user's month-to-date provider cost crossed the "
@@ -137,6 +139,7 @@ KNOWN_CATEGORIES: dict[str, dict] = {
         ),
     },
     "assn_unmatched": {
+        "tone": "attention",
         "label": "Apple notification with no matching user",
         "description": (
             "An App Store Server Notification arrived for a transaction "
@@ -151,6 +154,7 @@ KNOWN_CATEGORIES: dict[str, dict] = {
         ),
     },
     "cert_pin_auto_republish": {
+        "tone": "attention",
         "label": "Cert pin auto-republish needs attention",
         "description": (
             "The daily auto-republish task either failed outright or "
@@ -229,6 +233,29 @@ async def _active_recipients_for(
     return out
 
 
+# Per-tone banner treatment. The service was born failure-only and every
+# category inherited the "Critical failure detected" banner — which made a
+# purchase email read like an outage (Scott, 2026-07-27). Categories opt
+# into a tone via KNOWN_CATEGORIES["tone"]; unknown/absent = failure.
+_TONES: dict[str, dict] = {
+    "failure": {
+        "banner": "Critical failure detected",
+        "bg": "#fff4e5", "border": "#f59e0b", "fg": "#92400e",
+        "footer_kind": "critical-failure",
+    },
+    "attention": {
+        "banner": "Needs attention",
+        "bg": "#fff4e5", "border": "#f59e0b", "fg": "#92400e",
+        "footer_kind": "operational",
+    },
+    "good_news": {
+        "banner": "Good news",
+        "bg": "#ecfdf5", "border": "#10b981", "fg": "#065f46",
+        "footer_kind": "good-news",
+    },
+}
+
+
 def _render_email_html(
     category: str, subject: str, details: dict,
     incident_id: str, first_seen_at: str,
@@ -236,7 +263,10 @@ def _render_email_html(
     """Return (subject_line, html_body) for the outgoing alert email."""
     cat_label = KNOWN_CATEGORIES.get(category, {}).get("label", category)
     cat_desc = KNOWN_CATEGORIES.get(category, {}).get("description", "")
-    subject_line = f"[GhostPour] {cat_label} — {subject}"
+    tone = _TONES.get(
+        KNOWN_CATEGORIES.get(category, {}).get("tone", "failure"),
+        _TONES["failure"])
+    subject_line = f"[GhostPour] {cat_label}: {subject}"
 
     detail_lines = ""
     for k, v in (details or {}).items():
@@ -252,9 +282,9 @@ def _render_email_html(
     html = f"""<!DOCTYPE html>
 <html><body style="font-family:-apple-system,Helvetica,Arial,sans-serif;color:#222">
 <div style="max-width:600px;margin:0 auto;padding:24px">
-  <div style="background:#fff4e5;border-left:4px solid #f59e0b;padding:16px 20px;margin-bottom:24px">
-    <div style="font-size:14px;color:#92400e;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">
-      Critical failure detected
+  <div style="background:{tone['bg']};border-left:4px solid {tone['border']};padding:16px 20px;margin-bottom:24px">
+    <div style="font-size:14px;color:{tone['fg']};text-transform:uppercase;letter-spacing:0.05em;font-weight:600">
+      {tone['banner']}
     </div>
     <div style="font-size:18px;font-weight:600;margin-top:6px">{cat_label}</div>
     <div style="font-size:14px;color:#555;margin-top:4px">Subject: {subject}</div>
@@ -269,7 +299,7 @@ def _render_email_html(
     </table>
   </div>
   <p style="color:#888;font-size:12px;margin-top:32px">
-    Sent because you're subscribed to GhostPour critical-failure alerts. The
+    Sent because you're subscribed to GhostPour {tone['footer_kind']} alerts. The
     next email for this same fingerprint won't fire until at least
     {INCIDENT_AUTO_RESOLVE_MINUTES} minutes of quiet pass.
   </p>
