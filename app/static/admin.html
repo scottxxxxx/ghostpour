@@ -3530,7 +3530,7 @@ async function showCampaignActivity(id) {
       <td style="padding:6px 8px;font-size:11px;white-space:nowrap">${dev}${loc}</td>
       <td style="padding:6px 8px;font-size:11px"><span style="color:${evColor[e.event_type]||'var(--text)'}">${_cEsc(e.event_type)}</span></td>
       <td style="padding:6px 8px;font-size:11px;color:var(--accent)" class="mono">${e.cta_id?_cEsc(e.cta_id):''}</td>
-      <td style="padding:6px 8px;font-size:11px;color:var(--text)">${dwell(e.visible_ms)}</td>
+      <td style="padding:6px 8px;font-size:11px;color:var(--text)" title="${e.dwell_inferred ? 'inferred: impression-to-click delta (client did not send dwell)' : ''}">${e.dwell_inferred ? '~' : ''}${dwell(e.visible_ms)}</td>
     </tr>`;}).join('');
   tableEl.innerHTML = `<table style="width:100%;border-collapse:collapse">
     <thead><tr style="text-align:left;color:var(--text-dim);font-size:11px">

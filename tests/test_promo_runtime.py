@@ -547,3 +547,31 @@ def test_campaign_validation_rejects_bad_content_locales(client):
     body["variants"] = [bad2]
     r = client.post("/webhooks/admin/campaigns", json=body, headers=ADMIN)
     assert r.status_code == 400
+
+
+def test_events_timeline_infers_click_dwell(client, pro_user):
+    """A click without visible_ms gets impression-to-click delta inferred
+    (Scott 2026-07-27: we hold both timestamps, so derive time-to-click
+    server-side instead of showing an empty dwell). A click that DOES
+    carry visible_ms keeps the client's number, uninferred."""
+    _make_campaign(client, cid="ss_promo_dwell", targeting={"users": [PRO_EMAIL]})
+    h = {**pro_user["headers"], "X-App-ID": SS}
+    client.post("/v1/promo/events", headers=h, json={
+        "event_type": "impression", "campaign_id": "ss_promo_dwell",
+        "variant_id": "html", "device_id": "devE"})
+    client.post("/v1/promo/events", headers=h, json={
+        "event_type": "click", "campaign_id": "ss_promo_dwell",
+        "variant_id": "html", "device_id": "devE", "cta_id": "x"})
+    client.post("/v1/promo/events", headers=h, json={
+        "event_type": "click", "campaign_id": "ss_promo_dwell",
+        "variant_id": "html", "device_id": "devE", "cta_id": "x",
+        "visible_ms": 4321})
+
+    evs = client.get("/webhooks/admin/campaign/ss_promo_dwell/events",
+                     headers=ADMIN).json()["events"]
+    clicks = [e for e in evs if e["event_type"] == "click"]
+    measured = [e for e in clicks if e.get("visible_ms") == 4321]
+    inferred = [e for e in clicks if e.get("dwell_inferred")]
+    assert len(measured) == 1 and not measured[0].get("dwell_inferred")
+    assert len(inferred) == 1
+    assert inferred[0]["visible_ms"] >= 0
