@@ -317,6 +317,7 @@ def test_extraction_prompts_ban_dashes_in_composed_strings():
     )
     for prompt in (_GANTT_SCHEMA_PROMPT, _GANTT_DETAILED_SCHEMA_PROMPT):
         assert "without em or en dashes" in prompt
+        assert "spaced hyphen" in prompt      # the TR-observed dodge, banned
         assert "—" not in prompt and "–" not in prompt
     assert "stay verbatim" in _GANTT_DETAILED_SCHEMA_PROMPT
     assert "verbatim" not in _GANTT_SCHEMA_PROMPT.split("em or en dashes")[1]
