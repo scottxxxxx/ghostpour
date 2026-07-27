@@ -249,6 +249,30 @@ async def apple_notifications(
             "Apple notification: no user found for originalTransactionId=%s appAccountToken=%s (type=%s)",
             original_transaction_id, app_account_token, notification_type,
         )
+        # Alert the operator: a real Apple-side subscription event just got
+        # dropped on the floor (2026-07-27: a friend-code redemption sat
+        # invisible until a human noticed the tier hadn't flipped). Deduped
+        # per transaction id while the incident is open; best-effort.
+        try:
+            from app.services.alerting import report_incident
+            await report_incident(
+                db,
+                category="assn_unmatched",
+                subject=str(original_transaction_id or "no-otid"),
+                details={
+                    "notification_type": notification_type,
+                    "subtype": subtype or None,
+                    "product_id": transaction_info.get("productId"),
+                    "offer_identifier": transaction_info.get("offerIdentifier"),
+                    "offer_type": transaction_info.get("offerType"),
+                    "original_transaction_id": original_transaction_id,
+                    "environment": (transaction_info.get("environment")
+                                    or data.get("environment")),
+                },
+                from_addr=get_settings().alert_email_from,
+            )
+        except Exception:
+            logger.exception("assn_unmatched alert failed (non-fatal)")
         return {"status": "received", "action": "skipped", "reason": "user_not_found"}
 
     user_id = user["id"]
