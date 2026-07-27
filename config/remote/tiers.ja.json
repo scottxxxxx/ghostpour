@@ -1,18 +1,18 @@
 {
- "version": 35,
+ "version": 36,
  "tiers": {
   "free": {
    "display_name": "無料",
    "description": "少額の無料クレジットでAIミーティングアシスタントをお試しください。",
    "feature_bullets": [
-    "月約5時間のAIアシスタント",
+    "毎月のAIクレジット枠、日常的な利用に十分",
     "リアルタイム自動要約",
     "デバイス上の文字起こし（無制限）",
     "1つの質問につき写真・画像1枚"
    ],
    "feature_items": [
     {
-     "label": "月約5時間のAIアシスタント",
+     "label": "毎月のAIクレジット枠、日常的な利用に十分",
      "icon": "checkmark"
     },
     {

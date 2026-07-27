@@ -1,18 +1,18 @@
 {
- "version": 35,
+ "version": 36,
  "tiers": {
   "free": {
    "display_name": "Free",
    "description": "Try AI-powered meeting assistance with a small free credit.",
    "feature_bullets": [
-    "~5 hours/month of AI assistance",
+    "A monthly allowance of AI credits, enough for regular use",
     "Summaries written while you're still meeting",
     "On-device transcription (unlimited)",
     "1 photo or image per question"
    ],
    "feature_items": [
     {
-     "label": "~5 hours/month of AI assistance",
+     "label": "A monthly allowance of AI credits, enough for regular use",
      "icon": "checkmark"
     },
     {
