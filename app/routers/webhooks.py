@@ -2508,6 +2508,35 @@ async def telemetry_summary(
         for k in series_keys
     }
 
+    # New-installs trend: first ping ever per device, from the durable
+    # telemetry_devices table (survives the 30-day raw purge). Values on
+    # days before the table shipped (2026-07-27) are backfill-capped by
+    # the purge horizon and undercount genuinely older devices.
+    cursor = await db.execute(
+        """SELECT date(first_seen_at) AS day, COUNT(*) AS c
+           FROM telemetry_devices
+           WHERE date(first_seen_at) >= date('now', ?)
+           GROUP BY day ORDER BY day ASC""",
+        (f"-{days} days",),
+    )
+    series["new_devices"] = [
+        {"day": r["day"], "value": r["c"]} for r in await cursor.fetchall()
+    ]
+
+    # New accounts per day (SIWA sign-ins). Complements new_devices:
+    # devices count installs including never-signed-in users; accounts
+    # count the ones who finished sign-in.
+    cursor = await db.execute(
+        """SELECT date(created_at) AS day, COUNT(*) AS c
+           FROM users
+           WHERE date(created_at) >= date('now', ?)
+           GROUP BY day ORDER BY day ASC""",
+        (f"-{days} days",),
+    )
+    series["new_accounts"] = [
+        {"day": r["day"], "value": r["c"]} for r in await cursor.fetchall()
+    ]
+
     # Duration aggregate over the window. Weight the average by
     # meetings_stopped that day so the period mean reflects activity,
     # not unweighted day averages.

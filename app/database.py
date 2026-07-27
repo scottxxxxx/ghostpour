@@ -605,6 +605,19 @@ MIGRATIONS = [
     # closing the same-marketing-version blind spot: builds 749 and 777
     # were both "1.14" and indistinguishable on the wire.
     "ALTER TABLE telemetry_events ADD COLUMN app_build TEXT",
+    # v34: durable device first-seen (2026-07-27), feeding the dashboard's
+    # new-installs trend. Raw telemetry purges at 30 days, so first-seen
+    # computed from raw events would mark any device quiet for a month as
+    # new again. One row per device, pinned forever. Anonymous (device_id
+    # only, no user linkage) — intentionally NOT in the account-deletion
+    # purge list, same standing as telemetry_daily_rollups. Backfilled at
+    # startup from surviving raw events, so pre-existing devices carry a
+    # first_seen_at capped by the 30-day purge horizon.
+    """CREATE TABLE IF NOT EXISTS telemetry_devices (
+        device_id TEXT PRIMARY KEY,
+        first_seen_at TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_telemetry_devices_first_seen ON telemetry_devices(first_seen_at)",
 ]
 
 
@@ -620,6 +633,15 @@ async def init_db(database_url: str) -> None:
                 await db.execute(sql)
             except Exception:
                 pass  # Column already exists
+
+        # Absorb device first-seen from surviving raw events BEFORE the
+        # telemetry purge below runs. INSERT OR IGNORE keeps the earliest
+        # recorded value; re-running is a no-op for known devices.
+        await db.execute(
+            """INSERT OR IGNORE INTO telemetry_devices (device_id, first_seen_at)
+               SELECT device_id, MIN(received_at) FROM telemetry_events
+               GROUP BY device_id"""
+        )
 
         # Purge cached reports older than 30 days
         await db.execute(

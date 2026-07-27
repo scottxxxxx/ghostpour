@@ -630,6 +630,14 @@
     <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Anonymous lifecycle events from iOS — app starts, meeting starts/stops, AI model used, device model, and OS version. Raw events are retained 30 days. Apply filters above to slice every chart.</p>
     <div class="cards" id="tel-kpis"></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px;margin-top:16px">
+      <div class="card" style="padding:16px;grid-column:span 2">
+        <h4 style="margin:0 0 8px">Daily active <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— devices that pinged that day; line = signed-in users. From daily rollups (kept forever), so the trend outlives the 30-day raw purge. Not affected by the filters above</span></h4>
+        <div id="tel-chart-active"></div>
+      </div>
+      <div class="card" style="padding:16px;grid-column:span 2">
+        <h4 style="margin:0 0 8px">New per day <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— first ping ever from a device (install proxy); line = new accounts. Days before 2026-07-27 undercount: first-seen was backfilled from 30-day raw history. Not affected by the filters above</span></h4>
+        <div id="tel-chart-new"></div>
+      </div>
       <div class="card" style="padding:16px;grid-column:span 2"><h4 style="margin:0 0 8px">App starts by version (daily)</h4><div id="tel-chart-versions"></div></div>
       <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Meetings by model</h4><div id="tel-chart-models"></div></div>
       <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Meetings by device</h4><div id="tel-chart-devices"></div></div>
@@ -1095,10 +1103,56 @@ async function loadTelemetry() {
     const d = await resp.json();
     _renderTelemetry(d, {version, os, device, model});
     _loadOnboarding(days, app);
+    _loadActivity(days);
   } catch (e) {
     document.getElementById('tel-kpis').innerHTML =
       `<div class="card" style="grid-column: span 4">Telemetry error: ${e.message}</div>`;
   }
+}
+
+async function _loadActivity(days) {
+  // Daily-active + new-installs histograms, backed by the rollup-based
+  // summary endpoint (unfiltered, survives the 30-day raw purge).
+  // Additive: a failure here never blocks the main telemetry render.
+  try {
+    const resp = await fetch(`${BASE}/webhooks/admin/telemetry/summary?days=${days}`, {
+      headers: {'X-Admin-Key': adminKey},
+    });
+    if (!resp.ok) return;
+    _renderActivity(await resp.json());
+  } catch (e) { /* additive; non-fatal */ }
+}
+
+function _renderActivity(d) {
+  const s = d.series || {};
+  // Merge two [{day, value}] series onto one day axis (union of days,
+  // missing days = 0) so bars and line align.
+  const merge = (a, b) => {
+    const days = [...new Set([...(a || []).map(p => p.day), ...(b || []).map(p => p.day)])].sort();
+    const val = (arr) => {
+      const byDay = Object.fromEntries((arr || []).map(p => [p.day, p.value]));
+      return days.map(x => byDay[x] || 0);
+    };
+    return {days, a: val(a), b: val(b)};
+  };
+  const mixedOpts = (m, barName, lineName) => ({
+    series: [
+      {name: barName, type: 'column', data: m.a},
+      {name: lineName, type: 'line', data: m.b},
+    ],
+    chart: {type: 'line', height: 240},
+    stroke: {width: [0, 3], curve: 'smooth'},
+    plotOptions: {bar: {columnWidth: '60%', borderRadius: 2}},
+    dataLabels: {enabled: false},
+    xaxis: {categories: m.days.map(x => x.slice(5))},
+    yaxis: {labels: {formatter: (v) => Math.round(v)}, min: 0, forceNiceScale: true},
+    colors: ['#6c8cff', '#b48cff'],
+    legend: {position: 'top'},
+  });
+  _renderChart('tel-chart-active', mixedOpts(
+    merge(s.distinct_devices, s.distinct_users), 'Devices', 'Signed-in users'));
+  _renderChart('tel-chart-new', mixedOpts(
+    merge(s.new_devices, s.new_accounts), 'New devices', 'New accounts'));
 }
 
 async function _loadOnboarding(days, app) {
