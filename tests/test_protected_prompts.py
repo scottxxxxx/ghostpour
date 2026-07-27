@@ -22,6 +22,7 @@ import pytest
 LOCALE_FILES = [
     "config/remote/protected-prompts.json",
     "config/remote/protected-prompts.es.json",
+    "config/remote/protected-prompts.fr.json",
     "config/remote/techrehearsal/protected-prompts.json",
 ]
 
@@ -60,6 +61,11 @@ def test_image_acknowledgement_rule_present(path):
         assert "describe" in instructions
         # "Antes de aplicar cualquier otro marco" — the key directive.
         assert "antes de aplicar" in instructions
+    elif "fr.json" in path:
+        # French rule: image + describe + before-applying directive.
+        assert "image est jointe" in instructions
+        assert "décris" in instructions
+        assert "avant d'appliquer" in instructions
     else:
         # English content (en and tr-prefixed locales share English).
         assert "image is attached" in instructions

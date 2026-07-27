@@ -39,7 +39,8 @@ def test_remote_config_wire_path_matches_ss_contract():
     silently. Pin the wire path AND the values across all three locales."""
     import json
     expected = {"free": 50_000, "plus": 150_000, "pro": 180_000}
-    for variant in ["tiers.json", "tiers.es.json", "tiers.ja.json"]:
+    for variant in ["tiers.json", "tiers.es.json", "tiers.ja.json",
+                    "tiers.fr.json"]:
         d = json.loads(open(f"config/remote/{variant}").read())
         for tier_name, expected_cap in expected.items():
             actual = (

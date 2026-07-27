@@ -1,5 +1,5 @@
 {
- "version": 21,
+ "version": 22,
  "defaultPromptReserveTokens": 8000,
  "providers": [
   {
@@ -31,7 +31,12 @@
      "toolUseSupported": true,
      "cacheControlSupported": true,
      "serverManaged": true,
-     "promptReserveTokens": null
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "Nous sélectionnons le meilleur modèle d'IA pour votre formule d'abonnement. Aucune configuration nécessaire."
+      }
+     }
     }
    ],
    "notes": "GhostPour managed AI service. Sign in with Apple, subscribe, and we handle the rest.",
@@ -68,7 +73,12 @@
      "toolUseSupported": true,
      "cacheControlSupported": false,
      "serverManaged": false,
-     "promptReserveTokens": null
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "Modèle gratuit sur l'appareil. Privé, fonctionne hors ligne. Nécessite un iPhone 15 Pro ou plus récent avec Apple Intelligence activé."
+      }
+     }
     }
    ],
    "notes": "Free, private, works offline. Powered by Apple Intelligence.",
@@ -115,7 +125,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le modèle le plus intelligent d'OpenAI ; raisonnement, tâches agentiques et analyse de documents au plus haut niveau. Contexte de 1M."
+      }
+     }
     },
     {
      "id": "gpt-5.6-sol",
@@ -144,7 +159,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le tout dernier vaisseau amiral d'OpenAI ; le raisonnement le plus puissant de la famille 5.6. Contexte de 1M."
+      }
+     }
     },
     {
      "id": "gpt-5.6-terra",
@@ -173,7 +193,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "GPT-5.6 intermédiaire ; équilibre entre capacité et coût. Contexte de 1M."
+      }
+     }
     },
     {
      "id": "gpt-5.6-luna",
@@ -202,7 +227,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "GPT-5.6 petit et rapide ; économique pour les tâches légères. Contexte de 1M."
+      }
+     }
     },
     {
      "id": "gpt-5.4",
@@ -231,7 +261,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Vaisseau amiral de génération précédente. Moins cher que 5.5 pour les tâches courantes. Contexte de 1M."
+      }
+     }
     },
     {
      "id": "gpt-5.4-mini",
@@ -260,7 +295,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "GPT-5.4 plus rapide et économique pour des tâches bien définies et des prompts précis."
+      }
+     }
     },
     {
      "id": "gpt-5.4-nano",
@@ -289,7 +329,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "La variante GPT-5.4 la plus rapide et la moins chère ; idéale pour le résumé et la classification."
+      }
+     }
     }
    ],
    "notes": "OpenAI cloud models.",
@@ -337,7 +382,12 @@
      "cacheControlSupported": true,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le modèle le plus puissant d'Anthropic ; un nouveau palier au-dessus d'Opus pour le raisonnement et le travail agentique les plus exigeants. Contexte de 1M."
+      }
+     }
     },
     {
      "id": "claude-opus-5",
@@ -366,7 +416,12 @@
      "cacheControlSupported": true,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le tout dernier Opus d'Anthropic ; codage agentique et travail d'entreprise haut de gamme, réflexion adaptative, contexte de 1M."
+      }
+     }
     },
     {
      "id": "claude-opus-4-8",
@@ -395,7 +450,12 @@
      "cacheControlSupported": true,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "L'Opus le plus capable ; travail agentique au long cours à l'état de l'art, réflexion adaptative, contexte de 1M."
+      }
+     }
     },
     {
      "id": "claude-opus-4-7",
@@ -424,7 +484,12 @@
      "cacheControlSupported": true,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Opus de génération précédente ; réflexion adaptative, solide codage agentique, contexte de 1M."
+      }
+     }
     },
     {
      "id": "claude-sonnet-5",
@@ -453,7 +518,12 @@
      "cacheControlSupported": true,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "La meilleure combinaison de vitesse et d'intelligence ; codage et agentique proches d'Opus, réflexion adaptative, contexte de 1M."
+      }
+     }
     },
     {
      "id": "claude-sonnet-4-6",
@@ -481,7 +551,12 @@
      "cacheControlSupported": true,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le meilleur équilibre entre vitesse et intelligence ; réflexion étendue, contexte de 1M, très bon en usage d'ordinateur."
+      }
+     }
     },
     {
      "id": "claude-haiku-4-5-20251001",
@@ -502,7 +577,12 @@
      "toolUseSupported": true,
      "cacheControlSupported": true,
      "serverManaged": false,
-     "promptReserveTokens": null
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "Le Claude le plus rapide avec une intelligence proche de la frontière ; idéal pour les résumés et les tâches à haut volume."
+      }
+     }
     }
    ],
    "notes": "Anthropic cloud models. Opus 4.7 and Sonnet 4.6 support 1M context.",
@@ -546,7 +626,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Dernier modèle de raisonnement haut de gamme ; contexte de 1M, solides performances agentiques et en codage."
+      }
+     }
     },
     {
      "id": "gemini-3.5-flash",
@@ -574,7 +659,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le plus récent modèle rapide de Google ; grande qualité à haute vitesse, contexte de 1M."
+      }
+     }
     },
     {
      "id": "gemini-3.1-flash-lite",
@@ -602,7 +692,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le Gemini le moins cher ; résumés rapides et tâches légères."
+      }
+     }
     },
     {
      "id": "gemini-3.6-flash",
@@ -630,7 +725,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le plus récent modèle rapide de Google ; qualité améliorée et coût de sortie inférieur à 3.5 Flash. Contexte de 1M."
+      }
+     }
     },
     {
      "id": "gemini-3.5-flash-lite",
@@ -658,7 +758,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Gemini léger ; le coût le plus bas pour les tâches simples. Contexte de 1M."
+      }
+     }
     }
    ],
    "notes": "Google Gemini models.",
@@ -705,7 +810,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le vaisseau amiral actuel de xAI ; raisonnement avec intégration de connaissances en temps réel. Contexte de 1M."
+      }
+     }
     }
    ],
    "notes": "xAI Grok models. Grok 4 is reasoning-only.",
@@ -749,7 +859,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "toggle"
+     "reasoningFamily": "toggle",
+     "localizations": {
+      "fr": {
+       "description": "MoE 284B/13B actifs, contexte de 1M. Double mode (réflexion / sans réflexion). Le chat texte frontière le moins cher."
+      }
+     }
     },
     {
      "id": "deepseek-v4-pro",
@@ -775,7 +890,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "toggle"
+     "reasoningFamily": "toggle",
+     "localizations": {
+      "fr": {
+       "description": "MoE 1,6T/49B actifs, contexte de 1M. Double mode (réflexion / sans réflexion). Raisonnement, maths et code de niveau frontière. (Promo de 75% jusqu'au 31/05/2026 ; tarif normal affiché.)"
+      }
+     }
     }
    ],
    "notes": "DeepSeek cloud models. Text-only.",
@@ -819,7 +939,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "toggle"
+     "reasoningFamily": "toggle",
+     "localizations": {
+      "fr": {
+       "description": "Modèle agentique multimodal phare ; MoE de 1T, vision + vidéo, solide usage d'outils."
+      }
+     }
     },
     {
      "id": "kimi-k2.6",
@@ -845,7 +970,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "toggle"
+     "reasoningFamily": "toggle",
+     "localizations": {
+      "fr": {
+       "description": "Dernière génération K2 ; réflexion activée par défaut. Rétention du raisonnement multi-tours via preserve_thinking."
+      }
+     }
     }
    ],
    "notes": "Kimi models from Moonshot AI's official international API. All models support vision and video.",
@@ -890,7 +1020,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "toggle"
+     "reasoningFamily": "toggle",
+     "localizations": {
+      "fr": {
+       "description": "Modèle frontière d'agent et de raisonnement, tâches au long cours, codage, travail à fort enjeu. Réfléchit par défaut."
+      }
+     }
     },
     {
      "id": "qwen3.7-plus",
@@ -917,7 +1052,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "toggle"
+     "reasoningFamily": "toggle",
+     "localizations": {
+      "fr": {
+       "description": "Modèle d'agent multimodal (vision + langage). Coût équilibré pour la production à haut volume. Réfléchit par défaut."
+      }
+     }
     },
     {
      "id": "qwen3-max",
@@ -938,7 +1078,12 @@
      "toolUseSupported": true,
      "cacheControlSupported": false,
      "serverManaged": false,
-     "promptReserveTokens": null
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "Raisonnement complexe, workflows d'entreprise, tâches à fort enjeu."
+      }
+     }
     },
     {
      "id": "qwen-plus",
@@ -959,7 +1104,12 @@
      "toolUseSupported": true,
      "cacheControlSupported": false,
      "serverManaged": false,
-     "promptReserveTokens": null
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "Applications généralistes, équilibre latence/qualité, la plupart des charges de production."
+      }
+     }
     },
     {
      "id": "qwen-flash",
@@ -980,7 +1130,12 @@
      "toolUseSupported": true,
      "cacheControlSupported": false,
      "serverManaged": false,
-     "promptReserveTokens": null
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "Tâches simples à haut volume, chatbots, prototypage rapide, applications sensibles au coût."
+      }
+     }
     }
    ],
    "notes": "Alibaba Qwen models.",
@@ -1029,7 +1184,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Dernier Flash avec un raisonnement de niveau Pro à latence bien plus faible. Contexte de 1M, vision. Le meilleur choix par défaut pour les requêtes en cours de réunion."
+      }
+     }
     },
     {
      "id": "anthropic/claude-haiku-4.5",
@@ -1050,7 +1210,12 @@
      "toolUseSupported": true,
      "cacheControlSupported": true,
      "serverManaged": false,
-     "promptReserveTokens": null
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "Le palier vitesse de Claude, avec vision. Idéal pour les résumés rapides et l'extraction."
+      }
+     }
     },
     {
      "id": "openai/gpt-5-mini",
@@ -1078,7 +1243,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "GPT-5 rapide et économique, avec vision. Bien adapté aux tâches précises en cours de réunion."
+      }
+     }
     },
     {
      "id": "google/gemini-3.1-flash-lite-preview",
@@ -1106,7 +1276,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le modèle Gemini 3 le plus économique. Contexte de 1M, vision ; idéal pour les requêtes à haut volume et sensibles au coût."
+      }
+     }
     },
     {
      "id": "anthropic/claude-sonnet-4.6",
@@ -1134,7 +1309,12 @@
      "cacheControlSupported": true,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Qualité et vitesse équilibrées, avec vision. Souvent le meilleur rédacteur de résumés de réunion."
+      }
+     }
     },
     {
      "id": "google/gemini-3.1-pro-preview",
@@ -1161,7 +1341,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Gemini vaisseau amiral avec contexte de 1M et raisonnement haut de gamme. Le meilleur pour les longues réunions avec analyse approfondie."
+      }
+     }
     },
     {
      "id": "anthropic/claude-opus-4.8",
@@ -1190,7 +1375,12 @@
      "cacheControlSupported": true,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le Claude le plus capable via OpenRouter ; travail agentique à l'état de l'art."
+      }
+     }
     },
     {
      "id": "openai/gpt-5",
@@ -1211,7 +1401,12 @@
      "toolUseSupported": true,
      "cacheControlSupported": false,
      "serverManaged": false,
-     "promptReserveTokens": null
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "GPT-5 vaisseau amiral avec vision. Solide en raisonnement, analyse de documents et rédaction de rapports après réunion."
+      }
+     }
     },
     {
      "id": "openai/gpt-5.5",
@@ -1240,7 +1435,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Dernier GPT-5.5 avec contexte de 1M. Raisonnement et tâches agentiques au plus haut niveau ; la meilleure qualité pour l'analyse après réunion."
+      }
+     }
     },
     {
      "id": "openai/gpt-5.5-pro",
@@ -1261,7 +1461,12 @@
      "toolUseSupported": true,
      "cacheControlSupported": false,
      "serverManaged": false,
-     "promptReserveTokens": null
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "Le palier de précision premium de GPT-5.5. À utiliser quand l'exactitude compte plus que le coût."
+      }
+     }
     },
     {
      "id": "deepseek/deepseek-v4-flash",
@@ -1287,7 +1492,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "toggle"
+     "reasoningFamily": "toggle",
+     "localizations": {
+      "fr": {
+       "description": "Le chat texte frontière le moins cher. Contexte de 1M, raisonnement double mode. Excellent pour le résumé à grande échelle."
+      }
+     }
     },
     {
      "id": "deepseek/deepseek-v4-pro",
@@ -1313,7 +1523,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "toggle"
+     "reasoningFamily": "toggle",
+     "localizations": {
+      "fr": {
+       "description": "Raisonnement texte de niveau frontière. 1,6T/49B paramètres actifs, contexte de 1M, double mode. (Promo de 75% jusqu'au 31/05/2026 ; tarif normal affiché.)"
+      }
+     }
     },
     {
      "id": "perplexity/sonar",
@@ -1334,7 +1549,12 @@
      "toolUseSupported": true,
      "cacheControlSupported": false,
      "serverManaged": false,
-     "promptReserveTokens": null
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "Adossé à la recherche web en temps réel. Renseignez-vous sur les entreprises, les personnes ou les sujets mentionnés en réunion, au fil de l'eau."
+      }
+     }
     },
     {
      "id": "meta-llama/llama-4-maverick",
@@ -1355,7 +1575,12 @@
      "toolUseSupported": true,
      "cacheControlSupported": false,
      "serverManaged": false,
-     "promptReserveTokens": null
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "Vaisseau amiral à poids ouverts, avec vision. Alternative économique compétitive avec un solide support multilingue."
+      }
+     }
     },
     {
      "id": "x-ai/grok-4.3",
@@ -1384,7 +1609,12 @@
      "cacheControlSupported": false,
      "serverManaged": false,
      "promptReserveTokens": null,
-     "reasoningFamily": "effort"
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le vaisseau amiral actuel de xAI via OpenRouter ; raisonnement avec connaissances en temps réel."
+      }
+     }
     },
     {
      "id": "mistralai/mistral-large-2512",
@@ -1405,7 +1635,12 @@
      "toolUseSupported": true,
      "cacheControlSupported": false,
      "serverManaged": false,
-     "promptReserveTokens": null
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "Le dernier grand modèle de Mistral ; solides performances multilingues."
+      }
+     }
     },
     {
      "id": "qwen/qwen3-vl-235b-a22b-instruct",
@@ -1426,7 +1661,12 @@
      "toolUseSupported": true,
      "cacheControlSupported": false,
      "serverManaged": false,
-     "promptReserveTokens": null
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "Le modèle de vision multilingue le plus puissant. Le meilleur choix pour les réunions en japonais, en mandarin ou dans d'autres langues que l'anglais."
+      }
+     }
     }
    ],
    "notes": "OpenRouter provides a unified API for 300+ models. Pay-as-you-go with spend caps on the key itself. Create an API key at openrouter.ai/keys and set a monthly limit for safety.",
