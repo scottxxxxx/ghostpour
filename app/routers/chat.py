@@ -405,6 +405,7 @@ async def verify_receipt(
                 old_tier=old_tier_name,
                 new_tier=new_tier_name,
                 event_type="trial_start",
+                offer_id=body.offer_id,
             ))
             # History log: a trial start is a subscription in Apple's eyes (an
             # introductory offer), so it marks the user as no longer a "new
@@ -505,6 +506,7 @@ async def verify_receipt(
             old_tier=old_tier_name,
             new_tier=new_tier_name,
             event_type=event_type,
+            offer_id=body.offer_id,
         ))
         # History log: record the paid state change (new sub, trial conversion,
         # upgrade, or downgrade). Re-verifications (no state change) are skipped
