@@ -25,7 +25,7 @@ from pathlib import Path
 import pytest
 
 _DOC_LOCALE_FILES = ["client-config.json", "client-config.es.json",
-                     "client-config.ja.json"]
+                     "client-config.ja.json", "client-config.fr.json"]
 # every persistent file any test in this module writes (snapshot set)
 _LOCALE_FILES = _DOC_LOCALE_FILES + ["entitlements.json"]
 

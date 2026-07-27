@@ -40,6 +40,7 @@ PROVIDER_FILES = [
     "config/remote/llm-providers.json",
     "config/remote/llm-providers.es.json",
     "config/remote/llm-providers.ja.json",
+    "config/remote/llm-providers.fr.json",
 ]
 
 REQUIRED_FIELDS = (

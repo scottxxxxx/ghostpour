@@ -35,6 +35,7 @@ CAPABILITY_FILES = [
     "config/remote/model-capabilities.json",
     "config/remote/model-capabilities.es.json",
     "config/remote/model-capabilities.ja.json",
+    "config/remote/model-capabilities.fr.json",
 ]
 
 

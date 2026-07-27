@@ -1863,7 +1863,8 @@ async def update_entitlements_documents(
             detail='min_tier must be "free", "plus", or "pro"')
 
     files_updated: list[dict] = []
-    for slug in ("client-config", "client-config.es", "client-config.ja"):
+    for slug in ("client-config", "client-config.es", "client-config.ja",
+                 "client-config.fr"):
         path = CONFIG_DIR / f"{slug}.json"
         if not path.exists():
             continue
