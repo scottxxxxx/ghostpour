@@ -74,8 +74,11 @@ com.shouldersurf.ShoulderSurf:
           # the first App Store install is at or above this pair by
           # construction. If review forces a resubmit at a higher build,
           # update this pair at approval per the launch runbook.
+          # Approved 2026-07-26: ASC READY_FOR_SALE, version 1.0 build
+          # 803 (the post-rejection resubmission carrying the deletion
+          # flow; 777 never shipped).
           version: "1.0"
-          build: "777"
+          build: "803"
           # Real App Store link (apple_id from ASC). Dead until approval,
           # but unreachable until then too: only appstore-distribution
           # clients read this block and none exist pre-approval.
