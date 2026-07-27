@@ -46,8 +46,10 @@ _GANTT_SCHEMA_PROMPT = (
     "is evident. percent_complete is STRICTLY what a person stated in the "
     "content (\"about 80 percent\" is 80): when nobody stated a value, use "
     "null; never estimate, and never infer a percent from status. "
-    "Compose project and name strings without em or en dashes, even when "
-    "the source content uses them: rewrite with a hyphen, colon, or comma. "
+    "Compose project and name strings without em or en dashes, and never "
+    "imitate a dash with a spaced hyphen (word - word): a hyphen may "
+    "appear only inside a hyphenated word. Where a dash would fit, use "
+    "a colon or comma instead, even when the source content uses one. "
     "Extract every task and milestone discussed. Output only the JSON object."
 )
 
@@ -76,8 +78,10 @@ _GANTT_DETAILED_SCHEMA_PROMPT = (
     "owner), with field naming which value each quote supports; include "
     "speaker when identifiable; omit evidence you do not have rather than "
     "paraphrasing. Compose project, name, and effort strings without em "
-    "or en dashes, even when the source content uses them: rewrite with a "
-    "hyphen, colon, or comma. Evidence quotes are the one exception and "
+    "or en dashes, and never imitate a dash with a spaced hyphen "
+    "(word - word): a hyphen may appear only inside a hyphenated word. "
+    "Where a dash would fit, use a colon or comma instead, even when "
+    "the source content uses one. Evidence quotes are the one exception and "
     "stay verbatim, exactly as spoken. Extract every task and milestone "
     "discussed. Output only the JSON object."
 )
