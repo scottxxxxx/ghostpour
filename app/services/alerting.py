@@ -136,6 +136,20 @@ KNOWN_CATEGORIES: dict[str, dict] = {
             "move."
         ),
     },
+    "assn_unmatched": {
+        "label": "Apple notification with no matching user",
+        "description": (
+            "An App Store Server Notification arrived for a transaction "
+            "GP has never seen (no stored originalTransactionId, no "
+            "appAccountToken). Usually a purchase or offer-code "
+            "redemption that happened before the client's first "
+            "verify-receipt: the subscription is real on Apple's side "
+            "but no tier flip applied. Self-heals when that user's app "
+            "next calls verify-receipt; until then they're paying (or "
+            "gifted) without entitlements. Deduped per transaction id "
+            "while open."
+        ),
+    },
     "cert_pin_auto_republish": {
         "label": "Cert pin auto-republish needs attention",
         "description": (
