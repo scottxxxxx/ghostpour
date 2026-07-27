@@ -4039,6 +4039,35 @@ async def campaign_events(
             if d["app_locale"] is None and t["app_locale"]:
                 d["app_locale"] = t["app_locale"]
 
+    # Inferred click dwell (Scott 2026-07-27): when a click arrives without
+    # visible_ms (clients only started attaching it to clicks late), derive
+    # time-to-click from the same device's most recent PRIOR impression on
+    # this campaign — semantically identical to what the client measures
+    # (SS: click visible_ms = time-to-click; only dismiss = total dwell).
+    # Marked dwell_inferred so the UI can render it as approximate.
+    def _iso_ms(s: str) -> float | None:
+        try:
+            return datetime.fromisoformat(s).timestamp() * 1000
+        except (ValueError, TypeError):
+            return None
+
+    for r in rows:
+        if r["event_type"] != "click" or r["visible_ms"] is not None:
+            continue
+        click_ms = _iso_ms(r["created_at"])
+        if click_ms is None:
+            continue
+        imp = await (await db.execute(
+            "SELECT created_at FROM promo_events "
+            "WHERE campaign_id = ? AND device_id = ? AND event_type = 'impression' "
+            "AND created_at < ? ORDER BY created_at DESC LIMIT 1",
+            (campaign_id, r["device_id"], r["created_at"]),
+        )).fetchone()
+        imp_ms = _iso_ms(imp["created_at"]) if imp else None
+        if imp_ms is not None and click_ms >= imp_ms:
+            r["visible_ms"] = int(click_ms - imp_ms)
+            r["dwell_inferred"] = True
+
     out = []
     for r in rows:
         u = users.get(r["user_id"]) or {}
