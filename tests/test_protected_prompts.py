@@ -68,6 +68,27 @@ def test_image_acknowledgement_rule_present(path):
         assert "literal question" in instructions
 
 
+SS_LOCALE_FILES = [p for p in LOCALE_FILES if "techrehearsal/" not in p]
+
+
+@pytest.mark.parametrize("path", SS_LOCALE_FILES)
+def test_build_804_prompt_keys_present(path):
+    """SS build 804 moved two compiled prompts to config fields read via
+    decodeIfPresent: reanalyzeSummaryPrompt (summary regen after
+    speaker-name corrections) and followUpInstruction (replaces the mode
+    prompt on follow-up turns). Seeded 2026-07-27 from SS's compiled
+    fallback; served in English for every locale per SS (their prompt
+    text has never been localized). Dropping a key silently reverts
+    those clients to the bundled fallback, so presence is the contract.
+    followUpInstruction must read as a standalone instruction: the
+    client may append an output-format block after it."""
+    data = _load(path)
+    for key in ("reanalyzeSummaryPrompt", "followUpInstruction"):
+        assert key in data, f"{path} missing {key}"
+        assert len(data[key]) > 0
+        assert "—" not in data[key] and "–" not in data[key]
+
+
 @pytest.mark.parametrize("path", LOCALE_FILES)
 def test_version_bumped_after_rule_addition(path):
     """The rule landed at v8 (en + es) and v2 (tr). If anyone reverts
