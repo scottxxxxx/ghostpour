@@ -180,6 +180,18 @@ async def ping(
                 },
             )
 
+    # Durable device first-seen, feeding the dashboard's new-installs
+    # trend. Raw telemetry purges at 30 days; this row never does, so a
+    # device quiet for a month doesn't count as "new" again. Runs before
+    # the onboarding branch so every event type pins it. Anonymous
+    # (device_id only), same retention standing as the daily rollups.
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.execute(
+        "INSERT OR IGNORE INTO telemetry_devices (device_id, first_seen_at) "
+        "VALUES (?, ?)",
+        (body.device_id, now_iso),
+    )
+
     # Onboarding funnel: a richer, distinct event that lands in its own table
     # (one row per finished-or-abandoned onboarding), keyed by device_id for
     # the conversion join. No geo needed (first-run, not geo-targeted), so
@@ -197,7 +209,7 @@ async def ping(
                 str(uuid.uuid4()),
                 body.device_id,
                 getattr(request.state, "app_id", "unknown"),
-                datetime.now(timezone.utc).isoformat(),
+                now_iso,
                 ob.total_duration_ms,
                 int(ob.completed),
                 int(ob.tour_skipped),
@@ -242,7 +254,7 @@ async def ping(
             body.os_version,
             body.duration_seconds,
             ip_h,
-            datetime.now(timezone.utc).isoformat(),
+            now_iso,
             body.device_model,
             body.app_locale,
             getattr(request.state, "app_id", "unknown"),

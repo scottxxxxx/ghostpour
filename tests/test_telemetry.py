@@ -258,8 +258,76 @@ def test_admin_summary_returns_expected_shape(client, tmp_db_path):
     assert set(data["series"].keys()) == {
         "app_starts", "meetings_started", "meetings_stopped",
         "distinct_devices", "distinct_users",
+        "new_devices", "new_accounts",
     }
     assert isinstance(data["models"], list)
     assert any(m["model_id"] == "haiku" for m in data["models"])
     assert data["duration"]["avg_sec"] == 120.0
     assert data["duration"]["sample_size"] == 1
+
+
+# --- Durable device first-seen (telemetry_devices) --------------------------
+
+
+def test_ping_pins_first_seen_once(client, tmp_db_path):
+    """First ping creates the device row; later pings never move it.
+    This is the durable install-date the dashboard's new-per-day chart
+    reads, so it must survive repeat activity unchanged."""
+    r = client.post("/v1/events/ping", json={
+        "event_type": "app_start", "device_id": _VALID_UUID,
+    })
+    assert r.status_code == 204
+    conn = sqlite3.connect(tmp_db_path)
+    first = conn.execute(
+        "SELECT first_seen_at FROM telemetry_devices WHERE device_id = ?",
+        (_VALID_UUID,)).fetchone()[0]
+
+    r = client.post("/v1/events/ping", json={
+        "event_type": "meeting_start", "device_id": _VALID_UUID,
+        "meeting_id": str(uuid.uuid4()),
+    })
+    assert r.status_code == 204
+    rows = conn.execute(
+        "SELECT first_seen_at FROM telemetry_devices WHERE device_id = ?",
+        (_VALID_UUID,)).fetchall()
+    assert rows == [(first,)]
+
+
+def test_init_db_backfills_first_seen_from_raw_events(client, tmp_db_path, app_env):
+    """Devices that pinged before the table existed get first_seen_at
+    backfilled from the earliest surviving raw event at startup."""
+    from app.database import init_db
+
+    _seed_events(tmp_db_path, [
+        {"event_type": "app_start", "device_id": "dev-old",
+         "received_at": "2026-07-20T08:00:00+00:00"},
+        {"event_type": "app_start", "device_id": "dev-old",
+         "received_at": "2026-07-25T09:00:00+00:00"},
+    ])
+    asyncio.run(init_db(app_env["CZ_DATABASE_URL"]))
+
+    conn = sqlite3.connect(tmp_db_path)
+    row = conn.execute(
+        "SELECT first_seen_at FROM telemetry_devices WHERE device_id = 'dev-old'"
+    ).fetchone()
+    assert row == ("2026-07-20T08:00:00+00:00",)
+
+
+def test_summary_new_devices_and_accounts_series(client, tmp_db_path):
+    """A ping today lands in new_devices; a user row lands in new_accounts."""
+    from tests.conftest import _insert_user
+
+    today_iso = datetime.now(timezone.utc).date().isoformat()
+    r = client.post("/v1/events/ping", json={
+        "event_type": "app_start", "device_id": _VALID_UUID,
+    })
+    assert r.status_code == 204
+    _insert_user(tmp_db_path, "fresh-user-1")
+
+    r = client.get("/webhooks/admin/telemetry/summary?days=7",
+                   headers={"X-Admin-Key": _ADMIN_KEY})
+    assert r.status_code == 200
+    series = r.json()["series"]
+    assert {"day": today_iso, "value": 1} in series["new_devices"]
+    assert any(p["day"] == today_iso and p["value"] >= 1
+               for p in series["new_accounts"])
