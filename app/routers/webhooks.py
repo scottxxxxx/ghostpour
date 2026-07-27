@@ -2387,10 +2387,18 @@ async def list_users(
     users = []
     for r in await cursor.fetchall():
         monthly_used = float(r["monthly_used_usd"] or 0)
-        monthly_limit = float(r["monthly_cost_limit_usd"] or 0)
         window_cost = float(r["window_cost_usd"] or 0)
         tier_name = r["tier"]
         tier_def = tier_config.tiers.get(tier_name)
+        # users.monthly_cost_limit_usd is a per-user OVERRIDE and is NULL
+        # for almost everyone; fall back to the tier's limit. Without the
+        # fallback every free user rendered as "∞ hrs" while the budget
+        # gate (usage_tracker, which reads the tier config) was enforcing
+        # $1.75 the whole time (2026-07-27).
+        raw_limit = r["monthly_cost_limit_usd"]
+        if raw_limit is None and tier_def:
+            raw_limit = tier_def.monthly_cost_limit_usd
+        monthly_limit = float(raw_limit or 0)
 
         # Derive the display gauge from `window_cost_usd` (the sum from
         # usage_log over the last `days` window), NOT from
