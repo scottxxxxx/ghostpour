@@ -35,9 +35,13 @@ tiers:
     display_name: "Free"
     description: "Try AI-powered meeting assistance with a small free credit."
     default_model: "anthropic/claude-haiku-4-5-20251001"
-    # TestFlight: free cap raised 5x ($0.35 -> $1.75) so beta testers aren't
-    # throttled during the beta. Revisit before GA.
-    monthly_cost_limit_usd: 1.75
+    # GA cap (Scott 2026-07-27): $1.00/month, deliberately never expressed
+    # as hours anywhere user-facing. The served copy promises only "a
+    # monthly allowance of AI credits", so this is a silent dial: users
+    # see 10,000 credits and however far that goes. History: $0.35 at
+    # launch of the beta, raised 5x to $1.75 for TestFlight testers,
+    # settled here at GA (nobody was above $0.15 MTD at the change).
+    monthly_cost_limit_usd: 1.00
     daily_cost_limit_usd: -1
     daily_token_limit: -1
     requests_per_minute: 5
@@ -55,7 +59,7 @@ tiers:
     max_input_tokens: 50000
     storekit_product_id: ""
     feature_bullets:
-      - "~25 hours/month of AI assistance"
+      - "A monthly allowance of AI credits, enough for regular use"
       - "Real-time auto-summaries"
       - "On-device transcription (unlimited)"
       - "1 image per query"
