@@ -1,7 +1,7 @@
 ---
 call_type: tr_response_analysis
 config_slug: techrehearsal/response-analysis
-served_version: 13
+served_version: 15
 model_dial: sonnet-4-6 (all tiers, explicit)
 recommended_model: claude-sonnet-4-6
 temperature: 0.2

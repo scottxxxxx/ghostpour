@@ -1,7 +1,7 @@
 ---
 call_type: tr_mock_interview
 config_slug: techrehearsal/mock-interview
-served_version: 5
+served_version: 7
 model_dial: sonnet-4-6 (all tiers, explicit)
 recommended_model: claude-sonnet-4-6
 reconciled: 2026-07-26
