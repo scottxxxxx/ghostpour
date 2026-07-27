@@ -341,3 +341,20 @@ def test_reasoning_levels_consistent_with_supports_reasoning(path):
                 f"{path}:{prov_id}/{mid} has supportsReasoning=false but "
                 f"reasoningLevels={levels!r} (must be null)"
             )
+
+
+@pytest.mark.parametrize("path", PROVIDER_FILES)
+def test_provider_level_defaults_are_required_numerics(path):
+    """SS decoder landmine (confirmed by SS 2026-07-27, LLMService.swift:257):
+    PROVIDER-level temperatureDefault and maxTokensDefault decode as
+    required non-optional numbers. A null or missing value one level up
+    from the models throws the decode and silently drops every client to
+    its bundled snapshot, freezing the model list at build time.
+    Model-level temperatureDefault: null is fine (not decoded)."""
+    data = _load(path)
+    for p in data["providers"]:
+        for field in ("temperatureDefault", "maxTokensDefault"):
+            v = p.get(field)
+            assert isinstance(v, (int, float)) and not isinstance(v, bool), (
+                f"{path}: provider {p['id']} {field} must be a number, "
+                f"got {v!r} — null/missing bricks the client-side decode")
