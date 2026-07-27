@@ -1,10 +1,10 @@
 ---
 call_type: tr_mock_interview
 config_slug: techrehearsal/mock-interview
-served_version: 4
+served_version: 5
 model_dial: sonnet-4-6 (all tiers, explicit)
 recommended_model: claude-sonnet-4-6
-reconciled: 2026-07-24
+reconciled: 2026-07-26
 ---
 
 # Mock Interview (tr_mock_interview)
@@ -20,6 +20,12 @@ Predates the live counterpart lane and remains the interview path.
 - 2026-07-05: entitlement cluster flip (B2 era).
 - 2026-07-08: GP-owned after the prompt migration; Sonnet dial.
 - 2026-07-23/24 #504: spaced-hyphen ban.
+- 2026-07-26: ConversationPracticeGen served (practice-mode migration).
+  The conversation-practice beats generator, formerly the client
+  practiceSchema, now a mode on this call type; the client goes
+  promptless with prompt_mode ConversationPracticeGen + scenario_kind
+  metadata. Interview mode untouched. Also repaired the garbled
+  dash-ban sentence ('(, )').
 
 ## Known failure modes and guardrails
 

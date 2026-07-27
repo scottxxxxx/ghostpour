@@ -1,11 +1,11 @@
 ---
 call_type: tr_response_analysis
 config_slug: techrehearsal/response-analysis
-served_version: 12
+served_version: 13
 model_dial: sonnet-4-6 (all tiers, explicit)
 recommended_model: claude-sonnet-4-6
 temperature: 0.2
-reconciled: 2026-07-24
+reconciled: 2026-07-26
 ---
 
 # Response Analysis (tr_response_analysis)
@@ -35,6 +35,14 @@ worked, what to fix. Shared mechanics live in the base prompt; a
   bad-news beats and was not shipped.
 - 2026-07-23/24 #498/#504: second-person coaching voice; spaced-hyphen
   ban.
+- 2026-07-26: ConversationPracticeScore served (practice-mode
+  migration). The practice scorecard was a CLIENT prompt that bypassed
+  the calibrated anchors entirely; the served mode keeps
+  {{scenario_guidance}} and {{rating_anchors}} so per-kind bands govern
+  practice too. Practice differences (overall = dimension average, five
+  fixed dimensions, conversational star/ownership readings) live in one
+  explicit PRACTICE-MODE DIFFERENCES block, per the no-drift rule. Also
+  repaired the dash-ban sentence garbled by the glyph sweep ('(, )').
 
 ## Known failure modes and guardrails
 

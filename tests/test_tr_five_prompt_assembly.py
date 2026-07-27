@@ -370,3 +370,51 @@ def test_repair_protect_anchors_v2():
     hard = _asm("tr_response_analysis", kind="hardConversation")["system_prompt"]
     assert "acknowledges what the other person is feeling" in hard
     assert "robotic voice" not in hard
+
+
+def test_practice_score_mode_keeps_scenario_anchors():
+    """2026-07-26 practice migration: ConversationPracticeScore was a
+    client prompt that bypassed the calibrated anchors entirely. The
+    served mode keeps {{rating_anchors}} + {{scenario_guidance}}, so
+    practice grading is governed by the same per-kind bands as real
+    sessions; practice differences are one explicit block, not drift."""
+    hard = assemble_prompt("tr_response_analysis", "USER DATA", _cfgs(),
+                           prompt_mode="ConversationPracticeScore",
+                           scenario_kind="hardConversation")["system_prompt"]
+    assert '"dimensions"' in hard and "Boundaries" in hard      # practice contract
+    assert "next_best_sentence" in hard
+    assert "PRACTICE-MODE DIFFERENCES" in hard                  # explicit, not drift
+    assert "acknowledges what the other person is feeling" in hard  # hardConversation anchors
+    assert "{{rating_anchors}}" not in hard and "{{scenario_guidance}}" not in hard
+    assert "TRANSCRIPT NOTE" in hard
+    # the interview scorecard is unchanged and has no practice fields
+    interview = assemble_prompt("tr_response_analysis", "USER DATA", _cfgs(),
+                                prompt_mode="InterviewScorecard",
+                                scenario_kind="jobInterview")["system_prompt"]
+    assert '"dimensions"' not in interview
+    assert "STAR arc" in interview
+
+
+def test_practice_gen_mode_scripts_counterpart_beats():
+    """ConversationPracticeGen: the practice beats generator, formerly
+    the client practiceSchema, now served under tr_mock_interview. The
+    default interview mode must be untouched."""
+    cfgs = {"techrehearsal/mock-interview":
+            json.load(open("config/remote/techrehearsal/mock-interview.json"))}
+    practice = assemble_prompt("tr_mock_interview", "BRIEF", cfgs,
+                               prompt_mode="ConversationPracticeGen")["system_prompt"]
+    assert "OTHER PERSON's side" in practice
+    assert "8-12 beats" in practice
+    assert "text-to-speech" in practice
+    assert "never gratuitously cruel" in practice
+    interview = assemble_prompt("tr_mock_interview", "BRIEF", cfgs)["system_prompt"]
+    assert "OTHER PERSON's side" not in interview
+
+
+def test_tr_served_prompts_carry_clean_dash_ban():
+    """The 2026-07 dash sweep left a garbled example '(, )' inside the
+    dash-ban sentence of these two configs; the line must read clean."""
+    for slug in ("response-analysis", "mock-interview"):
+        text = open(f"config/remote/techrehearsal/{slug}.json").read()
+        assert "em dashes (, )" not in text
+        assert "Never use em dashes or en dashes" in text
