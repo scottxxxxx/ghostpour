@@ -3495,7 +3495,9 @@ async function showCampaignActivity(id) {
   ]);
   const evs = ev.events || [];
   // average dwell from dismiss events (time-on-card before close)
-  const dwells = evs.filter(e=>e.event_type==='dismiss' && e.visible_ms).map(e=>e.visible_ms);
+  // clicks count too once the client attaches visible_ms to them (today
+  // SS only sends it on impression/dismiss, so click rows are null).
+  const dwells = evs.filter(e=>(e.event_type==='dismiss' || e.event_type==='click') && e.visible_ms).map(e=>e.visible_ms);
   const avgDwell = dwells.length ? Math.round(dwells.reduce((a,b)=>a+b,0)/dwells.length/100)/10 : null;
   const stat = (label,val) => `<div style="min-width:74px"><div style="font-size:22px;font-weight:700;color:var(--text)">${val}</div><div style="font-size:11px;color:var(--text-dim)">${label}</div></div>`;
   funnelEl.innerHTML =
