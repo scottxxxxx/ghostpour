@@ -339,6 +339,19 @@ async def verify_receipt(
             body.offer_type == "introductory"
             and (body.offer_price is None or body.offer_price == 0)
         )
+    # Offer-code redemptions are NOT trials (2026-07-28: gifted Pro
+    # accounts showed "Trial Usage" with the $5.10 trial cap). StoreKit
+    # reports a free offer code's payment mode as freeTrial, so the
+    # client's is_trial flag arrives true; the offer reference name is
+    # the tell. Only Apple's INTRODUCTORY offer is a genuine trial: an
+    # offer-code period is a paid-tier entitlement at $0, entitled to
+    # the tier's normal budget and label. Cost guardrail for gifted
+    # accounts is the whale alert, not the trial cap.
+    if is_trial and body.offer_id and body.offer_type != "introductory":
+        logger.info(
+            "verify-receipt: offer-code redemption (%s) unmarked as trial",
+            body.offer_id)
+        is_trial = False
 
     now = datetime.now(timezone.utc)
 
