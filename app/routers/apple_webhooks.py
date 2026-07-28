@@ -103,6 +103,46 @@ async def _downgrade_to_free(db: aiosqlite.Connection, user_id: str, tier_config
     return "free"
 
 
+async def _alert_if_still_unmatched(
+    original_transaction_id, details: dict, grace_seconds: int | None = None,
+) -> None:
+    """Fire the assn_unmatched alert only if the transaction is STILL
+    unmapped after the grace window (verify-receipt usually claims it
+    within seconds; live-measured 17s on the 2026-07-27 production
+    offer-code test). Own DB connection: runs as a detached task after
+    the request's connection is gone. Best-effort, never raises."""
+    try:
+        settings = get_settings()
+        if grace_seconds is None:
+            grace_seconds = settings.assn_unmatched_grace_seconds
+        if grace_seconds > 0:
+            await asyncio.sleep(grace_seconds)
+        db_path = settings.database_url.replace("sqlite+aiosqlite:///", "")
+        db = await aiosqlite.connect(db_path)
+        try:
+            if original_transaction_id:
+                row = await (await db.execute(
+                    "SELECT id FROM users WHERE original_transaction_id = ?",
+                    (original_transaction_id,))).fetchone()
+                if row:
+                    logger.info(
+                        "assn_unmatched: otid=%s claimed within the %ss grace "
+                        "window; no alert", original_transaction_id, grace_seconds)
+                    return
+            from app.services.alerting import report_incident
+            await report_incident(
+                db,
+                category="assn_unmatched",
+                subject=str(original_transaction_id or "no-otid"),
+                details=details,
+                from_addr=settings.alert_email_from,
+            )
+        finally:
+            await db.close()
+    except Exception:
+        logger.exception("assn_unmatched grace check failed (non-fatal)")
+
+
 async def _upgrade_to_tier(
     db: aiosqlite.Connection,
     user_id: str,
@@ -251,28 +291,23 @@ async def apple_notifications(
         )
         # Alert the operator: a real Apple-side subscription event just got
         # dropped on the floor (2026-07-27: a friend-code redemption sat
-        # invisible until a human noticed the tier hadn't flipped). Deduped
-        # per transaction id while the incident is open; best-effort.
-        try:
-            from app.services.alerting import report_incident
-            await report_incident(
-                db,
-                category="assn_unmatched",
-                subject=str(original_transaction_id or "no-otid"),
-                details={
-                    "notification_type": notification_type,
-                    "subtype": subtype or None,
-                    "product_id": transaction_info.get("productId"),
-                    "offer_identifier": transaction_info.get("offerIdentifier"),
-                    "offer_type": transaction_info.get("offerType"),
-                    "original_transaction_id": original_transaction_id,
-                    "environment": (transaction_info.get("environment")
-                                    or data.get("environment")),
-                },
-                from_addr=get_settings().alert_email_from,
-            )
-        except Exception:
-            logger.exception("assn_unmatched alert failed (non-fatal)")
+        # invisible until a human noticed the tier hadn't flipped). Runs
+        # after a grace window because Apple's notification routinely
+        # arrives seconds before the client's verify-receipt; only a
+        # transaction STILL unmatched after the grace is a real orphan.
+        asyncio.create_task(_alert_if_still_unmatched(
+            original_transaction_id,
+            {
+                "notification_type": notification_type,
+                "subtype": subtype or None,
+                "product_id": transaction_info.get("productId"),
+                "offer_identifier": transaction_info.get("offerIdentifier"),
+                "offer_type": transaction_info.get("offerType"),
+                "original_transaction_id": original_transaction_id,
+                "environment": (transaction_info.get("environment")
+                                or data.get("environment")),
+            },
+        ))
         return {"status": "received", "action": "skipped", "reason": "user_not_found"}
 
     user_id = user["id"]

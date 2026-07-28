@@ -82,6 +82,12 @@ class Settings(BaseSettings):
     # email when any user's month-to-date provider cost crosses this.
     # 0 disables. Not a user-facing cap.
     cost_alert_threshold_usd: float = 10.0
+    # Grace window before the assn_unmatched alert fires. Apple's server
+    # notification routinely lands seconds BEFORE the client's
+    # verify-receipt (live-measured 17s on the 2026-07-27 production
+    # offer-code test), so alerting inline made every healthy redemption
+    # email a false orphan. 0 alerts immediately.
+    assn_unmatched_grace_seconds: int = 120
 
     # Provider API Keys
     openai_api_key: str = ""
