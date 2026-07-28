@@ -324,7 +324,9 @@
       <th onclick="sortUserTable('marketing')" style="cursor:pointer">Marketing<span class="sa" data-sk="marketing"></span></th>
       <th onclick="sortUserTable('language')" style="cursor:pointer">Language<span class="sa" data-sk="language"></span></th>
       <th onclick="sortUserTable('ios')" style="cursor:pointer">iOS<span class="sa" data-sk="ios"></span></th>
+      <th onclick="sortUserTable('app')" style="cursor:pointer" title="App version (build) from latest telemetry">App<span class="sa" data-sk="app"></span></th>
       <th onclick="sortUserTable('device')" style="cursor:pointer">Device<span class="sa" data-sk="device"></span></th>
+      <th onclick="sortUserTable('events')" style="cursor:pointer" title="Lifetime telemetry events from this user's devices">Events<span class="sa" data-sk="events"></span></th>
       <th onclick="sortUserTable('location')" style="cursor:pointer" title="Coarse location (city, region, country) from the user's latest telemetry — GeoIP-derived, never the raw IP">Location<span class="sa" data-sk="location"></span></th>
       <th></th>
     </tr></thead><tbody></tbody></table></div>
@@ -683,14 +685,8 @@
       <div class="card" style="padding:16px;grid-column:span 2"><h4 style="margin:0 0 8px">Funnel: app start → meeting start → meeting stop</h4><div id="tel-chart-funnel"></div></div>
       <div class="card" style="padding:16px">
         <h4 style="margin:0 0 8px">Devices by build <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— build column fills as clients send app_build</span></h4>
-        <div class="table-wrap"><table id="tel-builds"><thead><tr>
+        <div class="table-wrap" style="max-height:330px;overflow-y:auto"><table id="tel-builds"><thead><tr>
           <th>Version</th><th>Build</th><th>Devices</th><th>Events</th><th>Last seen</th>
-        </tr></thead><tbody></tbody></table></div>
-      </div>
-      <div class="card" style="padding:16px;grid-column:span 2">
-        <h4 style="margin:0 0 8px">User directory — name (if signed in) + language, by device</h4>
-        <div class="table-wrap"><table id="tel-directory"><thead><tr>
-          <th>Name</th><th>Language</th><th>Device</th><th>App</th><th>Build</th><th>Events</th><th>Last seen</th>
         </tr></thead><tbody></tbody></table></div>
       </div>
     </div>
@@ -1465,20 +1461,6 @@ function _renderTelemetry(d, current) {
       <td>${(x.events || 0).toLocaleString()}</td>
     </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-dim)">No location data in this window (geo DB installed?).</td></tr>';
   }
-  const dirBody = document.querySelector('#tel-directory tbody');
-  if (dirBody) {
-    const dim = v => v ? telEsc(v) : '<span style="color:var(--text-dim)">—</span>';
-    dirBody.innerHTML = (d.directory || []).map(u => `<tr>
-      <td>${u.name ? telEsc(u.name) : '<span style="color:var(--text-dim)">anonymous</span>'}</td>
-      <td>${u.language ? `${telEsc(u.language)}${u.locale ? ` <span style="color:var(--text-dim);font-size:0.85em">(${telEsc(u.locale)})</span>` : ''}` : dim(null)}</td>
-      <td>${dim(u.device)}</td>
-      <td>${dim(u.app_version)}</td>
-      <td>${dim(u.app_build)}</td>
-      <td>${(u.events || 0).toLocaleString()}</td>
-      <td>${u.last_seen ? timeAgo(u.last_seen) : dim(null)}</td>
-    </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-dim)">No telemetry in this window.</td></tr>';
-  }
-
   // --- Devices by build (blind-spot fix 2026-07-22): version+build
   // composite so same-marketing-version builds are distinguishable
   const buildBody = document.querySelector('#tel-builds tbody');
@@ -1753,6 +1735,8 @@ function _userSortVal(u, key) {
     case 'language': return (u.language || '').toLowerCase();
     case 'ios': return u.ios_version || '';
     case 'device': return (u.device || '').toLowerCase();
+    case 'app': return `${u.app_version || ''} ${u.app_build || ''}`;
+    case 'events': return u.telemetry_events || 0;
     case 'location': return u.location ? `${u.location.country||''} ${u.location.region||''} ${u.location.city||''}`.trim().toLowerCase() : '';
     default: return u.created_at || '';
   }
@@ -1808,7 +1792,28 @@ function renderUserRows() {
   _renderUserPagination(sortedAll.length);
   const sorted = sortedAll.slice((_userPage - 1) * _USER_PAGE_SIZE, _userPage * _USER_PAGE_SIZE);
   const utbody = document.querySelector('#user-table tbody');
+  const dimc = '<span style="color:var(--text-dim)">\u2014</span>';
+  const appCell = u => u.app_version
+    ? `${u.app_version}${u.app_build ? ` <span style=\"color:var(--text-dim);font-size:0.85em\">(${u.app_build})</span>` : ''}`
+    : dimc;
   utbody.innerHTML = sorted.map(u => {
+    // Anonymous device rows (never signed in): telemetry-only columns,
+    // no account controls. Folded in so there is exactly one user list.
+    if (u.anonymous) {
+      return `<tr style="opacity:0.75">
+    <td><span style="color:var(--text-dim)">anonymous</span></td>
+    <td>${dimc}</td><td>${dimc}</td><td>${dimc}</td><td>${dimc}</td><td>${dimc}</td><td>${dimc}</td><td>${dimc}</td>
+    <td>${timeAgo(u.last_request)}</td>
+    <td>${dimc}</td>
+    <td>${u.language ? esc(u.language) : dimc}</td>
+    <td>${u.ios_version ? esc(u.ios_version) : dimc}</td>
+    <td>${appCell(u)}</td>
+    <td>${u.device ? esc(u.device) : dimc}</td>
+    <td>${(u.telemetry_events || 0).toLocaleString()}</td>
+    <td>${u.location ? esc([u.location.city, u.location.region, u.location.country].filter(Boolean).join(', ')) : dimc}</td>
+    <td>${dimc}</td>
+  </tr>`;
+    }
     const tierLabel = u.tier_display_name || u.tier;
     // Offer-code periods wear OFFER (with the offer name on hover);
     // only genuine intro trials wear TRIAL.
@@ -1853,7 +1858,9 @@ function renderUserRows() {
     <td>${mkt}</td>
     <td>${u.language ? esc(u.language) : '<span style="color:var(--text-dim)">—</span>'}</td>
     <td>${u.ios_version ? esc(u.ios_version) : '<span style="color:var(--text-dim)">—</span>'}</td>
+    <td>${appCell(u)}</td>
     <td>${u.device ? esc(u.device) : '<span style="color:var(--text-dim)">—</span>'}</td>
+    <td>${(u.telemetry_events || 0).toLocaleString()}</td>
     <td>${u.location ? esc([u.location.city, u.location.region, u.location.country].filter(Boolean).join(', ')) : '<span style="color:var(--text-dim)">—</span>'}</td>
     <td style="display:flex;gap:4px;align-items:center">
       <select class="period-select" style="font-size:11px;padding:3px 6px" onchange="changeTier('${u.id}',this.value,'${u.tier}')" ${u.tier === 'admin' ? 'disabled' : ''}>
@@ -1862,7 +1869,7 @@ function renderUserRows() {
       <button class="refresh-btn" onclick="showUserDetail('${u.id}','${u.email||"User"}')">Detail</button>
     </td>
   </tr>`;
-  }).join('') || '<tr><td colspan="15" style="text-align:center;color:var(--text-dim)">No users yet</td></tr>';
+  }).join('') || '<tr><td colspan="17" style="text-align:center;color:var(--text-dim)">No users yet</td></tr>';
   // Update sort-direction arrows on the headers.
   document.querySelectorAll('#user-table .sa').forEach(s => {
     s.textContent = s.dataset.sk === _userSort.key ? (dir > 0 ? ' ▲' : ' ▼') : '';
@@ -2104,7 +2111,8 @@ async function refresh() {
   if (_userWinTh) _userWinTh.textContent = `${days}d Cost`;
   // Stash rows + tier list, then render via the sortable renderer so column
   // header clicks can re-sort without re-fetching.
-  window._userTableState = { rows: users.users, tierNames };
+  const _anonRows = (users.anonymous_devices || []).map(a => ({...a, id: 'anon:' + a.device_id, anonymous: true}));
+  window._userTableState = { rows: users.users.concat(_anonRows), tierNames };
   renderUserRows();
   renderUserAnalytics(users.users);
 

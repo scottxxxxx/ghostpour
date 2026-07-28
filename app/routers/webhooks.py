@@ -2358,6 +2358,11 @@ async def list_users(
             (SELECT t.device_model FROM telemetry_events t
              WHERE t.user_id = u.id AND t.device_model IS NOT NULL
              ORDER BY t.received_at DESC LIMIT 1) as device_model,
+            (SELECT t.app_build FROM telemetry_events t
+             WHERE t.user_id = u.id AND t.app_build IS NOT NULL
+             ORDER BY t.received_at DESC LIMIT 1) as app_build,
+            (SELECT COUNT(*) FROM telemetry_events t
+             WHERE t.user_id = u.id) as telemetry_events,
             -- Coarse location: latest non-null country/region/city from
             -- telemetry (GeoIP-derived at ingestion; never the raw IP). Unscoped
             -- like the other device columns — location is the user's, not per-app.
@@ -2481,6 +2486,8 @@ async def list_users(
             "language": r["app_locale"],
             "ios_version": r["os_version"],
             "app_version": r["app_version"],
+            "app_build": r["app_build"],
+            "telemetry_events": r["telemetry_events"] or 0,
             "device": to_marketing_name(r["device_model"]),
             "location": (
                 {"country": r["country"], "region": r["region"], "city": r["city"]}
@@ -2488,7 +2495,52 @@ async def list_users(
             ),
         })
 
-    return {"users": users, "count": len(users)}
+    # Anonymous devices: telemetry senders that have never pinged with a
+    # user_id, folded into the single dashboard user list (Scott
+    # 2026-07-28: the Telemetry-tab directory and this list collapsed
+    # into one). Latest-non-null per field, same posture as above.
+    def _dev_latest(col: str) -> str:
+        return (f"(SELECT t2.{col} FROM telemetry_events t2 "
+                f"WHERE t2.device_id = t.device_id AND t2.{col} IS NOT NULL "
+                f"ORDER BY t2.received_at DESC LIMIT 1) AS {col}")
+
+    anon_cur = await db.execute(
+        f"""SELECT t.device_id,
+                   MAX(t.received_at) AS last_seen,
+                   COUNT(*) AS events,
+                   {_dev_latest('device_model')},
+                   {_dev_latest('app_locale')},
+                   {_dev_latest('os_version')},
+                   {_dev_latest('app_version')},
+                   {_dev_latest('app_build')},
+                   {_dev_latest('country')},
+                   {_dev_latest('region')},
+                   {_dev_latest('city')}
+            FROM telemetry_events t
+            WHERE t.device_id NOT IN (
+                SELECT DISTINCT device_id FROM telemetry_events
+                WHERE user_id IS NOT NULL)
+            GROUP BY t.device_id
+            ORDER BY last_seen DESC""")
+    anonymous_devices = []
+    for a in await anon_cur.fetchall():
+        anonymous_devices.append({
+            "device_id": a["device_id"],
+            "language": a["app_locale"],
+            "ios_version": a["os_version"],
+            "app_version": a["app_version"],
+            "app_build": a["app_build"],
+            "telemetry_events": a["events"] or 0,
+            "device": to_marketing_name(a["device_model"]),
+            "last_request": a["last_seen"],
+            "location": (
+                {"country": a["country"], "region": a["region"], "city": a["city"]}
+                if a["country"] else None
+            ),
+        })
+
+    return {"users": users, "count": len(users),
+            "anonymous_devices": anonymous_devices}
 
 
 # --- Telemetry summary (anonymous lifecycle pings) ---
