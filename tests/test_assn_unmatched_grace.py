@@ -48,3 +48,36 @@ async def test_claimed_within_grace_stays_silent(client, app_env):
     await _alert_if_still_unmatched(
         "9990002", {"product_id": "p"}, grace_seconds=0)
     assert _incidents(_db(app_env)) == []
+
+
+@pytest.mark.anyio
+async def test_late_claim_resolves_open_incident(client, app_env):
+    """SS's replay queue can deliver verify-receipt days after the alert
+    legitimately fired. The claim must close the open incident so the
+    late arrival reads as healing, not a second failure. A later
+    re-orphan of the same txn opens (and emails) a fresh incident."""
+    import aiosqlite
+    from app.routers.apple_webhooks import _alert_if_still_unmatched
+    from app.services.alerting import resolve_incident
+
+    await _alert_if_still_unmatched("8880001", {"p": 1}, grace_seconds=0)
+    assert _incidents(_db(app_env)) == [("8880001",)]
+
+    db = await aiosqlite.connect(_db(app_env))
+    try:
+        assert await resolve_incident(db, "assn_unmatched", "8880001") is True
+        # already closed: second resolve is a no-op
+        assert await resolve_incident(db, "assn_unmatched", "8880001") is False
+    finally:
+        await db.close()
+
+    conn = sqlite3.connect(_db(app_env))
+    open_rows = conn.execute(
+        "SELECT COUNT(*) FROM alert_incidents "
+        "WHERE category='assn_unmatched' AND resolved_at IS NULL").fetchone()
+    conn.close()
+    assert open_rows[0] == 0
+
+    # a fresh orphan for the same txn after resolution opens a NEW incident
+    await _alert_if_still_unmatched("8880001", {"p": 2}, grace_seconds=0)
+    assert len(_incidents(_db(app_env))) == 2

@@ -366,6 +366,21 @@ async def verify_receipt(
         (body.transaction_id, user.id),
     )
 
+    # This verify claims the transaction — close any open orphan alert
+    # for it. SS's deferred receipt-replay can land hours or days after
+    # the assn_unmatched alert legitimately fired (their queue drains on
+    # next sign-in); that late arrival is the alert healing, not a fresh
+    # incident. Best-effort: alert bookkeeping never breaks a verify.
+    if body.transaction_id:
+        try:
+            from app.services.alerting import resolve_incident
+            await resolve_incident(
+                db, "assn_unmatched", str(body.transaction_id))
+        except Exception:
+            logger.warning(
+                "assn_unmatched auto-resolve failed for txn %s (non-fatal)",
+                body.transaction_id)
+
     if is_trial:
         # Trial: use trial_cost_limit_usd, 7-day period
         trial_limit = new_tier.trial_cost_limit_usd or new_tier.monthly_cost_limit_usd

@@ -185,6 +185,28 @@ def _fingerprint(category: str, subject: str) -> str:
     return f"{category}:{subject}"
 
 
+async def resolve_incident(
+    db: aiosqlite.Connection, category: str, subject: str,
+) -> bool:
+    """Explicitly close any OPEN incident for (category, subject).
+
+    Built for assn_unmatched (2026-07-28): SS's deferred receipt-replay
+    queue can deliver a verify-receipt hours or days after the orphan
+    alert legitimately fired, and that late claim is the alert HEALING,
+    not a second failure. The claim site calls this so the incident
+    closes the moment the transaction is mapped, instead of lingering
+    open (or worse, reading as a fresh problem). Returns True when an
+    open incident was resolved. Commits only its own change.
+    """
+    cursor = await db.execute(
+        "UPDATE alert_incidents SET resolved_at = ? "
+        "WHERE fingerprint = ? AND resolved_at IS NULL",
+        (_utcnow_iso(), _fingerprint(category, subject)),
+    )
+    await db.commit()
+    return cursor.rowcount > 0
+
+
 async def _sweep_stale_incidents(db: aiosqlite.Connection) -> int:
     """Mark any open incident as resolved when its last_seen is older
     than INCIDENT_AUTO_RESOLVE_MINUTES. Returns count resolved.
