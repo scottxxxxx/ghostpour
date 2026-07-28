@@ -2031,6 +2031,7 @@ async def chat(
                     looks_like_file_ask,
                 )
                 _intent = explicit_file_ask(body.user_content)
+                _deterministic_ask = _intent is not None
                 if _intent is None:
                     _intent = await classify_generation_intent(
                         provider_router, body.user_content, on_subcall=_meter,
@@ -2068,81 +2069,133 @@ async def chat(
                     # anaphoric asks ("make IT into excel") need it.
                     _tmpl = match_template(body.user_content,
                                            format=_intent.get("format"))
-                    _offer_id = generation_offers.create(
-                        user.id, _intent.get("format") or "xlsx",
-                        _intent.get("gist") or "", template_id=_tmpl,
-                        ask_content=body.user_content or "",
-                        images=body.images)
-                    _envelope = build_offer_envelope(
-                        _confirmation, _intent.get("format"),
-                        gist=_intent.get("gist") or "", offer_id=_offer_id)
-                    if _tmpl:
-                        # registry interception: propose the optimized build,
-                        # keep the custom door open (a custom description
-                        # falls through as normal chat and re-offers).
-                        # en-only v1; served copy when templates localize.
-                        _t = TEMPLATES[_tmpl]
-                        _cta = _envelope["feature_state"]["cta"]
-                        # Qualifier gists only — shared guard with the
-                        # plain-offer copy (live 2026-07-14 twice).
-                        from app.services.document_generation import gist_composes
-                        _gist = gist_composes(_intent.get("gist"))
-                        _lead = (f"Sounds like you want a project timeline"
-                                 f"{(' ' + _gist) if _gist else ''}. ")
-                        # Detailed gantt v1: the gantt offer carries the
-                        # style question exactly until this project has a
-                        # saved answer; the reply word resolves + persists
-                        # at arm time (template lane below). Other
-                        # templates keep the stock copy.
-                        _style_pref = None
-                        if _tmpl == "gantt_smartsheet" and body.project_id:
-                            from app.services import project_prefs
-                            _style_pref = await project_prefs.get_pref(
-                                db, user.id, body.project_id, "gantt_style")
-                        if _tmpl == "gantt_smartsheet" and _style_pref is None:
-                            _dt_entry = TEMPLATES["gantt_detailed"]
-                            _cta["text"] = (
-                                _lead
-                                + f"I can build {_t['offer_noun']} in about "
-                                f"{_t['expected_seconds']} seconds, or a "
-                                f"detailed workbook that adds a slip "
-                                f"history of how due dates moved, stated "
-                                f"effort, and a receipts sheet quoting the "
-                                f"meeting line behind every value, in about "
-                                f"{_dt_entry['expected_seconds']} seconds. "
-                                f"Say simple or detailed, or describe "
-                                f"exactly what you have in mind and I'll "
-                                f"build that custom instead.")
-                        elif _tmpl == "gantt_smartsheet" and _style_pref == "detailed":
-                            _dt_entry = TEMPLATES["gantt_detailed"]
-                            _cta["text"] = (
-                                _lead
-                                + f"I can build {_dt_entry['offer_noun']} in "
-                                f"about {_dt_entry['expected_seconds']} "
-                                f"seconds, the detailed style this project "
-                                f"uses. Say simple to switch back, or "
-                                f"describe exactly what you have in mind "
-                                f"and I'll build that custom instead. Want "
-                                f"the detailed one?")
-                        else:
-                            _cta["text"] = (
-                                _lead
-                                + f"I can build {_t['offer_noun']} in about "
-                                f"{_t['expected_seconds']} seconds, or describe "
-                                f"exactly what you have in mind and I'll build "
-                                f"that custom instead. Want the polished one?")
-                        _cta["details"]["template_id"] = _tmpl
-                        _cta["details"]["expected_seconds"] = (
-                            TEMPLATES["gantt_detailed"]["expected_seconds"]
-                            if _style_pref == "detailed"
-                            else _t["expected_seconds"])
-                    logger.info(
-                        "generation_offer_served offer_id=%s surface=%s "
-                        "template=%s format=%s stream_requested=%s",
-                        _offer_id, body.get_meta("prompt_mode"), _tmpl,
-                        _intent.get("format"), bool(body.stream),
+                    # Explicit-command fast path (Scott 2026-07-28: 'Put it
+                    # in a word document' drew a second 'Want the file?').
+                    # A deterministic explicit_file_ask hit IS the
+                    # confirmation — imperative verb plus named format — so
+                    # arm generation on this turn. Template matches keep the
+                    # offer: that question is a real choice (gantt style,
+                    # registry vs custom), not a redundant confirm. Same
+                    # image guard as the confirmed paths: an ask referencing
+                    # a photo that didn't arrive must not build blind.
+                    from app.services.document_generation import (
+                        ask_references_images as _ari_fp,
                     )
-                    return JSONResponse(content=_envelope)
+                    if (_deterministic_ask and not _tmpl
+                            and (body.images
+                                 or not _ari_fp(body.user_content or ""))):
+                        _gen_armed = True
+                        _template_id = None
+                        _meta_fp = dict(body.metadata or {})
+                        _meta_fp["generation_confirmed"] = True
+                        body = body.model_copy(update={"metadata": _meta_fp})
+                        logger.info(
+                            "generation_fast_path armed=1 format=%s",
+                            _intent.get("format"))
+                        _re_model = _resolve_model_routing(
+                            request, body, tier, effective_tier_name)
+                        if _re_model:
+                            _parts = _re_model.split("/", 1)
+                            if len(_parts) == 2:
+                                body = body.model_copy(update={
+                                    "provider": _parts[0],
+                                    "model": _parts[1]})
+                            elif _re_model != body.model:
+                                body = body.model_copy(
+                                    update={"model": _re_model})
+                    else:
+                        # Deterministic hits skip the classifier, but the
+                        # template offer's copy composes better with its
+                        # gist ("...for the migration project"). We're
+                        # about to converse anyway, so harvest one;
+                        # classify is fail-open (None on any failure).
+                        if (_deterministic_ask
+                                and not (_intent.get("gist") or "").strip()):
+                            _enriched = await classify_generation_intent(
+                                provider_router, body.user_content,
+                                on_subcall=_meter)
+                            if _enriched and _enriched.get("file_request"):
+                                _intent = {
+                                    **_intent,
+                                    "gist": _enriched.get("gist") or "",
+                                    "format": (_intent.get("format")
+                                               or _enriched.get("format")),
+                                }
+                        _offer_id = generation_offers.create(
+                            user.id, _intent.get("format") or "xlsx",
+                            _intent.get("gist") or "", template_id=_tmpl,
+                            ask_content=body.user_content or "",
+                            images=body.images)
+                        _envelope = build_offer_envelope(
+                            _confirmation, _intent.get("format"),
+                            gist=_intent.get("gist") or "", offer_id=_offer_id)
+                        if _tmpl:
+                            # registry interception: propose the optimized build,
+                            # keep the custom door open (a custom description
+                            # falls through as normal chat and re-offers).
+                            # en-only v1; served copy when templates localize.
+                            _t = TEMPLATES[_tmpl]
+                            _cta = _envelope["feature_state"]["cta"]
+                            # Qualifier gists only — shared guard with the
+                            # plain-offer copy (live 2026-07-14 twice).
+                            from app.services.document_generation import gist_composes
+                            _gist = gist_composes(_intent.get("gist"))
+                            _lead = (f"Sounds like you want a project timeline"
+                                     f"{(' ' + _gist) if _gist else ''}. ")
+                            # Detailed gantt v1: the gantt offer carries the
+                            # style question exactly until this project has a
+                            # saved answer; the reply word resolves + persists
+                            # at arm time (template lane below). Other
+                            # templates keep the stock copy.
+                            _style_pref = None
+                            if _tmpl == "gantt_smartsheet" and body.project_id:
+                                from app.services import project_prefs
+                                _style_pref = await project_prefs.get_pref(
+                                    db, user.id, body.project_id, "gantt_style")
+                            if _tmpl == "gantt_smartsheet" and _style_pref is None:
+                                _dt_entry = TEMPLATES["gantt_detailed"]
+                                _cta["text"] = (
+                                    _lead
+                                    + f"I can build {_t['offer_noun']} in about "
+                                    f"{_t['expected_seconds']} seconds, or a "
+                                    f"detailed workbook that adds a slip "
+                                    f"history of how due dates moved, stated "
+                                    f"effort, and a receipts sheet quoting the "
+                                    f"meeting line behind every value, in about "
+                                    f"{_dt_entry['expected_seconds']} seconds. "
+                                    f"Say simple or detailed, or describe "
+                                    f"exactly what you have in mind and I'll "
+                                    f"build that custom instead.")
+                            elif _tmpl == "gantt_smartsheet" and _style_pref == "detailed":
+                                _dt_entry = TEMPLATES["gantt_detailed"]
+                                _cta["text"] = (
+                                    _lead
+                                    + f"I can build {_dt_entry['offer_noun']} in "
+                                    f"about {_dt_entry['expected_seconds']} "
+                                    f"seconds, the detailed style this project "
+                                    f"uses. Say simple to switch back, or "
+                                    f"describe exactly what you have in mind "
+                                    f"and I'll build that custom instead. Want "
+                                    f"the detailed one?")
+                            else:
+                                _cta["text"] = (
+                                    _lead
+                                    + f"I can build {_t['offer_noun']} in about "
+                                    f"{_t['expected_seconds']} seconds, or describe "
+                                    f"exactly what you have in mind and I'll build "
+                                    f"that custom instead. Want the polished one?")
+                            _cta["details"]["template_id"] = _tmpl
+                            _cta["details"]["expected_seconds"] = (
+                                TEMPLATES["gantt_detailed"]["expected_seconds"]
+                                if _style_pref == "detailed"
+                                else _t["expected_seconds"])
+                        logger.info(
+                            "generation_offer_served offer_id=%s surface=%s "
+                            "template=%s format=%s stream_requested=%s",
+                            _offer_id, body.get_meta("prompt_mode"), _tmpl,
+                            _intent.get("format"), bool(body.stream),
+                        )
+                        return JSONResponse(content=_envelope)
 
     if _gen_armed and not _template_id:
         body = body.model_copy(update={"generation": True})

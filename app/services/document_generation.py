@@ -137,7 +137,9 @@ _FILE_ASK_HINTS = (
 # spreadsheet", "build the docx" must never depend on a sampled classifier.
 # Deterministic pattern -> file_request True with the noun's format; the
 # LLM classifier only handles everything softer.
-_EXPLICIT_VERBS = r"(?:make|generate|build|create|produce|export)"
+# "put ... in/into a word document" was the live 2026-07-28 phrasing that
+# missed this catch and fell to the classifier + a redundant confirm.
+_EXPLICIT_VERBS = r"(?:make|generate|build|create|produce|export|put|turn|convert|save)"
 _EXPLICIT_NOUNS = {
     "xlsx": r"(?:spreadsheet|excel|xlsx|workbook|hoja de c\u00e1lculo|\u30b9\u30d7\u30ec\u30c3\u30c9\u30b7\u30fc\u30c8|\u30a8\u30af\u30bb\u30eb)",
     "docx": r"(?:word doc\w*|docx|documento de word|\u30ef\u30fc\u30c9)",
