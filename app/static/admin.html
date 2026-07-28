@@ -7,6 +7,12 @@
 <!-- ApexCharts for the Telemetry dashboard. CDN load avoids a build
      step. Pinned major so we don't drift into a breaking release. -->
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3"></script>
+<!-- jsVectorMap for the Users-tab world heat map. Same CDN posture as
+     ApexCharts. Country-level only: GeoIP gives us country/region/city
+     strings and we deliberately never store coordinates. -->
+<link href="https://cdn.jsdelivr.net/npm/jsvectormap@1.6/dist/jsvectormap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/jsvectormap@1.6/dist/jsvectormap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsvectormap@1.6/dist/maps/world.js"></script>
 <style>
   :root {
     --bg: #0d1117;
@@ -282,7 +288,29 @@
 
   <!-- Users -->
   <div id="tab-users" class="section">
-    <h3>All Users</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;margin-bottom:14px">
+      <div class="card" style="padding:14px;grid-column:span 2;min-width:0">
+        <h4 style="margin:0 0 8px">Users by country <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— heat by user count. Country-level GeoIP; coordinates are never stored</span></h4>
+        <div id="users-world-map" style="height:290px"></div>
+      </div>
+      <div class="card" style="padding:14px;min-width:0">
+        <h4 style="margin:0 0 8px">Tier mix</h4>
+        <div id="users-tier-donut"></div>
+      </div>
+      <div class="card" style="padding:14px;min-width:0">
+        <h4 style="margin:0 0 8px">Total users over time</h4>
+        <div id="users-growth"></div>
+      </div>
+      <div class="card" style="padding:14px;min-width:0">
+        <h4 style="margin:0 0 8px">Signups by day <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— last 14 days</span></h4>
+        <div id="users-signups"></div>
+      </div>
+      <div class="card" style="padding:14px;min-width:0">
+        <h4 style="margin:0 0 8px">Top locations</h4>
+        <div id="users-top-locations" style="font-size:13px"></div>
+      </div>
+    </div>
+    <h3 style="margin:6px 0 8px">All Users</h3>
     <div class="table-wrap"><table id="user-table"><thead><tr>
       <th onclick="sortUserTable('user')" style="cursor:pointer">User<span class="sa" data-sk="user"></span></th>
       <th onclick="sortUserTable('tier')" style="cursor:pointer">Tier<span class="sa" data-sk="tier"></span></th>
@@ -300,6 +328,7 @@
       <th onclick="sortUserTable('location')" style="cursor:pointer" title="Coarse location (city, region, country) from the user's latest telemetry — GeoIP-derived, never the raw IP">Location<span class="sa" data-sk="location"></span></th>
       <th></th>
     </tr></thead><tbody></tbody></table></div>
+    <div id="user-pagination" style="display:flex;justify-content:space-between;align-items:center;margin:8px 2px 0;font-size:13px;color:var(--text-dim)"></div>
 
     <!-- User detail panel (shown when clicking a user) -->
     <div id="user-detail" style="display:none">
@@ -1702,7 +1731,38 @@ function _userSortVal(u, key) {
 function sortUserTable(key) {
   if (_userSort.key === key) _userSort.dir = -_userSort.dir;
   else _userSort = { key, dir: 1 };
+  _userPage = 1;   // a re-sort reorders everything; page 1 is the only sane view
   renderUserRows();
+}
+// Client-side pagination: the full set stays in memory for sorting and
+// the analytics cards; only a page of rows renders (Scott 2026-07-28,
+// the table was eating the whole viewport).
+const _USER_PAGE_SIZE = 25;
+let _userPage = 1;
+function setUserPage(p) { _userPage = p; renderUserRows(); }
+function _renderUserPagination(total) {
+  const el = document.getElementById('user-pagination');
+  if (!el) return;
+  const pages = Math.max(1, Math.ceil(total / _USER_PAGE_SIZE));
+  if (_userPage > pages) _userPage = pages;
+  const from = total === 0 ? 0 : (_userPage - 1) * _USER_PAGE_SIZE + 1;
+  const to = Math.min(total, _userPage * _USER_PAGE_SIZE);
+  const btn = (label, page, disabled, current) =>
+    `<button class="refresh-btn" style="padding:3px 9px;font-size:12px${current ? ';background:var(--accent);color:#fff' : ''}" ` +
+    `${disabled ? 'disabled' : `onclick="setUserPage(${page})"`}>${label}</button>`;
+  let nums = '';
+  for (let p = 1; p <= pages; p++) {
+    // compact: first, last, and a window around the current page
+    if (pages > 7 && p !== 1 && p !== pages && Math.abs(p - _userPage) > 2) {
+      if (!nums.endsWith('…')) nums += '…';
+      continue;
+    }
+    nums += btn(p, p, false, p === _userPage);
+  }
+  el.innerHTML = `<span>Showing ${from}–${to} of ${total} users</span>` +
+    `<span style="display:flex;gap:4px;align-items:center">` +
+    btn('Prev', _userPage - 1, _userPage <= 1, false) + nums +
+    btn('Next', _userPage + 1, _userPage >= pages, false) + `</span>`;
 }
 function renderUserRows() {
   const st = window._userTableState;
@@ -1710,12 +1770,14 @@ function renderUserRows() {
   const { rows, tierNames } = st;
   const dir = _userSort.dir;
   const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const sorted = rows.slice().sort((a, b) => {
+  const sortedAll = rows.slice().sort((a, b) => {
     const va = _userSortVal(a, _userSort.key), vb = _userSortVal(b, _userSort.key);
     if (va < vb) return -1 * dir;
     if (va > vb) return 1 * dir;
     return 0;
   });
+  _renderUserPagination(sortedAll.length);
+  const sorted = sortedAll.slice((_userPage - 1) * _USER_PAGE_SIZE, _userPage * _USER_PAGE_SIZE);
   const utbody = document.querySelector('#user-table tbody');
   utbody.innerHTML = sorted.map(u => {
     const tierLabel = u.tier_display_name || u.tier;
@@ -1777,6 +1839,112 @@ function renderUserRows() {
     s.textContent = s.dataset.sk === _userSort.key ? (dir > 0 ? ' ▲' : ' ▼') : '';
   });
 }
+// --- Users-tab analytics: world heat map + tier mix + growth -------------
+// All derived client-side from the already-fetched users array; no extra
+// endpoint. Country-level only for the map (we never store coordinates).
+let _usersMap = null;
+function renderUserAnalytics(rows) {
+  // World map: user count per ISO2 country from latest-telemetry location.
+  const byCountry = {};
+  const byPlace = {};
+  rows.forEach(u => {
+    const loc = u.location;
+    if (!loc || !loc.country) return;
+    byCountry[loc.country] = (byCountry[loc.country] || 0) + 1;
+    const place = [loc.city, loc.region, loc.country].filter(Boolean).join(', ');
+    byPlace[place] = (byPlace[place] || 0) + 1;
+  });
+  const mapEl = document.getElementById('users-world-map');
+  if (mapEl && window.jsVectorMap) {
+    try {
+      if (_usersMap) { try { _usersMap.destroy(); } catch (e) {} _usersMap = null; }
+      mapEl.innerHTML = '';
+      _usersMap = new jsVectorMap({
+        selector: '#users-world-map',
+        map: 'world',
+        backgroundColor: 'transparent',
+        zoomButtons: false,
+        regionStyle: {
+          initial: { fill: '#21262d', stroke: '#30363d', strokeWidth: 0.4 },
+          hover: { fill: '#388bfd' },
+        },
+        series: {
+          regions: [{
+            attribute: 'fill',
+            scale: ['#1f3a5f', '#58a6ff'],
+            normalizeFunction: 'polynomial',
+            values: byCountry,
+          }],
+        },
+        onRegionTooltipShow(event, tooltip, code) {
+          const n = byCountry[code] || 0;
+          tooltip.text(`${tooltip.text()} — ${n} user${n === 1 ? '' : 's'}`);
+        },
+      });
+    } catch (e) {
+      mapEl.innerHTML = '<div style="color:var(--text-dim);padding:20px">Map failed to load; see Top locations.</div>';
+    }
+  }
+
+  // Tier mix donut (SIM overrides shown as their real tier).
+  const tierCounts = {};
+  rows.forEach(u => { tierCounts[u.tier] = (tierCounts[u.tier] || 0) + 1; });
+  const tierLabels = Object.keys(tierCounts);
+  _renderChart('users-tier-donut', {
+    series: tierLabels.map(t => tierCounts[t]),
+    labels: tierLabels.map(t => t.charAt(0).toUpperCase() + t.slice(1)),
+    chart: {type: 'donut', height: 230},
+    legend: {position: 'bottom'},
+    dataLabels: {enabled: true, formatter: (p, o) => o.w.config.series[o.seriesIndex]},
+    colors: ['#8b949e', '#a371f7', '#58a6ff', '#3fb950'],
+  });
+
+  // Cumulative growth: every signup, all time.
+  const dates = rows.map(u => (u.created_at || '').slice(0, 10)).filter(Boolean).sort();
+  const perDay = {};
+  dates.forEach(d => { perDay[d] = (perDay[d] || 0) + 1; });
+  const days = Object.keys(perDay).sort();
+  let running = 0;
+  const cumulative = days.map(d => { running += perDay[d]; return running; });
+  _renderChart('users-growth', {
+    series: [{name: 'Users', data: cumulative}],
+    chart: {type: 'area', height: 230},
+    stroke: {width: 2, curve: 'smooth'},
+    fill: {type: 'gradient', gradient: {opacityFrom: 0.35, opacityTo: 0.02}},
+    dataLabels: {enabled: false},
+    xaxis: {categories: days.map(d => d.slice(5)), tickAmount: 6},
+    yaxis: {labels: {formatter: v => Math.round(v)}},
+    colors: ['#58a6ff'],
+  });
+
+  // Signups per day, trailing 14 days (zero-filled so slow days show).
+  const last14 = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+    last14.push([d, perDay[d] || 0]);
+  }
+  _renderChart('users-signups', {
+    series: [{name: 'Signups', data: last14.map(x => x[1])}],
+    chart: {type: 'bar', height: 230},
+    plotOptions: {bar: {columnWidth: '60%', borderRadius: 2}},
+    dataLabels: {enabled: false},
+    xaxis: {categories: last14.map(x => x[0].slice(5))},
+    yaxis: {labels: {formatter: v => Math.round(v)}},
+    colors: ['#3fb950'],
+  });
+
+  // Top locations: city grain, which the country map can't show.
+  const top = Object.entries(byPlace).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const maxN = top.length ? top[0][1] : 1;
+  document.getElementById('users-top-locations').innerHTML = top.map(([place, n]) => `
+    <div style="display:flex;align-items:center;gap:8px;margin:7px 0">
+      <div style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${place}</div>
+      <div style="width:90px;height:6px;background:var(--bg-card);border-radius:3px;overflow:hidden">
+        <div style="width:${Math.round(n / maxN * 100)}%;height:100%;background:#58a6ff"></div></div>
+      <div style="width:22px;text-align:right;color:var(--text-dim)">${n}</div>
+    </div>`).join('') || '<div style="color:var(--text-dim)">No location data yet.</div>';
+}
+
 function fmtMs(n) { return n == null ? '-' : (n > 1000 ? (n/1000).toFixed(1) + 's' : n + 'ms'); }
 function timeAgo(iso) {
   if (!iso) return 'Never';
@@ -1909,6 +2077,7 @@ async function refresh() {
   // header clicks can re-sort without re-fetching.
   window._userTableState = { rows: users.users, tierNames };
   renderUserRows();
+  renderUserAnalytics(users.users);
 
   // Latency percentiles
   const lp = dash.latency_percentiles || {};
