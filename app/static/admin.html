@@ -290,8 +290,11 @@
   <div id="tab-users" class="section">
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;margin-bottom:14px">
       <div class="card" style="padding:14px;grid-column:span 2;min-width:0">
-        <h4 style="margin:0 0 8px">Users by country <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— heat by user count. Country-level GeoIP; coordinates are never stored</span></h4>
-        <div id="users-world-map" style="height:290px"></div>
+        <h4 style="margin:0 0 8px">Users by country <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— country-level GeoIP; coordinates are never stored. Arrow = gained users in the last 7 days</span></h4>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:stretch">
+          <div id="users-world-map" style="flex:2 1 380px;min-width:0;height:290px"></div>
+          <div id="users-country-rank" style="flex:1 1 200px;min-width:200px;max-height:290px;overflow-y:auto;font-size:13px"></div>
+        </div>
       </div>
       <div class="card" style="padding:14px;min-width:0">
         <h4 style="margin:0 0 8px">Tier mix</h4>
@@ -1902,13 +1905,45 @@ function renderUserAnalytics(rows) {
   // World map: user count per ISO2 country from latest-telemetry location.
   const byCountry = {};
   const byPlace = {};
+  const activeByCountry = {};
+  const newByCountry = {};
+  const weekAgo = Date.now() - 7 * 86400000;
   rows.forEach(u => {
     const loc = u.location;
     if (!loc || !loc.country) return;
     byCountry[loc.country] = (byCountry[loc.country] || 0) + 1;
+    if (u.last_request && new Date(u.last_request).getTime() > weekAgo)
+      activeByCountry[loc.country] = (activeByCountry[loc.country] || 0) + 1;
+    if (u.created_at && new Date(u.created_at).getTime() > weekAgo)
+      newByCountry[loc.country] = (newByCountry[loc.country] || 0) + 1;
     const place = [loc.city, loc.region, loc.country].filter(Boolean).join(', ');
     byPlace[place] = (byPlace[place] || 0) + 1;
   });
+
+  // Ranked country table beside the map (GA-style). Full names via
+  // Intl.DisplayNames; thin proportional bar under each name.
+  const rankEl = document.getElementById('users-country-rank');
+  if (rankEl) {
+    let regionNames = null;
+    try { regionNames = new Intl.DisplayNames(['en'], {type: 'region'}); } catch (e) {}
+    const ranked = Object.entries(byCountry).sort((a, b) => b[1] - a[1]);
+    const maxC = ranked.length ? ranked[0][1] : 1;
+    rankEl.innerHTML = `<div style="display:flex;justify-content:space-between;color:var(--text-dim);font-size:11px;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px"><span>Country</span><span>Users · Active 7d</span></div>` +
+      ranked.map(([code, n]) => {
+        const name = (regionNames && regionNames.of(code)) || code;
+        const grew = newByCountry[code] || 0;
+        const act = activeByCountry[code] || 0;
+        return `<div style="margin:7px 0">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+            <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</span>
+            <span style="white-space:nowrap">${n} · ${act}${grew ? ` <span style=\"color:#3fb950;font-size:11px\" title=\"${grew} new this week\">&#8593;${grew}</span>` : ''}</span>
+          </div>
+          <div style="height:3px;background:var(--bg-card);border-radius:2px;margin-top:3px;overflow:hidden">
+            <div style="width:${Math.max(6, Math.round(n / maxC * 100))}%;height:100%;background:#58a6ff"></div>
+          </div>
+        </div>`;
+      }).join('') || '<div style="color:var(--text-dim)">No location data yet.</div>';
+  }
   const mapEl = document.getElementById('users-world-map');
   if (mapEl && window.jsVectorMap) {
     try {
