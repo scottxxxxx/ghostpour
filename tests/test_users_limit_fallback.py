@@ -92,3 +92,33 @@ def test_offer_trial_carries_offer_id_and_intro_trial_does_not(client, tmp_db_pa
     by_id = {u["id"]: u for u in users}
     assert by_id["u_offer"]["trial_offer_id"] == "friend-test"
     assert by_id["u_intro"]["is_trial"] and by_id["u_intro"]["trial_offer_id"] is None
+
+
+def test_users_list_includes_anonymous_devices_and_app_build(client, tmp_db_path):
+    """One user list (Scott 2026-07-28): the users payload carries
+    app version/build + telemetry event count per user, and telemetry
+    devices that never pinged with a user_id ride along as
+    anonymous_devices so the Telemetry-tab directory could be deleted."""
+    _insert_user(tmp_db_path, user_id="u_known", tier="free")
+    conn = sqlite3.connect(tmp_db_path)
+    for dev, uid in (("dev-known", "u_known"), ("dev-anon", None)):
+        conn.execute(
+            """INSERT INTO telemetry_events
+               (id, event_type, device_id, user_id, app_version, app_build,
+                os_version, device_model, app_locale, received_at)
+               VALUES (?, 'app_start', ?, ?, '1.14', '803', '26.5',
+                       'iPhone17,2', 'en_US', '2026-07-28T00:00:00+00:00')""",
+            (dev + "-evt", dev, uid))
+    conn.commit()
+    conn.close()
+
+    resp = client.get("/webhooks/admin/users?days=30", headers=ADMIN).json()
+    row = next(u for u in resp["users"] if u["id"] == "u_known")
+    assert row["app_version"] == "1.14"
+    assert row["app_build"] == "803"
+    assert row["telemetry_events"] == 1
+    anons = resp["anonymous_devices"]
+    assert len(anons) == 1
+    assert anons[0]["device_id"] == "dev-anon"
+    assert anons[0]["app_build"] == "803"
+    assert anons[0]["telemetry_events"] == 1
