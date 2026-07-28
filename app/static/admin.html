@@ -717,6 +717,10 @@
     <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Bookkeeping from the append-only subscription event log (users hold only the current tier). "Ever subscribed" feeds offer-code eligibility. MRR is list price; net is after Apple's 15% cut. Reconcile pulls Apple's authoritative state and fixes drift — dormant until the App Store Server API key is provisioned.</p>
     <div class="cards" id="sub-kpis"></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px;margin-top:16px">
+      <div class="card" style="padding:16px;grid-column:span 2">
+        <h4 style="margin:0 0 8px">MRR run-rate <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— daily, at list price; net line is after Apple's 15%. Trials and offer periods count until they lapse</span></h4>
+        <div id="sub-chart-mrr"></div>
+      </div>
       <div class="card" style="padding:16px;grid-column:span 2"><h4 style="margin:0 0 8px">Active subscribers by tier (month-end)</h4><div id="sub-chart-active"></div></div>
       <div class="card" style="padding:16px;grid-column:span 2"><h4 style="margin:0 0 8px">New vs churned per month</h4><div id="sub-chart-flow"></div></div>
       <div class="card" style="padding:16px;grid-column:span 2"><h4 style="margin:0 0 8px">Net revenue per month (after Apple's cut)</h4><div id="sub-chart-rev"></div></div>
@@ -1029,6 +1033,31 @@ function _renderSubscriptions(rep, events) {
   const cats = months.map(m => m.month);
   const tiers = Array.from(new Set(months.flatMap(m => Object.keys(m.active_by_tier || {})))).sort();
   const colors = ['#58a6ff', '#3fb950', '#d29922', '#bc8cff', '#ff7b72'];
+
+  // MRR run-rate: daily replay of the event log. Gross and net lines,
+  // active-paid count on the right axis so the money curve has its
+  // headcount context.
+  const mrr = d.mrr_trend || [];
+  _renderChart('sub-chart-mrr', {
+    series: [
+      {name: 'MRR (list)', type: 'area', data: mrr.map(x => x.mrr_gross_usd)},
+      {name: 'Net (after Apple)', type: 'line', data: mrr.map(x => x.mrr_net_usd)},
+      {name: 'Paid subscribers', type: 'line', data: mrr.map(x => x.active_paid)},
+    ],
+    chart: {type: 'line', height: 280},
+    stroke: {width: [2, 2, 2], curve: 'stepline', dashArray: [0, 5, 0]},
+    fill: {type: ['gradient', 'solid', 'solid'], gradient: {opacityFrom: 0.3, opacityTo: 0.02}},
+    dataLabels: {enabled: false},
+    xaxis: {categories: mrr.map(x => x.day.slice(5)), tickAmount: 8, labels: {style: {colors: _telForeground}}},
+    yaxis: [
+      {seriesName: 'MRR (list)', labels: {formatter: v => '$' + v.toFixed(0), style: {colors: _telForeground}}},
+      {seriesName: 'MRR (list)', show: false},
+      {opposite: true, seriesName: 'Paid subscribers', labels: {formatter: v => Math.round(v), style: {colors: _telForeground}}, title: {text: 'subscribers', style: {color: _telForeground}}},
+    ],
+    legend: {position: 'top'},
+    colors: ['#3fb950', '#58a6ff', '#8b949e'],
+    noData: {text: 'No subscription events yet.'},
+  });
 
   _renderChart('sub-chart-active', {
     series: tiers.length ? tiers.map(t => ({name: t, data: months.map(m => m.active_by_tier[t] || 0)})) : [{name: '(no data)', data: []}],
