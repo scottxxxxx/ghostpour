@@ -922,7 +922,26 @@ function login() {
   if (saved) { adminKey = saved; document.getElementById('admin-key').value = saved; login(); }
 })();
 
+let _activeTab = 'overview';
+// Per-tab loaders, shared by tab switches and the global Refresh so the
+// top-right button always refreshes the tab you're actually looking at
+// (Scott 2026-07-28: two Refresh buttons that did different things).
+const _TAB_LOADERS = {
+  models: () => loadRouting(),
+  providers: () => loadProviders(),
+  entitlements: () => loadEntitlements(),
+  errors: () => loadErrors(),
+  configs: () => loadConfigs(),
+  campaigns: () => loadCampaigns(),
+  subscriptions: () => loadSubscriptions(),
+  livelog: () => loadLiveLog(),
+  email: () => loadEmail(),
+  alerts: () => loadAlerts(),
+  telemetry: () => loadTelemetry(),
+  acquisition: () => loadAcquisition(),
+};
 function switchTab(name) {
+  _activeTab = name;
   document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', t.textContent.toLowerCase().includes(name.slice(0,4))));
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
@@ -2039,6 +2058,9 @@ function appQuery() {
 
 async function refresh() {
   refreshCertPinBanner();
+  // Re-run the active tab's own loader too — the global button must never
+  // show fresher header numbers over a stale tab body.
+  try { (_TAB_LOADERS[_activeTab] || (() => {}))(); } catch (e) {}
   const days = document.getElementById('period').value;
   const app = appQuery();
   const [dash, users, tiers] = await Promise.all([
