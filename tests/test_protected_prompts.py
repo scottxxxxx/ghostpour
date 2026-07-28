@@ -105,3 +105,19 @@ def test_version_bumped_after_rule_addition(path):
         f"{path} version={data['version']} — image-acknowledgement rule "
         f"shipped at v{minimum}; lower version means the rule may be missing"
     )
+
+
+@pytest.mark.parametrize("path", SS_LOCALE_FILES)
+def test_summarizers_carry_name_grounding(path):
+    """2026-07-28: the summarizer titled a vet meeting 'Max Verstappen
+    Veterinary Care' — the dog is named Max, no surname anywhere in the
+    transcript, and the prompt never forbade inventing one. Every
+    summarizer prompt now grounds names/facts to the transcript. The
+    reanalyze key is English in all locales (SS contract); summaryPrompts
+    carry the clause in their own language."""
+    data = _load(path)
+    assert "never invent" in data["reanalyzeSummaryPrompt"]
+    token = {"es.json": "nunca inventes", "fr.json": "n'invente jamais"}.get(
+        path.split("protected-prompts.")[-1], "never invent")
+    for k in ("full", "delta", "consolidation"):
+        assert token in data["summaryPrompts"][k], (path, k)
