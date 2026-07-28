@@ -660,30 +660,30 @@
     </div>
     <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Anonymous lifecycle events from iOS — app starts, meeting starts/stops, AI model used, device model, and OS version. Raw events are retained 30 days. Apply filters above to slice every chart.</p>
     <div class="cards" id="tel-kpis"></div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px;margin-top:16px">
-      <div class="card" style="padding:16px;grid-column:span 2">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));grid-auto-flow:dense;gap:12px;margin-top:12px">
+      <div class="card" style="padding:12px 14px;grid-column:span 2">
         <h4 style="margin:0 0 8px">Daily active <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— devices that pinged that day; line = signed-in users. From daily rollups (kept forever), so the trend outlives the 30-day raw purge. Not affected by the filters above</span></h4>
         <div id="tel-chart-active"></div>
       </div>
-      <div class="card" style="padding:16px;grid-column:span 2">
+      <div class="card" style="padding:12px 14px;grid-column:span 2">
         <h4 style="margin:0 0 8px">New per day <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— first ping ever from a device (install proxy); line = new accounts. Days before 2026-07-27 undercount: first-seen was backfilled from 30-day raw history. Not affected by the filters above</span></h4>
         <div id="tel-chart-new"></div>
       </div>
-      <div class="card" style="padding:16px;grid-column:span 2"><h4 style="margin:0 0 8px">App starts by version (daily)</h4><div id="tel-chart-versions"></div></div>
-      <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Meetings by model</h4><div id="tel-chart-models"></div></div>
-      <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Meetings by device</h4><div id="tel-chart-devices"></div></div>
-      <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Devices by iOS version</h4><div id="tel-chart-os"></div></div>
-      <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Devices by language</h4><div id="tel-chart-language"></div></div>
-      <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Devices by distribution (TestFlight vs App Store)</h4><div id="tel-chart-distribution"></div></div>
-      <div class="card" style="padding:16px;grid-column:span 2">
+      <div class="card" style="padding:12px 14px;grid-column:span 2"><h4 style="margin:0 0 8px">App starts by version (daily)</h4><div id="tel-chart-versions"></div></div>
+      <div class="card" style="padding:12px 14px"><h4 style="margin:0 0 8px">Meetings by model</h4><div id="tel-chart-models"></div></div>
+      <div class="card" style="padding:12px 14px"><h4 style="margin:0 0 8px">Meetings by device</h4><div id="tel-chart-devices"></div></div>
+      <div class="card" style="padding:12px 14px"><h4 style="margin:0 0 8px">Devices by iOS version</h4><div id="tel-chart-os"></div></div>
+      <div class="card" style="padding:12px 14px"><h4 style="margin:0 0 8px">Devices by language</h4><div id="tel-chart-language"></div></div>
+      <div class="card" style="padding:12px 14px"><h4 style="margin:0 0 8px">Devices by distribution (TestFlight vs App Store)</h4><div id="tel-chart-distribution"></div></div>
+      <div class="card" style="padding:12px 14px;grid-column:span 2">
         <h4 style="margin:0 0 8px">Users by location <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— aggregated at region level; per-user city shows in the Users table</span></h4>
         <div class="table-wrap"><table id="tel-location"><thead><tr>
           <th>Country</th><th>Region</th><th>Devices</th><th>Users</th><th>Events</th>
         </tr></thead><tbody></tbody></table></div>
       </div>
-      <div class="card" style="padding:16px;grid-column:span 2"><h4 style="margin:0 0 8px">Meeting starts by hour × day-of-week (UTC)</h4><div id="tel-chart-heatmap"></div></div>
-      <div class="card" style="padding:16px;grid-column:span 2"><h4 style="margin:0 0 8px">Funnel: app start → meeting start → meeting stop</h4><div id="tel-chart-funnel"></div></div>
-      <div class="card" style="padding:16px">
+      <div class="card" style="padding:12px 14px;grid-column:span 2"><h4 style="margin:0 0 8px">Meeting starts by hour × day-of-week (UTC)</h4><div id="tel-chart-heatmap"></div></div>
+      <div class="card" style="padding:12px 14px"><h4 style="margin:0 0 8px">Funnel: start → meeting → stop</h4><div id="tel-chart-funnel"></div></div>
+      <div class="card" style="padding:12px 14px">
         <h4 style="margin:0 0 8px">Devices by build <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— build column fills as clients send app_build</span></h4>
         <div class="table-wrap" style="max-height:330px;overflow-y:auto"><table id="tel-builds"><thead><tr>
           <th>Version</th><th>Build</th><th>Devices</th><th>Events</th><th>Last seen</th>
@@ -693,7 +693,7 @@
     <h3 style="margin:28px 0 8px">Onboarding funnel</h3>
     <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">First-run onboarding outcomes from the <code>onboarding_completed</code> event. Booleans are end-state — name / voice / Apple sign-in reflect whether the user has done it at all, not just this run. Dev and TestFlight rows are included; the correlation view will filter by distribution when a real cohort matters.</p>
     <div class="cards" id="onb-kpis"></div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px;margin-top:16px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));grid-auto-flow:dense;gap:12px;margin-top:12px">
       <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Completion (completed vs abandoned)</h4><div id="onb-chart-completion"></div></div>
       <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Auth choice</h4><div id="onb-chart-auth"></div></div>
       <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Where abandoners dropped</h4><div id="onb-chart-dropoff"></div></div>
@@ -1391,7 +1391,7 @@ function _renderTelemetry(d, current) {
   // --- Stacked area: app_starts by version ---
   _renderChart('tel-chart-versions', {
     series: d.version_series.length ? d.version_series : [{name: '(no data)', data: []}],
-    chart: {type: 'area', stacked: true, height: 280},
+    chart: {type: 'area', stacked: true, height: 240},
     dataLabels: {enabled: false},
     stroke: {curve: 'smooth', width: 2},
     fill: {type: 'gradient', gradient: {opacityFrom: 0.6, opacityTo: 0.15}},
@@ -1407,7 +1407,7 @@ function _renderTelemetry(d, current) {
   // doesn't leak GhostPour-internal aliases.
   _renderChart('tel-chart-models', {
     series: d.models.map(m => m.meetings),
-    chart: {type: 'donut', height: 280},
+    chart: {type: 'donut', height: 210},
     labels: d.models.map(m => m.display_name || m.model_id),
     legend: {position: 'bottom'},
     colors: ['#3fb950','#bc8cff','#58a6ff','#d29922','#ff7b72','#79c0ff'],
@@ -1420,7 +1420,7 @@ function _renderTelemetry(d, current) {
   const deviceLabels = d.devices.map(x => x.marketing_name || x.device_model);
   _renderChart('tel-chart-devices', {
     series: [{name: 'Meetings', data: d.devices.map(x => x.meetings)}],
-    chart: {type: 'bar', height: 280},
+    chart: {type: 'bar', height: 240},
     plotOptions: {bar: {horizontal: true, borderRadius: 4, distributed: true}},
     xaxis: {categories: deviceLabels, labels: {style: {colors: _telForeground}}},
     yaxis: {labels: {style: {colors: _telForeground}}},
@@ -1433,7 +1433,7 @@ function _renderTelemetry(d, current) {
   // --- Donut: devices by iOS version ---
   _renderChart('tel-chart-os', {
     series: d.os_versions.map(x => x.devices),
-    chart: {type: 'donut', height: 280},
+    chart: {type: 'donut', height: 210},
     labels: d.os_versions.map(x => x.os_version),
     legend: {position: 'bottom'},
     colors: ['#58a6ff','#bc8cff','#3fb950','#d29922','#ff7b72'],
@@ -1445,7 +1445,7 @@ function _renderTelemetry(d, current) {
   // --- Donut: devices by language ---
   _renderChart('tel-chart-language', {
     series: (d.by_language || []).map(x => x.devices),
-    chart: {type: 'donut', height: 280},
+    chart: {type: 'donut', height: 210},
     labels: (d.by_language || []).map(x => x.language),
     legend: {position: 'bottom'},
     colors: ['#58a6ff','#3fb950','#bc8cff','#d29922','#ff7b72','#79c0ff','#a5d6ff'],
@@ -1457,7 +1457,7 @@ function _renderTelemetry(d, current) {
   // --- Donut: devices by distribution channel (TestFlight vs App Store) ---
   _renderChart('tel-chart-distribution', {
     series: (d.distribution || []).map(x => x.devices),
-    chart: {type: 'donut', height: 280},
+    chart: {type: 'donut', height: 210},
     labels: (d.distribution || []).map(x => x.label),
     legend: {position: 'bottom'},
     colors: ['#3fb950','#d29922','#58a6ff','#8b949e'],
@@ -1505,7 +1505,7 @@ function _renderTelemetry(d, current) {
   }));
   _renderChart('tel-chart-heatmap', {
     series: heatSeries,
-    chart: {type: 'heatmap', height: 320},
+    chart: {type: 'heatmap', height: 260},
     dataLabels: {enabled: false},
     colors: ['#58a6ff'],
     plotOptions: {heatmap: {
@@ -1526,7 +1526,7 @@ function _renderTelemetry(d, current) {
   // --- Funnel via horizontal bar ---
   _renderChart('tel-chart-funnel', {
     series: [{name: 'Count', data: d.funnel.map(s => s.n)}],
-    chart: {type: 'bar', height: 220},
+    chart: {type: 'bar', height: 210},
     plotOptions: {bar: {horizontal: true, borderRadius: 6, distributed: true, barHeight: '70%'}},
     xaxis: {categories: d.funnel.map(s => s.stage), labels: {style: {colors: _telForeground}}},
     yaxis: {labels: {style: {colors: _telForeground}}},
