@@ -49,3 +49,46 @@ def test_unlimited_tier_still_shows_infinity(client, tmp_db_path):
     users = client.get("/webhooks/admin/users?days=30", headers=ADMIN).json()["users"]
     row = next(u for u in users if u["id"] == "u_pro_null")
     assert row["hours_limit"] == -1
+
+
+def _mark_trial(db_path, user_id):
+    conn = sqlite3.connect(db_path)
+    conn.execute("UPDATE users SET is_trial = 1 WHERE id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+
+
+def test_offer_trial_carries_offer_id_and_intro_trial_does_not(client, tmp_db_path):
+    """Offer-code periods and real intro trials both set is_trial; the
+    users list splits them via trial_offer_id (from the subscription
+    event log) so the dashboard badges OFFER vs TRIAL (Scott 2026-07-28)."""
+    import asyncio
+
+    import aiosqlite
+
+    from app.services import subscriptions as subs
+
+    _insert_user(tmp_db_path, user_id="u_offer", tier="pro")
+    _insert_user(tmp_db_path, user_id="u_intro", tier="plus")
+    _mark_trial(tmp_db_path, "u_offer")
+    _mark_trial(tmp_db_path, "u_intro")
+
+    async def seed():
+        db = await aiosqlite.connect(tmp_db_path)
+        try:
+            await subs.record_subscription_event(
+                db, user_id="u_offer", event_type="subscribed",
+                from_tier="free", to_tier="pro",
+                offer_id="friend-test", source="verify_receipt")
+            await subs.record_subscription_event(
+                db, user_id="u_intro", event_type="subscribed",
+                from_tier="free", to_tier="plus",
+                source="verify_receipt")
+        finally:
+            await db.close()
+    asyncio.run(seed())
+
+    users = client.get("/webhooks/admin/users?days=30", headers=ADMIN).json()["users"]
+    by_id = {u["id"]: u for u in users}
+    assert by_id["u_offer"]["trial_offer_id"] == "friend-test"
+    assert by_id["u_intro"]["is_trial"] and by_id["u_intro"]["trial_offer_id"] is None

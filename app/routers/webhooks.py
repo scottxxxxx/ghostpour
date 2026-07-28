@@ -2385,8 +2385,26 @@ async def list_users(
             *app_user_params,               # outer WHERE: hide non-app users
         ),
     )
+    rows_fetched = await cursor.fetchall()
+
+    # Offer-vs-trial split (Scott 2026-07-28): the trial flag is set for
+    # both genuine intro trials AND $0 offer-code periods (Apple never
+    # calls the latter a trial; our verify-receipt inference does). The
+    # subscription event log tells them apart: offer redemptions carry
+    # offer_id, intro trials don't. One batch query; latest offer wins.
+    trial_ids = [r["id"] for r in rows_fetched if r["is_trial"]]
+    trial_offers: dict[str, str] = {}
+    if trial_ids:
+        ph = ",".join("?" * len(trial_ids))
+        for ev in await (await db.execute(
+            f"SELECT user_id, offer_id FROM subscription_events "
+            f"WHERE user_id IN ({ph}) AND offer_id IS NOT NULL "
+            f"ORDER BY recorded_at ASC", trial_ids
+        )).fetchall():
+            trial_offers[ev["user_id"]] = ev["offer_id"]
+
     users = []
-    for r in await cursor.fetchall():
+    for r in rows_fetched:
         monthly_used = float(r["monthly_used_usd"] or 0)
         window_cost = float(r["window_cost_usd"] or 0)
         tier_name = r["tier"]
@@ -2430,6 +2448,10 @@ async def list_users(
             "simulated_tier": r["simulated_tier"],
             "simulated_exhausted": bool(r["simulated_exhausted"]),
             "is_trial": bool(r["is_trial"]),
+            # non-null when the trial flag came from an offer-code
+            # redemption rather than a real intro trial; the dashboard
+            # renders OFFER instead of TRIAL and tooltips the offer name.
+            "trial_offer_id": trial_offers.get(r["id"]) if r["is_trial"] else None,
             "trial_end": r["trial_end"],
             # Current month allocation
             "monthly_used_usd": round(monthly_used, 4),
