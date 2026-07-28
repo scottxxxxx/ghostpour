@@ -49,6 +49,7 @@ async def send_email(
     from_addr: str,
     headers: dict[str, str] | None = None,
     tags: list[dict[str, str]] | None = None,
+    reply_to: str | None = None,
     timeout_seconds: float = 10.0,
 ) -> SendResult:
     """Send a single email via Resend.
@@ -85,6 +86,11 @@ async def send_email(
         payload["text"] = text
     if headers:
         payload["headers"] = headers
+    if reply_to:
+        # Resend's first-class field — a raw Reply-To in `headers` is not
+        # reliably honored (2026-07-28: a subscriber-facing reply bounced
+        # off the send-only noreply domain because of exactly that).
+        payload["reply_to"] = reply_to
     if tags:
         payload["tags"] = tags
 
