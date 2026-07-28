@@ -1036,9 +1036,11 @@ def test_meeting_chat_file_ask_draws_offer_despite_stream_true(client, free_user
     _enable_confirmed_generation(client)
     monkeypatch.setattr(dg, "classify_generation_intent", AsyncMock(
         return_value={"file_request": True, "format": "xlsx", "gist": "of action items"}))
+    # soft phrasing: deterministic explicit asks arm the fast path now and
+    # never draw the offer, so the offer contract rides the classifier lane
     r = client.post("/v1/chat", json=chat_request(
         prompt_mode="PostMeetingChat", call_type="meeting_chat",
-        stream=True, user_content="make a spreadsheet of the action items",
+        stream=True, user_content="it would be handy to have the action items as a spreadsheet",
     ), headers=free_user["headers"])
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("application/json")   # single JSON on the SSE request
@@ -1396,7 +1398,13 @@ def test_explicit_catch_offers_even_when_classifier_is_down(client, free_user,
         prompt_mode="ProjectChat", call_type="query",
         user_content="generate a spreadsheet of our action items",
     ), headers=free_user["headers"])
-    assert r.json()["feature_state"]["state"] == "confirmation_required"
+    # The deterministic catch never consulted the classifier, and since the
+    # explicit fast path (2026-07-28) it arms generation directly: the user
+    # gets a build (SSE generation lane), not a confirm, even with the
+    # classifier down.
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/event-stream")
+    assert "confirmation_required" not in r.text
 
 
 def test_soft_vocabulary_gets_teaser_not_offer(client, free_user, mock_provider, monkeypatch):
@@ -2146,10 +2154,13 @@ def test_template_format_veto_blocks_history_mismatch(
                      "different roles and contributions of the people on "
                      "today's call?",
     ), headers=free_user["headers"])
-    cta = r.json()["feature_state"]["cta"]
-    assert "template_id" not in cta["details"]        # no gantt interception
-    assert "Gantt" not in cta["text"]
-    assert "Word document" in cta["text"] or "docx" in cta["text"]
+    # Post-fast-path: a vetoed explicit docx ask arms directly (SSE
+    # generation lane). The veto contract holds as: no gantt template
+    # offer envelope appears.
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/event-stream")
+    assert "confirmation_required" not in r.text
+    assert "gantt_smartsheet" not in r.text
 
     # format veto alone: gantt vocabulary IN the question, but the user
     # wants a Word file -> the xlsx template must not intercept
@@ -2160,7 +2171,8 @@ def test_template_format_veto_blocks_history_mismatch(
         user_content="Current question: write a word doc summary of our "
                      "gantt timeline",
     ), headers=free_user["headers"])
-    assert "template_id" not in r2.json()["feature_state"]["cta"]["details"]
+    assert r2.status_code == 200
+    assert "gantt_smartsheet" not in r2.text
 
 
 def test_plain_offer_gist_composes_guard():

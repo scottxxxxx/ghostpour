@@ -42,12 +42,42 @@ def _assert_parity(pc_body, mc_body, template_id):
     assert pc_d == mc_d, f"details shapes differ: {pc_d} vs {mc_d}"
 
 
-def test_plain_offer_shape_identical_across_surfaces(client, free_user, mock_provider):
+def test_plain_offer_shape_identical_across_surfaces(client, free_user, mock_provider,
+                                                     monkeypatch):
+    # Since the explicit-command fast path (2026-07-28), a deterministic
+    # non-template ask arms generation directly, so the plain OFFER
+    # envelope now belongs to classifier-judged soft phrasings. Patch the
+    # classifier to the file_request verdict and use a soft ask.
     _enable_confirmed_generation(client)
-    ask = "Can you make me a well formatted excel doc of the action items"
+    from app.services import document_generation as dg
+
+    async def _judged(provider_router, user_content, on_subcall=None):
+        return {"file_request": True, "format": "xlsx", "gist": ""}
+    monkeypatch.setattr(dg, "classify_generation_intent", _judged)
+    ask = "It would be great to have the action items as a spreadsheet"
     pc = _offer(client, free_user, "ProjectChat", False, ask)
     mc = _offer(client, free_user, "PostMeetingChat", True, ask)
     _assert_parity(pc, mc, template_id=None)
+
+
+def test_explicit_ask_skips_the_offer_and_arms(client, free_user, mock_provider):
+    """Fast path (Scott 2026-07-28: 'Put it in a word document' drew a
+    second 'Want the file?'): a deterministic explicit ask with no
+    template match must NOT return an offer envelope — generation arms on
+    that very turn. Template asks keep their offer (covered by the
+    template parity test)."""
+    _enable_confirmed_generation(client)
+    from tests.conftest import chat_request
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query", stream=False,
+        user_content="Put it in a word document",
+    ), headers=free_user["headers"])
+    assert r.status_code == 200, r.text
+    # Armed generation rides the SSE lane; the redundant-confirm failure
+    # mode would be a JSON offer envelope with an offer_id instead.
+    assert r.headers["content-type"].startswith("text/event-stream")
+    assert "event: generation_result" in r.text
+    assert "offer_id" not in r.text
 
 
 def test_template_offer_shape_identical_across_surfaces(client, free_user, mock_provider):
