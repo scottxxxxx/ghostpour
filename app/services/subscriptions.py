@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import aiosqlite
 
@@ -231,6 +231,52 @@ async def monthly_aggregates(db: aiosqlite.Connection) -> list[dict]:
             "net_usd": round(gross * APPLE_NET_FACTOR, 2),
         })
     return report
+
+
+async def mrr_trend(db: aiosqlite.Connection) -> list[dict]:
+    """Daily MRR run-rate replayed from the event log (Scott 2026-07-28).
+
+    Same state semantics as monthly_aggregates (an event's to_tier sets
+    the user's paid state; anything non-paid clears it), sampled at
+    end-of-day instead of end-of-month so the launch-era curve is
+    visible day by day. List price by convention (matches the tab: MRR
+    is list price, net is after Apple's 15%); trials and offer periods
+    count at list value until they lapse.
+    """
+    rows = await (await db.execute(
+        "SELECT user_id, event_type, to_tier, effective_at "
+        "FROM subscription_events ORDER BY effective_at ASC, recorded_at ASC"
+    )).fetchall()
+    if not rows:
+        return []
+
+    def day_of(iso: str) -> str:
+        return (iso or "")[:10]
+
+    by_day: dict[str, list] = {}
+    for r in rows:
+        by_day.setdefault(day_of(r["effective_at"]), []).append(r)
+
+    first = datetime.fromisoformat(day_of(rows[0]["effective_at"]))
+    last = datetime.now(timezone.utc).replace(tzinfo=None)
+    state: dict[str, str | None] = {}
+    trend = []
+    d = first
+    while day_of(d.isoformat()) <= day_of(last.isoformat()):
+        day = day_of(d.isoformat())
+        for r in by_day.get(day, []):
+            to_tier = r["to_tier"] if is_paid_tier(r["to_tier"]) else None
+            state[r["user_id"]] = to_tier
+        gross = sum(TIER_PRICE_USD.get(t, 0)
+                    for t in state.values() if is_paid_tier(t))
+        trend.append({
+            "day": day,
+            "mrr_gross_usd": round(gross, 2),
+            "mrr_net_usd": round(gross * APPLE_NET_FACTOR, 2),
+            "active_paid": sum(1 for t in state.values() if is_paid_tier(t)),
+        })
+        d += timedelta(days=1)
+    return trend
 
 
 async def user_timeline(db: aiosqlite.Connection, user_id: str) -> list[dict]:

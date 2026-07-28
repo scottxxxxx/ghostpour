@@ -4121,6 +4121,7 @@ async def subscriptions_report(
     return {
         "summary": await subs.summary(db),
         "monthly": await subs.monthly_aggregates(db),
+        "mrr_trend": await subs.mrr_trend(db),
     }
 
 
