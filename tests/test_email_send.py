@@ -155,3 +155,39 @@ async def test_provider_error_surfaces_status(client, tmp_db_path, monkeypatch):
     assert result.status_code == 422
     assert "validation_error" in (result.error or "")
     app_secrets.get_secret.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_reply_to_rides_resend_first_class_field(client, tmp_db_path, monkeypatch):
+    """2026-07-28: a subscriber reply bounced off the send-only noreply
+    domain because Reply-To rode as a raw header, which Resend does not
+    reliably honor. reply_to must land as the API's first-class field."""
+    monkeypatch.setenv("CZ_RESEND_API_KEY", "re_test_key")
+    from app import secrets as app_secrets
+    app_secrets.get_secret.cache_clear()
+
+    fake_resp = MagicMock()
+    fake_resp.status_code = 200
+    fake_resp.content = b'{"id":"em_reply1"}'
+    fake_resp.json.return_value = {"id": "em_reply1"}
+
+    fake_post = AsyncMock(return_value=fake_resp)
+    with patch("httpx.AsyncClient") as fake_client_cls:
+        fake_client = AsyncMock()
+        fake_client.post = fake_post
+        fake_client_cls.return_value.__aenter__.return_value = fake_client
+
+        async with aiosqlite.connect(tmp_db_path) as db:
+            db.row_factory = aiosqlite.Row
+            result = await email_send.send_email(
+                db,
+                to="ok@example.com",
+                subject="Welcome",
+                html="<p>hi</p>",
+                from_addr="Shoulder Surf <noreply@example.com>",
+                reply_to="scott@example.com",
+            )
+
+    assert result.sent is True
+    payload = fake_post.call_args.kwargs["json"]
+    assert payload["reply_to"] == "scott@example.com"
