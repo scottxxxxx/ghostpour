@@ -1,229 +1,229 @@
 {
-  "version": 18,
-  "server_only": true,
-  "models": [
-    {
-      "id": "anthropic/claude-opus-4-7",
-      "label": "Opus 4.7"
-    },
-    {
-      "id": "anthropic/claude-sonnet-4-6",
-      "label": "Sonnet 4.6"
-    },
-    {
-      "id": "anthropic/claude-haiku-4-5-20251001",
-      "label": "Haiku 4.5"
-    }
-  ],
-  "apps": {
-    "shouldersurf": {
-      "label": "Shoulder Surf",
-      "tiers": [
-        "free",
-        "plus",
-        "pro"
-      ],
-      "call_types": {
-        "summary": {
-          "label": "Auto Summary",
-          "models": {
-            "free": "anthropic/claude-haiku-4-5-20251001",
-            "plus": "anthropic/claude-haiku-4-5-20251001",
-            "pro": "anthropic/claude-haiku-4-5-20251001"
-          }
-        },
-        "analysis": {
-          "label": "Post-Session Analysis",
-          "models": {
-            "free": "anthropic/claude-haiku-4-5-20251001",
-            "plus": "anthropic/claude-haiku-4-5-20251001",
-            "pro": "anthropic/claude-sonnet-4-6"
-          }
-        },
-        "report": {
-          "label": "Meeting Report",
-          "models": {
-            "free": "anthropic/claude-haiku-4-5-20251001",
-            "plus": "anthropic/claude-haiku-4-5-20251001",
-            "pro": "anthropic/claude-sonnet-4-6"
-          }
-        },
-        "query": {
-          "label": "Interactive Query",
-          "models": {
-            "free": "anthropic/claude-haiku-4-5-20251001",
-            "plus": "anthropic/claude-haiku-4-5-20251001",
-            "pro": "anthropic/claude-sonnet-4-6"
-          }
-        },
-        "query_follow_up": {
-          "label": "Interactive Query (Follow-up)",
-          "models": {
-            "free": "anthropic/claude-haiku-4-5-20251001",
-            "plus": "anthropic/claude-haiku-4-5-20251001",
-            "pro": "anthropic/claude-haiku-4-5-20251001"
-          }
-        },
-        "meeting_chat": {
-          "label": "Meeting Chat",
-          "models": {
-            "free": "anthropic/claude-haiku-4-5-20251001",
-            "plus": "anthropic/claude-haiku-4-5-20251001",
-            "pro": "anthropic/claude-sonnet-4-6"
-          }
-        },
-        "meeting_chat_follow_up": {
-          "label": "Meeting Chat (Follow-up)",
-          "models": {
-            "free": "anthropic/claude-haiku-4-5-20251001",
-            "plus": "anthropic/claude-haiku-4-5-20251001",
-            "pro": "anthropic/claude-haiku-4-5-20251001"
-          }
-        },
-        "project_chat": {
-          "label": "Project Chat",
-          "models": {
-            "free": "anthropic/claude-haiku-4-5-20251001",
-            "plus": "anthropic/claude-haiku-4-5-20251001",
-            "pro": "anthropic/claude-sonnet-4-6"
-          }
-        },
-        "project_chat_follow_up": {
-          "label": "Project Chat (Follow-up)",
-          "models": {
-            "free": "anthropic/claude-haiku-4-5-20251001",
-            "plus": "anthropic/claude-haiku-4-5-20251001",
-            "pro": "anthropic/claude-haiku-4-5-20251001"
-          }
-        }
-      }
-    },
-    "techrehearsal": {
-      "label": "Tech Rehearsal",
-      "tiers": [
-        "free",
-        "paid"
-      ],
-      "call_types": {
-        "tr_parse_jd": {
-          "label": "JD Analysis",
-          "models": {
-            "free": "anthropic/claude-sonnet-4-6",
-            "paid": "anthropic/claude-sonnet-4-6",
-            "default": "anthropic/claude-sonnet-4-6"
-          }
-        },
-        "tr_parse_resume": {
-          "label": "Resume Analysis",
-          "models": {
-            "free": "anthropic/claude-sonnet-4-6",
-            "paid": "anthropic/claude-sonnet-4-6",
-            "default": "anthropic/claude-sonnet-4-6"
-          }
-        },
-        "tr_mock_interview": {
-          "label": "Mock Interview",
-          "models": {
-            "free": "anthropic/claude-sonnet-4-6",
-            "paid": "anthropic/claude-sonnet-4-6",
-            "default": "anthropic/claude-sonnet-4-6"
-          }
-        },
-        "tr_response_analysis": {
-          "label": "Response Analysis",
-          "models": {
-            "free": "anthropic/claude-sonnet-4-6",
-            "paid": "anthropic/claude-sonnet-4-6",
-            "default": "anthropic/claude-sonnet-4-6"
-          }
-        },
-        "tr_research_company": {
-          "label": "Company Research",
-          "models": {
-            "free": "openrouter/perplexity/sonar",
-            "paid": "openrouter/perplexity/sonar",
-            "default": "openrouter/perplexity/sonar"
-          }
-        },
-        "tr_match_analysis": {
-          "label": "Resume-JD Match",
-          "models": {
-            "free": "anthropic/claude-sonnet-4-6",
-            "paid": "anthropic/claude-sonnet-4-6",
-            "default": "anthropic/claude-sonnet-4-6"
-          }
-        },
-        "tr_research_interviewer": {
-          "label": "Interviewer Research",
-          "models": {
-            "free": "anthropic/claude-sonnet-4-6",
-            "paid": "anthropic/claude-sonnet-4-6",
-            "default": "anthropic/claude-sonnet-4-6"
-          }
-        },
-        "tr_resume_enhance": {
-          "label": "Resume Strengthen",
-          "models": {
-            "free": "anthropic/claude-haiku-4-5-20251001",
-            "paid": "anthropic/claude-haiku-4-5-20251001",
-            "default": "anthropic/claude-haiku-4-5-20251001"
-          }
-        },
-        "query": {
-          "label": "General Query",
-          "models": {
-            "free": "anthropic/claude-haiku-4-5-20251001",
-            "paid": "anthropic/claude-sonnet-4-6"
-          }
-        },
-        "tr_intake": {
-          "label": "Intake (personal scenarios)",
-          "models": {
-            "free": "anthropic/claude-haiku-4-5-20251001",
-            "paid": "anthropic/claude-haiku-4-5-20251001",
-            "default": "anthropic/claude-haiku-4-5-20251001"
-          }
-        },
-        "tr_brief_analysis": {
-          "label": "Brief Analysis",
-          "models": {
-            "free": "anthropic/claude-sonnet-4-6",
-            "paid": "anthropic/claude-sonnet-4-6",
-            "default": "anthropic/claude-sonnet-4-6"
-          }
-        },
-        "tr_debrief": {
-          "label": "Debrief",
-          "models": {
-            "free": "anthropic/claude-sonnet-4-6",
-            "paid": "anthropic/claude-sonnet-4-6",
-            "default": "anthropic/claude-sonnet-4-6"
-          }
-        },
-        "tr_rewrite": {
-          "label": "Say It Better (rewrite)",
-          "models": {
-            "free": "anthropic/claude-haiku-4-5-20251001",
-            "paid": "anthropic/claude-haiku-4-5-20251001",
-            "default": "anthropic/claude-haiku-4-5-20251001"
-          }
-        },
-        "tr_compare_reality": {
-          "label": "Compare to Reality",
-          "models": {
-            "free": "anthropic/claude-sonnet-4-6",
-            "paid": "anthropic/claude-sonnet-4-6",
-            "default": "anthropic/claude-sonnet-4-6"
-          }
-        },
-        "tr_counterpart_turn": {
-          "models": {
-            "free": "anthropic/claude-sonnet-4-6",
-            "paid": "anthropic/claude-sonnet-4-6",
-            "default": "anthropic/claude-sonnet-4-6"
-          }
-        }
-      }
-    }
+ "version": 19,
+ "server_only": true,
+ "models": [
+  {
+   "id": "anthropic/claude-opus-4-7",
+   "label": "Opus 4.7"
+  },
+  {
+   "id": "anthropic/claude-sonnet-4-6",
+   "label": "Sonnet 4.6"
+  },
+  {
+   "id": "anthropic/claude-haiku-4-5-20251001",
+   "label": "Haiku 4.5"
   }
+ ],
+ "apps": {
+  "shouldersurf": {
+   "label": "Shoulder Surf",
+   "tiers": [
+    "free",
+    "plus",
+    "pro"
+   ],
+   "call_types": {
+    "summary": {
+     "label": "Auto Summary",
+     "models": {
+      "free": "anthropic/claude-haiku-4-5-20251001",
+      "plus": "anthropic/claude-haiku-4-5-20251001",
+      "pro": "anthropic/claude-haiku-4-5-20251001"
+     }
+    },
+    "analysis": {
+     "label": "Post-Session Analysis",
+     "models": {
+      "free": "anthropic/claude-haiku-4-5-20251001",
+      "plus": "anthropic/claude-haiku-4-5-20251001",
+      "pro": "anthropic/claude-sonnet-5"
+     }
+    },
+    "report": {
+     "label": "Meeting Report",
+     "models": {
+      "free": "anthropic/claude-haiku-4-5-20251001",
+      "plus": "anthropic/claude-haiku-4-5-20251001",
+      "pro": "anthropic/claude-sonnet-5"
+     }
+    },
+    "query": {
+     "label": "Interactive Query",
+     "models": {
+      "free": "anthropic/claude-haiku-4-5-20251001",
+      "plus": "anthropic/claude-haiku-4-5-20251001",
+      "pro": "anthropic/claude-sonnet-5"
+     }
+    },
+    "query_follow_up": {
+     "label": "Interactive Query (Follow-up)",
+     "models": {
+      "free": "anthropic/claude-haiku-4-5-20251001",
+      "plus": "anthropic/claude-haiku-4-5-20251001",
+      "pro": "anthropic/claude-haiku-4-5-20251001"
+     }
+    },
+    "meeting_chat": {
+     "label": "Meeting Chat",
+     "models": {
+      "free": "anthropic/claude-haiku-4-5-20251001",
+      "plus": "anthropic/claude-haiku-4-5-20251001",
+      "pro": "anthropic/claude-sonnet-5"
+     }
+    },
+    "meeting_chat_follow_up": {
+     "label": "Meeting Chat (Follow-up)",
+     "models": {
+      "free": "anthropic/claude-haiku-4-5-20251001",
+      "plus": "anthropic/claude-haiku-4-5-20251001",
+      "pro": "anthropic/claude-haiku-4-5-20251001"
+     }
+    },
+    "project_chat": {
+     "label": "Project Chat",
+     "models": {
+      "free": "anthropic/claude-haiku-4-5-20251001",
+      "plus": "anthropic/claude-haiku-4-5-20251001",
+      "pro": "anthropic/claude-sonnet-5"
+     }
+    },
+    "project_chat_follow_up": {
+     "label": "Project Chat (Follow-up)",
+     "models": {
+      "free": "anthropic/claude-haiku-4-5-20251001",
+      "plus": "anthropic/claude-haiku-4-5-20251001",
+      "pro": "anthropic/claude-haiku-4-5-20251001"
+     }
+    }
+   }
+  },
+  "techrehearsal": {
+   "label": "Tech Rehearsal",
+   "tiers": [
+    "free",
+    "paid"
+   ],
+   "call_types": {
+    "tr_parse_jd": {
+     "label": "JD Analysis",
+     "models": {
+      "free": "anthropic/claude-sonnet-4-6",
+      "paid": "anthropic/claude-sonnet-4-6",
+      "default": "anthropic/claude-sonnet-4-6"
+     }
+    },
+    "tr_parse_resume": {
+     "label": "Resume Analysis",
+     "models": {
+      "free": "anthropic/claude-sonnet-4-6",
+      "paid": "anthropic/claude-sonnet-4-6",
+      "default": "anthropic/claude-sonnet-4-6"
+     }
+    },
+    "tr_mock_interview": {
+     "label": "Mock Interview",
+     "models": {
+      "free": "anthropic/claude-sonnet-4-6",
+      "paid": "anthropic/claude-sonnet-4-6",
+      "default": "anthropic/claude-sonnet-4-6"
+     }
+    },
+    "tr_response_analysis": {
+     "label": "Response Analysis",
+     "models": {
+      "free": "anthropic/claude-sonnet-4-6",
+      "paid": "anthropic/claude-sonnet-4-6",
+      "default": "anthropic/claude-sonnet-4-6"
+     }
+    },
+    "tr_research_company": {
+     "label": "Company Research",
+     "models": {
+      "free": "openrouter/perplexity/sonar",
+      "paid": "openrouter/perplexity/sonar",
+      "default": "openrouter/perplexity/sonar"
+     }
+    },
+    "tr_match_analysis": {
+     "label": "Resume-JD Match",
+     "models": {
+      "free": "anthropic/claude-sonnet-4-6",
+      "paid": "anthropic/claude-sonnet-4-6",
+      "default": "anthropic/claude-sonnet-4-6"
+     }
+    },
+    "tr_research_interviewer": {
+     "label": "Interviewer Research",
+     "models": {
+      "free": "anthropic/claude-sonnet-4-6",
+      "paid": "anthropic/claude-sonnet-4-6",
+      "default": "anthropic/claude-sonnet-4-6"
+     }
+    },
+    "tr_resume_enhance": {
+     "label": "Resume Strengthen",
+     "models": {
+      "free": "anthropic/claude-haiku-4-5-20251001",
+      "paid": "anthropic/claude-haiku-4-5-20251001",
+      "default": "anthropic/claude-haiku-4-5-20251001"
+     }
+    },
+    "query": {
+     "label": "General Query",
+     "models": {
+      "free": "anthropic/claude-haiku-4-5-20251001",
+      "paid": "anthropic/claude-sonnet-4-6"
+     }
+    },
+    "tr_intake": {
+     "label": "Intake (personal scenarios)",
+     "models": {
+      "free": "anthropic/claude-haiku-4-5-20251001",
+      "paid": "anthropic/claude-haiku-4-5-20251001",
+      "default": "anthropic/claude-haiku-4-5-20251001"
+     }
+    },
+    "tr_brief_analysis": {
+     "label": "Brief Analysis",
+     "models": {
+      "free": "anthropic/claude-sonnet-4-6",
+      "paid": "anthropic/claude-sonnet-4-6",
+      "default": "anthropic/claude-sonnet-4-6"
+     }
+    },
+    "tr_debrief": {
+     "label": "Debrief",
+     "models": {
+      "free": "anthropic/claude-sonnet-4-6",
+      "paid": "anthropic/claude-sonnet-4-6",
+      "default": "anthropic/claude-sonnet-4-6"
+     }
+    },
+    "tr_rewrite": {
+     "label": "Say It Better (rewrite)",
+     "models": {
+      "free": "anthropic/claude-haiku-4-5-20251001",
+      "paid": "anthropic/claude-haiku-4-5-20251001",
+      "default": "anthropic/claude-haiku-4-5-20251001"
+     }
+    },
+    "tr_compare_reality": {
+     "label": "Compare to Reality",
+     "models": {
+      "free": "anthropic/claude-sonnet-4-6",
+      "paid": "anthropic/claude-sonnet-4-6",
+      "default": "anthropic/claude-sonnet-4-6"
+     }
+    },
+    "tr_counterpart_turn": {
+     "models": {
+      "free": "anthropic/claude-sonnet-4-6",
+      "paid": "anthropic/claude-sonnet-4-6",
+      "default": "anthropic/claude-sonnet-4-6"
+     }
+    }
+   }
+  }
+ }
 }
