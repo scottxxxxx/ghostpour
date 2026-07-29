@@ -273,10 +273,16 @@
     <div class="table-wrap"><table id="model-table"><thead><tr>
       <th>Provider</th><th>Model</th><th>Requests</th><th>Input Tokens</th><th>Output Tokens</th><th>Cost</th><th>Avg Latency</th>
     </tr></thead><tbody></tbody></table></div>
-    <h3 style="margin-top:24px;">Usage by Scenario</h3>
-    <div class="table-wrap"><table id="scenario-table"><thead><tr>
-      <th>Scenario</th><th>Requests</th><th>Tokens</th><th>Cost</th>
+    <h3 style="margin-top:24px;">Usage by Call Type</h3>
+    <div class="table-wrap"><table id="call-type-table"><thead><tr>
+      <th>Call Type</th><th>Requests</th><th>Tokens</th><th>Cost</th><th>Avg Latency</th>
     </tr></thead><tbody></tbody></table></div>
+    <div id="scenario-section">
+      <h3 style="margin-top:24px;">Usage by Scenario</h3>
+      <div class="table-wrap"><table id="scenario-table"><thead><tr>
+        <th>Scenario</th><th>Requests</th><th>Tokens</th><th>Cost</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
     <h3 style="margin-top:24px;">Model Routing Dials <span id="routing-status" style="font-size:12px;font-weight:normal;margin-left:8px;"></span></h3>
     <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;">
       These dials are the live source of truth: Save writes the model-routing config and applies to the
@@ -2213,7 +2219,21 @@ async function refresh() {
     <td>${fmtCost(m.cost_usd)}</td><td>${fmtMs(m.avg_latency_ms)}</td>
   </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-dim)">No usage data yet</td></tr>';
 
-  // Scenario table (TR scenario sub-dimension; populated once the client tags calls)
+  // Call-type table — the app-agnostic breakdown. Every usage row carries a
+  // call_type, so this is the one that answers "what are these requests?"
+  // for both apps (scenario below is TR-only and reads "(untagged)" for SS).
+  const ctbody = document.querySelector('#call-type-table tbody');
+  ctbody.innerHTML = (dash.by_call_type || []).map(c => `<tr>
+    <td class="mono">${esc(c.call_type)}</td><td>${fmt(c.requests)}</td><td>${fmt(c.tokens)}</td>
+    <td>${fmtCost(c.cost_usd)}</td><td>${fmtMs(c.avg_latency_ms)}</td>
+  </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-dim)">No usage data yet</td></tr>';
+
+  // Scenario table (TR scenario sub-dimension). Hidden entirely when nothing
+  // in the window is tagged, since an SS-filtered view can only ever show one
+  // "(untagged)" row holding every request, which reads as missing data.
+  const scenRows = (dash.by_scenario || []).filter(s => s.scenario !== '(untagged)');
+  const scenSection = document.getElementById('scenario-section');
+  if (scenSection) scenSection.style.display = scenRows.length ? '' : 'none';
   const stbody = document.querySelector('#scenario-table tbody');
   stbody.innerHTML = (dash.by_scenario || []).map(s => `<tr>
     <td>${s.scenario}</td><td>${fmt(s.requests)}</td><td>${fmt(s.tokens)}</td><td>${fmtCost(s.cost_usd)}</td>
@@ -4460,6 +4480,15 @@ function renderRouting() {
         const current = ctModels[t] || '';
         html += `<td style="padding:4px 4px;text-align:center">`;
         html += `<select data-app="${appId}" data-ct="${ctId}" data-tier="${t}" style="font-size:11px;padding:3px 4px;background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:4px;width:100%">`;
+        // A live value that isn't in the catalog gets its own option first.
+        // Without this the select has NO selected option, the browser shows
+        // the first entry in the list, and saveRouting() reads that back —
+        // silently rewriting the lane to a different model on Save. That is
+        // exactly what happened when claude-sonnet-5 went onto the SS Pro
+        // lanes before it was added to `models` (2026-07-29).
+        if (current && !models.some(m => m.id === current)) {
+          html += `<option value="${current}" selected>${current} (not in catalog)</option>`;
+        }
         for (const m of models) {
           const sel = current === m.id ? ' selected' : '';
           html += `<option value="${m.id}"${sel}>${m.label}</option>`;

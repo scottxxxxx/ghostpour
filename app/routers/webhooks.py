@@ -1281,6 +1281,32 @@ async def dashboard(
         for r in await cursor.fetchall()
     ]
 
+    # --- Usage by call type ---
+    # The app-agnostic breakdown. Every row carries a call_type, so this
+    # populates for both apps, unlike `scenario` below which only TR tags.
+    cursor = await db.execute(
+        """SELECT COALESCE(call_type, '(untyped)') as call_type,
+            COUNT(*) as requests,
+            COALESCE(SUM(input_tokens), 0) + COALESCE(SUM(output_tokens), 0) as tokens,
+            COALESCE(SUM(estimated_cost_usd), 0) as cost_usd,
+            ROUND(AVG(response_time_ms), 0) as avg_latency_ms
+           FROM usage_log
+           WHERE request_timestamp >= date('now', ?) AND status = 'success'""" + app_clause + """
+           GROUP BY call_type
+           ORDER BY requests DESC""",
+        (f"-{days} days", *app_params),
+    )
+    by_call_type = [
+        {
+            "call_type": r["call_type"],
+            "requests": r["requests"],
+            "tokens": r["tokens"],
+            "cost_usd": round(r["cost_usd"], 4),
+            "avg_latency_ms": int(r["avg_latency_ms"]) if r["avg_latency_ms"] else 0,
+        }
+        for r in await cursor.fetchall()
+    ]
+
     # --- Usage by scenario (Tech Rehearsal scenario sub-dimension) ---
     # interview / negotiation / personal / pitch (open vocab). Rows the
     # client hasn't tagged read as "(untagged)". Honors the app + period
@@ -1451,6 +1477,7 @@ async def dashboard(
         "today": today_usage,
         "usage": usage_summary,
         "by_model": by_model,
+        "by_call_type": by_call_type,
         "by_scenario": by_scenario,
         "top_users": top_users,
         "latency_percentiles": percentiles,
