@@ -29,15 +29,14 @@ com.shouldersurf.ShoulderSurf:
         # Bump on every release. Client shows a dismissible toast when
         # the device's CFBundleShortVersionString is below this.
         #
-        # Current shipping build is 1.14 (build 803 on TestFlight),
-        # uploaded 2026-07-26 (Scott's signal; carries the build-800-era
-        # icon mappings and the account-deletion client flow, first
-        # TestFlight build after the 785 telemetry rider). Build 777 is
-        # still the one in App Review; the appstore channel below flips
-        # to it at approval per the launch runbook.
+        # Current shipping build is 1.15 (build 836 on TestFlight),
+        # approved and installable 2026-07-29 (Scott's signal: TestFlight
+        # users may start taking it). Supersedes 1.14/803 (2026-07-26).
+        # The App Store channel stays at the approved 1.0/803 until a new
+        # App Store release ships, so the two never cross.
         # Bump on every TestFlight or App Store release that goes out
         # to users. Soft-banner pipeline verified end-to-end 2026-06-06.
-        version: "1.14"
+        version: "1.15"
         # CFBundleVersion (numeric string). Clients only consult this
         # when their marketing version equals `version` above:
         #   - TestFlight installs whose build number is < this show the
@@ -45,7 +44,7 @@ com.shouldersurf.ShoulderSurf:
         #   - App Store installs ignore it entirely.
         # Bump alongside `version` on every release. The bump pair from
         # SS will always come as "version + build", e.g. "1.13 build 450".
-        build: "803"
+        build: "836"
         # Tap target for the upgrade prompt. Currently the live
         # TestFlight invite linked from the beta button on
         # shouldersurf.com. Swap to https://apps.apple.com/app/id<APPID>
@@ -61,8 +60,8 @@ com.shouldersurf.ShoulderSurf:
       # relevant channel on each release.
       latest_by_channel:
         testflight:
-          version: "1.14"
-          build: "803"
+          version: "1.15"
+          build: "836"
           upgrade_url: "https://testflight.apple.com/join/ubRWVcXF"
         appstore:
           # PRE-STAGED 2026-07-24 (Scott's call): the App Store has never
