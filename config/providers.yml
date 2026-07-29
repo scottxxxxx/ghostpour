@@ -56,6 +56,9 @@ providers:
       - id: "claude-sonnet-4-6"
         supports_vision: true
         max_tokens_default: 4096
+      - id: "claude-sonnet-5"
+        supports_vision: true
+        max_tokens_default: 4096
       - id: "claude-haiku-4-5-20251001"
         supports_vision: true
         max_tokens_default: 4096
