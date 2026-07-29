@@ -53,6 +53,14 @@ def test_render_variants_and_no_dashes():
     subject, html, _ = render("Elijah Capudoy", "plus", True)
     assert "Hi Elijah," in html
     assert "scott@shouldersurf.com" in html
+    # tier-exclusive tips (Scott 2026-07-29): Pro showcases file
+    # generation; Plus keeps Project Chat.
+    _, pro_html, pro_text = render("John Kirker", "pro", False)
+    assert "Word document" in pro_html and "follow-up work" in pro_html
+    assert "Project Chat" not in pro_html
+    _, plus_html, _ = render("Elijah Capudoy", "plus", False)
+    assert "Project Chat" in plus_html
+    assert "Word document" not in plus_html
 
 
 # --- enqueue rules ----------------------------------------------------------
