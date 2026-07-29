@@ -2402,21 +2402,21 @@ async def list_users(
     )
     rows_fetched = await cursor.fetchall()
 
-    # Offer-vs-trial split (Scott 2026-07-28): the trial flag is set for
-    # both genuine intro trials AND $0 offer-code periods (Apple never
-    # calls the latter a trial; our verify-receipt inference does). The
-    # subscription event log tells them apart: offer redemptions carry
-    # offer_id, intro trials don't. One batch query; latest offer wins.
-    trial_ids = [r["id"] for r in rows_fetched if r["is_trial"]]
-    trial_offers: dict[str, str] = {}
-    if trial_ids:
-        ph = ",".join("?" * len(trial_ids))
+    # Offer badge (Scott 2026-07-28/29): any subscription born from an
+    # offer code wears OFFER, independent of the trial flag — the flag
+    # was decoupled from offer redemptions by #560, which silently
+    # dropped the badge off gifted accounts. Latest offer wins; one
+    # batch query over the event log.
+    user_offers: dict[str, str] = {}
+    ids = [r["id"] for r in rows_fetched]
+    if ids:
+        ph = ",".join("?" * len(ids))
         for ev in await (await db.execute(
             f"SELECT user_id, offer_id FROM subscription_events "
             f"WHERE user_id IN ({ph}) AND offer_id IS NOT NULL "
-            f"ORDER BY recorded_at ASC", trial_ids
+            f"ORDER BY recorded_at ASC", ids
         )).fetchall():
-            trial_offers[ev["user_id"]] = ev["offer_id"]
+            user_offers[ev["user_id"]] = ev["offer_id"]
 
     users = []
     for r in rows_fetched:
@@ -2463,10 +2463,9 @@ async def list_users(
             "simulated_tier": r["simulated_tier"],
             "simulated_exhausted": bool(r["simulated_exhausted"]),
             "is_trial": bool(r["is_trial"]),
-            # non-null when the trial flag came from an offer-code
-            # redemption rather than a real intro trial; the dashboard
-            # renders OFFER instead of TRIAL and tooltips the offer name.
-            "trial_offer_id": trial_offers.get(r["id"]) if r["is_trial"] else None,
+            # non-null when this subscription came from an offer code;
+            # the dashboard renders an OFFER badge with the offer name.
+            "subscription_offer_id": user_offers.get(r["id"]),
             "trial_end": r["trial_end"],
             # Current month allocation
             "monthly_used_usd": round(monthly_used, 4),

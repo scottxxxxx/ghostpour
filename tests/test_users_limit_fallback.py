@@ -59,9 +59,10 @@ def _mark_trial(db_path, user_id):
 
 
 def test_offer_trial_carries_offer_id_and_intro_trial_does_not(client, tmp_db_path):
-    """Offer-code periods and real intro trials both set is_trial; the
-    users list splits them via trial_offer_id (from the subscription
-    event log) so the dashboard badges OFFER vs TRIAL (Scott 2026-07-28)."""
+    """Offer-born subscriptions carry subscription_offer_id regardless of
+    trial state (Scott 2026-07-29: #560 decoupled the trial flag from
+    offer redemptions and silently dropped the badge off gifted
+    accounts); intro trials carry only is_trial."""
     import asyncio
 
     import aiosqlite
@@ -70,8 +71,7 @@ def test_offer_trial_carries_offer_id_and_intro_trial_does_not(client, tmp_db_pa
 
     _insert_user(tmp_db_path, user_id="u_offer", tier="pro")
     _insert_user(tmp_db_path, user_id="u_intro", tier="plus")
-    _mark_trial(tmp_db_path, "u_offer")
-    _mark_trial(tmp_db_path, "u_intro")
+    _mark_trial(tmp_db_path, "u_intro")     # offer accounts are NOT trials (#560)
 
     async def seed():
         db = await aiosqlite.connect(tmp_db_path)
@@ -90,8 +90,10 @@ def test_offer_trial_carries_offer_id_and_intro_trial_does_not(client, tmp_db_pa
 
     users = client.get("/webhooks/admin/users?days=30", headers=ADMIN).json()["users"]
     by_id = {u["id"]: u for u in users}
-    assert by_id["u_offer"]["trial_offer_id"] == "friend-test"
-    assert by_id["u_intro"]["is_trial"] and by_id["u_intro"]["trial_offer_id"] is None
+    assert by_id["u_offer"]["subscription_offer_id"] == "friend-test"
+    assert not by_id["u_offer"]["is_trial"]
+    assert by_id["u_intro"]["is_trial"]
+    assert by_id["u_intro"]["subscription_offer_id"] is None
 
 
 def test_users_list_includes_anonymous_devices_and_app_build(client, tmp_db_path):
