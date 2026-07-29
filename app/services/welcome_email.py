@@ -56,12 +56,41 @@ def _opening(tier_label: str, is_trial: bool) -> str:
             f"you personally.")
 
 
+def _tip(tier: str) -> tuple[str, str, str]:
+    """(intro, example, payoff) for the One-thing-to-try section.
+
+    Pro's tip features file generation, the Pro-exclusive capability
+    (Scott 2026-07-29); Plus and everything else keep Project Chat,
+    which both paid tiers have."""
+    if tier == "pro":
+        return (
+            "After any meeting, ask the chat for a real file. Pro builds "
+            "native Excel, Word, and PowerPoint documents from what was "
+            "actually said, not summaries pasted into a page, but files "
+            "you can send around as they are. For example:",
+            "Put the action items from this meeting in a Word document, "
+            "with owners and due dates.",
+            "That is where Shoulder Surf goes from taking notes to doing "
+            "the follow-up work for you.",
+        )
+    return (
+        "Once you have several related meetings, place them inside the "
+        "same project and ask Project Chat a question that depends on all "
+        "of them. For example:",
+        "What decisions have we made, what is still unresolved, and who "
+        "is responsible for each next step?",
+        "That is where Shoulder Surf becomes more than a collection of "
+        "recordings. It becomes a searchable memory of your work.",
+    )
+
+
 def render(display_name: str | None, tier: str, is_trial: bool) -> tuple[str, str, str]:
     """Return (subject, html, text) for one subscriber."""
     name = first_name(display_name)
     tier_label = _TIER_NAMES.get(tier, tier.capitalize())
     opening = _opening(tier_label, is_trial)
     value_word = tier_label if not is_trial else "your trial"
+    tip_intro, tip_example, tip_payoff = _tip(tier)
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -79,9 +108,9 @@ def render(display_name: str | None, tier: str, is_trial: bool) -> tuple[str, st
           <p style="margin:0 0 14px 0;">{opening}</p>
           <p style="margin:0 0 18px 0;">As an independent developer, every subscription matters to me. It means someone believes Shoulder Surf can make their work easier, and I take that responsibility seriously.</p>
           <p style="margin:0 0 8px 0;font-size:13px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#1e6293;">One thing to try</p>
-          <p style="margin:0 0 12px 0;">Once you have several related meetings, place them inside the same project and ask Project Chat a question that depends on all of them. For example:</p>
-          <p style="margin:0 0 12px 0;padding:10px 14px;background-color:#f0f6fb;border-left:3px solid #1e6293;border-radius:6px;color:#46546b;font-style:italic;font-size:14px;">What decisions have we made, what is still unresolved, and who is responsible for each next step?</p>
-          <p style="margin:0 0 18px 0;">That is where Shoulder Surf becomes more than a collection of recordings. It becomes a searchable memory of your work.</p>
+          <p style="margin:0 0 12px 0;">{tip_intro}</p>
+          <p style="margin:0 0 12px 0;padding:10px 14px;background-color:#f0f6fb;border-left:3px solid #1e6293;border-radius:6px;color:#46546b;font-style:italic;font-size:14px;">{tip_example}</p>
+          <p style="margin:0 0 18px 0;">{tip_payoff}</p>
           <p style="margin:0 0 18px 0;">If anything is confusing, does not work as expected, or keeps you from getting value from {value_word}, reply directly to this email. Your message comes to me, and I personally read every response.</p>
           <p style="margin:0 0 4px 0;">Thanks again for supporting Shoulder Surf.</p>
           <p style="margin:0 0 2px 0;">Scott</p>
@@ -104,15 +133,11 @@ that responsibility seriously.
 
 ONE THING TO TRY
 
-Once you have several related meetings, place them inside the same
-project and ask Project Chat a question that depends on all of them. For
-example:
+{tip_intro}
 
-  What decisions have we made, what is still unresolved, and who is
-  responsible for each next step?
+  {tip_example}
 
-That is where Shoulder Surf becomes more than a collection of
-recordings. It becomes a searchable memory of your work.
+{tip_payoff}
 
 If anything is confusing, does not work as expected, or keeps you from
 getting value from {value_word}, reply directly to this email. Your
