@@ -2361,6 +2361,16 @@ async def list_users(
             (SELECT t.app_build FROM telemetry_events t
              WHERE t.user_id = u.id AND t.app_build IS NOT NULL
              ORDER BY t.received_at DESC LIMIT 1) as app_build,
+            -- Install channel: telemetry distribution (production/sandbox/
+            -- xcode) is the device-side truth; subscription environment is
+            -- the StoreKit-side fallback for paid users on older builds
+            -- that don't send distribution yet.
+            (SELECT t.distribution FROM telemetry_events t
+             WHERE t.user_id = u.id AND t.distribution IS NOT NULL
+             ORDER BY t.received_at DESC LIMIT 1) as distribution,
+            (SELECT e.environment FROM subscription_events e
+             WHERE e.user_id = u.id AND e.environment IS NOT NULL
+             ORDER BY e.recorded_at DESC LIMIT 1) as sub_environment,
             (SELECT COUNT(*) FROM telemetry_events t
              WHERE t.user_id = u.id) as telemetry_events,
             -- Coarse location: latest non-null country/region/city from
@@ -2488,6 +2498,14 @@ async def list_users(
             "app_version": r["app_version"],
             "app_build": r["app_build"],
             "telemetry_events": r["telemetry_events"] or 0,
+            # appstore | testflight | dev | None. Telemetry distribution
+            # wins (device truth); StoreKit environment is the fallback.
+            "channel": (
+                {"production": "appstore", "sandbox": "testflight",
+                 "xcode": "dev"}.get(r["distribution"])
+                or {"Production": "appstore",
+                    "Sandbox": "testflight"}.get(r["sub_environment"])
+            ),
             "device": to_marketing_name(r["device_model"]),
             "location": (
                 {"country": r["country"], "region": r["region"], "city": r["city"]}

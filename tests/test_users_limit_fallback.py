@@ -122,3 +122,31 @@ def test_users_list_includes_anonymous_devices_and_app_build(client, tmp_db_path
     assert anons[0]["device_id"] == "dev-anon"
     assert anons[0]["app_build"] == "803"
     assert anons[0]["telemetry_events"] == 1
+
+
+def test_channel_derives_from_telemetry_and_subscription_env(client, tmp_db_path):
+    """TestFlight vs App Store split (Scott 2026-07-29, the Raven case:
+    a sandbox Pro renewing nightly looks identical to real revenue).
+    Telemetry distribution wins; StoreKit environment is the fallback."""
+    _insert_user(tmp_db_path, user_id="u_tf", tier="pro")
+    _insert_user(tmp_db_path, user_id="u_as", tier="plus")
+    conn = sqlite3.connect(tmp_db_path)
+    conn.execute(
+        """INSERT INTO telemetry_events
+           (id, event_type, device_id, user_id, distribution, received_at)
+           VALUES ('e-tf', 'app_start', 'd-tf', 'u_tf', 'sandbox',
+                   '2026-07-29T00:00:00+00:00')""")
+    conn.execute(
+        """INSERT INTO subscription_events
+           (id, user_id, event_type, to_tier, source, environment,
+            effective_at, recorded_at)
+           VALUES ('s-as', 'u_as', 'subscribed', 'plus', 'assn',
+                   'Production', '2026-07-29T00:00:00+00:00',
+                   '2026-07-29T00:00:00+00:00')""")
+    conn.commit()
+    conn.close()
+
+    users = client.get("/webhooks/admin/users?days=30", headers=ADMIN).json()["users"]
+    by_id = {u["id"]: u for u in users}
+    assert by_id["u_tf"]["channel"] == "testflight"
+    assert by_id["u_as"]["channel"] == "appstore"

@@ -317,6 +317,7 @@
     <div class="table-wrap"><table id="user-table"><thead><tr>
       <th onclick="sortUserTable('user')" style="cursor:pointer">User<span class="sa" data-sk="user"></span></th>
       <th onclick="sortUserTable('tier')" style="cursor:pointer">Tier<span class="sa" data-sk="tier"></span></th>
+      <th onclick="sortUserTable('channel')" style="cursor:pointer" title="Install channel: telemetry distribution, with StoreKit environment as fallback. TestFlight subscriptions are sandbox money, not revenue">Channel<span class="sa" data-sk="channel"></span></th>
       <th onclick="sortUserTable('hours')" style="cursor:pointer">Hours Used<span class="sa" data-sk="hours"></span></th>
       <th onclick="sortUserTable('alloc')" style="cursor:pointer">Allocation<span class="sa" data-sk="alloc"></span></th>
       <th onclick="sortUserTable('resets')" style="cursor:pointer">Resets<span class="sa" data-sk="resets"></span></th>
@@ -1774,6 +1775,7 @@ function _userSortVal(u, key) {
   switch (key) {
     case 'user': return (u.display_name || u.email || '').toLowerCase();
     case 'tier': return u.tier || '';
+    case 'channel': return u.channel || '';
     case 'hours': return u.hours_used || 0;
     case 'alloc': return u.percent_used || 0;
     case 'resets': return u.allocation_resets_at || '';
@@ -1843,6 +1845,11 @@ function renderUserRows() {
   const sorted = sortedAll.slice((_userPage - 1) * _USER_PAGE_SIZE, _userPage * _USER_PAGE_SIZE);
   const utbody = document.querySelector('#user-table tbody');
   const dimc = '<span style="color:var(--text-dim)">\u2014</span>';
+  const CH = {appstore: ['App Store', '#3fb950'], testflight: ['TestFlight', '#d29922'], dev: ['Dev', '#8b949e']};
+  const chBadge = u => {
+    const c = CH[u.channel];
+    return c ? `<span style="color:${c[1]};font-size:0.85em">${c[0]}</span>` : dimc;
+  };
   const appCell = u => u.app_version
     ? `${u.app_version}${u.app_build ? ` <span style=\"color:var(--text-dim);font-size:0.85em\">(${u.app_build})</span>` : ''}`
     : dimc;
@@ -1852,7 +1859,7 @@ function renderUserRows() {
     if (u.anonymous) {
       return `<tr style="opacity:0.75">
     <td><span style="color:var(--text-dim)">anonymous</span></td>
-    <td>${dimc}</td><td>${dimc}</td><td>${dimc}</td><td>${dimc}</td><td>${dimc}</td><td>${dimc}</td><td>${dimc}</td>
+    <td>${dimc}</td><td>${chBadge(u)}</td><td>${dimc}</td><td>${dimc}</td><td>${dimc}</td><td>${dimc}</td><td>${dimc}</td><td>${dimc}</td>
     <td>${timeAgo(u.last_request)}</td>
     <td>${dimc}</td>
     <td>${u.language ? esc(u.language) : dimc}</td>
@@ -1898,6 +1905,7 @@ function renderUserRows() {
       ? `<div>${esc(u.display_name)}</div><div style="font-size:0.8em;color:var(--text-dim)">${u.email?esc(u.email):'Private relay'}</div>`
       : (u.email?esc(u.email):'<span style="color:var(--text-dim)">Private relay</span>')}</td>
     <td><span class="badge ${u.tier}">${tierLabel}</span>${trialBadge}${simBadge}</td>
+    <td>${chBadge(u)}</td>
     <td>${hrsUsed} / ${hrsLimit} hrs</td>
     <td>${allocBar}</td>
     <td>${resets}</td>
@@ -1919,7 +1927,7 @@ function renderUserRows() {
       <button class="refresh-btn" onclick="showUserDetail('${u.id}','${u.email||"User"}')">Detail</button>
     </td>
   </tr>`;
-  }).join('') || '<tr><td colspan="17" style="text-align:center;color:var(--text-dim)">No users yet</td></tr>';
+  }).join('') || '<tr><td colspan="18" style="text-align:center;color:var(--text-dim)">No users yet</td></tr>';
   // Update sort-direction arrows on the headers.
   document.querySelectorAll('#user-table .sa').forEach(s => {
     s.textContent = s.dataset.sk === _userSort.key ? (dir > 0 ? ' ▲' : ' ▼') : '';
