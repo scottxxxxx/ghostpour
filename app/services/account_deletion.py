@@ -35,6 +35,8 @@ USER_KEYED_TABLES = [
     "search_usage",
     "subscription_events",
     "telemetry_events",
+    # A deleted account must never receive a queued welcome letter.
+    "welcome_email_queue",
     "usage_log",
 ]
 
