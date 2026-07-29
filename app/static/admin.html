@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GhostPour Admin</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230d1117'/><path d='M16 5c4.6 5.4 7.5 9.3 7.5 12.6a7.5 7.5 0 0 1-15 0C8.5 14.3 11.4 10.4 16 5z' fill='%237c5cff'/><circle cx='13.2' cy='18.4' r='1.9' fill='%23ffffff' opacity='.85'/></svg>">
 <!-- ApexCharts for the Telemetry dashboard. CDN load avoids a build
      step. Pinned major so we don't drift into a breaking release. -->
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3"></script>
@@ -234,6 +235,7 @@
   </div>
 
   <!-- Overview -->
+  <div id="panel-error-banner" style="display:none;margin:8px 0;padding:10px 14px;border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:13px"></div>
   <div id="tab-overview" class="section active">
     <h3>Today</h3>
     <div class="cards" id="today-cards"></div>
@@ -1840,7 +1842,6 @@ function renderUserRows() {
   if (!st) return;
   const { rows, tierNames } = st;
   const dir = _userSort.dir;
-  const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const sortedAll = rows.slice().sort((a, b) => {
     const va = _userSortVal(a, _userSort.key), vb = _userSortVal(b, _userSort.key);
     if (va < vb) return -1 * dir;
@@ -2084,6 +2085,40 @@ function renderUserAnalytics(rows) {
 }
 
 function fmtMs(n) { return n == null ? '-' : (n > 1000 ? (n/1000).toFixed(1) + 's' : n + 'ms'); }
+
+// HTML-escape for anything interpolated into a template. Lives at top level
+// as a hoisted declaration: it was previously a `const` INSIDE
+// renderUserRows(), so every other renderer that reached for it threw
+// ReferenceError. That is exactly what took out the Users, Latency and
+// downstream panels on 2026-07-29 — refresh() died mid-run and everything
+// after the failing line never rendered.
+// Render one dashboard panel in isolation. refresh() paints a dozen panels
+// in sequence from one payload; before this, a throw in any of them killed
+// every panel below it silently (2026-07-29: a ReferenceError in the
+// call-type table blanked Users, Latency and everything after). Contain the
+// failure to its own panel and say so in place, so a broken panel looks
+// broken instead of looking like missing data.
+function panel(name, fn) {
+  try {
+    fn();
+  } catch (e) {
+    console.error(`[dashboard] panel "${name}" failed:`, e);
+    _panelErrors.push(name);
+    const banner = document.getElementById('panel-error-banner');
+    if (banner) {
+      banner.style.display = '';
+      banner.textContent = `Some panels failed to render: ${[...new Set(_panelErrors)].join(', ')}. See the browser console for details.`;
+    }
+  }
+}
+let _panelErrors = [];
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(
+    /[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]),
+  );
+}
 function timeAgo(iso) {
   if (!iso) return 'Never';
   const d = new Date(iso), now = new Date(), diff = (now - d) / 1000;
@@ -2156,6 +2191,9 @@ function appQuery() {
 }
 
 async function refresh() {
+  _panelErrors = [];
+  const _peb = document.getElementById('panel-error-banner');
+  if (_peb) { _peb.style.display = 'none'; _peb.textContent = ''; }
   refreshCertPinBanner();
   // Re-run the active tab's own loader too — the global button must never
   // show fresher header numbers over a stale tab body.
@@ -2211,54 +2249,64 @@ async function refresh() {
     card('Active Users', fmt(dash.users.active), 'green') +
     Object.entries(dash.users.by_tier||{}).map(([t,c]) => card(t.charAt(0).toUpperCase()+t.slice(1), fmt(c), 'purple')).join('');
 
-  // Model table
-  const mtbody = document.querySelector('#model-table tbody');
-  mtbody.innerHTML = dash.by_model.map(m => `<tr>
-    <td>${m.provider}</td><td class="mono">${m.model}</td><td>${fmt(m.requests)}</td>
-    <td>${fmt(m.input_tokens)}</td><td>${fmt(m.output_tokens)}</td>
-    <td>${fmtCost(m.cost_usd)}</td><td>${fmtMs(m.avg_latency_ms)}</td>
-  </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-dim)">No usage data yet</td></tr>';
+  panel('models', () => {
+    // Model table
+    const mtbody = document.querySelector('#model-table tbody');
+    mtbody.innerHTML = dash.by_model.map(m => `<tr>
+      <td>${m.provider}</td><td class="mono">${m.model}</td><td>${fmt(m.requests)}</td>
+      <td>${fmt(m.input_tokens)}</td><td>${fmt(m.output_tokens)}</td>
+      <td>${fmtCost(m.cost_usd)}</td><td>${fmtMs(m.avg_latency_ms)}</td>
+    </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-dim)">No usage data yet</td></tr>';
+  });
 
-  // Call-type table — the app-agnostic breakdown. Every usage row carries a
-  // call_type, so this is the one that answers "what are these requests?"
-  // for both apps (scenario below is TR-only and reads "(untagged)" for SS).
-  const ctbody = document.querySelector('#call-type-table tbody');
-  ctbody.innerHTML = (dash.by_call_type || []).map(c => `<tr>
-    <td class="mono">${esc(c.call_type)}</td><td>${fmt(c.requests)}</td><td>${fmt(c.tokens)}</td>
-    <td>${fmtCost(c.cost_usd)}</td><td>${fmtMs(c.avg_latency_ms)}</td>
-  </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-dim)">No usage data yet</td></tr>';
+  panel('call types', () => {
+    // Call-type table — the app-agnostic breakdown. Every usage row carries a
+    // call_type, so this is the one that answers "what are these requests?"
+    // for both apps (scenario below is TR-only and reads "(untagged)" for SS).
+    const ctbody = document.querySelector('#call-type-table tbody');
+    ctbody.innerHTML = (dash.by_call_type || []).map(c => `<tr>
+      <td class="mono">${esc(c.call_type)}</td><td>${fmt(c.requests)}</td><td>${fmt(c.tokens)}</td>
+      <td>${fmtCost(c.cost_usd)}</td><td>${fmtMs(c.avg_latency_ms)}</td>
+    </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-dim)">No usage data yet</td></tr>';
+  });
 
-  // Scenario table (TR scenario sub-dimension). Hidden entirely when nothing
-  // in the window is tagged, since an SS-filtered view can only ever show one
-  // "(untagged)" row holding every request, which reads as missing data.
-  const scenRows = (dash.by_scenario || []).filter(s => s.scenario !== '(untagged)');
-  const scenSection = document.getElementById('scenario-section');
-  if (scenSection) scenSection.style.display = scenRows.length ? '' : 'none';
-  const stbody = document.querySelector('#scenario-table tbody');
-  stbody.innerHTML = (dash.by_scenario || []).map(s => `<tr>
-    <td>${s.scenario}</td><td>${fmt(s.requests)}</td><td>${fmt(s.tokens)}</td><td>${fmtCost(s.cost_usd)}</td>
-  </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text-dim)">No scenario data yet</td></tr>';
+  panel('scenarios', () => {
+    // Scenario table (TR scenario sub-dimension). Hidden entirely when nothing
+    // in the window is tagged, since an SS-filtered view can only ever show one
+    // "(untagged)" row holding every request, which reads as missing data.
+    const scenRows = (dash.by_scenario || []).filter(s => s.scenario !== '(untagged)');
+    const scenSection = document.getElementById('scenario-section');
+    if (scenSection) scenSection.style.display = scenRows.length ? '' : 'none';
+    const stbody = document.querySelector('#scenario-table tbody');
+    stbody.innerHTML = (dash.by_scenario || []).map(s => `<tr>
+      <td>${s.scenario}</td><td>${fmt(s.requests)}</td><td>${fmt(s.tokens)}</td><td>${fmtCost(s.cost_usd)}</td>
+    </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text-dim)">No scenario data yet</td></tr>';
+  });
 
-  // User table — sync the windowed cost column header with the active period
-  // selector so operators see "30d Cost" / "90d Cost" / etc instead of a
-  // generic label that doesn't say what window the number covers.
-  const _userWinTh = document.getElementById('user-table-window-cost-th');
-  if (_userWinTh) _userWinTh.textContent = `${days}d Cost`;
-  // Stash rows + tier list, then render via the sortable renderer so column
-  // header clicks can re-sort without re-fetching.
-  const _anonRows = (users.anonymous_devices || []).map(a => ({...a, id: 'anon:' + a.device_id, anonymous: true}));
-  window._userTableState = { rows: users.users.concat(_anonRows), tierNames };
-  renderUserRows();
-  renderUserAnalytics(users.users);
+  panel('users', () => {
+    // User table — sync the windowed cost column header with the active period
+    // selector so operators see "30d Cost" / "90d Cost" / etc instead of a
+    // generic label that doesn't say what window the number covers.
+    const _userWinTh = document.getElementById('user-table-window-cost-th');
+    if (_userWinTh) _userWinTh.textContent = `${days}d Cost`;
+    // Stash rows + tier list, then render via the sortable renderer so column
+    // header clicks can re-sort without re-fetching.
+    const _anonRows = (users.anonymous_devices || []).map(a => ({...a, id: 'anon:' + a.device_id, anonymous: true}));
+    window._userTableState = { rows: users.users.concat(_anonRows), tierNames };
+    renderUserRows();
+    renderUserAnalytics(users.users);
+  });
 
-  // Latency percentiles
-  const lp = dash.latency_percentiles || {};
-  const maxP = Math.max(...Object.values(lp), 1);
-  document.getElementById('latency-card').innerHTML = Object.keys(lp).length
-    ? Object.entries(lp).map(([k,v]) =>
-      `<div class="latency-bar"><div class="label">${k}</div><div class="bar" style="width:${v/maxP*280}px"></div><div class="val">${fmtMs(v)}</div></div>`
-    ).join('')
-    : '<div style="padding:20px;color:var(--text-dim);text-align:center">No latency data yet</div>';
+  panel('latency', () => {
+    // Latency percentiles
+    const lp = dash.latency_percentiles || {};
+    const maxP = Math.max(...Object.values(lp), 1);
+    document.getElementById('latency-card').innerHTML = Object.keys(lp).length
+      ? Object.entries(lp).map(([k,v]) =>
+        `<div class="latency-bar"><div class="label">${k}</div><div class="bar" style="width:${v/maxP*280}px"></div><div class="val">${fmtMs(v)}</div></div>`
+      ).join('')
+      : '<div style="padding:20px;color:var(--text-dim);text-align:center">No latency data yet</div>';
+  });
 
   // Allocation alerts
   const alerts = dash.allocation_alerts || [];
