@@ -74,16 +74,39 @@ def test_maps_use_an_ordinal_heat_scale_not_a_gradient_array():
     assert not re.search(r"scale:\s*\['#", "\n".join(config_lines)), (
         "a colour array is an ordinal lookup here, not a gradient"
     )
-    assert len(re.findall(r"scale: heatScale\(", src)) == 2, (
-        "both the telemetry and users maps must use the computed scale"
-    )
+    assert "scale: heatScale(" in src, "the computed scale must be used"
 
 
 def test_maps_are_zoomable_and_pannable():
     src = _src()
     assert "zoomButtons: false" not in src
-    assert len(re.findall(r"zoomButtons: true", src)) == 2
-    assert len(re.findall(r"draggable: true", src)) == 2
+    assert "zoomButtons: true" in src
+    assert "draggable: true" in src
+
+
+def test_both_cards_share_one_map_renderer():
+    # The two location cards drew with near-identical duplicated blocks; a fix
+    # to one (the ordinal-scale bug, the deferred re-measure) had to be made
+    # twice or it silently applied to only one map.
+    src = _src()
+    assert len(re.findall(r"new jsVectorMap\(", src)) == 1, (
+        "exactly one map construction site"
+    )
+    for el in ("tel-world-map", "users-world-map"):
+        assert f"renderHeatMap('{el}'" in src
+
+
+def test_us_state_view_is_wired():
+    src = _src()
+    # the vendored map has to be loaded, and only from our own origin
+    assert '<script src="/admin/us-states-map.js"></script>' in src
+    # a view toggle per card, and the state lookup keyed off GeoIP region names
+    for el in ("tel-world-map", "users-world-map"):
+        assert f'id="{el}-toggle"' in src
+    assert "function usStateCode(region)" in src
+    assert "US_STATE_CODE_BY_NAME" in src
+    # the US view must degrade to the world view if the map file didn't load
+    assert "if (st.view === 'us' && !usReady) st.view = 'world';" in src
 
 
 def test_users_map_is_remeasured_when_its_tab_becomes_visible():
@@ -93,9 +116,10 @@ def test_users_map_is_remeasured_when_its_tab_becomes_visible():
     # panel next to the country list. The Telemetry map never showed this
     # because its own tab loader runs after that tab is visible.
     src = _src()
-    assert re.search(r"name === 'users' && _usersMap", src), (
+    assert re.search(r"name === 'users'", src), (
         "switching to the Users tab must re-measure the map"
     )
+    assert "_heatMaps['users-world-map']" in src
     assert "updateSize()" in src
     assert "addEventListener('resize'" in src, "a window resize has the same problem"
 
