@@ -1,5 +1,5 @@
 {
- "version": 12,
+ "version": 13,
  "server_only": true,
  "modes": {
   "InterviewFollowUp": {
@@ -13,7 +13,6 @@
  "userPromptTemplate": "",
  "maxTokens": 4096,
  "recommendedModel": "claude-sonnet-4-6",
- "temperature": 0.2,
  "scenarios": {
   "jobInterview": {
    "guidance": "The user is preparing for a job interview; grade like a real interviewer for the role would. In per_question fields: 'star' notes which STAR elements were present or missing; 'ownership' notes the personal-ownership signal ('I' vs 'we').",
