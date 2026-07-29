@@ -168,7 +168,10 @@ class AnthropicAdapter(ProviderAdapter):
         system_block = _build_system_blocks(request)
 
         max_tokens = request.max_tokens or 4096
-        thinking = anthropic_thinking_block(request.reasoning, request.model)
+        thinking = anthropic_thinking_block(
+            request.reasoning, request.model,
+            disabled=(request.thinking == "disabled"),
+        )
         # All Anthropic reasoning-pickable models are on the effort path
         # (Opus 4.7, Sonnet 4.6, Mythos). They don't constrain max_tokens
         # against budget_tokens, so no lift needed. Haiku 4.5 is hidden
@@ -184,8 +187,12 @@ class AnthropicAdapter(ProviderAdapter):
             body["thinking"] = thinking
         # GP-controlled sampling temperature (e.g. low for reproducible structured
         # output). Anthropic requires temperature=1 when extended thinking is on,
-        # so only send an explicit temperature when there is no thinking block.
-        elif request.temperature is not None:
+        # so only send an explicit temperature when thinking is actually ON.
+        # A `{"type": "disabled"}` block is truthy but leaves sampling free, so
+        # it must not suppress the temperature the way an adaptive block does.
+        if request.temperature is not None and (
+            thinking is None or thinking.get("type") == "disabled"
+        ):
             body["temperature"] = request.temperature
         # Effort-path models (Sonnet 4.6, Opus 4.7): attach output_config.effort
         # alongside `thinking: {type: "adaptive"}`. Per Anthropic's docs the

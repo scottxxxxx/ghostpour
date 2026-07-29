@@ -148,6 +148,7 @@ def assemble_prompt(
     user_template = config.get("userPromptTemplate", "")
     max_tokens = config.get("maxTokens")
     temperature = config.get("temperature")
+    thinking = config.get("thinking")
 
     if not system_prompt:
         logger.warning("prompt_assembly: empty systemPrompt in %s", config_slug)
@@ -186,6 +187,11 @@ def assemble_prompt(
     # structured call (e.g. tr_parse_jd radar axes) reproducible run-to-run.
     if temperature is not None:
         result["temperature"] = temperature
+    # GP-controlled thinking for this lane. "disabled" keeps a short
+    # max_tokens budget entirely for the reply on models that think by
+    # default; see anthropic_accepts_disabled_thinking().
+    if thinking:
+        result["thinking"] = thinking
 
     scenario_note = ""
     if config.get("scenarios"):

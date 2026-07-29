@@ -1285,6 +1285,8 @@ async def chat(
                     updates["max_tokens"] = assembled["max_tokens"]
                 if assembled.get("temperature") is not None:
                     updates["temperature"] = assembled["temperature"]
+                if assembled.get("thinking"):
+                    updates["thinking"] = assembled["thinking"]
                 body = body.model_copy(update=updates)
 
         if not body.system_prompt:
