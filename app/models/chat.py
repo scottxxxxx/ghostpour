@@ -59,6 +59,12 @@ class ChatRequest(BaseModel):
     temperature: float | None = None  # GP-controlled; None => provider default
     stream: bool = False
     reasoning: ReasoningLevel | None = None
+    # GP-controlled lane setting, NOT the user-facing picker above. Only
+    # "disabled" is meaningful today: models that think by default (Sonnet 5,
+    # Opus 5) share `max_tokens` between thinking and the reply, which starves
+    # short-output lanes — tr_counterpart_turn caps at 300. Set from the prompt
+    # config's `thinking` key; None => whatever the model does by default.
+    thinking: str | None = None
 
     # Generic metadata dict — apps can pass any key-value pairs.
     # Known keys used by existing clients: call_type, prompt_mode,

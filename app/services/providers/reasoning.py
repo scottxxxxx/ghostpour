@@ -66,6 +66,10 @@ def anthropic_uses_effort_path(model: str) -> bool:
         "claude-opus-4-7",
         "claude-opus-4-6",
         "claude-sonnet-4-6",
+        # Sonnet 5 was missing here until 2026-07-29, which meant a picked
+        # reasoning level silently did nothing on what is now our primary
+        # lane for both apps: no adaptive block, no output_config.effort.
+        "claude-sonnet-5",
     )
     if any(prefix in m for prefix in explicit_effort_models):
         return True
@@ -74,10 +78,44 @@ def anthropic_uses_effort_path(model: str) -> bool:
     return False
 
 
-def anthropic_thinking_block(level: str | None, model: str | None = None) -> dict | None:
+def anthropic_accepts_disabled_thinking(model: str) -> bool:
+    """True only where OMITTING the thinking field would leave thinking ON.
+
+    Sonnet 5 (and the Opus 5 family) think by default, so a short-output
+    lane has to say `{"type": "disabled"}` explicitly or thinking eats the
+    `max_tokens` budget it shares with the reply. Everywhere else omission
+    already means no thinking, so we omit rather than send a field the
+    older models never needed.
+
+    Deliberately False for Fable/Mythos: an explicit disabled block is a
+    400 there (thinking is always on), so the caller must omit instead.
+    """
+    m = model.lower()
+    if "fable" in m or "mythos" in m:
+        return False
+    return "claude-sonnet-5" in m or "claude-opus-5" in m
+
+
+def anthropic_thinking_block(
+    level: str | None,
+    model: str | None = None,
+    *,
+    disabled: bool = False,
+) -> dict | None:
     """For effort-path models with a non-default level: returns
     `{"type": "adaptive"}`. Anything else (Haiku, "default", empty):
-    returns None — the field is omitted, API default applies."""
+    returns None — the field is omitted, API default applies.
+
+    `disabled=True` is the GP-side lane setting (config key `thinking`),
+    not a user pick: it returns `{"type": "disabled"}` on models that
+    need it stated explicitly, and None everywhere else (where omitting
+    is already equivalent and safer). It wins over `level` — a lane that
+    declares itself thinking-free stays that way regardless of picker.
+    """
+    if disabled:
+        if model and anthropic_accepts_disabled_thinking(model):
+            return {"type": "disabled"}
+        return None
     if not level or level == "default":
         return None
     if model and anthropic_uses_effort_path(model):
