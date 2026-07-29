@@ -32,29 +32,42 @@ def test_call_types_are_mapped():
         assert _CALL_TYPE_TO_CONFIG.get(call_type) == slug
 
 
-def test_parse_jd_zero_temperature_passes_through_assembly():
-    # tr_parse_jd runs at temperature 0.0 so the radar axes are reproducible
-    # run-to-run; assembly must surface it so chat.py can set it on the request.
-    # 0.0 is falsy — this also guards the `is not None` plumbing end to end.
-    cfg = json.load(open("config/remote/techrehearsal/jd-analysis.json"))
-    assert cfg["temperature"] == 0.0
+def test_no_tr_config_pins_a_temperature():
+    """No TR call type may pin a sampling temperature, at any scope.
+
+    The pins (parse_jd 0.0, match 0.3, response/debrief/compare 0.2,
+    counterpart 0.8) came out when the rehearsal lanes moved to a routing
+    target that rejects a non-default temperature outright. GP is the only
+    side that ever set one (both clients confirmed they send none), so this
+    sweep is the guard: re-adding a key here would 400 the whole lane, not
+    degrade it. Assembly-side plumbing stays covered below.
+    """
+    import glob
+
+    offenders = []
+    for path in sorted(glob.glob("config/remote/techrehearsal/*.json")):
+        cfg = json.load(open(path))
+        scopes = [("top", cfg)]
+        scopes += [(f"modes.{k}", v) for k, v in (cfg.get("modes") or {}).items()]
+        scopes += [(f"scenarios.{k}", v) for k, v in (cfg.get("scenarios") or {}).items()]
+        for name, blob in scopes:
+            if isinstance(blob, dict) and "temperature" in blob:
+                offenders.append(f"{path}:{name}")
+    assert not offenders, f"temperature pinned in TR config: {offenders}"
+
+
+def test_zero_temperature_still_plumbs_through_assembly():
+    # The config-to-request plumbing stays live for any lane that wants it
+    # (SS, or a TR call type on a target that accepts it). 0.0 is falsy, so
+    # this is also the `is not None` guard: a truthiness check here would
+    # silently drop the value.
+    cfg = {"systemPrompt": "S", "userPromptTemplate": "", "temperature": 0.0}
     assembled = assemble_prompt("tr_parse_jd", "JD TEXT", {"tr-jd-analysis": cfg})
     assert assembled["temperature"] == 0.0
 
 
-def test_match_low_temperature_passes_through_assembly():
-    # tr_match_analysis carries 0.3: the radar numbers must be stable across
-    # the strengthen-loop re-match, while example_excerpt prose stays natural.
-    cfg = json.load(open("config/remote/techrehearsal/match-analysis.json"))
-    assert cfg["temperature"] == 0.3
-    assembled = assemble_prompt("tr_match_analysis", "DATA", {"tr-match-analysis": cfg})
-    assert assembled["temperature"] == 0.3
-
-
 def test_temperature_absent_when_config_omits_it():
     # Configs without a temperature key must not inject one (provider default).
-    # mock-interview deliberately omits it — question variety across runs is a
-    # feature there, not jitter.
     cfg = json.load(open("config/remote/techrehearsal/mock-interview.json"))
     assert "temperature" not in cfg
     assembled = assemble_prompt("tr_mock_interview", "DATA", {"tr-mock-interview": cfg})
@@ -199,13 +212,11 @@ def test_scorecard_calibration_guards():
         "Different tier mixes MUST produce different overalls",
     ):
         assert phrase in sp, f"missing calibration guard: {phrase!r}"
-    # judge determinism: temperature pinned and flows through assembly for
-    # BOTH modes (modes inherit absent fields, incl. temperature)
-    assert cfg["temperature"] == 0.2
+    # both modes assemble (modes inherit absent top-level fields)
     cfgs = {"techrehearsal/response-analysis": cfg}
     scorecard = assemble_prompt("tr_response_analysis", "X", cfgs, prompt_mode="InterviewScorecard")
     judge = assemble_prompt("tr_response_analysis", "X", cfgs, prompt_mode="InterviewFollowUp")
-    assert scorecard["temperature"] == 0.2 and judge["temperature"] == 0.2
+    assert "temperature" not in scorecard and "temperature" not in judge
     # follow-up judge got its own ASR framing (TR opted in 2026-07-09: a
     # spurious probe about a garble burns the candidate's time box live)
     assert judge["system_prompt"].startswith("You are a seasoned, kind interviewer")

@@ -168,9 +168,9 @@ def test_debrief_calibration_guards():
         "do not manufacture feedback",
     ):
         assert phrase in sp, f"missing calibration guard: {phrase!r}"
-    assert cfg["temperature"] == 0.2
+    assert "temperature" not in cfg
     r = _asm("tr_debrief", kind="jobInterview")
-    assert r["temperature"] == 0.2
+    assert "temperature" not in r
     # scenario interpolation and the five score names survive the calibration edit
     assert "debriefing a job interview answer or exchange" in r["system_prompt"]
     assert 'Use exactly those five score names, in that order.' in r["system_prompt"]
@@ -215,8 +215,9 @@ def test_compare_reality_config_and_contract_guards():
         "no ```json",
     ):
         assert phrase in sp, f"missing contract guard: {phrase!r}"
-    # judge-grade dials: reproducible comparisons, analysis-lane routing
-    assert cfg["temperature"] == 0.2
+    # judge-grade dials: analysis-lane routing (temperature no longer pinned,
+    # see test_no_tr_config_pins_a_temperature)
+    assert "temperature" not in cfg
     r = json.load(open("config/remote/model-routing.json"))
     models = r["apps"]["techrehearsal"]["call_types"]["tr_compare_reality"]["models"]
     assert all("sonnet" in models[k] for k in ("free", "paid", "default"))
@@ -225,7 +226,7 @@ def test_compare_reality_config_and_contract_guards():
     job = assemble_prompt("tr_compare_reality", "BLOB", cfgs, scenario_kind="jobInterview")
     assert "comparing a real job interview against their rehearsal" in job["system_prompt"]
     assert "The counterpart is the Interviewer." in job["system_prompt"]
-    assert job["temperature"] == 0.2 and job["max_tokens"] == 4096
+    assert "temperature" not in job and job["max_tokens"] == 4096
     hard = assemble_prompt("tr_compare_reality", "BLOB", cfgs, scenario_kind="hardConversation")
     assert "emotionally hard personal conversation" in hard["system_prompt"]
     assert job["system_prompt"] != hard["system_prompt"]
@@ -298,7 +299,7 @@ def test_counterpart_turn_config():
     assert "shock and disbelief first" in sp          # scenario realism
     assert "conversation_over" in sp                  # JSON contract
     assert "never break character" in sp.lower() or "never break character" in sp
-    assert r.get("temperature") == 0.8 and r.get("max_tokens") == 300
+    assert r.get("temperature") is None and r.get("max_tokens") == 300
 
 
 def test_counterpart_slot_never_renders_empty():
