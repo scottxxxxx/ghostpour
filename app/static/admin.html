@@ -578,7 +578,6 @@
           <option value="90">90 days</option>
           <option value="365">1 year</option>
         </select>
-        <button class="refresh-btn" onclick="loadAcquisition()">Refresh</button>
       </div>
     </div>
     <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Apple Ads install attribution from the AdServices token iOS posts on first launch. "Limited ads" installs came from Apple Ads but the device opted out of personalized ads, so Apple hides campaign and keyword ids. Campaign and keyword names plus spend (true CAC) arrive with the Apple Ads API integration (phase 2); until then rows show raw ids. "Activated" = device has at least one meeting_start in raw telemetry (30-day retention, so it undercounts on longer ranges). Reddit / campaign-link installs are not here; read those in App Store Connect Analytics.</p>
@@ -647,18 +646,10 @@
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
       <h3 style="margin:0">Telemetry</h3>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <select id="tel-days" onchange="loadTelemetry()" class="period-select">
-          <option value="7">7 days</option>
-          <option value="14">14 days</option>
-          <option value="30" selected>30 days</option>
-          <option value="60">60 days</option>
-          <option value="90">90 days</option>
-        </select>
         <select id="tel-version" onchange="loadTelemetry()" class="period-select"><option value="">All versions</option></select>
         <select id="tel-os" onchange="loadTelemetry()" class="period-select"><option value="">All iOS</option></select>
         <select id="tel-device" onchange="loadTelemetry()" class="period-select"><option value="">All devices</option></select>
         <select id="tel-model" onchange="loadTelemetry()" class="period-select"><option value="">All models</option></select>
-        <button class="refresh-btn" onclick="loadTelemetry()">Refresh</button>
       </div>
     </div>
     <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Anonymous lifecycle events from iOS — app starts, meeting starts/stops, AI model used, device model, and OS version. Raw events are retained 30 days. Apply filters above to slice every chart.</p>
@@ -679,10 +670,15 @@
       <div class="card" style="padding:12px 14px"><h4 style="margin:0 0 8px">Devices by language</h4><div id="tel-chart-language"></div></div>
       <div class="card" style="padding:12px 14px"><h4 style="margin:0 0 8px">Devices by distribution (TestFlight vs App Store)</h4><div id="tel-chart-distribution"></div></div>
       <div class="card" style="padding:12px 14px;grid-column:span 2">
-        <h4 style="margin:0 0 8px">Users by location <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— aggregated at region level; per-user city shows in the Users table</span></h4>
-        <div class="table-wrap"><table id="tel-location"><thead><tr>
-          <th>Country</th><th>Region</th><th>Devices</th><th>Users</th><th>Events</th>
-        </tr></thead><tbody></tbody></table></div>
+        <h4 style="margin:0 0 8px">Users by location <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— heat by devices in the window; region detail beside. Per-user city shows in the Users table</span></h4>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:stretch">
+          <div id="tel-world-map" style="flex:1 1 320px;min-width:0;height:250px"></div>
+          <div style="flex:1 1 260px;min-width:240px;max-height:250px;overflow-y:auto">
+            <div class="table-wrap"><table id="tel-location"><thead><tr>
+              <th>Country</th><th>Region</th><th>Devices</th><th>Users</th><th>Events</th>
+            </tr></thead><tbody></tbody></table></div>
+          </div>
+        </div>
       </div>
       <div class="card" style="padding:12px 14px;grid-column:span 2"><h4 style="margin:0 0 8px">Meeting starts by hour × day-of-week (UTC)</h4><div id="tel-chart-heatmap"></div></div>
       <div class="card" style="padding:12px 14px"><h4 style="margin:0 0 8px">Funnel: start → meeting → stop</h4><div id="tel-chart-funnel"></div></div>
@@ -710,7 +706,6 @@
       <div style="display:flex;gap:8px;align-items:center">
         <a class="refresh-btn" href="#" onclick="downloadSubsCsv(event)" style="text-decoration:none">Export CSV</a>
         <button class="refresh-btn" onclick="reconcileSubs()" title="Pull Apple's authoritative state and fix drift">Reconcile w/ Apple</button>
-        <button class="refresh-btn" onclick="loadSubscriptions()">Refresh</button>
       </div>
     </div>
     <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Bookkeeping from the append-only subscription event log (users hold only the current tier). "Ever subscribed" feeds offer-code eligibility. MRR is list price; net is after Apple's 15% cut. Reconcile pulls Apple's authoritative state and fixes drift — dormant until the App Store Server API key is provisioned.</p>
@@ -1153,7 +1148,8 @@ function downloadSubsCsv(ev) {
 }
 
 async function loadTelemetry() {
-  const days = document.getElementById('tel-days')?.value || 30;
+  // Timeframe comes from the single global selector in the header.
+  const days = Math.min(90, parseInt(document.getElementById('period').value, 10) || 30);
   const version = document.getElementById('tel-version')?.value || '';
   const os = document.getElementById('tel-os')?.value || '';
   const device = document.getElementById('tel-device')?.value || '';
@@ -1471,6 +1467,38 @@ function _renderTelemetry(d, current) {
 
   // --- Directory table: name (if known) + language, per device ---
   const telEsc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  // --- Location map: aggregate by_location rows per ISO2 country ---
+  const telByCountry = {};
+  (d.by_location || []).forEach(x => {
+    if (!x.country) return;
+    telByCountry[x.country] = (telByCountry[x.country] || 0) + (x.devices || 0);
+  });
+  const telMapEl = document.getElementById('tel-world-map');
+  if (telMapEl && window.jsVectorMap) {
+    try {
+      if (window._telWorldMap) { try { window._telWorldMap.destroy(); } catch (e) {} }
+      telMapEl.innerHTML = '';
+      window._telWorldMap = new jsVectorMap({
+        selector: '#tel-world-map',
+        map: 'world',
+        backgroundColor: 'transparent',
+        zoomButtons: false,
+        regionStyle: {
+          initial: { fill: '#21262d', stroke: '#30363d', strokeWidth: 0.4 },
+          hover: { fill: '#388bfd' },
+        },
+        series: {regions: [{attribute: 'fill', scale: ['#1f3a5f', '#58a6ff'],
+                            normalizeFunction: 'polynomial', values: telByCountry}]},
+        onRegionTooltipShow(event, tooltip, code) {
+          const n = telByCountry[code] || 0;
+          tooltip.text(`${tooltip.text()} — ${n} device${n === 1 ? '' : 's'}`);
+        },
+      });
+    } catch (e) {
+      telMapEl.innerHTML = '<div style="color:var(--text-dim);padding:16px">Map unavailable; see the table.</div>';
+    }
+  }
 
   // --- Location table: distinct devices/users by country + region ---
   const locBody = document.querySelector('#tel-location tbody');
