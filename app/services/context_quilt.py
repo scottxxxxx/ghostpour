@@ -346,6 +346,11 @@ async def notify_tier_change(
     await notify_purchase(user_id, old_tier, new_tier, event_type,
                           offer_id=offer_id)
 
+    # Subscriber welcome letter: queued ~1h out on the first paid event,
+    # never for offer-code gifts. Best-effort like everything else here.
+    from app.services.welcome_email import enqueue as welcome_enqueue
+    await welcome_enqueue(user_id, new_tier, event_type, offer_id=offer_id)
+
     settings = get_settings()
     if not settings.cq_base_url:
         return

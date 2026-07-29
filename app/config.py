@@ -88,6 +88,13 @@ class Settings(BaseSettings):
     # offer-code test), so alerting inline made every healthy redemption
     # email a false orphan. 0 alerts immediately.
     assn_unmatched_grace_seconds: int = 120
+    # Subscriber welcome letter (2026-07-28). Ships dark: flipped on in
+    # prod env after Scott's final verification pass. Sender must live on
+    # the Resend-verified domain (mail.shouldersurf.com today).
+    welcome_email_enabled: bool = False
+    welcome_email_delay_seconds: int = 3600
+    welcome_email_from: str = "Shoulder Surf <noreply@mail.shouldersurf.com>"
+    welcome_email_reply_to: str = "Scott <scott@shouldersurf.com>"
 
     # Provider API Keys
     openai_api_key: str = ""
