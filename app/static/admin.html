@@ -13,6 +13,10 @@
      strings and we deliberately never store coordinates. -->
 <link href="https://cdn.jsdelivr.net/npm/jsvectormap@1.6/dist/jsvectormap.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/jsvectormap@1.6/dist/jsvectormap.min.js"></script>
+<!-- Vendored US-states map: jsvectormap ships world maps only. Generated
+     from public-domain Natural Earth data by scripts/gen_us_states_map.py
+     and served with a long cache by GET /admin/us-states-map.js. -->
+<script src="/admin/us-states-map.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsvectormap@1.6/dist/maps/world.js"></script>
 <style>
   :root {
@@ -300,7 +304,10 @@
       <div class="card" style="padding:14px;grid-column:span 2;min-width:0">
         <h4 style="margin:0 0 8px">Users by country <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— country-level GeoIP; coordinates are never stored. Arrow = gained users in the last 7 days</span></h4>
         <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:stretch">
-          <div id="users-world-map" style="flex:2 1 380px;min-width:0;height:290px"></div>
+          <div style="flex:2 1 380px;min-width:0">
+            <div id="users-world-map-toggle" style="margin-bottom:6px"></div>
+            <div id="users-world-map" style="height:290px"></div>
+          </div>
           <div id="users-country-rank" style="flex:1 1 200px;min-width:200px;max-height:290px;overflow-y:auto;font-size:13px"></div>
         </div>
       </div>
@@ -681,7 +688,10 @@
       <div class="card" style="padding:12px 14px;grid-column:span 2">
         <h4 style="margin:0 0 8px">Users by location <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— heat by devices in the window; region detail beside. Per-user city shows in the Users table</span></h4>
         <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:stretch">
-          <div id="tel-world-map" style="flex:1 1 320px;min-width:0;height:250px"></div>
+          <div style="flex:1 1 320px;min-width:0">
+            <div id="tel-world-map-toggle" style="margin-bottom:6px"></div>
+            <div id="tel-world-map" style="height:250px"></div>
+          </div>
           <div style="flex:1 1 260px;min-width:240px;max-height:250px;overflow-y:auto">
             <div class="table-wrap"><table id="tel-location"><thead><tr>
               <th>Country</th><th>Region</th><th>Devices</th><th>Users</th><th>Events</th>
@@ -969,8 +979,9 @@ function switchTab(name) {
   // no fallback text, just a blank panel. Re-measure once it is on screen.
   // (The Telemetry map never showed this because its own tab loader runs
   // after the tab is visible.)
-  if (name === 'users' && _usersMap) {
-    try { _usersMap.updateSize(); } catch (e) {}
+  if (name === 'users') {
+    const st = _heatMaps['users-world-map'];
+    if (st && st.map) { try { st.map.updateSize(); } catch (e) {} }
   }
 }
 
@@ -1491,34 +1502,14 @@ function _renderTelemetry(d, current) {
     if (!x.country) return;
     telByCountry[x.country] = (telByCountry[x.country] || 0) + (x.devices || 0);
   });
-  const telMapEl = document.getElementById('tel-world-map');
-  if (telMapEl && window.jsVectorMap) {
-    try {
-      if (window._telWorldMap) { try { window._telWorldMap.destroy(); } catch (e) {} }
-      telMapEl.innerHTML = '';
-      window._telWorldMap = new jsVectorMap({
-        selector: '#tel-world-map',
-        map: 'world',
-        backgroundColor: 'transparent',
-        zoomButtons: true,
-        draggable: true,
-        zoomMax: 20,
-        regionStyle: {
-          initial: { fill: '#21262d', stroke: '#30363d', strokeWidth: 0.4 },
-          hover: { fill: '#388bfd' },
-        },
-        series: {regions: [{attribute: 'fill',
-                            scale: heatScale(telByCountry),
-                            values: telByCountry}]},
-        onRegionTooltipShow(event, tooltip, code) {
-          const n = telByCountry[code] || 0;
-          tooltip.text(`${tooltip.text()} — ${n} device${n === 1 ? '' : 's'}`);
-        },
-      });
-    } catch (e) {
-      telMapEl.innerHTML = '<div style="color:var(--text-dim);padding:16px">Map unavailable; see the table.</div>';
-    }
-  }
+  // Country totals feed the world view; US region rows feed the state view.
+  const telByState = {};
+  (d.by_location || []).forEach(x => {
+    if (x.country !== 'US') return;
+    const code = usStateCode(x.region);
+    if (code) telByState[code] = (telByState[code] || 0) + (x.devices || 0);
+  });
+  renderHeatMap('tel-world-map', telByCountry, telByState, 'device');
 
   // --- Location table: distinct devices/users by country + region ---
   const locBody = document.querySelector('#tel-location tbody');
@@ -1960,10 +1951,10 @@ function renderUserRows() {
 // --- Users-tab analytics: world heat map + tier mix + growth -------------
 // All derived client-side from the already-fetched users array; no extra
 // endpoint. Country-level only for the map (we never store coordinates).
-let _usersMap = null;
 function renderUserAnalytics(rows) {
   // World map: user count per ISO2 country from latest-telemetry location.
   const byCountry = {};
+  const byState = {};
   const byPlace = {};
   const activeByCountry = {};
   const newByCountry = {};
@@ -1972,6 +1963,10 @@ function renderUserAnalytics(rows) {
     const loc = u.location;
     if (!loc || !loc.country) return;
     byCountry[loc.country] = (byCountry[loc.country] || 0) + 1;
+    if (loc.country === 'US') {
+      const stateCode = usStateCode(loc.region);
+      if (stateCode) byState[stateCode] = (byState[stateCode] || 0) + 1;
+    }
     if (u.last_request && new Date(u.last_request).getTime() > weekAgo)
       activeByCountry[loc.country] = (activeByCountry[loc.country] || 0) + 1;
     if (u.created_at && new Date(u.created_at).getTime() > weekAgo)
@@ -2004,38 +1999,7 @@ function renderUserAnalytics(rows) {
         </div>`;
       }).join('') || '<div style="color:var(--text-dim)">No location data yet.</div>';
   }
-  const mapEl = document.getElementById('users-world-map');
-  if (mapEl && window.jsVectorMap) {
-    try {
-      if (_usersMap) { try { _usersMap.destroy(); } catch (e) {} _usersMap = null; }
-      mapEl.innerHTML = '';
-      _usersMap = new jsVectorMap({
-        selector: '#users-world-map',
-        map: 'world',
-        backgroundColor: 'transparent',
-        zoomButtons: true,
-        draggable: true,
-        zoomMax: 20,
-        regionStyle: {
-          initial: { fill: '#21262d', stroke: '#30363d', strokeWidth: 0.4 },
-          hover: { fill: '#388bfd' },
-        },
-        series: {
-          regions: [{
-            attribute: 'fill',
-            scale: heatScale(byCountry),
-            values: byCountry,
-          }],
-        },
-        onRegionTooltipShow(event, tooltip, code) {
-          const n = byCountry[code] || 0;
-          tooltip.text(`${tooltip.text()} — ${n} user${n === 1 ? '' : 's'}`);
-        },
-      });
-    } catch (e) {
-      mapEl.innerHTML = '<div style="color:var(--text-dim);padding:20px">Map failed to load; see Top locations.</div>';
-    }
-  }
+  renderHeatMap('users-world-map', byCountry, byState, 'user');
 
   // Tier mix donut (SIM overrides shown as their real tier).
   const tierCounts = {};
@@ -2128,10 +2092,99 @@ let _panelErrors = [];
 // jsvectormap measures its container once at construction, so any map built
 // while hidden (or resized afterwards) needs an explicit re-measure.
 window.addEventListener('resize', () => {
-  [window._telWorldMap, _usersMap].forEach(m => {
-    if (m) { try { m.updateSize(); } catch (e) {} }
+  Object.values(_heatMaps).forEach(st => {
+    if (st.map) { try { st.map.updateSize(); } catch (e) {} }
   });
 });
+
+
+// --- Heat maps: one renderer, World / United States views ----------------
+// Both location cards draw the same way, so they share this. The registry
+// keeps each map's instance and data so the view toggle and the deferred
+// re-measure (see switchTab) can reach them.
+const _heatMaps = {};
+
+function renderHeatMap(elId, countryValues, stateValues, noun) {
+  const el = document.getElementById(elId);
+  if (!el || !window.jsVectorMap) return;
+  const prev = _heatMaps[elId];
+  _heatMaps[elId] = {
+    view: (prev && prev.view) || 'world',
+    countryValues: countryValues || {},
+    stateValues: stateValues || {},
+    noun: noun || 'user',
+    map: null,
+  };
+  _drawHeatMap(elId);
+}
+
+function setHeatMapView(elId, view) {
+  const st = _heatMaps[elId];
+  if (!st || st.view === view) return;
+  st.view = view;
+  _drawHeatMap(elId);
+}
+
+function _drawHeatMap(elId) {
+  const st = _heatMaps[elId];
+  const el = document.getElementById(elId);
+  if (!st || !el) return;
+
+  // The US view needs the vendored map to have registered itself.
+  const usReady = !!(window.jsVectorMap && jsVectorMap.maps && jsVectorMap.maps['us-states']);
+  if (st.view === 'us' && !usReady) st.view = 'world';
+  const values = st.view === 'us' ? st.stateValues : st.countryValues;
+
+  const toggle = document.getElementById(elId + '-toggle');
+  if (toggle) {
+    const btn = (v, label, on) =>
+      `<button onclick="setHeatMapView('${elId}','${v}')" style="font-size:11px;padding:2px 9px;` +
+      `background:${on ? 'var(--accent)' : 'var(--bg-card)'};color:${on ? '#fff' : 'var(--text-dim)'};` +
+      `border:1px solid var(--border);border-radius:4px;cursor:pointer">${label}</button>`;
+    const stateCount = Object.keys(st.stateValues).length;
+    toggle.innerHTML =
+      `<div style="display:flex;gap:6px;align-items:center">` +
+      btn('world', 'World', st.view === 'world') +
+      (usReady && stateCount
+        ? btn('us', 'United States', st.view === 'us')
+        : `<span style="font-size:11px;color:var(--text-dim)">${usReady ? 'no US region data in this window' : ''}</span>`) +
+      `<span style="font-size:11px;color:var(--text-dim);margin-left:4px">scroll to zoom, drag to pan</span>` +
+      `</div>`;
+  }
+
+  try {
+    if (st.map) { try { st.map.destroy(); } catch (e) {} st.map = null; }
+    el.innerHTML = '';
+    st.map = new jsVectorMap({
+      selector: '#' + elId,
+      map: st.view === 'us' ? 'us-states' : 'world',
+      backgroundColor: 'transparent',
+      zoomButtons: true,
+      draggable: true,
+      zoomMax: 20,
+      regionStyle: {
+        initial: { fill: '#21262d', stroke: '#30363d', strokeWidth: 0.4 },
+        hover: { fill: '#388bfd' },
+      },
+      series: {regions: [{attribute: 'fill', scale: heatScale(values), values: values}]},
+      onRegionTooltipShow(event, tooltip, code) {
+        const n = values[code] || 0;
+        tooltip.text(`${tooltip.text()}: ${n} ${st.noun}${n === 1 ? '' : 's'}`);
+      },
+    });
+  } catch (e) {
+    console.error(`[dashboard] heat map ${elId} failed:`, e);
+    el.innerHTML = '<div style="color:var(--text-dim);padding:16px">Map unavailable; see the table.</div>';
+  }
+}
+
+// GeoIP gives region names ("Texas"), sometimes the abbreviation. The lookup
+// ships with the generated map file so we don't hand-maintain fifty entries.
+function usStateCode(region) {
+  if (!region) return null;
+  const idx = window.US_STATE_CODE_BY_NAME || {};
+  return idx[region] || idx[String(region).trim()] || null;
+}
 
 // Build the region colour lookup for a jsvectormap heat map.
 //

@@ -61,6 +61,26 @@ async def admin_ui():
     )
 
 
+@router.get("/admin/us-states-map.js")
+async def admin_us_states_map():
+    """Serve the vendored jsvectormap US-states map.
+
+    jsvectormap ships only world maps, so this one is generated from
+    public-domain Natural Earth data by scripts/gen_us_states_map.py. It is
+    ~116 KB of static geometry that changes only when that script is re-run,
+    so unlike /admin (no-store) it gets a long cache: the dashboard would
+    otherwise re-download it on every load.
+
+    Deliberately a single explicit route rather than a StaticFiles mount or a
+    path parameter, so there is no traversal surface to get wrong.
+    """
+    return FileResponse(
+        Path(__file__).parent.parent / "static" / "us-states-map.js",
+        media_type="application/javascript",
+        headers={"Cache-Control": "public, max-age=604800"},
+    )
+
+
 @router.get("/v1/model-pricing")
 async def pricing(request: Request):
     """Serve the cached pricing data.
