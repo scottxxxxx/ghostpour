@@ -1872,12 +1872,15 @@ function renderUserRows() {
   </tr>`;
     }
     const tierLabel = u.tier_display_name || u.tier;
-    // Offer-code periods wear OFFER (with the offer name on hover);
-    // only genuine intro trials wear TRIAL.
-    const trialBadge = !u.is_trial ? ''
-      : u.trial_offer_id
-        ? ` <span style="color:var(--accent);font-size:0.75em" title="offer code: ${u.trial_offer_id}">OFFER</span>`
-        : ' <span style="color:var(--accent);font-size:0.75em">TRIAL</span>';
+    // Offer-born subscriptions wear OFFER (offer name on hover),
+    // independent of trial state; genuine intro trials wear TRIAL.
+    const trialBadge =
+      (u.subscription_offer_id
+        ? ` <span style="color:var(--accent);font-size:0.75em" title="offer code: ${u.subscription_offer_id}">OFFER</span>`
+        : '')
+      + (u.is_trial && !u.subscription_offer_id
+        ? ' <span style="color:var(--accent);font-size:0.75em">TRIAL</span>'
+        : '');
     const simBadge = u.simulated_tier ? ` <span style="color:#FF9500;font-size:0.75em" title="Simulated as ${u.simulated_tier}">SIM:${u.simulated_tier}</span>` : '';
     const hrsUsed = u.hours_used != null ? u.hours_used.toFixed(1) : '0';
     const hrsLimit = u.hours_limit === -1 ? '&infin;' : (u.hours_limit != null ? u.hours_limit.toFixed(1) : '?');
