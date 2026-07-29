@@ -618,6 +618,21 @@ MIGRATIONS = [
         first_seen_at TEXT NOT NULL
     )""",
     "CREATE INDEX IF NOT EXISTS idx_telemetry_devices_first_seen ON telemetry_devices(first_seen_at)",
+    # v35: welcome-email queue (2026-07-28). A subscriber's personal
+    # thank-you letter sends ~1h after the first paid event (immediate
+    # send reads as automation; the delay buys the letter authenticity).
+    # Durable queue + sweep because deploys restart the container often;
+    # users.welcome_email_sent_at is the once-ever guard that outlives
+    # the queue row.
+    """CREATE TABLE IF NOT EXISTS welcome_email_queue (
+        user_id TEXT PRIMARY KEY,
+        tier TEXT NOT NULL,
+        is_trial INTEGER NOT NULL DEFAULT 0,
+        due_at TEXT NOT NULL,
+        enqueued_at TEXT NOT NULL,
+        attempts INTEGER NOT NULL DEFAULT 0
+    )""",
+    "ALTER TABLE users ADD COLUMN welcome_email_sent_at TEXT",
 ]
 
 

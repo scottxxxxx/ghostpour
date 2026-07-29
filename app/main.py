@@ -281,8 +281,16 @@ async def lifespan(app: FastAPI):
 
     _gen_sweep_task = _asyncio.create_task(_generated_files_sweep_loop())
 
+    # Subscriber welcome letters: catch anything due at boot (the queue
+    # survives restarts by design), then sweep every few minutes.
+    from app.services.welcome_email import sweep_loop as _welcome_loop
+    from app.services.welcome_email import sweep_once as _welcome_once
+    await _welcome_once()
+    _welcome_task = _asyncio.create_task(_welcome_loop())
+
     yield
 
+    _welcome_task.cancel()
     _gen_sweep_task.cancel()
 
     # Stop the cert pin daemon cleanly on shutdown.
