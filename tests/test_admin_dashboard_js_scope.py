@@ -58,6 +58,48 @@ def test_admin_page_declares_its_own_favicon():
     ET.fromstring(urllib.parse.unquote(m.group(1)))  # must be well-formed SVG
 
 
+def test_maps_use_an_ordinal_heat_scale_not_a_gradient_array():
+    # jsvectormap's series `scale` is an ordinal lookup (`scale[value]`), and
+    # the library has no `normalizeFunction`. Passing a two-colour array meant
+    # scale[1] for one-device countries (bright) and undefined for anything
+    # busier, which renders black: on 2026-07-29 the US at 35 devices painted
+    # black while Andorra at 1 painted brightest.
+    src = _src()
+    assert "normalizeFunction:" not in src, (
+        "normalizeFunction is a jVectorMap option; jsvectormap ignores it"
+    )
+    # (the literal appears once more inside the explanatory comment above
+    # heatScale, which is why this looks at real config lines only)
+    config_lines = [ln for ln in src.split("\n") if not ln.lstrip().startswith("//")]
+    assert not re.search(r"scale:\s*\['#", "\n".join(config_lines)), (
+        "a colour array is an ordinal lookup here, not a gradient"
+    )
+    assert len(re.findall(r"scale: heatScale\(", src)) == 2, (
+        "both the telemetry and users maps must use the computed scale"
+    )
+
+
+def test_maps_are_zoomable_and_pannable():
+    src = _src()
+    assert "zoomButtons: false" not in src
+    assert len(re.findall(r"zoomButtons: true", src)) == 2
+    assert len(re.findall(r"draggable: true", src)) == 2
+
+
+def test_users_map_is_remeasured_when_its_tab_becomes_visible():
+    # jsvectormap measures its container once, at construction. The Users map
+    # is built by refresh() while #tab-users is still hidden, so it sized to
+    # 0x0 and painted an empty SVG: no error, no fallback text, just a blank
+    # panel next to the country list. The Telemetry map never showed this
+    # because its own tab loader runs after that tab is visible.
+    src = _src()
+    assert re.search(r"name === 'users' && _usersMap", src), (
+        "switching to the Users tab must re-measure the map"
+    )
+    assert "updateSize()" in src
+    assert "addEventListener('resize'" in src, "a window resize has the same problem"
+
+
 def test_panel_helper_reports_rather_than_swallows():
     src = _src()
     body = src[src.index("function panel(name, fn)"):][:900]

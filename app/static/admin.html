@@ -964,6 +964,14 @@ function switchTab(name) {
   if (name === 'alerts') loadAlerts();
   if (name === 'telemetry') loadTelemetry();
   if (name === 'acquisition') loadAcquisition();
+  // The Users map is built by refresh() while this tab is hidden, so
+  // jsvectormap measures a 0x0 container and renders an empty SVG: no error,
+  // no fallback text, just a blank panel. Re-measure once it is on screen.
+  // (The Telemetry map never showed this because its own tab loader runs
+  // after the tab is visible.)
+  if (name === 'users' && _usersMap) {
+    try { _usersMap.updateSize(); } catch (e) {}
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1492,13 +1500,16 @@ function _renderTelemetry(d, current) {
         selector: '#tel-world-map',
         map: 'world',
         backgroundColor: 'transparent',
-        zoomButtons: false,
+        zoomButtons: true,
+        draggable: true,
+        zoomMax: 20,
         regionStyle: {
           initial: { fill: '#21262d', stroke: '#30363d', strokeWidth: 0.4 },
           hover: { fill: '#388bfd' },
         },
-        series: {regions: [{attribute: 'fill', scale: ['#1f3a5f', '#58a6ff'],
-                            normalizeFunction: 'polynomial', values: telByCountry}]},
+        series: {regions: [{attribute: 'fill',
+                            scale: heatScale(telByCountry),
+                            values: telByCountry}]},
         onRegionTooltipShow(event, tooltip, code) {
           const n = telByCountry[code] || 0;
           tooltip.text(`${tooltip.text()} — ${n} device${n === 1 ? '' : 's'}`);
@@ -2002,7 +2013,9 @@ function renderUserAnalytics(rows) {
         selector: '#users-world-map',
         map: 'world',
         backgroundColor: 'transparent',
-        zoomButtons: false,
+        zoomButtons: true,
+        draggable: true,
+        zoomMax: 20,
         regionStyle: {
           initial: { fill: '#21262d', stroke: '#30363d', strokeWidth: 0.4 },
           hover: { fill: '#388bfd' },
@@ -2010,8 +2023,7 @@ function renderUserAnalytics(rows) {
         series: {
           regions: [{
             attribute: 'fill',
-            scale: ['#1f3a5f', '#58a6ff'],
-            normalizeFunction: 'polynomial',
+            scale: heatScale(byCountry),
             values: byCountry,
           }],
         },
@@ -2112,6 +2124,45 @@ function panel(name, fn) {
   }
 }
 let _panelErrors = [];
+
+// jsvectormap measures its container once at construction, so any map built
+// while hidden (or resized afterwards) needs an explicit re-measure.
+window.addEventListener('resize', () => {
+  [window._telWorldMap, _usersMap].forEach(m => {
+    if (m) { try { m.updateSize(); } catch (e) {} }
+  });
+});
+
+// Build the region colour lookup for a jsvectormap heat map.
+//
+// jsvectormap's series `scale` is an ORDINAL LOOKUP (`scale[value]`), NOT a
+// gradient, and the library implements no normalize-function option at all:
+// that is a jVectorMap feature we were passing to a different library, where
+// it is silently ignored.
+// So `scale: ['#1f3a5f', '#58a6ff']` meant scale[1] for every one-device
+// country (bright) and `undefined` for anything with 2+ (fill cleared, which
+// renders black). The busiest countries were the darkest: on 2026-07-29 the
+// US sat at 35 devices and painted black while Andorra at 1 painted bright.
+//
+// Build the lookup explicitly instead: one entry per observed value,
+// interpolated lo -> hi. Log rather than linear because install counts are
+// heavily skewed (one home country, a long tail of ones and twos): linear
+// would put every country except the biggest at the floor colour, and the
+// map would look almost as uninformative as the bug it replaces.
+function heatScale(values, lo, hi) {
+  lo = lo || [31, 58, 95];      // #1f3a5f
+  hi = hi || [88, 166, 255];    // #58a6ff
+  const nums = Object.values(values).filter(n => n > 0);
+  const max = nums.length ? Math.max.apply(null, nums) : 1;
+  const span = Math.log(1 + max);
+  const scale = {};
+  nums.forEach(n => {
+    const t = span > 0 ? Math.log(1 + n) / span : 1;
+    scale[n] = '#' + lo.map((c, i) =>
+      Math.round(c + (hi[i] - c) * t).toString(16).padStart(2, '0')).join('');
+  });
+  return scale;
+}
 
 function esc(s) {
   return String(s == null ? '' : s).replace(
