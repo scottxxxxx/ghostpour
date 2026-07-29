@@ -43,6 +43,21 @@ def test_dashboard_panels_render_in_isolation():
         assert f"panel('{name}'" in src, f"panel {name!r} is not isolated"
 
 
+def test_admin_page_declares_its_own_favicon():
+    # Without this the browser requests /favicon.ico on every admin load and
+    # takes a 404, which is noise in exactly the console an operator opens
+    # when something is wrong. Inline data URI, so there is no request at all
+    # and no static file to serve.
+    src = _src()
+    m = re.search(r'<link rel="icon" href="data:image/svg\+xml,(.*?)">', src)
+    assert m, "admin page must declare an inline favicon"
+
+    import urllib.parse
+    import xml.etree.ElementTree as ET
+
+    ET.fromstring(urllib.parse.unquote(m.group(1)))  # must be well-formed SVG
+
+
 def test_panel_helper_reports_rather_than_swallows():
     src = _src()
     body = src[src.index("function panel(name, fn)"):][:900]
