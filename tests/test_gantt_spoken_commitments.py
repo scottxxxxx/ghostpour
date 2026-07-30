@@ -388,3 +388,47 @@ def test_a_plan_whose_tasks_miss_their_phase_still_renders():
                            "status": "in_progress", "start": "2026-06-22",
                            "end": "2026-07-24", "depends_on": []}]}
     assert render_gantt_detailed(orphaned, today=TODAY)
+
+
+# --- extraction that returns no usable grouping -------------------------
+
+_FLAT = {
+    "project": "Field Kit", "meeting_date": "2026-07-20",
+    # exactly what prod returned at 21:12 on 2026-07-30: nine tasks, zero
+    # phases, parent_id null on every one
+    "tasks": [
+        {"id": i, "name": n, "type": "task", "parent_id": None,
+         "owner": "Maya", "status": "in_progress", "start": "2026-06-22",
+         "end": "2026-07-24", "depends_on": [], "percent_complete": None}
+        for i, n in enumerate(
+            ["Payments Integration", "Data Migration Script",
+             "Push Notifications", "Offline Sync", "Store Listing Draft"], 1)
+    ],
+}
+
+
+def test_a_flat_extraction_still_puts_every_task_on_the_timeline():
+    """The silent data loss: Slip and Receipts listed all nine tasks while
+    the Gantt View showed the project row and nothing else."""
+    gv = _wb(plan=_FLAT)["Gantt View"]
+    names = [str(gv.cell(r, 2).value).strip()
+             for r in range(1, gv.max_row + 1) if gv.cell(r, 2).value]
+    for expected in [t["name"] for t in _FLAT["tasks"]]:
+        assert any(expected in n for n in names), f"{expected} vanished"
+
+
+def test_a_flat_extraction_still_gets_its_scurve():
+    """The S-curve keys off rendered rows, so it disappeared too."""
+    assert "S-Curve" in _wb(plan=_FLAT).sheetnames
+
+
+def test_flat_and_grouped_tasks_coexist():
+    mixed = {**_PLAN, "tasks": _PLAN["tasks"] + [
+        {"id": 77, "name": "Unfiled work", "type": "task", "parent_id": 404,
+         "owner": "Sam", "status": "not_started", "start": "2026-07-06",
+         "end": "2026-07-10", "depends_on": []}]}
+    gv = _wb(plan=mixed)["Gantt View"]
+    names = [str(gv.cell(r, 2).value) for r in range(1, gv.max_row + 1)
+             if gv.cell(r, 2).value]
+    assert any("Unfiled work" in n for n in names)
+    assert any("Payments integration" in n for n in names)

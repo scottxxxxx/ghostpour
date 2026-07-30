@@ -37,7 +37,10 @@ _GANTT_SCHEMA_PROMPT = (
     "\"status\": \"complete\"|\"in_progress\"|\"on_hold\"|\"not_started\"|"
     "\"blocked\", \"start\": \"YYYY-MM-DD\", \"end\": \"YYYY-MM-DD\", "
     "\"depends_on\": [int], \"percent_complete\": int|null}]}. "
-    "Rules: phases have parent_id null; tasks and "
+    "Rules: phases have parent_id null; every task and milestone "
+    "carries the id of a phase in this same list, and when the "
+    "meetings suggest no grouping at all, emit one phase named for "
+    "the project and put everything under it; tasks and "
     "milestones carry the id of their phase; milestones have start equal to "
     "end; dates must be consistent with dependencies (a task never starts "
     "before its predecessor ends); owner is the person's name as spoken; "
@@ -68,7 +71,10 @@ _GANTT_DETAILED_SCHEMA_PROMPT = (
     "\"reason\": str|null}], "
     "\"evidence\": [{\"field\": str, \"quote\": str, "
     "\"speaker\": str|null, \"meeting_date\": \"YYYY-MM-DD\"|null}]}]}. "
-    "Rules: phases have parent_id null; tasks "
+    "Rules: phases have parent_id null; every task and milestone "
+    "carries the id of a phase in this same list, and when the "
+    "meetings suggest no grouping at all, emit one phase named for "
+    "the project and put everything under it; tasks "
     "and milestones carry the id of their phase; milestones have start "
     "equal to end; dates must be consistent with dependencies (a task "
     "never starts before its predecessor ends); owner is the person's name "
@@ -279,6 +285,19 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
     for t in tasks:
         if t.get("type") != "phase" and t.get("parent_id") in children:
             children[t["parent_id"]].append(t)
+    # A task whose parent_id matches no phase used to be dropped from the
+    # timeline in silence: the schema asks for phases, and when the model
+    # returns a flat list instead (live 2026-07-30, 9 of 9 tasks with
+    # parent_id null) the Gantt View rendered the project row and nothing
+    # else, while Slip and Receipts listed all nine. A grouping the meeting
+    # never made is not a reason to lose the work, so orphans hang off the
+    # project row in extraction order.
+    _orphans = [t for t in tasks
+                if t.get("type") != "phase"
+                and t.get("parent_id") not in children]
+    if _orphans:
+        logger.info("gantt_orphan_tasks count=%d phases=%d",
+                    len(_orphans), len(phases))
 
     def at_risk(t):
         # blocked; never started though its start passed; or OVERDUE —
@@ -339,6 +358,9 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
         for t in children.get(phase["id"], []):
             r += 1
             row_of[t["id"]] = r
+    for t in _orphans:
+        r += 1
+        row_of[t["id"]] = r
     last_row = r
     last_col = FIRST_DAY_COL + len(days) - 1
     grid = lambda row: (f"{get_column_letter(FIRST_DAY_COL)}{row}:"  # noqa: E731
@@ -561,6 +583,96 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
     ws.add_data_validation(dv)
 
     chip_cache: dict = {}
+
+    def render_task(t):
+        """One task or milestone row: a phase's child, or an orphan
+        hanging off the project row when the extraction returned no
+        usable grouping."""
+        nonlocal row
+        assert row == row_of[t["id"]]
+        risky = at_risk(t)
+        text_hex = _C["risk"] if risky else "3D4653"
+        ws.cell(row, 1, "●" if t["type"] != "milestone" else "").font = \
+            Font(color="FF" + _C["status"].get(t["status"], _C["bar"]))
+        name = ("          🏁 " if t["type"] == "milestone" else "          ") + t["name"]
+        ws.cell(row, 2, name).font = Font(size=9, color="FF" + text_hex)
+        fl = ws.cell(row, 3, "⚑" if risky else "⚐")
+        fl.font = Font(color="FF" + (_C["risk"] if risky else "9AA4AF"))
+        fl.alignment = Alignment(horizontal="center")
+        st = ws.cell(row, 4, _STATUS_LABELS.get(t.get("status", ""), ""))
+        st.font = Font(size=8, color="FF" + text_hex)
+        dv.add(f"D{row}")
+        date_cells(row, _d(t["start"]), _d(t["end"]), hex_color=text_hex,
+                   formulas=dep_formulas(t))
+        # A conditional date is the one place the sheet would otherwise
+        # assert more than the meeting did: "release August 3 if beta's
+        # quiet" renders identically to a firm commitment. Mark the END
+        # cell rather than the name, which slip matches on.
+        cond = str(t.get("conditional") or "").strip()
+        if cond:
+            ec = ws.cell(row, 6)
+            ec.fill = fill(_C["conditional"])
+            ec.comment = Comment(f"Conditional: {cond}", "Shoulder Surf")
+            ec.comment.width, ec.comment.height = 240, 60
+        # Predecessors: Smartsheet nomenclature, dates-derived (FS
+        # default; SS/FF only when the extracted dates say so)
+        codes = ", ".join(
+            f"{row_of[dep]}{_dep_code(by_id[dep], t)}"
+            for dep in (t.get("depends_on") or []) if dep in by_id and dep in row_of)
+        if codes:
+            pc = ws.cell(row, 7, codes)
+            pc.font = Font(size=8, color="FF" + text_hex)
+            pc.alignment = Alignment(horizontal="center")
+        owner = (t.get("owner") or "").strip()
+        if owner:
+            # chip = colored initials; FULL NAME beside it (Scott's
+            # review: "I don't get the full name, just the letter")
+            initials = "".join(w[0] for w in owner.split()[:2]).upper()
+            hex_c = chip_cache.setdefault(
+                owner, _C["chips"][int(hashlib.sha256(owner.encode()).hexdigest(), 16) % len(_C["chips"])])
+            chip = ws.cell(row, 8, initials)
+            chip.fill = fill(hex_c)
+            chip.font = Font(bold=True, size=8, color="FFFFFFFF")
+            chip.alignment = Alignment(horizontal="center")
+            nm = ws.cell(row, 9, owner)
+            nm.font = Font(size=8, color="FF" + text_hex)
+        pct = t.get("percent_complete")
+        if isinstance(pct, int) and 0 <= pct <= 100:
+            pcell = ws.cell(row, 10, pct / 100)
+            pcell.number_format = "0%"
+            pcell.font = Font(size=8, color="FF" + text_hex)
+            pcell.alignment = Alignment(horizontal="center")
+        if detail_cols:
+            eff = t.get("effort")
+            if isinstance(eff, str) and eff.strip():
+                ecell = ws.cell(row, 11, eff.strip())
+                ecell.font = Font(size=8, color="FF" + text_hex)
+                ecell.alignment = Alignment(horizontal="center")
+        ws.row_dimensions[row].outline_level = 2
+        if t["type"] == "milestone":
+            # The ◆ marker is a formula so it moves with the date —
+            # SAME formula shape as the bar cells (Scott 2026-07-16:
+            # Excel's inconsistent-formula check stamped green
+            # triangles along every milestone row because its formula
+            # differed from its neighbors'). A milestone's start
+            # equals its end, so the range test marks exactly one day.
+            for i in range(len(days)):
+                col = FIRST_DAY_COL + i
+                L = get_column_letter(col)
+                m = ws.cell(row, col,
+                            f'=IF(AND({L}$1>=$E{row},{L}$1<=$F{row}),'
+                            f'"◆","")')
+                m.font = Font(color="FF" + _C["risk"], bold=True)
+                m.alignment = Alignment(horizontal="center")
+            mi = ws.cell(row, last_col + 1,
+                         f'=IF($F{row}>{get_column_letter(last_col)}$1,'
+                         f'"→","")')
+            mi.font = Font(bold=True, color="FF" + _C["risk"])
+            mi.alignment = Alignment(horizontal="center")
+        else:
+            bar_rules(row, _C["bar"], risk_aware=True, pct_overlay=True)
+        row += 1
+
     for phase in phases:
         assert row == row_of[phase["id"]]
         ws.cell(row, 1, "●").font = Font(
@@ -601,89 +713,10 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
         dv.add(f"D{row}")
         row += 1
         for t in children.get(phase["id"], []):
-            assert row == row_of[t["id"]]
-            risky = at_risk(t)
-            text_hex = _C["risk"] if risky else "3D4653"
-            ws.cell(row, 1, "●" if t["type"] != "milestone" else "").font = \
-                Font(color="FF" + _C["status"].get(t["status"], _C["bar"]))
-            name = ("          🏁 " if t["type"] == "milestone" else "          ") + t["name"]
-            ws.cell(row, 2, name).font = Font(size=9, color="FF" + text_hex)
-            fl = ws.cell(row, 3, "⚑" if risky else "⚐")
-            fl.font = Font(color="FF" + (_C["risk"] if risky else "9AA4AF"))
-            fl.alignment = Alignment(horizontal="center")
-            st = ws.cell(row, 4, _STATUS_LABELS.get(t.get("status", ""), ""))
-            st.font = Font(size=8, color="FF" + text_hex)
-            dv.add(f"D{row}")
-            date_cells(row, _d(t["start"]), _d(t["end"]), hex_color=text_hex,
-                       formulas=dep_formulas(t))
-            # A conditional date is the one place the sheet would otherwise
-            # assert more than the meeting did: "release August 3 if beta's
-            # quiet" renders identically to a firm commitment. Mark the END
-            # cell rather than the name, which slip matches on.
-            cond = str(t.get("conditional") or "").strip()
-            if cond:
-                ec = ws.cell(row, 6)
-                ec.fill = fill(_C["conditional"])
-                ec.comment = Comment(f"Conditional: {cond}", "Shoulder Surf")
-                ec.comment.width, ec.comment.height = 240, 60
-            # Predecessors: Smartsheet nomenclature, dates-derived (FS
-            # default; SS/FF only when the extracted dates say so)
-            codes = ", ".join(
-                f"{row_of[dep]}{_dep_code(by_id[dep], t)}"
-                for dep in (t.get("depends_on") or []) if dep in by_id and dep in row_of)
-            if codes:
-                pc = ws.cell(row, 7, codes)
-                pc.font = Font(size=8, color="FF" + text_hex)
-                pc.alignment = Alignment(horizontal="center")
-            owner = (t.get("owner") or "").strip()
-            if owner:
-                # chip = colored initials; FULL NAME beside it (Scott's
-                # review: "I don't get the full name, just the letter")
-                initials = "".join(w[0] for w in owner.split()[:2]).upper()
-                hex_c = chip_cache.setdefault(
-                    owner, _C["chips"][int(hashlib.sha256(owner.encode()).hexdigest(), 16) % len(_C["chips"])])
-                chip = ws.cell(row, 8, initials)
-                chip.fill = fill(hex_c)
-                chip.font = Font(bold=True, size=8, color="FFFFFFFF")
-                chip.alignment = Alignment(horizontal="center")
-                nm = ws.cell(row, 9, owner)
-                nm.font = Font(size=8, color="FF" + text_hex)
-            pct = t.get("percent_complete")
-            if isinstance(pct, int) and 0 <= pct <= 100:
-                pcell = ws.cell(row, 10, pct / 100)
-                pcell.number_format = "0%"
-                pcell.font = Font(size=8, color="FF" + text_hex)
-                pcell.alignment = Alignment(horizontal="center")
-            if detail_cols:
-                eff = t.get("effort")
-                if isinstance(eff, str) and eff.strip():
-                    ecell = ws.cell(row, 11, eff.strip())
-                    ecell.font = Font(size=8, color="FF" + text_hex)
-                    ecell.alignment = Alignment(horizontal="center")
-            ws.row_dimensions[row].outline_level = 2
-            if t["type"] == "milestone":
-                # The ◆ marker is a formula so it moves with the date —
-                # SAME formula shape as the bar cells (Scott 2026-07-16:
-                # Excel's inconsistent-formula check stamped green
-                # triangles along every milestone row because its formula
-                # differed from its neighbors'). A milestone's start
-                # equals its end, so the range test marks exactly one day.
-                for i in range(len(days)):
-                    col = FIRST_DAY_COL + i
-                    L = get_column_letter(col)
-                    m = ws.cell(row, col,
-                                f'=IF(AND({L}$1>=$E{row},{L}$1<=$F{row}),'
-                                f'"◆","")')
-                    m.font = Font(color="FF" + _C["risk"], bold=True)
-                    m.alignment = Alignment(horizontal="center")
-                mi = ws.cell(row, last_col + 1,
-                             f'=IF($F{row}>{get_column_letter(last_col)}$1,'
-                             f'"→","")')
-                mi.font = Font(bold=True, color="FF" + _C["risk"])
-                mi.alignment = Alignment(horizontal="center")
-            else:
-                bar_rules(row, _C["bar"], risk_aware=True, pct_overlay=True)
-            row += 1
+            render_task(t)
+
+    for t in _orphans:
+        render_task(t)
 
     # ---- Total float and the critical path (detailed style) -------------
     # CPM backward pass, emitted as LIVE formulas rather than numbers baked
