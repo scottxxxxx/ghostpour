@@ -128,7 +128,82 @@ def render_gantt(data: dict, *, today: date | None = None,
     """Deterministic Smartsheet-style Gantt from extracted plan JSON.
     `history` is accepted for renderer-signature parity (the template
     lane passes it to every renderer) and unused by the simple style."""
-    return _serialize_wb(_build_gantt_wb(data, today=today))
+    return _serialize_wb(_build_gantt_wb(_with_workdays(data), today=today))
+
+
+# --- Working-day scheduling ------------------------------------------------
+# Weekends were shaded on the grid (WEEKDAY()>5) but the date arithmetic was
+# calendar days, so the sheet contradicted itself the moment anyone edited:
+# pushing a predecessor could land a dependent's Start on a Saturday and then
+# draw its bar straight across the weekend it had just greyed out. Dates now
+# snap to working days and offsets are counted in working days, so a push
+# lands on a weekday and a duration means what a reader assumes it means.
+#
+# Weekends only. Holidays are locale-specific and the meeting never states
+# them, so inventing a calendar would break the only-what-the-meeting-knows
+# rule; WORKDAY() takes an optional holiday range if we ever get a real one.
+
+def _next_workday(d: date) -> date:
+    while d.weekday() >= 5:
+        d += timedelta(days=1)
+    return d
+
+
+def _prev_workday(d: date) -> date:
+    while d.weekday() >= 5:
+        d -= timedelta(days=1)
+    return d
+
+
+def _snap_span(s: date, e: date) -> tuple[date, date]:
+    """Pull a span inward onto working days: a weekend start moves to the
+    next Monday, a weekend end back to the previous Friday. A span that
+    lives entirely on one weekend collapses to a single working day rather
+    than inverting."""
+    s2, e2 = _next_workday(s), _prev_workday(e)
+    if e2 < s2:
+        e2 = s2
+    return s2, e2
+
+
+def _workday_offset(a: date, b: date) -> int:
+    """Signed working-day offset k such that Excel's WORKDAY(a, k) == b,
+    for a and b on working days. Counts working days in (a, b] going
+    forward, or negates the count in [b, a) going back."""
+    if a == b:
+        return 0
+    step = 1 if b > a else -1
+    lo, hi = (a, b) if b > a else (b, a)
+    n, cur = 0, lo
+    while cur < hi:
+        cur += timedelta(days=1)
+        if cur.weekday() < 5:
+            n += 1
+    return n * step
+
+
+def _workday_formula(expr: str, k: int) -> str:
+    """WORKDAY() moves by working days. k == 0 stays a bare reference: the
+    initial value must equal the extracted date byte for byte, and
+    WORKDAY(x, 0) is not a guaranteed identity for every viewer."""
+    return expr if k == 0 else f"WORKDAY({expr},{k})"
+
+
+def _with_workdays(data: dict) -> dict:
+    """Copy of `data` whose task spans sit on working days. Applied once at
+    the renderer entry point so the view, the Slip sheet and the Receipts
+    sheet all read the same dates."""
+    tasks = []
+    for t in (data.get("tasks") or []):
+        t = dict(t)
+        try:
+            s, e = _snap_span(_d(t["start"]), _d(t["end"]))
+        except (KeyError, ValueError, TypeError):
+            tasks.append(t)
+            continue
+        t["start"], t["end"] = s.isoformat(), e.isoformat()
+        tasks.append(t)
+    return {**data, "tasks": tasks}
 
 
 def _build_gantt_wb(data: dict, *, today: date | None = None,
@@ -345,13 +420,6 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
                 _queue.append(v)
     _deps_acyclic = _seen == len(_adj)
 
-    def _off(expr: str, days_off: int) -> str:
-        if days_off > 0:
-            return f"{expr}+{days_off}"
-        if days_off < 0:
-            return f"{expr}{days_off}"
-        return expr
-
     def dep_formulas(t) -> tuple[str, str] | None:
         """(start_formula, end_formula) for a dependent task, or None
         when its dates stay static."""
@@ -365,15 +433,16 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
             if prow is None:
                 return None
             if _dep_code(p, t) == "SS":
-                terms.append(_off(f"E{prow}",
-                                  (_d(t["start"]) - _d(p["start"])).days))
+                terms.append(_workday_formula(
+                    f"E{prow}", _workday_offset(_d(p["start"]), _d(t["start"]))))
             else:
-                terms.append(_off(f"F{prow}",
-                                  (_d(t["start"]) - _d(p["end"])).days))
+                terms.append(_workday_formula(
+                    f"F{prow}", _workday_offset(_d(p["end"]), _d(t["start"]))))
         ef = "=" + (terms[0] if len(terms) == 1
                     else "MAX(" + ",".join(terms) + ")")
         r = row_of[t["id"]]
-        ff = "=" + _off(f"E{r}", (_d(t["end"]) - _d(t["start"])).days)
+        ff = "=" + _workday_formula(
+            f"E{r}", _workday_offset(_d(t["start"]), _d(t["end"])))
         return ef, ff
 
     def bar_rules(r, bar_hex, risk_aware=False, pct_overlay=False):
@@ -664,8 +733,14 @@ def _compute_slip(tasks: list[dict], history: list[dict]) -> list[dict]:
             for ht in ver.get("tasks") or []:
                 if ht.get("type") != "phase" and _slip_key(ht.get("name")) == key:
                     try:
-                        seq.append((ver["as_of"], _d(ht["end"])))
-                    except (KeyError, ValueError):
+                        # Snapshots predate working-day snapping, so put the
+                        # historical end through the same rule; otherwise the
+                        # first regeneration after that change reads a
+                        # weekend-to-Friday snap as real slip.
+                        seq.append((ver["as_of"],
+                                    _snap_span(_d(ht.get("start") or ht["end"]),
+                                               _d(ht["end"]))[1]))
+                    except (KeyError, ValueError, TypeError):
                         pass
                     break
         cur_end = _d(t["end"])
@@ -702,6 +777,7 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
     from openpyxl.formatting.rule import CellIsRule
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
+    data = _with_workdays(data)
     wb = _build_gantt_wb(data, today=today, detail_cols=True)
     tasks = data.get("tasks") or []
     rows = [t for t in tasks if t.get("type") != "phase"]
