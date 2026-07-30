@@ -131,9 +131,12 @@ def _gv_rows(gv):
 
 def test_dependency_push_and_rollup_formulas():
     """Editing a predecessor's dates must push its dependents (Scott
-    2026-07-21): dependent Start = driver cell + extracted lag, End =
-    Start + duration; phases and the project row roll up MIN/MAX live.
-    Independent tasks keep static dates."""
+    2026-07-21): dependent Start = driver cell offset by the extracted
+    lag, End = Start plus the duration; phases and the project row roll
+    up MIN/MAX live. Independent tasks keep static dates.
+
+    Offsets are WORKING days (2026-07-29), so a push lands on a weekday
+    instead of dropping a bar onto the weekend the grid greys out."""
     import datetime
     import io
 
@@ -144,8 +147,9 @@ def test_dependency_push_and_rollup_formulas():
     gv = openpyxl.load_workbook(io.BytesIO(blob))["Gantt View"]
     rows = _gv_rows(gv)
     rc, rb = rows["Crash SDK swap"], rows["Beta build"]
-    # beta (milestone) depends on crash sdk: FS with the extracted 6-day lag
-    assert gv.cell(rb, 5).value == f"=F{rc}+6"
+    # beta (milestone) depends on crash sdk: FS, and the extracted 6-day
+    # calendar gap (Tue 21st -> Mon 27th) is 4 working days
+    assert gv.cell(rb, 5).value == f"=WORKDAY(F{rc},4)"
     assert gv.cell(rb, 6).value == f"=E{rb}"          # zero duration
     # independent task keeps static, editable dates
     assert isinstance(gv.cell(rows["Payments integration"], 5).value,
@@ -172,7 +176,7 @@ def test_multi_predecessor_uses_max_of_drivers():
          "status": "complete", "start": "2026-07-01", "end": "2026-07-10",
          "depends_on": []},
         {"id": 3, "name": "B", "type": "task", "parent_id": 1, "owner": None,
-         "status": "complete", "start": "2026-07-01", "end": "2026-07-12",
+         "status": "complete", "start": "2026-07-01", "end": "2026-07-13",
          "depends_on": []},
         {"id": 4, "name": "C", "type": "task", "parent_id": 1, "owner": None,
          "status": "not_started", "start": "2026-07-15", "end": "2026-07-20",
@@ -181,7 +185,8 @@ def test_multi_predecessor_uses_max_of_drivers():
     gv = openpyxl.load_workbook(io.BytesIO(render_gantt(plan)))["Gantt View"]
     rows = _gv_rows(gv)
     ra, rb2, rc2 = rows["A"], rows["B"], rows["C"]
-    assert gv.cell(rc2, 5).value == f"=MAX(F{ra}+5,F{rb2}+3)"
+    # A ends Fri 10th (3 working days to Wed 15th), B ends Mon 13th (2)
+    assert gv.cell(rc2, 5).value == f"=MAX(WORKDAY(F{ra},3),WORKDAY(F{rb2},2))"
 
 
 def test_cyclic_dependencies_fall_back_to_static_dates():
