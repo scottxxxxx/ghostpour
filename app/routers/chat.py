@@ -2257,6 +2257,11 @@ async def chat(
             "system_prompt": _extraction_sys,
             "temperature": 0.2,
             "max_tokens": _t.get("max_tokens", 8000),
+            # Registry-declared lane setting. Extraction is transcription
+            # with a schema: on a think-by-default model the reasoning
+            # shares max_tokens with the JSON and can eat the whole
+            # budget, which is a failed build, not a slow one.
+            "thinking": _t.get("thinking"),
         })
         _gen_expected_seconds = _t["expected_seconds"]
     elif _gen_capable:

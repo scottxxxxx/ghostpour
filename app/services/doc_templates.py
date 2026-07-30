@@ -1481,7 +1481,8 @@ TEMPLATES = {
         "format": "xlsx",
         "media_type": XLSX_MIME,
         "filename": "Gantt.xlsx",
-        "expected_seconds": 45,  # measured 2026-07-12: 6s toy plan, 48s real 12-meeting project
+        "expected_seconds": 25,  # measured 2026-07-30, thinking off (was 45)
+        "thinking": "disabled",  # see the detailed entry
         "offer_noun": "my polished Gantt chart (collapsible phases, status "
                       "colors, stated progress on the bars, critical "
                       "dates, a native Excel file)",
@@ -1497,8 +1498,18 @@ TEMPLATES = {
         "format": "xlsx",
         "media_type": XLSX_MIME,
         "filename": "Gantt_Detailed.xlsx",
-        "expected_seconds": 60,  # richer extraction output than simple's 45
+        "expected_seconds": 30,  # measured 2026-07-30, thinking off (was 60)
         "max_tokens": 12000,     # evidence quotes fatten the JSON
+        # Extraction is transcription with a schema, not deliberation, and
+        # on models that think by default the reasoning shares max_tokens
+        # with the answer. Measured on the demo standups, Sonnet 5, 2 runs
+        # each: thinking on 87s and 108s, $0.11 to $0.12, and one of the two
+        # burned all 12000 tokens thinking and returned NOTHING parseable;
+        # thinking off 20s and 23s, $0.036 to $0.040, with byte-identical
+        # extraction quality (same 9 tasks, same stated percents, same
+        # commitment trail). Speed and cost are the small win here; the real
+        # one is that a truncated turn is a failed generation for the user.
+        "thinking": "disabled",
         "offer_noun": "my detailed Gantt workbook (the live timeline plus a "
                       "slip history of how due dates moved, stated effort, "
                       "and a receipts sheet quoting the meeting line "

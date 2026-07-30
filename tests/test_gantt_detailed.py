@@ -531,7 +531,7 @@ def test_reply_style_detailed_builds_persists_meters_and_snapshots(
     _enable_confirmed_generation(client)
     cta = _offer_gantt(client, free_user, monkeypatch, project_id="proj-fk")
     assert "simple or detailed" in cta["text"]
-    assert cta["details"]["expected_seconds"] == 45   # simple default pre-choice
+    assert cta["details"]["expected_seconds"] == 25   # simple default pre-choice
     oid = cta["details"]["offer_id"]
 
     monkeypatch.setattr(dg, "interpret_offer_reply", AsyncMock(
@@ -574,7 +574,7 @@ def test_reply_style_detailed_builds_persists_meters_and_snapshots(
     cta2 = _offer_gantt(client, free_user, monkeypatch, project_id="proj-fk")
     assert "detailed style this project uses" in cta2["text"]
     assert "simple or detailed" not in cta2["text"]
-    assert cta2["details"]["expected_seconds"] == 60
+    assert cta2["details"]["expected_seconds"] == 30
 
 
 def test_pill_tap_honors_saved_detailed_pref(
