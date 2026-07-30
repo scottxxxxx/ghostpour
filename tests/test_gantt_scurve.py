@@ -152,7 +152,10 @@ def test_a_first_ever_plan_says_why_the_baseline_is_missing():
 def test_chart_exists_with_all_three_series():
     sc = _book()["S-Curve"]
     assert len(sc._charts) == 1
-    assert len(sc._charts[0].series) == 3
+    # three lines plus the marker-only series that dots the weeks a
+    # meeting actually happened in (2026-07-30 review pass)
+    assert len(sc._charts[0].series) == 4
+    assert sc._charts[0].series[3].marker.symbol == "circle"
 
 
 def test_header_explains_which_lines_move_and_which_do_not():
