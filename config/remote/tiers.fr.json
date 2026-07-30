@@ -1,18 +1,18 @@
 {
- "version": 36,
+ "version": 37,
  "tiers": {
   "free": {
    "display_name": "Gratuit",
-   "description": "Essayez l'assistant de réunion IA avec un petit crédit gratuit.",
+   "description": "Découvrez l'assistance de réunion par IA : environ cinq heures de réunions par mois avec l'IA dans le cloud.",
    "feature_bullets": [
-    "Une allocation mensuelle de crédits IA, suffisante pour un usage régulier",
+    "L'IA dans le cloud pour environ cinq heures de réunions par mois",
     "Des résumés rédigés pendant que la réunion est encore en cours",
     "Transcription sur l'appareil (illimitée)",
     "1 photo ou image par question"
    ],
    "feature_items": [
     {
-     "label": "Une allocation mensuelle de crédits IA, suffisante pour un usage régulier",
+     "label": "L'IA dans le cloud pour environ cinq heures de réunions par mois",
      "icon": "checkmark"
     },
     {
