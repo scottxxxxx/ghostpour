@@ -227,7 +227,7 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
     skip conditional formatting show a plain grid — real Excel and Google
     Sheets render fully."""
     import openpyxl
-    from openpyxl.formatting.rule import FormulaRule
+    from openpyxl.formatting.rule import CellIsRule, FormulaRule
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
     from openpyxl.worksheet.datavalidation import DataValidation
@@ -299,10 +299,13 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
     strip = ws.cell(2, 2, "  " + "  ·  ".join(_bits))
     strip.font = Font(bold=True, size=9, color="FF3D4653")
     # A:dot B:name C:risk D:status E:start F:end G:predecessors H:chip I:owner
-    FIRST_DAY_COL = 12 if detail_cols else 11
+    FIRST_DAY_COL = 13 if detail_cols else 11
     PCT_COL = "J"   # % Done, only written when detail_cols
+    FLOAT_COL = "L"  # Total float in working days, detail_cols only
     KEY_TOP = 4          # status key block under the 3 header rows
-    first_bar_row = KEY_TOP + 8   # key + overlay/blank/phase legend lines + project row
+    # key + overlay/blank/phase legend lines + project row; the detailed
+    # style adds one more legend line (what Float means)
+    first_bar_row = KEY_TOP + (9 if detail_cols else 8)
 
     # Pre-pass: worksheet row of every task, so Predecessors can cite
     # rows in either direction (forward deps included).
@@ -346,7 +349,7 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
               ("", 4), ("Assigned To", 16)]
     _heads += [("%\nDone", 7)]
     if detail_cols:
-        _heads += [("Effort", 10)]
+        _heads += [("Effort", 10), ("Float\nwork days", 9)]
     for col, (head, width) in enumerate(_heads, start=1):
         c = ws.cell(3, col, head)
         c.font = Font(bold=True, size=9)
@@ -377,7 +380,13 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
                   "      phase % = duration-weighted; unstarted tasks "
                   "count as 0, Complete tasks as 100")
     lg3.font = Font(size=8, color="FF9AA4AF")
-    row += 4
+    if detail_cols:
+        lg4 = ws.cell(row + 4, 2,
+                      "      Float = working days this task can slip before "
+                      "the project end moves; 0 means it is on the critical "
+                      "path (live, recalculates when you edit a date)")
+        lg4.font = Font(size=8, color="FF" + _C["risk_done"])
+    row += 5 if detail_cols else 4
 
     def date_cells(r, s, e, hex_color=None, size=8, formulas=None):
         """Write Start/End as dates, or as live formulas when the row's
@@ -638,6 +647,80 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
             else:
                 bar_rules(row, _C["bar"], risk_aware=True, pct_overlay=True)
             row += 1
+
+    # ---- Total float and the critical path (detailed style) -------------
+    # CPM backward pass, emitted as LIVE formulas rather than numbers baked
+    # in at generation. Static float next to live dates would repeat the
+    # mistake working-day scheduling just fixed: the sheet contradicting
+    # itself the moment someone edits. Two hidden helper columns carry the
+    # late-start chain; the visible Float column is the difference.
+    #
+    #   project finish PF = MAX of every real task's End
+    #   LS(t), no successors      = PF back by t's duration
+    #   LS(t), with successors    = MIN over s of the latest start that
+    #                               still lets s start on time, following
+    #                               the same SS-drives-from-Start /
+    #                               otherwise-from-End rule as the forward
+    #                               pass, with the same extracted lags
+    #   Float(t) = working days between t's Start and its late start
+    #
+    # Float 0 means the task is on the critical path: any slip moves the
+    # project end. A cyclic graph skips the whole pass (the forward pass
+    # already falls back to static dates there, and circular references
+    # would be worse than a blank column).
+    if detail_cols:
+        LS_COL, PF_COL = last_col + 2, last_col + 3
+        _cpm = [t for t in tasks
+                if t.get("type") != "phase" and t["id"] in row_of]
+        if _cpm and _deps_acyclic:
+            _pf = f"${get_column_letter(PF_COL)}$1"
+            ws.cell(1, PF_COL, "=MAX(" + ",".join(
+                f"F{row_of[t['id']]}" for t in _cpm) + ")")
+            _ls_of = lambda tid: f"${get_column_letter(LS_COL)}${row_of[tid]}"  # noqa: E731
+            for t in _cpm:
+                r = row_of[t["id"]]
+                # Duration reads LIVE off the row's own dates rather than
+                # baking in the extracted length. It matters in exactly the
+                # case people actually hit: overwrite a task's End by hand
+                # and a constant duration would leave its float unchanged
+                # while its slack has visibly been spent.
+                dur = f"(NETWORKDAYS(E{r},F{r})-1)"
+                back = lambda expr: f"WORKDAY({expr},-{dur})"  # noqa: E731
+                succs = [by_id[sid] for sid in _dependents.get(t["id"], [])
+                         if by_id.get(sid) is not None
+                         and by_id[sid].get("type") != "phase"
+                         and sid in row_of]
+                if not succs:
+                    expr = back(_pf)
+                else:
+                    bounds = []
+                    for sc in succs:
+                        ls_s = _ls_of(sc["id"])
+                        if _dep_code(t, sc) == "SS":
+                            # a start-to-start successor constrains this
+                            # task's start directly, so no duration term
+                            lag = _workday_offset(_d(t["start"]), _d(sc["start"]))
+                            bounds.append(_workday_formula(ls_s, -lag))
+                        else:
+                            lag = _workday_offset(_d(t["end"]), _d(sc["start"]))
+                            bounds.append(back(_workday_formula(ls_s, -lag)))
+                    expr = (bounds[0] if len(bounds) == 1
+                            else "MIN(" + ",".join(bounds) + ")")
+                ws.cell(r, LS_COL, "=" + expr)
+                fc = ws.cell(r, 12,
+                             f"=NETWORKDAYS(E{r},{_ls_of(t['id'])})-1")
+                fc.number_format = "0"
+                fc.font = Font(size=8, color="FF3D4653")
+                fc.alignment = Alignment(horizontal="center")
+            # zero float reads as the critical path, live
+            ws.conditional_formatting.add(
+                f"{FLOAT_COL}{first_bar_row}:{FLOAT_COL}{last_row}",
+                CellIsRule(operator="lessThanOrEqual", formula=["0"],
+                           font=Font(bold=True, size=8,
+                                     color="FF" + _C["risk_done"]),
+                           fill=dxf_fill(_C["risk_rest"])))
+        for _hc in (LS_COL, PF_COL):
+            ws.column_dimensions[get_column_letter(_hc)].hidden = True
 
     # grid-wide dynamics AFTER the bar rules so bars win: the today
     # column tracks TODAY(); weekends shade by formula

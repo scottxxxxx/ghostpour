@@ -77,13 +77,14 @@ def test_render_detailed_adds_sheets_and_stays_honest():
                           for c in row if c.value)
     assert "History starts with this version" in slip_texts
 
-    # simple keeps its exact layout; detailed shifts the day grid right
-    # to make room for the on-view % Done / Effort columns
+    # simple keeps its exact layout; detailed shifts the day grid right to
+    # make room for the on-view % Done / Effort / Float columns (Float
+    # arrived 2026-07-29, moving the grid from L to M)
     simple = openpyxl.load_workbook(io.BytesIO(
         render_gantt(_DPLAN, today=datetime.date(2026, 7, 21))))
     assert simple["Gantt View"].freeze_panes == "K4"
     gv = wb["Gantt View"]
-    assert gv.freeze_panes == "L4"
+    assert gv.freeze_panes == "M4"
     # progress is ON the timeline view: stated percent + effort as columns
     gv_rows = {str(gv.cell(r, 2).value or "").strip(): r
                for r in range(1, 40) if gv.cell(r, 2).value}
