@@ -96,4 +96,4 @@ def test_template_offer_shape_identical_across_surfaces(client, free_user, mock_
     pc = _offer(client, free_user, "ProjectChat", False, ask)
     mc = _offer(client, free_user, "PostMeetingChat", True, ask)
     _assert_parity(pc, mc, template_id="gantt_smartsheet")
-    assert mc["feature_state"]["cta"]["details"]["expected_seconds"] == 45
+    assert mc["feature_state"]["cta"]["details"]["expected_seconds"] == 25
