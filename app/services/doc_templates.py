@@ -768,12 +768,18 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
         formula=[f"{ax0}=TODAY()"], fill=dxf_fill(_C["today"]), stopIfTrue=True))
     ws.conditional_formatting.add(full_grid, FormulaRule(
         formula=[f"WEEKDAY({ax0},2)>5"], fill=dxf_fill(_C["weekend"])))
-    # live status dots: flipping the Status dropdown recolors column A
-    dot_range = f"A{first_bar_row + 1}:A{last_row}"
-    for key, label in _STATUS_LABELS.items():
-        ws.conditional_formatting.add(dot_range, FormulaRule(
-            formula=[f'$D{first_bar_row + 1}="{label}"'],
-            font=Font(color="FF" + _C["status"].get(key, _C["bar"]))))
+    # live status dots: flipping the Status dropdown recolors column A.
+    # Guarded: a plan whose tasks all miss their phase (model returns a flat
+    # list, or a parent_id that matches nothing) writes the project row and
+    # stops, and the range below inverts. openpyxl rejects it with a bare
+    # TypeError, which reaches the user as a failed build rather than a
+    # thin one.
+    if last_row > first_bar_row:
+        dot_range = f"A{first_bar_row + 1}:A{last_row}"
+        for key, label in _STATUS_LABELS.items():
+            ws.conditional_formatting.add(dot_range, FormulaRule(
+                formula=[f'$D{first_bar_row + 1}="{label}"'],
+                font=Font(color="FF" + _C["status"].get(key, _C["bar"]))))
 
     ws.freeze_panes = f"{get_column_letter(FIRST_DAY_COL)}4"
     ws.sheet_properties.outlinePr.summaryBelow = False
@@ -1268,11 +1274,40 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
     thin = Side(style="thin", color="FFD9D9D9")
     box = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-    # ---- Receipts numbering: plan order, evidence order ----
-    receipts: list[tuple[str, dict, dict]] = []   # (ref, task, evidence item)
+    # ---- Receipts numbering: plan order, commitments then evidence ----
+    # The two extraction fields carry DIFFERENT quotes, which is not what I
+    # assumed when Standing first shipped: the model files date lines under
+    # commitments and files percent, status and effort lines under evidence,
+    # so a date's provenance lives only in commitments. Receipts is the union
+    # or it silently stops showing the line behind every due date.
+    #
+    # Standing comes from the DATE, not from matching quote strings: a
+    # commitment still standing is one whose date is the task's current end.
+    # Quote matching was the first attempt and it read empty on live data,
+    # because the same utterance is rarely spelled identically twice.
+    receipts: list[tuple[str, dict, dict]] = []   # (ref, task, receipt item)
     for t in rows:
+        seen: set[str] = set()
+        try:
+            cur_end = _d(t["end"])
+        except (KeyError, ValueError, TypeError):
+            cur_end = None
+        for c in _commitments(t):
+            if not c["quote"]:
+                continue
+            seen.add(_norm_quote(c["quote"]))
+            receipts.append((f"R{len(receipts) + 1}", t, {
+                "field": "end",
+                "quote": c["quote"],
+                "speaker": c["speaker"],
+                "meeting_date": c["as_of"].isoformat() if c["as_of"] else "",
+                "standing": ("current" if cur_end and c["date"] == cur_end
+                             else "superseded"),
+            }))
         for ev in (t.get("evidence") or []):
             if not isinstance(ev, dict) or not str(ev.get("quote") or "").strip():
+                continue
+            if _norm_quote(ev.get("quote")) in seen:
                 continue
             receipts.append((f"R{len(receipts) + 1}", t, ev))
 
@@ -1377,16 +1412,6 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
                 "Consider removing it before sending the workbook outside "
                 "the team.")
     rc["A3"].font = Font(size=9, bold=True, color="FF9A3412")
-    # Which quotes have been overtaken by a later commitment. Payments was
-    # quoted three times for three different due dates; rendering all three
-    # the same way reads as three live commitments instead of a history.
-    stale_quotes = {
-        _norm_quote(i.get("quote") or "")
-        for s in slip_rows for i in s["trail"][:-1] if i.get("quote")}
-    live_quotes = {
-        _norm_quote(s["trail"][-1].get("quote") or "")
-        for s in slip_rows if s["trail"] and s["trail"][-1].get("quote")}
-
     for ci, h in enumerate(["Ref", "Task", "Supports", "Meeting", "Standing",
                             "Speaker", "Verbatim line"], 1):
         c = rc.cell(4, ci, h)
@@ -1398,9 +1423,7 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
         rc.cell(ri, 3, _field_label(ev.get("field"))).font = Font(size=9)
         md = str(ev.get("meeting_date") or "").strip()
         rc.cell(ri, 4, md).font = Font(size=8, color="FF666666")
-        nq = _norm_quote(ev.get("quote") or "")
-        standing = ("superseded" if nq and nq in stale_quotes and nq not in live_quotes
-                    else ("current" if nq and nq in live_quotes else ""))
+        standing = str(ev.get("standing") or "")
         sc_cell = rc.cell(ri, 5, standing)
         sc_cell.font = Font(size=8, italic=True,
                             color="FF9A3412" if standing == "superseded"

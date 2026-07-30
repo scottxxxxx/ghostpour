@@ -308,3 +308,83 @@ def test_the_rendered_sheet_passes_its_own_meeting_date_through():
     sl = wb["Slip"]
     r = _slip_rows(sl)["Offline sync"]
     assert sl.cell(r, 6).value == 0
+
+
+# --- receipts as the union of both quote sources ------------------------
+
+_LIVE_SHAPE = {
+    "project": "Field Kit", "meeting_date": "2026-07-20",
+    "tasks": [
+        {"id": 7, "name": "Release 1.2", "type": "phase", "parent_id": None,
+         "owner": None, "status": "in_progress", "start": "2026-06-22",
+         "end": "2026-07-24", "depends_on": []},
+        {"id": 1, "name": "Payments", "type": "task", "parent_id": 7,
+         "owner": "Maya", "status": "in_progress", "start": "2026-06-22",
+         "end": "2026-07-24", "depends_on": [], "percent_complete": 70,
+         # what prod actually returns: the DATE lines live only in
+         # commitments, evidence carries the other fields, and the two
+         # never quote the same words
+         "commitments": [
+             {"date": "2026-07-10", "as_of": "2026-06-22",
+              "quote": "payments integration should land by July 10.",
+              "speaker": "Maya", "reason": None},
+             {"date": "2026-07-24", "as_of": "2026-07-13",
+              "quote": "realistically the 24th now.", "speaker": "Maya",
+              "reason": None},
+         ],
+         "evidence": [
+             {"field": "percent_complete", "speaker": "Maya",
+              "quote": "I'd say payments is 70 percent", "meeting_date": "2026-07-20"},
+         ]},
+    ],
+}
+
+
+def test_receipts_keep_the_line_behind_a_due_date():
+    """The regression this fixture exists for: date provenance lives only
+    in commitments, so an evidence-only Receipts sheet loses it."""
+    rc = _wb(plan=_LIVE_SHAPE)["Receipts"]
+    quotes = [str(rc.cell(r, 7).value) for r in range(5, 20)
+              if rc.cell(r, 7).value]
+    assert any("by July 10" in q for q in quotes)
+    assert any("the 24th now" in q for q in quotes)
+    assert any("70 percent" in q for q in quotes)
+
+
+def test_standing_comes_from_the_date_not_the_wording():
+    rc = _wb(plan=_LIVE_SHAPE)["Receipts"]
+    by_quote = {str(rc.cell(r, 7).value): r for r in range(5, 20)
+                if rc.cell(r, 7).value}
+    old = next(r for q, r in by_quote.items() if "by July 10" in q)
+    new = next(r for q, r in by_quote.items() if "the 24th now" in q)
+    assert rc.cell(old, 5).value == "superseded"   # not the current end
+    assert rc.cell(new, 5).value == "current"      # equals the current end
+    assert rc.cell(old, 3).value == "Due date"
+    assert rc.cell(old, 4).value == "2026-06-22"   # the meeting it was said in
+
+
+def test_a_quote_in_both_fields_is_not_listed_twice():
+    phase, payments = _LIVE_SHAPE["tasks"]
+    plan = {**_LIVE_SHAPE, "tasks": [phase, {
+        **payments,
+        # the same line filed under BOTH fields
+        "evidence": [{"field": "end", "speaker": "Maya",
+                      "quote": "realistically the 24th now.",
+                      "meeting_date": "2026-07-13"}],
+    }]}
+    rc = _wb(plan=plan)["Receipts"]
+    quotes = [str(rc.cell(r, 7).value) for r in range(5, 20)
+              if rc.cell(r, 7).value]
+    assert sum(1 for q in quotes if "the 24th now" in q) == 1
+
+
+def test_a_plan_whose_tasks_miss_their_phase_still_renders():
+    """openpyxl rejects the inverted status-dot range with a bare
+    TypeError, which reaches the user as a failed build."""
+    from app.services.doc_templates import render_gantt_detailed
+    orphaned = {"project": "Field Kit", "meeting_date": "2026-07-20",
+                "tasks": [{"id": 1, "name": "Payments", "type": "task",
+                           "parent_id": 99, "owner": "Maya",
+                           "status": "in_progress", "start": "2026-06-22",
+                           "end": "2026-07-24", "depends_on": []}]}
+    assert render_gantt_detailed(orphaned, today=TODAY)
