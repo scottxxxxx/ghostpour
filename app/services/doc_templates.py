@@ -977,7 +977,8 @@ def _scurve_weeks(tasks: list[dict], history: list[dict] | None) -> list[date]:
     return out
 
 
-def _compute_slip(tasks: list[dict], history: list[dict]) -> list[dict]:
+def _compute_slip(tasks: list[dict], history: list[dict],
+                  *, as_of: str | None = None) -> list[dict]:
     """Per-task due-date movement, from what was SAID and what was PLANNED.
 
     Two sources, deliberately merged into one trail:
@@ -1000,7 +1001,30 @@ def _compute_slip(tasks: list[dict], history: list[dict]) -> list[dict]:
     baseline = the earliest date we can attribute to this task; moves =
     number of changes after it; the caller computes variance as current
     minus baseline. A task with exactly one entry is "first tracked",
-    honest, not padded."""
+    honest, not padded.
+
+    `as_of` is THIS plan's meeting date, and versions at or after it are
+    dropped: they are earlier BUILDS of the same meeting, not earlier
+    meetings, and this build supersedes them. Without that, regenerating
+    a plan reads its own previous attempt as history and every wobble in
+    extraction becomes a move the meeting never made. Sibling of the
+    one-version-per-as-of rule in plan_snapshots.history, which dedupes
+    rebuilds inside the history but could not see the current one."""
+    cur_as_of = None
+    if as_of:
+        try:
+            cur_as_of = _d(as_of)
+        except (ValueError, TypeError):
+            cur_as_of = None
+    versions = []
+    for ver in history or []:
+        try:
+            v_as_of = _d(ver["as_of"])
+        except (KeyError, ValueError, TypeError):
+            continue
+        if cur_as_of and v_as_of >= cur_as_of:
+            continue
+        versions.append((v_as_of, ver))
     out = []
     for t in tasks:
         if t.get("type") == "phase":
@@ -1017,7 +1041,7 @@ def _compute_slip(tasks: list[dict], history: list[dict]) -> list[dict]:
                 seq.append(entry)
             else:
                 by_as_of[c["as_of"]] = entry
-        for ver in history or []:
+        for v_as_of, ver in versions:
             for ht in ver.get("tasks") or []:
                 if ht.get("type") != "phase" and _slip_key(ht.get("name")) == key:
                     try:
@@ -1027,9 +1051,9 @@ def _compute_slip(tasks: list[dict], history: list[dict]) -> list[dict]:
                         # weekend-to-Friday snap as real slip.
                         when = _snap_span(_d(ht.get("start") or ht["end"]),
                                           _d(ht["end"]))[1]
-                        as_of = _d(ver["as_of"])
                     except (KeyError, ValueError, TypeError):
                         break
+                    as_of = v_as_of
                     # spoken wins for the same meeting; see docstring
                     by_as_of.setdefault(as_of, {
                         "as_of": as_of, "date": when, "spoken": False,
@@ -1275,7 +1299,8 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
         c.fill = hdr_fill
         c.alignment = Alignment(horizontal="center", vertical="center",
                                 wrap_text=True)
-    slip_rows = _compute_slip(tasks, history)
+    slip_rows = _compute_slip(tasks, history,
+                              as_of=data.get("meeting_date"))
     for ri, srow in enumerate(slip_rows, 5):
         t = srow["task"]
         sl.cell(ri, 1, t["name"]).font = Font(bold=True, size=9)
