@@ -1,5 +1,6 @@
 import datetime as _dt
 import json
+import logging
 from collections.abc import AsyncIterator
 
 from fastapi import HTTPException
@@ -8,9 +9,12 @@ from app.models.chat import ChatRequest, ChatResponse
 
 from .base import ProviderAdapter
 from .reasoning import (
+    anthropic_accepts_temperature,
     anthropic_output_config,
     anthropic_thinking_block,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class AnthropicAdapter(ProviderAdapter):
@@ -190,7 +194,22 @@ class AnthropicAdapter(ProviderAdapter):
         # so only send an explicit temperature when thinking is actually ON.
         # A `{"type": "disabled"}` block is truthy but leaves sampling free, so
         # it must not suppress the temperature the way an adaptive block does.
-        if request.temperature is not None and (
+        #
+        # From Opus 4.7 on, the parameter is gone entirely and ANY value is a
+        # 400 — so the model gets a vote before the thinking rule does. Live
+        # 2026-07-30: the template lane pins 0.2 in code, Pro routing had moved
+        # to Sonnet 5 the day before, and every Pro file build died at the
+        # provider with an empty 200 back to the client. Dropping the pin
+        # costs reproducibility on those models; sending it costs the feature.
+        if request.temperature is not None and not anthropic_accepts_temperature(
+            request.model
+        ):
+            logger.info(
+                "anthropic_temperature_dropped model=%s requested=%s call_type=%s",
+                request.model, request.temperature,
+                (request.metadata or {}).get("call_type"),
+            )
+        elif request.temperature is not None and (
             thinking is None or thinking.get("type") == "disabled"
         ):
             body["temperature"] = request.temperature

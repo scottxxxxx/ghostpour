@@ -44,16 +44,20 @@ def test_body_omits_thinking_on_models_that_dont_need_it():
     assert "thinking" not in body
 
 
-def test_disabled_thinking_leaves_temperature_free():
+def test_disabled_thinking_does_not_itself_suppress_temperature():
     # A disabled block is truthy but doesn't constrain sampling, so it must
-    # not suppress temperature the way an adaptive block does.
+    # not suppress temperature the way an adaptive block does. The models
+    # that need the explicit block (Sonnet 5, Opus 5) turn out to be exactly
+    # the models where `temperature` is deprecated, so the parameter is gone
+    # from the body either way — for the deprecation reason, checked in
+    # test_temperature_deprecation.py, not because "disabled" is truthy.
     body = _body(model="claude-sonnet-5", thinking="disabled", temperature=0.2)
     assert body["thinking"] == {"type": "disabled"}
-    assert body["temperature"] == 0.2
+    assert "temperature" not in body
 
 
 def test_adaptive_thinking_still_suppresses_temperature():
-    body = _body(model="claude-sonnet-5", reasoning="high", temperature=0.2)
+    body = _body(model="claude-sonnet-4-6", reasoning="high", temperature=0.2)
     assert body["thinking"] == {"type": "adaptive"}
     assert "temperature" not in body
 

@@ -96,6 +96,35 @@ def anthropic_accepts_disabled_thinking(model: str) -> bool:
     return "claude-sonnet-5" in m or "claude-opus-5" in m
 
 
+def anthropic_accepts_temperature(model: str) -> bool:
+    """False where `temperature` is a 400, not a knob.
+
+    Anthropic deprecated the parameter from Opus 4.7 onward: any value at
+    all (including one equal to the default) returns
+    `400 "temperature is deprecated for this model"`. The older models
+    still take it, and our determinism-pinned lanes (report 0.2, template
+    extraction 0.2, the Haiku classifiers 0.0) depend on that.
+
+    Probed live against the API 2026-07-30, one call per model:
+      rejects  opus-4-7, opus-4-8, opus-5, sonnet-5, fable-5
+      accepts  sonnet-4-6, opus-4-6, haiku-4-5
+
+    Deny-list rather than allow-list on purpose: an unrecognized model
+    keeps today's behavior and fails loudly if Anthropic extends the
+    deprecation, instead of silently dropping the pin that a lane's
+    reproducibility promise rests on.
+    """
+    m = (model or "").lower()
+    deprecated = (
+        "claude-opus-4-7",
+        "claude-opus-4-8",
+        "claude-opus-5",
+        "claude-sonnet-5",
+        "claude-fable-5",
+    )
+    return not any(prefix in m for prefix in deprecated)
+
+
 def anthropic_thinking_block(
     level: str | None,
     model: str | None = None,
