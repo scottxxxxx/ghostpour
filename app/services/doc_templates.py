@@ -62,8 +62,13 @@ _GANTT_DETAILED_SCHEMA_PROMPT = (
     "\"status\": \"complete\"|\"in_progress\"|\"on_hold\"|\"not_started\"|"
     "\"blocked\", \"start\": \"YYYY-MM-DD\", \"end\": \"YYYY-MM-DD\", "
     "\"depends_on\": [int], \"percent_complete\": int|null, "
-    "\"effort\": str|null, \"evidence\": [{\"field\": str, \"quote\": str, "
-    "\"speaker\": str|null}]}]}. Rules: phases have parent_id null; tasks "
+    "\"effort\": str|null, \"conditional\": str|null, "
+    "\"commitments\": [{\"date\": \"YYYY-MM-DD\", "
+    "\"as_of\": \"YYYY-MM-DD\"|null, \"quote\": str, \"speaker\": str|null, "
+    "\"reason\": str|null}], "
+    "\"evidence\": [{\"field\": str, \"quote\": str, "
+    "\"speaker\": str|null, \"meeting_date\": \"YYYY-MM-DD\"|null}]}]}. "
+    "Rules: phases have parent_id null; tasks "
     "and milestones carry the id of their phase; milestones have start "
     "equal to end; dates must be consistent with dependencies (a task "
     "never starts before its predecessor ends); owner is the person's name "
@@ -73,9 +78,23 @@ _GANTT_DETAILED_SCHEMA_PROMPT = (
     "STRICTLY what a person stated in the content (\"about 80 percent\" "
     "is 80; \"two days of work\" is \"2 days\"): when nobody stated a "
     "value, use null. Never estimate, and never infer a percent from "
-    "status. evidence lists short verbatim quotes from the content that "
+    "status. commitments is the due date this task was given each time "
+    "somebody stated one, oldest first: a task whose date was stated once "
+    "has exactly one entry, and a date that was restated unchanged is not "
+    "a new entry. Each entry carries the date stated, the meeting date it "
+    "was said in when the content dates its meetings (else null), the "
+    "verbatim line, the speaker when identifiable, and a reason ONLY when "
+    "the person gave one (\"their sandbox creds took a week\"), else null. "
+    "Never invent a commitment for a date nobody stated. conditional is "
+    "the condition itself when a date was stated conditionally (from "
+    "\"release August 3 if beta is quiet\", conditional is \"if beta is "
+    "quiet\"), and null when the date was stated flatly; never mark a date "
+    "conditional unless somebody stated the condition. evidence lists "
+    "short verbatim quotes from the content that "
     "support extracted values (dates, status, percent_complete, effort, "
-    "owner), with field naming which value each quote supports; include "
+    "owner), with field naming which value each quote supports and "
+    "meeting_date naming the meeting it was said in when the content "
+    "dates its meetings; include "
     "speaker when identifiable; omit evidence you do not have rather than "
     "paraphrasing. Compose project, name, and effort strings without em "
     "or en dashes, and never imitate a dash with a spaced hyphen "
@@ -90,6 +109,7 @@ _GANTT_DETAILED_SCHEMA_PROMPT = (
 _C = {
     "bar": "A8B9C9", "summary": "6E7B8A", "project": "3D4653",
     "weekend": "F3F3F3", "today": "FFF6DE", "risk": "E0341E",
+    "conditional": "FBF0D5",
     "risk_done": "9A1B12", "risk_rest": "F1948A",
     "grid": "E9E9E9", "white": "FFFFFF",
     "status": {"complete": "1F4E9C", "in_progress": "2E9E4F",
@@ -228,6 +248,7 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
     skip conditional formatting show a plain grid — real Excel and Google
     Sheets render fully."""
     import openpyxl
+    from openpyxl.comments import Comment
     from openpyxl.formatting.rule import CellIsRule, FormulaRule
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
@@ -306,7 +327,7 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
     KEY_TOP = 4          # status key block under the 3 header rows
     # key + overlay/blank/phase legend lines + project row; the detailed
     # style adds one more legend line (what Float means)
-    first_bar_row = KEY_TOP + (9 if detail_cols else 8)
+    first_bar_row = KEY_TOP + (10 if detail_cols else 8)
 
     # Pre-pass: worksheet row of every task, so Predecessors can cite
     # rows in either direction (forward deps included).
@@ -387,7 +408,12 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
                       "the project end moves; 0 means it is on the critical "
                       "path (live, recalculates when you edit a date)")
         lg4.font = Font(size=8, color="FF" + _C["risk_done"])
-    row += 5 if detail_cols else 4
+        lg5 = ws.cell(row + 5, 2,
+                      "      shaded End Date = the meeting stated a condition "
+                      "on that date, not a firm commitment; hover the cell "
+                      "for the condition")
+        lg5.font = Font(size=8, color="FF9A3412")
+    row += 6 if detail_cols else 4
 
     def date_cells(r, s, e, hex_color=None, size=8, formulas=None):
         """Write Start/End as dates, or as live formulas when the row's
@@ -590,6 +616,16 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
             dv.add(f"D{row}")
             date_cells(row, _d(t["start"]), _d(t["end"]), hex_color=text_hex,
                        formulas=dep_formulas(t))
+            # A conditional date is the one place the sheet would otherwise
+            # assert more than the meeting did: "release August 3 if beta's
+            # quiet" renders identically to a firm commitment. Mark the END
+            # cell rather than the name, which slip matches on.
+            cond = str(t.get("conditional") or "").strip()
+            if cond:
+                ec = ws.cell(row, 6)
+                ec.fill = fill(_C["conditional"])
+                ec.comment = Comment(f"Conditional: {cond}", "Shoulder Surf")
+                ec.comment.width, ec.comment.height = 240, 60
             # Predecessors: Smartsheet nomenclature, dates-derived (FS
             # default; SS/FF only when the extracted dates say so)
             codes = ", ".join(
@@ -804,6 +840,67 @@ def _solid(argb: str):
     return PatternFill("solid", fgColor=argb)
 
 
+def _norm_quote(s: str) -> str:
+    """Quote identity for matching a receipt against a commitment."""
+    return re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
+
+
+_FIELD_LABELS = {
+    "end": "Due date", "end_date": "Due date", "due": "Due date",
+    "start": "Start date", "start_date": "Start date",
+    "owner": "Owner", "status": "Status", "effort": "Effort estimate",
+    "percent_complete": "Progress", "percent": "Progress",
+    "depends_on": "Dependency", "name": "Task", "conditional": "Condition",
+}
+
+_DATE_FIELDS = {"end", "end_date", "due", "start", "start_date"}
+
+
+def _field_label(field: str) -> str:
+    """Receipts is a customer-facing sheet: our schema keys are not.
+    Anything unmapped falls back to the raw key made readable rather than
+    dropped, so a new schema field surfaces as odd wording, never as a
+    blank cell."""
+    key = str(field or "").strip()
+    return _FIELD_LABELS.get(key.lower(), key.replace("_", " ").capitalize())
+
+
+def _commitments(task: dict) -> list[dict]:
+    """The due dates somebody actually SPOKE for this task, oldest first.
+
+    The plan-version trail can only see what changed between generations;
+    this sees what changed between meetings, which is the thing a project
+    manager is actually asking about. It also survives what the version
+    trail cannot: a rename by the extraction model, a project regenerated
+    out of order, and a FIRST generation, where there are no prior
+    versions at all and slip used to be structurally empty.
+
+    Entries the model could not date sort after the ones it could, in the
+    order given, since the schema asks for them oldest first."""
+    out = []
+    for c in (task.get("commitments") or []):
+        if not isinstance(c, dict):
+            continue
+        try:
+            when = _d(c["date"])
+        except (KeyError, ValueError, TypeError):
+            continue
+        as_of = None
+        if c.get("as_of"):
+            try:
+                as_of = _d(c["as_of"])
+            except (ValueError, TypeError):
+                as_of = None
+        out.append({"date": when, "as_of": as_of,
+                    "quote": str(c.get("quote") or "").strip(),
+                    "speaker": str(c.get("speaker") or "").strip(),
+                    "reason": str(c.get("reason") or "").strip()})
+    dated = [c for c in out if c["as_of"]]
+    undated = [c for c in out if not c["as_of"]]
+    dated.sort(key=lambda c: c["as_of"])
+    return dated + undated
+
+
 def _wd_inclusive(a: date, b: date) -> int:
     """Working days from a to b counting BOTH ends, matching Excel's
     NETWORKDAYS. The S-curve mixes Python-computed history with live
@@ -881,20 +978,45 @@ def _scurve_weeks(tasks: list[dict], history: list[dict] | None) -> list[date]:
 
 
 def _compute_slip(tasks: list[dict], history: list[dict]) -> list[dict]:
-    """Per-task due-date movement across dated plan versions.
+    """Per-task due-date movement, from what was SAID and what was PLANNED.
 
-    For each current non-phase task: walk history (oldest first, as-of
-    ordered by the caller), collect its end date wherever the normalized
-    name matches, append the current end, collapse consecutive equals.
-    baseline = first tracked end; moves = number of changes; slip_days =
-    current minus baseline. Tasks with no history rows are "first
-    tracked" (baseline = current, zero moves) — honest, not padded."""
+    Two sources, deliberately merged into one trail:
+
+      spoken   the commitments the extraction pulled out of the meetings
+               ("by July 10", "pushed to the 17th", "realistically the
+               24th"). Available on the very first generation, and immune
+               to the extraction renaming a task between runs.
+      planned  the same task's end date in each earlier plan VERSION,
+               matched by normalized name. Catches movement nobody said
+               out loud, and covers projects whose history predates the
+               commitments field.
+
+    Entries are keyed by the meeting they belong to, so a date that was
+    both spoken and captured in that meeting's version counts ONCE. Where
+    the two disagree for the same meeting the spoken one wins: somebody
+    said it, we inferred the other. Consecutive equal dates collapse, so
+    restating a date unchanged is not a move.
+
+    baseline = the earliest date we can attribute to this task; moves =
+    number of changes after it; the caller computes variance as current
+    minus baseline. A task with exactly one entry is "first tracked",
+    honest, not padded."""
     out = []
     for t in tasks:
         if t.get("type") == "phase":
             continue
         key = _slip_key(t.get("name"))
-        seq: list[tuple[str, date]] = []
+        # keyed by as-of date so the two sources dedupe against each other;
+        # undated spoken entries keep their given order at the front
+        seq: list[dict] = []
+        by_as_of: dict[date, dict] = {}
+        for c in _commitments(t):
+            entry = {"as_of": c["as_of"], "date": c["date"], "spoken": True,
+                     "quote": c["quote"], "reason": c["reason"]}
+            if c["as_of"] is None:
+                seq.append(entry)
+            else:
+                by_as_of[c["as_of"]] = entry
         for ver in history or []:
             for ht in ver.get("tasks") or []:
                 if ht.get("type") != "phase" and _slip_key(ht.get("name")) == key:
@@ -903,23 +1025,32 @@ def _compute_slip(tasks: list[dict], history: list[dict]) -> list[dict]:
                         # historical end through the same rule; otherwise the
                         # first regeneration after that change reads a
                         # weekend-to-Friday snap as real slip.
-                        seq.append((ver["as_of"],
-                                    _snap_span(_d(ht.get("start") or ht["end"]),
-                                               _d(ht["end"]))[1]))
+                        when = _snap_span(_d(ht.get("start") or ht["end"]),
+                                          _d(ht["end"]))[1]
+                        as_of = _d(ver["as_of"])
                     except (KeyError, ValueError, TypeError):
-                        pass
+                        break
+                    # spoken wins for the same meeting; see docstring
+                    by_as_of.setdefault(as_of, {
+                        "as_of": as_of, "date": when, "spoken": False,
+                        "quote": "", "reason": ""})
                     break
+        seq += [by_as_of[k] for k in sorted(by_as_of)]
         cur_end = _d(t["end"])
-        if not seq or seq[-1][1] != cur_end:
-            seq.append(("current", cur_end))
+        if not seq or seq[-1]["date"] != cur_end:
+            seq.append({"as_of": None, "date": cur_end, "spoken": False,
+                        "quote": "", "reason": "", "current": True})
         changes = [seq[0]]
         for item in seq[1:]:
-            if item[1] != changes[-1][1]:
+            if item["date"] != changes[-1]["date"]:
                 changes.append(item)
         out.append({
-            "task": t, "baseline": seq[0][1], "baseline_as_of": seq[0][0],
+            "task": t, "baseline": changes[0]["date"],
+            "baseline_as_of": changes[0]["as_of"],
+            "baseline_spoken": changes[0].get("spoken", False),
             "current": cur_end, "moves": len(changes) - 1,
             "trail": changes, "first_tracked": len(seq) == 1,
+            "spoken_any": any(c.get("spoken") for c in changes),
         })
     return out
 
@@ -948,6 +1079,7 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
     Python-computed history and the live NETWORKDAYS formulas agree.
     """
     from openpyxl.chart import LineChart, Reference
+    from openpyxl.chart.marker import Marker
     from openpyxl.styles import Alignment, Font
 
     tasks = [t for t in (data.get("tasks") or [])
@@ -966,15 +1098,31 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
     navy = "1F3A5F"
     sc["A1"] = "S-Curve, planned work against reported progress"
     sc["A1"].font = Font(bold=True, size=13, color="FF" + navy)
+    # What the weighting is actually based on, said out loud. Every series
+    # here weighs a task by its scheduled working days, which is a proxy for
+    # size, not a measure of it: ten days waiting on a vendor outweighs three
+    # days of hard work. Stating the count of tasks that gave us a real
+    # effort figure lets the reader judge how rough the proxy is.
+    _real = [t for t in tasks if t.get("type") not in ("phase", "milestone")]
+    _stated = sum(1 for t in _real
+                  if isinstance(t.get("effort"), str) and t["effort"].strip())
     sc["A2"] = ("Baseline is the first plan version and never moves. Planned "
                 "follows the dates on the Gantt View and redraws when you "
-                "edit them. Reported is duration-weighted % complete as of "
-                "each meeting, held flat in between because that is all the "
-                "meetings said.")
+                "edit them. Reported is % complete as of each meeting, held "
+                "flat in between because that is all the meetings said; the "
+                "dots are the meetings themselves.")
     sc["A2"].font = Font(size=9, color="FF666666", italic=True)
     sc["A2"].alignment = Alignment(wrap_text=True)
     sc.merge_cells("A2:F2")
     sc.row_dimensions[2].height = 30
+    sc["A3"] = (
+        f"Weighting: every task counts for its scheduled working days, "
+        f"which stands in for size. {_stated} of {len(_real)} tasks had an "
+        f"effort figure stated in a meeting; none of the numbers here are "
+        f"weighted by it.")
+    sc["A3"].font = Font(size=8, color="FF9AA4AF", italic=True)
+    sc["A3"].alignment = Alignment(wrap_text=True)
+    sc.merge_cells("A3:F3")
 
     # total scheduled working days, live, so Planned is a real share
     denom = "+".join(f"NETWORKDAYS('{gsheet}'!$E{r},'{gsheet}'!$F{r})"
@@ -982,7 +1130,7 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
     sc["H1"] = "=" + denom
     sc.column_dimensions["H"].hidden = True
 
-    hdr = ["Week ending", "Baseline", "Planned", "Reported"]
+    hdr = ["Week ending", "Baseline", "Planned", "Reported", "At a meeting"]
     for c, h in enumerate(hdr, start=1):
         cell = sc.cell(4, c, h)
         cell.font = Font(bold=True, size=9, color="FFFFFFFF")
@@ -1025,6 +1173,13 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
         reported = [v for d, v in stamps if d <= wk]
         if reported:
             sc.cell(r, 4, reported[-1]).number_format = "0%"
+        # The same value again, but ONLY in a week that actually contains a
+        # meeting. Plotted as markers with no line, it separates the four
+        # things we were told from the flat carry between them, which the
+        # line alone cannot say.
+        observed = [v for d, v in stamps if wk - timedelta(days=6) <= d <= wk]
+        if observed:
+            sc.cell(r, 5, observed[-1]).number_format = "0%"
 
     last = 4 + len(weeks)
     chart = LineChart()
@@ -1034,10 +1189,23 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
     chart.y_axis.numFmt = "0%"
     chart.y_axis.title = "Complete"
     chart.x_axis.title = "Week ending"
-    chart.add_data(Reference(sc, min_col=2, max_col=4, min_row=4, max_row=last),
+    # Without this the category axis renders the date serials (46199,
+    # 46206) instead of dates: openpyxl writes the categories as a numeric
+    # reference and Excel has no format to apply unless the axis carries
+    # one. Caught in the shipped 2026-07-30 workbook.
+    chart.x_axis.numFmt = "mmm d"
+    chart.x_axis.delete = False
+    chart.y_axis.delete = False
+    chart.add_data(Reference(sc, min_col=2, max_col=5, min_row=4, max_row=last),
                    titles_from_data=True)
     chart.set_categories(Reference(sc, min_col=1, min_row=5, max_row=last))
-    sc.add_chart(chart, "F4")
+    for ser in chart.series:
+        ser.smooth = False
+    # the observations ride as dots on top of the Reported line
+    obs = chart.series[3]
+    obs.marker = Marker(symbol="circle", size=7)
+    obs.graphicalProperties.line.noFill = True
+    sc.add_chart(chart, "G4")
     if not base_tasks:
         sc.cell(last + 2, 1,
                 "Baseline appears once this project has a second plan "
@@ -1088,13 +1256,19 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
     sl = wb.create_sheet("Slip")
     sl["A1"] = "Slip, how due dates moved across plan versions"
     sl["A1"].font = Font(bold=True, size=13, color="FF" + navy)
-    sl["A2"] = ("Every generated plan is a dated version, so slip is "
-                "computed, not remembered. Baseline is the due date in "
-                "the earliest version that tracks the task; the trail "
-                "shows each move with the meeting it came from.")
+    sl["A2"] = ("First committed is the earliest due date anyone stated for "
+                "the task, taken from the meetings themselves; where nobody "
+                "stated one, it falls back to the earliest generated plan "
+                "that tracked the task. Variance is current minus first "
+                "committed: positive is late, negative is early. The trail "
+                "shows each move, the meeting it came from, and the reason "
+                "when somebody gave one.")
     sl["A2"].font = sub_font
-    slip_heads = ["Task", "Owner", "Baseline due", "As of", "Current due",
-                  "Times moved", "Slip (days)", "Trail"]
+    sl["A2"].alignment = Alignment(wrap_text=True)
+    sl.merge_cells("A2:H2")
+    sl.row_dimensions[2].height = 26
+    slip_heads = ["Task", "Owner", "First committed", "As of", "Current due",
+                  "Times moved", "Variance (days)", "Trail"]
     for ci, h in enumerate(slip_heads, 1):
         c = sl.cell(4, ci, h)
         c.font = hdr_font
@@ -1108,9 +1282,10 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
         sl.cell(ri, 2, (t.get("owner") or "").strip())
         bc = sl.cell(ri, 3, srow["baseline"])
         bc.number_format = "yyyy-mm-dd"
+        _as_of = srow["baseline_as_of"]
         sl.cell(ri, 4, "first tracked now" if srow["first_tracked"]
-                else srow["baseline_as_of"]).font = Font(size=8,
-                                                         color="FF666666")
+                else (_as_of.strftime("%Y-%m-%d") if _as_of else "stated")
+                ).font = Font(size=8, color="FF666666")
         cc = sl.cell(ri, 5, srow["current"])
         cc.number_format = "yyyy-mm-dd"
         mv = sl.cell(ri, 6, srow["moves"])
@@ -1118,15 +1293,17 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
         sc = sl.cell(ri, 7, f"=E{ri}-C{ri}")
         sc.number_format = "0"
         sc.alignment = Alignment(horizontal="center")
-        def _as_of(label: str) -> str:
-            try:
-                return datetime.strptime(label, "%Y-%m-%d").strftime("%b %d")
-            except ValueError:
-                return label
-        trail = " → ".join(
-            f"{d.strftime('%b %d')} (as of {_as_of(label)})"
-            if label != "current" else f"{d.strftime('%b %d')} (current)"
-            for label, d in srow["trail"])
+        parts = []
+        for item in srow["trail"]:
+            seg = item["date"].strftime("%b %d")
+            if item.get("current"):
+                seg += " (current)"
+            elif item["as_of"]:
+                seg += f" (said {item['as_of'].strftime('%b %d')})"
+            if item.get("reason"):
+                seg += f": {item['reason']}"
+            parts.append(seg)
+        trail = " → ".join(parts)
         sl.cell(ri, 8, trail if srow["moves"] else "").font = Font(size=8)
         if srow["moves"] >= 2:
             for ci in range(1, 9):
@@ -1136,17 +1313,29 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
         for ci in range(1, 9):
             sl.cell(ri, ci).border = box
     if slip_rows:
-        # positive slip reads red, live (critic pass 2026-07-21)
+        # positive variance reads red, live (critic pass 2026-07-21);
+        # negative is a task that came IN and should not read like a
+        # defect, so it gets its own green rather than sharing the red
         sl.conditional_formatting.add(
             f"G5:G{4 + len(slip_rows)}",
             CellIsRule(operator="greaterThan", formula=["0"],
                        font=Font(bold=True, color="FF9A1B12")))
-    if not (history or []):
-        note_r = 5 + len(slip_rows) + 1
+        sl.conditional_formatting.add(
+            f"G5:G{4 + len(slip_rows)}",
+            CellIsRule(operator="lessThan", formula=["0"],
+                       font=Font(bold=True, color="FF1E7A3C")))
+    note_r = 5 + len(slip_rows) + 1
+    if not any(s["spoken_any"] for s in slip_rows) and not (history or []):
         sl.cell(note_r, 1,
-                "History starts with this version: every future gantt "
-                "for this project adds a dated version to compare "
+                "Nobody stated a due date more than once in these meetings, "
+                "so there is nothing to compare yet: every future gantt for "
+                "this project adds a dated version to compare "
                 "against.").font = sub_font
+    elif not (history or []):
+        sl.cell(note_r, 1,
+                "This is the first generated plan for this project, so the "
+                "trail above is what people said in the meetings. Future "
+                "gantts add plan versions to it.").font = sub_font
     for col, w in {"A": 30, "B": 14, "C": 12, "D": 15, "E": 12, "F": 11,
                    "G": 10, "H": 52}.items():
         sl.column_dimensions[col].width = w
@@ -1163,25 +1352,45 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
                 "Consider removing it before sending the workbook outside "
                 "the team.")
     rc["A3"].font = Font(size=9, bold=True, color="FF9A3412")
-    for ci, h in enumerate(["Ref", "Task", "Supports", "Speaker",
-                            "Verbatim line"], 1):
+    # Which quotes have been overtaken by a later commitment. Payments was
+    # quoted three times for three different due dates; rendering all three
+    # the same way reads as three live commitments instead of a history.
+    stale_quotes = {
+        _norm_quote(i.get("quote") or "")
+        for s in slip_rows for i in s["trail"][:-1] if i.get("quote")}
+    live_quotes = {
+        _norm_quote(s["trail"][-1].get("quote") or "")
+        for s in slip_rows if s["trail"] and s["trail"][-1].get("quote")}
+
+    for ci, h in enumerate(["Ref", "Task", "Supports", "Meeting", "Standing",
+                            "Speaker", "Verbatim line"], 1):
         c = rc.cell(4, ci, h)
         c.font = hdr_font
         c.fill = hdr_fill
     for ri, (ref, t, ev) in enumerate(receipts, 5):
         rc.cell(ri, 1, ref).font = Font(bold=True, size=9)
         rc.cell(ri, 2, t["name"]).font = Font(size=9)
-        rc.cell(ri, 3, str(ev.get("field") or "")).font = Font(size=9)
-        rc.cell(ri, 4, str(ev.get("speaker") or "")).font = Font(size=9)
-        q = rc.cell(ri, 5, f'"{str(ev.get("quote")).strip()}"')
+        rc.cell(ri, 3, _field_label(ev.get("field"))).font = Font(size=9)
+        md = str(ev.get("meeting_date") or "").strip()
+        rc.cell(ri, 4, md).font = Font(size=8, color="FF666666")
+        nq = _norm_quote(ev.get("quote") or "")
+        standing = ("superseded" if nq and nq in stale_quotes and nq not in live_quotes
+                    else ("current" if nq and nq in live_quotes else ""))
+        sc_cell = rc.cell(ri, 5, standing)
+        sc_cell.font = Font(size=8, italic=True,
+                            color="FF9A3412" if standing == "superseded"
+                            else "FF666666")
+        rc.cell(ri, 6, str(ev.get("speaker") or "")).font = Font(size=9)
+        q = rc.cell(ri, 7, f'"{str(ev.get("quote")).strip()}"')
         q.font = Font(size=9)
         q.alignment = Alignment(wrap_text=True)
-        for ci in range(1, 6):
+        for ci in range(1, 8):
             rc.cell(ri, ci).border = box
             if ri % 2 == 0:
                 rc.cell(ri, ci).fill = PatternFill("solid",
                                                    fgColor="FF" + gray_lt)
-    for col, w in {"A": 6, "B": 30, "C": 16, "D": 12, "E": 64}.items():
+    for col, w in {"A": 6, "B": 30, "C": 16, "D": 12, "E": 12, "F": 12,
+                   "G": 64}.items():
         rc.column_dimensions[col].width = w
     rc.freeze_panes = "A5"
 

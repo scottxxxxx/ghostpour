@@ -72,10 +72,11 @@ def test_render_detailed_adds_sheets_and_stays_honest():
     blob = render_gantt_detailed(_DPLAN, today=datetime.date(2026, 7, 21))
     wb = openpyxl.load_workbook(io.BytesIO(blob))
     assert wb.sheetnames == ["Gantt View", "Slip", "Receipts", "S-Curve"]
-    # no history: slip sheet states that tracking starts now
+    # no history and nobody restated a date: the sheet says there is
+    # nothing to compare yet rather than showing an empty table
     slip_texts = " ".join(str(c.value) for row in wb["Slip"].iter_rows()
                           for c in row if c.value)
-    assert "History starts with this version" in slip_texts
+    assert "nothing to compare yet" in slip_texts
 
     # simple keeps its exact layout; detailed shifts the day grid right to
     # make room for the on-view % Done / Effort / Float columns (Float
@@ -105,9 +106,12 @@ def test_render_detailed_adds_sheets_and_stays_honest():
 
     rc = wb["Receipts"]
     assert rc.cell(5, 1).value == "R1"
-    assert "70 percent" in str(rc.cell(5, 5).value)
-    assert rc.cell(5, 4).value == "Maya"
-    assert rc.cell(6, 3).value == "effort"
+    assert "70 percent" in str(rc.cell(5, 7).value)
+    assert rc.cell(5, 6).value == "Maya"
+    # schema keys never reach the sheet: "percent_complete" reads Progress,
+    # "effort" reads Effort estimate
+    assert rc.cell(5, 3).value == "Progress"
+    assert rc.cell(6, 3).value == "Effort estimate"
 
     # determinism: same plan, same bytes
     assert render_gantt_detailed(_DPLAN, today=datetime.date(2026, 7, 21)) == blob
@@ -391,7 +395,7 @@ def test_compute_slip_unit():
     rows = {r["task"]["name"]: r for r in _compute_slip(_DPLAN["tasks"], _HISTORY)}
     p = rows["Payments integration"]   # matched despite case drift + id churn
     assert str(p["baseline"]) == "2026-07-10"
-    assert p["baseline_as_of"] == "2026-06-22"
+    assert str(p["baseline_as_of"]) == "2026-06-22"
     assert str(p["current"]) == "2026-07-24"
     assert p["moves"] == 2
     assert p["first_tracked"] is False
@@ -418,8 +422,8 @@ def test_render_detailed_slip_sheet_from_history():
     assert sl.cell(pr, 4).value == "2026-06-22"
     assert sl.cell(pr, 5).value.date() == datetime.date(2026, 7, 24)
     assert sl.cell(pr, 6).value == 2
-    assert sl.cell(pr, 7).value == f"=E{pr}-C{pr}"   # live slip-days formula
-    assert "as of Jul 06" in str(sl.cell(pr, 8).value)
+    assert sl.cell(pr, 7).value == f"=E{pr}-C{pr}"   # live variance formula
+    assert "said Jul 06" in str(sl.cell(pr, 8).value)
     sr = rows["Offline sync"]
     assert sl.cell(sr, 4).value == "first tracked now"
     assert sl.cell(sr, 6).value == 0
