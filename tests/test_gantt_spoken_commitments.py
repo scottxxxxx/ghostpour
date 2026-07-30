@@ -265,3 +265,46 @@ def test_determinism_holds_with_commitments_in_play():
     a = render_gantt_detailed(_PLAN, today=TODAY)
     b = render_gantt_detailed(_PLAN, today=TODAY)
     assert a == b
+
+
+# --- rebuilds of the same meeting ---------------------------------------
+
+def test_a_rebuild_of_the_same_meeting_is_not_a_move():
+    """Regenerating a plan must not read its own previous attempt as
+    history. Live 2026-07-30: three tasks showed moves that were nothing
+    but extraction wobble between two builds of the July 20 standup."""
+    from app.services.doc_templates import _compute_slip
+    prior_build = [{"as_of": "2026-07-20", "tasks": [
+        {"id": 9, "name": "Offline sync", "type": "task",
+         "start": "2026-07-06", "end": "2026-07-24"}]}]
+    rows = {r["task"]["name"]: r for r in _compute_slip(
+        _PLAN["tasks"], prior_build, as_of=_PLAN["meeting_date"])}
+    s = rows["Offline sync"]
+    assert s["moves"] == 0
+    assert str(s["current"]) == "2026-07-22"
+
+
+def test_a_genuinely_earlier_meeting_still_counts():
+    from app.services.doc_templates import _compute_slip
+    # Jul 06, a meeting of its own: not the Jun 29 one Jordan spoke at
+    # (spoken wins there) and not a rebuild of Jul 20
+    earlier = [{"as_of": "2026-07-06", "tasks": [
+        {"id": 9, "name": "Offline sync", "type": "task",
+         "start": "2026-07-06", "end": "2026-07-29"}]}]
+    rows = {r["task"]["name"]: r for r in _compute_slip(
+        _PLAN["tasks"], earlier, as_of=_PLAN["meeting_date"])}
+    s = rows["Offline sync"]
+    # spoken Jul 22, then that version's Jul 29, then back to Jul 22: two
+    # real changes, and the version is what makes the middle one visible
+    assert s["moves"] == 2
+    assert [str(i["date"]) for i in s["trail"]] == [
+        "2026-07-22", "2026-07-29", "2026-07-22"]
+
+
+def test_the_rendered_sheet_passes_its_own_meeting_date_through():
+    wb = _wb(history=[{"as_of": "2026-07-20", "tasks": [
+        {"id": 9, "name": "Offline sync", "type": "task",
+         "start": "2026-07-06", "end": "2026-07-24"}]}])
+    sl = wb["Slip"]
+    r = _slip_rows(sl)["Offline sync"]
+    assert sl.cell(r, 6).value == 0
