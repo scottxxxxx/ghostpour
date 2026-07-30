@@ -71,7 +71,7 @@ def test_render_detailed_adds_sheets_and_stays_honest():
     from app.services.doc_templates import render_gantt, render_gantt_detailed
     blob = render_gantt_detailed(_DPLAN, today=datetime.date(2026, 7, 21))
     wb = openpyxl.load_workbook(io.BytesIO(blob))
-    assert wb.sheetnames == ["Gantt View", "Slip", "Receipts"]
+    assert wb.sheetnames == ["Gantt View", "Slip", "Receipts", "S-Curve"]
     # no history: slip sheet states that tracking starts now
     slip_texts = " ".join(str(c.value) for row in wb["Slip"].iter_rows()
                           for c in row if c.value)

@@ -128,7 +128,8 @@ def render_gantt(data: dict, *, today: date | None = None,
     """Deterministic Smartsheet-style Gantt from extracted plan JSON.
     `history` is accepted for renderer-signature parity (the template
     lane passes it to every renderer) and unused by the simple style."""
-    return _serialize_wb(_build_gantt_wb(_with_workdays(data), today=today))
+    wb, _ = _build_gantt_wb(_with_workdays(data), today=today)
+    return _serialize_wb(wb)
 
 
 # --- Working-day scheduling ------------------------------------------------
@@ -763,7 +764,8 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
         ws.title: (f"{full_grid} E{first_bar_row}:F{last_row}"
                    f" {_ind_L}{first_bar_row}:{_ind_L}{last_row}"
                    f" J{first_bar_row}:J{last_row}")}
-    return wb
+    return wb, {"row_of": row_of, "first_bar_row": first_bar_row,
+                "last_row": last_row, "sheet": ws.title}
 
 
 def _serialize_wb(wb) -> bytes:
@@ -795,6 +797,87 @@ def _slip_key(name: str) -> str:
     let anything that still misses fall out as "first tracked" rather
     than fabricate a lineage."""
     return re.sub(r"[^a-z0-9]+", " ", (name or "").lower()).strip()
+
+
+def _solid(argb: str):
+    from openpyxl.styles import PatternFill
+    return PatternFill("solid", fgColor=argb)
+
+
+def _wd_inclusive(a: date, b: date) -> int:
+    """Working days from a to b counting BOTH ends, matching Excel's
+    NETWORKDAYS. The S-curve mixes Python-computed history with live
+    NETWORKDAYS formulas in the same chart, so the two have to count the
+    same way or baseline and planned would be weighted differently."""
+    if b < a:
+        return 0
+    return _workday_offset(a, b) + (1 if a.weekday() < 5 else 0)
+
+
+def _weighted_progress(tasks: list[dict]) -> float | None:
+    """Duration-weighted percent complete over real tasks, using the SAME
+    rule the phase rollups use on the view: the stated percent when
+    somebody said one, 100 when the status is Complete, 0 otherwise, so
+    unstarted work counts against the total instead of being ignored.
+    Milestones drop out by carrying zero duration weight."""
+    num = den = 0.0
+    for t in tasks:
+        # Milestones are moments, not work; phases are rollups of the rows
+        # below them. Counting either would double-weight the curve.
+        if t.get("type") in ("phase", "milestone"):
+            continue
+        try:
+            dur = _wd_inclusive(_d(t["start"]), _d(t["end"]))
+        except (KeyError, ValueError, TypeError):
+            continue
+        if dur <= 0:
+            continue
+        pct = t.get("percent_complete")
+        if not isinstance(pct, int):
+            pct = 100 if t.get("status") == "complete" else 0
+        num += dur * min(max(pct, 0), 100) / 100.0
+        den += dur
+    return (num / den) if den else None
+
+
+def _planned_share(tasks: list[dict], upto: date) -> float | None:
+    """Share of the scheduled working days that fall on or before `upto`."""
+    done = total = 0
+    for t in tasks:
+        if t.get("type") in ("phase", "milestone"):
+            continue
+        try:
+            s0, e0 = _d(t["start"]), _d(t["end"])
+        except (KeyError, ValueError, TypeError):
+            continue
+        dur = _wd_inclusive(s0, e0)
+        if dur <= 0:
+            continue
+        total += dur
+        if upto >= s0:
+            done += min(_wd_inclusive(s0, min(e0, upto)), dur)
+    return (done / total) if total else None
+
+
+def _scurve_weeks(tasks: list[dict], history: list[dict] | None) -> list[date]:
+    """Week-ending Fridays spanning every plan version we know about."""
+    dates = []
+    for src in [{"tasks": tasks}] + list(history or []):
+        for t in (src.get("tasks") or []):
+            for k in ("start", "end"):
+                try:
+                    dates.append(_d(t[k]))
+                except (KeyError, ValueError, TypeError):
+                    pass
+    if not dates:
+        return []
+    lo, hi = min(dates), max(dates)
+    cur = lo + timedelta(days=(4 - lo.weekday()) % 7)   # first Friday on/after
+    out = []
+    while cur <= hi + timedelta(days=7) and len(out) < 80:
+        out.append(cur)
+        cur += timedelta(days=7)
+    return out
 
 
 def _compute_slip(tasks: list[dict], history: list[dict]) -> list[dict]:
@@ -841,6 +924,127 @@ def _compute_slip(tasks: list[dict], history: list[dict]) -> list[dict]:
     return out
 
 
+def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
+                        layout: dict, today: date) -> None:
+    """S-Curve: cumulative planned work against progress actually reported.
+
+    Three series, and they are not all the same kind of thing, which the
+    sheet says out loud rather than blurring:
+
+      Baseline  where the FIRST plan version said the work would be by
+                each week. Static: it is what was promised, and editing
+                today's dates must not rewrite it. Absent until a project
+                has a second meeting.
+      Planned   where the CURRENT plan puts it. Live formulas over the
+                Gantt View's own date cells, so it re-draws when you push
+                a task, exactly like the bars do.
+      Reported  duration-weighted percent complete as of each meeting,
+                using the same rule as the phase rollups: the stated
+                percent when somebody said one, 100 when Complete, 0
+                otherwise. Held flat between meetings because that is
+                genuinely all we know; it is not interpolated.
+
+    Everything is weighted by working days, counted inclusively so the
+    Python-computed history and the live NETWORKDAYS formulas agree.
+    """
+    from openpyxl.chart import LineChart, Reference
+    from openpyxl.styles import Alignment, Font
+
+    tasks = [t for t in (data.get("tasks") or [])
+             if t.get("type") not in ("phase", "milestone")]
+    weeks = _scurve_weeks(data.get("tasks") or [], history)
+    if not tasks or not weeks:
+        return
+
+    row_of = layout["row_of"]
+    gsheet = layout["sheet"]
+    rows = [row_of[t["id"]] for t in tasks if t.get("id") in row_of]
+    if not rows:
+        return
+
+    sc = wb.create_sheet("S-Curve")
+    navy = "1F3A5F"
+    sc["A1"] = "S-Curve, planned work against reported progress"
+    sc["A1"].font = Font(bold=True, size=13, color="FF" + navy)
+    sc["A2"] = ("Baseline is the first plan version and never moves. Planned "
+                "follows the dates on the Gantt View and redraws when you "
+                "edit them. Reported is duration-weighted % complete as of "
+                "each meeting, held flat in between because that is all the "
+                "meetings said.")
+    sc["A2"].font = Font(size=9, color="FF666666", italic=True)
+    sc["A2"].alignment = Alignment(wrap_text=True)
+    sc.merge_cells("A2:F2")
+    sc.row_dimensions[2].height = 30
+
+    # total scheduled working days, live, so Planned is a real share
+    denom = "+".join(f"NETWORKDAYS('{gsheet}'!$E{r},'{gsheet}'!$F{r})"
+                     for r in rows)
+    sc["H1"] = "=" + denom
+    sc.column_dimensions["H"].hidden = True
+
+    hdr = ["Week ending", "Baseline", "Planned", "Reported"]
+    for c, h in enumerate(hdr, start=1):
+        cell = sc.cell(4, c, h)
+        cell.font = Font(bold=True, size=9, color="FFFFFFFF")
+        cell.fill = _solid("FF" + navy)
+        cell.alignment = Alignment(horizontal="center")
+    sc.column_dimensions["A"].width = 14
+    for col in "BCD":
+        sc.column_dimensions[col].width = 11
+
+    # Reported: one observation per plan version, then today's plan. Held
+    # flat forward; blank before the first meeting we have.
+    stamps: list[tuple[date, float]] = []
+    for ver in (history or []):
+        try:
+            stamps.append((_d(ver["as_of"]), _weighted_progress(ver.get("tasks") or [])))
+        except (KeyError, ValueError, TypeError):
+            continue
+    cur = _weighted_progress(data.get("tasks") or [])
+    if cur is not None:
+        stamps.append((_d(data.get("meeting_date")) if data.get("meeting_date")
+                       else today, cur))
+    stamps = sorted((d, v) for d, v in stamps if v is not None)
+
+    base_tasks = (history or [{}])[0].get("tasks") if history else None
+
+    for i, wk in enumerate(weeks):
+        r = 5 + i
+        dc = sc.cell(r, 1, wk)
+        dc.number_format = "yyyy-mm-dd"
+        dc.font = Font(size=8)
+        if base_tasks:
+            bv = _planned_share(base_tasks, wk)
+            if bv is not None:
+                sc.cell(r, 2, bv).number_format = "0%"
+        terms = "+".join(
+            f"MAX(0,NETWORKDAYS('{gsheet}'!$E{rr},"
+            f"MIN('{gsheet}'!$F{rr},$A{r})))" for rr in rows)
+        pc = sc.cell(r, 3, f"=IFERROR(({terms})/$H$1,\"\")")
+        pc.number_format = "0%"
+        reported = [v for d, v in stamps if d <= wk]
+        if reported:
+            sc.cell(r, 4, reported[-1]).number_format = "0%"
+
+    last = 4 + len(weeks)
+    chart = LineChart()
+    chart.title = "Cumulative progress"
+    chart.style = 12
+    chart.height, chart.width = 9, 20
+    chart.y_axis.numFmt = "0%"
+    chart.y_axis.title = "Complete"
+    chart.x_axis.title = "Week ending"
+    chart.add_data(Reference(sc, min_col=2, max_col=4, min_row=4, max_row=last),
+                   titles_from_data=True)
+    chart.set_categories(Reference(sc, min_col=1, min_row=5, max_row=last))
+    sc.add_chart(chart, "F4")
+    if not base_tasks:
+        sc.cell(last + 2, 1,
+                "Baseline appears once this project has a second plan "
+                "version to compare against.").font = Font(
+                    size=8, color="FF9AA4AF", italic=True)
+
+
 def render_gantt_detailed(data: dict, *, today: date | None = None,
                           history: list[dict] | None = None) -> bytes:
     """Detailed variant, LEAN (Scott 2026-07-21): the Gantt View plus
@@ -861,7 +1065,7 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
     data = _with_workdays(data)
-    wb = _build_gantt_wb(data, today=today, detail_cols=True)
+    wb, _layout = _build_gantt_wb(data, today=today, detail_cols=True)
     tasks = data.get("tasks") or []
     rows = [t for t in tasks if t.get("type") != "phase"]
 
@@ -980,6 +1184,8 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
     for col, w in {"A": 6, "B": 30, "C": 16, "D": 12, "E": 64}.items():
         rc.column_dimensions[col].width = w
     rc.freeze_panes = "A5"
+
+    _build_scurve_sheet(wb, data, history, _layout, today or date.today())
 
     return _serialize_wb(wb)
 
