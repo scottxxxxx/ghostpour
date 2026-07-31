@@ -1,5 +1,5 @@
 {
-  "version": 18,
+  "version": 19,
   "native_actions": {"enabled": true, "kinds": ["reminders"]},
   "image_quality_note": {"enabled": false, "blur_threshold": 200},
   "limits": {
@@ -14,7 +14,19 @@
   "post_session": {
     "report_min_seconds": 300,
     "allow_request_below_minimum": true,
-    "request_min_seconds": 30
+    "request_min_seconds": 30,
+    "analysis_min_seconds": 120,
+    "analysis_min_words": 300
+  },
+  "enrichment": {
+    "max_auto_attempts": 5,
+    "retry_interval_seconds": 86400,
+    "in_flight_stale_seconds": 300,
+    "foreground_sweep_recovery_cap": 5
+  },
+  "session": {
+    "resumable_window_seconds": 3600,
+    "min_post_processing_seconds": 120
   },
   "flags": {},
   "intervals": {},
