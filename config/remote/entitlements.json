@@ -1,41 +1,47 @@
 {
-  "version": 1,
+  "version": 2,
   "matrix": {
     "context_quilt": {
       "free": "disabled",
       "plus": "teaser",
       "pro": "enabled",
-      "admin": "enabled"
+      "admin": "enabled",
+      "automation": "enabled"
     },
     "meeting_reports": {
       "free": "enabled",
       "plus": "enabled",
       "pro": "enabled",
-      "admin": "enabled"
+      "admin": "enabled",
+      "automation": "enabled"
     },
     "project_chat": {
       "free": "teaser",
       "plus": "enabled",
       "pro": "enabled",
-      "admin": "enabled"
+      "admin": "enabled",
+      "automation": "enabled"
     },
     "speaker_consolidation": {
       "free": "enabled",
       "plus": "enabled",
       "pro": "enabled",
-      "admin": "enabled"
+      "admin": "enabled",
+      "automation": "enabled"
     },
     "tag_centroids": {
       "free": "enabled",
       "plus": "enabled",
       "pro": "enabled",
-      "admin": "enabled"
+      "admin": "enabled",
+      "automation": "enabled"
     },
     "web_search": {
       "free": "disabled",
       "plus": "enabled",
       "pro": "enabled",
-      "admin": "enabled"
+      "admin": "enabled",
+      "automation": "enabled"
     }
   }
 }
