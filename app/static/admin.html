@@ -333,7 +333,8 @@
       <th onclick="sortUserTable('user')" style="cursor:pointer">User<span class="sa" data-sk="user"></span></th>
       <th onclick="sortUserTable('tier')" style="cursor:pointer">Tier<span class="sa" data-sk="tier"></span></th>
       <th onclick="sortUserTable('channel')" style="cursor:pointer" title="Install channel: telemetry distribution, with StoreKit environment as fallback. TestFlight subscriptions are sandbox money, not revenue">Channel<span class="sa" data-sk="channel"></span></th>
-      <th onclick="sortUserTable('hours')" style="cursor:pointer">Hours Used<span class="sa" data-sk="hours"></span></th>
+      <th onclick="sortUserTable('hours')" style="cursor:pointer" title="DERIVED from spend at the tier's cost per meeting-hour. Not observed time">Hours Billed<span class="sa" data-sk="hours"></span></th>
+      <th onclick="sortUserTable('metmins')" style="cursor:pointer" title="MEASURED from meeting_start / meeting_stop telemetry. A floor: meetings that never reported a stop contribute nothing and are flagged">Meeting Time<span class="sa" data-sk="metmins"></span></th>
       <th onclick="sortUserTable('alloc')" style="cursor:pointer">Allocation<span class="sa" data-sk="alloc"></span></th>
       <th onclick="sortUserTable('resets')" style="cursor:pointer">Resets<span class="sa" data-sk="resets"></span></th>
       <th onclick="sortUserTable('genbuilds')" style="cursor:pointer" title="File generations this allocation period / tier cap (uncapped shows no denominator)">Files<span class="sa" data-sk="genbuilds"></span></th>
@@ -1777,6 +1778,25 @@ async function testSendAlert() {
 function fmt(n) { return n == null ? '-' : n.toLocaleString(); }
 function fmtCost(n) { return n == null ? '-' : '$' + n.toFixed(4); }
 
+// Observed meeting time, beside the spend-derived "Hours Billed" column.
+// The two answer different questions and disagreed by about 2x on most of
+// the fleet when only the derived one was on screen (2026-07-31).
+// Top-level on purpose: renderUserRows() is not the only caller, and a
+// helper scoped inside it is what took the whole dashboard down in #574.
+function meetingTime(u) {
+  const hrs = u.meeting_hours || 0;
+  const n = u.meeting_count || 0;
+  if (!n) return '<span style="color:var(--text-dim)">—</span>';
+  const label = hrs >= 1 ? hrs.toFixed(1) + ' hrs' : Math.round(hrs * 60) + ' min';
+  // A start with no stop contributes zero seconds, so the total is a floor.
+  const missing = u.meetings_unfinished || 0;
+  const flag = missing
+    ? ` <span style="color:var(--orange);font-size:0.8em" title="${missing} of ${n} meetings never reported a stop, so their time is missing from this total">+${missing}?</span>`
+    : '';
+  return `<span title="${n} meeting${n === 1 ? '' : 's'} in this period">${label}</span>` +
+    `<span style="color:var(--text-dim);font-size:0.8em"> / ${n}</span>${flag}`;
+}
+
 // --- User table: client-side sortable columns ---------------------------
 // refresh() stashes rows in window._userTableState and calls renderUserRows();
 // header clicks call sortUserTable(key) which re-sorts in place (no refetch).
@@ -1787,6 +1807,7 @@ function _userSortVal(u, key) {
     case 'tier': return u.tier || '';
     case 'channel': return u.channel || '';
     case 'hours': return u.hours_used || 0;
+    case 'metmins': return u.meeting_hours || 0;
     case 'alloc': return u.percent_used || 0;
     case 'resets': return u.allocation_resets_at || '';
     case 'genbuilds': return u.generations_used || 0;
@@ -1922,6 +1943,7 @@ function renderUserRows() {
     <td><span class="badge ${u.tier}">${tierLabel}</span>${trialBadge}${simBadge}</td>
     <td>${chBadge(u)}</td>
     <td>${hrsUsed} / ${hrsLimit} hrs</td>
+    <td>${meetingTime(u)}</td>
     <td>${allocBar}</td>
     <td>${resets}</td>
     <td>${genBuilds}</td>
@@ -1942,7 +1964,7 @@ function renderUserRows() {
       <button class="refresh-btn" onclick="showUserDetail('${u.id}','${u.email||"User"}')">Detail</button>
     </td>
   </tr>`;
-  }).join('') || '<tr><td colspan="18" style="text-align:center;color:var(--text-dim)">No users yet</td></tr>';
+  }).join('') || '<tr><td colspan="19" style="text-align:center;color:var(--text-dim)">No users yet</td></tr>';
   // Update sort-direction arrows on the headers.
   document.querySelectorAll('#user-table .sa').forEach(s => {
     s.textContent = s.dataset.sk === _userSort.key ? (dir > 0 ? ' ▲' : ' ▼') : '';
