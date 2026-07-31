@@ -88,3 +88,74 @@ Agreed direction (Scott + assistant, 2026-07-25): two steps.
   their own line in the table (collect data as Pro users generate).
 - BYOK carve-outs: all limiters here assume managed routing; BYOK
   users burn their own keys and bypass cost caps by construction.
+
+## 2026-07-31: per-user cost overrides stay unenforced (growth phase)
+
+`users.monthly_cost_limit_usd` is rendered by the dashboard as the
+authoritative allocation and is **consulted by nothing**. Every gate reads
+the TIER's `monthly_cost_limit_usd`: `usage_tracker.check_quota`,
+`record_cost`, and the budget gate in `chat.py` all resolve
+`tier.monthly_cost_limit_usd` and never look at the column.
+
+Discovered while sizing a $2 cap for a partner test credential. The column
+looked like the obvious lever until it turned out to move nothing.
+
+**Measured state, 2026-07-31: 27 of 62 accounts carry a value.** Most are
+stale and wrong in both directions:
+- free users pinned at `$1.00` against a free tier that is also `$1.00`
+- three paid accounts pinned at `-1`, i.e. unlimited
+- one plus account at `$2.40`, one pro at `$5.10`
+
+So wiring the column to the gate is not a small fix. It would silently
+move real users' allowances the moment it shipped, some down, some to
+unlimited, with no announcement and no migration.
+
+**Decision (Scott, 2026-07-31): leave it unenforced. We are in growth
+phase and do not want to impose more limits and gates right now.** Keep it
+flagged rather than fixed, so nobody rediscovers it as a lever and wires it
+up without reading this.
+
+Implications to remember rather than act on:
+- The only cost ceiling that actually binds today is the tier's. Free is
+  `$1.00`; **plus, pro and admin are all `-1`, meaning uncapped**.
+- The `automation` tier exists precisely because of that: it was the only
+  way to give a partner credential a real ceiling (see #593).
+- When we do want per-user ceilings, the work is a migration (clear or
+  correct the 27 stale values) before the enforcement change, not after.
+
+## 2026-07-31: the free allowance in meeting-hours, revisited
+
+#577 reframed the free allowance publicly in meeting-hours. `tiers.yml`
+promises free users **5 hours**.
+
+What the fleet actually shows (30 days to 2026-07-31, spend divided by
+measured `meeting_stop` telemetry seconds):
+
+| tier | real cost per meeting-hour |
+|---|---|
+| Sonnet tiers | $0.20 |
+| free / plus | $0.09 to $0.12 |
+
+At roughly $0.11/hr, the free tier's `$1.00` budget buys about **9 hours**
+of measured meeting time, not 5. Free users are getting more than the
+promise, not less.
+
+Scott's read is the opposite, that users burn the allowance fast, and it is
+worth recording why both can be true:
+- Until #587 the dashboard DERIVED hours as `spend / $0.05`, so consumed
+  hours displayed at roughly **twice** reality. The impression of fast burn
+  came from a number that was wrong, and it was the only hours number on
+  screen. That is fixed; the dashboard now shows measured meeting time
+  beside the derived figure.
+- Measured meeting time is a **floor**: 15 of 121 meeting starts never
+  reported a stop, so their minutes count as zero. True hours are higher
+  than measured, which makes the effective rate per hour lower still.
+- The $/hr above already includes post-meeting queries and reports, since
+  it is total spend over meeting hours. Follow-up queries are not an
+  uncounted extra.
+
+**Open, not decided:** whether to raise the published free allowance toward
+what the budget actually buys, leave the conservative 5, or move the budget.
+Revisit with a larger fleet; the sample is 55 free accounts and only a
+handful with meaningful usage. Do not tune the published number off this
+alone.
