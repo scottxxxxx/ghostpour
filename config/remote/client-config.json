@@ -1,5 +1,5 @@
 {
-  "version": 14,
+  "version": 15,
   "native_actions": {"enabled": true, "kinds": ["reminders"]},
   "image_quality_note": {"enabled": false, "blur_threshold": 200},
   "limits": {
@@ -10,6 +10,9 @@
         "pro": 720000
       }
     }
+  },
+  "post_session": {
+    "report_min_seconds": 300
   },
   "flags": {},
   "intervals": {},
