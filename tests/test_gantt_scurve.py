@@ -213,3 +213,27 @@ def test_recalculated_planned_curve_matches_hand_computed_shares(tmp_path):
     assert planned == pytest.approx([0.25, 0.5, 0.75, 1.0])
     # the baseline plan was a different shape, which is the whole point
     assert sc.cell(5, 2).value == pytest.approx(5 / 18)
+
+
+def test_the_chart_is_readable_not_just_correct():
+    """Fixes from Scott's 2026-07-31 screenshot: the axis had exploded into
+    one tick per DAY (44 labels for 7 points) because the categories were
+    real dates, which also shoved the axis title on top of the labels."""
+    sc = _book()["S-Curve"]
+    # categories are text labels, in a VISIBLE column: a chart cannot plot
+    # categories out of a hidden column, which is why the live dates moved
+    # to the hidden helper instead of the other way round
+    assert sc.cell(5, 1).value == "Jul 10"   # first week in this fixture
+    assert sc.column_dimensions["A"].hidden is False
+    assert sc.column_dimensions["H"].hidden is True
+    ch = sc._charts[0]
+    assert ch.title is None, "the sheet header already names it"
+    assert ch.x_axis.title is None and ch.y_axis.title is None
+    assert ch.y_axis.scaling.max == 1, "progress cannot exceed 100%"
+    assert ch.legend.position == "b"
+    # three identities, three validated hues, baseline dashed
+    hexes = [s.graphicalProperties.line.solidFill.srgbClr
+             for s in ch.series[:3]]
+    assert hexes == ["B5651D", "1F4E9C", "2E9E4F"]
+    assert ch.series[0].graphicalProperties.line.dashStyle == "dash"
+    assert all(s.smooth is False for s in ch.series[:3]), "no invented curve"

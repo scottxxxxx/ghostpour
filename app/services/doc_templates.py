@@ -1278,16 +1278,25 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
 
     for i, wk in enumerate(weeks):
         r = 5 + i
-        dc = sc.cell(r, 1, wk)
-        dc.number_format = "yyyy-mm-dd"
+        # Column A is the TEXT label the chart plots. A real date here makes
+        # Excel build a date axis and label every day between the first and
+        # last point: 44 ticks for 7 values, which crushed the labels and
+        # pushed the axis title on top of them (2026-07-31). The live date
+        # the Planned formula needs moves to the hidden helper column, which
+        # formulas read happily. It cannot go the other way round: a chart
+        # will not plot categories out of a hidden column.
+        dc = sc.cell(r, 1, wk.strftime("%b %-d"))
         dc.font = Font(size=8)
+        dc.alignment = Alignment(horizontal="center")
+        hd = sc.cell(r, 8, wk)
+        hd.number_format = "yyyy-mm-dd"
         if base_tasks:
             bv = _planned_share(base_tasks, wk)
             if bv is not None:
                 sc.cell(r, 2, bv).number_format = "0%"
         terms = "+".join(
             f"MAX(0,NETWORKDAYS('{gsheet}'!$E{rr},"
-            f"MIN('{gsheet}'!$F{rr},$A{r})))" for rr in rows)
+            f"MIN('{gsheet}'!$F{rr},$H{r})))" for rr in rows)
         pc = sc.cell(r, 3, f"=IFERROR(({terms})/$H$1,\"\")")
         pc.number_format = "0%"
         reported = [v for d, v in stamps if d <= wk]
@@ -1303,12 +1312,18 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
 
     last = 4 + len(weeks)
     chart = LineChart()
-    chart.title = "Cumulative progress"
+    # No chart title and no axis titles: A1 already names the sheet, the
+    # header row already says "Week ending", and a percent axis needs no
+    # label. Every one of them was spending space the plot wanted, and the
+    # x-axis title was landing on top of the tick labels.
     chart.style = 12
     chart.height, chart.width = 9, 20
     chart.y_axis.numFmt = "0%"
-    chart.y_axis.title = "Complete"
-    chart.x_axis.title = "Week ending"
+    # Progress cannot exceed 100%, and Excel's autoscale was running the
+    # axis to 120% and spending a fifth of the plot height on impossible
+    # values (Scott's screenshot 2026-07-31).
+    chart.y_axis.scaling.min = 0
+    chart.y_axis.scaling.max = 1
     # Without this the category axis renders the date serials (46199,
     # 46206) instead of dates: openpyxl writes the categories as a numeric
     # reference and Excel has no format to apply unless the axis carries
@@ -1319,12 +1334,23 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
     chart.add_data(Reference(sc, min_col=2, max_col=5, min_row=4, max_row=last),
                    titles_from_data=True)
     chart.set_categories(Reference(sc, min_col=1, min_row=5, max_row=last))
-    for ser in chart.series:
+    chart.legend.position = "b"
+    # Three identities, three hues, assigned in fixed order and validated for
+    # colourblind separation rather than eyeballed. Baseline is the promise
+    # and is dashed because it never moves; Planned follows the sheet;
+    # Reported is what actually happened.
+    for ser, hexc in zip(chart.series, ("B5651D", "1F4E9C", "2E9E4F")):
         ser.smooth = False
-    # the observations ride as dots on top of the Reported line
+        ser.graphicalProperties.line.solidFill = hexc
+        ser.graphicalProperties.line.width = 22000     # ~1.7pt
+    chart.series[0].graphicalProperties.line.dashStyle = "dash"
+    # The meeting observations are the SAME entity as Reported, so they keep
+    # its colour and carry identity by shape instead: dots, no line.
     obs = chart.series[3]
     obs.marker = Marker(symbol="circle", size=7)
     obs.graphicalProperties.line.noFill = True
+    obs.marker.graphicalProperties.solidFill = "2E9E4F"
+    obs.marker.graphicalProperties.line.solidFill = "2E9E4F"
     sc.add_chart(chart, "G4")
     if not base_tasks:
         sc.cell(last + 2, 1,
