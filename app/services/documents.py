@@ -91,7 +91,11 @@ _DEFAULTS = {
     "passthrough": {"max_pdf_pages": 600, "max_total_mb": 22},
 }
 
-_TIER_RANK = {"free": 0, "plus": 1, "pro": 2}
+# automation ranks with pro: the internal harness tier mirrors Pro
+# everywhere else (entitlements, model routing), and a gate that
+# silently disagreed would put a harness on a lane no paying user
+# is on. admin stays unranked, as it always has.
+_TIER_RANK = {"free": 0, "plus": 1, "pro": 2, "automation": 2}
 
 # Extraction guardrails (server policy, not wire contract): keep a
 # pathological file from flooding the prompt or the event loop.

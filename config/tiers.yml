@@ -125,6 +125,32 @@ tiers:
       - "Meeting Memory: AI remembers past meetings"
       - "5 images per query"
 
+  # Automation credentials for partner test harnesses. NOT a customer tier:
+  # it exists so a long-lived token cannot be mistaken for a paying user in
+  # billing or analytics, and so it carries a REAL ceiling. Plus, Pro and
+  # admin are all cost-unlimited (-1), so an automation account on any of
+  # them would have no cap at all, which is the whole thing we are bounding.
+  # Entitlements and model routing mirror Pro, so a harness exercises the
+  # same lane a paying user gets rather than a synthetic one.
+  automation:
+    display_name: "Automation (internal)"
+    description: "Partner test harness credentials. Capped, revocable, not a customer."
+    default_model: "anthropic/claude-sonnet-4-6"
+    monthly_cost_limit_usd: 2.0
+    daily_cost_limit_usd: -1
+    daily_token_limit: -1
+    requests_per_minute: 20
+    summary_mode: "choice"
+    summary_interval_minutes: 10
+    allowed_providers:
+      - "*"
+    allowed_models:
+      - "*"
+    max_images_per_request: 5
+    hours_per_month: -1
+    storekit_product_id: ""
+    feature_bullets:
+      - "Internal automation credential"
   admin:
     display_name: "Admin"
     description: "Internal admin tier — unlimited access."

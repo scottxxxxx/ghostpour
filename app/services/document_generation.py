@@ -24,7 +24,11 @@ from app.services import generated_files as staging
 
 logger = logging.getLogger("ghostpour.document_generation")
 
-_TIER_RANK = {"free": 0, "plus": 1, "pro": 2}
+# automation ranks with pro: the internal harness tier mirrors Pro
+# everywhere else (entitlements, model routing), and a gate that
+# silently disagreed would put a harness on a lane no paying user
+# is on. admin stays unranked, as it always has.
+_TIER_RANK = {"free": 0, "plus": 1, "pro": 2, "automation": 2}
 
 _GEN_DEFAULTS = {
     "enabled": False,
