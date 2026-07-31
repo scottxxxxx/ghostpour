@@ -136,10 +136,32 @@ def test_reported_holds_flat_between_meetings_and_is_blank_before_the_first():
     sc = _book()["S-Curve"]
     col = [sc.cell(r, 4).value for r in range(5, 5 + 5)]
     assert col[0] is None, "nothing reported before the first meeting we have"
-    # 2026-07-13 meeting, then the current plan dated 2026-07-27
-    assert col[1] == pytest.approx(1 / 6)
-    assert col[2] == pytest.approx(1 / 6), "held flat, never interpolated"
+    # Every point divides by the CURRENT plan's 20 scheduled working days,
+    # never by the version's own scope. At the 2026-07-13 meeting 3 days
+    # were banked (A at 60% of 5 days), so 3/20; today 10 (A done, B half
+    # of 10 days), so 10/20.
+    assert col[1] == pytest.approx(0.15)
+    assert col[2] == pytest.approx(0.15), "held flat, never interpolated"
     assert col[3] == pytest.approx(0.5)
+
+
+def test_growing_scope_never_pushes_reported_backwards():
+    """The 2026-07-30 finding: Reported fell 18.5% to 16.5% because a
+    meeting stretched one task and added another with no stated percent, so
+    the same banked work divided by a bigger plan. A cumulative line that
+    drops when scope GROWS makes a real plan look like a failing one."""
+    import io
+    import openpyxl
+    from app.services.doc_templates import render_gantt_detailed
+    grown = {**_PLAN, "tasks": _PLAN["tasks"] + [
+        {"id": 9, "name": "D, added later", "type": "task", "parent_id": 1,
+         "owner": None, "status": "not_started", "start": "2026-07-27",
+         "end": "2026-08-07", "depends_on": []}]}
+    sc = openpyxl.load_workbook(io.BytesIO(render_gantt_detailed(
+        grown, today=D("2026-07-27"), history=_HISTORY)))["S-Curve"]
+    seen = [sc.cell(r, 4).value for r in range(5, 20)]
+    seen = [v for v in seen if v is not None]
+    assert seen == sorted(seen), f"reported went backwards: {seen}"
 
 
 def test_a_first_ever_plan_says_why_the_baseline_is_missing():
