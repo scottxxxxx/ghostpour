@@ -5,7 +5,7 @@
 ```json
 "post_session": {
   "report_min_seconds": 300,
-  "report_on_demand": true
+  "allow_request_below_minimum": true
 }
 ```
 
@@ -18,10 +18,16 @@ post-session analysis instead. The two automatic paths are mutually exclusive
 by design: the report already supplies sentiment, urgency, title and tags, so
 running analysis alongside it would be a redundant paid call.
 
-`report_on_demand` is the separate promise that a user can ask for a report
-on **any** meeting, of any length, whenever they want one. Scott's call,
-2026-07-31, after a demo meeting missed the automatic threshold by two
-seconds and the user had no way to get the artifact they expected.
+`allow_request_below_minimum` answers the question the threshold creates:
+when a meeting falls SHORT of `report_min_seconds` and therefore gets no
+report automatically, may the user still ask for one? True says yes. Scott's
+call, 2026-07-31, after a demo meeting missed the automatic threshold by two
+seconds and the person had no way to get the artifact they expected.
+
+The two keys are one decision in two parts, and both are ours: what earns a
+report without being asked, and whether falling under that bar puts the
+report out of reach. Neither should become a client constant again. Check
+with us before changing either, or before changing the behavior around them.
 
 The server has never gated reports on duration and does not now: the route
 requires a tier, quota, and a stored transcript or summary, and that is all.
@@ -29,8 +35,9 @@ Verified live 2026-07-31 by generating a report for `608F2BF4`, the
 298-second meeting the automatic rule had skipped: HTTP 200 in 33.7s, a real
 19.9KB report, not the canned fallback.
 
-So this flag is about what the app OFFERS, not about what the server permits.
-Turning it off hides an affordance; it does not close an endpoint.
+So the flag is about what the app OFFERS, not about what the server permits.
+Setting it false hides the affordance on short meetings; it does not close an
+endpoint, and it is not an authorization check.
 
 ### Consequences worth knowing
 
@@ -76,6 +83,6 @@ which is the whole reason config lives here.
 ## Open, not decided here
 
 Whether a below-threshold meeting should say anything about why it did not get
-a report automatically. With `report_on_demand` the artifact is never
+a report automatically. With `allow_request_below_minimum` the artifact is never
 unavailable, only unrequested, so the honest surface is an action the user can
 take rather than a notice about what they did not get.
