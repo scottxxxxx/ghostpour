@@ -5,9 +5,18 @@
 ```json
 "post_session": {
   "report_min_seconds": 300,
-  "allow_request_below_minimum": true
+  "allow_request_below_minimum": true,
+  "request_min_seconds": 30
 }
 ```
+
+Three bands, by captured duration:
+
+| duration | what happens |
+|---|---|
+| `>= report_min_seconds` (300s) | report generated automatically |
+| `request_min_seconds` to `report_min_seconds` (30s to 300s) | no automatic report; the user may ask for one, when `allow_request_below_minimum` is true |
+| `< request_min_seconds` (30s) | no report, and no offer to make one |
 
 ## What it means
 
@@ -24,10 +33,22 @@ report automatically, may the user still ask for one? True says yes. Scott's
 call, 2026-07-31, after a demo meeting missed the automatic threshold by two
 seconds and the person had no way to get the artifact they expected.
 
-The two keys are one decision in two parts, and both are ours: what earns a
-report without being asked, and whether falling under that bar puts the
-report out of reach. Neither should become a client constant again. Check
-with us before changing either, or before changing the behavior around them.
+`request_min_seconds` is the floor under the whole thing: below it a session
+is a mis-tap, not a meeting, and offering to build a report from it would be
+offering nonsense.
+
+**30 seconds, chosen from the data rather than picked.** Across 106 completed
+meetings, 42% ran under the 300 second automatic threshold, so the on-demand
+path carries real weight and the floor should not eat into it. A 30 second
+floor excludes 10 sessions, every one of them 29 seconds or shorter, and the
+three shortest in the whole fleet are 9, 10 and 11 seconds. A 60 second floor
+would have excluded 24, which starts taking real short huddles with it.
+
+These three keys are one decision in three parts, and all of them are ours:
+what earns a report without being asked, whether falling under that bar puts
+the report out of reach, and where a session stops being a meeting at all.
+None should become a client constant again. Check with us before changing any
+of them, or before changing the behavior around them.
 
 The server has never gated reports on duration and does not now: the route
 requires a tier, quota, and a stored transcript or summary, and that is all.
