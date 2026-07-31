@@ -21,6 +21,7 @@ from app.dependencies import get_current_user
 from app.models.chat import ChatRequest
 from app.models.user import UserRecord
 from app.services.ai_tier import tier_to_ai_tier
+from app.services.post_session import report_floor_seconds
 from app.services.meeting_report import (
     build_report_prompt,
     format_duration,
@@ -86,6 +87,30 @@ async def generate_report(
     tier = tier_config.tiers.get(user.effective_tier)
     if not tier:
         raise HTTPException(status_code=500, detail="Unknown tier")
+
+    # Below the floor a session is a mis-tap, not a meeting, and a report
+    # built from nine seconds of audio is nonsense rather than a thin report.
+    # The client is served this same number and hides the affordance; this is
+    # the server half, so a client bug cannot spend a user's allocation on it.
+    # Read live from config on every request: moving the number in the
+    # dashboard moves enforcement with it, no deploy. Checked before the rate
+    # limiter and the quota because it is a fact about the request, not a
+    # decision about resources.
+    _floor = report_floor_seconds(
+        request.app.state.remote_configs,
+        getattr(request.state, "app_id", None),
+    )
+    if _floor and body.duration_seconds < _floor:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "meeting_too_short",
+                "message": f"A report needs at least {_floor} seconds of "
+                           f"meeting. This one was {body.duration_seconds}.",
+                "details": {"duration_seconds": body.duration_seconds,
+                            "minimum_seconds": _floor},
+            },
+        )
 
     # Enforce rate limit and monthly allocation BEFORE expensive work.
     # Without these, an exhausted user could keep generating reports and
