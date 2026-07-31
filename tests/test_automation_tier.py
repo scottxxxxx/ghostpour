@@ -56,3 +56,25 @@ def test_a_harness_account_is_revocable_by_deactivating_it():
     kills a long-lived token instantly without rotating the JWT secret."""
     src = open("app/dependencies.py").read()
     assert "if not user.is_active:" in src
+
+
+def test_automation_traffic_is_excluded_from_the_signal_aggregates():
+    """TR's harness runs on every change and tags every managed call, so its
+    traffic would become a large share of the per-call-type and per-scenario
+    signal we calibrate rubric anchors against. The cost cap protects the
+    money; this protects the signal (their ask, 2026-07-31)."""
+    src = open("app/routers/webhooks.py").read()
+    excl = "AND user_id NOT IN (SELECT id FROM users WHERE tier = 'automation')"
+    assert src.count(excl) == 2, "expected the two signal aggregates to exclude it"
+    # and it must sit on the call_type and scenario queries specifically
+    for marker in ("GROUP BY call_type", "GROUP BY scenario"):
+        i = src.index(marker)
+        assert excl in src[i - 700:i], marker
+
+
+def test_the_spend_stays_visible():
+    """Deliberately NOT excluded from the users list: the money is real and
+    should stay countable, it just wears its own tier there."""
+    src = open("app/routers/webhooks.py").read()
+    users_q = src[src.index("lifetime_cost_usd"):src.index("lifetime_cost_usd") + 3000]
+    assert "tier = 'automation'" not in users_q

@@ -1284,6 +1284,15 @@ async def dashboard(
     # --- Usage by call type ---
     # The app-agnostic breakdown. Every row carries a call_type, so this
     # populates for both apps, unlike `scenario` below which only TR tags.
+    #
+    # Automation accounts are excluded from here and from `scenario` below.
+    # TR's harness runs on every change and tags every managed call, so its
+    # traffic would quietly become a large share of exactly the per-call-type
+    # and per-scenario signal we calibrate rubric anchors against (their ask,
+    # 2026-07-31: the cost cap protects the money, nothing protected the
+    # signal). Deliberately NOT excluded from the users list or the cost
+    # totals: the spend is real and should stay visible, it just wears its
+    # own tier there.
     cursor = await db.execute(
         """SELECT COALESCE(call_type, '(untyped)') as call_type,
             COUNT(*) as requests,
@@ -1292,6 +1301,7 @@ async def dashboard(
             ROUND(AVG(response_time_ms), 0) as avg_latency_ms
            FROM usage_log
            WHERE request_timestamp >= date('now', ?) AND status = 'success'""" + app_clause + """
+           AND user_id NOT IN (SELECT id FROM users WHERE tier = 'automation')
            GROUP BY call_type
            ORDER BY requests DESC""",
         (f"-{days} days", *app_params),
@@ -1318,6 +1328,7 @@ async def dashboard(
             COALESCE(SUM(estimated_cost_usd), 0) as cost_usd
            FROM usage_log
            WHERE request_timestamp >= date('now', ?) AND status = 'success'""" + app_clause + """
+           AND user_id NOT IN (SELECT id FROM users WHERE tier = 'automation')
            GROUP BY scenario
            ORDER BY requests DESC""",
         (f"-{days} days", *app_params),
