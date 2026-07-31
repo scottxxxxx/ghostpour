@@ -265,8 +265,10 @@ def test_tier_availability_derives_from_min_tier(client):
     assert set(avail) == set(data["tiers"])
     if gen["enabled"] and gen["min_tier"] == "pro":
         # admin reads disabled: unranked in the gate's _TIER_RANK today
-        assert avail == {"free": False, "plus": False,
-                         "pro": True, "admin": False}
+        # automation ranks with pro (internal harness tier); admin reads
+        # disabled because it is unranked in the gate's _TIER_RANK today
+        assert avail == {"free": False, "plus": False, "pro": True,
+                         "automation": True, "admin": False}
     if not gen["enabled"]:
         assert not any(avail.values())
 
