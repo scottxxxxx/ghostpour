@@ -445,12 +445,42 @@ def test_a_receipt_links_to_the_row_it_justifies():
         if not cell.value or not cell.hyperlink:
             continue
         linked += 1
-        target = cell.hyperlink.target or cell.hyperlink.location or ""
-        assert "Gantt View" in target, target
-        row = int(target.rsplit("B", 1)[1])
+        # LOCATION, never target: see the structural test below
+        assert cell.hyperlink.target is None, "internal links carry no target"
+        loc = cell.hyperlink.location or ""
+        assert "Gantt View" in loc, loc
+        row = int(loc.rsplit("B", 1)[1])
         # the row it points at must actually be that task
         assert cell.value in str(gv.cell(row, 2).value)
     assert linked >= 3, "receipts should be navigable, not just readable"
+
+
+def test_no_hyperlink_is_written_as_an_external_relationship():
+    """The bug that shipped 2026-07-31 and Excel refused to open.
+
+    Assigning a string to cell.hyperlink makes openpyxl emit a relationship
+    with TargetMode="External" pointing at "#'Sheet'!B16". Excel rejects the
+    file outright ("we found a problem with some content"); LibreOffice opens
+    it happily, which is why recalc-green said nothing. An internal link must
+    be <hyperlink ref=.. location=../> with no r:id and no relationship.
+    """
+    import re
+    import zipfile
+    from app.services.doc_templates import render_gantt_detailed
+    blob = render_gantt_detailed(_PLAN, today=TODAY)
+    z = zipfile.ZipFile(io.BytesIO(blob))
+    for name in z.namelist():
+        if name.endswith(".rels"):
+            xml = z.read(name).decode()
+            assert "hyperlink" not in xml, f"{name} carries a hyperlink rel"
+    seen = 0
+    for name in z.namelist():
+        if "worksheets/sheet" in name and name.endswith(".xml"):
+            for h in re.findall(r"<hyperlink[^>]*/>", z.read(name).decode()):
+                seen += 1
+                assert "location=" in h, h
+                assert "r:id" not in h, h
+    assert seen >= 3
 
 
 def test_the_risk_count_says_which_date_it_is_against():
@@ -461,3 +491,28 @@ def test_the_risk_count_says_which_date_it_is_against():
     strip = str(gv.cell(2, 2).value)
     assert "as of" in strip
     assert TODAY.strftime("%b %d") in strip
+
+
+def test_ignored_errors_sits_before_any_drawing():
+    """The corruption Excel refused to open on 2026-07-31.
+
+    CT_Worksheet is a SEQUENCE: ignoredErrors comes before drawing and
+    legacyDrawing. We inject ignoredErrors by hand (openpyxl 3.1 cannot
+    serialize it), and appending it before </worksheet> was fine only while
+    no drawing existed. The conditional-date cell comment put a
+    <legacyDrawing> on the Gantt View, the injected block landed after it,
+    and Excel replaced the whole sheet part. LibreOffice opened it fine,
+    so recalc-green proved nothing.
+    """
+    import zipfile
+    from app.services.doc_templates import render_gantt_detailed
+    # _PLAN carries a conditional date, so this sheet HAS a legacyDrawing
+    z = zipfile.ZipFile(io.BytesIO(render_gantt_detailed(_PLAN, today=TODAY)))
+    xml = z.read("xl/worksheets/sheet1.xml").decode()
+    assert "<legacyDrawing" in xml, "fixture must produce a comment"
+    ie = xml.find("<ignoredErrors")
+    assert ie != -1
+    for after in ("<drawing", "<legacyDrawing", "<tableParts", "<extLst"):
+        j = xml.find(after)
+        if j != -1:
+            assert ie < j, f"ignoredErrors must precede {after}"
