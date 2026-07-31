@@ -2445,6 +2445,38 @@ async def list_users(
         )).fetchall():
             user_offers[ev["user_id"]] = ev["offer_id"]
 
+    # Measured meeting time (2026-07-31). The hours gauge below is DERIVED
+    # from spend at an assumed rate; this is the observed thing, straight off
+    # the meeting_start / meeting_stop pings SS has been sending since #204.
+    # They are not the same quantity and the dashboard now shows both, because
+    # for most users they disagree by 2x and the derived one was the only one
+    # on screen.
+    #
+    # `unfinished` is the honesty column: 15 of 121 starts in the 30 days to
+    # 2026-07-31 had no matching stop, and each one contributes zero seconds
+    # here. Measured time is therefore a FLOOR, not a total.
+    meeting_stats: dict[str, dict] = {}
+    if ids:
+        ph = ",".join("?" * len(ids))
+        for m in await (await db.execute(
+            f"""SELECT user_id,
+                  SUM(CASE WHEN event_type = 'meeting_stop'
+                           THEN COALESCE(duration_seconds, 0) ELSE 0 END) AS secs,
+                  SUM(CASE WHEN event_type = 'meeting_start' THEN 1 ELSE 0 END) AS starts,
+                  SUM(CASE WHEN event_type = 'meeting_stop' THEN 1 ELSE 0 END) AS stops
+                FROM telemetry_events
+                WHERE user_id IN ({ph})
+                  AND event_type IN ('meeting_start', 'meeting_stop')
+                  AND received_at >= datetime('now', ?)
+                GROUP BY user_id""",
+            (*ids, f"-{days} days"),
+        )).fetchall():
+            meeting_stats[m["user_id"]] = {
+                "hours": round((m["secs"] or 0) / 3600, 2),
+                "meetings": int(m["starts"] or 0),
+                "unfinished": max(0, int(m["starts"] or 0) - int(m["stops"] or 0)),
+            }
+
     users = []
     for r in rows_fetched:
         monthly_used = float(r["monthly_used_usd"] or 0)
@@ -2468,7 +2500,15 @@ async def list_users(
         # unlimited tiers (`effective_limit == -1`) — so Plus/Pro/admin
         # users would always show 0 hours / 0% no matter how active they
         # are. usage_log is the source of truth, so derive from there.
-        model_cost_per_hour = 0.19 if tier_def and "sonnet" in (tier_def.default_model or "") else 0.05
+        # Cost per meeting-hour, CALIBRATED against measured meeting time
+        # rather than assumed (2026-07-31, 30d fleet, spend divided by
+        # telemetry meeting seconds): Sonnet tiers came in at $0.20/hr
+        # against the $0.19 guess, near enough to leave alone; everyone
+        # else came in at $0.09 to $0.12 against a $0.05 guess, so the
+        # derived hours read about double reality and the derived LIMIT
+        # claimed roughly double the meeting time the budget actually
+        # buys. Recalibrate from the measured column when the fleet grows.
+        model_cost_per_hour = 0.20 if tier_def and "sonnet" in (tier_def.default_model or "") else 0.11
         hours_used = window_cost / model_cost_per_hour if model_cost_per_hour > 0 else 0
         hours_limit = monthly_limit / model_cost_per_hour if monthly_limit > 0 else -1
         percent_used = round(window_cost / monthly_limit * 100, 1) if monthly_limit > 0 else 0
@@ -2500,6 +2540,11 @@ async def list_users(
             "percent_used": percent_used,
             "hours_used": round(hours_used, 1),
             "hours_limit": round(hours_limit, 1) if hours_limit != -1 else -1,
+            # observed, not derived; see meeting_stats above
+            "meeting_hours": meeting_stats.get(r["id"], {}).get("hours", 0.0),
+            "meeting_count": meeting_stats.get(r["id"], {}).get("meetings", 0),
+            "meetings_unfinished": meeting_stats.get(r["id"], {}).get(
+                "unfinished", 0),
             "allocation_resets_at": r["allocation_resets_at"],
             "searches_used": int(r["searches_used"] or 0),
             "generations_used": int(r["generations_used"] or 0),
