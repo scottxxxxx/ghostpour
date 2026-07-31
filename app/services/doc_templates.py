@@ -333,7 +333,14 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
              f"{len(_real)} tasks"]
     if _overall is not None:
         _bits.append(f"{_overall}% complete overall")
-    _bits.append(f"{_risk_n} at risk" if _risk_n else "none at risk")
+    # "At risk" is evaluated LIVE against today, not against the meeting the
+    # plan came from, which is right for a plan you keep using and confusing
+    # for one you read cold: a workbook built from a Jul 20 standup and
+    # opened on Jul 31 shows everything due in between as at risk, and the
+    # count grows every day the file sits there. So the strip says which
+    # date the count is against rather than leaving the reader to assume.
+    _bits.append(f"{_risk_n} at risk as of {today.strftime('%b %d')}"
+                 if _risk_n else f"none at risk as of {today.strftime('%b %d')}")
     if _next_ms:
         _bits.append(f"next milestone: {_next_ms['name']} "
                      f"{_d(_next_ms['start']).strftime('%b %d')}")
@@ -950,6 +957,48 @@ def _wd_inclusive(a: date, b: date) -> int:
     return _workday_offset(a, b) + (1 if a.weekday() < 5 else 0)
 
 
+def _earned_days(tasks: list[dict]) -> float:
+    """Working days of work banked, in ABSOLUTE days, not a share.
+
+    The S-curve divides this by ONE denominator (the current plan's total),
+    which is what keeps Reported monotonic. Dividing each version by its own
+    scope is what made progress appear to go backwards: the 2026-07-13
+    standup stretched payments and added a task with no stated percent, so
+    the same banked work over a bigger plan read as 18.5% falling to 16.5%.
+    A cumulative progress line that drops when scope GROWS is the classic
+    way to make a real plan look like a failing one."""
+    num = 0.0
+    for t in tasks:
+        if t.get("type") in ("phase", "milestone"):
+            continue
+        try:
+            dur = _wd_inclusive(_d(t["start"]), _d(t["end"]))
+        except (KeyError, ValueError, TypeError):
+            continue
+        if dur <= 0:
+            continue
+        pct = t.get("percent_complete")
+        if not isinstance(pct, int):
+            pct = 100 if t.get("status") == "complete" else 0
+        num += dur * min(max(pct, 0), 100) / 100.0
+    return num
+
+
+def _total_days(tasks: list[dict]) -> float:
+    """Scheduled working days across real tasks: the S-curve's denominator."""
+    tot = 0.0
+    for t in tasks:
+        if t.get("type") in ("phase", "milestone"):
+            continue
+        try:
+            dur = _wd_inclusive(_d(t["start"]), _d(t["end"]))
+        except (KeyError, ValueError, TypeError):
+            continue
+        if dur > 0:
+            tot += dur
+    return tot
+
+
 def _weighted_progress(tasks: list[dict]) -> float | None:
     """Duration-weighted percent complete over real tasks, using the SAME
     rule the phase rollups use on the view: the stated percent when
@@ -1173,7 +1222,10 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
                 "follows the dates on the Gantt View and redraws when you "
                 "edit them. Reported is % complete as of each meeting, held "
                 "flat in between because that is all the meetings said; the "
-                "dots are the meetings themselves.")
+                "dots are the meetings themselves. Every point is "
+                "measured against the plan as it stands today, so "
+                "adding scope raises what is left rather than "
+                "pushing the line back down.")
     sc["A2"].font = Font(size=9, color="FF666666", italic=True)
     sc["A2"].alignment = Alignment(wrap_text=True)
     sc.merge_cells("A2:F2")
@@ -1205,16 +1257,21 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
 
     # Reported: one observation per plan version, then today's plan. Held
     # flat forward; blank before the first meeting we have.
+    # ONE denominator for every point: the plan as it stands today. Earned
+    # work is absolute, so adding scope raises what is left to do without
+    # ever un-banking what was already done.
+    _denom = _total_days(data.get("tasks") or [])
     stamps: list[tuple[date, float]] = []
     for ver in (history or []):
         try:
-            stamps.append((_d(ver["as_of"]), _weighted_progress(ver.get("tasks") or [])))
-        except (KeyError, ValueError, TypeError):
+            stamps.append((_d(ver["as_of"]),
+                           _earned_days(ver.get("tasks") or []) / _denom))
+        except (KeyError, ValueError, TypeError, ZeroDivisionError):
             continue
-    cur = _weighted_progress(data.get("tasks") or [])
-    if cur is not None:
+    if _denom:
         stamps.append((_d(data.get("meeting_date")) if data.get("meeting_date")
-                       else today, cur))
+                       else today,
+                       _earned_days(data.get("tasks") or []) / _denom))
     stamps = sorted((d, v) for d, v in stamps if v is not None)
 
     base_tasks = (history or [{}])[0].get("tasks") if history else None
@@ -1452,7 +1509,14 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
         c.fill = hdr_fill
     for ri, (ref, t, ev) in enumerate(receipts, 5):
         rc.cell(ri, 1, ref).font = Font(bold=True, size=9)
-        rc.cell(ri, 2, t["name"]).font = Font(size=9)
+        _nc = rc.cell(ri, 2, t["name"])
+        _nc.font = Font(size=9)
+        # Click a receipt, land on the row it justifies. Cheap, and it turns
+        # Receipts from an audit table into something you actually navigate.
+        _r = _layout["row_of"].get(t.get("id"))
+        if _r:
+            _nc.hyperlink = f"#'{_layout['sheet']}'!B{_r}"
+            _nc.font = Font(size=9, color="FF1F4E9C", underline="single")
         rc.cell(ri, 3, _field_label(ev.get("field"))).font = Font(size=9)
         md = str(ev.get("meeting_date") or "").strip()
         rc.cell(ri, 4, md).font = Font(size=8, color="FF666666")

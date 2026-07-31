@@ -432,3 +432,32 @@ def test_flat_and_grouped_tasks_coexist():
              if gv.cell(r, 2).value]
     assert any("Unfiled work" in n for n in names)
     assert any("Payments integration" in n for n in names)
+
+
+# --- navigation and honest risk framing ---------------------------------
+
+def test_a_receipt_links_to_the_row_it_justifies():
+    wb = _wb()
+    rc, gv = wb["Receipts"], wb["Gantt View"]
+    linked = 0
+    for r in range(5, 30):
+        cell = rc.cell(r, 2)
+        if not cell.value or not cell.hyperlink:
+            continue
+        linked += 1
+        target = cell.hyperlink.target or cell.hyperlink.location or ""
+        assert "Gantt View" in target, target
+        row = int(target.rsplit("B", 1)[1])
+        # the row it points at must actually be that task
+        assert cell.value in str(gv.cell(row, 2).value)
+    assert linked >= 3, "receipts should be navigable, not just readable"
+
+
+def test_the_risk_count_says_which_date_it_is_against():
+    """Risk fires on live TODAY(), so a plan built from one meeting and read
+    a week later shows everything due in between. Honest, but only if the
+    reader can see which date the count is measured against."""
+    gv = _wb()["Gantt View"]
+    strip = str(gv.cell(2, 2).value)
+    assert "as of" in strip
+    assert TODAY.strftime("%b %d") in strip
