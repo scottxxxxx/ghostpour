@@ -56,9 +56,24 @@ Verified live 2026-07-31 by generating a report for `608F2BF4`, the
 298-second meeting the automatic rule had skipped: HTTP 200 in 33.7s, a real
 19.9KB report, not the canned fallback.
 
-So the flag is about what the app OFFERS, not about what the server permits.
-Setting it false hides the affordance on short meetings; it does not close an
-endpoint, and it is not an authorization check.
+`allow_request_below_minimum` is about what the app OFFERS: setting it false
+hides the affordance on short meetings, it does not close an endpoint.
+
+`request_min_seconds` is different. **It is enforced on the server too**, from
+this same served value, read live on every request. A request under the floor
+answers `400 meeting_too_short` with the duration and the minimum in
+`details`, before the rate limiter and before the quota check, so a client bug
+cannot spend a user's allocation on a nine second mis-tap. Moving the number
+in the dashboard moves both halves at once; there is no deploy and no window
+where the two disagree.
+
+Set it to `0` to stop enforcing entirely. A malformed value is treated as `0`
+rather than as a refusal: a bad config edit must not become an outage.
+
+**Per-app:** apps other than ShoulderSurf get a floor only when their OWN
+per-app config declares one. Tech Rehearsal inherits the flat client-config
+for everything else, but a rejection is not something to inherit, and a number
+measured on ShoulderSurf meetings has no business refusing a rehearsal.
 
 ### Consequences worth knowing
 
