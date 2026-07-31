@@ -1,409 +1,543 @@
 {
- "version": 37,
- "tiers": {
-  "free": {
-   "display_name": "Free",
-   "description": "Try AI-powered meeting assistance with cloud AI for about five hours of meetings a month.",
-   "feature_bullets": [
-    "Cloud AI for about five hours of meetings a month",
-    "Summaries written while you're still meeting",
-    "On-device transcription (unlimited)",
-    "1 photo or image per question"
-   ],
-   "feature_items": [
-    {
-     "label": "Cloud AI for about five hours of meetings a month",
-     "icon": "checkmark"
-    },
-    {
-     "label": "Summaries written while you're still meeting",
-     "icon": "doc"
-    },
-    {
-     "label": "On-device transcription (unlimited)",
-     "icon": "checkmark"
-    },
-    {
-     "label": "1 photo or image per question",
-     "icon": "photo"
-    }
-   ],
-   "status_items": [
-    {
-     "label": "Auto-summary",
-     "value": "every 10 min",
-     "icon": "clock"
-    },
-    {
-     "label": "Summary mode",
-     "value": "Just what's new",
-     "icon": "doc"
-    },
-    {
-     "label": "Max images",
-     "value": "1 per question",
-     "icon": "photo"
-    }
-   ],
-   "feature_definitions": {
-    "project_chat": {
-     "max_input_tokens": 50000
-    },
-    "budget": {
-     "cta_exhausted": {
-      "kind": "budget_exhausted",
-      "text": "You've used your free AI for this month. Upgrade to Plus to keep going.",
-      "action": "open_paywall"
-     }
-    },
-    "search": {
-     "searches_per_month": 0,
-     "searches_soft_threshold": null,
-     "cta_hard_cap": {
-      "kind": "search_paywall_required",
-      "header_icon": "globe",
-      "title": "Web Search",
-      "body": "Pull fresh information from the web into your queries, current news, recent docs, and live data your model wouldn't otherwise know about.",
-      "bullets_label": "TRY IT FOR",
-      "bullets": [
-       {
-        "icon": "newspaper.fill",
-        "label": "Latest news on a competitor or topic in your meeting"
-       },
-       {
-        "icon": "doc.text.magnifyingglass",
-        "label": "Recent docs for a library or framework you're discussing"
-       },
-       {
-        "icon": "chart.line.uptrend.xyaxis",
-        "label": "Current pricing, availability, or product changes"
-       }
+  "version": 38,
+  "tiers": {
+    "free": {
+      "display_name": "Free",
+      "description": "Try AI-powered meeting assistance with cloud AI for about five hours of meetings a month.",
+      "feature_bullets": [
+        "Cloud AI for about five hours of meetings a month",
+        "Summaries written while you're still meeting",
+        "On-device transcription (unlimited)",
+        "1 photo or image per question"
       ],
-      "footer": "Web search is available with a Plus or Pro subscription, when using SS AI as your model.",
-      "primary_action": {
-       "label": "Upgrade",
-       "action": "open_paywall"
-      },
-      "secondary_action": {
-       "label": "Maybe later",
-       "action": "dismiss"
+      "feature_items": [
+        {
+          "label": "Cloud AI for about five hours of meetings a month",
+          "icon": "checkmark"
+        },
+        {
+          "label": "Summaries written while you're still meeting",
+          "icon": "doc"
+        },
+        {
+          "label": "On-device transcription (unlimited)",
+          "icon": "checkmark"
+        },
+        {
+          "label": "1 photo or image per question",
+          "icon": "photo"
+        }
+      ],
+      "status_items": [
+        {
+          "label": "Auto-summary",
+          "value": "every 10 min",
+          "icon": "clock"
+        },
+        {
+          "label": "Summary mode",
+          "value": "Just what's new",
+          "icon": "doc"
+        },
+        {
+          "label": "Max images",
+          "value": "1 per question",
+          "icon": "photo"
+        }
+      ],
+      "feature_definitions": {
+        "project_chat": {
+          "max_input_tokens": 50000
+        },
+        "budget": {
+          "cta_exhausted": {
+            "kind": "budget_exhausted",
+            "text": "You've used your free AI for this month. Upgrade to Plus to keep going.",
+            "action": "open_paywall"
+          }
+        },
+        "search": {
+          "searches_per_month": 0,
+          "searches_soft_threshold": null,
+          "cta_hard_cap": {
+            "kind": "search_paywall_required",
+            "header_icon": "globe",
+            "title": "Web Search",
+            "body": "Pull fresh information from the web into your queries, current news, recent docs, and live data your model wouldn't otherwise know about.",
+            "bullets_label": "TRY IT FOR",
+            "bullets": [
+              {
+                "icon": "newspaper.fill",
+                "label": "Latest news on a competitor or topic in your meeting"
+              },
+              {
+                "icon": "doc.text.magnifyingglass",
+                "label": "Recent docs for a library or framework you're discussing"
+              },
+              {
+                "icon": "chart.line.uptrend.xyaxis",
+                "label": "Current pricing, availability, or product changes"
+              }
+            ],
+            "footer": "Web search is available with a Plus or Pro subscription, when using SS AI as your model.",
+            "primary_action": {
+              "label": "Upgrade",
+              "action": "open_paywall"
+            },
+            "secondary_action": {
+              "label": "Maybe later",
+              "action": "dismiss"
+            }
+          },
+          "cta_soft_cap": null
+        },
+        "images": {
+          "max_long_edge": 1568,
+          "jpeg_quality": 0.8,
+          "capture_guidance": {
+            "title": "For the sharpest read",
+            "tips": [
+              "Fill the frame with the sheet so the text is as large as possible",
+              "Hold steady until the text looks sharp before you shoot",
+              "Light the whole sheet evenly and avoid glare or shadows",
+              "Line the camera up straight on rather than at an angle"
+            ]
+          }
+        }
       }
-     },
-     "cta_soft_cap": null
     },
-    "images": {
-     "max_long_edge": 1568,
-     "jpeg_quality": 0.8,
-     "capture_guidance": {
-      "title": "For the sharpest read",
-      "tips": [
-       "Fill the frame with the sheet so the text is as large as possible",
-       "Hold steady until the text looks sharp before you shoot",
-       "Light the whole sheet evenly and avoid glare or shadows",
-       "Line the camera up straight on rather than at an angle"
-      ]
-     }
+    "plus": {
+      "display_name": "Plus",
+      "description": "Unlimited AI-powered meeting assistance. Summaries, reports, and project chat.",
+      "feature_bullets": [
+        "Unlimited meetings with AI assistance",
+        "Summaries written while you're still meeting",
+        "Shareable meeting reports",
+        "Ask questions across every meeting in a project",
+        "Web search: current info in your answers (75/mo)",
+        "3 photos or images per question"
+      ],
+      "feature_items": [
+        {
+          "label": "Unlimited meetings with AI assistance",
+          "icon": "checkmark"
+        },
+        {
+          "label": "Summaries written while you're still meeting",
+          "icon": "doc"
+        },
+        {
+          "label": "Shareable meeting reports",
+          "icon": "share"
+        },
+        {
+          "label": "Ask questions across every meeting in a project",
+          "icon": "chat"
+        },
+        {
+          "label": "Web search: current info in your answers (75/mo)",
+          "icon": "search"
+        },
+        {
+          "label": "3 photos or images per question",
+          "icon": "photo"
+        }
+      ],
+      "status_items": [
+        {
+          "label": "Auto-summary",
+          "value": "every 10 min",
+          "icon": "clock"
+        },
+        {
+          "label": "Summary mode",
+          "value": "Just what's new",
+          "icon": "doc"
+        },
+        {
+          "label": "AI",
+          "value": "Standard",
+          "icon": "cpu"
+        },
+        {
+          "label": "Max images",
+          "value": "3 per question",
+          "icon": "photo"
+        },
+        {
+          "label": "Web search",
+          "value": "75 per month",
+          "icon": "search"
+        },
+        {
+          "label": "File generation",
+          "value": "upgrade to Pro",
+          "icon": "filegen",
+          "state": "teaser"
+        },
+        {
+          "label": "Meeting Memory",
+          "value": "upgrade to Pro",
+          "icon": "brain",
+          "state": "teaser"
+        }
+      ],
+      "feature_definitions": {
+        "project_chat": {
+          "max_input_tokens": 150000
+        },
+        "search": {
+          "searches_per_month": 75,
+          "searches_soft_threshold": null,
+          "cta_hard_cap": {
+            "kind": "search_cap_exhausted",
+            "title": "Web search limit reached",
+            "body": "You've used all {total} searches this month. Upgrade to Pro for higher limits.",
+            "primary_action": {
+              "label": "Upgrade",
+              "action": "open_paywall"
+            },
+            "secondary_action": {
+              "label": "OK",
+              "action": "dismiss"
+            }
+          },
+          "cta_soft_cap": null,
+          "cta_unavailable": {
+            "kind": "search_unavailable_for_provider",
+            "title": "Web search not available for this model",
+            "body": "Switch to SS AI to use web search on this query.",
+            "primary_action": {
+              "label": "OK",
+              "action": "dismiss"
+            }
+          }
+        },
+        "images": {
+          "max_long_edge": 1568,
+          "jpeg_quality": 0.8,
+          "capture_guidance": {
+            "title": "For the sharpest read",
+            "tips": [
+              "Fill the frame with the sheet so the text is as large as possible",
+              "Hold steady until the text looks sharp before you shoot",
+              "Light the whole sheet evenly and avoid glare or shadows",
+              "Line the camera up straight on rather than at an angle"
+            ]
+          }
+        }
+      }
+    },
+    "pro": {
+      "display_name": "Pro",
+      "description": "Everything in Plus with advanced AI, real file generation, and Meeting Memory.",
+      "feature_bullets": [
+        "Advanced AI for deeper reports and analysis",
+        "Full recap or just-what's-new summaries, your choice",
+        "Web search: current info in your answers (120/mo)",
+        "Meeting Memory: AI remembers past meetings",
+        "Builds real files you can share: Excel, Word, PowerPoint, PDF",
+        "Attach documents to chat (2 files, 25 MB each)",
+        "5 photos or images per question"
+      ],
+      "feature_items": [
+        {
+          "label": "Advanced AI for deeper reports and analysis",
+          "icon": "checkmark.plus"
+        },
+        {
+          "label": "Full recap or just-what's-new summaries, your choice",
+          "icon": "doc"
+        },
+        {
+          "label": "Web search: current info in your answers (120/mo)",
+          "icon": "search"
+        },
+        {
+          "label": "Meeting Memory: AI remembers past meetings",
+          "icon": "brain"
+        },
+        {
+          "label": "Builds real files you can share: Excel, Word, PowerPoint, PDF",
+          "icon": "filegen"
+        },
+        {
+          "label": "Attach documents to chat (2 files, 25 MB each)",
+          "icon": "paperclip"
+        },
+        {
+          "label": "5 photos or images per question",
+          "icon": "photo"
+        }
+      ],
+      "status_items": [
+        {
+          "label": "Auto-summary",
+          "value": "every 10 min",
+          "icon": "clock"
+        },
+        {
+          "label": "Summary mode",
+          "value": "Full or just what's new (your choice)",
+          "icon": "doc"
+        },
+        {
+          "label": "AI",
+          "value": "Advanced",
+          "icon": "cpu"
+        },
+        {
+          "label": "Max images",
+          "value": "5 per question",
+          "icon": "photo"
+        },
+        {
+          "label": "Web search",
+          "value": "120 per month",
+          "icon": "search"
+        },
+        {
+          "label": "File generation",
+          "value": "Excel, Word, PowerPoint, PDF",
+          "icon": "filegen"
+        },
+        {
+          "label": "Document attachments",
+          "value": "2 files, up to 25 MB each",
+          "icon": "paperclip"
+        },
+        {
+          "label": "Meeting Memory",
+          "value": "enabled",
+          "icon": "brain",
+          "state": "enabled"
+        }
+      ],
+      "feature_definitions": {
+        "project_chat": {
+          "max_input_tokens": 180000
+        },
+        "search": {
+          "searches_per_month": 120,
+          "searches_soft_threshold": 80,
+          "cta_hard_cap": {
+            "kind": "search_cap_exhausted",
+            "title": "Web search limit reached",
+            "body": "You've used all {total} searches this month. Searches resume on {reset_date}.",
+            "primary_action": {
+              "label": "OK",
+              "action": "dismiss"
+            }
+          },
+          "cta_soft_cap": {
+            "kind": "search_soft_cap_warning",
+            "title": "Approaching your monthly search limit",
+            "body": "You've used {used} of {total} searches this month."
+          },
+          "cta_unavailable": {
+            "kind": "search_unavailable_for_provider",
+            "title": "Web search not available for this model",
+            "body": "Switch to SS AI to use web search on this query.",
+            "primary_action": {
+              "label": "OK",
+              "action": "dismiss"
+            }
+          }
+        },
+        "generation": {
+          "generations_per_month": 100
+        },
+        "images": {
+          "max_long_edge": 1568,
+          "jpeg_quality": 0.8,
+          "capture_guidance": {
+            "title": "For the sharpest read",
+            "tips": [
+              "Fill the frame with the sheet so the text is as large as possible",
+              "Hold steady until the text looks sharp before you shoot",
+              "Light the whole sheet evenly and avoid glare or shadows",
+              "Line the camera up straight on rather than at an angle"
+            ]
+          }
+        }
+      }
+    },
+    "automation": {
+      "display_name": "Automation (internal)",
+      "description": "Partner test harness credentials. Mirrors Pro so a harness exercises the lane a paying user gets.",
+      "feature_bullets": [
+        "Advanced AI for deeper reports and analysis",
+        "Full recap or just-what's-new summaries, your choice",
+        "Web search: current info in your answers (120/mo)",
+        "Meeting Memory: AI remembers past meetings",
+        "Builds real files you can share: Excel, Word, PowerPoint, PDF",
+        "Attach documents to chat (2 files, 25 MB each)",
+        "5 photos or images per question"
+      ],
+      "feature_items": [
+        {
+          "label": "Advanced AI for deeper reports and analysis",
+          "icon": "checkmark.plus"
+        },
+        {
+          "label": "Full recap or just-what's-new summaries, your choice",
+          "icon": "doc"
+        },
+        {
+          "label": "Web search: current info in your answers (120/mo)",
+          "icon": "search"
+        },
+        {
+          "label": "Meeting Memory: AI remembers past meetings",
+          "icon": "brain"
+        },
+        {
+          "label": "Builds real files you can share: Excel, Word, PowerPoint, PDF",
+          "icon": "filegen"
+        },
+        {
+          "label": "Attach documents to chat (2 files, 25 MB each)",
+          "icon": "paperclip"
+        },
+        {
+          "label": "5 photos or images per question",
+          "icon": "photo"
+        }
+      ],
+      "status_items": [
+        {
+          "label": "Auto-summary",
+          "value": "every 10 min",
+          "icon": "clock"
+        },
+        {
+          "label": "Summary mode",
+          "value": "Full or just what's new (your choice)",
+          "icon": "doc"
+        },
+        {
+          "label": "AI",
+          "value": "Advanced",
+          "icon": "cpu"
+        },
+        {
+          "label": "Max images",
+          "value": "5 per question",
+          "icon": "photo"
+        },
+        {
+          "label": "Web search",
+          "value": "120 per month",
+          "icon": "search"
+        },
+        {
+          "label": "File generation",
+          "value": "Excel, Word, PowerPoint, PDF",
+          "icon": "filegen"
+        },
+        {
+          "label": "Document attachments",
+          "value": "2 files, up to 25 MB each",
+          "icon": "paperclip"
+        },
+        {
+          "label": "Meeting Memory",
+          "value": "enabled",
+          "icon": "brain",
+          "state": "enabled"
+        }
+      ],
+      "feature_definitions": {
+        "project_chat": {
+          "max_input_tokens": 180000
+        },
+        "search": {
+          "searches_per_month": 120,
+          "searches_soft_threshold": 80,
+          "cta_hard_cap": {
+            "kind": "search_cap_exhausted",
+            "title": "Web search limit reached",
+            "body": "You've used all {total} searches this month. Searches resume on {reset_date}.",
+            "primary_action": {
+              "label": "OK",
+              "action": "dismiss"
+            }
+          },
+          "cta_soft_cap": {
+            "kind": "search_soft_cap_warning",
+            "title": "Approaching your monthly search limit",
+            "body": "You've used {used} of {total} searches this month."
+          },
+          "cta_unavailable": {
+            "kind": "search_unavailable_for_provider",
+            "title": "Web search not available for this model",
+            "body": "Switch to SS AI to use web search on this query.",
+            "primary_action": {
+              "label": "OK",
+              "action": "dismiss"
+            }
+          }
+        },
+        "generation": {
+          "generations_per_month": 100
+        },
+        "images": {
+          "max_long_edge": 1568,
+          "jpeg_quality": 0.8,
+          "capture_guidance": {
+            "title": "For the sharpest read",
+            "tips": [
+              "Fill the frame with the sheet so the text is as large as possible",
+              "Hold steady until the text looks sharp before you shoot",
+              "Light the whole sheet evenly and avoid glare or shadows",
+              "Line the camera up straight on rather than at an angle"
+            ]
+          }
+        }
+      }
     }
-   }
   },
-  "plus": {
-   "display_name": "Plus",
-   "description": "Unlimited AI-powered meeting assistance. Summaries, reports, and project chat.",
-   "feature_bullets": [
-    "Unlimited meetings with AI assistance",
-    "Summaries written while you're still meeting",
-    "Shareable meeting reports",
-    "Ask questions across every meeting in a project",
-    "Web search: current info in your answers (75/mo)",
-    "3 photos or images per question"
-   ],
-   "feature_items": [
-    {
-     "label": "Unlimited meetings with AI assistance",
-     "icon": "checkmark"
+  "feature_definitions": {
+    "context_quilt": {
+      "category": "intelligence",
+      "display_name": "Meeting Memory",
+      "description": "Your AI remembers past meetings and uses that knowledge automatically.",
+      "teaser_description": "Your AI found connections to your past meetings",
+      "upgrade_cta": "Upgrade to Pro to unlock Meeting Memory",
+      "cta_strings": {
+        "free_within_quota_footer": "✨ This was your free Memory of {total} this month. Upgrade to Pro to keep building Memory.",
+        "free_no_quota_only": "✨ Want your AI to remember meetings? Upgrade to Pro to start building Memory."
+      }
     },
-    {
-     "label": "Summaries written while you're still meeting",
-     "icon": "doc"
+    "meeting_reports": {
+      "category": "intelligence",
+      "display_name": "Meeting Reports",
+      "description": "Generate shareable HTML reports from your meeting transcripts: sentiment, key moments, suggested tags, and your speaker notes.",
+      "teaser_description": "Reports turn your meetings into shareable summaries.",
+      "upgrade_cta": "Upgrade to Plus to generate shareable meeting reports"
     },
-    {
-     "label": "Shareable meeting reports",
-     "icon": "share"
-    },
-    {
-     "label": "Ask questions across every meeting in a project",
-     "icon": "chat"
-    },
-    {
-     "label": "Web search: current info in your answers (75/mo)",
-     "icon": "search"
-    },
-    {
-     "label": "3 photos or images per question",
-     "icon": "photo"
-    }
-   ],
-   "status_items": [
-    {
-     "label": "Auto-summary",
-     "value": "every 10 min",
-     "icon": "clock"
-    },
-    {
-     "label": "Summary mode",
-     "value": "Just what's new",
-     "icon": "doc"
-    },
-    {
-     "label": "AI",
-     "value": "Standard",
-     "icon": "cpu"
-    },
-    {
-     "label": "Max images",
-     "value": "3 per question",
-     "icon": "photo"
-    },
-    {
-     "label": "Web search",
-     "value": "75 per month",
-     "icon": "search"
-    },
-    {
-     "label": "File generation",
-     "value": "upgrade to Pro",
-     "icon": "filegen",
-     "state": "teaser"
-    },
-    {
-     "label": "Meeting Memory",
-     "value": "upgrade to Pro",
-     "icon": "brain",
-     "state": "teaser"
-    }
-   ],
-   "feature_definitions": {
     "project_chat": {
-     "max_input_tokens": 150000
+      "category": "intelligence",
+      "display_name": "Project Chat",
+      "description": "Ask AI questions across all the meetings in a project: your AI knows the context.",
+      "teaser_description": "Project Chat is a Plus feature.",
+      "upgrade_cta": "Upgrade to Plus to use Project Chat",
+      "teaser_response": "Project Chat is a Plus feature. Upgrade to ask AI questions across all your meetings in this project.",
+      "gp_chat_flag": "ssai_free_only",
+      "free_quota_per_month": 1,
+      "cta_strings": {
+        "quota_remaining": "You have {remaining} of {total} free Project Chats remaining this month. Upgrade to Plus for unlimited.",
+        "quota_exhausted": "You've used your {total} free Project Chats for this month. Upgrade to Plus for unlimited.",
+        "unlimited": "Project Chat by Shoulder Surf.",
+        "login_required": "Sign in to use Project Chat."
+      }
     },
     "search": {
-     "searches_per_month": 75,
-     "searches_soft_threshold": null,
-     "cta_hard_cap": {
-      "kind": "search_cap_exhausted",
-      "title": "Web search limit reached",
-      "body": "You've used all {total} searches this month. Upgrade to Pro for higher limits.",
-      "primary_action": {
-       "label": "Upgrade",
-       "action": "open_paywall"
-      },
-      "secondary_action": {
-       "label": "OK",
-       "action": "dismiss"
-      }
-     },
-     "cta_soft_cap": null,
-     "cta_unavailable": {
-      "kind": "search_unavailable_for_provider",
-      "title": "Web search not available for this model",
-      "body": "Switch to SS AI to use web search on this query.",
-      "primary_action": {
-       "label": "OK",
-       "action": "dismiss"
-      }
-     }
-    },
-    "images": {
-     "max_long_edge": 1568,
-     "jpeg_quality": 0.8,
-     "capture_guidance": {
-      "title": "For the sharpest read",
-      "tips": [
-       "Fill the frame with the sheet so the text is as large as possible",
-       "Hold steady until the text looks sharp before you shoot",
-       "Light the whole sheet evenly and avoid glare or shadows",
-       "Line the camera up straight on rather than at an angle"
-      ]
-     }
+      "category": "intelligence",
+      "display_name": "Web Search",
+      "description": "Ask your AI to look up current information from the web during a query.",
+      "teaser_description": "Web search is a paid feature.",
+      "upgrade_cta": "Upgrade to Plus to enable web search"
     }
-   }
-  },
-  "pro": {
-   "display_name": "Pro",
-   "description": "Everything in Plus with advanced AI, real file generation, and Meeting Memory.",
-   "feature_bullets": [
-    "Advanced AI for deeper reports and analysis",
-    "Full recap or just-what's-new summaries, your choice",
-    "Web search: current info in your answers (120/mo)",
-    "Meeting Memory: AI remembers past meetings",
-    "Builds real files you can share: Excel, Word, PowerPoint, PDF",
-    "Attach documents to chat (2 files, 25 MB each)",
-    "5 photos or images per question"
-   ],
-   "feature_items": [
-    {
-     "label": "Advanced AI for deeper reports and analysis",
-     "icon": "checkmark.plus"
-    },
-    {
-     "label": "Full recap or just-what's-new summaries, your choice",
-     "icon": "doc"
-    },
-    {
-     "label": "Web search: current info in your answers (120/mo)",
-     "icon": "search"
-    },
-    {
-     "label": "Meeting Memory: AI remembers past meetings",
-     "icon": "brain"
-    },
-    {
-     "label": "Builds real files you can share: Excel, Word, PowerPoint, PDF",
-     "icon": "filegen"
-    },
-    {
-     "label": "Attach documents to chat (2 files, 25 MB each)",
-     "icon": "paperclip"
-    },
-    {
-     "label": "5 photos or images per question",
-     "icon": "photo"
-    }
-   ],
-   "status_items": [
-    {
-     "label": "Auto-summary",
-     "value": "every 10 min",
-     "icon": "clock"
-    },
-    {
-     "label": "Summary mode",
-     "value": "Full or just what's new (your choice)",
-     "icon": "doc"
-    },
-    {
-     "label": "AI",
-     "value": "Advanced",
-     "icon": "cpu"
-    },
-    {
-     "label": "Max images",
-     "value": "5 per question",
-     "icon": "photo"
-    },
-    {
-     "label": "Web search",
-     "value": "120 per month",
-     "icon": "search"
-    },
-    {
-     "label": "File generation",
-     "value": "Excel, Word, PowerPoint, PDF",
-     "icon": "filegen"
-    },
-    {
-     "label": "Document attachments",
-     "value": "2 files, up to 25 MB each",
-     "icon": "paperclip"
-    },
-    {
-     "label": "Meeting Memory",
-     "value": "enabled",
-     "icon": "brain",
-     "state": "enabled"
-    }
-   ],
-   "feature_definitions": {
-    "project_chat": {
-     "max_input_tokens": 180000
-    },
-    "search": {
-     "searches_per_month": 120,
-     "searches_soft_threshold": 80,
-     "cta_hard_cap": {
-      "kind": "search_cap_exhausted",
-      "title": "Web search limit reached",
-      "body": "You've used all {total} searches this month. Searches resume on {reset_date}.",
-      "primary_action": {
-       "label": "OK",
-       "action": "dismiss"
-      }
-     },
-     "cta_soft_cap": {
-      "kind": "search_soft_cap_warning",
-      "title": "Approaching your monthly search limit",
-      "body": "You've used {used} of {total} searches this month."
-     },
-     "cta_unavailable": {
-      "kind": "search_unavailable_for_provider",
-      "title": "Web search not available for this model",
-      "body": "Switch to SS AI to use web search on this query.",
-      "primary_action": {
-       "label": "OK",
-       "action": "dismiss"
-      }
-     }
-    },
-    "generation": {
-     "generations_per_month": 100
-    },
-    "images": {
-     "max_long_edge": 1568,
-     "jpeg_quality": 0.8,
-     "capture_guidance": {
-      "title": "For the sharpest read",
-      "tips": [
-       "Fill the frame with the sheet so the text is as large as possible",
-       "Hold steady until the text looks sharp before you shoot",
-       "Light the whole sheet evenly and avoid glare or shadows",
-       "Line the camera up straight on rather than at an angle"
-      ]
-     }
-    }
-   }
   }
- },
- "feature_definitions": {
-  "context_quilt": {
-   "category": "intelligence",
-   "display_name": "Meeting Memory",
-   "description": "Your AI remembers past meetings and uses that knowledge automatically.",
-   "teaser_description": "Your AI found connections to your past meetings",
-   "upgrade_cta": "Upgrade to Pro to unlock Meeting Memory",
-   "cta_strings": {
-    "free_within_quota_footer": "✨ This was your free Memory of {total} this month. Upgrade to Pro to keep building Memory.",
-    "free_no_quota_only": "✨ Want your AI to remember meetings? Upgrade to Pro to start building Memory."
-   }
-  },
-  "meeting_reports": {
-   "category": "intelligence",
-   "display_name": "Meeting Reports",
-   "description": "Generate shareable HTML reports from your meeting transcripts: sentiment, key moments, suggested tags, and your speaker notes.",
-   "teaser_description": "Reports turn your meetings into shareable summaries.",
-   "upgrade_cta": "Upgrade to Plus to generate shareable meeting reports"
-  },
-  "project_chat": {
-   "category": "intelligence",
-   "display_name": "Project Chat",
-   "description": "Ask AI questions across all the meetings in a project: your AI knows the context.",
-   "teaser_description": "Project Chat is a Plus feature.",
-   "upgrade_cta": "Upgrade to Plus to use Project Chat",
-   "teaser_response": "Project Chat is a Plus feature. Upgrade to ask AI questions across all your meetings in this project.",
-   "gp_chat_flag": "ssai_free_only",
-   "free_quota_per_month": 1,
-   "cta_strings": {
-    "quota_remaining": "You have {remaining} of {total} free Project Chats remaining this month. Upgrade to Plus for unlimited.",
-    "quota_exhausted": "You've used your {total} free Project Chats for this month. Upgrade to Plus for unlimited.",
-    "unlimited": "Project Chat by Shoulder Surf.",
-    "login_required": "Sign in to use Project Chat."
-   }
-  },
-  "search": {
-   "category": "intelligence",
-   "display_name": "Web Search",
-   "description": "Ask your AI to look up current information from the web during a query.",
-   "teaser_description": "Web search is a paid feature.",
-   "upgrade_cta": "Upgrade to Plus to enable web search"
-  }
- }
 }

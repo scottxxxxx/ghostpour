@@ -78,3 +78,40 @@ def test_the_spend_stays_visible():
     src = open("app/routers/webhooks.py").read()
     users_q = src[src.index("lifetime_cost_usd"):src.index("lifetime_cost_usd") + 3000]
     assert "tier = 'automation'" not in users_q
+
+
+def test_automation_is_published_with_a_full_feature_definitions_block():
+    """The gap SS's image bug taught us to look for.
+
+    Their ChatImageWire does an exact-slug lookup on
+    tiers[slug].feature_definitions.images and falls back silently when the
+    slug is absent or the block is missing. automation shipped published but
+    EMPTY, so a harness on it would have silently used client defaults for
+    image sizing, project chat input caps, search caps and generation caps,
+    which is the opposite of the faithful lane this tier exists to provide.
+    """
+    served = json.load(open("config/remote/tiers.json"))["tiers"]
+    assert "automation" in served
+    pro_fd = served["pro"]["feature_definitions"]
+    auto_fd = served["automation"]["feature_definitions"]
+    assert set(auto_fd) == set(pro_fd), "automation must mirror pro's blocks"
+    assert auto_fd["images"]["max_long_edge"] == pro_fd["images"]["max_long_edge"]
+    assert auto_fd["images"]["jpeg_quality"] == pro_fd["images"]["jpeg_quality"]
+    assert auto_fd["project_chat"] == pro_fd["project_chat"]
+    assert auto_fd["search"]["searches_per_month"] == pro_fd["search"]["searches_per_month"]
+
+
+def test_every_tier_users_can_hold_is_published_with_images():
+    """A tier a user can be ON but that we do not publish means every
+    client value keyed off the slug falls back silently. Audit, 2026-07-31:
+    admin exists in tiers.yml and is deliberately unpublished, and no user
+    is on it."""
+    import yaml
+    defined = set(yaml.safe_load(open("config/tiers.yml"))["tiers"])
+    published = set(json.load(open("config/remote/tiers.json"))["tiers"])
+    unpublished = defined - published
+    assert unpublished == {"admin"}, (
+        f"unexpected unpublished tier slugs: {unpublished}. Any tier a user "
+        f"can hold must be published or its clients fall back silently.")
+    for name, t in json.load(open("config/remote/tiers.json"))["tiers"].items():
+        assert (t.get("feature_definitions") or {}).get("images"), name
