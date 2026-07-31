@@ -4,17 +4,47 @@
 
 ```json
 "post_session": {
-  "report_min_seconds": 300
+  "report_min_seconds": 300,
+  "report_on_demand": true
 }
 ```
 
 ## What it means
 
-A finished meeting whose **captured duration in seconds is greater than or
-equal to this value** takes the report path. Below it, the meeting takes the
-lighter post-session analysis path. The two are mutually exclusive by design:
-the report already supplies sentiment, urgency, title and tags, so running
-analysis alongside it would be a redundant paid call.
+`report_min_seconds` governs the **automatic** path only. A finished meeting
+whose captured duration in seconds is greater than or equal to this value
+gets a report without being asked; below it, the meeting gets the lighter
+post-session analysis instead. The two automatic paths are mutually exclusive
+by design: the report already supplies sentiment, urgency, title and tags, so
+running analysis alongside it would be a redundant paid call.
+
+`report_on_demand` is the separate promise that a user can ask for a report
+on **any** meeting, of any length, whenever they want one. Scott's call,
+2026-07-31, after a demo meeting missed the automatic threshold by two
+seconds and the user had no way to get the artifact they expected.
+
+The server has never gated reports on duration and does not now: the route
+requires a tier, quota, and a stored transcript or summary, and that is all.
+Verified live 2026-07-31 by generating a report for `608F2BF4`, the
+298-second meeting the automatic rule had skipped: HTTP 200 in 33.7s, a real
+19.9KB report, not the canned fallback.
+
+So this flag is about what the app OFFERS, not about what the server permits.
+Turning it off hides an affordance; it does not close an endpoint.
+
+### Consequences worth knowing
+
+- A meeting can end up with **both** an analysis and a report, since the
+  analysis already ran automatically before the user asked. That is a second
+  paid call, roughly $0.03 on a Pro account. The report supersedes the
+  analysis for display purposes: everything the analysis gives, the report
+  gives too.
+- On-demand is bounded by transcript retention, not by duration. Stored
+  transcripts purge at 30 days, after which the app must re-send the
+  transcript via `capture-transcript` before asking for the report. The
+  route answers 404 `no_meeting_data` when there is nothing to work from.
+- An exhausted allocation returns the canned report, exactly as it does on
+  the automatic path. On-demand does not bypass the budget gate.
 
 The number is compared against the same duration the client already reports
 to us as `duration_seconds` on the `meeting_stop` telemetry ping. That is
@@ -45,6 +75,7 @@ which is the whole reason config lives here.
 
 ## Open, not decided here
 
-Whether a meeting below the threshold should say so in the UI, and whether
-short meetings should get a report anyway rather than the lighter analysis.
-Both are product decisions; this contract only relocates the number.
+Whether a below-threshold meeting should say anything about why it did not get
+a report automatically. With `report_on_demand` the artifact is never
+unavailable, only unrequested, so the honest surface is an action the user can
+take rather than a notice about what they did not get.
