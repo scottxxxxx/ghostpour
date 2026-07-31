@@ -47,9 +47,13 @@ def test_hint_mode_serves_its_own_prompt():
     sp = hint["system_prompt"]
     assert sp.startswith("You are a warm, supportive interview coach")
     for phrase in (
-        "2 short paragraphs of plain text",
+        # length is a product constraint here, not a style preference: this
+        # call fires mid-mock while the interviewer waits, and the served
+        # prompt is what holds the latency down (TR measured 7.5s at the old
+        # two-paragraph length, 2026-07-31)
+        "at most 90 words",
+        "stuck RIGHT NOW",
         "no markdown, no headings, no preamble",
-        "STAR beats to hit",
         "never invent experience they don't have",
         "If the resume is thin",
     ):
