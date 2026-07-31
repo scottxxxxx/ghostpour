@@ -1351,6 +1351,7 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
     knows rule)."""
     from openpyxl.formatting.rule import CellIsRule
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.worksheet.hyperlink import Hyperlink
 
     data = _with_workdays(data)
     wb, _layout = _build_gantt_wb(data, today=today, detail_cols=True)
@@ -1515,7 +1516,15 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
         # Receipts from an audit table into something you actually navigate.
         _r = _layout["row_of"].get(t.get("id"))
         if _r:
-            _nc.hyperlink = f"#'{_layout['sheet']}'!B{_r}"
+            # LOCATION, not target. Assigning a string to cell.hyperlink makes
+            # openpyxl write an EXTERNAL relationship (TargetMode="External")
+            # pointing at "#'Sheet'!B16", which Excel rejects outright: it
+            # opened the 2026-07-31 workbook with "we found a problem with
+            # some content". LibreOffice accepted it, which is exactly the
+            # trap that made the N() bug survive too.
+            _nc.hyperlink = Hyperlink(
+                ref=_nc.coordinate, location=f"'{_layout['sheet']}'!B{_r}",
+                display=str(t["name"]))
             _nc.font = Font(size=9, color="FF1F4E9C", underline="single")
         rc.cell(ri, 3, _field_label(ev.get("field"))).font = Font(size=9)
         md = str(ev.get("meeting_date") or "").strip()
@@ -1557,8 +1566,16 @@ def _normalize_zip(blob: bytes,
     ignored_errors maps zip member name -> A1 range: injects the
     <ignoredErrors> element (the mark Excel writes on "Ignore Error") so
     the inconsistent-formula checker stays quiet over the day grid.
-    Inserted immediately before </worksheet>, after pageMargins, which is
-    a schema-valid position for sheets without drawings/tables."""
+
+    POSITION MATTERS. CT_Worksheet is a sequence, and ignoredErrors comes
+    BEFORE drawing / legacyDrawing / tableParts, not at the end. Appending
+    it before </worksheet> was fine for as long as those elements never
+    appeared. The conditional-date cell comment shipped 2026-07-31 put a
+    <legacyDrawing> on the Gantt View, the injected element landed after it,
+    and Excel refused the whole sheet: "we found a problem with some
+    content", recovery log naming sheet1.xml. LibreOffice opened it without
+    complaint, which is why recalc-green said nothing. So insert before the
+    first element that must follow it, and fall back to </worksheet>."""
     import zipfile
     src = zipfile.ZipFile(BytesIO(blob))
     out = BytesIO()
@@ -1568,11 +1585,16 @@ def _normalize_zip(blob: bytes,
             data = src.read(name)
             sqref = (ignored_errors or {}).get(name)
             if sqref:
-                data = data.replace(
-                    b"</worksheet>",
-                    b'<ignoredErrors><ignoredError sqref="'
-                    + sqref.encode() + b'" formula="1"/></ignoredErrors>'
-                    b"</worksheet>")
+                blk = (b'<ignoredErrors><ignoredError sqref="'
+                       + sqref.encode() + b'" formula="1"/></ignoredErrors>')
+                # everything that must come AFTER ignoredErrors, in order
+                anchor = min(
+                    (i for i in (data.find(t) for t in
+                                 (b"<drawing", b"<legacyDrawing", b"<oleObjects",
+                                  b"<controls", b"<tableParts", b"<extLst"))
+                     if i != -1),
+                    default=data.find(b"</worksheet>"))
+                data = data[:anchor] + blk + data[anchor:]
             if name == "docProps/core.xml":
                 # openpyxl overwrites dcterms:modified with wall-clock at
                 # save time (setting wb.properties beforehand is futile) —
