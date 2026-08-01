@@ -1342,11 +1342,38 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
     chart.add_data(Reference(sc, min_col=2, max_col=5, min_row=4, max_row=last),
                    titles_from_data=True)
     chart.set_categories(Reference(sc, min_col=1, min_row=5, max_row=last))
-    # Legend on the RIGHT, not the bottom. Bottom put it in the same band as
-    # the category labels and Excel interleaved the two: "Jun 26  Jul 3
-    # Baseline  Jul 10  Planned  Jul 17  Reported" (2026-07-31). The right
-    # rail costs a little plot width and collides with nothing.
+    # Legend placement, chosen from the DATA rather than fixed (Scott
+    # 2026-08-01, after the lines ran through it). An S-curve climbs left to
+    # right, so the free corner depends on how the project is doing:
+    #   bottom-right  the usual case, curves finish high and leave it empty
+    #   top-left      a struggling project keeps the curves low on the right,
+    #                 which fills the bottom-right and empties the top-left
+    #   right rail    neither corner is clear, so do not sit on the plot
+    # Baseline and Planned are computed here the same way the sheet computes
+    # them, so this reads the real shape rather than assuming one.
+    _left_third = weeks[:max(1, len(weeks) // 3)]
+    _right = weeks[-1]
+    _series_at = lambda wk: [v for v in (
+        _planned_share(base_tasks, wk) if base_tasks else None,
+        _planned_share(data.get("tasks") or [], wk),
+        next((v for d, v in reversed(stamps) if d <= wk), None),
+    ) if v is not None]
+    _right_min = min(_series_at(_right), default=0.0)
+    _left_max = max((max(_series_at(wk), default=0.0) for wk in _left_third),
+                    default=1.0)
+    if _right_min >= 0.45:
+        _corner = (0.70, 0.52, 0.28, 0.30)      # inside, bottom right
+    elif _left_max <= 0.55:
+        _corner = (0.14, 0.08, 0.28, 0.30)      # inside, top left
+    else:
+        _corner = None                          # nowhere safe: outside right
     chart.legend.position = "r"
+    if _corner:
+        from openpyxl.chart.layout import Layout, ManualLayout
+        _x, _y, _w, _h = _corner
+        chart.legend.overlay = True
+        chart.legend.layout = Layout(manualLayout=ManualLayout(
+            xMode="edge", yMode="edge", x=_x, y=_y, w=_w, h=_h))
     # Chart text does not inherit the cell font, and the 10pt default was
     # small against a 20-wide plot.
     _axis_text = RichText(p=[Paragraph(pPr=ParagraphProperties(
