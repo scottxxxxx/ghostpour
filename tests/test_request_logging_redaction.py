@@ -3,6 +3,10 @@
 Secrets must be redacted in full (no prefix kept — a 20-char prefix of a
 password can be the whole value), and key matching is substring-based so new
 sensitive wire fields are redacted by default.
+
+User-authored content (résumés, job descriptions, transcripts) is redacted
+on the same terms as of 2026-08-01: GP persists none of it, and the debug
+ring buffer was the one place it survived a request.
 """
 
 from app.middleware.request_logging import _format_body_parsed, _redact_sensitive
@@ -48,9 +52,41 @@ def test_non_string_values_untouched():
 
 
 def test_non_sensitive_strings_untouched():
-    body = {"model": "claude-haiku-4-5", "transcript": "hello world", "user_id": "u_123"}
+    body = {"model": "claude-haiku-4-5", "provider": "anthropic", "user_id": "u_123"}
     _redact_sensitive(body)
-    assert body == {"model": "claude-haiku-4-5", "transcript": "hello world", "user_id": "u_123"}
+    assert body == {"model": "claude-haiku-4-5", "provider": "anthropic", "user_id": "u_123"}
+
+
+def test_user_authored_content_redacted():
+    """Résumés, JDs and transcripts are never persisted by GP; they must
+    not survive in the debug ring buffer either (TR privacy review,
+    2026-08-01)."""
+    body = {
+        "user_content": "SCOTT GUIDA — Staff Engineer — scott@example.com",
+        "system_prompt": "You are rehearsing an interview for...",
+        "reference_text": "Job description: we are hiring a...",
+        "transcript": "hello world",
+        "raw_transcript": "uh, hello, world",
+        "raw_request_json": '{"messages":[{"content":"my resume"}]}',
+        "raw_response_json": '{"content":"feedback on my resume"}',
+    }
+    _redact_sensitive(body)
+    for key in body:
+        assert body[key] == "<redacted>", f"{key} not redacted: {body[key]}"
+
+
+def test_attachment_payloads_replaced_with_count():
+    """Base64 document/image bytes (a résumé PDF arrives this way) are
+    swapped for a count — enough to debug, nothing to leak."""
+    body = {
+        "images": ["iVBORw0KGgoAAAANS", "iVBORw0KGgoAAAANT"],
+        "documents": [{"name": "resume.pdf", "media_type": "application/pdf",
+                       "data": "JVBERi0xLjcKJc..."}],
+    }
+    _redact_sensitive(body)
+    assert body["images"] == "<redacted: 2 item(s)>"
+    assert body["documents"] == "<redacted: 1 item(s)>"
+    assert "JVBERi0xLjcK" not in str(body)
 
 
 def test_nested_dicts_and_lists_redacted():

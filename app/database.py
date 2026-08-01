@@ -633,6 +633,42 @@ MIGRATIONS = [
         attempts INTEGER NOT NULL DEFAULT 0
     )""",
     "ALTER TABLE users ADD COLUMN welcome_email_sent_at TEXT",
+    # v36: per-app account deletion (2026-08-01, TR App Review 5.1.1(v)).
+    #
+    # `users` is keyed on apple_sub, and Apple issues that subject per
+    # developer TEAM rather than per app — so the same Apple ID signing
+    # into Shoulder Surf and Tech Rehearsal is ONE row, and an unscoped
+    # delete from either app took the other app's data with it. This
+    # ledger is the membership fact the purge scopes against: which apps
+    # has this account actually signed into. Upserted on every token
+    # issue (app/routers/auth.py).
+    """CREATE TABLE IF NOT EXISTS user_apps (
+        user_id TEXT NOT NULL REFERENCES users(id),
+        app_id TEXT NOT NULL,
+        first_seen_at TEXT NOT NULL,
+        last_seen_at TEXT NOT NULL,
+        PRIMARY KEY (user_id, app_id)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_user_apps_app ON user_apps(app_id)",
+    # Sessions and search metering were the two user-keyed tables with no
+    # app attribution, so a scoped delete could neither revoke only the
+    # deleting app's sessions nor drop only its metering rows.
+    "ALTER TABLE refresh_tokens ADD COLUMN app_id TEXT",
+    "ALTER TABLE search_usage ADD COLUMN app_id TEXT",
+    # Backfill membership for accounts that predate the ledger, from the
+    # two tables that already carried app_id. INSERT OR IGNORE keeps this
+    # idempotent across boots and never resurrects an app the user has
+    # since deleted (that purge takes these rows with it).
+    """INSERT OR IGNORE INTO user_apps (user_id, app_id, first_seen_at, last_seen_at)
+       SELECT user_id, app_id, MIN(request_timestamp), MAX(request_timestamp)
+       FROM usage_log
+       WHERE user_id IS NOT NULL AND app_id IS NOT NULL AND app_id != 'unknown'
+       GROUP BY user_id, app_id""",
+    """INSERT OR IGNORE INTO user_apps (user_id, app_id, first_seen_at, last_seen_at)
+       SELECT user_id, app_id, MIN(received_at), MAX(received_at)
+       FROM telemetry_events
+       WHERE user_id IS NOT NULL AND app_id IS NOT NULL AND app_id != 'unknown'
+       GROUP BY user_id, app_id""",
 ]
 
 
