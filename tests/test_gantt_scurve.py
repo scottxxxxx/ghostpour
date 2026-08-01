@@ -240,3 +240,55 @@ def test_the_chart_is_readable_not_just_correct():
     assert hexes == ["B5651D", "1F4E9C", "2E9E4F"]
     assert ch.series[0].graphicalProperties.line.dashStyle == "dash"
     assert all(s.smooth is False for s in ch.series[:3]), "no invented curve"
+
+
+def _legend_of(plan, history=None):
+    import io
+    import openpyxl
+    from app.services.doc_templates import render_gantt_detailed
+    wb = openpyxl.load_workbook(io.BytesIO(render_gantt_detailed(
+        plan, today=D("2026-07-27"), history=history)))
+    return wb["S-Curve"]._charts[0].legend
+
+
+def test_legend_takes_the_bottom_right_when_the_project_finishes_high():
+    """Scott 2026-08-01: the lines ran through the legend. An S-curve climbs
+    left to right, so the empty corner depends on the shape."""
+    lg = _legend_of(_PLAN, _HISTORY)
+    assert lg.overlay is True
+    assert lg.layout.manualLayout.x == 0.70
+    assert lg.layout.manualLayout.y == 0.52
+
+
+def test_a_struggling_project_moves_the_legend_to_the_top_left():
+    """Curves that stay low on the right fill the bottom-right corner and
+    leave the top-left empty. Same reason, opposite answer."""
+    stalled = {**_PLAN, "tasks": [
+        {**t, "percent_complete": 0,
+         "status": "not_started" if t.get("type") != "phase" else t.get("status")}
+        for t in _PLAN["tasks"]]}
+    lg = _legend_of(stalled)
+    assert lg.overlay is True
+    assert lg.layout.manualLayout.x == 0.14, "top left"
+    assert lg.layout.manualLayout.y == 0.08
+
+
+def test_the_legend_stays_off_the_plot_when_no_corner_is_clear():
+    """Neither corner free is a real case, and sitting on the plot anyway
+    would be worse than spending the width."""
+    # front-loaded schedule with no progress: Planned is already 71% in the
+    # first third (fills the top left) while Reported flatlines at 0 (fills
+    # the bottom right). Rare, and exactly the case worth not guessing at.
+    awkward = {"project": "Stuck", "meeting_date": "2026-07-14", "tasks": [
+        {"id": 1, "name": "P", "type": "phase", "parent_id": None,
+         "status": "in_progress", "start": "2026-07-06", "end": "2026-07-14",
+         "depends_on": []},
+        {"id": 2, "name": "Bulk", "type": "task", "parent_id": 1,
+         "status": "not_started", "start": "2026-07-06", "end": "2026-07-10",
+         "depends_on": [], "percent_complete": 0},
+        {"id": 3, "name": "Tail", "type": "task", "parent_id": 1,
+         "status": "not_started", "start": "2026-07-13", "end": "2026-07-14",
+         "depends_on": [2], "percent_complete": 0}]}
+    lg = _legend_of(awkward)
+    assert lg.position == "r"
+    assert lg.layout is None, "outside the plot, not overlaid on it"
