@@ -230,7 +230,10 @@ def test_the_chart_is_readable_not_just_correct():
     assert ch.title is None, "the sheet header already names it"
     assert ch.x_axis.title is None and ch.y_axis.title is None
     assert ch.y_axis.scaling.max == 1, "progress cannot exceed 100%"
-    assert ch.legend.position == "b"
+    # right rail, not bottom: bottom interleaved the legend entries
+    # with the date labels in Excel (2026-07-31)
+    assert ch.legend.position == "r"
+    assert ch.x_axis.txPr is not None, "axis text needs its own size"
     # three identities, three validated hues, baseline dashed
     hexes = [s.graphicalProperties.line.solidFill.srgbClr
              for s in ch.series[:3]]

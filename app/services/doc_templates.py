@@ -1191,7 +1191,15 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
     Python-computed history and the live NETWORKDAYS formulas agree.
     """
     from openpyxl.chart import LineChart, Reference
+    import copy
+
     from openpyxl.chart.marker import Marker
+    from openpyxl.chart.text import RichText
+    from openpyxl.drawing.text import (
+        CharacterProperties,
+        Paragraph,
+        ParagraphProperties,
+    )
     from openpyxl.styles import Alignment, Font
 
     tasks = [t for t in (data.get("tasks") or [])
@@ -1334,7 +1342,17 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
     chart.add_data(Reference(sc, min_col=2, max_col=5, min_row=4, max_row=last),
                    titles_from_data=True)
     chart.set_categories(Reference(sc, min_col=1, min_row=5, max_row=last))
-    chart.legend.position = "b"
+    # Legend on the RIGHT, not the bottom. Bottom put it in the same band as
+    # the category labels and Excel interleaved the two: "Jun 26  Jul 3
+    # Baseline  Jul 10  Planned  Jul 17  Reported" (2026-07-31). The right
+    # rail costs a little plot width and collides with nothing.
+    chart.legend.position = "r"
+    # Chart text does not inherit the cell font, and the 10pt default was
+    # small against a 20-wide plot.
+    _axis_text = RichText(p=[Paragraph(pPr=ParagraphProperties(
+        defRPr=CharacterProperties(sz=1000)), endParaRPr=CharacterProperties(sz=1000))])
+    chart.x_axis.txPr = _axis_text
+    chart.y_axis.txPr = copy.deepcopy(_axis_text)
     # Three identities, three hues, assigned in fixed order and validated for
     # colourblind separation rather than eyeballed. Baseline is the promise
     # and is dashed because it never moves; Planned follows the sheet;
