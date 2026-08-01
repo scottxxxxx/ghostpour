@@ -22,17 +22,36 @@ async def _build_auth_response(
     user_id: str,
     tier: str,
     email: str | None,
+    app_id: str | None = None,
 ) -> AuthResponse:
-    """Create access + refresh tokens and return AuthResponse."""
+    """Create access + refresh tokens and return AuthResponse.
+
+    `app_id` (the caller's X-App-ID) is stamped on the session row and
+    recorded in `user_apps`. Both feed per-app account deletion: accounts
+    are shared across apps because Apple's subject identifier is issued
+    per developer team, so the purge needs to know which app a session
+    and an account membership belong to. A missing/unknown header leaves
+    the session unattributed, which the purge treats as deletable by any
+    app rather than surviving a delete.
+    """
     access_token = jwt_service.create_access_token(user_id)
     raw_refresh, refresh_hash, refresh_expires = jwt_service.create_refresh_token()
 
     now = datetime.now(timezone.utc).isoformat()
+    scoped_app = app_id if app_id and app_id != "unknown" else None
     await db.execute(
-        """INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, created_at)
-           VALUES (?, ?, ?, ?, ?)""",
-        (str(uuid.uuid4()), user_id, refresh_hash, refresh_expires.isoformat(), now),
+        """INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, created_at, app_id)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (str(uuid.uuid4()), user_id, refresh_hash, refresh_expires.isoformat(),
+         now, scoped_app),
     )
+    if scoped_app:
+        await db.execute(
+            """INSERT INTO user_apps (user_id, app_id, first_seen_at, last_seen_at)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(user_id, app_id) DO UPDATE SET last_seen_at = excluded.last_seen_at""",
+            (user_id, scoped_app, now, now),
+        )
     await db.commit()
 
     return AuthResponse(
@@ -102,7 +121,10 @@ async def apple_auth(
         )
         await db.commit()
 
-    return await _build_auth_response(db, jwt_service, user_id, tier, email)
+    return await _build_auth_response(
+        db, jwt_service, user_id, tier, email,
+        app_id=getattr(request.state, "app_id", None),
+    )
 
 
 @router.post("/refresh", response_model=AuthResponse)
@@ -139,6 +161,14 @@ async def refresh_token(
     )
     await db.commit()
 
+    # Prefer the live header, but inherit the rotated-out session's app_id
+    # when the client sends no usable one, so a long-lived session keeps
+    # its app attribution instead of decaying to unattributed on refresh.
+    header_app = getattr(request.state, "app_id", None)
+    if not header_app or header_app == "unknown":
+        header_app = row["app_id"]
+
     return await _build_auth_response(
-        db, jwt_service, row["user_id"], row["tier"], row["email"]
+        db, jwt_service, row["user_id"], row["tier"], row["email"],
+        app_id=header_app,
     )

@@ -2698,8 +2698,8 @@ async def chat(
                 await db.execute(
                     """INSERT INTO search_usage
                        (id, user_id, request_timestamp, meeting_id, provider,
-                        model, searches_count, search_cost_usd)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                        model, searches_count, search_cost_usd, app_id)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
                         str(_uuid.uuid4()),
                         user.id,
@@ -2709,6 +2709,7 @@ async def chat(
                         body.model,
                         searches_performed,
                         searches_performed * 0.01,
+                        app_id if app_id != "unknown" else None,
                     ),
                 )
                 await db.commit()
@@ -3140,8 +3141,8 @@ async def _handle_stream(
                     await stream_db.execute(
                         """INSERT INTO search_usage
                            (id, user_id, request_timestamp, meeting_id, provider,
-                            model, searches_count, search_cost_usd)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                            model, searches_count, search_cost_usd, app_id)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                         (
                             str(_uuid.uuid4()),
                             user.id,
@@ -3151,6 +3152,7 @@ async def _handle_stream(
                             body.model,
                             searches_performed,
                             searches_performed * 0.01,
+                            app_id if app_id != "unknown" else None,
                         ),
                     )
                     await stream_db.commit()

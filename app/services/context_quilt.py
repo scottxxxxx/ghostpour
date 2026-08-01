@@ -322,6 +322,7 @@ async def notify_tier_change(
     event_type: str,
     occurred_at: str | None = None,
     offer_id: str | None = None,
+    app_id: str | None = None,
 ):
     """Notify Context Quilt of a subscription tier transition.
 
@@ -333,6 +334,12 @@ async def notify_tier_change(
     (new_tier "deleted"; CQ's cue to purge everything it holds for the
     user — wired 2026-07-25 for App Review 5.1.1(v)). Idempotent on
     (user_id, occurred_at) on the CQ side.
+
+    `app_id` selects the CQ identity the signal rides under (apps with
+    their own CQ app each hold a separate quilt). Account deletion is
+    scoped per app, so the purge cue must reach only the deleting app's
+    quilt; None keeps the default identity, which is what every
+    subscription-driven caller wants since tier is account-wide.
     """
     # Purchase ops alert (2026-07-27): every tier transition already
     # funnels through here from all seven call sites, so this is the one
@@ -365,7 +372,7 @@ async def notify_tier_change(
 
     try:
         client = _get_client()
-        auth_headers = await _get_auth_headers()
+        auth_headers = await _get_auth_headers(app_id)
         resp = await client.post(
             f"/v1/users/{user_id}/tier-change",
             json=body,
