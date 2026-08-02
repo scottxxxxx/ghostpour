@@ -36,6 +36,9 @@ logger = logging.getLogger(__name__)
 # Deleted WHERE user_id = ? AND app_id = ? on a scoped delete.
 APP_SCOPED_TABLES = [
     "ad_attribution",
+    # Diagnostic only (poisoned-config-cache detection), but it is keyed to
+    # a person and carries their build, so it goes with the rest.
+    "config_stalls",
     "generated_files",
     "generations",
     "plan_snapshots",

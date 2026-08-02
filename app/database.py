@@ -669,6 +669,37 @@ MIGRATIONS = [
        FROM telemetry_events
        WHERE user_id IS NOT NULL AND app_id IS NOT NULL AND app_id != 'unknown'
        GROUP BY user_id, app_id""",
+    # v37: poisoned-config-cache detection (2026-08-02, SS RemoteConfigManager
+    # loadConfig:147/162).
+    #
+    # When a served config fails to decode, iOS deletes the cached copy and
+    # falls back to the bundled one. The next sync then negotiates from the
+    # bundled version, we hand back the full payload, and it fails to decode
+    # again. That is not a one-time revert, it is a loop that repeats on every
+    # launch for as long as the build is installed, and the only trace on the
+    # device is a local log line that never reaches telemetry.
+    #
+    # It is visible from here for free, though: a healthy client advances its
+    # X-Config-Version and starts getting "not changed", while a looping one
+    # presents the SAME version forever and takes a full payload every time.
+    # One row per (user, app, config, stuck version); `occurrences` and the
+    # first/last timestamps are what separate a real loop from the single
+    # full-payload fetch every healthy client makes after we publish.
+    """CREATE TABLE IF NOT EXISTS config_stalls (
+        user_id TEXT NOT NULL,
+        app_id TEXT NOT NULL,
+        config_name TEXT NOT NULL,
+        client_version INTEGER NOT NULL,
+        server_version INTEGER NOT NULL,
+        app_build TEXT,
+        app_version TEXT,
+        occurrences INTEGER NOT NULL DEFAULT 1,
+        first_seen_at TEXT NOT NULL,
+        last_seen_at TEXT NOT NULL,
+        alerted_at TEXT,
+        PRIMARY KEY (user_id, app_id, config_name, client_version)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_config_stalls_last_seen ON config_stalls(last_seen_at)",
 ]
 
 

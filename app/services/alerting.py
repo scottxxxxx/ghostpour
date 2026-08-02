@@ -115,6 +115,23 @@ KNOWN_CATEGORIES: dict[str, dict] = {
             "key path silently rots."
         ),
     },
+    "config_decode_loop": {
+        "tone": "attention",
+        "label": "A client is stuck on its bundled config",
+        "description": (
+            "An app build has taken the full config payload over and "
+            "over without ever advancing its version. That is the "
+            "signature of a decode failure: iOS deletes the poisoned "
+            "cache, falls back to the config compiled into the app, "
+            "and repeats the whole cycle on the next launch. It does "
+            "not self-heal and nothing about it reaches telemetry, so "
+            "this alert is the only warning. Compare what changed in "
+            "that config against what the reported build requires: "
+            "removing or renaming a required field, changing a type, "
+            "or restructuring a container are what break it. Adding "
+            "fields does not."
+        ),
+    },
     "subscription_purchase": {
         "tone": "good_news",
         "label": "New paid subscription",

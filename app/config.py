@@ -244,6 +244,10 @@ class Settings(BaseSettings):
     # cadence so inactive users get reset at the period boundary too.
     # See app/services/allocation_reset_sweep.py.
     allocation_reset_sweep_interval_seconds: int = 3600  # 1 hour
+    # Poisoned-config-cache alerting. Hourly is plenty: the condition
+    # persists until the app is updated, so there is nothing to miss by
+    # checking slowly, and the thresholds already require hours of history.
+    config_stall_sweep_interval_seconds: int = 3600  # 1 hour
 
     # Per-app version registry served by GET /v1/app/version. Keyed by
     # bundle id. Missing file is non-fatal (endpoint just 404s on every

@@ -13,9 +13,12 @@ import logging
 import shutil
 from pathlib import Path
 
+import aiosqlite
 import yaml
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
+
+from app.database import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -409,7 +412,11 @@ def _parse_accept_language(header: str | None) -> str | None:
 
 
 @router.get("/v1/config/{name}")
-async def get_config(name: str, request: Request):
+async def get_config(
+    name: str,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+):
     """Return a remote config JSON, or a slim 'not changed' response.
 
     Per-app resolution (Phase B / #249): the X-App-ID header (via
@@ -466,9 +473,16 @@ async def get_config(name: str, request: Request):
 
     # Check if client already has this version
     client_version = request.headers.get("X-Config-Version")
+    parsed_client_version: int | None = None
     if client_version is not None:
         try:
-            if int(client_version) >= server_version:
+            parsed_client_version = int(client_version)
+            if parsed_client_version >= server_version:
+                # Holding current: it decoded and cached fine, so any
+                # recorded stall for this config is resolved.
+                await _note_config_health(
+                    request, resolved_name, parsed_client_version,
+                    server_version, stalled=False, db=db)
                 return JSONResponse(
                     content={"changed": False, "version": server_version},
                     headers={
@@ -480,6 +494,13 @@ async def get_config(name: str, request: Request):
         except (ValueError, TypeError):
             pass  # Invalid header value — just return the full payload
 
+    # Serving the body. Repeatedly serving it to a client whose version
+    # never advances is how the poisoned-cache loop looks from here; see
+    # app/services/config_stall.py.
+    await _note_config_health(
+        request, resolved_name, parsed_client_version, server_version,
+        stalled=True, db=db)
+
     return JSONResponse(
         content=data,
         headers={
@@ -489,3 +510,53 @@ async def get_config(name: str, request: Request):
             "Cache-Control": "public, max-age=300",
         },
     )
+
+
+async def _note_config_health(
+    request: Request, config_name: str, client_version: int | None,
+    server_version: int, *, stalled: bool,
+    db: "aiosqlite.Connection | None" = None,
+) -> None:
+    """Book-keep one config fetch for poisoned-cache detection.
+
+    Best-effort and never raises: config delivery must not fail because
+    the bookkeeping did. Unauthenticated fetches are skipped, since the
+    signature needs a stable identity across launches.
+    """
+    if client_version is None or db is None:
+        return
+    try:
+        from app.services import config_stall
+
+        user_id = await _user_id_from_request(request)
+        if not user_id:
+            return
+        app_id = getattr(request.state, "app_id", None) or "unknown"
+        if stalled:
+            await config_stall.record_full_payload(
+                db, user_id=user_id, app_id=app_id,
+                config_name=config_name, client_version=client_version,
+                server_version=server_version,
+                app_build=request.headers.get("X-App-Build"),
+                app_version=request.headers.get("X-App-Version"),
+            )
+        else:
+            await config_stall.clear(
+                db, user_id=user_id, app_id=app_id,
+                config_name=config_name, client_version=client_version,
+            )
+    except Exception:
+        logger.debug("config health bookkeeping skipped", exc_info=True)
+
+
+async def _user_id_from_request(request: Request) -> str | None:
+    """Best-effort user id from the bearer token, without 401ing."""
+    auth = request.headers.get("Authorization") or ""
+    if not auth.lower().startswith("bearer "):
+        return None
+    try:
+        payload = request.app.state.jwt_service.verify_access_token(
+            auth.split(None, 1)[1])
+        return payload.get("sub") if payload.get("type") == "access" else None
+    except Exception:
+        return None

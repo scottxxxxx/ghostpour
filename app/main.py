@@ -217,6 +217,19 @@ async def lifespan(app: FastAPI):
             "allocation_reset_sweep daemon failed to start: %s", e,
         )
 
+    # Poisoned-config-cache alerting — a client whose cached config fails to
+    # decode deletes it, falls back to the copy bundled in the app, refetches,
+    # and fails again on every launch forever. Nothing about that reaches
+    # telemetry, so a server-side read of "took the full payload repeatedly
+    # without ever advancing its version" is our only warning. Fail-soft.
+    try:
+        from app.services.config_stall import run_daemon as _cs_daemon
+        app.state.config_stall_daemon = asyncio.create_task(_cs_daemon(app))
+    except Exception as e:
+        logging.getLogger("app.main").warning(
+            "config_stall daemon failed to start: %s", e,
+        )
+
     # Subscription reconciliation sweep — pulls Apple's authoritative state and
     # fixes drift from dropped Server Notifications. Dormant unless enabled +
     # App Store Server API configured (the daemon returns immediately if not).
