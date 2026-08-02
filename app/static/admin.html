@@ -1057,12 +1057,21 @@ async function loadSubscriptions() {
 function _renderSubscriptions(rep, events) {
   const s = rep.summary || {};
   const tierStr = Object.entries(s.active_by_tier || {}).map(([t, n]) => `${n} ${t}`).join(', ') || '—';
+  // Money figures are Production only. TestFlight testers cycle their own
+  // renewals and would otherwise be counted as revenue, so Sandbox and
+  // unclassified accounts are shown beside the number, never inside it.
+  const env = s.paid_by_env || {};
+  const excluded = [
+    env.sandbox ? `${env.sandbox} TestFlight` : null,
+    env.unknown ? `${env.unknown} unclassified` : null,
+  ].filter(Boolean).join(' + ');
   document.getElementById('sub-kpis').innerHTML = [
-    {label: 'Paid now', value: (s.paid_now || 0).toLocaleString(), hint: tierStr},
+    {label: 'Paid now (production)', value: (s.paid_now || 0).toLocaleString(), hint: tierStr},
     {label: 'Ever subscribed', value: (s.ever_subscribed || 0).toLocaleString(), hint: 'feeds offer-code eligibility'},
-    {label: 'Current MRR (gross)', value: '$' + (s.current_mrr_gross_usd || 0).toLocaleString()},
+    {label: 'Current MRR (gross)', value: '$' + (s.current_mrr_gross_usd || 0).toLocaleString(), hint: 'production only'},
     {label: 'Current MRR (net)', value: '$' + (s.current_mrr_net_usd || 0).toLocaleString(), hint: "after Apple's 15%"},
-    {label: 'Total users', value: (s.total_users || 0).toLocaleString()},
+    {label: 'Not counted', value: ((env.sandbox || 0) + (env.unknown || 0)).toLocaleString(),
+     hint: excluded ? excluded + ' — excluded from MRR' : 'none'},
     {label: 'Events logged', value: (s.total_events || 0).toLocaleString()},
   ].map(c => `
     <div class="card">
@@ -1085,19 +1094,23 @@ function _renderSubscriptions(rep, events) {
       {name: 'MRR (list)', type: 'area', data: mrr.map(x => x.mrr_gross_usd)},
       {name: 'Net (after Apple)', type: 'line', data: mrr.map(x => x.mrr_net_usd)},
       {name: 'Paid subscribers', type: 'line', data: mrr.map(x => x.active_paid)},
+      {name: 'TestFlight (not revenue)', type: 'line', data: mrr.map(x => x.active_paid_sandbox)},
     ],
     chart: {type: 'line', height: 280},
-    stroke: {width: [2, 2, 2], curve: 'stepline', dashArray: [0, 5, 0]},
-    fill: {type: ['gradient', 'solid', 'solid'], gradient: {opacityFrom: 0.3, opacityTo: 0.02}},
+    stroke: {width: [2, 2, 2, 1], curve: 'stepline', dashArray: [0, 5, 0, 3]},
+    fill: {type: ['gradient', 'solid', 'solid', 'solid'], gradient: {opacityFrom: 0.3, opacityTo: 0.02}},
     dataLabels: {enabled: false},
     xaxis: {categories: mrr.map(x => x.day.slice(5)), tickAmount: 8, labels: {style: {colors: _telForeground}}},
     yaxis: [
       {seriesName: 'MRR (list)', labels: {formatter: v => '$' + v.toFixed(0), style: {colors: _telForeground}}},
       {seriesName: 'MRR (list)', show: false},
       {opposite: true, seriesName: 'Paid subscribers', labels: {formatter: v => Math.round(v), style: {colors: _telForeground}}, title: {text: 'subscribers', style: {color: _telForeground}}},
+      // Shares the subscriber axis so the TestFlight line is read against
+      // the same scale it is being excluded from.
+      {opposite: true, seriesName: 'Paid subscribers', show: false},
     ],
     legend: {position: 'top'},
-    colors: ['#3fb950', '#58a6ff', '#8b949e'],
+    colors: ['#3fb950', '#58a6ff', '#8b949e', '#d29922'],
     noData: {text: 'No subscription events yet.'},
   });
 

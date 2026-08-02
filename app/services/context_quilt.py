@@ -323,6 +323,7 @@ async def notify_tier_change(
     occurred_at: str | None = None,
     offer_id: str | None = None,
     app_id: str | None = None,
+    environment: str | None = None,
 ):
     """Notify Context Quilt of a subscription tier transition.
 
@@ -351,7 +352,7 @@ async def notify_tier_change(
     # wire shape below.
     from app.services.subscription_alerts import notify_purchase
     await notify_purchase(user_id, old_tier, new_tier, event_type,
-                          offer_id=offer_id)
+                          offer_id=offer_id, environment=environment)
 
     # Subscriber welcome letter: queued ~1h out on the first paid event,
     # never for offer-code gifts. Best-effort like everything else here.

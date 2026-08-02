@@ -275,6 +275,36 @@ class VerifyReceiptRequest(BaseModel):
     # per-pool redemption attribution (Apple never exposes the redeemed code string)
 
 
+async def _resolve_storekit_environment(
+    db: aiosqlite.Connection, user_id: str, body: "VerifyReceiptRequest"
+) -> str | None:
+    """"Production" | "Sandbox" | None for a verify-receipt purchase.
+
+    Until 2026-08-02 this path recorded no environment at all, so every
+    TestFlight purchase it wrote was indistinguishable from a real one and
+    landed in MRR. The signed transaction carries the answer and the client
+    already sends it; verification failures fall through rather than
+    rejecting the purchase, because entitlement must not hinge on
+    reporting metadata.
+    """
+    if body.signed_transaction:
+        try:
+            from app.services.apple_notifications import decode_and_verify_jws
+            payload = decode_and_verify_jws(
+                body.signed_transaction, get_settings().apple_bundle_id)
+            env = payload.get("environment")
+            if env in ("Production", "Sandbox"):
+                return env
+        except Exception as e:
+            logger.warning("verify-receipt: could not read environment "
+                           "from signed_transaction: %s", e)
+    row = await (await db.execute(
+        "SELECT environment FROM subscription_events "
+        "WHERE user_id = ? AND environment IS NOT NULL "
+        "ORDER BY recorded_at DESC LIMIT 1", (user_id,))).fetchone()
+    return row["environment"] if row else None
+
+
 # Map StoreKit product IDs to tier names
 PRODUCT_TO_TIER: dict[str, str] = {}  # Populated from tier config at startup
 
@@ -330,6 +360,15 @@ async def verify_receipt(
 
     new_tier = tier_config.tiers[new_tier_name]
     old_tier_name = user.tier
+
+    # StoreKit environment, so this purchase can be told apart from a
+    # TestFlight one downstream (revenue reporting, purchase alerts).
+    # Read off the signed transaction the client already sends — no new
+    # wire field, so no two-sided deploy. Falls back to the last
+    # environment Apple told us about for this account (the ASSN path
+    # always carries it), then to unknown, which reporting counts
+    # separately rather than guessing.
+    _environment = await _resolve_storekit_environment(db, user.id, body)
 
     # Detect free trial: prefer explicit flag from client, fall back to inference
     if body.is_trial is not None:
@@ -434,6 +473,7 @@ async def verify_receipt(
                 new_tier=new_tier_name,
                 event_type="trial_start",
                 offer_id=body.offer_id,
+                environment=_environment,
             ))
             # History log: a trial start is a subscription in Apple's eyes (an
             # introductory offer), so it marks the user as no longer a "new
@@ -447,6 +487,7 @@ async def verify_receipt(
                     product_id=body.product_id, transaction_id=body.transaction_id,
                     original_transaction_id=body.transaction_id,
                     source="verify_receipt", price_usd=0.0,
+                    environment=_environment,
                     offer_id=body.offer_id,
                 )
             except Exception as e:
@@ -535,6 +576,7 @@ async def verify_receipt(
             new_tier=new_tier_name,
             event_type=event_type,
             offer_id=body.offer_id,
+            environment=_environment,
         ))
         # History log: record the paid state change (new sub, trial conversion,
         # upgrade, or downgrade). Re-verifications (no state change) are skipped
@@ -555,6 +597,7 @@ async def verify_receipt(
                 product_id=body.product_id, transaction_id=body.transaction_id,
                 original_transaction_id=body.transaction_id,
                 source="verify_receipt",
+                environment=_environment,
                 offer_id=body.offer_id,
             )
         except Exception as e:
