@@ -31,15 +31,18 @@ def _seed_user(db_path: str, user_id: str, tier: str = "free", email: str | None
 
 
 def _seed_event(db_path, user_id, event_type, to_tier, effective_at, from_tier=None,
-                otid=None):
+                otid=None, environment="Production"):
+    """Defaults to Production because these tests are about revenue replay;
+    reporting counts Production only, so a Sandbox or environment-less event
+    is deliberately invisible to the money figures."""
     conn = sqlite3.connect(db_path)
     conn.execute(
         """INSERT INTO subscription_events
            (id, user_id, event_type, from_tier, to_tier, original_transaction_id,
-            source, effective_at, recorded_at)
-           VALUES (?,?,?,?,?,?, 'assn', ?, ?)""",
+            source, environment, effective_at, recorded_at)
+           VALUES (?,?,?,?,?,?, 'assn', ?, ?, ?)""",
         (str(uuid.uuid4()), user_id, event_type, from_tier, to_tier, otid,
-         effective_at, effective_at),
+         environment, effective_at, effective_at),
     )
     conn.commit()
     conn.close()

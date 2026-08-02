@@ -75,3 +75,72 @@ async def test_fires_through_tier_change_chokepoint_without_cq(client, app_env,
     monkeypatch.setattr(get_settings(), "cq_base_url", "")
     await notify_tier_change("buyer-2", "free", "pro", "upgrade")
     assert len(_incidents(_db(app_env))) == 1
+
+
+# --- Production gate (2026-08-02) ------------------------------------
+#
+# TestFlight testers cycle their own sandbox renewals, so "new Pro
+# subscriber" mail was arriving for purchases that were never real. Two
+# such alerts in one morning is what surfaced it.
+
+
+def _seed_env_event(db_path: str, user_id: str, environment: str) -> None:
+    import uuid
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        """INSERT INTO subscription_events
+           (id, user_id, event_type, to_tier, source, environment,
+            effective_at, recorded_at)
+           VALUES (?,?,?,?,'assn',?, '2026-08-02T00:00:00+00:00',
+                   '2026-08-02T00:00:00+00:00')""",
+        (uuid.uuid4().hex, user_id, "subscribed", "pro", environment))
+    conn.commit()
+    conn.close()
+
+
+@pytest.mark.anyio
+async def test_sandbox_purchase_does_not_email(client, app_env):
+    from app.services.subscription_alerts import notify_purchase
+    _insert_user(_db(app_env), "tf-buyer")
+    await notify_purchase("tf-buyer", "free", "pro", "upgrade",
+                          environment="Sandbox")
+    assert _incidents(_db(app_env)) == []
+
+
+@pytest.mark.anyio
+async def test_production_purchase_still_emails(client, app_env):
+    from app.services.subscription_alerts import notify_purchase
+    _insert_user(_db(app_env), "real-buyer")
+    await notify_purchase("real-buyer", "free", "pro", "upgrade",
+                          environment="Production")
+    rows = _incidents(_db(app_env))
+    assert len(rows) == 1
+    assert '"environment": "Production"' in rows[0][1]
+
+
+@pytest.mark.anyio
+async def test_environment_inferred_from_account_history(client, app_env):
+    """Callers that do not pass environment still get the gate: the
+    account's own Sandbox history is the tell."""
+    from app.services.subscription_alerts import notify_purchase
+    _insert_user(_db(app_env), "hist-tf")
+    _seed_env_event(_db(app_env), "hist-tf", "Sandbox")
+    await notify_purchase("hist-tf", "free", "pro", "upgrade")
+    assert _incidents(_db(app_env)) == []
+
+    _insert_user(_db(app_env), "hist-prod")
+    _seed_env_event(_db(app_env), "hist-prod", "Production")
+    await notify_purchase("hist-prod", "free", "pro", "upgrade")
+    assert len(_incidents(_db(app_env))) == 1
+
+
+@pytest.mark.anyio
+async def test_unknown_environment_still_emails_tagged(client, app_env):
+    """A missed real sale costs more than a spurious alert, so an
+    unclassifiable purchase emails and says so."""
+    from app.services.subscription_alerts import notify_purchase
+    _insert_user(_db(app_env), "mystery-buyer")
+    await notify_purchase("mystery-buyer", "free", "pro", "upgrade")
+    rows = _incidents(_db(app_env))
+    assert len(rows) == 1
+    assert '"environment": "unknown"' in rows[0][1]

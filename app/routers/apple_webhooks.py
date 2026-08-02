@@ -391,7 +391,7 @@ async def apple_notifications(
         )
         asyncio.create_task(cq.notify_tier_change(
             user_id=user_id, old_tier=old_tier, new_tier=new_tier, event_type="upgrade",
-            offer_id=_offer_id,
+            offer_id=_offer_id, environment=_environment,
         ))
         return {"status": "received", "action": "upgraded", "old_tier": old_tier, "new_tier": new_tier}
 
