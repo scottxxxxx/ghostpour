@@ -121,14 +121,13 @@ async def delete_user_data(
         if app_id is None:
             cur = await db.execute(
                 f"DELETE FROM {table} WHERE user_id = ?", (user_id,))
-        elif table == "refresh_tokens":
-            # Sessions predating the app_id column are unattributed. A
-            # stale session on the other app costs one re-sign-in; a live
-            # session on a deleted account is a security hole, so
-            # unattributed sessions die with any delete.
-            cur = await db.execute(
-                "DELETE FROM refresh_tokens WHERE user_id = ? "
-                "AND (app_id = ? OR app_id IS NULL)", (user_id, app_id))
+        # NOTE: sessions predating the app_id column are unattributed, and
+        # they are deliberately LEFT ALONE by a scoped delete. Sweeping
+        # them bought no security: /auth/refresh inner-joins users, so a
+        # token whose account is gone cannot be exchanged, and the
+        # last-app delete removes the account row. All it did was sign the
+        # person out of the app they did not delete, which today is nearly
+        # every live session (145 of 149 carry no app tag).
         else:
             cur = await db.execute(
                 f"DELETE FROM {table} WHERE user_id = ? AND app_id = ?",

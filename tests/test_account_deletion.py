@@ -241,9 +241,14 @@ def test_unattributed_request_falls_back_to_full_purge(client, app_env):
     assert _count(db_path, "user_apps", "bare-user") == 0
 
 
-def test_unattributed_sessions_die_with_any_app_delete(client, app_env):
-    """Sessions predating the app_id column: a live token on a deleted
-    account is a security hole, so they go on any delete."""
+def test_scoped_delete_leaves_unattributed_sessions_alone(client, app_env):
+    """Sessions predating the app_id column must survive a scoped delete.
+
+    Sweeping them buys nothing: /auth/refresh inner-joins users, so a token
+    whose account is gone cannot be exchanged. All it does is sign the
+    person out of the app they did not delete, and today nearly every live
+    session is unattributed.
+    """
     db_path = _db(app_env)
     _insert_user(db_path, "sess-user")
     _member(db_path, "sess-user", "shouldersurf", "techrehearsal")
@@ -252,13 +257,37 @@ def test_unattributed_sessions_die_with_any_app_delete(client, app_env):
         "INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, "
         "created_at, revoked, app_id) VALUES (?,?,?,?,?,0,NULL)",
         ("rt-legacy", "sess-user", "legacy-hash", _NOW, _NOW))
+    conn.execute(
+        "INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, "
+        "created_at, revoked, app_id) VALUES (?,?,?,?,?,0,'techrehearsal')",
+        ("rt-tr", "sess-user", "tr-hash", _NOW, _NOW))
     conn.commit()
     conn.close()
 
     client.post("/v1/account/delete",
                 headers={"Authorization": f"Bearer {_jwt_token('sess-user')}",
                          **TR})
-    assert _count(db_path, "refresh_tokens", "sess-user") == 0
+    # TR's own session is revoked; the untagged one survives for SS.
+    assert _count(db_path, "refresh_tokens", "sess-user", "techrehearsal") == 0
+    assert _count(db_path, "refresh_tokens", "sess-user") == 1
+
+
+def test_full_purge_still_takes_every_session(client, app_env):
+    """The account is actually gone, so nothing is left holding a session."""
+    db_path = _db(app_env)
+    _insert_user(db_path, "wipe-user")
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, "
+        "created_at, revoked, app_id) VALUES (?,?,?,?,?,0,NULL)",
+        ("rt-wipe", "wipe-user", "wipe-hash", _NOW, _NOW))
+    conn.commit()
+    conn.close()
+
+    client.post("/v1/account/delete",
+                headers={"Authorization": f"Bearer {_jwt_token('wipe-user')}"})
+    assert _count(db_path, "refresh_tokens", "wipe-user") == 0
+    assert _users(db_path, "wipe-user") == 0
 
 
 def test_other_users_are_never_touched(client, app_env, tmp_path):
