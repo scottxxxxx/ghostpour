@@ -1,0 +1,124 @@
+{
+  "version": 1,
+  "sections": {
+    "global_system_instructions": {
+      "placement": "system",
+      "stability": "per_user",
+      "editable_on": ["byok"],
+      "description": "Standing rules that apply to every answer. GP serves the text in protected-prompts.defaultGlobalSystemInstructions. Fixed on the managed and on-device lanes; the user's own text is substituted only when they are running their own key."
+    },
+    "prompt_system_instructions": {
+      "placement": "system",
+      "stability": "per_call_type",
+      "editable_on": [],
+      "description": "GP's instruction for this specific call type. Authored by GP on every lane. Placed after global instructions so it is the more proximate instruction when the two disagree."
+    },
+    "output_constraints": {
+      "placement": "system",
+      "stability": "static",
+      "editable_on": [],
+      "description": "Format rules that survive every other instruction, e.g. the dash prohibition. Own section so it can be revised without touching prompt text."
+    },
+    "project_context": {
+      "placement": "system",
+      "stability": "per_project",
+      "editable_on": [],
+      "description": "Project metadata and attached project files."
+    },
+    "meeting_context": {
+      "placement": "system",
+      "stability": "per_selection",
+      "editable_on": [],
+      "description": "The manifest plus one block per selected meeting, oldest first. See docs/wire-contracts/project-chat-prompt-assembly.md for the block format, which this spec does not change."
+    },
+    "rolling_summary": {
+      "placement": "system",
+      "stability": "periodic",
+      "editable_on": [],
+      "description": "The running meeting summary. Changes on a cadence rather than per turn."
+    },
+    "context_quilt": {
+      "placement": "system",
+      "stability": "per_turn",
+      "editable_on": [],
+      "description": "Context Quilt recall. Ranked per question, so it changes on every turn and is placed last in the system block to keep everything above it cacheable."
+    },
+    "reference_text": {
+      "placement": "user",
+      "stability": "per_send",
+      "editable_on": [],
+      "description": "User-attached references for this send. Sent as its own top-level field rather than concatenated, so GP can render it as a separately cached part on lanes that support one."
+    },
+    "transcript": {
+      "placement": "user",
+      "stability": "per_turn",
+      "editable_on": [],
+      "description": "Live transcript buffer or excerpt. Grows every turn, so it must never sit in the system block."
+    },
+    "user_query": {
+      "placement": "user",
+      "stability": "per_turn",
+      "editable_on": [],
+      "description": "What the user actually asked. Always last."
+    }
+  },
+  "surfaces": {
+    "copilot_session": {
+      "call_types": ["query", "analysis"],
+      "system": [
+        "global_system_instructions",
+        "prompt_system_instructions",
+        "context_quilt",
+        "rolling_summary",
+        "project_context",
+        "output_constraints"
+      ],
+      "user": ["reference_text", "transcript", "user_query"],
+      "cache_stable_prefix_ends_after": "prompt_system_instructions",
+      "note": "Order reproduces the shipped systemPromptTemplate exactly, including context_quilt sitting ahead of summary and project. That ordering is not cache-optimal and is a known follow-up; it is left alone here so this spec changes no live behavior."
+    },
+    "post_session_analysis": {
+      "call_types": ["analyze_session"],
+      "system": [
+        "global_system_instructions",
+        "prompt_system_instructions",
+        "output_constraints",
+        "project_context",
+        "rolling_summary",
+        "context_quilt"
+      ],
+      "user": ["reference_text", "transcript", "user_query"],
+      "cache_stable_prefix_ends_after": "rolling_summary",
+      "stability_overrides": {
+        "rolling_summary": "per_selection"
+      },
+      "note": "The session is over, so the summary is final rather than periodic. It is large and unchanging across the turns of a post-session conversation, which makes it worth having inside the cached prefix instead of behind the boundary."
+    },
+    "meeting_chat": {
+      "call_types": ["meeting_chat", "meeting_chat_follow_up"],
+      "system": [
+        "global_system_instructions",
+        "prompt_system_instructions",
+        "output_constraints",
+        "meeting_context",
+        "rolling_summary",
+        "context_quilt"
+      ],
+      "user": ["reference_text", "user_query"],
+      "cache_stable_prefix_ends_after": "meeting_context"
+    },
+    "project_chat": {
+      "call_types": ["project_chat", "project_chat_follow_up"],
+      "system": [
+        "global_system_instructions",
+        "prompt_system_instructions",
+        "output_constraints",
+        "project_context",
+        "meeting_context",
+        "context_quilt"
+      ],
+      "user": ["reference_text", "user_query"],
+      "cache_stable_prefix_ends_after": "meeting_context"
+    }
+  }
+}
