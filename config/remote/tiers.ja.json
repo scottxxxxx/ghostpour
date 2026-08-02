@@ -1,405 +1,417 @@
 {
- "version": 37,
- "tiers": {
-  "free": {
-   "display_name": "無料",
-   "description": "AIミーティングアシスタントをお試しください。クラウドAIで毎月約5時間のミーティングに対応します。",
-   "feature_bullets": [
-    "クラウドAIで毎月約5時間のミーティング",
-    "リアルタイム自動要約",
-    "デバイス上の文字起こし（無制限）",
-    "1つの質問につき写真・画像1枚"
-   ],
-   "feature_items": [
-    {
-     "label": "クラウドAIで毎月約5時間のミーティング",
-     "icon": "checkmark"
-    },
-    {
-     "label": "リアルタイム自動要約",
-     "icon": "doc"
-    },
-    {
-     "label": "デバイス上の文字起こし（無制限）",
-     "icon": "checkmark"
-    },
-    {
-     "label": "1つの質問につき写真・画像1枚",
-     "icon": "photo"
-    }
-   ],
-   "status_items": [
-    {
-     "label": "自動要約",
-     "value": "10分ごと",
-     "icon": "clock"
-    },
-    {
-     "label": "要約モード",
-     "value": "新しい内容のみ",
-     "icon": "doc"
-    },
-    {
-     "label": "最大画像数",
-     "value": "1つの質問につき1枚",
-     "icon": "photo"
-    }
-   ],
-   "feature_definitions": {
-    "project_chat": {
-     "max_input_tokens": 50000
-    },
-    "budget": {
-     "cta_exhausted": {
-      "kind": "budget_exhausted",
-      "text": "今月の無料AIを使い切りました。Plusにアップグレードして続けましょう。",
-      "action": "open_paywall"
-     }
-    },
-    "search": {
-     "searches_per_month": 0,
-     "searches_soft_threshold": null,
-     "cta_hard_cap": {
-      "kind": "search_paywall_required",
-      "header_icon": "globe",
-      "title": "Web検索",
-      "body": "質問にWebからの最新情報を取り込みましょう。最新ニュース、最近のドキュメント、モデルが本来知り得ないライブデータを活用できます。",
-      "bullets_label": "こんな用途に",
-      "bullets": [
-       {
-        "icon": "newspaper.fill",
-        "label": "ミーティングの競合他社や話題に関する最新ニュース"
-       },
-       {
-        "icon": "doc.text.magnifyingglass",
-        "label": "話題に上がっているライブラリやフレームワークの最新ドキュメント"
-       },
-       {
-        "icon": "chart.line.uptrend.xyaxis",
-        "label": "現在の価格、在庫、製品の変更"
-       }
+  "version": 38,
+  "tiers": {
+    "free": {
+      "display_name": "無料",
+      "description": "AIミーティングアシスタントをお試しください。クラウドAIで毎月約5時間のミーティングに対応します。",
+      "feature_bullets": [
+        "クラウドAIで毎月約5時間のミーティング",
+        "リアルタイム自動要約",
+        "デバイス上の文字起こし（無制限）",
+        "1つの質問につき写真・画像1枚"
       ],
-      "footer": "Web検索はPlusまたはProのサブスクリプションでSS AIをモデルとして使用する場合に利用できます。",
-      "primary_action": {
-       "label": "アップグレード",
-       "action": "open_paywall"
-      },
-      "secondary_action": {
-       "label": "後で",
-       "action": "dismiss"
+      "feature_items": [
+        {
+          "label": "クラウドAIで毎月約5時間のミーティング",
+          "icon": "checkmark"
+        },
+        {
+          "label": "リアルタイム自動要約",
+          "icon": "doc"
+        },
+        {
+          "label": "デバイス上の文字起こし（無制限）",
+          "icon": "checkmark"
+        },
+        {
+          "label": "1つの質問につき写真・画像1枚",
+          "icon": "photo"
+        }
+      ],
+      "status_items": [
+        {
+          "label": "自動要約",
+          "value": "10分ごと",
+          "icon": "clock"
+        },
+        {
+          "label": "要約モード",
+          "value": "新しい内容のみ",
+          "icon": "doc"
+        },
+        {
+          "label": "最大画像数",
+          "value": "1つの質問につき1枚",
+          "icon": "photo"
+        }
+      ],
+      "feature_definitions": {
+        "project_chat": {
+          "max_input_tokens": 50000
+        },
+        "budget": {
+          "cta_exhausted": {
+            "kind": "budget_exhausted",
+            "text": "今月の無料AIを使い切りました。Plusにアップグレードして続けましょう。",
+            "action": "open_paywall"
+          }
+        },
+        "search": {
+          "searches_per_month": 0,
+          "searches_soft_threshold": null,
+          "cta_hard_cap": {
+            "kind": "search_paywall_required",
+            "header_icon": "globe",
+            "title": "Web検索",
+            "body": "質問にWebからの最新情報を取り込みましょう。最新ニュース、最近のドキュメント、モデルが本来知り得ないライブデータを活用できます。",
+            "bullets_label": "こんな用途に",
+            "bullets": [
+              {
+                "icon": "newspaper.fill",
+                "label": "ミーティングの競合他社や話題に関する最新ニュース"
+              },
+              {
+                "icon": "doc.text.magnifyingglass",
+                "label": "話題に上がっているライブラリやフレームワークの最新ドキュメント"
+              },
+              {
+                "icon": "chart.line.uptrend.xyaxis",
+                "label": "現在の価格、在庫、製品の変更"
+              }
+            ],
+            "footer": "Web検索はPlusまたはProのサブスクリプションでSS AIをモデルとして使用する場合に利用できます。",
+            "primary_action": {
+              "label": "アップグレード",
+              "action": "open_paywall"
+            },
+            "secondary_action": {
+              "label": "後で",
+              "action": "dismiss"
+            }
+          },
+          "cta_soft_cap": null
+        },
+        "images": {
+          "max_long_edge": 1568,
+          "jpeg_quality": 0.8,
+          "capture_guidance": {
+            "title": "くっきり読み取るために",
+            "tips": [
+              "文字ができるだけ大きく写るよう、シート全体で画面いっぱいに写してください",
+              "文字がはっきり見えるまで手を止めてから撮影してください",
+              "シート全体を均一に照らし、反射や影を避けてください",
+              "斜めからではなく、正面からカメラを合わせてください"
+            ]
+          }
+        }
       }
-     },
-     "cta_soft_cap": null
     },
-    "images": {
-     "max_long_edge": 1568,
-     "jpeg_quality": 0.8,
-     "capture_guidance": {
-      "title": "くっきり読み取るために",
-      "tips": [
-       "文字ができるだけ大きく写るよう、シート全体で画面いっぱいに写してください",
-       "文字がはっきり見えるまで手を止めてから撮影してください",
-       "シート全体を均一に照らし、反射や影を避けてください",
-       "斜めからではなく、正面からカメラを合わせてください"
-      ]
-     }
+    "plus": {
+      "display_name": "Plus",
+      "description": "無制限のAIミーティングアシスタント。要約、レポート、プロジェクトチャット。",
+      "feature_bullets": [
+        "AIアシスタント付きの無制限ミーティング",
+        "会議中にリアルタイムで要約を作成",
+        "共有できるミーティングレポート",
+        "プロジェクト内のすべてのミーティングに質問",
+        "Web検索：最新情報を回答に反映（月75回）",
+        "1つの質問につき写真・画像3枚"
+      ],
+      "feature_items": [
+        {
+          "label": "AIアシスタント付きの無制限ミーティング",
+          "icon": "checkmark"
+        },
+        {
+          "label": "会議中にリアルタイムで要約を作成",
+          "icon": "doc"
+        },
+        {
+          "label": "共有できるミーティングレポート",
+          "icon": "share"
+        },
+        {
+          "label": "プロジェクト内のすべてのミーティングに質問",
+          "icon": "chat"
+        },
+        {
+          "label": "Web検索：最新情報を回答に反映（月75回）",
+          "icon": "search"
+        },
+        {
+          "label": "1つの質問につき写真・画像3枚",
+          "icon": "photo"
+        }
+      ],
+      "status_items": [
+        {
+          "label": "自動要約",
+          "value": "10分ごと",
+          "icon": "clock"
+        },
+        {
+          "label": "要約モード",
+          "value": "新しい内容のみ",
+          "icon": "doc"
+        },
+        {
+          "label": "AI",
+          "value": "標準",
+          "icon": "cpu"
+        },
+        {
+          "label": "最大画像数",
+          "value": "1つの質問につき3枚",
+          "icon": "photo"
+        },
+        {
+          "label": "ウェブ検索",
+          "value": "月75回",
+          "icon": "search"
+        },
+        {
+          "label": "ファイル生成",
+          "value": "Proにアップグレード",
+          "icon": "filegen",
+          "state": "teaser"
+        },
+        {
+          "label": "ミーティングメモリー",
+          "value": "Proにアップグレード",
+          "icon": "brain",
+          "state": "teaser"
+        }
+      ],
+      "feature_definitions": {
+        "project_chat": {
+          "max_input_tokens": 150000
+        },
+        "search": {
+          "searches_per_month": 75,
+          "searches_soft_threshold": null,
+          "cta_hard_cap": {
+            "kind": "search_cap_exhausted",
+            "title": "Web検索の上限に達しました",
+            "body": "今月の{total}回の検索をすべて使い切りました。Proにアップグレードするとより多くの検索が可能です。",
+            "primary_action": {
+              "label": "アップグレード",
+              "action": "open_paywall"
+            },
+            "secondary_action": {
+              "label": "OK",
+              "action": "dismiss"
+            }
+          },
+          "cta_soft_cap": null,
+          "cta_unavailable": {
+            "kind": "search_unavailable_for_provider",
+            "title": "このモデルではWeb検索は利用できません",
+            "body": "この質問でWeb検索を使うには、SS AIに切り替えてください。",
+            "primary_action": {
+              "label": "OK",
+              "action": "dismiss"
+            }
+          }
+        },
+        "images": {
+          "max_long_edge": 1568,
+          "jpeg_quality": 0.8,
+          "capture_guidance": {
+            "title": "くっきり読み取るために",
+            "tips": [
+              "文字ができるだけ大きく写るよう、シート全体で画面いっぱいに写してください",
+              "文字がはっきり見えるまで手を止めてから撮影してください",
+              "シート全体を均一に照らし、反射や影を避けてください",
+              "斜めからではなく、正面からカメラを合わせてください"
+            ]
+          }
+        }
+      }
+    },
+    "pro": {
+      "display_name": "Pro",
+      "description": "Plusの全機能に加え、高度なAI、ファイル生成、ミーティングメモリー。",
+      "feature_bullets": [
+        "より深いレポートと分析のための高度なAI",
+        "全文要約または新しい内容だけ、選べます",
+        "Web検索：最新情報を回答に反映（月120回）",
+        "ミーティングメモリー：AIが過去の会議を記憶",
+        "共有できる本物のファイルを作成：Excel、Word、PowerPoint、PDF",
+        "チャットにドキュメントを添付（2ファイル、各25MB）",
+        "1つの質問につき写真・画像5枚"
+      ],
+      "feature_items": [
+        {
+          "label": "より深いレポートと分析のための高度なAI",
+          "icon": "checkmark.plus"
+        },
+        {
+          "label": "全文要約または新しい内容だけ、選べます",
+          "icon": "doc"
+        },
+        {
+          "label": "Web検索：最新情報を回答に反映（月120回）",
+          "icon": "search"
+        },
+        {
+          "label": "ミーティングメモリー：AIが過去の会議を記憶",
+          "icon": "brain"
+        },
+        {
+          "label": "共有できる本物のファイルを作成：Excel、Word、PowerPoint、PDF",
+          "icon": "filegen"
+        },
+        {
+          "label": "チャットにドキュメントを添付（2ファイル、各25MB）",
+          "icon": "paperclip"
+        },
+        {
+          "label": "1つの質問につき写真・画像5枚",
+          "icon": "photo"
+        }
+      ],
+      "status_items": [
+        {
+          "label": "自動要約",
+          "value": "10分ごと",
+          "icon": "clock"
+        },
+        {
+          "label": "要約モード",
+          "value": "全文または新しい内容（選択可能）",
+          "icon": "doc"
+        },
+        {
+          "label": "AI",
+          "value": "高度",
+          "icon": "cpu"
+        },
+        {
+          "label": "最大画像数",
+          "value": "1つの質問につき5枚",
+          "icon": "photo"
+        },
+        {
+          "label": "ウェブ検索",
+          "value": "月120回",
+          "icon": "search"
+        },
+        {
+          "label": "ファイル生成",
+          "value": "Excel、Word、PowerPoint、PDF",
+          "icon": "filegen"
+        },
+        {
+          "label": "ドキュメント添付",
+          "value": "2ファイル、各25MBまで",
+          "icon": "paperclip"
+        },
+        {
+          "label": "ミーティングメモリー",
+          "value": "有効",
+          "icon": "brain",
+          "state": "enabled"
+        }
+      ],
+      "feature_definitions": {
+        "project_chat": {
+          "max_input_tokens": 180000
+        },
+        "search": {
+          "searches_per_month": 120,
+          "searches_soft_threshold": 80,
+          "cta_hard_cap": {
+            "kind": "search_cap_exhausted",
+            "title": "Web検索の上限に達しました",
+            "body": "今月の{total}回の検索をすべて使い切りました。検索は{reset_date}に再開されます。",
+            "primary_action": {
+              "label": "OK",
+              "action": "dismiss"
+            }
+          },
+          "cta_soft_cap": {
+            "kind": "search_soft_cap_warning",
+            "title": "月間検索上限に近づいています",
+            "body": "今月{used}/{total}回の検索を使用しました。"
+          },
+          "cta_unavailable": {
+            "kind": "search_unavailable_for_provider",
+            "title": "このモデルではWeb検索は利用できません",
+            "body": "この質問でWeb検索を使うには、SS AIに切り替えてください。",
+            "primary_action": {
+              "label": "OK",
+              "action": "dismiss"
+            }
+          }
+        },
+        "generation": {
+          "generations_per_month": 100
+        },
+        "images": {
+          "max_long_edge": 1568,
+          "jpeg_quality": 0.8,
+          "capture_guidance": {
+            "title": "くっきり読み取るために",
+            "tips": [
+              "文字ができるだけ大きく写るよう、シート全体で画面いっぱいに写してください",
+              "文字がはっきり見えるまで手を止めてから撮影してください",
+              "シート全体を均一に照らし、反射や影を避けてください",
+              "斜めからではなく、正面からカメラを合わせてください"
+            ]
+          }
+        }
+      }
     }
-   }
   },
-  "plus": {
-   "display_name": "Plus",
-   "description": "無制限のAIミーティングアシスタント。要約、レポート、プロジェクトチャット。",
-   "feature_bullets": [
-    "AIアシスタント付きの無制限ミーティング",
-    "会議中にリアルタイムで要約を作成",
-    "共有できるミーティングレポート",
-    "プロジェクト内のすべてのミーティングに質問",
-    "Web検索：最新情報を回答に反映（月75回）",
-    "1つの質問につき写真・画像3枚"
-   ],
-   "feature_items": [
-    {
-     "label": "AIアシスタント付きの無制限ミーティング",
-     "icon": "checkmark"
+  "feature_definitions": {
+    "context_quilt": {
+      "display_name": "ミーティングメモリー",
+      "description": "AIが過去の会議を記憶し、その知識を自動的に活用します。",
+      "teaser_description": "AIが過去の会議とのつながりを発見しました",
+      "upgrade_cta": "Proにアップグレードしてミーティングメモリーを解除",
+      "cta_strings": {
+        "free_within_quota_footer": "✨ 今月の無料メモリー{total}回のうちの1つを使いました。Proにアップグレードしてメモリーを構築し続けましょう。",
+        "free_no_quota_only": "✨ AIに会議を記憶してほしいですか？Proにアップグレードしてメモリーの構築を始めましょう。"
+      }
     },
-    {
-     "label": "会議中にリアルタイムで要約を作成",
-     "icon": "doc"
+    "meeting_reports": {
+      "display_name": "ミーティングレポート",
+      "description": "ミーティングの記録から共有可能なHTMLレポートを生成。感情分析、重要な瞬間、推奨タグ、メモ。",
+      "teaser_description": "レポートでミーティングを共有可能なサマリーに。",
+      "upgrade_cta": "Plusにアップグレードして共有可能なミーティングレポートを生成"
     },
-    {
-     "label": "共有できるミーティングレポート",
-     "icon": "share"
+    "people": {
+      "category": "intelligence",
+      "display_name": "人物",
+      "description": "会議に参加した全員を一か所にまとめ、発言内容と引き受けた作業を確認できます。",
+      "signed_out": {
+        "headline": "会議の参加者を把握する",
+        "body": "サインインすると、Shoulder Surf が会議相手ごとにページを作成し、参加した会議、引き受けた作業、関わっているプロジェクトを表示します。",
+        "body_with_count": "これまでに {count} 人と会議をしています。サインインすると、Shoulder Surf がそれぞれのページを作成し、参加した会議、引き受けた作業、関わっているプロジェクトを表示します。",
+        "cta_label": "サインイン",
+        "cta_action": "sign_in"
+      }
     },
-    {
-     "label": "プロジェクト内のすべてのミーティングに質問",
-     "icon": "chat"
-    },
-    {
-     "label": "Web検索：最新情報を回答に反映（月75回）",
-     "icon": "search"
-    },
-    {
-     "label": "1つの質問につき写真・画像3枚",
-     "icon": "photo"
-    }
-   ],
-   "status_items": [
-    {
-     "label": "自動要約",
-     "value": "10分ごと",
-     "icon": "clock"
-    },
-    {
-     "label": "要約モード",
-     "value": "新しい内容のみ",
-     "icon": "doc"
-    },
-    {
-     "label": "AI",
-     "value": "標準",
-     "icon": "cpu"
-    },
-    {
-     "label": "最大画像数",
-     "value": "1つの質問につき3枚",
-     "icon": "photo"
-    },
-    {
-     "label": "ウェブ検索",
-     "value": "月75回",
-     "icon": "search"
-    },
-    {
-     "label": "ファイル生成",
-     "value": "Proにアップグレード",
-     "icon": "filegen",
-     "state": "teaser"
-    },
-    {
-     "label": "ミーティングメモリー",
-     "value": "Proにアップグレード",
-     "icon": "brain",
-     "state": "teaser"
-    }
-   ],
-   "feature_definitions": {
     "project_chat": {
-     "max_input_tokens": 150000
+      "display_name": "プロジェクトチャット",
+      "description": "プロジェクト内のすべてのミーティングにわたってAIに質問できます。AIがコンテキストを理解しています。",
+      "teaser_description": "プロジェクトチャットはPlus機能です。",
+      "upgrade_cta": "Plusにアップグレードしてプロジェクトチャットをご利用ください",
+      "teaser_response": "プロジェクトチャットはPlus機能です。Plusにアップグレードして、このプロジェクトのすべてのミーティングにわたるAI質問をご利用ください。",
+      "gp_chat_flag": "ssai_free_only",
+      "free_quota_per_month": 1,
+      "cta_strings": {
+        "quota_remaining": "今月の無料プロジェクトチャットは残り{remaining}/{total}回です。Plusにアップグレードすると無制限にご利用いただけます。",
+        "quota_exhausted": "今月の無料プロジェクトチャット{total}回をすべて使い切りました。Plusにアップグレードすると無制限にご利用いただけます。",
+        "unlimited": "Shoulder Surfのプロジェクトチャット。",
+        "login_required": "プロジェクトチャットを使用するにはサインインしてください。"
+      }
     },
     "search": {
-     "searches_per_month": 75,
-     "searches_soft_threshold": null,
-     "cta_hard_cap": {
-      "kind": "search_cap_exhausted",
-      "title": "Web検索の上限に達しました",
-      "body": "今月の{total}回の検索をすべて使い切りました。Proにアップグレードするとより多くの検索が可能です。",
-      "primary_action": {
-       "label": "アップグレード",
-       "action": "open_paywall"
-      },
-      "secondary_action": {
-       "label": "OK",
-       "action": "dismiss"
-      }
-     },
-     "cta_soft_cap": null,
-     "cta_unavailable": {
-      "kind": "search_unavailable_for_provider",
-      "title": "このモデルではWeb検索は利用できません",
-      "body": "この質問でWeb検索を使うには、SS AIに切り替えてください。",
-      "primary_action": {
-       "label": "OK",
-       "action": "dismiss"
-      }
-     }
-    },
-    "images": {
-     "max_long_edge": 1568,
-     "jpeg_quality": 0.8,
-     "capture_guidance": {
-      "title": "くっきり読み取るために",
-      "tips": [
-       "文字ができるだけ大きく写るよう、シート全体で画面いっぱいに写してください",
-       "文字がはっきり見えるまで手を止めてから撮影してください",
-       "シート全体を均一に照らし、反射や影を避けてください",
-       "斜めからではなく、正面からカメラを合わせてください"
-      ]
-     }
+      "display_name": "Web検索",
+      "description": "質問への回答中にAIがWebから最新情報を取得できます。",
+      "teaser_description": "Web検索は有料機能です。",
+      "upgrade_cta": "PlusにアップグレードしてWeb検索を有効にする"
     }
-   }
-  },
-  "pro": {
-   "display_name": "Pro",
-   "description": "Plusの全機能に加え、高度なAI、ファイル生成、ミーティングメモリー。",
-   "feature_bullets": [
-    "より深いレポートと分析のための高度なAI",
-    "全文要約または新しい内容だけ、選べます",
-    "Web検索：最新情報を回答に反映（月120回）",
-    "ミーティングメモリー：AIが過去の会議を記憶",
-    "共有できる本物のファイルを作成：Excel、Word、PowerPoint、PDF",
-    "チャットにドキュメントを添付（2ファイル、各25MB）",
-    "1つの質問につき写真・画像5枚"
-   ],
-   "feature_items": [
-    {
-     "label": "より深いレポートと分析のための高度なAI",
-     "icon": "checkmark.plus"
-    },
-    {
-     "label": "全文要約または新しい内容だけ、選べます",
-     "icon": "doc"
-    },
-    {
-     "label": "Web検索：最新情報を回答に反映（月120回）",
-     "icon": "search"
-    },
-    {
-     "label": "ミーティングメモリー：AIが過去の会議を記憶",
-     "icon": "brain"
-    },
-    {
-     "label": "共有できる本物のファイルを作成：Excel、Word、PowerPoint、PDF",
-     "icon": "filegen"
-    },
-    {
-     "label": "チャットにドキュメントを添付（2ファイル、各25MB）",
-     "icon": "paperclip"
-    },
-    {
-     "label": "1つの質問につき写真・画像5枚",
-     "icon": "photo"
-    }
-   ],
-   "status_items": [
-    {
-     "label": "自動要約",
-     "value": "10分ごと",
-     "icon": "clock"
-    },
-    {
-     "label": "要約モード",
-     "value": "全文または新しい内容（選択可能）",
-     "icon": "doc"
-    },
-    {
-     "label": "AI",
-     "value": "高度",
-     "icon": "cpu"
-    },
-    {
-     "label": "最大画像数",
-     "value": "1つの質問につき5枚",
-     "icon": "photo"
-    },
-    {
-     "label": "ウェブ検索",
-     "value": "月120回",
-     "icon": "search"
-    },
-    {
-     "label": "ファイル生成",
-     "value": "Excel、Word、PowerPoint、PDF",
-     "icon": "filegen"
-    },
-    {
-     "label": "ドキュメント添付",
-     "value": "2ファイル、各25MBまで",
-     "icon": "paperclip"
-    },
-    {
-     "label": "ミーティングメモリー",
-     "value": "有効",
-     "icon": "brain",
-     "state": "enabled"
-    }
-   ],
-   "feature_definitions": {
-    "project_chat": {
-     "max_input_tokens": 180000
-    },
-    "search": {
-     "searches_per_month": 120,
-     "searches_soft_threshold": 80,
-     "cta_hard_cap": {
-      "kind": "search_cap_exhausted",
-      "title": "Web検索の上限に達しました",
-      "body": "今月の{total}回の検索をすべて使い切りました。検索は{reset_date}に再開されます。",
-      "primary_action": {
-       "label": "OK",
-       "action": "dismiss"
-      }
-     },
-     "cta_soft_cap": {
-      "kind": "search_soft_cap_warning",
-      "title": "月間検索上限に近づいています",
-      "body": "今月{used}/{total}回の検索を使用しました。"
-     },
-     "cta_unavailable": {
-      "kind": "search_unavailable_for_provider",
-      "title": "このモデルではWeb検索は利用できません",
-      "body": "この質問でWeb検索を使うには、SS AIに切り替えてください。",
-      "primary_action": {
-       "label": "OK",
-       "action": "dismiss"
-      }
-     }
-    },
-    "generation": {
-     "generations_per_month": 100
-    },
-    "images": {
-     "max_long_edge": 1568,
-     "jpeg_quality": 0.8,
-     "capture_guidance": {
-      "title": "くっきり読み取るために",
-      "tips": [
-       "文字ができるだけ大きく写るよう、シート全体で画面いっぱいに写してください",
-       "文字がはっきり見えるまで手を止めてから撮影してください",
-       "シート全体を均一に照らし、反射や影を避けてください",
-       "斜めからではなく、正面からカメラを合わせてください"
-      ]
-     }
-    }
-   }
   }
- },
- "feature_definitions": {
-  "context_quilt": {
-   "display_name": "ミーティングメモリー",
-   "description": "AIが過去の会議を記憶し、その知識を自動的に活用します。",
-   "teaser_description": "AIが過去の会議とのつながりを発見しました",
-   "upgrade_cta": "Proにアップグレードしてミーティングメモリーを解除",
-   "cta_strings": {
-    "free_within_quota_footer": "✨ 今月の無料メモリー{total}回のうちの1つを使いました。Proにアップグレードしてメモリーを構築し続けましょう。",
-    "free_no_quota_only": "✨ AIに会議を記憶してほしいですか？Proにアップグレードしてメモリーの構築を始めましょう。"
-   }
-  },
-  "meeting_reports": {
-   "display_name": "ミーティングレポート",
-   "description": "ミーティングの記録から共有可能なHTMLレポートを生成。感情分析、重要な瞬間、推奨タグ、メモ。",
-   "teaser_description": "レポートでミーティングを共有可能なサマリーに。",
-   "upgrade_cta": "Plusにアップグレードして共有可能なミーティングレポートを生成"
-  },
-  "project_chat": {
-   "display_name": "プロジェクトチャット",
-   "description": "プロジェクト内のすべてのミーティングにわたってAIに質問できます。AIがコンテキストを理解しています。",
-   "teaser_description": "プロジェクトチャットはPlus機能です。",
-   "upgrade_cta": "Plusにアップグレードしてプロジェクトチャットをご利用ください",
-   "teaser_response": "プロジェクトチャットはPlus機能です。Plusにアップグレードして、このプロジェクトのすべてのミーティングにわたるAI質問をご利用ください。",
-   "gp_chat_flag": "ssai_free_only",
-   "free_quota_per_month": 1,
-   "cta_strings": {
-    "quota_remaining": "今月の無料プロジェクトチャットは残り{remaining}/{total}回です。Plusにアップグレードすると無制限にご利用いただけます。",
-    "quota_exhausted": "今月の無料プロジェクトチャット{total}回をすべて使い切りました。Plusにアップグレードすると無制限にご利用いただけます。",
-    "unlimited": "Shoulder Surfのプロジェクトチャット。",
-    "login_required": "プロジェクトチャットを使用するにはサインインしてください。"
-   }
-  },
-  "search": {
-   "display_name": "Web検索",
-   "description": "質問への回答中にAIがWebから最新情報を取得できます。",
-   "teaser_description": "Web検索は有料機能です。",
-   "upgrade_cta": "PlusにアップグレードしてWeb検索を有効にする"
-  }
- }
 }
