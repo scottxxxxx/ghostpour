@@ -29,32 +29,6 @@ _LOG_BUFFER: deque[dict] = deque(maxlen=1000)
 # numeric fields like max_tokens/prompt_tokens pass through untouched.
 _REDACT_SUBSTRINGS = ("token", "secret", "password", "key", "signed_transaction", "credential")
 
-# User-authored content: résumés, job descriptions, meeting and rehearsal
-# transcripts. Never persisted anywhere else in GP, and it was reaching
-# this buffer verbatim purely as a debugging side effect (2026-08-01, TR
-# App Review privacy review). Kept separate from the list above so the
-# reason for each entry stays legible: those are credentials, these are
-# the user's own words.
-_REDACT_CONTENT_SUBSTRINGS = (
-    "user_content",
-    "system_prompt",
-    "reference_text",
-    "transcript",
-    "ask_content",
-    # ChatResponse.raw_request_json / raw_response_json echo the entire
-    # provider payload, user_content included, so redacting the request
-    # side alone would leave the same text sitting in the response half
-    # of the very same buffer entry.
-    "raw_request",
-    "raw_response",
-)
-
-# Collections whose elements are raw payload bytes (base64 images and
-# document attachments — a résumé PDF arrives here). Replaced wholesale
-# with a count so the log still shows that N attachments were present,
-# which is the only part worth debugging.
-_REDACT_COLLECTIONS = ("images", "documents")
-
 
 def get_recent_logs(limit: int = 50) -> list[dict]:
     """Return the most recent log entries, newest first."""
@@ -347,25 +321,19 @@ def _format_body(body: str | None) -> str:
 
 
 def _is_sensitive_key(key) -> bool:
-    return isinstance(key, str) and any(
-        s in key.lower()
-        for s in _REDACT_SUBSTRINGS + _REDACT_CONTENT_SUBSTRINGS)
+    return isinstance(key, str) and any(s in key.lower() for s in _REDACT_SUBSTRINGS)
 
 
 def _redact_sensitive(obj):
     """Recursively redact sensitive fields in a dict.
 
     Values are replaced entirely — no prefix is kept. A 20-char prefix of a
-    password or client_secret can be the whole value, token prefixes are
-    stable identifiers, and the first line of a résumé is the person's name;
-    the request_id is the correlation handle instead.
+    password or client_secret can be the whole value, and token prefixes are
+    stable identifiers; the request_id is the correlation handle instead.
     """
     if isinstance(obj, dict):
         for key in obj:
-            if (isinstance(key, str) and key.lower() in _REDACT_COLLECTIONS
-                    and isinstance(obj[key], list)):
-                obj[key] = f"<redacted: {len(obj[key])} item(s)>"
-            elif _is_sensitive_key(key) and isinstance(obj[key], str):
+            if _is_sensitive_key(key) and isinstance(obj[key], str):
                 obj[key] = "<redacted>"
             elif isinstance(obj[key], (dict, list)):
                 _redact_sensitive(obj[key])
