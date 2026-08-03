@@ -169,7 +169,12 @@ class ContextQuiltHook:
                             new_system = body.system_prompt.replace(
                                 "{{context_quilt}}", block)
                         else:
-                            new_system = block + "\n\n" + body.system_prompt
+                            # APPEND, not prepend. See the note on the other
+                            # injection path below: the envelope declares
+                            # context_quilt last in the system block, and
+                            # prepending put a per-turn block ahead of
+                            # everything we want cached.
+                            new_system = body.system_prompt + "\n\n" + block
                         new_meta = dict(body.metadata or {})
                         new_meta["cq_recall_block"] = block
                         body = body.model_copy(update={
@@ -212,7 +217,22 @@ class ContextQuiltHook:
                 if "{{context_quilt}}" in body.system_prompt:
                     new_system = body.system_prompt.replace("{{context_quilt}}", cq_context)
                 else:
-                    new_system = f"[CONTEXT FROM PREVIOUS MEETINGS]\n{cq_context}\n\n{body.system_prompt}"
+                    # APPEND, not prepend (2026-08-03). The chat surfaces do
+                    # not emit the placeholder, so this fallback decided their
+                    # recall position, and prepending put it at index 0: ahead
+                    # of the instructions and the meeting/project context, i.e.
+                    # ahead of everything the envelope declares cacheable.
+                    #
+                    # CQ settled the property this rests on. Contract item 6
+                    # promises determinism for a repeated IDENTICAL request
+                    # (the scorer buckets time to the UTC day so a freshness
+                    # penalty cannot step by the second). It does not promise
+                    # invariance across different questions: the render is
+                    # keyed on the whole request shape, so a new question is a
+                    # new block. Recall is per-turn volatile, and the envelope
+                    # places it LAST in the system block. Appending puts it
+                    # where the spec says.
+                    new_system = f"{body.system_prompt}\n\n[CONTEXT FROM PREVIOUS MEETINGS]\n{cq_context}"
                 # Stash the exact recall text on metadata so cache-aware
                 # adapters (Anthropic) can split the system prompt at the
                 # recall boundary into separate cache_control blocks. Once

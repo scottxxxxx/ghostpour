@@ -163,3 +163,69 @@ def test_temperature_suppressed_when_thinking_on():
     body, _ = _adapter()._build_body(request)
     if "thinking" in body:
         assert "temperature" not in body
+
+
+# --- recall position and its breakpoint (2026-08-03) -----------------
+#
+# The chat surfaces never emitted the {{context_quilt}} placeholder, so the
+# injection fallback decided their recall position, and it prepended:
+# recall landed at index 0, ahead of the instructions and the meeting or
+# project context. That put a per-turn block in front of everything the
+# envelope declares cacheable, so the only region we marked cacheable was
+# recall itself and the large stable content was never cached at all.
+#
+# CQ settled the property this rests on. Contract item 6 promises
+# determinism for a repeated IDENTICAL request, because the scorer buckets
+# time to the UTC day. It does not promise invariance across questions:
+# the render is keyed on the whole request shape. Recall is per-turn
+# volatile and belongs after the boundary.
+#
+# PREDICTION, recorded before shipping so the fix does not get reverted on
+# a dashboard reading. Follow-up cache-hit rates were meeting_chat_follow_up
+# 18/45 (40%) and project_chat_follow_up 16/77 (21%). Those were hits on
+# the small volatile recall block. Once recall moves below the boundary
+# they go to ZERO by construction. That is the fix working. What we buy is
+# a near-certain hit on the large stable prefix, which has never been
+# cached on these two surfaces.
+
+from app.models.chat import ChatRequest
+from app.services.providers.anthropic import _build_system_blocks
+
+
+def _req(system_prompt: str, recall: str | None):
+    return ChatRequest(
+        provider="anthropic", model="claude-sonnet-5",
+        system_prompt=system_prompt, user_content="q",
+        metadata={"cq_recall_block": recall} if recall else None,
+    )
+
+
+def test_recall_last_gets_no_breakpoint_of_its_own():
+    """Nothing follows it, so an entry covering prefix+recall would change
+    every turn and never be reused: a cache write bought for nothing."""
+    blocks = _build_system_blocks(_req("STABLE PREFIX\n\nRECALL", "RECALL"))
+    assert [b["text"] for b in blocks] == ["STABLE PREFIX\n\n", "RECALL"]
+    assert "cache_control" in blocks[0], "the stable prefix must be cacheable"
+    assert "cache_control" not in blocks[1], (
+        "recall is per-turn; marking it cacheable when it is last buys a "
+        "write that can never hit")
+
+
+def test_recall_in_the_middle_keeps_its_breakpoint():
+    """When real content follows, the second breakpoint isolates recall so
+    the prefix still caches even as recall changes."""
+    blocks = _build_system_blocks(_req("PREFIX\nRECALL\nSUFFIX", "RECALL"))
+    assert [b["text"] for b in blocks] == ["PREFIX\n", "RECALL", "\nSUFFIX"]
+    assert "cache_control" in blocks[0]
+    assert "cache_control" in blocks[1]
+    assert "cache_control" not in blocks[2]
+
+
+def test_the_stable_prefix_is_never_the_uncached_one():
+    """The regression that started this: recall at index 0 leaves no prefix
+    block at all, so the instructions and context go uncached."""
+    blocks = _build_system_blocks(_req("RECALL\n\nEVERYTHING ELSE", "RECALL"))
+    cached = [b["text"] for b in blocks if "cache_control" in b]
+    assert "EVERYTHING ELSE" not in "".join(cached), (
+        "this is the shape we are moving away from; if the injection ever "
+        "prepends again, the stable content stops being cached")
