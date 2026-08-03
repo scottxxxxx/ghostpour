@@ -466,6 +466,7 @@
             <option value="all">All</option>
             <option value="production">Production only</option>
             <option value="tester">Under test</option>
+            <option value="pinned">Pinned for old builds</option>
           </select>
         </div>
       </div>
@@ -3652,6 +3653,7 @@ function renderRegistry() {
   const rows = _registry.configs.filter(c =>
     mode === 'all' ? true :
     mode === 'tester' ? c.under_test :
+    mode === 'pinned' ? c.pinned_for_old_builds :
     !c.under_test);
 
   const testers = (_registry.testers || []).filter(t => t.active);
@@ -3666,6 +3668,7 @@ function renderRegistry() {
         <th style="padding:6px 8px">Controls</th>
         <th style="padding:6px 8px">Locales</th>
         <th style="padding:6px 8px">Audience</th>
+        <th style="padding:6px 8px">Old builds</th>
       </tr></thead>
       <tbody>${rows.map(c => `
         <tr style="border-top:1px solid var(--border)">
@@ -3675,6 +3678,9 @@ function renderRegistry() {
           <td style="padding:6px 8px;vertical-align:top">${c.under_test
             ? '<span style="color:var(--warn,#d29922)">under test</span>'
             : '<span style="opacity:.6">production</span>'}</td>
+          <td style="padding:6px 8px;vertical-align:top">${(c.build_pins && c.build_pins.length)
+            ? c.build_pins.map(p => `<code>${p.replace('build-lte-','&le; ')}</code>`).join(' ')
+            : '<span style="opacity:.4">same for all</span>'}</td>
         </tr>`).join('')}
       </tbody>
     </table>
