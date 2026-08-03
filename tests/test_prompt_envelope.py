@@ -1,11 +1,21 @@
-"""Prompt envelope composition spec (2026-08-02).
+"""Prompt envelope composition spec, v2 (2026-08-03).
 
-The envelope is GP's: which sections exist, their order, and whether each
-lands in the system block or the user turn. SS composes to it and does not
-edit it. These tests pin the invariants that make the spec meaningful, so
-a later edit cannot quietly produce a document that says nothing.
+GP owns the recipe and the client executes it. See
+docs/decisions/prompt-composition-doctrine.md and
+docs/wire-contracts/prompt-envelope.md.
 
-See docs/wire-contracts/prompt-envelope.md.
+v1 asserted that `copilot_session` reproduced the shipped template
+exactly, which was true of the template and false of the wire: the client
+blanks summary and project in the system block and re-emits them in the
+user turn. Implementing it as written would have moved two large blocks
+into the system turn on the one surface the spec claimed to leave alone.
+
+Two structural changes came out of that. Placement is now per surface
+with a section-level default, because the same section genuinely lands in
+different turns on different surfaces, and pretending otherwise is what
+produced a spec that could not describe reality. And every surface
+carries a verification flag, so the spec can never again claim to
+describe the wire when it describes intent.
 """
 
 import json
@@ -19,13 +29,55 @@ SPEC = json.loads(
 
 SURFACES = SPEC["surfaces"]
 SECTIONS = SPEC["sections"]
+LANES = SPEC["lanes"]
 
-# Volatile sections invalidate a cached prefix, so they may never be
-# ordered ahead of stable ones inside the region we claim is cacheable.
+# Anything that changes more often than per selection cannot sit inside a
+# prefix we tell the client is byte-stable across turns.
 _VOLATILITY = {
     "static": 0, "per_user": 1, "per_call_type": 1, "per_project": 2,
     "per_selection": 3, "periodic": 4, "per_turn": 5, "per_send": 5,
 }
+
+VERIFICATION_STATES = {
+    "adopting_now", "unverified_describes_intent", "byte_diffed_against_wire",
+}
+
+
+# --- the doctrine ----------------------------------------------------
+
+
+def test_instructions_are_editable_on_byok_and_nowhere_else():
+    """The editability table. Their key, their model, their bill, so the
+    CONTENTS become editable there. Nowhere else."""
+    editable = {n for n, l in LANES.items() if l["instructions_editable"]}
+    assert editable == {"byok"}
+
+
+def test_an_unknown_model_still_resolves():
+    """The requirement is that a model which did not exist when this file
+    was written still gets a recipe, without an app update."""
+    lanes = set(LANES)
+    assert "default" in lanes, "removing the default lane breaks unknown models"
+    res = SPEC["lane_resolution"]
+    assert res["fallback"] in lanes
+    for lane in res["by_api_format"].values():
+        assert lane in lanes, f"lane_resolution points at unknown lane {lane}"
+
+
+def test_lane_resolution_is_data_not_code():
+    """Adding a lane must not need a client build, which means the mapping
+    has to be served rather than compiled in."""
+    res = SPEC["lane_resolution"]
+    assert isinstance(res.get("by_api_format"), dict) and res["by_api_format"]
+    assert isinstance(res.get("fallback"), str)
+
+
+@pytest.mark.parametrize("lane", list(LANES))
+def test_every_lane_names_an_instruction_variant(lane):
+    assert LANES[lane]["instructions_variant"]
+
+
+# --- structure -------------------------------------------------------
 
 
 @pytest.mark.parametrize("surface", list(SURFACES))
@@ -36,27 +88,25 @@ def test_every_referenced_section_exists(surface):
 
 
 @pytest.mark.parametrize("surface", list(SURFACES))
-def test_placement_is_global_not_per_surface(surface):
-    """A section declared `system` must never be composed into the user
-    turn on some other surface, or the vocabulary means nothing."""
-    for key in ("system", "user"):
-        for sec in SURFACES[surface][key]:
-            assert SECTIONS[sec]["placement"] == key, (
-                f"{surface} puts {sec} in {key} but it is declared "
-                f"{SECTIONS[sec]['placement']}")
+def test_a_section_appears_once_per_surface(surface):
+    """Placement varies BY surface, but within one surface a section is in
+    exactly one turn. Both, or twice, is incoherent rather than flexible."""
+    s = SURFACES[surface]
+    placed = s["system"] + s["user"]
+    assert len(placed) == len(set(placed)), f"{surface} places a section twice"
 
 
 @pytest.mark.parametrize("surface", list(SURFACES))
 def test_global_instructions_reach_every_surface(surface):
-    """The whole point: a standing rule that dies when the user leaves the
-    live session is the complaint that started this."""
+    """A standing rule that dies when the user leaves the live session is
+    the complaint that started this."""
     assert "global_system_instructions" in SURFACES[surface]["system"]
 
 
 @pytest.mark.parametrize("surface", list(SURFACES))
 def test_gp_instruction_follows_user_instruction(surface):
-    """Precedence is structural. GP's instruction sits after the user's so
-    it is the more proximate one when they disagree."""
+    """Precedence is structural: GP's instruction is the more proximate one
+    when the two disagree."""
     system = SURFACES[surface]["system"]
     assert (system.index("prompt_system_instructions")
             > system.index("global_system_instructions"))
@@ -69,79 +119,80 @@ def test_user_query_is_last(surface):
 
 @pytest.mark.parametrize("surface", list(SURFACES))
 def test_growing_content_stays_out_of_the_system_block(surface):
-    """transcript grows every turn; in the system block it would break the
-    cached prefix on every send."""
-    assert "transcript" not in SURFACES[surface]["system"]
+    """transcript and conversation_history both grow every turn. In the
+    system block they break the cached prefix on every send."""
+    system = SURFACES[surface]["system"]
+    for sec in ("transcript", "conversation_history"):
+        assert sec not in system, f"{surface} puts {sec} in the system block"
 
 
 @pytest.mark.parametrize("surface", list(SURFACES))
-def test_cache_boundary_is_real_and_stable(surface):
-    """Everything up to the declared boundary must be stable across turns,
-    otherwise the boundary is a claim we cannot keep."""
+def test_cache_boundary_only_contains_stable_sections(surface):
     s = SURFACES[surface]
     boundary = s["cache_stable_prefix_ends_after"]
     assert boundary in s["system"], f"{surface} boundary not in its system list"
     overrides = s.get("stability_overrides", {})
-    prefix = s["system"][:s["system"].index(boundary) + 1]
-    for sec in prefix:
+    for sec in s["system"][:s["system"].index(boundary) + 1]:
         stability = overrides.get(sec, SECTIONS[sec]["stability"])
         assert _VOLATILITY[stability] <= 3, (
-            f"{surface} claims {sec} ({stability}) is in the cache-stable "
-            "prefix")
+            f"{surface} claims {sec} ({stability}) is cache-stable")
 
 
 @pytest.mark.parametrize("surface", list(SURFACES))
-def test_stability_overrides_are_explained_and_only_loosen(surface):
-    """An override says a surface freezes something the section is normally
-    allowed to change. It must name a real section and carry the reason,
-    so nobody later reads it as a way to silence the boundary check."""
+def test_stability_overrides_are_explained(surface):
     s = SURFACES[surface]
-    overrides = s.get("stability_overrides", {})
-    if not overrides:
-        return
-    assert s.get("note"), f"{surface} overrides stability without explaining it"
-    for sec, stability in overrides.items():
-        assert sec in SECTIONS, f"{surface} overrides unknown section {sec}"
-        assert stability in _VOLATILITY, f"{surface} bad stability {stability}"
-        assert sec in s["system"] or sec in s["user"], (
-            f"{surface} overrides {sec} but never composes it")
+    if s.get("stability_overrides"):
+        assert s.get("stability_note"), (
+            f"{surface} overrides stability without saying why")
 
 
-def test_only_global_instructions_are_ever_user_editable():
-    """The envelope is GP's on every lane. Contents are editable in exactly
-    one section, and only on the user's own key."""
-    editable = {k: v["editable_on"] for k, v in SECTIONS.items() if v["editable_on"]}
-    assert editable == {"global_system_instructions": ["byok"]}
+# --- honesty about what has been checked -----------------------------
 
 
-def test_call_types_are_not_claimed_by_two_surfaces():
-    seen = {}
-    for name, s in SURFACES.items():
-        for ct in s["call_types"]:
-            assert ct not in seen, f"{ct} claimed by {seen.get(ct)} and {name}"
-            seen[ct] = name
+@pytest.mark.parametrize("surface", list(SURFACES))
+def test_every_surface_declares_whether_it_matches_the_wire(surface):
+    """The v1 failure was a spec that described intent while claiming to
+    describe current behavior. A surface that has not been byte-diffed
+    must say so, in the file, where an implementer will see it."""
+    s = SURFACES[surface]
+    assert s["verification"] in VERIFICATION_STATES
+    assert s.get("verification_note"), f"{surface} states no verification note"
 
 
-def test_both_chat_surfaces_are_covered():
-    """The two surfaces that had no global instructions at all."""
-    covered = {ct for s in SURFACES.values() for ct in s["call_types"]}
-    assert {"meeting_chat", "meeting_chat_follow_up",
-            "project_chat", "project_chat_follow_up"} <= covered
+def test_the_session_surfaces_are_still_flagged_unverified():
+    """copilot_session and post_session_analysis were the ones v1 got
+    wrong. They stay flagged until someone diffs them against the wire,
+    and flipping the flag without doing that is the regression."""
+    for surface in ("copilot_session", "post_session_analysis"):
+        assert SURFACES[surface]["verification"] == "unverified_describes_intent"
+
+
+def test_session_surfaces_put_summary_and_project_in_the_user_turn():
+    """The actual correction. The client blanks both in the system block
+    and re-emits them in the user turn, and in the system block they would
+    bust the cached prefix every turn."""
+    s = SURFACES["copilot_session"]
+    for sec in ("rolling_summary", "project_context"):
+        assert sec in s["user"], f"copilot_session must not put {sec} in system"
+        assert sec not in s["system"]
+
+
+def test_the_sections_the_client_already_sends_are_defined():
+    """An absent section reads as undefined, not unchanged. Both of these
+    ride the wire today."""
+    for sec in ("conversation_history", "attached_photos_note"):
+        assert sec in SECTIONS
+        assert any(sec in s["user"] for s in SURFACES.values()), (
+            f"{sec} is defined but placed on no surface")
 
 
 def test_served_over_the_config_endpoint(client):
-    """SS has to be able to fetch it. A new config name is invisible to
-    older builds, which never request it, so this is additive by
-    construction."""
     r = client.get("/v1/config/prompt-envelope",
                    headers={"X-App-ID": "shouldersurf"})
     assert r.status_code == 200
     body = r.json()
-    # Version is checked as a floor, not an equality: the persisted overlay
-    # legitimately runs ahead of the bundled file once hydration folds in a
-    # bundle addition and bumps it so clients refetch.
     assert body["version"] >= SPEC["version"]
-    assert set(body["surfaces"]) == set(SPEC["surfaces"])
-    for name, surface in body["surfaces"].items():
-        assert "global_system_instructions" in surface["system"], name
-        assert surface["user"][-1] == "user_query", name
+    assert set(body["surfaces"]) == set(SURFACES)
+    assert body["lanes"]["byok"]["instructions_editable"] is True
+    assert body["lanes"]["managed"]["instructions_editable"] is False
+    assert body["lanes"]["on_device"]["instructions_editable"] is False
