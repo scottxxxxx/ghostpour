@@ -4692,6 +4692,14 @@ async def config_registry(
         audience = TESTER_PREFIX if parts[0] == TESTER_PREFIX else "production"
         if audience == TESTER_PREFIX:
             parts = parts[1:]
+        # Build pins are the shape held back for frozen builds. Surfaced
+        # separately from audience because they answer a different
+        # question: not "who is trying this" but "who cannot take the
+        # current one".
+        pin = None
+        if parts and parts[0].startswith("build-lte-"):
+            pin = parts[0]
+            parts = parts[1:]
         app_dir = parts[0] if len(parts) > 1 else None
         stem = parts[-1]
         base, _, loc = stem.partition(".")
@@ -4703,10 +4711,12 @@ async def config_registry(
             "config": base,
             "purpose": _CONFIG_PURPOSE.get(base, ""),
             "locales": set(), "apps": set(), "audiences": set(),
-            "versions": {}, "server_only": False,
+            "build_pins": set(), "versions": {}, "server_only": False,
         })
         entry["locales"].add(loc or "en")
         entry["audiences"].add(audience)
+        if pin:
+            entry["build_pins"].add(pin)
         if app_dir:
             entry["apps"].add(app_dir)
         entry["versions"][slug] = version
@@ -4717,7 +4727,9 @@ async def config_registry(
         entry["locales"] = sorted(entry["locales"])
         entry["apps"] = sorted(entry["apps"])
         entry["audiences"] = sorted(entry["audiences"])
+        entry["build_pins"] = sorted(entry["build_pins"])
         entry["under_test"] = TESTER_PREFIX in entry["audiences"]
+        entry["pinned_for_old_builds"] = bool(entry["build_pins"])
 
     testers = [dict(r) for r in await (await db.execute(
         "SELECT user_id, label, active, added_at FROM config_testers "
@@ -4727,7 +4739,10 @@ async def config_registry(
         "testers": testers,
         "note": ("A config listed under the tester audience is being verified "
                  "on a real device and has not reached the base. Anything a "
-                 "tester variant does not define falls through to production."),
+                 "tester variant does not define falls through to production. "
+                 "A config with a build pin is serving an older shape to "
+                 "frozen builds that cannot decode the current one; an "
+                 "unknown or unreadable build gets the tightest pin."),
     }
 
 

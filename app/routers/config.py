@@ -10,6 +10,7 @@ responses (no cached body to serve) into 404s for downstream clients.
 
 import json
 import logging
+import re
 import shutil
 from pathlib import Path
 
@@ -114,9 +115,57 @@ def tier_overrides_for_app(app_id: str | None) -> dict:
 
 TESTER_PREFIX = "tester"
 
+# Directories named `build-lte-<N>` hold the shape served to builds at or
+# below N. The frozen App Store build is the case this exists for: it
+# decodes whole-file with no per-entry tolerance, so a restructure that is
+# safe for current builds discards the entire file there, and it has no
+# way to tell us. See docs/decisions/prompt-composition-doctrine.md.
+_BUILD_PIN_RE = re.compile(r"^build-lte-(\d+)$")
+
+
+def build_pin_dirs() -> list[int]:
+    """Build ceilings that have a pinned config tree, ascending."""
+    if not CONFIG_DIR.is_dir():
+        return []
+    out = []
+    for child in CONFIG_DIR.iterdir():
+        if child.is_dir():
+            m = _BUILD_PIN_RE.match(child.name)
+            if m:
+                out.append(int(m.group(1)))
+    return sorted(out)
+
+
+def resolve_build_pin(app_build: str | None) -> str | None:
+    """The tightest pin directory that applies to this caller, or None.
+
+    An unreadable or absent build resolves to the LOWEST pin rather than
+    none, because guessing new on an unknown client is the one guess that
+    breaks somebody. SS also reports that their build stamp can silently
+    fall back to a hardcoded baseline when the git-count script does not
+    run, so a low or odd number is not evidence of an old install and a
+    high one is not proof of a new one. Safe-but-degraded is the trade.
+
+    Among applicable pins the SMALLEST ceiling wins, so `build-lte-803`
+    beats `build-lte-900` for a build of 803: the tighter pin is the more
+    specific statement about that build.
+    """
+    pins = build_pin_dirs()
+    if not pins:
+        return None
+    try:
+        build = int(app_build) if app_build is not None else -1
+    except (TypeError, ValueError):
+        build = -1
+    if build < 0:
+        return f"build-lte-{pins[0]}"
+    applicable = [p for p in pins if build <= p]
+    return f"build-lte-{applicable[0]}" if applicable else None
+
 
 def candidate_slugs(app_dir: str, name: str,
-                    audience: str = "production") -> list[str]:
+                    audience: str = "production",
+                    build_pin: str | None = None) -> list[str]:
     """Slug lookup order for (app, requested name), highest priority first.
 
     1. `{app_dir}/{name}` — the app's own file.
@@ -137,9 +186,16 @@ def candidate_slugs(app_dir: str, name: str,
     if app_dir == "techrehearsal" and name.startswith("tr-"):
         base.append(f"{app_dir}/{name[3:]}")
     base.append(name)
+
+    out: list[str] = []
+    # Audience first: a tester asked to see a specific change, and that
+    # intent outranks a build ceiling. A tester on a pinned build still
+    # falls through to the pin for anything the tester tree omits.
     if audience == TESTER_PREFIX:
-        return [f"{TESTER_PREFIX}/{c}" for c in base] + base
-    return base
+        out += [f"{TESTER_PREFIX}/{c}" for c in base]
+    if build_pin:
+        out += [f"{build_pin}/{c}" for c in base]
+    return out + base
 
 
 def seed_remote_configs() -> None:
@@ -454,6 +510,11 @@ async def get_config(
     # does not define, so a tester is never running a wholly separate build.
     audience = await resolve_audience(request, db)
 
+    # Build ceiling: a frozen build can need an older shape than the one we
+    # serve everyone else. Unknown or unreadable build resolves to the
+    # tightest pin, never to none.
+    build_pin = resolve_build_pin(request.headers.get("X-App-Build"))
+
     # Resolve locale-specific config with fallback
     accept_lang = request.headers.get("Accept-Language")
     locale = _parse_accept_language(accept_lang)
@@ -461,7 +522,7 @@ async def get_config(
     # Walk candidates in priority order; for each, try the localized variant
     # before the base, so a per-app localized file wins over a flat base.
     resolved_name = None
-    for cand in candidate_slugs(app_dir, name, audience):
+    for cand in candidate_slugs(app_dir, name, audience, build_pin):
         if locale and f"{cand}.{locale}" in configs:
             resolved_name = f"{cand}.{locale}"
             break
@@ -471,8 +532,8 @@ async def get_config(
 
     logger.info(
         "Config request: name=%s app_id=%r app_dir=%s locale=%s audience=%s "
-        "resolved=%s", name, app_id, app_dir, locale or "en", audience,
-        resolved_name,
+        "build_pin=%s resolved=%s", name, app_id, app_dir, locale or "en",
+        audience, build_pin or "-", resolved_name,
     )
 
     if resolved_name is None:
@@ -510,6 +571,7 @@ async def get_config(
                         "X-Config-Locale": locale or "en",
                         "X-Config-Resolved": resolved_name,
                         "X-Config-Audience": audience,
+                        "X-Config-Build-Pin": build_pin or "none",
                     },
                 )
         except (ValueError, TypeError):
@@ -529,6 +591,7 @@ async def get_config(
             "X-Config-Locale": locale or "en",
             "X-Config-Resolved": resolved_name,
             "X-Config-Audience": audience,
+            "X-Config-Build-Pin": build_pin or "none",
             # Testers must not be served a proxy-cached production payload,
             # and vice versa. Vary is not enough here because the audience is
             # derived from the bearer token rather than a cacheable header.
