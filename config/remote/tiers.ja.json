@@ -1,5 +1,5 @@
 {
-  "version": 40,
+  "version": 41,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -365,6 +365,7 @@
   },
   "feature_definitions": {
     "context_quilt": {
+      "category": "intelligence",
       "display_name": "ミーティングメモリー",
       "description": "AIが過去の会議を記憶し、その知識を自動的に活用します。",
       "teaser_description": "AIが過去の会議とのつながりを発見しました",
@@ -375,6 +376,7 @@
       }
     },
     "meeting_reports": {
+      "category": "intelligence",
       "display_name": "ミーティングレポート",
       "description": "ミーティングの記録から共有可能なHTMLレポートを生成。感情分析、重要な瞬間、推奨タグ、メモ。",
       "teaser_description": "レポートでミーティングを共有可能なサマリーに。",
@@ -395,6 +397,7 @@
       }
     },
     "project_chat": {
+      "category": "intelligence",
       "display_name": "プロジェクトチャット",
       "description": "プロジェクト内のすべてのミーティングにわたってAIに質問できます。AIがコンテキストを理解しています。",
       "teaser_description": "プロジェクトチャットはPlus機能です。",
@@ -410,6 +413,7 @@
       }
     },
     "search": {
+      "category": "intelligence",
       "display_name": "Web検索",
       "description": "質問への回答中にAIがWebから最新情報を取得できます。",
       "teaser_description": "Web検索は有料機能です。",
