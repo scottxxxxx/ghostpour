@@ -74,3 +74,31 @@ def test_tiers_endpoint_localized_response_includes_feature_definitions(client):
                 f"locale={lang}: tiers.{tier}.feature_definitions.project_chat."
                 f"max_input_tokens missing"
             )
+
+
+def test_no_feature_definition_emits_a_null_required_field(client):
+    """The shipped iOS FeatureDefinitionInfo declares teaserDescription and
+    upgradeCta as non-optional String, and TierCatalog.fetchTiers is a
+    single try? over the whole response. So one entry missing either field
+    does not blank that entry, it discards the entire tier catalog for
+    every build in the field.
+
+    That is not hypothetical: adding a `people` entry without them did
+    exactly this on 2026-08-03, and it was invisible from the server. 803
+    has no bundled tiers copy to fall back to and no retry loop, so the
+    catalog simply stayed empty and our stall detector had nothing to see.
+
+    Asserted at the endpoint rather than in the config files because both
+    the tiers config and the features.yml fallback feed it, and only one
+    of them defaults the fields to empty strings.
+    """
+    body = client.get("/v1/tiers").json()
+    broken = {
+        name: [k for k in ("teaser_description", "upgrade_cta")
+               if entry.get(k) is None]
+        for name, entry in body["feature_definitions"].items()
+    }
+    broken = {n: v for n, v in broken.items() if v}
+    assert not broken, (
+        f"{broken} would make every shipped build discard the whole tier "
+        "catalog, not just these entries")
