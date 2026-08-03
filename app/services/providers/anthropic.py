@@ -439,11 +439,20 @@ def _build_system_blocks(request: ChatRequest) -> list[dict]:
                     "text": prefix,
                     "cache_control": {"type": "ephemeral"},
                 })
-            blocks.append({
-                "type": "text",
-                "text": recall,
-                "cache_control": {"type": "ephemeral"},
-            })
+            # A breakpoint after recall is only worth paying for when
+            # something follows it that is worth caching. Recall is per-turn
+            # volatile (CQ confirmed 2026-08-03: item 6 promises determinism
+            # for a repeated identical request, not invariance across
+            # questions), so when it lands LAST the entry it would create
+            # covers prefix+recall, changes every turn, and can never be
+            # reused. That is a cache write bought for nothing. Leave recall
+            # in the uncached tail and let the prefix breakpoint do the work.
+            blocks.append(
+                {"type": "text", "text": recall}
+                if not suffix else
+                {"type": "text", "text": recall,
+                 "cache_control": {"type": "ephemeral"}}
+            )
             if suffix:
                 blocks.append({"type": "text", "text": suffix})
             return blocks

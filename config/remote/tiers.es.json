@@ -1,5 +1,5 @@
 {
-  "version": 39,
+  "version": 40,
   "tiers": {
     "free": {
       "display_name": "Gratis",
@@ -365,6 +365,7 @@
   },
   "feature_definitions": {
     "context_quilt": {
+      "category": "intelligence",
       "display_name": "Memoria de Reuniones",
       "description": "Tu IA recuerda reuniones pasadas y usa ese conocimiento automáticamente.",
       "teaser_description": "Tu IA encontró conexiones con tus reuniones pasadas",
@@ -375,6 +376,7 @@
       }
     },
     "meeting_reports": {
+      "category": "intelligence",
       "display_name": "Informes de reuniones",
       "description": "Genera informes HTML compartibles desde las transcripciones de tus reuniones: análisis de sentimiento, momentos clave, etiquetas sugeridas y tus notas.",
       "teaser_description": "Convierte tus reuniones en resúmenes compartibles.",
@@ -395,6 +397,7 @@
       }
     },
     "project_chat": {
+      "category": "intelligence",
       "display_name": "Chat de proyecto",
       "description": "Hazle preguntas a la IA en todas las reuniones de un proyecto: tu IA conoce el contexto.",
       "teaser_description": "Chat de proyecto es una función Plus.",
@@ -410,6 +413,7 @@
       }
     },
     "search": {
+      "category": "intelligence",
       "display_name": "Búsqueda web",
       "description": "Pídele a tu IA que busque información actualizada en la web durante una consulta.",
       "teaser_description": "La búsqueda web es una función de pago.",

@@ -196,3 +196,32 @@ def test_served_over_the_config_endpoint(client):
     assert body["lanes"]["byok"]["instructions_editable"] is True
     assert body["lanes"]["managed"]["instructions_editable"] is False
     assert body["lanes"]["on_device"]["instructions_editable"] is False
+
+
+# --- single owner of placement --------------------------------------
+
+
+def test_the_envelope_declares_itself_the_placement_authority():
+    """CQ: model-capabilities also carries a promptPlacement field, so two
+    served configs can each assert placement. Additive-only means we can
+    never delete the old one, which makes an explicit precedence rule
+    mandatory rather than tidy-up: something has to say what wins for a
+    build still reading the deprecated field."""
+    auth = SPEC["placement_authority"]
+    assert auth["owner"] == "prompt-envelope"
+    assert "model-capabilities.models.*.promptPlacement" in auth["deprecated_elsewhere"]
+    assert len(auth["note"]) > 80
+
+
+def test_the_deprecated_field_is_still_present_and_inert():
+    """Deprecated in place, not removed. If it ever disappears from
+    model-capabilities we have broken every shipped build, and if its value
+    ever varies someone has started using it again."""
+    caps = json.loads(
+        (Path(__file__).parent.parent / "config" / "remote"
+         / "model-capabilities.json").read_text())["models"]
+    values = {m.get("promptPlacement") for m in caps.values()}
+    assert None not in values, "promptPlacement vanished; that breaks shipped builds"
+    assert values == {"System"}, (
+        f"promptPlacement now varies ({values}); it is deprecated and inert, "
+        "so a varying value means something is reading it again")

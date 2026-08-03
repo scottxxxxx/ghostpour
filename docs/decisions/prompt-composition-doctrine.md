@@ -82,6 +82,43 @@ envelope must state where those sections go today (the user turn), so
 adopting it changes nothing, and from then on that placement moves when
 GP says so and without a build.
 
+## Sibling coverage (SS's rule 2, generalized)
+
+SS's rule: every entry in a collection carries every key its siblings
+carry. The missing Japanese instruction file is the same rule one level
+up, at file granularity instead of key granularity, and it hid for the
+same reason: nothing compared a config against its peers.
+
+So the rule generalizes in both directions:
+
+- **Keys.** Every entry in a collection carries every key its siblings
+  carry, even when semantically empty.
+- **Locales.** Every served config covers the same locale set its
+  siblings cover, or declares which locales it does not and why.
+
+A gap is allowed. A silent gap is not. Both are enforced in
+`tests/test_served_config_shape.py`, with exemptions that must carry a
+reason and that fail once they stop applying, so the checks cannot rot
+into rubber stamps.
+
+Standing corollary, from SS: **treat quiet as no signal for anything
+older than 2026-08-02.** Those builds cannot report a decode failure. If
+you want evidence a change landed safely on them, it has to come from
+something other than the absence of alerts.
+
+## Placement has one owner
+
+`model-capabilities.promptPlacement` is deprecated in place and must be
+ignored. It cannot be deleted, because removing a field is never safe for
+any build ever shipped, which is what makes an explicit precedence rule
+mandatory rather than tidy-up. The envelope wins.
+
+Open assumption, flagged rather than assumed away: we believe no shipped
+build reads that value. SS confirmed the type declares it non-optional,
+which proves the key must be *present*, not that anything consumes it.
+Their per-build manifest settles it cheaply and they are generating it
+anyway.
+
 ## Open work this implies
 
 - Envelope v2: correct `copilot_session` to the real wire, add sections
