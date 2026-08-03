@@ -138,3 +138,88 @@ def test_model_capabilities_universal_keys_are_never_null(loc):
         f"{bad} in model-capabilities{loc}: null reads as missing to a "
         "non-optional type and discards the whole capabilities file, which "
         "gates the Project Chat gauge on every build including current.")
+
+
+# --- locale coverage: SS's rule 2, one level up ----------------------
+#
+# The missing Japanese instruction file was one entry lacking what its
+# siblings have, at FILE granularity instead of key granularity, and it
+# hid for exactly the same reason: nothing compared a config against its
+# peers. Tier copy ships four languages, instruction text ships three, and
+# no check noticed.
+#
+# So the rule generalizes: a served config covers the same locale set its
+# siblings cover, or it declares which locales it does not and why. A gap
+# is allowed. A silent gap is not.
+
+SHIPPED_LOCALES = {"en", "es", "ja", "fr"}
+
+# Slugs that are structural rather than prose, so they carry no locale
+# variants at all. Each needs a reason, same discipline as OPTIONAL_KEYS.
+NO_LOCALE_NEEDED = {
+    "entitlements": "A tier/state matrix. Carries no user-facing prose.",
+    "model-routing": "Server-side routing table. Never reaches a user.",
+    "prompt-envelope": "Composition recipe. Section ids are machine tokens, not prose.",
+}
+
+# Known, accepted gaps. Each is a translation owed, tracked here rather
+# than in somebody's head.
+DECLARED_LOCALE_GAPS = {
+    "protected-prompts": {
+        "ja": "No Japanese instruction file exists, so Japanese users receive "
+              "the entire English instruction block, including the literal "
+              "reply in rule 4. Found 2026-08-03. Translation owed."
+    },
+    "canned-report": {
+        "fr": "French locale rollout 2026-07-27 covered seven surfaces; this "
+              "one was not among them. Translation owed."
+    },
+    "report-strings": {
+        "fr": "Same French rollout gap as canned-report. Translation owed."
+    },
+}
+
+
+def _locale_coverage():
+    import re
+    import collections
+    cov = collections.defaultdict(set)
+    for f in _REMOTE.glob("*.json"):
+        m = re.match(r"^(.+?)(?:\.(es|ja|fr))?\.json$", f.name)
+        cov[m.group(1)].add(m.group(2) or "en")
+    return cov
+
+
+def test_every_locale_gap_is_declared():
+    """A config missing a language its siblings have must say so here."""
+    undeclared = {}
+    for slug, have in sorted(_locale_coverage().items()):
+        if slug in NO_LOCALE_NEEDED:
+            continue
+        missing = SHIPPED_LOCALES - have
+        declared = set(DECLARED_LOCALE_GAPS.get(slug, {}))
+        if missing - declared:
+            undeclared[slug] = sorted(missing - declared)
+    assert not undeclared, (
+        f"{undeclared} ship fewer languages than their siblings without "
+        "saying so. Add the translation, or declare the gap with a reason "
+        "so it is a decision rather than an oversight.")
+
+
+def test_declared_gaps_are_real_and_reasoned():
+    """A declaration that no longer matches reality is worse than none: it
+    says somebody looked, when the check has actually stopped applying."""
+    cov = _locale_coverage()
+    for slug, gaps in DECLARED_LOCALE_GAPS.items():
+        assert slug in cov, f"{slug} declares gaps but is not a served config"
+        for loc, reason in gaps.items():
+            assert len(reason) > 30, f"{slug}.{loc} declared without a reason"
+            assert loc not in cov[slug], (
+                f"{slug}.{loc} is declared missing but now exists. Delete the "
+                "declaration so the check keeps its teeth.")
+
+
+def test_structural_configs_justify_having_no_locales():
+    for slug, reason in NO_LOCALE_NEEDED.items():
+        assert len(reason) > 20, f"{slug} exempted from locales without a reason"
+        assert slug in _locale_coverage(), f"{slug} is not a served config"
