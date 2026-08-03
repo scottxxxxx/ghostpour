@@ -354,8 +354,15 @@ class TestChatCQ:
         assert resp.status_code == 200
         mock_cq["capture"].assert_not_called()
 
-    def test_cq_teaser_returns_gated_header(self, client_with_cq, plus_user, mock_cq):
-        """Standard tier (CQ=teaser) → recall runs, X-CQ-Gated header set, no injection."""
+    def test_plus_gets_real_memory_not_a_teaser(self, client_with_cq, plus_user, mock_cq):
+        """Plus moved from teaser to enabled (2026-08-03).
+
+        Teaser meant recall ran but its result was withheld behind an
+        upsell header. Plus now gets the real thing, so the gated header
+        must be absent: a paying subscriber seeing X-CQ-Gated is the bug
+        this change exists to fix. The teaser branch itself is still
+        covered directly in tests/test_memory_capture_policy.py.
+        """
         resp = client_with_cq.post(
             "/v1/chat",
             json=chat_request(context_quilt=True),
@@ -363,7 +370,7 @@ class TestChatCQ:
         )
         assert resp.status_code == 200
         mock_cq["recall"].assert_called_once()
-        assert resp.headers.get("x-cq-gated") == "true"
+        assert resp.headers.get("x-cq-gated") is None
 
     def test_cq_disabled_skips_recall(self, client_with_cq, free_user, mock_cq):
         """Free tier (CQ=disabled) → recall NOT called even with context_quilt=true."""

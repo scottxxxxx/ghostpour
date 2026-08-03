@@ -1,5 +1,5 @@
 {
-  "version": 38,
+  "version": 39,
   "tiers": {
     "free": {
       "display_name": "Gratuit",
@@ -369,10 +369,10 @@
       "display_name": "Mémoire des réunions",
       "description": "Votre IA se souvient des réunions passées et utilise ces connaissances automatiquement.",
       "teaser_description": "Votre IA a trouvé des liens avec vos réunions passées",
-      "upgrade_cta": "Passez à Pro pour débloquer la Mémoire des réunions",
+      "upgrade_cta": "Passez à Plus pour débloquer la Mémoire des réunions",
       "cta_strings": {
-        "free_within_quota_footer": "✨ C'était votre Mémoire gratuite sur {total} ce mois-ci. Passez à Pro pour continuer à construire votre Mémoire.",
-        "free_no_quota_only": "✨ Vous voulez que votre IA se souvienne de vos réunions ? Passez à Pro pour commencer à construire votre Mémoire."
+        "free_within_quota_footer": "✨ C'était votre Mémoire gratuite sur {total} ce mois-ci. Passez à Plus pour continuer à construire votre Mémoire.",
+        "free_no_quota_only": "✨ Vous voulez que votre IA se souvienne de vos réunions ? Passez à Plus pour commencer à construire votre Mémoire."
       }
     },
     "meeting_reports": {

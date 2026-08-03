@@ -151,7 +151,9 @@ class TestFreeWithinQuota:
         assert cta["origin_type"] == "meeting"
         assert cta["metadata"]["cta_kind"] == "free_within_quota_footer"
         assert cta["metadata"]["action"] == "open_paywall"
-        assert "Upgrade to Pro" in cta["fact"]
+        # Plus unlocks Meeting Memory as of 2026-08-03, so the free-tier
+        # upsell has to name the cheapest tier that actually unlocks it.
+        assert "Upgrade to Plus" in cta["fact"]
         assert cta["patch_type"] == "cta"
 
         # Flag cleared after one render.
@@ -251,7 +253,7 @@ class TestCtaLocalization:
         assert resp.status_code == 200
         body = resp.json()
         cta = body["facts"][-1]
-        assert "Actualiza a Pro" in cta["fact"]
+        assert "Actualiza a Plus" in cta["fact"]
         assert "Memoria" in cta["fact"]
 
     def test_ja_locale_picks_japanese_cta(
@@ -279,7 +281,7 @@ class TestCtaLocalization:
         assert resp.status_code == 200
         body = resp.json()
         cta = body["facts"][-1]
-        assert "Pro" in cta["fact"]
+        assert "Plus" in cta["fact"]
         # Japanese-specific marker: メモリー (memory)
         assert "メモリー" in cta["fact"]
 
@@ -310,7 +312,7 @@ class TestCtaLocalization:
         assert resp.status_code == 200
         body = resp.json()
         cta = body["facts"][-1]
-        assert "Upgrade to Pro" in cta["fact"]
+        assert "Upgrade to Plus" in cta["fact"]
 
 
 class TestRecoveryHeader:
