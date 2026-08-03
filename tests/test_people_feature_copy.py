@@ -108,3 +108,37 @@ def test_localized_copy_is_actually_translated():
         other = TIERS[loc]["feature_definitions"]["people"]["signed_out"]
         for key in ("headline", "body", "cta_label"):
             assert other[key] != en[key], f"{loc}.{key} is still English"
+
+
+# --- the general rule, not just People ------------------------------
+#
+# SS asked what the SLA is on translation lag, having inferred from the
+# version integers that English runs ahead. The integers are independent
+# per-file counters and say nothing about content, but the underlying
+# worry is fair: nothing structural stopped a new key from landing in
+# English alone. These two make it structural, so the answer is "there is
+# no lag" rather than a number we would have to keep promising.
+
+
+def test_every_feature_definition_exists_in_every_shipped_language():
+    en_keys = set(TIERS["en"]["feature_definitions"])
+    for loc in ("es", "ja", "fr"):
+        missing = en_keys - set(TIERS[loc]["feature_definitions"])
+        assert not missing, (
+            f"{loc} is missing {sorted(missing)}, so those markets get "
+            "English until someone notices")
+
+
+def test_user_facing_feature_strings_are_not_left_in_english():
+    """Only prose is checked. `category` is a machine token and
+    `display_name` is sometimes a deliberate loanword, so neither is
+    evidence of an untranslated block."""
+    PROSE = ("description", "teaser_description", "upgrade_cta")
+    en_fd = TIERS["en"]["feature_definitions"]
+    for loc in ("es", "ja", "fr"):
+        for feature, en_def in en_fd.items():
+            other = TIERS[loc]["feature_definitions"][feature]
+            for key in PROSE:
+                if key in en_def and key in other and en_def[key]:
+                    assert other[key] != en_def[key], (
+                        f"{loc}.{feature}.{key} is still the English string")
