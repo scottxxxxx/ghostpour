@@ -790,3 +790,142 @@ async def get_quilt_graph(
             "message": f"Context Quilt unreachable: {e}",
             "request_id": request_id,
         })
+
+
+# --- People (Review's fourth segment) --------------------------------
+#
+# A Shoulder Surf Person is a projection of a CQ person entity keyed on
+# CQ's entity_id, with CQ as the source of truth for identity. GP is the
+# gateway: without these routes SS's first People call 404s here, which
+# reads on their side as a client bug. CQ flagged that on 2026-08-03.
+#
+# Query strings are forwarded verbatim (since / confirmed / min_meetings /
+# limit ride the list route). `since` is the one worth testing explicitly:
+# dropping it does not error, it silently degrades a delta sync into a
+# full one, which is the same class of bug that made every quilt poll
+# return "+860 updated".
+#
+# Availability is the `people` entitlement, enabled for every tier today
+# (Scott, 2026-08-02). Checked anyway so the dashboard toggle is real
+# rather than decorative: flipping the row to disabled has to actually
+# close the door, not just hide the tab.
+
+_PEOPLE_FEATURE = "people"
+
+
+async def _require_people(request: Request, user: UserRecord, user_id: str) -> None:
+    """Shared guard: the caller owns this data and the feature is on."""
+    if user.id != user_id:
+        raise HTTPException(
+            status_code=403, detail="Cannot access another user's people")
+    from app.services.entitlements import entitlement_state
+    configs = getattr(request.app.state, "remote_configs", None)
+    if configs is None:
+        # Config store unavailable. That is our problem, not the caller's,
+        # and People is not a paid gate, so an absent matrix must not read
+        # as "disabled" and lock everyone out. Same fail-open reasoning as
+        # unrecognized X-App-ID in the config resolver.
+        logger.warning("people_entitlement_skipped: remote_configs unavailable")
+        return
+    state = entitlement_state(configs, user.tier, _PEOPLE_FEATURE)
+    if state == "disabled":
+        raise HTTPException(status_code=403, detail={
+            "code": "feature_disabled",
+            "feature": _PEOPLE_FEATURE,
+            "message": "People is not available on this plan",
+        })
+
+
+@router.get("/people/{user_id}")
+async def list_people(
+    user_id: str,
+    request: Request,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Proxy: list the user's people. Carries since/confirmed/min_meetings/limit."""
+    await _require_people(request, user, user_id)
+    return await _cq_proxy(
+        "GET", f"/v1/people/{user_id}", query=request.url.query or None)
+
+
+@router.post("/people/{user_id}/merge")
+async def merge_people(
+    user_id: str,
+    request: Request,
+    body: dict,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Proxy: merge two people into one entity."""
+    await _require_people(request, user, user_id)
+    return await _cq_proxy(
+        "POST", f"/v1/people/{user_id}/merge", body=body,
+        query=request.url.query or None)
+
+
+@router.post("/people/{user_id}/keep-separate")
+async def keep_people_separate(
+    user_id: str,
+    request: Request,
+    body: dict,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Proxy: record that two candidates are NOT the same person."""
+    await _require_people(request, user, user_id)
+    return await _cq_proxy(
+        "POST", f"/v1/people/{user_id}/keep-separate", body=body,
+        query=request.url.query or None)
+
+
+@router.post("/people/{user_id}/{entity_id}/confirm")
+async def confirm_person(
+    user_id: str,
+    entity_id: str,
+    request: Request,
+    body: dict | None = None,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Proxy: confirm a person's identity."""
+    await _require_people(request, user, user_id)
+    return await _cq_proxy(
+        "POST", f"/v1/people/{user_id}/{entity_id}/confirm", body=body,
+        query=request.url.query or None)
+
+
+@router.post("/people/{user_id}")
+async def create_person(
+    user_id: str,
+    request: Request,
+    body: dict,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Proxy: create a person entity."""
+    await _require_people(request, user, user_id)
+    return await _cq_proxy(
+        "POST", f"/v1/people/{user_id}", body=body,
+        query=request.url.query or None)
+
+
+@router.get("/people/{user_id}/{entity_id}")
+async def get_person(
+    user_id: str,
+    entity_id: str,
+    request: Request,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Proxy: fetch one person, with the meetings/commitments attached.
+
+    Declared after the literal-segment POST routes above so `merge` and
+    `keep-separate` are never swallowed by `{entity_id}`. They are POSTs
+    and this is a GET, so there is no live conflict today; the ordering is
+    insurance against someone adding a GET /merge later.
+    """
+    await _require_people(request, user, user_id)
+    return await _cq_proxy(
+        "GET", f"/v1/people/{user_id}/{entity_id}",
+        query=request.url.query or None)

@@ -1,0 +1,123 @@
+"""People proxy routes (2026-08-03).
+
+A Shoulder Surf Person is a projection of a CQ person entity, with CQ as
+the source of truth. GP is the gateway, and until these routes existed
+SS's first People call 404'd here, which on their side reads as a client
+bug. CQ flagged it before SS started building.
+
+The assertion that matters most is query passthrough. `since` does not
+error when dropped, it silently turns a delta sync into a full one, which
+is the same class of bug that made every quilt poll return the whole
+quilt.
+"""
+
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from app.dependencies import get_current_user
+from app.main import app
+from app.models.user import UserRecord
+
+USER = "user-people-1"
+
+
+def _user(user_id: str = USER, tier: str = "free") -> UserRecord:
+    """Free by default: People is enabled on every tier, so the free user
+    is the one that proves the gate is open rather than incidentally
+    passing because the test user was Pro."""
+    return UserRecord(
+        id=user_id, apple_sub="sub_people", tier=tier,
+        created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
+    )
+
+
+# Uses the conftest `client`, which runs the app lifespan, so the
+# entitlement check reads the REAL matrix (people: enabled for every tier)
+# instead of a stub. A bare TestClient skips lifespan and leaves
+# app.state.remote_configs unset.
+@pytest.fixture
+def people_client(client):
+    app.dependency_overrides[get_current_user] = lambda: _user()
+    yield client
+    app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest.fixture
+def other_user_client(client):
+    app.dependency_overrides[get_current_user] = lambda: _user("someone-else")
+    yield client
+    app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest.fixture
+def proxy():
+    """Capture what we would have sent upstream to CQ."""
+    with patch("app.routers.cq_proxy._cq_proxy", new_callable=AsyncMock) as m:
+        from fastapi.responses import JSONResponse
+        m.return_value = JSONResponse(status_code=200, content={"ok": True})
+        yield m
+
+
+ROUTES = [
+    ("get", f"/v1/people/{USER}", None),
+    ("get", f"/v1/people/{USER}/ent-9", None),
+    ("post", f"/v1/people/{USER}", {"name": "Ada"}),
+    ("post", f"/v1/people/{USER}/merge", {"a": "1", "b": "2"}),
+    ("post", f"/v1/people/{USER}/keep-separate", {"a": "1", "b": "2"}),
+    ("post", f"/v1/people/{USER}/ent-9/confirm", {}),
+]
+
+
+@pytest.mark.parametrize("method,path,body", ROUTES)
+def test_every_route_exists_and_reaches_cq(people_client, proxy, method, path, body):
+    """The whole point: none of these may 404 at the gateway."""
+    resp = getattr(people_client, method)(path, **({"json": body} if body is not None else {}))
+    assert resp.status_code == 200, f"{method.upper()} {path} -> {resp.status_code}"
+    assert proxy.await_count == 1
+
+
+def test_list_forwards_every_query_param_verbatim(people_client, proxy):
+    """since / confirmed / min_meetings / limit all have to survive the
+    proxy. `since` especially: dropping it degrades quietly."""
+    q = "since=2026-08-01T00%3A00%3A00Z&confirmed=true&min_meetings=5&limit=50"
+    resp = people_client.get(f"/v1/people/{USER}?{q}")
+    assert resp.status_code == 200
+    forwarded = proxy.await_args.kwargs["query"]
+    for param in ("since=", "confirmed=true", "min_meetings=5", "limit=50"):
+        assert param in forwarded, f"{param} was dropped on the way to CQ"
+
+
+def test_no_query_string_forwards_none_not_empty(people_client, proxy):
+    """An empty string would send CQ a bare '?', which is not the same
+    request."""
+    people_client.get(f"/v1/people/{USER}")
+    assert proxy.await_args.kwargs["query"] is None
+
+
+@pytest.mark.parametrize("method,path,body", ROUTES)
+def test_cannot_reach_another_users_people(other_user_client, proxy, method, path, body):
+    resp = getattr(other_user_client, method)(
+        path, **({"json": body} if body is not None else {}))
+    assert resp.status_code == 403
+    assert proxy.await_count == 0
+
+
+def test_merge_is_not_swallowed_by_the_entity_route(people_client, proxy):
+    """`merge` and `keep-separate` are literal segments sitting where an
+    entity_id would go. If ordering ever regresses, they get proxied to
+    /people/{user}/merge as an entity fetch instead."""
+    people_client.post(f"/v1/people/{USER}/merge", json={"a": "1"})
+    assert proxy.await_args.args[1].endswith("/merge")
+    assert proxy.await_args.args[0] == "POST"
+
+
+def test_disabled_entitlement_actually_closes_the_door(people_client, proxy, monkeypatch):
+    """People is enabled everywhere today, so the toggle would be
+    decorative unless flipping it is enforced here."""
+    with patch("app.services.entitlements.entitlement_state",
+               lambda *a, **k: "disabled"):
+        resp = people_client.get(f"/v1/people/{USER}")
+    assert resp.status_code == 403
+    assert resp.json()["detail"]["code"] == "feature_disabled"
+    assert proxy.await_count == 0
