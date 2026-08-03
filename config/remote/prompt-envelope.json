@@ -1,84 +1,128 @@
 {
-  "version": 1,
+  "version": 2,
+  "doctrine": "GhostPour owns this recipe. The client executes it and holds no opinion about placement. Changing composition must never require an app update. See docs/decisions/prompt-composition-doctrine.md.",
+  "lane_resolution": {
+    "note": "Data, not code: adding a lane must never need a client build. Resolve by the client's apiFormat, falling back to the default lane for any value not listed, including models that did not exist when this file was written.",
+    "by_api_format": {
+      "apple": "on_device",
+      "cloudzap": "managed"
+    },
+    "fallback": "byok"
+  },
+  "lanes": {
+    "default": {
+      "description": "Any model with no specific entry. Never remove this lane; it is what makes an unknown future model work without a build.",
+      "instructions_editable": false,
+      "instructions_variant": "default",
+      "surface_overrides": {}
+    },
+    "on_device": {
+      "description": "Apple foundation models. Small context (about 3072 usable tokens), so the recipe drops what will not fit rather than letting the transcript be truncated.",
+      "instructions_editable": false,
+      "instructions_variant": "compact",
+      "surface_overrides": {}
+    },
+    "managed": {
+      "description": "Shoulder Surf AI. GP chooses the model and the recipe.",
+      "instructions_editable": false,
+      "instructions_variant": "default",
+      "surface_overrides": {}
+    },
+    "byok": {
+      "description": "The user's own key. Their model and their bill, so the CONTENTS of the instructions become editable. The recipe does not: placement is still ours.",
+      "instructions_editable": true,
+      "instructions_variant": "default",
+      "surface_overrides": {}
+    }
+  },
   "sections": {
     "global_system_instructions": {
-      "placement": "system",
+      "default_placement": "system",
       "stability": "per_user",
-      "editable_on": ["byok"],
-      "description": "Standing rules that apply to every answer. GP serves the text in protected-prompts.defaultGlobalSystemInstructions. Fixed on the managed and on-device lanes; the user's own text is substituted only when they are running their own key."
+      "description": "Standing rules. GP serves the text (protected-prompts.defaultGlobalSystemInstructions). Editability is a LANE property, not a section property: see lanes[].instructions_editable."
     },
     "prompt_system_instructions": {
-      "placement": "system",
+      "default_placement": "system",
       "stability": "per_call_type",
-      "editable_on": [],
-      "description": "GP's instruction for this specific call type. Authored by GP on every lane. Placed after global instructions so it is the more proximate instruction when the two disagree."
+      "description": "GP's instruction for this call type. Authored by GP on every lane."
     },
     "output_constraints": {
-      "placement": "system",
+      "default_placement": "system",
       "stability": "static",
-      "editable_on": [],
-      "description": "Format rules that survive every other instruction, e.g. the dash prohibition. Own section so it can be revised without touching prompt text."
+      "description": "Format rules that survive every other instruction."
     },
     "project_context": {
-      "placement": "system",
+      "default_placement": "system",
       "stability": "per_project",
-      "editable_on": [],
       "description": "Project metadata and attached project files."
     },
     "meeting_context": {
-      "placement": "system",
+      "default_placement": "system",
       "stability": "per_selection",
-      "editable_on": [],
-      "description": "The manifest plus one block per selected meeting, oldest first. See docs/wire-contracts/project-chat-prompt-assembly.md for the block format, which this spec does not change."
+      "description": "Manifest plus one block per selected meeting, oldest first. Block format unchanged, see wire-contracts/project-chat-prompt-assembly.md."
     },
     "rolling_summary": {
-      "placement": "system",
+      "default_placement": "system",
       "stability": "periodic",
-      "editable_on": [],
-      "description": "The running meeting summary. Changes on a cadence rather than per turn."
+      "description": "The running meeting summary."
     },
     "context_quilt": {
-      "placement": "system",
+      "default_placement": "system",
       "stability": "per_turn",
-      "editable_on": [],
-      "description": "Context Quilt recall. Ranked per question, so it changes on every turn and is placed last in the system block to keep everything above it cacheable."
+      "description": "Context Quilt recall. Ranked per question, so it goes last in whichever block holds it."
+    },
+    "conversation_history": {
+      "default_placement": "user",
+      "stability": "per_turn",
+      "description": "Prior turns of this conversation, ending with the current question. Grows every turn, so it never belongs in a cached prefix."
+    },
+    "attached_photos_note": {
+      "default_placement": "user",
+      "stability": "per_send",
+      "description": "The note describing images attached to this send."
     },
     "reference_text": {
-      "placement": "user",
+      "default_placement": "user",
       "stability": "per_send",
-      "editable_on": [],
-      "description": "User-attached references for this send. Sent as its own top-level field rather than concatenated, so GP can render it as a separately cached part on lanes that support one."
+      "description": "User-attached references for this send. Sent as its own top-level field rather than concatenated."
     },
     "transcript": {
-      "placement": "user",
+      "default_placement": "user",
       "stability": "per_turn",
-      "editable_on": [],
-      "description": "Live transcript buffer or excerpt. Grows every turn, so it must never sit in the system block."
+      "description": "Live transcript buffer or excerpt."
     },
     "user_query": {
-      "placement": "user",
+      "default_placement": "user",
       "stability": "per_turn",
-      "editable_on": [],
       "description": "What the user actually asked. Always last."
     }
   },
   "surfaces": {
     "copilot_session": {
       "call_types": ["query", "analysis"],
+      "verification": "unverified_describes_intent",
+      "verification_note": "NOT SAFE TO IMPLEMENT AS WRITTEN. v1 claimed this reproduced the shipped template exactly. It reproduced the TEMPLATE, not the wire: the client blanks summary and project in the system block and re-emits them in the user turn. The placement below reflects that correction, but the ORDER within the user turn has not been byte-diffed against the client and is not asserted. Confirm against the wire before adopting. Out of scope for the current pass.",
       "system": [
         "global_system_instructions",
         "prompt_system_instructions",
         "context_quilt",
-        "rolling_summary",
-        "project_context",
         "output_constraints"
       ],
-      "user": ["reference_text", "transcript", "user_query"],
-      "cache_stable_prefix_ends_after": "prompt_system_instructions",
-      "note": "Order reproduces the shipped systemPromptTemplate exactly, including context_quilt sitting ahead of summary and project. That ordering is not cache-optimal and is a known follow-up; it is left alone here so this spec changes no live behavior."
+      "user": [
+        "reference_text",
+        "conversation_history",
+        "rolling_summary",
+        "project_context",
+        "attached_photos_note",
+        "transcript",
+        "user_query"
+      ],
+      "cache_stable_prefix_ends_after": "prompt_system_instructions"
     },
     "post_session_analysis": {
       "call_types": ["analyze_session"],
+      "verification": "unverified_describes_intent",
+      "verification_note": "Shares resolveQueryContext with copilot_session, so it inherits the same correction and the same caveat. Confirm against the wire before adopting. Out of scope for the current pass.",
       "system": [
         "global_system_instructions",
         "prompt_system_instructions",
@@ -87,15 +131,23 @@
         "rolling_summary",
         "context_quilt"
       ],
-      "user": ["reference_text", "transcript", "user_query"],
+      "user": [
+        "reference_text",
+        "conversation_history",
+        "attached_photos_note",
+        "transcript",
+        "user_query"
+      ],
       "cache_stable_prefix_ends_after": "rolling_summary",
       "stability_overrides": {
         "rolling_summary": "per_selection"
       },
-      "note": "The session is over, so the summary is final rather than periodic. It is large and unchanging across the turns of a post-session conversation, which makes it worth having inside the cached prefix instead of behind the boundary."
+      "stability_note": "The session is over, so the summary is final rather than periodic, and it is large enough to be worth inside the cached prefix."
     },
     "meeting_chat": {
       "call_types": ["meeting_chat", "meeting_chat_follow_up"],
+      "verification": "adopting_now",
+      "verification_note": "The surface SS is implementing this pass. The single deliberate wire change is adding global_system_instructions; everything else must byte-diff identical pre and post.",
       "system": [
         "global_system_instructions",
         "prompt_system_instructions",
@@ -104,11 +156,18 @@
         "rolling_summary",
         "context_quilt"
       ],
-      "user": ["reference_text", "user_query"],
+      "user": [
+        "reference_text",
+        "attached_photos_note",
+        "conversation_history",
+        "user_query"
+      ],
       "cache_stable_prefix_ends_after": "meeting_context"
     },
     "project_chat": {
       "call_types": ["project_chat", "project_chat_follow_up"],
+      "verification": "adopting_now",
+      "verification_note": "Adds a section to the ProjectChat system block, so the three-way test runs before it ships.",
       "system": [
         "global_system_instructions",
         "prompt_system_instructions",
@@ -117,8 +176,18 @@
         "meeting_context",
         "context_quilt"
       ],
-      "user": ["reference_text", "user_query"],
+      "user": [
+        "reference_text",
+        "attached_photos_note",
+        "conversation_history",
+        "user_query"
+      ],
       "cache_stable_prefix_ends_after": "meeting_context"
     }
+  },
+  "caching": {
+    "note": "Cache breakpoints are GP's to set and the client does not manage them. GP marks the system block cacheable, splitting at the Context Quilt recall boundary when recall is present. Anything that changes per turn must therefore sit AFTER cache_stable_prefix_ends_after, or in the user turn. This is why summary and project ride the user turn on the session surfaces: in the system block they would bust the prefix on every turn.",
+    "cross_user": false,
+    "cross_user_note": "GP does not cache a prefix shared between users. Chat prompts already carry per-meeting and per-project context, so they are per conversation before anything is added. A section that is stable per user costs nothing in the prefix. Do not design around a cross-user cache."
   }
 }
