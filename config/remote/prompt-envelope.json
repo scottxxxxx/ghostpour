@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "doctrine": "GhostPour owns this recipe. The client executes it and holds no opinion about placement. Changing composition must never require an app update. See docs/decisions/prompt-composition-doctrine.md.",
   "lane_resolution": {
     "note": "Data, not code: adding a lane must never need a client build. Resolve by the client's apiFormat, falling back to the default lane for any value not listed, including models that did not exist when this file was written.",
@@ -99,7 +99,10 @@
   },
   "surfaces": {
     "copilot_session": {
-      "call_types": ["query", "analysis"],
+      "call_types": [
+        "query",
+        "analysis"
+      ],
       "verification": "unverified_describes_intent",
       "verification_note": "NOT SAFE TO IMPLEMENT AS WRITTEN. v1 claimed this reproduced the shipped template exactly. It reproduced the TEMPLATE, not the wire: the client blanks summary and project in the system block and re-emits them in the user turn. The placement below reflects that correction, but the ORDER within the user turn has not been byte-diffed against the client and is not asserted. Confirm against the wire before adopting. Out of scope for the current pass.",
       "system": [
@@ -120,7 +123,9 @@
       "cache_stable_prefix_ends_after": "prompt_system_instructions"
     },
     "post_session_analysis": {
-      "call_types": ["analyze_session"],
+      "call_types": [
+        "analyze_session"
+      ],
       "verification": "unverified_describes_intent",
       "verification_note": "Shares resolveQueryContext with copilot_session, so it inherits the same correction and the same caveat. Confirm against the wire before adopting. Out of scope for the current pass.",
       "system": [
@@ -145,7 +150,10 @@
       "stability_note": "The session is over, so the summary is final rather than periodic, and it is large enough to be worth inside the cached prefix."
     },
     "meeting_chat": {
-      "call_types": ["meeting_chat", "meeting_chat_follow_up"],
+      "call_types": [
+        "meeting_chat",
+        "meeting_chat_follow_up"
+      ],
       "verification": "adopting_now",
       "verification_note": "The surface SS is implementing this pass. The single deliberate wire change is adding global_system_instructions; everything else must byte-diff identical pre and post.",
       "system": [
@@ -165,7 +173,10 @@
       "cache_stable_prefix_ends_after": "meeting_context"
     },
     "project_chat": {
-      "call_types": ["project_chat", "project_chat_follow_up"],
+      "call_types": [
+        "project_chat",
+        "project_chat_follow_up"
+      ],
       "verification": "adopting_now",
       "verification_note": "Adds a section to the ProjectChat system block, so the three-way test runs before it ships.",
       "system": [
@@ -189,5 +200,12 @@
     "note": "Cache breakpoints are GP's to set and the client does not manage them. GP marks the system block cacheable, splitting at the Context Quilt recall boundary when recall is present. Anything that changes per turn must therefore sit AFTER cache_stable_prefix_ends_after, or in the user turn. This is why summary and project ride the user turn on the session surfaces: in the system block they would bust the prefix on every turn.",
     "cross_user": false,
     "cross_user_note": "GP does not cache a prefix shared between users. Chat prompts already carry per-meeting and per-project context, so they are per conversation before anything is added. A section that is stable per user costs nothing in the prefix. Do not design around a cross-user cache."
+  },
+  "placement_authority": {
+    "owner": "prompt-envelope",
+    "note": "This file is the sole authority on placement. model-capabilities.promptPlacement is DEPRECATED IN PLACE and must be ignored. It cannot be deleted, because removing a field is never safe for any build ever shipped, so it stays present and inert. Two configs that can each assert placement will diverge, and on the day they do nobody can say which one the client obeyed. Where they disagree, this file wins.",
+    "deprecated_elsewhere": [
+      "model-capabilities.models.*.promptPlacement"
+    ]
   }
 }
