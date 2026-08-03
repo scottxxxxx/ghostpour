@@ -1,5 +1,5 @@
 {
-  "version": 39,
+  "version": 40,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -384,6 +384,8 @@
       "category": "intelligence",
       "display_name": "人物",
       "description": "会議に参加した全員を一か所にまとめ、発言内容と引き受けた作業を確認できます。",
+      "teaser_description": "「人物」は会議に参加した全員を一か所にまとめます。",
+      "upgrade_cta": "サインインして人物リストを作成",
       "signed_out": {
         "headline": "会議の参加者を把握する",
         "body": "サインインすると、Shoulder Surf が会議相手ごとにページを作成し、参加した会議、引き受けた作業、関わっているプロジェクトを表示します。",

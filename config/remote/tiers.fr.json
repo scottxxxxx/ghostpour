@@ -1,5 +1,5 @@
 {
-  "version": 39,
+  "version": 40,
   "tiers": {
     "free": {
       "display_name": "Gratuit",
@@ -386,6 +386,8 @@
       "category": "intelligence",
       "display_name": "Personnes",
       "description": "Toutes les personnes de vos réunions au même endroit, avec ce qu'elles ont dit et ce qu'elles se sont engagées à faire.",
+      "teaser_description": "Personnes rassemble au même endroit toutes les personnes de vos réunions.",
+      "upgrade_cta": "Connectez-vous pour créer votre liste de Personnes",
       "signed_out": {
         "headline": "Voyez qui participe à vos réunions",
         "body": "Connectez-vous et Shoulder Surf créera une page pour chaque personne que vous rencontrez, avec les réunions auxquelles elle a participé, ses engagements et les projets qu'elle touche.",

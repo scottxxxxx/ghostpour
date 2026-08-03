@@ -1,5 +1,5 @@
 {
-  "version": 40,
+  "version": 41,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -520,6 +520,8 @@
       "category": "intelligence",
       "display_name": "People",
       "description": "Everyone from your meetings in one place, with what they said and what they committed to.",
+      "teaser_description": "People collects everyone from your meetings in one place.",
+      "upgrade_cta": "Sign in to build your People list",
       "signed_out": {
         "headline": "See who's in your meetings",
         "body": "Sign in and Shoulder Surf builds a page for every person you meet with, showing the meetings they joined, what they committed to, and the projects they touch.",

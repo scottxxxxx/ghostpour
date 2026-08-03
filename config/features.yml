@@ -147,4 +147,11 @@ features:
   people:
     display_name: "People"
     description: "Everyone from your meetings in one place, with what they said and what they committed to."
+    # Required by the shipped iOS FeatureDefinitionInfo, which declares both
+    # non-optional. /v1/tiers emits this block verbatim when a feature is
+    # absent from the tiers config, so omitting them here emits nulls and
+    # the whole tier catalog fails to decode. People is gated on auth
+    # rather than tier, so neither string names a plan.
+    teaser_description: "People collects everyone from your meetings in one place."
+    upgrade_cta: "Sign in to build your People list"
     category: "intelligence"
