@@ -133,3 +133,18 @@ features:
     description: "Let the AI search the web during chat for current information, with per-tier monthly caps."
     upgrade_cta: "Upgrade to Plus to let your AI search the web"
     category: "intelligence"
+
+  # People (Review's fourth segment). A Shoulder Surf Person is a projection
+  # of a ContextQuilt person entity, keyed on CQ's entity_id, with CQ as the
+  # source of truth for identity. CQ performs no tier gating of its own, so
+  # availability is decided entirely here and in the entitlements matrix.
+  #
+  # Enabled for every tier (Scott, 2026-08-02), which means the only closed
+  # door is auth, not subscription. That is why the copy lives in tiers.json
+  # feature_definitions.people as a `signed_out` block with a sign_in CTA and
+  # carries no teaser text: there is no tier to upgrade to. If People is ever
+  # gated, teaser copy has to land in the same change.
+  people:
+    display_name: "People"
+    description: "Everyone from your meetings in one place, with what they said and what they committed to."
+    category: "intelligence"

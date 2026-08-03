@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "matrix": {
     "context_quilt": {
       "free": "disabled",
@@ -9,6 +9,13 @@
       "automation": "enabled"
     },
     "meeting_reports": {
+      "free": "enabled",
+      "plus": "enabled",
+      "pro": "enabled",
+      "admin": "enabled",
+      "automation": "enabled"
+    },
+    "people": {
       "free": "enabled",
       "plus": "enabled",
       "pro": "enabled",

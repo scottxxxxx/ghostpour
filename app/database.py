@@ -700,6 +700,33 @@ MIGRATIONS = [
         PRIMARY KEY (user_id, app_id, config_name, client_version)
     )""",
     "CREATE INDEX IF NOT EXISTS idx_config_stalls_last_seen ON config_stalls(last_seen_at)",
+    # v38: client-reported config decode failures (2026-08-02). SS ships a
+    # `config_decode_failed` telemetry event carrying the file, a
+    # schema-only reason ("typeMismatch expected=String at=
+    # providers[0].apiFormat") and the payload size. It fires once per file
+    # per process, because repetition across launches is the signal and
+    # repetition within one launch is noise.
+    #
+    # This is the precise counterpart to config_stalls: that one infers a
+    # problem from a user whose config version never advances, this one is
+    # the client telling us outright what broke and where. It is anonymous
+    # (device_id, no account), and it only exists on builds new enough to
+    # send it, which is why both signals are kept: build 803 is frozen and
+    # will never report this.
+    """CREATE TABLE IF NOT EXISTS config_decode_failures (
+        id TEXT PRIMARY KEY,
+        device_id TEXT NOT NULL,
+        app_id TEXT NOT NULL,
+        config_name TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        byte_count INTEGER,
+        app_version TEXT,
+        app_build TEXT,
+        os_version TEXT,
+        received_at TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_cfg_decode_fail_seen ON config_decode_failures(received_at)",
+    "CREATE INDEX IF NOT EXISTS idx_cfg_decode_fail_what ON config_decode_failures(config_name, app_build)",
 ]
 
 

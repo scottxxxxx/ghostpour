@@ -1,5 +1,5 @@
 {
-  "version": 38,
+  "version": 39,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -515,6 +515,18 @@
       "description": "Generate shareable HTML reports from your meeting transcripts: sentiment, key moments, suggested tags, and your speaker notes.",
       "teaser_description": "Reports turn your meetings into shareable summaries.",
       "upgrade_cta": "Upgrade to Plus to generate shareable meeting reports"
+    },
+    "people": {
+      "category": "intelligence",
+      "display_name": "People",
+      "description": "Everyone from your meetings in one place, with what they said and what they committed to.",
+      "signed_out": {
+        "headline": "See who's in your meetings",
+        "body": "Sign in and Shoulder Surf builds a page for every person you meet with, showing the meetings they joined, what they committed to, and the projects they touch.",
+        "body_with_count": "You've met {count} people so far. Sign in and Shoulder Surf builds a page for each of them, showing the meetings they joined, what they committed to, and the projects they touch.",
+        "cta_label": "Sign in",
+        "cta_action": "sign_in"
+      }
     },
     "project_chat": {
       "category": "intelligence",

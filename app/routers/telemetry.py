@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import uuid
 from datetime import datetime, timezone
@@ -39,10 +40,12 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.database import get_db
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 _EVENT_TYPES = ("app_start", "meeting_start", "meeting_stop",
-                "onboarding_completed")
+                "onboarding_completed", "config_decode_failed")
 
 # UUID v4-ish shape; iOS identifierForVendor is a UUID. Loose enough to
 # accept any uppercased/lowercased UUID without being strict about version.
@@ -79,9 +82,27 @@ class OnboardingPayload(BaseModel):
     steps: list[OnboardingStep] = Field(default_factory=list, max_length=40)
 
 
+class ConfigDecodeFailurePayload(BaseModel):
+    """A served config the client could not decode.
+
+    Carried on event_type='config_decode_failed'. The client fires it once
+    per file per process: repetition across launches is the signal,
+    repetition inside one launch is noise.
+
+    `reason` is schema-only by contract on the client side (error kind,
+    coding path, expected type, never a decoded value), e.g.
+    "typeMismatch expected=String at=providers[0].apiFormat". We cap its
+    length rather than parse it, so a future formatter change cannot turn
+    this into an accidental content channel.
+    """
+    file: str = Field(..., min_length=1, max_length=64)
+    reason: str = Field(..., min_length=1, max_length=512)
+    byte_count: int | None = Field(default=None, ge=0)
+
+
 class PingEvent(BaseModel):
     event_type: Literal["app_start", "meeting_start", "meeting_stop",
-                        "onboarding_completed"]
+                        "onboarding_completed", "config_decode_failed"]
     device_id: str = Field(..., min_length=1, max_length=128)
     user_id: str | None = Field(default=None, max_length=64)
     meeting_id: str | None = Field(default=None, max_length=64)
@@ -108,6 +129,16 @@ class PingEvent(BaseModel):
     # "sandbox" = TestFlight, "xcode" = local dev. Lets the dashboard split
     # TestFlight vs App Store usage. Optional so older builds still validate.
     distribution: str | None = Field(default=None, max_length=16)
+    # Present only on event_type=='config_decode_failed'.
+    config_decode: ConfigDecodeFailurePayload | None = None
+
+    @model_validator(mode="after")
+    def _require_config_decode_payload(self):
+        if self.event_type == "config_decode_failed" and self.config_decode is None:
+            raise ValueError("config_decode payload required for config_decode_failed")
+        if self.event_type != "config_decode_failed" and self.config_decode is not None:
+            raise ValueError("config_decode payload only valid on config_decode_failed")
+        return self
 
     @model_validator(mode="after")
     def _require_onboarding_payload(self):
@@ -226,6 +257,71 @@ async def ping(
             ),
         )
         await db.commit()
+        return Response(status_code=204)
+
+    # A served config the client could not decode. Its own table and its own
+    # alert, because unlike everything else on this endpoint it is not
+    # behavioral: it means a device is running the config compiled into the
+    # app and will keep doing so until we fix the file. No geo (this is about
+    # our payload, not the user), so branch before the lookup.
+    if body.event_type == "config_decode_failed":
+        cd = body.config_decode
+        await db.execute(
+            """INSERT INTO config_decode_failures
+               (id, device_id, app_id, config_name, reason, byte_count,
+                app_version, app_build, os_version, received_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                str(uuid.uuid4()),
+                body.device_id,
+                getattr(request.state, "app_id", "unknown"),
+                cd.file,
+                cd.reason,
+                cd.byte_count,
+                body.app_version,
+                body.app_build,
+                body.os_version,
+                now_iso,
+            ),
+        )
+        await db.commit()
+        logger.warning(
+            "config_decode_failed app=%s file=%s build=%s reason=%s",
+            getattr(request.state, "app_id", "unknown"), cd.file,
+            body.app_build, cd.reason,
+        )
+        # Alert immediately rather than waiting for repetition: this event is
+        # proof, not inference. The subject dedups on what actually needs
+        # fixing, so a whole fleet hitting one bad field is one incident.
+        try:
+            from app.config import get_settings
+            from app.services.alerting import report_incident
+            await report_incident(
+                db,
+                category="config_decode_loop",
+                subject=f"reported:{getattr(request.state, 'app_id', 'unknown')}:"
+                        f"{cd.file}:{body.app_build}:{cd.reason[:120]}",
+                details={
+                    "source": "client_report",
+                    "app_id": getattr(request.state, "app_id", "unknown"),
+                    "config": cd.file,
+                    "reason": cd.reason,
+                    "payload_bytes": cd.byte_count,
+                    "app_version": body.app_version,
+                    "app_build": body.app_build,
+                    "meaning": (
+                        "The client could not decode this config and is now "
+                        "running the copy bundled in the app. The reason "
+                        "names the coding path and expected type, so fix the "
+                        "field it points at. Removing or renaming a required "
+                        "field, changing a type, or restructuring a container "
+                        "are what cause this; adding fields does not."
+                    ),
+                },
+                from_addr=get_settings().alert_email_from,
+            )
+        except Exception:
+            logger.exception("config_decode_failed: alert failed (non-fatal)")
         return Response(status_code=204)
 
     # Derive coarse geo from the raw IP, then it's discarded (only the hash and
