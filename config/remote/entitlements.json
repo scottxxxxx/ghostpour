@@ -1,9 +1,9 @@
 {
-  "version": 3,
+  "version": 4,
   "matrix": {
     "context_quilt": {
       "free": "disabled",
-      "plus": "teaser",
+      "plus": "enabled",
       "pro": "enabled",
       "admin": "enabled",
       "automation": "enabled"

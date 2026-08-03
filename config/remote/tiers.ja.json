@@ -1,5 +1,5 @@
 {
-  "version": 38,
+  "version": 39,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -368,10 +368,10 @@
       "display_name": "ミーティングメモリー",
       "description": "AIが過去の会議を記憶し、その知識を自動的に活用します。",
       "teaser_description": "AIが過去の会議とのつながりを発見しました",
-      "upgrade_cta": "Proにアップグレードしてミーティングメモリーを解除",
+      "upgrade_cta": "Plusにアップグレードしてミーティングメモリーを解除",
       "cta_strings": {
-        "free_within_quota_footer": "✨ 今月の無料メモリー{total}回のうちの1つを使いました。Proにアップグレードしてメモリーを構築し続けましょう。",
-        "free_no_quota_only": "✨ AIに会議を記憶してほしいですか？Proにアップグレードしてメモリーの構築を始めましょう。"
+        "free_within_quota_footer": "✨ 今月の無料メモリー{total}回のうちの1つを使いました。Plusにアップグレードしてメモリーを構築し続けましょう。",
+        "free_no_quota_only": "✨ AIに会議を記憶してほしいですか？Plusにアップグレードしてメモリーの構築を始めましょう。"
       }
     },
     "meeting_reports": {
