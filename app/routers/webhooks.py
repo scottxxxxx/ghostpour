@@ -4645,3 +4645,115 @@ async def clean_meeting_transcript(
         "raw": raw,
         "cleaned": cleaned,
     }
+
+
+# --- Config registry and test audience (2026-08-03) -------------------
+#
+# Two questions the dashboard could not answer before: what do we actually
+# serve, and who is it served to. Every served config is a live change to
+# an app we cannot roll back per user, so proving one on a real device
+# before the base sees it is a safety step rather than a convenience.
+
+_CONFIG_PURPOSE = {
+    "protected-prompts": "All prompt text: system template, global instructions, summary prompts, analysis guidance, follow-up instruction, OCR cleanup, quick-prompt buttons",
+    "llm-providers": "Which providers and models exist, context windows, default model",
+    "model-capabilities": "Per-model context slots and token reserves. promptPlacement here is DEPRECATED and ignored; the envelope owns placement",
+    "client-config": "Behavioral knobs: retry counts and intervals, resumable window, post-session minimums, report thresholds, native actions, documents policy, input caps",
+    "tiers": "Tier rows, plan-card copy, feature definitions, per-tier image sizing, gating",
+    "entitlements": "The feature/tier state matrix (disabled | teaser | enabled)",
+    "idle-tips": "Orb tips before a session starts",
+    "feature-highlights": "Feature highlight list",
+    "canned-report": "Budget-blocked report placeholder copy",
+    "report-strings": "Meeting report section labels",
+    "prompt-envelope": "The recipe: which sections exist, their order, system block versus user turn",
+    "model-routing": "Server-side model routing per app and call type. Never reaches a device",
+}
+
+
+@router.get("/admin/config-registry")
+async def config_registry(
+    request: Request,
+    x_admin_key: str = Header(...),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """One row per served config: what it controls, which variants exist.
+
+    `audiences` distinguishes what production receives from what the test
+    accounts receive, which is the whole point of the tester tree: a config
+    with a tester variant is mid-verification and has NOT reached the base.
+    """
+    _verify_admin(request, x_admin_key)
+    from app.routers.config import CONFIG_DIR, TESTER_PREFIX
+
+    rows: dict[str, dict] = {}
+    for path in sorted(CONFIG_DIR.rglob("*.json")):
+        slug = path.relative_to(CONFIG_DIR).with_suffix("").as_posix()
+        parts = slug.split("/")
+        audience = TESTER_PREFIX if parts[0] == TESTER_PREFIX else "production"
+        if audience == TESTER_PREFIX:
+            parts = parts[1:]
+        app_dir = parts[0] if len(parts) > 1 else None
+        stem = parts[-1]
+        base, _, loc = stem.partition(".")
+        try:
+            version = json.loads(path.read_text()).get("version")
+        except Exception:
+            version = None
+        entry = rows.setdefault(base, {
+            "config": base,
+            "purpose": _CONFIG_PURPOSE.get(base, ""),
+            "locales": set(), "apps": set(), "audiences": set(),
+            "versions": {}, "server_only": False,
+        })
+        entry["locales"].add(loc or "en")
+        entry["audiences"].add(audience)
+        if app_dir:
+            entry["apps"].add(app_dir)
+        entry["versions"][slug] = version
+
+    live = request.app.state.remote_configs
+    for base, entry in rows.items():
+        entry["server_only"] = bool((live.get(base) or {}).get("server_only"))
+        entry["locales"] = sorted(entry["locales"])
+        entry["apps"] = sorted(entry["apps"])
+        entry["audiences"] = sorted(entry["audiences"])
+        entry["under_test"] = TESTER_PREFIX in entry["audiences"]
+
+    testers = [dict(r) for r in await (await db.execute(
+        "SELECT user_id, label, active, added_at FROM config_testers "
+        "ORDER BY added_at DESC")).fetchall()]
+    return {
+        "configs": sorted(rows.values(), key=lambda r: r["config"]),
+        "testers": testers,
+        "note": ("A config listed under the tester audience is being verified "
+                 "on a real device and has not reached the base. Anything a "
+                 "tester variant does not define falls through to production."),
+    }
+
+
+class TesterRequest(BaseModel):
+    user_id: str
+    label: str | None = None
+    active: bool = True
+
+
+@router.put("/admin/config-testers")
+async def upsert_tester(
+    body: TesterRequest,
+    request: Request,
+    x_admin_key: str = Header(...),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Add or retire a test account. Retiring sets active=0 rather than
+    deleting, so the record of who was testing when something shipped
+    survives."""
+    _verify_admin(request, x_admin_key)
+    now = datetime.now(timezone.utc).isoformat()
+    await db.execute(
+        """INSERT INTO config_testers (user_id, label, active, added_at, added_by)
+           VALUES (?,?,?,?,'admin')
+           ON CONFLICT(user_id) DO UPDATE SET
+             label = excluded.label, active = excluded.active""",
+        (body.user_id, body.label, int(body.active), now))
+    await db.commit()
+    return {"status": "ok", "user_id": body.user_id, "active": body.active}

@@ -66,6 +66,11 @@ ACCOUNT_TABLES = [
     # A deleted account must never receive a queued welcome letter.
     "welcome_email_queue",
     "subscription_events",
+    # Config test-audience membership. Kept for audit while the account
+    # lives (retiring sets active=0 rather than deleting), but a deleted
+    # account cannot be a tester, and holding their id afterwards would
+    # contradict what deletion promises. Audit value does not outrank that.
+    "config_testers",
 ]
 
 
