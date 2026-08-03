@@ -454,6 +454,24 @@
   <div id="tab-configs" class="section">
     <h3>Remote Configs</h3>
     <p style="color:var(--text-dim);margin-bottom:12px">JSON files served via <code style="color:var(--accent)">GET /v1/config/{name}</code>. Localized variants served when client sends <code style="color:var(--accent)">Accept-Language</code> header.</p>
+
+    <!-- What we serve, and to whom. A config under test is being verified on
+         a real device and has NOT reached the base yet. -->
+    <div style="margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <h3 style="margin:0">What we serve</h3>
+        <div style="display:flex;gap:8px;align-items:center">
+          <label style="font-size:12px;color:var(--text-dim)">Audience</label>
+          <select id="registry-audience" onchange="renderRegistry()" style="background:var(--bg-alt);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px">
+            <option value="all">All</option>
+            <option value="production">Production only</option>
+            <option value="tester">Under test</option>
+          </select>
+        </div>
+      </div>
+      <div id="registry-testers" style="font-size:12px;color:var(--text-dim);margin-bottom:8px"></div>
+      <div id="registry-table"></div>
+    </div>
     <div id="config-list" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px"></div>
     <div id="config-editor-wrap" style="display:none">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
@@ -3610,7 +3628,61 @@ async function saveRouting() {
   }
 }
 
+let _registry = null;
+
+// The registry answers two questions the dashboard could not before: what
+// do we actually serve, and who is it served to. A config carrying a
+// tester variant is mid-verification and has not reached the base.
+async function loadRegistry() {
+  try {
+    _registry = await fetch(`${BASE}/webhooks/admin/config-registry`, {
+      headers: {'X-Admin-Key': adminKey}
+    }).then(r => r.json());
+  } catch (e) {
+    document.getElementById('registry-table').innerHTML =
+      `<div class="card">Registry unavailable: ${e.message}</div>`;
+    return;
+  }
+  renderRegistry();
+}
+
+function renderRegistry() {
+  if (!_registry) return;
+  const mode = document.getElementById('registry-audience').value;
+  const rows = _registry.configs.filter(c =>
+    mode === 'all' ? true :
+    mode === 'tester' ? c.under_test :
+    !c.under_test);
+
+  const testers = (_registry.testers || []).filter(t => t.active);
+  document.getElementById('registry-testers').innerHTML = testers.length
+    ? `Test accounts: ${testers.map(t => `<code>${(t.label || t.user_id)}</code> <span style="opacity:.6">${t.user_id.slice(0,8)}</span>`).join(', ')}. They resolve <code>tester/</code> variants first and fall through to production for everything else.`
+    : 'No test accounts registered. Every account is served production config.';
+
+  document.getElementById('registry-table').innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="text-align:left;color:var(--text-dim)">
+        <th style="padding:6px 8px">Config</th>
+        <th style="padding:6px 8px">Controls</th>
+        <th style="padding:6px 8px">Locales</th>
+        <th style="padding:6px 8px">Audience</th>
+      </tr></thead>
+      <tbody>${rows.map(c => `
+        <tr style="border-top:1px solid var(--border)">
+          <td style="padding:6px 8px;vertical-align:top"><code style="color:var(--accent)">${c.config}</code>${c.server_only ? '<div style="color:var(--text-dim);font-size:11px">server only, never sent to a device</div>' : ''}</td>
+          <td style="padding:6px 8px;vertical-align:top;color:var(--text-dim)">${c.purpose || ''}</td>
+          <td style="padding:6px 8px;vertical-align:top">${c.locales.join(', ')}</td>
+          <td style="padding:6px 8px;vertical-align:top">${c.under_test
+            ? '<span style="color:var(--warn,#d29922)">under test</span>'
+            : '<span style="opacity:.6">production</span>'}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    ${rows.length ? '' : '<div style="color:var(--text-dim);padding:8px">Nothing matches this filter.</div>'}`;
+}
+
 async function loadConfigs() {
+  loadRegistry();
   const data = await fetch(`${BASE}/webhooks/admin/configs`, {
     headers: {'X-Admin-Key': adminKey}
   }).then(r => r.json());

@@ -112,7 +112,11 @@ def tier_overrides_for_app(app_id: str | None) -> dict:
     return entry.get("tier_overrides") or {}
 
 
-def candidate_slugs(app_dir: str, name: str) -> list[str]:
+TESTER_PREFIX = "tester"
+
+
+def candidate_slugs(app_dir: str, name: str,
+                    audience: str = "production") -> list[str]:
     """Slug lookup order for (app, requested name), highest priority first.
 
     1. `{app_dir}/{name}` — the app's own file.
@@ -121,12 +125,21 @@ def candidate_slugs(app_dir: str, name: str) -> list[str]:
        TR builds keep resolving after B2 drops the prefix in storage.
     3. `{name}` — flat fallback = today's behavior; nothing breaks pre-B2 when
        no per-app files exist yet.
+
+    For a tester, every candidate above is tried under `tester/` FIRST, then
+    the production chain unchanged. So a tester variant overrides only the
+    configs it actually defines, and everything else resolves exactly as
+    production does. That fallback is the point: the audience is for proving
+    a change is safe before the rest of the base sees it, not for running a
+    permanently divergent build.
     """
-    cands = [f"{app_dir}/{name}"]
+    base = [f"{app_dir}/{name}"]
     if app_dir == "techrehearsal" and name.startswith("tr-"):
-        cands.append(f"{app_dir}/{name[3:]}")
-    cands.append(name)
-    return cands
+        base.append(f"{app_dir}/{name[3:]}")
+    base.append(name)
+    if audience == TESTER_PREFIX:
+        return [f"{TESTER_PREFIX}/{c}" for c in base] + base
+    return base
 
 
 def seed_remote_configs() -> None:
@@ -435,6 +448,12 @@ async def get_config(
     app_id = getattr(request.state, "app_id", None)
     app_dir = resolve_app_dir(app_id)
 
+    # Test audience (2026-08-03). A config change is a live change to an app
+    # we cannot roll back per user, so a named set of accounts sees it first.
+    # Resolution falls through to production for anything the tester tree
+    # does not define, so a tester is never running a wholly separate build.
+    audience = await resolve_audience(request, db)
+
     # Resolve locale-specific config with fallback
     accept_lang = request.headers.get("Accept-Language")
     locale = _parse_accept_language(accept_lang)
@@ -442,7 +461,7 @@ async def get_config(
     # Walk candidates in priority order; for each, try the localized variant
     # before the base, so a per-app localized file wins over a flat base.
     resolved_name = None
-    for cand in candidate_slugs(app_dir, name):
+    for cand in candidate_slugs(app_dir, name, audience):
         if locale and f"{cand}.{locale}" in configs:
             resolved_name = f"{cand}.{locale}"
             break
@@ -451,8 +470,9 @@ async def get_config(
             break
 
     logger.info(
-        "Config request: name=%s app_id=%r app_dir=%s locale=%s resolved=%s",
-        name, app_id, app_dir, locale or "en", resolved_name,
+        "Config request: name=%s app_id=%r app_dir=%s locale=%s audience=%s "
+        "resolved=%s", name, app_id, app_dir, locale or "en", audience,
+        resolved_name,
     )
 
     if resolved_name is None:
@@ -489,6 +509,7 @@ async def get_config(
                         "X-Config-Version": str(server_version),
                         "X-Config-Locale": locale or "en",
                         "X-Config-Resolved": resolved_name,
+                        "X-Config-Audience": audience,
                     },
                 )
         except (ValueError, TypeError):
@@ -507,7 +528,12 @@ async def get_config(
             "X-Config-Version": str(server_version),
             "X-Config-Locale": locale or "en",
             "X-Config-Resolved": resolved_name,
-            "Cache-Control": "public, max-age=300",
+            "X-Config-Audience": audience,
+            # Testers must not be served a proxy-cached production payload,
+            # and vice versa. Vary is not enough here because the audience is
+            # derived from the bearer token rather than a cacheable header.
+            "Cache-Control": ("no-store" if audience == TESTER_PREFIX
+                              else "public, max-age=300"),
         },
     )
 
@@ -547,6 +573,31 @@ async def _note_config_health(
             )
     except Exception:
         logger.debug("config health bookkeeping skipped", exc_info=True)
+
+
+async def resolve_audience(request: Request, db) -> str:
+    """"tester" when the caller is a registered test account, else "production".
+
+    Best-effort and fails to production: an unauthenticated fetch, an
+    unreadable token, or a database hiccup must never accidentally serve
+    test config to the base. The cost of guessing wrong in that direction
+    is one tester seeing production config; the cost of the other direction
+    is everyone seeing untested config.
+    """
+    if db is None:
+        return "production"
+    try:
+        user_id = await _user_id_from_request(request)
+        if not user_id:
+            return "production"
+        row = await (await db.execute(
+            "SELECT 1 FROM config_testers WHERE user_id = ? AND active = 1",
+            (user_id,))).fetchone()
+        return TESTER_PREFIX if row else "production"
+    except Exception:
+        logger.debug("audience resolution failed; serving production",
+                     exc_info=True)
+        return "production"
 
 
 async def _user_id_from_request(request: Request) -> str | None:

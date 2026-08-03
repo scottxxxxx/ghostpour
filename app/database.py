@@ -727,6 +727,20 @@ MIGRATIONS = [
     )""",
     "CREATE INDEX IF NOT EXISTS idx_cfg_decode_fail_seen ON config_decode_failures(received_at)",
     "CREATE INDEX IF NOT EXISTS idx_cfg_decode_fail_what ON config_decode_failures(config_name, app_build)",
+    # v39: config test audience (2026-08-03, Scott). A named set of accounts
+    # that receive `tester/` config variants before the rest of the base
+    # does. Every served config is a live change to an app we cannot roll
+    # back per user, so the ability to prove one on a real device first is
+    # the missing safety step, not a convenience. One row per tester;
+    # `active=0` retires an account without losing the record of who was
+    # testing when something shipped.
+    """CREATE TABLE IF NOT EXISTS config_testers (
+        user_id TEXT PRIMARY KEY,
+        label TEXT,
+        active INTEGER NOT NULL DEFAULT 1,
+        added_at TEXT NOT NULL,
+        added_by TEXT
+    )""",
 ]
 
 
