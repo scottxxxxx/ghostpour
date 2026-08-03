@@ -142,3 +142,40 @@ def test_user_facing_feature_strings_are_not_left_in_english():
                 if key in en_def and key in other and en_def[key]:
                     assert other[key] != en_def[key], (
                         f"{loc}.{feature}.{key} is still the English string")
+
+
+# --- shape compatibility with frozen builds -------------------------
+#
+# Build 803 is the App Store release and is frozen with the old
+# all-or-nothing decoder: a field it declares non-optional that we omit
+# does not degrade that field, it drops the whole tiers file to the copy
+# compiled into the app and loops on every launch. Adding keys is safe
+# (Swift ignores unknown ones); omitting keys the shipped type requires is
+# not. We cannot read their decoder, so the rule is to match the shape of
+# the entries that already ship.
+
+
+def test_new_features_carry_every_key_the_existing_ones_share():
+    """A new feature entry missing a key that every shipped entry has is
+    the one shape change that can brick a frozen build."""
+    for loc in LOCALES:
+        fd = TIERS[loc]["feature_definitions"]
+        assert len(fd) > 1, loc
+        for name in fd:
+            others = [set(v) for k, v in fd.items() if k != name]
+            shared = set.intersection(*others)
+            missing = shared - set(fd[name])
+            assert not missing, (
+                f"{loc}.{name} omits {sorted(missing)}, which every other "
+                "feature carries; a frozen build may require them")
+
+
+def test_people_upsell_names_no_tier():
+    """People is enabled everywhere, so any tier named in its copy would be
+    wrong the moment someone read it. Auth is the only gate."""
+    for loc in LOCALES:
+        ppl = TIERS[loc]["feature_definitions"]["people"]
+        blob = json.dumps({"t": ppl.get("teaser_description"),
+                           "u": ppl.get("upgrade_cta")}, ensure_ascii=False)
+        for tier in ("Plus", "Pro"):
+            assert tier not in blob, f"{loc} People copy names {tier}"
