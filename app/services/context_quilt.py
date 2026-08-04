@@ -212,6 +212,25 @@ async def recall(
         return {"context": "", "matched_entities": [], "patch_count": 0}
 
 
+# Client-supplied metadata keys forwarded verbatim on capture. One
+# auditable list, so adding a key is one edit here rather than three
+# across two files, and so what we forward can be reviewed at a glance.
+# Server-derived identity and entitlement fields are NOT here: they are
+# explicit parameters, because a client must not be able to set them by
+# putting them in a request body.
+CAPTURE_METADATA_ALLOWLIST = frozenset({
+    "user_identified",
+    "user_label",
+    "identification_source",
+    "language",
+    "call_type",
+    "prompt_mode",
+    "scenario",
+    "scenario_kind",
+    "transcript_source",
+})
+
+
 async def capture(
     user_id: str,
     interaction_type: str,
@@ -232,6 +251,7 @@ async def capture(
     subscription_tier: str | None = None,
     language: str | None = None,
     context_block: str | None = None,
+    passthrough: dict[str, Any] | None = None,
 ):
     """
     Send query+response to Context Quilt for learning. Fire-and-forget (async).
@@ -267,8 +287,21 @@ async def capture(
         origin_id = meeting_id
         origin_type = origin_type or "meeting"
 
-    # Build metadata from available fields
-    metadata: dict[str, Any] = {}
+    # Client-supplied metadata rides an auditable allowlist, the same
+    # extension point recall uses. Before this, every key was enumerated by
+    # hand in TWO places (get_meta in the route, then a named parameter and
+    # a conditional here), so adding one cost three edits across two files
+    # and missing any of them produced a key that was accepted by pydantic,
+    # present in the request object, and read by nothing. `language` is the
+    # precedent: it had to be threaded through all three.
+    #
+    # Server-derived fields stay explicit parameters below, because they
+    # come from the user record rather than the client and must not be
+    # spoofable by putting them in a request body.
+    metadata: dict[str, Any] = {
+        k: v for k, v in (passthrough or {}).items()
+        if k in CAPTURE_METADATA_ALLOWLIST and v is not None
+    }
     if origin_id:
         metadata["origin_id"] = origin_id
     if origin_type:
