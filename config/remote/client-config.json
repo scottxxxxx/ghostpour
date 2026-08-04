@@ -1,7 +1,15 @@
 {
-  "version": 19,
-  "native_actions": {"enabled": true, "kinds": ["reminders"]},
-  "image_quality_note": {"enabled": false, "blur_threshold": 200},
+  "version": 20,
+  "native_actions": {
+    "enabled": true,
+    "kinds": [
+      "reminders"
+    ]
+  },
+  "image_quality_note": {
+    "enabled": false,
+    "blur_threshold": 200
+  },
   "limits": {
     "project_chat": {
       "max_input_chars": {
@@ -78,5 +86,12 @@
         "text": "If you were a {tier} subscriber, I could generate a Word or Excel file for you."
       }
     }
+  },
+  "chat": {
+    "max_history_pairs": 6,
+    "response_reserve_tokens": 1024,
+    "user_content_reserve_tokens": 4000,
+    "context_window_fallback_tokens": 32000,
+    "_note": "Current client values, served so they can change without a release. context_window_fallback_tokens is the first one to tune: 32000 is wrong for most models we route to today, and it silently caps how much fits in project chat. Image sizing is NOT here on purpose: it is already served per tier at tiers.feature_definitions.images, and a second source for the same field is how the free-tier copy drifted."
   }
 }

@@ -54,14 +54,33 @@ def test_instructions_are_editable_on_byok_and_nowhere_else():
 
 
 def test_an_unknown_model_still_resolves():
-    """The requirement is that a model which did not exist when this file
-    was written still gets a recipe, without an app update."""
+    """A model that did not exist when this file was written still gets a
+    recipe, with no app update. An unrecognized apiFormat means the user
+    brought their own provider, so `byok` IS the unknown-model lane."""
     lanes = set(LANES)
-    assert "default" in lanes, "removing the default lane breaks unknown models"
     res = SPEC["lane_resolution"]
-    assert res["fallback"] in lanes
+    assert res["fallback"] in lanes, "the fallback must name a real lane"
     for lane in res["by_api_format"].values():
         assert lane in lanes, f"lane_resolution points at unknown lane {lane}"
+
+
+def test_the_two_locks_have_different_scopes():
+    """SS: there are two locks, not one. Folding them together would stop
+    honoring on-device edits to the summary, consolidation and analysis
+    prompts, which nobody asked to lock. on_device is exactly the lane
+    where the two flags disagree, so it is the one that proves the split."""
+    od = LANES["on_device"]
+    assert od["instructions_editable"] is False
+    assert od["managed_prompts_editable"] is True
+
+    assert LANES["managed"]["managed_prompts_editable"] is False
+    assert LANES["byok"]["managed_prompts_editable"] is True
+
+
+@pytest.mark.parametrize("lane", list(LANES))
+def test_every_lane_declares_both_scopes(lane):
+    for flag in ("instructions_editable", "managed_prompts_editable"):
+        assert flag in LANES[lane], f"{lane} is missing {flag}"
 
 
 def test_lane_resolution_is_data_not_code():
