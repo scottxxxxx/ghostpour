@@ -1268,22 +1268,40 @@ function _renderActivity(d) {
     };
     return {days, a: val(a), b: val(b)};
   };
-  const mixedOpts = (m, barName, lineName) => ({
+  // Third series overlays a rolling window on the same day axis, so it has
+  // to be merged against the SAME union of days the bars use, or a day with
+  // no raw events shifts it against them.
+  const third = (m, c) => {
+    const byDay = Object.fromEntries((c || []).map(p => [p.day, p.value]));
+    return m.days.map(x => byDay[x] ?? null);
+  };
+  const mixedOpts = (m, barName, lineName, extra) => ({
     series: [
       {name: barName, type: 'column', data: m.a},
       {name: lineName, type: 'line', data: m.b},
+      ...(extra ? [{name: extra.name, type: 'line', data: extra.data}] : []),
     ],
     chart: {type: 'line', height: 240},
-    stroke: {width: [0, 3], curve: 'smooth'},
+    stroke: {width: extra ? [0, 3, 3] : [0, 3],
+             curve: 'smooth',
+             dashArray: extra ? [0, 0, 4] : [0, 0]},
     plotOptions: {bar: {columnWidth: '60%', borderRadius: 2}},
     dataLabels: {enabled: false},
     xaxis: {categories: m.days.map(x => x.slice(5))},
     yaxis: {labels: {formatter: (v) => Math.round(v)}, min: 0, forceNiceScale: true},
-    colors: ['#6c8cff', '#b48cff'],
+    // Green is the rolling-window line: a point is everyone seen in the
+    // SEVEN DAYS ENDING that day, not that day's total, so it sits above
+    // the daily line by design rather than by error.
+    colors: ['#6c8cff', '#b48cff', '#3fb950'],
     legend: {position: 'top'},
+    tooltip: {y: {formatter: (v, o) => v == null ? 'no data'
+      : (o && o.seriesIndex === 2 ? `${Math.round(v)} in the 7 days ending here`
+                                  : Math.round(v))}},
   });
   _renderChart('tel-chart-active', mixedOpts(
-    merge(s.distinct_devices, s.distinct_users), 'Devices', 'Signed-in users'));
+    merge(s.distinct_devices, s.distinct_users), 'Devices', 'Signed-in users',
+    {name: 'Active users (7d)',
+     data: third(merge(s.distinct_devices, s.distinct_users), s.active_users_7d)}));
   _renderChart('tel-chart-new', mixedOpts(
     merge(s.new_devices, s.new_accounts), 'New devices', 'New accounts'));
 }
@@ -1921,7 +1939,13 @@ function renderUserRows() {
     if (u.anonymous) {
       return `<tr style="opacity:0.75">
     <td><span style="color:var(--text-dim)">anonymous</span></td>
+    <!-- Cell count must match the header exactly, or every column after the
+         gap renders one to the left. This row was one short (no Lifetime
+         Cost), which put "last active" under Lifetime Cost. Through here:
+         User, Tier, Channel, Hours, Meeting Time, Allocation, Resets,
+         Files, Period Cost, Lifetime Cost = 10. -->
     <td>${dimc}</td><td>${chBadge(u)}</td><td>${dimc}</td><td>${dimc}</td><td>${dimc}</td><td>${dimc}</td><td>${dimc}</td><td>${dimc}</td>
+    <td>${dimc}</td>
     <td>${timeAgo(u.last_request)}</td>
     <td>${dimc}</td>
     <td>${u.language ? esc(u.language) : dimc}</td>

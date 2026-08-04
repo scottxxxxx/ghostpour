@@ -2720,6 +2720,33 @@ async def telemetry_summary(
         {"day": r["day"], "value": r["c"]} for r in await cursor.fetchall()
     ]
 
+    # Rolling 7-day active users (Scott, 2026-08-03). Distinct signed-in
+    # users seen in the trailing 7 days ending on each day.
+    #
+    # This has to be computed here rather than summed from the daily
+    # series on the client, because the daily rollup stores COUNTS, not
+    # identities: adding seven days of distinct-user counts double-counts
+    # anyone who showed up on more than one of them, which is most active
+    # users. So it reads raw telemetry_events, which is why it is bounded
+    # by the 30-day purge horizon like every other raw-event query.
+    cursor = await db.execute(
+        """WITH days(day) AS (
+               SELECT DISTINCT date(received_at) FROM telemetry_events
+               WHERE date(received_at) >= date('now', ?)
+           )
+           SELECT d.day AS day,
+                  (SELECT COUNT(DISTINCT e.user_id) FROM telemetry_events e
+                    WHERE e.user_id IS NOT NULL
+                      AND date(e.received_at) <= d.day
+                      AND date(e.received_at) > date(d.day, '-7 days')
+                  ) AS c
+           FROM days d ORDER BY d.day ASC""",
+        (f"-{days} days",),
+    )
+    series["active_users_7d"] = [
+        {"day": r["day"], "value": r["c"]} for r in await cursor.fetchall()
+    ]
+
     # Duration aggregate over the window. Weight the average by
     # meetings_stopped that day so the period mean reflects activity,
     # not unweighted day averages.

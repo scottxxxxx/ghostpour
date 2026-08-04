@@ -259,6 +259,11 @@ def test_admin_summary_returns_expected_shape(client, tmp_db_path):
         "app_starts", "meetings_started", "meetings_stopped",
         "distinct_devices", "distinct_users",
         "new_devices", "new_accounts",
+        # Rolling trailing-7-day distinct users. Computed server-side
+        # because the daily rollup stores counts rather than identities,
+        # so summing seven days on the client double-counts anyone active
+        # on more than one of them.
+        "active_users_7d",
     }
     assert isinstance(data["models"], list)
     assert any(m["model_id"] == "haiku" for m in data["models"])

@@ -1,8 +1,8 @@
 {
-  "version": 3,
+  "version": 4,
   "doctrine": "GhostPour owns this recipe. The client executes it and holds no opinion about placement. Changing composition must never require an app update. See docs/decisions/prompt-composition-doctrine.md.",
   "lane_resolution": {
-    "note": "Data, not code: adding a lane must never need a client build. Resolve by the client's apiFormat, falling back to the default lane for any value not listed, including models that did not exist when this file was written.",
+    "note": "Data, not code: adding a lane must never need a client build. Resolve by the client's apiFormat; anything unlisted falls back to `byok`, which is the unknown-model lane. Two editability flags with different scopes, not one: instructions_editable covers the global instructions section, managed_prompts_editable covers the summary, consolidation and analysis prompts. Folding them together would stop honoring on-device edits to prompts nobody asked to lock.",
     "by_api_format": {
       "apple": "on_device",
       "cloudzap": "managed"
@@ -10,29 +10,26 @@
     "fallback": "byok"
   },
   "lanes": {
-    "default": {
-      "description": "Any model with no specific entry. Never remove this lane; it is what makes an unknown future model work without a build.",
-      "instructions_editable": false,
-      "instructions_variant": "default",
-      "surface_overrides": {}
-    },
     "on_device": {
       "description": "Apple foundation models. Small context (about 3072 usable tokens), so the recipe drops what will not fit rather than letting the transcript be truncated.",
       "instructions_editable": false,
       "instructions_variant": "compact",
-      "surface_overrides": {}
+      "surface_overrides": {},
+      "managed_prompts_editable": true
     },
     "managed": {
       "description": "Shoulder Surf AI. GP chooses the model and the recipe.",
       "instructions_editable": false,
       "instructions_variant": "default",
-      "surface_overrides": {}
+      "surface_overrides": {},
+      "managed_prompts_editable": false
     },
     "byok": {
-      "description": "The user's own key. Their model and their bill, so the CONTENTS of the instructions become editable. The recipe does not: placement is still ours.",
+      "description": "The user's own key, and the fallback for any apiFormat we do not recognize, including providers added after this file was written. Their model and their bill, so the CONTENTS of the instructions become editable. The recipe does not: placement is still ours.",
       "instructions_editable": true,
       "instructions_variant": "default",
-      "surface_overrides": {}
+      "surface_overrides": {},
+      "managed_prompts_editable": true
     }
   },
   "sections": {

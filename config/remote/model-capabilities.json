@@ -1,6 +1,7 @@
 {
-  "version": 15,
+  "version": 16,
   "defaultPromptReserveTokens": 8000,
+  "minPromptReserveTokens": 4096,
   "models": {
     "foundation-models": {
       "provider": "Apple",

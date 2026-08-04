@@ -223,3 +223,51 @@ def test_structural_configs_justify_having_no_locales():
     for slug, reason in NO_LOCALE_NEEDED.items():
         assert len(reason) > 20, f"{slug} exempted from locales without a reason"
         assert slug in _locale_coverage(), f"{slug} is not a served config"
+
+
+# --- knobs adopted from the client binary (2026-08-03) ---------------
+#
+# SS audited what is still frozen in their app that GP could own. These
+# are the plain-integer ones: no decode risk, and they reach the model on
+# every chat send. Values reproduce today's hardcoded ones exactly,
+# because adoption has to be byte-identical before anything is tuned.
+
+
+def test_chat_sizing_knobs_are_served_at_todays_values():
+    cc = _load("client-config", "")
+    chat = cc["chat"]
+    assert chat["max_history_pairs"] == 6
+    assert chat["response_reserve_tokens"] == 1024
+    assert chat["user_content_reserve_tokens"] == 4000
+    assert chat["context_window_fallback_tokens"] == 32000
+
+
+def test_image_sizing_has_exactly_one_source():
+    """Already served per tier. A second copy in client-config would be two
+    paths writing the same field, which is how the free-tier copy drifted
+    for weeks without anyone noticing."""
+    cc = _load("client-config", "")
+    assert "image" not in cc.get("chat", {}), (
+        "image sizing belongs to tiers.feature_definitions.images only")
+    tiers = _load("tiers", "")
+    for name, tier in tiers["tiers"].items():
+        img = (tier.get("feature_definitions") or {}).get("images")
+        assert img and img.get("max_long_edge") and img.get("jpeg_quality"), name
+
+
+def test_the_prompt_reserve_floor_is_distinct_from_the_default():
+    """A floor and a default are different numbers doing different jobs:
+    the default is what we reserve absent better information, the floor is
+    what the gauge math may never go below."""
+    mc = _load("model-capabilities", "")
+    assert mc["minPromptReserveTokens"] == 4096
+    assert mc["defaultPromptReserveTokens"] == 8000
+    assert mc["minPromptReserveTokens"] < mc["defaultPromptReserveTokens"]
+
+
+def test_the_transcript_word_floor_was_already_served():
+    """SS listed this as baked in and unreachable. It has been served all
+    along at the same value, which makes it a wiring gap rather than a
+    missing knob."""
+    cc = _load("client-config", "")
+    assert cc["post_session"]["analysis_min_words"] == 300
