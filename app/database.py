@@ -734,6 +734,15 @@ MIGRATIONS = [
     # the missing safety step, not a convenience. One row per tester;
     # `active=0` retires an account without losing the record of who was
     # testing when something shipped.
+    # v40: feature-gate events (2026-08-04). Gate CTAs reported nothing, so
+    # the copy we most wanted to A/B test was the copy we could not measure.
+    # `feature` is the entitlement key the user was blocked on; `surface` is
+    # where the ask rendered. Both are NULL for ordinary campaign events, and
+    # campaign_id is NULL for a baseline gate event with no campaign behind
+    # it, which is what makes control and variant comparable on one key.
+    "ALTER TABLE promo_events ADD COLUMN feature TEXT",
+    "ALTER TABLE promo_events ADD COLUMN surface TEXT",
+    "CREATE INDEX IF NOT EXISTS idx_promo_events_feature ON promo_events(feature, event_type) WHERE feature IS NOT NULL",
     """CREATE TABLE IF NOT EXISTS config_testers (
         user_id TEXT PRIMARY KEY,
         label TEXT,

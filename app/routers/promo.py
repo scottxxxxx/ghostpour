@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from app.database import get_db
 from app.dependencies import get_current_user_optional
@@ -480,11 +480,28 @@ async def _inject_storekit_offer_codes(db, variant, user, device_id):
 
 class PromoEventBody(BaseModel):
     event_type: str                 # impression | dismiss | click | convert
-    campaign_id: str
     device_id: str
+    # Optional as of 2026-08-04. A feature-gate CTA has no campaign behind
+    # it, and campaign_id is the conflict key for the frequency-cap row, so
+    # requiring it meant gate events had nothing to write against.
+    campaign_id: str | None = None
     variant_id: str | None = None
     cta_id: str | None = None       # which CTA was tapped (click)
     visible_ms: int | None = None   # impression/dismiss dwell
+    # Feature-gate events. `feature` is the entitlement key the user was
+    # blocked on; `surface` is where the ask rendered. Sent WITH
+    # campaign_id when a campaign supplied the copy, so the campaign arm
+    # and the baseline arm are comparable on the same key.
+    feature: str | None = None
+    surface: str | None = None
+
+    @model_validator(mode="after")
+    def _needs_a_subject(self):
+        # An event about nothing is worse than no event: it inflates a
+        # denominator and cannot be attributed to anything.
+        if not self.campaign_id and not self.feature:
+            raise ValueError("campaign_id or feature is required")
+        return self
 
 
 @router.post("/promo/events", status_code=204)
@@ -504,11 +521,18 @@ async def ingest_promo_event(
     await db.execute(
         """INSERT INTO promo_events
            (id, created_at, device_id, user_id, campaign_id, variant_id, app_id,
-            event_type, visible_ms, cta_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            event_type, visible_ms, cta_id, feature, surface)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (uuid.uuid4().hex, now, body.device_id, user.id if user else None, body.campaign_id,
-         body.variant_id, app_id, body.event_type, body.visible_ms, body.cta_id),
+         body.variant_id, app_id, body.event_type, body.visible_ms, body.cta_id,
+         body.feature, body.surface),
     )
+    # Frequency capping is a campaign concept: it answers "have we shown
+    # this card enough". A gate event has no card and no cap, so a
+    # campaign-less event records and stops here.
+    if not body.campaign_id:
+        await db.commit()
+        return Response(status_code=204)
     if body.event_type == "impression":
         await db.execute(
             """INSERT INTO promo_presentations
