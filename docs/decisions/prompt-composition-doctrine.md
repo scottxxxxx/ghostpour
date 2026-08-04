@@ -119,6 +119,47 @@ which proves the key must be *present*, not that anything consumes it.
 Their per-build manifest settles it cheaply and they are generating it
 anyway.
 
+## Presence is not consumption
+
+CQ's rule, added 2026-08-04 after the third instance of the same failure
+in a week. Their doc 17 carries it too.
+
+**Presence in a payload is not evidence of consumption. A field is
+integrated only when every hop that must read it is shown to read it.**
+
+The three instances, which looked unrelated and were not:
+
+- A `people` entry was given only the keys it needed to **render**. It was
+  a valid entry, and the shipped decoder required two fields it lacked, so
+  the whole tier catalog was discarded on every build in the field.
+- The envelope described the **template** rather than the wire. The
+  sentence was true about `systemPromptTemplate` and false about what the
+  client actually sent, because the client blanked two sections at render
+  time.
+- A capture metadata key was **accepted** by pydantic, sat in the request
+  object, and was read by nothing, because the outbound body was rebuilt
+  from a closed parameter list.
+
+Every time, the artifact in front of us looked right and the payload was
+not, and every time it failed silently. The habit that produces it is
+checking the thing you are holding instead of the thing that travels.
+
+What this means in practice:
+
+- **Test the outbound body, not the inbound request.** The inbound side is
+  rarely the broken half. Asserting what we put on the wire localises a
+  break to one hop; asserting that a partner received something tests
+  their leg and ours together and tells you neither.
+- **A new field is not done when it validates.** It is done when the hop
+  that consumes it is demonstrated to consume it, with a test that fails
+  if the wiring is removed.
+- **Prefer one auditable list to several enumerations.** A key enumerated
+  in three places fails silently when one is missed; an allowlist fails
+  visibly, because there is somewhere to look.
+- **Quiet is not health.** Already recorded above for pre-2026-08-02
+  builds; this is the same rule pointed at our own code rather than at a
+  frozen client.
+
 ## Open work this implies
 
 - Envelope v2: correct `copilot_session` to the real wire, add sections

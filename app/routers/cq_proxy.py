@@ -258,9 +258,17 @@ async def capture_transcript(
             user_label=body.get_meta("user_label"),
             identification_source=body.get_meta("identification_source"),
             subscription_tier=user.effective_tier,
+            # Client metadata now rides the allowlist rather than being
+            # enumerated field by field here AND again inside capture().
+            # Adding a key is one edit to CAPTURE_METADATA_ALLOWLIST; before
+            # this it was three across two files, and missing one produced a
+            # key that was present in the request and read by nothing.
+            passthrough=body.metadata,
             # metadata.language arrives from the app (device locale) on
             # builds that send it; older builds fall back to the request's
-            # Accept-Language, which reflects the same device setting.
+            # Accept-Language, which reflects the same device setting. Kept
+            # explicit because of that server-side fallback: the allowlist
+            # forwards what the client sent, this supplies what it did not.
             language=body.get_meta("language")
             or _primary_language_tag(request.headers.get("Accept-Language")),
         ))
