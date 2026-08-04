@@ -121,3 +121,60 @@ def test_disabled_entitlement_actually_closes_the_door(people_client, proxy, mon
     assert resp.status_code == 403
     assert resp.json()["detail"]["code"] == "feature_disabled"
     assert proxy.await_count == 0
+
+
+# --- tier simulation (2026-08-04) ------------------------------------
+#
+# SS found that _require_people gated on user.tier while every other
+# entitlement check in cq_proxy reads user.effective_tier, which is
+# simulated_tier or tier. So People was the one feature that ignored admin
+# tier simulation.
+#
+# Low severity today, because People is enabled on every tier and the
+# guard fails open when the config store is unavailable, so it probably
+# never returned a wrong answer for a real user. The cost is narrower:
+# simulation is the tool you reach for to TEST this gate, and it was the
+# one input the gate did not read. It sharpens the moment People becomes
+# tier-conditional, and an upgrade_cta is already served for it.
+
+
+def _simulated(user_id: str, real: str, simulated: str) -> UserRecord:
+    return UserRecord(
+        id=user_id, apple_sub="sub_sim", tier=real, simulated_tier=simulated,
+        created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
+    )
+
+
+def test_the_gate_reads_the_simulated_tier(client, proxy, monkeypatch):
+    """Simulating a tier whose People state is disabled must close the door,
+    even though the account's real tier is enabled."""
+    app.dependency_overrides[get_current_user] = lambda: _simulated(
+        USER, real="pro", simulated="free")
+    try:
+        def _state(configs, tier, feature):
+            return "disabled" if tier == "free" else "enabled"
+
+        with patch("app.services.entitlements.entitlement_state", _state):
+            resp = client.get(f"/v1/people/{USER}")
+        assert resp.status_code == 403, (
+            "the gate read the real tier and ignored the simulation")
+        assert resp.json()["detail"]["code"] == "feature_disabled"
+        assert proxy.await_count == 0
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_simulation_can_also_open_the_door(client, proxy, monkeypatch):
+    """The reverse direction, so the fix is not just 'deny more often'."""
+    app.dependency_overrides[get_current_user] = lambda: _simulated(
+        USER, real="free", simulated="pro")
+    try:
+        def _state(configs, tier, feature):
+            return "disabled" if tier == "free" else "enabled"
+
+        with patch("app.services.entitlements.entitlement_state", _state):
+            resp = client.get(f"/v1/people/{USER}")
+        assert resp.status_code == 200
+        assert proxy.await_count == 1
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
