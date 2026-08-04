@@ -835,7 +835,11 @@ async def _require_people(request: Request, user: UserRecord, user_id: str) -> N
         # unrecognized X-App-ID in the config resolver.
         logger.warning("people_entitlement_skipped: remote_configs unavailable")
         return
-    state = entitlement_state(configs, user.tier, _PEOPLE_FEATURE)
+    # effective_tier, not tier: simulated_tier or tier. Every other
+    # entitlement check in this file reads it, and using the raw tier here
+    # made People the one feature that ignores admin tier simulation, which
+    # is exactly the tool you would reach for to test this gate.
+    state = entitlement_state(configs, user.effective_tier, _PEOPLE_FEATURE)
     if state == "disabled":
         raise HTTPException(status_code=403, detail={
             "code": "feature_disabled",
