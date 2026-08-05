@@ -154,3 +154,54 @@ def test_the_reason_is_optional_and_open(client, app_env):
         "feature": "search", "block_reason": "something_new"})
     assert r2.status_code == 204
     assert _reasons(_db(app_env)) == [None, "something_new"]
+
+
+# --- which key names the block (2026-08-04, SS) -----------------------
+#
+# SS asked whether `feature` is validated against the entitlement keys.
+# It is not, and it must not be: a zero-credit user stopped at the first
+# orb tap is a budget block, not an entitlement, and there is no
+# entitlement key for "asked the AI". A closed vocabulary there would
+# make budget gates dark, which is the gate that stops a free user
+# soonest.
+#
+# The key to send is the one our own block response already puts in
+# `feature_state.feature`, so neither side has a list to keep in sync.
+
+
+def _features(db_path: str) -> list:
+    conn = sqlite3.connect(db_path)
+    try:
+        return [r[0] for r in conn.execute(
+            "SELECT feature FROM promo_events ORDER BY created_at")]
+    finally:
+        conn.close()
+
+
+def test_an_unrecognized_feature_is_recorded_not_rejected(client, app_env):
+    """Widenable like block_reason. A client must be able to report a gate
+    we have not named yet; the alternative is silence, and silence reads
+    as "nobody hit that gate"."""
+    r = client.post("/v1/promo/events", headers=SS, json={
+        "event_type": "impression", "device_id": DEV,
+        "feature": "a_gate_we_have_not_named_yet", "block_reason": "quota"})
+    assert r.status_code == 204
+    assert _features(_db(app_env)) == ["a_gate_we_have_not_named_yet"]
+
+
+def test_the_budget_block_names_its_own_feature(client, app_env):
+    """The half that makes the answer above safe rather than sloppy. Our
+    402-equivalent block payload carries feature_state.feature, so the
+    client echoes a key we chose instead of inventing one. If this ever
+    stops being emitted, the advice in the wire contract is wrong."""
+    import ast
+    import pathlib
+    src = pathlib.Path("app/routers/chat.py").read_text()
+    assert '"feature": "chat" if not is_project_chat_pre else "project_chat"' in src, (
+        "the budget block no longer names its feature; docs/wire-contracts/"
+        "gate-events.md tells SS to echo feature_state.feature")
+    for key in ("chat", "project_chat", "meeting_report", "search"):
+        r = client.post("/v1/promo/events", headers=SS, json={
+            "event_type": "impression", "device_id": DEV,
+            "feature": key, "block_reason": "quota"})
+        assert r.status_code == 204, key
