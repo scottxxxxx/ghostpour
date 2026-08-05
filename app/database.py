@@ -743,6 +743,11 @@ MIGRATIONS = [
     "ALTER TABLE promo_events ADD COLUMN feature TEXT",
     "ALTER TABLE promo_events ADD COLUMN surface TEXT",
     "CREATE INDEX IF NOT EXISTS idx_promo_events_feature ON promo_events(feature, event_type) WHERE feature IS NOT NULL",
+    # Why the user was blocked. Without it a signed-out user hitting People
+    # is indistinguishable from a Free user hitting Project Chat, and those
+    # belong in different denominators: the funnel ends in "subscribed" and
+    # signing in is not subscribing. SS caught this.
+    "ALTER TABLE promo_events ADD COLUMN block_reason TEXT",
     """CREATE TABLE IF NOT EXISTS config_testers (
         user_id TEXT PRIMARY KEY,
         label TEXT,

@@ -101,3 +101,56 @@ def test_the_event_vocabulary_is_unchanged(client, app_env):
     r = client.post("/v1/promo/events", headers=SS, json={
         "event_type": "not_a_thing", "device_id": DEV, "feature": "search"})
     assert r.status_code == 400
+
+
+# --- why the user was blocked (2026-08-04, SS) -----------------------
+#
+# The shape could tell campaign arm from baseline but not why the block
+# happened. People is served as an intelligence feature with "Sign in to
+# build your People list", so a signed-out user hitting it is a legitimate
+# impression under our definition, and it arrived looking identical to a
+# Free user hitting Project Chat. The funnel ends in "subscribed" and
+# signing in is not subscribing, so those are different denominators.
+
+
+def _reasons(db_path: str) -> list:
+    conn = sqlite3.connect(db_path)
+    try:
+        return [r[0] for r in conn.execute(
+            "SELECT block_reason FROM promo_events ORDER BY created_at")]
+    finally:
+        conn.close()
+
+
+def test_a_signed_out_block_is_distinguishable_from_a_tier_block(client, app_env):
+    client.post("/v1/promo/events", headers=SS, json={
+        "event_type": "impression", "device_id": DEV,
+        "feature": "people", "block_reason": "signed_out"})
+    client.post("/v1/promo/events", headers=SS, json={
+        "event_type": "impression", "device_id": DEV,
+        "feature": "project_chat", "block_reason": "tier"})
+    assert _reasons(_db(app_env)) == ["signed_out", "tier"]
+
+
+def test_quota_is_its_own_reason(client, app_env):
+    """The plan includes the feature and this period is spent. Neither an
+    upgrade nor a sign-in is the right ask, so it cannot share either
+    denominator."""
+    client.post("/v1/promo/events", headers=SS, json={
+        "event_type": "impression", "device_id": DEV,
+        "feature": "context_quilt", "block_reason": "quota"})
+    assert _reasons(_db(app_env)) == ["quota"]
+
+
+def test_the_reason_is_optional_and_open(client, app_env):
+    """A plain string, not an enum: widening a vocabulary is safe for every
+    shipped build, retyping a field is not. An unknown value is recorded
+    rather than rejected so a client can ship a new reason before we do."""
+    r = client.post("/v1/promo/events", headers=SS, json={
+        "event_type": "impression", "device_id": DEV, "feature": "search"})
+    assert r.status_code == 204
+    r2 = client.post("/v1/promo/events", headers=SS, json={
+        "event_type": "impression", "device_id": DEV,
+        "feature": "search", "block_reason": "something_new"})
+    assert r2.status_code == 204
+    assert _reasons(_db(app_env)) == [None, "something_new"]
