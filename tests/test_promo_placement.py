@@ -207,3 +207,44 @@ def test_an_unknown_placement_is_rejected(client):
                     json=_campaign("typo", [{"placement": "feature_lockd"}]))
     assert r.status_code == 400
     assert "feature_lockd" in r.text
+
+
+# --- the door held open for 803 (2026-08-05) -------------------------
+#
+# Caught on the wire in prod, not here. The compatibility rule was "a
+# client that sends no placement gets the old behaviour", and read
+# literally that served gate campaigns to build 803 as launch cards:
+# the exact failure the placement work exists to prevent, arriving
+# through the door held open for backward compatibility.
+#
+# A client that names no moment is a build from before placements
+# existed, and every one of them renders what it gets as a launch card.
+# So "no placement" means launch, not "anything".
+
+
+def test_a_gate_campaign_never_reaches_a_placement_less_client(client, make):
+    make(_campaign("gate_only",
+                   [{"placement": "feature_locked", "feature": "context_quilt"}]))
+    assert _resolve(client) == {}
+
+
+def test_a_launch_campaign_still_reaches_one(client, make):
+    make(_campaign("launch_card", [{"placement": "launch"}]))
+    assert _resolve(client)["campaign_id"] == "launch_card"
+
+
+def test_a_campaign_claiming_both_reaches_one(client, make):
+    """Claiming launch is the campaign saying it is safe as a launch card,
+    so honour that and ignore the gate entry for this request."""
+    make(_campaign("both", [{"placement": "launch", "priority": 3},
+                            {"placement": "feature_locked", "priority": 9}]))
+    assert _resolve(client)["campaign_id"] == "both"
+
+
+def test_the_launch_entry_sets_the_priority_for_a_placement_less_client(client, make):
+    """The gate entry outranks on paper. It must not decide a launch
+    contest it was never eligible for."""
+    make(_campaign("loud_gate", [{"placement": "launch", "priority": 1},
+                                 {"placement": "feature_locked", "priority": 99}]),
+         _campaign("plain_launch", [{"placement": "launch", "priority": 5}]))
+    assert _resolve(client)["campaign_id"] == "plain_launch"

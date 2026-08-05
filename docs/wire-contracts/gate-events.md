@@ -183,9 +183,18 @@ the launch ping serves gate copy with no gate behind it. It now filters.
 
 Two compatibility rules keep everything already live unchanged:
 
-- A client that sends no `placement` gets the old behaviour. Build 803
-  does not send one and never will.
+- A client that sends no `placement` is treated as asking for `launch`.
+  Build 803 does not send one and never will, and every build in that
+  generation renders what it gets as a launch card, so "no placement"
+  means launch rather than "anything". A campaign that claims only gate
+  placements is invisible to those clients.
 - A campaign that declares no `placements` matches any moment.
+
+The first rule is narrower than it first shipped. Read as "no placement
+gets the old behaviour", it served gate campaigns to 803 as launch cards:
+the exact failure this work exists to prevent, arriving through the door
+held open for backward compatibility. Caught on the wire in prod during
+the first end-to-end check.
 
 A placement entry may name the gate it belongs to:
 

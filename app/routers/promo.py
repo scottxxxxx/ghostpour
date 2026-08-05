@@ -373,7 +373,19 @@ def _placement_priority(campaign: dict, placement: str | None, feature: str | No
     if not entries:
         return campaign.get("priority", 0)
     if placement is None:
-        return campaign.get("priority", 0)
+        # A client that names no moment is a build from before placements
+        # existed, and every one of them renders what it gets as a launch
+        # card. So "no placement" is not "any placement": it is launch.
+        #
+        # Read literally, the compatibility rule leaked every gate campaign
+        # to build 803 as a launch card, which is the failure the placement
+        # work exists to prevent, arriving through the door held open for
+        # backward compatibility. Caught on the wire in prod.
+        launch = [e for e in entries
+                  if isinstance(e, dict) and e.get("placement") == "launch"]
+        if not launch:
+            return None
+        return max(e.get("priority", campaign.get("priority", 0)) for e in launch)
     best = None
     for e in entries:
         if not isinstance(e, dict) or e.get("placement") != placement:
