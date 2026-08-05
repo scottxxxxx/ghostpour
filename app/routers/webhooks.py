@@ -3962,6 +3962,17 @@ def _validate_campaign(body: CampaignBody) -> None:
     min_aud = body.targeting.get("min_audience")
     if min_aud is not None and (not isinstance(min_aud, int) or isinstance(min_aud, bool) or min_aud < 0):
         raise HTTPException(status_code=400, detail="targeting.min_audience must be a non-negative integer")
+    # Placement entries. resolve honours these as of 2026-08-04, so a
+    # malformed one is no longer inert: it means the campaign never appears
+    # and nothing says why. A gate placement may name the feature it belongs
+    # to; without one it serves at any gate.
+    for e in body.placements:
+        if not isinstance(e, dict) or not isinstance(e.get("placement"), str) or not e["placement"]:
+            raise HTTPException(status_code=400, detail="each placement entry needs a non-empty placement string")
+        if "feature" in e and (not isinstance(e["feature"], str) or not e["feature"]):
+            raise HTTPException(status_code=400, detail="placement feature must be a non-empty string when present")
+        if "priority" in e and (not isinstance(e["priority"], int) or isinstance(e["priority"], bool)):
+            raise HTTPException(status_code=400, detail="placement priority must be an integer when present")
     # Each native CTA must declare an action.type from the locked allowlist
     # (incl. "none"); reject unknown so a payload can't ship a target the client
     # won't render. Optional per-CTA cta_id is the link-attribution key echoed

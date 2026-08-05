@@ -342,20 +342,71 @@ async def serve_promo_asset(name: str):
     )
 
 
+def _placement_priority(campaign: dict, placement: str | None, feature: str | None):
+    """Does this campaign want THIS moment, and at what priority?
+
+    Returns the effective priority, or None when the campaign does not
+    belong at the asked-for moment.
+
+    Until 2026-08-04 resolve ignored `placements` completely: it returned
+    the highest-priority matching campaign for the app whatever moment the
+    client was asking about. That was harmless while "launch" was the only
+    moment anyone rendered, and stops being harmless the instant a second
+    one exists — a gate would have served the launch card, and the launch
+    ping would have served gate copy with no gate around it.
+
+    A campaign that declares no placements keeps the old behaviour and
+    matches anything, so nothing already live changes shape.
+
+    `feature` qualifies a gate placement. A placement entry may name one:
+
+        {"placement": "feature_locked", "feature": "context_quilt"}
+
+    An entry that names a feature serves only that gate. An entry that
+    names none serves any gate, which is how you write copy like "Plus
+    unlocks this" that reads correctly wherever it lands. A request that
+    asks for no feature never matches an entry that names one, because
+    the campaign was authored for a specific gate and we cannot tell
+    which gate is on screen.
+    """
+    entries = campaign.get("placements") or []
+    if not entries:
+        return campaign.get("priority", 0)
+    if placement is None:
+        return campaign.get("priority", 0)
+    best = None
+    for e in entries:
+        if not isinstance(e, dict) or e.get("placement") != placement:
+            continue
+        want = e.get("feature")
+        if want is not None and want != feature:
+            continue
+        pri = e.get("priority", campaign.get("priority", 0))
+        if best is None or pri > best:
+            best = pri
+    return best
+
+
 @router.get("/promo/resolve")
 async def resolve_promo(
     request: Request,
     device_id: str = Query(..., min_length=1),
+    placement: str | None = Query(None),
+    feature: str | None = Query(None),
     user: UserRecord | None = Depends(get_current_user_optional),
     db: aiosqlite.Connection = Depends(get_db),
 ):
-    """Launch-ping: return the promo to show for this app/device, or {}.
+    """Return the promo to show for this app/device/moment, or {}.
 
     Unauthenticated — anchored on device_id so the whole install base is
     reachable (signed-in, BYOK, on-device). A bearer token is optional
     enrichment: when present it unlocks user/tier/signed_in targeting.
     App-scoped by X-App-ID. Highest priority active in-window campaign whose
     targeting matches and whose per-device frequency cap isn't spent.
+
+    `placement` is the moment ("launch", "feature_locked"). `feature` is the
+    gate that is on screen, and only means anything for a gate placement.
+    A client that sends neither gets the pre-2026-08-04 behaviour.
     """
     app_id = getattr(request.state, "app_id", "unknown")
     now = datetime.now(timezone.utc).isoformat()
@@ -385,6 +436,17 @@ async def resolve_promo(
     )
     profile = await _device_profile(db, device_id, user) if needs_profile else None
     locale_tag = _primary_subtag(header_locale or (profile or {}).get("locale"))
+    # Filter to the campaigns that want THIS moment, then re-sort: a
+    # per-placement priority is a statement about that moment and has to
+    # outrank the campaign-wide one, or a loud launch card wins every gate.
+    scoped = []
+    for c in campaigns:
+        pri = _placement_priority(c, placement, feature)
+        if pri is None:
+            continue
+        scoped.append((pri, c))
+    scoped.sort(key=lambda t: -t[0])
+    campaigns = [c for _, c in scoped]
     for c in campaigns:
         if c.get("starts_at") and now < c["starts_at"]:
             continue
