@@ -488,10 +488,19 @@ class PromoEventBody(BaseModel):
     variant_id: str | None = None
     cta_id: str | None = None       # which CTA was tapped (click)
     visible_ms: int | None = None   # impression/dismiss dwell
-    # Feature-gate events. `feature` is the entitlement key the user was
-    # blocked on; `surface` is where the ask rendered. Sent WITH
+    # Feature-gate events. `surface` is where the ask rendered. Sent WITH
     # campaign_id when a campaign supplied the copy, so the campaign arm
     # and the baseline arm are comparable on the same key.
+    #
+    # `feature` is NOT validated against the entitlement keys, on purpose.
+    # Not every block is an entitlement: a zero-credit user stopped at the
+    # first orb tap is a budget block, and there is no entitlement key for
+    # "asked the AI". Validating here would make those gates dark, which
+    # is the opposite of the point. The key to send is the one our own
+    # block response already names in `feature_state.feature` ("chat",
+    # "project_chat", "meeting_report", "search", ...), so the two sides
+    # stay in step with no vocabulary to agree on. An unrecognized value
+    # is recorded rather than rejected.
     feature: str | None = None
     surface: str | None = None
     # Why the user was blocked, so the arms land in the right denominator.
