@@ -3871,6 +3871,13 @@ _CTA_ACTION_TYPES = {"appstore", "storekit_offer", "paywall", "url", "deeplink",
 # Plans a paywall CTA may feature (action.plan). Absent => default paywall, no
 # featured plan. Matches the paid subscription tiers.
 _PAYWALL_PLANS = {"plus", "pro"}
+# The whole placement vocabulary, confirmed by SS 2026-08-05. Each id is a
+# render host they have to build, so an unknown one is not a new moment, it
+# is a typo that authors clean and then never appears. Reject at authoring
+# time: a silently dark campaign is indistinguishable from a flat result.
+# `launch` and `feature_locked` are built; the other three are reserved
+# names they will build when a campaign needs one.
+_PLACEMENTS = {"launch", "feature_locked", "post_meeting", "paywall", "settings"}
 # Per-app allowlist of campaign-authorable deeplink targets. The client
 # allowlists the same routes; GP only authors what it will accept. SS provided
 # (2026-06-26): shouldersurf://record only — meeting/<uuid> and project/<uuid>
@@ -3969,6 +3976,10 @@ def _validate_campaign(body: CampaignBody) -> None:
     for e in body.placements:
         if not isinstance(e, dict) or not isinstance(e.get("placement"), str) or not e["placement"]:
             raise HTTPException(status_code=400, detail="each placement entry needs a non-empty placement string")
+        if e["placement"] not in _PLACEMENTS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"placement must be one of {sorted(_PLACEMENTS)} (got {e['placement']!r})")
         if "feature" in e and (not isinstance(e["feature"], str) or not e["feature"]):
             raise HTTPException(status_code=400, detail="placement feature must be a non-empty string when present")
         if "priority" in e and (not isinstance(e["priority"], int) or isinstance(e["priority"], bool)):
