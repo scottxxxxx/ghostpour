@@ -271,3 +271,57 @@ def test_the_transcript_word_floor_was_already_served():
     missing knob."""
     cc = _load("client-config", "")
     assert cc["post_session"]["analysis_min_words"] == 300
+
+
+# --- category is load bearing (2026-08-04) ---------------------------
+#
+# We told SS to key "this feature is internal, never render a CTA" off
+# `category` rather than off an empty or absent upgrade_cta, because a
+# positive signal survives copy drift and an absence does not.
+#
+# SS then told us what that costs. `category` is the ONE field they still
+# treat as required, so a definition arriving without it drops itself from
+# the catalog. And their gate fails OPEN on a missing definition, on
+# purpose: a paid feature with no upgrade path is worse than a stray
+# prompt. Compose those and an internal feature that lost its category
+# would start rendering exactly the CTA the signal exists to suppress.
+#
+# The sibling-key test above does not cover this. It only fires when SOME
+# sibling carries the key, so it would miss the case where a bad edit
+# stripped category from every entry at once.
+
+
+@pytest.mark.parametrize("loc", LOCALES)
+def test_every_feature_definition_carries_a_category(loc):
+    doc = _load("tiers", loc)
+    if doc is None:
+        pytest.skip("not shipped")
+    missing = [name for name, entry in doc["feature_definitions"].items()
+               if not entry.get("category")]
+    assert not missing, (
+        f"{missing} in tiers{loc} have no category. The client drops a "
+        "definition without one, and its gate fails open on a missing "
+        "definition, so an internal feature would start showing the upgrade "
+        "CTA that category exists to suppress.")
+
+
+def test_the_features_registry_agrees():
+    """/v1/tiers builds a definition from features.yml when the tiers config
+    has no entry, so the fallback path needs a category too."""
+    import yaml
+    features = yaml.safe_load(
+        (Path(__file__).parent.parent / "config" / "features.yml").read_text())["features"]
+    missing = [n for n, f in features.items() if not f.get("category")]
+    assert not missing, f"{missing} in features.yml have no category"
+
+
+def test_internal_features_are_marked_as_such():
+    """The suppression signal only works if the features it protects
+    actually carry it."""
+    import yaml
+    features = yaml.safe_load(
+        (Path(__file__).parent.parent / "config" / "features.yml").read_text())["features"]
+    for name in ("tag_centroids", "speaker_consolidation"):
+        assert features[name]["category"] == "internal", (
+            f"{name} is not user-facing and must stay category=internal, or "
+            "the client will render an upgrade CTA for it")

@@ -494,6 +494,14 @@ class PromoEventBody(BaseModel):
     # and the baseline arm are comparable on the same key.
     feature: str | None = None
     surface: str | None = None
+    # Why the user was blocked, so the arms land in the right denominator.
+    #   signed_out — no account yet (People today)
+    #   tier       — the plan does not include it (Project Chat on Free)
+    #   quota      — the plan includes it, this period is spent (Memory)
+    # Deliberately a plain string rather than an enum: widening a vocabulary
+    # is safe for every shipped build, retyping a field is not, and we would
+    # rather add a reason later than version the shape.
+    block_reason: str | None = None
 
     @model_validator(mode="after")
     def _needs_a_subject(self):
@@ -521,11 +529,11 @@ async def ingest_promo_event(
     await db.execute(
         """INSERT INTO promo_events
            (id, created_at, device_id, user_id, campaign_id, variant_id, app_id,
-            event_type, visible_ms, cta_id, feature, surface)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            event_type, visible_ms, cta_id, feature, surface, block_reason)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (uuid.uuid4().hex, now, body.device_id, user.id if user else None, body.campaign_id,
          body.variant_id, app_id, body.event_type, body.visible_ms, body.cta_id,
-         body.feature, body.surface),
+         body.feature, body.surface, body.block_reason),
     )
     # Frequency capping is a campaign concept: it answers "have we shown
     # this card enough". A gate event has no card and no cap, so a
