@@ -94,6 +94,84 @@ The same reasoning governs `block_reason` and `surface`. Widening a
 vocabulary is safe for every build in the field; retyping a field is not.
 We would rather name a value late than version the shape.
 
+## Which variant field carries the gate copy
+
+A campaign card has a title, a body, media and buttons. A gate has an
+explanation and one button. The mapping is by shape, and it is the one SS
+inferred:
+
+| Gate slot | Variant field | Served fallback it replaces |
+|---|---|---|
+| Button label | `native.ctas[0].label` | `feature_definitions.<feature>.upgrade_cta` |
+| Explanation | `native.body` | `feature_definitions.<feature>.teaser_description` |
+| What tapping does | `native.ctas[0].action` | Whatever the gate does today |
+| Reporting key | `native.ctas[0].cta_id` | n/a, echo it back on `click` |
+
+`native.title` is required by the authoring validator because a card needs
+one. A gate has no headline slot, so **ignore it at `feature_locked`**. It
+is authored as a label for whoever is reading the campaign in the
+dashboard, not as something to render.
+
+For a gate the action is normally `{"type": "paywall", "plan": "plus"}`.
+The full allowlist is `appstore`, `storekit_offer`, `paywall`, `url`,
+`deeplink`, `none`.
+
+**A holdout at a gate falls through to served copy.** `render: "none"` is
+the holdout arm, and on a launch card it means show nothing. At a gate,
+showing nothing would leave a blocked user staring at a dead feature with
+no explanation, so it means "no campaign copy here" and the served
+`teaser_description` / `upgrade_cta` render instead. The holdout arm is
+therefore the baseline arm, which is exactly what you want to measure
+against.
+
+## Asking for a moment: `GET /v1/promo/resolve`
+
+```
+GET /v1/promo/resolve?device_id=<uuid>&placement=feature_locked&feature=context_quilt
+```
+
+| Param | Meaning |
+|---|---|
+| `device_id` | Required. Anchors targeting and frequency for signed-out users. |
+| `placement` | The moment. `launch`, `feature_locked`, ... |
+| `feature` | Which gate is on screen. Only meaningful for a gate placement, and it is the same key you send on the event. |
+
+`{}` means no campaign, which is the normal case: render the served copy.
+
+Until 2026-08-04 resolve **ignored `placements` entirely** and returned the
+highest-priority matching campaign for the app whatever moment was asked
+about. That was harmless while `launch` was the only moment anyone
+rendered. With a second moment it means a gate serves the launch card, and
+the launch ping serves gate copy with no gate behind it. It now filters.
+
+Two compatibility rules keep everything already live unchanged:
+
+- A client that sends no `placement` gets the old behaviour. Build 803
+  does not send one and never will.
+- A campaign that declares no `placements` matches any moment.
+
+A placement entry may name the gate it belongs to:
+
+```jsonc
+"placements": [
+  {"placement": "feature_locked", "feature": "context_quilt", "priority": 50}
+]
+```
+
+An entry that names a feature serves only that gate. An entry that names
+none serves at **any** gate, which is how you write copy like "Plus
+unlocks this" once instead of once per feature. A request with no
+`feature` never matches an entry that names one, because we cannot tell
+which gate is on screen and guessing puts Memory copy on the People gate.
+
+Per-placement `priority` beats the campaign-wide `priority`. A priority is
+a statement about a moment, so a loud launch card must not win every gate
+it also happens to claim.
+
+A malformed placement entry is now a 400 at authoring time. It used to be
+inert; now it means the campaign silently never appears, which is
+indistinguishable from a flat test result.
+
 ## Why the block reason exists
 
 The shape could tell a campaign arm from a baseline, but not why the user
