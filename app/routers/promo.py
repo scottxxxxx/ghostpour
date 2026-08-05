@@ -492,7 +492,21 @@ async def resolve_promo(
             continue
         variant = _localize_variant(variant, locale_tag)
         variant = await _inject_storekit_offer_codes(db, variant, user, device_id)
-        return {"campaign_id": c["id"], "variant": variant}
+        out = {"campaign_id": c["id"], "variant": variant}
+        # Echo the moment we answered for (SS ask, 2026-08-04). Without it a
+        # correctly-targeted answer and a server that ignored the question
+        # look identical on screen, which is the bug we shipped: resolve
+        # ignored `placements` for months and every response still looked
+        # right. SS's client requires the echo for every placement except
+        # launch and stays dark without it, because dark falls through to
+        # served copy (a correct answer) while a gate wearing launch copy is
+        # not. Absent when the client asked for no placement, so 803 is
+        # unaffected.
+        if placement is not None:
+            out["placement"] = placement
+        if feature is not None:
+            out["feature"] = feature
+        return out
     return {}
 
 

@@ -143,3 +143,67 @@ def test_a_malformed_placement_is_rejected_at_authoring(client):
     r = client.post("/webhooks/admin/campaigns", headers=ADMIN, json=bad)
     assert r.status_code == 400
     assert "placement" in r.text
+
+
+# --- echoing the moment (2026-08-05, SS) -----------------------------
+#
+# Without an echo a correctly-targeted answer and a server that ignored
+# the question look identical, on the wire and on screen. That is not
+# hypothetical: resolve ignored `placements` for months and every
+# response still looked right.
+#
+# SS's client requires the echo for every placement except launch and
+# stays dark without it. That asymmetry is deliberate. Launch is safe
+# because a placement-ignoring server still answers it correctly. Dark
+# at a gate falls through to served copy, which is a correct answer;
+# a gate wearing launch copy is not.
+
+
+def test_the_served_moment_is_echoed(client, make):
+    make(_campaign("gate_card",
+                   [{"placement": "feature_locked", "feature": "context_quilt"}]))
+    r = _resolve(client, placement="feature_locked", feature="context_quilt")
+    assert r["campaign_id"] == "gate_card"
+    assert r["placement"] == "feature_locked"
+    assert r["feature"] == "context_quilt"
+
+
+def test_a_campaign_matching_anything_still_echoes_the_moment(client, make):
+    """The echo says "we understood the question", not "the campaign named
+    this". A campaign with no placements matches every moment, and the
+    answer is still an answer to the moment that was asked about."""
+    make(_campaign("everywhere", []))
+    r = _resolve(client, placement="feature_locked", feature="people")
+    assert r["placement"] == "feature_locked"
+    assert r["feature"] == "people"
+
+
+def test_a_client_that_asks_for_no_moment_gets_no_echo(client, make):
+    """Additive. 803 sends no placement and must see the shape it always
+    saw; a key it does not know is harmless, but there is nothing true to
+    put in it."""
+    make(_campaign("launch_card", [{"placement": "launch"}]))
+    r = _resolve(client)
+    assert r["campaign_id"] == "launch_card"
+    assert "placement" not in r
+    assert "feature" not in r
+
+
+# --- the placement vocabulary ----------------------------------------
+
+
+@pytest.mark.parametrize("name", ["launch", "feature_locked", "post_meeting",
+                                  "paywall", "settings"])
+def test_every_reserved_placement_authors(client, name):
+    r = client.post("/webhooks/admin/campaigns", headers=ADMIN,
+                    json=_campaign(f"c_{name}", [{"placement": name}]))
+    assert r.status_code == 200, r.text
+
+
+def test_an_unknown_placement_is_rejected(client):
+    """Each id is a render host SS has to build, so an unknown one is not a
+    new moment, it is a typo that authors clean and then never appears."""
+    r = client.post("/webhooks/admin/campaigns", headers=ADMIN,
+                    json=_campaign("typo", [{"placement": "feature_lockd"}]))
+    assert r.status_code == 400
+    assert "feature_lockd" in r.text

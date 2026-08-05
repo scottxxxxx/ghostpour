@@ -138,6 +138,43 @@ GET /v1/promo/resolve?device_id=<uuid>&placement=feature_locked&feature=context_
 
 `{}` means no campaign, which is the normal case: render the served copy.
 
+A response that serves something **echoes the moment it answered for**:
+
+```json
+{
+  "campaign_id": "ss_gate_wiring_context_quilt",
+  "placement": "feature_locked",
+  "feature": "context_quilt",
+  "variant": { "...": "..." }
+}
+```
+
+Without the echo, a correctly-targeted answer and a server that ignored
+the question are identical on the wire and on screen. That is not
+hypothetical: resolve ignored `placements` for months and every response
+still looked right.
+
+SS requires the echo for every placement except `launch` and renders
+nothing without it. The asymmetry is deliberate. Launch is safe because a
+placement-ignoring server still answers it correctly. Dark at a gate falls
+through to served copy, which is a correct answer; a gate wearing launch
+copy is not.
+
+The echo says "we understood the question", not "the campaign named this",
+so a campaign with no `placements` still echoes the moment it was asked
+about. Both keys are absent when the client asked for nothing, which is
+build 803.
+
+### The placement vocabulary
+
+`launch`, `feature_locked`, `post_meeting`, `paywall`, `settings`. That is
+the whole set (SS, 2026-08-05). `launch` and `feature_locked` are built;
+the other three are reserved names, built when a campaign needs one.
+
+Anything else is a **400 at authoring time**. Each id is a render host SS
+has to build, so an unknown one is not a new moment, it is a typo that
+authors clean and then never appears.
+
 Until 2026-08-04 resolve **ignored `placements` entirely** and returned the
 highest-priority matching campaign for the app whatever moment was asked
 about. That was harmless while `launch` was the only moment anyone
