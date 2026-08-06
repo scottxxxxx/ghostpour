@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "server_only": true,
+  "exhausted": {
+    "free": {
+      "kind": "budget_exhausted",
+      "text": "You have used your free Tech Rehearsal allowance for this month.",
+      "renews_prefix": "Renews",
+      "action": "open_paywall"
+    },
+    "paid": {
+      "kind": "budget_exhausted",
+      "text": "You have reached this month's Tech Rehearsal usage limit.",
+      "renews_prefix": "Renews",
+      "action": null
+    }
+  }
+}

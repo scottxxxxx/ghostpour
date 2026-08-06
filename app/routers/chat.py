@@ -1628,9 +1628,17 @@ async def chat(
                 )
                 # Lean over-cap envelope: HTTP 200 (not an error, so it won't
                 # trip the client's error / on-device path), empty text, and a
-                # single budget_exhausted flag to branch on. No credits/CTA —
-                # the client renders its own limit-reached state. Confirm the
-                # shape with TR before flipping `enabled` on.
+                # single budget_exhausted flag to branch on.
+                #
+                # `cta` is the served explanation (2026-08-06). It used to be
+                # absent and TR wrote its own limit-reached string, which is
+                # backwards: a hard stop is one of the few moments we tell a
+                # user no, and the wording is ours. `resets_at` is ISO rather
+                # than a formatted date because formatting one is the client's
+                # job and we do not know their locale or calendar.
+                #
+                # Additive: a client that ignores both keys behaves exactly as
+                # before, so this does not need to land with a TR build.
                 return JSONResponse(status_code=200, content={
                     "text": "",
                     "model": body.model,
@@ -1641,6 +1649,9 @@ async def chat(
                         "app": "techrehearsal",
                         "entitlement": _tr_info["entitlement"],
                         "budget_exhausted": True,
+                        "resets_at": tr_budget.month_reset_iso(),
+                        "cta": tr_budget.exhausted_copy(
+                            request.app.state.remote_configs, _tr_info["entitlement"]),
                     },
                 })
 

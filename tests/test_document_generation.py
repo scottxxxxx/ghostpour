@@ -1433,11 +1433,17 @@ def test_report_chat_request_carries_request_id_metadata():
 
 
 def test_reports_route_carries_tr_budget_pre_gate():
+    """Anchored on the gate call rather than on a byte offset from the first
+    mention of the app. The window version broke when a comment was added
+    above the raise, which is a change with no behavioural content: a test
+    that fails on a comment is a test people learn to edit rather than read.
+    """
     src = open("app/routers/reports.py").read()
-    i = src.index("techrehearsal")
-    block = src[i:i+900]
-    assert "would_exceed_tr_budget" in block
+    block = src[src.index("would_exceed_tr_budget"):]
+    block = block[:block.index("\n    # 3.5.")]     # to the next gate
     assert "429" in block and "allocation_exhausted" in block   # TR's exact shape
+    assert "resets_at" in block, (
+        "a blocked user has to be told when the allowance comes back")
 
 
 def test_generation_survives_client_disconnect(client, free_user, mock_provider,
