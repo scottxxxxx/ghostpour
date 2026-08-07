@@ -498,7 +498,15 @@ async def complete_quilt_patch(
 class ConnectionRequest(BaseModel):
     source_patch_id: str
     target_patch_id: str
-    relationship: str | None = None
+    # `label`, not `relationship`. CQ's ConnectionCreate has always taken
+    # `label` and silently discarded unknown fields, so sending the wrong
+    # spelling wrote an unlabelled edge with a 200 back. CQ is changing that
+    # to a 422 (2026-08-07), which turns a silent trap into a loud one.
+    #
+    # It has never fired: zero of 3,382 connections carry a NULL label,
+    # because this route has no callers yet. Renamed while that is still
+    # true, rather than after a client depends on the wrong name.
+    label: str | None = None
 
 
 @router.post("/quilt/{user_id}/connections")
