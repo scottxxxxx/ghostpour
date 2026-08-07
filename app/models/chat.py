@@ -138,6 +138,13 @@ class ChatResponse(BaseModel):
     # can swap models per tier without breaking iOS attribution.
     ai_tier: str | None = None
     usage: dict | None = None
+    # Why the model stopped, normalised across providers: "complete",
+    # "max_tokens", "filtered", "tool_use", or an unrecognised provider value
+    # passed through lowercased. ABSENT when the provider reported none,
+    # which means "we do not know" rather than "it completed": treating a
+    # missing value as success is how a truncation gets rendered as an
+    # answer. See app/services/stop_reason.py.
+    stop_reason: str | None = None
     cost: dict | None = None
     raw_request_json: str | None = None
     raw_response_json: str | None = None
