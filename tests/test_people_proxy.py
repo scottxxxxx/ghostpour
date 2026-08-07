@@ -88,6 +88,43 @@ def test_list_forwards_every_query_param_verbatim(people_client, proxy):
         assert param in forwarded, f"{param} was dropped on the way to CQ"
 
 
+def test_the_query_string_survives_byte_for_byte(people_client, proxy):
+    """SS asked for the raw-byte version of the check above, and they were
+    right to: presence of `since=` is not the same claim as the VALUE
+    arriving intact. A timestamp mangled in transit is worse than a dropped
+    one, because CQ answers a different question confidently.
+
+    Percent-encoding is the specific risk. `2026-08-01T00:00:00Z` arrives as
+    `...T00%3A00%3A00Z`, and anything that parses and re-serialises the
+    query can normalise, double-encode, or reorder it. We forward the raw
+    string, so this asserts identity, not membership."""
+    q = "since=2026-08-01T00%3A00%3A00Z&confirmed=true&min_meetings=5&limit=50"
+    people_client.get(f"/v1/people/{USER}?{q}")
+    assert proxy.await_args.kwargs["query"] == q
+
+
+def test_a_since_only_delta_sync_is_not_silently_widened(people_client, proxy):
+    """The failure SS named, in isolation. Dropping `since` does not error:
+    it turns a delta sync into a full one, the client gets a correct-looking
+    answer, and nobody sees it fail. Same class as the quilt poll that
+    returned the whole quilt on every launch."""
+    people_client.get(f"/v1/people/{USER}?since=2026-08-01T00%3A00%3A00Z")
+    assert proxy.await_args.kwargs["query"] == "since=2026-08-01T00%3A00%3A00Z"
+
+
+@pytest.mark.parametrize("q", [
+    "since=2026-08-01T00%3A00%3A00Z",
+    "since=2026-08-01T00:00:00Z",          # unencoded colons, also legal
+    "limit=50&since=2026-08-01T00%3A00%3A00Z",   # order preserved
+    "since=2026-08-01T00%3A00%3A00%2B01%3A00",   # +01:00 offset, encoded
+])
+def test_since_survives_in_every_shape_a_client_might_send(people_client, proxy, q):
+    """We do not parse it, so we do not get to be opinionated about which
+    encoding is correct. Whatever the client sent is what CQ sees."""
+    people_client.get(f"/v1/people/{USER}?{q}")
+    assert proxy.await_args.kwargs["query"] == q
+
+
 def test_no_query_string_forwards_none_not_empty(people_client, proxy):
     """An empty string would send CQ a bare '?', which is not the same
     request."""
