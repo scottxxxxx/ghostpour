@@ -62,6 +62,20 @@ _client: httpx.AsyncClient | None = None
 # JWT token cache, keyed by CQ app_id — per-app identities each cache their own.
 _tokens: dict[str, tuple[str, float]] = {}  # cq_app_id -> (token, expires_at)
 
+# How long to stop asking after CQ rejects a credential. Long enough that a
+# wrong secret cannot hammer their pbkdf2 token endpoint at one hash per
+# request, short enough that fixing the secret takes effect without a
+# restart. A rejected credential is permanent until a human intervenes, so
+# there is nothing to gain from asking sooner.
+AUTH_FAILURE_COOLDOWN_SECONDS = 60.0
+_auth_failures: dict[str, float] = {}  # cq_app_id -> retry_after (epoch)
+
+
+def _reset_auth_failure(cq_app: str) -> None:
+    """Forget a rejection. Called on a successful mint so a fixed secret
+    recovers immediately rather than serving out the rest of the cooldown."""
+    _auth_failures.pop(cq_app, None)
+
 
 def _get_client() -> httpx.AsyncClient:
     global _client
@@ -109,6 +123,27 @@ async def _get_auth_headers(app_id: str | None = None) -> dict[str, str]:
     if cached and time.time() < cached[1] - 30:
         return {"Authorization": f"Bearer {cached[0]}"}
 
+    # A REJECTED credential is remembered too, and this half matters more
+    # than the success cache (CQ, 2026-08-07).
+    #
+    # Success was cached and failure was not, so with a wrong secret every
+    # proxied request minted a fresh token. CQ's /v1/auth/token verifies with
+    # pbkdf2_sha256, deliberately CPU costly, and has no rate limiting. So a
+    # bad credential did not merely fail, it generated sustained load on the
+    # one endpoint designed to be slow, at one hash per request.
+    #
+    # CQ framed this as our 401-to-502 translation inviting client retries.
+    # It is worse than that: no retrying client is required. Ordinary traffic
+    # was the load.
+    #
+    # A wrong credential is PERMANENT. Retrying it sooner than a human can
+    # fix it has no upside, so we stop asking for a cooldown and fail fast
+    # locally. Transient failures (timeout, 5xx, unreachable) are NOT
+    # cooled down: those genuinely may succeed on the next call.
+    failed_until = _auth_failures.get(cq_app)
+    if failed_until and time.time() < failed_until:
+        return {"X-App-ID": cq_app}
+
     try:
         client = _get_client()
         resp = await client.post(
@@ -120,10 +155,30 @@ async def _get_auth_headers(app_id: str | None = None) -> dict[str, str]:
         token_data = resp.json()
         token = token_data["access_token"]
         _tokens[cq_app] = (token, time.time() + token_data.get("expires_in", 3600))
+        _reset_auth_failure(cq_app)
         logger.info("cq_token_refreshed", extra={"cq_app": cq_app, "expires_in": token_data.get("expires_in")})
         return {"Authorization": f"Bearer {token}"}
 
+    except httpx.HTTPStatusError as e:
+        status = e.response.status_code
+        if status in (400, 401, 403):
+            # The credential itself is wrong: unknown app id, or a secret
+            # that did not travel intact. Nothing changes until a human
+            # changes it, so stop asking for a while.
+            _auth_failures[cq_app] = time.time() + AUTH_FAILURE_COOLDOWN_SECONDS
+            logger.error(
+                "cq_token_rejected",
+                extra={"cq_app": cq_app, "status": status,
+                       "cooldown_s": AUTH_FAILURE_COOLDOWN_SECONDS},
+            )
+        else:
+            logger.warning("cq_token_error",
+                           extra={"error": str(e), "cq_app": cq_app, "status": status})
+        return {"X-App-ID": cq_app}
     except Exception as e:
+        # Timeout, connection refused, malformed body. Possibly transient, so
+        # no cooldown: cooling these down would extend a blip into a minute of
+        # degraded auth for no reason.
         logger.warning("cq_token_error", extra={"error": str(e), "cq_app": cq_app})
         return {"X-App-ID": cq_app}
 
