@@ -492,6 +492,67 @@ async def complete_quilt_patch(
     return await _cq_proxy("POST", f"/v1/quilt/{user_id}/patches/{patch_id}/complete", body)
 
 
+# --- Ledger triage (2026-08-07, SS Turn 4) ---
+#
+# SS's ledger flow ends in Done, Still live, or Let it go. `complete` is
+# Done and already existed; `vouch` and `shelve` are the other two.
+#
+# These are real routes with their own ownership guard rather than entries
+# on a generic passthrough, which is why CQ flagged them for us while they
+# were still a design. Same shape as `complete` throughout: untyped
+# optional body forwarded verbatim, CQ owns the contract, status codes pass
+# through unchanged so the client sees CQ's answer and not our summary of
+# it.
+
+
+@router.post("/quilt/{user_id}/patches/{patch_id}/vouch")
+async def vouch_quilt_patch(
+    user_id: str,
+    patch_id: str,
+    user: UserRecord = Depends(get_current_user),
+    body: dict | None = Body(default=None),
+):
+    """Proxy: the user says this item is still live.
+
+    "Still live" is not "done" and not "ignore": it is the user asserting an
+    item is real and current, which is what stops decay from quietly
+    retiring something that still matters."""
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
+    return await _cq_proxy("POST", f"/v1/quilt/{user_id}/patches/{patch_id}/vouch", body)
+
+
+@router.post("/quilt/{user_id}/patches/{patch_id}/shelve")
+async def shelve_quilt_patch(
+    user_id: str,
+    patch_id: str,
+    user: UserRecord = Depends(get_current_user),
+    body: dict | None = Body(default=None),
+):
+    """Proxy: the user says let this one go.
+
+    Deliberately not a delete. Shelving is reversible (see the DELETE below),
+    which is the whole reason it is a separate verb from completion: a user
+    dismissing something they were never going to do should not be
+    indistinguishable from a user finishing it."""
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
+    return await _cq_proxy("POST", f"/v1/quilt/{user_id}/patches/{patch_id}/shelve", body)
+
+
+@router.delete("/quilt/{user_id}/patches/{patch_id}/shelve")
+async def unshelve_quilt_patch(
+    user_id: str,
+    patch_id: str,
+    user: UserRecord = Depends(get_current_user),
+    body: dict | None = Body(default=None),
+):
+    """Proxy: undo a shelve."""
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
+    return await _cq_proxy("DELETE", f"/v1/quilt/{user_id}/patches/{patch_id}/shelve", body)
+
+
 # --- Connection management ---
 
 
