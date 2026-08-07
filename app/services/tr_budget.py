@@ -65,6 +65,46 @@ async def tr_month_spend_usd(db: aiosqlite.Connection, user_id: str) -> float:
     return float(row[0] or 0.0) if row else 0.0
 
 
+def month_reset_iso() -> str:
+    """First instant of the NEXT UTC calendar month: when the allowance
+    renews. Sent as machine-readable ISO rather than a formatted date,
+    because formatting a date is the client's job and we do not know the
+    user's locale or calendar."""
+    now = datetime.now(timezone.utc)
+    year, month = (now.year + 1, 1) if now.month == 12 else (now.year, now.month + 1)
+    return datetime(year, month, 1, tzinfo=timezone.utc).isoformat()
+
+
+# Fallback so a caller never has to handle None, and so an unreachable or
+# malformed config degrades to a sentence rather than to silence. A rejection
+# with no reason reads as the app being broken, which is worse than the
+# rejection itself.
+_FALLBACK_EXHAUSTED: dict = {
+    "kind": "budget_exhausted",
+    "text": "You have reached this month's Tech Rehearsal usage limit.",
+    "renews_prefix": "Renews",
+    "action": None,
+}
+
+
+def exhausted_copy(remote_configs: dict | None, entitlement: str | None) -> dict:
+    """The served explanation for a blocked TR call.
+
+    Ours to author, not the client's to invent. A hard stop is one of the few
+    places a user is told no, and it stays factual: what happened and when it
+    renews. No apology, no hedging, and no comparison to what a paid plan
+    would have allowed.
+
+    Keyed by entitlement because free and paid hit the same gate for
+    different reasons: free has spent an allowance, paid has hit a usage
+    limit, and only one of those has an upgrade to offer.
+    """
+    doc = (remote_configs or {}).get("techrehearsal/budget") or {}
+    table = doc.get("exhausted") or {}
+    entry = table.get((entitlement or "").strip().lower())
+    return dict(entry) if isinstance(entry, dict) else dict(_FALLBACK_EXHAUSTED)
+
+
 async def would_exceed_tr_budget(
     db: aiosqlite.Connection,
     user_id: str,

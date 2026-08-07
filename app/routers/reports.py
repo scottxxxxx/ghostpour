@@ -223,9 +223,17 @@ async def generate_report(
             if _tr_block:
                 logger.info("tr_budget_block report user=%s spent=%.4f cap=%.2f",
                             user.id, _tr_info["spent"], _tr_info["cap"])
+                # Same served copy as /v1/chat, so a user who hits the wall
+                # generating a report and a user who hits it mid-question read
+                # the same sentence. "Monthly allowance reached." was ours and
+                # it was thin: it says what happened and not when it ends.
+                _tr_cta = tr_budget.exhausted_copy(
+                    request.app.state.remote_configs, _tr_info["entitlement"])
                 raise HTTPException(status_code=429, detail={
                     "code": "allocation_exhausted",
-                    "message": "Monthly allowance reached.",
+                    "message": _tr_cta["text"],
+                    "resets_at": tr_budget.month_reset_iso(),
+                    "cta": _tr_cta,
                 })
 
     # 3.5. Pre-call budget gate. If running this report would push the
