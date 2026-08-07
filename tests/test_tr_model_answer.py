@@ -86,3 +86,69 @@ def test_no_dashes_are_served(mode):
     assert "Never use em dashes or en dashes" in sp
     for dash in ("—", "–"):
         assert dash not in sp, "the prompt itself must not contain one"
+
+
+# --- the two focus vocabularies (2026-08-06, TR) ---------------------
+#
+# TR asked us to absorb these as TWO instructions, not one, and the
+# reasoning is the part worth keeping: the interview variant steers
+# question MIX, the practice variant steers conversational BEATS. A
+# collapsed version would surface first as a family-conversation
+# rehearsal producing interview-shaped turns, which is the kind of
+# thing neither side catches for weeks because nothing errors.
+#
+# So the test is not "both strings exist". It is that they stayed in
+# different prompts saying different things.
+
+
+def _prompts():
+    """Whitespace-normalised, so a test pins WORDING and never line wrapping.
+    The prompts are hard-wrapped for readability and a phrase can straddle a
+    newline; an assertion that breaks on a reflow teaches people to delete
+    assertions."""
+    doc = json.loads(CONFIG.read_text())
+    def flat(s):
+        return " ".join(s.split())
+    return (flat(doc["systemPrompt"]),
+            flat(doc["modes"]["ConversationPracticeGen"]["systemPrompt"]))
+
+
+def test_the_interview_focus_steers_the_question_mix():
+    interview, _ = _prompts()
+    assert "`THIS ROUND:`" in interview
+    assert "question mix" in interview
+
+
+def test_the_practice_focus_steers_the_beats():
+    _, practice = _prompts()
+    assert "`THIS SESSION:`" in practice
+    assert "Shape the beats to it" in practice
+
+
+def test_the_two_did_not_collapse_into_one():
+    """The failure TR named. If a practice rehearsal ever starts producing
+    interview-shaped turns, this is the first place to look."""
+    interview, practice = _prompts()
+    assert "THIS SESSION" not in interview
+    assert "THIS ROUND" not in practice
+    assert "never means asking" in practice, (
+        "the practice prompt must still say that weighting toward a "
+        "difficulty is the other person pushing harder, NOT interview "
+        "questions about it")
+
+
+def test_coaching_stays_inside_the_chosen_rounds():
+    """Orthogonal signals that can quietly conflict: coaching says the
+    candidate was weakest at system design, they picked a recruiter screen.
+    Weight within what they picked, or let it go."""
+    interview, _ = _prompts()
+    assert "PRIOR PRACTICE COACHING:" in interview
+    assert "Weight WITHIN the rounds being generated" in interview
+
+
+def test_coaching_exists_on_both_sides_saying_different_things():
+    interview, practice = _prompts()
+    assert "PRIOR PRACTICE COACHING:" in interview
+    assert "PRIOR PRACTICE COACHING:" in practice
+    assert "repeating easy wins" in interview
+    assert "where it was hardest for them" in practice
