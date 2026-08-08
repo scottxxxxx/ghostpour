@@ -2787,6 +2787,14 @@ async def chat(
         from app.services.ai_tier import tier_to_ai_tier
         response.ai_tier = tier_to_ai_tier(effective_tier_name)
 
+        # Same normalised stop reason the streaming done event carries, so a
+        # client does not have to detect truncation two different ways
+        # depending on which transport it happened to use. TR's three long
+        # decoders (live round score, compare report, mock scoring) are the
+        # ones that need it, and they are not all on the same transport.
+        from app.services.stop_reason import normalise_stop_reason
+        response.stop_reason = normalise_stop_reason(response.usage)
+
         # Surface the cleaned transcript (if cleanup ran for this analysis call)
         # so iOS can persist it to MeetingRecord.cleanedTranscript. Absent when
         # cleanup was skipped or failed — iOS falls back to raw silently.
@@ -3239,6 +3247,17 @@ async def _handle_stream(
             "usage": final_response.usage if final_response else None,
             "ai_tier": tier_to_ai_tier(user.effective_tier),
         }
+        # Why the model stopped, normalised to one word (TR ask, 2026-08-07).
+        # It was already on the wire inside `usage.finish_reason`, but the
+        # three provider vocabularies disagree, so a client branching on it
+        # had to know that "max_tokens", "MAX_TOKENS" and "length" are the
+        # same event, and would silently stop working the day we route a
+        # model through a fourth. Absent when the provider gave none, which
+        # means "we do not know" and never "it completed".
+        from app.services.stop_reason import normalise_stop_reason
+        _stop = normalise_stop_reason(final_response.usage if final_response else None)
+        if _stop:
+            done_data["stop_reason"] = _stop
         if search_state is not None:
             done_data["search_state"] = search_state
         if teaser_state is not None:
