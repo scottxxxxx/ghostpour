@@ -61,6 +61,41 @@ _CALL_TYPE_TO_CONFIG = {
 }
 
 
+def shadowed_config_keys(
+    call_type: str,
+    remote_configs: dict,
+    prompt_mode: str | None = None,
+) -> set[str]:
+    """Which served values a client prompt is about to ignore, if any.
+
+    Assembly runs only for promptless calls, so a client that sends its own
+    system_prompt silently discards every value we serve for that call type.
+    The config keeps looking live in the dashboard while being decoration on
+    the wire, which is how a maxTokens fix can be deployed, verified in prod,
+    and still not reach the call it was written for. That happened twice on
+    LiveRoundScore.
+
+    Returns the config keys that would have applied. Empty when we hold no
+    config for this call type, which is the ordinary case for a client
+    prompt and not worth a word.
+    """
+    config_slug = _CALL_TYPE_TO_CONFIG.get(call_type)
+    if not config_slug:
+        return set()
+    config = _resolve_config(config_slug, remote_configs or {})
+    if not config:
+        return set()
+    mode_overrides = (config.get("modes") or {}).get(prompt_mode) if prompt_mode else None
+    if mode_overrides:
+        config = {**config, **mode_overrides}
+    # Only the keys assembly would actually have applied. `modes`, `version`
+    # and friends are structure rather than values, and naming them would
+    # make the warning noisy enough to ignore.
+    return {k for k in ("systemPrompt", "userPromptTemplate", "maxTokens",
+                        "temperature", "thinking")
+            if config.get(k) not in (None, "")}
+
+
 def _resolve_config(config_slug: str, remote_configs: dict) -> dict | None:
     """Look up a prompt config by its composite slug, falling back to the
     legacy flat `tr-<name>` slug during the B2 migration window (when the
