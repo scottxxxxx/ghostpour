@@ -1305,6 +1305,45 @@ async def chat(
         else:
             body = body.model_copy(update={"model": resolved_model})
 
+    # 2.5a. A client prompt on a call type we hold config for is a SHADOWED
+    # config, and it is silent (2026-08-08, TR handover process note).
+    #
+    # Assembly runs only for promptless calls, so when a client sends its own
+    # system_prompt every served value for that call type is ignored:
+    # maxTokens, temperature, thinking, the prompt itself. Nothing errors and
+    # nothing logs, so the config looks live in the dashboard and is
+    # decoration on the wire.
+    #
+    # That cost two incidents on one mode. LiveRoundScore truncated a real
+    # 44-minute interview at 4096 tokens twice while we held
+    # modes.LiveRoundScore.maxTokens: 16384, because the call carried a
+    # bootstrap prompt and never consulted it. Both times the fix looked
+    # correct and did nothing.
+    #
+    # It stays a WARNING rather than a rejection. Bootstrap prompting is the
+    # legitimate carrying state during a migration, and refusing those calls
+    # would break the client mid-flip, which is the opposite of the point.
+    # What it must never be again is invisible.
+    if body.system_prompt:
+        _shadow_call_type = body.get_meta("call_type")
+        if _shadow_call_type:
+            from app.services.prompt_assembly import shadowed_config_keys
+            _shadowed = shadowed_config_keys(
+                _shadow_call_type,
+                request.app.state.remote_configs,
+                prompt_mode=body.get_meta("prompt_mode"),
+            )
+            if _shadowed:
+                logger.warning(
+                    "prompt_config_shadowed",
+                    extra={
+                        "call_type": _shadow_call_type,
+                        "prompt_mode": body.get_meta("prompt_mode"),
+                        "app_id": app_id,
+                        "ignored": sorted(_shadowed),
+                    },
+                )
+
     # 2.5. Server-side prompt assembly — if client sent no system_prompt but
     # has a call_type with a registered prompt config, assemble it server-side.
     if not body.system_prompt:
