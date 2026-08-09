@@ -25,6 +25,7 @@ class FeatureHook(Protocol):
         tier: TierDefinition,
         feature_state: str,
         skip_teasers: set[str],
+        app_id: str | None = None,
     ) -> tuple[ChatRequest, dict[str, Any]]:
         """Run before the LLM call. May modify the request body.
 
@@ -41,6 +42,7 @@ class FeatureHook(Protocol):
         response: ChatResponse,
         hook_result: dict[str, Any],
         feature_state: str,
+        app_id: str | None = None,
     ) -> None:
         """Run after the LLM call. Fire-and-forget (e.g., capture)."""
         ...

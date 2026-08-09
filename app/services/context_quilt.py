@@ -21,6 +21,7 @@ from typing import Any
 import httpx
 
 from app.config import get_settings
+from app.services.cq_subject import subject_for
 
 logger = logging.getLogger(__name__)
 
@@ -188,6 +189,7 @@ async def recall(
     text: str,
     metadata: dict | None = None,
     subscription_tier: str | None = None,
+    app_id: str | None = None,
 ) -> dict:
     """
     Fetch relevant context from Context Quilt's graph memory.
@@ -207,7 +209,10 @@ async def recall(
     timeout_sec = settings.cq_recall_timeout_ms / 1000.0
 
     body: dict[str, Any] = {
-        "user_id": user_id,
+        # The per-app subject, not the raw GP user id. SS resolves to the
+        # bare id so nothing it has written moves; a second app gets its
+        # own space. See app/services/cq_subject.py for why this exists.
+        "user_id": subject_for(app_id, user_id),
         "text": text,
     }
     merged_metadata = dict(metadata) if metadata else {}
@@ -290,6 +295,7 @@ async def capture(
     user_id: str,
     interaction_type: str,
     content: str,
+    app_id: str | None = None,
     response: str | None = None,
     origin_id: str | None = None,
     origin_type: str | None = None,
@@ -324,7 +330,10 @@ async def capture(
         return
 
     body: dict[str, Any] = {
-        "user_id": user_id,
+        # Per-app subject, same as recall. This is the one that MATTERS:
+        # capture is what creates memory, so an unnamespaced write here is
+        # what would actually commingle two apps for a shared user.
+        "user_id": subject_for(app_id, user_id),
         "interaction_type": interaction_type,
         "content": content,
     }

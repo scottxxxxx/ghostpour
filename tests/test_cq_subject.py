@@ -104,3 +104,78 @@ def test_the_ownership_guard_still_compares_the_plain_user_id():
     assert "if user.id != user_id:" in SRC
     assert "user.id != _subj" not in SRC
     assert "_subj(request, user.id)" not in SRC
+
+
+# --- phase 2: memory CREATION is namespaced too -----------------------
+#
+# The routes are the read/write surface, but capture() is what creates
+# memory, so an unnamespaced write there is what would actually commingle
+# two apps for a shared user. Both halves have to be right or a second app
+# writes to one subject and reads from another, which fails as "my memory
+# is empty" rather than as an error.
+
+
+import inspect
+
+from app.services import context_quilt as cq
+
+
+def test_capture_and_recall_both_accept_an_app_id():
+    for fn in (cq.capture, cq.recall):
+        assert "app_id" in inspect.signature(fn).parameters, fn.__name__
+
+
+def test_both_send_the_subject_and_not_the_raw_user_id():
+    src = inspect.getsource(cq)
+    # The outbound body key is "user_id" on CQ's side; what we put IN it
+    # must be the namespaced subject.
+    assert src.count('"user_id": subject_for(app_id, user_id)') == 2
+    assert '"user_id": user_id,\n        "text"' not in src
+    assert '"user_id": user_id,\n        "interaction_type"' not in src
+
+
+def _cq_call_sites() -> list[tuple[str, int]]:
+    """Every REAL cq.capture(/cq.recall( call in the app, found by parsing
+    rather than by grepping.
+
+    The text version of this flagged four sites that were prose: three
+    docstring mentions in memory_capture_policy and one comment in the
+    hook. A scan that cries wolf on comments is a scan people learn to
+    silence, so it parses the AST and only sees calls."""
+    import ast as _ast
+    import pathlib
+    out = []
+    for path in pathlib.Path("app").rglob("*.py"):
+        tree = _ast.parse(path.read_text())
+        for node in _ast.walk(tree):
+            if not isinstance(node, _ast.Call):
+                continue
+            fn = node.func
+            if not (isinstance(fn, _ast.Attribute)
+                    and fn.attr in ("capture", "recall")
+                    and isinstance(fn.value, _ast.Name)
+                    and fn.value.id == "cq"):
+                continue
+            if not any(kw.arg == "app_id" for kw in node.keywords):
+                out.append((str(path), node.lineno))
+    return out
+
+
+def test_every_call_site_passes_an_app_id():
+    """The guard, same shape as the outbound-path scan. A new capture site
+    that forgets app_id writes to the unnamespaced subject and NOTHING
+    errors: for SS that is even correct, so it would ship, and only a
+    second app would find its memory missing."""
+    missing = _cq_call_sites()
+    assert not missing, "cq.capture/recall without app_id at: " + ", ".join(
+        f"{p}:{ln}" for p, ln in missing)
+
+
+def test_the_hook_carries_app_id_through_its_interface():
+    """The hook is where most captures originate and it had no access to
+    the calling app at all, which is why creation went unnamespaced while
+    the routes were fixed."""
+    from app.services.features.context_quilt_hook import ContextQuiltHook
+    for name in ("before_llm", "after_llm"):
+        params = inspect.signature(getattr(ContextQuiltHook, name)).parameters
+        assert "app_id" in params, name

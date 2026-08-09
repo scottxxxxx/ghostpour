@@ -226,6 +226,7 @@ async def admin_capture_transcript(
     language = locale_row["app_locale"].replace("_", "-") if locale_row else None
 
     asyncio.create_task(cq.capture(
+        app_id=getattr(request.state, "app_id", None),
         user_id=row["id"],
         interaction_type="meeting_transcript",
         content=body.transcript,

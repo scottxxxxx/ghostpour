@@ -257,6 +257,7 @@ async def capture_transcript(
 
     if verdict.verdict in ("capture", "capture_with_cta"):
         asyncio.create_task(cq.capture(
+            app_id=getattr(request.state, "app_id", None),
             user_id=user.id,
             interaction_type="meeting_transcript",
             content=body.transcript,
