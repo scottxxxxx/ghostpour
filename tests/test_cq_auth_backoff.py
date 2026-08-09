@@ -31,9 +31,11 @@ APP = "shouldersurf"
 def _clean():
     cq._tokens.clear()
     cq._auth_failures.clear()
+    cq._auth_strikes.clear()
     yield
     cq._tokens.clear()
     cq._auth_failures.clear()
+    cq._auth_strikes.clear()
 
 
 def _identity(monkeypatch, app_id="cq-app", secret="s3cret"):
@@ -74,7 +76,10 @@ async def test_a_rejected_credential_is_asked_for_once(monkeypatch, status):
         for _ in range(10):
             headers = await cq._get_auth_headers(APP)
             assert "Authorization" not in headers
-    assert post.await_count == 1, "every call after the first must fail fast locally"
+    # TWO, not one: the first rejection is forgiven because CQ's token
+    # endpoint reports backend outages as credential errors, so a single
+    # 401 is not yet evidence of a bad credential.
+    assert post.await_count == 2, "the cooldown must engage after the second strike"
 
 
 @pytest.mark.asyncio
@@ -95,10 +100,11 @@ async def test_the_cooldown_expires(monkeypatch):
     post = _rejection(401)
     with patch.object(cq, "_get_client", lambda: _client(post)):
         await cq._get_auth_headers(APP)
-        assert post.await_count == 1
+        await cq._get_auth_headers(APP)          # second strike arms it
+        assert post.await_count == 2
         cq._auth_failures["cq-app"] = time.time() - 1     # expired
         await cq._get_auth_headers(APP)
-    assert post.await_count == 2
+    assert post.await_count == 3
 
 
 @pytest.mark.asyncio
@@ -108,6 +114,7 @@ async def test_a_fixed_secret_recovers_without_serving_out_the_cooldown(monkeypa
     changes it again."""
     _identity(monkeypatch)
     with patch.object(cq, "_get_client", lambda: _client(_rejection(401))):
+        await cq._get_auth_headers(APP)
         await cq._get_auth_headers(APP)
     assert "cq-app" in cq._auth_failures
     cq._auth_failures["cq-app"] = time.time() - 1
@@ -123,6 +130,7 @@ async def test_the_cooldown_is_per_identity(monkeypatch):
     not stop the other app from authenticating."""
     _identity(monkeypatch, app_id="app-a")
     with patch.object(cq, "_get_client", lambda: _client(_rejection(401))):
+        await cq._get_auth_headers("a")
         await cq._get_auth_headers("a")
     _identity(monkeypatch, app_id="app-b")
     post = _success(token="btok")
@@ -142,3 +150,74 @@ async def test_a_healthy_token_is_still_cached(monkeypatch):
             headers = await cq._get_auth_headers(APP)
             assert headers["Authorization"] == "Bearer tok"
     assert post.await_count == 1
+
+
+# --- the two-strike rule (2026-08-08) ---------------------------------
+#
+# CQ's token endpoint has an outer arm that turns ANY failure into a
+# credential error, so a database outage on their side presents as
+# "Incorrect client_id or client_secret". They deferred fixing that status
+# code during cutover week, which was the right trade in isolation.
+#
+# Then our cooldown shipped, and the two compose badly: a brief blip on
+# their side would read as a permanently wrong credential and stop us
+# talking to them for a minute, where before we would have retried and
+# recovered instantly. Neither side could see that from its own code.
+
+
+@pytest.mark.asyncio
+async def test_one_rejection_is_forgiven(monkeypatch):
+    """A credential does not spontaneously become wrong. A single 401 from
+    a backend that reports outages as credential errors is more likely
+    their blip than our secret changing under us."""
+    _identity(monkeypatch)
+    post = _rejection(401)
+    with patch.object(cq, "_get_client", lambda: _client(post)):
+        await cq._get_auth_headers(APP)
+    assert "cq-app" not in cq._auth_failures
+    assert cq._auth_strikes["cq-app"] == 1
+
+
+@pytest.mark.asyncio
+async def test_a_blip_between_successes_never_engages_the_cooldown(monkeypatch):
+    """The exact scenario: working, one failed mint during an outage,
+    working again. Their status code is wrong throughout and it costs us
+    nothing."""
+    _identity(monkeypatch)
+    with patch.object(cq, "_get_client", lambda: _client(_success())):
+        await cq._get_auth_headers(APP)
+    cq._tokens.clear()                                  # force a re-mint
+    with patch.object(cq, "_get_client", lambda: _client(_rejection(401))):
+        await cq._get_auth_headers(APP)
+    cq._tokens.clear()
+    with patch.object(cq, "_get_client", lambda: _client(_success())):
+        headers = await cq._get_auth_headers(APP)
+    assert headers["Authorization"] == "Bearer tok"
+    assert "cq-app" not in cq._auth_failures
+
+
+@pytest.mark.asyncio
+async def test_a_success_clears_the_strike_count(monkeypatch):
+    """Otherwise strikes accumulate across unrelated blips hours apart and
+    the second one engages a cooldown that the first had already earned
+    forgiveness for."""
+    _identity(monkeypatch)
+    with patch.object(cq, "_get_client", lambda: _client(_rejection(401))):
+        await cq._get_auth_headers(APP)
+    assert cq._auth_strikes["cq-app"] == 1
+    cq._tokens.clear()
+    with patch.object(cq, "_get_client", lambda: _client(_success())):
+        await cq._get_auth_headers(APP)
+    assert "cq-app" not in cq._auth_strikes
+
+
+@pytest.mark.asyncio
+async def test_a_genuinely_wrong_secret_still_stops_fast(monkeypatch):
+    """The property we must not lose. Two calls, then silence: not one
+    pbkdf2 hash per request for as long as the secret stays wrong."""
+    _identity(monkeypatch)
+    post = _rejection(401)
+    with patch.object(cq, "_get_client", lambda: _client(post)):
+        for _ in range(50):
+            await cq._get_auth_headers(APP)
+    assert post.await_count == 2

@@ -71,11 +71,34 @@ _tokens: dict[str, tuple[str, float]] = {}  # cq_app_id -> (token, expires_at)
 AUTH_FAILURE_COOLDOWN_SECONDS = 60.0
 _auth_failures: dict[str, float] = {}  # cq_app_id -> retry_after (epoch)
 
+# One rejection is not enough to stop asking, and this is a joint problem
+# rather than a hypothetical (CQ, 2026-08-07).
+#
+# CQ's token endpoint has an outer arm that turns ANY failure into a
+# credential error, so a database outage on their side presents as
+# "Incorrect client_id or client_secret". They deliberately deferred fixing
+# that status code because a behaviour change on a live auth path during
+# GP's cutover week is the wrong trade. Reasonable in isolation.
+#
+# Then we shipped the cooldown, and the two compose badly: a brief blip on
+# their side now reads to us as a permanently wrong credential and we stop
+# talking to them for a minute. Before the cooldown we would have retried
+# and recovered instantly. Neither side could see that from its own code.
+#
+# So: a credential does not spontaneously become wrong. If we HELD a working
+# token for this identity, a rejection now is far more likely to be their
+# outage than our secret changing under us, and it earns a retry. Two in a
+# row with no success between them is a real rejection.
+_auth_strikes: dict[str, int] = {}  # cq_app_id -> consecutive rejections
+
 
 def _reset_auth_failure(cq_app: str) -> None:
     """Forget a rejection. Called on a successful mint so a fixed secret
-    recovers immediately rather than serving out the rest of the cooldown."""
+    recovers immediately rather than serving out the rest of the cooldown,
+    and so a later blip starts from a clean slate rather than inheriting a
+    strike from an unrelated failure minutes earlier."""
     _auth_failures.pop(cq_app, None)
+    _auth_strikes.pop(cq_app, None)
 
 
 def _get_client() -> httpx.AsyncClient:
@@ -166,12 +189,23 @@ async def _get_auth_headers(app_id: str | None = None) -> dict[str, str]:
             # The credential itself is wrong: unknown app id, or a secret
             # that did not travel intact. Nothing changes until a human
             # changes it, so stop asking for a while.
-            _auth_failures[cq_app] = time.time() + AUTH_FAILURE_COOLDOWN_SECONDS
-            logger.error(
-                "cq_token_rejected",
-                extra={"cq_app": cq_app, "status": status,
-                       "cooldown_s": AUTH_FAILURE_COOLDOWN_SECONDS},
-            )
+            strikes = _auth_strikes.get(cq_app, 0) + 1
+            _auth_strikes[cq_app] = strikes
+            if strikes >= 2:
+                _auth_failures[cq_app] = time.time() + AUTH_FAILURE_COOLDOWN_SECONDS
+                logger.error(
+                    "cq_token_rejected",
+                    extra={"cq_app": cq_app, "status": status, "strikes": strikes,
+                           "cooldown_s": AUTH_FAILURE_COOLDOWN_SECONDS},
+                )
+            else:
+                # Logged at WARNING, not ERROR: a single rejection against a
+                # backend that reports outages as credential errors is not
+                # yet evidence of a bad credential.
+                logger.warning(
+                    "cq_token_rejected_once",
+                    extra={"cq_app": cq_app, "status": status, "strikes": strikes},
+                )
         else:
             logger.warning("cq_token_error",
                            extra={"error": str(e), "cq_app": cq_app, "status": status})
