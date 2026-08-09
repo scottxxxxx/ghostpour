@@ -21,6 +21,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import UserRecord
 from app.services import context_quilt as cq
+from app.services.cq_subject import subject_for
 from app.services.memory_capture_policy import resolve_memory_capture_verdict
 from app.services.memory_capture_quota import (
     consume_meeting_cta,
@@ -160,6 +161,17 @@ class TranscriptCaptureRequest(BaseModel):
         if self.metadata and key in self.metadata:
             return self.metadata[key]
         return getattr(self, key, default)
+
+
+def _subj(request: Request, user_id: str) -> str:
+    """The CQ subject for this user under the calling app.
+
+    Inlined at every outbound call site rather than assigned to a local,
+    so a new route cannot forget it and still compile into something that
+    writes to the wrong subject. tests/test_cq_subject.py scans this file
+    and fails if any outbound path interpolates a raw user_id again.
+    """
+    return subject_for(getattr(request.state, "app_id", None), user_id)
 
 
 @router.post("/capture-transcript")
@@ -309,7 +321,7 @@ async def get_quilt(
     # Forward the device's query string verbatim — iOS sends
     # ?since=...&delta=true for delta sync; dropping it made every poll
     # return the full quilt ("+860 updated" on each fetch).
-    proxied = await _cq_proxy("GET", f"/v1/quilt/{user_id}", query=request.url.query or None)
+    proxied = await _cq_proxy("GET", f"/v1/quilt/{_subj(request, user_id)}", query=request.url.query or None)
 
     # Only inject for the one-shot CTA window. memory_last_cta_kind is
     # cleared after this render.
@@ -427,6 +439,7 @@ class PatchCreateRequest(BaseModel):
 
 @router.post("/quilt/{user_id}/patches")
 async def create_quilt_patch(
+    request: Request,
     user_id: str,
     body: PatchCreateRequest,
     user: UserRecord = Depends(get_current_user),
@@ -435,7 +448,7 @@ async def create_quilt_patch(
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
     payload = {k: v for k, v in body.model_dump().items() if v is not None}
-    return await _cq_proxy("POST", f"/v1/quilt/{user_id}/patches", payload)
+    return await _cq_proxy("POST", f"/v1/quilt/{_subj(request, user_id)}/patches", payload)
 
 
 class PatchUpdateRequest(BaseModel):
@@ -447,6 +460,7 @@ class PatchUpdateRequest(BaseModel):
 
 @router.patch("/quilt/{user_id}/patches/{patch_id}")
 async def update_quilt_patch(
+    request: Request,
     user_id: str,
     patch_id: str,
     body: PatchUpdateRequest,
@@ -456,11 +470,12 @@ async def update_quilt_patch(
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
     payload = {k: v for k, v in body.model_dump().items() if v is not None}
-    return await _cq_proxy("PATCH", f"/v1/quilt/{user_id}/patches/{patch_id}", payload)
+    return await _cq_proxy("PATCH", f"/v1/quilt/{_subj(request, user_id)}/patches/{patch_id}", payload)
 
 
 @router.delete("/quilt/{user_id}/patches/{patch_id}")
 async def delete_quilt_patch(
+    request: Request,
     user_id: str,
     patch_id: str,
     user: UserRecord = Depends(get_current_user),
@@ -468,11 +483,12 @@ async def delete_quilt_patch(
     """Proxy: delete a quilt patch."""
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
-    return await _cq_proxy("DELETE", f"/v1/quilt/{user_id}/patches/{patch_id}")
+    return await _cq_proxy("DELETE", f"/v1/quilt/{_subj(request, user_id)}/patches/{patch_id}")
 
 
 @router.post("/quilt/{user_id}/patches/{patch_id}/complete")
 async def complete_quilt_patch(
+    request: Request,
     user_id: str,
     patch_id: str,
     user: UserRecord = Depends(get_current_user),
@@ -489,7 +505,7 @@ async def complete_quilt_patch(
     """
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
-    return await _cq_proxy("POST", f"/v1/quilt/{user_id}/patches/{patch_id}/complete", body)
+    return await _cq_proxy("POST", f"/v1/quilt/{_subj(request, user_id)}/patches/{patch_id}/complete", body)
 
 
 # --- Ledger triage (2026-08-07, SS Turn 4) ---
@@ -507,6 +523,7 @@ async def complete_quilt_patch(
 
 @router.post("/quilt/{user_id}/patches/{patch_id}/vouch")
 async def vouch_quilt_patch(
+    request: Request,
     user_id: str,
     patch_id: str,
     user: UserRecord = Depends(get_current_user),
@@ -519,11 +536,12 @@ async def vouch_quilt_patch(
     retiring something that still matters."""
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
-    return await _cq_proxy("POST", f"/v1/quilt/{user_id}/patches/{patch_id}/vouch", body)
+    return await _cq_proxy("POST", f"/v1/quilt/{_subj(request, user_id)}/patches/{patch_id}/vouch", body)
 
 
 @router.post("/quilt/{user_id}/patches/{patch_id}/shelve")
 async def shelve_quilt_patch(
+    request: Request,
     user_id: str,
     patch_id: str,
     user: UserRecord = Depends(get_current_user),
@@ -537,11 +555,12 @@ async def shelve_quilt_patch(
     indistinguishable from a user finishing it."""
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
-    return await _cq_proxy("POST", f"/v1/quilt/{user_id}/patches/{patch_id}/shelve", body)
+    return await _cq_proxy("POST", f"/v1/quilt/{_subj(request, user_id)}/patches/{patch_id}/shelve", body)
 
 
 @router.delete("/quilt/{user_id}/patches/{patch_id}/shelve")
 async def unshelve_quilt_patch(
+    request: Request,
     user_id: str,
     patch_id: str,
     user: UserRecord = Depends(get_current_user),
@@ -550,7 +569,7 @@ async def unshelve_quilt_patch(
     """Proxy: undo a shelve."""
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
-    return await _cq_proxy("DELETE", f"/v1/quilt/{user_id}/patches/{patch_id}/shelve", body)
+    return await _cq_proxy("DELETE", f"/v1/quilt/{_subj(request, user_id)}/patches/{patch_id}/shelve", body)
 
 
 # --- Connection management ---
@@ -572,6 +591,7 @@ class ConnectionRequest(BaseModel):
 
 @router.post("/quilt/{user_id}/connections")
 async def create_connection(
+    request: Request,
     user_id: str,
     body: ConnectionRequest,
     user: UserRecord = Depends(get_current_user),
@@ -579,11 +599,12 @@ async def create_connection(
     """Proxy: create a connection between two patches."""
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
-    return await _cq_proxy("POST", f"/v1/quilt/{user_id}/connections", body.model_dump())
+    return await _cq_proxy("POST", f"/v1/quilt/{_subj(request, user_id)}/connections", body.model_dump())
 
 
 @router.delete("/quilt/{user_id}/connections")
 async def delete_connection(
+    request: Request,
     user_id: str,
     body: ConnectionRequest,
     user: UserRecord = Depends(get_current_user),
@@ -591,7 +612,7 @@ async def delete_connection(
     """Proxy: delete a connection between two patches."""
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
-    return await _cq_proxy("DELETE", f"/v1/quilt/{user_id}/connections", body.model_dump())
+    return await _cq_proxy("DELETE", f"/v1/quilt/{_subj(request, user_id)}/connections", body.model_dump())
 
 
 # --- Origin (meeting / session / note) management ---
@@ -604,6 +625,7 @@ class AssignProjectRequest(BaseModel):
 
 @router.post("/origins/{user_id}/{origin_type}/{origin_id}/assign-project")
 async def assign_origin_project(
+    request: Request,
     user_id: str,
     origin_type: str,
     origin_id: str,
@@ -623,13 +645,14 @@ async def assign_origin_project(
         payload["project_name"] = body.project
     return await _cq_proxy(
         "POST",
-        f"/v1/origins/{user_id}/{origin_type}/{origin_id}/assign-project",
+        f"/v1/origins/{_subj(request, user_id)}/{origin_type}/{origin_id}/assign-project",
         payload,
     )
 
 
 @router.post("/meetings/{user_id}/{meeting_id}/assign-project")
 async def assign_meeting_project(
+    request: Request,
     user_id: str,
     meeting_id: str,
     body: AssignProjectRequest,
@@ -648,7 +671,7 @@ async def assign_meeting_project(
         payload["project_name"] = body.project
     return await _cq_proxy(
         "POST",
-        f"/v1/origins/{user_id}/meeting/{meeting_id}/assign-project",
+        f"/v1/origins/{_subj(request, user_id)}/meeting/{meeting_id}/assign-project",
         payload,
     )
 
@@ -676,6 +699,7 @@ class RenameSpeakerRequest(BaseModel):
 
 @router.post("/quilt/{user_id}/rename-speaker")
 async def rename_speaker(
+    request: Request,
     user_id: str,
     body: RenameSpeakerRequest,
     user: UserRecord = Depends(get_current_user),
@@ -685,7 +709,7 @@ async def rename_speaker(
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
     return await _cq_proxy(
         "POST",
-        f"/v1/quilt/{user_id}/rename-speaker",
+        f"/v1/quilt/{_subj(request, user_id)}/rename-speaker",
         body.model_dump(),
     )
 
@@ -706,6 +730,7 @@ class ReassignSpeakerRequest(BaseModel):
 
 @router.post("/quilt/{user_id}/reassign-speaker")
 async def reassign_speaker(
+    request: Request,
     user_id: str,
     body: ReassignSpeakerRequest,
     user: UserRecord = Depends(get_current_user),
@@ -734,7 +759,7 @@ async def reassign_speaker(
     payload = {k: v for k, v in body.model_dump().items() if v is not None}
     return await _cq_proxy(
         "POST",
-        f"/v1/quilt/{user_id}/reassign-speaker",
+        f"/v1/quilt/{_subj(request, user_id)}/reassign-speaker",
         payload,
     )
 
@@ -744,13 +769,14 @@ async def reassign_speaker(
 
 @router.post("/quilt/{user_id}/prewarm")
 async def prewarm_quilt(
+    request: Request,
     user_id: str,
     user: UserRecord = Depends(get_current_user),
 ):
     """Proxy: pre-warm CQ's Redis cache for this user at session start."""
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot access another user's quilt")
-    return await _cq_proxy("POST", f"/v1/prewarm?user_id={user_id}")
+    return await _cq_proxy("POST", f"/v1/prewarm?user_id={_subj(request, user_id)}")
 
 
 # --- Graph visualization ---
@@ -789,7 +815,7 @@ async def get_quilt_graph(
         auth_headers = await cq._get_auth_headers()
         async with httpx.AsyncClient(base_url=settings.cq_base_url, timeout=15.0) as client:
             resp = await client.get(
-                f"/v1/quilt/{user_id}/graph",
+                f"/v1/quilt/{_subj(request, user_id)}/graph",
                 params={"format": format},
                 headers=auth_headers,
             )
@@ -927,7 +953,7 @@ async def list_people(
     """Proxy: list the user's people. Carries since/confirmed/min_meetings/limit."""
     await _require_people(request, user, user_id)
     return await _cq_proxy(
-        "GET", f"/v1/people/{user_id}", query=request.url.query or None)
+        "GET", f"/v1/people/{_subj(request, user_id)}", query=request.url.query or None)
 
 
 @router.post("/people/{user_id}/merge")
@@ -941,7 +967,7 @@ async def merge_people(
     """Proxy: merge two people into one entity."""
     await _require_people(request, user, user_id)
     return await _cq_proxy(
-        "POST", f"/v1/people/{user_id}/merge", body=body,
+        "POST", f"/v1/people/{_subj(request, user_id)}/merge", body=body,
         query=request.url.query or None)
 
 
@@ -956,7 +982,7 @@ async def keep_people_separate(
     """Proxy: record that two candidates are NOT the same person."""
     await _require_people(request, user, user_id)
     return await _cq_proxy(
-        "POST", f"/v1/people/{user_id}/keep-separate", body=body,
+        "POST", f"/v1/people/{_subj(request, user_id)}/keep-separate", body=body,
         query=request.url.query or None)
 
 
@@ -972,7 +998,7 @@ async def confirm_person(
     """Proxy: confirm a person's identity."""
     await _require_people(request, user, user_id)
     return await _cq_proxy(
-        "POST", f"/v1/people/{user_id}/{entity_id}/confirm", body=body,
+        "POST", f"/v1/people/{_subj(request, user_id)}/{entity_id}/confirm", body=body,
         query=request.url.query or None)
 
 
@@ -987,7 +1013,7 @@ async def create_person(
     """Proxy: create a person entity."""
     await _require_people(request, user, user_id)
     return await _cq_proxy(
-        "POST", f"/v1/people/{user_id}", body=body,
+        "POST", f"/v1/people/{_subj(request, user_id)}", body=body,
         query=request.url.query or None)
 
 
@@ -1008,5 +1034,5 @@ async def get_person(
     """
     await _require_people(request, user, user_id)
     return await _cq_proxy(
-        "GET", f"/v1/people/{user_id}/{entity_id}",
+        "GET", f"/v1/people/{_subj(request, user_id)}/{entity_id}",
         query=request.url.query or None)
