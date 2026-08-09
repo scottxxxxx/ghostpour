@@ -1389,7 +1389,7 @@ async def chat(
                 request.app.state.remote_configs, user.effective_tier,
                 feature_name)
         if state != "disabled":
-            body, result = await hook.before_llm(user, body, tier, state, skip_teasers)
+            body, result = await hook.before_llm(user, body, tier, state, skip_teasers, app_id=app_id)
             hook_results[feature_name] = result
 
     # Memory capability line (the #431 pattern, for memory instead of
@@ -2780,7 +2780,7 @@ async def chat(
                 request.app.state.remote_configs, user.effective_tier,
                 feature_name)
             if feature_name in hook_results:
-                await hook.after_llm(user, body, response, hook_results[feature_name], state)
+                await hook.after_llm(user, body, response, hook_results[feature_name], state, app_id=app_id)
 
         # Server-controlled tier label. Decoupled from `response.model` so we
         # can swap models per tier without breaking iOS attribution UI.
@@ -3230,7 +3230,7 @@ async def _handle_stream(
                 request.app.state.remote_configs, user.effective_tier,
                 feature_name)
                 if feature_name in hook_results:
-                    await hook.after_llm(user, body, final_response, hook_results[feature_name], state)
+                    await hook.after_llm(user, body, final_response, hook_results[feature_name], state, app_id=app_id)
 
         from app.services.ai_tier import tier_to_ai_tier
 

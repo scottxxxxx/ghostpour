@@ -32,6 +32,7 @@ class ContextQuiltHook:
         tier: TierDefinition,
         feature_state: str,
         skip_teasers: set[str],
+        app_id: str | None = None,
     ) -> tuple[ChatRequest, dict[str, Any]]:
         result: dict[str, Any] = {
             "cq_result": {"context": "", "matched_entities": [], "patch_count": 0},
@@ -89,6 +90,7 @@ class ContextQuiltHook:
                 if _correction_qp is None:
                     return b
                 asyncio.create_task(cq.capture(
+                    app_id=app_id,
                     user_id=user.id,
                     interaction_type="correction",
                     content=_correction_qp,
@@ -122,6 +124,7 @@ class ContextQuiltHook:
                 if _completion_qp is None:
                     return b
                 asyncio.create_task(cq.capture(
+                    app_id=app_id,
                     user_id=user.id,
                     interaction_type="completion",
                     content=_completion_qp,
@@ -196,6 +199,7 @@ class ContextQuiltHook:
                         return _fire_memory_edits(body), result
             # Full CQ: recall + inject
             cq_result = await cq.recall(
+                app_id=app_id,
                 user_id=user.id,
                 text=body.user_content,
                 metadata=cq_metadata or None,
@@ -262,6 +266,7 @@ class ContextQuiltHook:
         elif feature_state == "teaser" and "context_quilt" not in skip_teasers:
             # Teaser: recall for metadata only, don't inject
             cq_result = await cq.recall(
+                app_id=app_id,
                 user_id=user.id,
                 text=body.user_content,
                 metadata=cq_metadata or None,
@@ -280,6 +285,7 @@ class ContextQuiltHook:
         response: ChatResponse,
         hook_result: dict[str, Any],
         feature_state: str,
+        app_id: str | None = None,
     ) -> None:
         if feature_state != "enabled" or not body.context_quilt:
             return
@@ -292,6 +298,7 @@ class ContextQuiltHook:
             return
 
         asyncio.create_task(cq.capture(
+            app_id=app_id,
             user_id=user.id,
             interaction_type=body.get_meta("call_type") or "query",
             content=body.user_content,
