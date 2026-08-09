@@ -115,6 +115,22 @@ def _apply_scenario(
     if "{{rating_anchors}}" in system_prompt:
         anchors = entry.get("rating_anchors") or defaults.get("rating_anchors", "")
         system_prompt = system_prompt.replace("{{rating_anchors}}", anchors)
+    # {{dimensions}}: the same bug as the anchors above, pointing the other
+    # way (2026-08-09, Scott). July branched the RATINGS by kind because a
+    # STAR rubric was grading hard conversations. The five DIMENSIONS were
+    # left hard-coded, so Clarity/Empathy/Confidence/Boundaries/Judgment,
+    # written for a difficult personal conversation, were grading job
+    # interviews. Empathy is the wrong virtue there and Boundaries is the
+    # right one under a name borrowed from somewhere else.
+    #
+    # Comparability is preserved where it means something: within a scenario
+    # the practice and live scorers interpolate the SAME block, so a
+    # rehearsal and the real round stay directly comparable. Across scenario
+    # kinds they differ, which is correct, because an interview score and a
+    # family-conversation score were never comparable to begin with.
+    if "{{dimensions}}" in system_prompt:
+        dims = entry.get("dimensions") or defaults.get("dimensions", "")
+        system_prompt = system_prompt.replace("{{dimensions}}", dims)
     return system_prompt.replace("{{counterpart}}", counterpart)
 
 

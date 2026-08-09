@@ -35,23 +35,36 @@ def test_gp_holds_the_prompt_not_just_the_budget():
 
 def test_the_client_decode_contract_survives_absorption():
     """TR's app decodes these keys by name. Absorption is a transfer of
-    ownership, not a licence to rename fields under a shipped build."""
-    sp = _mode()["systemPrompt"]
+    ownership, not a licence to rename fields under a shipped build.
+
+    Checked AFTER scenario interpolation, because `dimensions` now arrives
+    through {{dimensions}} rather than inline. Asserting against the raw
+    template would have passed while the served prompt was missing the key
+    entirely, which is the wrong direction for a contract test."""
+    from app.services.prompt_assembly import _apply_scenario
+    sp = _apply_scenario(_mode()["systemPrompt"],
+                         json.loads(CONFIG.read_text()), "jobInterview", None)
     for key in ("overall", "headline", "biggest_gap_title", "biggest_gap_detail",
                 "next_best_sentence", "dimensions", "questions"):
         assert f'"{key}"' in sp, key
+    assert "{{" not in sp, "an unresolved placeholder would ship as literal text"
 
 
-def test_the_five_dimensions_match_the_practice_scorer():
-    """The stage rendering keys off these names. If the two scorers drift
-    apart, a real round and a practice round stop being comparable, which
-    is the entire reason this mode reuses that rubric."""
-    live = _mode()["systemPrompt"]
-    practice = json.loads(CONFIG.read_text())["modes"]["ConversationPracticeScore"]
-    practice_sp = practice.get("systemPrompt") or json.loads(CONFIG.read_text())["systemPrompt"]
-    for name in ("Clarity", "Empathy", "Confidence", "Boundaries", "Judgment"):
-        assert f'"{name}"' in live, f"{name} missing from LiveRoundScore"
-        assert name in practice_sp, f"{name} missing from ConversationPracticeScore"
+def test_both_scorers_take_their_dimensions_from_the_same_place():
+    """Superseded in substance by tests/test_scenario_dimensions.py, kept
+    as the structural half.
+
+    The names are no longer fixed: they branch by conversation kind, since
+    Clarity/Empathy/Confidence/Boundaries/Judgment were written for a
+    difficult personal conversation and were grading job interviews. What
+    still has to hold is that the live and practice scorers read from ONE
+    source, so a rehearsal and the real round stay comparable within a
+    kind."""
+    doc = json.loads(CONFIG.read_text())
+    for mode in ("LiveRoundScore", "ConversationPracticeScore"):
+        sp = doc["modes"][mode]["systemPrompt"]
+        assert "{{dimensions}}" in sp, mode
+        assert '"Empathy"' not in sp, f"{mode} still hard-codes a dimension set"
 
 
 def test_diarization_errors_do_not_cost_the_candidate():
