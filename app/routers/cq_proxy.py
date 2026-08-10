@@ -522,6 +522,35 @@ async def complete_quilt_patch(
 # it.
 
 
+@router.post("/quilt/{user_id}/patches/{patch_id}/uncomplete")
+async def uncomplete_quilt_patch(
+    request: Request,
+    user_id: str,
+    patch_id: str,
+    user: UserRecord = Depends(get_current_user),
+    body: dict | None = Body(default=None),
+):
+    """Proxy: undo a completion.
+
+    Missing until 2026-08-10 and found from a device rather than from
+    either side's tests. CQ verified it against their own socket, which
+    cannot see a route-table miss by construction: their socket answered
+    200 while every client got a 404 from us, because we never carried the
+    route.
+
+    Worth naming why the additive-vocabulary rule did not cover this. That
+    rule works for FIELDS because readers tolerate unknown keys, so a new
+    one costs nothing until someone reads it. A ROUTE is the opposite: our
+    edge has a table, and a path we do not carry 404s for everyone no
+    matter what the origin does. Fields are additive at the reader, routes
+    are additive only at the gateway.
+    """
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
+    return await _cq_proxy(
+        "POST", f"/v1/quilt/{_subj(request, user_id)}/patches/{patch_id}/uncomplete", body)
+
+
 @router.post("/quilt/{user_id}/patches/{patch_id}/vouch")
 async def vouch_quilt_patch(
     request: Request,

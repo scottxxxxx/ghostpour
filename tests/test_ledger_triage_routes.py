@@ -24,6 +24,7 @@ USER = "user-ledger-1"
 
 ROUTES = [
     ("post", f"/v1/quilt/{USER}/patches/p1/complete"),
+    ("post", f"/v1/quilt/{USER}/patches/p1/uncomplete"),
     ("post", f"/v1/quilt/{USER}/patches/p1/vouch"),
     ("post", f"/v1/quilt/{USER}/patches/p1/shelve"),
     ("delete", f"/v1/quilt/{USER}/patches/p1/shelve"),
@@ -106,3 +107,44 @@ def test_the_body_is_forwarded_verbatim(owner_client, proxy, method, path):
     sent = {"reason": "not-a-field-we-know", "nested": {"x": 1}}
     owner_client.request(method.upper(), path, json=sent)
     assert proxy.await_args.args[2] == sent
+
+
+# --- the route table is the contract (2026-08-10, CQ + SS) -----------
+#
+# `uncomplete` 404'd from every device while CQ's own socket answered 200,
+# because we never carried the route. CQ verified against their socket,
+# which cannot see a route-table miss by construction.
+#
+# The additive-vocabulary rule did not cover it, and the reason is worth
+# keeping: that rule works for FIELDS because readers tolerate unknown
+# keys, so a new one costs nothing until somebody reads it. A ROUTE is the
+# opposite. Our edge has a table, and a path we do not carry 404s for
+# everyone no matter what the origin does. Fields are additive at the
+# reader; routes are additive only at the gateway.
+
+
+def test_the_whole_patch_verb_surface_is_carried():
+    """Asserted against the app's route table rather than by calling each
+    one, because a missing route and a route that errors are different
+    failures and only the table can tell them apart."""
+    from app.main import app
+    have = {(m, getattr(r, "path", ""))
+            for r in app.routes
+            for m in (getattr(r, "methods", None) or [])}
+    for method, verb in (("POST", "complete"), ("POST", "uncomplete"),
+                         ("POST", "vouch"), ("POST", "shelve"),
+                         ("DELETE", "shelve")):
+        path = "/v1/quilt/{user_id}/patches/{patch_id}/" + verb
+        assert (method, path) in have, f"{method} {path} is not in the route table"
+
+
+def test_undo_of_a_completion_is_not_the_same_verb_as_undo_of_a_shelve(owner_client, proxy):
+    """Both are undos and they mean different things. Collapsing them would
+    let an unshelve silently reopen a finished item, or the reverse."""
+    owner_client.request("POST", f"/v1/quilt/{USER}/patches/p1/uncomplete", json={})
+    uncompleted = proxy.await_args.args[1]
+    owner_client.request("DELETE", f"/v1/quilt/{USER}/patches/p1/shelve", json={})
+    unshelved = proxy.await_args.args[1]
+    assert uncompleted.endswith("/uncomplete")
+    assert unshelved.endswith("/shelve")
+    assert uncompleted != unshelved
