@@ -102,3 +102,60 @@ def test_the_json_response_model_carries_it():
     from app.models.chat import ChatResponse
     assert "stop_reason" in ChatResponse.model_fields
     assert ChatResponse(text="x", model="m", provider="p").stop_reason is None
+
+
+# --- a new provider announces itself on OUR side (2026-08-10, TR) ----
+#
+# TR's client refuses a max_tokens response before parsing, so a mode that
+# reports no stop reason drops them back to a shape heuristic. That only
+# catches truncation in shapes that fail visibly: a prose mode, or an array
+# a lenient parser tolerates, would be scored on two thirds of a transcript
+# for months with nothing erroring.
+#
+# Measured 2026-08-10: 951 successful calls over 30 days, ZERO missing a
+# finish reason. Anthropic 945, OpenRouter 6. So this should never fire,
+# and that is the point. The number is a property of the two providers we
+# route through today, not of our contract.
+
+
+def _caplog_audit(caplog, usage, **kw):
+    import logging
+    from app.services.stop_reason import audit_missing
+    with caplog.at_level(logging.WARNING, logger="ghostpour.stop_reason"):
+        audit_missing(usage, provider=kw.get("provider", "newprovider"),
+                      model=kw.get("model", "m-1"),
+                      call_type=kw.get("call_type"))
+    return [r for r in caplog.records if r.message == "stop_reason_missing"]
+
+
+def test_a_completed_call_with_no_finish_reason_is_logged(caplog):
+    assert _caplog_audit(caplog, {"input_tokens": 10})
+
+
+def test_it_names_the_provider_so_the_new_one_identifies_itself(caplog):
+    """The whole value. "Something stopped reporting" is not actionable;
+    "this provider does not populate it" is."""
+    rec = _caplog_audit(caplog, {}, provider="brandnew", model="x-2")[0]
+    assert rec.provider == "brandnew"
+    assert rec.model == "x-2"
+
+
+def test_a_normal_call_is_silent(caplog):
+    """It has to stay at zero today or it becomes noise, and noise is how
+    the one real occurrence gets missed."""
+    assert not _caplog_audit(caplog, {"finish_reason": "end_turn"})
+    assert not _caplog_audit(caplog, {"finish_reason": "max_tokens"})
+
+
+def test_an_unrecognised_provider_value_counts_as_reported(caplog):
+    """The vocabulary is open, so a value we have not seen is still a
+    report. Warning about it would fire on every new provider that DOES
+    populate the field, which is the opposite of the intent."""
+    assert not _caplog_audit(caplog, {"finish_reason": "some_new_reason"})
+
+
+def test_both_transports_audit():
+    src = open("app/routers/chat.py").read()
+    assert src.count("audit_missing(") == 2, (
+        "streaming and non-streaming both need it; TR's three long decoders "
+        "are not all on the same transport")
