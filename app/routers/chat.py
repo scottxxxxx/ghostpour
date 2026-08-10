@@ -2831,8 +2831,11 @@ async def chat(
         # depending on which transport it happened to use. TR's three long
         # decoders (live round score, compare report, mock scoring) are the
         # ones that need it, and they are not all on the same transport.
-        from app.services.stop_reason import normalise_stop_reason
+        from app.services.stop_reason import audit_missing, normalise_stop_reason
         response.stop_reason = normalise_stop_reason(response.usage)
+        if response.stop_reason is None:
+            audit_missing(response.usage, provider=response.provider,
+                          model=response.model, call_type=body.get_meta("call_type"))
 
         # Surface the cleaned transcript (if cleanup ran for this analysis call)
         # so iOS can persist it to MeetingRecord.cleanedTranscript. Absent when
@@ -3293,10 +3296,17 @@ async def _handle_stream(
         # same event, and would silently stop working the day we route a
         # model through a fourth. Absent when the provider gave none, which
         # means "we do not know" and never "it completed".
-        from app.services.stop_reason import normalise_stop_reason
-        _stop = normalise_stop_reason(final_response.usage if final_response else None)
+        from app.services.stop_reason import audit_missing, normalise_stop_reason
+        _stop_usage = final_response.usage if final_response else None
+        _stop = normalise_stop_reason(_stop_usage)
         if _stop:
             done_data["stop_reason"] = _stop
+        elif final_response is not None:
+            # A completed call with no finish reason: the client is back on
+            # a shape heuristic without being told. TR asked us to make a
+            # new provider announce itself here rather than there.
+            audit_missing(_stop_usage, provider=body.provider, model=body.model,
+                          call_type=body.get_meta("call_type"))
         if search_state is not None:
             done_data["search_state"] = search_state
         if teaser_state is not None:
