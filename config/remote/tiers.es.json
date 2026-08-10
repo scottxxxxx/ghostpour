@@ -1,5 +1,5 @@
 {
-  "version": 40,
+  "version": 41,
   "tiers": {
     "free": {
       "display_name": "Gratis",
@@ -372,7 +372,8 @@
       "upgrade_cta": "Actualiza a Plus para desbloquear Memoria de Reuniones",
       "cta_strings": {
         "free_within_quota_footer": "✨ Esta fue tu Memoria gratis de {total} este mes. Actualiza a Plus para seguir construyendo Memoria.",
-        "free_no_quota_only": "✨ ¿Quieres que tu IA recuerde tus reuniones? Actualiza a Plus para empezar a construir Memoria."
+        "free_no_quota_only": "✨ ¿Quieres que tu IA recuerde tus reuniones? Actualiza a Plus para empezar a construir Memoria.",
+        "free_people_only": "✨ Tu IA está construyendo tu lista de Personas a partir de esta reunión. Mejora a Plus para leer lo que recuerda."
       }
     },
     "meeting_reports": {

@@ -250,9 +250,16 @@ async def capture_transcript(
 
     # Free quota gate (only consulted when feature_state == "disabled").
     quota_state = read_memory_quota_state(user, free_quota_per_month)
+    # People is exempt from the free-tier cap (Scott, 2026-08-10), so the
+    # People entitlement decides whether a free user's meeting is captured
+    # at all. Read from the same matrix as every other gate rather than
+    # assumed, so flipping the dashboard row actually closes the door.
+    _people_state = entitlement_state(
+        request.app.state.remote_configs, user.effective_tier, "people")
     verdict = resolve_memory_capture_verdict(
         feature_state=feature_state,
         has_quota=quota_state.has_quota,
+        people_enabled=_people_state != "disabled",
     )
 
     if verdict.verdict in ("capture", "capture_with_cta"):

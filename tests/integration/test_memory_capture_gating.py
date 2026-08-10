@@ -167,7 +167,7 @@ class TestFreeWithinQuota:
 
 
 class TestFreeOverQuota:
-    def test_free_over_quota_skips_capture_but_stamps_cta(
+    def test_free_over_quota_still_captures_for_people_and_stamps_the_cta(
         self, client_with_cq, free_user, mock_cq, tmp_db_path,
     ):
         # Pre-set the user to "1 used in current period" so quota is exhausted.
@@ -187,8 +187,14 @@ class TestFreeOverQuota:
             headers=free_user["headers"],
         )
         assert resp.status_code == 200
-        # Over quota → capture must NOT fire.
-        assert mock_cq["capture"].await_count == 0
+        # Over quota now CAPTURES anyway (2026-08-10, Scott: People is
+        # exempt from the free-tier cap). A capture feeds two things and
+        # only one is paid: person entities are People, free on every tier,
+        # and quilt patches are Memory, which is not. Skipping starved a
+        # feature the user is entitled to in order to meter one they are
+        # not, and left their People tab empty for months, which reads as
+        # broken rather than locked.
+        assert mock_cq["capture"].await_count == 1
 
         # CTA stamped with the no-quota variant.
         conn = sqlite3.connect(tmp_db_path)
@@ -198,7 +204,11 @@ class TestFreeOverQuota:
         ).fetchone()
         conn.close()
         assert row[0] == "m-free-2"
-        assert row[1] == "free_no_quota_only"
+        # The quota still governs the CTA even though it no longer governs
+        # whether we capture. The old copy asked "Want your AI to remember
+        # meetings?", which is false once we are capturing: it IS
+        # remembering, they just cannot read it back yet.
+        assert row[1] == "free_people_only"
 
 
 class TestNoCtaWhenNotPending:
