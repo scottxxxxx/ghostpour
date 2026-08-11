@@ -33,7 +33,7 @@ def _mock():
 
 def test_the_hint_is_the_text_the_user_actually_gets_today():
     """CORRECTED 2026-08-10: the absorption's premise was wrong. TR's client
-    flipped InterviewHint promptless on 2026-07-29, so our 90-word prompt WAS
+    flipped InterviewHint promptless on 2026-07-31, so our 90-word prompt WAS
     the live text for ten days, and absorbing the two-paragraph compiled copy
     reverted a live latency fix (TR measured 7.5s at that length). Scott's
     call, same day: restore the 90-word version. This pin now protects the

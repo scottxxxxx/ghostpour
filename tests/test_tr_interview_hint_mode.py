@@ -47,7 +47,7 @@ def test_hint_mode_serves_its_own_prompt():
     sp = hint["system_prompt"]
     # The 90-word version, restored 2026-08-10 by Scott's call after the
     # absorption turned out to have reverted it (the client had been
-    # promptless since 2026-07-29, so this text was live all along). Guard
+    # promptless on 2026-07-31, so this text was live all along). Guard
     # phrases match the restored text: same coach framing, same honesty
     # guard, plus the no-JSON line that keeps a blank from reaching a
     # candidate mid-interview.
@@ -66,11 +66,26 @@ def test_hint_mode_serves_its_own_prompt():
 def test_the_hint_is_the_90_word_version_scott_chose():
     """CORRECTED 2026-08-10. The 2026-08-10 absorption believed this mode had
     never served (the TR handover doc repeated a stale audit); in fact TR's
-    client went promptless on 2026-07-29 and the 90-word prompt was live for
-    ten days. The verbatim absorption therefore reverted a measured latency
-    fix (7.5s at two-paragraph length, mid-mock, interviewer waiting).
-    Scott decided the same day: the 90-word version serves. This pin keeps
-    that decision from being un-made by accident, in either direction."""
+    client went promptless on 2026-07-31 and the 90-word prompt was the live
+    text from then on. The verbatim absorption therefore reverted a measured
+    latency fix (7.5s at two-paragraph length, mid-mock, interviewer
+    waiting). Scott decided the same day: the 90-word version serves.
+
+    Confirmed on the wire rather than from either doc, because a stated
+    premise is what caused the mistake in the first place. Reading the
+    system block of every InterviewHint call in usage_log: two-paragraph on
+    2026-07-07 and at 18:33 and 18:34 on 2026-07-31, then 90-word at 19:28
+    that same evening and on 2026-08-02. So the flip lands between 18:34 and
+    19:28 on 2026-07-31, and the restored text is byte-identical to what
+    served (md5 b475adbf33, 1141 chars).
+
+    Two things that keep the blast radius honest: only seven InterviewHint
+    calls exist in total, three of them on our text, and the last one
+    predates the absorption by eight days. The revert existed in config and
+    never reached a user.
+
+    This pin keeps the decision from being un-made by accident, in either
+    direction."""
     sp = _asm("InterviewHint")["system_prompt"]
     assert "90 words" in sp
     assert "Write 2 short paragraphs" not in sp, (
