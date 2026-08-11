@@ -149,6 +149,99 @@ class TestQuiltProxy:
         called_path = instance.request.call_args.args[1]
         assert called_path == f"/v1/quilt/{pro_user['user_id']}"
 
+    def test_insights_body_passes_through_clean(self, client_with_cq, pro_user):
+        """GET /v1/quilt/{user_id}/insights: CQ's body reaches the client
+        value-for-value. The middlebox risks that bit the quilt reads
+        (eaten query params, eaten metadata keys) do not apply to a
+        no-param GET, but the passthrough is asserted anyway so a future
+        "helpful" transform fails a test instead of a device."""
+        payload = {
+            "user_id": pro_user["user_id"],
+            "follow_up": {
+                "kind": "overdue_commitment",
+                "text": "You owe Dana the Q3 forecast",
+                "patch_id": "p-777",
+                "unknown_future_key": {"nested": True},
+            },
+        }
+        mock_resp = httpx.Response(
+            status_code=200,
+            json=payload,
+            request=httpx.Request("GET", "http://cq-mock/v1/quilt/test/insights"),
+        )
+        with patch("app.services.context_quilt._get_auth_headers", new_callable=AsyncMock, return_value={"Authorization": "Bearer mock"}),              patch("httpx.AsyncClient") as MockClient:
+            instance = AsyncMock()
+            instance.__aenter__ = AsyncMock(return_value=instance)
+            instance.__aexit__ = AsyncMock(return_value=False)
+            instance.request = AsyncMock(return_value=mock_resp)
+            MockClient.return_value = instance
+
+            resp = client_with_cq.get(
+                f"/v1/quilt/{pro_user['user_id']}/insights",
+                headers=pro_user["headers"],
+            )
+        assert resp.status_code == 200
+        assert resp.json() == payload
+        called_path = instance.request.call_args.args[1]
+        assert called_path == f"/v1/quilt/{pro_user['user_id']}/insights"
+
+    def test_insights_null_follow_up_survives(self, client_with_cq, pro_user):
+        """follow_up: null is a real answer (nothing to surface), not a
+        key to strip. Per the doc 16 lesson, null means CQ says none,
+        and the client must receive the null rather than an absent key."""
+        payload = {"user_id": pro_user["user_id"], "follow_up": None}
+        mock_resp = httpx.Response(
+            status_code=200,
+            json=payload,
+            request=httpx.Request("GET", "http://cq-mock/v1/quilt/test/insights"),
+        )
+        with patch("app.services.context_quilt._get_auth_headers", new_callable=AsyncMock, return_value={"Authorization": "Bearer mock"}),              patch("httpx.AsyncClient") as MockClient:
+            instance = AsyncMock()
+            instance.__aenter__ = AsyncMock(return_value=instance)
+            instance.__aexit__ = AsyncMock(return_value=False)
+            instance.request = AsyncMock(return_value=mock_resp)
+            MockClient.return_value = instance
+
+            resp = client_with_cq.get(
+                f"/v1/quilt/{pro_user['user_id']}/insights",
+                headers=pro_user["headers"],
+            )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "follow_up" in body
+        assert body["follow_up"] is None
+
+    def test_insights_upstream_404_passes_through(self, client_with_cq, pro_user):
+        """Until CQ PR #227 deploys, CQ answers 404 on this path. That
+        status must reach the client as CQ's answer, which is exactly why
+        carrying the route first is safe: 404-from-upstream and
+        404-from-a-missing-route look identical to a device, but only the
+        first one fixes itself when CQ ships."""
+        mock_resp = httpx.Response(
+            status_code=404,
+            json={"detail": "Not Found"},
+            request=httpx.Request("GET", "http://cq-mock/v1/quilt/test/insights"),
+        )
+        with patch("app.services.context_quilt._get_auth_headers", new_callable=AsyncMock, return_value={"Authorization": "Bearer mock"}),              patch("httpx.AsyncClient") as MockClient:
+            instance = AsyncMock()
+            instance.__aenter__ = AsyncMock(return_value=instance)
+            instance.__aexit__ = AsyncMock(return_value=False)
+            instance.request = AsyncMock(return_value=mock_resp)
+            MockClient.return_value = instance
+
+            resp = client_with_cq.get(
+                f"/v1/quilt/{pro_user['user_id']}/insights",
+                headers=pro_user["headers"],
+            )
+        assert resp.status_code == 404
+
+    def test_insights_cross_user_forbidden(self, client_with_cq, pro_user):
+        resp = client_with_cq.get(
+            "/v1/quilt/someone-else/insights",
+            headers=pro_user["headers"],
+        )
+        assert resp.status_code == 403
+
     def test_complete_patch_proxied_with_status_passthrough(self, client_with_cq, pro_user):
         """POST .../patches/{id}/complete forwards the body and passes CQ's
         status codes through verbatim — 409 (already completed / lost race

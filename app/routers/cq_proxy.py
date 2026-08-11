@@ -340,6 +340,33 @@ async def get_quilt(
     return await _cq_proxy("GET", f"/v1/quilt/{_subj(request, user_id)}", query=request.url.query or None)
 
 
+@router.get("/quilt/{user_id}/insights")
+async def get_quilt_insights(
+    user_id: str,
+    request: Request,
+    user: UserRecord = Depends(get_current_user),
+):
+    """Proxy: fetch the user's memory insights (design 10c Memory tab).
+
+    Carried BEFORE CQ's side merges (CQ PR #227), per the standing rule
+    uncomplete taught: routes are additive only at the gateway, so GP
+    goes first, and a 404 from this path until CQ deploys is upstream's
+    answer passing through, not a route-table miss here.
+
+    Response is a small JSON body ({"user_id", "follow_up": {...} or
+    null}); CQ owns the shape and it passes through unmodified. Gated
+    exactly like the sibling quilt reads: the ownership guard runs
+    before any upstream call, and the Memory entitlement stays a render
+    boundary, not a read boundary (the quilt accumulates on every tier
+    so an upgrade reveals history). Query string forwarded verbatim for
+    anything CQ adds later.
+    """
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot access another user's quilt")
+    return await _cq_proxy(
+        "GET", f"/v1/quilt/{_subj(request, user_id)}/insights", query=request.url.query or None)
+
+
 class PatchCreateRequest(BaseModel):
     type: str  # e.g., "person", "fact", "commitment"
     text: str
