@@ -30,6 +30,25 @@ know exactly what the user's own screens show them. See
 
 The original text below is unchanged.
 
+## Status (2026-08-11, GhostPour)
+
+The question in section 4 is answered and shipped, so read the rest as
+the record of how it was framed rather than as an open ask.
+
+- People-scoped recall lane and its entitlement mapping are live (#662),
+  with e2e coverage asserting the people lane rather than the old skip
+  (#663).
+- The synthetic Memory upsell card is retired (#664). Free over-quota
+  captures still fire for People per #657 and now stamp nothing. The
+  verdict matrix, `cta_kind` and the `free_people_only` strings in all
+  four locales are deliberately KEPT, because the gate and teaser lanes
+  render those states from served strings. Only the injected card is gone.
+
+One thing in section 3 is still open and still ShoulderSurf's: the
+interface segregation between the People tab and the Memory section. The
+ask stands as written, which is to see that design before it ships rather
+than review it after.
+
 Scott's position first, then the observation that changed the free-tier
 build, then the four things we have not worked through. The last section is
 the one that needs both teams.
