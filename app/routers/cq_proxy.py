@@ -1032,6 +1032,50 @@ async def confirm_person(
         query=request.url.query or None)
 
 
+@router.post("/people/{user_id}/{entity_id}/not-a-person")
+async def mark_not_a_person(
+    user_id: str,
+    entity_id: str,
+    request: Request,
+    body: dict | None = None,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Proxy: mark an entity as not a person (ASR-garbage suppression).
+
+    CQ archives the person patch if one exists, drops the entity from
+    /v1/people and the recall entity index, and records a suppression
+    against the surface form so the next transcript's diarization cannot
+    mint the same garbage name back into the roster. Body is optional and
+    forwarded verbatim; CQ owns the shape."""
+    await _require_people(request, user, user_id)
+    return await _cq_proxy(
+        "POST", f"/v1/people/{_subj(request, user_id)}/{entity_id}/not-a-person", body=body,
+        query=request.url.query or None)
+
+
+@router.delete("/people/{user_id}/{entity_id}/not-a-person")
+async def unmark_not_a_person(
+    user_id: str,
+    entity_id: str,
+    request: Request,
+    body: dict | None = None,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Proxy: lift a not-a-person suppression.
+
+    Reversible on purpose: ASR garbage and a real person with an
+    unfortunate transcription can collide, and an unfixable wrong answer
+    is worse than a reversible one. The undo is a DELETE on the same
+    path, same shape as shelve/unshelve, so a lift can never be mistaken
+    for a repeat suppression."""
+    await _require_people(request, user, user_id)
+    return await _cq_proxy(
+        "DELETE", f"/v1/people/{_subj(request, user_id)}/{entity_id}/not-a-person", body=body,
+        query=request.url.query or None)
+
+
 @router.post("/people/{user_id}")
 async def create_person(
     user_id: str,
