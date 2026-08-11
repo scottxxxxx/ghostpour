@@ -61,6 +61,7 @@ def proxy():
 
 ROUTES = [
     ("get", f"/v1/people/{USER}", None),
+    ("get", f"/v1/people/{USER}/network", None),
     ("get", f"/v1/people/{USER}/ent-9", None),
     ("post", f"/v1/people/{USER}", {"name": "Ada"}),
     ("post", f"/v1/people/{USER}/merge", {"a": "1", "b": "2"}),
@@ -173,6 +174,7 @@ def test_the_whole_people_verb_surface_is_carried():
     surface = (
         ("GET", "/v1/people/{user_id}"),
         ("POST", "/v1/people/{user_id}"),
+        ("GET", "/v1/people/{user_id}/network"),
         ("GET", "/v1/people/{user_id}/{entity_id}"),
         ("POST", "/v1/people/{user_id}/merge"),
         ("POST", "/v1/people/{user_id}/keep-separate"),
