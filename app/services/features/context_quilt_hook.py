@@ -39,31 +39,17 @@ class ContextQuiltHook:
             "gated": False,
         }
 
+        if feature_state == "disabled":
+            # People-scoped recall lane. The dispatch in chat.py only
+            # routes a disabled-state call here when the people
+            # entitlement is enabled, so reaching this branch IS the free
+            # lane; the dashboard People toggle closes it at the dispatch.
+            return await self._people_scoped_recall(user, body, result, app_id)
+
         if not body.context_quilt:
             return body, result
 
-        # Build CQ metadata from request
-        cq_metadata = {}
-        if body.get_meta("project"):
-            cq_metadata["project"] = body.get_meta("project")
-        if body.get_meta("project_id"):
-            cq_metadata["project_id"] = body.get_meta("project_id")
-        cq_metadata["locale"] = body.get_meta("locale") or "en"
-        if body.get_meta("owner_speaker_label"):
-            cq_metadata["owner_speaker_label"] = body.get_meta("owner_speaker_label")
-        # Memory contract v1 (CQ working session 2026-07-15/16). The
-        # allowlist IS the extension point — CQ names a key, we add a line:
-        # memory_signals: client passthrough; CQ renders explicit "(no
-        # stored memory about: X)" lines inside the block so the model
-        # stops inventing around gaps. SS flips it per surface.
-        if body.get_meta("memory_signals") is not None:
-            cq_metadata["memory_signals"] = body.get_meta("memory_signals")
-        # token_budget: GP-set per surface — project chats get the scoped
-        # block budget (commitments/blockers with the overdue guarantee
-        # need more room than the 700-token default); other surfaces keep
-        # CQ's default.
-        if body.get_meta("prompt_mode") == "ProjectChat":
-            cq_metadata["token_budget"] = 1200
+        cq_metadata = _build_recall_metadata(body)
 
         if feature_state == "enabled":
             # Correction lane (Contract item 9, dark until CQ's handler is
@@ -208,50 +194,7 @@ class ContextQuiltHook:
             result["cq_result"] = cq_result
 
             if cq_result.get("context"):
-                cq_context = cq_result["context"]
-                # Sanitize "(you)" suffixes from CQ context to prevent the LLM
-                # from echoing them in output (e.g., "Scott (you) decided...").
-                # Kill-switch — CQ #43 + #93 tightened upstream extraction so
-                # new patches shouldn't carry the "(you)" suffix; setting
-                # CZ_CQ_DISABLE_YOU_SUFFIX_SANITIZER=true on a canary lets us
-                # verify unsanitized recall is grammatical before retiring
-                # the regex.
-                if not get_settings().cq_disable_you_suffix_sanitizer:
-                    cq_context = _sanitize_you_suffix(cq_context)
-                if "{{context_quilt}}" in body.system_prompt:
-                    new_system = body.system_prompt.replace("{{context_quilt}}", cq_context)
-                else:
-                    # APPEND, not prepend (2026-08-03). The chat surfaces do
-                    # not emit the placeholder, so this fallback decided their
-                    # recall position, and prepending put it at index 0: ahead
-                    # of the instructions and the meeting/project context, i.e.
-                    # ahead of everything the envelope declares cacheable.
-                    #
-                    # CQ settled the property this rests on. Contract item 6
-                    # promises determinism for a repeated IDENTICAL request
-                    # (the scorer buckets time to the UTC day so a freshness
-                    # penalty cannot step by the second). It does not promise
-                    # invariance across different questions: the render is
-                    # keyed on the whole request shape, so a new question is a
-                    # new block. Recall is per-turn volatile, and the envelope
-                    # places it LAST in the system block. Appending puts it
-                    # where the spec says.
-                    new_system = f"{body.system_prompt}\n\n[CONTEXT FROM PREVIOUS MEETINGS]\n{cq_context}"
-                # Stash the exact recall text on metadata so cache-aware
-                # adapters (Anthropic) can split the system prompt at the
-                # recall boundary into separate cache_control blocks. Once
-                # CQ #89 made recall byte-stable across calls within a 5-min
-                # window, isolating the recall block lets the base prefix
-                # cache independently when recall content differs across
-                # turns. Adapters that don't consume this fall back to the
-                # single-block string layout in `system_prompt` and behave
-                # exactly as before.
-                new_meta = dict(body.metadata or {})
-                new_meta["cq_recall_block"] = cq_context
-                body = body.model_copy(update={
-                    "system_prompt": new_system,
-                    "metadata": new_meta,
-                })
+                body = _inject_recall_block(body, cq_result["context"])
 
             # Inject communication style for chat modes only
             if cq_result.get("communication_style") and body.get_meta("prompt_mode") in (
@@ -276,6 +219,54 @@ class ContextQuiltHook:
             if cq_result.get("matched_entities"):
                 result["gated"] = True
 
+        return body, result
+
+    async def _people_scoped_recall(
+        self,
+        user: UserRecord,
+        body: ChatRequest,
+        result: dict[str, Any],
+        app_id: str | None,
+    ) -> tuple[ChatRequest, dict[str, Any]]:
+        """Free lane: recall scoped to what the People tab shows.
+
+        Decision 2026-08-11: People launches at full value on every tier,
+        and the assistant may know exactly what the user's own screens
+        show them. `recall_scope: "people"` selects CQ's tab-equivalent
+        scoped render; the key ABSENT means full scope, which is why the
+        enabled lane never sends it.
+
+        Deliberately NOT gated on body.context_quilt (Scott, option one,
+        2026-08-11): the client sends that flag by SERVED entitlement
+        state, so free builds never send it, and BYOK plus Apple-FM
+        traffic bypasses GP entirely. Anything reaching this hook is
+        CloudZap traffic, and the server-side entitlement alone decides.
+
+        Everything else the enabled lane does stays enabled-only on
+        purpose: rundown dossiers, the correction and completion lanes,
+        the communication-style line, and the after_llm capture (which
+        remains gated to feature_state == "enabled", so free chat turns
+        write nothing; the metered transcript path is the only free write
+        path).
+
+        TODO(people-lane-copy): the MEMORY CAPABILITY steering line in
+        chat.py only serves users whose context_quilt entitlement is
+        enabled. What a free user's assistant should SAY about the memory
+        it does and does not have needs a copy pass of its own; do not
+        invent copy here.
+        """
+        cq_metadata = _build_recall_metadata(body)
+        cq_metadata["recall_scope"] = "people"
+        cq_result = await cq.recall(
+            app_id=app_id,
+            user_id=user.id,
+            text=body.user_content,
+            metadata=cq_metadata,
+            subscription_tier=user.effective_tier,
+        )
+        result["cq_result"] = cq_result
+        if cq_result.get("context"):
+            body = _inject_recall_block(body, cq_result["context"])
         return body, result
 
     async def after_llm(
@@ -346,6 +337,86 @@ class ContextQuiltHook:
                 headers["X-CQ-Patch-IDs"] = ",".join(patch_ids[:20])
 
         return headers
+
+
+def _build_recall_metadata(body: ChatRequest) -> dict[str, Any]:
+    """Compose the outbound recall metadata from the request.
+
+    Key by key on purpose: this composition IS the allowlist, the same
+    extension point capture uses. CQ names a key, we add a line, and
+    nothing a client puts in its own metadata reaches CQ without one.
+    That is also what keeps entitlement-derived keys unspoofable:
+    recall_scope and subscription_tier are set server-side after this
+    runs, never copied from the request, so a client can neither widen a
+    free user's scope nor narrow a paid one's.
+    """
+    cq_metadata: dict[str, Any] = {}
+    if body.get_meta("project"):
+        cq_metadata["project"] = body.get_meta("project")
+    if body.get_meta("project_id"):
+        cq_metadata["project_id"] = body.get_meta("project_id")
+    cq_metadata["locale"] = body.get_meta("locale") or "en"
+    if body.get_meta("owner_speaker_label"):
+        cq_metadata["owner_speaker_label"] = body.get_meta("owner_speaker_label")
+    # Memory contract v1 (CQ working session 2026-07-15/16).
+    # memory_signals: client passthrough; CQ renders explicit "(no stored
+    # memory about: X)" lines inside the block so the model stops
+    # inventing around gaps. SS flips it per surface.
+    if body.get_meta("memory_signals") is not None:
+        cq_metadata["memory_signals"] = body.get_meta("memory_signals")
+    # token_budget: GP-set per surface. Project chats get the scoped block
+    # budget (commitments and blockers with the overdue guarantee need
+    # more room than the 700-token default); other surfaces keep CQ's
+    # default.
+    if body.get_meta("prompt_mode") == "ProjectChat":
+        cq_metadata["token_budget"] = 1200
+    return cq_metadata
+
+
+def _inject_recall_block(body: ChatRequest, cq_context: str) -> ChatRequest:
+    """Sanitize and place a recall block, and stash it for the cache split.
+
+    Sanitizer: strip "(you)" suffixes so the LLM does not echo them
+    ("Scott (you) decided..."). Render-time fix for historical patches;
+    CQ #43 and #93 tightened upstream extraction so new patches should
+    not carry the suffix, and CZ_CQ_DISABLE_YOU_SUFFIX_SANITIZER=true on
+    a canary lets us verify unsanitized recall is grammatical before the
+    regex retires.
+
+    Placement: fill the {{context_quilt}} placeholder when the client's
+    template carries it; otherwise APPEND, not prepend (2026-08-03). The
+    chat surfaces do not emit the placeholder, so the fallback decides
+    their recall position, and prepending put the per-turn block at index
+    0, ahead of everything the envelope declares cacheable. CQ settled
+    the property this rests on: contract item 6 promises determinism for
+    a repeated IDENTICAL request (the scorer buckets time to the UTC day
+    so a freshness penalty cannot step by the second), not invariance
+    across different questions, so recall is per-turn volatile and the
+    envelope places it LAST in the system block. Appending puts it where
+    the spec says.
+
+    Stash: the exact recall text rides metadata.cq_recall_block so
+    cache-aware adapters (Anthropic) can split the system prompt at the
+    recall boundary into separate cache_control blocks. Once CQ #89 made
+    recall byte-stable across calls within a 5-minute window, isolating
+    the block lets the base prefix cache independently when recall
+    content differs across turns. Adapters that do not consume it fall
+    back to the single-block string in `system_prompt` and behave exactly
+    as before.
+    """
+    if not get_settings().cq_disable_you_suffix_sanitizer:
+        cq_context = _sanitize_you_suffix(cq_context)
+    base = body.system_prompt or ""
+    if "{{context_quilt}}" in base:
+        new_system = base.replace("{{context_quilt}}", cq_context)
+    else:
+        new_system = f"{base}\n\n[CONTEXT FROM PREVIOUS MEETINGS]\n{cq_context}"
+    new_meta = dict(body.metadata or {})
+    new_meta["cq_recall_block"] = cq_context
+    return body.model_copy(update={
+        "system_prompt": new_system,
+        "metadata": new_meta,
+    })
 
 
 def _sanitize_you_suffix(text: str) -> str:
