@@ -372,13 +372,40 @@ class TestChatCQ:
         mock_cq["recall"].assert_called_once()
         assert resp.headers.get("x-cq-gated") is None
 
-    def test_cq_disabled_skips_recall(self, client_with_cq, free_user, mock_cq):
-        """Free tier (CQ=disabled) → recall NOT called even with context_quilt=true."""
+    def test_cq_disabled_runs_people_scoped_recall(self, client_with_cq, free_user, mock_cq):
+        """Free tier (CQ=disabled, people=enabled) → recall IS called, scoped
+        to people (PR #662, decision 2026-08-11: the assistant may know
+        exactly what the user's own screens show them). This test used to
+        assert the old contract (disabled means recall never runs), which
+        was the accidental gate the boundary doc opened with: a free user's
+        People tab showing colleagues the assistant claimed ignorance of.
+        The turn still reads and never writes."""
         resp = client_with_cq.post(
             "/v1/chat",
             json=chat_request(context_quilt=True),
             headers=free_user["headers"],
         )
+        assert resp.status_code == 200
+        mock_cq["recall"].assert_called_once()
+        sent = mock_cq["recall"].call_args.kwargs["metadata"]
+        assert sent["recall_scope"] == "people"
+        mock_cq["capture"].assert_not_called()
+
+    def test_cq_disabled_and_people_disabled_skips_recall(self, client_with_cq, free_user, mock_cq):
+        """With the people entitlement ALSO off (the dashboard toggle),
+        the old contract still holds: no recall at all. The toggle that
+        closes the People tab closes the assistant's people lane with it."""
+        from unittest.mock import patch
+
+        def _state(configs, tier, feature):
+            return "disabled" if feature in ("context_quilt", "people") else "enabled"
+
+        with patch("app.routers.chat.entitlement_state", side_effect=_state):
+            resp = client_with_cq.post(
+                "/v1/chat",
+                json=chat_request(context_quilt=True),
+                headers=free_user["headers"],
+            )
         assert resp.status_code == 200
         mock_cq["recall"].assert_not_called()
 
