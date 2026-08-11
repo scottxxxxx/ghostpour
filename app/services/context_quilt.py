@@ -274,6 +274,15 @@ async def recall(
                 # Contract v1 lane check: what GP actually forwarded, so a
                 # device-side flip is verifiable from this one log line.
                 "memory_signals": merged_metadata.get("memory_signals", "absent"),
+                # Free-lane volume tripwire, the recall twin of the
+                # 500-free-captures-per-30d capture watch. Free users
+                # generated ZERO recall calls before the people lane, so
+                # scoped volume is a brand-new load shape; this field
+                # makes it one log query at the edge, and CQ can count
+                # the same lane from the metadata it receives
+                # (recall_scope and subscription_tier ride the body).
+                # Absent key means the full render, hence the default.
+                "recall_scope": merged_metadata.get("recall_scope", "full"),
             },
         )
         _debug_dump_recall(body, result)
@@ -291,6 +300,7 @@ async def recall(
                 "timeout_ms": settings.cq_recall_timeout_ms,
                 "project": merged_metadata.get("project"),
                 "memory_signals": merged_metadata.get("memory_signals", "absent"),
+                "recall_scope": merged_metadata.get("recall_scope", "full"),
             },
         )
         return {"context": "", "matched_entities": [], "patch_count": 0}
@@ -301,6 +311,7 @@ async def recall(
                 "error": str(e),
                 "project": merged_metadata.get("project"),
                 "memory_signals": merged_metadata.get("memory_signals", "absent"),
+                "recall_scope": merged_metadata.get("recall_scope", "full"),
             },
         )
         return {"context": "", "matched_entities": [], "patch_count": 0}

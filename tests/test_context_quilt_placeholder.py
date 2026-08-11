@@ -10,8 +10,11 @@ from tests.conftest import chat_request
 
 
 def test_placeholder_stripped_when_cq_disabled(client, free_user, mock_provider):
-    """Free tier has CQ disabled, so the hook is skipped entirely. The
-    literal placeholder must still be stripped before the model sees it."""
+    """Free tier has CQ disabled. Since the people-scoped lane, the hook
+    still runs for free users (people entitlement is on), but with no CQ
+    reachable the recall degrades to empty and nothing fills the slot.
+    The literal placeholder must still be stripped before the model sees
+    it."""
     body = chat_request(
         system_prompt="Global rules.\n\n{{context_quilt}}\n\nAnswer the user.",
         context_quilt=True,

@@ -1,5 +1,5 @@
 {
-  "version": 41,
+  "version": 42,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -372,7 +372,8 @@
       "upgrade_cta": "Plusにアップグレードしてミーティングメモリーを解除",
       "cta_strings": {
         "free_within_quota_footer": "✨ 今月の無料メモリー{total}回のうちの1つを使いました。Plusにアップグレードしてメモリーを構築し続けましょう。",
-        "free_no_quota_only": "✨ AIに会議を記憶してほしいですか？Plusにアップグレードしてメモリーの構築を始めましょう。"
+        "free_no_quota_only": "✨ AIに会議を記憶してほしいですか？Plusにアップグレードしてメモリーの構築を始めましょう。",
+        "free_people_only": "✨ AIがこの会議からPeopleリストを作成しています。Plusにアップグレードすると、記憶した内容を読み返せます。"
       }
     },
     "meeting_reports": {

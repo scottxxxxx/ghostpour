@@ -24,10 +24,8 @@ from app.services import context_quilt as cq
 from app.services.cq_subject import subject_for
 from app.services.memory_capture_policy import resolve_memory_capture_verdict
 from app.services.memory_capture_quota import (
-    consume_meeting_cta,
     decrement_memory_quota,
     read_memory_quota_state,
-    stamp_meeting_cta,
 )
 
 logger = logging.getLogger(__name__)
@@ -193,8 +191,9 @@ async def capture_transcript(
       Pro    → unconditional capture
       Plus   → recall-only (no capture; recall stays on the chat-flow hook)
       Free   → capture once per month within `free_quota_per_month`; over
-               quota, skip capture but still surface a one-shot upsell card
-               in the next /v1/quilt fetch (same meeting view).
+               quota, skip capture.
+    The free-tier Memory upsell rides the gate/teaser lane with served
+    copy (decision 2026-08-11); GP no longer stamps or injects anything.
     See docs/wire-contracts/memory-capture.md for the full matrix.
     """
     # Normalize origin fields — prefer explicit origin_id/origin_type;
@@ -250,9 +249,16 @@ async def capture_transcript(
 
     # Free quota gate (only consulted when feature_state == "disabled").
     quota_state = read_memory_quota_state(user, free_quota_per_month)
+    # People is exempt from the free-tier cap (Scott, 2026-08-10), so the
+    # People entitlement decides whether a free user's meeting is captured
+    # at all. Read from the same matrix as every other gate rather than
+    # assumed, so flipping the dashboard row actually closes the door.
+    _people_state = entitlement_state(
+        request.app.state.remote_configs, user.effective_tier, "people")
     verdict = resolve_memory_capture_verdict(
         feature_state=feature_state,
         has_quota=quota_state.has_quota,
+        people_enabled=_people_state != "disabled",
     )
 
     if verdict.verdict in ("capture", "capture_with_cta"):
@@ -290,10 +296,13 @@ async def capture_transcript(
         # Free-within-quota: count it.
         await decrement_memory_quota(db, user.id)
 
-    if verdict.cta_kind and effective_origin_id:
-        await stamp_meeting_cta(
-            db, user.id, effective_origin_id, verdict.cta_kind,
-        )
+    # verdict.cta_kind still names the free-Memory copy state, but GP no
+    # longer stamps it per meeting or injects a synthetic card into the
+    # quilt (retired 2026-08-11). The card had NEVER rendered on any SS
+    # build: their PatchType is a closed enum and unknown types are
+    # dropped at decode, before any filter. The upsell rides the
+    # gate/teaser lane instead, rendered client-side from the served
+    # cta_strings in feature_definitions.context_quilt.
 
     await db.commit()
     return {"status": "queued"}
@@ -311,123 +320,24 @@ async def get_quilt(
 ):
     """Proxy: fetch user's quilt patches from Context Quilt.
 
-    For Free users, if a one-shot upsell card is pending (set by
-    /v1/capture-transcript when the user is over quota OR captured
-    within quota), append a synthetic patch carrying the CTA so iOS'
-    meeting-end view (which filters by metadata.origin_id) renders
-    the upsell inline. Cleared after one render.
+    Pure passthrough: CQ's body reaches the client unmodified. Until
+    2026-08-11 this route appended a synthetic fact-shaped upsell card
+    (category "cta", metadata.is_synthetic) for free users with a
+    pending CTA stamp. SS's decode audit showed the card had NEVER
+    rendered on any build: their PatchType is a closed enum, and a patch
+    with an unknown patch_type fails item decode and is dropped, logged,
+    before any rendering code runs. A synthetic object impersonating
+    memory data in a data array is also the pattern SS keeps rooting out
+    of prompts, and the same instinct applies to arrays. The free-tier
+    Memory upsell rides the gate/teaser lane with served copy instead
+    (cta_strings in feature_definitions.context_quilt, all locales).
     """
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot access another user's quilt")
     # Forward the device's query string verbatim — iOS sends
     # ?since=...&delta=true for delta sync; dropping it made every poll
     # return the full quilt ("+860 updated" on each fetch).
-    proxied = await _cq_proxy("GET", f"/v1/quilt/{_subj(request, user_id)}", query=request.url.query or None)
-
-    # Only inject for the one-shot CTA window. memory_last_cta_kind is
-    # cleared after this render.
-    if not (user.memory_last_origin_id and user.memory_last_cta_kind):
-        return proxied
-    if proxied.status_code != 200:
-        return proxied
-
-    try:
-        # JSONResponse stores the encoded body in .body. Decode, mutate, re-emit.
-        import json as _json
-        payload = _json.loads(proxied.body.decode("utf-8"))
-    except Exception as exc:
-        logger.warning("quilt_cta_decode_failed", extra={"error": str(exc)})
-        return proxied
-
-    # CQ's quilt response shape:
-    #   {"user_id", "facts", "action_items", "deleted", "server_time"}
-    # — no "patches" key. Originally PR #102 assumed {"patches": [...]}; that
-    # caused this entire injection branch to short-circuit silently for every
-    # Free user. We now inject into "facts" with a fact-shaped synthetic so
-    # iOS' existing memory-card iterator picks it up. iOS detects synthetic
-    # via metadata.is_synthetic per the wire contract.
-    if not isinstance(payload, dict) or not isinstance(payload.get("facts"), list):
-        return proxied
-
-    cta_text = _render_memory_cta_text(request, user.memory_last_cta_kind)
-    if not cta_text:
-        return proxied
-
-    from datetime import datetime, timezone
-    synthetic_fact = {
-        "patch_id": f"cta:{user.memory_last_cta_kind}:{user.memory_last_origin_id}",
-        "fact": cta_text,
-        "category": "cta",
-        "patch_type": "cta",
-        "source": "synthetic",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "origin_id": user.memory_last_origin_id,
-        "origin_type": "meeting",
-        "participants": [],
-        "owner": None,
-        "deadline": None,
-        "project": None,
-        "project_id": None,
-        "permanence_override": None,
-        "permanence_override_source": None,
-        "connections": [],
-        # iOS-detected upsell marker. Per the wire contract, iOS renders
-        # facts with metadata.is_synthetic == true with the upsell styling
-        # and routes taps through metadata.action.
-        "metadata": {
-            "is_synthetic": True,
-            "cta_kind": user.memory_last_cta_kind,
-            "action": "open_paywall",
-        },
-    }
-    payload["facts"].append(synthetic_fact)
-
-    await consume_meeting_cta(db, user.id)
-    await db.commit()
-
-    return JSONResponse(status_code=200, content=payload)
-
-
-def _render_memory_cta_text(request: Request, cta_kind: str) -> str | None:
-    """Resolve the CTA template and substitute quota fields.
-
-    Resolution order:
-      1. feature_definitions.context_quilt.cta_strings in tiers.{locale}.json
-         (locale parsed from Accept-Language)
-      2. feature_definitions.context_quilt.cta_strings in tiers.json (default
-         English locale)
-      3. features.yml context_quilt.cta_strings (English source of truth)
-    """
-    from app.routers.config import _parse_accept_language
-
-    feature_config = request.app.state.feature_config
-    cq_def = feature_config.features.get("context_quilt")
-    if not cq_def:
-        return None
-
-    total = cq_def.free_quota_per_month if cq_def.free_quota_per_month >= 0 else 0
-
-    locale = _parse_accept_language(request.headers.get("Accept-Language"))
-    configs = request.app.state.remote_configs
-    localized_name = f"tiers.{locale}" if locale else None
-
-    template: str | None = None
-    for slug in (localized_name, "tiers"):
-        if slug and slug in configs:
-            cq_block = (
-                configs[slug].get("feature_definitions", {}).get("context_quilt", {})
-            )
-            template = cq_block.get("cta_strings", {}).get(cta_kind)
-            if template:
-                break
-
-    # Fallback: features.yml English source of truth.
-    if not template and cq_def.cta_strings:
-        template = cq_def.cta_strings.get(cta_kind)
-
-    if not template:
-        return None
-    return template.format(total=total, remaining=0)
+    return await _cq_proxy("GET", f"/v1/quilt/{_subj(request, user_id)}", query=request.url.query or None)
 
 
 class PatchCreateRequest(BaseModel):
@@ -1029,6 +939,81 @@ async def confirm_person(
     await _require_people(request, user, user_id)
     return await _cq_proxy(
         "POST", f"/v1/people/{_subj(request, user_id)}/{entity_id}/confirm", body=body,
+        query=request.url.query or None)
+
+
+@router.post("/people/{user_id}/{entity_id}/rename")
+async def rename_person(
+    user_id: str,
+    entity_id: str,
+    request: Request,
+    body: dict | None = None,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Proxy: change a person's display name.
+
+    CQ has served this and we did not carry it, which is the uncomplete
+    failure shape exactly: every device call 404s here while CQ's own
+    socket answers 200. Found while pinning the people surface for
+    not-a-person.
+
+    A display-name update, not an identity operation: CQ keeps the
+    entity_id, turns the old name into an alias so recall still matches
+    it and future transcripts resolve to the same person, rewrites the
+    person's active patches to the new name (rides the next delta), and
+    vouches for the person, same reasoning as merge. The body is
+    {"name": ..., "source": ...} and CQ owns the shape, so it forwards
+    verbatim. Status codes pass through unchanged; the one worth knowing
+    is 409 NAME_TAKEN, which means the new name already belongs to
+    another person. That is a merge question, not something to retry."""
+    await _require_people(request, user, user_id)
+    return await _cq_proxy(
+        "POST", f"/v1/people/{_subj(request, user_id)}/{entity_id}/rename", body=body,
+        query=request.url.query or None)
+
+
+@router.post("/people/{user_id}/{entity_id}/not-a-person")
+async def mark_not_a_person(
+    user_id: str,
+    entity_id: str,
+    request: Request,
+    body: dict | None = None,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Proxy: mark an entity as not a person (ASR-garbage suppression).
+
+    CQ archives the person patch if one exists, drops the entity from
+    /v1/people and the recall entity index, and records a suppression
+    against the surface form so the next transcript's diarization cannot
+    mint the same garbage name back into the roster. Body is optional and
+    forwarded verbatim; CQ owns the shape."""
+    await _require_people(request, user, user_id)
+    return await _cq_proxy(
+        "POST", f"/v1/people/{_subj(request, user_id)}/{entity_id}/not-a-person", body=body,
+        query=request.url.query or None)
+
+
+@router.delete("/people/{user_id}/{entity_id}/not-a-person")
+async def unmark_not_a_person(
+    user_id: str,
+    entity_id: str,
+    request: Request,
+    body: dict | None = None,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Proxy: lift a not-a-person suppression.
+
+    Reversible on purpose: ASR garbage and a real person with an
+    unfortunate transcription can collide, and an unfixable wrong answer
+    is worse than a reversible one. The undo is a DELETE on the same
+    path, same shape as shelve/unshelve, so a lift can never be mistaken
+    for a repeat suppression."""
+    await _require_people(request, user, user_id)
+    return await _cq_proxy(
+        "DELETE", f"/v1/people/{_subj(request, user_id)}/{entity_id}/not-a-person", body=body,
         query=request.url.query or None)
 
 

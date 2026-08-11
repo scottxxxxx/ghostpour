@@ -1,5 +1,5 @@
 {
-  "version": 41,
+  "version": 42,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -506,7 +506,8 @@
       "upgrade_cta": "Upgrade to Plus to unlock Meeting Memory",
       "cta_strings": {
         "free_within_quota_footer": "✨ This was your free Memory of {total} this month. Upgrade to Plus to keep building Memory.",
-        "free_no_quota_only": "✨ Want your AI to remember meetings? Upgrade to Plus to start building Memory."
+        "free_no_quota_only": "✨ Want your AI to remember meetings? Upgrade to Plus to start building Memory.",
+        "free_people_only": "✨ Your AI is building your People list from this meeting. Upgrade to Plus to read back what it remembers."
       }
     },
     "meeting_reports": {

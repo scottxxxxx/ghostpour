@@ -1427,7 +1427,22 @@ async def chat(
         state = entitlement_state(
                 request.app.state.remote_configs, user.effective_tier,
                 feature_name)
-        if state != "disabled":
+        run_hook = state != "disabled"
+        if not run_hook and feature_name == "context_quilt":
+            # People-scoped recall lane (decision 2026-08-11: People
+            # launches at full value on every tier, and the assistant may
+            # know exactly what the user's own screens show them).
+            # context_quilt disabled used to mean the hook never ran, so a
+            # free user's assistant claimed ignorance of the People tab in
+            # the same app. The hook now runs with the disabled state and
+            # branches to a people-scoped recall inside. The people
+            # entitlement is read HERE, next to every other entitlement
+            # read, so the dashboard toggle that closes the People tab
+            # closes this lane with it.
+            run_hook = entitlement_state(
+                request.app.state.remote_configs, user.effective_tier,
+                "people") == "enabled"
+        if run_hook:
             body, result = await hook.before_llm(user, body, tier, state, skip_teasers, app_id=app_id)
             hook_results[feature_name] = result
 
