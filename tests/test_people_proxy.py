@@ -66,6 +66,7 @@ ROUTES = [
     ("post", f"/v1/people/{USER}/merge", {"a": "1", "b": "2"}),
     ("post", f"/v1/people/{USER}/keep-separate", {"a": "1", "b": "2"}),
     ("post", f"/v1/people/{USER}/ent-9/confirm", {}),
+    ("post", f"/v1/people/{USER}/ent-9/rename", {"name": "Ada Lovelace"}),
     ("post", f"/v1/people/{USER}/ent-9/not-a-person", {}),
     ("delete", f"/v1/people/{USER}/ent-9/not-a-person", None),
 ]
@@ -176,6 +177,7 @@ def test_the_whole_people_verb_surface_is_carried():
         ("POST", "/v1/people/{user_id}/merge"),
         ("POST", "/v1/people/{user_id}/keep-separate"),
         ("POST", "/v1/people/{user_id}/{entity_id}/confirm"),
+        ("POST", "/v1/people/{user_id}/{entity_id}/rename"),
         ("POST", "/v1/people/{user_id}/{entity_id}/not-a-person"),
         ("DELETE", "/v1/people/{user_id}/{entity_id}/not-a-person"),
     )
@@ -203,6 +205,16 @@ def test_not_a_person_body_is_forwarded_verbatim(people_client, proxy):
     sent = {"surface_form": "Horm Hel", "nested": {"x": 1}}
     people_client.post(f"/v1/people/{USER}/ent-9/not-a-person", json=sent)
     assert proxy.await_args.kwargs["body"] == sent
+
+
+def test_rename_body_is_forwarded_verbatim(people_client, proxy):
+    """Rename's body carries the payload that matters: {"name", "source"}.
+    CQ owns the shape and validates it (placeholder names, self names,
+    NAME_TAKEN), so nothing here may model or trim it on the way through."""
+    sent = {"name": "Ada Lovelace", "source": "user_typed", "later": {"x": 1}}
+    people_client.post(f"/v1/people/{USER}/ent-9/rename", json=sent)
+    assert proxy.await_args.kwargs["body"] == sent
+    assert proxy.await_args.args[1].endswith("/ent-9/rename")
 
 
 def test_not_a_person_with_no_body_forwards_none(people_client, proxy):
