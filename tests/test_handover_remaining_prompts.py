@@ -32,14 +32,15 @@ def _mock():
 
 
 def test_the_hint_is_the_text_the_user_actually_gets_today():
-    """We already held a modes.InterviewHint prompt and it was never used,
-    because the client sends its own. Ours was tighter (90 words, one
-    paragraph); theirs is what ships. Absorbing OURS would have changed
-    behaviour at the flip, which is the one thing absorption must not do.
-    Improvements come after, by config, where they are visible."""
+    """CORRECTED 2026-08-10: the absorption's premise was wrong. TR's client
+    flipped InterviewHint promptless on 2026-07-31, so our 90-word prompt WAS
+    the live text for ten days, and absorbing the two-paragraph compiled copy
+    reverted a live latency fix (TR measured 7.5s at that length). Scott's
+    call, same day: restore the 90-word version. This pin now protects the
+    text users were actually getting before the absorption."""
     sp = _mock()["modes"]["InterviewHint"]["systemPrompt"]
-    assert "Write 2 short paragraphs" in sp
-    assert "90 words" not in sp
+    assert "90 words" in sp
+    assert "Write 2 short paragraphs" not in sp
 
 
 def test_the_hint_stays_a_nudge_and_not_the_answer():
