@@ -9,6 +9,12 @@ before it ships rather than review it after; this is that review, done.
 requested below, both answerable in a sentence, neither requiring a
 design change unless the answer is no.
 
+**Amended 2026-08-11:** confirmation 1 originally argued from the
+synthetic upsell card in the quilt payload, which was retired the same
+day (#664) and had never rendered on any build. The confirmation still
+stands and the amended text gives the argument that survives. Nothing
+else in this review changed, and the ACK is unaffected.
+
 ## The rule, and why we are signing it
 
 "Memory is about what the user knows; People is about who they know" is
@@ -70,13 +76,32 @@ withholds. Signed.
 
 ## The two confirmations
 
-1. **The Memory filter is subtractive, not an allowlist.** We inject a
-   synthetic fact-shaped upsell card into the quilt `facts` array for
-   free users (category "cta", metadata.is_synthetic true, one-shot).
-   Hiding person patches must be "hide category person", not "render
-   only known memory categories", or the move silently kills the
-   Memory upsell card for every free user and nobody sees it fail.
-   Confirm the filter's polarity.
+1. **The Memory filter is subtractive, not an allowlist.** Confirm the
+   filter's polarity: "hide category person", never "render only known
+   memory categories".
+
+   *Corrected 2026-08-11, after this review was written.* The original
+   version of this point argued from the synthetic fact-shaped upsell
+   card GP injected into the quilt `facts` array. That card was retired
+   the same day (#664), so the harm it described cannot occur: the route
+   is now a pure passthrough and the free-tier Memory upsell rides the
+   gate and teaser lane on served `cta_strings`. Worth noting why it was
+   retired, because it strengthens rather than weakens the point: SS's
+   decode audit found the card had NEVER rendered on any build, since
+   their `PatchType` is a closed enum and an unknown `patch_type` fails
+   item decode and is dropped before any rendering code runs.
+
+   The ask stands on better ground without it. An allowlist of known
+   memory categories silently drops any category CQ adds later, which is
+   the additive-vocabulary rule applied to rendering: a reader must
+   tolerate a value it does not recognise. A subtractive filter hides
+   what it is told to hide and passes everything else through, so a new
+   CQ category appears rather than vanishing, and nobody has to remember
+   to update a list on a client release cycle.
+
+   To be explicit, so nobody answers a question about a payload that no
+   longer exists: there is no synthetic card to preserve, and SS should
+   confirm the polarity on the future-category argument alone.
 
 2. **The name/alias fallback on person taps resolves against served
    data only.** patch_id-first is right. When it falls through, the
