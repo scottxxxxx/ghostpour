@@ -110,37 +110,3 @@ async def zero_memory_quota_on_tier_change(
            WHERE id = ?""",
         (period, user_id),
     )
-
-
-async def stamp_meeting_cta(
-    db: aiosqlite.Connection,
-    user_id: str,
-    origin_id: str,
-    cta_kind: str,
-) -> None:
-    """Record the meeting + CTA kind that the next quilt fetch should surface.
-
-    Single-shot per meeting: cleared by the quilt-fetch interceptor after
-    one render so the upsell card doesn't re-appear on every refresh.
-    """
-    await db.execute(
-        """UPDATE users SET
-            memory_last_origin_id = ?,
-            memory_last_cta_kind = ?
-           WHERE id = ?""",
-        (origin_id, cta_kind, user_id),
-    )
-
-
-async def consume_meeting_cta(
-    db: aiosqlite.Connection,
-    user_id: str,
-) -> None:
-    """Clear the pending CTA flags after the quilt fetch has rendered them."""
-    await db.execute(
-        """UPDATE users SET
-            memory_last_origin_id = NULL,
-            memory_last_cta_kind = NULL
-           WHERE id = ?""",
-        (user_id,),
-    )

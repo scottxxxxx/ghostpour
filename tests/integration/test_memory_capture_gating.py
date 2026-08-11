@@ -1,12 +1,19 @@
-"""End-to-end tests for memory-capture tier gating + CTA injection.
+"""End-to-end tests for memory-capture tier gating.
 
 Covers:
-- Pro user: capture-transcript fires cq.capture; no CTA injected on quilt fetch.
-- Free user (within quota): capture-transcript fires cq.capture, decrements
-  quota, stamps CTA. Next quilt fetch surfaces the synthetic upsell card
-  with matching origin_id, then clears the flag.
-- Free user (over quota): capture-transcript does NOT fire cq.capture, but
-  still stamps the no-quota CTA. Quilt fetch surfaces the upsell card.
+- Pro user: capture-transcript fires cq.capture; quilt fetch is passthrough.
+- Free user (within quota): capture-transcript fires cq.capture and
+  decrements quota. Nothing is stamped.
+- Free user (over quota): capture-transcript does NOT fire cq.capture.
+- Quilt fetch is a pure passthrough for every tier, including a user
+  carrying a legacy CTA stamp from before the synthetic card retired.
+
+The synthetic upsell card was retired 2026-08-11: SS's decode audit
+showed it had NEVER rendered on any build (closed PatchType enum drops
+unknown types at decode, before any filter), and the decision moved the
+free-tier Memory upsell onto the gate/teaser lane with served copy. The
+served strings themselves stay pinned, all four locales, in
+tests/test_meeting_memory_tier.py.
 """
 
 import sqlite3
@@ -77,7 +84,7 @@ class TestPro:
 
 
 class TestFreeWithinQuota:
-    def test_free_first_capture_fires_decrements_and_stamps_cta(
+    def test_free_first_capture_fires_and_decrements_without_stamping(
         self, client_with_cq, free_user, mock_cq, tmp_db_path,
     ):
         resp = client_with_cq.post(
@@ -89,7 +96,8 @@ class TestFreeWithinQuota:
         # Free + within quota → capture fires.
         assert mock_cq["capture"].await_count == 1
 
-        # Quota decremented + CTA stamped with origin id.
+        # Quota decremented; nothing stamped (the synthetic card retired,
+        # the upsell rides the gate/teaser lane with served copy).
         conn = sqlite3.connect(tmp_db_path)
         row = conn.execute(
             """SELECT memory_used_this_period, memory_last_origin_id, memory_last_cta_kind
@@ -98,13 +106,17 @@ class TestFreeWithinQuota:
         ).fetchone()
         conn.close()
         assert row[0] == 1
-        assert row[1] == "m-free-1"
-        assert row[2] == "free_within_quota_footer"
+        assert row[1] is None
+        assert row[2] is None
 
-    def test_free_quilt_fetch_injects_cta_card_then_clears(
+    def test_free_quilt_fetch_ignores_a_legacy_stamp(
         self, client_with_cq, free_user, mock_cq, tmp_db_path,
     ):
-        # Stamp the user manually (skip the capture-transcript round-trip).
+        """A user row can still carry a CTA stamp written before the
+        retirement (nothing clears them anymore, and nothing should
+        write new ones). The fetch must ignore it: no synthetic fact, no
+        mutation, CQ's body byte-for-byte."""
+        # Stamp the user manually, simulating pre-retirement state.
         conn = sqlite3.connect(tmp_db_path)
         conn.execute(
             """UPDATE users SET memory_last_origin_id = ?, memory_last_cta_kind = ?
@@ -142,32 +154,16 @@ class TestFreeWithinQuota:
 
         assert resp.status_code == 200
         body = resp.json()
-        # Synthetic appended to facts (not patches — that key never existed
-        # in CQ's real response). 2 = original 1 + injected 1.
-        assert len(body["facts"]) == 2
-        cta = body["facts"][-1]
-        assert cta["metadata"]["is_synthetic"] is True
-        assert cta["origin_id"] == "m-free-1"
-        assert cta["origin_type"] == "meeting"
-        assert cta["metadata"]["cta_kind"] == "free_within_quota_footer"
-        assert cta["metadata"]["action"] == "open_paywall"
-        # Plus unlocks Meeting Memory as of 2026-08-03, so the free-tier
-        # upsell has to name the cheapest tier that actually unlocks it.
-        assert "Upgrade to Plus" in cta["fact"]
-        assert cta["patch_type"] == "cta"
-
-        # Flag cleared after one render.
-        conn = sqlite3.connect(tmp_db_path)
-        row = conn.execute(
-            "SELECT memory_last_origin_id, memory_last_cta_kind FROM users WHERE id = ?",
-            (free_user["user_id"],),
-        ).fetchone()
-        conn.close()
-        assert row == (None, None)
+        # CQ's facts pass through untouched: the one real fact, nothing
+        # synthetic. Before the retirement this asserted an appended cta
+        # object that SS's decoder had been silently dropping all along.
+        assert len(body["facts"]) == 1
+        assert body["facts"][0]["patch_id"] == "p1"
+        assert all(f.get("category") != "cta" for f in body["facts"])
 
 
 class TestFreeOverQuota:
-    def test_free_over_quota_skips_capture_but_stamps_cta(
+    def test_free_over_quota_still_captures_for_people_without_stamping(
         self, client_with_cq, free_user, mock_cq, tmp_db_path,
     ):
         # Pre-set the user to "1 used in current period" so quota is exhausted.
@@ -187,18 +183,24 @@ class TestFreeOverQuota:
             headers=free_user["headers"],
         )
         assert resp.status_code == 200
-        # Over quota → capture must NOT fire.
-        assert mock_cq["capture"].await_count == 0
+        # Over quota now CAPTURES anyway (2026-08-10, Scott: People is
+        # exempt from the free-tier cap). A capture feeds two things and
+        # only one is paid: person entities are People, free on every tier,
+        # and quilt patches are Memory, which is not. Skipping starved a
+        # feature the user is entitled to in order to meter one they are
+        # not, and left their People tab empty for months, which reads as
+        # broken rather than locked.
+        assert mock_cq["capture"].await_count == 1
 
-        # CTA stamped with the no-quota variant.
+        # And nothing stamped: the upsell state is the client's to derive
+        # from the gate/teaser lane, not a per-meeting flag on the user row.
         conn = sqlite3.connect(tmp_db_path)
         row = conn.execute(
             "SELECT memory_last_origin_id, memory_last_cta_kind FROM users WHERE id = ?",
             (free_user["user_id"],),
         ).fetchone()
         conn.close()
-        assert row[0] == "m-free-2"
-        assert row[1] == "free_no_quota_only"
+        assert row == (None, None)
 
 
 class TestNoCtaWhenNotPending:
@@ -218,101 +220,6 @@ class TestNoCtaWhenNotPending:
         body = resp.json()
         assert body["facts"] == []
         assert body["action_items"] == []
-
-
-class TestCtaLocalization:
-    """Verify Accept-Language picks the locale-matched CTA copy.
-
-    Falls back to default tiers config (English) when the requested locale
-    doesn't have a localized override, and to features.yml as the final
-    English source of truth.
-    """
-
-    def test_es_locale_picks_spanish_cta(
-        self, client_with_cq, free_user, mock_cq, tmp_db_path,
-    ):
-        conn = sqlite3.connect(tmp_db_path)
-        conn.execute(
-            """UPDATE users SET memory_last_origin_id = ?, memory_last_cta_kind = ?
-               WHERE id = ?""",
-            ("m-es-1", "free_within_quota_footer", free_user["user_id"]),
-        )
-        conn.commit()
-        conn.close()
-
-        mock_resp, auth_cm, client_cm = _patched_quilt_fetch(
-            _empty_quilt_response()
-        )
-        with auth_cm, client_cm as MockClient:
-            _setup_async_client_mock(MockClient, mock_resp)
-            resp = client_with_cq.get(
-                f"/v1/quilt/{free_user['user_id']}",
-                headers={**free_user["headers"], "Accept-Language": "es"},
-            )
-
-        assert resp.status_code == 200
-        body = resp.json()
-        cta = body["facts"][-1]
-        assert "Actualiza a Plus" in cta["fact"]
-        assert "Memoria" in cta["fact"]
-
-    def test_ja_locale_picks_japanese_cta(
-        self, client_with_cq, free_user, mock_cq, tmp_db_path,
-    ):
-        conn = sqlite3.connect(tmp_db_path)
-        conn.execute(
-            """UPDATE users SET memory_last_origin_id = ?, memory_last_cta_kind = ?
-               WHERE id = ?""",
-            ("m-ja-1", "free_no_quota_only", free_user["user_id"]),
-        )
-        conn.commit()
-        conn.close()
-
-        mock_resp, auth_cm, client_cm = _patched_quilt_fetch(
-            _empty_quilt_response()
-        )
-        with auth_cm, client_cm as MockClient:
-            _setup_async_client_mock(MockClient, mock_resp)
-            resp = client_with_cq.get(
-                f"/v1/quilt/{free_user['user_id']}",
-                headers={**free_user["headers"], "Accept-Language": "ja"},
-            )
-
-        assert resp.status_code == 200
-        body = resp.json()
-        cta = body["facts"][-1]
-        assert "Plus" in cta["fact"]
-        # Japanese-specific marker: メモリー (memory)
-        assert "メモリー" in cta["fact"]
-
-    def test_unknown_locale_falls_back_to_english(
-        self, client_with_cq, free_user, mock_cq, tmp_db_path,
-    ):
-        conn = sqlite3.connect(tmp_db_path)
-        conn.execute(
-            """UPDATE users SET memory_last_origin_id = ?, memory_last_cta_kind = ?
-               WHERE id = ?""",
-            ("m-fr-1", "free_within_quota_footer", free_user["user_id"]),
-        )
-        conn.commit()
-        conn.close()
-
-        mock_resp, auth_cm, client_cm = _patched_quilt_fetch(
-            _empty_quilt_response()
-        )
-        with auth_cm, client_cm as MockClient:
-            _setup_async_client_mock(MockClient, mock_resp)
-            resp = client_with_cq.get(
-                f"/v1/quilt/{free_user['user_id']}",
-                # "fr" became a real served locale on 2026-07-27, so the
-                # unknown-locale example moved to German (still unserved).
-                headers={**free_user["headers"], "Accept-Language": "de"},
-            )
-
-        assert resp.status_code == 200
-        body = resp.json()
-        cta = body["facts"][-1]
-        assert "Upgrade to Plus" in cta["fact"]
 
 
 class TestRecoveryHeader:

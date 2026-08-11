@@ -66,6 +66,9 @@ ROUTES = [
     ("post", f"/v1/people/{USER}/merge", {"a": "1", "b": "2"}),
     ("post", f"/v1/people/{USER}/keep-separate", {"a": "1", "b": "2"}),
     ("post", f"/v1/people/{USER}/ent-9/confirm", {}),
+    ("post", f"/v1/people/{USER}/ent-9/rename", {"name": "Ada Lovelace"}),
+    ("post", f"/v1/people/{USER}/ent-9/not-a-person", {}),
+    ("delete", f"/v1/people/{USER}/ent-9/not-a-person", None),
 ]
 
 
@@ -147,6 +150,78 @@ def test_merge_is_not_swallowed_by_the_entity_route(people_client, proxy):
     people_client.post(f"/v1/people/{USER}/merge", json={"a": "1"})
     assert proxy.await_args.args[1].endswith("/merge")
     assert proxy.await_args.args[0] == "POST"
+
+
+# --- not-a-person (2026-08-10, People/Memory boundary) ---------------
+#
+# Suppress an ASR-garbage entity, and lift the suppression. Live on CQ's
+# side; without these two rows in our table every device call 404s here
+# while CQ's own socket answers 200, which is exactly how `uncomplete`
+# failed. The route table is the contract; see
+# test_the_whole_people_verb_surface_is_carried below.
+
+
+def test_the_whole_people_verb_surface_is_carried():
+    """Same assertion the patch verbs got after uncomplete 404'd from
+    devices: asserted against the app's route table rather than by calling
+    each one, because a missing route and a route that errors are
+    different failures and only the table can tell them apart."""
+    from app.main import app
+    have = {(m, getattr(r, "path", ""))
+            for r in app.routes
+            for m in (getattr(r, "methods", None) or [])}
+    surface = (
+        ("GET", "/v1/people/{user_id}"),
+        ("POST", "/v1/people/{user_id}"),
+        ("GET", "/v1/people/{user_id}/{entity_id}"),
+        ("POST", "/v1/people/{user_id}/merge"),
+        ("POST", "/v1/people/{user_id}/keep-separate"),
+        ("POST", "/v1/people/{user_id}/{entity_id}/confirm"),
+        ("POST", "/v1/people/{user_id}/{entity_id}/rename"),
+        ("POST", "/v1/people/{user_id}/{entity_id}/not-a-person"),
+        ("DELETE", "/v1/people/{user_id}/{entity_id}/not-a-person"),
+    )
+    for method, path in surface:
+        assert (method, path) in have, f"{method} {path} is not in the route table"
+
+
+def test_lifting_a_suppression_is_a_delete_on_the_same_path(people_client, proxy):
+    """The undo is a DELETE on the same path, not a flag on the POST, same
+    shape as shelve/unshelve. If both landed on the same CQ call, a lift
+    would be indistinguishable from a repeat suppression."""
+    people_client.post(f"/v1/people/{USER}/ent-9/not-a-person", json={})
+    first = proxy.await_args
+    people_client.request("DELETE", f"/v1/people/{USER}/ent-9/not-a-person")
+    second = proxy.await_args
+    assert first.args[0] == "POST"
+    assert second.args[0] == "DELETE"
+    assert first.args[1] == second.args[1]
+    assert first.args[1].endswith("/ent-9/not-a-person")
+
+
+def test_not_a_person_body_is_forwarded_verbatim(people_client, proxy):
+    """CQ owns the shape. The body is optional and untyped, so a field
+    they add later reaches them without us shipping anything."""
+    sent = {"surface_form": "Horm Hel", "nested": {"x": 1}}
+    people_client.post(f"/v1/people/{USER}/ent-9/not-a-person", json=sent)
+    assert proxy.await_args.kwargs["body"] == sent
+
+
+def test_rename_body_is_forwarded_verbatim(people_client, proxy):
+    """Rename's body carries the payload that matters: {"name", "source"}.
+    CQ owns the shape and validates it (placeholder names, self names,
+    NAME_TAKEN), so nothing here may model or trim it on the way through."""
+    sent = {"name": "Ada Lovelace", "source": "user_typed", "later": {"x": 1}}
+    people_client.post(f"/v1/people/{USER}/ent-9/rename", json=sent)
+    assert proxy.await_args.kwargs["body"] == sent
+    assert proxy.await_args.args[1].endswith("/ent-9/rename")
+
+
+def test_not_a_person_with_no_body_forwards_none(people_client, proxy):
+    """Bodies are optional on both verbs. An absent body must forward as
+    None, not as an empty object CQ has to guess about."""
+    people_client.request("DELETE", f"/v1/people/{USER}/ent-9/not-a-person")
+    assert proxy.await_args.kwargs["body"] is None
 
 
 def test_disabled_entitlement_actually_closes_the_door(people_client, proxy, monkeypatch):
