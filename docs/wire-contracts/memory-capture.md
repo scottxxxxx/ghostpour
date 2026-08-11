@@ -1,10 +1,27 @@
 # Memory capture — wire contract
 
-GP-controlled gating + CTA injection for end-of-meeting Memory captures.
-Intentionally invisible to SS — the wire shape on `/v1/capture-transcript`
-and `/v1/quilt/{user_id}` is unchanged. GP just decides what to do.
+GP-controlled gating for end-of-meeting Memory captures. Intentionally
+invisible to SS: the wire shape on `/v1/capture-transcript` and
+`/v1/quilt/{user_id}` is unchanged. GP just decides what to do.
 
-Last updated: 2026-04-30.
+Last updated: 2026-08-11 (synthetic CTA card retired, see below).
+
+## Retired: the synthetic CTA card (2026-08-11)
+
+Earlier versions of this contract had GP append a synthetic fact-shaped
+upsell card (`category: "cta"`, `metadata.is_synthetic`) to the next
+`/v1/quilt/{user_id}` fetch for free users. SS's decode audit
+(contextquilt-ops docs/cross-team/
+2026-08-11-SS-confirmations-and-a-decode-finding.md) showed the card
+had NEVER rendered on any build: SS's PatchType is a closed enum, and a
+patch with an unknown `patch_type` fails item decode and is dropped,
+logged, before any rendering or filtering code runs. Scott's decision:
+the free-tier Memory upsell rides the existing gate/teaser lane with
+served copy, no synthetic objects in data arrays, and SS builds no
+`cta` patch type. GP therefore stamps nothing per meeting and injects
+nothing; `GET /v1/quilt/{user_id}` is a pure passthrough of CQ's body.
+The `users.memory_last_origin_id` / `memory_last_cta_kind` columns
+remain in the schema (migration history) but are written by nothing.
 
 ## Concepts
 
@@ -19,20 +36,18 @@ Last updated: 2026-04-30.
   `project_chat_quota`). Lives on `features.yml` ▸ `context_quilt` block.
   Default: `1`.
 - **Verdict** — what `/v1/capture-transcript` does for one call. One of
-  `capture`, `capture_with_cta`, `skip_with_cta`, `recall_only`.
-- **Synthetic CTA card** — a fake CQ patch GP appends to the next
-  `/v1/quilt/{user_id}` response. iOS' meeting-end view filters by
-  `metadata.origin_id`, so the card only appears in *that* meeting's
-  view. Cleared after one render.
+  `capture`, `capture_with_cta`, `skip_with_cta`, `recall_only`. The
+  `cta_kind` on a verdict names the free-Memory copy state; since the
+  card retired it drives no server-side write.
 
 ## Verdict matrix
 
 | Tier | feature_state | has_quota | Verdict | Side effects |
 |---|---|---|---|---|
-| Pro    | `enabled`  | (any) | `capture`           | `cq.capture()` fires. No CTA stamped. |
-| Plus   | `teaser`   | (any) | `recall_only`       | No capture. No CTA stamped. |
-| Free   | `disabled` | True  | `capture_with_cta`  | `cq.capture()` fires. Quota -1. CTA stamped (`free_within_quota_footer`). |
-| Free   | `disabled` | False | `skip_with_cta`     | No capture. CTA stamped (`free_no_quota_only`). |
+| Pro    | `enabled`  | (any) | `capture`           | `cq.capture()` fires. |
+| Plus   | `teaser`   | (any) | `recall_only`       | No capture. |
+| Free   | `disabled` | True  | `capture_with_cta`  | `cq.capture()` fires. Quota -1. |
+| Free   | `disabled` | False | `skip_with_cta`     | No capture. |
 
 The local `meeting_transcripts` write is **always** performed regardless of
 verdict — `meeting_reports` is independent of `context_quilt` gating.
@@ -44,8 +59,7 @@ Request and response shapes are identical to today. SS does not need to
 inspect the response — it's still `{"status": "queued"}`.
 
 ### `GET /v1/quilt/{user_id}`
-Response is CQ's native shape — passes through unmodified except for the
-synthetic CTA injection:
+Pure passthrough of CQ's native shape:
 
 ```json
 {
@@ -57,65 +71,27 @@ synthetic CTA injection:
 }
 ```
 
-When a CTA is pending, GP appends a synthetic fact to the `facts` array
-with this shape (mirrors a real fact + adds a `metadata` detection bag):
+Nothing is appended, mutated, or cleared on this route.
 
-```json
-{
-  "patch_id": "cta:<cta_kind>:<origin_id>",
-  "fact": "<rendered CTA copy>",
-  "category": "cta",
-  "patch_type": "cta",
-  "source": "synthetic",
-  "created_at": "<iso8601 utc>",
-  "origin_id": "<the meeting that triggered the CTA>",
-  "origin_type": "meeting",
-  "participants": [],
-  "owner": null,
-  "deadline": null,
-  "project": null,
-  "project_id": null,
-  "permanence_override": null,
-  "permanence_override_source": null,
-  "connections": [],
-  "metadata": {
-    "is_synthetic": true,
-    "cta_kind": "free_within_quota_footer" | "free_no_quota_only",
-    "action": "open_paywall"
-  }
-}
-```
+### Upsell copy (gate/teaser lane)
 
-iOS detects the upsell card via `metadata.is_synthetic == true` and
-routes taps via `metadata.action`. Real CQ facts have no `metadata`
-field, so the check is unambiguous.
+The free-Memory upsell strings are served, not baked: they live in
+`feature_definitions.context_quilt.cta_strings` in `config/remote/
+tiers.json` and its `.es` / `.fr` / `.ja` locale files (with
+`config/features.yml` as the compiled English fallback), alongside
+`upgrade_cta` and `teaser_description`. The client renders them through
+the existing gate/teaser lane, which already fires impressions
+(promo_events, the 2026-08-04 feature-gate CTA telemetry). Two copy
+states exist and keep their names:
 
-The flag clears after one fetch — refreshing the view does not
-re-surface the card.
-
-### CTA copy
-
-Templates live in `config/features.yml ▸ context_quilt ▸ cta_strings`.
-Template variables: `{remaining}`, `{total}` (only `{total}` is used in
-v1 since both variants are about exhausted/low quota).
-
-| `cta_kind` | Default English copy |
+| `cta_kind` | Meaning |
 |---|---|
-| `free_within_quota_footer` | "✨ This was your free Memory of {total} this month — Upgrade to Pro to keep building Memory." |
-| `free_no_quota_only` | "✨ Want your AI to remember meetings? Upgrade to Pro to start building Memory." |
+| `free_within_quota_footer` | Free user, this month's free capture just ran |
+| `free_no_quota_only` | Free user over quota; capture skipped |
 
-iOS detects the upsell card via `metadata.is_synthetic == true` and/or
-`metadata.action == "open_paywall"`. iOS may render the card identically
-to a real Memory (highest visual integration) or apply a subtle
-treatment — GP is agnostic.
-
-## Localization (deferred to v2)
-
-V1 reads `cta_strings` only from `features.yml` (English source of truth).
-A follow-up PR will mirror the strings into the locale-specific
-`feature_definitions.context_quilt` blocks in `config/remote/tiers.es.json`
-and `config/remote/tiers.ja.json` and add a locale-aware loader on the
-proxy interceptor.
+Copy changes are config-only and never need a GP code change or an SS
+build (doc 17's rule applied to gate copy: strings that describe what a
+plan withholds stay served).
 
 ## Quota counter behavior
 
@@ -135,18 +111,19 @@ proxy interceptor.
 - Unit: `tests/test_memory_capture_quota.py` — period rollover, exhaustion,
   unlimited, null-period.
 - Integration: `tests/integration/test_memory_capture_gating.py` — Pro
-  unconditional capture, Free within-quota fires + decrements + stamps,
-  Free over-quota skips capture but stamps, quilt fetch injects + clears,
-  Pro quilt fetch is pass-through.
+  unconditional capture, Free within-quota fires + decrements (no
+  stamp), Free over-quota skips capture (no stamp), quilt fetch is a
+  pure passthrough even for a user carrying a legacy pre-retirement
+  stamp.
 
 ## Test plan (TestFlight, manual)
 
 - Free user, first meeting of the month: capture fires → quilt view shows
-  real Memories *plus* the within-quota footer card. Refresh: card gone,
-  Memories remain.
-- Free user, second meeting same month: capture skipped → quilt view shows
-  only the no-quota CTA card. Tapping the card opens the paywall.
-- Pro user: no CTA card on quilt fetch. Memories appear as today.
+  real Memories; the gate/teaser lane surfaces the within-quota copy.
+- Free user, second meeting same month: capture skipped → no new
+  Memories; the gate/teaser lane surfaces the no-quota copy, and its CTA
+  opens the paywall.
+- Pro user: Memories appear as today; no upsell surfaces.
 - Plus user: no Memories produced from end-of-meeting capture (recall on
   chat path still works).
 - Cross-month: roll the device clock forward → next capture acts as if
