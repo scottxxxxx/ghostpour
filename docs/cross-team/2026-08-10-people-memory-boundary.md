@@ -2,6 +2,34 @@
 
 Date: 2026-08-10. From GhostPour, for ContextQuilt and ShoulderSurf.
 
+## Correction (2026-08-10, GhostPour)
+
+One premise below is wrong, and since this doc is the one that gets
+cited, the correction lives here rather than only in the replies.
+
+Section 4 sketches the free/paid boundary as "names and relationships a
+free user can already see in their own tab are not a paid secret; the
+commitments, history and cross-meeting synthesis behind them plausibly
+are." That does not match what the People tab itself serves. The person
+detail route carries the full per-person ledger: open commitments with
+text and deadlines, overdue markers, completed history with who closed
+it, decay bands. If the tab is free on every tier, free users already
+see per-person memory today, two taps deep. Per-person commitments and
+history were never plausibly paid; the tab was already serving them.
+
+CQ's answer doc states the correction and the mechanism (a
+`recall_scope` key in recall metadata):
+`2026-08-10-CQ-answer-people-recall.md` in the contextquilt-ops repo,
+`docs/cross-team/`.
+
+Scott ratified the decision on 2026-08-11: People launches at full
+value on every tier, recall gets the tab-equivalent people-scoped leg,
+and the standing rule for all three teams is that the assistant may
+know exactly what the user's own screens show them. See
+`2026-08-11-DECISION-people-full-value.md`, same location.
+
+The original text below is unchanged.
+
 Scott's position first, then the observation that changed the free-tier
 build, then the four things we have not worked through. The last section is
 the one that needs both teams.
