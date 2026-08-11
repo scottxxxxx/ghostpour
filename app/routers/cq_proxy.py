@@ -1032,6 +1032,37 @@ async def confirm_person(
         query=request.url.query or None)
 
 
+@router.post("/people/{user_id}/{entity_id}/rename")
+async def rename_person(
+    user_id: str,
+    entity_id: str,
+    request: Request,
+    body: dict | None = None,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Proxy: change a person's display name.
+
+    CQ has served this and we did not carry it, which is the uncomplete
+    failure shape exactly: every device call 404s here while CQ's own
+    socket answers 200. Found while pinning the people surface for
+    not-a-person.
+
+    A display-name update, not an identity operation: CQ keeps the
+    entity_id, turns the old name into an alias so recall still matches
+    it and future transcripts resolve to the same person, rewrites the
+    person's active patches to the new name (rides the next delta), and
+    vouches for the person, same reasoning as merge. The body is
+    {"name": ..., "source": ...} and CQ owns the shape, so it forwards
+    verbatim. Status codes pass through unchanged; the one worth knowing
+    is 409 NAME_TAKEN, which means the new name already belongs to
+    another person. That is a merge question, not something to retry."""
+    await _require_people(request, user, user_id)
+    return await _cq_proxy(
+        "POST", f"/v1/people/{_subj(request, user_id)}/{entity_id}/rename", body=body,
+        query=request.url.query or None)
+
+
 @router.post("/people/{user_id}/{entity_id}/not-a-person")
 async def mark_not_a_person(
     user_id: str,
