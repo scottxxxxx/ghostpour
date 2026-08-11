@@ -1059,6 +1059,39 @@ async def create_person(
         query=request.url.query or None)
 
 
+@router.get("/people/{user_id}/network")
+async def get_people_network(
+    user_id: str,
+    request: Request,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Proxy: fetch the user's relationship network graph (design 13b).
+
+    Carried BEFORE CQ's side deploys (their PR is open, not yet merged),
+    per the standing rule uncomplete taught: routes are additive only at
+    the gateway, so GP goes first, and a 404 from this path until CQ
+    ships is upstream's answer passing through, not a route-table miss
+    here.
+
+    Response is a JSON envelope ({"version", "computed_at", "caps",
+    "nodes", "edges", "clusters", "positions"}); CQ owns the shape and
+    it passes through unmodified. computed_at can be an explicit null
+    (not yet computed), which is a real answer, never a key to strip.
+    Gated exactly like the sibling people reads: _require_people runs
+    before any upstream call, same free People lane, no new entitlement
+    mapping. The route takes no query parameters and forwards none.
+
+    Declared before GET /people/{user_id}/{entity_id} so `network` is a
+    literal segment, not an entity_id. Today both would build the same
+    upstream path by accident; the ordering keeps that an intent, not a
+    coincidence, when either route changes.
+    """
+    await _require_people(request, user, user_id)
+    return await _cq_proxy(
+        "GET", f"/v1/people/{_subj(request, user_id)}/network")
+
+
 @router.get("/people/{user_id}/{entity_id}")
 async def get_person(
     user_id: str,

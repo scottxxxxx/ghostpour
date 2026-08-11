@@ -340,6 +340,110 @@ class TestQuiltProxy:
         assert resp.status_code == 403
 
 
+class TestPeopleNetworkProxy:
+    """GET /v1/people/{user_id}/network, carried ahead of CQ's deploy.
+
+    Same discipline as the insights carry: the body is CQ's, byte-clean
+    through the proxy, and the interim upstream 404 is pinned as the
+    correct answer until their side ships."""
+
+    def _mock_upstream(self, mock_resp):
+        instance = AsyncMock()
+        instance.__aenter__ = AsyncMock(return_value=instance)
+        instance.__aexit__ = AsyncMock(return_value=False)
+        instance.request = AsyncMock(return_value=mock_resp)
+        return instance
+
+    def test_network_envelope_passes_through_clean(self, client_with_cq, pro_user):
+        """The full envelope, value for value, including a key CQ has not
+        invented yet. The doc 16 lesson: the gateway must not need a
+        deploy for CQ to add a field, so an unknown future key has to
+        survive the trip untouched."""
+        payload = {
+            "version": 1,
+            "computed_at": "2026-08-11T09:00:00Z",
+            "caps": {"max_nodes": 60},
+            "nodes": [{"entity_id": "ent-1", "name": "Dana", "cluster": "c1"}],
+            "edges": [{"a": "ent-1", "b": "ent-2", "weight": 3}],
+            "clusters": [{"id": "c1", "label": "Q3 Planning"}],
+            "positions": {"ent-1": [0.1, 0.9]},
+            "unknown_future_key": {"nested": True},
+        }
+        mock_resp = httpx.Response(
+            status_code=200,
+            json=payload,
+            request=httpx.Request("GET", "http://cq-mock/v1/people/test/network"),
+        )
+        with patch("app.services.context_quilt._get_auth_headers", new_callable=AsyncMock, return_value={"Authorization": "Bearer mock"}), \
+             patch("httpx.AsyncClient") as MockClient:
+            MockClient.return_value = self._mock_upstream(mock_resp)
+            resp = client_with_cq.get(
+                f"/v1/people/{pro_user['user_id']}/network",
+                headers=pro_user["headers"],
+            )
+        assert resp.status_code == 200
+        assert resp.json() == payload
+        called_path = MockClient.return_value.request.call_args.args[1]
+        assert called_path == f"/v1/people/{pro_user['user_id']}/network"
+
+    def test_network_null_computed_at_survives(self, client_with_cq, pro_user):
+        """computed_at: null is a real answer (no graph computed yet),
+        not a key to strip. Per the doc 16 lesson, null and absent are
+        different claims, and the client must receive the null."""
+        payload = {
+            "version": 1,
+            "computed_at": None,
+            "caps": {},
+            "nodes": [],
+            "edges": [],
+            "clusters": [],
+            "positions": {},
+        }
+        mock_resp = httpx.Response(
+            status_code=200,
+            json=payload,
+            request=httpx.Request("GET", "http://cq-mock/v1/people/test/network"),
+        )
+        with patch("app.services.context_quilt._get_auth_headers", new_callable=AsyncMock, return_value={"Authorization": "Bearer mock"}), \
+             patch("httpx.AsyncClient") as MockClient:
+            MockClient.return_value = self._mock_upstream(mock_resp)
+            resp = client_with_cq.get(
+                f"/v1/people/{pro_user['user_id']}/network",
+                headers=pro_user["headers"],
+            )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "computed_at" in body
+        assert body["computed_at"] is None
+
+    def test_network_upstream_404_passes_through(self, client_with_cq, pro_user):
+        """Until CQ's side deploys, CQ answers 404 on this path. That
+        status must reach the client as CQ's answer, which is exactly why
+        carrying the route first is safe: 404-from-upstream and
+        404-from-a-missing-route look identical to a device, but only the
+        first one fixes itself when CQ ships."""
+        mock_resp = httpx.Response(
+            status_code=404,
+            json={"detail": "Not Found"},
+            request=httpx.Request("GET", "http://cq-mock/v1/people/test/network"),
+        )
+        with patch("app.services.context_quilt._get_auth_headers", new_callable=AsyncMock, return_value={"Authorization": "Bearer mock"}), \
+             patch("httpx.AsyncClient") as MockClient:
+            MockClient.return_value = self._mock_upstream(mock_resp)
+            resp = client_with_cq.get(
+                f"/v1/people/{pro_user['user_id']}/network",
+                headers=pro_user["headers"],
+            )
+        assert resp.status_code == 404
+
+    def test_network_cross_user_forbidden(self, client_with_cq, pro_user):
+        resp = client_with_cq.get(
+            "/v1/people/someone-else/network",
+            headers=pro_user["headers"],
+        )
+        assert resp.status_code == 403
+
+
 class TestReassignSpeaker:
     def test_reassign_speaker_to_self_proxied(self, client_with_cq, pro_user):
         """POST /v1/quilt/{user_id}/reassign-speaker (to_self) proxies to CQ verbatim."""
