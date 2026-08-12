@@ -1,17 +1,23 @@
-"""S-Curve sheet: cumulative planned work against reported progress.
+"""Progress sheet: reported progress from meetings against the plan.
 
-Three series that are deliberately not the same kind of thing:
+Series that are deliberately not the same kind of thing:
 
-  Baseline  what the FIRST plan version said, static, because editing
-            today's dates must not rewrite what was promised.
-  Planned   what the CURRENT plan says, live formulas over the Gantt
-            View's own date cells so it redraws like the bars do.
+  First plan (baseline)  what the FIRST plan version said, static,
+            because editing today's dates must not rewrite what was
+            promised.
+  Current plan  what the CURRENT plan says, live formulas over the Gantt
+            View's own date cells so it redraws like the bars do. Solid
+            up to the data date, dashed past it.
   Reported  duration-weighted percent complete as of each meeting, held
-            flat in between because that is genuinely all we know.
+            flat in between because that is genuinely all we know, and
+            stopped at the data date (the last meeting that reported):
+            actuals never render for weeks that have not reported.
 
-All three are weighted by working days counted inclusively, matching
-Excel's NETWORKDAYS, so the Python-computed history and the live formulas
-weight the same work the same way.
+All weighted by working days counted inclusively, matching Excel's
+NETWORKDAYS, so the Python-computed history and the live formulas weight
+the same work the same way. Reframed per the 2026-08-11 PM review: this
+is a meeting-derived progress curve, not an EVM S-curve, and the sheet
+says so.
 """
 
 from __future__ import annotations
@@ -111,30 +117,63 @@ def test_planned_share_walks_from_zero_to_one():
 # --- the sheet ------------------------------------------------------------
 
 def test_sheet_is_added_to_the_detailed_style_only():
-    assert _book().sheetnames == ["Gantt View", "Slip", "Receipts", "S-Curve"]
+    # tab says "Progress", not "S-Curve": the tab name is a claim too
+    assert _book().sheetnames == ["Gantt View", "Slip", "Receipts", "Progress"]
     simple = openpyxl.load_workbook(io.BytesIO(
         render_gantt(_PLAN, today=D("2026-07-27"))))
     assert simple.sheetnames == ["Gantt View"]
 
 
+def test_title_and_labels_do_not_claim_an_evm_s_curve():
+    sc = _book()["Progress"]
+    assert sc["A1"].value == "Reported progress (from meetings)"
+    assert sc.cell(5, 2).value == "First plan (baseline)"
+    assert "planned only" in str(sc.cell(5, 4).value)
+    assert "not an earned-value S-curve" in str(sc["A2"].value)
+    # proper sentence, not a colon splice (PM review round two)
+    assert ("stops at the data date. The vertical line marks the last "
+            "meeting that reported progress." in str(sc["A2"].value))
+
+
+def test_the_notes_fit_their_rows_and_anchor_to_the_top():
+    """A merged cell never auto-grows its row, and the default bottom
+    anchor means an undersized row shows only the LAST lines of a wrapped
+    note: the printed sheet opened mid sentence (PM review round two)."""
+    sc = _book()["Progress"]
+    assert sc.row_dimensions[2].height >= 80
+    for r in (2, 3, 4):
+        assert sc.cell(r, 1).alignment.vertical == "top", f"row {r}"
+
+
+def test_the_progress_sheet_prints_as_one_page():
+    """Default pagination sliced the chart across page boundaries in the
+    PDF export, which is exactly how a steering meeting sees it."""
+    sc = _book()["Progress"]
+    assert str(sc.print_area).endswith("$A$1:$V$28")
+    assert sc.page_setup.orientation == "landscape"
+    assert sc.page_setup.fitToWidth == 1
+    assert sc.page_setup.fitToHeight == 1
+    assert sc.sheet_properties.pageSetUpPr.fitToPage is True
+
+
 def test_planned_is_live_off_the_gantt_view_dates():
-    sc = _book()["S-Curve"]
-    f = sc.cell(5, 3).value
+    sc = _book()["Progress"]
+    f = sc.cell(6, 3).value
     assert isinstance(f, str) and f.startswith("=IFERROR(")
     assert "'Gantt View'!$E" in f and "NETWORKDAYS" in f, f
-    assert "$H$1" in f, "shares one live denominator"
+    assert "$J$1" in f, "shares one live denominator"
 
 
 def test_baseline_is_static_history_not_a_formula():
-    sc = _book()["S-Curve"]
-    v = sc.cell(5, 2).value
+    sc = _book()["Progress"]
+    v = sc.cell(6, 2).value
     assert isinstance(v, float), "editing today's plan must not rewrite it"
     assert 0 <= v <= 1
 
 
 def test_reported_holds_flat_between_meetings_and_is_blank_before_the_first():
-    sc = _book()["S-Curve"]
-    col = [sc.cell(r, 4).value for r in range(5, 5 + 5)]
+    sc = _book()["Progress"]
+    col = [sc.cell(r, 5).value for r in range(6, 6 + 5)]
     assert col[0] is None, "nothing reported before the first meeting we have"
     # Every point divides by the CURRENT plan's 20 scheduled working days,
     # never by the version's own scope. At the 2026-07-13 meeting 3 days
@@ -143,6 +182,52 @@ def test_reported_holds_flat_between_meetings_and_is_blank_before_the_first():
     assert col[1] == pytest.approx(0.15)
     assert col[2] == pytest.approx(0.15), "held flat, never interpolated"
     assert col[3] == pytest.approx(0.5)
+
+
+def test_reported_stops_at_the_data_date():
+    """PM review 2026-08-11: the line used to carry the last value flat
+    into future weeks, rendering actuals for weeks that never reported.
+    The data date here is 2026-07-27, whose week ends Jul 31; the Aug 7
+    week is in the future and must be blank."""
+    sc = _book()["Progress"]
+    assert sc.cell(9, 5).value == pytest.approx(0.5), "last reported week"
+    assert sc.cell(10, 5).value is None, "no actuals past the data date"
+
+
+def test_the_plan_past_the_data_date_is_its_own_dashed_series():
+    sc = _book()["Progress"]
+    # solid current plan runs up to the data date week and stops
+    assert isinstance(sc.cell(9, 3).value, str)
+    assert sc.cell(10, 3).value is None
+    # the dashed continuation shares the data date week (connected line)
+    # and carries the future weeks, still as live formulas
+    assert isinstance(sc.cell(9, 4).value, str)
+    assert isinstance(sc.cell(10, 4).value, str)
+    assert sc.cell(6, 4).value is None, "nothing left of the data date"
+
+
+def test_the_data_date_marker_stands_on_the_data_date_week():
+    sc = _book()["Progress"]
+    col = [sc.cell(r, 7).value for r in range(6, 6 + 5)]
+    assert col == [None, None, None, 1.0, None], col
+    ch = sc._charts[0]
+    dd = ch.series[5]
+    assert dd.errBars is not None, "the vertical line is a y error bar"
+    assert dd.errBars.errBarType == "minus"
+    assert dd.errBars.val == 1.0, "drops the full axis height"
+    assert dd.graphicalProperties.line.noFill is True
+
+
+def test_the_coverage_line_counts_dates_on_the_source_activities():
+    undated = {**_PLAN, "tasks": _PLAN["tasks"] + [
+        {"id": 8, "name": "Vendor signature", "type": "task", "parent_id": 1,
+         "owner": None, "status": "not_started", "start": None, "end": None,
+         "depends_on": []}]}
+    sc = openpyxl.load_workbook(io.BytesIO(render_gantt_detailed(
+        undated, today=D("2026-07-27"), history=_HISTORY)))["Progress"]
+    assert "dates on 3 of 4 activities" in str(sc["A4"].value)
+    fully = _book()["Progress"]
+    assert "dates on 3 of 3 activities" in str(fully["A4"].value)
 
 
 def test_growing_scope_never_pushes_reported_backwards():
@@ -158,34 +243,36 @@ def test_growing_scope_never_pushes_reported_backwards():
          "owner": None, "status": "not_started", "start": "2026-07-27",
          "end": "2026-08-07", "depends_on": []}]}
     sc = openpyxl.load_workbook(io.BytesIO(render_gantt_detailed(
-        grown, today=D("2026-07-27"), history=_HISTORY)))["S-Curve"]
-    seen = [sc.cell(r, 4).value for r in range(5, 20)]
+        grown, today=D("2026-07-27"), history=_HISTORY)))["Progress"]
+    seen = [sc.cell(r, 5).value for r in range(6, 21)]
     seen = [v for v in seen if v is not None]
     assert seen == sorted(seen), f"reported went backwards: {seen}"
 
 
 def test_a_first_ever_plan_says_why_the_baseline_is_missing():
-    sc = _book(history=None)["S-Curve"]
-    assert sc.cell(5, 2).value is None
+    sc = _book(history=None)["Progress"]
+    assert sc.cell(6, 2).value is None
     text = " ".join(str(sc.cell(r, 1).value or "") for r in range(1, sc.max_row + 1))
     assert "second plan version" in text
 
 
-def test_chart_exists_with_all_three_series():
-    sc = _book()["S-Curve"]
+def test_chart_exists_with_all_series():
+    sc = _book()["Progress"]
     assert len(sc._charts) == 1
-    # three lines plus the marker-only series that dots the weeks a
-    # meeting actually happened in (2026-07-30 review pass)
-    assert len(sc._charts[0].series) == 4
-    assert sc._charts[0].series[3].marker.symbol == "circle"
+    # baseline, current plan, its dashed continuation past the data date,
+    # reported, the meeting dots, and the data date marker
+    assert len(sc._charts[0].series) == 6
+    assert sc._charts[0].series[4].marker.symbol == "circle"
 
 
 def test_header_explains_which_lines_move_and_which_do_not():
-    sc = _book()["S-Curve"]
+    sc = _book()["Progress"]
     note = str(sc["A2"].value)
     assert "never moves" in note
     assert "redraws" in note
     assert "held flat" in note
+    assert "stops at the data date" in note
+    assert "plan only" in note
 
 
 # --- behavior, via a real formula engine ----------------------------------
@@ -207,25 +294,28 @@ def test_recalculated_planned_curve_matches_hand_computed_shares(tmp_path):
          str(src), "--outdir", str(out)],
         check=True, capture_output=True, timeout=240,
     )
-    sc = openpyxl.load_workbook(out / "curve.xlsx", data_only=True)["S-Curve"]
-    assert sc["H1"].value == 20, "total scheduled working days"
-    planned = [sc.cell(r, 3).value for r in range(5, 9)]
+    sc = openpyxl.load_workbook(out / "curve.xlsx", data_only=True)["Progress"]
+    assert sc["J1"].value == 20, "total scheduled working days"
+    planned = [sc.cell(r, 3).value for r in range(6, 10)]
     assert planned == pytest.approx([0.25, 0.5, 0.75, 1.0])
+    # the dashed continuation past the data date computes the same shares
+    assert sc.cell(9, 4).value == pytest.approx(1.0)
+    assert sc.cell(10, 4).value == pytest.approx(1.0)
     # the baseline plan was a different shape, which is the whole point
-    assert sc.cell(5, 2).value == pytest.approx(5 / 18)
+    assert sc.cell(6, 2).value == pytest.approx(5 / 18)
 
 
 def test_the_chart_is_readable_not_just_correct():
     """Fixes from Scott's 2026-07-31 screenshot: the axis had exploded into
     one tick per DAY (44 labels for 7 points) because the categories were
     real dates, which also shoved the axis title on top of the labels."""
-    sc = _book()["S-Curve"]
+    sc = _book()["Progress"]
     # categories are text labels, in a VISIBLE column: a chart cannot plot
     # categories out of a hidden column, which is why the live dates moved
     # to the hidden helper instead of the other way round
-    assert sc.cell(5, 1).value == "Jul 10"   # first week in this fixture
+    assert sc.cell(6, 1).value == "Jul 10"   # first week in this fixture
     assert sc.column_dimensions["A"].hidden is False
-    assert sc.column_dimensions["H"].hidden is True
+    assert sc.column_dimensions["J"].hidden is True
     ch = sc._charts[0]
     assert ch.title is None, "the sheet header already names it"
     assert ch.x_axis.title is None and ch.y_axis.title is None
@@ -234,12 +324,17 @@ def test_the_chart_is_readable_not_just_correct():
     # with the date labels in Excel (2026-07-31)
     assert ch.legend.position == "r"
     assert ch.x_axis.txPr is not None, "axis text needs its own size"
-    # three identities, three validated hues, baseline dashed
+    # three identities, three validated hues; the plan keeps one hue
+    # across its solid and dashed halves
     hexes = [s.graphicalProperties.line.solidFill.srgbClr
-             for s in ch.series[:3]]
-    assert hexes == ["B5651D", "1F4E9C", "2E9E4F"]
+             for s in ch.series[:4]]
+    assert hexes == ["B5651D", "1F4E9C", "1F4E9C", "2E9E4F"]
     assert ch.series[0].graphicalProperties.line.dashStyle == "dash"
-    assert all(s.smooth is False for s in ch.series[:3]), "no invented curve"
+    assert ch.series[2].graphicalProperties.line.dashStyle == "dash", \
+        "right of the data date is plan only and renders dashed"
+    assert ch.series[1].graphicalProperties.line.dashStyle in (None, "solid")
+    assert ch.series[3].graphicalProperties.line.dashStyle in (None, "solid")
+    assert all(s.smooth is False for s in ch.series[:4]), "no invented curve"
 
 
 def _legend_of(plan, history=None):
@@ -248,16 +343,33 @@ def _legend_of(plan, history=None):
     from app.services.doc_templates import render_gantt_detailed
     wb = openpyxl.load_workbook(io.BytesIO(render_gantt_detailed(
         plan, today=D("2026-07-27"), history=history)))
-    return wb["S-Curve"]._charts[0].legend
+    return wb["Progress"]._charts[0].legend
 
 
 def test_legend_takes_the_bottom_right_when_the_project_finishes_high():
-    """Scott 2026-08-01: the lines ran through the legend. An S-curve climbs
-    left to right, so the empty corner depends on the shape."""
-    lg = _legend_of(_PLAN, _HISTORY)
+    """Scott 2026-08-01: the lines ran through the legend. The curves climb
+    left to right, so the empty corner depends on the shape. The plan here
+    runs well past the data date so the vertical marker sits mid plot and
+    the bottom right corner is genuinely free."""
+    longer = {**_PLAN, "tasks": _PLAN["tasks"] + [
+        {"id": 5, "name": "E", "type": "task", "parent_id": 1, "owner": None,
+         "status": "not_started", "start": "2026-08-10", "end": "2026-08-21",
+         "depends_on": []}]}
+    lg = _legend_of(longer, _HISTORY)
     assert lg.overlay is True
     assert lg.layout.manualLayout.x == 0.70
     assert lg.layout.manualLayout.y == 0.52
+
+
+def test_the_data_date_marker_evicts_the_legend_from_its_corner():
+    """The vertical marker runs the full plot height, so a corner it
+    passes through is occupied ink even when every curve avoids it. In
+    this fixture the data date week sits at the right of the plot, where
+    the bottom right corner used to win."""
+    lg = _legend_of(_PLAN, _HISTORY)
+    assert lg.overlay is True
+    assert lg.layout.manualLayout.x == 0.14, "top left instead"
+    assert lg.layout.manualLayout.y == 0.08
 
 
 def test_a_struggling_project_moves_the_legend_to_the_top_left():

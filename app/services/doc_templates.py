@@ -154,7 +154,8 @@ def render_gantt(data: dict, *, today: date | None = None,
     """Deterministic Smartsheet-style Gantt from extracted plan JSON.
     `history` is accepted for renderer-signature parity (the template
     lane passes it to every renderer) and unused by the simple style."""
-    wb, _ = _build_gantt_wb(_with_workdays(data), today=today)
+    wb, _ = _build_gantt_wb(_split_undated(_with_workdays(data)),
+                            today=today)
     return _serialize_wb(wb)
 
 
@@ -231,6 +232,33 @@ def _with_workdays(data: dict) -> dict:
         t["start"], t["end"] = s.isoformat(), e.isoformat()
         tasks.append(t)
     return {**data, "tasks": tasks}
+
+
+def _split_undated(data: dict) -> dict:
+    """Date coverage honesty (PM review 2026-08-11): an activity the
+    meetings never dated cannot sit on a timeline, and before this pass it
+    took the whole render down instead (the axis min() raised on its
+    dates). Undated work is now counted and disclosed as "dates on N of M
+    activities" rather than drawn, so the gap stays visible instead of
+    hidden. Applied at the renderer entry points, after _with_workdays,
+    which deliberately passes unparseable dates through untouched."""
+    kept: list[dict] = []
+    real_total = real_dated = 0
+    for t in (data.get("tasks") or []):
+        real = t.get("type") != "phase"
+        try:
+            _d(t["start"]), _d(t["end"])
+        except (KeyError, ValueError, TypeError):
+            if real:
+                real_total += 1
+            logger.info("gantt_undated_activity name=%r", t.get("name"))
+            continue
+        if real:
+            real_total += 1
+            real_dated += 1
+        kept.append(t)
+    return {**data, "tasks": kept,
+            "_date_coverage": (real_dated, real_total)}
 
 
 def _build_gantt_wb(data: dict, *, today: date | None = None,
@@ -331,6 +359,12 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
     _bits = [f"As of the {data.get('meeting_date') or today.isoformat()} "
              f"standup", f"generated {today.isoformat()}",
              f"{len(_real)} tasks"]
+    # date coverage on the export itself (PM review 2026-08-11): an
+    # activity nobody dated is not on the timeline, and the reader must
+    # see that from the sheet, never discover it later
+    _cov = data.get("_date_coverage")
+    if _cov and _cov[0] < _cov[1]:
+        _bits.append(f"dates on {_cov[0]} of {_cov[1]} activities")
     if _overall is not None:
         _bits.append(f"{_overall}% complete overall")
     # "At risk" is evaluated LIVE against today, not against the meeting the
@@ -1169,32 +1203,44 @@ def _compute_slip(tasks: list[dict], history: list[dict],
 
 def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
                         layout: dict, today: date) -> None:
-    """S-Curve: cumulative planned work against progress actually reported.
+    """Progress sheet: reported progress from meetings against the plan.
 
-    Three series, and they are not all the same kind of thing, which the
-    sheet says out loud rather than blurring:
+    Retitled and reframed after a professional PM reviewed a live export
+    (2026-08-11, validated against earned-value convention): this is a
+    meeting-derived progress curve, NOT a time-phased planned-value
+    S-curve, and the labeling must not overpromise. The series:
 
-      Baseline  where the FIRST plan version said the work would be by
-                each week. Static: it is what was promised, and editing
-                today's dates must not rewrite it. Absent until a project
-                has a second meeting.
-      Planned   where the CURRENT plan puts it. Live formulas over the
-                Gantt View's own date cells, so it re-draws when you push
-                a task, exactly like the bars do.
+      First plan (baseline)  where the FIRST plan version said the work
+                would be by each week. Static: it is what was promised,
+                and editing today's dates must not rewrite it. Absent
+                until a project has a second meeting.
+      Current plan  where the CURRENT plan puts it. Live formulas over
+                the Gantt View's own date cells, so it re-draws when you
+                push a task, exactly like the bars do. Solid up to the
+                data date, dashed past it, because right of the data date
+                nothing has reported and the line is plan only.
       Reported  duration-weighted percent complete as of each meeting,
                 using the same rule as the phase rollups: the stated
                 percent when somebody said one, 100 when Complete, 0
                 otherwise. Held flat between meetings because that is
-                genuinely all we know; it is not interpolated.
+                genuinely all we know, and STOPPED at the data date (the
+                last meeting that reported progress): carrying it further
+                would render actuals for weeks that have not reported.
 
-    Everything is weighted by working days, counted inclusively so the
-    Python-computed history and the live NETWORKDAYS formulas agree.
+    A vertical marker stands on the data date, and the sheet carries a
+    date-coverage line ("dates on N of M activities") so undated work is
+    visible instead of silently missing. Everything is weighted by
+    working days, counted inclusively so the Python-computed history and
+    the live NETWORKDAYS formulas agree.
     """
     from openpyxl.chart import LineChart, Reference
     import copy
 
+    from openpyxl.chart.error_bar import ErrorBars
     from openpyxl.chart.marker import Marker
+    from openpyxl.chart.shapes import GraphicalProperties
     from openpyxl.chart.text import RichText
+    from openpyxl.drawing.line import LineProperties
     from openpyxl.drawing.text import (
         CharacterProperties,
         Paragraph,
@@ -1214,9 +1260,11 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
     if not rows:
         return
 
-    sc = wb.create_sheet("S-Curve")
+    # "Progress", not "S-Curve": the tab name is a claim too, and this
+    # sheet is not an EVM S-curve (PM review 2026-08-11)
+    sc = wb.create_sheet("Progress")
     navy = "1F3A5F"
-    sc["A1"] = "S-Curve, planned work against reported progress"
+    sc["A1"] = "Reported progress (from meetings)"
     sc["A1"].font = Font(bold=True, size=13, color="FF" + navy)
     # What the weighting is actually based on, said out loud. Every series
     # here weighs a task by its scheduled working days, which is a proxy for
@@ -1226,45 +1274,75 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
     _real = [t for t in tasks if t.get("type") not in ("phase", "milestone")]
     _stated = sum(1 for t in _real
                   if isinstance(t.get("effort"), str) and t["effort"].strip())
-    sc["A2"] = ("Baseline is the first plan version and never moves. Planned "
-                "follows the dates on the Gantt View and redraws when you "
-                "edit them. Reported is % complete as of each meeting, held "
-                "flat in between because that is all the meetings said; the "
-                "dots are the meetings themselves. Every point is "
-                "measured against the plan as it stands today, so "
-                "adding scope raises what is left rather than "
-                "pushing the line back down.")
+    # Rows 2-4 are merged wrapped notes: give each row enough height for
+    # its whole text and anchor the text to the TOP. A merged cell never
+    # auto-grows its row, and the default bottom anchor made an undersized
+    # row show only its LAST lines, so the printed sheet opened the note
+    # mid sentence (PM review round two, 2026-08-12).
+    sc["A2"] = ("Baseline is the first plan version and never moves. "
+                "Current plan follows the dates on the Gantt View and "
+                "redraws when you edit them. Reported is % complete as of "
+                "each meeting, held flat between meetings because that is "
+                "all the meetings said, and it stops at the data date. "
+                "The vertical line marks the last meeting that reported "
+                "progress. Right of that line nothing has reported yet, so "
+                "the chart shows plan only, drawn dashed. The dots are the "
+                "meetings themselves. This is a meeting-derived progress "
+                "curve measured against the plan as it stands today, not "
+                "an earned-value S-curve, so adding scope raises what is "
+                "left rather than pushing the line back down.")
     sc["A2"].font = Font(size=9, color="FF666666", italic=True)
-    sc["A2"].alignment = Alignment(wrap_text=True)
-    sc.merge_cells("A2:F2")
-    sc.row_dimensions[2].height = 30
+    sc["A2"].alignment = Alignment(wrap_text=True, vertical="top")
+    sc.merge_cells("A2:G2")
+    sc.row_dimensions[2].height = 80
     sc["A3"] = (
         f"Weighting: every task counts for its scheduled working days, "
         f"which stands in for size. {_stated} of {len(_real)} tasks had an "
         f"effort figure stated in a meeting; none of the numbers here are "
         f"weighted by it.")
     sc["A3"].font = Font(size=8, color="FF9AA4AF", italic=True)
-    sc["A3"].alignment = Alignment(wrap_text=True)
-    sc.merge_cells("A3:F3")
+    sc["A3"].alignment = Alignment(wrap_text=True, vertical="top")
+    sc.merge_cells("A3:G3")
+    sc.row_dimensions[3].height = 26
+    # date coverage, computed from the source activities and rendered on
+    # the export itself so an undated-activity gap is visible, never
+    # hidden (PM review 2026-08-11)
+    _dated_n, _total_n = (data.get("_date_coverage")
+                          or (len(_real), len(_real)))
+    _cov_line = f"Date coverage: dates on {_dated_n} of {_total_n} activities."
+    if _dated_n < _total_n:
+        _cov_line += (" Activities the meetings never dated are not on the "
+                      "timeline and not in these curves.")
+    sc["A4"] = _cov_line
+    sc["A4"].font = Font(size=8, italic=True, bold=_dated_n < _total_n,
+                         color="FF9A3412" if _dated_n < _total_n
+                         else "FF9AA4AF")
+    sc["A4"].alignment = Alignment(wrap_text=True, vertical="top")
+    sc.merge_cells("A4:G4")
+    sc.row_dimensions[4].height = 24
 
-    # total scheduled working days, live, so Planned is a real share
+    # total scheduled working days, live, so Current plan is a real share
     denom = "+".join(f"NETWORKDAYS('{gsheet}'!$E{r},'{gsheet}'!$F{r})"
                      for r in rows)
-    sc["H1"] = "=" + denom
-    sc.column_dimensions["H"].hidden = True
+    sc["J1"] = "=" + denom
+    sc.column_dimensions["J"].hidden = True
 
-    hdr = ["Week ending", "Baseline", "Planned", "Reported", "At a meeting"]
+    hdr = ["Week ending", "First plan (baseline)", "Current plan",
+           "Plan after data date (planned only)", "Reported (from meetings)",
+           "At a meeting", "Data date"]
     for c, h in enumerate(hdr, start=1):
-        cell = sc.cell(4, c, h)
+        cell = sc.cell(5, c, h)
         cell.font = Font(bold=True, size=9, color="FFFFFFFF")
         cell.fill = _solid("FF" + navy)
-        cell.alignment = Alignment(horizontal="center")
+        cell.alignment = Alignment(horizontal="center", wrap_text=True)
+    sc.row_dimensions[5].height = 34
     sc.column_dimensions["A"].width = 14
-    for col in "BCD":
-        sc.column_dimensions[col].width = 11
+    for col in "BCDEFG":
+        sc.column_dimensions[col].width = 12
 
     # Reported: one observation per plan version, then today's plan. Held
-    # flat forward; blank before the first meeting we have.
+    # flat between meetings, blank before the first meeting we have, and
+    # stopped at the data date.
     # ONE denominator for every point: the plan as it stands today. Earned
     # work is absolute, so adding scope raises what is left to do without
     # ever un-banking what was already done.
@@ -1282,10 +1360,20 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
                        _earned_days(data.get("tasks") or []) / _denom))
     stamps = sorted((d, v) for d, v in stamps if v is not None)
 
+    # The data date: the last meeting that reported progress. Reported and
+    # its flat carry stop here, because a value in a later week would be
+    # an actual for a week no meeting has reported (PM review 2026-08-11,
+    # earned-value convention). Right of it the chart is plan only.
+    data_date = stamps[-1][0] if stamps else None
+    dw_idx = None
+    if data_date is not None:
+        dw_idx = next((i for i, wk in enumerate(weeks) if wk >= data_date),
+                      len(weeks) - 1)
+
     base_tasks = (history or [{}])[0].get("tasks") if history else None
 
     for i, wk in enumerate(weeks):
-        r = 5 + i
+        r = 6 + i
         # Column A is the TEXT label the chart plots. A real date here makes
         # Excel build a date axis and label every day between the first and
         # last point: 44 ticks for 7 values, which crushed the labels and
@@ -1296,7 +1384,7 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
         dc = sc.cell(r, 1, wk.strftime("%b %-d"))
         dc.font = Font(size=8)
         dc.alignment = Alignment(horizontal="center")
-        hd = sc.cell(r, 8, wk)
+        hd = sc.cell(r, 10, wk)
         hd.number_format = "yyyy-mm-dd"
         if base_tasks:
             bv = _planned_share(base_tasks, wk)
@@ -1304,21 +1392,34 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
                 sc.cell(r, 2, bv).number_format = "0%"
         terms = "+".join(
             f"MAX(0,NETWORKDAYS('{gsheet}'!$E{rr},"
-            f"MIN('{gsheet}'!$F{rr},$H{r})))" for rr in rows)
-        pc = sc.cell(r, 3, f"=IFERROR(({terms})/$H$1,\"\")")
-        pc.number_format = "0%"
+            f"MIN('{gsheet}'!$F{rr},$J{r})))" for rr in rows)
+        pf = f"=IFERROR(({terms})/$J$1,\"\")"
+        # The current plan is ONE line with two rendering identities: solid
+        # up to the data date, dashed past it, split across two columns so
+        # the chart can style them apart. Both stay live formulas, and they
+        # share the data date week so the line stays connected.
+        if dw_idx is None or i <= dw_idx:
+            sc.cell(r, 3, pf).number_format = "0%"
+        if dw_idx is not None and dw_idx <= i and dw_idx < len(weeks) - 1:
+            sc.cell(r, 4, pf).number_format = "0%"
+        # Reported stops at the data date. The flat carry BETWEEN meetings
+        # before it stays: that is honest, it is all the meetings said.
         reported = [v for d, v in stamps if d <= wk]
-        if reported:
-            sc.cell(r, 4, reported[-1]).number_format = "0%"
+        if reported and dw_idx is not None and i <= dw_idx:
+            sc.cell(r, 5, reported[-1]).number_format = "0%"
         # The same value again, but ONLY in a week that actually contains a
-        # meeting. Plotted as markers with no line, it separates the four
+        # meeting. Plotted as markers with no line, it separates the
         # things we were told from the flat carry between them, which the
         # line alone cannot say.
         observed = [v for d, v in stamps if wk - timedelta(days=6) <= d <= wk]
         if observed:
-            sc.cell(r, 5, observed[-1]).number_format = "0%"
+            sc.cell(r, 6, observed[-1]).number_format = "0%"
+        # anchor for the vertical time-now marker: the series' y error bar
+        # drops from 100% to the axis at exactly this category
+        if dw_idx is not None and i == dw_idx:
+            sc.cell(r, 7, 1.0).number_format = "0%"
 
-    last = 4 + len(weeks)
+    last = 5 + len(weeks)
     chart = LineChart()
     # No chart title and no axis titles: A1 already names the sheet, the
     # header row already says "Week ending", and a percent axis needs no
@@ -1339,9 +1440,9 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
     chart.x_axis.numFmt = "mmm d"
     chart.x_axis.delete = False
     chart.y_axis.delete = False
-    chart.add_data(Reference(sc, min_col=2, max_col=5, min_row=4, max_row=last),
+    chart.add_data(Reference(sc, min_col=2, max_col=7, min_row=5, max_row=last),
                    titles_from_data=True)
-    chart.set_categories(Reference(sc, min_col=1, min_row=5, max_row=last))
+    chart.set_categories(Reference(sc, min_col=1, min_row=6, max_row=last))
     # Legend placement, chosen from the DATA rather than fixed (Scott
     # 2026-08-01, after the lines ran through it). An S-curve climbs left to
     # right, so the free corner depends on how the project is doing:
@@ -1353,17 +1454,27 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
     # them, so this reads the real shape rather than assuming one.
     _left_third = weeks[:max(1, len(weeks) // 3)]
     _right = weeks[-1]
+    _data_wk = weeks[dw_idx] if dw_idx is not None else None
     _series_at = lambda wk: [v for v in (
         _planned_share(base_tasks, wk) if base_tasks else None,
         _planned_share(data.get("tasks") or [], wk),
-        next((v for d, v in reversed(stamps) if d <= wk), None),
+        # Reported no longer extends past the data date, so it is not ink
+        # to dodge out there
+        (next((v for d, v in reversed(stamps) if d <= wk), None)
+         if _data_wk is not None and wk <= _data_wk else None),
     ) if v is not None]
     _right_min = min(_series_at(_right), default=0.0)
     _left_max = max((max(_series_at(wk), default=0.0) for wk in _left_third),
                     default=1.0)
-    if _right_min >= 0.45:
+    # The vertical data date marker is ink too: it runs the full plot
+    # height, so any corner it passes through is not free, whatever the
+    # curves are doing.
+    _dd_pos = ((dw_idx + 0.5) / len(weeks)) if dw_idx is not None else None
+    _clear = lambda x0, x1: (_dd_pos is None  # noqa: E731
+                             or not (x0 - 0.02 <= _dd_pos <= x1 + 0.02))
+    if _right_min >= 0.45 and _clear(0.70, 0.98):
         _corner = (0.70, 0.52, 0.28, 0.30)      # inside, bottom right
-    elif _left_max <= 0.55:
+    elif _left_max <= 0.55 and _clear(0.14, 0.42):
         _corner = (0.14, 0.08, 0.28, 0.30)      # inside, top left
     else:
         _corner = None                          # nowhere safe: outside right
@@ -1382,26 +1493,57 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
     chart.y_axis.txPr = copy.deepcopy(_axis_text)
     # Three identities, three hues, assigned in fixed order and validated for
     # colourblind separation rather than eyeballed. Baseline is the promise
-    # and is dashed because it never moves; Planned follows the sheet;
-    # Reported is what actually happened.
-    for ser, hexc in zip(chart.series, ("B5651D", "1F4E9C", "2E9E4F")):
+    # and is dashed because it never moves; Current plan follows the sheet,
+    # in one hue across both of its columns; Reported is what actually
+    # happened, and it ends at the data date.
+    for ser, hexc in zip(chart.series,
+                         ("B5651D", "1F4E9C", "1F4E9C", "2E9E4F")):
         ser.smooth = False
         ser.graphicalProperties.line.solidFill = hexc
         ser.graphicalProperties.line.width = 22000     # ~1.7pt
     chart.series[0].graphicalProperties.line.dashStyle = "dash"
+    # Right of the data date the current plan is planned work only, so it
+    # renders dashed in the same hue: same identity, no claim of actuals.
+    chart.series[2].graphicalProperties.line.dashStyle = "dash"
     # The meeting observations are the SAME entity as Reported, so they keep
     # its colour and carry identity by shape instead: dots, no line.
-    obs = chart.series[3]
+    obs = chart.series[4]
     obs.marker = Marker(symbol="circle", size=7)
     obs.graphicalProperties.line.noFill = True
     obs.marker.graphicalProperties.solidFill = "2E9E4F"
     obs.marker.graphicalProperties.line.solidFill = "2E9E4F"
-    sc.add_chart(chart, "G4")
+    # The time-now marker: a one point series at 100% over the data date
+    # week whose y error bar drops the full axis height, which draws the
+    # vertical line a category axis line chart cannot otherwise draw.
+    dd_ser = chart.series[5]
+    dd_ser.smooth = False
+    dd_ser.graphicalProperties.line.noFill = True
+    dd_ser.marker = Marker(symbol="dash", size=7)
+    dd_ser.marker.graphicalProperties.solidFill = "3D4653"
+    dd_ser.marker.graphicalProperties.line.solidFill = "3D4653"
+    dd_ser.errBars = ErrorBars(
+        errDir="y", errBarType="minus", errValType="fixedVal", val=1,
+        noEndCap=True,
+        spPr=GraphicalProperties(ln=LineProperties(solidFill="3D4653",
+                                                   w=12700)))
+    sc.add_chart(chart, "I5")
     if not base_tasks:
         sc.cell(last + 2, 1,
                 "Baseline appears once this project has a second plan "
                 "version to compare against.").font = Font(
                     size=8, color="FF9AA4AF", italic=True)
+    # Print setup, same rationale as the Gantt View's: a print-to-PDF of
+    # this sheet must come out as ONE page carrying the title, the notes,
+    # the coverage line, the table and the WHOLE chart. Without it the
+    # default pagination sliced the chart across page boundaries, which is
+    # how users saw the export (PM review round two, 2026-08-12). V/row 28
+    # bound the chart's floating extent right of column I.
+    from openpyxl.worksheet.properties import PageSetupProperties
+    sc.print_area = f"A1:V{max(last + 2, 28)}"
+    sc.page_setup.orientation = "landscape"
+    sc.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
+    sc.page_setup.fitToWidth = 1
+    sc.page_setup.fitToHeight = 1
 
 
 def render_gantt_detailed(data: dict, *, today: date | None = None,
@@ -1424,7 +1566,7 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.worksheet.hyperlink import Hyperlink
 
-    data = _with_workdays(data)
+    data = _split_undated(_with_workdays(data))
     wb, _layout = _build_gantt_wb(data, today=today, detail_cols=True)
     tasks = data.get("tasks") or []
     rows = [t for t in tasks if t.get("type") != "phase"]

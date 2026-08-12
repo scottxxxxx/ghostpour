@@ -243,18 +243,19 @@ def test_scurve_axis_formats_dates_instead_of_serials():
 
 def test_scurve_separates_observations_from_the_carry():
     wb = _wb(history=[{"as_of": "2026-06-22", "tasks": _PLAN["tasks"]}])
-    sc = wb["S-Curve"]
-    assert sc.cell(4, 5).value == "At a meeting"
-    reported = [sc.cell(r, 4).value for r in range(5, 5 + 12)]
-    observed = [sc.cell(r, 5).value for r in range(5, 5 + 12)]
-    # the line is carried forward on every week, the dots are not
+    sc = wb["Progress"]
+    assert sc.cell(5, 6).value == "At a meeting"
+    reported = [sc.cell(r, 5).value for r in range(6, 6 + 12)]
+    observed = [sc.cell(r, 6).value for r in range(6, 6 + 12)]
+    # the line is carried forward between meetings, up to the data date;
+    # the dots are not
     assert len([v for v in reported if v is not None]) > \
         len([v for v in observed if v is not None])
     assert any(v is not None for v in observed)
 
 
 def test_scurve_discloses_what_the_weighting_is_based_on():
-    sc = _wb()["S-Curve"]
+    sc = _wb()["Progress"]
     note = str(sc["A3"].value)
     assert "scheduled working days" in note
     assert "1 of 2 tasks" in note      # only Offline sync stated an effort
@@ -418,8 +419,8 @@ def test_a_flat_extraction_still_puts_every_task_on_the_timeline():
 
 
 def test_a_flat_extraction_still_gets_its_scurve():
-    """The S-curve keys off rendered rows, so it disappeared too."""
-    assert "S-Curve" in _wb(plan=_FLAT).sheetnames
+    """The progress curve keys off rendered rows, so it disappeared too."""
+    assert "Progress" in _wb(plan=_FLAT).sheetnames
 
 
 def test_flat_and_grouped_tasks_coexist():
