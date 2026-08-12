@@ -53,3 +53,43 @@ async def test_auth_identity_reaches_the_wire(monkeypatch):
         assert seen[-1] is None  # outside a request -> default identity
     finally:
         current_app_id.reset(token)
+
+
+def test_app_id_contextvar_reaches_handlers_through_the_real_stack():
+    """End-to-end through the REAL middleware stack, because two fixes in a
+    row were correct in isolation and inert in production: #668 flipped an
+    identity no call site used, and #669 set the contextvar in a middleware
+    class that is not registered on the app (and whose BaseHTTPMiddleware
+    dispatch context would not have reached handlers anyway). Only a request
+    through app.main's actual ASGI stack can catch that class of failure."""
+    import asyncio
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.request_context import current_app_id
+
+    seen = {}
+
+    @app.get("/__test_ctx_probe")
+    async def _probe():
+        seen["handler"] = current_app_id.get()
+
+        async def background():
+            seen["task"] = current_app_id.get()
+
+        await asyncio.create_task(background())
+        return {"ok": True}
+
+    try:
+        with TestClient(app) as client:
+            assert client.get(
+                "/__test_ctx_probe", headers={"X-App-ID": "shouldersurf"}
+            ).status_code == 200
+            assert seen == {"handler": "shouldersurf", "task": "shouldersurf"}
+            seen.clear()
+            assert client.get("/__test_ctx_probe").status_code == 200
+            assert seen["handler"] == "unknown"  # header-less -> "unknown"
+    finally:
+        app.router.routes[:] = [
+            r for r in app.router.routes
+            if getattr(r, "path", None) != "/__test_ctx_probe"
+        ]
