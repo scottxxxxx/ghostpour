@@ -82,6 +82,14 @@ class StreamingBypassMiddleware:
             scope["state"] = {}
         scope["state"]["request_id"] = request_id
         scope["state"]["app_id"] = app_id
+        # Mirror into the contextvar for service-layer CQ auth. This must
+        # happen HERE, in pure ASGI: this middleware awaits the downstream
+        # app in the same context, so the value reaches handlers and the
+        # create_task background work they spawn. A set inside a
+        # BaseHTTPMiddleware.dispatch does NOT reach handlers (the app runs
+        # outside dispatch's context) — verified against starlette 0.52.
+        from app.request_context import current_app_id
+        current_app_id.set(app_id)
 
         # Peek at request body
         first_message = await receive()
@@ -173,11 +181,10 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         request_id = uuid.uuid4().hex[:12]
         request.state.request_id = request_id
         request.state.app_id = request.headers.get("X-App-ID", "unknown")
-        # Mirror into the contextvar so service-layer CQ auth (and the
-        # create_task background captures, which copy this context) can
-        # resolve the per-app identity without a request in scope.
-        from app.request_context import current_app_id
-        current_app_id.set(request.state.app_id)
+        # NOTE: this class is NOT registered on the app (see main.py — only
+        # StreamingBypassMiddleware runs, which also owns the current_app_id
+        # contextvar set; a set here wouldn't reach handlers anyway, since
+        # BaseHTTPMiddleware runs the app outside dispatch's context).
 
         # Capture request body
         req_body_str = None
