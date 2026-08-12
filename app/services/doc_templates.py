@@ -1274,12 +1274,17 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
     _real = [t for t in tasks if t.get("type") not in ("phase", "milestone")]
     _stated = sum(1 for t in _real
                   if isinstance(t.get("effort"), str) and t["effort"].strip())
+    # Rows 2-4 are merged wrapped notes: give each row enough height for
+    # its whole text and anchor the text to the TOP. A merged cell never
+    # auto-grows its row, and the default bottom anchor made an undersized
+    # row show only its LAST lines, so the printed sheet opened the note
+    # mid sentence (PM review round two, 2026-08-12).
     sc["A2"] = ("Baseline is the first plan version and never moves. "
                 "Current plan follows the dates on the Gantt View and "
                 "redraws when you edit them. Reported is % complete as of "
                 "each meeting, held flat between meetings because that is "
-                "all the meetings said, and it stops at the data date: the "
-                "vertical line marks the last meeting that reported "
+                "all the meetings said, and it stops at the data date. "
+                "The vertical line marks the last meeting that reported "
                 "progress. Right of that line nothing has reported yet, so "
                 "the chart shows plan only, drawn dashed. The dots are the "
                 "meetings themselves. This is a meeting-derived progress "
@@ -1287,17 +1292,18 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
                 "an earned-value S-curve, so adding scope raises what is "
                 "left rather than pushing the line back down.")
     sc["A2"].font = Font(size=9, color="FF666666", italic=True)
-    sc["A2"].alignment = Alignment(wrap_text=True)
+    sc["A2"].alignment = Alignment(wrap_text=True, vertical="top")
     sc.merge_cells("A2:G2")
-    sc.row_dimensions[2].height = 44
+    sc.row_dimensions[2].height = 80
     sc["A3"] = (
         f"Weighting: every task counts for its scheduled working days, "
         f"which stands in for size. {_stated} of {len(_real)} tasks had an "
         f"effort figure stated in a meeting; none of the numbers here are "
         f"weighted by it.")
     sc["A3"].font = Font(size=8, color="FF9AA4AF", italic=True)
-    sc["A3"].alignment = Alignment(wrap_text=True)
+    sc["A3"].alignment = Alignment(wrap_text=True, vertical="top")
     sc.merge_cells("A3:G3")
+    sc.row_dimensions[3].height = 26
     # date coverage, computed from the source activities and rendered on
     # the export itself so an undated-activity gap is visible, never
     # hidden (PM review 2026-08-11)
@@ -1311,8 +1317,9 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
     sc["A4"].font = Font(size=8, italic=True, bold=_dated_n < _total_n,
                          color="FF9A3412" if _dated_n < _total_n
                          else "FF9AA4AF")
-    sc["A4"].alignment = Alignment(wrap_text=True)
+    sc["A4"].alignment = Alignment(wrap_text=True, vertical="top")
     sc.merge_cells("A4:G4")
+    sc.row_dimensions[4].height = 24
 
     # total scheduled working days, live, so Current plan is a real share
     denom = "+".join(f"NETWORKDAYS('{gsheet}'!$E{r},'{gsheet}'!$F{r})"
@@ -1525,6 +1532,18 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
                 "Baseline appears once this project has a second plan "
                 "version to compare against.").font = Font(
                     size=8, color="FF9AA4AF", italic=True)
+    # Print setup, same rationale as the Gantt View's: a print-to-PDF of
+    # this sheet must come out as ONE page carrying the title, the notes,
+    # the coverage line, the table and the WHOLE chart. Without it the
+    # default pagination sliced the chart across page boundaries, which is
+    # how users saw the export (PM review round two, 2026-08-12). V/row 28
+    # bound the chart's floating extent right of column I.
+    from openpyxl.worksheet.properties import PageSetupProperties
+    sc.print_area = f"A1:V{max(last + 2, 28)}"
+    sc.page_setup.orientation = "landscape"
+    sc.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
+    sc.page_setup.fitToWidth = 1
+    sc.page_setup.fitToHeight = 1
 
 
 def render_gantt_detailed(data: dict, *, today: date | None = None,

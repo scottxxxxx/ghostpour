@@ -130,6 +130,30 @@ def test_title_and_labels_do_not_claim_an_evm_s_curve():
     assert sc.cell(5, 2).value == "First plan (baseline)"
     assert "planned only" in str(sc.cell(5, 4).value)
     assert "not an earned-value S-curve" in str(sc["A2"].value)
+    # proper sentence, not a colon splice (PM review round two)
+    assert ("stops at the data date. The vertical line marks the last "
+            "meeting that reported progress." in str(sc["A2"].value))
+
+
+def test_the_notes_fit_their_rows_and_anchor_to_the_top():
+    """A merged cell never auto-grows its row, and the default bottom
+    anchor means an undersized row shows only the LAST lines of a wrapped
+    note: the printed sheet opened mid sentence (PM review round two)."""
+    sc = _book()["Progress"]
+    assert sc.row_dimensions[2].height >= 80
+    for r in (2, 3, 4):
+        assert sc.cell(r, 1).alignment.vertical == "top", f"row {r}"
+
+
+def test_the_progress_sheet_prints_as_one_page():
+    """Default pagination sliced the chart across page boundaries in the
+    PDF export, which is exactly how a steering meeting sees it."""
+    sc = _book()["Progress"]
+    assert str(sc.print_area).endswith("$A$1:$V$28")
+    assert sc.page_setup.orientation == "landscape"
+    assert sc.page_setup.fitToWidth == 1
+    assert sc.page_setup.fitToHeight == 1
+    assert sc.sheet_properties.pageSetUpPr.fitToPage is True
 
 
 def test_planned_is_live_off_the_gantt_view_dates():
