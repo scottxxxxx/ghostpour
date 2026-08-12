@@ -20,3 +20,36 @@ def test_cq_identity_dispatch():
     # keys on the resolved app id, so None still rides the default until the
     # default itself is retired
     assert cq._cq_identity(None)[0] == s.cq_app_id
+
+
+import pytest
+
+
+@pytest.mark.asyncio
+async def test_auth_identity_reaches_the_wire(monkeypatch):
+    """_get_auth_headers must resolve the CALLER's app, not the default.
+
+    Every call site used to omit the argument, so every CQ request
+    authenticated as the default identity while per-app identity looked
+    wired. The contextvar fallback closes that class of bug; explicit
+    arguments still win over it."""
+    from app.request_context import current_app_id
+    from app.services import context_quilt as cq
+    seen = []
+
+    def recording_identity(a=None):
+        seen.append(a)
+        return ("cq-app-for-" + str(a), "")  # empty secret -> no token HTTP
+
+    monkeypatch.setattr(cq, "_cq_identity", recording_identity)
+    token = current_app_id.set("shouldersurf")
+    try:
+        await cq._get_auth_headers()
+        assert seen[-1] == "shouldersurf"  # contextvar fallback
+        await cq._get_auth_headers("techrehearsal")
+        assert seen[-1] == "techrehearsal"  # explicit argument wins
+        current_app_id.set(None)
+        await cq._get_auth_headers()
+        assert seen[-1] is None  # outside a request -> default identity
+    finally:
+        current_app_id.reset(token)

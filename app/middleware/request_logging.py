@@ -173,6 +173,11 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         request_id = uuid.uuid4().hex[:12]
         request.state.request_id = request_id
         request.state.app_id = request.headers.get("X-App-ID", "unknown")
+        # Mirror into the contextvar so service-layer CQ auth (and the
+        # create_task background captures, which copy this context) can
+        # resolve the per-app identity without a request in scope.
+        from app.request_context import current_app_id
+        current_app_id.set(request.state.app_id)
 
         # Capture request body
         req_body_str = None

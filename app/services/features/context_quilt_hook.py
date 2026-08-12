@@ -149,7 +149,7 @@ class ContextQuiltHook:
                 from app.services.document_generation import _question_portion
                 if cq.is_rundown_ask(_question_portion(body.user_content)):
                     dossier = await cq.quilt_dossier(
-                        user.id, body.get_meta("project_id"))
+                        user.id, body.get_meta("project_id"), app_id=app_id)
                     if dossier and (dossier.get("meetings")
                                     or dossier.get("facts")
                                     or dossier.get("action_items")):

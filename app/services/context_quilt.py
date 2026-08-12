@@ -134,8 +134,15 @@ def _cq_identity(app_id: str | None) -> tuple[str, str]:
 
 
 async def _get_auth_headers(app_id: str | None = None) -> dict[str, str]:
-    """Auth headers for CQ requests, for the CQ identity of `app_id` (the default
-    identity when None). JWT bearer when a secret is configured, else X-App-ID."""
+    """Auth headers for CQ requests, for the CQ identity of `app_id`. When the
+    caller doesn't pass one, fall back to the requesting app from the
+    contextvar — before that fallback existed, every call site that omitted
+    the argument silently authenticated as the default identity, which made
+    per-app identity look wired while never actually being used on the wire.
+    JWT bearer when a secret is configured, else X-App-ID."""
+    if app_id is None:
+        from app.request_context import current_app_id
+        app_id = current_app_id.get()
     cq_app, cq_secret = _cq_identity(app_id)
 
     if not cq_secret:
@@ -257,7 +264,7 @@ async def recall(
 
     try:
         client = _get_client()
-        auth_headers = await _get_auth_headers()
+        auth_headers = await _get_auth_headers(app_id)
         resp = await client.post(
             "/v1/recall",
             json=body,
@@ -445,7 +452,7 @@ async def capture(
 
     try:
         client = _get_client()
-        auth_headers = await _get_auth_headers()
+        auth_headers = await _get_auth_headers(app_id)
         resp = await client.post(
             "/v1/memory",
             json=body,
@@ -567,6 +574,7 @@ def is_rundown_ask(question: str) -> bool:
 
 
 async def quilt_dossier(user_id: str, project_id: str,
+                        app_id: str | None = None,
                         limit: int = DOSSIER_LIMIT) -> dict | None:
     """GET /v1/quilt/{user_id}?project_id&group_by=origin&limit — the
     complete scoped memory, meeting-grouped, newest first. None on any
@@ -580,7 +588,7 @@ async def quilt_dossier(user_id: str, project_id: str,
             f"/v1/quilt/{user_id}",
             params={"project_id": project_id, "group_by": "origin",
                     "limit": limit},
-            headers=await _get_auth_headers(),
+            headers=await _get_auth_headers(app_id),
             timeout=httpx.Timeout(settings.cq_dossier_timeout_ms / 1000.0),
         )
         resp.raise_for_status()
