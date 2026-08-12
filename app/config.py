@@ -147,6 +147,11 @@ class Settings(BaseSettings):
     # apps.yml (apps.techrehearsal.cq); the secret resolves here. Empty until
     # CQ provisions it. See app/services/context_quilt.py _cq_identity().
     tr_cq_client_secret: str = ""
+    # ShoulderSurf's own CQ identity (apps.shouldersurf.cq in apps.yml),
+    # moving SS off the shared default cq_app_id so CQ resolves the SS
+    # schema/prompt instead of the universal fallback. Same resolution
+    # path as tr_cq_client_secret.
+    ss_cq_client_secret: str = ""
 
     # GeoIP: paths to the local .mmdb files (sapics/ip-location-db dbip-city,
     # pulled from GitHub Releases). sapics splits IPv4/IPv6 into two files, so
@@ -283,6 +288,7 @@ _SECRET_MANAGER_MAPPINGS: dict[str, str] = {
     "CZ_QWEN_API_KEY": "qwen-api-key",
     "CZ_CQ_CLIENT_SECRET": "cq-client-secret",
     "CZ_TR_CQ_CLIENT_SECRET": "tr-cq-client-secret",
+    "CZ_SS_CQ_CLIENT_SECRET": "ss-cq-client-secret",
     "CZ_CERT_PIN_SIGNING_KEY_RAW_B64": "cert-pin-signing-key-raw-b64",
     "CZ_APP_STORE_PRIVATE_KEY_B64": "app-store-private-key-b64",
     "CZ_ASC_CONNECT_PRIVATE_KEY_B64": "asc-connect-private-key-b64",

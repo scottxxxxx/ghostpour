@@ -34,6 +34,16 @@ apps:
     # app's version floor. No bundle_id => the gate can't resolve a floor and
     # fails open (never blocks).
     bundle_id: com.shouldersurf.ShoulderSurf
+    # Per-app CQ identity (#cq). SS moves off the shared default cq_app_id
+    # onto its own CQ app (886a527b) so CQ resolves the SS schema/prompt
+    # rather than the universal fallback. Same mechanism as
+    # techrehearsal.cq below; secret lives in Secret Manager
+    # (ss-cq-client-secret, provisioned 2026-08-11). NOTE: deploying this
+    # block IS the identity flip — merge only inside the agreed window,
+    # with CQ watching their worker logs.
+    cq:
+      app_id: "886a527b-1d8f-46e1-aadc-d4b05e16256e"
+      secret_setting: ss_cq_client_secret
   techrehearsal:
     dir: techrehearsal
     label: Tech Rehearsal

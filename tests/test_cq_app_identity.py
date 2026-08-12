@@ -14,4 +14,9 @@ def test_cq_identity_dispatch():
     assert cq._cq_identity("TechRehearsal")[0] == "bc6efb4c-2854-49c0-9e8d-437c99610588"
     # unknown / unregistered app -> falls back to default identity
     assert cq._cq_identity("nope")[0] == s.cq_app_id
-    assert cq._cq_identity("shouldersurf")[0] == s.cq_app_id  # no cq block -> default
+    # shouldersurf -> its own CQ app_id (moved off the shared default)
+    assert cq._cq_identity("shouldersurf")[0] == "886a527b-1d8f-46e1-aadc-d4b05e16256e"
+    # a header-less client is ShoulderSurf by definition, but identity dispatch
+    # keys on the resolved app id, so None still rides the default until the
+    # default itself is retired
+    assert cq._cq_identity(None)[0] == s.cq_app_id
