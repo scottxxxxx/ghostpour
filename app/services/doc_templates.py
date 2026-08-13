@@ -1059,9 +1059,26 @@ def _weighted_progress(tasks: list[dict]) -> float | None:
     return (num / den) if den else None
 
 
-def _planned_share(tasks: list[dict], upto: date) -> float | None:
-    """Share of the scheduled working days that fall on or before `upto`."""
-    done = total = 0
+def _planned_days(tasks: list[dict], upto: date) -> float:
+    """Scheduled working days falling on or before `upto`, in ABSOLUTE
+    days, not a share.
+
+    Absolute for the same reason `_earned_days` is, and it returns days
+    rather than a share so that no caller can accidentally normalise a
+    plan version against its own scope. Every series on this chart
+    divides by ONE denominator, the plan as it stands today.
+
+    This function used to return `done / total` over the tasks it was
+    handed, which meant the baseline was a share of the FIRST plan's
+    scope while Current plan and Reported were shares of today's. Two
+    percentages of different wholes plotted on one axis render scope
+    GROWTH as if it were slippage: with a first plan of 13 working days
+    against today's 100, both plans have banked the identical 3 days by a
+    given week and read as 23% against 3%. The baseline then sits under
+    the current plan for the whole chart and looks like a project running
+    late (Scott, 2026-08-13). Same failure `_earned_days` documents for
+    Reported, which was fixed there and missed here."""
+    done = 0.0
     for t in tasks:
         if t.get("type") in ("phase", "milestone"):
             continue
@@ -1072,10 +1089,9 @@ def _planned_share(tasks: list[dict], upto: date) -> float | None:
         dur = _wd_inclusive(s0, e0)
         if dur <= 0:
             continue
-        total += dur
         if upto >= s0:
             done += min(_wd_inclusive(s0, min(e0, upto)), dur)
-    return (done / total) if total else None
+    return done
 
 
 def _scurve_weeks(tasks: list[dict], history: list[dict] | None) -> list[date]:
@@ -1281,6 +1297,10 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
     # row show only its LAST lines, so the printed sheet opened the note
     # mid sentence (PM review round two, 2026-08-12).
     sc["A2"] = ("Baseline is the first plan version and never moves. "
+                "Every line here is a share of the plan as it stands "
+                "today, the baseline included, so a first plan that "
+                "covered less work than today's tops out below 100% "
+                "instead of finishing at it. "
                 "Current plan follows the dates on the Gantt View and "
                 "redraws when you edit them. Reported is % complete as of "
                 "each meeting, held flat between meetings because that is "
@@ -1387,10 +1407,12 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
         dc.alignment = Alignment(horizontal="center")
         hd = sc.cell(r, 10, wk)
         hd.number_format = "yyyy-mm-dd"
-        if base_tasks:
-            bv = _planned_share(base_tasks, wk)
-            if bv is not None:
-                sc.cell(r, 2, bv).number_format = "0%"
+        if base_tasks and _denom:
+            # Over TODAY's denominator, never the first plan's own. See
+            # _planned_days: dividing each version by its own scope drew
+            # scope growth as slippage.
+            sc.cell(r, 2, _planned_days(base_tasks, wk) / _denom
+                    ).number_format = "0%"
         terms = "+".join(
             f"MAX(0,NETWORKDAYS('{gsheet}'!$E{rr},"
             f"MIN('{gsheet}'!$F{rr},$J{r})))" for rr in rows)
@@ -1457,8 +1479,10 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
     _right = weeks[-1]
     _data_wk = weeks[dw_idx] if dw_idx is not None else None
     _series_at = lambda wk: [v for v in (
-        _planned_share(base_tasks, wk) if base_tasks else None,
-        _planned_share(data.get("tasks") or [], wk),
+        (_planned_days(base_tasks, wk) / _denom)
+        if (base_tasks and _denom) else None,
+        (_planned_days(data.get("tasks") or [], wk) / _denom)
+        if _denom else None,
         # Reported no longer extends past the data date, so it is not ink
         # to dodge out there
         (next((v for d, v in reversed(stamps) if d <= wk), None)
