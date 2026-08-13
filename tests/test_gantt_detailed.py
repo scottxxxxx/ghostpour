@@ -495,7 +495,8 @@ async def test_interpreter_returns_style_word():
     out = await interpret_offer_reply(
         router, {"format": "xlsx", "gist": "plan"}, "detailed please",
         verbatim=True)
-    assert out == {"confirm": True, "format": "xlsx", "style": "detailed"}
+    assert out == {"confirm": True, "format": "xlsx", "style": "detailed",
+                   "version": None}
     # junk style values fail closed to None
     router.route = AsyncMock(return_value=MagicMock(
         text='{"confirm": true, "format": null, "style": "fancy"}'))

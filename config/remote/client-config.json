@@ -79,7 +79,8 @@
           "pdf": "a PDF file"
         },
         "offer_text_gist": "Sounds like you want {format} {gist}. Building the real file takes about two minutes, or I can just lay it out right here in chat. Want the file?",
-        "teaser_text": "Want this as a real downloadable file?"
+        "teaser_text": "Want this as a real downloadable file?",
+        "lane_question_text": "I can build your Excel file two ways.\n\nOur project status workbook uses a format we've refined for sharing status with a team: a Gantt style timeline, a progress curve of reported versus planned, the history of every due date that moved, and a receipts sheet showing the meeting line behind each number, so anyone can check where a value came from.\n\nA custom workbook built to exactly what you describe, in whatever shape fits your ask.\n\nBoth come from your meeting notes. Which would you like: the status workbook, or custom?"
       },
       "upsell": {
         "enabled": true,

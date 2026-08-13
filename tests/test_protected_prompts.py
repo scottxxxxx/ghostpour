@@ -121,3 +121,48 @@ def test_summarizers_carry_name_grounding(path):
         path.split("protected-prompts.")[-1], "never invent")
     for k in ("full", "delta", "consolidation"):
         assert token in data["summaryPrompts"][k], (path, k)
+
+
+@pytest.mark.parametrize("path", SS_LOCALE_FILES)
+def test_served_prompts_carry_no_literal_dashes(path):
+    """2026-08-12 field test: a Project Chat answer shipped em dashes.
+    Models copy the punctuation they see, so the served prompt strings
+    themselves must never carry an em or en dash (Scott's standing
+    rule; the build-804 per-key checks, generalized to every string in
+    the file)."""
+    def walk(v, where):
+        if isinstance(v, str):
+            assert "—" not in v and "–" not in v, where
+        elif isinstance(v, dict):
+            for k, x in v.items():
+                walk(x, f"{where}.{k}")
+        elif isinstance(v, list):
+            for i, x in enumerate(v):
+                walk(x, f"{where}[{i}]")
+    walk(_load(path), path)
+
+
+_DASH_BAN_TOKENS = {
+    "protected-prompts.json": (
+        "Never use em dashes", "spaced hyphen",
+        "never copy that punctuation"),
+    "protected-prompts.es.json": (
+        "Nunca uses rayas", "guion suelto",
+        "nunca copies esa puntuación"),
+    "protected-prompts.fr.json": (
+        "tiret cadratin", "trait d'union isolé",
+        "ne copie jamais cette ponctuation"),
+}
+
+
+@pytest.mark.parametrize("path", SS_LOCALE_FILES)
+def test_chat_template_dash_ban_strengthened(path):
+    """The chat lane's template ban was present but lost to dash-heavy
+    injected context (2026-08-12: live output carried em dashes). The
+    strengthened ban names the contaminated context, forbids copying
+    its punctuation, and closes the spaced-hyphen dodge. Presence of
+    all three clauses is the contract."""
+    tokens = _DASH_BAN_TOKENS[path.split("/")[-1]]
+    tpl = _load(path)["systemPromptTemplate"]
+    for token in tokens:
+        assert token in tpl, (path, token)

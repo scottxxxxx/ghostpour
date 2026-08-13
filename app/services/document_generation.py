@@ -58,6 +58,26 @@ _CONFIRMATION_DEFAULTS = {
                         "real file takes about two minutes, or I can just lay "
                         "it out right here in chat. Want the file?"),
     "teaser_text": "Want this as a real downloadable file?",
+    # Version question for an ambiguous plan/progress ask (Scott's ruling
+    # 2026-08-11; final wording Scott-approved after two revision rounds):
+    # users say "project plan" while expecting a Gantt, so the question
+    # describes both builds in user terms before anything generates. Both
+    # options are honestly framed as Excel workbooks from meeting data;
+    # the differentiators are the refined share-ready format and receipts
+    # traceability. Served config text (client-config bundle) overrides
+    # this code default, so the wording is GP's to change with no build
+    # anywhere.
+    "lane_question_text": (
+        "I can build your Excel file two ways.\n\n"
+        "Our project status workbook uses a format we've refined for "
+        "sharing status with a team: a Gantt style timeline, a progress "
+        "curve of reported versus planned, the history of every due date "
+        "that moved, and a receipts sheet showing the meeting line behind "
+        "each number, so anyone can check where a value came from.\n\n"
+        "A custom workbook built to exactly what you describe, in whatever "
+        "shape fits your ask.\n\n"
+        "Both come from your meeting notes. Which would you like: the "
+        "status workbook, or custom?"),
     "format_nouns": {
         "xlsx": "a native Excel spreadsheet (.xlsx)",
         "docx": "a native Word document (.docx)",
@@ -248,9 +268,38 @@ def generation_monthly_cap(remote_configs: dict, tier: str) -> int | None:
     return int(cap) if cap is not None else None
 
 
+# Creation verbs aimed at a plan-shaped deliverable (field case 2,
+# 2026-08-12): "Can you create a project plan from these meetings?" carries
+# no file noun at all, so the vocabulary prefilter never fired, the intent
+# flow never ran, and the model self-offered a file menu outside the
+# managed lanes. en/es; ja is verb-after-noun and matched separately.
+_PLAN_ARTIFACT_VERBS = (
+    r"(?:make|create|build|draft|prepare|produce|generate|assemble|"
+    r"put together|hazme|haz|crea|arma|prepara|genera)")
+
+
+def plan_artifact_ask(text: str) -> bool:
+    """Creation-shaped plan ask with no file noun: the deliverable is
+    plan-shaped even though no file vocabulary appears, so the managed
+    intent flow must see it (the classifier still decides whether it is
+    a file request; a no becomes the teaser, and either road leads to
+    the lane question). A question ABOUT a plan has no creation verb
+    aimed at it and stays a pure chat turn (Scott: a mention of the word
+    plan must never grow a file question)."""
+    from app.services.doc_templates import AMBIGUOUS_PLAN_HINTS
+    tail = (text or "")[-2000:].lower()
+    nouns = "|".join(re.escape(h) for h in AMBIGUOUS_PLAN_HINTS)
+    if re.search(rf"\b{_PLAN_ARTIFACT_VERBS}\b[^.!?\n]{{0,60}}?(?:{nouns})",
+                 tail):
+        return True
+    # ja puts the verb after the noun ("プロジェクト計画を作って")
+    return bool(re.search(
+        rf"(?:{nouns})[^.!?\n]{{0,20}}?(?:作成|作って|作る|まとめて)", tail))
+
+
 def looks_like_file_ask(text: str) -> bool:
     tail = (text or "")[-2000:].lower()
-    return any(h in tail for h in _FILE_ASK_HINTS)
+    return any(h in tail for h in _FILE_ASK_HINTS) or plan_artifact_ask(tail)
 
 
 async def classify_generation_intent(provider_router, user_content: str,
@@ -326,15 +375,22 @@ _INTERPRETER_SYSTEM = (
     "make it a spreadsheet\"). The reply may carry attached-document "
     "context; judge ONLY the user's own words, never text quoted from an "
     "attached document. A refusal, an unrelated question, "
-    "anything ambiguous, or asking for the content INLINE instead — "
-    "\"just show me here\", \"a table in chat is fine\" — is NOT acceptance. Reply with ONLY this JSON: "
+    "anything ambiguous, or asking for the content INLINE instead "
+    "(\"just show me here\", \"a table in chat is fine\") is NOT acceptance. Reply with ONLY this JSON: "
     '{"confirm": true|false, "format": "xlsx"|"docx"|"pptx"|"pdf"|null, '
-    '"style": "simple"|"detailed"|null} '
+    '"style": "simple"|"detailed"|null, '
+    '"version": "workbook"|"custom"|null} '
     "where format is the user's revised choice, or null to keep the "
-    "offered format (always null when confirm is false), and style is set "
+    "offered format (always null when confirm is false), style is set "
     "ONLY when the offer presented a simple and a detailed version and the "
     "user's own words chose one (\"detailed please\", \"the simple one\"); "
-    "null otherwise."
+    "null otherwise, and version is set ONLY when the offer presented a "
+    "project status workbook and a custom workbook and the user's own "
+    "words chose one: words like \"status workbook\", \"workbook\", "
+    "\"status\", \"your format\", \"recipe\", \"the structured one\", or "
+    "\"the gantt one\" mean workbook, and words like \"custom\", "
+    "\"ad hoc\", \"my version\", or \"just build what I described\" mean "
+    "custom; null otherwise."
 )
 
 
@@ -346,11 +402,18 @@ async def interpret_offer_reply(provider_router, offer: dict, reply_text: str,
     import time as _time
 
     from app.models.chat import ChatRequest
+    _offer_line = f"OFFER: a {offer['format']} file {offer.get('gist') or ''}"
+    if offer.get("lane_choice"):
+        # Ambiguous plan ask (Scott's ruling 2026-08-11): the offer asked
+        # which version the user wants, so the judge must know both were
+        # on the table to read the reply's choice.
+        _offer_line += (" (the offer presented two versions: the project "
+                        "status workbook, or a custom workbook)")
     request = ChatRequest(
         provider="anthropic",
         model=_CLASSIFIER_MODEL,
         system_prompt=_INTERPRETER_SYSTEM,
-        user_content=(f"OFFER: a {offer['format']} file {offer.get('gist') or ''}\n"
+        user_content=(f"{_offer_line}\n"
                       f"USER REPLY: {reply_text[:1000] if verbatim else _isolate_reply(reply_text)}"),
         # same headroom as the intent classifier: a truncated verdict here
         # silently drops a user's YES (fail-open reads as a normal turn).
@@ -374,11 +437,15 @@ async def interpret_offer_reply(provider_router, offer: dict, reply_text: str,
         style = parsed.get("style")
         if style not in ("simple", "detailed"):
             style = None
+        version = parsed.get("version")
+        if version not in ("workbook", "custom"):
+            version = None
         return {"confirm": confirm, "format": fmt or offer["format"],
-                "style": style}
+                "style": style, "version": version}
     except Exception as e:
         logger.info("offer reply interpreter failed open: %s", e)
-        return {"confirm": False, "format": offer["format"], "style": None}
+        return {"confirm": False, "format": offer["format"], "style": None,
+                "version": None}
 
 
 _GIST_QUALIFIER_PREFIXES = (
@@ -425,6 +492,45 @@ def build_offer_envelope(confirmation_cfg: dict, fmt: str | None,
                     "expected_format": fmt,
                     "expected_seconds": int(confirmation_cfg["expected_seconds"]),
                     "gist": gist,
+                },
+            },
+        },
+    }
+    if offer_id:
+        payload["feature_state"]["cta"]["details"]["offer_id"] = offer_id
+    return payload
+
+
+def build_lane_question_envelope(confirmation_cfg: dict, gist: str = "",
+                                 offer_id: str | None = None) -> dict:
+    """The version question for an ambiguous plan/progress file ask
+    (Scott's ruling 2026-08-11). Same generation_offer envelope shape the
+    client already renders verbatim as an assistant message, so the
+    question ships as served text with no client build. The offer behind
+    it stores the workbook default (users saying "project plan" expect
+    the Gantt); a typed reply choosing custom overrides at arm time."""
+    from app.services.doc_templates import TEMPLATES
+    gist = gist_composes(gist)
+    text = str(confirmation_cfg.get("lane_question_text")
+               or _CONFIRMATION_DEFAULTS["lane_question_text"])
+    # The approved copy carries no {gist} slot (it names the source,
+    # "your meeting notes", instead); the replace stays for served
+    # overrides that choose to compose one in.
+    text = text.replace("{gist}", (" " + gist) if gist else "")
+    payload = {
+        "feature_state": {
+            "feature": "document_generation",
+            "state": "confirmation_required",
+            "cta": {
+                "kind": "generation_offer",
+                "text": text,
+                "action": "confirm_generation",
+                "details": {
+                    "expected_format": "xlsx",
+                    "expected_seconds": int(
+                        TEMPLATES["gantt_detailed"]["expected_seconds"]),
+                    "gist": gist,
+                    "template_id": "gantt_detailed",
                 },
             },
         },
