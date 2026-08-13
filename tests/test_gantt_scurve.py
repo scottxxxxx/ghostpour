@@ -31,7 +31,7 @@ import openpyxl
 import pytest
 
 from app.services.doc_templates import (
-    _planned_share,
+    _planned_days,
     _wd_inclusive,
     _weighted_progress,
     render_gantt,
@@ -107,11 +107,32 @@ def test_milestones_and_phases_carry_no_weight():
     assert _weighted_progress(tasks) == 0
 
 
-def test_planned_share_walks_from_zero_to_one():
+def test_planned_days_walks_from_zero_to_the_whole_plan():
+    """Absolute days, not a share. Returning a share let each plan version
+    normalise against its own scope, which is the defect below."""
     tasks = _PLAN["tasks"]
-    assert _planned_share(tasks, D("2026-07-01")) == 0
-    assert _planned_share(tasks, D("2026-07-10")) == pytest.approx(0.25)
-    assert _planned_share(tasks, D("2026-08-31")) == 1
+    assert _planned_days(tasks, D("2026-07-01")) == 0
+    assert _planned_days(tasks, D("2026-07-10")) == 5
+    assert _planned_days(tasks, D("2026-08-31")) == 20
+
+
+def test_baseline_and_current_plan_share_one_denominator():
+    """Scott 2026-08-13: the baseline sat above the current plan for the
+    whole chart and read as a project running late. It was not late. The
+    baseline divided by the FIRST plan's scope while Current plan and
+    Reported divided by today's, so scope GROWTH rendered as slippage.
+
+    _HISTORY's first version spans 2026-07-06 to 2026-07-29 and totals 18
+    working days against today's 20. By 2026-07-10 it has 5 of them
+    scheduled. Self-normalised that is 5/18 = 28%; over today's plan it is
+    5/20 = 25%, and 25% is the number that can be compared with the other
+    two lines."""
+    sc = _book()["Progress"]
+    weeks = [sc.cell(r, 10).value for r in range(6, 12)]
+    row = next(r for r, wk in zip(range(6, 12), weeks)
+               if wk and wk.date() >= D("2026-07-10"))
+    assert sc.cell(row, 2).value == pytest.approx(5 / 20)
+    assert sc.cell(row, 2).value != pytest.approx(5 / 18)
 
 
 # --- the sheet ------------------------------------------------------------
@@ -301,8 +322,12 @@ def test_recalculated_planned_curve_matches_hand_computed_shares(tmp_path):
     # the dashed continuation past the data date computes the same shares
     assert sc.cell(9, 4).value == pytest.approx(1.0)
     assert sc.cell(10, 4).value == pytest.approx(1.0)
-    # the baseline plan was a different shape, which is the whole point
-    assert sc.cell(6, 2).value == pytest.approx(5 / 18)
+    # The baseline plan was a different SHAPE, which is the whole point,
+    # but it is measured against the same 20 day denominator. It has 5 of
+    # its 18 working days scheduled by this week; 5/18 would be its share
+    # of its own smaller scope, and mixing that with the other two lines
+    # drew scope growth as slippage (Scott, 2026-08-13).
+    assert sc.cell(6, 2).value == pytest.approx(5 / 20)
 
 
 def test_the_chart_is_readable_not_just_correct():
