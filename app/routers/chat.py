@@ -2757,6 +2757,20 @@ async def chat(
         if response and response.text:
             response.text = _strip_json_code_fence(response.text)
 
+        # 6.6. Dash hygiene backstop (Scott's standing rule; live
+        # 2026-08-12 a Project Chat answer shipped em dashes past the
+        # template ban because the injected context is dash-heavy and
+        # models copy the punctuation they see). Conversational surfaces
+        # only; template extraction turns are skipped because the plan
+        # JSON must reach the parser byte-verbatim (evidence quotes), and
+        # their user-visible closing line is GP-authored and clean.
+        # Non-stream path only, same limitation as the fence strip.
+        if (response and response.text and not _template_id
+                and body.get_meta("prompt_mode") in (
+                    "ProjectChat", "PostMeetingChat")):
+            from app.services.text_hygiene import normalize_dashes
+            response.text = normalize_dashes(response.text)
+
         # 6.7. Collect generated artifacts (phase 2a) — best-effort, never
         # blocks the text answer. Staged rows ride the response as
         # `generated_files`; count/bytes land in usage metering below.
