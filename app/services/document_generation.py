@@ -199,6 +199,35 @@ def explicit_file_ask(text: str) -> dict | None:
     return None
 
 
+# Nouns that, on their own, name a format in the user's OWN words: the
+# _EXPLICIT_NOUNS table minus the generic entry (a bare "file" or
+# "document" names no format) and minus bare "deck", which is agenda
+# vocabulary ("what's on deck for August") far more often than a format
+# wish; pptx keeps its unambiguous nouns.
+_STATED_NOUN_RES = {
+    fmt: re.compile(rf"\b{noun}")
+    for fmt, noun in _EXPLICIT_NOUNS.items() if fmt
+}
+_STATED_NOUN_RES["pptx"] = re.compile(
+    r"\b(?:powerpoint|pptx|slide deck|presentación"
+    r"|パワーポイント)")
+
+
+def stated_format(text: str) -> str | None:
+    """The format the user's own words named, or None when they named
+    none. Distinct from the classifier's `format`, which is a best GUESS
+    even when the message names no format at all. The distinction is
+    load-bearing for the ambiguity veto (live 2026-08-13 00:40: "Can you
+    create a project plan from these meetings?" names no format, the
+    classifier guessed docx, and the guess vetoed the version question
+    into a plain Word offer)."""
+    tail = _question_portion(text)[-2000:].lower()
+    for fmt, rx in _STATED_NOUN_RES.items():
+        if rx.search(tail):
+            return fmt
+    return None
+
+
 # The SS client injects "[N image(s) attached for visual context]" into
 # user_content when a send carries photos. On a confirmed generation turn
 # this marker WITHOUT actual image blocks means the model would be told

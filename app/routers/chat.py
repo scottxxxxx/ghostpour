@@ -2243,12 +2243,18 @@ async def chat(
                     # offer pending so a yes draws the version question
                     # instead of a silent freeform build (Scott's ruling
                     # 2026-08-11). Question portion only, the #420 lesson.
+                    # The format veto keys on the user's OWN words, never
+                    # the classifier's guess (live 2026-08-13 00:40).
+                    from app.services.document_generation import (
+                        stated_format as _sf,
+                    )
                     _teaser_ambiguous = (_teaser_tmpl is None and _apa(
                         _question_portion(body.user_content),
-                        format=(_intent or {}).get("format")))
+                        format=_sf(body.user_content)))
                     _gen_teaser_offer_id = generation_offers.create(
                         user.id,
-                        (_intent or {}).get("format") or "xlsx",
+                        ("xlsx" if _teaser_ambiguous
+                         else (_intent or {}).get("format") or "xlsx"),
                         (_intent or {}).get("gist") or "",
                         template_id=_teaser_tmpl,
                         ask_content=body.user_content or "",
@@ -2268,11 +2274,17 @@ async def chat(
                     # build. Neither lane may generate until the user picks;
                     # the question below asks in user terms. Question portion
                     # only (the #420 lesson): plan words in carried history
-                    # must not re-question every later file ask.
+                    # must not re-question every later file ask. The format
+                    # veto keys on the user's OWN words: the classifier's
+                    # format is a best guess even when the message names no
+                    # format, and live 2026-08-13 00:40 a guessed docx on
+                    # the no-file-noun field ask vetoed the version question
+                    # into a plain Word offer.
                     from app.services.doc_templates import ambiguous_plan_ask
+                    from app.services.document_generation import stated_format
                     _ambiguous = (_tmpl is None and ambiguous_plan_ask(
                         _question_portion(body.user_content),
-                        format=_intent.get("format")))
+                        format=stated_format(body.user_content)))
                     # Explicit-command fast path (Scott 2026-07-28: 'Put it
                     # in a word document' drew a second 'Want the file?').
                     # A deterministic explicit_file_ask hit IS the
@@ -2328,7 +2340,14 @@ async def chat(
                                                or _enriched.get("format")),
                                 }
                         _offer_id = generation_offers.create(
-                            user.id, _intent.get("format") or "xlsx",
+                            # An ambiguous offer is xlsx on BOTH roads: the
+                            # question offers a status workbook or a custom
+                            # workbook, both Excel, so a classifier guess of
+                            # another format must not survive into the build
+                            # a custom reply arms.
+                            user.id,
+                            ("xlsx" if _ambiguous
+                             else _intent.get("format") or "xlsx"),
                             _intent.get("gist") or "",
                             # An ambiguous offer stores the workbook default
                             # (users saying "project plan" expect the Gantt);
