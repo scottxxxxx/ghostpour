@@ -1237,6 +1237,7 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
     import copy
 
     from openpyxl.chart.error_bar import ErrorBars
+    from openpyxl.chart.legend import LegendEntry
     from openpyxl.chart.marker import Marker
     from openpyxl.chart.shapes import GraphicalProperties
     from openpyxl.chart.text import RichText
@@ -1485,6 +1486,26 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
         chart.legend.overlay = True
         chart.legend.layout = Layout(manualLayout=ManualLayout(
             xMode="edge", yMode="edge", x=_x, y=_y, w=_w, h=_h))
+    # Both inside placements sit the legend ON the plot, and a legend with
+    # no fill is transparent, so the curves ran straight through the text
+    # (Scott, 2026-08-13: "I had to move it so I could actually see the
+    # lines"). Corner dodging picks the emptiest corner, it cannot promise
+    # an empty one. A white panel with a light border makes the legend
+    # opaque furniture instead of one more layer of ink.
+    _legend_fill = GraphicalProperties(solidFill="FFFFFF")
+    _legend_fill.ln = LineProperties(solidFill="D9D9D9")
+    chart.legend.spPr = _legend_fill
+    # Six series are plotted, four of them real curves. "At a meeting" and
+    # "Data date" are furniture: the meeting dots and the vertical marker.
+    # Listing them spent legend rows that the box did not have, and the
+    # entries that fell off the end were the real ones, which is how
+    # Reported (the green line) ended up plotted with nothing naming it.
+    # Drop the two helpers so every line a reader can see is named.
+    _helpers = [i for i, _h in enumerate(hdr[1:])
+                if _h in ("At a meeting", "Data date")]
+    if _helpers:
+        chart.legend.legendEntry = [LegendEntry(idx=i, delete=True)
+                                    for i in _helpers]
     # Chart text does not inherit the cell font, and the 10pt default was
     # small against a 20-wide plot.
     _axis_text = RichText(p=[Paragraph(pPr=ParagraphProperties(
