@@ -607,6 +607,7 @@ def test_offer_store_one_shot_and_ttl(monkeypatch):
     assert offer == {"format": "docx", "gist": "for onboarding",
                      "template_id": None, "ask_content": "",
                      "images": [], "images_dropped": False,
+                     "lane_choice": None,
                      "expires": offer["expires"]}
     assert go.take("u1", oid) is None            # one-shot: dead after a reply
     oid2 = go.create("u1", "xlsx", "")
@@ -796,12 +797,14 @@ async def test_interpreter_confirms_declines_and_revises():
     router.route = AsyncMock(return_value=MagicMock(
         text='{"confirm": true, "format": null}'))
     out = await interpret_offer_reply(router, offer, "yes go ahead")
-    assert out == {"confirm": True, "format": "docx", "style": None}      # offered format kept
+    assert out == {"confirm": True, "format": "docx", "style": None,
+                   "version": None}                          # offered format kept
 
     router.route = AsyncMock(return_value=MagicMock(
         text='{"confirm": true, "format": "xlsx"}'))
     out = await interpret_offer_reply(router, offer, "actually make it a spreadsheet")
-    assert out == {"confirm": True, "format": "xlsx", "style": None}      # revised intent
+    assert out == {"confirm": True, "format": "xlsx", "style": None,
+                   "version": None}                          # revised intent
 
     router.route = AsyncMock(return_value=MagicMock(
         text='{"confirm": false, "format": null}'))
@@ -1099,7 +1102,8 @@ async def test_interpreter_judges_reply_not_template(monkeypatch):
     sent = router.route.await_args.args[0].user_content
     assert "USER REPLY: Yes" in sent
     assert "Red/Yellow" not in sent               # template never reaches the judge
-    assert out == {"confirm": True, "format": "docx", "style": None}
+    assert out == {"confirm": True, "format": "docx", "style": None,
+                   "version": None}
 
 
 @pytest.mark.asyncio

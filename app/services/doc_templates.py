@@ -1916,6 +1916,42 @@ def match_template(text: str, format: str | None = None) -> str | None:
     return None
 
 
+# Vocabulary that reads like the Gantt registry's territory without ever
+# naming a match_template hint. Field case (Scott, 2026-08-11): "a detailed
+# project plan that has our view and also the progress reported progress
+# curve" said "project plan" and "progress curve", missed every hint, and
+# silently rode the freeform sandbox lane past a template built for exactly
+# that ask. Ruling: both outputs are legitimate; an ambiguous ask gets ONE
+# short question describing the two versions in user terms, and an
+# unambiguous ask routes with no question. en/es/ja, the same trilingual
+# pattern as the intent prefilter.
+AMBIGUOUS_PLAN_HINTS = (
+    "project plan", "project schedule", "progress curve", "s-curve",
+    "s curve", "slip history", "progress s curve",
+    "plan de proyecto", "plan del proyecto", "curva de progreso",
+    "cronograma",
+    "プロジェクト計画",
+    "進捗曲線", "工程表",
+)
+
+
+def ambiguous_plan_ask(text: str, format: str | None = None) -> bool:
+    """True when the ask reads like plan/progress territory without
+    matching a template hint, so the caller must ask which version the
+    user wants BEFORE generating (Scott's ruling, 2026-08-11). Callers
+    pass the QUESTION PORTION, not assembled history: a plan word in
+    carried history must not re-question every later file ask (the #420
+    lesson applied to disambiguation). The format veto mirrors
+    match_template: a non-xlsx wish is unambiguously custom because the
+    registry only builds xlsx here."""
+    if format not in (None, "xlsx"):
+        return False
+    hay = (text or "")[-4000:].lower()
+    if match_template(hay, format=format):
+        return False
+    return any(h in hay for h in AMBIGUOUS_PLAN_HINTS)
+
+
 def parse_extraction(text: str) -> dict:
     """JSON recovery from the extraction turn. Models sometimes narrate
     around the object or append a rendering despite the output-only-JSON

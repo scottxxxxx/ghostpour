@@ -58,6 +58,18 @@ _CONFIRMATION_DEFAULTS = {
                         "real file takes about two minutes, or I can just lay "
                         "it out right here in chat. Want the file?"),
     "teaser_text": "Want this as a real downloadable file?",
+    # Version question for an ambiguous plan/progress ask (Scott's ruling
+    # 2026-08-11): users say "project plan" while expecting a Gantt, so the
+    # question describes both builds in user terms before anything
+    # generates. Served config text (client-config bundle) overrides this
+    # code default, so the wording is GP's to change with no build anywhere.
+    "lane_question_text": (
+        "Sounds like you want a project plan file{gist}. Quick question "
+        "before I build: do you want my structured plan workbook (four "
+        "tabs: a Gantt timeline, a slip history of how due dates moved, a "
+        "receipts sheet quoting the meeting line behind every value, and a "
+        "progress curve drawn to the data date), or a custom spreadsheet "
+        "composed just for what you described? Say workbook or custom."),
     "format_nouns": {
         "xlsx": "a native Excel spreadsheet (.xlsx)",
         "docx": "a native Word document (.docx)",
@@ -329,12 +341,18 @@ _INTERPRETER_SYSTEM = (
     "anything ambiguous, or asking for the content INLINE instead — "
     "\"just show me here\", \"a table in chat is fine\" — is NOT acceptance. Reply with ONLY this JSON: "
     '{"confirm": true|false, "format": "xlsx"|"docx"|"pptx"|"pdf"|null, '
-    '"style": "simple"|"detailed"|null} '
+    '"style": "simple"|"detailed"|null, '
+    '"version": "workbook"|"custom"|null} '
     "where format is the user's revised choice, or null to keep the "
-    "offered format (always null when confirm is false), and style is set "
+    "offered format (always null when confirm is false), style is set "
     "ONLY when the offer presented a simple and a detailed version and the "
     "user's own words chose one (\"detailed please\", \"the simple one\"); "
-    "null otherwise."
+    "null otherwise, and version is set ONLY when the offer presented a "
+    "structured plan workbook and a custom spreadsheet and the user's own "
+    "words chose one: words like \"the workbook\", \"the structured one\", "
+    "\"the gantt one\", or \"the detailed workbook\" mean workbook, and "
+    "words like \"custom\", \"the custom one\", or \"just build what I "
+    "described\" mean custom; null otherwise."
 )
 
 
@@ -346,11 +364,18 @@ async def interpret_offer_reply(provider_router, offer: dict, reply_text: str,
     import time as _time
 
     from app.models.chat import ChatRequest
+    _offer_line = f"OFFER: a {offer['format']} file {offer.get('gist') or ''}"
+    if offer.get("lane_choice"):
+        # Ambiguous plan ask (Scott's ruling 2026-08-11): the offer asked
+        # which version the user wants, so the judge must know both were
+        # on the table to read the reply's choice.
+        _offer_line += (" (the offer presented two versions: a structured "
+                        "plan workbook, or a custom spreadsheet)")
     request = ChatRequest(
         provider="anthropic",
         model=_CLASSIFIER_MODEL,
         system_prompt=_INTERPRETER_SYSTEM,
-        user_content=(f"OFFER: a {offer['format']} file {offer.get('gist') or ''}\n"
+        user_content=(f"{_offer_line}\n"
                       f"USER REPLY: {reply_text[:1000] if verbatim else _isolate_reply(reply_text)}"),
         # same headroom as the intent classifier: a truncated verdict here
         # silently drops a user's YES (fail-open reads as a normal turn).
@@ -374,11 +399,15 @@ async def interpret_offer_reply(provider_router, offer: dict, reply_text: str,
         style = parsed.get("style")
         if style not in ("simple", "detailed"):
             style = None
+        version = parsed.get("version")
+        if version not in ("workbook", "custom"):
+            version = None
         return {"confirm": confirm, "format": fmt or offer["format"],
-                "style": style}
+                "style": style, "version": version}
     except Exception as e:
         logger.info("offer reply interpreter failed open: %s", e)
-        return {"confirm": False, "format": offer["format"], "style": None}
+        return {"confirm": False, "format": offer["format"], "style": None,
+                "version": None}
 
 
 _GIST_QUALIFIER_PREFIXES = (
@@ -425,6 +454,42 @@ def build_offer_envelope(confirmation_cfg: dict, fmt: str | None,
                     "expected_format": fmt,
                     "expected_seconds": int(confirmation_cfg["expected_seconds"]),
                     "gist": gist,
+                },
+            },
+        },
+    }
+    if offer_id:
+        payload["feature_state"]["cta"]["details"]["offer_id"] = offer_id
+    return payload
+
+
+def build_lane_question_envelope(confirmation_cfg: dict, gist: str = "",
+                                 offer_id: str | None = None) -> dict:
+    """The version question for an ambiguous plan/progress file ask
+    (Scott's ruling 2026-08-11). Same generation_offer envelope shape the
+    client already renders verbatim as an assistant message, so the
+    question ships as served text with no client build. The offer behind
+    it stores the workbook default (users saying "project plan" expect
+    the Gantt); a typed reply choosing custom overrides at arm time."""
+    from app.services.doc_templates import TEMPLATES
+    gist = gist_composes(gist)
+    text = str(confirmation_cfg.get("lane_question_text")
+               or _CONFIRMATION_DEFAULTS["lane_question_text"])
+    text = text.replace("{gist}", (" " + gist) if gist else "")
+    payload = {
+        "feature_state": {
+            "feature": "document_generation",
+            "state": "confirmation_required",
+            "cta": {
+                "kind": "generation_offer",
+                "text": text,
+                "action": "confirm_generation",
+                "details": {
+                    "expected_format": "xlsx",
+                    "expected_seconds": int(
+                        TEMPLATES["gantt_detailed"]["expected_seconds"]),
+                    "gist": gist,
+                    "template_id": "gantt_detailed",
                 },
             },
         },

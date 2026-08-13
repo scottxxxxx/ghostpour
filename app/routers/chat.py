@@ -2022,6 +2022,26 @@ async def chat(
             logger.info(
                 "generation_offer_confirmed_check echo=%s hit=%s",
                 "present" if _offer_echo else "absent", _offer is not None)
+            if _offer is not None and _offer.get("lane_choice") == "pending":
+                # Ambiguous plan ask behind a teaser: the tap said "yes, a
+                # real file" but the version question was never asked. Ask
+                # it now, before any build (Scott's ruling 2026-08-11). The
+                # fresh offer carries the originating ask forward and marks
+                # the question as asked, so the next reply resolves the
+                # lane through the normal echo plumbing.
+                from app.services.document_generation import (
+                    build_lane_question_envelope,
+                )
+                _lq_id = generation_offers.create(
+                    user.id, _offer.get("format") or "xlsx",
+                    _offer.get("gist") or "", template_id="gantt_detailed",
+                    ask_content=_offer.get("ask_content") or "",
+                    images=_offer.get("images"), lane_choice="asked")
+                logger.info(
+                    "lane_question_served offer_id=%s via=pill_tap", _lq_id)
+                return JSONResponse(content=build_lane_question_envelope(
+                    _confirmation, gist=_offer.get("gist") or "",
+                    offer_id=_lq_id))
             if _offer is not None:
                 _template_id = _offer.get("template_id")
                 if _offer.get("ask_content"):
@@ -2089,6 +2109,31 @@ async def chat(
                     _reply_verbatim if _reply_verbatim else body.user_content,
                     verbatim=bool(_reply_verbatim), on_subcall=_meter)
                 _style_reply = _reply.get("style")
+                if _reply["confirm"] and _offer.get("lane_choice") == "pending":
+                    # Typed yes at a teaser over an AMBIGUOUS plan ask: the
+                    # version question was never asked, so ask it before any
+                    # build (Scott's ruling 2026-08-11). Unless the reply's
+                    # own words already picked a version, in which case the
+                    # question would be redundant and the choice arms below.
+                    if _reply.get("version") is None:
+                        from app.services.document_generation import (
+                            build_lane_question_envelope,
+                        )
+                        _lq_id = generation_offers.create(
+                            user.id, _reply.get("format") or "xlsx",
+                            _offer.get("gist") or "",
+                            template_id="gantt_detailed",
+                            ask_content=_offer.get("ask_content") or "",
+                            images=_offer.get("images"), lane_choice="asked")
+                        logger.info(
+                            "lane_question_served offer_id=%s via=typed_yes",
+                            _lq_id)
+                        return JSONResponse(
+                            content=build_lane_question_envelope(
+                                _confirmation, gist=_offer.get("gist") or "",
+                                offer_id=_lq_id))
+                    _offer = {**_offer, "lane_choice": "asked",
+                              "template_id": "gantt_detailed"}
                 if _reply["confirm"]:
                     # Image inherit + guard (2026-07-19 fabricated-spreadsheet
                     # incident): the photo rides the ORIGINATING send; the
@@ -2108,6 +2153,19 @@ async def chat(
                         logger.warning("generation_image_guard disarm=typed_yes")
                     _gen_armed = not _img_guarded
                     _template_id = _offer.get("template_id") if _gen_armed else None
+                    if _gen_armed and _offer.get("lane_choice") == "asked":
+                        # The question's typed answer resolves the lane. A
+                        # custom choice, or a revised non-xlsx format, builds
+                        # freeform; anything else keeps the stored workbook
+                        # default (users saying "project plan" expect the
+                        # Gantt, Scott's ruling 2026-08-11).
+                        if (_reply.get("version") == "custom"
+                                or _reply.get("format") != "xlsx"):
+                            _template_id = None
+                        logger.info(
+                            "lane_choice_resolved version=%s format=%s "
+                            "template=%s", _reply.get("version"),
+                            _reply.get("format"), _template_id)
                     _meta = dict(body.metadata or {})
                     _meta["generation_confirmed"] = _gen_armed  # transport + rescue reuse
                     _updates: dict = {"metadata": _meta}
@@ -2175,15 +2233,27 @@ async def chat(
                     # echo → interpret → arm plumbing as real offers,
                     # while the pill tap keeps the generation_confirmed
                     # resend. Same one-reply lifetime and TTL.
+                    from app.services.doc_templates import (
+                        ambiguous_plan_ask as _apa,
+                    )
                     from app.services.doc_templates import match_template as _mt
+                    _teaser_tmpl = _mt(body.user_content,
+                                       format=(_intent or {}).get("format"))
+                    # Ambiguous plan vocabulary behind a teaser: mark the
+                    # offer pending so a yes draws the version question
+                    # instead of a silent freeform build (Scott's ruling
+                    # 2026-08-11). Question portion only, the #420 lesson.
+                    _teaser_ambiguous = (_teaser_tmpl is None and _apa(
+                        _question_portion(body.user_content),
+                        format=(_intent or {}).get("format")))
                     _gen_teaser_offer_id = generation_offers.create(
                         user.id,
                         (_intent or {}).get("format") or "xlsx",
                         (_intent or {}).get("gist") or "",
-                        template_id=_mt(body.user_content,
-                                        format=(_intent or {}).get("format")),
+                        template_id=_teaser_tmpl,
                         ask_content=body.user_content or "",
-                        images=body.images)
+                        images=body.images,
+                        lane_choice=("pending" if _teaser_ambiguous else None))
                 if _intent and _intent.get("file_request"):
                     from app.services.doc_templates import TEMPLATES, match_template
                     # Format veto (live 2026-07-14 21:58:42Z: a docx
@@ -2192,19 +2262,32 @@ async def chat(
                     # anaphoric asks ("make IT into excel") need it.
                     _tmpl = match_template(body.user_content,
                                            format=_intent.get("format"))
+                    # Ambiguity check (Scott's ruling 2026-08-11): a plan or
+                    # progress-curve ask that misses every template hint
+                    # overlaps the registry's purpose without choosing a
+                    # build. Neither lane may generate until the user picks;
+                    # the question below asks in user terms. Question portion
+                    # only (the #420 lesson): plan words in carried history
+                    # must not re-question every later file ask.
+                    from app.services.doc_templates import ambiguous_plan_ask
+                    _ambiguous = (_tmpl is None and ambiguous_plan_ask(
+                        _question_portion(body.user_content),
+                        format=_intent.get("format")))
                     # Explicit-command fast path (Scott 2026-07-28: 'Put it
                     # in a word document' drew a second 'Want the file?').
                     # A deterministic explicit_file_ask hit IS the
                     # confirmation — imperative verb plus named format — so
                     # arm generation on this turn. Template matches keep the
                     # offer: that question is a real choice (gantt style,
-                    # registry vs custom), not a redundant confirm. Same
-                    # image guard as the confirmed paths: an ask referencing
-                    # a photo that didn't arrive must not build blind.
+                    # registry vs custom), not a redundant confirm. Ambiguous
+                    # plan asks keep the offer too: the version question must
+                    # come BEFORE any build. Same image guard as the
+                    # confirmed paths: an ask referencing a photo that didn't
+                    # arrive must not build blind.
                     from app.services.document_generation import (
                         ask_references_images as _ari_fp,
                     )
-                    if (_deterministic_ask and not _tmpl
+                    if (_deterministic_ask and not _tmpl and not _ambiguous
                             and (body.images
                                  or not _ari_fp(body.user_content or ""))):
                         _gen_armed = True
@@ -2246,9 +2329,31 @@ async def chat(
                                 }
                         _offer_id = generation_offers.create(
                             user.id, _intent.get("format") or "xlsx",
-                            _intent.get("gist") or "", template_id=_tmpl,
+                            _intent.get("gist") or "",
+                            # An ambiguous offer stores the workbook default
+                            # (users saying "project plan" expect the Gantt);
+                            # a typed custom reply overrides at arm time.
+                            template_id=("gantt_detailed" if _ambiguous
+                                         else _tmpl),
                             ask_content=body.user_content or "",
-                            images=body.images)
+                            images=body.images,
+                            lane_choice=("asked" if _ambiguous else None))
+                        if _ambiguous:
+                            # The version question, served as the same
+                            # generation_offer envelope the client already
+                            # renders verbatim: no build happens until the
+                            # reply picks the workbook or a custom sheet.
+                            from app.services.document_generation import (
+                                build_lane_question_envelope,
+                            )
+                            _envelope = build_lane_question_envelope(
+                                _confirmation, gist=_intent.get("gist") or "",
+                                offer_id=_offer_id)
+                            logger.info(
+                                "lane_question_served offer_id=%s via=offer "
+                                "surface=%s", _offer_id,
+                                body.get_meta("prompt_mode"))
+                            return JSONResponse(content=_envelope)
                         _envelope = build_offer_envelope(
                             _confirmation, _intent.get("format"),
                             gist=_intent.get("gist") or "", offer_id=_offer_id)
