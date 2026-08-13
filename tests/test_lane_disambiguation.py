@@ -536,3 +536,96 @@ def test_chat_only_plan_question_stays_a_chat_answer(
     assert "FILE CAPABILITY" in sent.system_prompt
     assert "never make a file offer of your own" in sent.system_prompt
     assert "make this an Excel file" in sent.system_prompt
+
+
+# --- field case 3 (2026-08-13 00:40): a GUESSED format vetoed the question ---
+#
+# Scott retested FIELD_ASK_2 on the deployed build and got the plain
+# offer: "I can build a native Word document (.docx)". The ask names no
+# format at all; the classifier guessed docx, and the ambiguity veto
+# (written for a format the USER states, where a non-xlsx wish really is
+# unambiguously custom) read the guess as a user wish and suppressed the
+# version question. The veto now keys on the user's own words.
+
+def test_stated_format_reads_only_the_users_own_words():
+    from app.services.document_generation import stated_format
+    # the field asks name no format: a guess must never pose as a wish
+    assert stated_format(FIELD_ASK_2) is None
+    assert stated_format(FIELD_ASK) is None
+    # stated formats still read, en and es and ja
+    assert stated_format("put the roles in a word document") == "docx"
+    assert stated_format("make me a spreadsheet of that") == "xlsx"
+    assert stated_format("turn this into a powerpoint") == "pptx"
+    assert stated_format("export it as a pdf") == "pdf"
+    assert stated_format("hazme una hoja de cálculo") == "xlsx"
+    assert stated_format("エクセルにして") == "xlsx"
+    # a generic file noun names no format
+    assert stated_format("can you make that a file?") is None
+    # "on deck" is agenda vocabulary, not a deck request
+    assert stated_format("what is on deck for August?") is None
+
+
+def test_guessed_format_no_longer_vetoes_the_question():
+    """The matcher itself: the veto fires on a stated non-xlsx format
+    and never on the absence of one."""
+    from app.services.doc_templates import ambiguous_plan_ask
+    from app.services.document_generation import stated_format
+    assert ambiguous_plan_ask(
+        FIELD_ASK_2, format=stated_format(FIELD_ASK_2)) is True
+    # a user who really did say Word gets the custom lane, no question
+    word_ask = "put the project plan in a word document"
+    assert ambiguous_plan_ask(
+        word_ask, format=stated_format(word_ask)) is False
+
+
+def test_field_case_3_docx_guess_still_draws_the_lane_question(
+        client, free_user, mock_provider, monkeypatch):
+    """Scott's device replay: classifier says file_request with a docx
+    guess on an ask that names no format. The version question must win,
+    and the offer behind it must be xlsx on both roads (the question
+    promises two Excel workbooks)."""
+    from unittest.mock import AsyncMock
+
+    import app.services.document_generation as dg
+    from app.services import generation_offers
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    monkeypatch.setattr(dg, "classify_generation_intent", AsyncMock(
+        return_value={"file_request": True, "format": "docx",
+                      "gist": "from these meetings"}))
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        user_content="Current question: " + FIELD_ASK_2,
+    ), headers=free_user["headers"])
+    cta = r.json()["feature_state"]["cta"]
+    assert "status workbook, or custom" in cta["text"]
+    assert "Word document" not in cta["text"]
+    assert cta["details"]["expected_format"] == "xlsx"
+    stored = generation_offers.take(
+        free_user["user_id"], cta["details"]["offer_id"])
+    assert stored["format"] == "xlsx"
+    assert stored["template_id"] == "gantt_detailed"
+    mock_provider.assert_not_awaited()
+
+
+def test_stated_word_ask_still_offers_word_with_no_question(
+        client, free_user, mock_provider, monkeypatch):
+    """The other side of the same rule: a user who NAMES Word gets the
+    plain Word offer, never the workbook question."""
+    from unittest.mock import AsyncMock
+
+    import app.services.document_generation as dg
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    monkeypatch.setattr(dg, "classify_generation_intent", AsyncMock(
+        return_value={"file_request": True, "format": "docx", "gist": ""}))
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        user_content="Current question: write up the project plan as a "
+                     "word document",
+    ), headers=free_user["headers"])
+    cta = r.json()["feature_state"]["cta"]
+    assert "status workbook, or custom" not in cta["text"]
+    assert "Word document" in cta["text"]
