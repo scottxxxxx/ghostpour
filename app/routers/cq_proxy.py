@@ -777,6 +777,47 @@ async def reassign_speaker(
     )
 
 
+# --- Speaker map (declarative: a meeting's WHOLE label-to-person mapping) ---
+
+
+@router.post("/quilt/{user_id}/speaker-map")
+async def speaker_map(
+    request: Request,
+    user_id: str,
+    body: dict | None = None,
+    user: UserRecord = Depends(get_current_user),
+):
+    """Proxy: submit a meeting's complete speaker-label to person mapping.
+
+    Declarative where reassign-speaker is imperative. The client sends the
+    whole mapping as it now stands and CQ diffs it against what it holds.
+    CQ chose that shape for two reasons worth knowing before anyone
+    "simplifies" it into an operation: an undo has no correct inverse when
+    expressed as an operation, and a declarative whole-state submit is
+    idempotent, so a relabel path nobody has found yet fails by omission
+    rather than by writing something false.
+
+    Carried ahead of the client wiring because routes, unlike fields, are
+    additive only at the gateway: a field CQ adds reaches the client through
+    _cq_proxy untouched, but a path we do not carry 404s here while CQ's own
+    socket answers, which reads as a client bug on their side.
+
+    Body untyped and forwarded verbatim. CQ owns and validates the shape
+    (`labels_are_complete`, and per label exactly one of to_person_id,
+    to_name, to_self or to_nobody); modelling it here would silently drop
+    anything they add later, which is the exact failure the people routes
+    were built to avoid.
+    """
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
+    return await _cq_proxy(
+        "POST",
+        f"/v1/quilt/{_subj(request, user_id)}/speaker-map",
+        body,
+        query=request.url.query or None,
+    )
+
+
 # --- Prewarm ---
 
 
