@@ -11,11 +11,15 @@ is the same class of bug that made every quilt poll return the whole
 quilt.
 """
 
-from unittest.mock import AsyncMock, patch
+import json
+import logging
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from app.dependencies import get_current_user
+from app.routers import cq_proxy
 from app.main import app
 from app.models.user import UserRecord
 
@@ -292,3 +296,156 @@ def test_simulation_can_also_open_the_door(client, proxy, monkeypatch):
         assert proxy.await_count == 1
     finally:
         app.dependency_overrides.pop(get_current_user, None)
+
+
+# --- Response side ---
+#
+# Everything above pins what we SEND. Nothing pinned what we RETURN, and
+# the response is where GP has eaten keys before. `_cq_proxy` parses CQ's
+# JSON and re-serializes it (there is no response model and no allowlist),
+# so the passthrough guarantee is real but was resting on the absence of
+# code rather than on a test. These run the REAL `_cq_proxy` with only
+# CQ's HTTP response stubbed, which is the difference that matters.
+
+
+def _cq_answers(payload, status=200):
+    """An httpx.AsyncClient stub whose request() returns `payload`."""
+    resp = MagicMock()
+    resp.status_code = status
+    resp.json.return_value = payload
+    resp.text = ""
+    instance = AsyncMock()
+    instance.__aenter__ = AsyncMock(return_value=instance)
+    instance.__aexit__ = AsyncMock(return_value=False)
+    instance.request = AsyncMock(return_value=resp)
+    return instance
+
+
+@pytest.fixture
+def cq_returns(monkeypatch):
+    """Serve `payload` from CQ through the real proxy body."""
+    monkeypatch.setattr(
+        cq_proxy, "get_settings",
+        lambda: SimpleNamespace(cq_base_url="http://cq-mock"))
+
+    def _install(payload, status=200):
+        monkeypatch.setattr(
+            cq_proxy.httpx, "AsyncClient",
+            lambda *a, **k: _cq_answers(payload, status))
+    return _install
+
+
+# The 16a person detail shape: insights carrying evidence rows, plus the
+# keys CQ shipped in their #239. Deliberately includes fields GP has never
+# heard of, at every depth, because that is the property under test.
+INSIGHT_PAYLOAD = {
+    "entity_id": "ent-9",
+    "display_name": "Ada Lovelace",
+    "capabilities": {"insights": True, "some_future_capability": "on"},
+    "insights": [
+        {
+            "id": "ins-1",
+            "kind": "pattern",
+            "text": "Ships on Fridays",
+            "decay_state": "fresh",
+            "confidence": 0.8125,
+            "do": "Ask before Thursday",
+            "unknown_scalar": "carried",
+            "evidence": [
+                {
+                    "text": "said it in standup",
+                    "patch_ids": ["p-1", "p-2"],
+                    "ingested_on": "2026-08-12",
+                    "weight": 0.5,
+                    "retracted_at": None,
+                    "nested": {"deep": {"deeper": ["a", 1, None, 2.5]}},
+                },
+                {
+                    "text": "again on the 3rd",
+                    "patch_ids": [],
+                    "ingested_on": None,
+                    "weight": 0.0,
+                },
+            ],
+        },
+        {
+            "id": "ins-2",
+            "kind": "obligation_pattern",
+            "decay_state": "decaying",
+            "confidence": None,
+            "evidence": [],
+        },
+    ],
+    "obligations": [{"id": "ob-1", "owed_to": "them", "state": "open"}],
+    "counts": {"meetings": 12, "insights": 2},
+}
+
+
+def test_person_detail_response_passes_through_verbatim(people_client, cq_returns):
+    """Byte-equivalent, not merely equal-ish: nested unknown keys, empty
+    lists, nulls, floats and ints all reach the client untouched. This is
+    the guarantee that lets CQ add fields without a three-way audit."""
+    cq_returns(INSIGHT_PAYLOAD)
+
+    resp = people_client.get(f"/v1/people/{USER}/ent-9")
+
+    assert resp.status_code == 200
+    assert json.loads(resp.content) == INSIGHT_PAYLOAD
+    # Named explicitly so a future reshaping breaks with a readable diff
+    # rather than a whole-payload mismatch.
+    got = resp.json()
+    assert got["capabilities"]["insights"] is True
+    ev = got["insights"][0]["evidence"][0]
+    assert ev["text"] == "said it in standup"
+    assert ev["patch_ids"] == ["p-1", "p-2"]
+    assert ev["ingested_on"] == "2026-08-12"
+    assert ev["retracted_at"] is None
+    assert ev["nested"]["deep"]["deeper"] == ["a", 1, None, 2.5]
+    assert got["insights"][0]["decay_state"] == "fresh"
+    assert got["insights"][1]["confidence"] is None
+    assert got["insights"][1]["evidence"] == []
+
+
+def test_upstream_status_codes_survive_the_response_path(people_client, cq_returns):
+    """A 404 from CQ is CQ's answer, not a proxy failure."""
+    cq_returns({"detail": "unknown person"}, status=404)
+    resp = people_client.get(f"/v1/people/{USER}/ent-9")
+    assert resp.status_code == 404
+    assert resp.json() == {"detail": "unknown person"}
+
+
+def test_one_nan_does_not_cost_the_whole_person(people_client, cq_returns, caplog):
+    """json.loads accepts bare NaN; starlette renders with allow_nan=False.
+    Before sanitizing, one bad confidence float raised mid-render and the
+    generic handler returned 502 for the entire page. The number degrades
+    to null, everything else survives, and the log says CQ misbehaved."""
+    payload = json.loads(json.dumps(INSIGHT_PAYLOAD))
+    payload["insights"][0]["confidence"] = float("nan")
+    payload["insights"][0]["evidence"][0]["weight"] = float("inf")
+    payload["insights"][1]["evidence"] = [{"weight": float("-inf")}]
+
+    cq_returns(payload)
+    with caplog.at_level(logging.WARNING):
+        resp = people_client.get(f"/v1/people/{USER}/ent-9")
+
+    assert resp.status_code == 200
+    got = resp.json()
+    assert got["insights"][0]["confidence"] is None
+    assert got["insights"][0]["evidence"][0]["weight"] is None
+    assert got["insights"][1]["evidence"][0]["weight"] is None
+    # The rest of the page is intact, which is the whole point.
+    assert got["insights"][0]["text"] == "Ships on Fridays"
+    assert got["insights"][0]["evidence"][0]["patch_ids"] == ["p-1", "p-2"]
+    assert got["obligations"][0]["owed_to"] == "them"
+    assert "cq_proxy_non_finite_float" in caplog.text
+
+
+def test_sanitizer_leaves_ordinary_payloads_alone():
+    """Zero replacements on clean data, and the value is returned as-is:
+    the guard must not become a quiet reshaper of its own."""
+    cleaned, hits = cq_proxy._null_non_finite(INSIGHT_PAYLOAD)
+    assert hits == 0
+    assert cleaned == INSIGHT_PAYLOAD
+    assert cq_proxy._null_non_finite(0.0) == (0.0, 0)
+    assert cq_proxy._null_non_finite(True) == (True, 0)
+    assert cq_proxy._null_non_finite("NaN") == ("NaN", 0)
