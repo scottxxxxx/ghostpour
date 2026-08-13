@@ -2487,13 +2487,23 @@ async def chat(
         # routing + surface), which is why this rides here and not in
         # the client prompt: a static client line would lie to
         # Free/BYOK users.
+        # Field case 2 (2026-08-12): the old line's format list fed the
+        # model a menu it re-served as its OWN offer ("Excel project
+        # plan, Word doc, or PowerPoint deck, just say the word"),
+        # promising formats outside the managed flow. The line now
+        # forbids self-offers and funnels the user toward a direct ask
+        # the platform's detection will catch.
         _cap_line = (
             "FILE CAPABILITY: this product builds and delivers real "
             "downloadable files (Excel, Word, PowerPoint, PDF). When the "
-            "user asks for a file, the platform detects it and handles "
-            "the build. Never claim you cannot create or deliver files; "
-            "answer naturally, and if the user wants a file, tell them "
-            "to ask for it directly.")
+            "user asks for a file, the platform detects the ask and "
+            "serves its own offer with the available options, so never "
+            "claim you cannot create or deliver files, and never make a "
+            "file offer of your own: do not list formats, do not promise "
+            "to build or attach anything yourself, and do not invent a "
+            "file menu. Answer naturally, and if the user seems to want "
+            "a file, tell them to ask for it directly in one short "
+            "message, for example: make this an Excel file.")
         _sys = (body.system_prompt or "").rstrip()
         body = body.model_copy(update={
             "system_prompt": (_sys + "\n\n" + _cap_line) if _sys else _cap_line,

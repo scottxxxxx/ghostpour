@@ -268,9 +268,38 @@ def generation_monthly_cap(remote_configs: dict, tier: str) -> int | None:
     return int(cap) if cap is not None else None
 
 
+# Creation verbs aimed at a plan-shaped deliverable (field case 2,
+# 2026-08-12): "Can you create a project plan from these meetings?" carries
+# no file noun at all, so the vocabulary prefilter never fired, the intent
+# flow never ran, and the model self-offered a file menu outside the
+# managed lanes. en/es; ja is verb-after-noun and matched separately.
+_PLAN_ARTIFACT_VERBS = (
+    r"(?:make|create|build|draft|prepare|produce|generate|assemble|"
+    r"put together|hazme|haz|crea|arma|prepara|genera)")
+
+
+def plan_artifact_ask(text: str) -> bool:
+    """Creation-shaped plan ask with no file noun: the deliverable is
+    plan-shaped even though no file vocabulary appears, so the managed
+    intent flow must see it (the classifier still decides whether it is
+    a file request; a no becomes the teaser, and either road leads to
+    the lane question). A question ABOUT a plan has no creation verb
+    aimed at it and stays a pure chat turn (Scott: a mention of the word
+    plan must never grow a file question)."""
+    from app.services.doc_templates import AMBIGUOUS_PLAN_HINTS
+    tail = (text or "")[-2000:].lower()
+    nouns = "|".join(re.escape(h) for h in AMBIGUOUS_PLAN_HINTS)
+    if re.search(rf"\b{_PLAN_ARTIFACT_VERBS}\b[^.!?\n]{{0,60}}?(?:{nouns})",
+                 tail):
+        return True
+    # ja puts the verb after the noun ("プロジェクト計画を作って")
+    return bool(re.search(
+        rf"(?:{nouns})[^.!?\n]{{0,20}}?(?:作成|作って|作る|まとめて)", tail))
+
+
 def looks_like_file_ask(text: str) -> bool:
     tail = (text or "")[-2000:].lower()
-    return any(h in tail for h in _FILE_ASK_HINTS)
+    return any(h in tail for h in _FILE_ASK_HINTS) or plan_artifact_ask(tail)
 
 
 async def classify_generation_intent(provider_router, user_content: str,

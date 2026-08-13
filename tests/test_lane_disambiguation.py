@@ -431,3 +431,108 @@ def test_pill_tap_at_teaser_over_ambiguous_ask_draws_the_question(
     assert "status workbook, or custom" in cta2["text"]
     assert cta2["details"]["offer_id"] != oid
     assert mock_provider.await_count == _awaits_after_teaser
+
+
+# --- field case 2 (2026-08-12): plan-shaped asks with no file noun ---
+
+FIELD_ASK_2 = "Can you create a project plan from these meetings?"
+
+
+def test_plan_artifact_ask_matrix():
+    from app.services.document_generation import (
+        looks_like_file_ask,
+        plan_artifact_ask,
+    )
+    # creation verb aimed at a plan deliverable, no file noun anywhere
+    assert plan_artifact_ask(FIELD_ASK_2) is True
+    assert looks_like_file_ask(FIELD_ASK_2) is True
+    assert plan_artifact_ask("put together a progress curve for Friday") is True
+    # questions ABOUT a plan never grow a file question (Scott, req 2)
+    assert plan_artifact_ask(
+        "What does the project plan say about the auth phase?") is False
+    assert plan_artifact_ask("is the project plan still on track?") is False
+    assert looks_like_file_ask(
+        "What does the project plan say about the auth phase?") is False
+    # a creation verb aimed at something else stays out
+    assert plan_artifact_ask("create a birthday list for the team") is False
+    # es and ja creation shapes
+    assert plan_artifact_ask("hazme un plan de proyecto con esto") is True
+    assert plan_artifact_ask("プロジェクト計画を作成してください") is True
+
+
+def test_field_case_2_classifier_yes_draws_the_lane_question(
+        client, free_user, mock_provider, monkeypatch):
+    """"Can you create a project plan from these meetings?" previously
+    never reached the intent flow (no file noun, prefilter miss) and the
+    model self-offered in prose. When the classifier reads it as a file
+    request, the lane question is the very next thing the user sees."""
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    _classify_xlsx(monkeypatch, gist="from these meetings")
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        user_content="Current question: " + FIELD_ASK_2,
+    ), headers=free_user["headers"])
+    cta = r.json()["feature_state"]["cta"]
+    assert "status workbook, or custom" in cta["text"]
+    mock_provider.assert_not_awaited()
+
+
+def test_field_case_2_classifier_no_teases_then_lane_question(
+        client, free_user, mock_provider, monkeypatch):
+    """When the classifier reads the same ask as a content question, the
+    chat answer carries the teaser; the reply ("excel please") routes
+    through the lane question, never silently freeform."""
+    from unittest.mock import AsyncMock
+
+    import app.services.document_generation as dg
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    monkeypatch.setattr(dg, "classify_generation_intent", AsyncMock(
+        return_value={"file_request": False, "format": None, "gist": ""}))
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        user_content="Current question: " + FIELD_ASK_2,
+    ), headers=free_user["headers"])
+    fs = r.json().get("feature_state")
+    assert fs and fs["cta"]["kind"] == "generation_teaser"
+    oid = fs["cta"]["details"]["offer_id"]
+    _awaits = mock_provider.await_count
+
+    monkeypatch.setattr(dg, "interpret_offer_reply", AsyncMock(
+        return_value={"confirm": True, "format": "xlsx", "style": None,
+                      "version": None}))
+    r2 = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        metadata={"offer_id": oid, "reply_text": "excel please"},
+        user_content="Current question: excel please",
+    ), headers=free_user["headers"])
+    cta2 = r2.json()["feature_state"]["cta"]
+    assert "status workbook, or custom" in cta2["text"]
+    assert mock_provider.await_count == _awaits
+
+
+def test_chat_only_plan_question_stays_a_chat_answer(
+        client, free_user, mock_provider):
+    """Req 2: an unambiguous chat-only question about a plan gets a chat
+    answer. No teaser, no offer, no classifier spend (the real prefilter
+    runs unmocked and must miss), and the served capability line forbids
+    the model's own file menu."""
+    from tests.conftest import chat_request
+
+    _enable_confirmed_generation(client)
+    r = client.post("/v1/chat", json=chat_request(
+        prompt_mode="ProjectChat", call_type="query",
+        system_prompt="You are a helpful assistant.",
+        user_content="Current question: What does the project plan say "
+                     "about the auth phase?",
+    ), headers=free_user["headers"])
+    assert r.status_code == 200
+    assert "feature_state" not in r.json()
+    sent = mock_provider.await_args_list[-1].args[0]
+    # the capability line funnels self-offers into the managed flow
+    assert "FILE CAPABILITY" in sent.system_prompt
+    assert "never make a file offer of your own" in sent.system_prompt
+    assert "make this an Excel file" in sent.system_prompt
