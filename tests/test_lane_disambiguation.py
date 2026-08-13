@@ -77,32 +77,43 @@ def test_lane_question_envelope_shape_and_copy():
     assert cta["kind"] == "generation_offer"
     assert cta["action"] == "confirm_generation"
     text = cta["text"]
-    # both versions described in user terms (Scott's wording guidance)
-    assert "Gantt timeline" in text
-    assert "slip history" in text
-    assert "receipts" in text
-    assert "progress curve" in text
-    assert "custom spreadsheet" in text
-    assert "for the rollout" in text
+    # the Scott-approved copy, exactly (two revision rounds; both options
+    # honestly framed as Excel workbooks from meeting data)
+    assert text == (
+        "I can build your Excel file two ways.\n\n"
+        "Our project status workbook uses a format we've refined for "
+        "sharing status with a team: a Gantt style timeline, a progress "
+        "curve of reported versus planned, the history of every due date "
+        "that moved, and a receipts sheet showing the meeting line behind "
+        "each number, so anyone can check where a value came from.\n\n"
+        "A custom workbook built to exactly what you describe, in whatever "
+        "shape fits your ask.\n\n"
+        "Both come from your meeting notes. Which would you like: the "
+        "status workbook, or custom?")
     assert "—" not in text and "–" not in text   # served copy carries no dashes
+    assert "*" not in text                        # no leaked markdown emphasis
     assert "{" not in text                        # no dangling placeholders
     assert cta["details"]["offer_id"] == "lq1"
     assert cta["details"]["template_id"] == "gantt_detailed"
     assert cta["details"]["expected_format"] == "xlsx"
-    # no gist -> no double space, no dangling braces
+    # the gist rides details only; the copy has no slot for it
+    assert cta["details"]["gist"] == "for the rollout"
+    assert "for the rollout" not in text
+    # no gist -> same copy, no double space, no dangling braces
     env2 = build_lane_question_envelope(_CONFIRMATION_DEFAULTS)
-    assert "{" not in env2["feature_state"]["cta"]["text"]
+    assert env2["feature_state"]["cta"]["text"] == text
     assert "  " not in env2["feature_state"]["cta"]["text"]
 
 
 def test_bundled_lane_question_agrees_with_default():
     # the served bundle carries the question so the wording stays GP's to
-    # change without a build anywhere; it must satisfy the same contract
+    # change without a build anywhere; it must MATCH the code default so a
+    # stale or missing config never changes the approved copy
+    from app.services.document_generation import _CONFIRMATION_DEFAULTS
     c = _json.load(open("config/remote/client-config.json"))
     text = (c["documents"]["generation"]["confirmation"]
             ["lane_question_text"])
-    assert "{gist}" in text
-    assert "Gantt timeline" in text and "custom" in text
+    assert text == _CONFIRMATION_DEFAULTS["lane_question_text"]
     assert "—" not in text and "–" not in text
 
 
@@ -167,7 +178,7 @@ def test_field_case_draws_the_question_not_a_build(
         client, free_user, mock_provider, monkeypatch):
     _enable_confirmed_generation(client)
     cta = _ask_field_case(client, free_user, monkeypatch)
-    assert "workbook or custom" in cta["text"]
+    assert "status workbook, or custom" in cta["text"]
     assert cta["details"]["template_id"] == "gantt_detailed"
     assert cta["details"]["offer_id"]
     # nothing generated: the question came BEFORE any build
@@ -290,7 +301,7 @@ def test_explicit_ambiguous_ask_skips_the_fast_path(
                      "progress curve",
     ), headers=free_user["headers"])
     cta = r.json()["feature_state"]["cta"]
-    assert "workbook or custom" in cta["text"]
+    assert "status workbook, or custom" in cta["text"]
     mock_provider.assert_not_awaited()
 
 
@@ -326,7 +337,7 @@ def test_gantt_ask_still_gets_the_template_intercept(
     ), headers=free_user["headers"])
     cta = r.json()["feature_state"]["cta"]
     assert cta["details"]["template_id"] == "gantt_smartsheet"
-    assert "workbook or custom" not in cta["text"]
+    assert "status workbook, or custom" not in cta["text"]
     assert "simple or detailed" in cta["text"]
 
 
@@ -362,7 +373,7 @@ def test_teaser_yes_over_ambiguous_ask_draws_the_question(
         user_content="Current question: yes",
     ), headers=free_user["headers"])
     cta2 = r2.json()["feature_state"]["cta"]
-    assert "workbook or custom" in cta2["text"]
+    assert "status workbook, or custom" in cta2["text"]
     q_oid = cta2["details"]["offer_id"]
     assert q_oid and q_oid != oid
     # the question turn generated nothing (no provider call at all)
@@ -417,6 +428,6 @@ def test_pill_tap_at_teaser_over_ambiguous_ask_draws_the_question(
                      "curve in that spreadsheet worry me",
     ), headers=free_user["headers"])
     cta2 = r2.json()["feature_state"]["cta"]
-    assert "workbook or custom" in cta2["text"]
+    assert "status workbook, or custom" in cta2["text"]
     assert cta2["details"]["offer_id"] != oid
     assert mock_provider.await_count == _awaits_after_teaser

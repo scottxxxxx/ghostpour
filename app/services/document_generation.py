@@ -59,17 +59,25 @@ _CONFIRMATION_DEFAULTS = {
                         "it out right here in chat. Want the file?"),
     "teaser_text": "Want this as a real downloadable file?",
     # Version question for an ambiguous plan/progress ask (Scott's ruling
-    # 2026-08-11): users say "project plan" while expecting a Gantt, so the
-    # question describes both builds in user terms before anything
-    # generates. Served config text (client-config bundle) overrides this
-    # code default, so the wording is GP's to change with no build anywhere.
+    # 2026-08-11; final wording Scott-approved after two revision rounds):
+    # users say "project plan" while expecting a Gantt, so the question
+    # describes both builds in user terms before anything generates. Both
+    # options are honestly framed as Excel workbooks from meeting data;
+    # the differentiators are the refined share-ready format and receipts
+    # traceability. Served config text (client-config bundle) overrides
+    # this code default, so the wording is GP's to change with no build
+    # anywhere.
     "lane_question_text": (
-        "Sounds like you want a project plan file{gist}. Quick question "
-        "before I build: do you want my structured plan workbook (four "
-        "tabs: a Gantt timeline, a slip history of how due dates moved, a "
-        "receipts sheet quoting the meeting line behind every value, and a "
-        "progress curve drawn to the data date), or a custom spreadsheet "
-        "composed just for what you described? Say workbook or custom."),
+        "I can build your Excel file two ways.\n\n"
+        "Our project status workbook uses a format we've refined for "
+        "sharing status with a team: a Gantt style timeline, a progress "
+        "curve of reported versus planned, the history of every due date "
+        "that moved, and a receipts sheet showing the meeting line behind "
+        "each number, so anyone can check where a value came from.\n\n"
+        "A custom workbook built to exactly what you describe, in whatever "
+        "shape fits your ask.\n\n"
+        "Both come from your meeting notes. Which would you like: the "
+        "status workbook, or custom?"),
     "format_nouns": {
         "xlsx": "a native Excel spreadsheet (.xlsx)",
         "docx": "a native Word document (.docx)",
@@ -348,11 +356,12 @@ _INTERPRETER_SYSTEM = (
     "ONLY when the offer presented a simple and a detailed version and the "
     "user's own words chose one (\"detailed please\", \"the simple one\"); "
     "null otherwise, and version is set ONLY when the offer presented a "
-    "structured plan workbook and a custom spreadsheet and the user's own "
-    "words chose one: words like \"the workbook\", \"the structured one\", "
-    "\"the gantt one\", or \"the detailed workbook\" mean workbook, and "
-    "words like \"custom\", \"the custom one\", or \"just build what I "
-    "described\" mean custom; null otherwise."
+    "project status workbook and a custom workbook and the user's own "
+    "words chose one: words like \"status workbook\", \"workbook\", "
+    "\"status\", \"your format\", \"recipe\", \"the structured one\", or "
+    "\"the gantt one\" mean workbook, and words like \"custom\", "
+    "\"ad hoc\", \"my version\", or \"just build what I described\" mean "
+    "custom; null otherwise."
 )
 
 
@@ -369,8 +378,8 @@ async def interpret_offer_reply(provider_router, offer: dict, reply_text: str,
         # Ambiguous plan ask (Scott's ruling 2026-08-11): the offer asked
         # which version the user wants, so the judge must know both were
         # on the table to read the reply's choice.
-        _offer_line += (" (the offer presented two versions: a structured "
-                        "plan workbook, or a custom spreadsheet)")
+        _offer_line += (" (the offer presented two versions: the project "
+                        "status workbook, or a custom workbook)")
     request = ChatRequest(
         provider="anthropic",
         model=_CLASSIFIER_MODEL,
@@ -475,6 +484,9 @@ def build_lane_question_envelope(confirmation_cfg: dict, gist: str = "",
     gist = gist_composes(gist)
     text = str(confirmation_cfg.get("lane_question_text")
                or _CONFIRMATION_DEFAULTS["lane_question_text"])
+    # The approved copy carries no {gist} slot (it names the source,
+    # "your meeting notes", instead); the replace stays for served
+    # overrides that choose to compose one in.
     text = text.replace("{gist}", (" " + gist) if gist else "")
     payload = {
         "feature_state": {
