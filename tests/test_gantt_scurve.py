@@ -404,3 +404,27 @@ def test_the_legend_stays_off_the_plot_when_no_corner_is_clear():
     lg = _legend_of(awkward)
     assert lg.position == "r"
     assert lg.layout is None, "outside the plot, not overlaid on it"
+
+
+def test_the_legend_is_opaque_so_curves_do_not_run_through_it():
+    """Scott 2026-08-13: "I had to move it so I could actually see the
+    lines". Corner dodging picks the emptiest corner; it cannot promise an
+    empty one, and with no fill the legend is transparent, so whatever ink
+    shares the corner draws straight through the text."""
+    lg = _legend_of(_PLAN, _HISTORY)
+    assert lg.spPr is not None, "no fill means transparent"
+    _rgb = lg.spPr.solidFill.srgbClr
+    assert getattr(_rgb, "value", _rgb) == "FFFFFF"
+
+
+def test_every_plotted_curve_has_a_legend_entry():
+    """The green Reported line was plotted with nothing naming it. Six
+    series are charted but two are furniture (the meeting dots and the
+    vertical data-date marker); they were spending legend rows the box did
+    not have, and the entries that fell off the end were the real curves."""
+    lg = _legend_of(_PLAN, _HISTORY)
+    deleted = {e.idx for e in (lg.legendEntry or []) if e.delete}
+    # Series order follows columns B..G: baseline, current, plan-after,
+    # reported, at-a-meeting, data-date.
+    assert deleted == {4, 5}, "only the two helper series are hidden"
+    assert 3 not in deleted, "Reported must keep its entry"
