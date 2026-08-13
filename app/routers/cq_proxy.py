@@ -8,6 +8,7 @@ is configured. Apps that don't use Context Quilt won't have these routes.
 import asyncio
 import hashlib
 import logging
+import math
 from typing import Any
 
 import aiosqlite
@@ -70,6 +71,42 @@ async def _report_cq_incident(
 # --- Proxy helper ---
 
 
+def _null_non_finite(value: Any) -> tuple[Any, int]:
+    """Replace NaN/Infinity floats with null, recursively. Returns the
+    cleaned value and how many it replaced.
+
+    `json.loads` accepts the bare `NaN`, `Infinity` and `-Infinity`
+    literals, but starlette's JSONResponse renders with allow_nan=False,
+    so a single one of them anywhere in a CQ payload raises during
+    serialization, hits the generic handler below, and turns the whole
+    response into a 502. On the person detail that means one bad
+    confidence float costs the entire page, insights, evidence and
+    obligations included. Degrading the number to null keeps everything
+    else, and the caller logs that it happened.
+
+    Not a substitute for CQ emitting null: it is the second half of a
+    belt and suspenders pair, and the log line is what tells us the first
+    half slipped."""
+    if isinstance(value, float):
+        return (value, 0) if math.isfinite(value) else (None, 1)
+    if isinstance(value, dict):
+        out: dict = {}
+        found = 0
+        for key, item in value.items():
+            out[key], hits = _null_non_finite(item)
+            found += hits
+        return out, found
+    if isinstance(value, list):
+        cleaned = []
+        found = 0
+        for item in value:
+            new_item, hits = _null_non_finite(item)
+            cleaned.append(new_item)
+            found += hits
+        return cleaned, found
+    return value, 0
+
+
 async def _cq_proxy(
     method: str,
     path: str,
@@ -112,6 +149,15 @@ async def _cq_proxy(
                     "message": "Context Quilt rejected server credentials",
                 }
             })
+
+        content, non_finite = _null_non_finite(content)
+        if non_finite:
+            # Loud on purpose: this means CQ emitted a number JSON cannot
+            # carry, and we want that known rather than papered over.
+            logger.warning(
+                "cq_proxy_non_finite_float",
+                extra={"path": path, "count": non_finite},
+            )
 
         return JSONResponse(status_code=resp.status_code, content=content)
     except httpx.TimeoutException:
