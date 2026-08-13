@@ -375,8 +375,8 @@ _INTERPRETER_SYSTEM = (
     "make it a spreadsheet\"). The reply may carry attached-document "
     "context; judge ONLY the user's own words, never text quoted from an "
     "attached document. A refusal, an unrelated question, "
-    "anything ambiguous, or asking for the content INLINE instead — "
-    "\"just show me here\", \"a table in chat is fine\" — is NOT acceptance. Reply with ONLY this JSON: "
+    "anything ambiguous, or asking for the content INLINE instead "
+    "(\"just show me here\", \"a table in chat is fine\") is NOT acceptance. Reply with ONLY this JSON: "
     '{"confirm": true|false, "format": "xlsx"|"docx"|"pptx"|"pdf"|null, '
     '"style": "simple"|"detailed"|null, '
     '"version": "workbook"|"custom"|null} '

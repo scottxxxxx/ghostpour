@@ -261,10 +261,10 @@ class AnthropicAdapter(ProviderAdapter):
             body["system"] = list(body["system"]) + [{
                 "type": "text",
                 "text": ("When creating Word (.docx) files in the sandbox, "
-                         "use the python-docx library — do not use docx.js "
+                         "use the python-docx library, not docx.js "
                          "or hand-written OOXML; Word rejects their output. "
                          "For checklists, use plain paragraphs starting with "
-                         "the ballot-box glyph — never checkbox glyphs inside "
+                         "the ballot-box glyph, never checkbox glyphs inside "
                          "bulleted list items (double markers). Style the "
                          "document title as Title, sections as Heading 1-3. "
                          "Name every file you create so a person browsing a "

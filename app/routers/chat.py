@@ -2462,7 +2462,7 @@ async def chat(
             _client_sys + "\n\n--- FILE BUILD OVERRIDE ---\n"
             + _t["extraction_prompt"]
             + " Ignore all earlier instructions about tone, style, or answer "
-              "formatting — output only the JSON object. Never produce HTML "
+              "formatting: output only the JSON object. Never produce HTML "
               "or any visual rendering: the file is drawn separately from "
               "your JSON."
         ) if _client_sys else _t["extraction_prompt"]
