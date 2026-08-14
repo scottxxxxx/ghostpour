@@ -581,3 +581,101 @@ class TestReassignSpeaker:
             headers=pro_user["headers"],
         )
         assert resp.status_code == 422
+
+
+class TestSpeakerMap:
+    """POST /v1/quilt/{user_id}/speaker-map — the declarative rename lane.
+
+    The failure this guards is not a wrong body, it is a missing route.
+    Fields are additive at the reader (a key CQ adds reaches the client
+    through _cq_proxy untouched), but routes are additive only at the
+    gateway: until this path is in our table it 404s here while CQ's own
+    socket answers, which reads as a client bug on ShoulderSurf's side.
+    """
+
+    def _proxy(self, captured, cq_response):
+        mock_resp = httpx.Response(
+            status_code=200,
+            json=cq_response,
+            request=httpx.Request("POST", "http://cq-mock/v1/quilt/test/speaker-map"),
+        )
+
+        async def fake_request(method, path, json=None, headers=None):
+            captured["method"] = method
+            captured["path"] = path
+            captured["body"] = json
+            return mock_resp
+
+        return fake_request
+
+    def test_speaker_map_is_carried_and_forwarded_verbatim(self, client_with_cq, pro_user):
+        """The whole mapping reaches CQ unchanged, all four target kinds intact."""
+        captured = {}
+        cq_response = {"labels_applied": 3, "labels_cleared": 1, "patches_updated": 12}
+        sent = {
+            "meeting_id": "0d9d6f0e-1f4a-4a1f-9a6c-2f1d3b4c5d6e",
+            "labels_are_complete": True,
+            "labels": [
+                {"label": "Speaker 1", "to_person_id": "b1c2d3e4-0000-1111-2222-333344445555"},
+                {"label": "Speaker 2", "to_name": "Ramkumar"},
+                {"label": "Speaker 3", "to_self": True},
+                {"label": "Speaker 4", "to_nobody": True},
+            ],
+        }
+
+        with patch("app.services.context_quilt._get_auth_headers", new_callable=AsyncMock, return_value={"Authorization": "Bearer mock"}), \
+             patch("httpx.AsyncClient") as MockClient:
+            instance = AsyncMock()
+            instance.__aenter__ = AsyncMock(return_value=instance)
+            instance.__aexit__ = AsyncMock(return_value=False)
+            instance.request = AsyncMock(side_effect=self._proxy(captured, cq_response))
+            MockClient.return_value = instance
+
+            resp = client_with_cq.post(
+                f"/v1/quilt/{pro_user['user_id']}/speaker-map",
+                json=sent,
+                headers=pro_user["headers"],
+            )
+
+        assert resp.status_code == 200
+        assert resp.json() == cq_response
+        assert captured["method"] == "POST"
+        assert captured["path"] == f"/v1/quilt/{pro_user['user_id']}/speaker-map"
+        assert captured["body"] == sent
+
+    def test_unknown_keys_survive_because_cq_owns_the_shape(self, client_with_cq, pro_user):
+        """Untyped on purpose. A field CQ adds later must reach them without
+        us shipping anything, which a request model would silently drop."""
+        captured = {}
+        sent = {
+            "meeting_id": "m-1",
+            "labels_are_complete": False,
+            "labels": [{"label": "Speaker 1", "to_name": "Ada", "confidence": 0.5}],
+            "some_future_key": {"nested": ["a", None, 1.5]},
+        }
+
+        with patch("app.services.context_quilt._get_auth_headers", new_callable=AsyncMock, return_value={"Authorization": "Bearer mock"}), \
+             patch("httpx.AsyncClient") as MockClient:
+            instance = AsyncMock()
+            instance.__aenter__ = AsyncMock(return_value=instance)
+            instance.__aexit__ = AsyncMock(return_value=False)
+            instance.request = AsyncMock(side_effect=self._proxy(captured, {"ok": True}))
+            MockClient.return_value = instance
+
+            resp = client_with_cq.post(
+                f"/v1/quilt/{pro_user['user_id']}/speaker-map",
+                json=sent,
+                headers=pro_user["headers"],
+            )
+
+        assert resp.status_code == 200
+        assert captured["body"] == sent
+
+    def test_speaker_map_refuses_another_users_quilt(self, client_with_cq, pro_user):
+        """Same ownership guard as the other quilt write verbs."""
+        resp = client_with_cq.post(
+            "/v1/quilt/someone-else/speaker-map",
+            json={"meeting_id": "m-1", "labels_are_complete": True, "labels": []},
+            headers=pro_user["headers"],
+        )
+        assert resp.status_code == 403
