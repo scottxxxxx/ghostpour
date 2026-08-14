@@ -132,3 +132,59 @@ def test_panel_helper_reports_rather_than_swallows():
     assert "panel-error-banner" in body
     # The banner element has to exist for the handler to find it.
     assert 'id="panel-error-banner"' in src
+
+
+# --- Duplicate ids (2026-08-14) --------------------------------------------
+#
+# admin.html carries TWO model-routing UIs: a "Model Routing Dials" panel in
+# the Config tab and a "Model Routing" tab. Both defined loadRouting(),
+# renderRouting() and saveRouting() at top level, so the later pair silently
+# shadows the earlier one, and both used id="routing-status".
+# getElementById returns the FIRST match, so the live tab wrote every save
+# confirmation into a hidden span belonging to the other tab. The save
+# worked and looked like it had not.
+
+
+def test_status_ids_are_unique():
+    """A duplicate id does not fail loudly, it just resolves to the wrong
+    element forever."""
+    src = _src()
+    for el_id in ("routing-status", "routing-tab-status", "routing-save-btn"):
+        assert src.count(f'id="{el_id}"') <= 1, (
+            f'id="{el_id}" appears more than once; getElementById would '
+            f"return only the first and the other becomes unreachable")
+
+
+def test_the_live_routing_save_targets_its_own_tab():
+    src = _src()
+    save = src[src.rindex("async function saveRouting()"):]
+    assert "getElementById('routing-tab-status')" in save, (
+        "the Model Routing tab's save must write to the span in its own tab")
+    assert "getElementById('routing-status')" not in save
+
+
+def test_the_save_confirmation_does_not_erase_itself():
+    """A confirmation that vanishes after three seconds is the bug, not the
+    fix: the whole point is that it is still there when you look up."""
+    src = _src()
+    save = src[src.rindex("async function saveRouting()"):]
+    assert "setTimeout" not in save, "the confirmation must persist"
+    assert "Saving..." in save, "in-flight state"
+    assert "Save failed (" in save, "failures name the status code"
+
+
+def test_the_version_is_only_bumped_after_the_server_accepts():
+    """Bumping first left the local copy ahead of the server whenever a save
+    failed, so the next successful save skipped a version number."""
+    src = _src()
+    save = src[src.rindex("async function saveRouting()"):]
+    bump = save.index("_routingData.version = nextVersion")
+    assert save.index("resp.ok") < bump, "assign the version only after resp.ok"
+
+
+def test_dashboard_copy_carries_no_dashes():
+    """Same standing rule as the served prompts; this is copy Scott reads."""
+    src = _src()
+    save = src[src.rindex("async function saveRouting()"):]
+    for d in ("—", "–"):
+        assert d not in save

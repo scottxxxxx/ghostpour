@@ -672,8 +672,8 @@
     <p style="color:var(--text-dim);font-size:13px;margin-bottom:16px">Control which model serves each query type per app and subscription tier. Changes take effect immediately.</p>
     <div id="routing-grid"></div>
     <div style="margin-top:12px;display:flex;gap:8px">
-      <button class="refresh-btn" onclick="saveRouting()" style="background:var(--green);color:#000;font-weight:600">Save Changes</button>
-      <span id="routing-status" style="font-size:12px;color:var(--text-dim);line-height:32px"></span>
+      <button id="routing-save-btn" class="refresh-btn" onclick="saveRouting()" style="background:var(--green);color:#000;font-weight:600">Save Changes</button>
+      <span id="routing-tab-status" style="font-size:12px;color:var(--text-dim);line-height:32px" aria-live="polite"></span>
     </div>
   </div>
 
@@ -4793,6 +4793,13 @@ function renderRouting() {
 
 async function saveRouting() {
   if (!_routingData) return;
+  // Target THIS tab's status span. It used to read 'routing-status', an id
+  // admin.html defines twice, so getElementById returned the copy sitting in
+  // the Config tab: every confirmation was written into a hidden element in
+  // a tab nobody was looking at, then wiped after three seconds. The save
+  // worked and looked like it had not (Scott, 2026-08-14).
+  const s = document.getElementById('routing-tab-status');
+  const btn = document.getElementById('routing-save-btn');
   // Read all selects back into the data
   document.querySelectorAll('#routing-grid select').forEach(sel => {
     const app = sel.dataset.app;
@@ -4802,18 +4809,37 @@ async function saveRouting() {
       _routingData.apps[app].call_types[ct].models[tier] = sel.value;
     }
   });
-  _routingData.version = (_routingData.version || 0) + 1;
+  const nextVersion = (_routingData.version || 0) + 1;
 
-  const resp = await fetch(`${BASE}/webhooks/admin/config/model-routing`, {
-    method: 'PUT',
-    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
-    body: JSON.stringify({data: _routingData}),
-  });
-  if (resp.ok) {
-    document.getElementById('routing-status').textContent = `Saved v${_routingData.version} — changes are live`;
-    setTimeout(() => document.getElementById('routing-status').textContent = '', 3000);
-  } else {
-    document.getElementById('routing-status').textContent = 'Save failed!';
+  s.textContent = 'Saving...';
+  s.style.color = 'var(--orange)';
+  if (btn) btn.disabled = true;
+  try {
+    const resp = await fetch(`${BASE}/webhooks/admin/config/model-routing`, {
+      method: 'PUT',
+      headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
+      body: JSON.stringify({data: {..._routingData, version: nextVersion}}),
+    });
+    if (resp.ok) {
+      // Only now does the local copy own the new version. Bumping before
+      // the request left it ahead of the server on every failure, so the
+      // next successful save skipped a number.
+      _routingData.version = nextVersion;
+      s.textContent = `\u2713 Saved. Now v${nextVersion}, live for the next matching request.`;
+      s.style.color = 'var(--green)';
+      // The text is persistent on purpose: a confirmation that erases
+      // itself is the thing being fixed. A short pulse catches the eye for
+      // anyone watching the table rather than the button.
+      if (s.animate) s.animate([{opacity: 0.25}, {opacity: 1}], {duration: 450});
+    } else {
+      s.textContent = `Save failed (${resp.status}). Nothing changed, your edits are still on screen.`;
+      s.style.color = 'var(--red)';
+    }
+  } catch (e) {
+    s.textContent = `Save failed (${e.message}). Nothing changed, your edits are still on screen.`;
+    s.style.color = 'var(--red)';
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
