@@ -50,6 +50,15 @@ providers:
       anthropic-version: "2023-06-01"
     env_key: "anthropic_api_key"
     models:
+      - id: "claude-fable-5"
+        supports_vision: true
+        max_tokens_default: 4096
+      - id: "claude-opus-5"
+        supports_vision: true
+        max_tokens_default: 4096
+      - id: "claude-opus-4-8"
+        supports_vision: true
+        max_tokens_default: 4096
       - id: "claude-opus-4-7"
         supports_vision: true
         max_tokens_default: 4096
