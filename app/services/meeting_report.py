@@ -73,7 +73,7 @@ _LEADING_OWNER_RE = re.compile(
     r"(?:to|will|is to|are to|to be|will be)\s+[a-z]",
 )
 # Capitalized lead words that are grammatically capitalized but aren't
-# people — guards against "Team to ...", "Monitor ...", etc.
+# people: guards against "Team to ...", "Monitor ...", etc.
 _NON_PERSON_LEADS = {
     "the", "team", "everyone", "all", "both", "we", "they", "someone",
     "nobody", "monitor", "review", "ensure", "confirm", "follow", "set",
@@ -185,13 +185,14 @@ Rules:
   - Tense argument or contentious decision: dips into 15-35, baseline 30-45.
   - Frustration / blocking issues: 20-40 sustained, dipping lower at flashpoints.
   - Dry status update / routine sync: 40-55, low variance is honest here.
-  - The `arc` should reflect the actual ups and downs — a meeting with both jokes and a serious decision moment should show both peaks and dips. Aim for at least 25-30 points of variance between min and max unless the meeting was genuinely monotone.
+  - The `arc` should reflect the actual ups and downs: a meeting with both jokes and a serious decision moment should show both peaks and dips. Aim for at least 25-30 points of variance between min and max unless the meeting was genuinely monotone.
 - The sentiment_emoji_label must be exactly one of: enthusiastic, collaborative, positive, informational, focused, cautious, frustrated, tense, concerned, disappointed. The emoji should be a single emoji that represents the chosen label.
 - For suggested_tags: return at most 2 tags from the provided TAG TAXONOMY list, applied only when they capture what makes THIS meeting distinctive from a typical meeting. Most meetings should produce 1 tag, or 0 if nothing stands out. Do not apply a tag just because it could plausibly fit. Each tag needs a reason explaining why it applies and what makes it distinguishing.
 - For queries_during_meeting: include them exactly as provided in the input, do not modify query text or response text
 - Never fabricate information not present in the transcript
 - If a field has no relevant data, use an empty array or null as appropriate
-- When referring to the app owner, use second-person voice ("You" / "Your"). Never use parenthetical identifiers like "(you)" in output text."""
+- When referring to the app owner, use second-person voice ("You" / "Your"). Never use parenthetical identifiers like "(you)" in output text.
+- Write every narrative field without em or en dashes, and never imitate one with a spaced hyphen (word - word). A hyphen may appear only inside a hyphenated word or a number range. Where a dash would fit, use a comma, a colon, parentheses, or two sentences, even when the transcript uses one."""
 
 REPORT_USER_TEMPLATE = """Analyze this meeting and produce a structured JSON report.
 
@@ -201,68 +202,68 @@ Respond with ONLY valid JSON, no markdown backticks, no preamble, no explanation
 JSON SCHEMA:
 {{
   "header": {{
-    "category": "string — short label like 'Technical Working Session' or 'Sprint Planning' or 'Status Update'",
-    "title": "string — descriptive title summarizing the meeting's main focus, 10 to 15 words max",
-    "summary": "string — 2 to 3 sentence overview of what happened and what the outcome was",
-    "attendees": ["string — use the CONFIRMED ATTENDEES list below, not names from transcript"]
+    "category": "string: short label like 'Technical Working Session' or 'Sprint Planning' or 'Status Update'",
+    "title": "string: descriptive title summarizing the meeting's main focus, 10 to 15 words max",
+    "summary": "string: 2 to 3 sentence overview of what happened and what the outcome was",
+    "attendees": ["string: use the CONFIRMED ATTENDEES list below, not names from transcript"]
   }},
   "stoplight": {{
     "color": "red | orange | yellow | green",
-    "label": "string — short status phrase, 3 to 6 words",
-    "detail": "string — 1 to 2 sentences explaining why you chose this color"
+    "label": "string: short status phrase, 3 to 6 words",
+    "detail": "string: 1 to 2 sentences explaining why you chose this color"
   }},
   "sentiment": {{
     "score": "number 0-100",
-    "label": "string — 2 to 5 word characterization",
-    "detail": "string — 1 to 2 sentences describing the overall emotional tone",
-    "emoji_label": "string — exactly one of: enthusiastic, collaborative, positive, informational, focused, cautious, frustrated, tense, concerned, disappointed",
-    "emoji": "string — single emoji that represents the emoji_label",
+    "label": "string: 2 to 5 word characterization",
+    "detail": "string: 1 to 2 sentences describing the overall emotional tone",
+    "emoji_label": "string: exactly one of: enthusiastic, collaborative, positive, informational, focused, cautious, frustrated, tense, concerned, disappointed",
+    "emoji": "string: single emoji that represents the emoji_label",
     "arc": [
       {{
-        "value": "number 0-100, sentiment score for this segment of the meeting (0 = very negative, 50 = neutral, 100 = very positive). Use the full range — see Rules.",
+        "value": "number 0-100, sentiment score for this segment of the meeting (0 = very negative, 50 = neutral, 100 = very positive). Use the full range: see Rules.",
         "mood": "confident | tense | concern | neutral"
       }}
     ],
-    "arc_narrative": "string — 2 to 3 sentences describing how the sentiment shifted during the meeting and why"
+    "arc_narrative": "string: 2 to 3 sentences describing how the sentiment shifted during the meeting and why"
   }},
   "suggested_tags": [
     {{
-      "tag": "string — tag name from the TAG TAXONOMY list",
-      "reason": "string — why this tag applies to this meeting"
+      "tag": "string: tag name from the TAG TAXONOMY list",
+      "reason": "string: why this tag applies to this meeting"
     }}
   ],
   "actions": [
     {{
-      "owner": "string — person's name",
+      "owner": "string: person's name",
       "priority": "critical | standard",
-      "task": "string — the action item",
+      "task": "string: the action item",
       "deadline": "string | null"
     }}
   ],
   "technical_issues": [
     {{
       "severity": "gap | bug | risk",
-      "title": "string — short issue title",
-      "detail": "string — 2 to 4 sentences describing the issue",
-      "position": "string | null — if someone stated a clear position, describe it with their name"
+      "title": "string: short issue title",
+      "detail": "string: 2 to 4 sentences describing the issue",
+      "position": "string | null: if someone stated a clear position, describe it with their name"
     }}
   ],
   "developments": [
     {{
-      "title": "string — short title for a positive development",
-      "detail": "string — 1 to 3 sentences"
+      "title": "string: short title for a positive development",
+      "detail": "string: 1 to 3 sentences"
     }}
   ],
   "decisions": [
     {{
-      "title": "string — short title for the decision",
-      "detail": "string — 2 to 3 sentences describing what was agreed and why"
+      "title": "string: short title for the decision",
+      "detail": "string: 2 to 3 sentences describing what was agreed and why"
     }}
   ],
   "open_questions": [
     {{
-      "question": "string — the open question",
-      "owner": "string — who is responsible"
+      "question": "string: the open question",
+      "owner": "string: who is responsible"
     }}
   ],
   "queries_during_meeting": [
@@ -381,7 +382,7 @@ async def gather_meeting_data(
                     pass
 
         elif call_type == "query":
-            # Interactive query — extract for research notes
+            # Interactive query: extract for research notes
             response_text = ""
 
             if raw_resp:
@@ -424,7 +425,7 @@ _DEFAULT_TAG_TAXONOMY = [
 
 _LOCALE_DIRECTIVE = """
 
-LANGUAGE: Produce all narrative text fields (titles, summaries, labels, details, action item text, technical issue titles and details, decision titles and details, open questions, sentiment narrative) in the language with BCP-47 code '{locale}'. Keep all enum values exactly as defined in the schema — these are wire-protocol keys, not display strings, and MUST remain in English: stoplight color (red/orange/yellow/green), emoji_label (enthusiastic, collaborative, positive, informational, focused, cautious, frustrated, tense, concerned, disappointed), priority (critical/standard), severity (gap/bug/risk), mood (confident/tense/concern/neutral)."""
+LANGUAGE: Produce all narrative text fields (titles, summaries, labels, details, action item text, technical issue titles and details, decision titles and details, open questions, sentiment narrative) in the language with BCP-47 code '{locale}'. Keep all enum values exactly as defined in the schema: these are wire-protocol keys, not display strings, and MUST remain in English: stoplight color (red/orange/yellow/green), emoji_label (enthusiastic, collaborative, positive, informational, focused, cautious, frustrated, tense, concerned, disappointed), priority (critical/standard), severity (gap/bug/risk), mood (confident/tense/concern/neutral)."""
 
 
 def build_report_prompt(
@@ -471,7 +472,7 @@ def build_report_prompt(
 
 
 _DEFAULT_REPORT_STRINGS = {
-    # English defaults — used when remote_configs has no report-strings.{locale}
+    # English defaults: used when remote_configs has no report-strings.{locale}
     # entry. Mirrors config/remote/report-strings.json so a deployment without
     # the remote config still renders correctly.
     "header_label": "Meeting Report",
@@ -561,7 +562,7 @@ def render_report_html(
     html = html.replace("{{meeting_date}}", _esc(metadata.get("meeting_date", "")))
     html = html.replace("{{meeting_time}}", _esc(metadata.get("meeting_time", "")))
     html = html.replace("{{meeting_duration}}", _esc(metadata.get("meeting_duration", "")))
-    # report_model_label removed — model names not exposed to end users
+    # report_model_label removed: model names not exposed to end users
     html = html.replace("{{project_name}}", _esc(metadata.get("project_name", "")))
 
     # Remove masthead if no project name
@@ -584,7 +585,7 @@ def render_report_html(
     html = _replace_each(html, "header.attendees", attendees_html,
         r'<span style="background:#f0f0ec.*?{{this}}</span>')
 
-    # Sentiment arc — value is now on a 0-100 sentiment scale (same as
+    # Sentiment arc: value is now on a 0-100 sentiment scale (same as
     # sentiment.score). Map to a 4-60 px bar height for the email so the
     # visual range is comparable to the legacy 20-48 px range while
     # giving more headroom for genuinely high-energy meetings.
