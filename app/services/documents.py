@@ -166,7 +166,7 @@ def _extract_pdf_text(raw: bytes, name: str) -> str:
         # Scanned / image-only PDF on the extraction path. Never an error
         # (spec: downgrade always succeeds) — tell the model what happened.
         # On the passthrough path the same file is read visually and works.
-        return ("(This document has no extractable text — likely a scanned or "
+        return ("(This document has no extractable text, likely a scanned or "
                 "image-only PDF. Its visual content is not available on this path.)")
     return text[:_MAX_EXTRACT_CHARS]
 
@@ -205,7 +205,7 @@ def _extract_pptx_text(raw: bytes, name: str) -> str:
 
 _FRAMING_PREAMBLE = (
     "The user attached the following reference document(s) to this request. "
-    "Read them and use them as the question directs — when asked to produce "
+    "Read them and use them as the question directs. When asked to produce "
     "output in an attached format, follow it exactly (structure, headings, "
     "and field order included); when asked to check or compare against an "
     "attached document, evaluate the discussion against it specifically."

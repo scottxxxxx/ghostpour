@@ -629,7 +629,7 @@ def format_dossier(data: dict, limit: int = DOSSIER_LIMIT) -> str:
             continue
         stamp = (patches[0].get("created_at") or "")[:10]
         lines.append(f"## Meeting {i} of {len(meetings)}"
-                     + (f" — {stamp}" if stamp else ""))
+                     + (f" ({stamp})" if stamp else ""))
         for p in patches:
             if p.get("patch_id") in seen:
                 continue
@@ -646,7 +646,7 @@ def format_dossier(data: dict, limit: int = DOSSIER_LIMIT) -> str:
             lines.append(_format_patch(p))
             total += 1
         lines.append("")
-    header = (f"[PROJECT MEMORY DOSSIER — complete stored memory: "
+    header = (f"[PROJECT MEMORY DOSSIER: complete stored memory, "
               f"{total} patches across {len(meetings)} meetings]")
     if total >= limit:
         header += f"\n(dossier capped at the {limit} most recent patches)"

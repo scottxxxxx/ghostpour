@@ -193,9 +193,9 @@ _DOSSIER = {
 def test_format_dossier_shape():
     from app.services.context_quilt import format_dossier
     block = format_dossier(_DOSSIER)
-    assert block.startswith("[PROJECT MEMORY DOSSIER — complete stored memory: "
+    assert block.startswith("[PROJECT MEMORY DOSSIER: complete stored memory, "
                             "4 patches across 2 meetings]")
-    assert "## Meeting 1 of 2 — 2026-07-14" in block
+    assert "## Meeting 1 of 2 (2026-07-14)" in block
     assert "[todo] Review HubSpot pipeline (owner: Scott Guida) (deadline: 2026-07-20)" in block
     assert "## Not tied to a specific meeting" in block
     assert "Scott prefers async updates" in block
