@@ -281,7 +281,21 @@ class AnthropicAdapter(ProviderAdapter):
             body.setdefault("tools", []).append(
                 {"type": "code_execution_20260521", "name": "code_execution"}
             )
-            body["max_tokens"] = max(body.get("max_tokens") or 0, 16000)
+            # Headroom for the whole build, not just the reply. This lane
+            # streams (chat routes through route_stream_with_fallback, and
+            # send_request_stream sets stream=True), so the ~16K ceiling that
+            # keeps NON-streaming requests under the SDK's HTTP timeout does
+            # not apply; the streaming guidance is ~64K.
+            #
+            # 16000 was too small the moment a thinking model ran here.
+            # Measured on one meeting-chat workbook, same ask each time:
+            #   Opus 4.7  9,255 tok  (omitting `thinking` = no thinking)
+            #   Sonnet 5 15,395 tok  (thinks by default; 605 to spare)
+            #   Opus 5   16,238 tok  stop_reason=max_tokens, cut off mid
+            #                        tool call, no file emitted at all
+            # A ceiling is not a target: the model stops when it is done, so
+            # the lift costs nothing on runs that already fit.
+            body["max_tokens"] = max(body.get("max_tokens") or 0, 64000)
             content = body["messages"][0]["content"]
             for part in reversed(content):
                 if part.get("type") == "text":
