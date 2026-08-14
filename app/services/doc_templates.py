@@ -28,6 +28,38 @@ logger = logging.getLogger("ghostpour.doc_templates")
 
 XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
+# What earns a row, shared by both extraction prompts.
+#
+# "Extract every task and milestone discussed" was the whole instruction,
+# and against project memory it is badly under-specified. The memory block
+# the model reads is GROUPED UNDER MEETING HEADINGS, so "discussed" invited
+# it to enumerate the meetings themselves: a real export came back with 29
+# rows of which 22 were meeting titles ("Weekly Status Sync on CKS and ABM
+# Items"), each a single day long because a meeting happens on one date,
+# chained one per working day into a critical path made of somebody's
+# calendar. The progress curve then measured the share of MEETINGS whose
+# subject sounded finished, and fell from 50% to 38% when later meetings
+# reopened topics, which is not a project going backwards.
+#
+# Scott, 2026-08-13: meetings should not become tasks, only commitments
+# should. Naming the container explicitly is what makes that instruction
+# land, because the model is not being careless, it is reading a document
+# whose top-level structure is meetings and being told to extract
+# everything in it.
+_WHAT_EARNS_A_ROW = (
+    "What earns a row: a task is work somebody does. It has an actor and "
+    "an outcome and it can still be unfinished. A meeting is not work. "
+    "The memory you are reading is grouped under meeting headings, and "
+    "those headings are containers for what was said, never rows in the "
+    "plan: never emit a task or a milestone for a meeting, standup, "
+    "sync, review or call happening, and never name a row after one. "
+    "Extract what people committed to INSIDE those meetings: the "
+    "deliverables, the action items, the fixes and the decisions that "
+    "carry dates. A commitment that has only a due date, with no span of "
+    "work stated, is a milestone rather than a task. Extract every such "
+    "task and milestone discussed, and nothing else."
+)
+
 _GANTT_SCHEMA_PROMPT = (
     "Extract this project's plan from the conversation and meeting content "
     "as JSON ONLY, no prose, no code fences. Schema: {\"project\": str, "
@@ -53,7 +85,8 @@ _GANTT_SCHEMA_PROMPT = (
     "imitate a dash with a spaced hyphen (word - word): a hyphen may "
     "appear only inside a hyphenated word. Where a dash would fit, use "
     "a colon or comma instead, even when the source content uses one. "
-    "Extract every task and milestone discussed. Output only the JSON object."
+    + _WHAT_EARNS_A_ROW +
+    " Output only the JSON object."
 )
 
 _GANTT_DETAILED_SCHEMA_PROMPT = (
@@ -107,8 +140,9 @@ _GANTT_DETAILED_SCHEMA_PROMPT = (
     "(word - word): a hyphen may appear only inside a hyphenated word. "
     "Where a dash would fit, use a colon or comma instead, even when "
     "the source content uses one. Evidence quotes are the one exception and "
-    "stay verbatim, exactly as spoken. Extract every task and milestone "
-    "discussed. Output only the JSON object."
+    "stay verbatim, exactly as spoken. "
+    + _WHAT_EARNS_A_ROW +
+    " Output only the JSON object."
 )
 
 # palette lifted from the reference artifact (ABM_Gantt_Smartsheet_Style)
@@ -127,6 +161,56 @@ _C = {
 
 def _d(s):
     return datetime.strptime(str(s)[:10], "%Y-%m-%d").date()
+
+
+def _points_are_milestones(data: dict) -> dict:
+    """Retype zero-duration tasks as milestones.
+
+    A task is a span of work and a milestone is a point in time. The
+    schema already says as much ("milestones have start equal to end"), so
+    a `task` whose start equals its end is not work, it is an event.
+
+    The structural half of the meetings-are-not-tasks fix. The extraction
+    prompt now tells the model that a meeting happening is not a task, but
+    a prompt constrains and does not prove, and what it guards against is
+    expensive: 22 of 29 rows in a live export were meeting titles, every
+    bar one day long, and the progress curve then weighed them as if they
+    were work.
+
+    Retyping rather than dropping loses nothing a reader can see. The row
+    keeps its name, date, owner and status and draws as a point on the
+    timeline. What changes is the arithmetic: phases and milestones carry
+    no weight in any of the progress maths (`_total_days`, `_earned_days`
+    and `_weighted_progress` all skip them), so an extraction that hands
+    us points instead of spans can no longer manufacture a percentage out
+    of them. A plan made ENTIRELY of points therefore charts no progress
+    curve at all, which is the honest outcome: nothing in it states how
+    long any work takes.
+
+    Deliberately not a name heuristic. Whether a string looks like a
+    meeting title is a guess; whether a row has a duration is a fact.
+    """
+    tasks = data.get("tasks") or []
+    if not tasks:
+        return data
+    out, retyped = [], []
+    for t in tasks:
+        if t.get("type") == "task":
+            try:
+                if _d(t["start"]) == _d(t["end"]):
+                    t = {**t, "type": "milestone"}
+                    retyped.append(str(t.get("name") or "")[:60])
+            except (KeyError, ValueError, TypeError):
+                pass
+        out.append(t)
+    if not retyped:
+        return data
+    # Loud on purpose: this fires when the extraction handed us events
+    # where work was asked for, and we want that visible rather than
+    # quietly corrected.
+    logger.info("gantt_zero_duration_tasks_retyped count=%d of=%d names=%r",
+                len(retyped), len(tasks), retyped[:5])
+    return {**data, "tasks": out}
 
 
 def _dep_code(pred: dict, succ: dict) -> str:
@@ -154,8 +238,9 @@ def render_gantt(data: dict, *, today: date | None = None,
     """Deterministic Smartsheet-style Gantt from extracted plan JSON.
     `history` is accepted for renderer-signature parity (the template
     lane passes it to every renderer) and unused by the simple style."""
-    wb, _ = _build_gantt_wb(_split_undated(_with_workdays(data)),
-                            today=today)
+    wb, _ = _build_gantt_wb(
+        _split_undated(_with_workdays(_points_are_milestones(data))),
+        today=today)
     return _serialize_wb(wb)
 
 
@@ -1611,7 +1696,7 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.worksheet.hyperlink import Hyperlink
 
-    data = _split_undated(_with_workdays(data))
+    data = _split_undated(_with_workdays(_points_are_milestones(data)))
     wb, _layout = _build_gantt_wb(data, today=today, detail_cols=True)
     tasks = data.get("tasks") or []
     rows = [t for t in tasks if t.get("type") != "phase"]
