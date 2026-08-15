@@ -327,6 +327,27 @@ def render_workbook(plan: dict) -> bytes:
                 if r % 2 == 0:
                     cell.fill = band_fill
 
+        # A totals row, when the plan asks for one. A budget without
+        # column totals is a list of numbers, not a budget, and we build
+        # it as a live SUM so editing a line updates it.
+        totals = [k for k in (spec.get("totals") or []) if k in letters]
+        if totals and rows:
+            trow = len(rows) + 3
+            label = ws.cell(trow, 1, "Total")
+            label.font = Font(bold=True, size=10)
+            label.border = grid
+            for i, col in enumerate(cols, start=1):
+                cell = ws.cell(trow, i)
+                cell.border = grid
+                if col["key"] in totals:
+                    letter = letters[col["key"]]
+                    cell.value = (f'=IFERROR(SUM({letter}3:'
+                                  f'{letter}{len(rows) + 2}),"")')
+                    cell.font = Font(bold=True, size=10)
+                    fmt = _NUMBER_FORMATS.get(col.get("format") or "text")
+                    if fmt:
+                        cell.number_format = fmt
+
         last = get_column_letter(len(cols))
         if rows:
             ws.auto_filter.ref = f"A2:{last}{len(rows) + 2}"

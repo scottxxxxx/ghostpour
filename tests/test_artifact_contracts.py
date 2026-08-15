@@ -138,3 +138,107 @@ def test_each_contract_produces_a_usable_tool_schema(contract) -> None:
     row = schema["properties"]["sheets"]["items"]["properties"]["rows"][
         "items"]
     assert set(row["required"]) <= set(row["properties"])
+
+
+def test_numeric_fields_are_typed_as_numbers_not_strings() -> None:
+    """A score that arrives as "4" sorts as text and sums to zero."""
+    from app.services.artifact_types import RISK_REGISTER
+    row = contract_tool_schema(RISK_REGISTER)["properties"]["sheets"][
+        "items"]["properties"]["rows"]["items"]
+    assert row["properties"]["likelihood"]["type"] == "integer"
+    assert row["properties"]["impact"]["type"] == "integer"
+
+
+def test_optional_fields_accept_null_so_the_model_stops_writing_na() -> None:
+    from app.services.artifact_types import ACTION_REGISTER
+    row = contract_tool_schema(ACTION_REGISTER)["properties"]["sheets"][
+        "items"]["properties"]["rows"]["items"]
+    assert row["properties"]["blocker"]["type"] == ["string", "null"]
+    assert row["properties"]["owner"]["type"] == "string"  # required
+
+
+def test_a_computed_column_is_never_asked_of_the_model() -> None:
+    """Severity is likelihood times impact. Asking for it invites a
+    number that disagrees with its own inputs."""
+    from app.services.artifact_types import RISK_REGISTER
+    row = contract_tool_schema(RISK_REGISTER)["properties"]["sheets"][
+        "items"]["properties"]["rows"]["items"]
+    assert "severity" not in row["properties"]
+    assert "severity" not in row["required"]
+
+    plan = plan_from_contract(RISK_REGISTER, {"sheets": [{
+        "name": "Risks",
+        "rows": [{"id": "R-01", "risk": "Vendor slips",
+                  "likelihood": 4, "impact": 5, "owner": "Mike",
+                  "mitigation": "Weekly checkpoint"}]}]})
+    ws = openpyxl.load_workbook(io.BytesIO(render_workbook(plan)))["Risks"]
+    sev = [c.value for c in ws[3]
+           if isinstance(c.value, str) and c.value.startswith("=")]
+    assert sev == ['=IFERROR(D3*E3,"")']
+
+
+def test_comparison_options_become_columns_in_the_order_given() -> None:
+    from app.services.artifact_types import OPTION_COMPARISON
+    plan = plan_from_contract(OPTION_COMPARISON, {
+        "options": ["Vendor A", "Vendor B", "Build it"],
+        "sheets": [{"name": "Comparison", "rows": [
+            {"criterion": "SSO support", "weight": 5,
+             "values": ["Native", "Add-on", "We build it"]}]}]})
+    ws = openpyxl.load_workbook(io.BytesIO(render_workbook(plan)))[
+        "Comparison"]
+    assert [ws.cell(2, i).value for i in (4, 5, 6)] == [
+        "Vendor A", "Vendor B", "Build it"]
+    assert [ws.cell(3, i).value for i in (4, 5, 6)] == [
+        "Native", "Add-on", "We build it"]
+    # The criterion label has to stay on screen on a wide grid.
+    assert ws.freeze_panes == "B3"
+
+
+def test_a_short_values_array_leaves_a_gap_rather_than_shifting() -> None:
+    """Positional data is only safe if a missing entry cannot slide the
+    next one under the wrong option."""
+    from app.services.artifact_types import OPTION_COMPARISON
+    plan = plan_from_contract(OPTION_COMPARISON, {
+        "options": ["A", "B", "C"],
+        "sheets": [{"name": "Comparison", "rows": [
+            {"criterion": "Cost", "values": ["cheap"]}]}]})
+    ws = openpyxl.load_workbook(io.BytesIO(render_workbook(plan)))[
+        "Comparison"]
+    assert ws.cell(3, 4).value == "cheap"
+    assert ws.cell(3, 5).value in (None, "")
+    assert ws.cell(3, 6).value in (None, "")
+
+
+def test_budget_gets_a_live_totals_row() -> None:
+    from app.services.artifact_types import BUDGET
+    plan = plan_from_contract(BUDGET, {"sheets": [{"name": "Estimate",
+        "rows": [
+            {"id": "B-01", "line_item": "Contractor", "basis": "Mike said 2 devs",
+             "low": 40000, "high": 60000, "confidence": "Stated"},
+            {"id": "B-02", "line_item": "Licenses", "basis": "Not stated in meeting",
+             "low": None, "high": None, "confidence": "Guess"}]}]})
+    ws = openpyxl.load_workbook(io.BytesIO(render_workbook(plan)))["Estimate"]
+    assert ws.cell(5, 1).value == "Total"
+    formulas = [c.value for c in ws[5]
+                if isinstance(c.value, str) and c.value.startswith("=")]
+    assert '=IFERROR(SUM(E3:E4),"")' in formulas
+    assert '=IFERROR(SUM(F3:F4),"")' in formulas
+
+
+def test_the_budget_basis_column_forbids_inventing_figures() -> None:
+    """The one artifact where a confident wrong number does real damage."""
+    from app.services.artifact_types import BUDGET
+    row = contract_tool_schema(BUDGET)["properties"]["sheets"]["items"][
+        "properties"]["rows"]["items"]
+    basis = row["properties"]["basis"]["description"].lower()
+    assert "invented" in basis or "not stated" in basis
+    assert "basis" in row["required"]
+
+
+def test_every_contract_names_its_source_of_truth_or_says_why_not() -> None:
+    """A meeting artifact a reader cannot trace back is an assertion."""
+    traceable = {"action_register", "decision_log", "risk_register",
+                 "open_questions", "requirements"}
+    for name in traceable:
+        keys = {c.key for c in CONTRACTS[name].columns}
+        assert "source" in keys or "source_quote" in keys, name
