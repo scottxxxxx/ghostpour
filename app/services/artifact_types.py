@@ -65,7 +65,17 @@ class Contract:
                  columns: list[Column], filename_hint: str,
                  axis: str | None = None,
                  totals: list[str] | None = None,
-                 repair: Any = None) -> None:
+                 repair: Any = None,
+                 hints: tuple[tuple[str, int], ...] = (),
+                 offer_noun: str = "") -> None:
+        # Weighted match vocabulary. A phrase naming the artifact outright
+        # scores high; a bare topic word scores low, because "risks" also
+        # appears in a meeting that merely worried about something. See
+        # artifact_routing for why weights beat first-match-wins.
+        self.hints = hints
+        # What the confirmation offer calls it. "A spreadsheet" tells the
+        # user nothing about what they are about to receive.
+        self.offer_noun = offer_noun
         # Cross-field consistency the schema cannot express. Called per
         # row, returns the corrected row. Repairs are counted, not
         # silent: a contract that needs many of them is mis-worded.
@@ -94,6 +104,13 @@ class Contract:
 
 
 TEST_PLAN = Contract(
+    hints=(("test plan", 10), ("test scenarios", 10), ("test cases", 10),
+           ("scenario matrix", 9), ("qa plan", 9), ("test matrix", 9),
+           ("plan de pruebas", 10), ("casos de prueba", 10),
+           ("plan de test", 10), ("cas de test", 10), ("テスト計画", 10),
+           ("scenarios", 3), ("edge cases", 3), ("test", 2)),
+    offer_noun=("a test scenario plan (one sheet per intent, each case "
+                "with sample test data and the expected behavior)"),
     name="test_plan",
     label="Test scenario plan",
     sheet_rule=(
@@ -144,6 +161,14 @@ _SOURCE = Column(
     width=24)
 
 ACTION_REGISTER = Contract(
+    hints=(("action items", 10), ("action register", 10), ("action log", 10),
+           ("to do list", 9), ("todo list", 9), ("task list", 8),
+           ("who owes", 8), ("commitments", 8), ("follow ups", 7),
+           ("lista de acciones", 10), ("liste d'actions", 10),
+           ("アクションアイテム", 10),
+           ("actions", 4), ("owners", 3), ("deliverables", 3)),
+    offer_noun=("an action item register (each commitment with its owner, "
+                "due date, status and what is blocking it)"),
     name="action_register",
     label="Action items and commitments",
     sheet_rule=(
@@ -181,6 +206,13 @@ ACTION_REGISTER = Contract(
 )
 
 DECISION_LOG = Contract(
+    hints=(("decision log", 10), ("decisions made", 10), ("decision register", 10),
+           ("what did we decide", 9), ("what we decided", 9),
+           ("registro de decisiones", 10), ("journal des decisions", 10),
+           ("決定事項", 10),
+           ("decisions", 4), ("rationale", 3)),
+    offer_noun=("a decision log (what was settled, who called it, the "
+                "reason given, and what was rejected)"),
     name="decision_log",
     label="Decision log",
     sheet_rule="One sheet named 'Decisions'.",
@@ -219,6 +251,13 @@ DECISION_LOG = Contract(
 )
 
 RISK_REGISTER = Contract(
+    hints=(("risk register", 10), ("risk log", 10), ("risk matrix", 10),
+           ("risk assessment", 9), ("raid log", 9),
+           ("registro de riesgos", 10), ("registre des risques", 10),
+           ("リスク管理表", 10),
+           ("risks", 4), ("mitigation", 4), ("what could go wrong", 6)),
+    offer_noun=("a risk register (each risk scored for likelihood and "
+                "impact, with an owner and a mitigation)"),
     name="risk_register",
     label="Risk register",
     sheet_rule="One sheet named 'Risks'.",
@@ -260,6 +299,13 @@ RISK_REGISTER = Contract(
 )
 
 OPEN_QUESTIONS = Contract(
+    hints=(("open questions", 10), ("open items", 9), ("blockers", 8),
+           ("outstanding questions", 10), ("parking lot", 8),
+           ("unresolved", 7), ("preguntas abiertas", 10),
+           ("questions ouvertes", 10), ("未解決", 10),
+           ("questions", 3), ("blocked", 3)),
+    offer_noun=("an open questions log (what is unresolved, who can "
+                "answer it, and what it is holding up)"),
     name="open_questions",
     label="Open questions and blockers",
     sheet_rule="One sheet named 'Open Questions'.",
@@ -291,6 +337,13 @@ OPEN_QUESTIONS = Contract(
 )
 
 REQUIREMENTS = Contract(
+    hints=(("requirements", 10), ("user stories", 9), ("acceptance criteria", 9),
+           ("scope document", 9), ("requirements matrix", 10),
+           ("backlog", 7), ("requisitos", 10), ("exigences", 10),
+           ("要件", 10),
+           ("must have", 4), ("scope", 3)),
+    offer_noun=("a requirements matrix (each requirement with its "
+                "priority, acceptance criteria and the line it came from)"),
     name="requirements",
     label="Requirements and scope",
     sheet_rule=(
@@ -323,6 +376,14 @@ REQUIREMENTS = Contract(
 )
 
 OPTION_COMPARISON = Contract(
+    hints=(("comparison", 9), ("compare options", 10), ("option comparison", 10),
+           ("vendor comparison", 10), ("evaluation matrix", 10),
+           ("pros and cons", 9), ("trade off matrix", 9), ("bake off", 9),
+           ("comparacion de opciones", 10), ("comparaison", 10),
+           ("比較表", 10),
+           ("options", 4), ("alternatives", 4), ("versus", 4)),
+    offer_noun=("an option comparison (each option as a column, scored "
+                "against weighted criteria)"),
     name="option_comparison",
     label="Option comparison",
     sheet_rule="One sheet named 'Comparison'.",
@@ -362,6 +423,12 @@ def _budget_repair(row: dict) -> dict:
 
 
 BUDGET = Contract(
+    hints=(("budget", 10), ("cost estimate", 10), ("cost breakdown", 10),
+           ("estimate", 7), ("financials", 8), ("spend", 6),
+           ("presupuesto", 10), ("budget previsionnel", 10), ("予算", 10),
+           ("costs", 4), ("pricing", 3)),
+    offer_noun=("a cost estimate (line items with a basis for each "
+                "figure, low and high, and live totals)"),
     name="budget",
     repair=_budget_repair,
     label="Budget and cost estimate",
@@ -406,6 +473,14 @@ BUDGET = Contract(
 )
 
 TOPIC_TRACKER = Contract(
+    hints=(("topic tracker", 10), ("across meetings", 10),
+           ("over time", 8), ("recurring topics", 10),
+           ("what keeps coming up", 10), ("running list", 8),
+           ("status rollup", 9), ("seguimiento de temas", 10),
+           ("suivi des sujets", 10), ("継続課題", 10),
+           ("history", 3), ("trend", 3)),
+    offer_noun=("a cross-meeting topic tracker (what keeps coming back, "
+                "when it was first raised, and whether it is moving)"),
     name="topic_tracker",
     label="Cross-meeting topic tracker",
     sheet_rule="One sheet named 'Topics'.",
