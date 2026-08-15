@@ -64,7 +64,12 @@ class Contract:
     def __init__(self, name: str, label: str, sheet_rule: str,
                  columns: list[Column], filename_hint: str,
                  axis: str | None = None,
-                 totals: list[str] | None = None) -> None:
+                 totals: list[str] | None = None,
+                 repair: Any = None) -> None:
+        # Cross-field consistency the schema cannot express. Called per
+        # row, returns the corrected row. Repairs are counted, not
+        # silent: a contract that needs many of them is mis-worded.
+        self.repair = repair
         self.name = name
         self.label = label
         self.sheet_rule = sheet_rule
@@ -339,8 +344,26 @@ OPTION_COMPARISON = Contract(
     ],
 )
 
+def _budget_repair(row: dict) -> dict:
+    """A provenance claim with nothing to back it is downgraded.
+
+    Live 2026-08-15 against a real SOW overrun meeting: 4 of 13 rows came
+    back confidence "Stated" with both amounts empty, because the model
+    read "Stated" as "this line item was discussed" rather than "a number
+    was said out loud". We cannot verify that a figure was spoken, but we
+    CAN verify there is no figure here, and "Stated" next to an empty
+    cell is the exact reading that makes a budget untrustworthy.
+    """
+    has_amount = (row.get("low") is not None or row.get("high") is not None)
+    if not has_amount and row.get("confidence") in ("Stated", "Estimated"):
+        row = dict(row)
+        row["confidence"] = "Not quantified"
+    return row
+
+
 BUDGET = Contract(
     name="budget",
+    repair=_budget_repair,
     label="Budget and cost estimate",
     sheet_rule="One sheet named 'Estimate'.",
     filename_hint="budget",
@@ -373,8 +396,10 @@ BUDGET = Contract(
                fmt="currency",
                computed={"op": "difference", "of": ["high", "low"]}),
         Column("confidence", "Confidence",
-               "One of: Stated, Estimated, Guess. 'Stated' only when a "
-               "number was actually said out loud.", width=13,
+               "One of: Stated, Estimated, Guess, Not quantified. Use "
+               "'Stated' ONLY when a figure was actually said out loud, "
+               "and never on a row where you left both amounts empty; "
+               "that row is 'Not quantified'.", width=15,
                required=True),
         Column("owner", "Owner", "Who owns this line.", width=16),
     ],
@@ -519,6 +544,8 @@ def plan_from_contract(contract: Contract, emitted: dict) -> dict:
     for s in (emitted.get("sheets") or []):
         rows = []
         for raw in (s.get("rows") or []):
+            if contract.repair:
+                raw = contract.repair(raw)
             row = {k: v for k, v in raw.items() if k != "values"}
             for i in range(len(options)):
                 vals = raw.get("values") or []

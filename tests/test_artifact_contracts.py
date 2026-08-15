@@ -242,3 +242,31 @@ def test_every_contract_names_its_source_of_truth_or_says_why_not() -> None:
     for name in traceable:
         keys = {c.key for c in CONTRACTS[name].columns}
         assert "source" in keys or "source_quote" in keys, name
+
+
+def test_a_stated_figure_with_no_figure_is_downgraded() -> None:
+    """Live 2026-08-15 against a real SOW overrun meeting: 4 of 13 budget
+    rows came back confidence "Stated" with both amounts empty, because
+    the model read "Stated" as "this was discussed" rather than "a number
+    was said". We cannot verify a figure was spoken; we can verify there
+    isn't one here, and "Stated" beside an empty cell is exactly what
+    makes a budget untrustworthy."""
+    from app.services.artifact_types import BUDGET
+    plan = plan_from_contract(BUDGET, {"sheets": [{"name": "Estimate", "rows": [
+        {"id": "B-01", "line_item": "VJ architect hours", "basis": "discussed",
+         "low": None, "high": None, "confidence": "Stated"},
+        {"id": "B-02", "line_item": "SOW value", "basis": "Scott said 82,130",
+         "low": 82130, "high": 82130, "confidence": "Stated"},
+        {"id": "B-03", "line_item": "August resourcing", "basis": "no figure",
+         "low": None, "high": None, "confidence": "Guess"},
+    ]}]})
+    conf = [r["confidence"] for r in plan["sheets"][0]["rows"]]
+    assert conf == ["Not quantified", "Stated", "Guess"]
+
+
+def test_the_repair_is_declared_only_where_it_is_needed() -> None:
+    """A repair hook is a patch over a mis-worded column, so it should be
+    rare and deliberate rather than standard equipment."""
+    from app.services.artifact_types import CONTRACTS
+    repaired = {n for n, c in CONTRACTS.items() if c.repair}
+    assert repaired == {"budget"}
