@@ -2507,8 +2507,18 @@ async def chat(
             # than hope the ask happens to look like a rundown.
             try:
                 from app.services import context_quilt as _cq
+                # 500, not the 150 default. CQ measured real projects
+                # 2026-08-15 at 6 to 8 patches per meeting (ABM 635
+                # across 77, Kore 120 across 17), which saturates 150 at
+                # roughly 19 to 21 meetings. A COUNTING artifact that
+                # silently truncates reports a wrong number in a cell
+                # while the cap disclosure sits elsewhere in the block.
+                # 500 is the documented ceiling; it fixes ordinary
+                # projects and still truncates the largest, which is why
+                # the column calls itself a floor.
                 _dossier = await _cq.quilt_dossier(
-                    user.id, body.get_meta("project_id"), app_id=app_id)
+                    user.id, body.get_meta("project_id"), app_id=app_id,
+                    limit=500)
                 if _dossier and _dossier.get("meetings"):
                     _client_sys = (
                         _client_sys + "\n\n" + _cq.format_dossier(_dossier)

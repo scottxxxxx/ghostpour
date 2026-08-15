@@ -545,19 +545,53 @@ TOPIC_TRACKER = Contract(
         Column("last_discussed", "Last Discussed",
                "YYYY-MM-DD of the most recent one.", width=14,
                wrap=False, fmt="date", required=True),
-        Column("times_discussed", "Times Up",
-               "How many distinct meetings in your context touched it. "
-               "Count meetings, not sentences.",
-               width=10, wrap=False, fmt="number", json_type="integer",
+        # CQ's rule 2026-08-15: the count is named for what it
+        # OBSERVES, and the definition goes on the wire next to the
+        # number rather than in a doc. This counts meetings present in
+        # memory that carry the topic. A meeting that discussed it but
+        # produced no memory of it is invisible here, and a reader has
+        # to be able to see that from the column itself.
+        Column("times_discussed", "Meetings In Memory",
+               "How many distinct meetings in the memory you were given "
+               "carry this topic. Count meetings, not sentences. This is "
+               "what memory holds, not everything that was ever said: a "
+               "meeting that touched the topic without leaving a trace "
+               "is not counted, so treat it as a floor.",
+               width=12, wrap=False, fmt="number", json_type="integer",
                required=True),
         Column("status", "Where It Stands",
-               "The current state in one line, as of the latest meeting.",
+               "What was actually said about it most recently, in one "
+               "line. Report the state, do not grade the trajectory: no "
+               "'losing momentum', no 'at risk', no verdict the "
+               "transcript does not contain.",
                width=40, required=True),
-        Column("movement", "Movement",
-               "One of: Progressing, Stalled, Reopened, Resolved, "
-               "Escalating. 'Reopened' when it was settled and came "
-               "back, which is the pattern most worth surfacing.",
-               width=14, required=True),
+        # A movement verdict used to live here: Progressing / Stalled /
+        # Reopened / Resolved / Escalating. Removed on CQ's review
+        # 2026-08-15, and they were right on both counts.
+        #
+        # It was a parallel vocabulary for something they already
+        # compute and serve, the item ledger, whose modes (resolved,
+        # absorbed_by_user, reassigned, not_raised_since, re_dated,
+        # restated, open) carry a headline plus every other applicable
+        # mode plus patch_ids_by_mode, so every count opens into the
+        # patches behind it. Those names cost them real arguments;
+        # rediscovering them worse is not a contribution.
+        #
+        # And "Escalating" had no observation under it. If it rested on
+        # mention volume, they measured that and found volume near level
+        # across people whose follow-through was opposite, so the claim
+        # contradicts the data. Their rule, which now binds this
+        # contract: ship the count never the cause, instances never
+        # traits, no ratio at any denominator, every count traceable.
+        #
+        # What replaces it is arithmetic, not judgment. When GP consumes
+        # the ledger we adopt THEIR modes rather than inventing again.
+        Column("gap_days", "Days Since Last",
+               "Whole days between last_discussed and today. Arithmetic, "
+               "not a verdict: a reader decides what a long gap means, "
+               "because a topic can go quiet for good reasons and an "
+               "absence is not abandonment.",
+               width=12, wrap=False, fmt="number", json_type="integer"),
         Column("owner", "Owner",
                "Who carries it. 'Unassigned' if it keeps coming up with "
                "nobody owning it, which is usually why it recurs.",

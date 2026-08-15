@@ -147,3 +147,62 @@ def test_the_dossier_fetch_falls_open() -> None:
     """A thin artifact beats a dead turn."""
     i = CHAT_SRC.index("contract lane dossier fetch failed")
     assert "except Exception" in CHAT_SRC[i - 400:i]
+
+
+def test_the_tracker_ships_counts_and_dates_not_verdicts() -> None:
+    """CQ's review 2026-08-15, and they were right twice.
+
+    A movement column (Progressing / Stalled / Reopened / Resolved /
+    Escalating) was a parallel vocabulary for their item ledger, whose
+    modes carry a headline plus every other applicable mode plus
+    patch_ids_by_mode so every count opens into its patches. And
+    "Escalating" had no observation under it: if it rested on mention
+    volume, they measured volume near level across people whose
+    follow-through was opposite, so the claim contradicts the data.
+
+    Their rule now binds this contract: ship the count never the cause,
+    instances never traits, no ratio at any denominator.
+    """
+    cols = CONTRACTS["topic_tracker"].columns
+    keys = {c.key for c in cols}
+    assert "movement" not in keys
+    assert "gap_days" in keys
+
+    # No column may OFFER a trajectory as a value. Naming one inside a
+    # prohibition is the opposite of the defect, so this checks the
+    # enumerations rather than blocklisting words.
+    for c in cols:
+        desc = (c.description or "").lower()
+        if "one of:" in desc:
+            enum = desc.split("one of:", 1)[1]
+            for verdict in ("escalating", "stalled", "progressing",
+                            "at risk", "losing momentum"):
+                assert verdict not in enum, f"{c.key} offers {verdict!r}"
+
+    # And the free-text column has to forbid grading outright.
+    status = next(c for c in cols if c.key == "status")
+    assert "do not grade" in (status.description or "").lower()
+
+
+def test_the_count_carries_its_definition_on_the_wire() -> None:
+    """A cue count observes meetings that left a trace, not meetings
+    where a thing was discussed. That distinction goes next to the
+    number, not in a doc nobody opens."""
+    col = next(c for c in CONTRACTS["topic_tracker"].columns
+               if c.key == "times_discussed")
+    assert "memory" in col.label.lower()
+    assert "floor" in col.description.lower()
+
+
+def test_the_dossier_fetch_asks_for_more_than_the_default() -> None:
+    """Measured by CQ on real projects: 6 to 8 patches per meeting, so
+    the 150 default saturates around 19 to 21 meetings. A counting
+    artifact that truncates reports a wrong number in a cell."""
+    assert "limit=500" in CHAT_SRC
+
+
+def test_a_project_less_turn_can_still_pull_multi_meeting_memory() -> None:
+    """project_id is a filter, not the boundary."""
+    src = (pathlib.Path(__file__).resolve().parents[1]
+           / "app/services/context_quilt.py").read_text()
+    assert '**({"project_id": project_id} if project_id else {})' in src
