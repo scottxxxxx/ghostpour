@@ -2538,6 +2538,17 @@ async def chat(
             "change; decide what sheets exist and what rows go in them, "
             "and fill every field as its description asks. Rendering, "
             "styling and file naming are handled for you.\n\n"
+            # Belt and braces, and the reason is CQ's 2026-08-15
+            # post-mortem: their extraction fell from 4.37 entities per
+            # meeting to 1.24 the day a client silently stopped putting
+            # their json_schema on the wire, because the schema was the
+            # ONLY thing specifying the contract and the prompt had
+            # never carried it. That degraded quietly for two months and
+            # read as a model problem. Naming the columns here costs a
+            # few tokens and means a vanished schema produces something
+            # recognisable instead of something plausible.
+            + f"The columns are: {', '.join(col.label for col in _c.columns)}."
+            + "\n\n"
             "Be exhaustive. Cover the edge cases someone would actually "
             "hit, not just the obvious rows. A thin sheet is worse than "
             "no sheet.\n\n"

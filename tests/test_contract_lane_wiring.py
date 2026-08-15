@@ -206,3 +206,70 @@ def test_a_project_less_turn_can_still_pull_multi_meeting_memory() -> None:
     src = (pathlib.Path(__file__).resolve().parents[1]
            / "app/services/context_quilt.py").read_text()
     assert '**({"project_id": project_id} if project_id else {})' in src
+
+
+def test_the_tool_schema_actually_reaches_the_wire() -> None:
+    """CQ's post-mortem 2026-08-15, applied to us.
+
+    Their entity extraction fell from 4.37 entities per meeting to 1.24
+    on the day of an Anthropic-direct cutover, because the client
+    accepted a json_schema and did not put it on the wire, and their
+    prompt had never carried the contract. The schema was the ONLY thing
+    specifying it, so when it silently vanished the output degraded and
+    looked like a model problem for two months.
+
+    This lane has the same shape: the columns live in the tool schema
+    and the prompt only says they are already decided. So assert the
+    schema is in the body the adapter builds, rather than trusting that
+    setting request.tools is the same as sending them.
+    """
+    from app.models.chat import ChatRequest
+    from app.services.artifact_types import TEST_PLAN, contract_tool_schema
+    from app.services.providers.anthropic import AnthropicAdapter
+
+    schema = contract_tool_schema(TEST_PLAN)
+    req = ChatRequest(
+        provider="anthropic", model="claude-sonnet-4-6",
+        system_prompt="sys", user_content="build it",
+        tools=[{"name": "emit_artifact", "description": "d",
+                "input_schema": schema}])
+    adapter = AnthropicAdapter(
+        api_key="test", base_url="https://api.anthropic.com/v1",
+        auth_header="x-api-key", auth_prefix="")
+    body, _headers = adapter._build_body(req)
+
+    tools = body.get("tools") or []
+    assert tools, "tools vanished between the request and the body"
+    emitted = next(t for t in tools if t.get("name") == "emit_artifact")
+    props = emitted["input_schema"]["properties"]["sheets"]["items"][
+        "properties"]["rows"]["items"]
+    # The columns themselves, not just the envelope.
+    assert "expected" in props["required"], "the contract lost its columns"
+    assert props["additionalProperties"] is False
+
+
+def test_a_search_turn_keeps_its_own_tool_alongside_ours() -> None:
+    """The adapter assigns body["tools"] for search. Appending rather
+    than assigning is the whole reason both survive."""
+    from app.models.chat import ChatRequest
+    from app.services.providers.anthropic import AnthropicAdapter
+
+    req = ChatRequest(
+        provider="anthropic", model="claude-sonnet-4-6",
+        user_content="x", metadata={"search_enabled": True},
+        tools=[{"name": "emit_artifact", "input_schema": {"type": "object"}}])
+    adapter = AnthropicAdapter(
+        api_key="test", base_url="https://api.anthropic.com/v1",
+        auth_header="x-api-key", auth_prefix="")
+    body, _ = adapter._build_body(req)
+    names = {t.get("name") or t.get("type") for t in body.get("tools") or []}
+    assert "web_search" in names and "emit_artifact" in names, names
+
+
+def test_the_prompt_names_the_columns_too() -> None:
+    """Defense in depth, from CQ's post-mortem. A schema that silently
+    stops reaching the wire should produce something recognisably wrong,
+    not something plausible that degrades quietly for two months."""
+    assert "The columns are: " in CHAT_SRC
+    i = CHAT_SRC.index("The columns are: ")
+    assert "col.label for col in _c.columns" in CHAT_SRC[i:i + 200]
