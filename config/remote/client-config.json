@@ -1,5 +1,5 @@
 {
-  "version": 20,
+  "version": 21,
   "native_actions": {
     "enabled": true,
     "kinds": [
@@ -85,7 +85,8 @@
       "upsell": {
         "enabled": true,
         "text": "If you were a {tier} subscriber, I could generate a Word or Excel file for you."
-      }
+      },
+      "contract_lane_users": []
     }
   },
   "chat": {

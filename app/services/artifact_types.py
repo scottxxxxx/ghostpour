@@ -69,7 +69,17 @@ class Contract:
                  hints: tuple[tuple[str, int], ...] = (),
                  offer_noun: str = "",
                  expected_seconds: int = 90,
+                 needs_dossier: bool = False,
                  classifier_note: str = "") -> None:
+        # Some artifacts are meaningless without cross-meeting context.
+        # Measured 2026-08-15: the topic tracker on single-meeting input
+        # returns times_discussed=1 on every row with first_raised equal
+        # to last_discussed, which is structurally perfect and
+        # substantively empty. CQ serves the meeting-grouped dossier
+        # only for a project-scoped "rundown" ask, and ZERO of 24 real
+        # topic-tracker phrasings trip that detector, so the contract has
+        # to ask for it rather than hope the ask looks like a rundown.
+        self.needs_dossier = needs_dossier
         # What we TELL the user to expect, surfaced as literal text.
         # Measured per contract on real transcripts 2026-08-15, rounded
         # up: the served default of 150 promised the same wait for a
@@ -518,6 +528,7 @@ TOPIC_TRACKER = Contract(
     offer_noun=("a cross-meeting topic tracker (what keeps coming back, "
                 "when it was first raised, and whether it is moving)"),
     name="topic_tracker",
+    needs_dossier=True,
     expected_seconds=75,
     label="Cross-meeting topic tracker",
     sheet_rule="One sheet named 'Topics'.",

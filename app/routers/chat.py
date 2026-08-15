@@ -2497,6 +2497,29 @@ async def chat(
         )
         _c = CONTRACTS[_contract_id]
         _client_sys = (body.system_prompt or "").strip()
+        if _c.needs_dossier and body.get_meta("project_id"):
+            # This artifact is meaningless without cross-meeting context.
+            # CQ serves the meeting-grouped dossier only for a
+            # project-scoped "rundown" ask, and measured 2026-08-15 ZERO
+            # of 24 real topic-tracker phrasings trip that detector, so
+            # the single-meeting recall block would have produced
+            # times_discussed=1 on every row. Fetch it explicitly rather
+            # than hope the ask happens to look like a rundown.
+            try:
+                from app.services import context_quilt as _cq
+                _dossier = await _cq.quilt_dossier(
+                    user.id, body.get_meta("project_id"), app_id=app_id)
+                if _dossier and _dossier.get("meetings"):
+                    _client_sys = (
+                        _client_sys + "\n\n" + _cq.format_dossier(_dossier)
+                    ).strip()
+                    logger.info(
+                        "contract_lane_dossier artifact=%s meetings=%s",
+                        _contract_id, len(_dossier.get("meetings") or []))
+            except Exception:
+                # Falls open: a thin artifact beats a dead turn, and the
+                # contract still renders from whatever context it has.
+                logger.exception("contract lane dossier fetch failed")
         _contract_sys = (
             _client_sys + "\n\n--- FILE BUILD OVERRIDE ---\n"
             if _client_sys else "") + (

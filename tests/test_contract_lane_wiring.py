@@ -126,3 +126,24 @@ def test_every_contract_promises_a_measured_duration(name, contract) -> None:
 def test_a_render_failure_falls_back_instead_of_killing_the_turn() -> None:
     assert "contract lane failed, serving raw text" in CHAT_SRC
     assert "contract lane: model declared computation" in CHAT_SRC
+
+
+def test_a_contract_can_demand_cross_meeting_context() -> None:
+    """The topic tracker is the one artifact nobody else can build, and
+    it is worthless without it. Measured 2026-08-15: on single-meeting
+    input every row came back times_discussed=1 with first_raised equal
+    to last_discussed. CQ serves the meeting-grouped dossier only for a
+    project-scoped rundown ask, and ZERO of 24 real topic-tracker
+    phrasings trip that detector, so the contract declares the need
+    instead of hoping the ask looks like a rundown."""
+    assert CONTRACTS["topic_tracker"].needs_dossier is True
+    assert [n for n, c in CONTRACTS.items() if c.needs_dossier] == [
+        "topic_tracker"]
+    assert "contract_lane_dossier" in CHAT_SRC
+    assert "contract lane dossier fetch failed" in CHAT_SRC
+
+
+def test_the_dossier_fetch_falls_open() -> None:
+    """A thin artifact beats a dead turn."""
+    i = CHAT_SRC.index("contract lane dossier fetch failed")
+    assert "except Exception" in CHAT_SRC[i - 400:i]
