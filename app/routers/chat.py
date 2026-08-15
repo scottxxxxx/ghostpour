@@ -2550,6 +2550,7 @@ async def chat(
             classify_generation_intent,
             explicit_file_ask,
             generation_tier_shortfall,
+            inline_artifact_guidance,
             load_generation_config,
             upsell_line,
         )
@@ -2600,13 +2601,15 @@ async def chat(
                     # line ("I cannot create files") or double-promise a file
                     # it will never build on this turn.
                     _upsell_sys = (
-                        "FILE UPSELL CONTEXT: the user has already been shown "
-                        "a notice that building real downloadable files "
-                        "(Excel, Word, PowerPoint, PDF) is available on the "
-                        f"{_tier_label} plan. Answer the request normally in "
-                        "chat text. Never promise to produce or attach a "
-                        "downloadable file, never claim files are impossible, "
-                        "and do not repeat the notice.")
+                        "FILE UPSELL CONTEXT: the user will be shown a "
+                        "note that building real downloadable files "
+                        "(Excel, Word, PowerPoint, PDF) is available on "
+                        f"the {_tier_label} plan. Give them the content "
+                        "itself in chat, as completely as you can. "
+                        + inline_artifact_guidance(_below_artifact)
+                        + " Never promise to produce or attach a "
+                        "downloadable file, never claim files are "
+                        "impossible, and do not repeat the note.")
                     _sys = (body.system_prompt or "").rstrip()
                     body = body.model_copy(update={
                         "system_prompt": (_sys + "\n\n" + _upsell_sys)
@@ -3051,7 +3054,7 @@ async def chat(
         # coexists with generated_files or the pro teaser envelope.
         if _gen_upsell_line and response_data.get("text"):
             response_data["text"] = (
-                _gen_upsell_line + "\n\n" + response_data["text"])
+                response_data["text"] + "\n\n" + _gen_upsell_line)
 
         # Search-state sidecar (independent of feature_state, which is owned
         # by the project_chat / budget paths). Always populated when the
@@ -3260,11 +3263,6 @@ async def _handle_stream(
     async def event_stream():
         final_response = None
         from app.services.anthropic_or_fallback import route_stream_with_fallback
-        if upsell_line:
-            # Below-tier upsell rides the stream as a synthetic first text
-            # delta — same event shape the client already concatenates.
-            yield "data: " + json.dumps(
-                {"type": "text", "text": upsell_line + "\n\n"}) + "\n\n"
         # Tracked across the heartbeat loop so it can be cancelled on any
         # exit path (see the finally below).
         pending = None
@@ -3466,6 +3464,14 @@ async def _handle_stream(
                 feature_name)
                 if feature_name in hook_results:
                     await hook.after_llm(user, body, final_response, hook_results[feature_name], state, app_id=app_id)
+
+        if upsell_line:
+            # Below-tier upsell rides the stream as a synthetic LAST text
+            # delta, same event shape the client already concatenates. It
+            # follows the answer because it is a teaser about the file,
+            # and a teaser in front of the content is just a paywall.
+            yield "data: " + json.dumps(
+                {"type": "text", "text": "\n\n" + upsell_line}) + "\n\n"
 
         from app.services.ai_tier import tier_to_ai_tier
 

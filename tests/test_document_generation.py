@@ -1919,7 +1919,7 @@ def test_below_tier_explicit_file_ask_is_a_plain_chat_turn(
 
 # --- below-tier upsell line (Scott 2026-07-14) ---
 
-NEW_UPSELL_LINE = ("I can put that together as a real downloadable file on Pro, along with everything else Pro includes.")
+NEW_UPSELL_LINE = ("If you were on Pro, I could give you that as a downloadable Excel or Word file, along with everything else Pro includes.")
 
 
 def _enable_generation_with_upsell(client, min_tier="pro", upsell=None):
@@ -1984,8 +1984,8 @@ def test_below_tier_file_ask_gets_tier_aware_upsell_line(
     ), headers=free_user["headers"])
     assert r.status_code == 200
     body = r.json()
-    assert body["text"].startswith(NEW_UPSELL_LINE + "\n\n")
-    assert body["text"].endswith("Test response from mock provider.")
+    assert body["text"].endswith("\n\n" + NEW_UPSELL_LINE)
+    assert body["text"].startswith("Test response from mock provider.")
     sent = mock_provider.await_args_list[-1].args[0]
     assert "FILE UPSELL CONTEXT" in sent.system_prompt
     assert "Pro plan" in sent.system_prompt
@@ -2005,8 +2005,7 @@ def test_upsell_tier_name_follows_served_min_tier(
         prompt_mode="ProjectChat", call_type="query",
         user_content="Current question: create an excel file of our plan",
     ), headers=free_user["headers"])
-    assert r.json()["text"].startswith(
-        NEW_UPSELL_LINE.replace("Pro", "Plus"))
+    assert r.json()["text"].endswith(NEW_UPSELL_LINE.replace("Pro", "Plus"))
 
 
 def test_at_or_above_min_tier_gets_no_upsell_line(
@@ -2053,11 +2052,13 @@ def test_below_tier_non_file_ask_gets_no_upsell_line(
     assert "If you were a" not in r.json()["text"]
 
 
-def test_upsell_line_rides_the_stream_as_first_delta(
+def test_upsell_line_rides_the_stream_as_last_delta(
         client, free_user, monkeypatch):
-    """Meeting chat streams tokens — the upsell line arrives as a
-    synthetic first text delta in the same event shape the client
-    already concatenates."""
+    """Meeting chat streams tokens, and the upsell line arrives as a
+    synthetic LAST text delta in the same event shape the client already
+    concatenates. It follows the answer on purpose (Scott 2026-08-15):
+    it is a teaser about the file, so it only makes sense once they have
+    the content."""
     import json as _json
     from app.models.chat import ChatResponse
     from tests.conftest import chat_request
@@ -2087,8 +2088,8 @@ def test_upsell_line_rides_the_stream_as_first_delta(
              for line in r.text.splitlines()
              if line.startswith("data: ")]
     text_events = [e["text"] for e in texts if e.get("type") == "text"]
-    assert text_events[0].startswith(NEW_UPSELL_LINE)
-    assert text_events[1] == "Here is the plan in chat."
+    assert text_events[0] == "Here is the plan in chat."
+    assert text_events[-1].strip() == NEW_UPSELL_LINE
 
 
 def test_upsell_text_is_locale_served(client, free_user, mock_provider):
@@ -2105,7 +2106,7 @@ def test_upsell_text_is_locale_served(client, free_user, mock_provider):
         prompt_mode="ProjectChat", call_type="query",
         user_content="Current question: create an excel file of our plan",
     ), headers={**free_user["headers"], "Accept-Language": "es-MX"})
-    assert r.json()["text"].startswith(
+    assert r.json()["text"].endswith(
         "Con una suscripción Pro podría generar el archivo.")
 
 

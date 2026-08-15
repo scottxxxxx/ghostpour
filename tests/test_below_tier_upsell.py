@@ -23,6 +23,7 @@ import pytest
 
 from app.services.document_generation import (
     _UPSELL_DEFAULTS,
+    inline_artifact_guidance,
     looks_like_file_ask,
     upsell_line,
 )
@@ -103,3 +104,33 @@ def test_the_tier_name_is_never_hardcoded() -> None:
     assert "Pro" not in _UPSELL_DEFAULTS["text"]
     assert "{tier}" in _UPSELL_DEFAULTS["text"]
     assert "Plus" in upsell_line(_UPSELL_DEFAULTS, "Plus", None)
+
+
+def test_a_below_tier_user_gets_the_content_not_just_a_pitch() -> None:
+    """Scott 2026-08-15: give them the closest thing we can, knowing we
+    cannot build the file. When we know which artifact they wanted we
+    also know its columns, so the same content arrives as a table they
+    could paste into a sheet themselves. The upgrade then buys the FILE
+    rather than the information."""
+    from app.services.artifact_types import CONTRACTS
+
+    g = inline_artifact_guidance("action_register")
+    assert "markdown table" in g
+    for col in CONTRACTS["action_register"].columns:
+        assert col.label in g, col.label
+    assert "complete enough to use as it stands" in g
+
+
+def test_guidance_survives_an_unresolved_artifact() -> None:
+    g = inline_artifact_guidance(None)
+    assert "table" in g and g.strip()
+    assert inline_artifact_guidance("not_a_contract") == ""
+
+
+def test_the_teaser_sells_the_file_not_the_information() -> None:
+    """The copy must not imply we are withholding the answer."""
+    text = _UPSELL_DEFAULTS["text"]
+    assert "file" in text.lower()
+    for withholding in ("cannot", "can't", "unable", "not available",
+                        "upgrade to see", "unlock"):
+        assert withholding not in text.lower(), withholding

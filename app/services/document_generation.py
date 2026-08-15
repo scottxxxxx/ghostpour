@@ -107,8 +107,9 @@ _CONFIRMATION_DEFAULTS = {
 # shipping it off meant the detection work reached nobody.
 _UPSELL_DEFAULTS = {
     "enabled": True,
-    "text": ("I can put {artifact} together as a real downloadable file "
-             "on {tier}, along with everything else {tier} includes."),
+    "text": ("If you were on {tier}, I could give you {artifact} as a "
+             "downloadable Excel or Word file, along with everything "
+             "else {tier} includes."),
     "generic_artifact": "that",
 }
 
@@ -684,6 +685,33 @@ def upsell_line(upsell_cfg: dict, tier_label: str,
             pass
     return text.replace("{artifact}", noun).replace(
         "{tier}", tier_label).strip()
+
+
+def inline_artifact_guidance(artifact: str | None) -> str:
+    """Tell the model to hand a below-tier user the artifact's SHAPE.
+
+    Scott 2026-08-15: give them the closest thing we can, knowing we
+    cannot build the file. "Answer normally" produced prose; when we know
+    which artifact they wanted we also know its columns, so the same
+    content can arrive as a table they could paste into a sheet
+    themselves. The upgrade then buys the FILE, not the information,
+    which is a fairer thing to sell.
+    """
+    if not artifact:
+        return ("Lay the answer out as a markdown table when the request "
+                "is naturally tabular, so it is usable as it stands.")
+    try:
+        from app.services.artifact_types import CONTRACTS
+        c = CONTRACTS.get(artifact)
+    except Exception:  # noqa: BLE001
+        c = None
+    if not c:
+        return ""
+    cols = ", ".join(col.label for col in c.columns)
+    return ("Answer as a markdown table with exactly these columns, in "
+            f"this order: {cols}. One row per item, filled from the "
+            "meeting. This is the same content the file would carry, so "
+            "make it complete enough to use as it stands.")
 
 
 def generation_tier_shortfall(
