@@ -149,7 +149,8 @@ def requires_provider(text: str, has_attachment: bool = False) -> str | None:
 def route(text: str, fmt: str | None = None,
           has_attachment: bool = False,
           model_artifact: str | None = None,
-          model_confidence: str = "high") -> Route:
+          model_confidence: str = "high",
+          is_file_request: bool | None = None) -> Route:
     """Pick the lane. Anything uncertain lands on the provider lane.
 
     `text` should be the QUESTION PORTION, not assembled history: a
@@ -165,6 +166,9 @@ def route(text: str, fmt: str | None = None,
     """
     if not (text or "").strip():
         return Route(lane="provider", reason="no_artifact_match")
+
+    if is_file_request is False:
+        return Route(lane="none", reason="not_a_file_request")
 
     blocked = requires_provider(text, has_attachment)
     if blocked:
@@ -187,6 +191,11 @@ def route(text: str, fmt: str | None = None,
         return Route(lane="template", reason="existing_template",
                      contract=tid)
     if ambiguous_plan_ask(text, format=fmt):
+        if model_artifact in CONTRACTS and model_confidence == "high":
+            return Route(lane="mixed", reason="ambiguous_plan_or_artifact",
+                         contract=model_artifact,
+                         candidates=["gantt", model_artifact],
+                         offer_noun=CONTRACTS[model_artifact].offer_noun)
         return Route(lane="template", reason="ambiguous_plan_version")
 
     scores = score_contracts(text)
@@ -244,8 +253,11 @@ def question_for(route_: Route) -> str:
     """
     if not route_.needs_question:
         return ""
-    nouns = [CONTRACTS[n].offer_noun or CONTRACTS[n].label
-             for n in route_.candidates]
+    nouns = [
+        ("a project schedule with the timeline and progress"
+         if n == "gantt"
+         else (CONTRACTS[n].offer_noun or CONTRACTS[n].label))
+        for n in route_.candidates]
     if len(nouns) == 2:
         return f"I can build {nouns[0]}, or {nouns[1]}. Which would help?"
     joined = ", ".join(nouns[:-1])

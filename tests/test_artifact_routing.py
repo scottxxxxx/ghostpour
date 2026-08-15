@@ -157,7 +157,8 @@ def test_reason_is_a_stable_token_for_telemetry() -> None:
              "format_not_renderable", "tabular_no_contract",
              "no_artifact_match", "contract_match", "ambiguous_artifact",
              "model_declared_computation", "existing_template",
-             "ambiguous_plan_version"}
+             "ambiguous_plan_version", "not_a_file_request",
+             "ambiguous_plan_or_artifact"}
     samples = [
         route("make me a risk register", fmt="xlsx"),
         route("write a summary"),
@@ -300,3 +301,57 @@ def test_an_unknown_artifact_label_is_ignored_not_trusted() -> None:
               model_artifact="not_a_real_contract")
     assert r.lane == "contract"
     assert r.contract == "risk_register"
+
+
+# --- Found by tracing two real utterances end to end, 2026-08-15.
+
+def test_a_question_about_an_artifact_is_not_a_request_for_one() -> None:
+    """"what are some other things we should add to our test plan"
+    scores test_plan lexically and is plainly a question. Only the
+    prefilter was stopping it, which is accidental protection rather
+    than a decision, so the verdict now reaches the router."""
+    text = "what are some other things we should add to our test plan"
+    assert score_contracts(text).get("test_plan")
+    r = route(text, fmt="xlsx", model_artifact="test_plan",
+              is_file_request=False)
+    assert r.lane == "none"
+    assert r.reason == "not_a_file_request"
+
+
+def test_an_omitted_verdict_still_routes_as_before() -> None:
+    """Only an explicit False stops it; None means nobody asked."""
+    r = route("make me a risk register", fmt="xlsx", is_file_request=None)
+    assert r.lane == "contract" and r.contract == "risk_register"
+
+
+def test_plan_words_plus_a_confident_artifact_asks_across_both() -> None:
+    """"Create a project plan from the last 7 meetings that shows the
+    action items and who own them" is plan vocabulary AND an action
+    register. Handing it to the Gantt's simple-versus-detailed question
+    answers something the user did not ask."""
+    text = ("Create a project plan from the lat 7 meetings that shows "
+            "the action items and who own them")
+    r = route(text, fmt="xlsx", model_artifact="action_register",
+              model_confidence="high", is_file_request=True)
+    assert r.lane == "mixed"
+    assert r.reason == "ambiguous_plan_or_artifact"
+    assert r.candidates == ["gantt", "action_register"]
+    q = question_for(r)
+    assert "schedule" in q and "action item register" in q
+    assert "gantt" not in q.lower().replace("schedule", "")
+
+
+def test_plan_words_alone_still_belong_to_the_gantt_registry() -> None:
+    """The cross-family question only fires when something else has a
+    real claim; a bare plan ask keeps its own version question."""
+    r = route("can you build a project plan", fmt="xlsx",
+              is_file_request=True)
+    assert r.lane == "template"
+    assert r.reason == "ambiguous_plan_version"
+
+
+def test_a_low_confidence_artifact_does_not_hijack_the_plan_question() -> None:
+    r = route("can you build a project plan", fmt="xlsx",
+              model_artifact="action_register", model_confidence="low",
+              is_file_request=True)
+    assert r.lane == "template"
