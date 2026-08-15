@@ -31,7 +31,8 @@ _IMAGES_CAP_CHARS = 15_000_000
 
 def create(user_id: str, fmt: str, gist: str, template_id: str | None = None,
            ask_content: str = "", images: list[str] | None = None,
-           lane_choice: str | None = None) -> str:
+           lane_choice: str | None = None,
+           artifact_id: str | None = None) -> str:
     """Remember a live offer; returns its offer_id (rides the envelope).
     template_id marks a registry-matched offer: a confirm routes to the
     deterministic template lane instead of ad-hoc sandbox generation.
@@ -42,6 +43,11 @@ def create(user_id: str, fmt: str, gist: str, template_id: str | None = None,
     images is the ORIGINATING send's base64 images, same reasoning; over
     the cap they are dropped and images_dropped marks the loss so the
     arming path can refuse to generate blind.
+    artifact_id marks a CONTRACT-matched offer: the classifier resolved
+    which artifact the user wants, so a confirm routes to the contract
+    lane (our columns, our renderer) instead of the sandbox. Resolved on
+    the OFFER turn because that is where the classifier ran; the confirm
+    send carries chat history, not the original ask.
     lane_choice marks an AMBIGUOUS plan/progress ask (Scott's ruling
     2026-08-11): "pending" means the version question has not been asked
     yet (teaser offers), "asked" means this offer IS the question and
@@ -53,6 +59,7 @@ def create(user_id: str, fmt: str, gist: str, template_id: str | None = None,
         imgs, dropped = [], True
     _OFFERS[(user_id, offer_id)] = {
         "format": fmt, "gist": gist, "template_id": template_id,
+        "artifact_id": artifact_id,
         "ask_content": (ask_content or "")[:_ASK_CONTENT_CAP],
         "images": imgs, "images_dropped": dropped,
         "lane_choice": lane_choice,

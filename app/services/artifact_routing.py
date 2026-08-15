@@ -264,6 +264,25 @@ def question_for(route_: Route) -> str:
     return f"I can build {joined}, or {nouns[-1]}. Which would help?"
 
 
+def contract_candidate(lane_on: bool, intent: dict | None,
+                       skip: bool = False) -> str | None:
+    """Which contract, if any, this offer should remember.
+
+    Only a HIGH confidence read counts. A low confidence one means the
+    classifier saw two artifacts fitting equally, and silently picking
+    one at offer time would hide a question we should have asked.
+    `skip` carries the precedence rule: a Gantt template match or an
+    ambiguous plan ask wins, because that registry is purpose built and
+    its version question has to come before any build.
+    """
+    if skip or not lane_on or not intent:
+        return None
+    name = intent.get("artifact")
+    if name in CONTRACTS and intent.get("artifact_confidence", "high") == "high":
+        return name
+    return None
+
+
 def reroute_on_model_signal(plan: dict) -> Route | None:
     """Last backstop: the model says it needs to compute after all.
 

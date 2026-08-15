@@ -68,7 +68,13 @@ class Contract:
                  repair: Any = None,
                  hints: tuple[tuple[str, int], ...] = (),
                  offer_noun: str = "",
+                 expected_seconds: int = 90,
                  classifier_note: str = "") -> None:
+        # What we TELL the user to expect, surfaced as literal text.
+        # Measured per contract on real transcripts 2026-08-15, rounded
+        # up: the served default of 150 promised the same wait for a
+        # 22 second open-questions log and a 187 second test plan.
+        self.expected_seconds = expected_seconds
         # Boundary guidance the CLASSIFIER sees and the user never does.
         # Kept separate from offer_noun because telling a user "not to be
         # confused with a test plan" is noise, while the classifier needs
@@ -119,6 +125,7 @@ TEST_PLAN = Contract(
     offer_noun=("a test scenario plan (one sheet per intent, each case "
                 "with sample test data and the expected behavior)"),
     name="test_plan",
+    expected_seconds=170,
     classifier_note=(
         "Situations to TRY against a built system to verify it. Not the specification of what it must do; that is requirements."),
     label="Test scenario plan",
@@ -179,6 +186,7 @@ ACTION_REGISTER = Contract(
     offer_noun=("an action item register (each commitment with its owner, "
                 "due date, status and what is blocking it)"),
     name="action_register",
+    expected_seconds=45,
     classifier_note=(
         "Things someone COMMITTED to do, with owners and deadlines. Not unanswered questions; that is open_questions. If the ask is about what is unresolved rather than what is owed, use low confidence."),
     label="Action items and commitments",
@@ -225,6 +233,7 @@ DECISION_LOG = Contract(
     offer_noun=("a decision log (what was settled, who called it, the "
                 "reason given, and what was rejected)"),
     name="decision_log",
+    expected_seconds=50,
     label="Decision log",
     sheet_rule="One sheet named 'Decisions'.",
     filename_hint="decisions",
@@ -270,6 +279,7 @@ RISK_REGISTER = Contract(
     offer_noun=("a risk register (each risk scored for likelihood and "
                 "impact, with an owner and a mitigation)"),
     name="risk_register",
+    expected_seconds=60,
     label="Risk register",
     sheet_rule="One sheet named 'Risks'.",
     filename_hint="risks",
@@ -323,6 +333,7 @@ OPEN_QUESTIONS = Contract(
     offer_noun=("an open questions log (what is unresolved, who can "
                 "answer it, and what it is holding up)"),
     name="open_questions",
+    expected_seconds=35,
     classifier_note=(
         "Things nobody could ANSWER yet, needing a person to resolve them. Not things someone committed to DO; that is action_register. If the ask mixes blockers with owners it may be either, so use low confidence."),
     label="Open questions and blockers",
@@ -363,6 +374,7 @@ REQUIREMENTS = Contract(
     offer_noun=("a requirements matrix (each requirement with its "
                 "priority, acceptance criteria and the line it came from)"),
     name="requirements",
+    expected_seconds=85,
     classifier_note=(
         "The SPECIFICATION of what must be built and how important each item is. Not the situations you would run to verify it; that is test_plan. Pick this when they say what the thing has to do or deliver."),
     label="Requirements and scope",
@@ -405,6 +417,7 @@ OPTION_COMPARISON = Contract(
     offer_noun=("an option comparison (each option as a column, scored "
                 "against weighted criteria)"),
     name="option_comparison",
+    expected_seconds=40,
     classifier_note=(
         "Several named candidates weighed side by side against shared criteria. Pick this for any grid, matrix, or scorecard comparing who is better where."),
     label="Option comparison",
@@ -452,6 +465,7 @@ BUDGET = Contract(
     offer_noun=("a cost estimate (line items with a basis for each "
                 "figure, low and high, and live totals)"),
     name="budget",
+    expected_seconds=60,
     repair=_budget_repair,
     label="Budget and cost estimate",
     sheet_rule="One sheet named 'Estimate'.",
@@ -504,6 +518,7 @@ TOPIC_TRACKER = Contract(
     offer_noun=("a cross-meeting topic tracker (what keeps coming back, "
                 "when it was first raised, and whether it is moving)"),
     name="topic_tracker",
+    expected_seconds=75,
     label="Cross-meeting topic tracker",
     sheet_rule="One sheet named 'Topics'.",
     filename_hint="topic_tracker",

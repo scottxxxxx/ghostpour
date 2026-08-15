@@ -41,6 +41,11 @@ _TITLE_FG = "3D4653"
 _BAND_BG = "F7F8FA"
 _GRID_FG = "E9E9E9"
 
+# Same constant the template lane uses; re-declared rather than imported
+# so this module stays free of doc_templates.
+XLSX_MIME = ("application/vnd.openxmlformats-officedocument."
+             "spreadsheetml.sheet")
+
 _MAX_TAB = 31
 _ILLEGAL_TAB = re.compile(r"[\[\]:*?/\\]")
 # " - " reads as an aside, which is the one thing the house rule bans.

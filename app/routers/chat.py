@@ -215,6 +215,21 @@ def _resolve_model_routing(
         models = row.get("models", {})
         return models.get(tier_name) or models.get("default")
 
+    # 0. Artifact generation is its own dial (Scott 2026-08-15) and is
+    #    deliberately checked BEFORE the surface preference, because a
+    #    surface row would otherwise swallow it: the artifact call
+    #    carries the originating prompt_mode, so PostMeetingChat would
+    #    resolve meeting_chat and the dial would be unreachable. The
+    #    model that WRITES the artifact is a different choice from the
+    #    model that answers the chat, and dialing one should never move
+    #    the other.
+    if call_type == "artifact_generation":
+        model = _model_from_row("artifact_generation")
+        if model:
+            return model
+        # No row for this tier: fall through rather than dying, so a
+        # half-configured dial degrades to the surface model.
+
     # 1. Surface-aware preference. Each surface has a (first, follow_up)
     #    pair of dials; iOS picks which by setting `call_type` to the
     #    follow-up name. If iOS hasn't migrated yet, the follow-up name
@@ -1922,7 +1937,20 @@ async def chat(
     # are the chat modes; managed anthropic only. When armed, the adapter
     # attaches the sandbox + document skills and this path collects the
     # artifacts after the response.
-    from app.services.document_generation import generation_gate
+    from app.services.artifact_routing import (
+        contract_candidate as _contract_candidate,
+    )
+    from app.services.document_generation import (
+        contract_lane_enabled,
+        generation_gate,
+    )
+    # Contract artifact lane, canary-gated. Empty list by default, so
+    # this whole branch is dead for every user until an identity is
+    # added to documents.generation.contract_lane_users.
+    _contract_lane_on = contract_lane_enabled(
+        request.app.state.remote_configs,
+        {x for x in (user.id, user.email) if x})
+    _contract_id = None
     _gen_armed = generation_gate(
         remote_configs=request.app.state.remote_configs,
         tier_name=user.effective_tier,
@@ -2153,6 +2181,8 @@ async def chat(
                         logger.warning("generation_image_guard disarm=typed_yes")
                     _gen_armed = not _img_guarded
                     _template_id = _offer.get("template_id") if _gen_armed else None
+                    if _gen_armed and _contract_lane_on and not _template_id:
+                        _contract_id = _offer.get("artifact_id")
                     if _gen_armed and _offer.get("lane_choice") == "asked":
                         # The question's typed answer resolves the lane. A
                         # custom choice, or a revised non-xlsx format, builds
@@ -2356,7 +2386,17 @@ async def chat(
                                          else _tmpl),
                             ask_content=body.user_content or "",
                             images=body.images,
-                            lane_choice=("asked" if _ambiguous else None))
+                            lane_choice=("asked" if _ambiguous else None),
+                            # Contract lane: the classifier named the
+                            # artifact on THIS turn and the confirm send
+                            # carries only history, so store it now. A
+                            # template match wins, because the Gantt
+                            # registry is purpose built and better than
+                            # anything generic; ambiguous plan asks keep
+                            # their version question.
+                            artifact_id=_contract_candidate(
+                                _contract_lane_on, _intent,
+                                skip=bool(_tmpl or _ambiguous)))
                         if _ambiguous:
                             # The version question, served as the same
                             # generation_offer envelope the client already
@@ -2444,7 +2484,56 @@ async def chat(
                         )
                         return JSONResponse(content=_envelope)
 
-    if _gen_armed and not _template_id:
+    if _gen_armed and _contract_id:
+        # Contract lane. Same shape as the template lane below (the model
+        # emits structure, we draw the file), but the columns are ours and
+        # ride as a TOOL SCHEMA rather than a prompt, so a missing
+        # expected-result field is an API-level rejection instead of a
+        # hole that renders into a workbook looking complete. Measured
+        # 2026-08-15: that took the column from 1 of 3 runs to 3 of 3.
+        from app.services.artifact_types import (
+            CONTRACTS,
+            contract_tool_schema,
+        )
+        _c = CONTRACTS[_contract_id]
+        _client_sys = (body.system_prompt or "").strip()
+        _contract_sys = (
+            _client_sys + "\n\n--- FILE BUILD OVERRIDE ---\n"
+            if _client_sys else "") + (
+            f"Build a {_c.label.lower()} by calling the emit_artifact "
+            "tool. The columns are already decided and are not yours to "
+            "change; decide what sheets exist and what rows go in them, "
+            "and fill every field as its description asks. Rendering, "
+            "styling and file naming are handled for you.\n\n"
+            "Be exhaustive. Cover the edge cases someone would actually "
+            "hit, not just the obvious rows. A thin sheet is worse than "
+            "no sheet.\n\n"
+            "Ground every row in what was actually said. If the material "
+            "does not support this document, emit only the rows you can "
+            "genuinely support, even if that is none. A confident "
+            "invented row is the worst possible outcome.")
+        body = body.model_copy(update={
+            "system_prompt": _contract_sys,
+            "max_tokens": 32000,
+            "tools": [{
+                "name": "emit_artifact",
+                "description": f"Emit the complete {_c.label}.",
+                "input_schema": contract_tool_schema(_c),
+            }],
+            # Its own dial (Scott 2026-08-15): the model that WRITES the
+            # artifact is a different choice from the one that answers
+            # the chat. Stamped before routing so it actually resolves.
+            "metadata": {**(body.metadata or {}),
+                         "call_type": "artifact_generation"},
+        })
+        _re_model = _resolve_model_routing(
+            request, body, tier, effective_tier_name)
+        if _re_model:
+            body = body.model_copy(update={"model": _re_model})
+        _gen_expected_seconds = _c.expected_seconds
+        logger.info("contract_lane_armed artifact=%s model=%s expected=%ss",
+                    _contract_id, body.model, _c.expected_seconds)
+    elif _gen_armed and not _template_id:
         body = body.model_copy(update={"generation": True})
     elif _gen_armed and _template_id:
         # Template lane: no sandbox — the model's whole job is emitting the
@@ -2827,6 +2916,69 @@ async def chat(
         # blocks the text answer. Staged rows ride the response as
         # `generated_files`; count/bytes land in usage metering below.
         generated_payload: list[dict] = []
+        if _contract_id and response and response.raw_response_json:
+            # Contract lane execution. The plan arrives as a validated
+            # tool call rather than text, so it is pulled from the raw
+            # response; everything downstream is the template lane's
+            # staging path. Any failure falls back to the model's own
+            # text so the user never gets a dead turn, which is also the
+            # designed escape hatch for needs_computation.
+            try:
+                from app.services import generated_files as _staging
+                from app.services.artifact_routing import (
+                    reroute_on_model_signal,
+                )
+                from app.services.artifact_types import (
+                    CONTRACTS,
+                    plan_from_contract,
+                )
+                from app.services.workbook_plan import (
+                    XLSX_MIME,
+                    render_workbook,
+                )
+                _c = CONTRACTS[_contract_id]
+                _raw = response.raw_response_json or {}
+                _emitted = next(
+                    (b.get("input") for b in (_raw.get("content") or [])
+                     if isinstance(b, dict) and b.get("type") == "tool_use"),
+                    None)
+                if _emitted is None:
+                    raise ValueError("contract lane: no tool call in response")
+                _plan = plan_from_contract(_c, _emitted)
+                if reroute_on_model_signal(_plan) is not None:
+                    # The model says this needs real computation. Better
+                    # to say so than to render values it guessed.
+                    raise ValueError("contract lane: model declared computation")
+                _bytes = await asyncio.to_thread(render_workbook, _plan)
+                _row = await _staging.stage(
+                    db, user_id=user.id, app_id=app_id,
+                    name=_plan.get("filename") or f"{_c.filename_hint}.xlsx",
+                    media_type=XLSX_MIME, content=_bytes)
+                if _row:
+                    generated_payload = [_row]
+                    _rows = sum(len(sh.get("rows") or [])
+                                for sh in _plan["sheets"])
+                    response.text = (
+                        f"Built your {_c.label.lower()} with {_rows} rows "
+                        f"across {len(_plan['sheets'])} "
+                        f"sheet{'s' if len(_plan['sheets']) != 1 else ''}.")
+                    _gmeta = dict(body.metadata or {})
+                    _gmeta["generated_count"] = 1
+                    _gmeta["generated_bytes"] = _row["size_bytes"]
+                    # The dimension that answers which artifacts real
+                    # users generate. Without it the only honest answer
+                    # is a guess, and the first weeks of signal are gone
+                    # for as long as it is missing.
+                    _gmeta["artifact_type"] = _contract_id
+                    _gmeta["call_type"] = "artifact_generation"
+                    body = body.model_copy(update={"metadata": _gmeta})
+                    logger.info(
+                        "contract_lane_built artifact=%s rows=%s bytes=%s",
+                        _contract_id, _rows, _row["size_bytes"])
+            except Exception:
+                logger.exception(
+                    "contract lane failed, serving raw text")
+
         if _template_id and response and response.text:
             # Template lane execution: parse the extraction, render
             # deterministically, stage through the same pipeline as sandbox

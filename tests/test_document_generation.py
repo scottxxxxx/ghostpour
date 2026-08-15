@@ -613,7 +613,8 @@ def test_offer_store_one_shot_and_ttl(monkeypatch):
     assert go.take("u2", oid) is None            # not yours
     offer = go.take("u1", oid)
     assert offer == {"format": "docx", "gist": "for onboarding",
-                     "template_id": None, "ask_content": "",
+                     "template_id": None, "artifact_id": None,
+                     "ask_content": "",
                      "images": [], "images_dropped": False,
                      "lane_choice": None,
                      "expires": offer["expires"]}

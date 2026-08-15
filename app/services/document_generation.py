@@ -687,6 +687,27 @@ def upsell_line(upsell_cfg: dict, tier_label: str,
         "{tier}", tier_label).strip()
 
 
+def contract_lane_users(remote_configs: dict) -> list[str]:
+    """Canary list for the contract artifact lane.
+
+    EMPTY BY DEFAULT, which means merging this changes nothing for
+    anybody: every user keeps the provider sandbox lane byte for byte
+    until an identity is added here. Same override shape as
+    documents.allowed_users, chosen deliberately so rollback is a config
+    edit rather than a revert, and so the blast radius of a first live
+    run is one account.
+    """
+    docs = (remote_configs.get("client-config") or {}).get("documents") or {}
+    gen = docs.get("generation") or {}
+    return [str(u) for u in (gen.get("contract_lane_users") or [])]
+
+
+def contract_lane_enabled(remote_configs: dict,
+                          user_identity: set[str] | None) -> bool:
+    return bool(user_identity
+                and set(user_identity) & set(contract_lane_users(remote_configs)))
+
+
 def inline_artifact_guidance(artifact: str | None) -> str:
     """Tell the model to hand a below-tier user the artifact's SHAPE.
 

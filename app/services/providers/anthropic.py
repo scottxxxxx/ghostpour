@@ -236,6 +236,13 @@ class AnthropicAdapter(ProviderAdapter):
                 }
             ]
 
+        # GP-supplied tools (artifact contract lane). Appended rather
+        # than assigned so a search-enabled turn keeps its own tool.
+        if getattr(request, "tools", None):
+            body.setdefault("tools", []).extend(request.tools)
+            if getattr(request, "tool_choice", None):
+                body["tool_choice"] = request.tool_choice
+
         headers = self._build_headers()
 
         # Document generation (phase 2a). Gated upstream; the adapter arms
