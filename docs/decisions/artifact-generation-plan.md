@@ -75,6 +75,13 @@ meeting questions and file asks outside the nine.
 Classification costs **$0.0005 per ask**. It is the same Haiku call we
 already make, extended, so no new dependency and no added latency.
 
+Two different numbers in this document are easy to confuse. The **21%**
+above is the lexical ARTIFACT router: given that we know a file is
+wanted, how often keywords name the right one. The **2%** below is the
+file-ask PREFILTER: how often we noticed a file was wanted at all. They
+measure different stages and both were fixed differently, the first with
+a model and the second by widening the gate.
+
 ## Blocking items before wiring
 
 1. **Nothing has run through the real chat path.** Every result above
@@ -120,24 +127,44 @@ instruction so the model does not contradict it.
 
 ### Four gaps between that and what we want
 
-1. **Below tier turns never reach the classifier.** The code says so
-   outright: detection there is "the deterministic layer only". We now
-   know that layer is **21% accurate** on natural phrasing, so the
-   upsell misses roughly four of every five people it exists for. This
-   was a sound cost decision when the classifier's price was unmeasured.
-   It is now **$0.0005 per ask**: a thousand free users asking twice a
-   day is about a dollar a day, against a Pro subscription at $14.99 a
-   month. Reverse it.
-2. **It is off.** `_UPSELL_DEFAULTS` ships `enabled: False`.
-3. **The copy is one generic line**, "If you were a {tier} subscriber, I
+1. **Below tier turns never reached the classifier**, and the gate was
+   far worse than first reported. My initial figure of 21% was the
+   lexical ARTIFACT router, not the file-ask prefilter. Measured
+   properly, the prefilter matched **5 of 216** real artifact asks, or
+   **2%**, and because `classify_generation_intent` returns None the
+   moment it fails, it was suppressing file intent at EVERY tier,
+   including paying ones.
+
+   FIXED by widening the prefilter to include request shape, not just
+   file nouns: 2% to **56%**, with zero trips across a 40 turn
+   ordinary-chat control. It stays a gate, applied identically to every
+   tier, because removing it entirely costs **1.2 seconds** of measured
+   latency on every generation-surface turn, including "thanks that
+   helps". A gate on SHAPE is not a gate on PLAN, which is what the
+   ruling actually forbids.
+
+   The ~44% still missed are asks like "who decided what and why lol
+   just that", which read as questions. Those get answered in chat where
+   the existing teaser CTA offers the file, which is the better product
+   answer than assuming somebody wanted a download.
+2. ~~**It is off.**~~ FIXED: `_UPSELL_DEFAULTS` now ships enabled.
+3. ~~**The copy is one generic line**~~ FIXED, structurally: the served
+   line now takes an `{artifact}` placeholder alongside `{tier}`, so it
+   can name what they just asked for. The PITCH itself is Scott's to
+   write from the dashboard; what ships is a placeholder.
+   Original problem: **the copy was one generic line**, "If you were a {tier} subscriber, I
    could generate a Word or Excel file for you." It names a capability
    and sells nothing. It should expand what Pro includes, file
    generation and everything else, and it should be able to name the
    artifact the user just asked for, since "I could build you that risk
    register" converts better than "I could generate a file".
-4. **It is not editable from the dashboard.** There are zero references
-   to `upsell` in `admin.html`. It is reachable only through
-   `PUT /admin/entitlements/documents`.
+4. ~~**It is not editable from the dashboard.**~~ FIXED: the
+   Entitlements tab now carries the switch and a per-locale copy editor.
+   The switch writes every locale in lockstep as before; COPY writes
+   only the locale named, because writing one language into four files
+   is how a Spanish user ends up reading English. The endpoint rejects
+   em and en dashes at the boundary, so the house rule is enforced
+   rather than remembered.
 
 ### Target flow, all tiers
 

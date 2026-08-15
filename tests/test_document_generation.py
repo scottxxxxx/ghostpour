@@ -412,7 +412,13 @@ async def test_classifier_fail_open_and_strict_parse():
     router.route = AsyncMock(return_value=MagicMock(
         text='Sure: {"file_request": true, "format": "docx"} done'))
     out = await classify_generation_intent(router, "write this up as a word doc")
-    assert out == {"file_request": True, "format": "docx", "gist": ""}
+    assert out["file_request"] is True
+    assert out["format"] == "docx"
+    assert out["gist"] == ""
+    # Artifact labelling rides the same call (2026-08-15); absent in the
+    # response means null, never a guess.
+    assert out["artifact"] is None
+    assert out["artifact_confidence"] == "high"
 
     # valid NO -> file_request False
     router.route = AsyncMock(return_value=MagicMock(
@@ -420,13 +426,15 @@ async def test_classifier_fail_open_and_strict_parse():
     # (input mentions "report" so the prefilter admits it; the classifier
     # still says no — prefilter is recall-biased, classifier decides)
     out = await classify_generation_intent(router, "what did we decide about the report?")
-    assert out == {"file_request": False, "format": None, "gist": ""}
+    assert out["file_request"] is False
+    assert out["format"] is None
 
     # bogus format value normalizes to None rather than leaking to the wire
     router.route = AsyncMock(return_value=MagicMock(
         text='{"file_request": true, "format": "exe"}'))
     out = await classify_generation_intent(router, "make me a file")
-    assert out == {"file_request": True, "format": None, "gist": ""}
+    assert out["file_request"] is True
+    assert out["format"] is None
 
 
 @pytest.mark.asyncio
@@ -1020,14 +1028,34 @@ def test_prefilter_vocabulary():
 
 
 @pytest.mark.asyncio
-async def test_classifier_skips_llm_when_prefilter_misses():
+async def test_the_classifier_now_judges_every_non_empty_ask():
+    """The vocabulary prefilter used to gate this call. It no longer does.
+
+    Measured 2026-08-15 on 216 real artifact asks generated blind to our
+    vocabulary: the prefilter matched FIVE of them. It was silently
+    suppressing file intent at every tier, including paying ones, for
+    anyone who did not happen to type a file noun. Prod runs 0.30
+    generation-surface turns per user per day, so classifying all of
+    them costs about $4.50 a month at a thousand users. The gate was
+    saving four dollars and missing 98% of the intent.
+
+    The prefilter still exists and is still recall-biased; it just feeds
+    the teaser rather than deciding whether we look at all.
+    """
     from unittest.mock import AsyncMock, MagicMock
     from app.services.document_generation import classify_generation_intent
     router = MagicMock()
+    router.route = AsyncMock(return_value=MagicMock(
+        text='{"file_request": false, "format": null}'))
+    out = await classify_generation_intent(
+        router, "just show me who is on the hook for stuff")
+    router.route.assert_awaited()
+    assert out["file_request"] is False
+
+    # Empty input is still not worth a call.
     router.route = AsyncMock()
-    out = await classify_generation_intent(router, "what time is the standup?")
-    assert out is None
-    router.route.assert_not_awaited()          # no LLM call, no latency tax
+    assert await classify_generation_intent(router, "   ") is None
+    router.route.assert_not_awaited()
 
 
 def test_meeting_chat_file_ask_draws_offer_despite_stream_true(client, free_user,
@@ -1865,10 +1893,13 @@ def test_below_tier_explicit_file_ask_is_a_plain_chat_turn(
         "documents", {})
     docs["generation"] = {
         "enabled": True, "min_tier": "pro",
-        "confirmation": {"enabled": True, "expected_seconds": 150}}
+        "confirmation": {"enabled": True, "expected_seconds": 150},
+        # Upsell defaults to ON since 2026-08-15, so "off" must be said
+        # out loud for this cell to mean what it did.
+        "upsell": {"enabled": False}}
     monkeypatch.setattr(dg, "classify_generation_intent", AsyncMock(
         side_effect=AssertionError(
-            "intent classifier must not run for a below-tier user")))
+            "no classifier spend when the upsell is switched off")))
     r = client.post("/v1/chat", json=chat_request(
         prompt_mode="ProjectChat", call_type="query",
         user_content="Current question: create an excel file of our "
@@ -1887,6 +1918,9 @@ def test_below_tier_explicit_file_ask_is_a_plain_chat_turn(
 
 
 # --- below-tier upsell line (Scott 2026-07-14) ---
+
+NEW_UPSELL_LINE = ("I can put that together as a real downloadable file on Pro, along with everything else Pro includes.")
+
 
 def _enable_generation_with_upsell(client, min_tier="pro", upsell=None):
     docs = client.app.state.remote_configs["client-config"].setdefault(
@@ -1931,8 +1965,11 @@ def test_tier_shortfall_matrix():
 def test_below_tier_file_ask_gets_tier_aware_upsell_line(
         client, free_user, mock_provider, monkeypatch):
     """The served line leads the reply, {tier} resolves to the served
-    min_tier's display name, the coherence line steers the model, and the
-    classifier never runs (deterministic detection only)."""
+    min_tier's display name, and the coherence line steers the model.
+
+    An EXPLICIT ask is still caught deterministically, so this cell
+    spends nothing on the classifier even after detection widened
+    (2026-08-15); the softer phrasings are what now pay for a call."""
     from unittest.mock import AsyncMock
     import app.services.document_generation as dg
     from tests.conftest import chat_request
@@ -1947,9 +1984,7 @@ def test_below_tier_file_ask_gets_tier_aware_upsell_line(
     ), headers=free_user["headers"])
     assert r.status_code == 200
     body = r.json()
-    assert body["text"].startswith(
-        "If you were a Pro subscriber, I could generate a Word or Excel "
-        "file for you.\n\n")
+    assert body["text"].startswith(NEW_UPSELL_LINE + "\n\n")
     assert body["text"].endswith("Test response from mock provider.")
     sent = mock_provider.await_args_list[-1].args[0]
     assert "FILE UPSELL CONTEXT" in sent.system_prompt
@@ -1970,7 +2005,8 @@ def test_upsell_tier_name_follows_served_min_tier(
         prompt_mode="ProjectChat", call_type="query",
         user_content="Current question: create an excel file of our plan",
     ), headers=free_user["headers"])
-    assert r.json()["text"].startswith("If you were a Plus subscriber")
+    assert r.json()["text"].startswith(
+        NEW_UPSELL_LINE.replace("Pro", "Plus"))
 
 
 def test_at_or_above_min_tier_gets_no_upsell_line(
@@ -1992,10 +2028,23 @@ def test_at_or_above_min_tier_gets_no_upsell_line(
 
 
 def test_below_tier_non_file_ask_gets_no_upsell_line(
-        client, free_user, mock_provider):
+        client, free_user, mock_provider, monkeypatch):
+    """A below-tier turn that is not a file ask stays a plain turn.
+
+    Since 2026-08-15 a non-explicit ask reaches the classifier, so its
+    verdict is pinned here rather than left to the chat mock; the point
+    of the cell is the absent upsell line, not the classifier."""
+    from unittest.mock import AsyncMock
+    import app.routers.chat as chat_mod
     from tests.conftest import chat_request
 
     _enable_generation_with_upsell(client)
+    monkeypatch.setattr(
+        chat_mod, "classify_generation_intent",
+        AsyncMock(return_value={"file_request": False, "format": None,
+                                "gist": "", "artifact": None,
+                                "artifact_confidence": "high"}),
+        raising=False)
     r = client.post("/v1/chat", json=chat_request(
         prompt_mode="ProjectChat", call_type="query",
         user_content="Current question: summarize the last meeting",
@@ -2038,7 +2087,7 @@ def test_upsell_line_rides_the_stream_as_first_delta(
              for line in r.text.splitlines()
              if line.startswith("data: ")]
     text_events = [e["text"] for e in texts if e.get("type") == "text"]
-    assert text_events[0].startswith("If you were a Pro subscriber")
+    assert text_events[0].startswith(NEW_UPSELL_LINE)
     assert text_events[1] == "Here is the plan in chat."
 
 

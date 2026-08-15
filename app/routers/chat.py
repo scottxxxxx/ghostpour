@@ -2528,21 +2528,30 @@ async def chat(
             "system_prompt": (_sys + "\n\n" + _cap_line) if _sys else _cap_line,
         })
     else:
-        # Below-tier upsell (Scott 2026-07-14): when the ONLY thing between
-        # this turn and the generation gate is the subscription tier, a
-        # detected file ask gets a served, tier-aware line prepended to the
-        # reply. {tier} resolves from the served min_tier at request time,
-        # so an availability move (Pro -> Plus) updates the line with no
-        # code change. Detection is the deterministic layer only — explicit
-        # catch + vocabulary prefilter, both on the question portion
-        # (#420/#430) — below-tier turns never spend on the classifier.
+        # Below-tier upsell (Scott 2026-07-14, detection widened
+        # 2026-08-15): when the ONLY thing between this turn and the
+        # generation gate is the subscription tier, a detected file ask
+        # gets a served, tier-aware line prepended to the reply. {tier}
+        # resolves from the served min_tier at request time, so an
+        # availability move (Pro to Plus) updates the line with no code
+        # change.
+        #
+        # Detection used to be the deterministic layer only, to avoid
+        # spending the classifier on turns that could never build. That
+        # was measured wrong: the vocabulary prefilter matched 5 of 216
+        # real artifact asks, so the upsell reached almost nobody it was
+        # written for. Below-tier turns now classify like every other
+        # tier (Scott's ruling: no gate at the plan level on DETECTION),
+        # which also resolves WHICH artifact they wanted so the line can
+        # name it. Costs $0.0005 a turn.
         from app.routers.config import _parse_accept_language
         from app.services.document_generation import (
             _question_portion,
+            classify_generation_intent,
             explicit_file_ask,
             generation_tier_shortfall,
             load_generation_config,
-            looks_like_file_ask,
+            upsell_line,
         )
         _short = generation_tier_shortfall(
             remote_configs=request.app.state.remote_configs,
@@ -2558,36 +2567,57 @@ async def chat(
                     request.headers.get("Accept-Language")),
             )["upsell"]
             _qp = _question_portion(body.user_content)
-            if (_ucfg["enabled"] and _ucfg.get("text")
-                    and (explicit_file_ask(_qp) is not None
-                         or looks_like_file_ask(_qp))):
-                _tier_def = request.app.state.tier_config.tiers.get(_short)
-                _tier_label = (_tier_def.display_name if _tier_def
-                               else _short.title())
-                _gen_upsell_line = str(_ucfg["text"]).replace(
-                    "{tier}", _tier_label)
-                # Coherence: the model must not contradict the injected
-                # line ("I cannot create files") or double-promise a file
-                # it will never build on this turn.
-                _upsell_sys = (
-                    "FILE UPSELL CONTEXT: the user has already been shown "
-                    "a notice that building real downloadable files "
-                    "(Excel, Word, PowerPoint, PDF) is available on the "
-                    f"{_tier_label} plan. Answer the request normally in "
-                    "chat text. Never promise to produce or attach a "
-                    "downloadable file, never claim files are impossible, "
-                    "and do not repeat the notice.")
-                _sys = (body.system_prompt or "").rstrip()
-                body = body.model_copy(update={
-                    "system_prompt": (_sys + "\n\n" + _upsell_sys)
-                    if _sys else _upsell_sys,
-                })
-                logger.info(
-                    "generation_upsell_injected min_tier=%s tier=%s "
-                    "surface=%s",
-                    _short, user.effective_tier,
-                    body.get_meta("prompt_mode"),
-                )
+            _below_artifact = None
+            if _ucfg["enabled"] and _ucfg.get("text"):
+                # Deterministic catch first, so an unambiguous ask never
+                # depends on a network call; the classifier judges the
+                # softer phrasings and names the artifact.
+                _asked = explicit_file_ask(_qp) is not None
+                if not _asked:
+                    # _meter is bound in the armed branch only, which is
+                    # not this one; meter locally so the classifier
+                    # subcall is still costed against this user.
+                    def _upsell_meter(creq, cresp, cms):
+                        return usage_tracker.record_and_log(
+                            db, user=user, tier=tier, app_id=app_id,
+                            request=creq, response=cresp,
+                            elapsed_ms=cms, pricing=pricing,
+                        )
+                    _bi = await classify_generation_intent(
+                        provider_router, body.user_content,
+                        on_subcall=_upsell_meter,
+                    )
+                    _asked = bool(_bi and _bi.get("file_request"))
+                    if _asked:
+                        _below_artifact = _bi.get("artifact")
+                if _asked:
+                    _tier_def = request.app.state.tier_config.tiers.get(_short)
+                    _tier_label = (_tier_def.display_name if _tier_def
+                                   else _short.title())
+                    _gen_upsell_line = upsell_line(
+                        _ucfg, _tier_label, _below_artifact)
+                    # Coherence: the model must not contradict the injected
+                    # line ("I cannot create files") or double-promise a file
+                    # it will never build on this turn.
+                    _upsell_sys = (
+                        "FILE UPSELL CONTEXT: the user has already been shown "
+                        "a notice that building real downloadable files "
+                        "(Excel, Word, PowerPoint, PDF) is available on the "
+                        f"{_tier_label} plan. Answer the request normally in "
+                        "chat text. Never promise to produce or attach a "
+                        "downloadable file, never claim files are impossible, "
+                        "and do not repeat the notice.")
+                    _sys = (body.system_prompt or "").rstrip()
+                    body = body.model_copy(update={
+                        "system_prompt": (_sys + "\n\n" + _upsell_sys)
+                        if _sys else _upsell_sys,
+                    })
+                    logger.info(
+                        "generation_upsell_injected min_tier=%s tier=%s "
+                        "surface=%s",
+                        _short, user.effective_tier,
+                        body.get_meta("prompt_mode"),
+                    )
 
     # Teaser envelope, built once and served on BOTH transports: the JSON
     # body attaches it as feature_state; streaming surfaces carry it on the
