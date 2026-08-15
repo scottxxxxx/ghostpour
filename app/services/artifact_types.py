@@ -67,7 +67,14 @@ class Contract:
                  totals: list[str] | None = None,
                  repair: Any = None,
                  hints: tuple[tuple[str, int], ...] = (),
-                 offer_noun: str = "") -> None:
+                 offer_noun: str = "",
+                 classifier_note: str = "") -> None:
+        # Boundary guidance the CLASSIFIER sees and the user never does.
+        # Kept separate from offer_noun because telling a user "not to be
+        # confused with a test plan" is noise, while the classifier needs
+        # exactly that. Added for the pairs that actually collided on
+        # blind utterances 2026-08-15.
+        self.classifier_note = classifier_note
         # Weighted match vocabulary. A phrase naming the artifact outright
         # scores high; a bare topic word scores low, because "risks" also
         # appears in a meeting that merely worried about something. See
@@ -112,6 +119,8 @@ TEST_PLAN = Contract(
     offer_noun=("a test scenario plan (one sheet per intent, each case "
                 "with sample test data and the expected behavior)"),
     name="test_plan",
+    classifier_note=(
+        "Situations to TRY against a built system to verify it. Not the specification of what it must do; that is requirements."),
     label="Test scenario plan",
     sheet_rule=(
         "One sheet per intent, feature area, or capability under test. "
@@ -170,6 +179,8 @@ ACTION_REGISTER = Contract(
     offer_noun=("an action item register (each commitment with its owner, "
                 "due date, status and what is blocking it)"),
     name="action_register",
+    classifier_note=(
+        "Things someone COMMITTED to do, with owners and deadlines. Not unanswered questions; that is open_questions. If the ask is about what is unresolved rather than what is owed, use low confidence."),
     label="Action items and commitments",
     sheet_rule=(
         "One sheet named 'Actions'. Add a second sheet per workstream "
@@ -266,8 +277,13 @@ RISK_REGISTER = Contract(
         Column("id", "ID", "Short ID such as R-01.", width=8,
                wrap=False, required=True),
         Column("risk", "Risk",
-               "Phrase it as the thing that could go wrong and its "
-               "consequence, not as a general worry. 'X happens, so Y'.",
+               "A FUTURE uncertainty and its consequence: 'X happens, so "
+               "Y'. Something that has already happened is an issue, not "
+               "a risk; put it in a row only as the future exposure it "
+               "creates. Live 2026-08-15 the top row came back as "
+               "'the vendor dropped the work on Monday', which is a "
+               "fact, and a register of facts cannot be scored for "
+               "likelihood.",
                width=44, required=True),
         Column("category", "Category",
                "One of: Technical, Schedule, Resourcing, External, "
@@ -307,6 +323,8 @@ OPEN_QUESTIONS = Contract(
     offer_noun=("an open questions log (what is unresolved, who can "
                 "answer it, and what it is holding up)"),
     name="open_questions",
+    classifier_note=(
+        "Things nobody could ANSWER yet, needing a person to resolve them. Not things someone committed to DO; that is action_register. If the ask mixes blockers with owners it may be either, so use low confidence."),
     label="Open questions and blockers",
     sheet_rule="One sheet named 'Open Questions'.",
     filename_hint="open_questions",
@@ -345,6 +363,8 @@ REQUIREMENTS = Contract(
     offer_noun=("a requirements matrix (each requirement with its "
                 "priority, acceptance criteria and the line it came from)"),
     name="requirements",
+    classifier_note=(
+        "The SPECIFICATION of what must be built and how important each item is. Not the situations you would run to verify it; that is test_plan. Pick this when they say what the thing has to do or deliver."),
     label="Requirements and scope",
     sheet_rule=(
         "One sheet per capability or feature area. Name the sheet after "
@@ -385,6 +405,8 @@ OPTION_COMPARISON = Contract(
     offer_noun=("an option comparison (each option as a column, scored "
                 "against weighted criteria)"),
     name="option_comparison",
+    classifier_note=(
+        "Several named candidates weighed side by side against shared criteria. Pick this for any grid, matrix, or scorecard comparing who is better where."),
     label="Option comparison",
     sheet_rule="One sheet named 'Comparison'.",
     filename_hint="comparison",

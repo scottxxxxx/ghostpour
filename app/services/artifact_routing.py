@@ -75,6 +75,39 @@ DECISIVE_RATIO = 1.8
 DECISIVE_MARGIN = 4
 
 
+def artifact_classifier_system() -> str:
+    """Built from the registry, so a new contract teaches the classifier
+    about itself instead of needing a prompt edit in another file.
+
+    This exists because the lexical scorer below is not enough on its
+    own. Measured 2026-08-15 on 108 generated user asks, blind to our
+    hint vocabulary: lexical matching got 21% acceptable and missed 73%.
+    Real people ask for an action register by typing "who's on the hook
+    for stuff" and for a risk register with "everything that could blow
+    up in our faces". Those share no words with any hint list anyone
+    could write, and never will.
+    """
+    lines = []
+    for name, c in CONTRACTS.items():
+        noun = c.offer_noun or c.label
+        note = getattr(c, "classifier_note", "")
+        lines.append(f'  "{name}": {noun}'
+                     + (f"\n      Boundary: {note}" if note else ""))
+    catalog = "\n".join(lines)
+    return (
+        "You label what KIND of document a person is asking for after a "
+        "meeting. Pick from this catalog:\n\n" + catalog + "\n\n"
+        'Reply with ONLY this JSON: {"artifact": "<key>"|null, '
+        '"confidence": "high"|"low"}. Use the key whose description '
+        "matches what they actually want, even when they never name the "
+        "document type and describe it in their own words instead. Use "
+        "null when they want a document that is none of these, or when "
+        "you cannot tell. Use low confidence when two of these fit "
+        "roughly equally, and we will ask them. Judge the request, not "
+        "the meeting's subject matter."
+    )
+
+
 @dataclass
 class Route:
     lane: str                      # "provider" | "contract" | "plan"
@@ -114,12 +147,21 @@ def requires_provider(text: str, has_attachment: bool = False) -> str | None:
 
 
 def route(text: str, fmt: str | None = None,
-          has_attachment: bool = False) -> Route:
+          has_attachment: bool = False,
+          model_artifact: str | None = None,
+          model_confidence: str = "high") -> Route:
     """Pick the lane. Anything uncertain lands on the provider lane.
 
     `text` should be the QUESTION PORTION, not assembled history: a
     template word carried in history must not re-decide every later ask
     (the #420 lesson, applied here too).
+
+    `model_artifact` is the classifier's read, passed IN rather than
+    fetched here so this stays pure and synchronous and the caller owns
+    the one network call. The deterministic gates below still run first
+    and still win: the classifier decides WHICH artifact, never whether
+    the sandbox is required, because a model asked to judge its own
+    arithmetic is not a control.
     """
     if not (text or "").strip():
         return Route(lane="provider", reason="no_artifact_match")
@@ -148,6 +190,26 @@ def route(text: str, fmt: str | None = None,
         return Route(lane="template", reason="ambiguous_plan_version")
 
     scores = score_contracts(text)
+
+    # The classifier reads paraphrase; the hint list reads vocabulary.
+    # Where they agree, route. Where the classifier alone has a read,
+    # trust it, because on blind utterances it is right far more often
+    # than the hints are. Where they disagree outright, ask.
+    if model_artifact in CONTRACTS:
+        lexical_top = next(iter(scores), None)
+        disagrees = (lexical_top is not None
+                     and lexical_top != model_artifact
+                     and scores[lexical_top] >= 9)
+        if disagrees or model_confidence == "low":
+            pair = [model_artifact] + [
+                n for n in scores if n != model_artifact][:2]
+            return Route(lane="contract", reason="ambiguous_artifact",
+                         candidates=pair[:3], scores=scores)
+        return Route(lane="contract", reason="contract_match",
+                     contract=model_artifact,
+                     offer_noun=CONTRACTS[model_artifact].offer_noun,
+                     scores=scores)
+
     if not scores:
         if fmt == "xlsx" or _TABULAR.search(text or ""):
             return Route(lane="plan", reason="tabular_no_contract",

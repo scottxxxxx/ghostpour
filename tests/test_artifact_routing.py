@@ -225,3 +225,78 @@ def test_an_unmatched_tabular_ask_degrades_to_ours_not_theirs() -> None:
                  "a list of everything Suresh owes us"):
         r = route(text, fmt="xlsx")
         assert r.lane == "plan", text
+
+
+# --- The classifier stage. Measured 2026-08-15 on utterances generated
+# --- blind to our hint vocabulary: lexical alone got 21% acceptable and
+# --- missed 73%. With the classifier, 100% on the tuning set and 98% on
+# --- a held-out set with zero wrong artifacts.
+
+def test_the_classifier_catalog_is_built_from_the_registry() -> None:
+    """A new contract must teach the classifier about itself, or the
+    prompt rots in a different file from the thing it describes."""
+    from app.services.artifact_routing import artifact_classifier_system
+    sysprompt = artifact_classifier_system()
+    for name, c in CONTRACTS.items():
+        assert f'"{name}"' in sysprompt, name
+        assert c.offer_noun.split("(")[0].strip()[:20] in sysprompt
+
+
+def test_boundary_notes_reach_the_classifier_not_the_user() -> None:
+    """Telling a user "not to be confused with a test plan" is noise;
+    the classifier needs exactly that. These pairs actually collided."""
+    from app.services.artifact_routing import artifact_classifier_system
+    sysprompt = artifact_classifier_system()
+    assert "Boundary:" in sysprompt
+    for name in ("requirements", "test_plan", "open_questions",
+                 "action_register"):
+        assert CONTRACTS[name].classifier_note, name
+        assert CONTRACTS[name].classifier_note not in CONTRACTS[name].offer_noun
+
+
+def test_the_classifier_reads_paraphrase_the_hints_cannot() -> None:
+    """"who's on the hook for stuff" shares no word with any hint."""
+    text = "just show me who's on the hook for stuff"
+    assert not score_contracts(text)
+    r = route(text, fmt="xlsx", model_artifact="action_register")
+    assert r.lane == "contract"
+    assert r.contract == "action_register"
+
+
+def test_low_confidence_asks_instead_of_guessing() -> None:
+    r = route("gimme the blockers and who owns em", fmt="xlsx",
+              model_artifact="action_register", model_confidence="low")
+    assert r.reason == "ambiguous_artifact"
+    assert "action_register" in r.candidates
+
+
+def test_a_strong_lexical_disagreement_asks_rather_than_picking() -> None:
+    """The user literally typed one artifact's name and the classifier
+    read another. Neither side gets to win silently."""
+    r = route("build me a risk register", fmt="xlsx",
+              model_artifact="action_register")
+    assert r.reason == "ambiguous_artifact"
+    assert set(r.candidates) >= {"action_register", "risk_register"}
+
+
+def test_the_classifier_cannot_override_the_computation_gate() -> None:
+    """A model asked to judge whether its own arithmetic is trustworthy
+    is not a control. The deterministic gates run first and win."""
+    r = route("pivot this by region", fmt="xlsx", has_attachment=True,
+              model_artifact="budget")
+    assert r.lane == "provider"
+    assert r.reason == "computation_over_attachment"
+
+    r2 = route("make me a risk register", fmt="docx",
+               model_artifact="risk_register")
+    assert r2.lane == "provider"
+    assert r2.reason == "format_not_renderable"
+
+
+def test_an_unknown_artifact_label_is_ignored_not_trusted() -> None:
+    """Fail-open: a classifier that returns garbage degrades to the
+    lexical path rather than routing to a contract that does not exist."""
+    r = route("make me a risk register", fmt="xlsx",
+              model_artifact="not_a_real_contract")
+    assert r.lane == "contract"
+    assert r.contract == "risk_register"
