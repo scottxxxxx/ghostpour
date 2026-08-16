@@ -707,6 +707,12 @@ class EntitlementsDocumentsRequest(BaseModel):
     scope: str
     enabled: bool | None = None
     min_tier: str | None = None
+    # Upsell copy. Unlike enabled/min_tier this is NOT locale
+    # independent, so it writes only the locale named (base English when
+    # omitted). Writing one language into four files is how a Spanish
+    # user ends up reading English.
+    text: str | None = None
+    locale: str | None = None
 
 
 class ProjectChatCapRequest(BaseModel):
@@ -1887,14 +1893,30 @@ async def update_entitlements_documents(
 
     from app.routers.config import CONFIG_DIR, load_remote_configs
 
-    if body.scope not in ("passthrough", "generation"):
+    if body.scope not in ("passthrough", "generation", "upsell"):
         raise HTTPException(
             status_code=400,
-            detail='scope must be "passthrough" or "generation"')
-    if body.enabled is None and body.min_tier is None:
+            detail='scope must be "passthrough", "generation", or "upsell"')
+    if body.enabled is None and body.min_tier is None and body.text is None:
         raise HTTPException(
             status_code=400,
-            detail="provide at least one of enabled / min_tier")
+            detail="provide at least one of enabled / min_tier / text")
+    if body.text is not None:
+        if body.scope != "upsell":
+            raise HTTPException(
+                status_code=400, detail="text is only valid on the upsell scope")
+        if len(body.text) > 600:
+            raise HTTPException(
+                status_code=400, detail="text must be 600 characters or fewer")
+        # House rule, enforced rather than remembered: no dash may stand
+        # in for punctuation in anything we serve to a user.
+        if any(d in body.text for d in ("\u2014", "\u2013")):
+            raise HTTPException(
+                status_code=400,
+                detail="text must not contain em or en dashes")
+    if body.locale is not None and body.locale not in ("en", "es", "ja", "fr"):
+        raise HTTPException(
+            status_code=400, detail='locale must be en, es, ja, or fr')
     if body.min_tier is not None and body.min_tier not in (
             "free", "plus", "pro"):
         raise HTTPException(
@@ -1912,10 +1934,24 @@ async def update_entitlements_documents(
         except (json.JSONDecodeError, OSError) as exc:
             raise HTTPException(
                 status_code=500, detail=f"Could not read {slug}.json: {exc}")
+        # Copy is per locale; switches are not. A text edit touches only
+        # the named file, everything else stays in lockstep as before.
+        if body.text is not None:
+            want = ("client-config" if (body.locale or "en") == "en"
+                    else f"client-config.{body.locale}")
+            if slug != want:
+                continue
         docs = data.setdefault("documents", {})
-        block = (docs if body.scope == "passthrough"
-                 else docs.setdefault("generation", {}))
+        if body.scope == "passthrough":
+            block = docs
+        elif body.scope == "generation":
+            block = docs.setdefault("generation", {})
+        else:
+            block = docs.setdefault("generation", {}).setdefault("upsell", {})
         changes: dict = {}
+        if body.text is not None and block.get("text") != body.text:
+            changes["text"] = {"old": block.get("text"), "new": body.text}
+            block["text"] = body.text
         if body.enabled is not None and block.get("enabled") != body.enabled:
             changes["enabled"] = {
                 "old": block.get("enabled"), "new": body.enabled}

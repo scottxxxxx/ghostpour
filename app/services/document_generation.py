@@ -92,10 +92,25 @@ _CONFIRMATION_DEFAULTS = {
 # min_tier's display name at request time — a future Pro->Plus move
 # updates the line with zero code change. Dark default; the bundle flips
 # it (plain text in an existing field, no new wire shape).
+# Below-tier upsell copy. PLACEHOLDER pitch: the structure and the
+# placeholders are ours, the words are Scott's to set from the dashboard.
+#
+# {tier}     display name of the served min_tier, resolved at request
+#            time, so an availability move needs no code change
+# {artifact} what they just asked for ("that risk register"), falling
+#            back to a generic noun when the classifier did not resolve
+#            one. "I could build you that risk register" is a different
+#            sentence from "I could generate a file".
+#
+# Per feedback_no_limitation_framing_in_copy this states what the tier
+# DOES. It is not an apology. Enabled by default (Scott 2026-08-15):
+# shipping it off meant the detection work reached nobody.
 _UPSELL_DEFAULTS = {
-    "enabled": False,
-    "text": ("If you were a {tier} subscriber, I could generate a Word "
-             "or Excel file for you."),
+    "enabled": True,
+    "text": ("If you were on {tier}, I could give you {artifact} as a "
+             "downloadable Excel or Word file, along with everything "
+             "else {tier} includes."),
+    "generic_artifact": "that",
 }
 
 # Chat surfaces where generation may arm. Non-streaming only (the router
@@ -140,6 +155,30 @@ _CLASSIFIER_SYSTEM = (
 )
 
 
+def _classifier_system() -> str:
+    """Base classifier plus the artifact catalog.
+
+    One call answers both questions. Measured 2026-08-15: asking which
+    ARTIFACT they want costs $0.0005 and lifts recognition from 21% to
+    98% on held-out phrasings, so there is no version of this worth
+    splitting into a second request.
+    """
+    try:
+        from app.services.artifact_routing import artifact_classifier_system
+        catalog = artifact_classifier_system()
+    except Exception:  # noqa: BLE001
+        return _CLASSIFIER_SYSTEM
+    return (
+        _CLASSIFIER_SYSTEM
+        + "\n\nAlso label WHICH document they want, using this catalog.\n\n"
+        + catalog.split("catalog:\n\n", 1)[-1].split("\n\nReply with")[0]
+        + '\n\nAdd two more keys to the SAME JSON object: "artifact": '
+        '"<key>"|null and "artifact_confidence": "high"|"low". Use null '
+        "when the document they want is not in the catalog, and low when "
+        "two of them fit roughly equally."
+    )
+
+
 # Recall-biased vocabulary prefilter: the Haiku classifier costs ~900ms on
 # every gate-passing send, which post-flip is every Pro chat message. Only
 # invoke it when the ask plausibly mentions making a file — the classifier
@@ -153,6 +192,18 @@ _FILE_ASK_HINTS = (
     "diapositiva", "gráfico",
     "スプレッドシート", "ファイル", "文書", "ドキュメント", "資料",
     "レポート", "エクセル", "ワード", "パワーポイント", "シート", "グラフ",
+    # Artifact SHAPE, not just file nouns. Measured 2026-08-15: file
+    # nouns alone matched 5 of 216 real artifact asks. These add 97 more
+    # and trip on none of a 22 turn ordinary-chat control.
+    "table", "matrix", "grid", "breakdown", "rundown", "roster",
+    "inventory", "list of", "a list", "the list", "register", "log of",
+    "scorecard", "checklist", "summary of", "recap of", "side by side",
+    "pull together", "pull out", "put together", "give me the",
+    "give me a", "show me the", "make me", "build me", "draft me",
+    "worksheet",
+    "lista", "tabla", "cuadro", "resumen de", "desglose",
+    "tableau", "liste", "récapitulatif",
+    "一覧", "表", "内訳",
 )
 
 
@@ -326,9 +377,23 @@ def plan_artifact_ask(text: str) -> bool:
         rf"(?:{nouns})[^.!?\n]{{0,20}}?(?:作成|作って|作る|まとめて)", tail))
 
 
+_REQUEST_SHAPE = re.compile(
+    r"\b(give me|show me|make me|build me|draft me|send me|get me|"
+    r"put together|pull together|pull out|pull up|lay out|"
+    r"write up|write me|create|generate|compile|assemble|produce|prepare|"
+    r"can you (?:make|build|create|put|pull|draft|write|give|show|lay|"
+    r"compile)|could you (?:make|build|create|put|pull|draft|write|give|"
+    r"show|lay)|i need (?:a|the|an)|i want (?:a|the|an)|"
+    r"i'?d like (?:a|the|an)|"
+    r"dame|hazme|armar|prepara|fais[- ]moi|peux[- ]tu|"
+    r"\u4f5c\u3063\u3066|\u307e\u3068\u3081\u3066)\b", re.I)
+
+
 def looks_like_file_ask(text: str) -> bool:
     tail = (text or "")[-2000:].lower()
-    return any(h in tail for h in _FILE_ASK_HINTS) or plan_artifact_ask(tail)
+    return (any(h in tail for h in _FILE_ASK_HINTS)
+            or bool(_REQUEST_SHAPE.search(tail))
+            or plan_artifact_ask(tail))
 
 
 async def classify_generation_intent(provider_router, user_content: str,
@@ -347,7 +412,7 @@ async def classify_generation_intent(provider_router, user_content: str,
     request = ChatRequest(
         provider="anthropic",
         model=_CLASSIFIER_MODEL,
-        system_prompt=_CLASSIFIER_SYSTEM,
+        system_prompt=_classifier_system(),
         user_content=user_content[-2000:],
         # 150, not 50: the JSON carries a free-text gist — a long one hit
         # the 50 cap live (2026-07-13, finish_reason=max_tokens) and only
@@ -372,8 +437,13 @@ async def classify_generation_intent(provider_router, user_content: str,
             fmt = None
         gist = parsed.get("gist")
         gist = gist.strip() if isinstance(gist, str) else ""
+        art = parsed.get("artifact")
+        art = art if isinstance(art, str) and art else None
+        conf = parsed.get("artifact_confidence")
+        conf = conf if conf in ("high", "low") else "high"
         return {"file_request": parsed["file_request"], "format": fmt,
-                "gist": gist[:120]}
+                "gist": gist[:120], "artifact": art,
+                "artifact_confidence": conf}
     except Exception as e:
         logger.info("generation intent classifier failed open: %s", e)
         return None
@@ -590,6 +660,79 @@ def generation_gate(
     listed = bool(user_identity and set(user_identity) & set(docs.get("allowed_users") or []))
     tier_ok = _TIER_RANK.get(tier_name, 0) >= _TIER_RANK.get(cfg["min_tier"], 2)
     return (bool(cfg["enabled"]) and tier_ok) or listed
+
+
+def upsell_line(upsell_cfg: dict, tier_label: str,
+                artifact: str | None = None) -> str:
+    """Format the below-tier line. Never leaves a placeholder visible.
+
+    An unresolved {artifact} is the common case, not the exception: the
+    classifier returns null whenever the ask is for something outside
+    our catalog, and a raw "{artifact}" in a user-facing sentence is
+    worse than a vague one.
+    """
+    text = str(upsell_cfg.get("text") or "")
+    if not text:
+        return ""
+    noun = str(upsell_cfg.get("generic_artifact") or "that")
+    if artifact:
+        try:
+            from app.services.artifact_types import CONTRACTS
+            c = CONTRACTS.get(artifact)
+            if c:
+                noun = (c.offer_noun or c.label).split("(")[0].strip()
+        except Exception:  # noqa: BLE001
+            pass
+    return text.replace("{artifact}", noun).replace(
+        "{tier}", tier_label).strip()
+
+
+def contract_lane_users(remote_configs: dict) -> list[str]:
+    """Canary list for the contract artifact lane.
+
+    EMPTY BY DEFAULT, which means merging this changes nothing for
+    anybody: every user keeps the provider sandbox lane byte for byte
+    until an identity is added here. Same override shape as
+    documents.allowed_users, chosen deliberately so rollback is a config
+    edit rather than a revert, and so the blast radius of a first live
+    run is one account.
+    """
+    docs = (remote_configs.get("client-config") or {}).get("documents") or {}
+    gen = docs.get("generation") or {}
+    return [str(u) for u in (gen.get("contract_lane_users") or [])]
+
+
+def contract_lane_enabled(remote_configs: dict,
+                          user_identity: set[str] | None) -> bool:
+    return bool(user_identity
+                and set(user_identity) & set(contract_lane_users(remote_configs)))
+
+
+def inline_artifact_guidance(artifact: str | None) -> str:
+    """Tell the model to hand a below-tier user the artifact's SHAPE.
+
+    Scott 2026-08-15: give them the closest thing we can, knowing we
+    cannot build the file. "Answer normally" produced prose; when we know
+    which artifact they wanted we also know its columns, so the same
+    content can arrive as a table they could paste into a sheet
+    themselves. The upgrade then buys the FILE, not the information,
+    which is a fairer thing to sell.
+    """
+    if not artifact:
+        return ("Lay the answer out as a markdown table when the request "
+                "is naturally tabular, so it is usable as it stands.")
+    try:
+        from app.services.artifact_types import CONTRACTS
+        c = CONTRACTS.get(artifact)
+    except Exception:  # noqa: BLE001
+        c = None
+    if not c:
+        return ""
+    cols = ", ".join(col.label for col in c.columns)
+    return ("Answer as a markdown table with exactly these columns, in "
+            f"this order: {cols}. One row per item, filled from the "
+            "meeting. This is the same content the file would carry, so "
+            "make it complete enough to use as it stands.")
 
 
 def generation_tier_shortfall(

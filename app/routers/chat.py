@@ -215,6 +215,21 @@ def _resolve_model_routing(
         models = row.get("models", {})
         return models.get(tier_name) or models.get("default")
 
+    # 0. Artifact generation is its own dial (Scott 2026-08-15) and is
+    #    deliberately checked BEFORE the surface preference, because a
+    #    surface row would otherwise swallow it: the artifact call
+    #    carries the originating prompt_mode, so PostMeetingChat would
+    #    resolve meeting_chat and the dial would be unreachable. The
+    #    model that WRITES the artifact is a different choice from the
+    #    model that answers the chat, and dialing one should never move
+    #    the other.
+    if call_type == "artifact_generation":
+        model = _model_from_row("artifact_generation")
+        if model:
+            return model
+        # No row for this tier: fall through rather than dying, so a
+        # half-configured dial degrades to the surface model.
+
     # 1. Surface-aware preference. Each surface has a (first, follow_up)
     #    pair of dials; iOS picks which by setting `call_type` to the
     #    follow-up name. If iOS hasn't migrated yet, the follow-up name
@@ -1922,7 +1937,20 @@ async def chat(
     # are the chat modes; managed anthropic only. When armed, the adapter
     # attaches the sandbox + document skills and this path collects the
     # artifacts after the response.
-    from app.services.document_generation import generation_gate
+    from app.services.artifact_routing import (
+        contract_candidate as _contract_candidate,
+    )
+    from app.services.document_generation import (
+        contract_lane_enabled,
+        generation_gate,
+    )
+    # Contract artifact lane, canary-gated. Empty list by default, so
+    # this whole branch is dead for every user until an identity is
+    # added to documents.generation.contract_lane_users.
+    _contract_lane_on = contract_lane_enabled(
+        request.app.state.remote_configs,
+        {x for x in (user.id, user.email) if x})
+    _contract_id = None
     _gen_armed = generation_gate(
         remote_configs=request.app.state.remote_configs,
         tier_name=user.effective_tier,
@@ -2153,6 +2181,8 @@ async def chat(
                         logger.warning("generation_image_guard disarm=typed_yes")
                     _gen_armed = not _img_guarded
                     _template_id = _offer.get("template_id") if _gen_armed else None
+                    if _gen_armed and _contract_lane_on and not _template_id:
+                        _contract_id = _offer.get("artifact_id")
                     if _gen_armed and _offer.get("lane_choice") == "asked":
                         # The question's typed answer resolves the lane. A
                         # custom choice, or a revised non-xlsx format, builds
@@ -2356,7 +2386,17 @@ async def chat(
                                          else _tmpl),
                             ask_content=body.user_content or "",
                             images=body.images,
-                            lane_choice=("asked" if _ambiguous else None))
+                            lane_choice=("asked" if _ambiguous else None),
+                            # Contract lane: the classifier named the
+                            # artifact on THIS turn and the confirm send
+                            # carries only history, so store it now. A
+                            # template match wins, because the Gantt
+                            # registry is purpose built and better than
+                            # anything generic; ambiguous plan asks keep
+                            # their version question.
+                            artifact_id=_contract_candidate(
+                                _contract_lane_on, _intent,
+                                skip=bool(_tmpl or _ambiguous)))
                         if _ambiguous:
                             # The version question, served as the same
                             # generation_offer envelope the client already
@@ -2444,7 +2484,100 @@ async def chat(
                         )
                         return JSONResponse(content=_envelope)
 
-    if _gen_armed and not _template_id:
+    if _gen_armed and _contract_id:
+        # Contract lane. Same shape as the template lane below (the model
+        # emits structure, we draw the file), but the columns are ours and
+        # ride as a TOOL SCHEMA rather than a prompt, so a missing
+        # expected-result field is an API-level rejection instead of a
+        # hole that renders into a workbook looking complete. Measured
+        # 2026-08-15: that took the column from 1 of 3 runs to 3 of 3.
+        from app.services.artifact_types import (
+            CONTRACTS,
+            contract_tool_schema,
+        )
+        _c = CONTRACTS[_contract_id]
+        _client_sys = (body.system_prompt or "").strip()
+        if _c.needs_dossier and body.get_meta("project_id"):
+            # This artifact is meaningless without cross-meeting context.
+            # CQ serves the meeting-grouped dossier only for a
+            # project-scoped "rundown" ask, and measured 2026-08-15 ZERO
+            # of 24 real topic-tracker phrasings trip that detector, so
+            # the single-meeting recall block would have produced
+            # times_discussed=1 on every row. Fetch it explicitly rather
+            # than hope the ask happens to look like a rundown.
+            try:
+                from app.services import context_quilt as _cq
+                # 500, not the 150 default. CQ measured real projects
+                # 2026-08-15 at 6 to 8 patches per meeting (ABM 635
+                # across 77, Kore 120 across 17), which saturates 150 at
+                # roughly 19 to 21 meetings. A COUNTING artifact that
+                # silently truncates reports a wrong number in a cell
+                # while the cap disclosure sits elsewhere in the block.
+                # 500 is the documented ceiling; it fixes ordinary
+                # projects and still truncates the largest, which is why
+                # the column calls itself a floor.
+                _dossier = await _cq.quilt_dossier(
+                    user.id, body.get_meta("project_id"), app_id=app_id,
+                    limit=500)
+                if _dossier and _dossier.get("meetings"):
+                    _client_sys = (
+                        _client_sys + "\n\n" + _cq.format_dossier(_dossier)
+                    ).strip()
+                    logger.info(
+                        "contract_lane_dossier artifact=%s meetings=%s",
+                        _contract_id, len(_dossier.get("meetings") or []))
+            except Exception:
+                # Falls open: a thin artifact beats a dead turn, and the
+                # contract still renders from whatever context it has.
+                logger.exception("contract lane dossier fetch failed")
+        _contract_sys = (
+            _client_sys + "\n\n--- FILE BUILD OVERRIDE ---\n"
+            if _client_sys else "") + (
+            f"Build a {_c.label.lower()} by calling the emit_artifact "
+            "tool. The columns are already decided and are not yours to "
+            "change; decide what sheets exist and what rows go in them, "
+            "and fill every field as its description asks. Rendering, "
+            "styling and file naming are handled for you.\n\n"
+            # Belt and braces, and the reason is CQ's 2026-08-15
+            # post-mortem: their extraction fell from 4.37 entities per
+            # meeting to 1.24 the day a client silently stopped putting
+            # their json_schema on the wire, because the schema was the
+            # ONLY thing specifying the contract and the prompt had
+            # never carried it. That degraded quietly for two months and
+            # read as a model problem. Naming the columns here costs a
+            # few tokens and means a vanished schema produces something
+            # recognisable instead of something plausible.
+            + f"The columns are: {', '.join(col.label for col in _c.columns)}."
+            + "\n\n"
+            "Be exhaustive. Cover the edge cases someone would actually "
+            "hit, not just the obvious rows. A thin sheet is worse than "
+            "no sheet.\n\n"
+            "Ground every row in what was actually said. If the material "
+            "does not support this document, emit only the rows you can "
+            "genuinely support, even if that is none. A confident "
+            "invented row is the worst possible outcome.")
+        body = body.model_copy(update={
+            "system_prompt": _contract_sys,
+            "max_tokens": 32000,
+            "tools": [{
+                "name": "emit_artifact",
+                "description": f"Emit the complete {_c.label}.",
+                "input_schema": contract_tool_schema(_c),
+            }],
+            # Its own dial (Scott 2026-08-15): the model that WRITES the
+            # artifact is a different choice from the one that answers
+            # the chat. Stamped before routing so it actually resolves.
+            "metadata": {**(body.metadata or {}),
+                         "call_type": "artifact_generation"},
+        })
+        _re_model = _resolve_model_routing(
+            request, body, tier, effective_tier_name)
+        if _re_model:
+            body = body.model_copy(update={"model": _re_model})
+        _gen_expected_seconds = _c.expected_seconds
+        logger.info("contract_lane_armed artifact=%s model=%s expected=%ss",
+                    _contract_id, body.model, _c.expected_seconds)
+    elif _gen_armed and not _template_id:
         body = body.model_copy(update={"generation": True})
     elif _gen_armed and _template_id:
         # Template lane: no sandbox — the model's whole job is emitting the
@@ -2528,21 +2661,31 @@ async def chat(
             "system_prompt": (_sys + "\n\n" + _cap_line) if _sys else _cap_line,
         })
     else:
-        # Below-tier upsell (Scott 2026-07-14): when the ONLY thing between
-        # this turn and the generation gate is the subscription tier, a
-        # detected file ask gets a served, tier-aware line prepended to the
-        # reply. {tier} resolves from the served min_tier at request time,
-        # so an availability move (Pro -> Plus) updates the line with no
-        # code change. Detection is the deterministic layer only — explicit
-        # catch + vocabulary prefilter, both on the question portion
-        # (#420/#430) — below-tier turns never spend on the classifier.
+        # Below-tier upsell (Scott 2026-07-14, detection widened
+        # 2026-08-15): when the ONLY thing between this turn and the
+        # generation gate is the subscription tier, a detected file ask
+        # gets a served, tier-aware line prepended to the reply. {tier}
+        # resolves from the served min_tier at request time, so an
+        # availability move (Pro to Plus) updates the line with no code
+        # change.
+        #
+        # Detection used to be the deterministic layer only, to avoid
+        # spending the classifier on turns that could never build. That
+        # was measured wrong: the vocabulary prefilter matched 5 of 216
+        # real artifact asks, so the upsell reached almost nobody it was
+        # written for. Below-tier turns now classify like every other
+        # tier (Scott's ruling: no gate at the plan level on DETECTION),
+        # which also resolves WHICH artifact they wanted so the line can
+        # name it. Costs $0.0005 a turn.
         from app.routers.config import _parse_accept_language
         from app.services.document_generation import (
             _question_portion,
+            classify_generation_intent,
             explicit_file_ask,
             generation_tier_shortfall,
+            inline_artifact_guidance,
             load_generation_config,
-            looks_like_file_ask,
+            upsell_line,
         )
         _short = generation_tier_shortfall(
             remote_configs=request.app.state.remote_configs,
@@ -2558,36 +2701,59 @@ async def chat(
                     request.headers.get("Accept-Language")),
             )["upsell"]
             _qp = _question_portion(body.user_content)
-            if (_ucfg["enabled"] and _ucfg.get("text")
-                    and (explicit_file_ask(_qp) is not None
-                         or looks_like_file_ask(_qp))):
-                _tier_def = request.app.state.tier_config.tiers.get(_short)
-                _tier_label = (_tier_def.display_name if _tier_def
-                               else _short.title())
-                _gen_upsell_line = str(_ucfg["text"]).replace(
-                    "{tier}", _tier_label)
-                # Coherence: the model must not contradict the injected
-                # line ("I cannot create files") or double-promise a file
-                # it will never build on this turn.
-                _upsell_sys = (
-                    "FILE UPSELL CONTEXT: the user has already been shown "
-                    "a notice that building real downloadable files "
-                    "(Excel, Word, PowerPoint, PDF) is available on the "
-                    f"{_tier_label} plan. Answer the request normally in "
-                    "chat text. Never promise to produce or attach a "
-                    "downloadable file, never claim files are impossible, "
-                    "and do not repeat the notice.")
-                _sys = (body.system_prompt or "").rstrip()
-                body = body.model_copy(update={
-                    "system_prompt": (_sys + "\n\n" + _upsell_sys)
-                    if _sys else _upsell_sys,
-                })
-                logger.info(
-                    "generation_upsell_injected min_tier=%s tier=%s "
-                    "surface=%s",
-                    _short, user.effective_tier,
-                    body.get_meta("prompt_mode"),
-                )
+            _below_artifact = None
+            if _ucfg["enabled"] and _ucfg.get("text"):
+                # Deterministic catch first, so an unambiguous ask never
+                # depends on a network call; the classifier judges the
+                # softer phrasings and names the artifact.
+                _asked = explicit_file_ask(_qp) is not None
+                if not _asked:
+                    # _meter is bound in the armed branch only, which is
+                    # not this one; meter locally so the classifier
+                    # subcall is still costed against this user.
+                    def _upsell_meter(creq, cresp, cms):
+                        return usage_tracker.record_and_log(
+                            db, user=user, tier=tier, app_id=app_id,
+                            request=creq, response=cresp,
+                            elapsed_ms=cms, pricing=pricing,
+                        )
+                    _bi = await classify_generation_intent(
+                        provider_router, body.user_content,
+                        on_subcall=_upsell_meter,
+                    )
+                    _asked = bool(_bi and _bi.get("file_request"))
+                    if _asked:
+                        _below_artifact = _bi.get("artifact")
+                if _asked:
+                    _tier_def = request.app.state.tier_config.tiers.get(_short)
+                    _tier_label = (_tier_def.display_name if _tier_def
+                                   else _short.title())
+                    _gen_upsell_line = upsell_line(
+                        _ucfg, _tier_label, _below_artifact)
+                    # Coherence: the model must not contradict the injected
+                    # line ("I cannot create files") or double-promise a file
+                    # it will never build on this turn.
+                    _upsell_sys = (
+                        "FILE UPSELL CONTEXT: the user will be shown a "
+                        "note that building real downloadable files "
+                        "(Excel, Word, PowerPoint, PDF) is available on "
+                        f"the {_tier_label} plan. Give them the content "
+                        "itself in chat, as completely as you can. "
+                        + inline_artifact_guidance(_below_artifact)
+                        + " Never promise to produce or attach a "
+                        "downloadable file, never claim files are "
+                        "impossible, and do not repeat the note.")
+                    _sys = (body.system_prompt or "").rstrip()
+                    body = body.model_copy(update={
+                        "system_prompt": (_sys + "\n\n" + _upsell_sys)
+                        if _sys else _upsell_sys,
+                    })
+                    logger.info(
+                        "generation_upsell_injected min_tier=%s tier=%s "
+                        "surface=%s",
+                        _short, user.effective_tier,
+                        body.get_meta("prompt_mode"),
+                    )
 
     # Teaser envelope, built once and served on BOTH transports: the JSON
     # body attaches it as feature_state; streaming surfaces carry it on the
@@ -2794,6 +2960,69 @@ async def chat(
         # blocks the text answer. Staged rows ride the response as
         # `generated_files`; count/bytes land in usage metering below.
         generated_payload: list[dict] = []
+        if _contract_id and response and response.raw_response_json:
+            # Contract lane execution. The plan arrives as a validated
+            # tool call rather than text, so it is pulled from the raw
+            # response; everything downstream is the template lane's
+            # staging path. Any failure falls back to the model's own
+            # text so the user never gets a dead turn, which is also the
+            # designed escape hatch for needs_computation.
+            try:
+                from app.services import generated_files as _staging
+                from app.services.artifact_routing import (
+                    reroute_on_model_signal,
+                )
+                from app.services.artifact_types import (
+                    CONTRACTS,
+                    plan_from_contract,
+                )
+                from app.services.workbook_plan import (
+                    XLSX_MIME,
+                    render_workbook,
+                )
+                _c = CONTRACTS[_contract_id]
+                _raw = response.raw_response_json or {}
+                _emitted = next(
+                    (b.get("input") for b in (_raw.get("content") or [])
+                     if isinstance(b, dict) and b.get("type") == "tool_use"),
+                    None)
+                if _emitted is None:
+                    raise ValueError("contract lane: no tool call in response")
+                _plan = plan_from_contract(_c, _emitted)
+                if reroute_on_model_signal(_plan) is not None:
+                    # The model says this needs real computation. Better
+                    # to say so than to render values it guessed.
+                    raise ValueError("contract lane: model declared computation")
+                _bytes = await asyncio.to_thread(render_workbook, _plan)
+                _row = await _staging.stage(
+                    db, user_id=user.id, app_id=app_id,
+                    name=_plan.get("filename") or f"{_c.filename_hint}.xlsx",
+                    media_type=XLSX_MIME, content=_bytes)
+                if _row:
+                    generated_payload = [_row]
+                    _rows = sum(len(sh.get("rows") or [])
+                                for sh in _plan["sheets"])
+                    response.text = (
+                        f"Built your {_c.label.lower()} with {_rows} rows "
+                        f"across {len(_plan['sheets'])} "
+                        f"sheet{'s' if len(_plan['sheets']) != 1 else ''}.")
+                    _gmeta = dict(body.metadata or {})
+                    _gmeta["generated_count"] = 1
+                    _gmeta["generated_bytes"] = _row["size_bytes"]
+                    # The dimension that answers which artifacts real
+                    # users generate. Without it the only honest answer
+                    # is a guess, and the first weeks of signal are gone
+                    # for as long as it is missing.
+                    _gmeta["artifact_type"] = _contract_id
+                    _gmeta["call_type"] = "artifact_generation"
+                    body = body.model_copy(update={"metadata": _gmeta})
+                    logger.info(
+                        "contract_lane_built artifact=%s rows=%s bytes=%s",
+                        _contract_id, _rows, _row["size_bytes"])
+            except Exception:
+                logger.exception(
+                    "contract lane failed, serving raw text")
+
         if _template_id and response and response.text:
             # Template lane execution: parse the extraction, render
             # deterministically, stage through the same pipeline as sandbox
@@ -3021,7 +3250,7 @@ async def chat(
         # coexists with generated_files or the pro teaser envelope.
         if _gen_upsell_line and response_data.get("text"):
             response_data["text"] = (
-                _gen_upsell_line + "\n\n" + response_data["text"])
+                response_data["text"] + "\n\n" + _gen_upsell_line)
 
         # Search-state sidecar (independent of feature_state, which is owned
         # by the project_chat / budget paths). Always populated when the
@@ -3230,11 +3459,6 @@ async def _handle_stream(
     async def event_stream():
         final_response = None
         from app.services.anthropic_or_fallback import route_stream_with_fallback
-        if upsell_line:
-            # Below-tier upsell rides the stream as a synthetic first text
-            # delta — same event shape the client already concatenates.
-            yield "data: " + json.dumps(
-                {"type": "text", "text": upsell_line + "\n\n"}) + "\n\n"
         # Tracked across the heartbeat loop so it can be cancelled on any
         # exit path (see the finally below).
         pending = None
@@ -3436,6 +3660,14 @@ async def _handle_stream(
                 feature_name)
                 if feature_name in hook_results:
                     await hook.after_llm(user, body, final_response, hook_results[feature_name], state, app_id=app_id)
+
+        if upsell_line:
+            # Below-tier upsell rides the stream as a synthetic LAST text
+            # delta, same event shape the client already concatenates. It
+            # follows the answer because it is a teaser about the file,
+            # and a teaser in front of the content is just a paywall.
+            yield "data: " + json.dumps(
+                {"type": "text", "text": "\n\n" + upsell_line}) + "\n\n"
 
         from app.services.ai_tier import tier_to_ai_tier
 

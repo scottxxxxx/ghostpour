@@ -1,0 +1,275 @@
+"""The contract lane, wired but dark.
+
+Merging this changes nothing for anybody. The canary list is empty by
+default, so every user keeps the provider sandbox lane byte for byte
+until an identity is added to documents.generation.contract_lane_users.
+Rollback is a config edit rather than a revert, and the blast radius of
+a first live run is one account.
+
+The lane itself is the template lane's shape (the model emits structure,
+we draw the file) with one difference that carries the measured value:
+the columns ride as a TOOL SCHEMA rather than a prompt, so a missing
+expected-result field is an API-level rejection instead of a hole that
+renders into a workbook looking complete. Three identical runs per model
+2026-08-15: freeform put that column in 1 of 3, contracted 3 of 3.
+"""
+
+from __future__ import annotations
+
+import pathlib
+
+import pytest
+
+from app.models.chat import ChatRequest
+from app.services import generation_offers
+from app.services.artifact_routing import contract_candidate
+from app.services.artifact_types import CONTRACTS
+from app.services.document_generation import contract_lane_enabled
+
+CHAT_SRC = (pathlib.Path(__file__).resolve().parents[1]
+            / "app/routers/chat.py").read_text()
+
+
+def test_the_lane_is_dark_until_an_identity_is_listed() -> None:
+    assert contract_lane_enabled({}, {"anyone"}) is False
+    cfg = {"client-config": {"documents": {"generation": {}}}}
+    assert contract_lane_enabled(cfg, {"anyone"}) is False
+    cfg2 = {"client-config": {"documents": {"generation": {
+        "contract_lane_users": ["canary"]}}}}
+    assert contract_lane_enabled(cfg2, {"canary"}) is True
+    assert contract_lane_enabled(cfg2, {"someone-else"}) is False
+
+
+def test_the_shipped_config_lists_nobody() -> None:
+    """A canary that ships switched on is not a canary."""
+    import json
+    ent = json.loads(
+        (pathlib.Path(__file__).resolve().parents[1]
+         / "config/remote/entitlements.json").read_text())
+    gen = ((ent.get("documents") or {}).get("generation") or {})
+    assert not gen.get("contract_lane_users")
+
+
+def test_the_artifact_survives_from_offer_to_confirm() -> None:
+    """The confirm send carries chat history, not the original ask, so
+    the classifier's read has to be stored when it happens."""
+    oid = generation_offers.create(
+        "u1", "xlsx", "gist", artifact_id="risk_register")
+    offer = generation_offers.take("u1", oid)
+    assert offer["artifact_id"] == "risk_register"
+
+
+def test_a_template_match_beats_a_contract() -> None:
+    """The Gantt registry is purpose built and better than anything
+    generic, and an ambiguous plan ask owes the user its version
+    question before any build."""
+    intent = {"artifact": "action_register", "artifact_confidence": "high"}
+    assert contract_candidate(True, intent) == "action_register"
+    assert contract_candidate(True, intent, skip=True) is None
+
+
+def test_a_low_confidence_read_is_not_stored() -> None:
+    """Low means two artifacts fit equally. Silently picking one at
+    offer time hides a question we should have asked."""
+    assert contract_candidate(
+        True, {"artifact": "budget", "artifact_confidence": "low"}) is None
+
+
+def test_the_request_model_can_carry_a_tool_schema() -> None:
+    """Only the Anthropic adapter reads these, which is enough: every
+    lane that sets them is already gated to that provider."""
+    r = ChatRequest(provider="anthropic", model="m", user_content="x",
+                    tools=[{"name": "emit_artifact"}],
+                    tool_choice={"type": "auto"})
+    assert r.tools[0]["name"] == "emit_artifact"
+    assert ChatRequest(provider="anthropic", model="m",
+                       user_content="x").tools is None
+
+
+def test_the_adapter_appends_tools_rather_than_replacing_them() -> None:
+    """A search-enabled turn must keep its own tool."""
+    src = (pathlib.Path(__file__).resolve().parents[1]
+           / "app/services/providers/anthropic.py").read_text()
+    assert 'body.setdefault("tools", []).extend(request.tools)' in src
+
+
+def test_the_lane_is_checked_before_the_sandbox_default() -> None:
+    """Source-level guard: the sandbox branch is the catch-all, so a
+    contract that resolved after it would never build."""
+    contract = CHAT_SRC.index("if _gen_armed and _contract_id:")
+    sandbox = CHAT_SRC.index('body = body.model_copy(update={"generation": True})')
+    assert contract < sandbox
+
+
+def test_the_artifact_call_carries_its_own_call_type() -> None:
+    """Without it the artifact absorbs into the surface's chat call type
+    and is invisible in cost and timing curves, and the dedicated model
+    dial can never resolve."""
+    assert '"call_type": "artifact_generation"' in CHAT_SRC
+
+
+def test_the_build_records_which_artifact_it_was() -> None:
+    """The only honest answer to which artifacts real users generate is
+    usage, and it is unrecoverable for as long as it is unrecorded."""
+    assert '_gmeta["artifact_type"] = _contract_id' in CHAT_SRC
+
+
+@pytest.mark.parametrize("name,contract", sorted(CONTRACTS.items()))
+def test_every_contract_promises_a_measured_duration(name, contract) -> None:
+    """expected_seconds reaches the user as literal text. The served
+    default of 150 promised the same wait for a 22 second open-questions
+    log and a 187 second test plan."""
+    assert 20 <= contract.expected_seconds <= 300, name
+    assert contract.expected_seconds != 150 or name == "test_plan"
+
+
+def test_a_render_failure_falls_back_instead_of_killing_the_turn() -> None:
+    assert "contract lane failed, serving raw text" in CHAT_SRC
+    assert "contract lane: model declared computation" in CHAT_SRC
+
+
+def test_a_contract_can_demand_cross_meeting_context() -> None:
+    """The topic tracker is the one artifact nobody else can build, and
+    it is worthless without it. Measured 2026-08-15: on single-meeting
+    input every row came back times_discussed=1 with first_raised equal
+    to last_discussed. CQ serves the meeting-grouped dossier only for a
+    project-scoped rundown ask, and ZERO of 24 real topic-tracker
+    phrasings trip that detector, so the contract declares the need
+    instead of hoping the ask looks like a rundown."""
+    assert CONTRACTS["topic_tracker"].needs_dossier is True
+    assert [n for n, c in CONTRACTS.items() if c.needs_dossier] == [
+        "topic_tracker"]
+    assert "contract_lane_dossier" in CHAT_SRC
+    assert "contract lane dossier fetch failed" in CHAT_SRC
+
+
+def test_the_dossier_fetch_falls_open() -> None:
+    """A thin artifact beats a dead turn."""
+    i = CHAT_SRC.index("contract lane dossier fetch failed")
+    assert "except Exception" in CHAT_SRC[i - 400:i]
+
+
+def test_the_tracker_ships_counts_and_dates_not_verdicts() -> None:
+    """CQ's review 2026-08-15, and they were right twice.
+
+    A movement column (Progressing / Stalled / Reopened / Resolved /
+    Escalating) was a parallel vocabulary for their item ledger, whose
+    modes carry a headline plus every other applicable mode plus
+    patch_ids_by_mode so every count opens into its patches. And
+    "Escalating" had no observation under it: if it rested on mention
+    volume, they measured volume near level across people whose
+    follow-through was opposite, so the claim contradicts the data.
+
+    Their rule now binds this contract: ship the count never the cause,
+    instances never traits, no ratio at any denominator.
+    """
+    cols = CONTRACTS["topic_tracker"].columns
+    keys = {c.key for c in cols}
+    assert "movement" not in keys
+    assert "gap_days" in keys
+
+    # No column may OFFER a trajectory as a value. Naming one inside a
+    # prohibition is the opposite of the defect, so this checks the
+    # enumerations rather than blocklisting words.
+    for c in cols:
+        desc = (c.description or "").lower()
+        if "one of:" in desc:
+            enum = desc.split("one of:", 1)[1]
+            for verdict in ("escalating", "stalled", "progressing",
+                            "at risk", "losing momentum"):
+                assert verdict not in enum, f"{c.key} offers {verdict!r}"
+
+    # And the free-text column has to forbid grading outright.
+    status = next(c for c in cols if c.key == "status")
+    assert "do not grade" in (status.description or "").lower()
+
+
+def test_the_count_carries_its_definition_on_the_wire() -> None:
+    """A cue count observes meetings that left a trace, not meetings
+    where a thing was discussed. That distinction goes next to the
+    number, not in a doc nobody opens."""
+    col = next(c for c in CONTRACTS["topic_tracker"].columns
+               if c.key == "times_discussed")
+    assert "memory" in col.label.lower()
+    assert "floor" in col.description.lower()
+
+
+def test_the_dossier_fetch_asks_for_more_than_the_default() -> None:
+    """Measured by CQ on real projects: 6 to 8 patches per meeting, so
+    the 150 default saturates around 19 to 21 meetings. A counting
+    artifact that truncates reports a wrong number in a cell."""
+    assert "limit=500" in CHAT_SRC
+
+
+def test_a_project_less_turn_can_still_pull_multi_meeting_memory() -> None:
+    """project_id is a filter, not the boundary."""
+    src = (pathlib.Path(__file__).resolve().parents[1]
+           / "app/services/context_quilt.py").read_text()
+    assert '**({"project_id": project_id} if project_id else {})' in src
+
+
+def test_the_tool_schema_actually_reaches_the_wire() -> None:
+    """CQ's post-mortem 2026-08-15, applied to us.
+
+    Their entity extraction fell from 4.37 entities per meeting to 1.24
+    on the day of an Anthropic-direct cutover, because the client
+    accepted a json_schema and did not put it on the wire, and their
+    prompt had never carried the contract. The schema was the ONLY thing
+    specifying it, so when it silently vanished the output degraded and
+    looked like a model problem for two months.
+
+    This lane has the same shape: the columns live in the tool schema
+    and the prompt only says they are already decided. So assert the
+    schema is in the body the adapter builds, rather than trusting that
+    setting request.tools is the same as sending them.
+    """
+    from app.models.chat import ChatRequest
+    from app.services.artifact_types import TEST_PLAN, contract_tool_schema
+    from app.services.providers.anthropic import AnthropicAdapter
+
+    schema = contract_tool_schema(TEST_PLAN)
+    req = ChatRequest(
+        provider="anthropic", model="claude-sonnet-4-6",
+        system_prompt="sys", user_content="build it",
+        tools=[{"name": "emit_artifact", "description": "d",
+                "input_schema": schema}])
+    adapter = AnthropicAdapter(
+        api_key="test", base_url="https://api.anthropic.com/v1",
+        auth_header="x-api-key", auth_prefix="")
+    body, _headers = adapter._build_body(req)
+
+    tools = body.get("tools") or []
+    assert tools, "tools vanished between the request and the body"
+    emitted = next(t for t in tools if t.get("name") == "emit_artifact")
+    props = emitted["input_schema"]["properties"]["sheets"]["items"][
+        "properties"]["rows"]["items"]
+    # The columns themselves, not just the envelope.
+    assert "expected" in props["required"], "the contract lost its columns"
+    assert props["additionalProperties"] is False
+
+
+def test_a_search_turn_keeps_its_own_tool_alongside_ours() -> None:
+    """The adapter assigns body["tools"] for search. Appending rather
+    than assigning is the whole reason both survive."""
+    from app.models.chat import ChatRequest
+    from app.services.providers.anthropic import AnthropicAdapter
+
+    req = ChatRequest(
+        provider="anthropic", model="claude-sonnet-4-6",
+        user_content="x", metadata={"search_enabled": True},
+        tools=[{"name": "emit_artifact", "input_schema": {"type": "object"}}])
+    adapter = AnthropicAdapter(
+        api_key="test", base_url="https://api.anthropic.com/v1",
+        auth_header="x-api-key", auth_prefix="")
+    body, _ = adapter._build_body(req)
+    names = {t.get("name") or t.get("type") for t in body.get("tools") or []}
+    assert "web_search" in names and "emit_artifact" in names, names
+
+
+def test_the_prompt_names_the_columns_too() -> None:
+    """Defense in depth, from CQ's post-mortem. A schema that silently
+    stops reaching the wire should produce something recognisably wrong,
+    not something plausible that degrades quietly for two months."""
+    assert "The columns are: " in CHAT_SRC
+    i = CHAT_SRC.index("The columns are: ")
+    assert "col.label for col in _c.columns" in CHAT_SRC[i:i + 200]

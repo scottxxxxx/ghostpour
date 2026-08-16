@@ -1,5 +1,5 @@
 {
-  "version": 22,
+  "version": 23,
   "server_only": true,
   "models": [
     {
@@ -120,6 +120,15 @@
             "plus": "anthropic/claude-haiku-4-5-20251001",
             "pro": "anthropic/claude-haiku-4-5-20251001",
             "automation": "anthropic/claude-haiku-4-5-20251001"
+          }
+        },
+        "artifact_generation": {
+          "label": "Artifact Generation",
+          "models": {
+            "free": "anthropic/claude-haiku-4-5-20251001",
+            "plus": "anthropic/claude-haiku-4-5-20251001",
+            "pro": "anthropic/claude-sonnet-4-6",
+            "automation": "anthropic/claude-sonnet-4-6"
           }
         }
       }

@@ -50,6 +50,14 @@ class ChatRequest(BaseModel):
     user_content: str
     images: list[str] | None = None
     documents: list[DocumentAttachment] | None = None
+    # GP-supplied tool definitions. Only the Anthropic adapter reads
+    # these, which is sufficient because every lane that sets them is
+    # already gated to provider == "anthropic". Used by the artifact
+    # contract lane so the column schema is enforced at the API boundary
+    # rather than hoped for in a prompt: measured 2026-08-15, a fixed
+    # schema took the expected-result column from 1 of 3 runs to 3 of 3.
+    tools: list[dict] | None = None
+    tool_choice: dict | None = None
     # Server-set ONLY (phase 2a document generation): the chat router
     # overwrites this from its gate on every request — a client-sent value
     # never survives. When True the anthropic adapter arms the execution

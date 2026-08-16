@@ -4340,6 +4340,20 @@ async function loadEntitlements(appId) {
     + tierSel('generation', gen.min_tier));
   h += kv('Generation formats', `<span class="mono">${entEsc((gen.formats || []).join(', '))}</span> · out caps ${entEsc(gen.max_files_out)} files / ${entEsc(gen.max_file_out_mb)} MB`);
   h += kv('Confirmation flow', onOff((gen.confirmation || {}).enabled) + ` <span style="color:var(--text-dim)">expected ~${entEsc((gen.confirmation || {}).expected_seconds)}s</span>`);
+  // Below-tier upsell. The switch is locale independent and saves like
+  // every other knob; the COPY is not, so it carries its own locale
+  // picker and writes only that file.
+  const ups = gen.upsell || {};
+  h += kv('Below-tier upsell', enabledSel('upsell', ups.enabled));
+  h += kv('Upsell copy',
+    '<select id="upsell-locale" class="period-select" style="margin-bottom:6px">'
+    + ['en', 'es', 'ja', 'fr'].map(l => `<option value="${l}">${l}</option>`).join('')
+    + '</select>'
+    + `<textarea id="upsell-text" rows="3" style="width:100%;font-family:inherit;font-size:13px;padding:6px;box-sizing:border-box">${entEsc(ups.text || '')}</textarea>`
+    + '<div style="color:var(--text-dim);font-size:12px;margin:4px 0 6px">'
+    + '{tier} becomes the plan name. {artifact} becomes what they asked for, '
+    + 'or a generic word when we could not tell. No em or en dashes.</div>'
+    + '<button class="period-select" onclick="saveUpsellText()">Save copy</button>');
   h += '</tbody></table></div>';
 
   // Provenance
@@ -4376,6 +4390,13 @@ async function saveMatrixCell(feature, tier, state) {
   if (st2) st2.textContent = d.status === 'updated'
     ? `Saved: ${d.feature} · ${d.tier} ${d.old_state || 'unset'} → ${d.new_state} (v${d.version})`
     : 'No change';
+}
+
+async function saveUpsellText() {
+  const t = document.getElementById('upsell-text');
+  const l = document.getElementById('upsell-locale');
+  if (!t) return;
+  await saveDocKnob('upsell', {text: t.value, locale: l ? l.value : 'en'});
 }
 
 async function saveDocKnob(scope, fields) {

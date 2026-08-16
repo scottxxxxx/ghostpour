@@ -333,3 +333,63 @@ def test_put_passthrough_enabled_toggles_documents_gate(client):
             gen = json.loads(
                 (CONFIG_DIR / f).read_text())["documents"].get("generation")
             assert gen and "enabled" in gen
+
+
+# --- Upsell copy editor (Scott 2026-08-15). Enabled/min_tier are locale
+# --- independent and write every variant in lockstep; COPY is not, and
+# --- writing one language into four files is how a Spanish user reads
+# --- English.
+
+def test_upsell_switch_writes_every_locale_in_lockstep(client):
+    r = _put(client, {"scope": "upsell", "enabled": False})
+    assert r.status_code == 200, r.text
+    slugs = {f["slug"] for f in r.json()["files_updated"]}
+    assert len(slugs) >= 1
+    gen = _get(client).json()["knobs"]["document_generation"]
+    assert gen["upsell"]["enabled"] is False
+
+
+def test_upsell_copy_writes_only_the_locale_named(client):
+    r = _put(client, {"scope": "upsell", "text": "Try {tier} for {artifact}.",
+                      "locale": "es"})
+    assert r.status_code == 200, r.text
+    slugs = [f["slug"] for f in r.json()["files_updated"]]
+    assert slugs == ["client-config.es"], slugs
+
+
+def test_upsell_copy_defaults_to_the_base_config(client):
+    r = _put(client, {"scope": "upsell", "text": "Base copy for {tier}."})
+    assert r.status_code == 200, r.text
+    assert [f["slug"] for f in r.json()["files_updated"]] == ["client-config"]
+    gen = _get(client).json()["knobs"]["document_generation"]
+    assert gen["upsell"]["text"] == "Base copy for {tier}."
+
+
+def test_a_dash_in_served_copy_is_rejected_at_the_boundary(client):
+    """The house rule, enforced rather than remembered."""
+    for bad in ("Upgrade to {tier} — it builds files",
+                "Upgrade – files included"):
+        r = _put(client, {"scope": "upsell", "text": bad})
+        assert r.status_code == 400, bad
+        assert "dash" in r.text.lower()
+
+
+def test_text_is_rejected_outside_the_upsell_scope(client):
+    r = _put(client, {"scope": "generation", "text": "nope"})
+    assert r.status_code == 400
+    assert "upsell scope" in r.text
+
+
+def test_overlong_copy_is_rejected(client):
+    r = _put(client, {"scope": "upsell", "text": "x" * 601})
+    assert r.status_code == 400
+
+
+def test_an_unknown_locale_is_rejected(client):
+    r = _put(client, {"scope": "upsell", "text": "hi", "locale": "de"})
+    assert r.status_code == 400
+
+
+def test_an_empty_edit_is_still_rejected(client):
+    r = _put(client, {"scope": "upsell"})
+    assert r.status_code == 400

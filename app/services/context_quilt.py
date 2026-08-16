@@ -573,7 +573,7 @@ def is_rundown_ask(question: str) -> bool:
     return any(h in q for h in _RUNDOWN_HINTS)
 
 
-async def quilt_dossier(user_id: str, project_id: str,
+async def quilt_dossier(user_id: str, project_id: str | None,
                         app_id: str | None = None,
                         limit: int = DOSSIER_LIMIT) -> dict | None:
     """GET /v1/quilt/{user_id}?project_id&group_by=origin&limit — the
@@ -586,8 +586,14 @@ async def quilt_dossier(user_id: str, project_id: str,
         client = _get_client()
         resp = await client.get(
             f"/v1/quilt/{user_id}",
-            params={"project_id": project_id, "group_by": "origin",
-                    "limit": limit},
+            # project_id is a FILTER, not the boundary (CQ, 2026-08-15):
+            # omitting it returns the user-scoped sync and group_by=origin
+            # still yields the meetings array. That is what lets a chat
+            # turn with no project still compute recurrence, at the cost
+            # of pulling every project at once, so the cap matters MORE
+            # there rather than less.
+            params={**({"project_id": project_id} if project_id else {}),
+                    "group_by": "origin", "limit": limit},
             headers=await _get_auth_headers(app_id),
             timeout=httpx.Timeout(settings.cq_dossier_timeout_ms / 1000.0),
         )
