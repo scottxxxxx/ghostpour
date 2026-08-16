@@ -496,3 +496,64 @@ class TestResearchIntentSurvivesTheOffer:
         src = (pathlib.Path(__file__).resolve().parents[2]
                / "app/routers/chat.py").read_text()
         assert src.count('_offer.get("search_enabled")') >= 2
+
+
+class TestResearchPlusFileSkipsTheOffer:
+    """Scott, 2026-08-16, after watching it fail three times in a row.
+
+    He asked us to find information online and put it into a test plan.
+    That is one request with two parts. We answered by deferring both
+    and asking a question he had already answered, and the offer turn
+    never calls the main model, so the search he opted into did not run.
+    Meanwhile the client showed "Searching the web..." off the toggle,
+    which said it had. Three sends, three offers, zero searches, counter
+    unmoved at 3.
+
+    Turning search on spends from a monthly cap, so it is deliberate
+    rather than a default. Paired with a file request there is nothing
+    left to confirm.
+    """
+
+    def _armed_tools(self, client, pro_user, **meta):
+        with patch("app.services.anthropic_or_fallback.route_with_fallback",
+                   new_callable=AsyncMock,
+                   return_value=_emit_artifact_response()) as route:
+            _send(client, pro_user,
+                  text="find what typically breaks these bots online and put "
+                       "it into a complete test plan",
+                  **meta)
+        if not route.await_args:
+            return None
+        return getattr(route.await_args.args[1], "tools", None)
+
+    def test_search_plus_file_builds_instead_of_asking(
+            self, contract_lane, pro_user):
+        tools = self._armed_tools(contract_lane, pro_user, search_enabled=True)
+        assert tools, "a research-and-build ask still only got an offer"
+        assert any(t.get("name") == "emit_artifact" for t in tools), tools
+
+    def test_the_same_ask_without_search_still_offers_first(
+            self, contract_lane, pro_user):
+        """The opt-in is what removes the ambiguity. Without it this is
+        an ordinary file ask and the confirmation still earns its place."""
+        assert not self._armed_tools(contract_lane, pro_user)
+
+    def test_the_build_is_not_charged_a_second_classifier_call(
+            self, contract_lane, pro_user):
+        """The research path already ran the classifier, so re-asking it
+        which artifact this is would be paying twice for one answer."""
+        from app.services import document_generation as dg
+
+        intent = {"file_request": True, "format": "xlsx", "gist": "g",
+                  "artifact": "test_plan", "artifact_confidence": "high"}
+        with patch.object(dg, "classify_generation_intent",
+                          new_callable=AsyncMock, return_value=intent) as clf, \
+             patch("app.services.anthropic_or_fallback.route_with_fallback",
+                   new_callable=AsyncMock,
+                   return_value=_emit_artifact_response()):
+            _send(contract_lane, pro_user,
+                  text="find what breaks these bots online and put it into a "
+                       "complete test plan",
+                  search_enabled=True)
+        assert clf.await_count <= 1, (
+            f"classifier called {clf.await_count}x for one answer")
