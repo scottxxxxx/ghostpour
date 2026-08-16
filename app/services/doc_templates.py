@@ -2041,7 +2041,7 @@ def match_template(text: str, format: str | None = None) -> str | None:
     for tid, t in TEMPLATES.items():
         if format and t["format"] != format:
             continue
-        if any(h in hay for h in t["hints"]):
+        if any(h in hay and not _negated(hay, h) for h in t["hints"]):
             return tid
     return None
 
@@ -2065,6 +2065,45 @@ AMBIGUOUS_PLAN_HINTS = (
 )
 
 
+# A hint that the user is REFUSING, not requesting. Substring matching
+# cannot tell "make me a project plan" from "I don't want a project
+# plan", and the second one is what a person types precisely because we
+# just got it wrong: live 2026-08-16, Scott answered the version
+# question with "I don't want a project plan. I'm looking for a Test
+# plan document." and we served the Gantt question straight back. A
+# correction that re-triggers the thing being corrected is the worst
+# moment to be literal, so a negation within a short reach of the hint
+# vetoes it.
+_NEGATORS = (
+    "don't want", "dont want", "do not want", "not a", "not the",
+    "instead of", "rather than", "no ", "not looking for",
+    "isn't", "isnt", "is not",
+    "no quiero", "en lugar de",
+    "ne veux pas", "au lieu de",
+    "ではなく", "いらない",
+)
+_NEGATION_REACH = 40
+
+
+def _negated(hay: str, hint: str) -> bool:
+    """Is this hint occurrence inside a refusal?
+
+    Only the text BEFORE the hint counts, within a short reach: "not a
+    project plan" negates, while "a project plan, not a test plan" does
+    not negate the project plan. Checked per occurrence, so one negated
+    mention does not excuse a later genuine one.
+    """
+    start = 0
+    while True:
+        i = hay.find(hint, start)
+        if i == -1:
+            return True  # every occurrence was negated
+        window = hay[max(0, i - _NEGATION_REACH):i]
+        if not any(n in window for n in _NEGATORS):
+            return False  # this one is a real ask
+        start = i + len(hint)
+
+
 def ambiguous_plan_ask(text: str, format: str | None = None) -> bool:
     """True when the ask reads like plan/progress territory without
     matching a template hint, so the caller must ask which version the
@@ -2079,7 +2118,8 @@ def ambiguous_plan_ask(text: str, format: str | None = None) -> bool:
     hay = (text or "")[-4000:].lower()
     if match_template(hay, format=format):
         return False
-    return any(h in hay for h in AMBIGUOUS_PLAN_HINTS)
+    return any(h in hay and not _negated(hay, h)
+               for h in AMBIGUOUS_PLAN_HINTS)
 
 
 def parse_extraction(text: str) -> dict:
