@@ -2374,7 +2374,28 @@ async def chat(
                     from app.services.document_generation import (
                         ask_references_images as _ari_fp,
                     )
-                    if (_deterministic_ask and not _tmpl and not _ambiguous
+                    # Research plus file is not an ambiguous ask either.
+                    # Turning web search on spends from a monthly cap, so
+                    # it is a deliberate act rather than a default, and
+                    # paired with a file request there is nothing left to
+                    # confirm — the user has already said do the research
+                    # and make the file.
+                    #
+                    # Asking anyway is what strands the research. An
+                    # offer turn never calls the main model, so the
+                    # search the user opted into does not run, and the
+                    # client meanwhile shows its own "Searching the
+                    # web..." state off the toggle, which says it did.
+                    # Measured live 2026-08-16 20:35: three sends of a
+                    # research-and-build ask, three offers, zero
+                    # searches, counter unmoved.
+                    _research_build = bool(
+                        body.get_meta("search_enabled")
+                        and _intent and _intent.get("file_request"))
+                    if _research_build and not _deterministic_ask:
+                        logger.info("generation_research_build armed=1")
+                    if ((_deterministic_ask or _research_build)
+                            and not _tmpl and not _ambiguous
                             and (body.images
                                  or not _ari_fp(body.user_content or ""))):
                         _gen_armed = True
@@ -2400,10 +2421,17 @@ async def chat(
                         # today. Guarded on the canary, so this costs
                         # everybody else nothing.
                         if _contract_lane_on and _intent.get("format") == "xlsx":
-                            _named = await classify_generation_intent(
-                                provider_router, body.user_content,
-                                on_subcall=_meter,
-                            )
+                            # Only buy the answer when we do not already
+                            # have it: a deterministic regex hit carries
+                            # no artifact, but an intent that came FROM
+                            # the classifier already names one, and the
+                            # research-and-build path always did.
+                            _named = _intent
+                            if "artifact" not in _intent:
+                                _named = await classify_generation_intent(
+                                    provider_router, body.user_content,
+                                    on_subcall=_meter,
+                                )
                             _contract_id = _contract_candidate(
                                 _contract_lane_on, _named,
                                 fmt=_intent.get("format"))
