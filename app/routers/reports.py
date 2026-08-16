@@ -130,6 +130,11 @@ async def generate_report(
     # 1. Gather meeting data
     meeting_data = await gather_meeting_data(db, user.id, meeting_id)
 
+    # Keep this 404 fast (SS, 2026-08-15). The client answers it by
+    # uploading the whole transcript, so any time we spend here comes
+    # straight out of their upload budget on a call that already runs
+    # long. It raises before any model call or quota path, off a single
+    # indexed read; keep it that way.
     if not meeting_data["transcript"] and not meeting_data["summary"]:
         raise HTTPException(
             status_code=404,
@@ -137,6 +142,32 @@ async def generate_report(
                 "code": "no_meeting_data",
                 "message": f"No transcript or summary found for meeting {meeting_id}. "
                            "Ensure capture-transcript was called with this meeting_id.",
+                # ADDITIVE, and dark until the client opts in. Nothing
+                # server-side depends on these; a client that ignores
+                # them behaves exactly as it did before, which is why
+                # this is not a synchronized deploy.
+                #
+                # The point is to stop the client shipping a transcript
+                # on EVERY regenerate to insure a rare case. Measured
+                # 2026-08-15: all 72 reports we have ever built were
+                # built within 7 hours of capture, and 61% of stored
+                # transcripts never produced a report at all. So the
+                # normal path should send nothing and the exception
+                # should be asked for.
+                #
+                # "Recoverable" is a statement about OUR side only: we
+                # can finish this if the transcript arrives. Whether it
+                # still exists on the device is the client's to know.
+                "recoverable": True,
+                "recovery_action": "capture_transcript",
+                # report-404-replay, NOT a new name. SS shipped this
+                # exact case in May 2026 under that value, and a second
+                # label for the same event would split it across two
+                # names in the logs, which is the opposite of what the
+                # header is for. Shared enum with entity-repair-replay;
+                # an unrecognised value is opaque and logged, never
+                # rejected, so a new source does not wait on a deploy.
+                "recovery_source": "report-404-replay",
             },
         )
 
