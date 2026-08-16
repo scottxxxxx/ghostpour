@@ -771,55 +771,17 @@ async def init_db(database_url: str) -> None:
             except Exception:
                 pass  # Column already exists
 
-        # Absorb device first-seen from surviving raw events BEFORE the
-        # telemetry purge below runs. INSERT OR IGNORE keeps the earliest
-        # recorded value; re-running is a no-op for known devices.
-        await db.execute(
-            """INSERT OR IGNORE INTO telemetry_devices (device_id, first_seen_at)
-               SELECT device_id, MIN(received_at) FROM telemetry_events
-               GROUP BY device_id"""
-        )
-
-        # Purge cached reports older than 30 days
-        await db.execute(
-            "DELETE FROM meeting_reports WHERE created_at < datetime('now', '-30 days')"
-        )
-
-        # Purge plan snapshots older than 365 days (Scott, 2026-07-21:
-        # "set the snapshot TTL to a year and ship it"). Snapshots are the
-        # dated plan versions slip tracking diffs against; a year of
-        # baseline is generous for slip, and the bound keeps GP from
-        # quietly becoming a forever-archive of structured project state.
-        await db.execute(
-            "DELETE FROM plan_snapshots WHERE created_at < datetime('now', '-365 days')"
-        )
-
-        # Purge meeting transcripts older than 30 days (Scott, 2026-07-21).
-        # The durable copies live where they should: the phone keeps the
-        # transcript the user sees, CQ keeps the distilled memory. GP's copy
-        # exists for report generation (minutes-to-hours after capture),
-        # report regeneration insurance (aligned with the 30d report purge
-        # above), and cleanup debugging (dashboard Transcripts tab). Full
-        # meeting content held forever was liability, not value.
-        await db.execute(
-            "DELETE FROM meeting_transcripts WHERE created_at < datetime('now', '-30 days')"
-        )
-
-        # Purge email_events older than 90 days. Webhook event audit log
-        # — kept long enough for spam-complaint / bounce attribution
-        # debugging, then dropped to bound disk + Litestream replication
-        # size. Suppression list is NOT pruned here: a suppressed
-        # address stays suppressed forever unless explicitly lifted.
-        await db.execute(
-            "DELETE FROM email_events WHERE received_at < datetime('now', '-90 days')"
-        )
-
-        # Purge raw telemetry_events older than 30 days. Aggregates land
-        # in telemetry_daily_rollups (computed by the startup rollup job
-        # in app.services.telemetry_rollup) and are kept indefinitely.
-        await db.execute(
-            "DELETE FROM telemetry_events WHERE received_at < datetime('now', '-30 days')"
-        )
+        # Every TTL now lives in one place, windows unchanged. Each of
+        # these used to be a DELETE right here and nowhere else, which
+        # made real retention "N days plus however long until the next
+        # deploy". Boot still sweeps, because it is the pass that catches
+        # whatever expired while the process was down, before the first
+        # request is served; main.py runs the same sweep hourly so the
+        # windows hold between deploys. The telemetry device absorb rides
+        # inside the sweep ahead of its own purge, so a device cannot
+        # lose its first-seen date on either path.
+        from app.services.retention import purge_expired
+        await purge_expired(db)
 
         await db.commit()
 
