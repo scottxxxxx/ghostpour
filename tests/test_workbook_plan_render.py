@@ -214,3 +214,42 @@ def test_schema_is_a_usable_tool_input_schema() -> None:
 def test_empty_plan_is_rejected_rather_than_written_as_an_empty_file() -> None:
     with pytest.raises(ValueError):
         render_workbook({"filename": "x.xlsx", "sheets": []})
+
+
+def test_a_string_readme_does_not_cost_the_whole_workbook():
+    """The contract declares `readme` an object, but a tool input_schema
+    is advisory unless the tool is marked strict, and "write a cover
+    sheet" is a natural thing to answer with a paragraph. Caught by a
+    dry run against the live contract 2026-08-16, before a real build
+    hit it: `AttributeError: 'str' object has no attribute 'get'` inside
+    _render_readme, which fails the render, which drops the turn back to
+    plain text. The user waits out the build and gets no file, over the
+    shape of the cover sheet.
+    """
+    import openpyxl
+
+    from app.services.workbook_plan import render_workbook
+
+    base = {
+        "filename": "x.xlsx",
+        "title": "T",
+        "sheets": [{
+            "name": "S",
+            "columns": [{"key": "a", "label": "A"}],
+            "rows": [{"a": "1"}],
+        }],
+    }
+
+    for shape in ("just a paragraph", {"purpose": "p"}, ["a", "list"], 7):
+        data = render_workbook({**base, "readme": shape})
+        assert data, shape
+        wb = openpyxl.load_workbook(io.BytesIO(data))
+        assert "README" in wb.sheetnames, shape
+
+    # The string is not silently dropped — it lands as the purpose line.
+    wb = openpyxl.load_workbook(
+        io.BytesIO(render_workbook({**base, "readme": "just a paragraph"})))
+    text = " ".join(
+        str(c.value) for row in wb["README"].iter_rows() for c in row
+        if c.value is not None)
+    assert "just a paragraph" in text

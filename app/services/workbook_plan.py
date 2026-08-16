@@ -368,8 +368,22 @@ def render_workbook(plan: dict) -> bytes:
 
 
 def _render_readme(wb, plan: dict, taken: set[str], Font, Alignment) -> None:
-    """Cover sheet, always built the same way."""
+    """Cover sheet, always built the same way.
+
+    A plain string is accepted as well as the field dict. The contract
+    declares `readme` an object, but a tool input_schema is advisory
+    unless the tool is marked strict, and "write a cover sheet" is a
+    natural thing to answer with a paragraph. Losing the whole workbook
+    to an AttributeError over the shape of the cover sheet, after the
+    user waited out the build, is the worst trade available: the render
+    is the half we own precisely so the model's phrasing cannot break
+    the file.
+    """
     rm = plan["readme"]
+    if isinstance(rm, str):
+        rm = {"purpose": rm}
+    elif not isinstance(rm, dict):
+        rm = {}
     ws = wb.create_sheet(_tab_name("README", taken))
     ws.column_dimensions["A"].width = 18
     ws.column_dimensions["B"].width = 96
