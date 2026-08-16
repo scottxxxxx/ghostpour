@@ -294,6 +294,29 @@ async def lifespan(app: FastAPI):
 
     _gen_sweep_task = _asyncio.create_task(_generated_files_sweep_loop())
 
+    # Retention. init_db already swept at boot; this keeps every TTL true
+    # between deploys, which is the whole point of moving them off
+    # startup. Its own connection and its own try/except so a failure
+    # here cannot take the generated-files sweep down with it.
+    async def _retention_sweep_loop():
+        import aiosqlite
+        from app.services.retention import (
+            SWEEP_INTERVAL_SECONDS, purge_expired,
+        )
+        db_path = settings.database_url.replace("sqlite+aiosqlite:///", "")
+        while True:
+            await _asyncio.sleep(SWEEP_INTERVAL_SECONDS)
+            try:
+                async with aiosqlite.connect(db_path) as db:
+                    db.row_factory = aiosqlite.Row
+                    await purge_expired(db)
+            except Exception as e:  # noqa: BLE001 — sweep must never die
+                logging.getLogger("app.main").warning(
+                    "retention sweep failed: %s", e,
+                )
+
+    _retention_task = _asyncio.create_task(_retention_sweep_loop())
+
     # Subscriber welcome letters: catch anything due at boot (the queue
     # survives restarts by design), then sweep every few minutes.
     from app.services.welcome_email import sweep_loop as _welcome_loop
@@ -305,6 +328,7 @@ async def lifespan(app: FastAPI):
 
     _welcome_task.cancel()
     _gen_sweep_task.cancel()
+    _retention_task.cancel()
 
     # Stop the cert pin daemon cleanly on shutdown.
     daemon = getattr(app.state, "cert_pin_daemon", None)
