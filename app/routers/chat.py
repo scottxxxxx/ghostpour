@@ -164,6 +164,32 @@ def _enforce_meeting_context_gate(
                 )
 
 
+def _apply_routed_model(body: ChatRequest, resolved: str | None) -> ChatRequest:
+    """Put a resolved routing value onto the request, splitting the prefix.
+
+    `_resolve_model_routing` returns the config's own string, which is
+    `"<provider>/<model>"` in every routing row we ship. The provider
+    gets that split off and set separately, because the model field goes
+    onto the wire verbatim.
+
+    This exists because two of the three call sites did the split inline
+    and the third did not. That one assigned the whole string, so the
+    contract lane sent `model: "anthropic/claude-sonnet-4-6"` and
+    Anthropic answered `400 The requested model is not available` —
+    measured live 2026-08-16 on the first turn that ever reached the
+    lane. Same resolution, three copies, one of them wrong: worth a
+    function rather than a fourth copy.
+    """
+    if not resolved:
+        return body
+    provider, _, model = resolved.partition("/")
+    if model:
+        return body.model_copy(update={"provider": provider, "model": model})
+    if resolved != body.model:
+        return body.model_copy(update={"model": resolved})
+    return body
+
+
 def _resolve_model_routing(
     request: Request, body: ChatRequest, tier, tier_name: str
 ) -> str | None:
@@ -2224,15 +2250,8 @@ async def chat(
                     # failed on 'anthropic/claude-sonnet-4-6').
                     # Guarded turns stay on the already-resolved chat lane.
                     if _gen_armed:
-                        _re_model = _resolve_model_routing(
-                            request, body, tier, effective_tier_name)
-                        if _re_model:
-                            _parts = _re_model.split("/", 1)
-                            if len(_parts) == 2:
-                                body = body.model_copy(update={
-                                    "provider": _parts[0], "model": _parts[1]})
-                            elif _re_model != body.model:
-                                body = body.model_copy(update={"model": _re_model})
+                        body = _apply_routed_model(body, _resolve_model_routing(
+                            request, body, tier, effective_tier_name))
             if not _gen_armed and not _img_guarded:
                 # guaranteed catch first (deterministic, no LLM); the
                 # classifier only judges the softer phrasings
@@ -2371,17 +2390,8 @@ async def chat(
                         logger.info(
                             "generation_fast_path armed=1 format=%s",
                             _intent.get("format"))
-                        _re_model = _resolve_model_routing(
-                            request, body, tier, effective_tier_name)
-                        if _re_model:
-                            _parts = _re_model.split("/", 1)
-                            if len(_parts) == 2:
-                                body = body.model_copy(update={
-                                    "provider": _parts[0],
-                                    "model": _parts[1]})
-                            elif _re_model != body.model:
-                                body = body.model_copy(
-                                    update={"model": _re_model})
+                        body = _apply_routed_model(body, _resolve_model_routing(
+                            request, body, tier, effective_tier_name))
                     else:
                         # Deterministic hits skip the classifier, but the
                         # template offer's copy composes better with its
@@ -2602,10 +2612,8 @@ async def chat(
             "metadata": {**(body.metadata or {}),
                          "call_type": "artifact_generation"},
         })
-        _re_model = _resolve_model_routing(
-            request, body, tier, effective_tier_name)
-        if _re_model:
-            body = body.model_copy(update={"model": _re_model})
+        body = _apply_routed_model(body, _resolve_model_routing(
+            request, body, tier, effective_tier_name))
         _gen_expected_seconds = _c.expected_seconds
         logger.info("contract_lane_armed artifact=%s model=%s expected=%ss",
                     _contract_id, body.model, _c.expected_seconds)
