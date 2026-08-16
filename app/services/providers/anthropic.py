@@ -217,7 +217,9 @@ class AnthropicAdapter(ProviderAdapter):
         # alongside `thinking: {type: "adaptive"}`. Per Anthropic's docs the
         # effort parameter is what controls thinking depth on these models;
         # legacy budget_tokens returns 400 on Opus 4.7.
-        output_config = anthropic_output_config(request.reasoning, request.model)
+        output_config = anthropic_output_config(
+            request.reasoning, request.model,
+            thinking_disabled=(thinking or {}).get("type") == "disabled")
         if output_config:
             body["output_config"] = output_config
 

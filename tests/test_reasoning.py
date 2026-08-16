@@ -91,11 +91,70 @@ def test_qwen_omits_reasoning_fields():
 def test_anthropic_effort_path_models():
     """Opus 4.7, Opus 4.6, Sonnet 4.6, Mythos use `thinking: {type: adaptive}`
     + `output_config: {effort: <value>}`. Pass-through."""
-    for model in ("claude-opus-4-7", "claude-opus-4-6", "claude-sonnet-4-6", "claude-mythos-preview"):
+    for model in ("claude-opus-4-7", "claude-opus-4-6", "claude-sonnet-4-6",
+                  "claude-mythos-preview", "claude-opus-4-8", "claude-opus-5"):
         assert anthropic_uses_effort_path(model)
         for v in ("low", "medium", "high", "xhigh", "max"):
             assert anthropic_thinking_block(v, model) == {"type": "adaptive"}
             assert anthropic_output_config(v, model) == {"effort": v}
+
+
+def test_every_routable_anthropic_model_can_be_steered():
+    """The catalog and this list drifted apart once already.
+
+    #681 added Opus 5, Opus 4.8 and Fable 5 to the router catalog while
+    the effort list still named four models, so a level picked on those
+    was dropped on the floor. Anything the router can select and that
+    takes an effort level has to be here, or the picker lies.
+    """
+    import yaml
+    from pathlib import Path
+    cfg = yaml.safe_load(
+        (Path(__file__).resolve().parents[1] / "config/providers.yml").read_text())
+    callable_models = [
+        (e["id"] if isinstance(e, dict) else e)
+        for e in cfg["providers"]["anthropic"]["models"]
+    ]
+    assert callable_models, "provider catalog is empty; the guard is inert"
+    # Fable and Haiku are the documented exceptions: Fable's thinking is
+    # always on and an explicit adaptive block is a 400 there, Haiku is
+    # legacy budget_tokens and its picker is hidden.
+    for m in callable_models:
+        if "fable" in m or "mythos" in m or "haiku" in m:
+            continue
+        assert anthropic_uses_effort_path(m), (
+            f"{m} is routable but drops a picked reasoning level")
+
+
+def test_disabled_thinking_clamps_the_top_two_efforts_on_opus_5():
+    """`thinking: {type: "disabled"}` is accepted on Opus 5 only at
+    `high` or below; pairing it with `xhigh`/`max` is a 400. A lane
+    declares itself thinking-free in config and the level comes from the
+    picker, so the two meet here and nowhere else.
+
+    Clamped rather than dropped: dropping lands on the same API default
+    of `high` with no record a level was ever picked.
+    """
+    for v in ("xhigh", "max"):
+        assert anthropic_output_config(
+            v, "claude-opus-5", thinking_disabled=True) == {"effort": "high"}
+        # Thinking left on, the same level passes through untouched.
+        assert anthropic_output_config(
+            v, "claude-opus-5") == {"effort": v}
+        # The cap is Opus 5's alone.
+        assert anthropic_output_config(
+            v, "claude-opus-4-8", thinking_disabled=True) == {"effort": v}
+    for v in ("low", "medium", "high"):
+        assert anthropic_output_config(
+            v, "claude-opus-5", thinking_disabled=True) == {"effort": v}
+
+
+def test_the_adapter_tells_output_config_whether_thinking_is_off():
+    """The clamp is inert on a call site that never passes the flag."""
+    from pathlib import Path
+    src = (Path(__file__).resolve().parents[1]
+           / "app/services/providers/anthropic.py").read_text()
+    assert 'thinking_disabled=(thinking or {}).get("type") == "disabled"' in src
 
 
 def test_anthropic_non_effort_models_return_none():
