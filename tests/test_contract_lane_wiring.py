@@ -68,6 +68,45 @@ def test_a_template_match_beats_a_contract() -> None:
     assert contract_candidate(True, intent, skip=True) is None
 
 
+def test_the_explicit_command_fast_path_can_reach_the_lane() -> None:
+    """Measured live 2026-08-16, the first real device run: the canary
+    was on and the build still went through the provider sandbox.
+
+    `explicit_file_ask` is a regex that fires on an imperative verb plus
+    a named format ("...create the spreadsheet"), and its hit takes the
+    fast path, which arms generation immediately and mints NO offer.
+    `artifact_id` is only ever stamped on an offer, so the contract lane
+    was unreachable from the phrasings most likely to want it: vague
+    asks routed to it, explicit ones could not, and explicit is the
+    common case. The regex knows a file was asked for and never which
+    artifact, so the branch has to buy that answer from the classifier.
+    """
+    fast = CHAT_SRC.index('logger.info(\n                            '
+                          '"generation_fast_path armed=1')
+    lookup = CHAT_SRC.index("contract_fast_path_lookup")
+    arm = CHAT_SRC.index("if _gen_armed and _contract_id:")
+    # Resolved inside the fast path, before the lane is read.
+    assert lookup < fast < arm
+    assert "if _contract_lane_on and _intent.get(\"format\") == \"xlsx\":" in CHAT_SRC
+
+
+def test_a_contract_is_never_named_for_a_non_xlsx_ask() -> None:
+    """Every contract renders an xlsx. Naming one for a Word ask answers
+    the request with the wrong file type: artifact recognised, format
+    silently overridden, user handed a confidently wrong document."""
+    intent = {"artifact": "action_register", "artifact_confidence": "high"}
+    assert contract_candidate(True, intent, fmt="xlsx") == "action_register"
+    assert contract_candidate(True, intent, fmt="docx") is None
+    assert contract_candidate(True, intent, fmt="pdf") is None
+    # None means "not checked" — unchanged for callers with no format.
+    assert contract_candidate(True, intent, fmt=None) == "action_register"
+
+
+def test_both_lane_entry_points_pass_the_format_through() -> None:
+    """The guard is worthless on a call site that omits it."""
+    assert CHAT_SRC.count("fmt=_intent.get(\"format\")") == 2
+
+
 def test_a_low_confidence_read_is_not_stored() -> None:
     """Low means two artifacts fit equally. Silently picking one at
     offer time hides a question we should have asked."""
