@@ -265,7 +265,8 @@ def question_for(route_: Route) -> str:
 
 
 def contract_candidate(lane_on: bool, intent: dict | None,
-                       skip: bool = False) -> str | None:
+                       skip: bool = False,
+                       fmt: str | None = None) -> str | None:
     """Which contract, if any, this offer should remember.
 
     Only a HIGH confidence read counts. A low confidence one means the
@@ -274,8 +275,17 @@ def contract_candidate(lane_on: bool, intent: dict | None,
     `skip` carries the precedence rule: a Gantt template match or an
     ambiguous plan ask wins, because that registry is purpose built and
     its version question has to come before any build.
+
+    `fmt` is the format the USER asked for. Every contract renders an
+    xlsx, so naming one for a docx ask would answer a Word request with
+    a spreadsheet: the artifact is recognised, the format is silently
+    overridden, and the user gets a confidently wrong file. Passing None
+    means "not checked" and preserves the original behaviour for callers
+    that have no format to offer.
     """
     if skip or not lane_on or not intent:
+        return None
+    if fmt is not None and fmt != "xlsx":
         return None
     name = intent.get("artifact")
     if name in CONTRACTS and intent.get("artifact_confidence", "high") == "high":

@@ -2334,6 +2334,37 @@ async def chat(
                                  or not _ari_fp(body.user_content or ""))):
                         _gen_armed = True
                         _template_id = None
+                        # The fast path mints NO offer, and artifact_id is
+                        # only ever stamped on an offer, so the contract
+                        # lane was unreachable from exactly the phrasings
+                        # most likely to want it. Measured live 2026-08-16:
+                        # "...create the spreadsheet" is an explicit verb
+                        # plus a named noun, so it takes this branch by
+                        # construction and built through the provider
+                        # sandbox with the canary switched on. Vague asks
+                        # reached the contract lane and explicit ones could
+                        # not, which is backwards, and explicit is the
+                        # common case.
+                        #
+                        # `explicit_file_ask` is a regex: it knows a file
+                        # was asked for, never WHICH artifact. Only the
+                        # classifier names that, so on the canary spend the
+                        # one call (~$0.0005) here. Fail-open by
+                        # construction: a None read leaves _contract_id
+                        # None and the turn behaves exactly as it does
+                        # today. Guarded on the canary, so this costs
+                        # everybody else nothing.
+                        if _contract_lane_on and _intent.get("format") == "xlsx":
+                            _named = await classify_generation_intent(
+                                provider_router, body.user_content,
+                                on_subcall=_meter,
+                            )
+                            _contract_id = _contract_candidate(
+                                _contract_lane_on, _named,
+                                fmt=_intent.get("format"))
+                            logger.info(
+                                "contract_fast_path_lookup artifact=%s",
+                                _contract_id)
                         _meta_fp = dict(body.metadata or {})
                         _meta_fp["generation_confirmed"] = True
                         body = body.model_copy(update={"metadata": _meta_fp})
@@ -2396,7 +2427,8 @@ async def chat(
                             # their version question.
                             artifact_id=_contract_candidate(
                                 _contract_lane_on, _intent,
-                                skip=bool(_tmpl or _ambiguous)))
+                                skip=bool(_tmpl or _ambiguous),
+                                fmt=_intent.get("format")))
                         if _ambiguous:
                             # The version question, served as the same
                             # generation_offer envelope the client already
