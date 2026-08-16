@@ -381,3 +381,38 @@ def test_the_adapter_gives_a_contract_turn_the_build_timeout() -> None:
     assert A._is_build(plain) is False
     assert A._is_build(sandbox) is True
     assert A._is_build(contract) is True
+
+
+def test_the_raw_response_is_parsed_before_it_is_read() -> None:
+    """`raw_response_json` is a JSON STRING — declared that way on
+    ChatResponse, built by the adapter's _pretty_json. The sandbox lane
+    has always parsed it before reading (document_generation
+    ._walk_file_ids does json.loads); this lane read it as a dict.
+
+    Every contract build therefore died on `'str' object has no
+    attribute 'get'` at the very last step, AFTER the model had done the
+    work. Measured live 2026-08-16: 183s, $0.1722, stop_reason tool_use,
+    a valid emit_artifact call carrying 40 scenarios across 4 sheets —
+    parsed, rendered and discarded by one missing json.loads.
+    """
+    import json as _json
+
+    from app.models.chat import ChatResponse
+
+    assert ChatResponse.model_fields["raw_response_json"].annotation in (
+        str | None, "str | None")
+
+    src = CHAT_SRC[CHAT_SRC.index("if _contract_id and response"):]
+    src = src[:src.index("_emitted = next(")]
+    assert "isinstance(_raw, str)" in src
+    assert "_json.loads" in src or "json.loads" in src
+
+    # The shape the adapter actually hands us round-trips to the block
+    # the lane looks for.
+    wire = _json.dumps({"content": [
+        {"type": "tool_use", "name": "emit_artifact",
+         "input": {"filename": "f.xlsx", "sheets": []}}]})
+    parsed = _json.loads(wire)
+    emitted = next((b.get("input") for b in (parsed.get("content") or [])
+                    if isinstance(b, dict) and b.get("type") == "tool_use"), None)
+    assert emitted["filename"] == "f.xlsx"
