@@ -36,7 +36,12 @@ class AnthropicAdapter(ProviderAdapter):
         contract (170s for a test plan). Keying on the flag alone left
         the newer lane on the shorter clock.
         """
-        return bool(request.generation or getattr(request, "tools", None))
+        return bool(request.generation
+                    or getattr(request, "tools", None)
+                    # Template lane: neither flag, and the call_type that
+                    # names it is stamped after the response, so the
+                    # router marks it on the way out instead.
+                    or request.get_meta("build_lane"))
 
     async def send_request(self, request: ChatRequest) -> ChatResponse:
         body, headers = self._build_body(request)
