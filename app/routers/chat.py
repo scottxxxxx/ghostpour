@@ -2843,6 +2843,16 @@ async def chat(
         and not is_project_chat
         and not body.generation
         and not _template_id
+        # A contract build is a build. Without this it took the plain
+        # chat stream, which is the wrong road in two ways that both
+        # showed up on the first live run (2026-08-16): that path caps
+        # the stream at 180s, and the test plan contract's own served
+        # expectation is 170s, so the build died at 181.0s having done
+        # the work; and it emits no generation events, so the client sat
+        # on its generic thinking indicator for three minutes with no
+        # sign a file was being made. Build turns belong on the
+        # generation transport with the other two lanes.
+        and not _contract_id
     )
 
     if should_stream:
@@ -3380,8 +3390,16 @@ async def chat(
     # fake precision) -> result carrying the byte-identical JSON body ->
     # or error. The client's only timeout is "no event for 30s". Unconfirmed
     # armed turns (the dark e2e lane) keep the plain JSON path.
+    # `_contract_id` belongs here for the same reason the other two do:
+    # it is a confirmed build, and this gate is what turns a turn into
+    # started -> heartbeats -> result instead of a silent wait. Without
+    # it the contract lane fell through to the plain chat stream, so the
+    # client showed its generic thinking indicator for three minutes
+    # with no build progress and no served expectation (observed on
+    # device 2026-08-16). The user asked for a file and the UI never
+    # said one was being made.
     _gen_sse = bool(
-        (body.generation or _template_id)
+        (body.generation or _template_id or _contract_id)
         and body.get_meta("generation_confirmed")
         and _gen_confirmation_enabled
     )

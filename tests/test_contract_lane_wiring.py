@@ -346,3 +346,38 @@ def test_one_resolution_path_not_three() -> None:
     wrong. A fourth copy is the same bug waiting."""
     assert CHAT_SRC.count("_apply_routed_model(body, _resolve_model_routing(") == 3
     assert "_re_model" not in CHAT_SRC
+
+
+def test_a_contract_build_does_not_take_the_plain_chat_stream() -> None:
+    """Two symptoms, one omission, both live on 2026-08-16.
+
+    `should_stream` excluded the generation and template lanes but not
+    the contract lane, so a confirmed contract build went down the
+    interactive chat stream. That path caps the stream at 180s while the
+    test plan contract's own served expectation is 170s, and the build
+    died at 181.0s having done the work. The same path emits no
+    generation events, so the client showed its generic thinking
+    indicator for three minutes with no sign a file was being built.
+    """
+    assert "and not _contract_id\n    )" in CHAT_SRC
+    # And the build transport must recognise it, or the turn streams
+    # nothing useful even once it is on the right road.
+    assert "(body.generation or _template_id or _contract_id)" in CHAT_SRC
+
+
+def test_the_adapter_gives_a_contract_turn_the_build_timeout() -> None:
+    """The contract lane never sets `generation`; it ships a tool schema
+    instead. Keyed on the flag alone it inherited the 180s client
+    default, which is below the 170s we promise for a test plan."""
+    from app.models.chat import ChatRequest
+    from app.services.providers.anthropic import AnthropicAdapter as A
+
+    plain = ChatRequest(provider="anthropic", model="m", user_content="x")
+    sandbox = ChatRequest(provider="anthropic", model="m", user_content="x",
+                          generation=True)
+    contract = ChatRequest(provider="anthropic", model="m", user_content="x",
+                           tools=[{"name": "emit_artifact"}])
+
+    assert A._is_build(plain) is False
+    assert A._is_build(sandbox) is True
+    assert A._is_build(contract) is True
