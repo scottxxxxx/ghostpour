@@ -407,3 +407,40 @@ class TestAPausedBuildResumes:
 
         assert A._is_build(ChatRequest(
             provider="anthropic", model="m", user_content="x")) is False
+
+
+def test_all_three_build_lanes_are_recognised_as_builds():
+    """The adapter's build test decides two things: the 400s timeout and
+    whether a paused turn resumes. Each lane signals differently, and a
+    lane the adapter cannot recognise silently gets a chat turn's
+    treatment — which is how the contract lane ended up on a 180s cap
+    against its own 170s promise.
+
+      sandbox   `generation=True`
+      contract  a tool schema
+      template  neither, so the router marks it
+    """
+    from app.models.chat import ChatRequest
+    from app.services.providers.anthropic import AnthropicAdapter as A
+
+    chat = ChatRequest(provider="anthropic", model="m", user_content="x")
+    sandbox = ChatRequest(provider="anthropic", model="m", user_content="x",
+                          generation=True)
+    contract = ChatRequest(provider="anthropic", model="m", user_content="x",
+                           tools=[{"name": "emit_artifact"}])
+    template = ChatRequest(provider="anthropic", model="m", user_content="x",
+                           metadata={"build_lane": "template"})
+
+    assert A._is_build(chat) is False
+    for req in (sandbox, contract, template):
+        assert A._is_build(req) is True
+
+
+def test_the_template_lane_marks_itself():
+    """The mark has to be set where the lane arms, or the flag above is
+    decoration."""
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parents[2]
+           / "app/routers/chat.py").read_text()
+    arm = src.index("elif _gen_armed and _template_id:")
+    assert '"build_lane": "template"' in src[arm:arm + 900]

@@ -2620,6 +2620,16 @@ async def chat(
     elif _gen_armed and not _template_id:
         body = body.model_copy(update={"generation": True})
     elif _gen_armed and _template_id:
+        # Mark it a build for the adapter. The template lane sets neither
+        # `generation` nor `tools`, so the adapter could not tell it from
+        # a chat turn and it inherited the 180s client default with no
+        # pause_turn resume — the same blind spot the contract lane had
+        # on four separate behaviours. Extraction alone runs 25 to 30
+        # seconds so this never bit, but a search-enabled plan ask puts
+        # a server-side tool loop in front of that, which is exactly
+        # where a pause becomes likely and a silent drop expensive.
+        body = body.model_copy(update={
+            "metadata": {**(body.metadata or {}), "build_lane": "template"}})
         # Template lane: no sandbox — the model's whole job is emitting the
         # plan as JSON; the registry's deterministic renderer draws the file.
         # The client-assembled system prompt CARRIES the project context
