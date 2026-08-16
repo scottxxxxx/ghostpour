@@ -285,7 +285,7 @@ def contract_candidate(lane_on: bool, intent: dict | None,
     """
     if skip or not lane_on or not intent:
         return None
-    if fmt is not None and fmt != "xlsx":
+    if fmt is not None and fmt not in RENDERABLE_FORMATS:
         return None
     name = intent.get("artifact")
     if name in CONTRACTS and intent.get("artifact_confidence", "high") == "high":
