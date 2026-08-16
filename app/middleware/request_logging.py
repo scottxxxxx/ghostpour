@@ -20,8 +20,71 @@ _SKIP_PATHS = {"/health", "/docs", "/openapi.json", "/v1/model-pricing",
 # Max body size to log (prevent huge payloads from flooding logs)
 _MAX_BODY_LOG = 10_000
 
-# In-memory ring buffer for recent requests (viewable in dashboard)
-_LOG_BUFFER: deque[dict] = deque(maxlen=1000)
+# Some payloads are structurally bigger than the default cap and are also
+# the ones most worth seeing whole. A CQ person detail measured 67,386
+# bytes on the wire, so at 10,000 the live log showed the first 15% of the
+# surface most likely to carry a passthrough bug, and showed it as a
+# truncated STRING (the JSON no longer parses), which is the worst of both.
+# Raised for those routes only, not globally: the cap exists to stop a
+# fleet of ordinary requests from flooding memory, and that reason still
+# holds everywhere else.
+_MAX_BODY_LOG_LARGE = 131_072
+_LARGE_BODY_PREFIXES = ("/v1/people", "/v1/quilt")
+
+# Total captured body bytes the buffer may hold. Raising the per-entry cap
+# 13x means the old "1000 entries" bound is no longer a memory bound on its
+# own, so make the real constraint explicit: oldest entries are evicted
+# until the buffer fits. Sized so a full buffer of large payloads costs
+# tens of MB, not hundreds.
+_MAX_BUFFER_BYTES = 48 * 1024 * 1024
+_BUFFER_ENTRIES = 1000
+
+# In-memory ring buffer for recent requests (viewable in dashboard).
+# maxlen is enforced in _buffer_append rather than by the deque so entry
+# count and byte budget are evicted by the same rule.
+_LOG_BUFFER: deque[dict] = deque()
+_BUFFER_BYTES = 0
+
+# Private, stripped before any entry is handed out. Carries the captured
+# size so eviction does not have to re-measure a parsed body.
+_SIZE_KEY = "_captured_bytes"
+
+
+def _body_cap(path: str) -> int:
+    """Per-path body capture cap."""
+    if any(path.startswith(p) for p in _LARGE_BODY_PREFIXES):
+        return _MAX_BODY_LOG_LARGE
+    return _MAX_BODY_LOG
+
+
+def _clip(raw: bytes | str | None, cap: int) -> str | None:
+    """Decode and cap, marking the cut instead of hiding it.
+
+    Silent truncation reads as a complete payload, which is exactly how a
+    missing key gets blamed on the wrong side of a wire.
+    """
+    if not raw:
+        return None
+    text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else raw
+    if len(text) <= cap:
+        return text
+    return text[:cap] + f"\n... [truncated at {cap} chars, {len(text)} total]"
+
+
+def _buffer_append(entry: dict, size: int = 0) -> None:
+    """Append and evict to stay inside BOTH bounds."""
+    global _BUFFER_BYTES
+    entry[_SIZE_KEY] = size
+    _LOG_BUFFER.append(entry)
+    _BUFFER_BYTES += size
+    while _LOG_BUFFER and (
+        len(_LOG_BUFFER) > _BUFFER_ENTRIES or _BUFFER_BYTES > _MAX_BUFFER_BYTES
+    ):
+        _BUFFER_BYTES -= _LOG_BUFFER.popleft().get(_SIZE_KEY, 0)
+
+
+def _public(entry: dict) -> dict:
+    return {k: v for k, v in entry.items() if k != _SIZE_KEY}
 
 # Redact any field whose name contains one of these substrings. Matching
 # broadly (not an exact-name list) so new sensitive wire fields are redacted
@@ -34,14 +97,14 @@ def get_recent_logs(limit: int = 50) -> list[dict]:
     """Return the most recent log entries, newest first."""
     entries = list(_LOG_BUFFER)
     entries.reverse()
-    return entries[:limit]
+    return [_public(e) for e in entries[:limit]]
 
 
 def get_log_by_request_id(request_id: str) -> dict | None:
     """Find a single log entry by its request_id, or None if not in buffer."""
     for entry in _LOG_BUFFER:
         if entry.get("request_id") == request_id:
-            return entry
+            return _public(entry)
     return None
 
 
@@ -97,7 +160,8 @@ class StreamingBypassMiddleware:
         if first_message.get("type") == "http.request":
             req_body = first_message.get("body", b"")
 
-        req_body_str = req_body.decode("utf-8", errors="replace")[:_MAX_BODY_LOG] if req_body else None
+        cap = _body_cap(path)
+        req_body_str = _clip(req_body, cap)
 
         # Build request headers (redact auth)
         req_headers = {}
@@ -146,12 +210,14 @@ class StreamingBypassMiddleware:
         if is_streaming:
             resp_section: dict = {"headers": response_headers, "body": "(streaming)"}
             log_suffix = " (streaming)"
+            resp_body_str = None
         else:
-            resp_body_str = response_body.decode("utf-8", errors="replace")[:_MAX_BODY_LOG]
-            resp_section = {"headers": response_headers, "body": _format_body_parsed(resp_body_str)}
+            resp_body_str = _clip(response_body, cap)
+            resp_section = {"headers": response_headers,
+                            "body": _format_body_parsed(resp_body_str, cap)}
             log_suffix = ""
 
-        _LOG_BUFFER.append({
+        _buffer_append({
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "request_id": request_id,
             "app_id": app_id,
@@ -161,9 +227,10 @@ class StreamingBypassMiddleware:
             "latency_ms": elapsed_ms,
             "client_ip": req_headers.get("x-real-ip", ""),
             "user_agent": req_headers.get("user-agent", ""),
-            "request": {"headers": req_headers, "body": _format_body_parsed(req_body_str)},
+            "request": {"headers": req_headers,
+                        "body": _format_body_parsed(req_body_str, cap)},
             "response": resp_section,
-        })
+        }, len(req_body_str or "") + len(resp_body_str or ""))
         logger.info("%s %s %d %dms%s", method, path, response_status, elapsed_ms, log_suffix)
 
 
@@ -187,12 +254,13 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         # BaseHTTPMiddleware runs the app outside dispatch's context).
 
         # Capture request body
+        cap = _body_cap(request.url.path)
         req_body_str = None
         if request.url.path not in _SKIP_PATHS:
             try:
                 raw = await request.body()
                 if raw:
-                    req_body_str = raw.decode("utf-8", errors="replace")[:_MAX_BODY_LOG]
+                    req_body_str = _clip(raw, cap)
             except Exception:
                 req_body_str = "<read error>"
 
@@ -242,14 +310,14 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 "user_agent": request.headers.get("user-agent", ""),
                 "request": {
                     "headers": req_headers,
-                    "body": _format_body_parsed(req_body_str),
+                    "body": _format_body_parsed(req_body_str, cap),
                 },
                 "response": {
                     "headers": resp_headers,
                     "body": "(streaming — not captured)",
                 },
             }
-            _LOG_BUFFER.append(entry)
+            _buffer_append(entry, len(req_body_str or ""))
             return response
 
         # Non-streaming: capture response body for logging
@@ -257,7 +325,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         async for chunk in response.body_iterator:
             resp_body += chunk if isinstance(chunk, bytes) else chunk.encode()
 
-        resp_body_str = resp_body.decode("utf-8", errors="replace")[:_MAX_BODY_LOG]
+        resp_body_str = _clip(resp_body, cap)
         resp_headers = dict(response.headers)
 
         # Store in ring buffer (always, for dashboard)
@@ -274,14 +342,14 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             "user_agent": request.headers.get("user-agent", ""),
             "request": {
                 "headers": req_headers,
-                "body": _format_body_parsed(req_body_str),
+                "body": _format_body_parsed(req_body_str, cap),
             },
             "response": {
                 "headers": resp_headers,
-                "body": _format_body_parsed(resp_body_str),
+                "body": _format_body_parsed(resp_body_str, cap),
             },
         }
-        _LOG_BUFFER.append(entry)
+        _buffer_append(entry, len(req_body_str or "") + len(resp_body_str or ""))
 
         # Verbose file logging
         if verbose:
@@ -309,8 +377,14 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         )
 
 
-def _format_body_parsed(body: str | None):
-    """Parse body to dict/list for JSON storage. Redacts sensitive fields."""
+def _format_body_parsed(body: str | None, cap: int = _MAX_BODY_LOG):
+    """Parse body to dict/list for JSON storage. Redacts sensitive fields.
+
+    A body that was clipped no longer parses, so it lands here as a raw
+    string with the truncation marker still on it. That is the honest
+    outcome: better a payload that says where it was cut than one that
+    looks whole.
+    """
     if not body:
         return None
     try:
@@ -318,10 +392,13 @@ def _format_body_parsed(body: str | None):
         _redact_sensitive(parsed)
         return parsed
     except (json.JSONDecodeError, TypeError):
-        return body[:_MAX_BODY_LOG]
+        return body[:cap]
 
 
 def _format_body(body: str | None) -> str:
+    """Verbose FILE logging. Deliberately still capped at the small
+    default: the raised cap exists so the dashboard can show a payload
+    whole, not so journald carries 128KB per request."""
     if not body:
         return "<empty>"
     try:
