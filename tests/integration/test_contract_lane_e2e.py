@@ -344,3 +344,66 @@ class TestTheOfferRoundTrip:
 
         assert confirmed.status_code == 200, confirmed.text
         assert _files_from(confirmed), confirmed.text[:600]
+
+
+class TestAPausedBuildResumes:
+    """The last of the family. Every defect on this lane was behaviour
+    keyed on `request.generation`, which the contract lane deliberately
+    does not set because it ships a tool schema instead of using the
+    sandbox. The pause_turn continuation loop was the final one.
+
+    It matters most for the case Scott actually wanted: research the
+    topic, then build the artifact. Mixing web_search into a build turn
+    means the server-side tool loop can hit its iteration limit, and a
+    paused contract turn ends with no emit_artifact block at all — so
+    the lane finds no tool call, falls back to text, and the user waits
+    out a three minute build for nothing.
+    """
+
+    def test_a_paused_turn_is_resumed_rather_than_dropped(self):
+        import asyncio
+        from unittest.mock import MagicMock
+
+        from app.models.chat import ChatRequest
+        from app.services.providers.anthropic import AnthropicAdapter
+
+        paused = {"stop_reason": "pause_turn", "content": [
+            {"type": "server_tool_use", "name": "web_search", "id": "s1"}],
+            "container": {"id": "cont_1"}, "usage": {}}
+        finished = json.loads(_emit_artifact_response().raw_response_json)
+
+        adapter = AnthropicAdapter.__new__(AnthropicAdapter)
+        adapter.base_url = "https://example/v1/messages"
+        adapter.api_key = "k"
+        adapter._build_headers = lambda: {}
+
+        posts = []
+
+        async def fake_post(url, body, headers, timeout=None):
+            posts.append(body)
+            data = paused if len(posts) == 1 else finished
+            return 200, data, "{}", json.dumps(data)
+
+        adapter._post = fake_post
+        req = ChatRequest(provider="anthropic", model="claude-sonnet-4-6",
+                          user_content="x", system_prompt="s",
+                          tools=[{"name": "emit_artifact",
+                                  "input_schema": {"type": "object"}}])
+        resp = asyncio.run(adapter.send_request(req))
+
+        assert len(posts) == 2, "a paused build was not resumed"
+        # The continuation reuses the container and appends the partial.
+        assert posts[1].get("container") == "cont_1"
+        assert posts[1]["messages"][-1]["role"] == "assistant"
+        # And the finished artifact survives to the caller.
+        blocks = json.loads(resp.raw_response_json)["content"]
+        assert any(b.get("name") == "emit_artifact" for b in blocks)
+
+    def test_a_plain_chat_turn_is_still_never_resumed(self):
+        """The loop is for builds. An ordinary turn that somehow pauses
+        must not be silently re-billed."""
+        from app.models.chat import ChatRequest
+        from app.services.providers.anthropic import AnthropicAdapter as A
+
+        assert A._is_build(ChatRequest(
+            provider="anthropic", model="m", user_content="x")) is False

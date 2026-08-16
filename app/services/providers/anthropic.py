@@ -49,11 +49,20 @@ class AnthropicAdapter(ProviderAdapter):
             self.base_url, body, headers, timeout=timeout
         )
 
-        # pause_turn continuation (generation turns only): the server-side
-        # sandbox loop hit its iteration limit mid-work. Re-send with the
-        # assistant content appended and the same container so it resumes.
-        # No extra user message — the API detects the trailing server_tool_use.
-        if request.generation:
+        # pause_turn continuation: a server-side tool loop hit its
+        # iteration limit mid-work. Re-send with the assistant content
+        # appended and the same container so it resumes. No extra user
+        # message — the API detects the trailing server_tool_use.
+        #
+        # Both build lanes need this, not just the sandbox one. A
+        # contract turn carries its own tool schema and can also carry
+        # web_search, and a paused contract turn ends with no
+        # emit_artifact block at all: the lane finds no tool call,
+        # falls back to text, and the user waits out a three minute
+        # build for nothing. That is the shape of every other defect
+        # this lane has had — behaviour keyed on `generation`, which it
+        # deliberately does not set — so it keys on the build test.
+        if self._is_build(request):
             replays = 0
             while (
                 status == 200
