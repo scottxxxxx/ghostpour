@@ -3031,7 +3031,20 @@ async def chat(
                     render_workbook,
                 )
                 _c = CONTRACTS[_contract_id]
-                _raw = response.raw_response_json or {}
+                # `raw_response_json` is a JSON STRING (declared that way
+                # on ChatResponse, built by the adapter's _pretty_json).
+                # The sandbox lane has always parsed it before reading —
+                # document_generation._walk_file_ids does json.loads —
+                # and this lane read it as a dict, so every contract
+                # build died on `'str' object has no attribute 'get'`
+                # AFTER the model had done the work. Measured live
+                # 2026-08-16: 183s, $0.17, a valid emit_artifact call
+                # carrying 40 scenarios, discarded at the last step.
+                _raw = response.raw_response_json
+                if isinstance(_raw, str):
+                    _raw = json.loads(_raw)
+                if not isinstance(_raw, dict):
+                    _raw = {}
                 _emitted = next(
                     (b.get("input") for b in (_raw.get("content") or [])
                      if isinstance(b, dict) and b.get("type") == "tool_use"),
