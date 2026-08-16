@@ -220,6 +220,18 @@ class UsageTracker:
                 "count": request.get_meta("generated_count"),
                 "bytes": request.get_meta("generated_bytes"),
             }
+        # Which contract built the artifact. This metadata bag is an
+        # allowlist, so a key the chat router sets is NOT persisted
+        # unless it is named here — the router stamped `artifact_type`
+        # from the day the lane shipped and it reached the database
+        # never. Confirmed on the first real build (2026-08-16): the row
+        # carries call_type=artifact_generation and no artifact type at
+        # all. That dimension is the entire answer to which artifacts
+        # people actually generate, and per Scott's own ruling the usage
+        # is the ONLY valid source for it, so losing it silently costs
+        # the question rather than a field.
+        if request.get_meta("artifact_type"):
+            metadata["artifact_type"] = request.get_meta("artifact_type")
         # Request correlation: the X-Request-ID response-header value (minted
         # by the logging middleware, stamped into the meta bag by the chat
         # handler) — makes partner-quoted ids a one-line usage_log query.
