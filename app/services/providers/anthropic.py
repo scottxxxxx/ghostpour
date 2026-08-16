@@ -25,13 +25,26 @@ class AnthropicAdapter(ProviderAdapter):
     _MAX_GENERATION_CONTINUATIONS = 4
     _GENERATION_TIMEOUT_S = 400.0  # per leg; see send_request
 
+    @staticmethod
+    def _is_build(request: ChatRequest) -> bool:
+        """Does this turn build a file, on either lane?
+
+        `generation` marks the provider sandbox lane. The contract lane
+        does not set it — it ships a tool schema instead and renders the
+        result here — but it takes just as long, and the 180s client
+        default is below what we ourselves promise for the longest
+        contract (170s for a test plan). Keying on the flag alone left
+        the newer lane on the shorter clock.
+        """
+        return bool(request.generation or getattr(request, "tools", None))
+
     async def send_request(self, request: ChatRequest) -> ChatResponse:
         body, headers = self._build_body(request)
         # Generation turns run a server-side sandbox loop with real runtime
         # variance (first live runs: 124s and 180s+) — the shared client's
         # 180s default sits INSIDE that envelope, so armed turns get their
         # own ceiling. Applies per continuation leg, not to the whole turn.
-        timeout = self._GENERATION_TIMEOUT_S if request.generation else None
+        timeout = self._GENERATION_TIMEOUT_S if self._is_build(request) else None
         status, data, raw_req, raw_resp = await self._post(
             self.base_url, body, headers, timeout=timeout
         )
