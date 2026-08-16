@@ -801,9 +801,13 @@ async def init_db(database_url: str) -> None:
         # report regeneration insurance (aligned with the 30d report purge
         # above), and cleanup debugging (dashboard Transcripts tab). Full
         # meeting content held forever was liability, not value.
-        await db.execute(
-            "DELETE FROM meeting_transcripts WHERE created_at < datetime('now', '-30 days')"
-        )
+        #
+        # The window and the statement now live in the service so the
+        # boot sweep and the hourly sweep in main.py cannot drift apart.
+        # Boot still sweeps: it catches whatever expired while the
+        # process was down, before the first request is served.
+        from app.services.transcript_retention import purge_expired_transcripts
+        await purge_expired_transcripts(db)
 
         # Purge email_events older than 90 days. Webhook event audit log
         # — kept long enough for spam-complaint / bounce attribution
