@@ -312,3 +312,37 @@ def test_the_prompt_names_the_columns_too() -> None:
     assert "The columns are: " in CHAT_SRC
     i = CHAT_SRC.index("The columns are: ")
     assert "col.label for col in _c.columns" in CHAT_SRC[i:i + 200]
+
+
+def test_routing_never_reaches_the_wire_with_a_provider_prefix() -> None:
+    """Measured live 2026-08-16, the first turn that ever reached the
+    contract lane: `400 The requested model is not available`.
+
+    `_resolve_model_routing` returns the config's own string, which is
+    "<provider>/<model>" in every routing row we ship, and the model
+    field goes onto the wire verbatim. Two of the three call sites split
+    that prefix inline; the contract lane assigned the whole string, so
+    Anthropic was asked for a model named
+    "anthropic/claude-sonnet-4-6". Same resolution copied three times,
+    one copy wrong.
+    """
+    from app.models.chat import ChatRequest
+    from app.routers.chat import _apply_routed_model
+
+    body = ChatRequest(provider="anthropic", model="old", user_content="x")
+
+    routed = _apply_routed_model(body, "anthropic/claude-sonnet-4-6")
+    assert routed.model == "claude-sonnet-4-6"
+    assert routed.provider == "anthropic"
+
+    # A bare value (no prefix) still applies, and a no-op stays a no-op.
+    assert _apply_routed_model(body, "claude-opus-5").model == "claude-opus-5"
+    assert _apply_routed_model(body, "old") is body
+    assert _apply_routed_model(body, None) is body
+
+
+def test_one_resolution_path_not_three() -> None:
+    """The bug was three copies of the same four lines with one of them
+    wrong. A fourth copy is the same bug waiting."""
+    assert CHAT_SRC.count("_apply_routed_model(body, _resolve_model_routing(") == 3
+    assert "_re_model" not in CHAT_SRC
