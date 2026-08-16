@@ -444,3 +444,55 @@ def test_the_template_lane_marks_itself():
            / "app/routers/chat.py").read_text()
     arm = src.index("elif _gen_armed and _template_id:")
     assert '"build_lane": "template"' in src[arm:arm + 900]
+
+
+class TestResearchIntentSurvivesTheOffer:
+    """A researched file ask goes: turn 1 mints "want the file?", turn 2
+    builds. The search flag rides turn 1. If it does not reach turn 2,
+    the user gets a file with no research in it and nothing says so —
+    failure shaped exactly like success.
+
+    The offer already remembers ask_content and images for this reason.
+    Research intent belongs in the same bag.
+    """
+
+    def test_the_offer_remembers_and_the_confirm_inherits(self):
+        from app.services import generation_offers
+
+        oid = generation_offers.create(
+            "u-search", "xlsx", "g", artifact_id="test_plan",
+            search_enabled=True)
+        assert generation_offers.peek("u-search", oid)["search_enabled"] is True
+        # peek must not consume: the reply still has an offer to claim.
+        assert generation_offers.take("u-search", oid)["search_enabled"] is True
+        assert generation_offers.peek("u-search", oid) is None
+
+    def test_an_ask_without_research_stays_without_it(self):
+        from app.services import generation_offers
+        oid = generation_offers.create("u-plain", "xlsx", "g")
+        assert generation_offers.take("u-plain", oid)["search_enabled"] is False
+
+    def test_the_flag_is_inherited_before_the_cap_gate_not_after(self):
+        """The load-bearing detail. Inheriting after the gate would
+        attach the search tool with no tier or monthly cap ruling on it
+        and no counter movement — a cap bypass wearing a bugfix."""
+        import pathlib
+        src = (pathlib.Path(__file__).resolve().parents[2]
+               / "app/routers/chat.py").read_text()
+        inherit = src.index("search_intent_inherited_from_offer")
+        # Anchor on the gate itself, not on an import of its module —
+        # search_caps is also imported by an unrelated helper earlier in
+        # the file, which is not the thing that must come second.
+        gate = src.index("if body.get_meta(\"search_enabled\"):", inherit - 4000)
+        assert inherit < gate, "inheritance must precede the search gate"
+        # And it must sit inside the same request flow, not in a helper.
+        assert 0 < gate - inherit < 2000
+
+    def test_the_lane_question_carries_it_across_a_remint(self):
+        """An ambiguous plan ask re-mints the offer to ask which version.
+        The intent has to survive that hop too, or research is lost by
+        the user answering a question we asked."""
+        import pathlib
+        src = (pathlib.Path(__file__).resolve().parents[2]
+               / "app/routers/chat.py").read_text()
+        assert src.count('_offer.get("search_enabled")') >= 2

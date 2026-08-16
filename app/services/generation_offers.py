@@ -32,7 +32,8 @@ _IMAGES_CAP_CHARS = 15_000_000
 def create(user_id: str, fmt: str, gist: str, template_id: str | None = None,
            ask_content: str = "", images: list[str] | None = None,
            lane_choice: str | None = None,
-           artifact_id: str | None = None) -> str:
+           artifact_id: str | None = None,
+           search_enabled: bool = False) -> str:
     """Remember a live offer; returns its offer_id (rides the envelope).
     template_id marks a registry-matched offer: a confirm routes to the
     deterministic template lane instead of ad-hoc sandbox generation.
@@ -48,6 +49,15 @@ def create(user_id: str, fmt: str, gist: str, template_id: str | None = None,
     lane (our columns, our renderer) instead of the sandbox. Resolved on
     the OFFER turn because that is where the classifier ran; the confirm
     send carries chat history, not the original ask.
+    search_enabled remembers that the ORIGINATING ask opted into web
+    research. The build happens on the confirm turn, and the confirm is a
+    different send: if the flag rides only the first one, a user who
+    asked for a researched file gets one with no research in it and no
+    sign anything was dropped. That is the worst shape of failure here,
+    because it looks like success. Same reasoning as ask_content and
+    images above — the offer remembers what the request WAS. The tier and
+    monthly cap gate still runs on the confirm turn, so remembering the
+    intent never bypasses the cap; it only stops us forgetting it.
     lane_choice marks an AMBIGUOUS plan/progress ask (Scott's ruling
     2026-08-11): "pending" means the version question has not been asked
     yet (teaser offers), "asked" means this offer IS the question and
@@ -63,6 +73,7 @@ def create(user_id: str, fmt: str, gist: str, template_id: str | None = None,
         "ask_content": (ask_content or "")[:_ASK_CONTENT_CAP],
         "images": imgs, "images_dropped": dropped,
         "lane_choice": lane_choice,
+        "search_enabled": bool(search_enabled),
         "expires": time.monotonic() + OFFER_TTL_S,
     }
     # opportunistic sweep — the map only ever holds in-flight conversations
@@ -76,6 +87,23 @@ def take(user_id: str, offer_id: str) -> dict | None:
     """One-shot claim: returns the offer and removes it (an offer lives for
     exactly one reply), or None for unknown / expired / not-yours."""
     offer = _OFFERS.pop((user_id, offer_id), None)
+    if offer is None or offer["expires"] < time.monotonic():
+        return None
+    return offer
+
+
+def peek(user_id: str, offer_id: str) -> dict | None:
+    """Read a live offer WITHOUT claiming it.
+
+    `take` is one-shot by design — an offer lives for exactly one reply
+    — so anything that needs to know about the offer before the reply is
+    interpreted has to look without consuming. The search gate is the
+    case: it decides tier and monthly cap early in the request, well
+    before the offer is claimed, and research intent stored on the offer
+    has to be visible to it or the gate never sees the flag it is
+    supposed to rule on.
+    """
+    offer = _OFFERS.get((user_id, offer_id))
     if offer is None or offer["expires"] < time.monotonic():
         return None
     return offer

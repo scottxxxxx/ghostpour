@@ -617,6 +617,11 @@ def test_offer_store_one_shot_and_ttl(monkeypatch):
                      "ask_content": "",
                      "images": [], "images_dropped": False,
                      "lane_choice": None,
+                     # Research intent rides the ORIGINATING ask; the
+                     # build is a different send, so the offer has to
+                     # remember it or a researched file quietly arrives
+                     # with no research in it.
+                     "search_enabled": False,
                      "expires": offer["expires"]}
     assert go.take("u1", oid) is None            # one-shot: dead after a reply
     oid2 = go.create("u1", "xlsx", "")

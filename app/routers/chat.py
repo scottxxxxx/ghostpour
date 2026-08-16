@@ -1771,6 +1771,28 @@ async def chat(
     # We deliberately gate AFTER the budget gate so a budget-exhausted
     # user gets one consistent reason rather than seeing search CTA on
     # top of a budget block.
+    # Research intent rides the ORIGINATING ask, and the build happens on
+    # the confirm send, which is a different request. If the flag reaches
+    # only the first one, a user who asked for a researched file gets one
+    # with no research in it and nothing says so — failure shaped exactly
+    # like success. Same reasoning as the stored ask_content and images:
+    # the offer remembers what the request WAS.
+    #
+    # Inherited HERE, before the gate, on purpose. Setting it after would
+    # attach the search tool without tier or monthly cap ever ruling on
+    # it, and without the counter moving. This way the inherited flag
+    # faces exactly the same gate a first-turn flag does.
+    _peek_oid = body.get_meta("offer_id")
+    if _peek_oid and not body.get_meta("search_enabled"):
+        from app.services import generation_offers as _go
+        _peeked = _go.peek(user.id, _peek_oid)
+        if _peeked and _peeked.get("search_enabled"):
+            _meta_s = dict(body.metadata or {})
+            _meta_s["search_enabled"] = True
+            body = body.model_copy(update={"metadata": _meta_s})
+            logger.info("search_intent_inherited_from_offer offer_id=%s",
+                        _peek_oid)
+
     from app.services.search_caps import format_cta, get_search_caps
     search_state: dict | None = None
     if body.get_meta("search_enabled"):
@@ -2090,7 +2112,8 @@ async def chat(
                     user.id, _offer.get("format") or "xlsx",
                     _offer.get("gist") or "", template_id="gantt_detailed",
                     ask_content=_offer.get("ask_content") or "",
-                    images=_offer.get("images"), lane_choice="asked")
+                    images=_offer.get("images"), lane_choice="asked",
+                    search_enabled=bool(_offer.get("search_enabled")))
                 logger.info(
                     "lane_question_served offer_id=%s via=pill_tap", _lq_id)
                 return JSONResponse(content=build_lane_question_envelope(
@@ -2178,7 +2201,9 @@ async def chat(
                             _offer.get("gist") or "",
                             template_id="gantt_detailed",
                             ask_content=_offer.get("ask_content") or "",
-                            images=_offer.get("images"), lane_choice="asked")
+                            images=_offer.get("images"), lane_choice="asked",
+                            search_enabled=bool(
+                                _offer.get("search_enabled")))
                         logger.info(
                             "lane_question_served offer_id=%s via=typed_yes",
                             _lq_id)
@@ -2308,7 +2333,8 @@ async def chat(
                         template_id=_teaser_tmpl,
                         ask_content=body.user_content or "",
                         images=body.images,
-                        lane_choice=("pending" if _teaser_ambiguous else None))
+                        lane_choice=("pending" if _teaser_ambiguous else None),
+                        search_enabled=bool(body.get_meta("search_enabled")))
                 if _intent and _intent.get("file_request"):
                     from app.services.doc_templates import TEMPLATES, match_template
                     # Format veto (live 2026-07-14 21:58:42Z: a docx
@@ -2438,7 +2464,12 @@ async def chat(
                             artifact_id=_contract_candidate(
                                 _contract_lane_on, _intent,
                                 skip=bool(_tmpl or _ambiguous),
-                                fmt=_intent.get("format")))
+                                fmt=_intent.get("format")),
+                            # The ask opted into research; the BUILD is a
+                            # different send. Forgetting here hands back a
+                            # file with no research and no sign of it.
+                            search_enabled=bool(
+                                body.get_meta("search_enabled")))
                         if _ambiguous:
                             # The version question, served as the same
                             # generation_offer envelope the client already
