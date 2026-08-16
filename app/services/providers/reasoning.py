@@ -24,7 +24,7 @@ Per-provider native field placement:
   | DeepSeek | `thinking: {type: <value>}`                  | disabled / enabled                               |
   | Kimi     | `thinking: {type: <value>}`                  | disabled / enabled                               |
   | Qwen     | (picker hidden — `enable_thinking` is bool)  | n/a                                              |
-  | Anthropic Opus 4.7 / Sonnet 4.6 (effort)    | `thinking: {type: "adaptive"}` + `output_config: {effort: <value>}` |
+  | Anthropic Opus 5 / 4.8 / 4.7 / 4.6, Sonnet 5 / 4.6 (effort) | `thinking: {type: "adaptive"}` + `output_config: {effort: <value>}` |
   | Anthropic Haiku 4.5                          | (picker hidden — manual `budget_tokens: int`)    |
   | Google Gemini 3.x                            | `thinkingConfig: {thinkingLevel: <value>}`       |
   | Google Gemini 2.5.x (no config models today) | (would be `thinkingBudget: int`)                 |
@@ -70,6 +70,16 @@ def anthropic_uses_effort_path(model: str) -> bool:
         # reasoning level silently did nothing on what is now our primary
         # lane for both apps: no adaptive block, no output_config.effort.
         "claude-sonnet-5",
+        # Same omission, found 2026-08-16: the router catalog started
+        # offering these in #681 while this list did not, so any turn
+        # routed to them dropped the level on the floor. It matters most
+        # on Opus 5, which is the one model here that thinks by DEFAULT:
+        # with no effort field it runs at the API default of `high` with
+        # adaptive thinking on, i.e. the most expensive configuration it
+        # has, and we had no way to ask for less. Measured 2026-08-14 at
+        # that default: 488s and $1.13 for one workbook.
+        "claude-opus-4-8",
+        "claude-opus-5",
     )
     if any(prefix in m for prefix in explicit_effort_models):
         return True
@@ -152,11 +162,33 @@ def anthropic_thinking_block(
     return None
 
 
-def anthropic_output_config(level: str | None, model: str) -> dict | None:
+# Anthropic caps the two highest effort levels when thinking is turned
+# off explicitly: on Opus 5, `thinking: {type: "disabled"}` is accepted
+# at `high` or below and returns a 400 at `xhigh` or `max`. Both halves
+# are reachable independently here (a lane declares itself thinking-free
+# in config; the level comes from the picker), so the combination has to
+# be resolved on our side rather than discovered as a failed turn.
+_DISABLED_THINKING_EFFORT_CAP = ("claude-opus-5",)
+_CAPPED_EFFORTS = ("xhigh", "max")
+
+
+def anthropic_output_config(level: str | None, model: str, *,
+                            thinking_disabled: bool = False) -> dict | None:
     """Effort-path models: `output_config: {effort: <level>}`. Pass-through.
-    "default" → omit (Anthropic API default of `"high"` applies)."""
+    "default" → omit (Anthropic API default of `"high"` applies).
+
+    One clamp, not a pass-through: a thinking-free lane asking for
+    `xhigh`/`max` on a model that forbids that pairing is lowered to
+    `high` rather than sent and rejected. Clamping beats dropping the
+    field, which would silently land on the same API default of `high`
+    with no record that a level was ever picked.
+    """
     if not level or level == "default" or not anthropic_uses_effort_path(model):
         return None
+    m = (model or "").lower()
+    if (thinking_disabled and level in _CAPPED_EFFORTS
+            and any(p in m for p in _DISABLED_THINKING_EFFORT_CAP)):
+        return {"effort": "high"}
     return {"effort": level}
 
 
