@@ -2201,7 +2201,46 @@ async def chat(
                     offer_id=_lq_id))
             if _offer is not None:
                 _template_id = _offer.get("template_id")
-                if _offer.get("ask_content"):
+                # A TEASER tap builds the ANSWER, not the question again.
+                #
+                # The teaser says "want this as a real file?" about the
+                # answer on screen. The offer is minted before that answer
+                # exists, so it only ever stored the question. Replaying
+                # the question with a build armed is what produced the
+                # silent failure observed 2026-08-17: "are there any
+                # documents I need to update?" is a question, so the model
+                # answered it again in prose, emitted no file, and the
+                # progress card was replaced by a paragraph.
+                #
+                # The question still rides along as the framing, because
+                # it says what the user cared about, but the material to
+                # put in the file is the answer they already accepted.
+                # ONLY the sandbox road. A template or contract offer
+                # already knows what it is building and builds it from
+                # the MEETING, so handing those a chat answer instead
+                # would swap the source material out from under a lane
+                # that was working (caught by the Gantt pill-tap test,
+                # which is exactly what it is there for). The freeform
+                # sandbox is the one with nothing telling it what to
+                # make, which is why it answered the question again.
+                _answer = (_offer.get("answer_content")
+                           if not _offer.get("template_id")
+                           and not _offer.get("artifact_id") else None)
+                if _answer:
+                    body = body.model_copy(update={
+                        "user_content":
+                            "Put the following into a file. It is an answer "
+                            "you already gave the user, and they have asked "
+                            "for it as a document.\n\n"
+                            f"Their question was: {_offer.get('ask_content') or ''}\n\n"
+                            "--- CONTENT TO PUT IN THE FILE ---\n"
+                            f"{_answer}\n"
+                            "--- END CONTENT ---\n\n"
+                            "Build the file from that content. Structure it "
+                            "properly rather than pasting it. Do not answer "
+                            "the question again in chat: the file IS the "
+                            "answer now."})
+                elif _offer.get("ask_content"):
                     body = body.model_copy(update={
                         "user_content": _offer["ask_content"]
                         + "\n\nThe user confirmed the file build."})
@@ -3592,6 +3631,34 @@ async def chat(
         if generated_payload:
             response_data["generated_files"] = generated_payload
 
+        # A confirmed build that produced nothing has to SAY so.
+        #
+        # The user tapped a button, watched a progress card count up
+        # against a served estimate, and then the card was replaced by a
+        # paragraph. Nothing anywhere said a file had failed to appear,
+        # so it reads as the app quietly losing the request. Observed
+        # live 2026-08-17 on a teaser tap.
+        #
+        # This is the same rule as the phase label: the client renders
+        # what we tell it, so an outcome we do not report is an outcome
+        # that did not happen as far as the user can tell. Factual, and
+        # it names the thing that DID happen, since the answer above is
+        # still worth reading.
+        if (_gen_armed and body.get_meta("generation_confirmed")
+                and not generated_payload):
+            logger.warning(
+                "confirmed_build_produced_no_file lane=%s artifact=%s",
+                "contract" if _contract_id else
+                ("template" if _template_id else "sandbox"),
+                _contract_id or _template_id or "-")
+            response_data["build_outcome"] = "no_file"
+            if response_data.get("text"):
+                response_data["text"] = (
+                    response_data["text"]
+                    + "\n\n(No file was produced for this one, so the answer "
+                      "is above instead. Asking for a specific format, like "
+                      "a spreadsheet, usually gets one built.)")
+
         # Reactive capture-quality note (2026-07-20): when a reproduction
         # actually produced a file FROM a submitted image, and that image
         # reads as too soft, append the served capture guidance to the
@@ -3632,6 +3699,16 @@ async def chat(
             # this ask with generation_confirmed. Built once above so the
             # streaming done event serves the identical shape.
             response_data["feature_state"] = _teaser_state
+            # Remember WHAT we just offered to turn into a file. The card
+            # says "want this as a real file?" about the answer directly
+            # above it, and this is the first moment that answer exists.
+            # Without it the tap re-runs the question instead, which is
+            # how a question shaped like file vocabulary produced a
+            # progress card and then a paragraph (live 2026-08-17).
+            if _gen_teaser_offer_id and response_data.get("text"):
+                from app.services import generation_offers as _go_attach
+                _go_attach.attach_answer(
+                    user.id, _gen_teaser_offer_id, response_data["text"])
 
         json_response = JSONResponse(content=response_data)
 
