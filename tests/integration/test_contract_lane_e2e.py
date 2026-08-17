@@ -944,3 +944,207 @@ class TestTheCountingArtifactPullsEverything:
             "counts are computed from a truncated set and the cell is "
             "confidently wrong: "
             f"limit={d.await_args.kwargs.get('limit')}")
+
+
+class TestATeaserTapBuildsTheAnswer:
+    """Live failure 2026-08-17, from a screen recording.
+
+    Scott asked "Are there any documents I need to update?" That is a
+    question ABOUT documents. Both real guards said so: explicit_file_ask
+    matched nothing and the classifier returned file_request=false,
+    twice. But a cheap vocabulary matcher still sees "documents", so the
+    TEASER fired: "want this as a real file?"
+
+    He tapped it. Generation armed, the card said "Building your file,
+    usually about 2:30", and eight seconds later the card was replaced by
+    a paragraph. No file, no error, nothing said.
+
+    The cause was what the tap sent. A teaser offers the ANSWER on
+    screen, but the offer is minted before that answer exists, so it
+    stored the QUESTION. The tap re-ran the question with a build armed,
+    and the model correctly answered it again in prose.
+    """
+
+    def test_the_offer_remembers_the_answer_it_offered(self):
+        from app.services import generation_offers as go
+        oid = go.create("u-teaser", "xlsx", "gist", ask_content="any docs?")
+        go.attach_answer("u-teaser", oid, "Yes: the Cigna scenarios doc.")
+        assert go.take("u-teaser", oid)["answer_content"] == (
+            "Yes: the Cigna scenarios doc.")
+
+    def test_attaching_to_a_dead_offer_is_harmless(self):
+        """The card is already gone; this must not raise into the turn."""
+        from app.services import generation_offers as go
+        go.attach_answer("u-teaser", "nosuchoffer", "text")
+
+    def test_the_build_turn_is_told_to_build_the_answer(
+            self, contract_lane, pro_user):
+        from app.services import generation_offers as go
+
+        oid = go.create(pro_user["user_id"], "xlsx", "documents to update",
+                        ask_content="Are there any documents I need to update?")
+        go.attach_answer(pro_user["user_id"], oid,
+                         "The Cigna scenarios document needs P2 and P3 "
+                         "demo scripts adding.")
+        with patch("app.services.anthropic_or_fallback.route_with_fallback",
+                   new_callable=AsyncMock,
+                   return_value=_emit_artifact_response()) as route:
+            _send(contract_lane, pro_user, text="Yes", offer_id=oid,
+                  generation_confirmed=True)
+
+        sent = route.await_args.args[1].user_content
+        assert "Cigna scenarios document" in sent, (
+            "the answer never reached the build turn, so the model is "
+            "being asked the question again and will answer it again")
+        assert "Do not answer the question again" in sent
+        # The question survives as framing, not as the thing to answer.
+        assert "Are there any documents I need to update?" in sent
+
+    def test_an_offer_with_no_answer_still_uses_the_ask(
+            self, contract_lane, pro_user):
+        """Real file asks mint offers before any answer exists and must
+        keep working exactly as before."""
+        from app.services import generation_offers as go
+        oid = go.create(pro_user["user_id"], "xlsx", "test scenarios",
+                        artifact_id="test_plan",
+                        ask_content="build me a test plan")
+        with patch("app.services.anthropic_or_fallback.route_with_fallback",
+                   new_callable=AsyncMock,
+                   return_value=_emit_artifact_response()) as route:
+            _send(contract_lane, pro_user, text="Yes", offer_id=oid,
+                  generation_confirmed=True)
+        sent = route.await_args.args[1].user_content
+        assert "build me a test plan" in sent
+        assert "CONTENT TO PUT IN THE FILE" not in sent
+
+
+class TestAConfirmedBuildNeverFailsSilently:
+    """The user tapped a button and watched a progress card count up
+    against a served estimate. If no file arrives, saying nothing means
+    the card is replaced by prose and it reads as the app losing the
+    request."""
+
+    def _no_file_turn(self, client, pro_user):
+        from app.models.chat import ChatResponse
+        from app.services import generation_offers as go
+
+        oid = go.create(pro_user["user_id"], "xlsx", "docs",
+                        ask_content="Are there any documents I need to update?")
+        prose = ChatResponse(
+            text="Based on the meeting, the Cigna scenarios document needs "
+                 "updating.",
+            input_tokens=10, output_tokens=20, model="claude-sonnet-4-6",
+            provider="anthropic", usage={}, raw_request_json="{}",
+            raw_response_json=json.dumps(
+                {"id": "m", "stop_reason": "end_turn",
+                 "content": [{"type": "text", "text": "prose only"}],
+                 "usage": {}}))
+        with patch("app.services.anthropic_or_fallback.route_with_fallback",
+                   new_callable=AsyncMock, return_value=prose):
+            return _send(client, pro_user, stream=True, text="Yes",
+                         offer_id=oid, generation_confirmed=True)
+
+    def test_it_reports_that_no_file_was_produced(
+            self, contract_lane, pro_user):
+        result = _result_of(self._no_file_turn(contract_lane, pro_user))
+        assert not result.get("generated_files")
+        assert result.get("build_outcome") == "no_file", (
+            "a confirmed build produced nothing and said nothing; the "
+            "progress card is replaced by prose and it reads as the "
+            "request being lost")
+
+    def test_the_answer_is_still_served(self, contract_lane, pro_user):
+        """The prose is still worth reading. Report the outcome, do not
+        throw away the work."""
+        result = _result_of(self._no_file_turn(contract_lane, pro_user))
+        assert "Cigna scenarios document" in result["text"]
+        assert "No file was produced" in result["text"]
+
+    def test_a_successful_build_says_nothing_about_it(
+            self, contract_lane, pro_user):
+        with patch("app.services.anthropic_or_fallback.route_with_fallback",
+                   new_callable=AsyncMock,
+                   return_value=_emit_artifact_response()):
+            resp = _send(contract_lane, pro_user, stream=True)
+        result = _result_of(resp)
+        assert result.get("generated_files")
+        assert "build_outcome" not in result, result.get("build_outcome")
+        assert "No file was produced" not in (result.get("text") or "")
+
+
+class TestTheTeaserTurnRemembersWhatItOffered:
+    """Drives the REAL teaser turn. The tests above attach the answer by
+    hand, which proves the store and the confirm path work and would
+    pass happily while the router never attached anything at all. That
+    is the fourth time today a test has been written one level away from
+    the thing that breaks."""
+
+    def _teaser_turn(self, client, pro_user):
+        from app.main import app
+
+        cfg = app.state.remote_configs
+        gen = (cfg.setdefault("client-config", {})
+                  .setdefault("documents", {}).setdefault("generation", {}))
+        before = gen.get("teaser_text")
+        gen["teaser_text"] = "Want this as a real file?"
+
+        from app.models.chat import ChatResponse
+        answer = ChatResponse(
+            text="Yes. The Cigna scenarios document needs P2 and P3 demo "
+                 "scripts adding, and Scott owns that.",
+            input_tokens=10, output_tokens=20, model="claude-sonnet-4-6",
+            provider="anthropic", usage={}, raw_request_json="{}",
+            raw_response_json="{}")
+        # The classifier says NO. That is the whole point: a question
+        # about documents is not a request for one.
+        no_file = {"file_request": False, "format": None, "gist": "",
+                   "artifact": None, "artifact_confidence": "high"}
+        try:
+            with patch("app.services.document_generation."
+                       "classify_generation_intent",
+                       new_callable=AsyncMock, return_value=no_file), \
+                 patch("app.services.anthropic_or_fallback.route_with_fallback",
+                       new_callable=AsyncMock, return_value=answer):
+                return _send(client, pro_user,
+                             text="Are there any documents I need to update?")
+        finally:
+            if before is None:
+                gen.pop("teaser_text", None)
+            else:
+                gen["teaser_text"] = before
+
+    def test_the_teaser_offer_carries_the_answer(self, contract_lane, pro_user):
+        from app.services import generation_offers as go
+
+        resp = self._teaser_turn(contract_lane, pro_user)
+        cta = ((resp.json().get("feature_state") or {}).get("cta") or {})
+        assert cta.get("kind") == "generation_teaser", resp.json()
+        oid = (cta.get("details") or {}).get("offer_id")
+        assert oid, cta
+
+        stored = go.peek(pro_user["user_id"], oid)
+        assert stored and stored.get("answer_content"), (
+            "the teaser offered to turn the answer into a file and then "
+            "did not remember the answer; the tap will re-run the "
+            "question and produce prose again")
+        assert "Cigna scenarios document" in stored["answer_content"]
+
+    def test_a_template_offer_still_builds_from_the_meeting(
+            self, contract_lane, pro_user):
+        """A lane that already knows what it is building must not have
+        its source material swapped for a chat answer. Caught in review
+        by the Gantt pill-tap test, pinned here so the narrowing cannot
+        be undone by accident."""
+        from app.services import generation_offers as go
+        oid = go.create(pro_user["user_id"], "xlsx", "plan",
+                        template_id="gantt_detailed",
+                        ask_content="build the project plan")
+        go.attach_answer(pro_user["user_id"], oid, "some chat answer")
+        with patch("app.services.anthropic_or_fallback.route_with_fallback",
+                   new_callable=AsyncMock,
+                   return_value=_emit_artifact_response()) as route:
+            _send(contract_lane, pro_user, text="Yes", offer_id=oid,
+                  generation_confirmed=True)
+        sent = route.await_args.args[1].user_content
+        assert "build the project plan" in sent
+        assert "some chat answer" not in sent

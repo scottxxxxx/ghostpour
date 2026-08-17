@@ -83,6 +83,28 @@ def create(user_id: str, fmt: str, gist: str, template_id: str | None = None,
     return offer_id
 
 
+def attach_answer(user_id: str, offer_id: str, answer: str) -> None:
+    """Give a TEASER offer the answer it is offering to turn into a file.
+
+    A teaser says "want this as a real file?", where `this` is the answer
+    the user is reading. But the offer is minted BEFORE that answer
+    exists, and it stores the originating QUESTION as `ask_content`. So a
+    tap used to re-run the question with a build armed, and for a
+    question like "are there any documents I need to update?" the model
+    correctly answered it again in prose and produced no file at all.
+    The user watched a progress card turn into a paragraph.
+
+    Observed live 2026-08-17. The fix is to remember what was actually
+    offered, which is only knowable once the turn has produced it.
+
+    Silent no-op on an expired or unknown offer: the answer is a nicety
+    on a card that has already gone.
+    """
+    offer = _OFFERS.get((user_id, offer_id))
+    if offer is not None:
+        offer["answer_content"] = (answer or "")[:_ASK_CONTENT_CAP]
+
+
 def take(user_id: str, offer_id: str) -> dict | None:
     """One-shot claim: returns the offer and removes it (an offer lives for
     exactly one reply), or None for unknown / expired / not-yours."""
