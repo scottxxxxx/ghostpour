@@ -209,3 +209,27 @@ def _make_fake(title_json):
             return None
         return mt.clean_title(parsed.get("title"))
     return _fake
+
+
+def test_a_title_and_a_build_decision_can_never_share_a_turn():
+    """SS asked whether a `decision_record` turn could also carry a
+    `suggested_title`, and whether we should suppress it.
+
+    It cannot happen, and the answer is structural rather than a
+    special case. `generation_gate` refuses any prompt_mode outside
+    ProjectChat and PostMeetingChat, so a build can only ever be
+    confirmed on a chat surface. Titles are only produced for the three
+    summary modes. The sets are disjoint.
+
+    Pinned because it is disjoint by COINCIDENCE of two independent
+    lists: adding a summary mode to the generation surfaces, or a chat
+    surface to the title modes, would silently create the overlap SS
+    was asking about, and the first sign would be a meeting named after
+    a turn that was mostly a button press.
+    """
+    from app.services.document_generation import _GENERATION_SURFACES
+
+    overlap = set(_GENERATION_SURFACES) & set(mt.TITLE_PROMPT_MODES)
+    assert not overlap, (
+        f"{overlap} can now both build a file and name a meeting; a title "
+        "derived from a turn that is mostly a decision is not worth having")
