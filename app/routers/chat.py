@@ -32,6 +32,9 @@ SEARCH_PHASE_SECONDS = 85
 # is a test that cannot fail and therefore is not evidence.
 _PROGRESS_TICK_SECONDS = 5
 
+from app.services import meeting_title as _meeting_title  # noqa: E402
+_title_modes = _meeting_title.TITLE_PROMPT_MODES
+
 # The research leg's brief. It researches and reports; it does not build.
 #
 # Point 2 is the one that earns its place. The failure that reaches a
@@ -3547,6 +3550,34 @@ async def chat(
         if _gen_upsell_line and response_data.get("text"):
             response_data["text"] = (
                 response_data["text"] + "\n\n" + _gen_upsell_line)
+
+        # Suggested title (2026-08-17). A meeting title was written by
+        # exactly two things: post session analysis, or the full report.
+        # The auto summary never wrote one, and a meeting long enough to
+        # earn a report has its analysis deliberately SKIPPED because the
+        # report was expected to supply it. So a meeting whose report
+        # never arrives got neither, and nothing repaired it later: a
+        # real 23 minute meeting rendered as "Meeting Summary" while its
+        # own summary named QA issues, latency and form availability.
+        #
+        # ABSENT is a valid and preferred answer. The client treats a
+        # served title as authoritative and skips its own fallback, so a
+        # generic title from us is strictly worse than none: they still
+        # have a date, and a wrong name sticks. `clean_title` enforces
+        # that on our side rather than trusting the prompt.
+        if (call_type == "summary"
+                and body.get_meta("prompt_mode") in _title_modes
+                and response_data.get("text")):
+            _title = await _meeting_title.suggest_title(
+                provider_router, response_data["text"],
+                on_subcall=lambda treq, tresp, tms:
+                    usage_tracker.record_and_log(
+                        db, user=user, tier=tier, app_id=app_id,
+                        request=treq, response=tresp, elapsed_ms=tms,
+                        pricing=pricing),
+            )
+            if _title:
+                response_data["suggested_title"] = _title
 
         # Search-state sidecar (independent of feature_state, which is owned
         # by the project_chat / budget paths). Always populated when the
