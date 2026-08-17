@@ -25,6 +25,60 @@ _CHAT_STREAM_WALL_CLOCK_SECONDS = 180
 # measurements, not intuition.
 SEARCH_PHASE_SECONDS = 85
 
+# How often the generation transport emits a progress tick. Named rather
+# than inlined so a test can drive a real tick without sleeping five
+# seconds: with it inlined, a stubbed turn returns before the first tick
+# and every assertion about `phase` passes against an EMPTY list, which
+# is a test that cannot fail and therefore is not evidence.
+_PROGRESS_TICK_SECONDS = 5
+
+# The research leg's brief. It researches and reports; it does not build.
+#
+# Point 2 is the one that earns its place. The failure that reaches a
+# user is not a wrong fact, it is a confident sentence with nothing
+# behind it: an outside reviewer of one of our generated comparison
+# documents found the worst defect was a whole topic missing that the
+# source material plainly called for, asserted around rather than
+# flagged. A model that cannot go back and look may not say it wanted
+# to. So we ask for the gaps by name, while it still has the tool.
+_RESEARCH_SYSTEM_PROMPT = (
+    "Research the request below. Do NOT write the document. This is the "
+    "research step; a separate step builds the file from what you find.\n\n"
+    "Search the web, then write a findings brief with three parts:\n\n"
+    "1. WHAT YOU FOUND. Specific facts a document could be built on, "
+    "each with the source it came from. Prefer primary and current "
+    "sources. If a fact you found contradicts the material you were "
+    "given, say both and say which is current.\n\n"
+    "2. WHAT YOU COULD NOT CONFIRM. What you looked for and did not "
+    "find, or found only weak support for. Name it plainly. A gap you "
+    "name is useful. A gap you paper over becomes a confident wrong "
+    "sentence in the finished document.\n\n"
+    "3. WHAT IS MISSING FROM THE ASK. Anything the material clearly "
+    "calls for that nobody asked about. If the material mentions "
+    "something the document would be incomplete without, say so here.\n\n"
+    "Do not pad and do not summarise the request back. Facts with "
+    "sources, then the gaps."
+)
+
+
+def _research_findings_block(text: str) -> str:
+    """Hand the findings to the build, and tell it the tool is gone.
+
+    The last sentence is load bearing. The build leg has no search tool
+    any more, so a model that treats a gap as something it can go and
+    fix will instead fill it from nothing.
+    """
+    return (
+        "\n\n--- RESEARCH FINDINGS ---\n"
+        + text
+        + "\n--- END RESEARCH FINDINGS ---\n"
+        "Use these findings where they apply. You cannot search again, "
+        "so where the findings say something could not be confirmed, do "
+        "not assert it: leave the row out, or include it and set its "
+        "source to 'Not stated'. Never present an unconfirmed thing as "
+        "established."
+    )
+
 # How long the stream may stay silent before we emit a progress heartbeat.
 # Lets a client keep an honest "still working" indicator alive through the
 # pre-first-token gap (model thinking / queued / running web_search) without
@@ -2011,6 +2065,17 @@ async def chat(
         request.app.state.remote_configs,
         {x for x in (user.id, user.email) if x})
     _contract_id = None
+    # Research-then-build state. When a contract build opts into search we
+    # stop handing the model both tools at once and instead run research as
+    # its own leg, finish it, and hand its findings to the build. The
+    # boundary is then known BECAUSE WE DREW IT rather than inferred from
+    # watching a stream, which is the whole reason this shape was chosen.
+    #
+    # `_phase` is the live signal the SSE progress loop reads. It is a dict
+    # rather than a str so the closure and the generator share one cell.
+    _research_pending = False
+    _phase = {"name": "working"}
+    _research_searches = 0
     _gen_armed = generation_gate(
         remote_configs=request.app.state.remote_configs,
         tier_name=user.effective_tier,
@@ -2686,8 +2751,17 @@ async def chat(
         body = _apply_routed_model(body, _resolve_model_routing(
             request, body, tier, effective_tier_name))
         _gen_expected_seconds = _c.expected_seconds
-        logger.info("contract_lane_armed artifact=%s model=%s expected=%ss",
-                    _contract_id, body.model, _c.expected_seconds)
+        # Research becomes its own leg rather than a second tool on this
+        # call. Deferred to the turn tail on purpose: it runs inside the
+        # streaming task, so the card is already up and reporting. Doing
+        # it here would block the whole search behind a silent request.
+        _research_pending = bool(body.get_meta("search_enabled"))
+        if _research_pending:
+            _phase["name"] = "searching"
+        logger.info("contract_lane_armed artifact=%s model=%s expected=%ss "
+                    "research=%s",
+                    _contract_id, body.model, _c.expected_seconds,
+                    _research_pending)
     elif _gen_armed and not _template_id:
         body = body.model_copy(update={"generation": True})
     elif _gen_armed and _template_id:
@@ -3029,7 +3103,75 @@ async def chat(
         # AFTER dependency teardown closes the request's connection — so it
         # passes its own. `body` is rebound below (generated-count metadata);
         # without the nonlocal the first read would raise UnboundLocalError.
-        nonlocal body
+        nonlocal body, _research_searches
+        # 5.99. THE RESEARCH LEG. A contract build that opted into search
+        # runs research first, on its own, and hands the findings to the
+        # build as context. Two calls we sequence rather than one call
+        # juggling two tools.
+        #
+        # We do it this way for honesty first: the search/build boundary
+        # is the thing the client has to label, and here we KNOW it
+        # because we drew it. Watching for it inside one streamed call
+        # would mean reassembling the artifact payload out of the stream,
+        # which puts artifact parsing, cost accounting and the audit rows
+        # downstream of that reassembly being right.
+        #
+        # Two things it would be very easy to break here, both silent:
+        #   - the searches now happen on a leg whose usage nobody reads,
+        #     so the paid-feature counter would sit still while the user
+        #     spent their allowance. `_research_searches` carries it.
+        #   - the build must NOT keep the search tool, or the model can
+        #     research again mid-build and the boundary we just drew
+        #     stops being true.
+        if _research_pending:
+            from app.services.anthropic_or_fallback import (
+                route_with_fallback as _route_research,
+            )
+            _r_start = time.monotonic()
+            _research_text = ""
+            try:
+                _r_body = body.model_copy(update={
+                    "system_prompt": _RESEARCH_SYSTEM_PROMPT,
+                    # No emit_artifact: this leg researches and reports.
+                    # Handed the tool it would build immediately and we
+                    # would be back to one opaque call.
+                    "tools": None,
+                    "max_tokens": 8000,
+                })
+                _r_resp = await _route_research(
+                    provider_router, _r_body, db, request.app.state.settings,
+                )
+                _research_text = (_r_resp.text or "").strip()
+                _research_searches = int(
+                    (_r_resp.usage or {}).get("web_search_requests") or 0)
+                # The research leg is a real billed call. Log it, or the
+                # turn's cost silently understates what it spent.
+                await usage_tracker.log_usage(
+                    db, user.id, _r_body, _r_resp,
+                    int((time.monotonic() - _r_start) * 1000),
+                    status="success", app_id=app_id,
+                )
+            except Exception:
+                # Falls open, deliberately. A failed research leg must
+                # not cost the user the file they asked for; they get
+                # the build without research, which is what they would
+                # have got before this existed.
+                logger.exception("research leg failed; building without it")
+            _phase["name"] = "working"
+            logger.info(
+                "research_leg_done searches=%s chars=%s seconds=%.1f",
+                _research_searches, len(_research_text),
+                time.monotonic() - _r_start)
+            if _research_text:
+                body = body.model_copy(update={
+                    "system_prompt": (body.system_prompt or "")
+                    + _research_findings_block(_research_text),
+                })
+            # Strip the flag so the build leg gets no search tool. The
+            # boundary is only real if the build cannot cross back over it.
+            _bmeta = dict(body.metadata or {})
+            _bmeta["search_enabled"] = False
+            body = body.model_copy(update={"metadata": _bmeta})
         # 6. Route to provider
         start = time.monotonic()
         try:
@@ -3294,6 +3436,11 @@ async def chat(
             )
         except (TypeError, ValueError):
             searches_performed = 0
+        # The research leg's searches are the user's searches. They happen
+        # on a call whose response never reaches this block, so without
+        # this the counter sits still while a capped, paid allowance is
+        # spent — the meter stops exactly when the feature starts working.
+        searches_performed += _research_searches
 
         # Surface "did search actually run?" as an explicit boolean so iOS
         # can branch on it (rather than inferring from CTA presence). Fires
@@ -3519,12 +3666,34 @@ async def chat(
         # difference, rounded down, and it is added only when search
         # SURVIVED the gate — a stripped flag means no search will run,
         # so the estimate must not grow for one that cannot happen.
-        if body.get_meta("search_enabled"):
+        _researching = bool(body.get_meta("search_enabled"))
+        if _researching:
             _expected += SEARCH_PHASE_SECONDS
-        yield _sse("generation_started", {
+        _started = {
             "expected_seconds": _expected,
             "expected_format": body.get_meta("expected_format"),
-        })
+        }
+        # Split the estimate so the client can say WHY a long wait is
+        # long. `expected_seconds` is the total; this is the research
+        # slice of it, and the build slice is the subtraction. One field
+        # rather than two so the parts cannot disagree with the total.
+        #
+        # ABSENT when no research leg will run, which is the signal that
+        # there is one expectation to render, exactly as today.
+        #
+        # ⚠ This is an EXPECTATION, never a phase claim. It says a
+        # search usually takes about this long; it does NOT say a search
+        # is happening now, and it must not be used to retitle a card on
+        # a timer. We cannot yet observe the search/build boundary live
+        # (the build is one non-streaming request; measured 2026-08-17,
+        # four consecutive builds returned in a single leg), and a
+        # timer-driven label would be a fabrication that happens to be
+        # right most of the time — the exact defect this began as.
+        # SS renders it as caption copy only and holds the same line;
+        # the observed `phase` token supersedes it, additively.
+        if _researching:
+            _started["search_expected_seconds"] = SEARCH_PHASE_SECONDS
+        yield _sse("generation_started", _started)
         # Own DB connection: this generator outlives the request scope (the
         # dependency-injected connection is already torn down while the
         # stream body runs — caught by CI, ValueError: no active connection).
@@ -3546,13 +3715,21 @@ async def chat(
 
         _task = asyncio.create_task(_tail_owning_db())
         while True:
-            done, _ = await asyncio.wait({_task}, timeout=5)
+            done, _ = await asyncio.wait(
+                {_task}, timeout=_PROGRESS_TICK_SECONDS)
             if done:
                 break
+            # OBSERVED, not timed. `_phase` flips when the research leg
+            # actually returns, so "searching" means a search call is in
+            # flight right now and nothing else. If research is not
+            # running this is "working" from the first tick, exactly as
+            # before. We never guess this from a clock: a label that is
+            # right most of the time is still a fabrication, and it is
+            # the fabrication this whole thread began as.
             yield _sse("generation_progress", {
                 "elapsed_seconds": int(time.monotonic() - _t0),
                 "expected_seconds": _expected,
-                "phase": "working",
+                "phase": _phase["name"],
             })
         try:
             _resp = _task.result()
