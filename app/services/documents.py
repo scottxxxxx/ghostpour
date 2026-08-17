@@ -268,7 +268,24 @@ def _extract_xlsx_text(raw: bytes, name: str) -> str:
         w = csv.writer(out)
         for i, row in enumerate(sheet.iter_rows(values_only=True)):
             if i >= _MAX_XLSX_ROWS_PER_SHEET:
-                out.write(f"... ({sheet.max_row - _MAX_XLSX_ROWS_PER_SHEET} more rows omitted)\n")
+                # `max_row` is None in READ-ONLY mode whenever the sheet
+                # carries no stored dimension, which is common in files
+                # written by anything other than Excel. Subtracting from
+                # it raised TypeError and 500'd the whole chat turn on a
+                # real attachment (live 2026-08-17). It only fires on a
+                # sheet long enough to reach the cap, which is why a
+                # small test workbook never found it.
+                #
+                # No count rather than a wrong one: we are omitting rows
+                # either way, and the number is the part we cannot stand
+                # behind when the sheet will not say how long it is.
+                _total = sheet.max_row
+                if isinstance(_total, int) and _total > _MAX_XLSX_ROWS_PER_SHEET:
+                    out.write(f"... ({_total - _MAX_XLSX_ROWS_PER_SHEET} "
+                              "more rows omitted)\n")
+                else:
+                    out.write(f"... (more rows omitted after the first "
+                              f"{_MAX_XLSX_ROWS_PER_SHEET})\n")
                 break
             if any(v is not None for v in row):
                 w.writerow(["" if v is None else v for v in row])
@@ -385,6 +402,25 @@ async def process_documents(
                     f'Attachment "{doc.name}" took too long to process.',
                     details={"file": doc.name},
                 )
+            except HTTPException:
+                # Deliberate, typed refusals (document_unreadable and
+                # friends) are the contract with the client. Let them go.
+                raise
+            except Exception:
+                # Anything else is OUR bug, and it used to cost the user
+                # their whole turn: a TypeError deep in xlsx extraction
+                # 500'd the chat, so an attachment we could not read took
+                # the question down with it (live 2026-08-17).
+                #
+                # The rest of this path is already best-effort by design
+                # (an unsupported type returns a marker rather than
+                # failing), so this makes an unexpected failure behave
+                # like the case it already models. Logged with a
+                # traceback, because degrading quietly is how a broken
+                # extractor stays broken.
+                logger.exception("documents: '%s' extraction failed", doc.name)
+                text = ("(attachment could not be read; content "
+                        "unavailable)")
             extracted.append(_frame(doc.name, text))
 
     user_content = body.user_content

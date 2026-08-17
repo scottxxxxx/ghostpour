@@ -588,3 +588,85 @@ async def test_or_fallback_folds_reference_text():
     assert out.reference_text is None
     assert out.user_content.startswith("REF BLOCK")
     assert out.user_content.endswith("question")
+
+
+@pytest.mark.asyncio
+async def test_a_long_sheet_with_no_stored_dimension_does_not_500():
+    """Live 500 on 2026-08-17: attaching a real workbook took the whole
+    chat turn down with it.
+
+    `sheet.max_row` is None in READ-ONLY mode whenever the sheet carries
+    no stored dimension, which is normal for files written by anything
+    other than Excel. The "N more rows omitted" line subtracted from it
+    and raised TypeError, which propagated out of extraction, out of
+    process_documents, and answered POST /v1/chat with a 500.
+
+    It only fires on a sheet long enough to REACH the row cap, which is
+    why every small test workbook in this file missed it for months.
+    """
+    import io as _io
+    from unittest.mock import patch
+
+    import openpyxl
+    from app.services.documents import _MAX_XLSX_ROWS_PER_SHEET, XLSX_MIME
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Big"
+    ws.append(["Task", "Owner"])
+    for i in range(_MAX_XLSX_ROWS_PER_SHEET + 25):
+        ws.append([f"row {i}", "Scott"])
+    buf = _io.BytesIO()
+    wb.save(buf)
+
+    real_load = openpyxl.load_workbook
+
+    def _dimensionless(*a, **kw):
+        """openpyxl's own read-only behaviour when the sheet has no
+        stored dimension: max_row reads None."""
+        loaded = real_load(*a, **kw)
+        for sheet in loaded.worksheets:
+            type(sheet).max_row = property(lambda self: None)
+        return loaded
+
+    with patch("openpyxl.load_workbook", _dimensionless):
+        out = await process_documents(
+            _body([_doc(buf.getvalue(), XLSX_MIME, "big.xlsx")]),
+            remote_configs=_configs(), tier_name="pro", managed_routing=True)
+
+    assert "=== Sheet: Big ===" in out.user_content
+    assert "more rows omitted" in out.user_content
+    # No count rather than a wrong one when the sheet will not say.
+    assert "None" not in out.user_content
+
+
+@pytest.mark.asyncio
+async def test_an_extractor_crash_costs_the_attachment_not_the_turn():
+    """The class fix. This path is already best-effort by design (an
+    unsupported type returns a marker), so an unexpected failure must
+    behave the same way instead of losing the user's question."""
+    from unittest.mock import patch
+
+    from app.services.documents import XLSX_MIME
+
+    with patch("app.services.documents._extract_to_text",
+               side_effect=TypeError("boom")):
+        out = await process_documents(
+            _body([_doc(b"anything", XLSX_MIME, "broken.xlsx")]),
+            remote_configs=_configs(), tier_name="pro", managed_routing=True)
+
+    assert "could not be read" in out.user_content
+    assert "Update this deck" in out.user_content, (
+        "the user's actual question was lost along with the attachment")
+
+
+@pytest.mark.asyncio
+async def test_a_deliberate_refusal_still_reaches_the_client():
+    """The catch-all must not swallow typed refusals: a corrupt file is
+    a 400 the client renders, not a silent marker."""
+    from app.services.documents import XLSX_MIME
+    with pytest.raises(HTTPException) as ei:
+        await process_documents(
+            _body([_doc(b"not a zip", XLSX_MIME, "bad.xlsx")]),
+            remote_configs=_configs(), tier_name="pro", managed_routing=True)
+    assert ei.value.detail["code"] == "document_unreadable"
