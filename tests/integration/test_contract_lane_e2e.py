@@ -557,3 +557,48 @@ class TestResearchPlusFileSkipsTheOffer:
                   search_enabled=True)
         assert clf.await_count <= 1, (
             f"classifier called {clf.await_count}x for one answer")
+
+
+class TestTheEstimateCoversTheResearch:
+    """Every per-artifact estimate we hold was measured on a build
+    ALONE. A research-backed build searches first, inside the same turn,
+    and that time is invisible to those numbers.
+
+    Live 2026-08-16: a test plan promised 170s, took 258s, and the user
+    watched the counter sail past the promise wondering what had broken.
+    Same artifact and model without research: 169.7s and 183.0s. With
+    four searches: 255.0s.
+    """
+
+    def _started(self, client, pro_user, **meta):
+        with patch("app.services.anthropic_or_fallback.route_with_fallback",
+                   new_callable=AsyncMock,
+                   return_value=_emit_artifact_response()):
+            resp = _send(client, pro_user, stream=True, **meta)
+        for name, data in _events(resp):
+            if name == "generation_started":
+                return data
+        raise AssertionError(f"no generation_started: {resp.text[:300]}")
+
+    def test_a_plain_build_promises_the_artifact_time(
+            self, contract_lane, pro_user):
+        assert self._started(contract_lane, pro_user)["expected_seconds"] == 170
+
+    def test_a_researched_build_promises_the_research_too(
+            self, contract_lane, pro_user):
+        from app.routers.chat import SEARCH_PHASE_SECONDS
+        got = self._started(contract_lane, pro_user,
+                            search_enabled=True)["expected_seconds"]
+        assert got == 170 + SEARCH_PHASE_SECONDS
+        # And the promise now brackets what the real turn took.
+        assert 240 <= got <= 280, got
+
+    def test_the_allowance_is_grounded_in_measurement(self):
+        """A number nobody measured is a number nobody can defend."""
+        import pathlib
+        from app.routers.chat import SEARCH_PHASE_SECONDS
+        assert 60 <= SEARCH_PHASE_SECONDS <= 120
+        src = (pathlib.Path(__file__).resolve().parents[2]
+               / "app/routers/chat.py").read_text()
+        i = src.index("SEARCH_PHASE_SECONDS = ")
+        assert "Measured" in src[i - 700:i]

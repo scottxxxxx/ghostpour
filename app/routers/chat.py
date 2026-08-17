@@ -13,6 +13,18 @@ logger = logging.getLogger(__name__)
 # (httpx's per-operation read timeout doesn't bound total wall-clock).
 _CHAT_STREAM_WALL_CLOCK_SECONDS = 180
 
+# What the research half of a search-backed build costs, in seconds.
+# Measured 2026-08-16 on the same artifact and model: 169.7s and 183.0s
+# without research, 255.0s with four web searches. Every per-artifact
+# estimate we hold was measured on a build alone, so this is the piece
+# none of them can see.
+#
+# It is one number rather than a per-artifact one on purpose: the work
+# is the model reading search results, which scales with the question
+# rather than with the document being produced. Revisit it against
+# measurements, not intuition.
+SEARCH_PHASE_SECONDS = 85
+
 # How long the stream may stay silent before we emit a progress heartbeat.
 # Lets a client keep an honest "still working" indicator alive through the
 # pre-first-token gap (model thinking / queued / running web_search) without
@@ -3496,6 +3508,19 @@ async def chat(
     async def _generation_events():
         _t0 = time.monotonic()
         _expected = _gen_expected_seconds or 150
+        # Every artifact estimate we hold was measured on a build ALONE.
+        # A research-backed build does the searching first, inside the
+        # same turn, and that time is invisible to those numbers — so a
+        # turn that legitimately runs 260s was promising 170 and the
+        # user watched the counter sail past it wondering what broke.
+        #
+        # Measured 2026-08-16, same artifact and model: 169.7s and
+        # 183.0s without research, 255.0s with it. The allowance is that
+        # difference, rounded down, and it is added only when search
+        # SURVIVED the gate — a stripped flag means no search will run,
+        # so the estimate must not grow for one that cannot happen.
+        if body.get_meta("search_enabled"):
+            _expected += SEARCH_PHASE_SECONDS
         yield _sse("generation_started", {
             "expected_seconds": _expected,
             "expected_format": body.get_meta("expected_format"),
