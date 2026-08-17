@@ -168,3 +168,81 @@ def test_gp_declares_no_patch_type_vocabulary():
         assert forbidden not in body, (
             f"{forbidden} in cq_proxy: the quilt route must stay a pure "
             "passthrough with no patch_type vocabulary")
+
+
+# --- CQ #279: evidence-routed closures (asked 2026-08-17) ---------------
+#
+# CQ's worker used to archive every commitment extraction called
+# resolved. Measured across all 167 on prod, most were not evidence of
+# anything finishing: items closed because the promise was restated, or
+# because somebody set an ETA. A close moves an item into the delivery
+# history, so a wrong one shows a person as having delivered work they
+# never did, and zero were ever reversed because the closures were never
+# visible.
+#
+# Closures now route by evidence. Unambiguous ones close; the rest stay
+# OPEN carrying a belief for a human to answer. These are the fields that
+# carries on, and `believed_complete_reasons` is an ARRAY OF STRINGS,
+# a shape this route has not carried before.
+
+BELIEVED_ITEM = {
+    "patch_id": "p-belief-1",
+    "patch_type": "commitment",
+    "fact": "Scott to add P2 and P3 demo scripts",
+    "headline_mode": "believed_resolved",
+    "believed_complete_at": "2026-08-15T20:35:23Z",
+    "believed_complete_evidence": "I'll get those scripts over this week",
+    "believed_complete_reasons": ["restated_promise", "eta_given"],
+    "believed_complete_origin_id": "54E27791-7E97-4091-AC22-B2FE834675C1",
+}
+
+
+def test_a_believed_completion_survives_the_proxy(quilt_client, cq_returns):
+    """Every field is one GP has never heard of, including a list."""
+    cq_returns({"patches": [BELIEVED_ITEM], "server_time": "2026-08-17T00:00:00Z"})
+    got = quilt_client.get(f"/v1/quilt/{USER}").json()["patches"][0]
+    assert got == BELIEVED_ITEM, "the proxy reshaped a believed-completion item"
+
+
+def test_the_reasons_array_arrives_as_a_list(quilt_client, cq_returns):
+    """A shape this route has not carried before. JSON is not
+    automatically JSON once something in the middle owns a schema."""
+    cq_returns({"patches": [BELIEVED_ITEM], "server_time": "2026-08-17T00:00:00Z"})
+    reasons = quilt_client.get(
+        f"/v1/quilt/{USER}").json()["patches"][0]["believed_complete_reasons"]
+    assert isinstance(reasons, list), type(reasons)
+    assert reasons == ["restated_promise", "eta_given"]
+
+
+def test_completion_origin_id_survives_on_a_closed_item(quilt_client, cq_returns):
+    closed = {"patch_id": "p-done-1", "patch_type": "commitment",
+              "fact": "Ship it", "headline_mode": "completed",
+              "completion_origin_id": "MTG-CLOSER-1"}
+    cq_returns({"patches": [closed], "server_time": "2026-08-17T00:00:00Z"})
+    got = quilt_client.get(f"/v1/quilt/{USER}").json()["patches"][0]
+    assert got["completion_origin_id"] == "MTG-CLOSER-1"
+
+
+def test_the_vouch_flag_survives(quilt_client, cq_returns):
+    """The one most likely to be eaten: a single NEW KEY on an existing
+    response body. SS needs it to tell a routine "still live" tap from a
+    tap answering "looks done, confirm?" with a no. Same call, two
+    meanings, and only this flag separates them, so if it is dropped the
+    failure is silent on both sides of us.
+    """
+    cq_returns({"status": "ok", "patch_id": "p-1",
+                "last_vouched_at": "2026-08-17T00:00:00Z",
+                "cleared_believed_completion": True})
+    got = quilt_client.post(f"/v1/quilt/{USER}/patches/p-1/vouch", json={}).json()
+    assert got.get("cleared_believed_completion") is True, got
+    assert got["status"] == "ok" and got["patch_id"] == "p-1"
+
+
+def test_an_unknown_headline_mode_is_not_filtered(quilt_client, cq_returns):
+    """`believed_resolved` is universal, so it can land on any ledger
+    tracked object type. GP must have no mode vocabulary at all."""
+    item = {"patch_id": "p-x", "patch_type": "not_invented_yet",
+            "headline_mode": "some_mode_shipped_after_this_test"}
+    cq_returns({"patches": [item], "server_time": "2026-08-17T00:00:00Z"})
+    got = quilt_client.get(f"/v1/quilt/{USER}").json()["patches"][0]
+    assert got["headline_mode"] == "some_mode_shipped_after_this_test"
