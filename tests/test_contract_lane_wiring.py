@@ -233,11 +233,78 @@ def test_the_count_carries_its_definition_on_the_wire() -> None:
     assert "floor" in col.description.lower()
 
 
-def test_the_dossier_fetch_asks_for_more_than_the_default() -> None:
-    """Measured by CQ on real projects: 6 to 8 patches per meeting, so
-    the 150 default saturates around 19 to 21 meetings. A counting
-    artifact that truncates reports a wrong number in a cell."""
-    assert "limit=500" in CHAT_SRC
+def test_the_counting_artifact_asks_for_everything() -> None:
+    """The cap was OURS, not CQ's. Their limit is caller-supplied and
+    absent by default, so sending one is what makes them truncate.
+    Measured on the wire 2026-08-17: Scott's quilt reports
+    total_available 2136 against the 500 we were asking for, so a
+    COUNTING artifact was counting from under a quarter of the material
+    and putting a confident number in a cell.
+
+    Asserts the outbound REQUEST rather than the source line that builds
+    it: the previous version of this test checked `"limit=500" in
+    CHAT_SRC`, which proves a literal was typed and would have passed
+    just as happily against a fetch nobody ever called.
+    """
+    import asyncio
+    from unittest.mock import AsyncMock, patch
+    from app.services import context_quilt as cq
+
+    get = AsyncMock()
+    get.return_value = type("R", (), {
+        "status_code": 200, "json": lambda self: {"meetings": []},
+        "raise_for_status": lambda self: None})()
+    with patch.object(cq, "get_settings",
+                      lambda: type("S", (), {"cq_base_url": "http://cq.test",
+                                             "cq_dossier_timeout_ms": 2000})()), \
+         patch.object(cq, "_get_client", lambda: type("C", (), {"get": get})()), \
+         patch.object(cq, "_get_auth_headers", AsyncMock(return_value={})):
+        asyncio.run(cq.quilt_dossier("u1", "p1", limit=None))
+
+    params = get.call_args.kwargs["params"]
+    assert "limit" not in params, (
+        f"a limit was sent, so CQ will truncate: {params}")
+    assert params["group_by"] == "origin"
+
+
+def test_ordinary_recall_still_carries_a_cap() -> None:
+    """Removing the cap globally to fix one surface was the wrong trade:
+    unbounded context on every CQ-backed call is a cost on every turn.
+    Only the counting artifact opts out."""
+    import asyncio
+    from unittest.mock import AsyncMock, patch
+    from app.services import context_quilt as cq
+
+    get = AsyncMock()
+    get.return_value = type("R", (), {
+        "status_code": 200, "json": lambda self: {"meetings": []},
+        "raise_for_status": lambda self: None})()
+    with patch.object(cq, "get_settings",
+                      lambda: type("S", (), {"cq_base_url": "http://cq.test",
+                                             "cq_dossier_timeout_ms": 2000})()), \
+         patch.object(cq, "_get_client", lambda: type("C", (), {"get": get})()), \
+         patch.object(cq, "_get_auth_headers", AsyncMock(return_value={})):
+        asyncio.run(cq.quilt_dossier("u1", "p1"))   # default caller
+
+    assert get.call_args.kwargs["params"]["limit"] == cq.DOSSIER_LIMIT
+
+
+def test_a_truncated_dossier_says_so_with_cqs_own_numbers() -> None:
+    """The old disclosure inferred truncation from `total >= limit`,
+    which can only ever say "possibly" and says it wrongly when the
+    count lands on the cap by coincidence. CQ now returns `truncated`
+    and `total_available` counted BEFORE the cap, which is the real
+    denominator."""
+    from app.services import context_quilt as cq
+
+    block = cq.format_dossier({
+        "meetings": [{"patches": [
+            {"patch_id": "p1", "created_at": "2026-08-01T00:00:00Z",
+             "text": "a thing"}]}],
+        "truncated": True, "total_available": 2136,
+    }, limit=None)
+    assert "2136" in block, block[:300]
+    assert "FLOOR" in block.upper()
 
 
 def test_a_project_less_turn_can_still_pull_multi_meeting_memory() -> None:
