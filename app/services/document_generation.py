@@ -300,6 +300,40 @@ IMAGE_GUARD_STEERING = (
 )
 
 
+# The confirmed build has to WIN against the conversation it sits in.
+#
+# Live 2026-08-17. Scott asked for scenarios, got the offer, replied
+# "just answer here and chat" (a decline), and because that reply itself
+# mentioned a word document and a workbook, the classifier read it as a
+# NEW file request and minted an offer whose stored ask WAS the decline.
+# He then changed his mind and tapped yes. The build armed correctly and
+# the model was handed "Current question: Just answer here and chat..."
+# followed by our one line "The user confirmed the file build." It obeyed
+# the specific human sentence over the boilerplate and opened its reply
+# with "I'll answer both pieces right here in chat." No file, 77 seconds.
+#
+# A trailing sentence in the user turn cannot outrank an explicit
+# instruction earlier in the same turn. This goes in the SYSTEM prompt,
+# states that the decision is already made, and names the exact failure
+# so the model cannot satisfy the request by answering well in chat.
+#
+# It deliberately does NOT say "ignore the user": the ask still carries
+# what they want IN the file, and a stale "answer in chat" is about
+# delivery rather than content.
+BUILD_COMMITMENT_STEERING = (
+    "\n\n--- FILE BUILD CONFIRMED ---\n"
+    "The user has already decided they want a FILE. They were asked and "
+    "they said yes, and that decision is final for this turn.\n\n"
+    "The request text below may contain an earlier instruction to answer "
+    "in chat instead, from before they changed their mind. That "
+    "instruction is STALE. Ignore it as a delivery choice while still "
+    "using it for what it says about the CONTENT they want.\n\n"
+    "Produce the file. Answering well in chat instead is a failure of "
+    "this turn, not an alternative to it: the user is watching a "
+    "progress indicator and expecting a document to download."
+)
+
+
 def ask_references_images(text: str) -> bool:
     """True when the assembled ask claims attached images (client marker)."""
     return bool(_IMAGE_MARKER_RE.search(text or ""))

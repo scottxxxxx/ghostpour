@@ -2104,6 +2104,13 @@ async def chat(
     # every non-reply path; the saved per-project preference covers those.
     _style_reply = None
     _img_guarded = False  # image-guard disarmed this turn: no re-offer
+    # Did this build come from the user ANSWERING an offer (pill tap or a
+    # typed yes), rather than from them typing an explicit request? Only
+    # the former is a decision worth recording: an explicit "create a
+    # spreadsheet" already sits in the transcript in the user's own words.
+    # `generation_confirmed` does NOT mean this — the fast path sets it
+    # too, for transport and rescue reuse.
+    _confirmed_via_offer = False
     _gen_teaser_text = ""
     _gen_teaser_offer_id = None
     _gen_upsell_line = None
@@ -2200,6 +2207,7 @@ async def chat(
                     _confirmation, gist=_offer.get("gist") or "",
                     offer_id=_lq_id))
             if _offer is not None:
+                _confirmed_via_offer = True
                 _template_id = _offer.get("template_id")
                 # A TEASER tap builds the ANSWER, not the question again.
                 #
@@ -2333,6 +2341,7 @@ async def chat(
                     _offer = {**_offer, "lane_choice": "asked",
                               "template_id": "gantt_detailed"}
                 if _reply["confirm"]:
+                    _confirmed_via_offer = True
                     # Image inherit + guard (2026-07-19 fabricated-spreadsheet
                     # incident): the photo rides the ORIGINATING send; the
                     # typed-yes reply carries chat history only. Inherit the
@@ -2810,7 +2819,19 @@ async def chat(
                     _contract_id, body.model, _c.expected_seconds,
                     _research_pending)
     elif _gen_armed and not _template_id:
-        body = body.model_copy(update={"generation": True})
+        # The freeform sandbox is the lane with no schema and no
+        # deterministic renderer telling it what to produce, so it is the
+        # one that can satisfy the request by writing a good answer in
+        # chat and emitting no file at all. Live 2026-08-17: it did
+        # exactly that, for 77 seconds, because the stored ask still said
+        # "just answer here and chat" from before the user changed their
+        # mind. State that the decision is already made.
+        from app.services.document_generation import (
+            BUILD_COMMITMENT_STEERING as _BCS,
+        )
+        body = body.model_copy(update={
+            "generation": True,
+            "system_prompt": (body.system_prompt or "") + _BCS})
     elif _gen_armed and _template_id:
         # Mark it a build for the adapter. The template lane sets neither
         # `generation` nor `tools`, so the adapter could not tell it from
@@ -3631,7 +3652,31 @@ async def chat(
         if generated_payload:
             response_data["generated_files"] = generated_payload
 
-        # A confirmed build that produced nothing has to SAY so.
+        # Traceability: a tap is a DECISION and belongs in the record.
+        #
+        # Scott, 2026-08-17: "if we give somebody a CTA that asks whether
+        # they want a file created and they click on it, we should be
+        # clear that that is in fact making the file, and leave it in the
+        # chat along with all of the other exchanges, so that later if
+        # they stumble upon it we can see the complete conversation,
+        # including the fact that they made a decision to click on that."
+        #
+        # A tap currently renders as the original question repeated, so
+        # the transcript shows a question that mysteriously produced a
+        # file and no sign anybody chose anything. We serve the words
+        # rather than let the client invent them, same as every other
+        # user-visible string ([[app knobs are ours]]).
+        if _gen_armed and _confirmed_via_offer:
+            response_data["decision_record"] = {
+                "kind": "file_build_confirmed",
+                # What the USER's turn should read as in the transcript,
+                # instead of the question echoed back at them.
+                "user_line": "Yes, create the file.",
+                # What we did about it, so the record says a build STARTED
+                # even when the outcome later says it produced nothing.
+                "assistant_line": "Building the file you asked for.",
+                "persist": True,
+            }
         #
         # The user tapped a button, watched a progress card count up
         # against a served estimate, and then the card was replaced by a
