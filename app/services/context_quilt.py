@@ -575,10 +575,19 @@ def is_rundown_ask(question: str) -> bool:
 
 async def quilt_dossier(user_id: str, project_id: str | None,
                         app_id: str | None = None,
-                        limit: int = DOSSIER_LIMIT) -> dict | None:
+                        limit: int | None = DOSSIER_LIMIT) -> dict | None:
     """GET /v1/quilt/{user_id}?project_id&group_by=origin&limit — the
     complete scoped memory, meeting-grouped, newest first. None on any
-    failure (caller falls back to recall)."""
+    failure (caller falls back to recall).
+
+    `limit=None` OMITS the parameter, which is how CQ returns everything:
+    their cap is caller-supplied and absent by default. That is the right
+    call for an artifact whose job is COUNTING, where a truncated input
+    produces a confidently wrong number in a cell. Measured 2026-08-17:
+    Scott's own quilt reports `total_available` 2136 against the 500 we
+    were asking for, so the counting artifact was seeing under a quarter
+    of the material and had no way to say so.
+    """
     settings = get_settings()
     if not settings.cq_base_url:
         return None
@@ -593,7 +602,10 @@ async def quilt_dossier(user_id: str, project_id: str | None,
             # of pulling every project at once, so the cap matters MORE
             # there rather than less.
             params={**({"project_id": project_id} if project_id else {}),
-                    "group_by": "origin", "limit": limit},
+                    "group_by": "origin",
+                    # Omitted entirely when None: CQ defaults to no cap,
+                    # and sending one is what makes them truncate.
+                    **({"limit": limit} if limit is not None else {})},
             headers=await _get_auth_headers(app_id),
             timeout=httpx.Timeout(settings.cq_dossier_timeout_ms / 1000.0),
         )
@@ -620,7 +632,7 @@ def _format_patch(p: dict) -> str:
     return " ".join(bits)
 
 
-def format_dossier(data: dict, limit: int = DOSSIER_LIMIT) -> str:
+def format_dossier(data: dict, limit: int | None = DOSSIER_LIMIT) -> str:
     """The injection block. Meeting-grouped, newest first (CQ's ordering);
     origin-less patches (user-scoped) follow in flat sections. server_time
     is never rendered — the block must stay byte-stable within CQ's
@@ -654,7 +666,17 @@ def format_dossier(data: dict, limit: int = DOSSIER_LIMIT) -> str:
         lines.append("")
     header = (f"[PROJECT MEMORY DOSSIER: complete stored memory, "
               f"{total} patches across {len(meetings)} meetings]")
-    if total >= limit:
+    # Prefer CQ's own disclosure over inferring one. They now return
+    # `truncated` and `total_available`, and the total is counted BEFORE
+    # the cap, so it is the real denominator rather than a guess. The old
+    # `total >= limit` test could only ever say "possibly", and said it
+    # wrongly whenever the count landed on the cap by coincidence.
+    if data.get("truncated"):
+        _avail = data.get("total_available")
+        header += ("\n(dossier truncated: showing " + str(total) + " of "
+                   + (str(_avail) if _avail is not None else "more")
+                   + " stored patches, so counts here are a FLOOR)")
+    elif limit is not None and total >= limit:
         header += f"\n(dossier capped at the {limit} most recent patches)"
     return header + "\n\n" + "\n".join(lines).strip()
 

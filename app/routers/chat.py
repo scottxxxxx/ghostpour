@@ -2685,21 +2685,26 @@ async def chat(
             # than hope the ask happens to look like a rundown.
             try:
                 from app.services import context_quilt as _cq
-                # 500, not the 150 default. CQ measured real projects
-                # 2026-08-15 at 6 to 8 patches per meeting (ABM 635
-                # across 77, Kore 120 across 17), which saturates 150 at
-                # roughly 19 to 21 meetings. A COUNTING artifact that
-                # silently truncates reports a wrong number in a cell
-                # while the cap disclosure sits elsewhere in the block.
-                # 500 is the documented ceiling; it fixes ordinary
-                # projects and still truncates the largest, which is why
-                # the column calls itself a floor.
+                # NO CAP, and the reasoning changed on 2026-08-17. We
+                # were sending 500 and believed that was the ceiling.
+                # CQ's cap is CALLER-SUPPLIED and absent by default, so
+                # the 500 was self-inflicted: measured on Scott's own
+                # quilt, `total_available` is 2136, meaning this
+                # artifact was counting from under a quarter of the
+                # material. A COUNTING artifact that silently truncates
+                # puts a confidently wrong number in a cell.
+                #
+                # topic_tracker is the only `needs_dossier` contract, so
+                # nothing else pays for this, which is the whole reason
+                # the cap stays on ordinary recall: unbounded context on
+                # every turn is a real cost to fix one surface.
                 _dossier = await _cq.quilt_dossier(
                     user.id, body.get_meta("project_id"), app_id=app_id,
-                    limit=500)
+                    limit=None)
                 if _dossier and _dossier.get("meetings"):
                     _client_sys = (
-                        _client_sys + "\n\n" + _cq.format_dossier(_dossier)
+                        _client_sys + "\n\n"
+                        + _cq.format_dossier(_dossier, limit=None)
                     ).strip()
                     logger.info(
                         "contract_lane_dossier artifact=%s meetings=%s",
