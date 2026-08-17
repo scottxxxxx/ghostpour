@@ -126,6 +126,15 @@ class Contract:
         return [c for c in self.columns if not c.computed]
 
 
+_SOURCE = Column(
+    "source", "Said In",
+    "Where this came from, so a reader can go back to it. Name the "
+    "meeting and roughly when if it came from the discussion, or name "
+    "the source if it came from research. Write 'Not stated' when it "
+    "came from neither and you worked it out yourself. Never invent a "
+    "source for something you inferred.",
+    width=24)
+
 TEST_PLAN = Contract(
     hints=(("test plan", 10), ("test scenarios", 10), ("test cases", 10),
            ("scenario matrix", 9), ("qa plan", 9), ("test matrix", 9),
@@ -177,14 +186,17 @@ TEST_PLAN = Contract(
                "why this case matters, or what it is easy to get wrong. "
                "Leave empty when there is nothing worth saying.",
                width=34),
+        # Provenance. Added 2026-08-17: this is the artifact people
+        # actually build, and it was the one contract with no way to
+        # tell a claim that came from the material apart from one the
+        # model supplied. Without it a research-backed build cannot be
+        # scored for unsupported claims, so a comparison of two
+        # research strategies would return a clean bill of health while
+        # measuring nothing. The failure that matters here is not a
+        # wrong fact, it is a confident one with nothing behind it.
+        _SOURCE,
     ],
 )
-
-_SOURCE = Column(
-    "source", "Said In",
-    "Which meeting and roughly when this came from, so a reader can go "
-    "back to it. Use the meeting name and date you were given.",
-    width=24)
 
 ACTION_REGISTER = Contract(
     hints=(("action items", 10), ("action register", 10), ("action log", 10),
