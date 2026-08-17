@@ -900,3 +900,47 @@ class TestTheEstimateSaysWhichPartIsWhich:
         render. Sending a 0 would invite a "0:00 searching" caption."""
         got = self._started(contract_lane, pro_user)
         assert "search_expected_seconds" not in got, got
+class TestTheCountingArtifactPullsEverything:
+    """topic_tracker is the only contract that needs cross-meeting
+    context, and its whole job is counting. The cap that truncated it
+    was OURS: CQ's limit is caller-supplied and absent by default, so
+    sending one is what made them truncate. Measured on the wire
+    2026-08-17, Scott's quilt reports total_available 2136 against the
+    500 we asked for.
+
+    This drives the real turn. A service-level test that calls
+    quilt_dossier(limit=None) directly proves the service honours None
+    and would pass happily while the lane went on sending 500, which is
+    exactly what happened to the first version of it.
+    """
+
+    def _dossier_call(self, client, pro_user):
+        from app.services import context_quilt as cq
+
+        intent = {"file_request": True, "format": "xlsx",
+                  "gist": "what keeps coming up",
+                  "artifact": "topic_tracker", "artifact_confidence": "high"}
+        dossier = AsyncMock(return_value={"meetings": [
+            {"patches": [{"patch_id": "p1", "created_at": "2026-08-01",
+                          "text": "pricing came up"}]}]})
+        with patch("app.services.document_generation."
+                   "classify_generation_intent",
+                   new_callable=AsyncMock, return_value=intent), \
+             patch.object(cq, "quilt_dossier", dossier), \
+             patch("app.services.anthropic_or_fallback.route_with_fallback",
+                   new_callable=AsyncMock,
+                   return_value=_emit_artifact_response()):
+            _send(client, pro_user, stream=True,
+                  text="build a topic tracker spreadsheet",
+                  project_id="PROJ-1")
+        return dossier
+
+    def test_the_lane_asks_for_the_whole_quilt(self, contract_lane, pro_user):
+        d = self._dossier_call(contract_lane, pro_user)
+        assert d.await_count == 1, (
+            f"dossier fetched {d.await_count}x for one counting build")
+        assert d.await_args.kwargs.get("limit") is None, (
+            "the counting artifact asked for a capped dossier, so its "
+            "counts are computed from a truncated set and the cell is "
+            "confidently wrong: "
+            f"limit={d.await_args.kwargs.get('limit')}")
