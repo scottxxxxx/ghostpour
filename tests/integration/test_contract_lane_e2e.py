@@ -498,6 +498,86 @@ class TestResearchIntentSurvivesTheOffer:
         assert src.count('_offer.get("search_enabled")') >= 2
 
 
+class TestTheConfirmTurnRecoversResearchIntent:
+    """VERIFIED with the client team 2026-08-17, by them reading their
+    own code rather than recalling it: **the client sends
+    `search_enabled: false` on the confirm turn.** Their flag resets at
+    the end of every completed send, deliberately, so an armed search
+    never leaks into the next question. They are right not to change it
+    — a flag that quietly persists is how someone spends a capped, paid
+    allowance they did not ask to spend. We are the only party that
+    knows the offer and the reply are the same piece of work, so the
+    recovery belongs here.
+
+    That makes this LOAD BEARING rather than belt and braces. If it
+    regresses: a researched build silently produces a file with no
+    research in it, AND the estimate is 85 seconds short on precisely
+    the turns that run long. Failure shaped exactly like success, twice.
+
+    Existing coverage was a store-level unit test plus two assertions
+    about SOURCE TEXT (`src.index`, `src.count`). Those prove a line was
+    written, never that the path runs — the exact habit that put five
+    defects on a device one at a time. This drives the real turn and
+    asserts on the request the provider actually receives, because that
+    is what decides whether the search tool gets attached at all.
+    """
+
+    def _confirm(self, client, pro_user, *, offer_search: bool, **meta):
+        """Arrange an offer that does or does not remember research,
+        then answer it the way the client really answers it."""
+        from app.services import generation_offers
+
+        oid = generation_offers.create(
+            pro_user["user_id"], "xlsx", "test scenarios",
+            artifact_id="test_plan", search_enabled=offer_search)
+
+        yes = {"confirm": True, "format": "xlsx", "style": None,
+               "version": None}
+        with patch("app.services.document_generation.interpret_offer_reply",
+                   new_callable=AsyncMock, return_value=yes), \
+             patch("app.services.anthropic_or_fallback.route_with_fallback",
+                   new_callable=AsyncMock,
+                   return_value=_emit_artifact_response()) as route:
+            resp = _send(client, pro_user, text="Yes", offer_id=oid,
+                         reply_text="Yes",
+                         # What iOS actually puts on the wire here.
+                         search_enabled=False, **meta)
+        return resp, route
+
+    def test_the_build_still_searches_though_the_client_said_false(
+            self, contract_lane, pro_user):
+        resp, route = self._confirm(contract_lane, pro_user,
+                                    offer_search=True)
+        assert resp.status_code == 200, resp.text[:400]
+        assert route.await_args, "the confirm turn never reached the model"
+        sent = route.await_args.args[1]
+        assert sent.get_meta("search_enabled") is True, (
+            "the confirm turn dropped the research the ask opted into; "
+            "the user gets a file with no research and nothing says so")
+
+    def test_the_estimate_still_covers_the_research(
+            self, contract_lane, pro_user):
+        """The second half of the same regression, and the one a user
+        actually watches: a short promise on a long turn."""
+        resp, _ = self._confirm(contract_lane, pro_user, offer_search=True)
+        started = next((d for n, d in _events(resp)
+                        if n == "generation_started"), None)
+        assert started, [n for n, _ in _events(resp)]
+        assert "search_expected_seconds" in started, started
+
+    def test_an_offer_without_research_is_not_given_any(
+            self, contract_lane, pro_user):
+        """The client's false must still MEAN false when there is no
+        opted-in research to recover. Otherwise the recovery is just a
+        cap bypass that happens to be shaped like a bugfix."""
+        resp, route = self._confirm(contract_lane, pro_user,
+                                    offer_search=False)
+        assert resp.status_code == 200, resp.text[:400]
+        sent = route.await_args.args[1]
+        assert not sent.get_meta("search_enabled"), (
+            "a plain ask was silently upgraded to a paid search")
+
+
 class TestResearchPlusFileSkipsTheOffer:
     """Scott, 2026-08-16, after watching it fail three times in a row.
 
