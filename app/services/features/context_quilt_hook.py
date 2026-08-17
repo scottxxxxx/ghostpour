@@ -193,16 +193,37 @@ class ContextQuiltHook:
             )
             result["cq_result"] = cq_result
 
-            if cq_result.get("context"):
-                body = _inject_recall_block(body, cq_result["context"])
-
-            # Inject communication style for chat modes only
+            # Communication style goes in BEFORE recall, and the order is
+            # the whole point (measured 2026-08-17).
+            #
+            # Recall is appended LAST on the chat surfaces and is per-turn
+            # volatile, so the Anthropic adapter deliberately leaves it in
+            # the uncached tail: caching it would write an entry covering
+            # prefix+recall that changes every turn and can never be read
+            # back. That optimisation only holds while recall is the last
+            # thing in the prompt. Appending style AFTER it made the tail
+            # non-empty, which flipped recall to cached and bought exactly
+            # the wasted per-turn write the adapter is written to avoid.
+            #
+            # Injected first, the style rides inside the CACHED PREFIX
+            # instead: it keeps full system-prompt steering weight, it is
+            # cached rather than re-sent, and recall goes back to being
+            # last. Verified on the built blocks, not inferred: prefix
+            # grows from 33 to 142 chars cached and the recall breakpoint
+            # disappears.
+            #
+            # (Templates carrying an explicit {{context_quilt}} placeholder
+            # would still land recall mid-prompt, but the chat surfaces do
+            # not emit one, and they are the only modes that get style.)
             if cq_result.get("communication_style") and body.get_meta("prompt_mode") in (
                 "ProjectChat", "PostMeetingChat"
             ):
                 body = body.model_copy(update={
                     "system_prompt": body.system_prompt + f"\n\n{cq_result['communication_style']}"
                 })
+
+            if cq_result.get("context"):
+                body = _inject_recall_block(body, cq_result["context"])
 
             body = _fire_memory_edits(body)
 
