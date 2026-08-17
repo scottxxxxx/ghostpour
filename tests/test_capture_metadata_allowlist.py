@@ -112,3 +112,53 @@ def test_none_values_are_not_forwarded_as_nulls(cq_post):
     md = _sent_body(cq_post)["metadata"]
     assert "user_label" not in md
     assert md["language"] == "en"
+
+
+class TestOriginIdSurvivesTheOutboundBody:
+    """CQ's dedup, their item-ledger same-origin restatement guard and
+    their freshness fix ALL key on `origin_id`, and all three fail
+    SILENTLY without it: no error, just a phantom meeting per ingest,
+    inflated meeting counts and wrong "last met" dates.
+
+    Verified on the wire 2026-08-17 by replaying one real meeting: the
+    id arrives byte identical and CQ merged it into the existing
+    meeting rather than minting a new one. But it travels INSIDE
+    `metadata`, which means it is carried by an allowlist entry rather
+    than by the schema.
+
+    CQ's own rule, from the two months their entity extraction sat
+    broken: **when a contract has exactly one carrier, its
+    disappearance is silent by construction.** An allowlist entry is
+    exactly one carrier. So this pins the carrier.
+    """
+
+    def test_origin_id_and_type_reach_the_wire(self, cq_post):
+        asyncio.run(cq.capture(
+            user_id="u1", interaction_type="meeting_transcript",
+            content="hi", origin_id="MTG-1", origin_type="meeting"))
+        md = _sent_body(cq_post)["metadata"]
+        assert md["origin_id"] == "MTG-1", (
+            "origin_id left the building; every ingest now mints a "
+            "phantom meeting and nothing errors")
+        assert md["origin_type"] == "meeting"
+
+    def test_the_deprecated_alias_still_arrives_as_origin_id(self, cq_post):
+        """Callers on the old arg must not silently lose the field."""
+        asyncio.run(cq.capture(
+            user_id="u1", interaction_type="meeting_transcript",
+            content="hi", meeting_id="MTG-2"))
+        md = _sent_body(cq_post)["metadata"]
+        assert md["origin_id"] == "MTG-2"
+        assert md["origin_type"] == "meeting"
+
+    def test_it_is_nested_in_metadata_not_at_the_root(self, cq_post):
+        """Pins WHERE it sits, because both sides agreed on nested and a
+        well-meaning move to the root would break their read sites."""
+        asyncio.run(cq.capture(
+            user_id="u1", interaction_type="meeting_transcript",
+            content="hi", origin_id="MTG-3", origin_type="meeting"))
+        body = _sent_body(cq_post)
+        assert "origin_id" not in body, (
+            "origin_id moved to the root; CQ reads metadata.origin_id at "
+            "every site and would see nothing")
+        assert body["metadata"]["origin_id"] == "MTG-3"
