@@ -602,3 +602,47 @@ class TestTheEstimateCoversTheResearch:
                / "app/routers/chat.py").read_text()
         i = src.index("SEARCH_PHASE_SECONDS = ")
         assert "Measured" in src[i - 700:i]
+
+
+class TestTheEstimateSaysWhichPartIsWhich:
+    """A single number explains that the wait is long but never why.
+    The client can say "usually about 1:25 searching, then 2:50
+    building" only if we break the total down.
+
+    Agreed with the client team 2026-08-17: they render this as caption
+    copy and NEVER as a phase claim, because a timer-driven retitle
+    would be the same fabrication we refused to emit ourselves. The
+    observed phase token supersedes it later, additively, with nothing
+    to rip out.
+    """
+
+    def _started(self, client, pro_user, **meta):
+        with patch("app.services.anthropic_or_fallback.route_with_fallback",
+                   new_callable=AsyncMock,
+                   return_value=_emit_artifact_response()):
+            resp = _send(client, pro_user, stream=True, **meta)
+        for name, data in _events(resp):
+            if name == "generation_started":
+                return data
+        raise AssertionError(f"no generation_started: {resp.text[:300]}")
+
+    def test_a_researched_build_breaks_its_estimate_down(
+            self, contract_lane, pro_user):
+        from app.routers.chat import SEARCH_PHASE_SECONDS
+        got = self._started(contract_lane, pro_user, search_enabled=True)
+        assert got["search_expected_seconds"] == SEARCH_PHASE_SECONDS
+
+    def test_the_parts_cannot_disagree_with_the_total(
+            self, contract_lane, pro_user):
+        """Build slice is the subtraction, so it is always exact."""
+        got = self._started(contract_lane, pro_user, search_enabled=True)
+        build = got["expected_seconds"] - got["search_expected_seconds"]
+        assert build == 170, (
+            f"build slice {build} is not the artifact's own estimate")
+
+    def test_a_plain_build_sends_no_breakdown(
+            self, contract_lane, pro_user):
+        """Absence is the signal that there is one expectation to
+        render. Sending a 0 would invite a "0:00 searching" caption."""
+        got = self._started(contract_lane, pro_user)
+        assert "search_expected_seconds" not in got, got

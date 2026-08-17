@@ -3519,12 +3519,34 @@ async def chat(
         # difference, rounded down, and it is added only when search
         # SURVIVED the gate — a stripped flag means no search will run,
         # so the estimate must not grow for one that cannot happen.
-        if body.get_meta("search_enabled"):
+        _researching = bool(body.get_meta("search_enabled"))
+        if _researching:
             _expected += SEARCH_PHASE_SECONDS
-        yield _sse("generation_started", {
+        _started = {
             "expected_seconds": _expected,
             "expected_format": body.get_meta("expected_format"),
-        })
+        }
+        # Split the estimate so the client can say WHY a long wait is
+        # long. `expected_seconds` is the total; this is the research
+        # slice of it, and the build slice is the subtraction. One field
+        # rather than two so the parts cannot disagree with the total.
+        #
+        # ABSENT when no research leg will run, which is the signal that
+        # there is one expectation to render, exactly as today.
+        #
+        # ⚠ This is an EXPECTATION, never a phase claim. It says a
+        # search usually takes about this long; it does NOT say a search
+        # is happening now, and it must not be used to retitle a card on
+        # a timer. We cannot yet observe the search/build boundary live
+        # (the build is one non-streaming request; measured 2026-08-17,
+        # four consecutive builds returned in a single leg), and a
+        # timer-driven label would be a fabrication that happens to be
+        # right most of the time — the exact defect this began as.
+        # SS renders it as caption copy only and holds the same line;
+        # the observed `phase` token supersedes it, additively.
+        if _researching:
+            _started["search_expected_seconds"] = SEARCH_PHASE_SECONDS
+        yield _sse("generation_started", _started)
         # Own DB connection: this generator outlives the request scope (the
         # dependency-injected connection is already torn down while the
         # stream body runs — caught by CI, ValueError: no active connection).
