@@ -133,11 +133,22 @@ def test_the_adapter_appends_tools_rather_than_replacing_them() -> None:
 
 
 def test_the_lane_is_checked_before_the_sandbox_default() -> None:
-    """Source-level guard: the sandbox branch is the catch-all, so a
-    contract that resolved after it would never build."""
+    """The sandbox branch is the catch-all, so a contract resolving
+    after it would never build.
+
+    Still a source-level ordering guard, now anchored on the branch
+    CONDITION rather than its body: keyed on the body text it broke the
+    moment that branch grew a second line (2026-08-17) while the
+    ordering it checks was untouched.
+
+    It cannot tell a live branch from a dead one, so it is not
+    behavioural coverage. The outcome it protects is asserted for real
+    in test_contract_lane_e2e.py
+    (test_a_contract_turn_never_falls_through_to_the_sandbox).
+    """
     contract = CHAT_SRC.index("if _gen_armed and _contract_id:")
-    sandbox = CHAT_SRC.index('body = body.model_copy(update={"generation": True})')
-    assert contract < sandbox
+    sandbox = CHAT_SRC.index('elif _gen_armed and not _template_id:')
+    assert contract < sandbox, "the sandbox catch-all precedes the contract lane"
 
 
 def test_the_artifact_call_carries_its_own_call_type() -> None:

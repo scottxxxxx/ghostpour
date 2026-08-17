@@ -1148,3 +1148,121 @@ class TestTheTeaserTurnRemembersWhatItOffered:
         sent = route.await_args.args[1].user_content
         assert "build the project plan" in sent
         assert "some chat answer" not in sent
+
+
+class TestAConfirmedBuildOutranksTheConversation:
+    """Live 2026-08-17, second silent failure of the day.
+
+    Scott asked for scenarios, got the offer, and replied "just answer
+    here and chat" — a decline. But that reply itself mentioned a word
+    document and a workbook, so the classifier read it as a NEW file
+    request and minted an offer whose stored ask WAS the decline. He
+    changed his mind and tapped yes. The build armed correctly and the
+    model was handed "Current question: Just answer here and chat..."
+    followed by our single line "The user confirmed the file build."
+
+    It obeyed the human sentence over the boilerplate and opened with
+    "I'll answer both pieces right here in chat." No file, 77 seconds,
+    nothing said. A trailing sentence in the user turn cannot outrank an
+    explicit instruction earlier in the same turn.
+    """
+
+    def _armed(self, client, pro_user, ask):
+        from app.services import generation_offers as go
+        oid = go.create(pro_user["user_id"], "xlsx", "scenarios",
+                        ask_content=ask)
+        with patch("app.services.anthropic_or_fallback.route_with_fallback",
+                   new_callable=AsyncMock,
+                   return_value=_emit_artifact_response()) as route:
+            _send(client, pro_user, text="Yes", offer_id=oid,
+                  generation_confirmed=True)
+        return route.await_args.args[1]
+
+    def test_the_build_is_told_the_decision_is_already_made(
+            self, contract_lane, pro_user):
+        sent = self._armed(contract_lane, pro_user,
+                           "Just answer here and chat, it is two things")
+        assert "FILE BUILD CONFIRMED" in (sent.system_prompt or ""), (
+            "nothing in the system prompt outranks the stale 'answer in "
+            "chat' sitting in the ask")
+
+    def test_it_names_answering_in_chat_as_the_failure(
+            self, contract_lane, pro_user):
+        """Naming the exact failure matters: the model satisfied the
+        request by answering well, which felt like success to it."""
+        sent = self._armed(contract_lane, pro_user, "just answer here")
+        sp = sent.system_prompt or ""
+        assert "STALE" in sp
+        assert "failure of this turn" in sp
+
+    def test_the_steering_carries_no_dash_punctuation(self):
+        from app.services.document_generation import BUILD_COMMITMENT_STEERING
+        for ch in ("—", "–"):
+            assert ch not in BUILD_COMMITMENT_STEERING
+
+
+class TestTheTapIsRecordedInTheConversation:
+    """Scott, 2026-08-17: a tap is a DECISION and belongs in the record.
+
+    A tap currently renders as the original question repeated, so the
+    transcript shows a question that mysteriously produced a file with
+    no sign anybody chose anything. We serve the words rather than let
+    the client invent them.
+    """
+
+    def _confirmed(self, client, pro_user):
+        from app.services import generation_offers as go
+        oid = go.create(pro_user["user_id"], "xlsx", "scenarios",
+                        artifact_id="test_plan",
+                        ask_content="build the scenarios")
+        with patch("app.services.anthropic_or_fallback.route_with_fallback",
+                   new_callable=AsyncMock,
+                   return_value=_emit_artifact_response()):
+            return _result_of(_send(client, pro_user, stream=True, text="Yes",
+                                    offer_id=oid, generation_confirmed=True))
+
+    def test_a_tap_carries_a_decision_record(self, contract_lane, pro_user):
+        rec = self._confirmed(contract_lane, pro_user).get("decision_record")
+        assert rec, "the tap left no trace in the conversation"
+        assert rec["kind"] == "file_build_confirmed"
+        assert rec["persist"] is True, (
+            "a decision that does not persist is invisible the moment the "
+            "user scrolls back, which is the whole ask")
+
+    def test_it_says_a_file_is_being_made_not_the_question_again(
+            self, contract_lane, pro_user):
+        rec = self._confirmed(contract_lane, pro_user)["decision_record"]
+        assert "file" in rec["user_line"].lower()
+        assert "Building" in rec["assistant_line"]
+
+    def test_an_ordinary_turn_records_no_decision(
+            self, contract_lane, pro_user):
+        """Only a real decision goes in the record. A turn nobody
+        confirmed must not claim one was made."""
+        with patch("app.services.anthropic_or_fallback.route_with_fallback",
+                   new_callable=AsyncMock,
+                   return_value=_emit_artifact_response()):
+            resp = _send(contract_lane, pro_user, stream=True)
+        assert "decision_record" not in _result_of(resp)
+
+
+def test_a_contract_turn_never_falls_through_to_the_sandbox(
+        contract_lane, pro_user):
+    """The behavioural half of the wiring file's ordering guard.
+
+    The sandbox branch is the catch-all, so a contract resolving after
+    it would silently build freeform instead: no column schema, no
+    deterministic renderer, and a workbook that looks plausible. The
+    wiring test pins the source order and cannot tell a live branch
+    from a dead one. This pins what the model is actually sent.
+    """
+    with patch("app.services.anthropic_or_fallback.route_with_fallback",
+               new_callable=AsyncMock,
+               return_value=_emit_artifact_response()) as route:
+        _send(contract_lane, pro_user)
+    sent = route.await_args.args[1]
+    assert any(t["name"] == "emit_artifact" for t in (sent.tools or [])), (
+        "no tool schema: the contract fell through to the sandbox")
+    assert sent.generation is False, (
+        "the contract turn set the sandbox flag, so it took the "
+        "catch-all branch and the columns are the model's again")
