@@ -24,6 +24,7 @@ The rule it encodes: the contract lane is exercised, not read.
 
 from __future__ import annotations
 
+import asyncio
 import io
 import json
 from unittest.mock import AsyncMock, patch
@@ -546,14 +547,23 @@ class TestTheConfirmTurnRecoversResearchIntent:
 
     def test_the_build_still_searches_though_the_client_said_false(
             self, contract_lane, pro_user):
+        """Since the research leg landed, the recovered flag shows up as
+        a research CALL rather than a tool on the build call, so this
+        asserts on the first leg. If the recovery regresses there is no
+        research leg at all and the count drops to one, which is what
+        makes this still catch it."""
         resp, route = self._confirm(contract_lane, pro_user,
                                     offer_search=True)
         assert resp.status_code == 200, resp.text[:400]
-        assert route.await_args, "the confirm turn never reached the model"
-        sent = route.await_args.args[1]
-        assert sent.get_meta("search_enabled") is True, (
-            "the confirm turn dropped the research the ask opted into; "
-            "the user gets a file with no research and nothing says so")
+        assert route.await_count == 2, (
+            f"expected a research leg then a build, got {route.await_count} "
+            "call(s); the confirm turn dropped the research the ask opted "
+            "into and the user gets a file with no research in it")
+        researched = route.await_args_list[0].args[1]
+        assert researched.get_meta("search_enabled") is True
+        assert not researched.tools, (
+            "the research leg was handed the build tool, so it can build "
+            "immediately and the boundary is not real")
 
     def test_the_estimate_still_covers_the_research(
             self, contract_lane, pro_user):
@@ -682,6 +692,170 @@ class TestTheEstimateCoversTheResearch:
                / "app/routers/chat.py").read_text()
         i = src.index("SEARCH_PHASE_SECONDS = ")
         assert "Measured" in src[i - 700:i]
+
+
+class TestResearchIsItsOwnLeg:
+    """Research runs as its own call, finishes, and hands its findings
+    to the build. Two calls we sequence rather than one call juggling
+    two tools, so the search/build boundary is known because we drew it.
+
+    The failures this guards are all silent. A build that keeps the
+    search tool can research again and the boundary stops being true. A
+    research leg whose searches nobody counts spends a capped paid
+    allowance with the meter stopped. A findings block that never
+    reaches the build means we paid for research and threw it away.
+    """
+
+    def _run(self, client, pro_user, research_text="FINDING: rate is 4.2%"):
+        from app.models.chat import ChatResponse
+
+        research = ChatResponse(
+            text=research_text, input_tokens=10, output_tokens=20,
+            model="claude-sonnet-4-6", provider="anthropic",
+            usage={"web_search_requests": 3},
+            raw_request_json="{}", raw_response_json="{}")
+
+        with patch("app.services.anthropic_or_fallback.route_with_fallback",
+                   new_callable=AsyncMock,
+                   side_effect=[research, _emit_artifact_response()]) as route:
+            resp = _send(client, pro_user, stream=True,
+                         text="find what typically breaks these bots online "
+                              "and put it into a complete test plan",
+                         search_enabled=True)
+        return resp, route
+
+    def test_research_runs_first_and_the_build_follows(
+            self, contract_lane, pro_user):
+        resp, route = self._run(contract_lane, pro_user)
+        assert route.await_count == 2, route.await_count
+        first, second = (c.args[1] for c in route.await_args_list)
+        assert not first.tools, "research leg must not be able to build"
+        assert any(t["name"] == "emit_artifact" for t in (second.tools or [])), (
+            "the second leg is the build and must carry the build tool")
+
+    def test_the_build_cannot_search_again(self, contract_lane, pro_user):
+        """The boundary is only real if the build cannot cross back."""
+        _, route = self._run(contract_lane, pro_user)
+        build = route.await_args_list[1].args[1]
+        assert not build.get_meta("search_enabled"), (
+            "the build kept the search tool, so it can research mid-build "
+            "and the phase we just reported stops being true")
+
+    def test_the_findings_reach_the_build(self, contract_lane, pro_user):
+        _, route = self._run(contract_lane, pro_user)
+        build = route.await_args_list[1].args[1]
+        assert "FINDING: rate is 4.2%" in (build.system_prompt or ""), (
+            "we paid for research and did not hand it to the build")
+        assert "cannot search again" in (build.system_prompt or ""), (
+            "the build was not told the tool is gone, so a named gap "
+            "becomes something it quietly fills instead")
+
+    def test_the_research_legs_searches_still_count(
+            self, contract_lane, pro_user):
+        """The meter must not stop when the feature starts working."""
+        resp, _ = self._run(contract_lane, pro_user)
+        state = _result_of(resp).get("search_state") or {}
+        assert state.get("was_used") is True, state
+
+    def test_a_failed_research_leg_still_delivers_the_file(
+            self, contract_lane, pro_user):
+        """Falls open on purpose: a research failure must not cost the
+        user the document they asked for."""
+        from httpx import HTTPError
+        with patch("app.services.anthropic_or_fallback.route_with_fallback",
+                   new_callable=AsyncMock,
+                   side_effect=[HTTPError("research died"),
+                                _emit_artifact_response()]):
+            resp = _send(contract_lane, pro_user, stream=True,
+                         text="find what breaks these bots online and put "
+                              "it into a complete test plan",
+                         search_enabled=True)
+        assert _files_from(resp), resp.text[:400]
+
+    def test_a_plain_build_runs_exactly_one_leg(
+            self, contract_lane, pro_user):
+        """No search opted into means no boundary to report and nothing
+        to change: one call, as before."""
+        with patch("app.services.anthropic_or_fallback.route_with_fallback",
+                   new_callable=AsyncMock,
+                   return_value=_emit_artifact_response()) as route:
+            _send(contract_lane, pro_user, stream=True,
+                  text="create a test plan spreadsheet from the meeting")
+        assert route.await_count == 1, route.await_count
+
+
+class TestThePhaseIsObservedNotTimed:
+    """SS maps `phase: "searching"` client side already, so the day we
+    emit it their card retitles itself with no client release. It must
+    mean a search is in flight RIGHT NOW, never a guess from a clock.
+
+    Every test here drives REAL progress ticks: the tick interval is
+    patched down and the stubbed provider is made slow enough to cross
+    it. Without that a stub returns before the first tick, the event
+    list is empty, and "searching not in []" passes while the server
+    shouts "searching" at every user. That is a test that cannot fail,
+    which is worse than no test because it is why nobody looks.
+    """
+
+    def _phases(self, client, pro_user, *, legs, delay=0.05, text=None,
+                **meta):
+        async def _slow(*a, **kw):
+            await asyncio.sleep(delay)
+            return legs.pop(0)
+
+        with patch("app.routers.chat._PROGRESS_TICK_SECONDS", 0.01), \
+             patch("app.services.anthropic_or_fallback.route_with_fallback",
+                   new_callable=AsyncMock, side_effect=_slow):
+            resp = _send(client, pro_user, stream=True,
+                         text=text or ("find what breaks these bots online "
+                                       "and put it into a complete test plan"),
+                         **meta)
+        phases = [d.get("phase") for n, d in _events(resp)
+                  if n == "generation_progress"]
+        assert phases, "no progress ticks fired; this test proves nothing"
+        return phases
+
+    def _research(self):
+        from app.models.chat import ChatResponse
+        return ChatResponse(
+            text="found things", input_tokens=1, output_tokens=1,
+            model="claude-sonnet-4-6", provider="anthropic",
+            usage={"web_search_requests": 2},
+            raw_request_json="{}", raw_response_json="{}")
+
+    def test_a_plain_build_never_claims_to_be_searching(
+            self, contract_lane, pro_user):
+        phases = self._phases(
+            contract_lane, pro_user, legs=[_emit_artifact_response()],
+            # Format noun, so this arms a build on this turn rather than
+            # minting an offer. Without it there is no build to report a
+            # phase for and the assertion would pass on an empty list.
+            text="create a test plan spreadsheet from the meeting")
+        assert "searching" not in phases, phases
+        assert set(phases) == {"working"}, phases
+
+    def test_a_researched_build_reports_searching_while_it_searches(
+            self, contract_lane, pro_user):
+        """The positive case. Ticks fire during the research leg, and
+        those must say searching rather than claiming to build a file
+        that nothing has started building."""
+        phases = self._phases(contract_lane, pro_user, delay=0.12,
+                              legs=[self._research(),
+                                    _emit_artifact_response()],
+                              search_enabled=True)
+        assert "searching" in phases, (
+            f"the card spent the search claiming to build: {phases}")
+
+    def test_it_stops_saying_searching_once_research_returns(
+            self, contract_lane, pro_user):
+        """And it has to STOP. A phase that latches is the same lie
+        pointing the other way."""
+        phases = self._phases(contract_lane, pro_user, delay=0.12,
+                              legs=[self._research(),
+                                    _emit_artifact_response()],
+                              search_enabled=True)
+        assert phases[-1] == "working", (
+            f"still claiming to search after research returned: {phases}")
 
 
 class TestTheEstimateSaysWhichPartIsWhich:
