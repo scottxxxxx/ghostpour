@@ -387,7 +387,15 @@ def test_build_offer_envelope_shape():
     cta = fs["cta"]
     assert cta["kind"] == "generation_offer" and cta["action"] == "confirm_generation"
     assert "a native Word document (.docx)" in cta["text"]
-    assert "two minutes" in cta["text"]                 # sets the wait expectation
+    # Sets the TRADEOFF, deliberately without a duration: the real
+    # build runs 35 to 255 seconds, so a flat number in this sentence
+    # was wrong both ways. An over-estimate is spent before the user
+    # taps and costs a build they wanted, and nothing corrects it.
+    # The real figure rides details.expected_seconds on this envelope,
+    # and no-specific-duration is pinned across every locale in
+    # test_communication_style_placement.py.
+    assert "takes a little longer" in cta["text"]
+    assert "right here in chat" in cta["text"]      # the alternative
     assert "right here in chat" in cta["text"]          # offers the inline alternative
     assert cta["details"] == {"expected_format": "docx", "expected_seconds": 150, "gist": ""}
     # unknown/None format degrades to the default noun path, never a KeyError
@@ -792,7 +800,7 @@ def test_offer_envelope_conversational_with_gist_and_offer_id():
     cta = env["feature_state"]["cta"]
     assert cta["text"] == ("Sounds like you want a native Word document "
                            "(.docx) for onboarding new people. Building the "
-                           "real file takes about two minutes, or I can just "
+                           "real file takes a little longer, or I can just "
                            "lay it out right here in chat. Want the file?")
     assert cta["details"]["offer_id"] == "abc123"
     assert cta["details"]["gist"] == "for onboarding new people"

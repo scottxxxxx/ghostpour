@@ -44,14 +44,14 @@
         "enabled": true,
         "expected_seconds": 150,
         "poll_after_seconds": 5,
-        "offer_text": "Parece una solicitud de archivo. Puedo crear {format} para descargar y compartir, tarda unos dos minutos, o responder aquí mismo en el chat. ¿Quieres el archivo?",
+        "offer_text": "Parece una solicitud de archivo. Puedo crear {format} para descargar y compartir, tarda un poco más, o responder aquí mismo en el chat. ¿Quieres el archivo?",
         "format_nouns": {
           "xlsx": "una hoja de cálculo de Excel (.xlsx)",
           "docx": "un documento de Word (.docx)",
           "pptx": "una presentación de PowerPoint (.pptx)",
           "pdf": "un archivo PDF"
         },
-        "offer_text_gist": "Parece que quieres {format} {gist}. Crear el archivo real tarda unos dos minutos, o puedo mostrarlo aquí mismo en el chat. ¿Quieres el archivo?",
+        "offer_text_gist": "Parece que quieres {format} {gist}. Crear el archivo real tarda un poco más, o puedo mostrarlo aquí mismo en el chat. ¿Quieres el archivo?",
         "teaser_text": "¿Quieres esto como un archivo descargable?",
         "no_file_text": "No se creó ningún archivo para esta, así que la respuesta está arriba. Pedir un formato concreto, por ejemplo una hoja de cálculo, suele conseguir uno."
       },
