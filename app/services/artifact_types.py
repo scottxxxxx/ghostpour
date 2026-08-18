@@ -127,7 +127,20 @@ class Contract:
 
 
 _SOURCE = Column(
-    "source", "Said In",
+    # Header was "Said In" until 2026-08-18, and by then it was wrong on
+    # two of the three things this column holds. It was accurate when the
+    # column only ever named a meeting. The same day it was widened to
+    # also carry a researched source and the literal "Not stated" for a
+    # row the model worked out itself, the header was left alone: a
+    # web-search row sat under "Said In" when nobody said it, and an
+    # inferred row sat under "Said In" while the cell said it was not
+    # stated anywhere.
+    #
+    # The column outgrew its name in the same commit that made it useful.
+    # "Source" names the field and lets the cell answer it, including
+    # answering "there isn't one", which is the whole point of having the
+    # marker. A header should not assert a mode the data does not have.
+    "source", "Source",
     "Where this came from, so a reader can go back to it. Name the "
     "meeting and roughly when if it came from the discussion, or name "
     "the source if it came from research. Write 'Not stated' when it "
