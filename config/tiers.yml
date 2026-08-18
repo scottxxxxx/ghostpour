@@ -136,7 +136,21 @@ tiers:
     display_name: "Automation (internal)"
     description: "Partner test harness credentials. Capped, revocable, not a customer."
     default_model: "anthropic/claude-sonnet-4-6"
-    monthly_cost_limit_usd: 2.0
+    # Raised 2.0 -> 10.0 on 2026-08-17, and the reason is measured. The
+    # $2 ceiling was set before anything on this account had built a
+    # file, and a single freeform file build costs about a dollar
+    # (measured same day: $0.91 and $1.06). So $2 bought one build plus
+    # change, and one end-to-end verification of the generation path
+    # consumed the entire month and blocked the harness the tier exists
+    # to serve. A ceiling that stops the thing it is meant to permit is
+    # the wrong ceiling.
+    #
+    # Still a REAL ceiling, which is the whole point of the tier: plus,
+    # pro and admin are all -1, so this account cannot be moved onto one
+    # of them instead. Ten dollars is roughly ten builds a month, which
+    # covers a harness plus the occasional live check with room to
+    # notice if something starts looping.
+    monthly_cost_limit_usd: 10.0
     daily_cost_limit_usd: -1
     daily_token_limit: -1
     requests_per_minute: 20
