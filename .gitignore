@@ -38,7 +38,12 @@ docker-compose.override.yml
 *.docx
 
 # Claude Code (private dev context)
-CLAUDE.md
+# CLAUDE.md is TRACKED as of 2026-08-18, deliberately. It was ignored
+# while it held private dev context; it now carries the working protocol
+# shared verbatim with the ContextQuilt and ShoulderSurf repos, and that
+# text is worth nothing unless it travels and can be diffed. Leaving the
+# ignore in place while the file is tracked would have left a rule that
+# says one thing and a repo that does another.
 RENAMING_STRATEGY.md
 
 # pytest
