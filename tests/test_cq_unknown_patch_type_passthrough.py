@@ -246,3 +246,103 @@ def test_an_unknown_headline_mode_is_not_filtered(quilt_client, cq_returns):
     cq_returns({"patches": [item], "server_time": "2026-08-17T00:00:00Z"})
     got = quilt_client.get(f"/v1/quilt/{USER}").json()["patches"][0]
     assert got["headline_mode"] == "some_mode_shipped_after_this_test"
+
+
+# --- CQ #285: CONTESTED_NAME, a 409 whose BODY is the payload ---------
+#
+# `POST /v1/people/{u}` and `POST /v1/quilt/{u}/reassign-speaker` now
+# REFUSE a typed name that could mean more than one live person instead
+# of silently picking one, and the refusal carries the answer.
+#
+# This is the first 409 we forward whose body is DATA rather than an
+# explanation, which is the case a gateway is most likely to break:
+# preserving status while dropping or rewriting a 4xx body is a common
+# and defensible-sounding thing for a middlebox to do. If the status
+# crosses and the body does not, the client gets "contested" with
+# nothing to render, which is worse than the behaviour it replaced. A
+# wrong answer might get noticed; a dead end cannot be acted on at all.
+
+CONTESTED = {
+    "code": "CONTESTED_NAME",
+    "name": "Mike",
+    "candidates": [
+        {"entity_id": "e-pete", "name": "Mike Peterson", "meetings": 1,
+         "last_met": "2026-08-17", "projects": ["EMIDS"]},
+        {"entity_id": "e-dit", "name": "Mike DiTroia", "meetings": 11,
+         "last_met": "2026-08-17", "projects": ["Kore", "Cigna"]},
+    ],
+    "total": 3,
+    "truncated": False,
+}
+
+
+def test_a_409_body_survives_on_create_person(quilt_client, cq_returns):
+    """Status AND payload. Only 401 is rewritten on our side."""
+    cq_returns(CONTESTED, status=409)
+    r = quilt_client.post(f"/v1/people/{USER}", json={"name": "Mike"})
+    assert r.status_code == 409, r.status_code
+    assert r.json() == CONTESTED, "the 409 body was dropped or rewritten"
+
+
+def test_reassign_speaker_CANNOT_YET_CARRY_A_TYPED_NAME(quilt_client):
+    """⚠ PINS A LIMITATION, not a behaviour we want.
+
+    CQ #285 expects a caller to type a NAME and receive 409
+    CONTESTED_NAME. That flow is reachable on /people, which forwards a
+    raw dict, and is NOT reachable here: ReassignSpeakerRequest carries
+    only from_labels, to_self and to_person_id, and the route requires
+    exactly one of the latter two. A name-only request is refused by US
+    with a 422 and never reaches CQ, so their 409 can never be produced
+    on this route however well the body would have survived.
+
+    Found by testing the request rather than reading the response path.
+    Delete this test when the fields are added; it failing is the signal
+    that the gap closed.
+    """
+    r = quilt_client.post(f"/v1/quilt/{USER}/reassign-speaker", json={
+        "from_labels": [{"label": "Speaker 1", "meeting_id": "m-1"}],
+        "to_name": "Mike"})
+    assert r.status_code == 422, (
+        f"reassign-speaker now accepts a typed name ({r.status_code}); "
+        "the CONTESTED_NAME flow may be reachable here, so verify the "
+        "409 body end to end and remove this test")
+
+
+def test_candidates_are_objects_with_their_nested_arrays(
+        quilt_client, cq_returns):
+    """One level deeper than the flat array of strings verified before,
+    and the level where a schema-owning middlebox flattens things."""
+    cq_returns(CONTESTED, status=409)
+    got = quilt_client.post(f"/v1/people/{USER}", json={"name": "Mike"}).json()
+    cands = got["candidates"]
+    assert isinstance(cands, list) and all(isinstance(c, dict) for c in cands)
+    projects = cands[1]["projects"]
+    assert isinstance(projects, list), type(projects)
+    assert projects == ["Kore", "Cigna"]
+
+
+def test_the_candidate_ORDER_is_preserved(quilt_client, cq_returns):
+    """THE ONE THAT FAILS INVISIBLY, and the reason CQ asked for a test
+    rather than a code read.
+
+    They rank server side because the client does not hold project
+    membership. A re-serialisation that sorts or reorders leaves a
+    picker that looks completely normal and is wrong: the best guess is
+    no longer first, and nothing anywhere reports a problem.
+    """
+    cq_returns(CONTESTED, status=409)
+    got = quilt_client.post(f"/v1/people/{USER}", json={"name": "Mike"}).json()
+    assert [c["entity_id"] for c in got["candidates"]] == ["e-pete", "e-dit"], (
+        "candidate ranking was reordered in transit; the picker will show "
+        "the wrong person first and look fine doing it")
+    # Nested order too: a sort deep in the tree is just as silent.
+    assert got["candidates"][1]["projects"] == ["Kore", "Cigna"]
+
+
+def test_key_order_within_a_candidate_is_untouched(quilt_client, cq_returns):
+    """Weaker property than ranking, but a key-sorting serializer would
+    break ranking too, so this catches the same class earlier."""
+    cq_returns(CONTESTED, status=409)
+    got = quilt_client.post(f"/v1/people/{USER}", json={"name": "Mike"}).json()
+    assert list(got["candidates"][0].keys()) == list(
+        CONTESTED["candidates"][0].keys())
