@@ -22,7 +22,20 @@ ROUTING = json.load(open("config/remote/model-routing.json"))
 
 
 def test_the_tier_carries_a_real_ceiling():
-    assert TIERS["automation"]["monthly_cost_limit_usd"] == 2.0
+    """Raised to 10.0 on 2026-08-17 against measured build costs: a
+    freeform file build runs about a dollar ($0.91 and $1.06 the same
+    day), so the old $2 bought one build plus change and a single
+    end-to-end check of the generation path consumed the whole month.
+
+    The assertion is a RANGE rather than a number, because what matters
+    is that a real ceiling exists and is not quietly unlimited. Pinning
+    the exact figure only bought a test edit every time the number moved
+    for a good reason, which is what happened today.
+    """
+    cap = TIERS["automation"]["monthly_cost_limit_usd"]
+    assert cap != -1, "the automation tier went uncapped, which is the "\
+                      "one thing it exists to prevent"
+    assert 2.0 <= cap <= 50.0, cap
 
 
 def test_the_paid_tiers_are_uncapped_which_is_why_this_exists():
