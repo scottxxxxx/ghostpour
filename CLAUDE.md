@@ -23,6 +23,20 @@ it has cost something.
    the exact bug shape. Both found real defects. A test that cannot fail
    on the bug it was written for is decoration.
 
+   And prove the SABOTAGE worked, not merely that something went red. It
+   failed repeatedly in one evening across both teams; five of the ways:
+   a mutation that never reached the file; one that reached it but sat
+   on a branch the test could not take; a module break that turned
+   everything red and read as caught; the same break leaving a
+   source-reading test green and reading as uncaught; and a grep
+   matching a warning URL containing "error". So confirm the mutation
+   reached the file, then that the test you EXPECTED failed, and only
+   that one. A diff proves the edit and coverage proves the line ran;
+   NEITHER proves the branch you changed was taken, because a
+   short-circuit inside one expression compiles to a real jump with
+   every instruction on one source line, invisible to any tool reasoning
+   in lines.
+
 3. **A response-side test cannot see a request-side hole.** `to_name`
    was sent by SS and silently dropped by an unmodelled field in GP's
    schema. SS saw a correct send; CQ saw a complete request that simply
