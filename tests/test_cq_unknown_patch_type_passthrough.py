@@ -284,28 +284,73 @@ def test_a_409_body_survives_on_create_person(quilt_client, cq_returns):
     assert r.json() == CONTESTED, "the 409 body was dropped or rewritten"
 
 
-def test_reassign_speaker_CANNOT_YET_CARRY_A_TYPED_NAME(quilt_client):
-    """⚠ PINS A LIMITATION, not a behaviour we want.
+def _labels():
+    return [{"label": "Speaker 5", "meeting_id": "E855"}]
 
-    CQ #285 expects a caller to type a NAME and receive 409
-    CONTESTED_NAME. That flow is reachable on /people, which forwards a
-    raw dict, and is NOT reachable here: ReassignSpeakerRequest carries
-    only from_labels, to_self and to_person_id, and the route requires
-    exactly one of the latter two. A name-only request is refused by US
-    with a 422 and never reaches CQ, so their 409 can never be produced
-    on this route however well the body would have survived.
 
-    Found by testing the request rather than reading the response path.
-    Delete this test when the fields are added; it failing is the signal
-    that the gap closed.
-    """
+def test_a_typed_name_reaches_cq_and_its_409_survives(quilt_client, cq_returns):
+    """The gap that existed until 2026-08-18: our model carried no name
+    field and the route demanded to_self XOR to_person_id, so a
+    name-only send was refused by US with a 422 and CQ's 409 could never
+    be produced here. `to_name` was not even new; the client had been
+    speaking it for a week."""
+    cq_returns(CONTESTED, status=409)
+    r = quilt_client.post(f"/v1/quilt/{USER}/reassign-speaker",
+                          json={"from_labels": _labels(), "to_name": "Mike"})
+    assert r.status_code == 409, r.text[:200]
+    assert r.json() == CONTESTED
+
+
+def test_the_someone_new_retry_is_not_refused_as_ambiguous(
+        quilt_client, cq_returns):
+    """THE TRAP CQ NAMED. `create_new` is a MODIFIER on to_name, not a
+    target, and the someone-new retry sends BOTH. Counting it as a
+    target refuses exactly that retry, on the SECOND call, and only for
+    users who picked "someone new" from the picker."""
+    cq_returns({"patches_updated": 2}, status=200)
     r = quilt_client.post(f"/v1/quilt/{USER}/reassign-speaker", json={
-        "from_labels": [{"label": "Speaker 1", "meeting_id": "m-1"}],
-        "to_name": "Mike"})
-    assert r.status_code == 422, (
-        f"reassign-speaker now accepts a typed name ({r.status_code}); "
-        "the CONTESTED_NAME flow may be reachable here, so verify the "
-        "409 body end to end and remove this test")
+        "from_labels": _labels(), "to_name": "Mike Peterson",
+        "create_new": True})
+    assert r.status_code == 200, r.text[:200]
+
+
+def test_the_picked_person_retry_still_works(quilt_client, cq_returns):
+    cq_returns({"patches_updated": 3}, status=200)
+    r = quilt_client.post(f"/v1/quilt/{USER}/reassign-speaker", json={
+        "from_labels": _labels(), "to_person_id": "e-dit"})
+    assert r.status_code == 200
+
+
+def test_create_new_alone_is_still_refused(quilt_client, cq_returns):
+    """A modifier with nothing to modify is not a target."""
+    cq_returns({}, status=200)
+    r = quilt_client.post(f"/v1/quilt/{USER}/reassign-speaker", json={
+        "from_labels": _labels(), "create_new": True})
+    assert r.status_code == 422
+
+
+def test_two_targets_are_still_refused(quilt_client, cq_returns):
+    """Relaxing the rule must not relax it into accepting everything."""
+    cq_returns({}, status=200)
+    r = quilt_client.post(f"/v1/quilt/{USER}/reassign-speaker", json={
+        "from_labels": _labels(), "to_name": "Mike", "to_self": True})
+    assert r.status_code == 422
+
+
+def test_the_name_actually_reaches_cq(quilt_client, cq_returns, monkeypatch):
+    """Accepting the field is not forwarding it. Pins the wire."""
+    seen = {}
+    real = cq_proxy._cq_proxy
+
+    async def _spy(method, path, body=None, query=None):
+        seen["body"] = body
+        return await real(method, path, body, query)
+    monkeypatch.setattr(cq_proxy, "_cq_proxy", _spy)
+    cq_returns({"patches_updated": 1}, status=200)
+    quilt_client.post(f"/v1/quilt/{USER}/reassign-speaker", json={
+        "from_labels": _labels(), "to_name": "Mike", "create_new": True})
+    assert seen["body"]["to_name"] == "Mike"
+    assert seen["body"]["create_new"] is True
 
 
 def test_candidates_are_objects_with_their_nested_arrays(
