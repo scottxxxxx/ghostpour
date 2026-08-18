@@ -739,6 +739,19 @@ class ReassignSpeakerRequest(BaseModel):
     from_labels: list[FromLabel]
     to_self: bool | None = None
     to_person_id: str | None = None
+    # A typed NAME, and whether to make a new person of it.
+    #
+    # Both were missing here while CQ and the client already spoke them,
+    # so a name-only reassign was refused by US with a 422 and never
+    # reached CQ. Their CONTESTED_NAME 409, which answers an ambiguous
+    # name with ranked candidates, could not be produced on this route
+    # at all. Found 2026-08-18 by POSTing a real request; the response
+    # side looked perfect, because a response-side test cannot see a
+    # request-side hole.
+    to_name: str | None = None
+    # NOT a target. A MODIFIER on to_name, sent WITH it on the retry
+    # when the user picked "someone new" from the picker.
+    create_new: bool | None = None
 
 
 @router.post("/quilt/{user_id}/reassign-speaker")
@@ -764,10 +777,18 @@ async def reassign_speaker(
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
     if not body.from_labels:
         raise HTTPException(status_code=422, detail="from_labels must not be empty")
-    if bool(body.to_self) == bool(body.to_person_id):
+    # Exactly one TARGET. `create_new` is deliberately not counted:
+    # it modifies to_name and the someone-new retry sends BOTH, so
+    # counting it would refuse that retry as ambiguous. That hole would
+    # appear only on the second call and only for users who picked
+    # "someone new", which is the kind of gap nobody finds by hand.
+    _targets = sum(1 for t in (body.to_self, body.to_person_id, body.to_name)
+                   if t)
+    if _targets != 1:
         raise HTTPException(
             status_code=422,
-            detail="Provide exactly one of to_self=true or to_person_id",
+            detail=("Provide exactly one of to_self=true, to_person_id "
+                    "or to_name"),
         )
     payload = {k: v for k, v in body.model_dump().items() if v is not None}
     return await _cq_proxy(
