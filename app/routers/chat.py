@@ -2111,6 +2111,9 @@ async def chat(
     # `generation_confirmed` does NOT mean this — the fast path sets it
     # too, for transport and rescue reuse.
     _confirmed_via_offer = False
+    # Set when THIS turn's reply to a live offer was judged a no. Blocks
+    # the offer/teaser path below from asking again in the same breath.
+    _offer_declined = False
     _gen_teaser_text = ""
     _gen_teaser_offer_id = None
     _gen_upsell_line = None
@@ -2313,6 +2316,29 @@ async def chat(
                     _reply_verbatim if _reply_verbatim else body.user_content,
                     verbatim=bool(_reply_verbatim), on_subcall=_meter)
                 _style_reply = _reply.get("style")
+                # The user just answered our own question with NO.
+                #
+                # Live 2026-08-17: Scott declined with "just answer here
+                # and chat", and because that sentence happened to
+                # mention a word document and a workbook, the classifier
+                # below read the DECLINE as a fresh file request and
+                # offered again in the same breath. He described it as
+                # telling us he did not want a file and then being asked
+                # if he wanted a file. The offer it minted also stored
+                # the decline as its ask, so changing his mind later
+                # replayed "just answer here and chat" into a build.
+                #
+                # A decline that names file words is the NORMAL shape of
+                # a decline, because people say what they are declining.
+                # So this is not a rare phrasing, it is the common one.
+                #
+                # A genuine change of format ("no, make it a Word doc")
+                # is not lost: interpret_offer_reply judges that a
+                # confirm with a revised format, upstream of here.
+                if not _reply["confirm"]:
+                    _offer_declined = True
+                    logger.info("generation_offer_declined offer_id=%s",
+                                _offer_echo)
                 if _reply["confirm"] and _offer.get("lane_choice") == "pending":
                     # Typed yes at a teaser over an AMBIGUOUS plan ask: the
                     # version question was never asked, so ask it before any
@@ -2405,7 +2431,7 @@ async def chat(
                     if _gen_armed:
                         body = _apply_routed_model(body, _resolve_model_routing(
                             request, body, tier, effective_tier_name))
-            if not _gen_armed and not _img_guarded:
+            if not _gen_armed and not _img_guarded and not _offer_declined:
                 # guaranteed catch first (deterministic, no LLM); the
                 # classifier only judges the softer phrasings
                 from app.services.document_generation import (

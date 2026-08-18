@@ -1266,3 +1266,85 @@ def test_a_contract_turn_never_falls_through_to_the_sandbox(
     assert sent.generation is False, (
         "the contract turn set the sandbox flag, so it took the "
         "catch-all branch and the columns are the model's again")
+
+
+class TestADeclineIsNotANewFileRequest:
+    """Live 2026-08-17, and Scott's own description of it: he told us he
+    did not want a file, and was then asked if he wanted a file.
+
+    He declined with "just answer here and chat, but remember it's two
+    different things, one's going to be a script that goes into a word
+    document and the other is information for the new sheets". That is a
+    decline. But it names a word document, a workbook and sheets,
+    because people say what they are declining, so the classifier read
+    the DECLINE as a fresh file request and offered again in the same
+    turn. The offer it minted stored the decline as its ask, so when he
+    later changed his mind the build was handed "just answer here and
+    chat" as its instruction and answered in prose for 77 seconds.
+
+    A decline that names file words is the NORMAL shape of a decline,
+    not a rare phrasing.
+    """
+
+    def _reply_to_offer(self, client, pro_user, *, confirm, text):
+        from app.services import generation_offers as go
+        oid = go.create(pro_user["user_id"], "xlsx", "test scenarios",
+                        artifact_id="test_plan",
+                        ask_content="create the scenarios")
+        judged = {"confirm": confirm, "format": "xlsx" if confirm else None,
+                  "style": None, "version": None}
+        clf = AsyncMock(return_value={
+            "file_request": True, "format": "xlsx", "gist": "scenarios",
+            "artifact": "test_plan", "artifact_confidence": "high"})
+        with patch("app.services.document_generation.interpret_offer_reply",
+                   new_callable=AsyncMock, return_value=judged), \
+             patch("app.services.document_generation."
+                   "classify_generation_intent", clf), \
+             patch("app.services.anthropic_or_fallback.route_with_fallback",
+                   new_callable=AsyncMock,
+                   return_value=_emit_artifact_response()):
+            resp = _send(client, pro_user, text=text, offer_id=oid,
+                         reply_text=text)
+        return resp, clf
+
+    def test_a_decline_does_not_mint_another_offer(
+            self, contract_lane, pro_user):
+        resp, _ = self._reply_to_offer(
+            contract_lane, pro_user, confirm=False,
+            text="Just answer here and chat, but remember it is two "
+                 "different things, one goes in a word document and the "
+                 "other is new sheets for the existing workbook")
+        body = resp.json()
+        cta = ((body.get("feature_state") or {}).get("cta") or {})
+        assert cta.get("kind") not in ("generation_offer", "generation_teaser"), (
+            "we asked again in the same breath he said no; that is the "
+            "loop he reported")
+
+    def test_a_decline_is_not_even_re_classified(
+            self, contract_lane, pro_user):
+        """Cheaper and stricter: we should not spend a model call asking
+        whether the message that just said no is a file request."""
+        _, clf = self._reply_to_offer(
+            contract_lane, pro_user, confirm=False,
+            text="no thanks, just put it in the chat")
+        assert clf.await_count == 0, (
+            f"classifier ran {clf.await_count}x on a declined offer")
+
+    def test_a_confirm_is_untouched(self, contract_lane, pro_user):
+        """The yes road must keep working exactly as before."""
+        resp, _ = self._reply_to_offer(
+            contract_lane, pro_user, confirm=True, text="yes please")
+        assert _files_from(resp), resp.text[:400]
+
+    def test_a_later_independent_ask_still_offers(
+            self, contract_lane, pro_user):
+        """Suppression is for the declining TURN only. A fresh ask with
+        no offer echo is a new conversation and still gets the lane."""
+        with patch("app.services.anthropic_or_fallback.route_with_fallback",
+                   new_callable=AsyncMock,
+                   return_value=_emit_artifact_response()) as route:
+            _send(contract_lane, pro_user,
+                  text="create a test plan spreadsheet from the meeting")
+        assert route.await_args, "a later ask was suppressed too"
+        assert any(t["name"] == "emit_artifact"
+                   for t in (route.await_args.args[1].tools or []))
