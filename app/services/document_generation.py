@@ -51,11 +51,20 @@ _CONFIRMATION_DEFAULTS = {
     "enabled": False,
     "expected_seconds": 150,
     "poll_after_seconds": 5,
+    # NO SPECIFIC DURATION. This sentence said "about two minutes"
+    # flat while the real build runs 35 seconds for an open questions
+    # log and 255 for a researched test plan, so it was wrong in both
+    # directions at once. The over-estimate is the expensive one: it
+    # is spent before the user taps and costs a build they would have
+    # wanted, while an under-estimate is corrected by the progress
+    # card seconds later. The card carries the real per-contract
+    # number and `details.expected_seconds` carries it as a field, so
+    # the prose keeps the TRADEOFF and drops the false precision.
     "offer_text": ("That sounds like a file request. I can build {format} you "
-                   "can download and share (takes about two minutes), or "
+                   "can download and share (it takes a little longer), or "
                    "just answer right here in chat. Want the file?"),
     "offer_text_gist": ("Sounds like you want {format} {gist}. Building the "
-                        "real file takes about two minutes, or I can just lay "
+                        "real file takes a little longer, or I can just lay "
                         "it out right here in chat. Want the file?"),
     "teaser_text": "Want this as a real downloadable file?",
     # Appended to the answer when a CONFIRMED build produced no file.

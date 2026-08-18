@@ -139,3 +139,48 @@ def test_every_localized_client_config_carries_the_no_file_sentence():
     assert not missing, (
         f"{missing} localize the file offer but not the no-file sentence, "
         "so those users get English persisted into their transcript")
+
+
+def test_the_offer_prose_asserts_no_specific_duration():
+    """The offer said "about two minutes" flat while the real build runs
+    35 seconds for an open questions log and 255 for a researched test
+    plan, so it was wrong in both directions at once and disagreed with
+    the progress card the tap produces.
+
+    The over-estimate is the expensive one. An under-estimate is
+    corrected by the card seconds later, and the client degrades a short
+    estimate into "taking longer than usual" and stays true. An
+    over-estimate is spent BEFORE the user taps and costs a build they
+    would have wanted, and nothing ever corrects it.
+
+    So the prose keeps the tradeoff and drops the number. The real
+    per-contract figure rides `details.expected_seconds` on the same
+    envelope, which is where a number the client may want to format
+    belongs.
+    """
+    import json
+    import pathlib
+
+    from app.services.document_generation import _CONFIRMATION_DEFAULTS
+
+    # Minute claims in every locale we serve the offer in.
+    claims = ("two minutes", "2 minutes", "dos minutos", "deux minutes",
+              "2分", "minute", "minuto", "分かかります")
+
+    def _check(where, text):
+        low = (text or "").lower()
+        hit = [c for c in claims if c.lower() in low]
+        assert not hit, (
+            f"{where} promises {hit}; the real range is 35 to 255 seconds "
+            "and this sentence is read BEFORE the user decides, where an "
+            "over-estimate costs a build and is never corrected")
+
+    for key in ("offer_text", "offer_text_gist"):
+        _check(f"en.{key}", _CONFIRMATION_DEFAULTS[key])
+
+    for p in sorted(pathlib.Path("config/remote").glob("client-config.*.json")):
+        conf = ((json.loads(p.read_text()).get("documents") or {})
+                .get("generation") or {}).get("confirmation") or {}
+        for key in ("offer_text", "offer_text_gist"):
+            if conf.get(key):
+                _check(f"{p.name}.{key}", conf[key])
