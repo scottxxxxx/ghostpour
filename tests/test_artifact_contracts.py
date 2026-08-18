@@ -270,3 +270,34 @@ def test_the_repair_is_declared_only_where_it_is_needed() -> None:
     from app.services.artifact_types import CONTRACTS
     repaired = {n for n, c in CONTRACTS.items() if c.repair}
     assert repaired == {"budget"}
+
+
+def test_the_provenance_header_does_not_claim_a_mode_the_data_lacks():
+    """The regression this pins actually happened, on 2026-08-18.
+
+    The shared provenance column was headed "Said In", which was true
+    while it only ever named a meeting. It was widened the same day to
+    also carry a researched source and the literal marker "Not stated"
+    for a row the model worked out itself, and the header was not
+    touched. So a web-search row sat under "Said In" when nobody said
+    it, and an inferred row sat under "Said In" while the cell said it
+    was not stated anywhere.
+
+    The class is a description outgrowing its label. This asserts the
+    pair stays consistent: if the column admits sources that were not
+    SPOKEN, its header must not claim speech.
+    """
+    from app.services.artifact_types import CONTRACTS
+
+    spoken_claims = ("said", "heard", "spoke", "told")
+    for name, contract in sorted(CONTRACTS.items()):
+        for col in contract.columns:
+            desc = (col.description or "").lower()
+            covers_unspoken = ("research" in desc or "not stated" in desc)
+            if not covers_unspoken:
+                continue
+            label = (col.label or "").lower()
+            assert not any(w in label for w in spoken_claims), (
+                f"{name}.{col.key} is headed {col.label!r} but its own "
+                "description admits researched or inferred values, so the "
+                "header asserts a mode the column does not have")
