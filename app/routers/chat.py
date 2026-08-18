@@ -2618,6 +2618,40 @@ async def chat(
                                     "format": (_intent.get("format")
                                                or _enriched.get("format")),
                                 }
+                        # Resolve the artifact BEFORE minting, so the id we
+                        # store and the duration we promise come from one
+                        # decision. Read twice they could differ, and the
+                        # user would be told one build and given another.
+                        _offer_artifact = _contract_candidate(
+                            _contract_lane_on, _intent,
+                            skip=bool(_tmpl or _ambiguous),
+                            fmt=_intent.get("format"))
+                        # What the OFFER promises has to be what the CARD
+                        # will show. This field shipped a flat 150 for
+                        # every artifact while the card used the real
+                        # per-contract number, so the two disagreed about
+                        # the same build and the offer was the one the
+                        # user decided on. Include the research allowance
+                        # NO research allowance here, deliberately. A
+                        # contract ask WITH search arms the build on this
+                        # turn rather than offering (#700), so a contract
+                        # offer carrying search is only reachable down a
+                        # narrow image-guard path I could not exercise in
+                        # a test. An untestable branch is worse than an
+                        # absent one, and omitting it under-promises,
+                        # which is the safe direction: the card degrades
+                        # a short estimate into "taking longer than
+                        # usual" and stays true, while an inflated
+                        # promise is spent before the user taps and costs
+                        # a build they would have wanted.
+                        _offer_seconds = None
+                        if _offer_artifact:
+                            from app.services.artifact_types import (
+                                CONTRACTS as _OC,
+                            )
+                            _oc = _OC.get(_offer_artifact)
+                            if _oc:
+                                _offer_seconds = _oc.expected_seconds
                         _offer_id = generation_offers.create(
                             # An ambiguous offer is xlsx on BOTH roads: the
                             # question offers a status workbook or a custom
@@ -2643,10 +2677,7 @@ async def chat(
                             # registry is purpose built and better than
                             # anything generic; ambiguous plan asks keep
                             # their version question.
-                            artifact_id=_contract_candidate(
-                                _contract_lane_on, _intent,
-                                skip=bool(_tmpl or _ambiguous),
-                                fmt=_intent.get("format")),
+                            artifact_id=_offer_artifact,
                             # The ask opted into research; the BUILD is a
                             # different send. Forgetting here hands back a
                             # file with no research and no sign of it.
@@ -2670,7 +2701,8 @@ async def chat(
                             return JSONResponse(content=_envelope)
                         _envelope = build_offer_envelope(
                             _confirmation, _intent.get("format"),
-                            gist=_intent.get("gist") or "", offer_id=_offer_id)
+                            gist=_intent.get("gist") or "", offer_id=_offer_id,
+                            expected_seconds=_offer_seconds)
                         if _tmpl:
                             # registry interception: propose the optimized build,
                             # keep the custom door open (a custom description

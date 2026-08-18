@@ -1458,3 +1458,64 @@ class TestTheNoFileSentenceIsLocalizable:
             "the machine-readable outcome must survive even when the "
             "human sentence is suppressed")
         assert "No file was produced" not in result["text"]
+
+
+class TestTheOfferPromisesWhatTheCardWillShow:
+    """The offer carried a flat `expected_seconds` of 150 for every
+    artifact, while the progress card AFTER the tap used the real
+    per-contract number, which runs from 35 seconds for an open
+    questions log to 255 for a researched test plan.
+
+    So the two disagreed about the same build, and the offer was the one
+    the user made the decision on. Found 2026-08-18 while checking the
+    client team's claim that the number was already in the payload: it
+    was, and it was wrong, so a render built against it would have
+    shipped 150 seconds into the sentence and looked like a fix.
+    """
+
+    def _offer(self, client, pro_user, **meta):
+        with patch("app.services.anthropic_or_fallback.route_with_fallback",
+                   new_callable=AsyncMock,
+                   return_value=_emit_artifact_response()):
+            resp = _send(client, pro_user,
+                         text="create a test plan from what we discussed",
+                         **meta)
+        cta = ((resp.json().get("feature_state") or {}).get("cta") or {})
+        assert cta.get("kind") == "generation_offer", resp.json()
+        return cta.get("details") or {}
+
+    def test_the_offer_quotes_the_artifact_estimate(
+            self, contract_lane, pro_user):
+        from app.services.artifact_types import CONTRACTS
+        got = self._offer(contract_lane, pro_user)["expected_seconds"]
+        assert got == CONTRACTS["test_plan"].expected_seconds, (
+            f"offer promised {got}s; the card will show "
+            f"{CONTRACTS['test_plan'].expected_seconds}s for the same build")
+
+    def test_it_is_not_the_flat_default(self, contract_lane, pro_user):
+        """The specific defect. 150 was right for nothing in particular."""
+        from app.services.document_generation import _CONFIRMATION_DEFAULTS
+        got = self._offer(contract_lane, pro_user)["expected_seconds"]
+        assert got != _CONFIRMATION_DEFAULTS["expected_seconds"], got
+
+    def test_a_contract_offer_never_carries_a_research_allowance(
+            self, contract_lane, pro_user):
+        """A contract ask WITH search arms the build on that turn rather
+        than offering (#700), so an offer never needs the allowance.
+        Pinned because the obvious symmetry with the card is wrong here,
+        and adding it would be an untestable branch."""
+        from app.services.artifact_types import CONTRACTS
+        got = self._offer(contract_lane, pro_user)["expected_seconds"]
+        assert got == CONTRACTS["test_plan"].expected_seconds
+
+    def test_the_stored_artifact_and_the_promise_agree(
+            self, contract_lane, pro_user):
+        """Resolved once. Read twice they could differ, and the user
+        would be told about one build and handed another."""
+        from app.services import generation_offers as go
+        from app.services.artifact_types import CONTRACTS
+        details = self._offer(contract_lane, pro_user)
+        stored = go.peek(pro_user["user_id"], details["offer_id"])
+        assert stored["artifact_id"] == "test_plan"
+        assert details["expected_seconds"] == (
+            CONTRACTS[stored["artifact_id"]].expected_seconds)

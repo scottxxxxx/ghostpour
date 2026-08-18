@@ -617,10 +617,20 @@ def gist_composes(gist: str | None) -> str:
 
 
 def build_offer_envelope(confirmation_cfg: dict, fmt: str | None,
-                         gist: str = "", offer_id: str | None = None) -> dict:
+                         gist: str = "", offer_id: str | None = None,
+                         expected_seconds: int | None = None) -> dict:
     """The confirmation_required feature-state envelope (handoff Part 1
     step 2). `details` is add-only — cost_credits slots here if consumable
-    credits ever ship."""
+    credits ever ship.
+
+    `expected_seconds` overrides the served default with the estimate of
+    the artifact we actually resolved. Without it this field shipped a
+    flat 150 for every artifact, while the progress card AFTER the tap
+    used the real per-contract number, which ranges from 35 seconds for
+    an open questions log to 255 for a researched test plan. So the
+    offer and the card disagreed about the same build, and the offer was
+    the one the user decided on.
+    """
     fmt = fmt or "xlsx"
     noun = (confirmation_cfg.get("format_nouns") or {}).get(fmt, "a file")
     gist = gist_composes(gist)
@@ -639,7 +649,9 @@ def build_offer_envelope(confirmation_cfg: dict, fmt: str | None,
                 "action": "confirm_generation",
                 "details": {
                     "expected_format": fmt,
-                    "expected_seconds": int(confirmation_cfg["expected_seconds"]),
+                    "expected_seconds": int(
+                        expected_seconds if expected_seconds is not None
+                        else confirmation_cfg["expected_seconds"]),
                     "gist": gist,
                 },
             },
