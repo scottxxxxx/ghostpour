@@ -62,7 +62,8 @@
      "pdf": "un fichier PDF"
     },
     "offer_text_gist": "On dirait que vous voulez {format} {gist}. Créer le vrai fichier prend environ deux minutes, ou je peux le présenter ici dans le chat. Vous voulez le fichier ?",
-    "teaser_text": "Vous voulez ceci sous forme de vrai fichier téléchargeable ?"
+    "teaser_text": "Vous voulez ceci sous forme de vrai fichier téléchargeable ?",
+    "no_file_text": "Aucun fichier n'a été créé pour celle-ci, la réponse se trouve donc ci-dessus. Préciser un format, par exemple un tableur, permet généralement d'en obtenir un."
    },
    "upsell": {
     "enabled": true,

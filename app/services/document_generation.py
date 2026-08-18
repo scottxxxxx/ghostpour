@@ -58,6 +58,22 @@ _CONFIRMATION_DEFAULTS = {
                         "real file takes about two minutes, or I can just lay "
                         "it out right here in chat. Want the file?"),
     "teaser_text": "Want this as a real downloadable file?",
+    # Appended to the answer when a CONFIRMED build produced no file.
+    #
+    # It lives here rather than in the router because it is persisted:
+    # the client stores question and answer, so this sentence survives
+    # scroll, relaunch, sync and reopening the meeting months later,
+    # while a response FIELD dies with the view. That durability is why
+    # it must also be localizable. Hardcoded in the router (2026-08-17)
+    # it would have sat in English forever inside a French or Japanese
+    # transcript, past the reach of both our text hygiene and the
+    # client's localization. Served, it picks up the client-config
+    # locale variant like every other envelope string.
+    #
+    # States what happened and what usually works, and never apologises.
+    "no_file_text": ("No file was produced for this one, so the answer is "
+                     "above instead. Asking for a specific format, like a "
+                     "spreadsheet, usually gets one built."),
     # Version question for an ambiguous plan/progress ask (Scott's ruling
     # 2026-08-11; final wording Scott-approved after two revision rounds):
     # users say "project plan" while expecting a Gantt, so the question

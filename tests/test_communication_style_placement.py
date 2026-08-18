@@ -108,3 +108,34 @@ async def test_other_surfaces_get_no_style_line():
     no conversational tone to match."""
     body = await _run(prompt_mode="AutoSummary")
     assert STYLE not in body.system_prompt
+
+
+def test_every_localized_client_config_carries_the_no_file_sentence():
+    """The sentence is PERSISTED into the stored answer, so a locale
+    that lacks it does not fall back gracefully: that user gets the
+    English default written permanently into their transcript, where
+    neither our text hygiene nor the client's localization can reach it.
+
+    A missing translation is therefore silent by construction, which is
+    why it is asserted rather than left to whoever adds the next locale.
+    Pinned against the localized offer copy that already exists, so it
+    covers exactly the locales we already claim to serve.
+    """
+    import json
+    import pathlib
+
+    base = pathlib.Path("config/remote")
+    localized = sorted(base.glob("client-config.*.json"))
+    assert localized, "no localized client configs found"
+    missing = []
+    for p in localized:
+        conf = ((json.loads(p.read_text()).get("documents") or {})
+                .get("generation") or {}).get("confirmation") or {}
+        # Only locales that already localize the generation envelope.
+        if "teaser_text" not in conf:
+            continue
+        if not str(conf.get("no_file_text") or "").strip():
+            missing.append(p.name)
+    assert not missing, (
+        f"{missing} localize the file offer but not the no-file sentence, "
+        "so those users get English persisted into their transcript")

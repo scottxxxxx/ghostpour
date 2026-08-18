@@ -1348,3 +1348,113 @@ class TestADeclineIsNotANewFileRequest:
         assert route.await_args, "a later ask was suppressed too"
         assert any(t["name"] == "emit_artifact"
                    for t in (route.await_args.args[1].tools or []))
+
+
+class TestTheNoFileSentenceIsLocalizable:
+    """The sentence is PERSISTED into the stored answer, which is what
+    makes it durable and also what makes hardcoding it a defect: the
+    client stores question and answer, so it survives scroll, relaunch,
+    sync and reopening the meeting months later, and a response field
+    does not. Written in English in the router it would have sat in
+    English forever inside a French transcript, past the reach of both
+    our own text hygiene and the client's localization.
+
+    Flagged by the client team while drawing the boundary on the
+    text-versus-field rule: text is also the thing they cannot restyle,
+    translate or suppress once it is stored.
+    """
+
+    def _no_file_turn(self, client, pro_user, headers_extra=None):
+        from app.models.chat import ChatResponse
+        from app.services import generation_offers as go
+
+        oid = go.create(pro_user["user_id"], "xlsx", "docs",
+                        ask_content="are there any documents to update?")
+        prose = ChatResponse(
+            text="The Cigna scenarios document needs updating.",
+            input_tokens=10, output_tokens=20, model="claude-sonnet-4-6",
+            provider="anthropic", usage={}, raw_request_json="{}",
+            raw_response_json=json.dumps(
+                {"id": "m", "stop_reason": "end_turn",
+                 "content": [{"type": "text", "text": "prose"}], "usage": {}}))
+        headers = dict(pro_user["headers"])
+        headers.update(headers_extra or {})
+        with patch("app.services.anthropic_or_fallback.route_with_fallback",
+                   new_callable=AsyncMock, return_value=prose):
+            return client.post("/v1/chat", json={
+                "provider": "auto", "model": "auto", "user_content": "Yes",
+                "system_prompt": "You are helping with a meeting.",
+                "stream": True,
+                "metadata": {"prompt_mode": "PostMeetingChat",
+                             "call_type": "meeting_chat", "offer_id": oid,
+                             "generation_confirmed": True},
+            }, headers=headers)
+
+    def test_the_sentence_comes_from_served_config(
+            self, contract_lane, pro_user):
+        """Not a string literal in the router. Change the served value
+        and the served value is what the user reads."""
+        from app.main import app
+
+        cfg = app.state.remote_configs
+        gen = (cfg.setdefault("client-config", {})
+                  .setdefault("documents", {}).setdefault("generation", {}))
+        conf = gen.setdefault("confirmation", {})
+        before = conf.get("no_file_text")
+        conf["no_file_text"] = "SERVED SENTINEL TEXT"
+        try:
+            text = _result_of(self._no_file_turn(contract_lane, pro_user))["text"]
+        finally:
+            if before is None:
+                conf.pop("no_file_text", None)
+            else:
+                conf["no_file_text"] = before
+        assert "SERVED SENTINEL TEXT" in text, (
+            "the router is still writing its own English sentence, which "
+            "would persist untranslated into a stored transcript")
+
+    def test_a_french_client_gets_the_french_variant(
+            self, contract_lane, pro_user):
+        """The whole point. Accept-Language picks the localized
+        client-config exactly as it does for every other served string."""
+        from app.main import app
+
+        cfg = app.state.remote_configs
+        fr = cfg.setdefault("client-config.fr", {})
+        (fr.setdefault("documents", {}).setdefault("generation", {})
+           .setdefault("confirmation", {}))["no_file_text"] = (
+               "Aucun fichier n'a ete produit pour celui-ci.")
+        try:
+            text = _result_of(self._no_file_turn(
+                contract_lane, pro_user,
+                {"Accept-Language": "fr-FR,fr;q=0.9"}))["text"]
+        finally:
+            cfg.pop("client-config.fr", None)
+        assert "Aucun fichier" in text, text[-200:]
+        assert "No file was produced" not in text, (
+            "a French client was served the English sentence, and it "
+            "persists into their transcript that way")
+
+    def test_an_empty_served_value_appends_nothing(
+            self, contract_lane, pro_user):
+        """Suppressible. An operator who blanks the string gets silence,
+        not a fallback English sentence they thought they had removed."""
+        from app.main import app
+
+        cfg = app.state.remote_configs
+        conf = (cfg.setdefault("client-config", {})
+                   .setdefault("documents", {}).setdefault("generation", {})
+                   .setdefault("confirmation", {}))
+        before = conf.get("no_file_text")
+        conf["no_file_text"] = ""
+        try:
+            result = _result_of(self._no_file_turn(contract_lane, pro_user))
+        finally:
+            if before is None:
+                conf.pop("no_file_text", None)
+            else:
+                conf["no_file_text"] = before
+        assert result.get("build_outcome") == "no_file", (
+            "the machine-readable outcome must survive even when the "
+            "human sentence is suppressed")
+        assert "No file was produced" not in result["text"]
