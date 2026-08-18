@@ -52,7 +52,8 @@
           "pdf": "un archivo PDF"
         },
         "offer_text_gist": "Parece que quieres {format} {gist}. Crear el archivo real tarda unos dos minutos, o puedo mostrarlo aquí mismo en el chat. ¿Quieres el archivo?",
-        "teaser_text": "¿Quieres esto como un archivo descargable?"
+        "teaser_text": "¿Quieres esto como un archivo descargable?",
+        "no_file_text": "No se creó ningún archivo para esta, así que la respuesta está arriba. Pedir un formato concreto, por ejemplo una hoja de cálculo, suele conseguir uno."
       },
       "upsell": {
         "enabled": true,

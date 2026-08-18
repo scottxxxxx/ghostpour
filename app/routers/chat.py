@@ -3723,12 +3723,18 @@ async def chat(
                 ("template" if _template_id else "sandbox"),
                 _contract_id or _template_id or "-")
             response_data["build_outcome"] = "no_file"
-            if response_data.get("text"):
+            # SERVED, not hardcoded. This sentence is persisted into the
+            # stored answer, so it outlives the view a field lives in,
+            # and that durability is exactly why it has to be
+            # localizable: written in English here it would sit in
+            # English forever inside a French or Japanese transcript,
+            # past the reach of our own text hygiene and the client's
+            # localization both. `_confirmation` is already resolved
+            # against the request's Accept-Language.
+            _no_file_text = str(_confirmation.get("no_file_text") or "").strip()
+            if response_data.get("text") and _no_file_text:
                 response_data["text"] = (
-                    response_data["text"]
-                    + "\n\n(No file was produced for this one, so the answer "
-                      "is above instead. Asking for a specific format, like "
-                      "a spreadsheet, usually gets one built.)")
+                    f"{response_data['text']}\n\n({_no_file_text})")
 
         # Reactive capture-quality note (2026-07-20): when a reproduction
         # actually produced a file FROM a submitted image, and that image
