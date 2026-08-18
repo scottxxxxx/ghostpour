@@ -391,3 +391,103 @@ def test_key_order_within_a_candidate_is_untouched(quilt_client, cq_returns):
     got = quilt_client.post(f"/v1/people/{USER}", json={"name": "Mike"}).json()
     assert list(got["candidates"][0].keys()) == list(
         CONTESTED["candidates"][0].keys())
+
+
+# --- CQ #290: the rundown route, and a QUERY PARAM this time -----------
+#
+# `GET /v1/quilt/{u}?project_id=...&order=attention&limit=N` backs a
+# project-level section for open items owed by somebody CQ could not
+# place. Three of four on real data are JOINTLY owned ("Pradeep and
+# Suresh" as one owner string), which a person-organised tab has no row
+# for; one has been overdue since June and is invisible today.
+#
+# The response fields are the class already proved on /people. The QUERY
+# PARAM is the one that matters, and its failure mode is silent and
+# total: dropped, CQ receives no order, returns the recency default and
+# answers 200, and the client renders a project header that looks
+# entirely correct and contains almost none of the overdue work.
+# Measured on ABM, the same top-40 request returns 1 overdue item
+# without the flag and 40 with it.
+#
+# An unknown `order` value is a loud 422 on CQ's side. A DROPPED one is
+# indistinguishable from a caller who never sent it, so it cannot be
+# made loud from either endpoint. Only a request-side test on this hop
+# can see it, which is the `to_name` lesson applied before it costs
+# anything rather than after.
+
+@pytest.fixture
+def cq_spy(monkeypatch):
+    """Records the URL we actually hand CQ."""
+    seen: dict = {}
+
+    def _install(payload, status=200):
+        resp = MagicMock()
+        resp.status_code = status
+        resp.json.return_value = payload
+        resp.text = ""
+
+        async def _request(method, url, **kw):
+            seen["method"] = method
+            seen["url"] = str(url)
+            return resp
+
+        inst = AsyncMock()
+        inst.__aenter__ = AsyncMock(return_value=inst)
+        inst.__aexit__ = AsyncMock(return_value=False)
+        inst.request = _request
+        monkeypatch.setattr(cq_proxy, "get_settings",
+                            lambda: SimpleNamespace(cq_base_url="http://cq-mock"))
+        monkeypatch.setattr(cq_proxy.httpx, "AsyncClient",
+                            lambda *a, **k: inst)
+        return seen
+    return _install
+
+
+def test_the_order_attention_param_reaches_cq(quilt_client, cq_spy):
+    """PROVED ON THE REQUEST SIDE, at the hop. Dropped, this degrades to
+    a plausible and useless screen with a 200 on it."""
+    seen = cq_spy({"patches": [], "server_time": "2026-08-18T00:00:00Z"})
+    quilt_client.get(f"/v1/quilt/{USER}"
+                     "?project_id=ABM&order=attention&limit=40")
+    assert "order=attention" in seen["url"], (
+        f"order was dropped in transit: {seen['url']}. CQ would answer 200 "
+        "with the recency default and the header would look correct while "
+        "containing almost none of the overdue work")
+
+
+def test_every_param_survives_together(quilt_client, cq_spy):
+    """Not one at a time. A rebuild that keeps the first and drops the
+    rest passes a single-param test and fails in production."""
+    seen = cq_spy({"patches": []})
+    quilt_client.get(f"/v1/quilt/{USER}"
+                     "?project_id=ABM&order=attention&limit=40&group_by=origin")
+    url = seen["url"]
+    for frag in ("project_id=ABM", "order=attention", "limit=40",
+                 "group_by=origin"):
+        assert frag in url, f"{frag} missing from {url}"
+
+
+def test_an_absent_order_is_not_invented(quilt_client, cq_spy):
+    """The other direction. We must not helpfully add a default the
+    caller did not ask for, or a recency request silently becomes an
+    attention one."""
+    seen = cq_spy({"patches": []})
+    quilt_client.get(f"/v1/quilt/{USER}?project_id=ABM")
+    assert "order=" not in seen["url"], seen["url"]
+
+
+def test_the_new_attention_fields_survive(quilt_client, cq_returns):
+    """Same class as /people, confirmed on THIS route rather than
+    reasoned across from the other one."""
+    item = {
+        "patch_id": "p-late", "patch_type": "commitment",
+        "fact": "Pradeep and Suresh to land the ledger migration",
+        "overdue_since": "2026-06-11T00:00:00Z",
+        "salience": "high",
+        "restatement_count": 3,
+    }
+    cq_returns({"patches": [item], "server_time": "2026-08-18T00:00:00Z"})
+    got = quilt_client.get(f"/v1/quilt/{USER}").json()["patches"][0]
+    assert got == item
+    assert isinstance(got["restatement_count"], int)
+    assert got["salience"] == "high"
