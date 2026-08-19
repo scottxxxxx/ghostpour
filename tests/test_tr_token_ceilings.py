@@ -187,15 +187,32 @@ def test_the_scorecard_ceiling_fits_an_UNCOMPRESSED_full_length_mock():
     assert cap is not None, (
         "InterviewScorecard has no ceiling of its own, so it inherits the "
         "file default that was already binding on it")
-    uncompressed_demand = 18 * 244 + 150 + 750
-    assert cap >= uncompressed_demand * MIN_HEADROOM, (
-        f"ceiling {cap} against {uncompressed_demand} needed for an "
-        f"uncompressed 18-question mock; at less than {MIN_HEADROOM}x the "
-        f"model goes on trading per-question depth for fit")
-    pessimistic_reasoning = 18 * 244 + 150 + 5218
-    assert cap >= pessimistic_reasoning, (
-        f"ceiling {cap} does not clear {pessimistic_reasoning}, the same "
-        f"report if reasoning grew to what LiveRoundScore already spends")
+    # Grounded on this mode's own output rather than a 4-chars-per-token
+    # rule of thumb: measured over its 14 parseable reports, 3.96 chars per
+    # token, an uncompressed per_question entry is 992 chars (251 tokens)
+    # and the session-level block is 748 chars (189 tokens).
+    UNCOMPRESSED_ENTRY = 251
+    SESSION_BLOCK = 189
+    MAX_QUESTIONS = 18            # top of TR's documented 12-to-18 range
+    answer = MAX_QUESTIONS * UNCOMPRESSED_ENTRY + SESSION_BLOCK   # 4,707
+
+    assert cap >= (answer + 750) * MIN_HEADROOM, (
+        f"ceiling {cap} against {answer} answer tokens for an uncompressed "
+        f"18-question mock plus this mode's measured worst reasoning; below "
+        f"{MIN_HEADROOM}x the model goes on trading depth for fit")
+
+    # The binding case, and the reason this is 16,384 rather than the 12,288
+    # that the line above alone would justify. Reasoning is the one input
+    # that could still grow: this mode has never spent more than 750 tokens
+    # before answering, but LiveRoundScore scores the SAME rubric and has
+    # spent 5,218. Nothing about this mode forbids that, the ceiling is an
+    # allowance rather than a bill, and the failure it prevents is invisible
+    # in production, so the pessimistic case gets the full bar too.
+    FAMILY_WORST_REASONING = 5218
+    assert cap >= (answer + FAMILY_WORST_REASONING) * MIN_HEADROOM, (
+        f"ceiling {cap} does not clear {answer + FAMILY_WORST_REASONING} at "
+        f"{MIN_HEADROOM}x, which is this report with reasoning at the level "
+        f"the same rubric already reaches on the live path")
 
 
 def test_the_short_response_analysis_mode_keeps_the_file_default():
@@ -239,6 +256,6 @@ def test_every_raised_config_declares_a_new_version():
     never done, so the number has to move with the value."""
     expected = {"mock-interview": 17, "match-analysis": 15,
                 "jd-analysis": 13, "compare-reality": 10,
-                "response-analysis": 20}
+                "response-analysis": 21}
     for slug, version in expected.items():
         assert _config(slug)["version"] == version, slug
