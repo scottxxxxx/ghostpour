@@ -37,6 +37,23 @@ it has cost something.
    every instruction on one source line, invisible to any tool reasoning
    in lines.
 
+   A sixth way, worse than the five because every check above passed:
+   GP inverted a predicate, expected six tests red, saw two, and the
+   honest reading of that is "the filter is more robust than I thought".
+   It was a STALE BYTECODE CACHE after several rapid mutations, so the
+   run had used the pre-mutation module while the file on disk showed
+   the mutation. The mutation reached the file, the branch was
+   reachable, the test was correct, and the result was still fiction.
+   Nothing in the diff, the file or the test could have revealed it,
+   because the thing that was stale was none of those. So when a
+   sabotage says a test is more robust than you expected, treat the
+   surprise as the finding and re-run it in ISOLATION with the cache
+   cleared, rather than as evidence you built better than you knew. CQ
+   hit the same shape from the other end the same evening: a mutation
+   that landed in the file, changed nothing semantically, and went
+   green, which is indistinguishable from a coverage gap unless you
+   check what the edit actually did.
+
 3. **A response-side test cannot see a request-side hole.** `to_name`
    was sent by SS and silently dropped by an unmodelled field in GP's
    schema. SS saw a correct send; CQ saw a complete request that simply
