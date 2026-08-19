@@ -1131,7 +1131,36 @@ async def usage_me(
 # hints are aggregated per call_type and NEVER per model, so they can't leak
 # which model we picked (the ghost-relay opacity rule).
 _TIMING_HINTS_WINDOW_DAYS = 30
-_TIMING_HINTS_MIN_SAMPLES = 5
+# 2, not 5, and the reason is measured rather than a judgement call.
+#
+# Withholding a hint reads as caution, and its cost is real: the client
+# has nothing to size its patience against and falls back to a fixed
+# default that knows nothing about the call. Live 2026-08-18, that
+# surfaced as an outage. `tr_match_analysis` succeeded in 45.7 seconds,
+# every one of its 29 calls has succeeded, and the app said "Tech
+# Rehearsal AI is temporarily unavailable" because it gave up waiting.
+#
+# The threshold was gating on SAMPLE COUNT, and count does not predict
+# how predictable a call type is. Measured on 30 days of real traffic,
+# ranked by p90/p50 spread:
+#
+#   tr_research_interviewer  n=2   1.10x   WITHHELD
+#   tr_match_analysis        n=3   1.14x   WITHHELD
+#   tr_response_analysis     n=39  2.38x   published
+#   tr_mock_interview        n=38  2.58x   published
+#
+# The two tightest estimates we hold were both withheld and the two
+# loosest were both served. We were suppressing our best numbers and
+# publishing our worst, on a proxy that does not track the thing it
+# stands for.
+#
+# 2 rather than 1 because a single observation has p50 == p90 and cannot
+# express a spread at all, which is false precision rather than a thin
+# estimate. At 2 the payload already carries p50, p90 and `samples`, so
+# a caller has everything needed to judge for itself; no new field is
+# added, because a field nobody reads yet is a field that looks alive
+# and is not.
+_TIMING_HINTS_MIN_SAMPLES = 2
 _TIMING_HINTS_TTL_SEC = 600
 # Cache keyed by app_id → (computed_at_monotonic, payload). Slow-changing
 # aggregate, so a short TTL keeps the per-request DB scan off the hot path.

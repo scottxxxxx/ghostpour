@@ -81,16 +81,51 @@ def test_timing_hints_percentile_shape(client, tmp_db_path, pro_user):
 
 
 def test_timing_hints_min_sample_floor(client, tmp_db_path, pro_user):
+    """One observation is withheld: p50 == p90, which is false precision
+    rather than a thin estimate, and a caller cannot tell a stable call
+    from a lucky one."""
     uid = pro_user["user_id"]
-    # Only 3 samples — below the floor — so the call_type is omitted.
-    for ms in (1000, 2000, 3000):
-        _insert_usage(tmp_db_path, uid, "techrehearsal", "tr_parse_resume", ms)
+    _insert_usage(tmp_db_path, uid, "techrehearsal", "tr_parse_resume", 1000)
 
     data = client.get(
         "/v1/timing-hints",
         headers={**pro_user["headers"], "X-App-ID": "techrehearsal"},
     ).json()
     assert "tr_parse_resume" not in data["hints"]
+
+
+def test_a_thin_but_real_estimate_is_published(client, tmp_db_path, pro_user):
+    """The floor was 5 and it cost an outage. `tr_match_analysis` runs a
+    26 second median, has succeeded on all 29 calls ever made, and the
+    app reported "temporarily unavailable" because it had no hint to
+    size its patience against and fell back to a fixed default.
+
+    Count was the wrong gate. Measured over 30 days of real traffic, the
+    two TIGHTEST call types we hold were both withheld at n=2 and n=3
+    (1.10x and 1.14x p90/p50 spread) while the two loosest were served
+    at n=38 and n=39 (2.38x and 2.58x). We suppressed our best numbers
+    and published our worst.
+
+    Three samples is enough to state a range. The caller gets p50, p90
+    and `samples` and can judge for itself.
+    """
+    uid = pro_user["user_id"]
+    for ms in (38000, 40000, 45000):
+        _insert_usage(tmp_db_path, uid, "techrehearsal", "tr_match_analysis", ms)
+
+    hints = client.get(
+        "/v1/timing-hints",
+        headers={**pro_user["headers"], "X-App-ID": "techrehearsal"},
+    ).json()["hints"]
+    assert "tr_match_analysis" in hints, (
+        "a 45 second call is still unhinted, so the client keeps guessing "
+        "and keeps calling our success an outage")
+    h = hints["tr_match_analysis"]
+    assert h["samples"] == 3, h
+    assert h["p90_ms"] >= h["p50_ms"] > 0
+    # The spread is what tells a caller how much to trust it, and it is
+    # already derivable from what we send. No new field is added.
+    assert h["p90_ms"] != h["p50_ms"]
 
 
 def test_timing_hints_scoped_to_caller_app(client, tmp_db_path, pro_user):
