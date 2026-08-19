@@ -632,6 +632,32 @@ def _format_patch(p: dict) -> str:
     return " ".join(bits)
 
 
+def _is_shelved(patch: dict) -> bool:
+    """Did the user set this one aside?
+
+    CQ stamps `shelved_at` and deliberately leaves the patch ACTIVE: it
+    keeps flowing through /v1/quilt and their recall still finds it, so
+    the assistant can still answer "did Vijay ever owe me the hardware
+    POC?". That is the right call for a question ABOUT the past and the
+    wrong one for this block, which is a list of what is still owed. A
+    user who taps "Let it go" and then hears the assistant chase the
+    item anyway does not experience a subtle distinction between a
+    to-do list and a memory; they experience the button not working.
+
+    Verified on the wire 2026-08-19 rather than read off a design note:
+    `shelved_at` is a TOP-LEVEL key on every patch row CQ returns (86 of
+    86 on a real account, null on all of them today, because prod has
+    zero shelved items so far). It is deliberately not read out of
+    `metadata` -- that nesting is real for our capture REQUEST shape and
+    is not how their response rows are built.
+
+    This filter covers this block only. Their recall path is a separate
+    query that intentionally still surfaces shelved items, so it is not
+    fixed here and was never ours to fix.
+    """
+    return bool(patch.get("shelved_at"))
+
+
 def format_dossier(data: dict, limit: int | None = DOSSIER_LIMIT) -> str:
     """The injection block. Meeting-grouped, newest first (CQ's ordering);
     origin-less patches (user-scoped) follow in flat sections. server_time
@@ -640,23 +666,41 @@ def format_dossier(data: dict, limit: int | None = DOSSIER_LIMIT) -> str:
     lines: list[str] = []
     seen: set = set()
     total = 0
+    shelved = 0
     meetings = data.get("meetings") or []
     for i, m in enumerate(meetings, 1):
-        patches = m.get("patches") or []
-        if not patches:
-            continue
-        stamp = (patches[0].get("created_at") or "")[:10]
-        lines.append(f"## Meeting {i} of {len(meetings)}"
-                     + (f" ({stamp})" if stamp else ""))
-        for p in patches:
+        rendered = []
+        for p in (m.get("patches") or []):
             if p.get("patch_id") in seen:
                 continue
             seen.add(p.get("patch_id"))
+            if _is_shelved(p):
+                shelved += 1
+                continue
+            rendered.append(p)
+        # A meeting with nothing left to show gets no heading. Previously
+        # this could only happen through dedup; shelving makes it likely,
+        # and a bare "## Meeting 3 of 5" with no patches under it is a
+        # confusing thing to put in a prompt.
+        if not rendered:
+            continue
+        stamp = (rendered[0].get("created_at") or "")[:10]
+        lines.append(f"## Meeting {i} of {len(meetings)}"
+                     + (f" ({stamp})" if stamp else ""))
+        for p in rendered:
             lines.append(_format_patch(p))
             total += 1
         lines.append("")
-    flat = [p for key in ("action_items", "facts")
-            for p in (data.get(key) or []) if p.get("patch_id") not in seen]
+    flat = []
+    for key in ("action_items", "facts"):
+        for p in (data.get(key) or []):
+            if p.get("patch_id") in seen:
+                continue
+            if _is_shelved(p):
+                seen.add(p.get("patch_id"))
+                shelved += 1
+                continue
+            flat.append(p)
     if flat:
         lines.append("## Not tied to a specific meeting")
         for p in flat:
@@ -666,6 +710,18 @@ def format_dossier(data: dict, limit: int | None = DOSSIER_LIMIT) -> str:
         lines.append("")
     header = (f"[PROJECT MEMORY DOSSIER: complete stored memory, "
               f"{total} patches across {len(meetings)} meetings]")
+    # Say what was dropped rather than quietly returning a smaller number.
+    # The dossier's own header calls itself complete stored memory and the
+    # counting artifact reads it as the denominator, so an undisclosed
+    # omission is the exact failure this lane keeps producing: a
+    # confidently wrong count rather than a visible gap.
+    if shelved:
+        header += (f"\n({shelved} shelved patch" + ("es" if shelved != 1 else "")
+                   + " omitted: the user set "
+                   + ("them" if shelved != 1 else "it")
+                   + " aside, so "
+                   + ("they are" if shelved != 1 else "it is")
+                   + " not an open obligation and must not be chased)")
     # Prefer CQ's own disclosure over inferring one. They now return
     # `truncated` and `total_available`, and the total is counted BEFORE
     # the cap, so it is the real denominator rather than a guess. The old
