@@ -1154,13 +1154,28 @@ _TIMING_HINTS_WINDOW_DAYS = 30
 # publishing our worst, on a proxy that does not track the thing it
 # stands for.
 #
-# 2 rather than 1 because a single observation has p50 == p90 and cannot
-# express a spread at all, which is false precision rather than a thin
-# estimate. At 2 the payload already carries p50, p90 and `samples`, so
-# a caller has everything needed to judge for itself; no new field is
-# added, because a field nobody reads yet is a field that looks alive
-# and is not.
-_TIMING_HINTS_MIN_SAMPLES = 2
+# 3, and the number is set by THIS FILE'S estimator rather than by
+# taste. `_percentile` is nearest-rank, so the index it picks is
+# int(n * p) clamped to n - 1:
+#
+#   n=1   p50 -> 0, p90 -> 0    same element
+#   n=2   p50 -> 1, p90 -> 1    same element (and it is the MAX)
+#   n=3   p50 -> 1, p90 -> 2    a range at last
+#
+# So a floor of 2 admits exactly the case a floor of 2 was chosen to
+# exclude: p50 == p90, a spread of 1.00x, and a p50 that is really the
+# slower of two observations. That shipped, and `tr_research_interviewer`
+# served 14730/14730 in prod until this line moved. The 1.10x quoted for
+# it when the floor was lowered came from a percentile method we do not
+# serve; ours cannot produce 1.10x at n=2 for any input.
+#
+# 3 keeps the whole point of lowering the floor: `tr_match_analysis`,
+# the call that read as an outage at 45.7s with every one of its 29
+# calls succeeding, has n=3 and stays published. At 3 the payload
+# carries p50, p90 and `samples`, so a caller has everything needed to
+# judge for itself; no new field is added, because a field nobody reads
+# yet is a field that looks alive and is not.
+_TIMING_HINTS_MIN_SAMPLES = 3
 _TIMING_HINTS_TTL_SEC = 600
 # Cache keyed by app_id → (computed_at_monotonic, payload). Slow-changing
 # aggregate, so a short TTL keeps the per-request DB scan off the hot path.

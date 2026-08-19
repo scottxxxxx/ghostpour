@@ -101,10 +101,14 @@ def test_a_thin_but_real_estimate_is_published(client, tmp_db_path, pro_user):
     size its patience against and fell back to a fixed default.
 
     Count was the wrong gate. Measured over 30 days of real traffic, the
-    two TIGHTEST call types we hold were both withheld at n=2 and n=3
-    (1.10x and 1.14x p90/p50 spread) while the two loosest were served
-    at n=38 and n=39 (2.38x and 2.58x). We suppressed our best numbers
-    and published our worst.
+    TIGHTEST call type we hold was withheld at n=3 (1.14x p90/p50 spread)
+    while the two loosest were served at n=38 and n=39 (2.38x and 2.58x).
+    We suppressed our best numbers and published our worst.
+
+    (An earlier version of this docstring also cited `tr_research_interviewer`
+    at n=2 / 1.10x. That number came from a percentile method we do not
+    serve. Ours cannot produce it at n=2 — see
+    `test_the_floor_is_the_smallest_n_our_estimator_can_state_a_range_at`.)
 
     Three samples is enough to state a range. The caller gets p50, p90
     and `samples` and can judge for itself.
@@ -126,6 +130,69 @@ def test_a_thin_but_real_estimate_is_published(client, tmp_db_path, pro_user):
     # The spread is what tells a caller how much to trust it, and it is
     # already derivable from what we send. No new field is added.
     assert h["p90_ms"] != h["p50_ms"]
+
+
+def test_the_floor_is_the_smallest_n_our_estimator_can_state_a_range_at():
+    """The floor is a property of `_percentile`, not a preference.
+
+    `_percentile` is nearest-rank: idx = min(int(n * p), n - 1). Below the
+    floor the p50 and p90 indices COLLIDE, so p50 == p90 for every input of
+    that length and the hint claims a certainty it does not have. This is
+    checked against the function itself so that lowering the floor without
+    changing the estimator fails here rather than in prod: a floor of 2
+    shipped once on the reasoning that only n=1 collapses, and
+    `tr_research_interviewer` served 14730/14730 live until it moved.
+    """
+    from app.routers.chat import _TIMING_HINTS_MIN_SAMPLES, _percentile
+
+    def indices(n):
+        return (
+            min(int(n * 0.50), n - 1),
+            min(int(n * 0.90), n - 1),
+        )
+
+    for n in range(1, _TIMING_HINTS_MIN_SAMPLES):
+        lo, hi = indices(n)
+        assert lo == hi, (
+            f"n={n} is below the floor but CAN express a spread, so the "
+            f"floor is higher than it needs to be")
+        # and prove it on real values, not only on the index arithmetic
+        vals = sorted(range(1000, 1000 + n * 1000, 1000))
+        assert _percentile(vals, 0.50) == _percentile(vals, 0.90) == vals[-1]
+
+    n = _TIMING_HINTS_MIN_SAMPLES
+    lo, hi = indices(n)
+    assert lo != hi, (
+        f"the floor is {n} but its p50 and p90 land on the same element, so "
+        f"every hint we publish at the floor is a spread of 1.00x")
+    vals = sorted(range(1000, 1000 + n * 1000, 1000))
+    assert _percentile(vals, 0.50) < _percentile(vals, 0.90)
+
+
+def test_two_observations_are_withheld(client, tmp_db_path, pro_user):
+    """Two samples is the case the floor of 2 was supposed to exclude and
+    did not. Nearest-rank puts both percentiles on the MAX, so the served
+    p50 is really the slower of the two calls and the spread is 1.00x:
+    a client sizing its patience against it is told the call is perfectly
+    predictable on the strength of two observations.
+    """
+    from app.routers.chat import _percentile
+
+    uid = pro_user["user_id"]
+    for ms in (12000, 17460):
+        _insert_usage(tmp_db_path, uid, "techrehearsal",
+                      "tr_research_interviewer", ms)
+
+    hints = client.get(
+        "/v1/timing-hints",
+        headers={**pro_user["headers"], "X-App-ID": "techrehearsal"},
+    ).json()["hints"]
+    assert "tr_research_interviewer" not in hints, hints
+
+    # Why it is withheld, stated against the estimator rather than asserted:
+    # published, it would have carried a p50 equal to its p90 equal to its
+    # slowest sample.
+    assert _percentile([12000, 17460], 0.50) == _percentile([12000, 17460], 0.90) == 17460
 
 
 def test_timing_hints_scoped_to_caller_app(client, tmp_db_path, pro_user):
