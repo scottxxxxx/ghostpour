@@ -226,7 +226,9 @@ def test_compare_reality_config_and_contract_guards():
     job = assemble_prompt("tr_compare_reality", "BLOB", cfgs, scenario_kind="jobInterview")
     assert "comparing a real job interview against their rehearsal" in job["system_prompt"]
     assert "The counterpart is the Interviewer." in job["system_prompt"]
-    assert "temperature" not in job and job["max_tokens"] == 4096
+    # 8192 since 2026-08-19: at 4096 its worst observed call spent 2,059
+    # tokens thinking and landed at 95% of cap. See test_tr_token_ceilings.
+    assert "temperature" not in job and job["max_tokens"] == 8192
     hard = assemble_prompt("tr_compare_reality", "BLOB", cfgs, scenario_kind="hardConversation")
     assert "emotionally hard personal conversation" in hard["system_prompt"]
     assert job["system_prompt"] != hard["system_prompt"]

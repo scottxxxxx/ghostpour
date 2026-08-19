@@ -19,6 +19,17 @@ CASES = [
     ("tr_research_interviewer", "techrehearsal/research-interviewer", "You are looking at a screenshot"),
 ]
 
+# File-level ceilings. 4096 was the pre-cutover client value and is still
+# right for the calls that never approached it; match-analysis was raised
+# on 2026-08-19 after a truncation that spent 3,627 of its 4,096 thinking.
+# Sized and guarded in tests/test_tr_token_ceilings.py.
+EXPECTED_MAX_TOKENS = {
+    "tr_mock_interview": 4096,
+    "tr_response_analysis": 4096,
+    "tr_match_analysis": 12288,
+    "tr_research_interviewer": 4096,
+}
+
 
 def _load_configs():
     cfgs = {}
@@ -75,11 +86,11 @@ def test_temperature_absent_when_config_omits_it():
 
 
 def test_configs_have_required_shape():
-    for _, slug, head in CASES:
+    for call_type, slug, head in CASES:
         cfg = json.load(open(f"config/remote/{slug}.json"))
         assert cfg["systemPrompt"].startswith(head)
         assert "version" in cfg and isinstance(cfg["version"], int)
-        assert cfg.get("maxTokens") == 4096
+        assert cfg.get("maxTokens") == EXPECTED_MAX_TOKENS[call_type], call_type
         assert cfg.get("recommendedModel") == "claude-sonnet-4-6"
         # Empty template => client data blob passes through verbatim.
         assert cfg.get("userPromptTemplate") == ""
@@ -92,7 +103,7 @@ def test_assembles_system_and_passes_user_through():
         assert r is not None
         assert r["system_prompt"].startswith(head)
         assert r["user_content"] == "RAW CLIENT DATA BLOB"  # passthrough, no template
-        assert r["max_tokens"] == 4096
+        assert r["max_tokens"] == EXPECTED_MAX_TOKENS[call_type], call_type
 
 
 def test_match_prompt_keeps_calibration_guardrails():
