@@ -193,7 +193,9 @@ _DOSSIER = {
 def test_format_dossier_shape():
     from app.services.context_quilt import format_dossier
     block = format_dossier(_DOSSIER)
-    assert block.startswith("[PROJECT MEMORY DOSSIER: complete stored memory, "
+    # No completeness claim since 2026-08-19: the block filters shelved
+    # patches, so "complete stored memory" was a claim it could not keep.
+    assert block.startswith("[PROJECT MEMORY DOSSIER: "
                             "4 patches across 2 meetings]")
     assert "## Meeting 1 of 2 (2026-07-14)" in block
     assert "[todo] Review HubSpot pipeline (owner: Scott Guida) (deadline: 2026-07-20)" in block
