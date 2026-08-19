@@ -42,6 +42,8 @@ MEASURED = [
     ("tr_match_analysis", None, "match-analysis", 1974, 3627, 29, 1),
     ("tr_parse_jd", None, "jd-analysis", 4591, 1804, 27, 0),
     ("tr_compare_reality", None, "compare-reality", 1827, 2059, 12, 0),
+    ("tr_response_analysis", "ConversationPracticeScore", "response-analysis",
+     2341, 1464, 14, 0),
 ]
 
 # A ceiling equal to the observed worst case re-truncates on the next
@@ -143,6 +145,74 @@ def test_the_short_mock_interview_modes_keep_their_small_ceilings():
             f"{mode} relies on thinking being off to fit its budget")
 
 
+def test_the_scorecard_ceiling_fits_an_UNCOMPRESSED_full_length_mock():
+    """InterviewScorecard is the mock-session scorer, and its measured
+    maxima understate demand because the model was already paying for
+    the fit out of quality.
+
+    Measured 2026-08-19 over all 25 calls: it has scored 1 to 18
+    questions on a 4,096 ceiling and never truncated. That clean record
+    is not headroom. Average `per_question` entry size:
+
+        1 to 4 questions      977 chars   (~244 tokens)
+        17 questions          512 chars
+
+    Same eight fields present at both ends, none dropped, so no schema
+    check on either side can see it. The candidate who completes the
+    fullest mock gets the thinnest read on each answer, which is a
+    quality loss nothing detects rather than a failure anything reports.
+
+    So the ceiling is sized on what an UNCOMPRESSED report needs, not on
+    what the compressed ones happened to fit in:
+
+        18 questions x 244 tokens   = 4,392
+        session-level fields        =   150
+        measured thinking max       =   750
+        ------------------------------------
+        demand                      = 5,292
+
+    TR's generator is instructed to produce 12 to 18 questions, so 18 is
+    the top of the range they ship rather than a pessimistic invention,
+    and two real calls have already scored 17 and 18.
+
+    The margin above 1.5x is deliberate and covers the one thing that
+    genuinely could grow: reasoning. This mode has only ever spent 750
+    tokens before answering, but LiveRoundScore scores the same rubric on
+    a comparable input and has spent 5,218. At that level the demand
+    would be 4,392 + 150 + 5,218 = 9,760, which this ceiling still
+    clears.
+    """
+    cfg = _config("response-analysis")
+    cap = _effective_max_tokens(cfg, "InterviewScorecard")
+    assert cap is not None, (
+        "InterviewScorecard has no ceiling of its own, so it inherits the "
+        "file default that was already binding on it")
+    uncompressed_demand = 18 * 244 + 150 + 750
+    assert cap >= uncompressed_demand * MIN_HEADROOM, (
+        f"ceiling {cap} against {uncompressed_demand} needed for an "
+        f"uncompressed 18-question mock; at less than {MIN_HEADROOM}x the "
+        f"model goes on trading per-question depth for fit")
+    pessimistic_reasoning = 18 * 244 + 150 + 5218
+    assert cap >= pessimistic_reasoning, (
+        f"ceiling {cap} does not clear {pessimistic_reasoning}, the same "
+        f"report if reasoning grew to what LiveRoundScore already spends")
+
+
+def test_the_short_response_analysis_mode_keeps_the_file_default():
+    """InterviewFollowUp decides whether to ask one follow-up and answers
+    in ~140 tokens. The file-level 4096 is its runaway guard and the
+    scorecard raise must not lift it by inheritance, which is why the
+    scorecard got a mode of its own instead of the default moving."""
+    cfg = _config("response-analysis")
+    assert cfg["maxTokens"] == 4096
+    assert "maxTokens" not in cfg["modes"]["InterviewFollowUp"]
+    from app.services.prompt_assembly import assemble_prompt
+    assembled = assemble_prompt("tr_response_analysis", "X",
+                                {"techrehearsal/response-analysis": cfg},
+                                prompt_mode="InterviewFollowUp")
+    assert assembled["max_tokens"] == 4096
+
+
 def test_the_chunking_call_is_deliberately_left_alone():
     """`tr_response_analysis` / LiveRoundScore stays at 16,384.
 
@@ -168,6 +238,7 @@ def test_every_raised_config_declares_a_new_version():
     auto-hydrate. A version that did not move is the tell that a sync was
     never done, so the number has to move with the value."""
     expected = {"mock-interview": 17, "match-analysis": 15,
-                "jd-analysis": 13, "compare-reality": 10}
+                "jd-analysis": 13, "compare-reality": 10,
+                "response-analysis": 20}
     for slug, version in expected.items():
         assert _config(slug)["version"] == version, slug
