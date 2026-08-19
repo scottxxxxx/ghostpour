@@ -122,7 +122,10 @@ def test_user_content_passes_through_untouched():
 def test_other_modes_are_unaffected():
     gen = _asm("InterviewQuestionGen")
     assert gen["system_prompt"].startswith("You are an expert technical interviewer")
-    assert gen["max_tokens"] == 4096
+    # 12288 since 2026-08-19: QuestionGen has a ceiling of its own now,
+    # because it was truncating 5 calls in 40. The point of THIS assertion
+    # is unchanged -- the hint mode's 700 must not leak onto it.
+    assert gen["max_tokens"] == 12288
     assert "thinking" not in gen
 
     practice = _asm("ConversationPracticeGen")
