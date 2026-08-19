@@ -708,20 +708,25 @@ def format_dossier(data: dict, limit: int | None = DOSSIER_LIMIT) -> str:
             lines.append(_format_patch(p))
             total += 1
         lines.append("")
-    header = (f"[PROJECT MEMORY DOSSIER: complete stored memory, "
+    # NO completeness claim. The block holds what it holds, and the count
+    # is the count of what is rendered. "complete stored memory" was the
+    # word that turned an omission into a lie: once shelved patches are
+    # filtered out the block is NOT complete stored memory, so the claim
+    # was false and the footnote existed only to repair it (CQ, 19.6).
+    # Describing the contents needs no footnote.
+    header = (f"[PROJECT MEMORY DOSSIER: "
               f"{total} patches across {len(meetings)} meetings]")
-    # Say what was dropped rather than quietly returning a smaller number.
-    # The dossier's own header calls itself complete stored memory and the
-    # counting artifact reads it as the denominator, so an undisclosed
-    # omission is the exact failure this lane keeps producing: a
-    # confidently wrong count rather than a visible gap.
+    # The shelved count goes to the log, NOT into the block. The counting
+    # artifact is code and can be told out of band; the model is the one
+    # consumer that must not be told, because telling it hands it
+    # something to say. A line reading "1 shelved patch omitted, do not
+    # chase it" is a fact plus an instruction about that fact, and the
+    # failure is the assistant announcing "there is one thing you set
+    # aside" to the user whose whole request was that it stop coming up.
+    # The disclosure meant to prevent a leak becomes the leak.
     if shelved:
-        header += (f"\n({shelved} shelved patch" + ("es" if shelved != 1 else "")
-                   + " omitted: the user set "
-                   + ("them" if shelved != 1 else "it")
-                   + " aside, so "
-                   + ("they are" if shelved != 1 else "it is")
-                   + " not an open obligation and must not be chased)")
+        logger.info("cq_dossier_shelved_omitted count=%d rendered=%d",
+                    shelved, total)
     # Prefer CQ's own disclosure over inferring one. They now return
     # `truncated` and `total_available`, and the total is counted BEFORE
     # the cap, so it is the real denominator rather than a guess. The old
