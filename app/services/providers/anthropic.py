@@ -367,6 +367,10 @@ class AnthropicAdapter(ProviderAdapter):
         cache_creation = 0
         cache_read = 0
         web_search_count = 0
+        # Not accumulated as text on purpose: we only need to be able to SAY
+        # the assembled content is text-only, so the reconstructed body below
+        # cannot be mistaken for the whole of what the model produced.
+        thinking_chars = 0
 
         try:
             async for line in self._post_stream(self.base_url, body, headers):
@@ -408,6 +412,8 @@ class AnthropicAdapter(ProviderAdapter):
                             chunk = delta.get("text", "")
                             full_text += chunk
                             yield {"type": "text", "text": chunk, "done": False}
+                        elif delta.get("type") == "thinking_delta":
+                            thinking_chars += len(delta.get("thinking", ""))
 
                     elif event_type == "message_delta":
                         delta = event.get("delta", {})
@@ -434,6 +440,37 @@ class AnthropicAdapter(ProviderAdapter):
         if web_search_count:
             usage_dict["web_search_requests"] = web_search_count
 
+        # A streamed call used to record NOTHING: `raw_response_json=None`.
+        # Measured 2026-08-20, that left 210 of 1668 calls over 60 days with
+        # no stored stop_reason, concentrated in the busiest chat lanes
+        # (SS `query` 96%, `meeting_chat` 83%). stop_reason is the field
+        # every truncation question turns on, so a sweep counting
+        # `stop_reason == "max_tokens"` could not tell "did not truncate"
+        # from "we did not look" on any of them. It reported the former.
+        #
+        # The stream already carries the same facts the non-streaming path
+        # records; they were simply thrown away at the end. So assemble them.
+        #
+        # Shaped like the non-streaming body so every existing reader works
+        # unchanged, and MARKED so nobody mistakes it for the provider's
+        # verbatim bytes. `content` is the assembled TEXT only: thinking
+        # deltas are counted, never accumulated, which is why output_tokens
+        # can legitimately exceed what the text accounts for. The marker
+        # says so rather than leaving that gap to be rediscovered as a
+        # discrepancy later.
+        reconstructed = {
+            "id": response_id,
+            "type": "message",
+            "role": "assistant",
+            "model": model_version or request.model,
+            "content": [{"type": "text", "text": full_text}],
+            "stop_reason": stop_reason or None,
+            "stop_sequence": None,
+            "usage": usage_dict,
+            "_gp_reconstructed_from_stream": True,
+            "_gp_thinking_chars_omitted": thinking_chars,
+        }
+
         final_response = ChatResponse(
             text=full_text,
             input_tokens=input_tokens,
@@ -442,7 +479,7 @@ class AnthropicAdapter(ProviderAdapter):
             provider=request.provider,
             usage=usage_dict,
             raw_request_json=raw_request,
-            raw_response_json=None,  # Not available in streaming
+            raw_response_json=self._redact_base64(self._pretty_json(reconstructed)),
         )
 
         yield {"type": "text", "text": "", "done": True, "response": final_response}
