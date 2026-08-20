@@ -26,6 +26,7 @@ from app.services.meeting_report import (
     build_report_prompt,
     format_duration,
     gather_meeting_data,
+    derive_sentiment_fields,
     render_report_html,
 )
 from app.services.transcript_cleanup import (
@@ -404,6 +405,12 @@ async def _build_report_response(response, body, db, user, report_model, request
             "code": "report_parse_error",
             "message": "The LLM returned invalid JSON for the report. Please try again.",
         })
+
+    # Derive emoji_label and emoji from the model's chosen sentiment
+    # category. Once, here, before the report is stored and returned: the
+    # only consumer is the client, the email renders neither field, and
+    # the re-render route takes client supplied JSON so it needs nothing.
+    report_json = derive_sentiment_fields(report_json)
 
     # 6. Render HTML — use meeting start time if provided, else fall back to now
     if body.meeting_start_iso:
