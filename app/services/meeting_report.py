@@ -186,7 +186,25 @@ Rules:
   - Frustration / blocking issues: 20-40 sustained, dipping lower at flashpoints.
   - Dry status update / routine sync: 40-55, low variance is honest here.
   - The `arc` should reflect the actual ups and downs: a meeting with both jokes and a serious decision moment should show both peaks and dips. Aim for at least 25-30 points of variance between min and max unless the meeting was genuinely monotone.
-- The sentiment_emoji_label must be exactly one of: enthusiastic, collaborative, positive, informational, focused, cautious, frustrated, tense, concerned, disappointed. The emoji should be a single emoji that represents the chosen label.
+- START FROM informational. It is the default, not a fallback: a standup, a status walk, a review of a list, an ordinary working session. Every other sentiment_category must EARN its way past informational with something in the transcript you can point to, and the category names the DOMINANT character of the whole meeting, never its worst or best moment. When nothing earns its way past, the answer is informational, and that is a correct answer, not a failure to decide. It must be exactly one of:
+  - positive: energy, agreement, or something landing well, as the meeting's character rather than a pleasant close.
+  - collaborative: the WORK ITSELF happened in the meeting, done by more than one person at once. Reporting is about work done outside the meeting; collaborating is work happening inside it. It looks like: a bug traced together on a shared screen, call by call, with participants proposing next steps to each other; a design shaped by proposal and counter-proposal; a solution drafted jointly in real time. THE WORK DOES NOT NEED TO FINISH: three engineers who trace a failure to its cause and leave with fixes assigned collaborated, even though the fix ships later. The test: point at a stretch of the transcript where participants are doing the work together rather than telling each other about work. Taking turns reporting status, assigning dates, and reviewing a list are informational, not collaborative, no matter how friendly and productive.
+  - informational: the default above.
+  - cautious: hedged, uncertain, or waiting on something outside the room.
+  - pressured: urgency, heavy workload, deadlines, escalating stakes, or too much to do in too little time, WITHOUT people turning on each other. A meeting can be friendly and pressured at the same time, and most urgent meetings are exactly that.
+  - tense: people IN this conversation disagreeing with each other: an objection voiced, pushback on another participant's position, frustration directed at a person present, or a conflict being worked through. POLITENESS DOES NOT DISQUALIFY: "I disagree, let us do it the other way" said calmly, and answered calmly, is tense evidence. tense does not require raised voices, heat, or rudeness. It is about positions colliding between participants, never about how much work there is.
+  - disconnected: people talking past each other, confusion about goals, decisions, or ownership, misalignment that the meeting does not resolve, even when the tone stays warm.
+  - decisive: the meeting's character is commitment: decisions get made, direction gets locked, and the room moves forward.
+- Apply these contrast rules before choosing a category:
+  - SCHEDULING IS NOT PRESSURE. Asking for an ETA, assigning a date, or walking a list of items with due dates is what an ordinary standup does, and it is informational. pressured means urgency DRIVES the meeting: promises made to outsiders coming due, work reprioritized because a deadline moved, someone's availability compelling action now, and it happens more than once or visibly reshapes what the meeting does. "Can we put an ETA on the routing item?" is informational. A meeting that carries "we have promised this change would be deployed to production by the end of the week" AND "we need to close this ASAP because Srikanth is out from Friday" AND "validate this before 2 PM" is pressured: the urgency recurs and compels.
+  - DIFFICULTY IS NOT PRESSURE. A hard bug worked jointly, a long debugging session, or an effortful design discussion with no forcing deadline is collaborative, not pressured. Effort and struggle are not urgency.
+  - Deadline talk that forces action means pressured, never tense.
+  - A blocker discussed without blame means cautious or pressured, not tense.
+  - Frustration aimed at someone or something OUTSIDE the conversation (an absent vendor, a slow IT queue) means pressured or cautious, not tense. tense requires friction between participants.
+  - Disagreement between participants means tense even when it is voiced calmly and resolved politely, provided it is the meeting's dominant character rather than one passing exchange. Example of sufficient tense evidence: one participant says "My suggestion is to prepare the document first" and another answers "I disagree, set up the meeting first." No anger occurred; that exchange is still what tense means.
+  - Repeated confusion such as "wait, I thought we agreed" means disconnected, not cautious.
+  - NO QUOTE, NO CLAIM. If you cannot quote participants disagreeing, you may not answer tense; if you cannot quote recurring urgency compelling action, you may not answer pressured; if you cannot quote the misalignment, you may not answer disconnected. And the ungated categories are not an escape: collaborative must point at the stretch where the work happened in the meeting itself (it does not need to have finished), cautious must point at the hedge or the wait, positive and decisive must describe the meeting's character rather than one nice moment. When nothing earns its way past the default, the answer is informational. An empty sentiment_category_evidence with a gated category is a contract violation.
+- The sentiment label must be the human phrasing of the chosen category, in the output language: the category decides, the label says it in words. A label that names a different feeling than the category is a contract violation. Example: category pressured with label "Heavy deadline pressure, spirits holding" is correct; category pressured with label "Tense standoff" is a violation.
 - For suggested_tags: return at most 2 tags from the provided TAG TAXONOMY list, applied only when they capture what makes THIS meeting distinctive from a typical meeting. Most meetings should produce 1 tag, or 0 if nothing stands out. Do not apply a tag just because it could plausibly fit. Each tag needs a reason explaining why it applies and what makes it distinguishing.
 - For queries_during_meeting: include them exactly as provided in the input, do not modify query text or response text
 - Never fabricate information not present in the transcript
@@ -216,8 +234,8 @@ JSON SCHEMA:
     "score": "number 0-100",
     "label": "string: 2 to 5 word characterization",
     "detail": "string: 1 to 2 sentences describing the overall emotional tone",
-    "emoji_label": "string: exactly one of: enthusiastic, collaborative, positive, informational, focused, cautious, frustrated, tense, concerned, disappointed",
-    "emoji": "string: single emoji that represents the emoji_label",
+    "category": "string: exactly one of: positive, collaborative, informational, cautious, pressured, tense, disconnected, decisive",
+    "category_evidence": "string: REQUIRED when category is tense, pressured, or disconnected. A verbatim quote from the transcript: participants disagreeing (tense), time or workload forcing an action (pressured), or the misalignment itself (disconnected). Empty string for every other category.",
     "arc": [
       {{
         "value": "number 0-100, sentiment score for this segment of the meeting (0 = very negative, 50 = neutral, 100 = very positive). Use the full range: see Rules.",
@@ -425,7 +443,7 @@ _DEFAULT_TAG_TAXONOMY = [
 
 _LOCALE_DIRECTIVE = """
 
-LANGUAGE: Produce all narrative text fields (titles, summaries, labels, details, action item text, technical issue titles and details, decision titles and details, open questions, sentiment narrative) in the language with BCP-47 code '{locale}'. Keep all enum values exactly as defined in the schema: these are wire-protocol keys, not display strings, and MUST remain in English: stoplight color (red/orange/yellow/green), emoji_label (enthusiastic, collaborative, positive, informational, focused, cautious, frustrated, tense, concerned, disappointed), priority (critical/standard), severity (gap/bug/risk), mood (confident/tense/concern/neutral)."""
+LANGUAGE: Produce all narrative text fields (titles, summaries, labels, details, action item text, technical issue titles and details, decision titles and details, open questions, sentiment narrative) in the language with BCP-47 code '{locale}'. Keep all enum values exactly as defined in the schema: these are wire-protocol keys, not display strings, and MUST remain in English: stoplight color (red/orange/yellow/green), sentiment category (positive, collaborative, informational, cautious, pressured, tense, disconnected, decisive), priority (critical/standard), severity (gap/bug/risk), mood (confident/tense/concern/neutral)."""
 
 
 def build_report_prompt(
@@ -510,6 +528,93 @@ def _resolve_report_strings(
     if cfg and isinstance(cfg.get("strings"), dict):
         return {**_DEFAULT_REPORT_STRINGS, **cfg["strings"]}
     return _DEFAULT_REPORT_STRINGS
+
+
+# --- Derived sentiment fields (2026-08-20) -----------------------------
+#
+# Scott's product ruling: Tense must mean interpersonal friction only. An
+# action-heavy meeting with no friction in it was rendering red, by two
+# separate paths, and neither required anyone to be at odds.
+#
+# The model now chooses ONE sentiment field, `category`, from eight
+# values. `emoji_label` and `emoji` are derived here from that choice
+# rather than being asked for alongside it.
+#
+# Why derived rather than instructed: a coherence rule can be violated,
+# and a report with category `pressured` and emoji_label `tense` would be
+# individually plausible in both fields, render red on SS's legacy
+# mapping, and look shipped. Deriving makes that contradiction
+# structurally impossible instead of merely forbidden. Same reasoning as
+# requiring a quote before `tense` is allowed: a receipt beats a promise,
+# and a derivation beats both.
+#
+# The targets are the LEGACY ten-value vocabulary on purpose, chosen as
+# nearest meanings, so every existing consumer keeps working and so the
+# glyphs can come from a table SS already ships rather than a new one
+# invented here.
+_CATEGORY_TO_EMOJI_LABEL = {
+    "positive": "positive",
+    "collaborative": "collaborative",
+    "informational": "informational",
+    "cautious": "cautious",
+    "pressured": "concerned",
+    "tense": "tense",
+    "disconnected": "cautious",
+    "decisive": "focused",
+}
+
+# Keyed on the DERIVED legacy label, not on the category, so every glyph
+# is one SS already ships in its on-device fallback table. That is what
+# makes our served value and their fallback agree by construction rather
+# than by taste, and it is why nothing new is invented here.
+# All seven confirmed against SS's canonical table by CQ, 2026-08-20, code
+# point by code point. Do not substitute a visually similar glyph: a
+# near-miss code point renders the same to a reader and compares unequal
+# to SS's fallback, which is the whole class of defect this map exists to
+# prevent.
+_EMOJI_LABEL_TO_GLYPH = {
+    "positive": "\U0001F60A",        # smiling face
+    "collaborative": "\U0001F91D",   # handshake
+    "informational": "\U0001F4CB",   # clipboard
+    "cautious": "\U0001F914",        # thinking face
+    "focused": "\U0001F3AF",         # direct hit
+    "tense": "\u26A1",               # high voltage
+    "concerned": "\U0001F61F",       # worried face
+}
+
+
+def derive_sentiment_fields(report_json: dict) -> dict:
+    """Fill emoji_label and emoji from the model's chosen category.
+
+    Mutates and returns `report_json`. A no-op when there is no sentiment
+    block or no category, so an older stored report passed back through
+    the re-render path is left exactly as it was rather than acquiring
+    fields it never had.
+    """
+    sentiment = report_json.get("sentiment")
+    if not isinstance(sentiment, dict):
+        return report_json
+    category = sentiment.get("category")
+    if not category:
+        return report_json
+
+    label = _CATEGORY_TO_EMOJI_LABEL.get(category)
+    if label is None:
+        # An unrecognised category means the model invented a value. Do
+        # NOT fall back to a neutral-looking label: that would hide a
+        # contract violation behind a plausible report. Leave the derived
+        # fields absent and say so, loudly.
+        logger.warning(
+            "sentiment_category_unrecognised",
+            extra={"category": str(category)[:40]},
+        )
+        return report_json
+
+    sentiment["emoji_label"] = label
+    glyph = _EMOJI_LABEL_TO_GLYPH.get(label)
+    if glyph:
+        sentiment["emoji"] = glyph
+    return report_json
 
 
 def render_report_html(

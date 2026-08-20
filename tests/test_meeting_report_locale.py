@@ -42,9 +42,16 @@ def test_directive_protects_wire_enums():
     # Stoplight colors
     for color in ("red", "orange", "yellow", "green"):
         assert color in system_prompt, f"stoplight enum '{color}' missing from directive"
-    # Emoji labels (iOS uses these as dictionary keys)
-    for label in ("enthusiastic", "collaborative", "frustrated", "concerned"):
-        assert label in system_prompt, f"emoji_label '{label}' missing from directive"
+    # Sentiment category (iOS keys off this). Replaced emoji_label here on
+    # 2026-08-20: the model no longer emits emoji_label at all, it is
+    # derived in code from category, so pinning its values in the directive
+    # would be protecting a field the model is never asked for. The enum
+    # that now needs protecting is category.
+    for cat in ("positive", "collaborative", "informational", "cautious",
+                "pressured", "tense", "disconnected", "decisive"):
+        assert cat in system_prompt, f"category '{cat}' missing from directive"
+    assert "emoji_label" not in system_prompt, (
+        "the directive still names a field the model does not emit")
     # Priority / severity / mood enums
     for enum in ("critical", "standard", "gap", "bug", "risk", "confident", "tense", "concern", "neutral"):
         assert enum in system_prompt, f"enum '{enum}' missing from directive"
