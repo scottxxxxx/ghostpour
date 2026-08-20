@@ -197,8 +197,32 @@ BELIEVED_ITEM = {
 }
 
 
+# ⚠ WHAT THIS FIXTURE DOES AND DOES NOT ESTABLISH (added 2026-08-19).
+#
+# It is a shape we ACCEPT, not a shape that was being sent. CQ found on
+# 2026-08-19, via a local two-meeting simulation, that the believed_*
+# family was never emitted on /v1/quilt at all: the worker stamped it and
+# only the People detail route served it, so every confirm surface fed by
+# the quilt sync starved by construction. Their PR #296 adds it.
+#
+# The tests below were true when written and are still true: they prove
+# our hop does not eat these fields WHEN PRESENT, and GP holding no
+# vocabulary for them is why no change was needed here.
+#
+# The claim they must not be read as proving is "the fields reach the
+# device". Nobody proved that. Three teams each proved their own half,
+# and the missing half had no owner: SS proved the render, we proved the
+# passthrough, and the origin was never checked because a fixture on each
+# side supplied it. This comment exists so the next reader takes the
+# fixture as an assumption rather than as evidence about CQ.
+#
+# Rule 5, stated as a habit: name which side each claim was proved on.
+
+
 def test_a_believed_completion_survives_the_proxy(quilt_client, cq_returns):
-    """Every field is one GP has never heard of, including a list."""
+    """Every field is one GP has never heard of, including a list.
+
+    Proves OUR half only. See the note above the fixture."""
     cq_returns({"patches": [BELIEVED_ITEM], "server_time": "2026-08-17T00:00:00Z"})
     got = quilt_client.get(f"/v1/quilt/{USER}").json()["patches"][0]
     assert got == BELIEVED_ITEM, "the proxy reshaped a believed-completion item"
