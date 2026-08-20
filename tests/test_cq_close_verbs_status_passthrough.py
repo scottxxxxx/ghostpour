@@ -193,3 +193,42 @@ def test_an_unknown_field_in_the_body_is_not_dropped(quilt_client, cq, verb):
 
     _, _, sent = _outbound(cq)
     assert sent == body
+
+
+# --- SS's date control: a 422 for a bad completed_at, through the hop -----
+#
+# SS is adding a date control to "Done" that sends {"completed_at": ...}.
+# CQ validates it and answers 422 with {code, field, message, received}
+# for a future date. Nothing above pins 422; the proxy's only status
+# rewrite is 401 -> 502, so this is expected to hold by construction, and
+# "expected by construction" is exactly the claim rule 7 says to verify.
+
+CQ_422_BODY = {
+    "code": "FUTURE_COMPLETED_AT",
+    "field": "completed_at",
+    "message": "completed_at may not be in the future",
+    "received": "2027-01-01",
+}
+
+
+def test_a_future_completed_at_422_arrives_intact_and_the_date_reached_cq(
+        quilt_client, cq):
+    """Both directions of the hop in one call: the date SS sent must be
+    what CQ received (request side), and CQ's 422 with its four-field body
+    must be what SS gets back (response side). `received` echoing the
+    sent value is the check-the-echo rule applied to a rejection."""
+    cq.install(CQ_422_BODY, status=422)
+    body = {"completed_at": "2027-01-01"}
+
+    resp = quilt_client.post(f"/v1/quilt/{USER}/patches/{PATCH}/complete", json=body)
+
+    _method, _path, sent = _outbound(cq)
+    assert sent == body, f"completed_at did not reach CQ verbatim: {sent!r}"
+    assert resp.status_code == 422, (
+        "SS keys the inline date error off 422; any other status routes "
+        "the tap to the retry or generic-failure arm")
+    got = json.loads(resp.content)
+    assert got == CQ_422_BODY, f"422 body did not survive the hop: {got!r}"
+    assert got["received"] == body["completed_at"], (
+        "CQ's echo of the rejected value is what lets SS show the user "
+        "which date was refused")
