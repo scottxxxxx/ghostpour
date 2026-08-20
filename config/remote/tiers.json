@@ -114,6 +114,7 @@
         "Summaries written while you're still meeting",
         "Shareable meeting reports",
         "Ask questions across every meeting in a project",
+        "Meeting Memory: AI remembers past meetings",
         "Web search: current info in your answers (75/mo)",
         "3 photos or images per question"
       ],
@@ -133,6 +134,10 @@
         {
           "label": "Ask questions across every meeting in a project",
           "icon": "chat"
+        },
+        {
+          "label": "Meeting Memory: AI remembers past meetings",
+          "icon": "brain"
         },
         {
           "label": "Web search: current info in your answers (75/mo)",
@@ -177,9 +182,9 @@
         },
         {
           "label": "Meeting Memory",
-          "value": "upgrade to Pro",
+          "value": "enabled",
           "icon": "brain",
-          "state": "teaser"
+          "state": "enabled"
         }
       ],
       "feature_definitions": {
@@ -230,7 +235,7 @@
     },
     "pro": {
       "display_name": "Pro",
-      "description": "Everything in Plus with advanced AI, real file generation, and Meeting Memory.",
+      "description": "Everything in Plus with advanced AI and real file generation.",
       "feature_bullets": [
         "Advanced AI for deeper reports and analysis",
         "Full recap or just-what's-new summaries, your choice",
