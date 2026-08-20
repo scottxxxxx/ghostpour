@@ -1,5 +1,5 @@
 {
-  "version": 23,
+  "version": 24,
   "server_only": true,
   "models": [
     {
@@ -141,6 +141,77 @@
         "automation"
       ],
       "call_types": {
+        "query": {
+          "label": "General Query",
+          "models": {
+            "free": "anthropic/claude-sonnet-5",
+            "paid": "anthropic/claude-sonnet-5",
+            "default": "anthropic/claude-sonnet-5"
+          }
+        },
+        "tr_analysis": {
+          "label": "Session analysis",
+          "models": {
+            "free": "anthropic/claude-haiku-4-5-20251001",
+            "paid": "anthropic/claude-haiku-4-5-20251001",
+            "default": "anthropic/claude-haiku-4-5-20251001"
+          }
+        },
+        "tr_brief_analysis": {
+          "label": "Brief Analysis",
+          "models": {
+            "free": "anthropic/claude-sonnet-5",
+            "paid": "anthropic/claude-sonnet-5",
+            "default": "anthropic/claude-sonnet-5"
+          }
+        },
+        "tr_compare_reality": {
+          "label": "Compare to Reality",
+          "models": {
+            "free": "anthropic/claude-sonnet-5",
+            "paid": "anthropic/claude-sonnet-5",
+            "default": "anthropic/claude-sonnet-5"
+          }
+        },
+        "tr_counterpart_turn": {
+          "models": {
+            "free": "anthropic/claude-sonnet-5",
+            "paid": "anthropic/claude-sonnet-5",
+            "default": "anthropic/claude-sonnet-5"
+          }
+        },
+        "tr_debrief": {
+          "label": "Debrief",
+          "models": {
+            "free": "anthropic/claude-sonnet-5",
+            "paid": "anthropic/claude-sonnet-5",
+            "default": "anthropic/claude-sonnet-5"
+          }
+        },
+        "tr_intake": {
+          "label": "Intake (personal scenarios)",
+          "models": {
+            "free": "anthropic/claude-haiku-4-5-20251001",
+            "paid": "anthropic/claude-haiku-4-5-20251001",
+            "default": "anthropic/claude-haiku-4-5-20251001"
+          }
+        },
+        "tr_match_analysis": {
+          "label": "Resume-JD Match",
+          "models": {
+            "free": "anthropic/claude-sonnet-5",
+            "paid": "anthropic/claude-sonnet-5",
+            "default": "anthropic/claude-sonnet-5"
+          }
+        },
+        "tr_mock_interview": {
+          "label": "Mock Interview",
+          "models": {
+            "free": "anthropic/claude-sonnet-5",
+            "paid": "anthropic/claude-sonnet-5",
+            "default": "anthropic/claude-sonnet-5"
+          }
+        },
         "tr_parse_jd": {
           "label": "JD Analysis",
           "models": {
@@ -157,8 +228,24 @@
             "default": "anthropic/claude-sonnet-5"
           }
         },
-        "tr_mock_interview": {
-          "label": "Mock Interview",
+        "tr_query": {
+          "label": "Ask (general query)",
+          "models": {
+            "free": "anthropic/claude-haiku-4-5-20251001",
+            "paid": "anthropic/claude-haiku-4-5-20251001",
+            "default": "anthropic/claude-haiku-4-5-20251001"
+          }
+        },
+        "tr_research_company": {
+          "label": "Company Research",
+          "models": {
+            "free": "openrouter/perplexity/sonar",
+            "paid": "openrouter/perplexity/sonar",
+            "default": "openrouter/perplexity/sonar"
+          }
+        },
+        "tr_research_interviewer": {
+          "label": "Interviewer Research",
           "models": {
             "free": "anthropic/claude-sonnet-5",
             "paid": "anthropic/claude-sonnet-5",
@@ -173,67 +260,12 @@
             "default": "anthropic/claude-sonnet-5"
           }
         },
-        "tr_research_company": {
-          "label": "Company Research",
-          "models": {
-            "free": "openrouter/perplexity/sonar",
-            "paid": "openrouter/perplexity/sonar",
-            "default": "openrouter/perplexity/sonar"
-          }
-        },
-        "tr_match_analysis": {
-          "label": "Resume-JD Match",
-          "models": {
-            "free": "anthropic/claude-sonnet-5",
-            "paid": "anthropic/claude-sonnet-5",
-            "default": "anthropic/claude-sonnet-5"
-          }
-        },
-        "tr_research_interviewer": {
-          "label": "Interviewer Research",
-          "models": {
-            "free": "anthropic/claude-sonnet-5",
-            "paid": "anthropic/claude-sonnet-5",
-            "default": "anthropic/claude-sonnet-5"
-          }
-        },
         "tr_resume_enhance": {
           "label": "Resume Strengthen",
           "models": {
             "free": "anthropic/claude-haiku-4-5-20251001",
             "paid": "anthropic/claude-haiku-4-5-20251001",
             "default": "anthropic/claude-haiku-4-5-20251001"
-          }
-        },
-        "query": {
-          "label": "General Query",
-          "models": {
-            "free": "anthropic/claude-haiku-4-5-20251001",
-            "paid": "anthropic/claude-sonnet-5"
-          }
-        },
-        "tr_intake": {
-          "label": "Intake (personal scenarios)",
-          "models": {
-            "free": "anthropic/claude-haiku-4-5-20251001",
-            "paid": "anthropic/claude-haiku-4-5-20251001",
-            "default": "anthropic/claude-haiku-4-5-20251001"
-          }
-        },
-        "tr_brief_analysis": {
-          "label": "Brief Analysis",
-          "models": {
-            "free": "anthropic/claude-sonnet-5",
-            "paid": "anthropic/claude-sonnet-5",
-            "default": "anthropic/claude-sonnet-5"
-          }
-        },
-        "tr_debrief": {
-          "label": "Debrief",
-          "models": {
-            "free": "anthropic/claude-sonnet-5",
-            "paid": "anthropic/claude-sonnet-5",
-            "default": "anthropic/claude-sonnet-5"
           }
         },
         "tr_rewrite": {
@@ -244,19 +276,12 @@
             "default": "anthropic/claude-haiku-4-5-20251001"
           }
         },
-        "tr_compare_reality": {
-          "label": "Compare to Reality",
+        "tr_summary": {
+          "label": "Session summary",
           "models": {
-            "free": "anthropic/claude-sonnet-5",
-            "paid": "anthropic/claude-sonnet-5",
-            "default": "anthropic/claude-sonnet-5"
-          }
-        },
-        "tr_counterpart_turn": {
-          "models": {
-            "free": "anthropic/claude-sonnet-5",
-            "paid": "anthropic/claude-sonnet-5",
-            "default": "anthropic/claude-sonnet-5"
+            "free": "anthropic/claude-haiku-4-5-20251001",
+            "paid": "anthropic/claude-haiku-4-5-20251001",
+            "default": "anthropic/claude-haiku-4-5-20251001"
           }
         }
       }
