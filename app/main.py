@@ -286,6 +286,8 @@ async def lifespan(app: FastAPI):
                     db.row_factory = aiosqlite.Row
                     await purge_expired(db)
                     await purge_turns(db)  # same 6h clock, same sweep
+                    from app.services.meeting_shares import purge_expired as purge_shares
+                    await purge_shares(db)  # expired or revoked meeting shares
             except Exception as e:  # noqa: BLE001 — sweep must never die
                 logging.getLogger("app.main").warning(
                     "generated_files sweep failed: %s", e,
@@ -430,3 +432,6 @@ app.include_router(account.router, prefix="/v1", tags=["account"])
 if get_settings().cq_base_url:
     from app.routers import cq_proxy
     app.include_router(cq_proxy.router, prefix="/v1", tags=["context-quilt"])
+from app.routers import shares as _shares
+app.include_router(_shares.router, prefix="/v1", tags=["shares"])
+app.include_router(_shares.public, tags=["shares-public"])

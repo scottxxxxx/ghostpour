@@ -41,6 +41,10 @@ APP_SCOPED_TABLES = [
     "config_stalls",
     "generated_files",
     "generations",
+    # Meeting shares (2026-08-21): the user's own meeting content, hosted
+    # at a public URL. Goes with the account, bytes included; a share must
+    # not outlive the person who made it.
+    "meeting_shares",
     "plan_snapshots",
     "promo_events",
     "refresh_tokens",
@@ -85,10 +89,11 @@ async def remaining_apps(
 
 
 async def _unlink_staged_files(
-    db: aiosqlite.Connection, user_id: str, app_id: str | None
+    db: aiosqlite.Connection, user_id: str, app_id: str | None,
+    table: str = "generated_files",
 ) -> int:
     """Remove staged artifact bytes that sit on disk beside their rows."""
-    sql = "SELECT storage_path FROM generated_files WHERE user_id = ?"
+    sql = f"SELECT storage_path FROM {table} WHERE user_id = ?"
     params: list = [user_id]
     if app_id is not None:
         sql += " AND app_id = ?"
@@ -124,6 +129,8 @@ async def delete_user_data(
 
     counts["generated_files_disk"] = await _unlink_staged_files(
         db, user_id, app_id)
+    counts["meeting_shares_disk"] = await _unlink_staged_files(
+        db, user_id, app_id, table="meeting_shares")
 
     for table in APP_SCOPED_TABLES:
         if app_id is None:
