@@ -174,9 +174,9 @@ DECLARED_LOCALE_GAPS = {
         "fr": "French locale rollout 2026-07-27 covered seven surfaces; this "
               "one was not among them. Translation owed."
     },
-    "report-strings": {
-        "fr": "Same French rollout gap as canned-report. Translation owed."
-    },
+    # report-strings.fr: declared missing here from 2026-07-27; shipped
+    # 2026-08-21 with the masthead localization fix, so the declaration
+    # is gone and the check holds French to the same key set as English.
 }
 
 
