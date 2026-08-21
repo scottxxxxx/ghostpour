@@ -584,6 +584,11 @@ async def get_config(
         request, resolved_name, parsed_client_version, server_version,
         stalled=True, db=db)
 
+    # Plus recall window: tiers bundles carry `{recall_window_days}` in
+    # their copy; filled from the dial at serve time, never stored filled.
+    if resolved_name == "tiers" or resolved_name.startswith("tiers."):
+        from app.services.recall_window import render_recall_window_copy
+        data = render_recall_window_copy(data, configs)
     return JSONResponse(
         content=data,
         headers={

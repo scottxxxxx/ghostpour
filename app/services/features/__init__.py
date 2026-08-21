@@ -26,8 +26,13 @@ class FeatureHook(Protocol):
         feature_state: str,
         skip_teasers: set[str],
         app_id: str | None = None,
+        recall_max_age_days: int | None = None,
     ) -> tuple[ChatRequest, dict[str, Any]]:
         """Run before the LLM call. May modify the request body.
+
+        recall_max_age_days: the tier's Memory window (None = unlimited),
+        resolved by the router from the served tiers dial and handed in so
+        the hook never reads tier config itself.
 
         Returns:
             (possibly_modified_body, hook_result_dict)

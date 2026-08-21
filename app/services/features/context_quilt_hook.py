@@ -33,6 +33,7 @@ class ContextQuiltHook:
         feature_state: str,
         skip_teasers: set[str],
         app_id: str | None = None,
+        recall_max_age_days: int | None = None,
     ) -> tuple[ChatRequest, dict[str, Any]]:
         result: dict[str, Any] = {
             "cq_result": {"context": "", "matched_entities": [], "patch_count": 0},
@@ -44,12 +45,14 @@ class ContextQuiltHook:
             # routes a disabled-state call here when the people
             # entitlement is enabled, so reaching this branch IS the free
             # lane; the dashboard People toggle closes it at the dispatch.
-            return await self._people_scoped_recall(user, body, result, app_id)
+            return await self._people_scoped_recall(
+                user, body, result, app_id, recall_max_age_days)
 
         if not body.context_quilt:
             return body, result
 
         cq_metadata = _build_recall_metadata(body)
+        _apply_recall_window(cq_metadata, recall_max_age_days)
 
         if feature_state == "enabled":
             # Correction lane (Contract item 9, dark until CQ's handler is
@@ -149,7 +152,8 @@ class ContextQuiltHook:
                 from app.services.document_generation import _question_portion
                 if cq.is_rundown_ask(_question_portion(body.user_content)):
                     dossier = await cq.quilt_dossier(
-                        user.id, body.get_meta("project_id"), app_id=app_id)
+                        user.id, body.get_meta("project_id"), app_id=app_id,
+                        max_age_days=recall_max_age_days)
                     if dossier and (dossier.get("meetings")
                                     or dossier.get("facts")
                                     or dossier.get("action_items")):
@@ -248,6 +252,7 @@ class ContextQuiltHook:
         body: ChatRequest,
         result: dict[str, Any],
         app_id: str | None,
+        recall_max_age_days: int | None = None,
     ) -> tuple[ChatRequest, dict[str, Any]]:
         """Free lane: recall scoped to what the People tab shows.
 
@@ -278,6 +283,7 @@ class ContextQuiltHook:
         """
         cq_metadata = _build_recall_metadata(body)
         cq_metadata["recall_scope"] = "people"
+        _apply_recall_window(cq_metadata, recall_max_age_days)
         cq_result = await cq.recall(
             app_id=app_id,
             user_id=user.id,
@@ -392,6 +398,18 @@ def _build_recall_metadata(body: ChatRequest) -> dict[str, Any]:
     if body.get_meta("prompt_mode") == "ProjectChat":
         cq_metadata["token_budget"] = 1200
     return cq_metadata
+
+
+def _apply_recall_window(cq_metadata: dict[str, Any], max_age_days: int | None) -> None:
+    """Plus recall window (2026-08-21): `metadata.max_age_days` on every
+    /v1/recall leg. Set server-side from the tier dial AFTER the request
+    composition, like recall_scope and subscription_tier, so a client can
+    neither widen nor narrow its own window. CQ's contract: absent means
+    no window, so unlimited tiers send nothing rather than a sentinel."""
+    if isinstance(max_age_days, int) and not isinstance(max_age_days, bool) and max_age_days >= 1:
+        cq_metadata["max_age_days"] = max_age_days
+    else:
+        cq_metadata.pop("max_age_days", None)
 
 
 def _inject_recall_block(body: ChatRequest, cq_context: str) -> ChatRequest:

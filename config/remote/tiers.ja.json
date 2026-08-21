@@ -1,5 +1,5 @@
 {
-  "version": 42,
+  "version": 43,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -108,13 +108,13 @@
     },
     "plus": {
       "display_name": "Plus",
-      "description": "無制限のAIミーティングアシスタント。要約、レポート、プロジェクトチャット。",
+      "description": "直近{recall_window_days}日間の会議をすべての会話に。ドキュメント、ウェブ検索、ファイル生成、無制限の利用。",
       "feature_bullets": [
         "AIアシスタント付きの無制限ミーティング",
         "会議中にリアルタイムで要約を作成",
         "共有できるミーティングレポート",
         "プロジェクト内のすべてのミーティングに質問",
-        "ミーティングメモリー：AIが過去の会議を記憶",
+        "直近{recall_window_days}日間の会議を、すべての会話に",
         "Web検索：最新情報を回答に反映（月75回）",
         "1つの質問につき写真・画像3枚"
       ],
@@ -136,7 +136,7 @@
           "icon": "chat"
         },
         {
-          "label": "ミーティングメモリー：AIが過去の会議を記憶",
+          "label": "直近{recall_window_days}日間の会議を、すべての会話に",
           "icon": "brain"
         },
         {
@@ -182,7 +182,7 @@
         },
         {
           "label": "ミーティングメモリー",
-          "value": "有効",
+          "value": "直近{recall_window_days}日間",
           "icon": "brain",
           "state": "enabled"
         }
@@ -230,17 +230,20 @@
               "斜めからではなく、正面からカメラを合わせてください"
             ]
           }
+        },
+        "context_quilt": {
+          "recall_max_age_days": 30
         }
       }
     },
     "pro": {
       "display_name": "Pro",
-      "description": "Plusの全機能に加え、高度なAI、ファイル生成。",
+      "description": "記録したすべてを、すべての会話に。分析とレポートにはより高性能なモデル。",
       "feature_bullets": [
         "より深いレポートと分析のための高度なAI",
         "全文要約または新しい内容だけ、選べます",
         "Web検索：最新情報を回答に反映（月120回）",
-        "ミーティングメモリー：AIが過去の会議を記憶",
+        "記録したすべての会議を、すべての会話に",
         "共有できる本物のファイルを作成：Excel、Word、PowerPoint、PDF",
         "チャットにドキュメントを添付（2ファイル、各25MB）",
         "1つの質問につき写真・画像5枚"
@@ -259,7 +262,7 @@
           "icon": "search"
         },
         {
-          "label": "ミーティングメモリー：AIが過去の会議を記憶",
+          "label": "記録したすべての会議を、すべての会話に",
           "icon": "brain"
         },
         {
@@ -313,7 +316,7 @@
         },
         {
           "label": "ミーティングメモリー",
-          "value": "有効",
+          "value": "すべて",
           "icon": "brain",
           "state": "enabled"
         }
@@ -364,6 +367,9 @@
               "斜めからではなく、正面からカメラを合わせてください"
             ]
           }
+        },
+        "context_quilt": {
+          "recall_max_age_days": null
         }
       }
     }
@@ -374,11 +380,11 @@
       "display_name": "ミーティングメモリー",
       "description": "AIが過去の会議を記憶し、その知識を自動的に活用します。",
       "teaser_description": "AIが過去の会議とのつながりを発見しました",
-      "upgrade_cta": "Plusにアップグレードしてミーティングメモリーを解除",
+      "upgrade_cta": "Plusにアップグレードして、直近{recall_window_days}日間の会議をすべての回答に反映",
       "cta_strings": {
-        "free_within_quota_footer": "✨ 今月の無料メモリー{total}回のうちの1つを使いました。Plusにアップグレードしてメモリーを構築し続けましょう。",
-        "free_no_quota_only": "✨ AIに会議を記憶してほしいですか？Plusにアップグレードしてメモリーの構築を始めましょう。",
-        "free_people_only": "✨ AIがこの会議からPeopleリストを作成しています。Plusにアップグレードすると、記憶した内容を読み返せます。"
+        "free_within_quota_footer": "✨ これは今月の無料メモリー（{total}回分）でした。Plusなら直近{recall_window_days}日間の会議がすべての回答に反映されます。",
+        "free_no_quota_only": "✨ 今月の無料AIを使い切りました。Plusなら無制限になり、直近{recall_window_days}日間の会議がすべての回答に反映されます。",
+        "free_people_only": "✨ AIがこの会議からPeopleリストを作成しています。Plusなら直近{recall_window_days}日間の会議がすべての回答に反映されます。"
       }
     },
     "meeting_reports": {

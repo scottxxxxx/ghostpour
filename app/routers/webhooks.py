@@ -750,7 +750,10 @@ async def update_tier_tunable_field(
 
     from app.routers.config import CONFIG_DIR, load_remote_configs
 
-    locale_slugs = ["tiers", "tiers.es", "tiers.ja"]
+    # Every shipped locale, in lockstep. French was added 2026-07-27 and
+    # this list did not learn it until 2026-08-21, so every tier-field save
+    # in between left tiers.fr.json on the old number.
+    locale_slugs = ["tiers", "tiers.es", "tiers.fr", "tiers.ja"]
     updated: list[dict] = []
     for slug in locale_slugs:
         path = CONFIG_DIR / f"{slug}.json"
@@ -785,6 +788,21 @@ async def update_tier_tunable_field(
 
     # Hot-reload so the next /v1/chat call sees the new cap immediately.
     request.app.state.remote_configs = load_remote_configs()
+
+    # The record. Served routing drifted eleven dial saves from its repo
+    # mirror with no trace of who set what (found 2026-08-20); every
+    # tunable save now logs old and new so the next drift is readable.
+    # Mirroring to the repo is still a PR, by a person; this is the log
+    # that PR is written from.
+    logger.info(
+        "tunable_tier_field_saved",
+        extra={
+            "tier": body.tier, "feature": body.feature, "field": body.field,
+            "old": [u["old"] for u in updated][:1] or None,
+            "new": body.value, "files": [u["slug"] for u in updated],
+            "remote": getattr(getattr(request, "client", None), "host", None),
+        },
+    )
 
     return {
         "status": "updated",
@@ -1627,6 +1645,7 @@ async def get_tiers(
             generation_monthly_cap as _gen_cap,
             tier_feature_block as _tier_feature_block,
         )
+        from app.services.recall_window import recall_max_age_days as _recall_window
         tiers[name] = {
             "display_name": tier.display_name,
             "default_model": tier.default_model,
@@ -1649,6 +1668,9 @@ async def get_tiers(
             "searches_per_month": sc.searches_per_month,
             "searches_soft_threshold": sc.searches_soft_threshold,
             "generations_per_month": _gen_cap(remote_configs, name),
+            # Plus recall window (2026-08-21): days of Memory a tier's chat
+            # recalls; None = unlimited. Served copy is templated from it.
+            "recall_max_age_days": _recall_window(remote_configs, name),
             # Per-tier image send config GP dictates to SS (chat +
             # generation send path): downscale long-edge + JPEG quality.
             # SS-AI tiers only; BYOK is SS's own call. 2026-07-20.

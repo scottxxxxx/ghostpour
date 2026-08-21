@@ -1,5 +1,5 @@
 {
-  "version": 41,
+  "version": 42,
   "tiers": {
     "free": {
       "display_name": "Gratis",
@@ -108,13 +108,13 @@
     },
     "plus": {
       "display_name": "Plus",
-      "description": "Asistencia de IA ilimitada para reuniones. Resúmenes, informes y chat de proyecto.",
+      "description": "Tus últimos {recall_window_days} días de reuniones en cada conversación. Documentos, búsqueda web, generación de archivos, uso ilimitado.",
       "feature_bullets": [
         "Reuniones ilimitadas con asistencia de IA",
         "Resúmenes escritos mientras sigues en la reunión",
         "Informes de reuniones compartibles",
         "Haz preguntas sobre todas las reuniones de un proyecto",
-        "Memoria de Reuniones: la IA recuerda reuniones pasadas",
+        "Tus últimos {recall_window_days} días de reuniones, en cada conversación",
         "Búsqueda web: información actual en tus respuestas (75/mes)",
         "3 fotos o imágenes por pregunta"
       ],
@@ -136,7 +136,7 @@
           "icon": "chat"
         },
         {
-          "label": "Memoria de Reuniones: la IA recuerda reuniones pasadas",
+          "label": "Tus últimos {recall_window_days} días de reuniones, en cada conversación",
           "icon": "brain"
         },
         {
@@ -182,7 +182,7 @@
         },
         {
           "label": "Memoria de Reuniones",
-          "value": "activado",
+          "value": "últimos {recall_window_days} días",
           "icon": "brain",
           "state": "enabled"
         }
@@ -230,17 +230,20 @@
               "Alinea la cámara de frente en lugar de en ángulo"
             ]
           }
+        },
+        "context_quilt": {
+          "recall_max_age_days": 30
         }
       }
     },
     "pro": {
       "display_name": "Pro",
-      "description": "Todo lo de Plus con IA avanzada y generación de archivos reales.",
+      "description": "Todo lo que hayas grabado, en cada conversación, con el modelo más potente en análisis e informes.",
       "feature_bullets": [
         "IA avanzada para informes y análisis más profundos",
         "Resumen completo o solo lo nuevo, tú eliges",
         "Búsqueda web: información actual en tus respuestas (120/mes)",
-        "Memoria de Reuniones: la IA recuerda reuniones pasadas",
+        "Todas las reuniones que hayas grabado, en cada conversación",
         "Crea archivos reales para compartir: Excel, Word, PowerPoint, PDF",
         "Adjunta documentos al chat (2 archivos, 25 MB cada uno)",
         "5 fotos o imágenes por pregunta"
@@ -259,7 +262,7 @@
           "icon": "search"
         },
         {
-          "label": "Memoria de Reuniones: la IA recuerda reuniones pasadas",
+          "label": "Todas las reuniones que hayas grabado, en cada conversación",
           "icon": "brain"
         },
         {
@@ -313,7 +316,7 @@
         },
         {
           "label": "Memoria de Reuniones",
-          "value": "activado",
+          "value": "todo, siempre",
           "icon": "brain",
           "state": "enabled"
         }
@@ -364,6 +367,9 @@
               "Alinea la cámara de frente en lugar de en ángulo"
             ]
           }
+        },
+        "context_quilt": {
+          "recall_max_age_days": null
         }
       }
     }
@@ -374,11 +380,11 @@
       "display_name": "Memoria de Reuniones",
       "description": "Tu IA recuerda reuniones pasadas y usa ese conocimiento automáticamente.",
       "teaser_description": "Tu IA encontró conexiones con tus reuniones pasadas",
-      "upgrade_cta": "Actualiza a Plus para desbloquear Memoria de Reuniones",
+      "upgrade_cta": "Pasa a Plus para llevar tus últimos {recall_window_days} días de reuniones a cada respuesta",
       "cta_strings": {
-        "free_within_quota_footer": "✨ Esta fue tu Memoria gratis de {total} este mes. Actualiza a Plus para seguir construyendo Memoria.",
-        "free_no_quota_only": "✨ ¿Quieres que tu IA recuerde tus reuniones? Actualiza a Plus para empezar a construir Memoria.",
-        "free_people_only": "✨ Tu IA está construyendo tu lista de Personas a partir de esta reunión. Mejora a Plus para leer lo que recuerda."
+        "free_within_quota_footer": "✨ Esta fue tu Memoria gratuita de {total} este mes. Plus lleva tus últimos {recall_window_days} días de reuniones a cada respuesta.",
+        "free_no_quota_only": "✨ Has usado tu IA gratuita de este mes. Plus la hace ilimitada y lleva tus últimos {recall_window_days} días de reuniones a cada respuesta.",
+        "free_people_only": "✨ Tu IA está construyendo tu lista de Personas con esta reunión. Plus lleva tus últimos {recall_window_days} días de reuniones a cada respuesta."
       }
     },
     "meeting_reports": {

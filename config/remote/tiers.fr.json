@@ -1,5 +1,5 @@
 {
-  "version": 41,
+  "version": 42,
   "tiers": {
     "free": {
       "display_name": "Gratuit",
@@ -108,13 +108,13 @@
     },
     "plus": {
       "display_name": "Plus",
-      "description": "Assistance de réunion IA illimitée. Résumés, rapports et chat de projet.",
+      "description": "Vos {recall_window_days} derniers jours de réunions dans chaque conversation. Documents, recherche web, génération de fichiers, usage illimité.",
       "feature_bullets": [
         "Réunions illimitées avec assistance IA",
         "Des résumés rédigés pendant que la réunion est encore en cours",
         "Rapports de réunion partageables",
         "Posez des questions sur toutes les réunions d'un projet",
-        "Mémoire des réunions : l'IA se souvient de vos réunions passées",
+        "Vos {recall_window_days} derniers jours de réunions, dans chaque conversation",
         "Recherche web : des infos actuelles dans vos réponses (75/mois)",
         "3 photos ou images par question"
       ],
@@ -136,7 +136,7 @@
           "icon": "chat"
         },
         {
-          "label": "Mémoire des réunions : l'IA se souvient de vos réunions passées",
+          "label": "Vos {recall_window_days} derniers jours de réunions, dans chaque conversation",
           "icon": "brain"
         },
         {
@@ -182,7 +182,7 @@
         },
         {
           "label": "Mémoire des réunions",
-          "value": "activée",
+          "value": "{recall_window_days} derniers jours",
           "icon": "brain",
           "state": "enabled"
         }
@@ -230,17 +230,20 @@
               "Placez l'appareil bien en face plutôt qu'en angle"
             ]
           }
+        },
+        "context_quilt": {
+          "recall_max_age_days": 30
         }
       }
     },
     "pro": {
       "display_name": "Pro",
-      "description": "Tout Plus, avec l'IA avancée et la génération de vrais fichiers.",
+      "description": "Tout ce que vous avez enregistré, dans chaque conversation, avec le modèle le plus puissant pour l'analyse et les rapports.",
       "feature_bullets": [
         "IA avancée pour des rapports et analyses plus approfondis",
         "Récapitulatif complet ou seulement les nouveautés, au choix",
         "Recherche web : des infos actuelles dans vos réponses (120/mois)",
-        "Mémoire des réunions : l'IA se souvient de vos réunions passées",
+        "Toutes les réunions que vous avez enregistrées, dans chaque conversation",
         "Crée de vrais fichiers à partager : Excel, Word, PowerPoint, PDF",
         "Joignez des documents au chat (2 fichiers, 25 Mo chacun)",
         "5 photos ou images par question"
@@ -259,7 +262,7 @@
           "icon": "search"
         },
         {
-          "label": "Mémoire des réunions : l'IA se souvient de vos réunions passées",
+          "label": "Toutes les réunions que vous avez enregistrées, dans chaque conversation",
           "icon": "brain"
         },
         {
@@ -313,7 +316,7 @@
         },
         {
           "label": "Mémoire des réunions",
-          "value": "activée",
+          "value": "tout, depuis toujours",
           "icon": "brain",
           "state": "enabled"
         }
@@ -364,6 +367,9 @@
               "Placez l'appareil bien en face plutôt qu'en angle"
             ]
           }
+        },
+        "context_quilt": {
+          "recall_max_age_days": null
         }
       }
     }
@@ -374,11 +380,11 @@
       "display_name": "Mémoire des réunions",
       "description": "Votre IA se souvient des réunions passées et utilise ces connaissances automatiquement.",
       "teaser_description": "Votre IA a trouvé des liens avec vos réunions passées",
-      "upgrade_cta": "Passez à Plus pour débloquer la Mémoire des réunions",
+      "upgrade_cta": "Passez à Plus pour intégrer vos {recall_window_days} derniers jours de réunions à chaque réponse",
       "cta_strings": {
-        "free_within_quota_footer": "✨ C'était votre Mémoire gratuite sur {total} ce mois-ci. Passez à Plus pour continuer à construire votre Mémoire.",
-        "free_no_quota_only": "✨ Vous voulez que votre IA se souvienne de vos réunions ? Passez à Plus pour commencer à construire votre Mémoire.",
-        "free_people_only": "✨ Ton IA construit ta liste de Personnes à partir de cette réunion. Passe à Plus pour relire ce dont elle se souvient."
+        "free_within_quota_footer": "✨ C'était votre Mémoire gratuite de {total} ce mois-ci. Plus intègre vos {recall_window_days} derniers jours de réunions à chaque réponse.",
+        "free_no_quota_only": "✨ Vous avez utilisé votre IA gratuite pour ce mois-ci. Plus la rend illimitée et intègre vos {recall_window_days} derniers jours de réunions à chaque réponse.",
+        "free_people_only": "✨ Votre IA construit votre liste de Personnes à partir de cette réunion. Plus intègre vos {recall_window_days} derniers jours de réunions à chaque réponse."
       }
     },
     "meeting_reports": {
