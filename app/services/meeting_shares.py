@@ -1,0 +1,180 @@
+"""Meeting share (iMessage), GP half: storage, tokens, dials, purge.
+
+Scoped docs/design/meeting-share-scoping.md, ruled 2026-08-21: the payload
+is SS's existing `.shouldersurf` archive (bytes, stored as uploaded, served
+back by share id); a recipient without the app reads the whole meeting on
+the hosted page (Variant A); creation is free on every tier; the host is
+share.shouldersurf.com. Nothing here touches Context Quilt: the shared
+object is SS's meeting record, never quilt memory, and a test pins that.
+
+Storage: one row in `meeting_shares`, bytes on the data volume beside
+generated_files. Token: 128 random bits, base64url, carries no user id,
+and is a credential (it is the URL), so it is never logged here; routes
+log share_id only.
+"""
+from __future__ import annotations
+
+import logging
+import os
+import secrets
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+import aiosqlite
+
+logger = logging.getLogger("ghostpour.meeting_shares")
+
+SHARE_DIR = Path(os.environ.get("CZ_DATA_DIR", "data")) / "meeting_shares"
+DEFAULT_EXPIRY_DAYS = 30
+MAX_EXPIRY_DAYS = 365
+MAX_ARCHIVE_BYTES = 25 * 1024 * 1024
+DEFAULT_CREATIONS_PER_DAY = 50
+DEFAULT_HOST = "https://share.shouldersurf.com"
+
+# Link-preview fetchers announce themselves; their fetch of the page is not
+# a read by a person and must not count as one (doc: shape-changer 1).
+_PREVIEW_UA_MARKERS = (
+    "facebookexternalhit", "twitterbot", "slackbot", "discordbot", "telegrambot",
+    "whatsapp", "linkedinbot", "imessage", "applebot", "googlebot", "bingbot",
+    "skypeuripreview", "embedly", "quora link preview", "pinterestbot", "bot/",
+)
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def new_token() -> str:
+    return secrets.token_urlsafe(16)  # 128 bits
+
+
+def is_preview_fetcher(user_agent: str | None) -> bool:
+    ua = (user_agent or "").lower()
+    return any(m in ua for m in _PREVIEW_UA_MARKERS)
+
+
+# --- dials ------------------------------------------------------------------
+
+def share_settings(remote_configs: dict) -> dict:
+    """client-config.share: {host, default_expiry_days, max_expiry_days}.
+    Every value has a code default so an absent block serves the feature
+    at the scoped numbers rather than breaking it."""
+    block = ((remote_configs.get("client-config") or {}).get("share")) or {}
+    return {
+        "host": str(block.get("host") or DEFAULT_HOST).rstrip("/"),
+        "default_expiry_days": int(block.get("default_expiry_days") or DEFAULT_EXPIRY_DAYS),
+        "max_expiry_days": int(block.get("max_expiry_days") or MAX_EXPIRY_DAYS),
+    }
+
+
+def tier_share_caps(remote_configs: dict, tier: str) -> dict:
+    """tiers.{tier}.feature_definitions.share: {creations_per_day,
+    transcript_allowed}. Defaults: 50/day, transcript allowed (Scott,
+    2026-08-21: every share is an invitation; the sender's per-share
+    toggle does the work)."""
+    tiers = ((remote_configs.get("tiers") or {}).get("tiers") or {})
+    block = ((tiers.get(tier) or {}).get("feature_definitions") or {}).get("share") or {}
+    cap = block.get("creations_per_day")
+    return {
+        "creations_per_day": int(cap) if isinstance(cap, int) and not isinstance(cap, bool) else DEFAULT_CREATIONS_PER_DAY,
+        "transcript_allowed": bool(block.get("transcript_allowed", True)),
+    }
+
+
+def aasa_app_ids(remote_configs: dict) -> list[str]:
+    """client-config.share.aasa_app_ids: ["TEAMID.com.weirtech.shouldersurf"].
+    Empty until SS supplies the Team ID; the AASA route 404s until then so
+    Apple never caches an association with no app in it."""
+    block = ((remote_configs.get("client-config") or {}).get("share")) or {}
+    ids = block.get("aasa_app_ids") or []
+    return [i for i in ids if isinstance(i, str) and "." in i]
+
+
+# --- rows -------------------------------------------------------------------
+
+async def creations_today(db: aiosqlite.Connection, user_id: str) -> int:
+    since = (_now() - timedelta(days=1)).isoformat()
+    row = await (await db.execute(
+        "SELECT COUNT(*) AS n FROM meeting_shares WHERE user_id = ? AND created_at > ?",
+        (user_id, since))).fetchone()
+    return int(row["n"] if row else 0)
+
+
+async def create_share(db: aiosqlite.Connection, *, user_id: str, app_id: str | None,
+                       archive: bytes, media_type: str, title: str, meeting_date: str | None,
+                       duration_seconds: int | None, summary_line: str | None,
+                       transcript_included: bool, expiry_days: int) -> dict:
+    share_id = secrets.token_hex(8)
+    token = new_token()
+    SHARE_DIR.mkdir(parents=True, exist_ok=True)
+    path = SHARE_DIR / f"{share_id}.bin"
+    path.write_bytes(archive)
+    now = _now(); expires = now + timedelta(days=expiry_days)
+    await db.execute(
+        """INSERT INTO meeting_shares
+           (id, user_id, app_id, token, storage_path, media_type, size_bytes, title,
+            meeting_date, duration_seconds, summary_line, transcript_included,
+            created_at, expires_at, revoked_at, view_count)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)""",
+        (share_id, user_id, app_id, token, str(path), media_type, len(archive), title,
+         meeting_date, duration_seconds, summary_line, 1 if transcript_included else 0,
+         now.isoformat(), expires.isoformat()))
+    await db.commit()
+    logger.info("meeting_share_created", extra={
+        "share_id": share_id, "user_id": user_id, "size_bytes": len(archive),
+        "transcript_included": transcript_included, "expires_at": expires.isoformat()})
+    return {"share_id": share_id, "token": token, "expires_at": expires.isoformat()}
+
+
+async def share_by_token(db: aiosqlite.Connection, token: str) -> aiosqlite.Row | None:
+    return await (await db.execute(
+        "SELECT * FROM meeting_shares WHERE token = ?", (token,))).fetchone()
+
+
+async def share_by_id(db: aiosqlite.Connection, share_id: str) -> aiosqlite.Row | None:
+    return await (await db.execute(
+        "SELECT * FROM meeting_shares WHERE id = ?", (share_id,))).fetchone()
+
+
+def is_live(row) -> bool:
+    if row is None or row["revoked_at"]:
+        return False
+    return datetime.fromisoformat(row["expires_at"]) > _now()
+
+
+async def count_view(db: aiosqlite.Connection, share_id: str) -> None:
+    await db.execute("UPDATE meeting_shares SET view_count = view_count + 1 WHERE id = ?", (share_id,))
+    await db.commit()
+
+
+async def revoke(db: aiosqlite.Connection, share_id: str) -> None:
+    row = await share_by_id(db, share_id)
+    if row is None:
+        return
+    try:
+        Path(row["storage_path"]).unlink(missing_ok=True)
+    except OSError as e:
+        logger.warning("meeting_share revoke: could not delete %s: %s", row["storage_path"], e)
+    await db.execute("UPDATE meeting_shares SET revoked_at = ?, storage_path = '' WHERE id = ?",
+                     (_now().isoformat(), share_id))
+    await db.commit()
+    logger.info("meeting_share_revoked", extra={"share_id": share_id})
+
+
+async def purge_expired(db: aiosqlite.Connection) -> int:
+    """Delete expired and revoked rows and their bytes. Runs on the same
+    periodic retention sweep as generated_files. Delete, never archive."""
+    rows = await (await db.execute(
+        "SELECT id, storage_path FROM meeting_shares WHERE expires_at <= ? OR revoked_at IS NOT NULL",
+        (_now().isoformat(),))).fetchall()
+    for r in rows:
+        if r["storage_path"]:
+            try:
+                Path(r["storage_path"]).unlink(missing_ok=True)
+            except OSError as e:
+                logger.warning("meeting_share purge: could not delete %s: %s", r["storage_path"], e)
+    if rows:
+        await db.execute("DELETE FROM meeting_shares WHERE id IN (%s)" % ",".join("?" * len(rows)),
+                         [r["id"] for r in rows])
+        await db.commit()
+    return len(rows)

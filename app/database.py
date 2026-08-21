@@ -482,6 +482,30 @@ MIGRATIONS = [
     )""",
     "CREATE INDEX IF NOT EXISTS idx_generated_files_user ON generated_files(user_id, expires_at)",
     "CREATE INDEX IF NOT EXISTS idx_generated_files_expiry ON generated_files(expires_at)",
+    # Meeting share via iMessage (2026-08-21): SS's .shouldersurf archive
+    # stored as uploaded and served back by share id; token is the URL and
+    # carries no user id. Rows and bytes are deleted on expiry or revoke
+    # by the retention sweep. See docs/design/meeting-share-scoping.md.
+    """CREATE TABLE IF NOT EXISTS meeting_shares (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        app_id TEXT,
+        token TEXT NOT NULL UNIQUE,
+        storage_path TEXT NOT NULL,
+        media_type TEXT NOT NULL,
+        size_bytes INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        meeting_date TEXT,
+        duration_seconds INTEGER,
+        summary_line TEXT,
+        transcript_included INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        revoked_at TEXT,
+        view_count INTEGER NOT NULL DEFAULT 0
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_meeting_shares_user ON meeting_shares(user_id, created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_meeting_shares_expiry ON meeting_shares(expires_at)",
     # Generation turn records (phase 2 rescue, handoff Part 4): terminal
     # state of confirmed generation turns keyed by the CLIENT-minted
     # generation_id, same 6h clock as staging. files_json snapshots the

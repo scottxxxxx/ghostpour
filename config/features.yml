@@ -155,3 +155,10 @@ features:
     teaser_description: "People collects everyone from your meetings in one place."
     upgrade_cta: "Sign in to build your People list"
     category: "intelligence"
+
+  share:
+    display_name: "Meeting Share"
+    description: "Share a meeting as a link that opens in Shoulder Surf or in any browser."
+    teaser_description: "Share this meeting as a link"
+    upgrade_cta: "Sign in to share meetings"
+    category: "collaboration"
