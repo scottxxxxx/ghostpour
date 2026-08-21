@@ -63,6 +63,12 @@ def resolve_report_locale(stated_language, accept_language_header: str | None) -
     locale says what the UI is in, not what the people in the room spoke."""
     lang = transcript_language(stated_language)
     if lang:
-        return lang
+        # Primary subtag only: report-strings.{locale} and
+        # canned-report.{locale} are keyed "es", "ja", "fr", and the
+        # locale directive names a language, not a region. SS sends the
+        # RESOLVED locale ("es-US", the model that actually transcribed),
+        # which is the right value on the wire and must not miss the
+        # bundle lookups here. The chat line keeps the full tag.
+        return lang.split("-")[0].lower()
     from app.routers.config import _parse_accept_language
     return _parse_accept_language(accept_language_header)
