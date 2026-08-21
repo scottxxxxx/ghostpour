@@ -95,7 +95,7 @@ tiers:
 
   pro:
     display_name: "Pro"
-    description: "Everything in Plus with advanced AI for deeper reports and Meeting Memory."
+    description: "Everything in Plus with advanced AI for deeper reports and real file generation."
     default_model: "anthropic/claude-haiku-4-5-20251001"
     monthly_cost_limit_usd: -1
     trial_cost_limit_usd: 5.10

@@ -114,6 +114,7 @@
         "Resúmenes escritos mientras sigues en la reunión",
         "Informes de reuniones compartibles",
         "Haz preguntas sobre todas las reuniones de un proyecto",
+        "Memoria de Reuniones: la IA recuerda reuniones pasadas",
         "Búsqueda web: información actual en tus respuestas (75/mes)",
         "3 fotos o imágenes por pregunta"
       ],
@@ -133,6 +134,10 @@
         {
           "label": "Haz preguntas sobre todas las reuniones de un proyecto",
           "icon": "chat"
+        },
+        {
+          "label": "Memoria de Reuniones: la IA recuerda reuniones pasadas",
+          "icon": "brain"
         },
         {
           "label": "Búsqueda web: información actual en tus respuestas (75/mes)",
@@ -177,9 +182,9 @@
         },
         {
           "label": "Memoria de Reuniones",
-          "value": "actualiza a Pro",
+          "value": "activado",
           "icon": "brain",
-          "state": "teaser"
+          "state": "enabled"
         }
       ],
       "feature_definitions": {
@@ -230,7 +235,7 @@
     },
     "pro": {
       "display_name": "Pro",
-      "description": "Todo lo de Plus con IA avanzada, generación de archivos reales y Memoria de Reuniones.",
+      "description": "Todo lo de Plus con IA avanzada y generación de archivos reales.",
       "feature_bullets": [
         "IA avanzada para informes y análisis más profundos",
         "Resumen completo o solo lo nuevo, tú eliges",

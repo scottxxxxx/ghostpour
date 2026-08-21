@@ -114,6 +114,7 @@
         "Des résumés rédigés pendant que la réunion est encore en cours",
         "Rapports de réunion partageables",
         "Posez des questions sur toutes les réunions d'un projet",
+        "Mémoire des réunions : l'IA se souvient de vos réunions passées",
         "Recherche web : des infos actuelles dans vos réponses (75/mois)",
         "3 photos ou images par question"
       ],
@@ -133,6 +134,10 @@
         {
           "label": "Posez des questions sur toutes les réunions d'un projet",
           "icon": "chat"
+        },
+        {
+          "label": "Mémoire des réunions : l'IA se souvient de vos réunions passées",
+          "icon": "brain"
         },
         {
           "label": "Recherche web : des infos actuelles dans vos réponses (75/mois)",
@@ -177,9 +182,9 @@
         },
         {
           "label": "Mémoire des réunions",
-          "value": "passez à Pro",
+          "value": "activée",
           "icon": "brain",
-          "state": "teaser"
+          "state": "enabled"
         }
       ],
       "feature_definitions": {
@@ -230,7 +235,7 @@
     },
     "pro": {
       "display_name": "Pro",
-      "description": "Tout Plus, avec l'IA avancée, la génération de vrais fichiers et la Mémoire des réunions.",
+      "description": "Tout Plus, avec l'IA avancée et la génération de vrais fichiers.",
       "feature_bullets": [
         "IA avancée pour des rapports et analyses plus approfondis",
         "Récapitulatif complet ou seulement les nouveautés, au choix",
