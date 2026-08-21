@@ -48,6 +48,8 @@ def test_tag_validation_accepts_bcp47_and_rejects_junk():
 
 
 def test_line_names_the_language_and_forbids_refusal():
+    """The chat line keeps the FULL tag: es-US tells the model which
+    variety was transcribed, and no lookup is keyed off it."""
     line = language_line("es-MX")
     assert "TRANSCRIPT LANGUAGE: es-MX" in line
     assert "never refuse" in line and "another language" in line
@@ -118,6 +120,11 @@ def test_chat_ignores_a_malformed_language_rather_than_failing(client, pro_user,
 def test_report_locale_prefers_the_stated_language_over_the_device_locale():
     from app.services.language_directive import resolve_report_locale
     assert resolve_report_locale("es", "en-US,en;q=0.9") == "es"
+    # SS sends the resolved regional locale; bundle lookups are keyed by
+    # the bare code, so the resolver reduces it. "es-US" must find
+    # report-strings.es, not miss it.
+    assert resolve_report_locale("es-US", "en-US") == "es"
+    assert resolve_report_locale("zh-Hant-TW", "en-US") == "zh"
     assert resolve_report_locale(None, "es-MX,es;q=0.9") == "es"
     assert resolve_report_locale("español", "fr-FR") == "fr"
     assert resolve_report_locale(None, None) in (None, "en")
