@@ -9,8 +9,9 @@ language was expected, so it inferred and refused. Two fixes, layered:
 1. The served recipe now says "write in the language of the transcript"
    (config/remote/protected-prompts*.json), so inference has a rule.
 2. The client may STATE the language instead of leaving it to inference,
-   which is exactly what failed: `metadata.language`, a BCP-47 tag, the
-   same key capture-transcript already forwards to CQ. When present, GP
+   which is exactly what failed: `metadata.transcript_language`, a BCP-47
+   tag. NOT `metadata.language`: that key already rides capture and means
+   the DEVICE language (CQ writes memory in it). When present, GP
    appends the line below to the system prompt, server-side, so placement
    is ours (prompt composition doctrine) and a client never hardcodes it.
 

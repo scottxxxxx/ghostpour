@@ -87,7 +87,7 @@ def _send(client, user, metadata):
 
 def test_chat_appends_the_line_when_the_client_states_a_language(client, pro_user, monkeypatch):
     seen = _spy(monkeypatch)
-    _send(client, pro_user, {"call_type": "summary", "language": "es"})
+    _send(client, pro_user, {"call_type": "summary", "transcript_language": "es"})
     assert seen["out"].endswith(language_line("es"))
     assert seen["out"].startswith("You are a meeting summarizer.")
 
@@ -98,9 +98,18 @@ def test_chat_is_unchanged_when_no_language_is_stated(client, pro_user, monkeypa
     assert seen["out"] == "You are a meeting summarizer."
 
 
+def test_the_device_language_key_does_not_trigger_the_line(client, pro_user, monkeypatch):
+    """metadata.language means the DEVICE language (capture forwards it to
+    CQ, which writes memory in it). An en-US phone recording a Spanish
+    meeting must not be told the transcript is English."""
+    seen = _spy(monkeypatch)
+    _send(client, pro_user, {"call_type": "summary", "language": "en-US"})
+    assert seen["out"] == "You are a meeting summarizer."
+
+
 def test_chat_ignores_a_malformed_language_rather_than_failing(client, pro_user, monkeypatch):
     seen = _spy(monkeypatch)
-    _send(client, pro_user, {"call_type": "summary", "language": "español"})
+    _send(client, pro_user, {"call_type": "summary", "transcript_language": "español"})
     assert seen["out"] == "You are a meeting summarizer."
 
 

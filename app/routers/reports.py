@@ -47,11 +47,13 @@ class ReportRequest(BaseModel):
     tag_taxonomy: list[str] | None = None  # Custom tags; defaults to built-in 8
     meeting_start_iso: str | None = None  # ISO 8601 with timezone, e.g. "2026-04-14T13:01:00-05:00"
     timezone_abbr: str | None = None  # e.g. "CST", "EST", "IST" — from device locale
-    # The language the meeting was held in (BCP-47), from the client's
+    # The language the meeting was SPOKEN in (BCP-47), from the client's
     # language picker. When present it wins over Accept-Language for the
     # report's locale directive: the device locale says what the UI is
-    # in, not what the people in the room spoke (2026-08-21).
-    language: str | None = None
+    # in, not what the people in the room spoke (2026-08-21). Named
+    # transcript_language, not language, because `language` on capture
+    # already means the device language.
+    transcript_language: str | None = None
     # Source of the raw transcript: "ocr_captions" (OCR'd on-screen captions),
     # "speech_to_text" (microphone STT), or "mixed" (both contributed ≥20%).
     # Drives whether a server-side cleanup pass runs before report generation;
@@ -187,7 +189,7 @@ async def generate_report(
     # are silent: we fall back to raw and omit the response field.
     from app.routers.config import _parse_accept_language
     from app.services.language_directive import resolve_report_locale
-    locale = resolve_report_locale(body.language, request.headers.get("Accept-Language"))
+    locale = resolve_report_locale(body.transcript_language, request.headers.get("Accept-Language"))
     cleaned_transcript = None
     settings = request.app.state.settings
     # Cleanup is gated purely on the source the client REPORTS — we do not infer

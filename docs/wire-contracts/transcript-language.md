@@ -1,4 +1,4 @@
-# Transcript language: `metadata.language`
+# Transcript language: `metadata.transcript_language`
 
 Added 2026-08-21 after a Spanish meeting, recorded through ShoulderSurf's
 own language picker, came back with an English refusal where its summary
@@ -7,13 +7,21 @@ on the wire named the language, so the model inferred and refused.
 
 ## The field
 
-`metadata.language`: a BCP-47 tag (`es`, `es-MX`, `pt-BR`), the language the
-meeting was held in, as the client knows it from its picker. Send it on
-every call that carries a transcript: summary (full, delta, consolidation),
-analysis and re-analysis, meeting chat and project chat turns that include
-transcript content, `POST /v1/reports` (top-level `language` there, since
-reports have no metadata dict), and `POST /v1/capture-transcript` (where it
-already existed and is forwarded to CQ).
+`metadata.transcript_language`: a BCP-47 tag (`es`, `es-MX`, `pt-BR`), the
+language the meeting was SPOKEN in, as the client knows it from its picker.
+Send it on every call that carries a transcript: summary (full, delta,
+consolidation), analysis and re-analysis, meeting chat and project chat
+turns that include transcript content, and `POST /v1/reports` (top-level
+`transcript_language` there, since reports have no metadata dict).
+
+Not `metadata.language`. That key already exists on `capture-transcript`
+and means the DEVICE language: GP forwards it to CQ, and CQ writes memory
+in it (measured 2026-08-21: an en-US phone recording a Spanish meeting sent
+`language: "en-US"`, and memory landed in English, which is the intended
+translate-on-import behaviour). Two meanings on one key across a hop is how
+a field gets silently misread, so the spoken language is its own key. If
+CQ should also learn the spoken language, send `transcript_language` on
+capture too; GP will forward it once CQ names it on their side.
 
 Absent, null or malformed values are treated as not sent. Nothing 4xxs.
 
