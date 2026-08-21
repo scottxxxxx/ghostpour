@@ -501,6 +501,7 @@ _DEFAULT_REPORT_STRINGS = {
     # entry. Mirrors config/remote/report-strings.json so a deployment without
     # the remote config still renders correctly.
     "header_label": "Meeting Report",
+    "project_label": "Project",
     "speakers_heading": "Identified speakers",
     "sentiment_label": "Sentiment",
     "view_arc_button": "View sentiment arc",
@@ -678,6 +679,28 @@ def derive_sentiment_fields(report_json: dict) -> dict:
     if glyph:
         sentiment["emoji"] = glyph
     return report_json
+
+
+_MONTHS = {
+    "es": ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+           "agosto", "septiembre", "octubre", "noviembre", "diciembre"],
+    "fr": ["janvier", "février", "mars", "avril", "mai", "juin", "juillet",
+           "août", "septembre", "octobre", "novembre", "décembre"],
+}
+
+
+def format_meeting_date(dt, locale: str | None) -> str:
+    """The masthead date in the report's language. strftime("%B") is
+    English regardless of locale (a Spanish report read "August 21, 2026"
+    under a Spanish header, 2026-08-21), so the month names live here.
+    Unknown locales fall back to English rather than to a wrong language."""
+    lang = (locale or "en").split("-")[0].lower()
+    if lang == "ja":
+        return f"{dt.year}年{dt.month}月{dt.day}日"
+    if lang in _MONTHS:
+        month = _MONTHS[lang][dt.month - 1]
+        return f"{dt.day} de {month} de {dt.year}" if lang == "es" else f"{dt.day} {month} {dt.year}"
+    return dt.strftime("%B %-d, %Y")
 
 
 def render_report_html(

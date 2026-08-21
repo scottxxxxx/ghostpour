@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "strings": {
     "header_label": "Meeting Report",
     "speakers_heading": "Identified speakers",
@@ -13,6 +13,7 @@
     "open_questions_heading": "Open Questions",
     "open_questions_question_label": "Question",
     "open_questions_owner_label": "Owner",
-    "footer_powered_by": "Meeting notes powered by"
+    "footer_powered_by": "Meeting notes powered by",
+    "project_label": "Project"
   }
 }
