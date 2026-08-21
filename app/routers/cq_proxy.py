@@ -492,6 +492,72 @@ async def complete_quilt_patch(
     return await _cq_proxy("POST", f"/v1/quilt/{_subj(request, user_id)}/patches/{patch_id}/complete", body)
 
 
+# --- Projects (2026-08-21) ---
+#
+# SS has sent PATCH /v1/projects/{user}/{project} on every project rename
+# since at least 2026-07-31 (QuiltService.renameProject, body {"name"}),
+# and GP never carried the route, so every one of them died here as a
+# 404 that SS's client discarded as a silent false. Seven in the proxy
+# log between 07-26 and 08-21, including Scott's own rename on 08-20.
+# The standing rule from 08-10, stated again: a route is additive only
+# at the gateway. A verb a client ships needs a handler here first.
+#
+# Body is an untyped dict forwarded VERBATIM (CQ owns the shape: {"name"}
+# today, {"status": "archived"} on the same verb) and CQ's status and body
+# come back unchanged, so the client can compare the returned name to the
+# one it sent (rule 4) instead of trusting a 200.
+
+
+@router.patch("/projects/{user_id}/{project_id}")
+async def update_project(
+    request: Request,
+    user_id: str,
+    project_id: str,
+    user: UserRecord = Depends(get_current_user),
+    body: dict | None = Body(default=None),
+):
+    """Proxy: rename or archive a project (SS QuiltService.renameProject)."""
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify another user's projects")
+    return await _cq_proxy("PATCH", f"/v1/projects/{_subj(request, user_id)}/{project_id}", body)
+
+
+@router.post("/projects/{user_id}/{project_id}/unscope")
+async def unscope_project(
+    request: Request,
+    user_id: str,
+    project_id: str,
+    user: UserRecord = Depends(get_current_user),
+    body: dict | None = Body(default=None),
+):
+    """Proxy: unscope a project (SS QuiltService; in their inventory
+    2026-08-21, never carried here, zero calls in the proxy log since
+    07-23 so nothing was lost yet; it would have 404ed silently)."""
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify another user's projects")
+    return await _cq_proxy("POST", f"/v1/projects/{_subj(request, user_id)}/{project_id}/unscope", body)
+
+
+@router.post("/origins/{user_id}/{origin_type}/{origin_id}/unassign-project")
+async def unassign_origin_project(
+    request: Request,
+    user_id: str,
+    origin_type: str,
+    origin_id: str,
+    user: UserRecord = Depends(get_current_user),
+    body: dict | None = Body(default=None),
+):
+    """Proxy: the other half of assign-project. SS sends it on the
+    /v1/origins form (their inventory 2026-08-21); only assign was carried.
+    Zero calls in the proxy log since 07-23."""
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify another user's origins")
+    return await _cq_proxy(
+        "POST",
+        f"/v1/origins/{_subj(request, user_id)}/{origin_type}/{origin_id}/unassign-project",
+        body)
+
+
 # --- Ledger triage (2026-08-07, SS Turn 4) ---
 #
 # SS's ledger flow ends in Done, Still live, or Let it go. `complete` is
