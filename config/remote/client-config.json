@@ -1,5 +1,5 @@
 {
-  "version": 22,
+  "version": 23,
   "native_actions": {
     "enabled": true,
     "kinds": [
@@ -40,7 +40,7 @@
   "intervals": {},
   "documents": {
     "enabled": true,
-    "min_tier": "pro",
+    "min_tier": "plus",
     "accepted_types": [
       "application/pdf",
       "application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -58,7 +58,7 @@
     },
     "generation": {
       "enabled": true,
-      "min_tier": "pro",
+      "min_tier": "free",
       "formats": [
         "application/pdf",
         "application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -87,7 +87,8 @@
         "text": "If you were a {tier} subscriber, I could generate a Word or Excel file for you."
       },
       "contract_lane_users": []
-    }
+    },
+    "_tier_note": "2026-08-21 tier matrix: documents Plus and Pro now (Free at 5/mo, 10 MB waits on the per-tier document dial); file generation every tier, Free capped 5/mo by the generation dial."
   },
   "chat": {
     "max_history_pairs": 6,

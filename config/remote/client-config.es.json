@@ -1,7 +1,15 @@
 {
-  "version": 14,
-  "native_actions": {"enabled": true, "kinds": ["reminders"]},
-  "image_quality_note": {"enabled": false, "blur_threshold": 200},
+  "version": 15,
+  "native_actions": {
+    "enabled": true,
+    "kinds": [
+      "reminders"
+    ]
+  },
+  "image_quality_note": {
+    "enabled": false,
+    "blur_threshold": 200
+  },
   "limits": {
     "project_chat": {
       "max_input_chars": {
@@ -15,7 +23,7 @@
   "intervals": {},
   "documents": {
     "enabled": true,
-    "min_tier": "pro",
+    "min_tier": "plus",
     "accepted_types": [
       "application/pdf",
       "application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -31,7 +39,7 @@
     },
     "generation": {
       "enabled": true,
-      "min_tier": "pro",
+      "min_tier": "free",
       "formats": [
         "application/pdf",
         "application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -59,6 +67,7 @@
         "enabled": true,
         "text": "Si tuvieras una suscripción {tier}, podría generar un archivo de Word o Excel para ti."
       }
-    }
+    },
+    "_tier_note": "2026-08-21 tier matrix: documents Plus and Pro now (Free at 5/mo, 10 MB waits on the per-tier document dial); file generation every tier, Free capped 5/mo by the generation dial."
   }
 }
