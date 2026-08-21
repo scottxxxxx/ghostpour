@@ -1,5 +1,5 @@
 {
-  "version": 21,
+  "version": 22,
   "native_actions": {
     "enabled": true,
     "kinds": [
@@ -95,5 +95,12 @@
     "user_content_reserve_tokens": 4000,
     "context_window_fallback_tokens": 32000,
     "_note": "Current client values, served so they can change without a release. context_window_fallback_tokens is the first one to tune: 32000 is wrong for most models we route to today, and it silently caps how much fits in project chat. Image sizing is NOT here on purpose: it is already served per tier at tiers.feature_definitions.images, and a second source for the same field is how the free-tier copy drifted."
+  },
+  "share": {
+    "host": "https://share.shouldersurf.com",
+    "default_expiry_days": 30,
+    "max_expiry_days": 365,
+    "aasa_app_ids": [],
+    "_note": "aasa_app_ids stays empty until SS supplies TEAMID.com.weirtech.shouldersurf; the AASA route 404s until then so Apple never caches an association with no app in it."
   }
 }
