@@ -449,3 +449,61 @@ def test_sanitizer_leaves_ordinary_payloads_alone():
     assert cq_proxy._null_non_finite(0.0) == (0.0, 0)
     assert cq_proxy._null_non_finite(True) == (True, 0)
     assert cq_proxy._null_non_finite("NaN") == ("NaN", 0)
+
+
+# --- CQ #301 (2026-08-21): title, stated_roles, described_as ----------------
+#
+# Three new keys on the person detail, nested shapes, all nullable. The
+# handler forwards CQ's body verbatim through _cq_proxy (no response
+# model), so nothing CAN be modelled away; these tests are the receipt
+# rather than the fix, per rule 3: a response-side hole on this hop is
+# invisible from CQ's socket and from SS's decoder.
+
+CQ301_PAYLOAD = {
+    "entity_id": "ent-suresh",
+    "display_name": "Suresh",
+    "title": "scrum master on ABM project",
+    "stated_roles": {
+        "title": "scrum master on ABM project",
+        "title_source": {"patch_id": "p-77", "origin_id": "MTG-1", "stated_at": "2026-08-19T14:00:00Z"},
+        "items": [
+            {"patch_id": "p-77", "text": "I am the scrum master on the ABM project", "project": "ABM",
+             "project_id": "proj-abm", "origin_id": "MTG-1", "stated_at": "2026-08-19T14:00:00Z"},
+            {"patch_id": "p-31", "text": "I run the standups", "project": None,
+             "project_id": None, "origin_id": "MTG-0", "stated_at": "2026-08-02T10:00:00Z"},
+        ],
+    },
+    "described_as": {
+        "current": "runs ABM delivery",
+        "changed_from": "coordinates QA handoffs",
+        "iterations": 4,
+        "history": [
+            {"text": "runs ABM delivery", "first_observed_at": "2026-08-19T14:00:00Z",
+             "last_observed_at": "2026-08-21T09:00:00Z", "observation_count": 3, "origin_id": "MTG-1"},
+            {"text": "coordinates QA handoffs", "first_observed_at": "2026-08-02T10:00:00Z",
+             "last_observed_at": "2026-08-12T10:00:00Z", "observation_count": 2, "origin_id": "MTG-0"},
+        ],
+        "truncated": False,
+    },
+    "insights": [],
+}
+
+
+@pytest.mark.parametrize("key", ["title", "stated_roles", "described_as"])
+def test_cq301_key_arrives_byte_for_byte(people_client, cq_returns, key):
+    cq_returns(CQ301_PAYLOAD)
+    resp = people_client.get(f"/v1/people/{USER}/ent-suresh")
+    assert resp.status_code == 200
+    got = resp.json()
+    assert key in got, f"{key} was modelled away on the hop"
+    assert got[key] == CQ301_PAYLOAD[key]
+
+
+@pytest.mark.parametrize("key", ["title", "stated_roles", "described_as"])
+def test_cq301_null_survives_as_null_not_absent(people_client, cq_returns, key):
+    """null means 'the app does not track this' or 'nothing stated'; absent
+    would read as 'GP dropped it'. The decoder must be able to tell."""
+    payload = json.loads(json.dumps(CQ301_PAYLOAD)); payload[key] = None
+    cq_returns(payload)
+    got = people_client.get(f"/v1/people/{USER}/ent-suresh").json()
+    assert key in got and got[key] is None
