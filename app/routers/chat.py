@@ -1640,6 +1640,16 @@ async def chat(
             "system_prompt": (_sys_mem + "\n\n" + _mem_line)
             if _sys_mem else _mem_line})
 
+    # Transcript language (2026-08-21): when the client states the meeting's
+    # language (metadata.language, BCP-47, the key capture already carries),
+    # say so to the model server-side. A Spanish meeting got an English
+    # refusal because nothing on the wire or in the recipe named the
+    # language; inference is what failed, so the client may state it.
+    from app.services.language_directive import append_language_line
+    _lang_sys = append_language_line(body.system_prompt, body.get_meta("language"))
+    if _lang_sys != body.system_prompt:
+        body = body.model_copy(update={"system_prompt": _lang_sys})
+
     # Safety net: the CQ hook fills the {{context_quilt}} placeholder ONLY
     # when CQ is enabled AND recall returned content. In every other path —
     # recall empty, teaser tier, CQ-disabled tier (hook skipped entirely
