@@ -265,3 +265,85 @@ def test_a_generated_report_comes_back_carrying_the_derived_fields(
     # and the model's own choice survived alongside them
     assert sentiment["category"] == "pressured"
     assert sentiment["category_evidence"] == "we need this before Friday"
+
+
+# --- category_also (2026-08-21, SS's ask) ----------------------------------
+#
+# One `category` cannot carry a meeting that was both collaborative and
+# decisive; the second reading was lost inside the prompt. `category_also`
+# carries the off-ladder readings that also applied, each with its quote.
+# The prompt instructs the shape; these tests prove the SERVER enforces it,
+# because a prompt rule can be broken and a normaliser cannot be argued with.
+
+from app.services.meeting_report import normalize_category_also  # noqa: E402
+
+
+def _rep(category, also):
+    return {"sentiment": {"category": category, "category_also": also}}
+
+
+def test_also_keeps_a_well_formed_off_ladder_entry():
+    out = normalize_category_also(_rep("collaborative", [
+        {"category": "decisive", "evidence": "So we go with option B. Done."}]))
+    assert out["sentiment"]["category_also"] == [
+        {"category": "decisive", "evidence": "So we go with option B. Done."}]
+
+
+def test_also_drops_an_on_ladder_value():
+    """The six how-it-went values never ride the list; category names the
+    dominant one already."""
+    out = normalize_category_also(_rep("informational", [
+        {"category": "pressured", "evidence": "we have to ship Friday"}]))
+    assert out["sentiment"]["category_also"] == []
+
+
+def test_also_drops_the_chosen_category_itself():
+    """A purely disconnected meeting is category=disconnected with an
+    empty list, not disconnected twice."""
+    out = normalize_category_also(_rep("disconnected", [
+        {"category": "disconnected", "evidence": "wait, I thought we agreed"}]))
+    assert out["sentiment"]["category_also"] == []
+
+
+def test_also_drops_an_entry_without_evidence():
+    """SS's contract: an accusation never arrives with nothing behind it.
+    disconnected in the list without its quote is exactly that."""
+    for bad in ({"category": "disconnected"}, {"category": "disconnected", "evidence": ""},
+                {"category": "disconnected", "evidence": "   "}, {"category": "decisive", "evidence": None}):
+        out = normalize_category_also(_rep("pressured", [bad]))
+        assert out["sentiment"]["category_also"] == [], bad
+
+
+def test_also_dedupes_and_keeps_at_most_the_two_off_ladder_values():
+    out = normalize_category_also(_rep("collaborative", [
+        {"category": "decisive", "evidence": "ship it"},
+        {"category": "decisive", "evidence": "ship it again"},
+        {"category": "disconnected", "evidence": "which one are we shipping?"}]))
+    assert [e["category"] for e in out["sentiment"]["category_also"]] == ["decisive", "disconnected"]
+
+
+def test_also_is_always_a_list_once_there_is_a_category():
+    """Absent, null, a string, a dict: the wire gets [] so the decoder never
+    meets a shape it was not written for."""
+    for raw in (None, "decisive", {"category": "decisive", "evidence": "x"}, 7):
+        rep = {"sentiment": {"category": "positive"}}
+        if raw is not None:
+            rep["sentiment"]["category_also"] = raw
+        assert normalize_category_also(rep)["sentiment"]["category_also"] == []
+
+
+def test_also_leaves_a_report_without_a_category_untouched():
+    """An older stored report re-rendered through this path must not
+    acquire a field it never had."""
+    rep = {"sentiment": {"score": 61, "label": "fine"}}
+    assert normalize_category_also(rep) == {"sentiment": {"score": 61, "label": "fine"}}
+    assert normalize_category_also({}) == {}
+
+
+def test_the_prompt_asks_for_category_also_in_the_schema_and_the_rules():
+    """Paired with the behavioural tests above: this one only proves the
+    model is TOLD; the normaliser proves the wire is held to it."""
+    from app.services.meeting_report import REPORT_SYSTEM_PROMPT, REPORT_USER_TEMPLATE
+    assert '"category_also"' in REPORT_USER_TEMPLATE
+    assert "decisive | disconnected, and never the value chosen" in REPORT_USER_TEMPLATE
+    assert "NO QUOTE, NO ENTRY" in REPORT_SYSTEM_PROMPT
