@@ -1640,13 +1640,18 @@ async def chat(
             "system_prompt": (_sys_mem + "\n\n" + _mem_line)
             if _sys_mem else _mem_line})
 
-    # Transcript language (2026-08-21): when the client states the meeting's
-    # language (metadata.language, BCP-47, the key capture already carries),
-    # say so to the model server-side. A Spanish meeting got an English
-    # refusal because nothing on the wire or in the recipe named the
-    # language; inference is what failed, so the client may state it.
+    # Transcript language (2026-08-21): when the client states the language
+    # the meeting was SPOKEN in (metadata.transcript_language, BCP-47), say
+    # so to the model server-side. A Spanish meeting got an English refusal
+    # because nothing on the wire or in the recipe named the language;
+    # inference is what failed, so the client may state it.
+    #
+    # NOT metadata.language: that key already exists on capture and means
+    # the DEVICE language (CQ writes memory in it, which is the behaviour
+    # Scott wants). One key, two meanings across a hop is how a field gets
+    # silently misread, so the spoken language is its own key.
     from app.services.language_directive import append_language_line
-    _lang_sys = append_language_line(body.system_prompt, body.get_meta("language"))
+    _lang_sys = append_language_line(body.system_prompt, body.get_meta("transcript_language"))
     if _lang_sys != body.system_prompt:
         body = body.model_copy(update={"system_prompt": _lang_sys})
 
