@@ -2808,6 +2808,19 @@ function renderTiers(tiers) {
         <div id="gen-cap-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px">empty = uncapped; at cap the user is told in chat and answered inline</div>
       </div>
       <div style="margin-top:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:6px">
+        <div class="lbl" style="margin-bottom:6px">Memory recall window (days)</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:11px;color:var(--text-dim);width:60px">Days</span>
+          <input type="number" id="recall-window-${name}" value="${t.recall_max_age_days != null ? t.recall_max_age_days : ''}"
+                 placeholder="unlimited"
+                 style="flex:1;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:12px;font-family:monospace"
+                 min="1" step="1">
+          <button class="refresh-btn" style="background:var(--accent);color:#000;font-weight:600;padding:6px 12px"
+                  onclick="saveRecallWindow('${name}')">Save</button>
+        </div>
+        <div id="recall-window-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px">empty = unlimited. Sent to CQ as metadata.max_age_days on every recall; the Plus number also fills {recall_window_days} in served copy. Mirror to the repo after saving.</div>
+      </div>
+      <div style="margin-top:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:6px">
         <div class="lbl" style="margin-bottom:6px">Image send config (SS AI tiers; chat + generation)</div>
         <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
           <span style="font-size:11px;color:var(--text-dim);width:80px">Long edge px</span>
@@ -3460,6 +3473,46 @@ async function saveSearchCap(tierName, field) {
 // .generations_per_month and hot-reloads, so a save here changes
 // enforcement on the very next /v1/chat call. Empty input = null =
 // uncapped (the entitlement still gates who can generate at all).
+// --- Memory recall window (2026-08-21) ---
+// tiers.{tier}.feature_definitions.context_quilt.recall_max_age_days. Hot:
+// the next chat call sends it to CQ and the next /v1/tiers renders it into
+// the copy. Every save is logged server-side (tunable_tier_field_saved);
+// mirroring to the repo is still a PR.
+async function saveRecallWindow(tierName) {
+  const input = document.getElementById(`recall-window-${tierName}`);
+  const status = document.getElementById('recall-window-status-' + tierName);
+  let value;
+  if (input.value === '' || input.value === null) {
+    value = null;   // unlimited
+  } else {
+    value = parseInt(input.value, 10);
+    if (isNaN(value) || value < 1) {
+      status.textContent = 'Must be a whole number of days, 1 or more (or empty for unlimited).';
+      status.style.color = 'var(--red)';
+      return;
+    }
+  }
+  status.textContent = 'Saving recall window…';
+  status.style.color = 'var(--orange)';
+  const resp = await fetch(`${BASE}/webhooks/admin/tunable/tier-field`, {
+    method: 'PUT',
+    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
+    body: JSON.stringify({tier: tierName, feature: 'context_quilt',
+                          field: 'recall_max_age_days', value: value}),
+  });
+  if (resp.ok) {
+    const data = await resp.json();
+    const n = (data.files_updated || []).length;
+    status.textContent = n > 0
+      ? `Saved. Updated ${n} locale file(s); live on the next recall and the next /v1/tiers. Now mirror it to the repo.`
+      : 'No change (already at that value).';
+    status.style.color = 'var(--green)';
+  } else {
+    status.textContent = `Save failed: ${resp.status} ${await resp.text()}`;
+    status.style.color = 'var(--red)';
+  }
+}
+
 async function saveGenerationCap(tierName) {
   const input = document.getElementById(`gen-cap-${tierName}`);
   const status = document.getElementById('gen-cap-status-' + tierName);

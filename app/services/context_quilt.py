@@ -575,7 +575,8 @@ def is_rundown_ask(question: str) -> bool:
 
 async def quilt_dossier(user_id: str, project_id: str | None,
                         app_id: str | None = None,
-                        limit: int | None = DOSSIER_LIMIT) -> dict | None:
+                        limit: int | None = DOSSIER_LIMIT,
+                        max_age_days: int | None = None) -> dict | None:
     """GET /v1/quilt/{user_id}?project_id&group_by=origin&limit — the
     complete scoped memory, meeting-grouped, newest first. None on any
     failure (caller falls back to recall).
@@ -605,7 +606,14 @@ async def quilt_dossier(user_id: str, project_id: str | None,
                     "group_by": "origin",
                     # Omitted entirely when None: CQ defaults to no cap,
                     # and sending one is what makes them truncate.
-                    **({"limit": limit} if limit is not None else {})},
+                    **({"limit": limit} if limit is not None else {}),
+                    # Plus recall window (CQ #297, second commit): same
+                    # predicate as /v1/recall, applied before the count so
+                    # total_available is the windowed population. Absent =
+                    # untouched; 0 is a 422 on their side, never a sentinel.
+                    **({"max_age_days": max_age_days}
+                       if isinstance(max_age_days, int) and not isinstance(max_age_days, bool)
+                       and max_age_days >= 1 else {})},
             headers=await _get_auth_headers(app_id),
             timeout=httpx.Timeout(settings.cq_dossier_timeout_ms / 1000.0),
         )

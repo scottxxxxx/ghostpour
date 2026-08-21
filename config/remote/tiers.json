@@ -1,5 +1,5 @@
 {
-  "version": 42,
+  "version": 43,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -108,13 +108,13 @@
     },
     "plus": {
       "display_name": "Plus",
-      "description": "Unlimited AI-powered meeting assistance. Summaries, reports, and project chat.",
+      "description": "Your last {recall_window_days} days of meetings in every conversation. Documents, web search, file generation, unlimited use.",
       "feature_bullets": [
         "Unlimited meetings with AI assistance",
         "Summaries written while you're still meeting",
         "Shareable meeting reports",
         "Ask questions across every meeting in a project",
-        "Meeting Memory: AI remembers past meetings",
+        "Your last {recall_window_days} days of meetings, in every conversation",
         "Web search: current info in your answers (75/mo)",
         "3 photos or images per question"
       ],
@@ -136,7 +136,7 @@
           "icon": "chat"
         },
         {
-          "label": "Meeting Memory: AI remembers past meetings",
+          "label": "Your last {recall_window_days} days of meetings, in every conversation",
           "icon": "brain"
         },
         {
@@ -182,7 +182,7 @@
         },
         {
           "label": "Meeting Memory",
-          "value": "enabled",
+          "value": "last {recall_window_days} days",
           "icon": "brain",
           "state": "enabled"
         }
@@ -230,17 +230,20 @@
               "Line the camera up straight on rather than at an angle"
             ]
           }
+        },
+        "context_quilt": {
+          "recall_max_age_days": 30
         }
       }
     },
     "pro": {
       "display_name": "Pro",
-      "description": "Everything in Plus with advanced AI and real file generation.",
+      "description": "Everything you've ever recorded, in every conversation, with the stronger model on analysis and reports.",
       "feature_bullets": [
         "Advanced AI for deeper reports and analysis",
         "Full recap or just-what's-new summaries, your choice",
         "Web search: current info in your answers (120/mo)",
-        "Meeting Memory: AI remembers past meetings",
+        "Every meeting you've ever recorded, in every conversation",
         "Builds real files you can share: Excel, Word, PowerPoint, PDF",
         "Attach documents to chat (2 files, 25 MB each)",
         "5 photos or images per question"
@@ -259,7 +262,7 @@
           "icon": "search"
         },
         {
-          "label": "Meeting Memory: AI remembers past meetings",
+          "label": "Every meeting you've ever recorded, in every conversation",
           "icon": "brain"
         },
         {
@@ -313,7 +316,7 @@
         },
         {
           "label": "Meeting Memory",
-          "value": "enabled",
+          "value": "everything, ever",
           "icon": "brain",
           "state": "enabled"
         }
@@ -364,6 +367,9 @@
               "Line the camera up straight on rather than at an angle"
             ]
           }
+        },
+        "context_quilt": {
+          "recall_max_age_days": null
         }
       }
     },
@@ -498,6 +504,9 @@
               "Line the camera up straight on rather than at an angle"
             ]
           }
+        },
+        "context_quilt": {
+          "recall_max_age_days": null
         }
       }
     }
@@ -508,11 +517,11 @@
       "display_name": "Meeting Memory",
       "description": "Your AI remembers past meetings and uses that knowledge automatically.",
       "teaser_description": "Your AI found connections to your past meetings",
-      "upgrade_cta": "Upgrade to Plus to unlock Meeting Memory",
+      "upgrade_cta": "Upgrade to Plus to bring your last {recall_window_days} days of meetings into every answer",
       "cta_strings": {
-        "free_within_quota_footer": "✨ This was your free Memory of {total} this month. Upgrade to Plus to keep building Memory.",
-        "free_no_quota_only": "✨ Want your AI to remember meetings? Upgrade to Plus to start building Memory.",
-        "free_people_only": "✨ Your AI is building your People list from this meeting. Upgrade to Plus to read back what it remembers."
+        "free_within_quota_footer": "✨ This was your free Memory of {total} this month. Plus brings your last {recall_window_days} days of meetings into every answer.",
+        "free_no_quota_only": "✨ You've used your free AI for this month. Plus makes it unlimited and brings your last {recall_window_days} days of meetings into every answer.",
+        "free_people_only": "✨ Your AI is building your People list from this meeting. Plus brings your last {recall_window_days} days of meetings into every answer."
       }
     },
     "meeting_reports": {

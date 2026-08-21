@@ -1358,6 +1358,10 @@ async def list_tiers(request: Request):
     }
     if display_config and "version" in display_config:
         response["version"] = display_config["version"]
+    # Plus recall window: fill `{recall_window_days}` from the dial so the
+    # served copy and the enforced number can never disagree.
+    from app.services.recall_window import render_recall_window_copy
+    response = render_recall_window_copy(response, configs)
     if locale:
         return JSONResponse(content=response, headers={"X-Config-Locale": locale})
     return response
@@ -1597,7 +1601,14 @@ async def chat(
                 request.app.state.remote_configs, user.effective_tier,
                 "people") == "enabled"
         if run_hook:
-            body, result = await hook.before_llm(user, body, tier, state, skip_teasers, app_id=app_id)
+            # Plus recall window: the tier's Memory window, read from the
+            # served tiers dial here, next to every other entitlement
+            # read, and handed to the hook so it lands on every recall leg.
+            from app.services.recall_window import recall_max_age_days as _recall_window
+            body, result = await hook.before_llm(
+                user, body, tier, state, skip_teasers, app_id=app_id,
+                recall_max_age_days=_recall_window(
+                    request.app.state.remote_configs, user.effective_tier))
             hook_results[feature_name] = result
 
     # Memory capability line (the #431 pattern, for memory instead of
