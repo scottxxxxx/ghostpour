@@ -127,6 +127,12 @@ class StreamingBypassMiddleware:
             return
 
         path = scope.get("path", "")
+        # Meeting share tokens ARE the URL and carry no other credential, so
+        # a path log line is a token leak. Mask them here, at the one place
+        # every request's path is written (2026-08-21, share privacy line).
+        if path.startswith("/s/"):
+            rest = path[3:].split("/", 1)
+            path = "/s/<token>" + ("/" + rest[1] if len(rest) > 1 else "")
         method = scope.get("method", "")
 
         if path in _SKIP_PATHS:

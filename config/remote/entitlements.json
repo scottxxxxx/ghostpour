@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "matrix": {
     "context_quilt": {
       "free": "disabled",
@@ -49,6 +49,13 @@
       "pro": "enabled",
       "admin": "enabled",
       "automation": "enabled"
+    },
+    "share": {
+      "admin": "enabled",
+      "automation": "enabled",
+      "free": "enabled",
+      "plus": "enabled",
+      "pro": "enabled"
     }
   }
 }
