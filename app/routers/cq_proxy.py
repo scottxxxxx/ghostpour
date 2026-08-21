@@ -632,8 +632,26 @@ async def delete_connection(
 
 
 class AssignProjectRequest(BaseModel):
+    """Body SS sends on assign-project: {"project_id", "project_name"}
+    (QuiltService, verbatim 2026-08-21).
+
+    Until 2026-08-21 this model knew `project` and not `project_name`,
+    so pydantic dropped SS's key on the floor, the forward carried
+    project_id alone, and CQ answered 422 naming the field we had eaten:
+    seven calls between 07-23 and 08-05, every one. SS logged the status
+    and discarded the body, so the 422 was visible and the reason was
+    not. The to_name shape again (rule 3): a field sent by the client
+    and silently dropped by an unmodelled schema in the middle.
+
+    `project` stays as an alias for any client that sent it; `project_name`
+    is what CQ's model requires and what is forwarded.
+    """
     project_id: str
-    project: str | None = None  # Display name, optional
+    project_name: str | None = None
+    project: str | None = None  # legacy spelling, mapped onto project_name
+
+    def display_name(self) -> str | None:
+        return self.project_name if self.project_name is not None else self.project
 
 
 @router.post("/origins/{user_id}/{origin_type}/{origin_id}/assign-project")
@@ -654,8 +672,8 @@ async def assign_origin_project(
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's origins")
     payload = {"project_id": body.project_id}
-    if body.project is not None:
-        payload["project_name"] = body.project
+    if body.display_name() is not None:
+        payload["project_name"] = body.display_name()
     return await _cq_proxy(
         "POST",
         f"/v1/origins/{_subj(request, user_id)}/{origin_type}/{origin_id}/assign-project",
@@ -680,8 +698,8 @@ async def assign_meeting_project(
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's meetings")
     payload = {"project_id": body.project_id}
-    if body.project is not None:
-        payload["project_name"] = body.project
+    if body.display_name() is not None:
+        payload["project_name"] = body.display_name()
     return await _cq_proxy(
         "POST",
         f"/v1/origins/{_subj(request, user_id)}/meeting/{meeting_id}/assign-project",
