@@ -3,9 +3,49 @@
 Scott's ask via CQ. SS builds the Messages extension and the share entry;
 GP hosts the page and serves the preview and the universal-link file; CQ
 has no role, by design: the shared object is SS's meeting record, never
-quilt memory. This document is effort and cost per piece, two product
-variants priced, and the things above the ask that change its shape.
-Nothing here is built.
+quilt memory. This document is effort and cost per piece, the product variant, and
+the things above the ask that change its shape. Nothing here is built.
+
+## Refinements ruled 2026-08-21 (Scott, via CQ)
+
+- **The payload is SS's existing `.shouldersurf` archive**, not a JSON
+  summary. SS already builds it for the manual share and already imports
+  it. GP stores the archive bytes as uploaded and serves them back by
+  share id; SS's universal-link handler downloads the archive and runs the
+  same importer the manual flow uses. One format, one import path, no
+  second representation of a meeting on GP's side. The create call is the
+  archive (multipart or raw bytes, content type named by SS) plus the small
+  preview fields for the card (title, date, duration, first line of
+  summary). GET by share id returns the archive to the app and the HTML
+  page to a browser, split by path (`/s/{token}` page, `/s/{token}/archive`
+  bytes) rather than by Accept, so a link preview fetcher never receives
+  the archive. GP needs the archive format spec from SS to render the page.
+- **Variant A is ruled**: a recipient without the app reads the whole
+  meeting on the page. Variant B is off the table.
+- **Free vs Plus for creation** is still Scott's; it stays the one matrix
+  switch.
+- The cost-per-share line below assumed a 60 KB transcript; the archive
+  may be larger and the number is restated once SS sends the spec.
+- "A share is a copy with its own clock" and "revoke cannot unsend a
+  rendered card" go into the sender-facing copy.
+
+## Share host: exact setup (Scott, about 15 minutes, can be done now)
+
+Host name: `share.shouldersurf.com`.
+
+1. DNS, at the shouldersurf.com registrar: `share  A  35.239.227.192`
+   (the same VM address `cz.shouldersurf.com` resolves to). No CNAME
+   needed.
+2. nginx-proxy-manager (the bifrost dashboard): add a Proxy Host,
+   domain `share.shouldersurf.com`, scheme `http`, forward host
+   `ghostpour`, forward port `8000` (identical to the `cz.` host's
+   upstream), Block Common Exploits on, Websockets off, SSL tab: request
+   a new Let's Encrypt certificate, Force SSL on, HTTP/2 on.
+3. Nothing else: GP will answer on that host once its routes exist, and
+   `/.well-known/apple-app-site-association` is served by GP, not by a
+   static file in nginx, so no custom location is needed.
+
+Until the routes land, the host answers 404 from GP, which is harmless.
 
 ## Effort, by piece (GP only)
 
@@ -32,7 +72,7 @@ open from iMessage should not share an origin with it; and the URL is
 user-facing, it will be read aloud and typed. Cost of the choice: the two
 human steps above, once.
 
-## Cost per share
+## Cost per share (to be restated once SS sends the archive spec)
 
 There is no model call: the payload is already generated text. GP cost is
 storage and egress. A share with summary and action items is about 3 to
