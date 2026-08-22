@@ -393,3 +393,71 @@ def test_the_transcript_flag_still_reaches_the_page(client, pro_user):
     page = client.get(f"/s/{token}").text
     assert "Show transcript" in page, (
         "the transcript flag stopped reaching the renderer")
+
+
+# --- Percent-decode and attribute-escape, in that order, through the REAL
+# --- route (2026-08-22) -----------------------------------------------------
+#
+# CQ's analysis and it is the reason this test exists in this shape: the two
+# possible bugs MASK each other.
+#
+#   A. the header is not percent-decoded
+#   B. the title is not HTML-escaped into the single-quoted attribute
+#
+# `%27` is attribute-safe. So if A is present the apostrophe never arrives
+# as an apostrophe, never reaches the escaper, and B cannot fire. A missing
+# decode HIDES a missing escape, and a hand-typed raw apostrophe tests B
+# while being unable to test A at all.
+#
+# So the input here is what a CLIENT actually sends: percent-encoded UTF-8
+# containing %27, driven through POST /v1/shares rather than through the
+# service layer. That ordering matters and it is worth stating: the decode
+# lives in the ROUTE, so anything that calls create_share directly proves
+# nothing about it. Every fixture built by hand from this side of the auth
+# boundary skipped it, which is exactly how a contract ends up implemented
+# on one side.
+#
+# Asserted through an HTML parser, so an attribute terminated early comes
+# back truncated rather than merely looking wrong in a grep.
+
+@pytest.mark.parametrize("title", [
+    "Sarah's team sync",
+    "Q3 planning, don't reschedule",
+    "L'équipe: Séverine's review 🎉",
+    "四半期レビュー: l'équipe",
+])
+def test_a_client_encoded_title_decodes_then_escapes_onto_the_card(client, pro_user, title):
+    from urllib.parse import quote
+    encoded = quote(title)
+    assert "%27" in encoded or "'" not in title, "fixture is not encoding the apostrophe"
+
+    r = _create(client, pro_user, **{"X-Share-Title": encoded})
+    assert r.status_code == 200, r.text
+    token = r.json()["url"].rsplit("/", 1)[1]
+    page = client.get(f"/s/{token}")
+    assert page.status_code == 200
+
+    import html.parser
+
+    class P(html.parser.HTMLParser):
+        def __init__(self):
+            super().__init__(); self.meta = {}; self.title = None; self._t = False
+        def handle_starttag(self, tag, attrs):
+            d = dict(attrs)
+            if tag == "meta" and "content" in d:
+                k = d.get("property") or d.get("name")
+                if k: self.meta[k] = d["content"]
+            elif tag == "title": self._t = True
+        def handle_endtag(self, tag):
+            if tag == "title": self._t = False
+        def handle_data(self, data):
+            if self._t: self.title = (self.title or "") + data
+
+    p = P(); p.feed(page.text)
+    assert p.title == title, f"<title> is {p.title!r}"
+    assert p.meta.get("og:title") == title, (
+        f"og:title is {p.meta.get('og:title')!r}. A literal %27 or %E2 here "
+        "means the decode is missing; a truncated value means the escape is.")
+    assert p.meta.get("twitter:title") == title
+    assert "%27" not in page.text and "%E5" not in page.text, (
+        "an encoded sequence reached the page, so the decode did not run")

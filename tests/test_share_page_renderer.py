@@ -285,3 +285,109 @@ def test_the_total_budget_is_shared_across_entries():
     finally:
         sb.MAX_TOTAL_READ_BYTES = original
     assert len(out["meetings"]) < 4, "the running total was not enforced"
+
+
+# --- The card ATTRIBUTES survive an apostrophe (2026-08-22) ----------------
+#
+# CQ checked escaping on this page by grepping for HTML entities, found
+# `&#39;` nine times, and concluded the meta attributes escape. SS traced
+# where those nine actually were: one in the <h1>, eight in the transcript
+# <pre>, and ZERO in any content='...' attribute. So escaping was proven
+# for the BODY, which is archive-sourced, and entirely unproven for the
+# ATTRIBUTES, which are single-quoted and are exactly where an apostrophe
+# could terminate the value early. CQ corrected themselves out loud; this
+# is the test that means nobody has to grep for it again.
+#
+# It matters more than it sounds. `og:title` is what iMessage, Slack and
+# every unfurler render, so this failure lands on the card that a
+# recipient sees BEFORE they open anything, and it lands as a truncated or
+# malformed tag rather than as an error. And an apostrophe is not an
+# exotic input: "Sarah's team sync" is what a Tuesday meeting is called.
+#
+# Asserted through a real HTML parser rather than by searching for the
+# escaped string, because "the entity appears somewhere" is the check that
+# already failed once here. A parser reports the attribute VALUE, so an
+# attribute terminated early comes back truncated and the assertion fails.
+
+import html.parser as _htmlparser
+
+
+class _Attrs(_htmlparser.HTMLParser):
+    """Collects meta content by property/name, and the <title> text."""
+
+    def __init__(self):
+        super().__init__()
+        self.meta: dict[str, str] = {}
+        self.title = None
+        self._in_title = False
+
+    def handle_starttag(self, tag, attrs):
+        d = dict(attrs)
+        if tag == "meta":
+            key = d.get("property") or d.get("name")
+            if key and "content" in d:
+                self.meta[key] = d["content"]
+        elif tag == "title":
+            self._in_title = True
+
+    def handle_endtag(self, tag):
+        if tag == "title":
+            self._in_title = False
+
+    def handle_data(self, data):
+        if self._in_title:
+            self.title = (self.title or "") + data
+
+
+def _parsed(html_text: str) -> _Attrs:
+    p = _Attrs()
+    p.feed(html_text)
+    return p
+
+
+APOSTROPHE_TITLES = [
+    "Sarah's team sync",
+    "Q3 planning, don't reschedule",
+    "L'équipe: Séverine's review",
+    'He said "ship it" and left',
+    "Tom & Sarah's <review>",
+]
+
+
+@_pytest.mark.parametrize("title", APOSTROPHE_TITLES)
+def test_the_card_title_attribute_is_not_terminated_early(title):
+    from app.services.share_bundle import render_share_page
+    page = render_share_page({"meetings": []}, card_title=title, card_desc="",
+                             transcript_included=False, expires_at="2026-09-21T00:00:00Z")
+    got = _parsed(page)
+    assert got.title == title, f"<title> came back {got.title!r}"
+    for key in ("og:title", "twitter:title"):
+        assert got.meta.get(key) == title, (
+            f"{key} came back {got.meta.get(key)!r}, so the attribute was "
+            "cut short or the tag was malformed")
+
+
+@_pytest.mark.parametrize("desc", APOSTROPHE_TITLES)
+def test_the_card_description_attribute_survives_the_same_characters(desc):
+    """The description is the other half of what an unfurler renders, and it
+    is a different variable through the same template, so a fix that only
+    covered the title would leave this one open."""
+    from app.services.share_bundle import render_share_page
+    page = render_share_page({"meetings": []}, card_title="x", card_desc=desc,
+                             transcript_included=False, expires_at="2026-09-21T00:00:00Z")
+    got = _parsed(page)
+    for key in ("og:description", "twitter:description"):
+        assert got.meta.get(key) == desc, f"{key} came back {got.meta.get(key)!r}"
+
+
+def test_an_apostrophe_title_cannot_inject_a_new_attribute():
+    """The reason this is not merely cosmetic. If the value terminates
+    early, everything after it is parsed as MARKUP, so a title is an
+    injection point into the head of a page other people load."""
+    from app.services.share_bundle import render_share_page
+    hostile = "x' onload='alert(1)"
+    page = render_share_page({"meetings": []}, card_title=hostile, card_desc="",
+                             transcript_included=False, expires_at="2026-09-21T00:00:00Z")
+    got = _parsed(page)
+    assert got.meta.get("og:title") == hostile
+    assert "onload" not in page.lower().replace("&#39;", "'").split("<body")[0].replace(hostile, "")
