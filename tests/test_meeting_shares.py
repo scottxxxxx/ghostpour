@@ -167,6 +167,79 @@ def test_account_deletion_removes_shares_and_their_bytes(client, pro_user):
     assert client.get(f"/s/{token}").status_code == 410
 
 
+# --- Card text is percent-encoded UTF-8 (2026-08-22) ------------------------
+#
+# Found while writing SS's test brief, BEFORE they built the client, which
+# is the only reason this is a contract decision rather than a migration.
+#
+# The card fields ride in X-Share-* headers so the body can be the archive
+# bytes with no multipart parsing between SS's zip and our disk. Right call
+# for the bytes, trap for the TEXT: an HTTP header value is not a place for
+# user-generated Unicode. A meeting titled "四半期レビュー" cannot go in a
+# header at all from a strict client (httpx raises UnicodeEncodeError before
+# a request is even made), and a client that writes the raw UTF-8 bytes
+# anyway gets them back latin-1-decoded here, stored, and rendered onto the
+# card and the og:title where a person reads it. Nothing errors. The share
+# just says something else.
+#
+# Contract: UTF-8, percent-encoded. ASCII on the wire, one rule, and a
+# no-op for plain English titles.
+
+from html import unescape  # noqa: E402
+from urllib.parse import quote  # noqa: E402
+
+
+def _page_of(client, user, **extra):
+    """The page text with HTML entities resolved, so these tests assert what
+    a READER sees. The renderer escapes & and ' correctly and that is not
+    what is under test here; comparing against the raw markup would make
+    every accented fixture fail for the wrong reason."""
+    r = _create(client, user, **extra)
+    assert r.status_code == 200, r.text
+    token = r.json()["url"].rsplit("/", 1)[1]
+    page = client.get(f"/s/{token}")
+    assert page.status_code == 200
+    return unescape(page.text)
+
+
+@pytest.mark.parametrize("title", [
+    "四半期レビュー",                      # the case a strict client cannot send raw
+    "Séverine & l'équipe: révision",       # latin-1-able, so mojibake would be subtle
+    "Kickoff 🎉 with the whole team",      # outside the BMP
+    "Обзор квартала",                      # non-latin, non-CJK
+])
+def test_a_non_ascii_title_survives_onto_the_card(client, pro_user, title):
+    html = _page_of(client, pro_user, **{"X-Share-Title": quote(title)})
+    assert title in html, "the title was mangled between SS's header and the page"
+
+
+def test_a_plain_ascii_title_needs_no_encoding(client, pro_user):
+    """Percent-decoding is a no-op on ASCII, which is why an unencoded
+    English title still works and why this is one rule rather than two."""
+    html = _page_of(client, pro_user, **{"X-Share-Title": "Sunset Canyon kickoff"})
+    assert "Sunset Canyon kickoff" in html
+
+
+def test_a_literal_percent_must_be_encoded_and_then_survives(client, pro_user):
+    html = _page_of(client, pro_user, **{"X-Share-Title": quote("50% done, 3% left")})
+    assert "50% done, 3% left" in html
+
+
+def test_a_malformed_sequence_costs_a_character_not_the_share(client, pro_user):
+    """errors="replace": a bad byte must not 4xx a share that is otherwise
+    fine. The user loses one glyph, not the thing they were trying to send."""
+    r = _create(client, pro_user, **{"X-Share-Title": "Broken%E5%9Bend"})
+    assert r.status_code == 200, r.text
+
+
+def test_the_summary_line_gets_the_same_treatment_as_the_title(client, pro_user):
+    """Both are card text and both are user-generated, so a fix that only
+    covered the title would leave the description mojibake on exactly the
+    meetings the title fix was for."""
+    summary = "On a décidé: livrer le 3 décembre."
+    html = _page_of(client, pro_user, **{"X-Share-Summary-Line": quote(summary)})
+    assert summary in html
+
 # --- The token shape is enforced here, for every client (2026-08-22) --------
 #
 # SS sabotaged their own universal-link parser and found that widening
@@ -228,3 +301,35 @@ def test_the_shape_check_matches_what_new_token_actually_mints():
     from app.services.meeting_shares import is_token_shaped, new_token
     for _ in range(100):
         assert is_token_shaped(new_token())
+
+
+def test_raw_non_ascii_in_the_header_is_refused_not_stored(client, pro_user):
+    """CQ asked the right question: what if a client sends raw UTF-8 anyway?
+
+    By the time it reaches us it has already been latin-1 decoded by ASGI,
+    so the original is gone and any repair is a guess. The choice is a 400
+    now or a wrong title on a card forever, and only the receiving side can
+    make it. The client finds out at build time; a user would have found
+    out from a bubble that said something else.
+
+    Sent as a pre-encoded byte header, because a strict client library will
+    not even let you set this by hand, which is itself the first line of
+    defence and the reason this was found at all."""
+    # As BYTES, because a strict client library will not let you set a
+    # non-ASCII header from a str at all: httpx raises UnicodeEncodeError
+    # before a request is made. That refusal is the first line of defence
+    # and it is how this whole class was found; the bytes path is what a
+    # client that goes around it actually puts on the wire.
+    r = _create(client, pro_user, **{"X-Share-Title": "四半期レビュー".encode("utf-8")})
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"]["code"] == "share_header_not_encoded"
+
+
+def test_a_latin1_accent_sent_raw_is_refused_too(client, pro_user):
+    """The subtle half. "Séverine" raw is VALID latin-1, so it would decode
+    to something that looks right in a debugger and is still not what the
+    sender typed once any other language shows up. One rule, no exceptions
+    for the languages that happen to survive."""
+    r = _create(client, pro_user, **{"X-Share-Title": "Séverine".encode("latin-1")})
+    assert r.status_code == 400
+    assert r.json()["detail"]["code"] == "share_header_not_encoded"
