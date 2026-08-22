@@ -82,5 +82,9 @@ jobs:
             cd /opt/ghostpour
             echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u ${{ github.actor }} --password-stdin
             sudo docker compose -f docker-compose.prod.yml --env-file .env.prod pull
-            sudo docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+            # --wait blocks until the healthcheck passes, so a container that
+            # comes up broken fails this job instead of exiting 0 with prod down.
+            # --wait-timeout bounds it: without one a permanently unhealthy
+            # container hangs the job rather than failing it.
+            sudo docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --wait --wait-timeout 120
             sudo docker image prune -af --filter "until=24h"
