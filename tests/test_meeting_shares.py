@@ -621,3 +621,123 @@ def test_an_empty_body_is_still_422_not_413(client, pro_user):
     r = _post_archive(client, pro_user, b"")
     assert r.status_code == 422
     assert r.json()["detail"]["code"] == "share_empty"
+
+
+# --- HEAD is answered, and never counts as a view (2026-08-22) -------------
+#
+# Bifrost found it at the edge, CQ confirmed it from their machine, and it
+# reproduced against prod: HEAD on the share routes returned 405 while GET
+# returned 410. FastAPI does not add HEAD to a `.get()` route the way plain
+# Starlette does, so this was 405 from the day the routes existed.
+#
+# Why it is worth fixing rather than shrugging at: most unfurlers send GET,
+# and most of the ones that HEAD first fall back. The ones that do not
+# produce an iMessage bubble or a Slack unfurl that renders EMPTY, with
+# nothing in our logs for a GET that never came. It reads as a rendering
+# bug for weeks and it is a method bug.
+
+def test_head_on_a_live_share_is_200_not_405(client, pro_user):
+    token = _create(client, pro_user).json()["url"].rsplit("/", 1)[1]
+    r = client.head(f"/s/{token}")
+    assert r.status_code == 200, f"HEAD got {r.status_code}"
+    assert r.headers["content-type"].startswith("text/html")
+    assert r.headers.get("x-robots-tag") == "noindex"
+    assert r.content == b""
+
+
+def test_head_on_the_archive_agrees_with_get_and_sends_no_body(client, pro_user):
+    """Asserted AGAINST the GET rather than against a hardcoded type, which
+    is the property that matters: a HEAD exists to tell a client what a GET
+    would return, so any header the two disagree on is a lie. Hardcoding
+    the content type here would also have pinned the fixture's rather than
+    the route's."""
+    token = _create(client, pro_user).json()["url"].rsplit("/", 1)[1]
+    head = client.head(f"/s/{token}/archive")
+    get = client.get(f"/s/{token}/archive")
+    assert head.status_code == get.status_code == 200
+    assert head.headers["content-type"] == get.headers["content-type"]
+    assert int(head.headers["content-length"]) == len(get.content) == len(ARCHIVE)
+    assert head.headers.get("x-robots-tag") == get.headers.get("x-robots-tag")
+    # Deliberately NOT asserting `head.content == b""`. Starlette and httpx
+    # strip the body from a HEAD response at the transport layer, so that
+    # assertion is true whatever the handler does: sabotaging the route to
+    # read the file and return it left this test green. Fourth
+    # cannot-fail test caught by sabotage today, and the fix is the same
+    # each time, which is to assert the property that is actually
+    # observable. See the test below.
+
+
+def test_head_on_the_archive_never_reads_the_file(client, pro_user):
+    """The property the body assertion could not reach, tested exactly.
+
+    Reading tens of megabytes off disk to discard them is the obvious
+    implementation of HEAD and the wrong one, and it is invisible in the
+    response because the framework strips the body either way. So: remove
+    the backing file. A HEAD that answers from the row still succeeds with
+    the right size; one that opens the file cannot. Nothing about the
+    outcome is a proxy for the behaviour here, it IS the behaviour."""
+    import os
+    body = _create(client, pro_user).json()
+    token = body["url"].rsplit("/", 1)[1]
+
+    from app.services import meeting_shares as ms
+    path = ms.SHARE_DIR / f"{body['share_id']}.bin"
+    assert path.exists(), "fixture assumption wrong: no file to remove"
+    size = path.stat().st_size
+    os.remove(path)
+
+    r = client.head(f"/s/{token}/archive")
+    assert r.status_code == 200, (
+        f"HEAD got {r.status_code} with the file removed, so it opened it")
+    assert int(r.headers["content-length"]) == size
+
+
+def test_head_on_the_aasa_is_200(client):
+    from app.main import app
+    cc = app.state.remote_configs.setdefault("client-config", {})
+    original = cc.get("share")
+    cc["share"] = {**(original or {}), "aasa_app_ids": ["TEAMID.com.example.app"]}
+    try:
+        assert client.head("/.well-known/apple-app-site-association").status_code == 200
+    finally:
+        if original is None:
+            cc.pop("share", None)
+        else:
+            cc["share"] = original
+
+
+def test_head_on_a_dead_share_is_410_like_get(client, pro_user):
+    """The no-distinction property has to hold for HEAD too, or a prober
+    learns from the method which tokens were ever real."""
+    body = _create(client, pro_user).json()
+    token = body["url"].rsplit("/", 1)[1]
+    client.delete(f"/v1/shares/{body['share_id']}", headers=pro_user["headers"])
+    assert client.head(f"/s/{token}").status_code == 410
+    assert client.head(f"/s/{token}/archive").status_code == 410
+    assert client.head("/s/AAAAAAAAAAAAAAAAAAAAAA").status_code == 410
+    assert client.head("/s/short").status_code == 410
+
+
+def test_a_head_never_counts_as_a_view(client, pro_user):
+    """Not an optimisation. A HEAD is a probe by definition, so counting it
+    would put exactly the fiction in view_count that the preview-fetcher
+    filter exists to keep out, and it would arrive through a door that
+    filter does not watch: a HEAD from an ordinary user agent passes the UA
+    check and would be counted.
+
+    Asserted as a DELTA across a real GET, so the test proves the counter
+    still works rather than proving nothing by counting zero of zero."""
+    body = _create(client, pro_user).json()
+    token = body["url"].rsplit("/", 1)[1]
+
+    def views():
+        return client.get(f"/v1/shares/{body['share_id']}/stats",
+                          headers=pro_user["headers"]).json()["view_count"]
+
+    start = views()
+    for _ in range(5):
+        assert client.head(f"/s/{token}").status_code == 200
+    assert views() == start, "a HEAD was counted as somebody reading the meeting"
+
+    assert client.get(f"/s/{token}").status_code == 200
+    assert views() == start + 1, "the counter stopped working, so the test above proved nothing"
