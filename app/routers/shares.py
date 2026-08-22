@@ -128,7 +128,7 @@ async def aasa(request: Request):
 
 @public.get("/s/{token}/archive")
 async def share_archive(token: str, db: aiosqlite.Connection = Depends(get_db)):
-    row = await shares.share_by_token(db, token)
+    row = await shares.share_by_token(db, token) if shares.is_token_shaped(token) else None
     if not shares.is_live(row):
         raise HTTPException(status_code=410)
     with open(row["storage_path"], "rb") as f:
@@ -139,7 +139,7 @@ async def share_archive(token: str, db: aiosqlite.Connection = Depends(get_db)):
 
 @public.get("/s/{token}")
 async def share_page(token: str, request: Request, db: aiosqlite.Connection = Depends(get_db)):
-    row = await shares.share_by_token(db, token)
+    row = await shares.share_by_token(db, token) if shares.is_token_shaped(token) else None
     if not shares.is_live(row):
         return HTMLResponse(_GONE_HTML, status_code=410, headers={"X-Robots-Tag": "noindex"})
     if not shares.is_preview_fetcher(request.headers.get("User-Agent")):

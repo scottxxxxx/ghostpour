@@ -165,3 +165,66 @@ def test_account_deletion_removes_shares_and_their_bytes(client, pro_user):
             assert not path.exists()
     asyncio.run(run())
     assert client.get(f"/s/{token}").status_code == 410
+
+
+# --- The token shape is enforced here, for every client (2026-08-22) --------
+#
+# SS sabotaged their own universal-link parser and found that widening
+# "exactly two segments" to "two or more, take the last" turns
+# `/s/abc/../secret` into the token "secret", which on their side is a
+# traversal fragment walking into the next request's URL. GP is the only
+# side that can enforce the shape for EVERY client rather than trusting
+# each one to parse correctly.
+#
+# Nothing downstream was exploitable: the token is only ever a bound
+# parameter in a SELECT and storage_path comes from the row, never from the
+# URL. This keeps a malformed token from reaching the database at all, and
+# it answers identically to a wrong one, so the deliberate
+# 410-for-everything property is untouched.
+
+# Two groups, because they are stopped in two different places and saying
+# so is more useful than forcing one number. Anything that is not a single
+# path segment never matches the route at all and the router answers 404;
+# anything that IS one segment but is not token-shaped reaches the handler
+# and is answered 410, identically to a wrong token, which is what keeps
+# the deliberate no-distinction-between-expired-revoked-unknown property.
+
+@pytest.mark.parametrize("bad", [
+    "secret", "short", "a" * 23, "a" * 21,
+    "has spaces here here12", "plus+chars=here123456", "tilde~and.dots1234567",
+])
+def test_a_one_segment_token_of_the_wrong_shape_is_410(client, bad):
+    from urllib.parse import quote
+    r = client.get(f"/s/{quote(bad, safe='')}")
+    assert r.status_code == 410, f"{bad!r} got {r.status_code}"
+    assert "no longer available" in r.text
+    assert client.get(f"/s/{quote(bad, safe='')}/archive").status_code == 410
+
+
+@pytest.mark.parametrize("bad", ["..", "../etc/passwd", "abc/../secret", "a/b", ""])
+def test_a_traversal_shaped_path_never_reaches_the_handler(client, bad):
+    """SS's `/s/abc/../secret` case. It is not one path segment, so the
+    router does not match it and nothing of ours runs. Asserted so that a
+    future route change to `{token:path}`, which WOULD match it, is a red
+    test rather than a quiet widening."""
+    from urllib.parse import quote
+    r = client.get(f"/s/{quote(bad, safe='')}")
+    assert r.status_code == 404, f"{bad!r} reached a handler and got {r.status_code}"
+
+
+def test_a_real_token_still_works(client, pro_user):
+    """The bound has to let the actual thing through, which is the half of a
+    validation people forget to assert."""
+    token = _create(client, pro_user).json()["url"].rsplit("/", 1)[1]
+    from app.services.meeting_shares import is_token_shaped
+    assert is_token_shaped(token), f"we minted a token our own check rejects: {token!r}"
+    assert client.get(f"/s/{token}").status_code == 200
+
+
+def test_the_shape_check_matches_what_new_token_actually_mints():
+    """Pinned against the generator rather than against the regex, so a
+    change to token length cannot pass its own test. A hundred draws,
+    because token_urlsafe output length varies with padding."""
+    from app.services.meeting_shares import is_token_shaped, new_token
+    for _ in range(100):
+        assert is_token_shaped(new_token())
