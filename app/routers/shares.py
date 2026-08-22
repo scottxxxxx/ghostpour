@@ -69,9 +69,17 @@ async def create_share(
     archive = await request.body()
     if not archive:
         raise HTTPException(status_code=422, detail={"code": "share_empty", "message": "No archive in body."})
-    if len(archive) > shares.MAX_ARCHIVE_BYTES:
-        raise HTTPException(status_code=413, detail={"code": "share_too_large", "message": "Archive exceeds 25 MB."})
     settings = shares.share_settings(rc)
+    cap_bytes = caps["max_archive_bytes"]
+    if cap_bytes is not None and len(archive) > cap_bytes:
+        # No cap by default (Scott, 2026-08-22). When a tier's dial sets
+        # one, the 413 says the numbers so the client has something true
+        # to show; real bundles run 275 KB to 36.9 MB with audio.
+        mb = round(len(archive) / 1048576, 1); limit_mb = round(cap_bytes / 1048576, 1)
+        raise HTTPException(status_code=413, detail={
+            "code": "share_too_large",
+            "message": f"This share is {mb} MB; the limit on this plan is {limit_mb} MB. Share it without audio, or share a shorter meeting.",
+            "size_bytes": len(archive), "limit_bytes": cap_bytes})
     expiry = min(max(int(x_share_expiry or settings["default_expiry_days"]), 1), settings["max_expiry_days"])
     created = await shares.create_share(
         db, user_id=user.id, app_id=getattr(request.state, "app_id", None),
@@ -136,25 +144,19 @@ async def share_page(token: str, request: Request, db: aiosqlite.Connection = De
         return HTMLResponse(_GONE_HTML, status_code=410, headers={"X-Robots-Tag": "noindex"})
     if not shares.is_preview_fetcher(request.headers.get("User-Agent")):
         await shares.count_view(db, row["id"])
-    # Card metadata now; the full page renderer lands with SS's archive spec.
-    title = row["title"]; desc = row["summary_line"] or ""
-    html = (
-        "<!doctype html><html><head><meta charset='utf-8'>"
-        f"<title>{_esc(title)}</title>"
-        "<meta name='robots' content='noindex'>"
-        f"<meta property='og:title' content='{_esc(title)}'>"
-        f"<meta property='og:description' content='{_esc(desc)}'>"
-        "<meta property='og:type' content='article'>"
-        "<meta name='twitter:card' content='summary'>"
-        f"<meta name='twitter:title' content='{_esc(title)}'>"
-        f"<meta name='twitter:description' content='{_esc(desc)}'>"
-        "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-        "</head><body style='font:16px/1.5 -apple-system,system-ui,sans-serif;max-width:680px;margin:2rem auto;padding:0 1rem'>"
-        f"<h1>{_esc(title)}</h1>"
-        f"<p style='color:#666'>{_esc(row['meeting_date'] or '')}</p>"
-        f"<p>{_esc(desc)}</p>"
-        "</body></html>"
-    )
+    # The page: card chrome plus the bundle's own report (SS's archive
+    # spec 2026-08-22). A bundle that is not a zip, or a zip with odd
+    # contents, still gets the card; the bytes are never the page.
+    from app.services.share_bundle import read_bundle, render_share_page
+    try:
+        with open(row["storage_path"], "rb") as f:
+            bundle = read_bundle(f.read())
+    except Exception as e:  # noqa: BLE001  (BadZipFile, OSError, anything)
+        logger.warning("share_bundle_unreadable", extra={"share_id": row["id"], "error": type(e).__name__})
+        bundle = {"meetings": []}
+    html = render_share_page(
+        bundle, card_title=row["title"], card_desc=row["summary_line"] or "",
+        transcript_included=bool(row["transcript_included"]), expires_at=row["expires_at"])
     return HTMLResponse(html, headers={"X-Robots-Tag": "noindex", "Cache-Control": "private, no-store"})
 
 

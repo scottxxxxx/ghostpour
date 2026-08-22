@@ -27,7 +27,6 @@ logger = logging.getLogger("ghostpour.meeting_shares")
 SHARE_DIR = Path(os.environ.get("CZ_DATA_DIR", "data")) / "meeting_shares"
 DEFAULT_EXPIRY_DAYS = 30
 MAX_EXPIRY_DAYS = 365
-MAX_ARCHIVE_BYTES = 25 * 1024 * 1024
 DEFAULT_CREATIONS_PER_DAY = 50
 DEFAULT_HOST = "https://share.shouldersurf.com"
 
@@ -75,9 +74,15 @@ def tier_share_caps(remote_configs: dict, tier: str) -> dict:
     tiers = ((remote_configs.get("tiers") or {}).get("tiers") or {})
     block = ((tiers.get(tier) or {}).get("feature_definitions") or {}).get("share") or {}
     cap = block.get("creations_per_day")
+    mb = block.get("max_archive_mb")
     return {
         "creations_per_day": int(cap) if isinstance(cap, int) and not isinstance(cap, bool) else DEFAULT_CREATIONS_PER_DAY,
         "transcript_allowed": bool(block.get("transcript_allowed", True)),
+        # Archive size cap per tier, in MB; null/absent = NO cap (Scott,
+        # 2026-08-22: no cap now, dashboard control, gate as necessary).
+        # SS measured real bundles at 275 KB to 36.9 MB, audio in eleven of
+        # twelve, so any number here is a product choice, not a safety one.
+        "max_archive_bytes": int(mb * 1048576) if isinstance(mb, (int, float)) and not isinstance(mb, bool) and mb > 0 else None,
     }
 
 
