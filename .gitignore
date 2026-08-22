@@ -54,3 +54,6 @@ htmlcov/
 # Locally-mirrored secrets (private keys, etc) — must never reach the repo
 private-local-secrets/
 *signing_private*
+
+# Local scratch, never committed: eval exports contain real meeting content
+tmp/
