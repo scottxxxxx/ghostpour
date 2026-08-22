@@ -680,6 +680,15 @@ async def get_cached_report(
 class RenderRequest(BaseModel):
     report_json: dict
     duration_seconds: int
+    # The meeting's real start, same field and same format the generate
+    # path takes. Added 2026-08-22 because without it this route had NO
+    # way to know when the meeting was and stamped the header with the
+    # render clock, so editing Monday's report on Wednesday produced a
+    # document headed Wednesday. Optional, so a client that does not send
+    # it behaves exactly as before; see the fallback note in
+    # render_report for the half of this that is still Scott's call.
+    meeting_start_iso: str | None = None  # ISO 8601 with tz, e.g. "2026-04-14T13:01:00-05:00"
+    timezone_abbr: str | None = None  # e.g. "CST", "EST", "IST"
 
 
 @router.post("/reports/render")
@@ -694,10 +703,36 @@ async def render_report(
     """
     from app.routers.config import _parse_accept_language
     locale = _parse_accept_language(request.headers.get("Accept-Language"))
-    now = datetime.now(timezone.utc)
+
+    # Prefer the meeting's real start. The fallback is still the render
+    # clock, which is WRONG and known to be wrong: the header then claims
+    # the meeting happened on the day the user pressed edit.
+    #
+    # CQ's recommendation, and mine, is that the fallback should render no
+    # date at all rather than invent one, on the argument that a missing
+    # date is a gap the reader can see and ask about while a wrong date is
+    # a claim they cannot distinguish from a right one, on a document they
+    # KEEP. That is a product ruling and it is Scott's, so it is NOT taken
+    # here. What this change does is make the ruling cheap to apply and
+    # stop the guess firing for any client that sends the field: today
+    # nothing can, because the field did not exist.
+    meeting_dt = None
+    if body.meeting_start_iso:
+        try:
+            meeting_dt = datetime.fromisoformat(body.meeting_start_iso)
+        except (ValueError, TypeError):
+            meeting_dt = None
+    fabricated = meeting_dt is None
+    if fabricated:
+        meeting_dt = datetime.now(timezone.utc)
+        logger.info("report_render_date_fabricated", extra={
+            "reason": "no_meeting_start_iso" if not body.meeting_start_iso
+                      else "unparseable_meeting_start_iso"})
+
+    tz_label = f" {body.timezone_abbr}" if body.timezone_abbr else ""
     metadata = {
-        "meeting_date": format_meeting_date(now, locale),
-        "meeting_time": now.strftime("%-I:%M %p"),
+        "meeting_date": format_meeting_date(meeting_dt, locale),
+        "meeting_time": meeting_dt.strftime("%-I:%M %p") + tz_label,
         "meeting_duration": format_duration(body.duration_seconds),
     }
 
