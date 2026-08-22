@@ -400,12 +400,25 @@ def _jwt_for(user_id: str) -> str:
     return svc.create_access_token(user_id)
 
 
+def _zero_search_on_free(client):
+    """A tier with NO search. Free HAD none until the 2026-08-21 tier matrix
+    gave it 5 a month; the no-search behaviours below (paywall CTA, no LLM
+    call, total=0 on usage/me) are still real for any tier at zero, so the
+    tests set that state explicitly instead of assuming Free is it."""
+    rc = client.app.state.remote_configs
+    for loc in [k for k in rc if k == "tiers" or k.startswith("tiers.")]:
+        fd = rc[loc].setdefault("tiers", {}).setdefault("free", {}).setdefault("feature_definitions", {})
+        fd["search"] = {**(fd.get("search") or {}), "searches_per_month": 0}
+    rc.setdefault("entitlements", {}).setdefault("matrix", {}).setdefault("web_search", {})["free"] = "disabled"
+
+
 def test_free_user_with_search_enabled_blocked_with_paywall_cta(
     client: TestClient, tmp_db_path: str, mock_provider
 ):
     """Free tier has searches_per_month=0. Request with search_enabled=True
     must return 200 with feature_state.cta (search_paywall_required)
     and NOT call the LLM provider."""
+    _zero_search_on_free(client)
     _seed_user_with_search_state(
         tmp_db_path, user_id="free-search-test", tier="free", monthly_limit=0.35,
     )
@@ -637,6 +650,7 @@ def test_free_reject_response_carries_cta_only_flag(
     """Free reject path returns 200 with `cta_only: true` so iOS can
     dispatch on the flag instead of branching on text === "" — protects
     against the empty-bubble class of bug SS hit recently."""
+    _zero_search_on_free(client)
     _seed_user_with_search_state(
         tmp_db_path, user_id="free-cta-only", tier="free", monthly_limit=0.35,
     )
@@ -801,6 +815,7 @@ def test_usage_me_search_block_shows_zero_total_for_free(
 ):
     """Free tier has no search; usage/me reports total=0 so iOS knows
     the toggle should be disabled / linked to upgrade flow."""
+    _zero_search_on_free(client)
     _seed_user_with_search_state(
         tmp_db_path, user_id="free-usage-me", tier="free", monthly_limit=0.35,
     )
@@ -1308,3 +1323,24 @@ def test_search_caps_cta_unavailable_absent_when_not_configured():
     }
     caps = get_search_caps(remote_configs, "free", locale=None)
     assert caps.cta_unavailable is None
+
+
+def test_free_with_the_matrix_allowance_gets_a_search_and_a_counter(
+    client: TestClient, tmp_db_path: str, mock_provider
+):
+    """2026-08-21 tier matrix: Free has 5 searches a month. Under cap, the
+    query proceeds with search and usage/me reports total=5."""
+    _seed_user_with_search_state(
+        tmp_db_path, user_id="free-five", tier="free", monthly_limit=2.00,
+    )
+    headers = {"Authorization": f"Bearer {_jwt_for('free-five')}"}
+    me = client.get("/v1/usage/me", headers=headers).json()
+    assert me["search"]["total"] == 5 and me["search"]["used"] == 0
+    resp = client.post("/v1/chat", headers=headers, json={
+        "provider": "anthropic", "model": "claude-haiku-4-5-20251001",
+        "system_prompt": "you help", "user_content": "what's new",
+        "metadata": {"search_enabled": True}})
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["text"] != "" and (data.get("feature_state") or {}).get("cta") in (None, {})
+    mock_provider.assert_called()

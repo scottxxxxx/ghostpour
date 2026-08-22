@@ -105,7 +105,11 @@ def test_bundled_client_config_documents_live_and_pro_gated():
     for f in ("client-config.json", "client-config.es.json", "client-config.ja.json"):
         docs = json.load(open(f"config/remote/{f}"))["documents"]
         assert docs["enabled"] is True
-        assert docs["min_tier"] == "pro"
+        # TIER MATRIX 2026-08-21 (Scott's sheet is the ruling): documents
+        # on Plus and Pro now; Free at 5/mo and 10 MB per file waits on the
+        # per-tier document dial, so Free stays OUT until that dial exists
+        # rather than getting more than the sheet says.
+        assert docs["min_tier"] == "plus"
     flat = json.load(open("config/remote/client-config.json"))["documents"]
     assert flat["allowed_users"], "flat bundle carries the permanent test lane"
     for entry in flat["allowed_users"]:

@@ -1,74 +1,75 @@
 {
- "version": 14,
- "native_actions": {
-  "enabled": true,
-  "kinds": [
-   "reminders"
-  ]
- },
- "image_quality_note": {
-  "enabled": false,
-  "blur_threshold": 200
- },
- "limits": {
-  "project_chat": {
-   "max_input_chars": {
-    "free": 200000,
-    "plus": 600000,
-    "pro": 720000
-   }
-  }
- },
- "flags": {},
- "intervals": {},
- "documents": {
-  "enabled": true,
-  "min_tier": "pro",
-  "accepted_types": [
-   "application/pdf",
-   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-  ],
-  "per_file_max_mb": 25,
-  "max_files": 2,
-  "allowed_users": [
-   "fa4d903c-24c0-45d5-9fdb-b5496e32501b"
-  ],
-  "passthrough": {
-   "max_pdf_pages": 600,
-   "max_total_mb": 22
+  "version": 15,
+  "native_actions": {
+    "enabled": true,
+    "kinds": [
+      "reminders"
+    ]
   },
-  "generation": {
-   "enabled": true,
-   "min_tier": "pro",
-   "formats": [
-    "application/pdf",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-   ],
-   "max_files_out": 2,
-   "max_file_out_mb": 25,
-   "confirmation": {
+  "image_quality_note": {
+    "enabled": false,
+    "blur_threshold": 200
+  },
+  "limits": {
+    "project_chat": {
+      "max_input_chars": {
+        "free": 200000,
+        "plus": 600000,
+        "pro": 720000
+      }
+    }
+  },
+  "flags": {},
+  "intervals": {},
+  "documents": {
     "enabled": true,
-    "expected_seconds": 150,
-    "poll_after_seconds": 5,
-    "offer_text": "On dirait une demande de fichier. Je peux créer {format} à télécharger et à partager (cela prend un peu plus de temps), ou simplement répondre ici dans le chat. Vous voulez le fichier ?",
-    "format_nouns": {
-     "xlsx": "une feuille de calcul Excel native (.xlsx)",
-     "docx": "un document Word natif (.docx)",
-     "pptx": "une présentation PowerPoint native (.pptx)",
-     "pdf": "un fichier PDF"
+    "min_tier": "plus",
+    "accepted_types": [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    ],
+    "per_file_max_mb": 25,
+    "max_files": 2,
+    "allowed_users": [
+      "fa4d903c-24c0-45d5-9fdb-b5496e32501b"
+    ],
+    "passthrough": {
+      "max_pdf_pages": 600,
+      "max_total_mb": 22
     },
-    "offer_text_gist": "On dirait que vous voulez {format} {gist}. Créer le vrai fichier prend un peu plus de temps, ou je peux le présenter ici dans le chat. Vous voulez le fichier ?",
-    "teaser_text": "Vous voulez ceci sous forme de vrai fichier téléchargeable ?",
-    "no_file_text": "Aucun fichier n'a été créé pour celle-ci, la réponse se trouve donc ci-dessus. Préciser un format, par exemple un tableur, permet généralement d'en obtenir un."
-   },
-   "upsell": {
-    "enabled": true,
-    "text": "Avec un abonnement {tier}, je pourrais générer un fichier Word ou Excel pour vous."
-   }
+    "generation": {
+      "enabled": true,
+      "min_tier": "free",
+      "formats": [
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      ],
+      "max_files_out": 2,
+      "max_file_out_mb": 25,
+      "confirmation": {
+        "enabled": true,
+        "expected_seconds": 150,
+        "poll_after_seconds": 5,
+        "offer_text": "On dirait une demande de fichier. Je peux créer {format} à télécharger et à partager (cela prend un peu plus de temps), ou simplement répondre ici dans le chat. Vous voulez le fichier ?",
+        "format_nouns": {
+          "xlsx": "une feuille de calcul Excel native (.xlsx)",
+          "docx": "un document Word natif (.docx)",
+          "pptx": "une présentation PowerPoint native (.pptx)",
+          "pdf": "un fichier PDF"
+        },
+        "offer_text_gist": "On dirait que vous voulez {format} {gist}. Créer le vrai fichier prend un peu plus de temps, ou je peux le présenter ici dans le chat. Vous voulez le fichier ?",
+        "teaser_text": "Vous voulez ceci sous forme de vrai fichier téléchargeable ?",
+        "no_file_text": "Aucun fichier n'a été créé pour celle-ci, la réponse se trouve donc ci-dessus. Préciser un format, par exemple un tableur, permet généralement d'en obtenir un."
+      },
+      "upsell": {
+        "enabled": true,
+        "text": "Avec un abonnement {tier}, je pourrais générer un fichier Word ou Excel pour vous."
+      }
+    },
+    "_tier_note": "2026-08-21 tier matrix: documents Plus and Pro now (Free at 5/mo, 10 MB waits on the per-tier document dial); file generation every tier, Free capped 5/mo by the generation dial."
   }
- }
 }

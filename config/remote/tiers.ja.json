@@ -1,5 +1,5 @@
 {
-  "version": 45,
+  "version": 46,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -57,7 +57,7 @@
           }
         },
         "search": {
-          "searches_per_month": 0,
+          "searches_per_month": 5,
           "searches_soft_threshold": null,
           "cta_hard_cap": {
             "kind": "search_paywall_required",
@@ -103,6 +103,9 @@
               "斜めからではなく、正面からカメラを合わせてください"
             ]
           }
+        },
+        "generation": {
+          "generations_per_month": 5
         }
       }
     },
@@ -233,6 +236,9 @@
         },
         "context_quilt": {
           "recall_max_age_days": 30
+        },
+        "generation": {
+          "generations_per_month": null
         }
       }
     },

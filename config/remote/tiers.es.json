@@ -1,5 +1,5 @@
 {
-  "version": 44,
+  "version": 45,
   "tiers": {
     "free": {
       "display_name": "Gratis",
@@ -57,7 +57,7 @@
           }
         },
         "search": {
-          "searches_per_month": 0,
+          "searches_per_month": 5,
           "searches_soft_threshold": null,
           "cta_hard_cap": {
             "kind": "search_paywall_required",
@@ -103,6 +103,9 @@
               "Alinea la cámara de frente en lugar de en ángulo"
             ]
           }
+        },
+        "generation": {
+          "generations_per_month": 5
         }
       }
     },
@@ -233,6 +236,9 @@
         },
         "context_quilt": {
           "recall_max_age_days": 30
+        },
+        "generation": {
+          "generations_per_month": null
         }
       }
     },
