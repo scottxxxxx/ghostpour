@@ -1,15 +1,5 @@
 {
-  "version": 15,
-  "native_actions": {
-    "enabled": true,
-    "kinds": [
-      "reminders"
-    ]
-  },
-  "image_quality_note": {
-    "enabled": false,
-    "blur_threshold": 200
-  },
+  "version": 19,
   "limits": {
     "project_chat": {
       "max_input_chars": {
@@ -52,14 +42,14 @@
         "enabled": true,
         "expected_seconds": 150,
         "poll_after_seconds": 5,
-        "offer_text": "ファイル作成のリクエストのようです。ダウンロードして共有できる{format}を作成できます（少し時間がかかります）。このチャットで直接お答えすることもできます。ファイルを作成しますか？",
+        "offer_text": "ファイル作成のリクエストのようです。ダウンロードして共有できる{format}を作成できます（約2分）。このチャットで直接お答えすることもできます。ファイルを作成しますか？",
         "format_nouns": {
           "xlsx": "Excelスプレッドシート（.xlsx）",
           "docx": "Word文書（.docx）",
           "pptx": "PowerPointプレゼン（.pptx）",
           "pdf": "PDFファイル"
         },
-        "offer_text_gist": "{gist}の{format}をご希望のようですね。実ファイルの作成には少し時間がかかります。このチャットに直接表示することもできます。ファイルを作成しますか？",
+        "offer_text_gist": "{gist}の{format}をご希望のようですね。実ファイルの作成には約2分かかります。このチャットに直接表示することもできます。ファイルを作成しますか？",
         "teaser_text": "これをダウンロードできるファイルにしますか？",
         "no_file_text": "今回はファイルを作成しませんでしたので、回答は上に記載しています。スプレッドシートなど具体的な形式を指定すると、通常はファイルを作成できます。"
       },
@@ -69,5 +59,15 @@
       }
     },
     "_tier_note": "2026-08-21 tier matrix: documents Plus and Pro now (Free at 5/mo, 10 MB waits on the per-tier document dial); file generation every tier, Free capped 5/mo by the generation dial."
+  },
+  "native_actions": {
+    "enabled": true,
+    "kinds": [
+      "reminders"
+    ]
+  },
+  "image_quality_note": {
+    "enabled": false,
+    "blur_threshold": 200
   }
 }

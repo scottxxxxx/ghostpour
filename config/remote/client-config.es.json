@@ -1,15 +1,5 @@
 {
-  "version": 15,
-  "native_actions": {
-    "enabled": true,
-    "kinds": [
-      "reminders"
-    ]
-  },
-  "image_quality_note": {
-    "enabled": false,
-    "blur_threshold": 200
-  },
+  "version": 19,
   "limits": {
     "project_chat": {
       "max_input_chars": {
@@ -52,14 +42,14 @@
         "enabled": true,
         "expected_seconds": 150,
         "poll_after_seconds": 5,
-        "offer_text": "Parece una solicitud de archivo. Puedo crear {format} para descargar y compartir, tarda un poco más, o responder aquí mismo en el chat. ¿Quieres el archivo?",
+        "offer_text": "Parece una solicitud de archivo. Puedo crear {format} para descargar y compartir, tarda unos dos minutos, o responder aquí mismo en el chat. ¿Quieres el archivo?",
         "format_nouns": {
           "xlsx": "una hoja de cálculo de Excel (.xlsx)",
           "docx": "un documento de Word (.docx)",
           "pptx": "una presentación de PowerPoint (.pptx)",
           "pdf": "un archivo PDF"
         },
-        "offer_text_gist": "Parece que quieres {format} {gist}. Crear el archivo real tarda un poco más, o puedo mostrarlo aquí mismo en el chat. ¿Quieres el archivo?",
+        "offer_text_gist": "Parece que quieres {format} {gist}. Crear el archivo real tarda unos dos minutos, o puedo mostrarlo aquí mismo en el chat. ¿Quieres el archivo?",
         "teaser_text": "¿Quieres esto como un archivo descargable?",
         "no_file_text": "No se creó ningún archivo para esta, así que la respuesta está arriba. Pedir un formato concreto, por ejemplo una hoja de cálculo, suele conseguir uno."
       },
@@ -69,5 +59,15 @@
       }
     },
     "_tier_note": "2026-08-21 tier matrix: documents Plus and Pro now (Free at 5/mo, 10 MB waits on the per-tier document dial); file generation every tier, Free capped 5/mo by the generation dial."
+  },
+  "native_actions": {
+    "enabled": true,
+    "kinds": [
+      "reminders"
+    ]
+  },
+  "image_quality_note": {
+    "enabled": false,
+    "blur_threshold": 200
   }
 }
