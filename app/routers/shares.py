@@ -247,7 +247,7 @@ async def share_stats(share_id: str, user: UserRecord = Depends(get_current_user
 _GONE_HTML = "<!doctype html><meta charset='utf-8'><title>Shoulder Surf</title><p>This shared meeting is no longer available.</p>"
 
 
-@public.get("/.well-known/apple-app-site-association")
+@public.api_route("/.well-known/apple-app-site-association", methods=["GET", "HEAD"])
 async def aasa(request: Request):
     ids = shares.aasa_app_ids(request.app.state.remote_configs)
     if not ids:
@@ -256,22 +256,50 @@ async def aasa(request: Request):
     return Response(content=json.dumps(body), media_type="application/json")
 
 
-@public.get("/s/{token}/archive")
-async def share_archive(token: str, db: aiosqlite.Connection = Depends(get_db)):
+@public.api_route("/s/{token}/archive", methods=["GET", "HEAD"])
+async def share_archive(request: Request, token: str, db: aiosqlite.Connection = Depends(get_db)):
     row = await shares.share_by_token(db, token) if shares.is_token_shaped(token) else None
     if not shares.is_live(row):
         raise HTTPException(status_code=410)
+    hdrs = {"Cache-Control": "private, no-store", "X-Robots-Tag": "noindex"}
+    if request.method == "HEAD":
+        # Answer from the row. Reading tens of megabytes off disk to throw
+        # the body away is the obvious implementation and the wrong one,
+        # and a HEAD is precisely the request that is asking not to be sent
+        # the bytes.
+        return Response(status_code=200, media_type=row["media_type"],
+                        headers={**hdrs, "Content-Length": str(row["size_bytes"])})
     with open(row["storage_path"], "rb") as f:
         data = f.read()
-    return Response(content=data, media_type=row["media_type"],
-                    headers={"Cache-Control": "private, no-store", "X-Robots-Tag": "noindex"})
+    return Response(content=data, media_type=row["media_type"], headers=hdrs)
 
 
-@public.get("/s/{token}")
+@public.api_route("/s/{token}", methods=["GET", "HEAD"])
 async def share_page(token: str, request: Request, db: aiosqlite.Connection = Depends(get_db)):
+    """GET and HEAD, because FastAPI does not add HEAD to a `.get()` route
+    the way plain Starlette does, so this answered 405 to every HEAD.
+
+    Found by Bifrost at the edge and confirmed by CQ, 2026-08-22. Most
+    unfurlers send GET, and the ones that HEAD first mostly fall back, so
+    the symptom is not an error anywhere: it is an iMessage bubble or a
+    Slack unfurl that renders EMPTY, with nothing in our logs for a GET
+    that never came. It reads as a rendering bug and it is a method bug.
+
+    A HEAD never counts as a view, and that is not an optimisation. A HEAD
+    is a probe by definition, so counting it would put the same fiction in
+    `view_count` that the preview-fetcher filter exists to keep out, and it
+    would arrive through a door that filter does not watch."""
     row = await shares.share_by_token(db, token) if shares.is_token_shaped(token) else None
+    is_head = request.method == "HEAD"
     if not shares.is_live(row):
-        return HTMLResponse(_GONE_HTML, status_code=410, headers={"X-Robots-Tag": "noindex"})
+        return HTMLResponse("" if is_head else _GONE_HTML, status_code=410,
+                            headers={"X-Robots-Tag": "noindex"})
+    if is_head:
+        # Same status, same content type, no body and no view. Rendering the
+        # page to discard it would also mean unzipping the bundle for a
+        # request that asked for headers.
+        return Response(status_code=200, media_type="text/html; charset=utf-8",
+                        headers={"X-Robots-Tag": "noindex", "Cache-Control": "private, no-store"})
     if not shares.is_preview_fetcher(request.headers.get("User-Agent")):
         await shares.count_view(db, row["id"])
     # The page: card chrome plus the bundle's own report (SS's archive
