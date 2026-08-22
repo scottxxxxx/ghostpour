@@ -340,6 +340,38 @@ CAPTURE_METADATA_ALLOWLIST = frozenset({
     "scenario",
     "scenario_kind",
     "transcript_source",
+    # When the RECORDING started, ISO 8601 with a real UTC offset
+    # ("2026-08-21T23:30:00-07:00"), added 2026-08-22.
+    #
+    # Until now the capture body carried no timestamp of any kind, which is
+    # why no end of this lane has ever known when a meeting happened: CQ
+    # spends the ingest clock resolving relative deadlines and drops it, so
+    # every timestamp they serve is the clock of when the importer ran, and
+    # we were never sending them anything better. SS's MeetingStore is
+    # currently the only place in the system where a real meeting date
+    # exists.
+    #
+    # Named for what it IS, on SS's insistence and they are right. They do
+    # not hold a meeting start: MeetingRecord.date is when the recording
+    # began, after however long someone spent opening the app. They
+    # sometimes hold a calendar event start, but only when the prep matcher
+    # made a confident match, and putting that into this field when it
+    # exists would make one field mean two things depending on whether a
+    # match happened. If the calendar start is ever wanted it is a second,
+    # separately nullable field with its own honest name.
+    #
+    # Note that ReportRequest.meeting_start_iso is fed from the same
+    # MeetingRecord.date and is therefore misnamed. The precise name and
+    # the sloppy one now coexist; this comment is so the next person knows
+    # which is which rather than assuming they are different quantities.
+    #
+    # The OFFSET is load bearing and not a formatting preference. A UTC
+    # normalisation of the same instant names a different DAY for anything
+    # near midnight, which is the only thing a date on a meeting is for.
+    # SS shipped exactly that bug on the report path and it survived
+    # because it can only appear near midnight, never in a fixture written
+    # at a round hour.
+    "recording_started_at",
 })
 
 
