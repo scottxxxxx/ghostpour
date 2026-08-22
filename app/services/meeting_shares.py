@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import secrets
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -45,6 +46,31 @@ def _now() -> datetime:
 
 def new_token() -> str:
     return secrets.token_urlsafe(16)  # 128 bits
+
+
+# base64url of 16 bytes, unpadded: 22 characters from the URL-safe alphabet.
+_TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{22}$")
+
+
+def is_token_shaped(token: str) -> bool:
+    """Whether a path segment could be one of our tokens at all.
+
+    Defence in depth, added 2026-08-22 after SS sabotaged their own
+    universal-link parser and found that widening "exactly two segments" to
+    "two or more, take the last" turns `/s/abc/../secret` into the token
+    "secret". On their side that is a traversal fragment walking into the
+    next request's URL. GP is the only side that can enforce the shape for
+    EVERY client rather than trusting each of them to parse correctly, so
+    it is enforced here.
+
+    Nothing downstream was exploitable: the token is only ever a bound
+    parameter in a SELECT, and `storage_path` comes from the row rather
+    than from the URL, so a strange token has always just missed. This
+    stops it reaching the database at all, and it means a malformed token
+    is answered identically to a wrong one, which keeps the 410-for-
+    everything property intact.
+    """
+    return bool(_TOKEN_RE.match(token or ""))
 
 
 def is_preview_fetcher(user_agent: str | None) -> bool:

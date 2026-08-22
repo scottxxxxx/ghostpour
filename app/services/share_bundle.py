@@ -53,21 +53,51 @@ def decode_report(report_json_data) -> dict | None:
         return None
 
 
+# Bounds on what we will decompress. Raised by CQ 2026-08-22 after SS found
+# the same shape in their own reader and fixed it.
+#
+# This page unzips bytes that arrived from a client. The upload is
+# authenticated, so it is not open to the world, but an authenticated
+# client is not a trusted one, and the blast radius is not the same as
+# SS's: a client-side OOM kills one person's app, a server-side one takes
+# GhostPour down for everyone, including every CQ call that proxies
+# through us. A deflate bomb is a few kilobytes on the wire and unbounded
+# in RAM, so a cheap upload buying a whole-process death is a bad trade.
+#
+# Sized against reality rather than guessed: SS measured real bundles at
+# 275 KB to 36.9 MB, and the big part of that is audio and images, which
+# this reader NEVER opens. All we read is manifest.json, project.json and
+# meetings/*.json, so even a 21-meeting project bundle is small here.
+MAX_ENTRIES = 10_000
+MAX_ENTRY_BYTES = 32 * 1024 * 1024
+MAX_TOTAL_READ_BYTES = 128 * 1024 * 1024
+_CHUNK = 64 * 1024
+
+
+class ShareBundleTooLarge(Exception):
+    """The archive is or claims to be past what we will decompress."""
+
+
 def read_bundle(archive: bytes) -> dict:
     """Parse the zip into {manifest, project, meetings:[...]}. Each meeting
     carries the raw record plus `report` (decoded) and `started_at`
     (aware datetime or None). Never raises on a well-formed zip with odd
-    contents; raises zipfile.BadZipFile on a non-zip."""
+    contents; raises zipfile.BadZipFile on a non-zip and
+    ShareBundleTooLarge on one that would cost more memory than a share
+    page is worth."""
     out = {"manifest": None, "project": None, "meetings": []}
     with zipfile.ZipFile(io.BytesIO(archive)) as zf:
+        if len(zf.infolist()) > MAX_ENTRIES:
+            raise ShareBundleTooLarge(f"{len(zf.infolist())} entries")
+        budget = [MAX_TOTAL_READ_BYTES]
         names = set(zf.namelist())
         if "manifest.json" in names:
-            out["manifest"] = _json(zf, "manifest.json")
+            out["manifest"] = _json(zf, "manifest.json", budget)
         if "project.json" in names:
-            out["project"] = _json(zf, "project.json")
+            out["project"] = _json(zf, "project.json", budget)
         for name in sorted(names):
             if name.startswith("meetings/") and name.endswith(".json") and name.count("/") == 1:
-                rec = _json(zf, name)
+                rec = _json(zf, name, budget)
                 if not isinstance(rec, dict):
                     continue
                 out["meetings"].append({
@@ -79,9 +109,44 @@ def read_bundle(archive: bytes) -> dict:
     return out
 
 
-def _json(zf: zipfile.ZipFile, name: str):
+def _read_bounded(zf: zipfile.ZipFile, name: str, budget: list[int]) -> bytes | None:
+    """Decompress one entry, stopping the moment it goes past its bounds.
+
+    The check runs INSIDE the read loop, not after the entry finishes.
+    SS's point and it is the whole thing: checking a completed entry means
+    the bomb is already in memory by the time you object to it, which is
+    exactly what you were trying to prevent. `ZipExtFile.read(n)`
+    decompresses only about n bytes, so this really is streaming.
+
+    The declared size is checked first because it is free, and NOT trusted,
+    because a crafted central directory can lie about it. It is a fast
+    path, not the bound.
+    """
     try:
-        return json.loads(zf.read(name).decode("utf-8"))
+        if zf.getinfo(name).file_size > MAX_ENTRY_BYTES:
+            return None
+    except KeyError:
+        return None
+    buf = bytearray()
+    cap = min(MAX_ENTRY_BYTES, budget[0])
+    with zf.open(name) as fh:
+        while True:
+            chunk = fh.read(_CHUNK)
+            if not chunk:
+                break
+            buf += chunk
+            if len(buf) > cap:
+                return None
+    budget[0] -= len(buf)
+    return bytes(buf)
+
+
+def _json(zf: zipfile.ZipFile, name: str, budget: list[int]):
+    raw = _read_bounded(zf, name, budget)
+    if raw is None:
+        return None
+    try:
+        return json.loads(raw.decode("utf-8"))
     except Exception:  # noqa: BLE001
         return None
 
