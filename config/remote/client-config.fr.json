@@ -54,14 +54,14 @@
         "enabled": true,
         "expected_seconds": 150,
         "poll_after_seconds": 5,
-        "offer_text": "On dirait une demande de fichier. Je peux créer {format} à télécharger et à partager (environ deux minutes), ou simplement répondre ici dans le chat. Vous voulez le fichier ?",
+        "offer_text": "On dirait une demande de fichier. Je peux créer {format} à télécharger et à partager (cela prend un peu plus de temps), ou simplement répondre ici dans le chat. Vous voulez le fichier ?",
         "format_nouns": {
           "xlsx": "une feuille de calcul Excel native (.xlsx)",
           "docx": "un document Word natif (.docx)",
           "pptx": "une présentation PowerPoint native (.pptx)",
           "pdf": "un fichier PDF"
         },
-        "offer_text_gist": "On dirait que vous voulez {format} {gist}. Créer le vrai fichier prend environ deux minutes, ou je peux le présenter ici dans le chat. Vous voulez le fichier ?",
+        "offer_text_gist": "On dirait que vous voulez {format} {gist}. Créer le vrai fichier prend un peu plus de temps, ou je peux le présenter ici dans le chat. Vous voulez le fichier ?",
         "teaser_text": "Vous voulez ceci sous forme de vrai fichier téléchargeable ?",
         "no_file_text": "Aucun fichier n'a été créé pour celle-ci, la réponse se trouve donc ci-dessus. Préciser un format, par exemple un tableur, permet généralement d'en obtenir un."
       },
