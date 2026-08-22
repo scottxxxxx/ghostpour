@@ -1,5 +1,5 @@
 {
-  "version": 39,
+  "version": 40,
   "native_actions": {
     "enabled": true,
     "kinds": [
@@ -103,7 +103,9 @@
     "host": "https://share.shouldersurf.com",
     "default_expiry_days": 30,
     "max_expiry_days": 365,
-    "aasa_app_ids": [],
-    "_note": "aasa_app_ids stays empty until SS supplies TEAMID.com.weirtech.shouldersurf; the AASA route 404s until then so Apple never caches an association with no app in it."
+    "aasa_app_ids": [
+      "F22KGHDYAE.com.shouldersurf.ShoulderSurf"
+    ],
+    "_note": "App ID verified 2026-08-22 from the entitlements of the signed binary on Scott's phone (application-identifier), not from project.yml or a cert: team F22KGHDYAE, bundle com.shouldersurf.ShoulderSurf. com.weirtech.* is only the StoreKit product prefix."
   }
 }
