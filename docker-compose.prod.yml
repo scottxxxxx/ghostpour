@@ -21,6 +21,34 @@ services:
       driver: journald
       options:
         tag: ghostpour
+    # Added 2026-08-22 so `up -d --wait` in the deploy job can tell a
+    # started container from a working one. It does NOT close the traffic
+    # gap and is not meant to: `up -d` stops the old container before
+    # starting the new one, so the socket is dead for the same 10 to 40 s
+    # either way, and the edge retry Bifrost shipped is what covers that.
+    # What this buys is that a deploy which brings up a container that
+    # never becomes healthy FAILS the job instead of exiting 0 and leaving
+    # prod down with a green tick in Actions.
+    #
+    # python rather than curl on purpose: curl is not in this image, and a
+    # healthcheck whose binary is missing reports unhealthy forever, which
+    # would turn `--wait` into a guaranteed deploy failure. Verified by
+    # running this exact command inside the running prod container.
+    #
+    # /health is cheap and does not touch the database, so a 10 s interval
+    # costs nothing. start_period covers boot: config hydration and the
+    # retention sweep both run at startup, and failures during it do not
+    # count against `retries`.
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status == 200 else 1)"
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
 
   # Continuous SQLite → GCS replication for DR. Reads the same data
   # volume as the GhostPour app and streams WAL frames to a GCS bucket
