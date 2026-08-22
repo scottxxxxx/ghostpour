@@ -109,9 +109,31 @@ async def create_share(
     if entitlement_state(rc, user.effective_tier, "share") == "disabled":
         raise HTTPException(status_code=403, detail={"code": "share_disabled", "message": "Sharing is not available on this plan."})
     caps = shares.tier_share_caps(rc, user.effective_tier)
+    # A FACT about the archive, not a choice. SS's exporter has no
+    # transcript toggle and never had one: BundlePayloadOptions covers
+    # audio, images, diarization, chat, report and generated files, and
+    # applyPayloadFilter strips only chat and report. The transcript is a
+    # field on the meeting record, so it always travels; SS measured all
+    # twelve real bundles and the 21-meeting project bundle carrying one.
+    # Scott ruled 2026-08-22 that it is SHOWN on the page behind
+    # tap-to-reveal on that basis.
+    #
+    # There used to be a 403 here when a tier's `transcript_allowed` dial
+    # was off. It is gone, because it gated something no user can change:
+    # flipping that dial did not restrict a feature, it made EVERY share
+    # from that tier fail, with a message telling the sender to do a thing
+    # the app cannot do. A control whose only reachable state is
+    # unrecoverable failure is a footgun, not a dial. It had never been
+    # set on any tier, so nothing observable changes today; what changes
+    # is that nobody can arm it by accident from the dashboard.
+    #
+    # If a real per-share transcript choice is wanted later, it is SS
+    # exporter work (strip transcript, cleanedTranscript,
+    # transcriptSegments) plus an archive spec change, and the gate then
+    # belongs next to the toggle that actually exists. Removing this does
+    # not foreclose that. Withholding sharing from a tier entirely is
+    # already the `share` entitlement, one line above.
     transcript_included = (x_share_transcript or "").lower() in ("1", "true", "yes")
-    if transcript_included and not caps["transcript_allowed"]:
-        raise HTTPException(status_code=403, detail={"code": "share_transcript_disabled", "message": "Transcripts cannot be shared on this plan."})
     if await shares.creations_today(db, user.id) >= caps["creations_per_day"]:
         raise HTTPException(status_code=429, detail={"code": "share_rate_limited", "message": "Daily share limit reached."})
     archive = await request.body()

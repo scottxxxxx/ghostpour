@@ -20,18 +20,54 @@ Headers carrying the card fields:
 
 | header | required | meaning |
 |---|---|---|
-| `X-Share-Title` | yes | card title |
+| `X-Share-Title` | yes | card title, UTF-8 **percent-encoded** (see below) |
 | `X-Share-Date` | no | meeting date, ISO or display string |
 | `X-Share-Duration-Seconds` | no | integer |
-| `X-Share-Summary-Line` | no | first line of the summary, card description |
-| `X-Share-Transcript-Included` | no | `true` when the archive carries the transcript (sender's per-share choice, default off) |
+| `X-Share-Summary-Line` | no | first line of the summary, card description, UTF-8 **percent-encoded** (see below) |
+| `X-Share-Transcript-Included` | no | `true` when the archive carries the transcript. A FACT about the bundle, not a choice: SS's exporter has no transcript toggle and never had one, so every bundle carries one and SS sends `true`. GP uses it to decide whether the page offers tap-to-reveal. |
 | `X-Share-Expiry-Days` | no | 1..`share.max_expiry_days`; default `share.default_expiry_days` (30) |
 
 Response 200: `{"share_id": "...", "url": "https://share.shouldersurf.com/s/<token>", "expires_at": "<ISO>"}`.
 Errors, all with `detail.code`: 403 `share_disabled` (matrix switch off for
-the tier), 403 `share_transcript_disabled` (tier dial), 413
-`share_too_large` (over 25 MB), 422 `share_empty`, 429
+the tier), 413 `share_too_large`, 422 `share_empty`, 429
 `share_rate_limited` (per-tier creations per day, default 50).
+
+**There is NO size cap by default.** Scott ruled that 2026-08-22. The cap
+is a per-tier dial, `tiers.{tier}.feature_definitions.share.max_archive_mb`,
+with a dashboard card; absent or null means uncapped, and no tier sets it
+today, so nothing 413s. The 413 body carries `size_bytes` and
+`limit_bytes` so a client has true numbers to show. The nginx in front of
+GP allows 2000m, so it is not a hidden second cap either.
+
+An earlier draft of this document said "over 25 MB", from the #750
+skeleton's hardcoded constant, which #754 deleted. That was stale for
+about a day and CQ read it and relayed the opposite of the ruling in good
+faith. Corrected 2026-08-22 against the deployed code rather than against
+the previous draft. SS measured real bundles at 275 KB to 36.9 MB, median
+about 2.1 MB, audio in eleven of twelve, so a two-hour meeting with audio
+is around 29 MB and goes through.
+
+`403 share_transcript_disabled` is GONE (2026-08-22). It was written on
+the belief that the sender had a per-share transcript toggle; SS checked
+their exporter and there is not one and never was. The dial could not
+restrict a feature, only make every share from a tier fail with a message
+telling the sender to do something the app cannot do. Withholding sharing
+from a tier is the `share` entitlement's job. If a real per-share choice
+is ever wanted it is SS exporter work plus an archive spec change, and the
+gate then belongs next to the toggle that exists.
+
+### Card text is percent-encoded UTF-8
+
+`X-Share-Title` and `X-Share-Summary-Line` are user-generated text in an
+HTTP header, which is not a place Unicode survives. A strict client cannot
+put "四半期レビュー" in a header at all, and one that writes the raw UTF-8
+bytes anyway gets them back latin-1-decoded, stored, and rendered onto the
+card and the og:title. Nothing errors; the share just says something else.
+
+So: UTF-8, percent-encoded (`%E5%9B%9B...`). ASCII on the wire, a no-op for
+a plain English title, and a literal percent goes as `%25`. Malformed
+sequences decode with replacement rather than 4xx, because a share that
+fails to send is worse than a title missing a glyph.
 
 The token is 128 random bits, base64url, carries no user id, and is the
 credential. GP never writes it to a log line (the access log masks
@@ -68,12 +104,35 @@ so Apple never caches an association with no app in it.
 
 Rows and bytes are deleted by the periodic retention sweep once expired or
 revoked. A share is a copy with its own clock: the meeting's own 30-day
-transcript retention does not shorten it, and revoking cannot unsend a
-card iMessage already rendered. Both lines belong in SS's share sheet copy.
+transcript retention does not shorten it.
 
-## What waits on SS
+**Revoking cannot withdraw what already left.** The earlier wording here
+was "revoking cannot unsend a card iMessage already rendered", which SS
+correctly called weaker than the truth. It reads as being about a card.
+The true statement is that `X-Share-Summary-Line` is meeting content, it
+becomes the Open Graph description, and at share time it is fetched and
+CACHED by iMessage, Slack, WhatsApp and every other unfurler. So the first
+line of a private meeting summary leaves our system into third-party
+caches the moment the link is sent, and revoking reaches none of them.
+Revoke stops the page and the archive; it does not reach a cache.
 
-- The archive content type and format spec (for the full page renderer;
-  today the page is the card plus title, date and summary line).
-- `F22KGHDYAE.com.shouldersurf.ShoulderSurf` for the AASA.
-- A mark asset for the card image.
+That is the line that belongs in SS's share-sheet copy, in those terms,
+and it is a stronger claim than the one it replaces.
+
+## What waits on whom (2026-08-22)
+
+Done: the archive spec (SS, their 3471978), the Team ID (AASA live), and
+the full page renderer (#754, live on `da76aca`).
+
+- **Scott**: DNS. `share.shouldersurf.com` has no A record. Needs
+  A -> 35.239.227.192, an nginx proxy host to `ghostpour:8000`, and a
+  Let's Encrypt cert. Until it lands, `client-config.share.host` names a
+  host that does not resolve, so a share created today mints a dead link
+  and iMessage renders a card that never loads. Test against
+  `cz.shouldersurf.com`, which serves every one of these routes now.
+- **Scott**: a mark asset for the card image. SVG preferred, else PNG,
+  transparent, 2x, 512px on the long edge. Cosmetic; gates nothing.
+- **SS**: the client build. Read `share.host` from client-config rather
+  than hardcoding either name, and treat "the configured host does not
+  resolve" as a real error state rather than a hang, because that is the
+  live state on every device until the DNS lands.

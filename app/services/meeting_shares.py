@@ -94,16 +94,20 @@ def share_settings(remote_configs: dict) -> dict:
 
 def tier_share_caps(remote_configs: dict, tier: str) -> dict:
     """tiers.{tier}.feature_definitions.share: {creations_per_day,
-    transcript_allowed}. Defaults: 50/day, transcript allowed (Scott,
-    2026-08-21: every share is an invitation; the sender's per-share
-    toggle does the work)."""
+    max_archive_mb}. Default 50 creations a day.
+
+    `transcript_allowed` was here and is gone (2026-08-22). It was written
+    on the belief that the sender had a per-share transcript toggle doing
+    the work; SS checked their exporter and there is no such toggle and
+    never was, so the dial could only ever turn every share from a tier
+    into an unrecoverable 403. Withholding sharing from a tier is the
+    `share` entitlement's job."""
     tiers = ((remote_configs.get("tiers") or {}).get("tiers") or {})
     block = ((tiers.get(tier) or {}).get("feature_definitions") or {}).get("share") or {}
     cap = block.get("creations_per_day")
     mb = block.get("max_archive_mb")
     return {
         "creations_per_day": int(cap) if isinstance(cap, int) and not isinstance(cap, bool) else DEFAULT_CREATIONS_PER_DAY,
-        "transcript_allowed": bool(block.get("transcript_allowed", True)),
         # Archive size cap per tier, in MB; null/absent = NO cap (Scott,
         # 2026-08-22: no cap now, dashboard control, gate as necessary).
         # SS measured real bundles at 275 KB to 36.9 MB, audio in eleven of

@@ -333,3 +333,63 @@ def test_a_latin1_accent_sent_raw_is_refused_too(client, pro_user):
     r = _create(client, pro_user, **{"X-Share-Title": "Séverine".encode("latin-1")})
     assert r.status_code == 400
     assert r.json()["detail"]["code"] == "share_header_not_encoded"
+
+# --- The transcript is a fact, not a choice (2026-08-22) --------------------
+#
+# SS's pre-build suspicion pass, before a line of client code, found that
+# the contract described `X-Share-Transcript-Included` as "the sender's
+# per-share choice, default off" and 403'd on a tier dial. They checked
+# their exporter rather than agreeing with the doc: BundlePayloadOptions
+# has toggles for audio, images, diarization, chat, report and generated
+# files and NO transcript toggle, and applyPayloadFilter strips only chat
+# and report. The transcript is a field on the meeting record, so it always
+# travels. All twelve real bundles carry one.
+#
+# So the dial could not restrict a feature. It could only make every share
+# from that tier fail, with a message telling the sender to do something
+# the app cannot do. It is removed. These tests are what stop it coming
+# back as a "restore the tier control" cleanup.
+
+def test_a_share_carrying_a_transcript_is_never_refused(client, pro_user):
+    """The header says true because the archive always has one. That must
+    not be a 403 on any tier, however the dials are set."""
+    r = _create(client, pro_user, **{"X-Share-Transcript-Included": "true"})
+    assert r.status_code == 200, r.text
+
+
+def test_an_old_transcript_allowed_dial_cannot_refuse_a_share(client, pro_user, monkeypatch):
+    """The specific regression: someone re-adds the dial, or an operator
+    sets the key on a tier because it is still in a dashboard somewhere.
+    Setting it false must change nothing, because there is nothing on the
+    sender's side that could respond to it."""
+    from app.main import app
+    tiers = app.state.remote_configs.setdefault("tiers", {}).setdefault("tiers", {})
+    fd = tiers.setdefault("pro", {}).setdefault("feature_definitions", {})
+    original = fd.get("share")
+    fd["share"] = {**(original or {}), "transcript_allowed": False}
+    try:
+        r = _create(client, pro_user, **{"X-Share-Transcript-Included": "true"})
+        assert r.status_code == 200, (
+            "a dial the sender cannot answer just refused their share")
+    finally:
+        if original is None:
+            fd.pop("share", None)
+        else:
+            fd["share"] = original
+
+
+def test_the_transcript_flag_still_reaches_the_page(client, pro_user):
+    """Removing the gate must not remove the SIGNAL: the renderer uses it
+    to decide whether to offer tap-to-reveal, which is Scott's 2026-08-22
+    ruling. A flag that no longer gates anything is exactly the kind that
+    gets deleted next, so the observable is asserted rather than the row."""
+    import pathlib as _pl
+    bundle = (_pl.Path(__file__).parent / "fixtures/share/fixture-typical.shouldersurf").read_bytes()
+    h = {**pro_user["headers"], **HDRS, "X-Share-Transcript-Included": "true",
+         "Content-Type": "application/zip"}
+    r = client.post("/v1/shares", content=bundle, headers=h)
+    assert r.status_code == 200, r.text
+    token = r.json()["url"].rsplit("/", 1)[1]
+    page = client.get(f"/s/{token}").text
+    assert "Show transcript" in page, (
+        "the transcript flag stopped reaching the renderer")
