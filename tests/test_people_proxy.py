@@ -544,6 +544,11 @@ TRAJECTORY = {
     "lens": "how_theyre_changing",
     "display_order": 5,
     "measure_key": "closed_late",
+    # PROPORTION: the numerator is a SUBSET of the denominator, 4 of the 7
+    # dated commitments he closed. See the rate fixture below for the other
+    # kind and for why the distinction has to survive the hop.
+    "pair_kind": "proportion",
+    "counted_noun": "items",
     "subject": "Suresh",
     "unit": "commitments closed after the date he gave",
     "valence": "unflattering_up",
@@ -734,3 +739,122 @@ def test_person_detail_query_string_reaches_cq_verbatim(people_client, monkeypat
     assert method == "GET"
     assert url == f"/v1/people/{USER}/ent-suresh?{query}", (
         "the query string was rewritten or dropped on the way up")
+
+
+# --- pair_kind / counted_noun (CQ contract amendment, 2026-08-22) ----------
+#
+# CQ served both kinds of pair as bare numerator/denominator, so a RATE
+# reached a prompt as "214 out of 8". Both writer models in their selection
+# eval refused every rate case as mathematically impossible and were right;
+# the eval was measuring the defect and reporting it as model quality. SS hit
+# the same conflation from the rendering end within the hour, a rate pinned
+# flat against the top of a 0..1 axis. Two ends of one bug, neither able to
+# see the other's half.
+#
+# So `pair_kind` is not decoration, it is the field that stops a rate being
+# read as a proportion, and `counted_noun` is what makes the sentence sayable.
+# Losing either one on this hop reproduces CQ's bug downstream of CQ's fix,
+# silently, because 214/8 stays a perfectly well formed pair of integers.
+#
+# The proportion case lives in TRAJECTORY above. This is the rate case, and
+# it is the one where numerator > denominator is CORRECT and any helpful
+# normalisation is the bug.
+TRAJECTORY_RATE = {
+    "lens": "how_theyre_changing",
+    "display_order": 5,
+    "measure_key": "speaking_turns",
+    "pair_kind": "rate",
+    "counted_noun": "speaking turns",
+    "subject": "Suresh",
+    "unit": "speaking turns per meeting",
+    "valence": "neutral",
+    "movement": "up",
+    "direction": "up",
+    "span_meetings": 8,
+    # 214 turns ACROSS 8 meetings. 214 is not a share of 8.
+    "earlier": {"numerator": 71, "denominator": 3, "meetings": 3,
+                "origin_ids": ["MTG-9", "MTG-8", "MTG-7"]},
+    "recent": {"numerator": 143, "denominator": 5, "meetings": 5,
+               "origin_ids": ["MTG-3", "MTG-2", "MTG-1"]},
+    "series": [
+        {"origin_id": "MTG-9", "sequence": 1, "numerator": 31, "denominator": 1},
+        {"origin_id": "MTG-8", "sequence": 2, "numerator": 18, "denominator": 1},
+        {"origin_id": "MTG-3", "sequence": 3, "numerator": 44, "denominator": 1},
+        {"origin_id": "MTG-1", "sequence": 4, "numerator": 29, "denominator": 1},
+    ],
+    "supersedes": [],
+    "about_person": "ent-suresh",
+    "text": "He is taking more of the room than he used to.",
+    "narrative": "143 speaking turns across your last five meetings, up from 71 across three.",
+    "do": "Leave the first two minutes to him and see what he opens with.",
+}
+
+RATE_PAYLOAD = {
+    "entity_id": "ent-suresh",
+    "display_name": "Suresh",
+    "trajectory": TRAJECTORY_RATE,
+    "insights": [],
+}
+
+
+@pytest.mark.parametrize("payload,kind,noun", [
+    (TRAJECTORY_PAYLOAD, "proportion", "items"),
+    (RATE_PAYLOAD, "rate", "speaking turns"),
+])
+def test_pair_kind_and_counted_noun_arrive(people_client, cq_returns, payload, kind, noun):
+    """Both are required strings on CQ's side, so absent is never a legal
+    state here: absent means this hop ate it."""
+    cq_returns(payload)
+    traj = people_client.get(f"/v1/people/{USER}/ent-suresh").json()["trajectory"]
+    assert "pair_kind" in traj, "pair_kind was dropped; a rate now reads as a proportion"
+    assert "counted_noun" in traj, "counted_noun was dropped"
+    assert traj["pair_kind"] == kind
+    assert traj["counted_noun"] == noun
+    assert isinstance(traj["pair_kind"], str) and isinstance(traj["counted_noun"], str)
+
+
+def test_rate_trajectory_arrives_value_for_value(people_client, cq_returns):
+    cq_returns(RATE_PAYLOAD)
+    got = people_client.get(f"/v1/people/{USER}/ent-suresh").json()
+    assert got["trajectory"] == TRAJECTORY_RATE
+
+
+def test_a_rate_keeps_a_numerator_larger_than_its_denominator(people_client, cq_returns):
+    """The assertion that would have caught CQ's bug if it had lived on this
+    hop instead of theirs. 214 across 8 is correct for a rate, so anything
+    that clamps, swaps or "fixes" the pair into 0..1 is destroying data that
+    looks wrong and is not. Asserted on the aggregates AND per series
+    element, since a normaliser would plausibly only touch one."""
+    cq_returns(RATE_PAYLOAD)
+    traj = people_client.get(f"/v1/people/{USER}/ent-suresh").json()["trajectory"]
+    for side in ("earlier", "recent"):
+        pair = traj[side]
+        assert pair["numerator"] > pair["denominator"], (
+            f"{side} was normalised; a rate is not a share of anything")
+        assert type(pair["numerator"]) is int and type(pair["denominator"]) is int
+    assert (traj["earlier"]["numerator"], traj["earlier"]["denominator"]) == (71, 3)
+    assert (traj["recent"]["numerator"], traj["recent"]["denominator"]) == (143, 5)
+    for element in traj["series"]:
+        assert element["numerator"] > element["denominator"]
+
+
+def test_the_two_kinds_are_not_interchangeable_across_the_hop(people_client, cq_returns):
+    """Belt and braces on the thing that actually matters: serve a rate, and
+    what comes back must still SAY rate. A hop that carried the numbers
+    faithfully but flipped this one string would put "8 of 214" in a prompt
+    and nothing downstream could tell."""
+    cq_returns(RATE_PAYLOAD)
+    rate = people_client.get(f"/v1/people/{USER}/ent-suresh").json()["trajectory"]
+    cq_returns(TRAJECTORY_PAYLOAD)
+    prop = people_client.get(f"/v1/people/{USER}/ent-suresh").json()["trajectory"]
+    assert rate["pair_kind"] == "rate" and prop["pair_kind"] == "proportion"
+    assert rate["pair_kind"] != prop["pair_kind"]
+    assert rate["counted_noun"] != prop["counted_noun"]
+
+
+def test_no_float_anywhere_in_a_rate_trajectory(people_client, cq_returns):
+    """The rate is the shape most likely to tempt someone into serving a
+    pre-divided 26.75, which is exactly what CQ's rule forbids."""
+    cq_returns(RATE_PAYLOAD)
+    traj = people_client.get(f"/v1/people/{USER}/ent-suresh").json()["trajectory"]
+    assert _floats_in(traj) == []
