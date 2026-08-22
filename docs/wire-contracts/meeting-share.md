@@ -61,7 +61,7 @@ path, not by Accept, so a preview fetcher never receives the archive.
 `GET /.well-known/apple-app-site-association`: served by GP as
 `application/json`, `{"applinks": {"details": [{"appIDs": [...],
 "components": [{"/": "/s/*"}]}]}}`. 404 until SS supplies
-`TEAMID.com.weirtech.shouldersurf` for client-config `share.aasa_app_ids`,
+`F22KGHDYAE.com.shouldersurf.ShoulderSurf` for client-config `share.aasa_app_ids`,
 so Apple never caches an association with no app in it.
 
 ## Retention
@@ -75,5 +75,5 @@ card iMessage already rendered. Both lines belong in SS's share sheet copy.
 
 - The archive content type and format spec (for the full page renderer;
   today the page is the card plus title, date and summary line).
-- `TEAMID.com.weirtech.shouldersurf` for the AASA.
+- `F22KGHDYAE.com.shouldersurf.ShoulderSurf` for the AASA.
 - A mark asset for the card image.
