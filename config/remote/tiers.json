@@ -1,14 +1,19 @@
 {
-  "version": 46,
+  "version": 47,
   "tiers": {
     "free": {
       "display_name": "Free",
-      "description": "Try AI-powered meeting assistance with cloud AI for about five hours of meetings a month.",
+      "description": "Memory from every meeting, People, live summaries and reports, with a monthly allowance of AI to try the rest.",
       "feature_bullets": [
         "Cloud AI for about five hours of meetings a month",
-        "Summaries written while you're still meeting",
-        "On-device transcription (unlimited)",
-        "1 photo or image per question"
+        "Memory built from every meeting you record",
+        "People: who you meet and what they owe you",
+        "Live summaries and a full report after every meeting",
+        "Project chat: preview",
+        "Meeting chat with a monthly allowance",
+        "Web search: 5 a month",
+        "Generate files from chat: 5 a month",
+        "1 image per message"
       ],
       "feature_items": [
         {
@@ -16,15 +21,35 @@
           "icon": "checkmark"
         },
         {
-          "label": "Summaries written while you're still meeting",
-          "icon": "doc"
+          "label": "Memory built from every meeting you record",
+          "icon": "brain"
         },
         {
-          "label": "On-device transcription (unlimited)",
+          "label": "People: who you meet and what they owe you",
           "icon": "checkmark"
         },
         {
-          "label": "1 photo or image per question",
+          "label": "Live summaries and a full report after every meeting",
+          "icon": "doc"
+        },
+        {
+          "label": "Project chat: preview",
+          "icon": "chat"
+        },
+        {
+          "label": "Meeting chat with a monthly allowance",
+          "icon": "chat"
+        },
+        {
+          "label": "Web search: 5 a month",
+          "icon": "search"
+        },
+        {
+          "label": "Generate files from chat: 5 a month",
+          "icon": "filegen"
+        },
+        {
+          "label": "1 image per message",
           "icon": "photo"
         }
       ],
@@ -40,8 +65,24 @@
           "icon": "doc"
         },
         {
+          "label": "Project chat",
+          "value": "preview",
+          "icon": "chat",
+          "state": "teaser"
+        },
+        {
+          "label": "Web search",
+          "value": "5 per month",
+          "icon": "search"
+        },
+        {
+          "label": "File generation",
+          "value": "5 per month",
+          "icon": "filegen"
+        },
+        {
           "label": "Max images",
-          "value": "1 per question",
+          "value": "1 per message",
           "icon": "photo"
         }
       ],
@@ -113,41 +154,41 @@
       "display_name": "Plus",
       "description": "Your last {recall_window_days} days of meetings in every conversation. Documents, web search, file generation, unlimited use.",
       "feature_bullets": [
-        "Unlimited meetings with AI assistance",
-        "Summaries written while you're still meeting",
-        "Shareable meeting reports",
-        "Ask questions across every meeting in a project",
         "Your last {recall_window_days} days of meetings, in every conversation",
-        "Web search: current info in your answers (75/mo)",
-        "3 photos or images per question"
+        "Unlimited meeting chat and project chat",
+        "Attach documents and the answer reads the whole thing",
+        "Web search: 75 a month",
+        "Generate real files from chat: Excel, Word, PowerPoint, PDF",
+        "Three times the context per message",
+        "3 images per message"
       ],
       "feature_items": [
-        {
-          "label": "Unlimited meetings with AI assistance",
-          "icon": "checkmark"
-        },
-        {
-          "label": "Summaries written while you're still meeting",
-          "icon": "doc"
-        },
-        {
-          "label": "Shareable meeting reports",
-          "icon": "share"
-        },
-        {
-          "label": "Ask questions across every meeting in a project",
-          "icon": "chat"
-        },
         {
           "label": "Your last {recall_window_days} days of meetings, in every conversation",
           "icon": "brain"
         },
         {
-          "label": "Web search: current info in your answers (75/mo)",
+          "label": "Unlimited meeting chat and project chat",
+          "icon": "chat"
+        },
+        {
+          "label": "Attach documents and the answer reads the whole thing",
+          "icon": "paperclip"
+        },
+        {
+          "label": "Web search: 75 a month",
           "icon": "search"
         },
         {
-          "label": "3 photos or images per question",
+          "label": "Generate real files from chat: Excel, Word, PowerPoint, PDF",
+          "icon": "filegen"
+        },
+        {
+          "label": "Three times the context per message",
+          "icon": "cpu"
+        },
+        {
+          "label": "3 images per message",
           "icon": "photo"
         }
       ],
@@ -168,9 +209,16 @@
           "icon": "cpu"
         },
         {
-          "label": "Max images",
-          "value": "3 per question",
-          "icon": "photo"
+          "label": "Meeting Memory",
+          "value": "last {recall_window_days} days",
+          "icon": "brain",
+          "state": "enabled"
+        },
+        {
+          "label": "Project chat",
+          "value": "yes",
+          "icon": "chat",
+          "state": "enabled"
         },
         {
           "label": "Web search",
@@ -179,15 +227,18 @@
         },
         {
           "label": "File generation",
-          "value": "upgrade to Pro",
-          "icon": "filegen",
-          "state": "teaser"
+          "value": "Excel, Word, PowerPoint, PDF",
+          "icon": "filegen"
         },
         {
-          "label": "Meeting Memory",
-          "value": "last {recall_window_days} days",
-          "icon": "brain",
-          "state": "enabled"
+          "label": "Document attachments",
+          "value": "2 files, up to 25 MB each",
+          "icon": "paperclip"
+        },
+        {
+          "label": "Max images",
+          "value": "3 per message",
+          "icon": "photo"
         }
       ],
       "feature_definitions": {
@@ -246,41 +297,41 @@
       "display_name": "Pro",
       "description": "Everything you've ever recorded, in every conversation, with the stronger model on analysis and reports.",
       "feature_bullets": [
-        "Advanced AI for deeper reports and analysis",
-        "Full recap or just-what's-new summaries, your choice",
-        "Web search: current info in your answers (120/mo)",
         "Every meeting you've ever recorded, in every conversation",
-        "Builds real files you can share: Excel, Word, PowerPoint, PDF",
-        "Attach documents to chat (2 files, 25 MB each)",
-        "5 photos or images per question"
+        "The stronger model on post-meeting analysis and reports",
+        "The largest context per message",
+        "Web search: 120 a month",
+        "Generate real files from chat: Excel, Word, PowerPoint, PDF",
+        "Attach documents and the answer reads the whole thing",
+        "5 images per message"
       ],
       "feature_items": [
-        {
-          "label": "Advanced AI for deeper reports and analysis",
-          "icon": "checkmark.plus"
-        },
-        {
-          "label": "Full recap or just-what's-new summaries, your choice",
-          "icon": "doc"
-        },
-        {
-          "label": "Web search: current info in your answers (120/mo)",
-          "icon": "search"
-        },
         {
           "label": "Every meeting you've ever recorded, in every conversation",
           "icon": "brain"
         },
         {
-          "label": "Builds real files you can share: Excel, Word, PowerPoint, PDF",
+          "label": "The stronger model on post-meeting analysis and reports",
+          "icon": "cpu"
+        },
+        {
+          "label": "The largest context per message",
+          "icon": "cpu"
+        },
+        {
+          "label": "Web search: 120 a month",
+          "icon": "search"
+        },
+        {
+          "label": "Generate real files from chat: Excel, Word, PowerPoint, PDF",
           "icon": "filegen"
         },
         {
-          "label": "Attach documents to chat (2 files, 25 MB each)",
+          "label": "Attach documents and the answer reads the whole thing",
           "icon": "paperclip"
         },
         {
-          "label": "5 photos or images per question",
+          "label": "5 images per message",
           "icon": "photo"
         }
       ],
@@ -297,13 +348,20 @@
         },
         {
           "label": "AI",
-          "value": "Advanced",
+          "value": "Stronger model",
           "icon": "cpu"
         },
         {
-          "label": "Max images",
-          "value": "5 per question",
-          "icon": "photo"
+          "label": "Meeting Memory",
+          "value": "everything, ever",
+          "icon": "brain",
+          "state": "enabled"
+        },
+        {
+          "label": "Project chat",
+          "value": "yes",
+          "icon": "chat",
+          "state": "enabled"
         },
         {
           "label": "Web search",
@@ -321,10 +379,9 @@
           "icon": "paperclip"
         },
         {
-          "label": "Meeting Memory",
-          "value": "everything, ever",
-          "icon": "brain",
-          "state": "enabled"
+          "label": "Max images",
+          "value": "5 per message",
+          "icon": "photo"
         }
       ],
       "feature_definitions": {
