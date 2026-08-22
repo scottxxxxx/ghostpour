@@ -15,13 +15,6 @@
       "admin": "enabled",
       "automation": "enabled"
     },
-    "people": {
-      "free": "enabled",
-      "plus": "enabled",
-      "pro": "enabled",
-      "admin": "enabled",
-      "automation": "enabled"
-    },
     "project_chat": {
       "free": "teaser",
       "plus": "enabled",
@@ -44,6 +37,13 @@
       "automation": "enabled"
     },
     "web_search": {
+      "free": "enabled",
+      "plus": "enabled",
+      "pro": "enabled",
+      "admin": "enabled",
+      "automation": "enabled"
+    },
+    "people": {
       "free": "enabled",
       "plus": "enabled",
       "pro": "enabled",

@@ -1,15 +1,5 @@
 {
-  "version": 15,
-  "native_actions": {
-    "enabled": true,
-    "kinds": [
-      "reminders"
-    ]
-  },
-  "image_quality_note": {
-    "enabled": false,
-    "blur_threshold": 200
-  },
+  "version": 19,
   "limits": {
     "project_chat": {
       "max_input_chars": {
@@ -69,5 +59,15 @@
       }
     },
     "_tier_note": "2026-08-21 tier matrix: documents Plus and Pro now (Free at 5/mo, 10 MB waits on the per-tier document dial); file generation every tier, Free capped 5/mo by the generation dial."
+  },
+  "native_actions": {
+    "enabled": true,
+    "kinds": [
+      "reminders"
+    ]
+  },
+  "image_quality_note": {
+    "enabled": false,
+    "blur_threshold": 200
   }
 }

@@ -1,5 +1,5 @@
 {
-  "version": 23,
+  "version": 39,
   "native_actions": {
     "enabled": true,
     "kinds": [
@@ -25,16 +25,6 @@
     "request_min_seconds": 30,
     "analysis_min_seconds": 120,
     "analysis_min_words": 300
-  },
-  "enrichment": {
-    "max_auto_attempts": 5,
-    "retry_interval_seconds": 86400,
-    "in_flight_stale_seconds": 300,
-    "foreground_sweep_recovery_cap": 5
-  },
-  "session": {
-    "resumable_window_seconds": 3600,
-    "min_post_processing_seconds": 120
   },
   "flags": {},
   "intervals": {},
@@ -86,9 +76,21 @@
         "enabled": true,
         "text": "If you were a {tier} subscriber, I could generate a Word or Excel file for you."
       },
-      "contract_lane_users": []
+      "contract_lane_users": [
+        "fa4d903c-24c0-45d5-9fdb-b5496e32501b"
+      ]
     },
     "_tier_note": "2026-08-21 tier matrix: documents Plus and Pro now (Free at 5/mo, 10 MB waits on the per-tier document dial); file generation every tier, Free capped 5/mo by the generation dial."
+  },
+  "enrichment": {
+    "max_auto_attempts": 5,
+    "retry_interval_seconds": 86400,
+    "in_flight_stale_seconds": 300,
+    "foreground_sweep_recovery_cap": 5
+  },
+  "session": {
+    "resumable_window_seconds": 3600,
+    "min_post_processing_seconds": 120
   },
   "chat": {
     "max_history_pairs": 6,
