@@ -43,8 +43,9 @@ def test_the_project_memory_dossier_is_clean():
         ],
     })
     _no_dash(block, "the dossier block")
-    # the heading still carries its date, just not with a dash
-    assert "## Meeting 1 of 1 (2026-07-14)" in block
+    # the heading still carries its stamp, just not with a dash, and it
+    # says what the stamp IS rather than passing it off as a meeting date
+    assert "## Meeting 1 of 1 (added to memory on 2026-07-14)" in block
     assert "PROJECT MEMORY DOSSIER" in block
 
 

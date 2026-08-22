@@ -197,7 +197,7 @@ def test_format_dossier_shape():
     # patches, so "complete stored memory" was a claim it could not keep.
     assert block.startswith("[PROJECT MEMORY DOSSIER: "
                             "4 patches across 2 meetings]")
-    assert "## Meeting 1 of 2 (2026-07-14)" in block
+    assert "## Meeting 1 of 2 (added to memory on 2026-07-14)" in block
     assert "[todo] Review HubSpot pipeline (owner: Scott Guida) (deadline: 2026-07-20)" in block
     assert "## Not tied to a specific meeting" in block
     assert "Scott prefers async updates" in block

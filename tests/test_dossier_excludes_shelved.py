@@ -156,3 +156,47 @@ def test_a_meeting_whose_patches_are_all_shelved_gets_no_heading():
     assert "## Meeting 1 of 2" not in out, (
         "an empty meeting heading in a prompt reads as missing data")
     assert "## Meeting 2 of 2" in out
+
+
+# --- The heading stamp is an ingest clock, and says so (2026-08-22) --------
+#
+# CQ flagged the class and it turned out to apply here: CQ never persists a
+# meeting date. One arrives at ingest, is spent resolving relative
+# deadlines, and is dropped, so every timestamp CQ serves is the clock of
+# when the importer ran. GP cannot supply one either: the capture body we
+# POST to /v1/memory has no timestamp field at all.
+#
+# The heading used to render a bare `(2026-08-11)` next to "## Meeting 1 of
+# 5", which in a prompt reads as the day the meeting happened. Live capture
+# runs minutes after a meeting, so it was usually right BY ACCIDENT; on a
+# backfill every meeting collapses onto one date and the model narrates a
+# week that never happened, confidently and undetectably.
+
+def _one_meeting(created_at="2026-08-11T10:00:00Z"):
+    return {"meetings": [{"origin_id": "m1", "patches": [
+        {"patch_id": "p1", "content": "Ada owns the migration",
+         "type": "fact", "created_at": created_at}]}]}
+
+
+def test_heading_does_not_present_the_ingest_clock_as_a_meeting_date():
+    out = format_dossier(_one_meeting())
+    assert "## Meeting 1 of 1 (added to memory on 2026-08-11)" in out
+    # The bare parenthesised date is the exact string that read as a
+    # meeting date. It must not come back, in this or any future edit.
+    assert "## Meeting 1 of 1 (2026-08-11)" not in out
+
+
+def test_heading_omits_the_stamp_entirely_when_cq_sends_none():
+    """No timestamp is better than a manufactured one: the heading simply
+    loses its parenthetical rather than falling back to today."""
+    out = format_dossier(_one_meeting(created_at=None))
+    assert "## Meeting 1 of 1" in out
+    assert "added to memory" not in out
+    assert "(" not in out.split("## Meeting 1 of 1")[1].split("\n")[0]
+
+
+def test_the_stamp_still_reaches_the_model():
+    """The fix is honesty about what the number is, not deleting it. The
+    recency signal is worth having and it survives."""
+    out = format_dossier(_one_meeting())
+    assert "2026-08-11" in out

@@ -692,9 +692,27 @@ def format_dossier(data: dict, limit: int | None = DOSSIER_LIMIT) -> str:
         # confusing thing to put in a prompt.
         if not rendered:
             continue
+        # NOT the date of the meeting, and the heading must not imply it
+        # is. CQ never persists a meeting date: one arrives at ingest, is
+        # spent resolving relative deadlines, and is dropped, so every
+        # timestamp CQ serves is an ingest clock (CQ, 2026-08-22). GP
+        # cannot supply one either, because the capture body we POST to
+        # /v1/memory carries no timestamp field at all, only user_id,
+        # interaction_type, content and the metadata allowlist.
+        #
+        # This heading used to read "## Meeting 1 of 5 (2026-08-11)",
+        # which the model reads as the day the meeting happened. Live
+        # capture usually runs minutes after the meeting so it was usually
+        # right by accident, and on any backfill or delayed send every
+        # meeting collapses onto the importer's date and the model
+        # confidently narrates a week that never happened. Saying what the
+        # stamp actually is keeps the recency signal, which is worth
+        # having, without asserting a fact nobody on this hop knows.
+        # SS caught the same shape in CQ's own sparkline design before it
+        # shipped; this is that bug wearing GP's colours.
         stamp = (rendered[0].get("created_at") or "")[:10]
         lines.append(f"## Meeting {i} of {len(meetings)}"
-                     + (f" ({stamp})" if stamp else ""))
+                     + (f" (added to memory on {stamp})" if stamp else ""))
         for p in rendered:
             lines.append(_format_patch(p))
             total += 1
