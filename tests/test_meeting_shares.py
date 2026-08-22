@@ -301,3 +301,35 @@ def test_the_shape_check_matches_what_new_token_actually_mints():
     from app.services.meeting_shares import is_token_shaped, new_token
     for _ in range(100):
         assert is_token_shaped(new_token())
+
+
+def test_raw_non_ascii_in_the_header_is_refused_not_stored(client, pro_user):
+    """CQ asked the right question: what if a client sends raw UTF-8 anyway?
+
+    By the time it reaches us it has already been latin-1 decoded by ASGI,
+    so the original is gone and any repair is a guess. The choice is a 400
+    now or a wrong title on a card forever, and only the receiving side can
+    make it. The client finds out at build time; a user would have found
+    out from a bubble that said something else.
+
+    Sent as a pre-encoded byte header, because a strict client library will
+    not even let you set this by hand, which is itself the first line of
+    defence and the reason this was found at all."""
+    # As BYTES, because a strict client library will not let you set a
+    # non-ASCII header from a str at all: httpx raises UnicodeEncodeError
+    # before a request is made. That refusal is the first line of defence
+    # and it is how this whole class was found; the bytes path is what a
+    # client that goes around it actually puts on the wire.
+    r = _create(client, pro_user, **{"X-Share-Title": "四半期レビュー".encode("utf-8")})
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"]["code"] == "share_header_not_encoded"
+
+
+def test_a_latin1_accent_sent_raw_is_refused_too(client, pro_user):
+    """The subtle half. "Séverine" raw is VALID latin-1, so it would decode
+    to something that looks right in a debugger and is still not what the
+    sender typed once any other language shows up. One rule, no exceptions
+    for the languages that happen to survive."""
+    r = _create(client, pro_user, **{"X-Share-Title": "Séverine".encode("latin-1")})
+    assert r.status_code == 400
+    assert r.json()["detail"]["code"] == "share_header_not_encoded"

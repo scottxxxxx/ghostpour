@@ -71,7 +71,21 @@ def _card_text(value: str | None) -> str | None:
     """
     if value is None:
         return None
+    # Reject rather than store mojibake. A correctly encoded value is pure
+    # ASCII by construction, so a byte above 0x7f can only mean the client
+    # did not encode: it wrote raw UTF-8, ASGI decoded it latin-1, and what
+    # we have in hand is already wrong. We cannot recover the original
+    # reliably and we must not guess, so the only honest options are 400
+    # here or a wrong title on a card forever. CQ's point, and it is right:
+    # this is the kind of rule only the RECEIVING side can enforce, and it
+    # is cheaper than the support ticket. The client learns at build time
+    # instead of a user learning from a bubble that says something else.
     from urllib.parse import unquote
+    if any(ch > "\x7f" for ch in value):
+        raise HTTPException(status_code=400, detail={
+            "code": "share_header_not_encoded",
+            "message": "Card text must be UTF-8 percent-encoded; this header "
+                       "carries raw non-ASCII bytes and cannot be recovered."})
     return unquote(value, encoding="utf-8", errors="replace")
 
 
