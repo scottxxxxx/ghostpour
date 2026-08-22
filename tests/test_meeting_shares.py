@@ -75,11 +75,23 @@ def test_unknown_token_is_410_not_404_and_leaks_nothing(client):
     assert r.status_code == 410 and "no longer available" in r.text
 
 
-def test_empty_and_oversized_archives_are_refused(client, pro_user):
+def test_empty_is_refused_and_size_is_capped_only_by_the_tier_dial(client, pro_user):
     h = {**pro_user["headers"], **HDRS}
     assert client.post("/v1/shares", content=b"", headers=h).status_code == 422
-    with patch("app.services.meeting_shares.MAX_ARCHIVE_BYTES", 100):
-        assert client.post("/v1/shares", content=ARCHIVE, headers=h).status_code == 413
+    # no cap by default: a 40 MB archive is accepted
+    with patch("app.routers.shares.shares.share_by_id"):
+        pass
+    big = b"x" * (40 * 1048576)
+    assert client.post("/v1/shares", content=big, headers=h).status_code == 200
+    # the cap is a per-tier dial (feature_definitions.share.max_archive_mb)
+    fd = client.app.state.remote_configs.setdefault("tiers", {}).setdefault("tiers", {}).setdefault("pro", {}).setdefault("feature_definitions", {})
+    fd["share"] = {**(fd.get("share") or {}), "max_archive_mb": 0.0001}  # ~104 bytes
+    r = client.post("/v1/shares", content=ARCHIVE, headers=h)
+    assert r.status_code == 413
+    d = r.json()["detail"]
+    assert d["code"] == "share_too_large" and d["size_bytes"] == len(ARCHIVE) and d["limit_bytes"] == 104
+    assert "MB" in d["message"]
+    fd["share"].pop("max_archive_mb")
 
 
 def test_daily_creation_cap_is_a_tier_dial(client, pro_user):
