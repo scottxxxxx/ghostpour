@@ -41,6 +41,40 @@ def _meta(request: Request, key: str) -> str | None:
     return v if v else None
 
 
+def _card_text(value: str | None) -> str | None:
+    """Decode a card field carried in an X-Share-* header.
+
+    The card fields ride in headers so the body can be the archive bytes
+    with no multipart parsing between SS's zip and our disk. That is the
+    right call for the BYTES and a trap for the TEXT: an HTTP header value
+    is not a place to put user-generated Unicode. A meeting titled
+    "四半期レビュー" cannot be put in a header at all by a strict client
+    (httpx raises UnicodeEncodeError outright), and a client that writes
+    the raw UTF-8 bytes anyway gets them back as latin-1 mojibake here,
+    stored, and rendered onto the card and the og:title where a human
+    reads it.
+
+    So the contract is: UTF-8, percent-encoded. `%E5%9B%9B...`. That is
+    ASCII on the wire, survives every proxy, is one rule rather than a
+    guess, and is a no-op for a plain ASCII title, which is why an
+    unencoded English title still works. A literal percent must be sent
+    as %25, per the same rule as every URL anyone has ever written.
+
+    `errors="replace"` on purpose: a malformed sequence should cost the
+    reader one character, not the whole share. Nothing here 4xxs on text,
+    because a share that fails to send is worse than a title with a
+    replacement character in it.
+
+    Deliberately NOT also repairing latin-1 mojibake. Two accepted
+    encodings on one carrier is how a field comes to mean two things, and
+    SS has not built this client yet, so there is no legacy to carry.
+    """
+    if value is None:
+        return None
+    from urllib.parse import unquote
+    return unquote(value, encoding="utf-8", errors="replace")
+
+
 @router.post("/shares")
 async def create_share(
     request: Request,
@@ -83,9 +117,9 @@ async def create_share(
     expiry = min(max(int(x_share_expiry or settings["default_expiry_days"]), 1), settings["max_expiry_days"])
     created = await shares.create_share(
         db, user_id=user.id, app_id=getattr(request.state, "app_id", None),
-        archive=archive, media_type=content_type, title=x_share_title,
+        archive=archive, media_type=content_type, title=_card_text(x_share_title),
         meeting_date=x_share_date, duration_seconds=x_share_duration,
-        summary_line=x_share_summary, transcript_included=transcript_included,
+        summary_line=_card_text(x_share_summary), transcript_included=transcript_included,
         expiry_days=expiry)
     return {"share_id": created["share_id"],
             "url": f"{settings['host']}/s/{created['token']}",
