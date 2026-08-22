@@ -95,11 +95,11 @@ def test_aasa_404s_until_ss_supplies_app_ids_then_serves_json(client):
     rc = client.app.state.remote_configs
     rc.setdefault("client-config", {})["share"] = {"aasa_app_ids": []}
     assert client.get("/.well-known/apple-app-site-association").status_code == 404
-    rc["client-config"]["share"] = {"aasa_app_ids": ["ABCDE12345.com.weirtech.shouldersurf"]}
+    rc["client-config"]["share"] = {"aasa_app_ids": ["F22KGHDYAE.com.shouldersurf.ShoulderSurf"]}
     r = client.get("/.well-known/apple-app-site-association")
     assert r.status_code == 200 and r.headers["content-type"].startswith("application/json")
     d = r.json()
-    assert d["applinks"]["details"][0]["appIDs"] == ["ABCDE12345.com.weirtech.shouldersurf"]
+    assert d["applinks"]["details"][0]["appIDs"] == ["F22KGHDYAE.com.shouldersurf.ShoulderSurf"]
     assert d["applinks"]["details"][0]["components"] == [{"/": "/s/*"}]
 
 

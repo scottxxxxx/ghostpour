@@ -82,7 +82,7 @@ def tier_share_caps(remote_configs: dict, tier: str) -> dict:
 
 
 def aasa_app_ids(remote_configs: dict) -> list[str]:
-    """client-config.share.aasa_app_ids: ["TEAMID.com.weirtech.shouldersurf"].
+    """client-config.share.aasa_app_ids: ["F22KGHDYAE.com.shouldersurf.ShoulderSurf"].
     Empty until SS supplies the Team ID; the AASA route 404s until then so
     Apple never caches an association with no app in it."""
     block = ((remote_configs.get("client-config") or {}).get("share")) or {}
