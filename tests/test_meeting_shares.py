@@ -461,3 +461,163 @@ def test_a_client_encoded_title_decodes_then_escapes_onto_the_card(client, pro_u
     assert p.meta.get("twitter:title") == title
     assert "%27" not in page.text and "%E5" not in page.text, (
         "an encoded sequence reached the page, so the decode did not run")
+
+
+# --- The upload is bounded DURING the read (2026-08-22) --------------------
+#
+# CQ asked whether the edge caps request bodies. Bifrost measured the live
+# VM: NPM sets client_max_body_size 2000m globally, so it does not. The
+# answer to their question was less interesting than what looking for it
+# turned up on our side.
+#
+# `POST /v1/shares` did `await request.body()` and THEN compared the length
+# to the tier dial. That is the check-after-read mistake in its original
+# habitat, and it is worse here than in the zip reader, because the dial
+# looked like protection: by the time a 25 MB limit said no, 25 MB was the
+# least of what had already been buffered. With a 2000m proxy in front, an
+# authenticated client could make this process allocate two gigabytes and
+# then be told the limit was twenty five megabytes.
+#
+# Two bounds now, and they are different things on purpose. The tier dial is
+# a PRODUCT limit and Scott ruled it absent by default. The absolute ceiling
+# is a MEMORY bound and is not configurable, because "uncapped" cannot mean
+# "whatever an authenticated client feels like sending".
+
+from fastapi import HTTPException  # noqa: E402
+from app.routers.shares import ABSOLUTE_MAX_ARCHIVE_BYTES  # noqa: E402
+
+
+def _post_archive(client, user, body, extra_headers=None):
+    h = {**user["headers"], **HDRS, **(extra_headers or {})}
+    return client.post("/v1/shares", content=body, headers=h)
+
+
+def test_a_lying_content_length_does_not_get_past_the_bound(client, pro_user):
+    """Content-Length is checked first because it is free, and is not
+    trusted, for the same reason a zip's declared entry size is not: it is a
+    claim by the sender. A body far larger than a header that understates it
+    must still be refused, which is only possible if the streaming total is
+    the real bound."""
+    from app.main import app
+    tiers = app.state.remote_configs.setdefault("tiers", {}).setdefault("tiers", {})
+    fd = tiers.setdefault("pro", {}).setdefault("feature_definitions", {})
+    original = fd.get("share")
+    fd["share"] = {**(original or {}), "max_archive_mb": 1}
+    try:
+        # 3 MB of body against a 1 MB dial. httpx sets a truthful
+        # Content-Length, so this exercises the header path; the streaming
+        # path is exercised by the test below where no length is sent.
+        r = _post_archive(client, pro_user, b"x" * (3 * 1024 * 1024))
+        assert r.status_code == 413, r.text
+        assert r.json()["detail"]["code"] == "share_too_large"
+        assert r.json()["detail"]["limit_bytes"] == 1024 * 1024
+    finally:
+        if original is None:
+            fd.pop("share", None)
+        else:
+            fd["share"] = original
+
+
+def test_the_upload_stops_being_read_the_moment_it_is_too_big():
+    """The property, measured exactly: HOW MUCH of the body was consumed
+    before the refusal.
+
+    The first version of this test drove the real route and asserted a 413.
+    It was green against a `body()`-then-check implementation, because the
+    STATUS is identical either way; the difference is memory, not outcome.
+    Same trap as the null-byte zip bomb, walked into a second time in the
+    same shape.
+
+    Peak memory is not usable here either: TestClient materialises the
+    request body on the client side, so tracemalloc in-process measured
+    128 MB for a 64 MB upload no matter what the server did. The client
+    dominated the number.
+
+    So: call `_read_archive` with a counting stream. It reads only
+    `request.headers` and `request.stream()`, which is exactly what a stub
+    can supply faithfully. A buffer-then-check implementation drains all 64
+    chunks. A streaming one stops at two. That is deterministic, cheap, and
+    cannot pass for the wrong reason."""
+    import asyncio
+    from app.routers.shares import _read_archive
+
+    pulled = 0
+
+    class _Stub:
+        headers: dict = {}          # no Content-Length: the free check cannot fire
+
+        async def stream(self):
+            nonlocal pulled
+            for _ in range(64):
+                pulled += 1
+                yield b"x" * (1024 * 1024)
+
+    with pytest.raises(HTTPException) as caught:
+        asyncio.run(_read_archive(_Stub(), 1024 * 1024))
+
+    assert caught.value.status_code == 413
+    assert pulled <= 3, (
+        f"the whole body was read before refusing it: {pulled} of 64 MB "
+        "consumed against a 1 MB limit")
+
+
+def test_a_chunked_upload_with_no_content_length_is_still_413_at_the_route(client, pro_user):
+    """The route-level half. This one asserts the OUTCOME, which the test
+    above deliberately does not, so between them the status and the read
+    are both pinned."""
+    from app.main import app
+    tiers = app.state.remote_configs.setdefault("tiers", {}).setdefault("tiers", {})
+    fd = tiers.setdefault("pro", {}).setdefault("feature_definitions", {})
+    original = fd.get("share")
+    fd["share"] = {**(original or {}), "max_archive_mb": 1}
+
+    def chunks():
+        for _ in range(6):
+            yield b"x" * (512 * 1024)
+
+    try:
+        r = client.post("/v1/shares", content=chunks(),
+                        headers={**pro_user["headers"], **HDRS})
+        assert r.status_code == 413, r.text
+        assert r.json()["detail"]["code"] == "share_too_large"
+    finally:
+        if original is None:
+            fd.pop("share", None)
+        else:
+            fd["share"] = original
+
+
+def test_the_absolute_ceiling_applies_when_no_tier_dial_is_set(client, pro_user):
+    """The default state. Scott ruled no product cap, and that ruling is
+    about what a plan may share, not about how much memory a stranger with a
+    token may spend. The ceiling is separate, not configurable, and its
+    refusal says something DIFFERENT, because "share a shorter meeting" is a
+    lie about what went wrong when the upload is a quarter of a gigabyte."""
+    from app.routers import shares as shares_router
+    original = shares_router.ABSOLUTE_MAX_ARCHIVE_BYTES
+    shares_router.ABSOLUTE_MAX_ARCHIVE_BYTES = 512 * 1024
+    try:
+        r = _post_archive(client, pro_user, b"y" * (1024 * 1024))
+        assert r.status_code == 413, r.text
+        d = r.json()["detail"]
+        assert d["code"] == "share_archive_rejected", d
+        assert "shorter meeting" not in d["message"]
+        assert d["limit_bytes"] == 512 * 1024
+    finally:
+        shares_router.ABSOLUTE_MAX_ARCHIVE_BYTES = original
+
+
+def test_the_ceiling_is_far_above_any_real_bundle(client, pro_user):
+    """The bound has to let the real thing through, which is the half of a
+    limit people forget to assert. SS's largest measured bundle is 36.9 MB
+    and audio runs about 14.4 MB an hour, so a six hour meeting is near
+    90 MB."""
+    assert ABSOLUTE_MAX_ARCHIVE_BYTES > 100 * 1024 * 1024
+    r = _post_archive(client, pro_user, b"z" * (2 * 1024 * 1024))
+    assert r.status_code == 200, r.text
+
+
+def test_an_empty_body_is_still_422_not_413(client, pro_user):
+    r = _post_archive(client, pro_user, b"")
+    assert r.status_code == 422
+    assert r.json()["detail"]["code"] == "share_empty"
