@@ -89,6 +89,77 @@ def _card_text(value: str | None) -> str | None:
     return unquote(value, encoding="utf-8", errors="replace")
 
 
+# An absolute ceiling on an upload, separate from the product dial and not
+# configurable. Scott ruled the archive uncapped by default (2026-08-22) and
+# that ruling is about PRODUCT limits: what a plan is allowed to share. This
+# is a memory bound, and the two must not be the same number, because
+# "uncapped" cannot mean "whatever an authenticated client feels like
+# sending". SS measured real bundles at 275 KB to 36.9 MB with audio running
+# about 14.4 MB an hour, so even a six hour meeting lands near 90 MB. 256 MB
+# is far above any real archive and far below anything that hurts.
+ABSOLUTE_MAX_ARCHIVE_BYTES = 256 * 1024 * 1024
+_UPLOAD_CHUNK_CEILING = ABSOLUTE_MAX_ARCHIVE_BYTES
+
+
+async def _read_archive(request: Request, cap_bytes: int | None) -> bytes:
+    """Read the uploaded archive, refusing it DURING the read.
+
+    This used to be `await request.body()` followed by a length check, which
+    is the check-after-read mistake in its original habitat: the tier dial
+    could not protect anything, because by the time a 25 MB limit said no,
+    25 MB was the least of what had already been buffered. The proxy in
+    front of us allows 2000m (Bifrost, measured on the live VM, 2026-08-22),
+    so an authenticated client could make this process allocate two
+    gigabytes and then be told politely that the limit was twenty five
+    megabytes.
+
+    Found because CQ asked whether the edge caps request bodies. It does
+    not, and the answer to their question was less interesting than what
+    looking for it turned up. Same shape as the unbounded unzip one layer
+    up, in code I had read the same morning without seeing it.
+
+    Content-Length is checked first because it is free, and is NOT trusted,
+    for the same reason a zip's declared entry size is not: it is a claim by
+    the sender. The streaming total is the actual bound.
+    """
+    effective = min(cap_bytes, ABSOLUTE_MAX_ARCHIVE_BYTES) if cap_bytes is not None \
+        else ABSOLUTE_MAX_ARCHIVE_BYTES
+
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > effective:
+        _too_large(int(declared), effective, cap_bytes)
+
+    buf = bytearray()
+    async for chunk in request.stream():
+        buf += chunk
+        if len(buf) > effective:
+            _too_large(len(buf), effective, cap_bytes, exceeded=True)
+    if not buf:
+        raise HTTPException(status_code=422, detail={
+            "code": "share_empty", "message": "No archive in body."})
+    return bytes(buf)
+
+
+def _too_large(size: int, effective: int, cap_bytes: int | None, exceeded: bool = False):
+    """Two different refusals, deliberately, because they mean different
+    things to whoever reads them. A tier dial is a product limit with a
+    recovery the sender can act on. The absolute ceiling means this is not a
+    meeting archive, and telling someone to share a shorter meeting would be
+    a lie about what went wrong."""
+    mb = round(size / 1048576, 1)
+    if cap_bytes is not None and effective == cap_bytes:
+        limit_mb = round(cap_bytes / 1048576, 1)
+        raise HTTPException(status_code=413, detail={
+            "code": "share_too_large",
+            "message": f"This share is {'over ' if exceeded else ''}{mb} MB; the limit on this plan is "
+                       f"{limit_mb} MB. Share it without audio, or share a shorter meeting.",
+            "size_bytes": size, "limit_bytes": cap_bytes})
+    raise HTTPException(status_code=413, detail={
+        "code": "share_archive_rejected",
+        "message": f"This upload is {'over ' if exceeded else ''}{mb} MB, which is larger than any meeting archive.",
+        "size_bytes": size, "limit_bytes": effective})
+
+
 @router.post("/shares")
 async def create_share(
     request: Request,
@@ -136,20 +207,9 @@ async def create_share(
     transcript_included = (x_share_transcript or "").lower() in ("1", "true", "yes")
     if await shares.creations_today(db, user.id) >= caps["creations_per_day"]:
         raise HTTPException(status_code=429, detail={"code": "share_rate_limited", "message": "Daily share limit reached."})
-    archive = await request.body()
-    if not archive:
-        raise HTTPException(status_code=422, detail={"code": "share_empty", "message": "No archive in body."})
     settings = shares.share_settings(rc)
     cap_bytes = caps["max_archive_bytes"]
-    if cap_bytes is not None and len(archive) > cap_bytes:
-        # No cap by default (Scott, 2026-08-22). When a tier's dial sets
-        # one, the 413 says the numbers so the client has something true
-        # to show; real bundles run 275 KB to 36.9 MB with audio.
-        mb = round(len(archive) / 1048576, 1); limit_mb = round(cap_bytes / 1048576, 1)
-        raise HTTPException(status_code=413, detail={
-            "code": "share_too_large",
-            "message": f"This share is {mb} MB; the limit on this plan is {limit_mb} MB. Share it without audio, or share a shorter meeting.",
-            "size_bytes": len(archive), "limit_bytes": cap_bytes})
+    archive = await _read_archive(request, cap_bytes)
     expiry = min(max(int(x_share_expiry or settings["default_expiry_days"]), 1), settings["max_expiry_days"])
     created = await shares.create_share(
         db, user_id=user.id, app_id=getattr(request.state, "app_id", None),
