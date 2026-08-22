@@ -1,14 +1,19 @@
 {
-  "version": 45,
+  "version": 46,
   "tiers": {
     "free": {
       "display_name": "Gratis",
-      "description": "Prueba la asistencia de reuniones con IA: unas cinco horas de reuniones al mes con IA en la nube.",
+      "description": "Memoria de cada reunión, Personas, resúmenes en vivo e informes, con una asignación mensual de IA para probar el resto.",
       "feature_bullets": [
         "IA en la nube para unas cinco horas de reuniones al mes",
-        "Resúmenes escritos mientras sigues en la reunión",
-        "Transcripción en el dispositivo (ilimitada)",
-        "1 foto o imagen por pregunta"
+        "Memoria creada a partir de cada reunión que grabas",
+        "Personas: a quién ves y qué te deben",
+        "Resúmenes en vivo y un informe completo tras cada reunión",
+        "Chat de proyecto: vista previa",
+        "Chat de reunión con una asignación mensual",
+        "Búsqueda web: 5 al mes",
+        "Generar archivos desde el chat: 5 al mes",
+        "1 imagen por mensaje"
       ],
       "feature_items": [
         {
@@ -16,15 +21,35 @@
           "icon": "checkmark"
         },
         {
-          "label": "Resúmenes escritos mientras sigues en la reunión",
-          "icon": "doc"
+          "label": "Memoria creada a partir de cada reunión que grabas",
+          "icon": "brain"
         },
         {
-          "label": "Transcripción en el dispositivo (ilimitada)",
+          "label": "Personas: a quién ves y qué te deben",
           "icon": "checkmark"
         },
         {
-          "label": "1 foto o imagen por pregunta",
+          "label": "Resúmenes en vivo y un informe completo tras cada reunión",
+          "icon": "doc"
+        },
+        {
+          "label": "Chat de proyecto: vista previa",
+          "icon": "chat"
+        },
+        {
+          "label": "Chat de reunión con una asignación mensual",
+          "icon": "chat"
+        },
+        {
+          "label": "Búsqueda web: 5 al mes",
+          "icon": "search"
+        },
+        {
+          "label": "Generar archivos desde el chat: 5 al mes",
+          "icon": "filegen"
+        },
+        {
+          "label": "1 imagen por mensaje",
           "icon": "photo"
         }
       ],
@@ -40,8 +65,24 @@
           "icon": "doc"
         },
         {
+          "label": "Chat de proyecto",
+          "value": "vista previa",
+          "icon": "chat",
+          "state": "teaser"
+        },
+        {
+          "label": "Búsqueda web",
+          "value": "5 al mes",
+          "icon": "search"
+        },
+        {
+          "label": "Generación de archivos",
+          "value": "5 al mes",
+          "icon": "filegen"
+        },
+        {
           "label": "Imágenes máx.",
-          "value": "1 por pregunta",
+          "value": "1 por mensaje",
           "icon": "photo"
         }
       ],
@@ -113,41 +154,41 @@
       "display_name": "Plus",
       "description": "Tus últimos {recall_window_days} días de reuniones en cada conversación. Documentos, búsqueda web, generación de archivos, uso ilimitado.",
       "feature_bullets": [
-        "Reuniones ilimitadas con asistencia de IA",
-        "Resúmenes escritos mientras sigues en la reunión",
-        "Informes de reuniones compartibles",
-        "Haz preguntas sobre todas las reuniones de un proyecto",
         "Tus últimos {recall_window_days} días de reuniones, en cada conversación",
-        "Búsqueda web: información actual en tus respuestas (75/mes)",
-        "3 fotos o imágenes por pregunta"
+        "Chat de reunión y de proyecto ilimitados",
+        "Adjunta documentos y la respuesta los lee completos",
+        "Búsqueda web: 75 al mes",
+        "Genera archivos reales desde el chat: Excel, Word, PowerPoint, PDF",
+        "El triple de contexto por mensaje",
+        "3 imágenes por mensaje"
       ],
       "feature_items": [
-        {
-          "label": "Reuniones ilimitadas con asistencia de IA",
-          "icon": "checkmark"
-        },
-        {
-          "label": "Resúmenes escritos mientras sigues en la reunión",
-          "icon": "doc"
-        },
-        {
-          "label": "Informes de reuniones compartibles",
-          "icon": "share"
-        },
-        {
-          "label": "Haz preguntas sobre todas las reuniones de un proyecto",
-          "icon": "chat"
-        },
         {
           "label": "Tus últimos {recall_window_days} días de reuniones, en cada conversación",
           "icon": "brain"
         },
         {
-          "label": "Búsqueda web: información actual en tus respuestas (75/mes)",
+          "label": "Chat de reunión y de proyecto ilimitados",
+          "icon": "chat"
+        },
+        {
+          "label": "Adjunta documentos y la respuesta los lee completos",
+          "icon": "paperclip"
+        },
+        {
+          "label": "Búsqueda web: 75 al mes",
           "icon": "search"
         },
         {
-          "label": "3 fotos o imágenes por pregunta",
+          "label": "Genera archivos reales desde el chat: Excel, Word, PowerPoint, PDF",
+          "icon": "filegen"
+        },
+        {
+          "label": "El triple de contexto por mensaje",
+          "icon": "cpu"
+        },
+        {
+          "label": "3 imágenes por mensaje",
           "icon": "photo"
         }
       ],
@@ -168,9 +209,16 @@
           "icon": "cpu"
         },
         {
-          "label": "Imágenes máx.",
-          "value": "3 por pregunta",
-          "icon": "photo"
+          "label": "Memoria de Reuniones",
+          "value": "últimos {recall_window_days} días",
+          "icon": "brain",
+          "state": "enabled"
+        },
+        {
+          "label": "Chat de proyecto",
+          "value": "sí",
+          "icon": "chat",
+          "state": "enabled"
         },
         {
           "label": "Búsqueda web",
@@ -179,15 +227,18 @@
         },
         {
           "label": "Generación de archivos",
-          "value": "actualiza a Pro",
-          "icon": "filegen",
-          "state": "teaser"
+          "value": "Excel, Word, PowerPoint, PDF",
+          "icon": "filegen"
         },
         {
-          "label": "Memoria de Reuniones",
-          "value": "últimos {recall_window_days} días",
-          "icon": "brain",
-          "state": "enabled"
+          "label": "Documentos adjuntos",
+          "value": "2 archivos, hasta 25 MB cada uno",
+          "icon": "paperclip"
+        },
+        {
+          "label": "Imágenes máx.",
+          "value": "3 por mensaje",
+          "icon": "photo"
         }
       ],
       "feature_definitions": {
@@ -246,41 +297,41 @@
       "display_name": "Pro",
       "description": "Todo lo que hayas grabado, en cada conversación, con el modelo más potente en análisis e informes.",
       "feature_bullets": [
-        "IA avanzada para informes y análisis más profundos",
-        "Resumen completo o solo lo nuevo, tú eliges",
-        "Búsqueda web: información actual en tus respuestas (120/mes)",
         "Todas las reuniones que hayas grabado, en cada conversación",
-        "Crea archivos reales para compartir: Excel, Word, PowerPoint, PDF",
-        "Adjunta documentos al chat (2 archivos, 25 MB cada uno)",
-        "5 fotos o imágenes por pregunta"
+        "El modelo más potente en análisis e informes posteriores a la reunión",
+        "El mayor contexto por mensaje",
+        "Búsqueda web: 120 al mes",
+        "Genera archivos reales desde el chat: Excel, Word, PowerPoint, PDF",
+        "Adjunta documentos y la respuesta los lee completos",
+        "5 imágenes por mensaje"
       ],
       "feature_items": [
-        {
-          "label": "IA avanzada para informes y análisis más profundos",
-          "icon": "checkmark.plus"
-        },
-        {
-          "label": "Resumen completo o solo lo nuevo, tú eliges",
-          "icon": "doc"
-        },
-        {
-          "label": "Búsqueda web: información actual en tus respuestas (120/mes)",
-          "icon": "search"
-        },
         {
           "label": "Todas las reuniones que hayas grabado, en cada conversación",
           "icon": "brain"
         },
         {
-          "label": "Crea archivos reales para compartir: Excel, Word, PowerPoint, PDF",
+          "label": "El modelo más potente en análisis e informes posteriores a la reunión",
+          "icon": "cpu"
+        },
+        {
+          "label": "El mayor contexto por mensaje",
+          "icon": "cpu"
+        },
+        {
+          "label": "Búsqueda web: 120 al mes",
+          "icon": "search"
+        },
+        {
+          "label": "Genera archivos reales desde el chat: Excel, Word, PowerPoint, PDF",
           "icon": "filegen"
         },
         {
-          "label": "Adjunta documentos al chat (2 archivos, 25 MB cada uno)",
+          "label": "Adjunta documentos y la respuesta los lee completos",
           "icon": "paperclip"
         },
         {
-          "label": "5 fotos o imágenes por pregunta",
+          "label": "5 imágenes por mensaje",
           "icon": "photo"
         }
       ],
@@ -297,13 +348,20 @@
         },
         {
           "label": "IA",
-          "value": "Avanzada",
+          "value": "Modelo más potente",
           "icon": "cpu"
         },
         {
-          "label": "Imágenes máx.",
-          "value": "5 por pregunta",
-          "icon": "photo"
+          "label": "Memoria de Reuniones",
+          "value": "todo, siempre",
+          "icon": "brain",
+          "state": "enabled"
+        },
+        {
+          "label": "Chat de proyecto",
+          "value": "sí",
+          "icon": "chat",
+          "state": "enabled"
         },
         {
           "label": "Búsqueda web",
@@ -321,10 +379,9 @@
           "icon": "paperclip"
         },
         {
-          "label": "Memoria de Reuniones",
-          "value": "todo, siempre",
-          "icon": "brain",
-          "state": "enabled"
+          "label": "Imágenes máx.",
+          "value": "5 por mensaje",
+          "icon": "photo"
         }
       ],
       "feature_definitions": {

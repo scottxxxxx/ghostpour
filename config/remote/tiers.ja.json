@@ -1,14 +1,19 @@
 {
-  "version": 46,
+  "version": 47,
   "tiers": {
     "free": {
       "display_name": "無料",
-      "description": "AIミーティングアシスタントをお試しください。クラウドAIで毎月約5時間のミーティングに対応します。",
+      "description": "すべての会議からメモリーを構築。People、ライブ要約、レポート、そして残りの機能を試せる月間AI利用枠。",
       "feature_bullets": [
         "クラウドAIで毎月約5時間のミーティング",
-        "リアルタイム自動要約",
-        "デバイス上の文字起こし（無制限）",
-        "1つの質問につき写真・画像1枚"
+        "記録したすべての会議からメモリーを構築",
+        "People：誰と会い、何を約束されたか",
+        "会議中のライブ要約と終了後の完全なレポート",
+        "プロジェクトチャット：プレビュー",
+        "月間の利用枠で使える会議チャット",
+        "ウェブ検索：月5回",
+        "チャットからのファイル生成：月5回",
+        "1メッセージあたり画像1枚"
       ],
       "feature_items": [
         {
@@ -16,15 +21,35 @@
           "icon": "checkmark"
         },
         {
-          "label": "リアルタイム自動要約",
-          "icon": "doc"
+          "label": "記録したすべての会議からメモリーを構築",
+          "icon": "brain"
         },
         {
-          "label": "デバイス上の文字起こし（無制限）",
+          "label": "People：誰と会い、何を約束されたか",
           "icon": "checkmark"
         },
         {
-          "label": "1つの質問につき写真・画像1枚",
+          "label": "会議中のライブ要約と終了後の完全なレポート",
+          "icon": "doc"
+        },
+        {
+          "label": "プロジェクトチャット：プレビュー",
+          "icon": "chat"
+        },
+        {
+          "label": "月間の利用枠で使える会議チャット",
+          "icon": "chat"
+        },
+        {
+          "label": "ウェブ検索：月5回",
+          "icon": "search"
+        },
+        {
+          "label": "チャットからのファイル生成：月5回",
+          "icon": "filegen"
+        },
+        {
+          "label": "1メッセージあたり画像1枚",
           "icon": "photo"
         }
       ],
@@ -40,8 +65,24 @@
           "icon": "doc"
         },
         {
-          "label": "最大画像数",
-          "value": "1つの質問につき1枚",
+          "label": "プロジェクトチャット",
+          "value": "プレビュー",
+          "icon": "chat",
+          "state": "teaser"
+        },
+        {
+          "label": "ウェブ検索",
+          "value": "月5回",
+          "icon": "search"
+        },
+        {
+          "label": "ファイル生成",
+          "value": "月5回",
+          "icon": "filegen"
+        },
+        {
+          "label": "画像上限",
+          "value": "1メッセージあたり1枚",
           "icon": "photo"
         }
       ],
@@ -113,41 +154,41 @@
       "display_name": "Plus",
       "description": "直近{recall_window_days}日間の会議をすべての会話に。ドキュメント、ウェブ検索、ファイル生成、無制限の利用。",
       "feature_bullets": [
-        "AIアシスタント付きの無制限ミーティング",
-        "会議中にリアルタイムで要約を作成",
-        "共有できるミーティングレポート",
-        "プロジェクト内のすべてのミーティングに質問",
         "直近{recall_window_days}日間の会議を、すべての会話に",
-        "Web検索：最新情報を回答に反映（月75回）",
-        "1つの質問につき写真・画像3枚"
+        "会議チャットとプロジェクトチャットが無制限",
+        "ドキュメントを添付すると、回答が全文を読み込みます",
+        "ウェブ検索：月75回",
+        "チャットから実ファイルを生成：Excel、Word、PowerPoint、PDF",
+        "1メッセージあたりのコンテキストが3倍",
+        "1メッセージあたり画像3枚"
       ],
       "feature_items": [
-        {
-          "label": "AIアシスタント付きの無制限ミーティング",
-          "icon": "checkmark"
-        },
-        {
-          "label": "会議中にリアルタイムで要約を作成",
-          "icon": "doc"
-        },
-        {
-          "label": "共有できるミーティングレポート",
-          "icon": "share"
-        },
-        {
-          "label": "プロジェクト内のすべてのミーティングに質問",
-          "icon": "chat"
-        },
         {
           "label": "直近{recall_window_days}日間の会議を、すべての会話に",
           "icon": "brain"
         },
         {
-          "label": "Web検索：最新情報を回答に反映（月75回）",
+          "label": "会議チャットとプロジェクトチャットが無制限",
+          "icon": "chat"
+        },
+        {
+          "label": "ドキュメントを添付すると、回答が全文を読み込みます",
+          "icon": "paperclip"
+        },
+        {
+          "label": "ウェブ検索：月75回",
           "icon": "search"
         },
         {
-          "label": "1つの質問につき写真・画像3枚",
+          "label": "チャットから実ファイルを生成：Excel、Word、PowerPoint、PDF",
+          "icon": "filegen"
+        },
+        {
+          "label": "1メッセージあたりのコンテキストが3倍",
+          "icon": "cpu"
+        },
+        {
+          "label": "1メッセージあたり画像3枚",
           "icon": "photo"
         }
       ],
@@ -168,9 +209,16 @@
           "icon": "cpu"
         },
         {
-          "label": "最大画像数",
-          "value": "1つの質問につき3枚",
-          "icon": "photo"
+          "label": "ミーティングメモリー",
+          "value": "直近{recall_window_days}日間",
+          "icon": "brain",
+          "state": "enabled"
+        },
+        {
+          "label": "プロジェクトチャット",
+          "value": "あり",
+          "icon": "chat",
+          "state": "enabled"
         },
         {
           "label": "ウェブ検索",
@@ -179,15 +227,18 @@
         },
         {
           "label": "ファイル生成",
-          "value": "Proにアップグレード",
-          "icon": "filegen",
-          "state": "teaser"
+          "value": "Excel、Word、PowerPoint、PDF",
+          "icon": "filegen"
         },
         {
-          "label": "ミーティングメモリー",
-          "value": "直近{recall_window_days}日間",
-          "icon": "brain",
-          "state": "enabled"
+          "label": "ドキュメント添付",
+          "value": "2ファイル、各25MBまで",
+          "icon": "paperclip"
+        },
+        {
+          "label": "画像上限",
+          "value": "1メッセージあたり3枚",
+          "icon": "photo"
         }
       ],
       "feature_definitions": {
@@ -246,41 +297,41 @@
       "display_name": "Pro",
       "description": "記録したすべてを、すべての会話に。分析とレポートにはより高性能なモデル。",
       "feature_bullets": [
-        "より深いレポートと分析のための高度なAI",
-        "全文要約または新しい内容だけ、選べます",
-        "Web検索：最新情報を回答に反映（月120回）",
         "記録したすべての会議を、すべての会話に",
-        "共有できる本物のファイルを作成：Excel、Word、PowerPoint、PDF",
-        "チャットにドキュメントを添付（2ファイル、各25MB）",
-        "1つの質問につき写真・画像5枚"
+        "会議後の分析とレポートにより高性能なモデル",
+        "1メッセージあたり最大のコンテキスト",
+        "ウェブ検索：月120回",
+        "チャットから実ファイルを生成：Excel、Word、PowerPoint、PDF",
+        "ドキュメントを添付すると、回答が全文を読み込みます",
+        "1メッセージあたり画像5枚"
       ],
       "feature_items": [
-        {
-          "label": "より深いレポートと分析のための高度なAI",
-          "icon": "checkmark.plus"
-        },
-        {
-          "label": "全文要約または新しい内容だけ、選べます",
-          "icon": "doc"
-        },
-        {
-          "label": "Web検索：最新情報を回答に反映（月120回）",
-          "icon": "search"
-        },
         {
           "label": "記録したすべての会議を、すべての会話に",
           "icon": "brain"
         },
         {
-          "label": "共有できる本物のファイルを作成：Excel、Word、PowerPoint、PDF",
+          "label": "会議後の分析とレポートにより高性能なモデル",
+          "icon": "cpu"
+        },
+        {
+          "label": "1メッセージあたり最大のコンテキスト",
+          "icon": "cpu"
+        },
+        {
+          "label": "ウェブ検索：月120回",
+          "icon": "search"
+        },
+        {
+          "label": "チャットから実ファイルを生成：Excel、Word、PowerPoint、PDF",
           "icon": "filegen"
         },
         {
-          "label": "チャットにドキュメントを添付（2ファイル、各25MB）",
+          "label": "ドキュメントを添付すると、回答が全文を読み込みます",
           "icon": "paperclip"
         },
         {
-          "label": "1つの質問につき写真・画像5枚",
+          "label": "1メッセージあたり画像5枚",
           "icon": "photo"
         }
       ],
@@ -297,13 +348,20 @@
         },
         {
           "label": "AI",
-          "value": "高度",
+          "value": "高性能モデル",
           "icon": "cpu"
         },
         {
-          "label": "最大画像数",
-          "value": "1つの質問につき5枚",
-          "icon": "photo"
+          "label": "ミーティングメモリー",
+          "value": "すべて",
+          "icon": "brain",
+          "state": "enabled"
+        },
+        {
+          "label": "プロジェクトチャット",
+          "value": "あり",
+          "icon": "chat",
+          "state": "enabled"
         },
         {
           "label": "ウェブ検索",
@@ -321,10 +379,9 @@
           "icon": "paperclip"
         },
         {
-          "label": "ミーティングメモリー",
-          "value": "すべて",
-          "icon": "brain",
-          "state": "enabled"
+          "label": "画像上限",
+          "value": "1メッセージあたり5枚",
+          "icon": "photo"
         }
       ],
       "feature_definitions": {

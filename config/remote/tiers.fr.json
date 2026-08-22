@@ -1,14 +1,19 @@
 {
-  "version": 45,
+  "version": 46,
   "tiers": {
     "free": {
       "display_name": "Gratuit",
-      "description": "Découvrez l'assistance de réunion par IA : environ cinq heures de réunions par mois avec l'IA dans le cloud.",
+      "description": "Une mémoire de chaque réunion, Personnes, résumés en direct et rapports, avec une allocation mensuelle d'IA pour essayer le reste.",
       "feature_bullets": [
         "L'IA dans le cloud pour environ cinq heures de réunions par mois",
-        "Des résumés rédigés pendant que la réunion est encore en cours",
-        "Transcription sur l'appareil (illimitée)",
-        "1 photo ou image par question"
+        "Une mémoire construite à partir de chaque réunion enregistrée",
+        "Personnes : qui vous rencontrez et ce qu'elles vous doivent",
+        "Résumés en direct et rapport complet après chaque réunion",
+        "Chat de projet : aperçu",
+        "Chat de réunion avec une allocation mensuelle",
+        "Recherche web : 5 par mois",
+        "Générer des fichiers depuis le chat : 5 par mois",
+        "1 image par message"
       ],
       "feature_items": [
         {
@@ -16,15 +21,35 @@
           "icon": "checkmark"
         },
         {
-          "label": "Des résumés rédigés pendant que la réunion est encore en cours",
-          "icon": "doc"
+          "label": "Une mémoire construite à partir de chaque réunion enregistrée",
+          "icon": "brain"
         },
         {
-          "label": "Transcription sur l'appareil (illimitée)",
+          "label": "Personnes : qui vous rencontrez et ce qu'elles vous doivent",
           "icon": "checkmark"
         },
         {
-          "label": "1 photo ou image par question",
+          "label": "Résumés en direct et rapport complet après chaque réunion",
+          "icon": "doc"
+        },
+        {
+          "label": "Chat de projet : aperçu",
+          "icon": "chat"
+        },
+        {
+          "label": "Chat de réunion avec une allocation mensuelle",
+          "icon": "chat"
+        },
+        {
+          "label": "Recherche web : 5 par mois",
+          "icon": "search"
+        },
+        {
+          "label": "Générer des fichiers depuis le chat : 5 par mois",
+          "icon": "filegen"
+        },
+        {
+          "label": "1 image par message",
           "icon": "photo"
         }
       ],
@@ -40,8 +65,24 @@
           "icon": "doc"
         },
         {
-          "label": "Images max",
-          "value": "1 par question",
+          "label": "Chat de projet",
+          "value": "aperçu",
+          "icon": "chat",
+          "state": "teaser"
+        },
+        {
+          "label": "Recherche web",
+          "value": "5 par mois",
+          "icon": "search"
+        },
+        {
+          "label": "Génération de fichiers",
+          "value": "5 par mois",
+          "icon": "filegen"
+        },
+        {
+          "label": "Images max.",
+          "value": "1 par message",
           "icon": "photo"
         }
       ],
@@ -113,41 +154,41 @@
       "display_name": "Plus",
       "description": "Vos {recall_window_days} derniers jours de réunions dans chaque conversation. Documents, recherche web, génération de fichiers, usage illimité.",
       "feature_bullets": [
-        "Réunions illimitées avec assistance IA",
-        "Des résumés rédigés pendant que la réunion est encore en cours",
-        "Rapports de réunion partageables",
-        "Posez des questions sur toutes les réunions d'un projet",
         "Vos {recall_window_days} derniers jours de réunions, dans chaque conversation",
-        "Recherche web : des infos actuelles dans vos réponses (75/mois)",
-        "3 photos ou images par question"
+        "Chat de réunion et de projet illimités",
+        "Joignez des documents, la réponse les lit en entier",
+        "Recherche web : 75 par mois",
+        "Générez de vrais fichiers depuis le chat : Excel, Word, PowerPoint, PDF",
+        "Trois fois plus de contexte par message",
+        "3 images par message"
       ],
       "feature_items": [
-        {
-          "label": "Réunions illimitées avec assistance IA",
-          "icon": "checkmark"
-        },
-        {
-          "label": "Des résumés rédigés pendant que la réunion est encore en cours",
-          "icon": "doc"
-        },
-        {
-          "label": "Rapports de réunion partageables",
-          "icon": "share"
-        },
-        {
-          "label": "Posez des questions sur toutes les réunions d'un projet",
-          "icon": "chat"
-        },
         {
           "label": "Vos {recall_window_days} derniers jours de réunions, dans chaque conversation",
           "icon": "brain"
         },
         {
-          "label": "Recherche web : des infos actuelles dans vos réponses (75/mois)",
+          "label": "Chat de réunion et de projet illimités",
+          "icon": "chat"
+        },
+        {
+          "label": "Joignez des documents, la réponse les lit en entier",
+          "icon": "paperclip"
+        },
+        {
+          "label": "Recherche web : 75 par mois",
           "icon": "search"
         },
         {
-          "label": "3 photos ou images par question",
+          "label": "Générez de vrais fichiers depuis le chat : Excel, Word, PowerPoint, PDF",
+          "icon": "filegen"
+        },
+        {
+          "label": "Trois fois plus de contexte par message",
+          "icon": "cpu"
+        },
+        {
+          "label": "3 images par message",
           "icon": "photo"
         }
       ],
@@ -168,9 +209,16 @@
           "icon": "cpu"
         },
         {
-          "label": "Images max",
-          "value": "3 par question",
-          "icon": "photo"
+          "label": "Mémoire des réunions",
+          "value": "{recall_window_days} derniers jours",
+          "icon": "brain",
+          "state": "enabled"
+        },
+        {
+          "label": "Chat de projet",
+          "value": "oui",
+          "icon": "chat",
+          "state": "enabled"
         },
         {
           "label": "Recherche web",
@@ -179,15 +227,18 @@
         },
         {
           "label": "Génération de fichiers",
-          "value": "passez à Pro",
-          "icon": "filegen",
-          "state": "teaser"
+          "value": "Excel, Word, PowerPoint, PDF",
+          "icon": "filegen"
         },
         {
-          "label": "Mémoire des réunions",
-          "value": "{recall_window_days} derniers jours",
-          "icon": "brain",
-          "state": "enabled"
+          "label": "Pièces jointes",
+          "value": "2 fichiers, jusqu'à 25 Mo chacun",
+          "icon": "paperclip"
+        },
+        {
+          "label": "Images max.",
+          "value": "3 par message",
+          "icon": "photo"
         }
       ],
       "feature_definitions": {
@@ -246,41 +297,41 @@
       "display_name": "Pro",
       "description": "Tout ce que vous avez enregistré, dans chaque conversation, avec le modèle le plus puissant pour l'analyse et les rapports.",
       "feature_bullets": [
-        "IA avancée pour des rapports et analyses plus approfondis",
-        "Récapitulatif complet ou seulement les nouveautés, au choix",
-        "Recherche web : des infos actuelles dans vos réponses (120/mois)",
         "Toutes les réunions que vous avez enregistrées, dans chaque conversation",
-        "Crée de vrais fichiers à partager : Excel, Word, PowerPoint, PDF",
-        "Joignez des documents au chat (2 fichiers, 25 Mo chacun)",
-        "5 photos ou images par question"
+        "Le modèle le plus puissant pour l'analyse et les rapports",
+        "Le plus grand contexte par message",
+        "Recherche web : 120 par mois",
+        "Générez de vrais fichiers depuis le chat : Excel, Word, PowerPoint, PDF",
+        "Joignez des documents, la réponse les lit en entier",
+        "5 images par message"
       ],
       "feature_items": [
-        {
-          "label": "IA avancée pour des rapports et analyses plus approfondis",
-          "icon": "checkmark.plus"
-        },
-        {
-          "label": "Récapitulatif complet ou seulement les nouveautés, au choix",
-          "icon": "doc"
-        },
-        {
-          "label": "Recherche web : des infos actuelles dans vos réponses (120/mois)",
-          "icon": "search"
-        },
         {
           "label": "Toutes les réunions que vous avez enregistrées, dans chaque conversation",
           "icon": "brain"
         },
         {
-          "label": "Crée de vrais fichiers à partager : Excel, Word, PowerPoint, PDF",
+          "label": "Le modèle le plus puissant pour l'analyse et les rapports",
+          "icon": "cpu"
+        },
+        {
+          "label": "Le plus grand contexte par message",
+          "icon": "cpu"
+        },
+        {
+          "label": "Recherche web : 120 par mois",
+          "icon": "search"
+        },
+        {
+          "label": "Générez de vrais fichiers depuis le chat : Excel, Word, PowerPoint, PDF",
           "icon": "filegen"
         },
         {
-          "label": "Joignez des documents au chat (2 fichiers, 25 Mo chacun)",
+          "label": "Joignez des documents, la réponse les lit en entier",
           "icon": "paperclip"
         },
         {
-          "label": "5 photos ou images par question",
+          "label": "5 images par message",
           "icon": "photo"
         }
       ],
@@ -297,13 +348,20 @@
         },
         {
           "label": "IA",
-          "value": "Avancée",
+          "value": "Modèle le plus puissant",
           "icon": "cpu"
         },
         {
-          "label": "Images max",
-          "value": "5 par question",
-          "icon": "photo"
+          "label": "Mémoire des réunions",
+          "value": "tout, depuis toujours",
+          "icon": "brain",
+          "state": "enabled"
+        },
+        {
+          "label": "Chat de projet",
+          "value": "oui",
+          "icon": "chat",
+          "state": "enabled"
         },
         {
           "label": "Recherche web",
@@ -321,10 +379,9 @@
           "icon": "paperclip"
         },
         {
-          "label": "Mémoire des réunions",
-          "value": "tout, depuis toujours",
-          "icon": "brain",
-          "state": "enabled"
+          "label": "Images max.",
+          "value": "5 par message",
+          "icon": "photo"
         }
       ],
       "feature_definitions": {

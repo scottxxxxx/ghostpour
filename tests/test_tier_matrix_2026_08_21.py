@@ -52,3 +52,30 @@ def test_documents_and_generation_gates_match_the_sheet():
     assert CC["documents"]["min_tier"] == "plus"          # Free waits on the per-tier document dial
     assert CC["documents"]["generation"]["min_tier"] == "free"
     assert CC["documents"]["per_file_max_mb"] == 25
+
+
+def _status(loc, tier, icon):
+    rows = [r for r in TIERS[loc][tier].get("status_items", []) if r.get("icon") == icon]
+    return rows[0] if rows else None
+
+
+def test_paywall_cards_say_what_the_dials_enforce():
+    """The cards are what SS renders on the paywall; every number on them
+    must be the dial's number, and a row must not claim a feature the tier's
+    switch or min_tier does not give it (the 'File generation: upgrade to
+    Pro' on the Plus card lived for a day after generation moved)."""
+    for loc in TIERS:
+        for tier, n in (("free", 5), ("plus", 75), ("pro", 120)):
+            row = _status(loc, tier, "search")
+            assert row and str(n) in row["value"], (loc, tier, row)
+        for tier in ("free", "plus", "pro"):
+            row = _status(loc, tier, "filegen")
+            assert row and "Pro" not in row["value"] and "pro" not in row["value"].lower(), (loc, tier, row)
+            assert _status(loc, tier, "photo"), (loc, tier)
+        assert _status(loc, "free", "filegen")["value"].count("5") >= 1, loc
+        # documents: Plus and Pro carry the paperclip row; Free does NOT until the dial ships
+        assert _status(loc, "plus", "paperclip") and _status(loc, "pro", "paperclip"), loc
+        assert _status(loc, "free", "paperclip") is None, loc
+        # Memory row: Plus and Pro enabled; Free has none while its cell is disabled
+        assert _status(loc, "plus", "brain")["state"] == "enabled" and _status(loc, "pro", "brain")["state"] == "enabled", loc
+        assert _status(loc, "free", "brain") is None, loc
