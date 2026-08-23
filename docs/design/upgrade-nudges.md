@@ -45,8 +45,8 @@ answer skipped 6 earlier meetings does." It is the rule for every nudge.
 
 | Moment | From | To | Data that makes it true | Status |
 |---|---|---|---|---|
-| Memory found earlier meetings the People-scoped recall could not use | Free | Plus | CQ `excluded.by_scope.meetings` | GP built, **waits on CQ field** and on Free's cell flipping to `teaser` |
-| Matching meetings older than the 30-day window were out of reach | Plus | Pro | CQ `excluded.by_window.meetings` | GP built, **waits on CQ field** |
+| Meetings in the project hold memory the People-scoped render cannot use | Free | Plus | CQ `excluded.by_scope.meetings` | GP built, copy matches CQ's definition; **waits on CQ #325 deploy** and on Free's cell flipping to `teaser` |
+| Meetings in the project older than the 30-day window | Plus | Pro | CQ `excluded.by_window.meetings` | GP built, copy matches CQ's definition; **waits on CQ #325 deploy** |
 | Project Chat context over the tier cap, and a higher tier's cap fits | Free, Plus | the lowest tier that fits | served `max_input_chars` per tier | **LIVE** (this PR) |
 | Monthly AI budget exhausted | Free | Plus | budget gate | live before |
 | Search allowance exhausted | Free, Plus | next tier | search dials | live before, copy unchanged |
@@ -68,19 +68,43 @@ is a product feature and not a nudge.
 One additive field from CQ carries both memory nudges. CQ applies the
 scope predicate (Free's `recall_scope: people`) and the window predicate
 (Plus's `max_age_days`), so CQ is the side that can count what each cut.
-Asked 2026-08-23, on the `/v1/recall` response:
+CQ's contract (delivered 2026-08-23, CQ PR #325, awaiting Scott's merge
+word because it touches the recall hot path). Top-level on the `/v1/recall`
+response, sibling of `context` and `patch_count`, NOT inside metadata.
+Rides in CQ's render cache, so a cached hit carries the same block as the
+miss that built it. Real values from Scott's ABM project:
 
 ```json
 "excluded": {
-  "by_scope":  {"meetings": 6},
-  "by_window": {"meetings": 4, "oldest": "2026-05-02T10:00:00Z"}
+  "by_window": {"meetings": 60, "oldest": "2026-04-21T16:05:23.078562+00:00",
+                "max_age_days": 30, "definition": "..."},
+  "by_scope":  {"meetings": 67, "definition": "..."}
 }
 ```
 
-Counts are MEETINGS, not patches: a user thinks in meetings. Either
-block may be absent. GP reads the raw recall response (it is not
-modelled), so the field flows the moment CQ ships it and does nothing
-until then.
+- Only on PROJECT-SCOPED requests (the chat flow is). `by_window` only
+  when `metadata.max_age_days` was sent; `by_scope` only when
+  `metadata.recall_scope == "people"`.
+- Absent = CQ did not compute it. Present with zero = a condition applied
+  and nothing was kept out. Both are silence for GP; the wire keeps the
+  two facts apart.
+- Counts are MEETINGS (distinct origin_id) the tier could not use, never
+  counts returned. **They are not matches that scored.** `by_window` is
+  the age predicate inverted over the project scope (last observation
+  older than the window; universal self-disclosure types excluded because
+  they are never windowed). `by_scope` is cheaper on purpose: on a
+  people-scoped request no memory leg runs, so no scored set exists to
+  subtract from; it is the meetings in the project holding memory the
+  People render cannot use. CQ will not pay the full fetch legs on every
+  Free turn for an honest "matches that scored", and GP agreed.
+- Cost, measured on the largest scope on prod (1745 rows): ~5 ms warm per
+  condition, 43 ms cold once; one indexed COUNT per condition, never a
+  second recall. Day-bucketed, byte-stable within a UTC day.
+
+Because the counts are project counts, the copy claims the project
+count and never "memory found" or "matching". `tests/test_upgrade_nudges.py`
+pins that in all four locales and in the code floor, and renders CQ's
+real block above with its extra keys ignored.
 
 GP renders served copy around the count into the chat envelope's
 `feature_state` (the same slot as the generation teaser, which wins when
@@ -89,7 +113,7 @@ both exist because an in-flow offer is worth more than a nudge):
 ```json
 {"feature": "context_quilt", "state": "teaser",
  "cta": {"kind": "memory_excluded_window",
-         "text": "4 matching meetings older than 30 days were out of reach. Pro has no window.",
+         "text": "This project has 4 meetings older than 30 days, outside the Plus window. Pro has no window.",
          "primary_action": {"label": "See Pro", "action": "open_paywall", "plan": "pro"},
          "secondary_action": {"label": "Not now", "action": "dismiss"},
          "details": {"excluded_meetings": 4, "window_days": 30}}}
@@ -114,7 +138,10 @@ does not know them renders nothing, which is the right degradation.
 
 ## Open
 
-- CQ: the `excluded` block. Until it ships, the two memory nudges are dormant.
+- CQ: deploy of #325 (the `excluded` block). Until it is live, the two memory
+  nudges are dormant. Then prove it on the proxied path: one project-scoped
+  recall carrying `max_age_days`, one carrying `recall_scope=people`, block
+  read off the raw JSON on the GP side.
 - Scott: flip Free's `context_quilt` cell from `disabled` to `teaser`,
   which is the pending matrix PR. The Free nudge cannot fire on `disabled`
   because the People-scoped lane runs instead of the teaser lane; the

@@ -1,5 +1,5 @@
 {
-  "version": 49,
+  "version": 50,
   "tiers": {
     "free": {
       "display_name": "Gratuit",
@@ -638,11 +638,11 @@
       "label": "Voir {tier_name}"
     },
     "memory_excluded_scope": {
-      "text": "Réunions antérieures trouvées par la mémoire mais non utilisées ici : {excluded}. Plus les intègre à chaque conversation.",
+      "text": "La mémoire de {excluded} réunions de ce projet n'est pas disponible avec Free. Plus l'intègre à chaque conversation.",
       "label": "Voir Plus"
     },
     "memory_excluded_window": {
-      "text": "Réunions correspondantes de plus de {window} jours restées hors de portée : {excluded}. Pro n'a aucune limite.",
+      "text": "Ce projet compte {excluded} réunions de plus de {window} jours, hors de la fenêtre Plus. Pro n'a aucune limite.",
       "label": "Voir Pro"
     }
   }

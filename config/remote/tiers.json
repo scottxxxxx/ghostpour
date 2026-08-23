@@ -1,5 +1,5 @@
 {
-  "version": 50,
+  "version": 51,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -638,11 +638,11 @@
       "label": "See {tier_name}"
     },
     "memory_excluded_scope": {
-      "text": "This answer skipped {excluded} earlier meeting{plural} that memory found. Plus brings them into every conversation.",
+      "text": "Memory from {excluded} meeting{plural} in this project is not available on Free. Plus brings it into every conversation.",
       "label": "See Plus"
     },
     "memory_excluded_window": {
-      "text": "{excluded} matching meeting{plural} older than {window} days were out of reach. Pro has no window.",
+      "text": "This project has {excluded} meeting{plural} older than {window} days, outside the Plus window. Pro has no window.",
       "label": "See Pro"
     }
   }
