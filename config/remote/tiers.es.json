@@ -1,5 +1,5 @@
 {
-  "version": 49,
+  "version": 50,
   "tiers": {
     "free": {
       "display_name": "Gratis",
@@ -638,11 +638,11 @@
       "label": "Ver {tier_name}"
     },
     "memory_excluded_scope": {
-      "text": "Reuniones anteriores que la memoria encontró pero esta respuesta no usó: {excluded}. Plus las incorpora a cada conversación.",
+      "text": "La memoria de {excluded} reuniones de este proyecto no está disponible en Free. Plus la incorpora a cada conversación.",
       "label": "Ver Plus"
     },
     "memory_excluded_window": {
-      "text": "Reuniones coincidentes de hace más de {window} días que quedaron fuera: {excluded}. Pro no tiene límite de tiempo.",
+      "text": "Este proyecto tiene {excluded} reuniones de hace más de {window} días, fuera de la ventana de Plus. Pro no tiene límite de tiempo.",
       "label": "Ver Pro"
     }
   }

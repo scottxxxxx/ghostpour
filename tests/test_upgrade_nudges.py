@@ -93,7 +93,7 @@ def test_free_scope_exclusion_nudges_to_plus_with_the_number():
     s = un.memory_excluded_cta(RC, "free", {"by_scope": {"meetings": 6}}, None)
     assert s["feature"] == "context_quilt" and s["state"] == "teaser"
     assert s["cta"]["kind"] == "memory_excluded_scope"
-    assert "6 earlier meetings" in s["cta"]["text"]
+    assert "Memory from 6 meetings in this project" in s["cta"]["text"]
     assert s["cta"]["primary_action"] == {"label": "See Plus", "action": "open_paywall", "plan": "plus"}
     assert s["cta"]["details"]["excluded_meetings"] == 6
 
@@ -101,14 +101,14 @@ def test_free_scope_exclusion_nudges_to_plus_with_the_number():
 def test_plus_window_exclusion_nudges_to_pro_with_the_number_and_the_window():
     s = un.memory_excluded_cta(RC, "plus", {"by_window": {"meetings": 4}}, 30)
     assert s["cta"]["kind"] == "memory_excluded_window"
-    assert "4 matching meetings" in s["cta"]["text"] and "30 days" in s["cta"]["text"]
+    assert "4 meetings older than 30 days" in s["cta"]["text"]
     assert s["cta"]["primary_action"]["plan"] == "pro"
     assert s["cta"]["details"] == {"excluded_meetings": 4, "window_days": 30}
 
 
 def test_singular_reads_as_singular():
     s = un.memory_excluded_cta(RC, "free", {"by_scope": {"meetings": 1}}, None)
-    assert "1 earlier meeting that" in s["cta"]["text"]
+    assert "1 meeting in this project" in s["cta"]["text"]
 
 
 @pytest.mark.parametrize("tier,excluded,window", [
@@ -123,6 +123,48 @@ def test_singular_reads_as_singular():
 ])
 def test_silence_in_every_case_that_is_not_an_earned_number(tier, excluded, window):
     assert un.memory_excluded_cta(RC, tier, excluded, window) is None
+
+
+# --- the copy claims what CQ's definition supports (contract 2026-08-23) ------
+
+# CQ's real block for Scott's ABM project: counts are MEETINGS IN THE
+# PROJECT the tier could not use (by_scope: hold memory the People render
+# cannot use; by_window: last observation older than the window). They are
+# NOT matches that scored, so the copy may not say "found" or "matching".
+CQ_EXCLUDED = {
+    "by_window": {"meetings": 60, "oldest": "2026-04-21T16:05:23.078562+00:00",
+                  "max_age_days": 30, "definition": "age predicate inverted over the project scope"},
+    "by_scope": {"meetings": 67, "definition": "meetings in the project holding memory the People render cannot use"},
+}
+
+
+def test_cq_real_block_renders_with_its_extra_keys_ignored():
+    free = un.memory_excluded_cta(RC, "free", CQ_EXCLUDED, None)
+    plus = un.memory_excluded_cta(RC, "plus", CQ_EXCLUDED, 30)
+    assert free["cta"]["details"]["excluded_meetings"] == 67
+    assert plus["cta"]["details"] == {"excluded_meetings": 60, "window_days": 30}
+
+
+OVERCLAIMS = {
+    "": ("found", "matching", "skipped"),
+    "es": ("encontró", "coincidentes", "no usó"),
+    "fr": ("trouvées", "correspondantes", "non utilisées"),
+    "ja": ("見つけた", "該当する"),
+}
+
+
+@pytest.mark.parametrize("loc", list(OVERCLAIMS))
+def test_served_copy_never_claims_the_count_is_matches(loc):
+    with open(f"config/remote/tiers{'.' + loc if loc else ''}.json", encoding="utf-8") as f:
+        nudges = json.load(f)["upgrade_nudges"]
+    for kind in ("memory_excluded_scope", "memory_excluded_window"):
+        text = nudges[kind]["text"]
+        assert "{excluded}" in text, (loc, kind)
+        for word in OVERCLAIMS[loc]:
+            assert word not in text, (loc, kind, word)
+    for kind in ("memory_excluded_scope", "memory_excluded_window"):
+        for word in OVERCLAIMS[""]:
+            assert word not in un.DEFAULT_COPY[kind]["text"], (kind, word)
 
 
 # --- the trigger that fires for real today: the context block -----------------

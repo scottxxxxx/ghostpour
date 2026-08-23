@@ -55,13 +55,17 @@ DEFAULT_COPY: dict[str, dict[str, str]] = {
         "text": "This is {needed}K characters. {tier_name} fits up to {cap}K.",
         "label": "See {tier_name}",
     },
-    # {excluded} meetings the recall found and could not use.
+    # {excluded} is a count of MEETINGS IN THE PROJECT the tier could not
+    # use, never a count of matches that scored (CQ contract 2026-08-23:
+    # by_scope = meetings holding memory the People render cannot use;
+    # by_window = meetings whose last observation is older than the
+    # window). Copy must claim the project count, not "memory found".
     "memory_excluded_scope": {
-        "text": "This answer skipped {excluded} earlier meeting{plural} that memory found. Plus brings them into every conversation.",
+        "text": "Memory from {excluded} meeting{plural} in this project is not available on Free. Plus brings it into every conversation.",
         "label": "See Plus",
     },
     "memory_excluded_window": {
-        "text": "{excluded} matching meeting{plural} older than {window} days were out of reach. Pro has no window.",
+        "text": "This project has {excluded} meeting{plural} older than {window} days, outside the Plus window. Pro has no window.",
         "label": "See Pro",
     },
 }
