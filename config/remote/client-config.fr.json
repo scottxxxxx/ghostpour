@@ -1,5 +1,5 @@
 {
-  "version": 16,
+  "version": 19,
   "native_actions": {
     "enabled": true,
     "kinds": [
@@ -15,7 +15,8 @@
       "max_input_chars": {
         "free": 200000,
         "plus": 600000,
-        "pro": 720000
+        "pro": 1440000,
+        "automation": 1440000
       }
     }
   },

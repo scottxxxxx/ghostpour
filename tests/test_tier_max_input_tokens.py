@@ -10,12 +10,20 @@ from app.models.tier import load_tier_config
 
 
 def test_tier_yaml_caps_match_ss_contract():
-    """Free=50K, Plus=150K, Pro=180K — sourced from the budget-gate spec
-    and confirmed with SS in the budget-gate PR comm."""
+    """Free=50K, Plus=150K, Pro=360K.
+
+    Pro DOUBLED from 180K on 2026-08-23 on Scott's direct instruction.
+    That OVERRIDES the tier matrix sheet in `Subscription Info/`, which
+    still records 180,000 in both the enforced and the proposed columns.
+    The sheet is the documented ruling, so it is now stale, and this
+    comment exists so the next person reading it does not "correct" prod
+    back down. Sonnet 4.6 accepts 1,000,000 input tokens (confirmed
+    against Anthropic's Models API, not from memory), so 360K is well
+    inside the model's ceiling."""
     tc = load_tier_config("config/tiers.yml")
     assert tc.tiers["free"].max_input_tokens == 50_000
     assert tc.tiers["plus"].max_input_tokens == 150_000
-    assert tc.tiers["pro"].max_input_tokens == 180_000
+    assert tc.tiers["pro"].max_input_tokens == 360_000
 
 
 def test_admin_tier_uncapped():
@@ -38,9 +46,21 @@ def test_remote_config_wire_path_matches_ss_contract():
     in tiers.json (and locale variants). If this path changes, iOS breaks
     silently. Pin the wire path AND the values across all three locales."""
     import json
-    expected = {"free": 50_000, "plus": 150_000, "pro": 180_000}
-    for variant in ["tiers.json", "tiers.es.json", "tiers.ja.json",
-                    "tiers.fr.json"]:
+    # Japanese is deliberately HALF. The char cap in client-config.ja is
+    # half the others because the chars/4 token heuristic underestimates
+    # CJK, and this legacy mirror (= chars/4) has to track it or an older
+    # iOS build shows a gauge denominator twice the server's real cap and
+    # the user hits a 413 at half a full bar. Before 2026-08-23 tiers.ja
+    # carried 180000 against a client-config.ja of 360000 chars (= 90000
+    # tokens), so that skew was already live and this test's uniform
+    # expectation was hiding it.
+    per_locale = {
+        "tiers.json":    {"free": 50_000, "plus": 150_000, "pro": 360_000},
+        "tiers.es.json": {"free": 50_000, "plus": 150_000, "pro": 360_000},
+        "tiers.fr.json": {"free": 50_000, "plus": 150_000, "pro": 360_000},
+        "tiers.ja.json": {"free": 50_000, "plus": 150_000, "pro": 180_000},
+    }
+    for variant, expected in per_locale.items():
         d = json.loads(open(f"config/remote/{variant}").read())
         for tier_name, expected_cap in expected.items():
             actual = (

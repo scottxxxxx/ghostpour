@@ -1,5 +1,5 @@
 {
-  "version": 46,
+  "version": 47,
   "tiers": {
     "free": {
       "display_name": "Gratis",
@@ -386,7 +386,7 @@
       ],
       "feature_definitions": {
         "project_chat": {
-          "max_input_tokens": 180000
+          "max_input_tokens": 360000
         },
         "search": {
           "searches_per_month": 120,
