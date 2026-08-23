@@ -77,9 +77,18 @@ class CheckResult:
     """In-memory record of the most recent auto-republish attempt.
     Surfaced via the admin status endpoint."""
     checked_at: datetime
-    action: str  # "republished" | "noop_healthy" | "noop_no_signing" | "failed"
+    action: str  # "republished" | "republished_drift" | "noop_healthy"
+                 # | "noop_no_signing" | "probe_failed" | "failed"
     version_after: int | None
     detail: str
+    # WHICH hosts this tick actually probed. Recorded because leaving it
+    # invisible cost us a live gap on 2026-08-23: the multi-host union
+    # shipped in code while prod still had `CZ_CERT_PIN_HOSTS` unset, so
+    # the daemon fell back to probing cz alone, republished from that one
+    # view, and dropped share.shouldersurf.com's intermediate. Everything
+    # about that was correct except the configuration, and nothing
+    # anywhere said "one host" out loud, so there was nothing to notice.
+    hosts: list[str] | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -87,6 +96,7 @@ class CheckResult:
             "action": self.action,
             "version_after": self.version_after,
             "detail": self.detail,
+            "hosts": list(self.hosts) if self.hosts else [],
         }
 
 
@@ -149,6 +159,7 @@ async def maybe_auto_republish(
             action="noop_no_signing",
             version_after=None,
             detail="CZ_CERT_PIN_SIGNING_KEY_RAW_B64 not configured; skipping",
+            hosts=settings.cert_pin_host_list,
         )
         _last_check = result
         return result
@@ -199,6 +210,7 @@ async def maybe_auto_republish(
                 checked_at=now, action="probe_failed",
                 version_after=current["version"] if current else None,
                 detail=f"could not read the live chain: {e}",
+                hosts=settings.cert_pin_host_list,
             )
             _last_check = result
             return result
@@ -209,6 +221,7 @@ async def maybe_auto_republish(
             action="noop_healthy",
             version_after=current["version"] if current else None,
             detail=f"manifest healthy, {days_remaining:.1f}d to expiry, pins match the live chain",
+            hosts=settings.cert_pin_host_list,
         )
         _last_check = result
         return result
@@ -233,6 +246,7 @@ async def maybe_auto_republish(
             action="failed",
             version_after=current["version"] if current else None,
             detail=f"chain fetch failed: {e}",
+            hosts=settings.cert_pin_host_list,
         )
         _last_check = result
         return result
@@ -261,6 +275,7 @@ async def maybe_auto_republish(
             action="failed",
             version_after=current["version"] if current else None,
             detail=f"signing failed: {e}",
+            hosts=settings.cert_pin_host_list,
         )
         _last_check = result
         return result
@@ -286,6 +301,7 @@ async def maybe_auto_republish(
         checked_at=now,
         action="republished_drift" if drifted else "republished",
         version_after=manifest["version"],
+        hosts=settings.cert_pin_host_list,
         detail=(
             f"v{manifest['version']} published, {len(live_pins)} pins, "
             f"expires {manifest['expires_at']}, pins_changed={pins_changed}, "
@@ -333,6 +349,7 @@ def compute_status(
 
     expires_at = _parse_iso(current["expires_at"])
     days_remaining = (expires_at - now).total_seconds() / 86400.0
+    probed = list(last_check.hosts) if (last_check and last_check.hosts) else []
 
     # Red trumps yellow trumps green.
     if last_check and last_check.action == "failed":
@@ -372,12 +389,24 @@ def compute_status(
             f"{days_remaining:.1f}d to expiry."
         )
 
+    # The hosts the last tick actually probed, on the banner rather than
+    # only in a log line. A manifest is only as complete as the set of
+    # chains it was built from, and "which chains" was invisible until
+    # 2026-08-23, when a correct union implementation ran against one host
+    # because prod had no host list configured, and quietly published a
+    # manifest that dropped another host's intermediate.
+    #
+    # Deliberately reported as a FACT rather than judged: this module
+    # cannot know how many hosts there are supposed to be, only how many
+    # it looked at. Printing the list lets a person notice; inventing an
+    # expected count would be a guess wearing an alarm.
     return {
         "level": level,
         "text": text,
         "version": current["version"],
         "expires_at": current["expires_at"],
         "days_remaining": round(days_remaining, 2),
+        "probed_hosts": probed,
         "last_check": last_check.to_dict() if last_check else None,
     }
 
@@ -402,8 +431,9 @@ async def run_daemon(app) -> None:
             async with aiosqlite.connect(db_path) as db:
                 result = await maybe_auto_republish(db, settings)
             logger.info(
-                "cert_pin auto-check action=%s version_after=%s detail=%s",
-                result.action, result.version_after, result.detail,
+                "cert_pin auto-check action=%s version_after=%s hosts=%s detail=%s",
+                result.action, result.version_after,
+                ",".join(result.hosts or []) or "<none>", result.detail,
             )
         except Exception as e:
             logger.warning("cert_pin auto-check tick failed: %s", e)

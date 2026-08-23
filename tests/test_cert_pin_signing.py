@@ -622,3 +622,96 @@ def test_the_banner_cannot_say_green_after_a_probe_failure():
     assert probe_failed["level"] == "yellow", (
         "31 days to expiry made the banner green while nobody could read the chain")
     assert "live chain" in probe_failed["text"]
+
+
+# --- WHICH hosts were probed is now visible (2026-08-23) -------------------
+#
+# The gap this closes cost a live manifest. #768 shipped a correct
+# multi-host union, prod never set CZ_CERT_PIN_HOSTS, the resolution fell
+# back to the single `cert_pin_self_host`, and the daemon republished from
+# that one view and dropped share.shouldersurf.com's intermediate.
+#
+# Every part of that was correct except the configuration, and nothing
+# anywhere said "one host" out loud. The banner said green and then hid
+# itself, which is the specific reason nobody could have noticed.
+#
+# So the host list is recorded on every check result, logged on every
+# tick, and put on the banner INCLUDING in the healthy case. Reported as
+# a fact rather than judged: this side cannot know how many hosts there
+# are meant to be, only how many it looked at, and inventing an expected
+# count would be a guess wearing an alarm.
+
+@pytest.mark.asyncio
+async def test_every_check_records_which_hosts_it_probed(tmp_path):
+    from app.services.cert_pin_auto_republish import maybe_auto_republish
+    from app.services.cert_pin_signing import publish_manifest
+
+    async with await _fresh_db(tmp_path) as db:
+        settings = _settings_with_key(_fresh_key_b64())
+        settings.cert_pin_hosts = "a.example.com,b.example.com"
+        await publish_manifest(db, settings, pins=[_YE1, _ROOT_YE], days_valid=60)
+        with patch("app.services.cert_pin_auto_republish.fetch_current_chain_pins",
+                   return_value=[_YE1, _ROOT_YE]):
+            healthy = await maybe_auto_republish(db, settings)
+        with patch("app.services.cert_pin_auto_republish.fetch_current_chain_pins",
+                   return_value=[_YE2, _ROOT_YE]):
+            drifted = await maybe_auto_republish(db, settings)
+        with patch("app.services.cert_pin_auto_republish.fetch_current_chain_pins",
+                   side_effect=OSError("nope")):
+            failed = await maybe_auto_republish(db, settings)
+
+    for result in (healthy, drifted, failed):
+        assert result.hosts == ["a.example.com", "b.example.com"], (
+            f"{result.action} did not record what it probed")
+        assert result.to_dict()["hosts"] == ["a.example.com", "b.example.com"]
+
+
+def test_the_banner_names_the_probed_hosts_even_when_green():
+    """The healthy case is the one that matters. A green banner that hides
+    itself is where the single-host republish went unnoticed, so the host
+    list has to survive into the state where nothing looks wrong."""
+    from datetime import datetime, timedelta, timezone
+    from app.services.cert_pin_auto_republish import CheckResult, compute_status
+
+    now = datetime.now(timezone.utc)
+    current = {"version": 5, "pins": [_YE1, _YE2],
+               "expires_at": (now + timedelta(days=60)).isoformat().replace("+00:00", "Z")}
+    status = compute_status(
+        signing_configured=True, current=current,
+        last_check=CheckResult(checked_at=now, action="noop_healthy",
+                               version_after=5, detail="fine",
+                               hosts=["cz.example.com", "share.example.com"]),
+    )
+    assert status["level"] == "green"
+    assert status["probed_hosts"] == ["cz.example.com", "share.example.com"]
+
+
+def test_a_single_probed_host_is_reported_not_judged():
+    """The 2026-08-23 state exactly: one host, everything else healthy.
+    This must NOT raise the level, because the module cannot know whether
+    one host is wrong. It must be VISIBLE, which is the whole fix."""
+    from datetime import datetime, timedelta, timezone
+    from app.services.cert_pin_auto_republish import CheckResult, compute_status
+
+    now = datetime.now(timezone.utc)
+    current = {"version": 4, "pins": [_YE2],
+               "expires_at": (now + timedelta(days=60)).isoformat().replace("+00:00", "Z")}
+    status = compute_status(
+        signing_configured=True, current=current,
+        last_check=CheckResult(checked_at=now, action="republished_drift",
+                               version_after=4, detail="published",
+                               hosts=["cz.shouldersurf.com"]),
+    )
+    assert status["probed_hosts"] == ["cz.shouldersurf.com"]
+    assert status["level"] != "red", "one host is not by itself an error"
+
+
+def test_probed_hosts_is_empty_rather_than_absent_before_the_first_check():
+    from datetime import datetime, timedelta, timezone
+    from app.services.cert_pin_auto_republish import compute_status
+
+    now = datetime.now(timezone.utc)
+    current = {"version": 1, "pins": [_YE1],
+               "expires_at": (now + timedelta(days=60)).isoformat().replace("+00:00", "Z")}
+    status = compute_status(signing_configured=True, current=current, last_check=None)
+    assert status["probed_hosts"] == [], "absent and empty must not be two states here"

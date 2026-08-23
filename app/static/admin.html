@@ -2346,13 +2346,16 @@ async function refreshCertPinBanner() {
     const banner = document.getElementById('cert-pin-banner');
     const text = document.getElementById('cert-pin-banner-text');
     const meta = document.getElementById('cert-pin-banner-meta');
-    if (s.level === 'green') {
-      banner.style.display = 'none';
-      return;
-    }
+    // Green used to hide this entirely, which is how the 2026-08-23 gap
+    // stayed invisible: the banner said healthy and then said nothing at
+    // all, so "probed one host" had nowhere to appear. Green now renders
+    // a quiet line instead of vanishing, because the thing worth seeing
+    // in the healthy case is WHICH hosts the health was computed from.
     const palette = s.level === 'red'
       ? {bg: 'rgba(220, 53, 69, 0.18)', border: '#dc3545', fg: '#ffb3bc'}
-      : {bg: 'rgba(255, 193, 7, 0.18)', border: '#ffc107', fg: '#ffe48a'};
+      : s.level === 'yellow'
+      ? {bg: 'rgba(255, 193, 7, 0.18)', border: '#ffc107', fg: '#ffe48a'}
+      : {bg: 'rgba(255, 255, 255, 0.04)', border: 'rgba(255,255,255,0.18)', fg: 'rgba(255,255,255,0.55)'};
     banner.style.background = palette.bg;
     banner.style.borderLeft = `4px solid ${palette.border}`;
     banner.style.color = palette.fg;
@@ -2360,7 +2363,13 @@ async function refreshCertPinBanner() {
     const checked = s.last_check && s.last_check.checked_at
       ? `last check ${new Date(s.last_check.checked_at).toLocaleString()}`
       : 'no auto-check yet';
-    meta.textContent = `(${checked})`;
+    // A manifest is only as complete as the set of chains it was built
+    // from. Stated as a fact, not judged: this side cannot know how many
+    // hosts there are meant to be, only how many it looked at.
+    const hosts = (s.probed_hosts && s.probed_hosts.length)
+      ? `probed ${s.probed_hosts.join(', ')}`
+      : 'no host list recorded';
+    meta.textContent = `(${checked} · ${hosts})`;
     banner.style.display = '';
   } catch (_) { /* silent */ }
 }
