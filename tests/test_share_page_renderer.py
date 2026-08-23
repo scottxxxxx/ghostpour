@@ -391,3 +391,79 @@ def test_an_apostrophe_title_cannot_inject_a_new_attribute():
     got = _parsed(page)
     assert got.meta.get("og:title") == hostile
     assert "onload" not in page.lower().replace("&#39;", "'").split("<body")[0].replace(hostile, "")
+
+
+# --- The route for a recipient WITHOUT the app (2026-08-23) ----------------
+#
+# Scott's actual goal, stated plainly: send a meeting in iMessage, and if
+# the recipient has Shoulder Surf it opens there, if they do not they can
+# get it, and either way they can read the report.
+#
+# The first and third were built. The SECOND did not exist at all: the page
+# had no App Store link, no banner, and no way into the app. A universal
+# link on a device without the app does not offer the App Store on its own,
+# it silently opens the web page, so a recipient without the app read the
+# meeting and was never told the app existed.
+#
+# Two mechanisms because they reach different people. `apple-itunes-app` is
+# Apple's own banner and is the ONLY thing that can tell installed from not
+# installed, which a web page cannot detect and must not guess: iOS renders
+# "Open" or "Get" itself. The visible link covers everyone Safari's banner
+# does not, which is Chrome on iOS, Android, and every desktop browser,
+# and that last one is where a link pasted into Slack gets opened.
+
+APP_ID = "6760098225"
+SHARE_URL = "https://share.shouldersurf.com/s/AAAAAAAAAAAAAAAAAAAAAA"
+
+
+def _page(**kw):
+    from app.services.share_bundle import render_share_page
+    base = dict(card_title="Northwind rollout", card_desc="A line.",
+                transcript_included=False, expires_at="2026-09-30T00:00:00Z")
+    return render_share_page({"meetings": []}, **{**base, **kw})
+
+
+def test_the_smart_banner_carries_the_app_id_and_this_share():
+    """app-argument is what makes "Open" land on THIS meeting instead of
+    the app's home screen, so it is not decoration."""
+    html = _page(app_store_id=APP_ID, share_url=SHARE_URL)
+    got = _parsed(html)
+    assert got.meta.get("apple-itunes-app") == f"app-id={APP_ID},app-argument={SHARE_URL}"
+
+
+def test_the_banner_is_still_valid_without_a_share_url():
+    """Malformed is worse than minimal: `app-id=X,app-argument=` would be a
+    banner pointing the app at nothing."""
+    html = _page(app_store_id=APP_ID)
+    assert _parsed(html).meta.get("apple-itunes-app") == f"app-id={APP_ID}"
+
+
+def test_a_visible_store_link_exists_for_browsers_safari_cannot_reach():
+    """The banner is Safari-only. Without this, a link opened in Chrome or
+    on a desktop has no route to the app at all, which is most of the
+    places a shared link actually gets opened."""
+    html = _page(app_store_id=APP_ID, share_url=SHARE_URL)
+    assert f"https://apps.apple.com/app/id{APP_ID}" in html
+    assert "Open in Shoulder Surf" in html
+
+
+def test_no_app_store_id_means_no_banner_and_no_dead_link():
+    """The right failure. A store link that 404s on a page a stranger
+    opens is worse than a page that simply does not mention the app."""
+    html = _page()
+    assert "apple-itunes-app" not in html
+    assert "apps.apple.com" not in html
+    assert "Open in Shoulder Surf" not in html
+
+
+def test_the_store_route_never_replaces_the_report():
+    """Scott's third case has to survive the second. Whatever the page
+    offers about the app, the meeting is still readable on it."""
+    from app.services.share_bundle import read_bundle, render_share_page
+    b = read_bundle(_b("typical"))
+    html = render_share_page(b, card_title="T", card_desc="D", transcript_included=True,
+                             expires_at="2026-09-30T00:00:00Z",
+                             app_store_id=APP_ID, share_url=SHARE_URL)
+    assert "apps.apple.com" in html
+    assert "<iframe" in html, "the report stopped rendering once the store link was added"
+    assert "Show transcript" in html

@@ -89,6 +89,14 @@ def share_settings(remote_configs: dict) -> dict:
         "host": str(block.get("host") or DEFAULT_HOST).rstrip("/"),
         "default_expiry_days": int(block.get("default_expiry_days") or DEFAULT_EXPIRY_DAYS),
         "max_expiry_days": int(block.get("max_expiry_days") or MAX_EXPIRY_DAYS),
+        # Numeric App Store id, as a STRING because it is an identifier
+        # rather than a quantity and nothing ever does arithmetic on it.
+        # A dial rather than a constant so it can move without a deploy,
+        # same as the host. Absent = the page shows no App Store route at
+        # all, which is the right failure: a dead store link on a page a
+        # stranger opens is worse than no link.
+        "app_store_id": str(block["app_store_id"]).strip()
+        if str(block.get("app_store_id") or "").strip() else None,
     }
 
 

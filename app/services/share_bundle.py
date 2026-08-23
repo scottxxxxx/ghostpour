@@ -167,7 +167,8 @@ def _duration(sec) -> str:
 
 
 def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcript_included: bool,
-                      expires_at: str, og_image_url: str | None = None) -> str:
+                      expires_at: str, og_image_url: str | None = None,
+                      app_store_id: str | None = None, share_url: str | None = None) -> str:
     """The hosted page for a recipient without the app (Variant A: the
     whole meeting). Card tags for iMessage and every other messenger;
     noindex; `reportHTML` when the record carries it, in a sandboxed
@@ -218,6 +219,34 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
     if not parts:
         parts.append(f"<section><h1>{_esc(card_title)}</h1><p class='dim'>This share holds no meeting.</p></section>")
     og_img = f"<meta property='og:image' content='{_esc(og_image_url)}'>" if og_image_url else ""
+
+    # The route a recipient WITHOUT the app takes, which is the case this
+    # page exists for and the one it did not serve until 2026-08-23.
+    #
+    # Two mechanisms on purpose, because they cover different people:
+    #
+    # `apple-itunes-app` is Apple's own banner. iOS Safari renders it
+    # natively at the top of the page and decides the verb itself: "Open"
+    # when the app is installed, "Get" when it is not. We cannot detect
+    # installation from a web page and must not try; this is the one
+    # thing that can. `app-argument` hands this share's URL to the app on
+    # Open, so the app lands on THIS meeting rather than on its home
+    # screen.
+    #
+    # The visible link is for everyone Safari's banner does not reach:
+    # Chrome on iOS, Android, and every desktop browser, which is where a
+    # link pasted into Slack actually gets opened.
+    #
+    # Absent id = neither appears. No dead App Store link on a page a
+    # stranger opens, and the page is otherwise unchanged.
+    banner = get_app = ""
+    if app_store_id:
+        arg = f",app-argument={_esc(share_url)}" if share_url else ""
+        banner = f"<meta name='apple-itunes-app' content='app-id={_esc(app_store_id)}{arg}'>"
+        store = f"https://apps.apple.com/app/id{_esc(app_store_id)}"
+        get_app = (f"<p class='get'><a href='{store}'>Open in Shoulder Surf</a>"
+                   "<span class='dim'> or read it here</span></p>")
+
     return (
         "<!doctype html><html lang='en'><head><meta charset='utf-8'>"
         f"<title>{_esc(card_title)}</title><meta name='robots' content='noindex'>"
@@ -225,11 +254,14 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
         f"<meta property='og:title' content='{_esc(card_title)}'><meta property='og:description' content='{_esc(card_desc)}'>"
         f"<meta property='og:type' content='article'><meta property='og:site_name' content='Shoulder Surf'>{og_img}"
         f"<meta name='twitter:card' content='summary'><meta name='twitter:title' content='{_esc(card_title)}'><meta name='twitter:description' content='{_esc(card_desc)}'>"
+        + banner +
         "<style>body{font:16px/1.5 -apple-system,system-ui,sans-serif;max-width:720px;margin:0 auto;padding:1rem;color:#1a1a1a;background:#fafaf8}"
         "h1{font-size:1.4rem;margin:.5rem 0}.dim{color:#777}.k{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:#888;margin:1.2rem 0 .2rem}"
         ".summary{font-size:1.05rem}ul{padding-left:1.2rem}.tx pre{white-space:pre-wrap;background:#f1f1ee;padding:1rem;border-radius:8px}"
-        ".foot{margin-top:2rem;font-size:.8rem;color:#888}</style></head><body>"
-        + "".join(parts) +
+        ".foot{margin-top:2rem;font-size:.8rem;color:#888}"
+        ".get{margin:.25rem 0 1rem}.get a{display:inline-block;background:#1a1a1a;color:#fff;text-decoration:none;"
+        "padding:.5rem .9rem;border-radius:8px;font-size:.9rem}</style></head><body>"
+        + get_app + "".join(parts) +
         f"<p class='foot'>Shared from Shoulder Surf. This link stops working on {_esc(expires_at[:10])}.</p>"
         "</body></html>"
     )
