@@ -89,25 +89,40 @@ def test_no_dashes_in_the_served_mode(suffix):
     assert "—" not in text and "–" not in text
 
 
+# Pinned by CONTENT HASH rather than by `git show main:`. The first version
+# of these two tests compared against main and failed in CI, whose shallow
+# clone has no `main` ref ("fatal: invalid object name 'main'"). They
+# passed locally, where main exists, which is the local-versus-CI trap in
+# yet another costume. A hash is absolute: it does not care what git knows.
+# If one of these fails, either the text changed on purpose (update the
+# hash in the same PR, with the reason) or it changed by accident.
+
+_UNTOUCHED_MODE_SHA = {
+    "0": "5ac89480abbb830011c022ff7cb2d9d5fcdba0d8c16e8ba094eed714ea87142a",
+    "2": "b69f86c84fe51f9ab9f188768ea82c1b05f7ce2923fb4f1309d7cc11357ff647",
+    "3": "6148b3e459ba218f11d94fe8ec02b795b3993a51cc282ea3769020e86711b24e",
+    "4": "9d94f04717fc4ff7aaf4d2ea34abe7b08e271c95c79b2ca417b0f4f3337802ad"
+}
+_RULES_SHA = "28e4fc74c0f2d7de91da11b64528801945b1e7a05f123c6acf3a37a3605b8d2a"
+_TEMPLATE_SHA = "eddefd401abf112f2914dd96978203ee015fc9d75004dbc422ef41c1ae53e7e7"
+
+
+def _sha(text: str) -> str:
+    import hashlib
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
 def test_the_other_four_modes_are_untouched():
     """The eval showed they were honest. Changing them would be changing
     something that was not broken, in a PR whose evidence is about mode 1."""
-    import subprocess
-    before = json.loads(subprocess.run(
-        ["git", "show", "main:config/remote/protected-prompts.json"],
-        capture_output=True, text=True, check=True).stdout)["defaultPromptModes"]
-    after = json.load(open("config/remote/protected-prompts.json"))["defaultPromptModes"]
-    for i in (0, 2, 3, 4):
-        assert before[i]["systemPrompt"] == after[i]["systemPrompt"], f"mode {i} changed"
+    modes = json.load(open("config/remote/protected-prompts.json"))["defaultPromptModes"]
+    for i, expected in _UNTOUCHED_MODE_SHA.items():
+        assert _sha(modes[int(i)]["systemPrompt"]) == expected, f"mode {i} changed"
 
 
 def test_the_shared_rules_are_untouched():
     """Scott asked whether the system prompt needs to change. The honest
     answer from the eval is no, and this pins that the answer was acted on."""
-    import subprocess
-    before = json.loads(subprocess.run(
-        ["git", "show", "main:config/remote/protected-prompts.json"],
-        capture_output=True, text=True, check=True).stdout)
-    after = json.load(open("config/remote/protected-prompts.json"))
-    assert before["defaultUserInstructions"] == after["defaultUserInstructions"]
-    assert before["systemPromptTemplate"] == after["systemPromptTemplate"]
+    d = json.load(open("config/remote/protected-prompts.json"))
+    assert _sha(d["defaultUserInstructions"]) == _RULES_SHA
+    assert _sha(d["systemPromptTemplate"]) == _TEMPLATE_SHA
