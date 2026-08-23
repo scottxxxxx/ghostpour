@@ -1745,6 +1745,31 @@ async def chat(
         and cap_chars != -1
         and actual_chars > cap_chars
     ):
+        # The one Plus-to-Pro moment that already fires for real, and
+        # until 2026-08-23 it told every tier the same thing: trim. Now it
+        # names the lowest tier whose served cap would have fit THIS
+        # request, with both numbers, and only when one exists. No tier
+        # fits -> no upgrade affordance, because "upgrade" is a lie when
+        # trimming is the only fix. Additive: `action` stays trim_context
+        # and the upgrade rides `secondary_action`, which the search CTAs
+        # already taught the client to render.
+        from app.services.upgrade_nudges import context_upgrade_action
+        _upgrade = context_upgrade_action(
+            request.app.state.remote_configs, user.effective_tier, actual_chars,
+            lambda t: project_chat_max_input_chars(
+                request.app.state.remote_configs, t, locale=locale, fallback_chars=None))
+        _cta = {
+            "kind": "context_too_large",
+            "text": (
+                f"Selected context is {actual_chars // 1000}K chars, "
+                f"over your {cap_chars // 1000}K-char limit. "
+                + (_upgrade["reason"] if _upgrade
+                   else "Deselect meetings or drop transcripts to fit.")
+            ),
+            "action": "trim_context",
+        }
+        if _upgrade:
+            _cta["secondary_action"] = {k: v for k, v in _upgrade.items() if k != "reason"}
         raise HTTPException(
             status_code=413,
             detail={
@@ -1756,20 +1781,13 @@ async def chat(
                 ),
                 "feature_state": {
                     "feature": "project_chat",
-                    "cta": {
-                        "kind": "context_too_large",
-                        "text": (
-                            f"Selected context is {actual_chars // 1000}K chars, "
-                            f"over your {cap_chars // 1000}K-char limit. "
-                            f"Deselect meetings or drop transcripts to fit."
-                        ),
-                        "action": "trim_context",
-                    },
+                    "cta": _cta,
                     "details": {
                         "max_chars": cap_chars,
                         "actual_chars": actual_chars,
                         "locale": locale or "en",
                         "tokenizer": "chars_direct",
+                        **({"fits_on": _upgrade["plan"]} if _upgrade else {}),
                     },
                 },
             },
@@ -3167,6 +3185,30 @@ async def chat(
                             if _gen_teaser_offer_id else {}),
             },
         }
+
+    # Memory nudge (2026-08-23): what recall FOUND and could not USE, with
+    # the number. Free's People-scoped recall leaves matches out (Plus
+    # would bring them in); Plus's N-day window leaves older ones out (Pro
+    # has no window). CQ applies both predicates, so CQ counts what each
+    # cut and reports it as an additive `excluded` block on the recall
+    # response; GP renders served copy around the count. Absent block,
+    # zero count, or a tier with nothing above it all mean silence.
+    #
+    # The envelope carries ONE feature_state, and an in-flow generation
+    # offer is worth more than a nudge, so the offer keeps the slot.
+    if _teaser_state is None:
+        _cq_hook_result = hook_results.get("context_quilt") or {}
+        _excluded = (_cq_hook_result.get("cq_result") or {}).get("excluded")
+        if _excluded:
+            from app.services.recall_window import recall_max_age_days as _rw
+            from app.services.upgrade_nudges import memory_excluded_cta
+            _teaser_state = memory_excluded_cta(
+                request.app.state.remote_configs, user.effective_tier, _excluded,
+                _rw(request.app.state.remote_configs, user.effective_tier))
+            if _teaser_state:
+                logger.info("memory_nudge kind=%s tier=%s excluded=%s",
+                            _teaser_state["cta"]["kind"], user.effective_tier,
+                            _teaser_state["cta"]["details"].get("excluded_meetings"))
 
     # 6. Stream or non-stream based on request + call_type
     # Only stream interactive queries; background tasks (summary, analysis) get full JSON.

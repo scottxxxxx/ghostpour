@@ -1,5 +1,5 @@
 {
-  "version": 47,
+  "version": 48,
   "tiers": {
     "free": {
       "display_name": "Gratis",
@@ -493,6 +493,20 @@
       "description": "Pídele a tu IA que busque información actualizada en la web durante una consulta.",
       "teaser_description": "La búsqueda web es una función de pago.",
       "upgrade_cta": "Actualiza a Plus para activar la búsqueda web"
+    }
+  },
+  "upgrade_nudges": {
+    "context_fits_higher": {
+      "text": "Esto son {needed}K caracteres. {tier_name} admite hasta {cap}K.",
+      "label": "Ver {tier_name}"
+    },
+    "memory_excluded_scope": {
+      "text": "Reuniones anteriores que la memoria encontró pero esta respuesta no usó: {excluded}. Plus las incorpora a cada conversación.",
+      "label": "Ver Plus"
+    },
+    "memory_excluded_window": {
+      "text": "Reuniones coincidentes de hace más de {window} días que quedaron fuera: {excluded}. Pro no tiene límite de tiempo.",
+      "label": "Ver Pro"
     }
   }
 }
