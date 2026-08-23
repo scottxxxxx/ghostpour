@@ -912,3 +912,87 @@ def test_the_image_url_defaults_to_the_share_origin(client, pro_user):
     finally:
         if original is None: cc.pop("share", None)
         else: cc["share"] = original
+
+
+# --- A failed summary is never a title (2026-08-23) -------------------------
+#
+# Scott's bubble read "Summary: Unable to provide meaningful meeting summary
+# / share.shouldersurf.com". The client had stored that failure string in
+# BOTH title and summary_line, and the page rendered exactly what it was
+# given. SS has since made their title refuse failure text; the rule lives
+# here too, at render time, because rows already stored still carry it,
+# older builds still send it, and a rule in one client is only sometimes
+# true. Ruling: og:title is the meeting title; og:description is the
+# summary only when a real one exists, otherwise date and duration.
+
+from app.services.meeting_shares import card_text  # noqa: E402
+
+
+class _Row(dict):
+    """aiosqlite.Row lookalike: missing keys read as None, not KeyError."""
+    def __getitem__(self, k):
+        return dict.get(self, k)
+
+
+def test_a_failed_summary_in_the_title_becomes_the_date():
+    title, desc = card_text(_Row(
+        title="Summary: Unable to provide meaningful meeting summary",
+        summary_line="**Summary: Unable to provide meaningful meeting summary**",
+        meeting_date="2026-08-22T23:04:05-05:00", duration_seconds=93))
+    assert "Unable" not in title and "Unable" not in desc
+    assert title == "Aug 22, 2026 at 11:04 PM", title
+    assert desc == "Aug 22, 2026 at 11:04 PM · 2 min", desc
+
+
+def test_the_date_keeps_the_senders_own_offset():
+    """23:04 at UTC-5 is 04:04 the NEXT day in UTC. The card must say the
+    22nd, which is the day it was for the person who recorded it. Same
+    lesson as the report header, on a different surface."""
+    title, _ = card_text(_Row(title=None, summary_line=None,
+                              meeting_date="2026-08-22T23:04:05-05:00", duration_seconds=60))
+    assert title.startswith("Aug 22, 2026")
+    assert "Aug 23" not in title
+
+
+def test_a_real_title_and_summary_pass_through_cleaned():
+    title, desc = card_text(_Row(
+        title="Northwind rollout, week 3",
+        summary_line="**Summary:** Agreed to hold the pilot at two sites.",
+        meeting_date="2026-08-21", duration_seconds=2743))
+    assert title == "Northwind rollout, week 3"
+    assert desc == "Agreed to hold the pilot at two sites.", desc
+
+
+def test_nothing_at_all_still_yields_a_title_and_an_empty_description():
+    """An empty og:title makes some fetchers show the URL as the title; an
+    empty description renders as nothing, which is correct. A fabricated
+    description is not."""
+    title, desc = card_text(_Row(title=None, summary_line=None, meeting_date=None, duration_seconds=None))
+    assert title == "Shared meeting"
+    assert desc == ""
+
+
+def test_a_display_string_date_is_kept_as_sent():
+    """SS sometimes sends the date already formatted. Do not re-parse it
+    into something else."""
+    title, _ = card_text(_Row(title="", summary_line="", meeting_date="Aug 23, 2026 at 2:40 AM", duration_seconds=None))
+    assert title == "Aug 23, 2026 at 2:40 AM"
+
+
+def test_the_rule_is_applied_on_the_served_page_for_a_stored_row(client, pro_user):
+    """Through the route, for a share whose stored row carries the failure
+    string in both fields, which is exactly what Scott's real share holds."""
+    h = {**pro_user["headers"], **HDRS,
+         "X-Share-Title": quote("Summary: Unable to provide meaningful meeting summary"),
+         "X-Share-Summary-Line": quote("**Summary: Unable to provide meaningful meeting summary**"),
+         "X-Share-Date": "2026-08-22T23:04:05-05:00", "X-Share-Duration-Seconds": "93"}
+    r = client.post("/v1/shares", content=ARCHIVE, headers=h)
+    assert r.status_code == 200, r.text
+    url = r.json()["url"]; token = url.rsplit("/", 1)[1]
+    page = client.get(f"/s/{token}").text
+    head = page.split("<body", 1)[0]
+    assert "Unable to provide" not in head, "the failure string reached a recipient-visible tag"
+    assert "<title>Aug 22, 2026 at 11:04 PM</title>" in head
+    assert "og:description' content='Aug 22, 2026 at 11:04 PM · 2 min'" in head
+    assert f"og:url' content='{url}'" in head
+    assert "<script" not in head.lower(), "iMessage's fetcher runs no scripts; the tags must be static"

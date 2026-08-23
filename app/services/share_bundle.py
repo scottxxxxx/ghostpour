@@ -263,7 +263,8 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
         f"<title>{_esc(card_title)}</title><meta name='robots' content='noindex'>"
         "<meta name='viewport' content='width=device-width,initial-scale=1'>"
         f"<meta property='og:title' content='{_esc(card_title)}'><meta property='og:description' content='{_esc(card_desc)}'>"
-        f"<meta property='og:type' content='article'><meta property='og:site_name' content='Shoulder Surf'>{og_img}"
+        f"<meta property='og:type' content='article'><meta property='og:site_name' content='Shoulder Surf'>"
+        + (f"<meta property='og:url' content='{_esc(share_url)}'>" if share_url else "") + og_img +
         f"<meta name='twitter:card' content='{card_type}'><meta name='twitter:title' content='{_esc(card_title)}'><meta name='twitter:description' content='{_esc(card_desc)}'>"
         + banner + icon +
         "<style>body{font:16px/1.5 -apple-system,system-ui,sans-serif;max-width:720px;margin:0 auto;padding:1rem;color:#1a1a1a;background:#fafaf8}"
