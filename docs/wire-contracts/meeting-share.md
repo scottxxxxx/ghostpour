@@ -73,6 +73,28 @@ The token is 128 random bits, base64url, carries no user id, and is the
 credential. GP never writes it to a log line (the access log masks
 `/s/<token>`); SS should not either.
 
+## `client-config.share.host` is an ORIGIN, not a hostname
+
+Served as `"https://share.shouldersurf.com"`: scheme plus host, no path,
+no trailing slash (GP strips one if present). GP builds every share URL
+as `{host}/s/{token}`, so the scheme is structural, not decorative, and
+the value is stable. The key is named `host` and that name is misleading;
+it is not being renamed, because a renamed key on a persisted client
+struct is a two-sided deploy and the value is already correct.
+
+Ruled 2026-08-23 after it reached a device. SS's client treated the value
+as a bare hostname: the share sheet's fail-closed DNS probe ran
+`getaddrinfo` on the URL string, failed, and showed "Sharing isn't
+switched on yet" while the host was live, and the universal-link parser
+compared it against `URL.host`, so a tapped link would have matched
+nothing and done nothing. Nothing in that chain errors, which is why it
+reached a phone. SS (their `feea62a`) now normalises either form to the
+bare lowercase host for DNS and AASA matching, which is the right
+posture on their side regardless of what this says.
+
+So: **treat `share.host` as an origin.** Derive a bare host from it when
+a hostname is what you need; never assume it is one.
+
 ## Revoke and stats (authenticated, owner only)
 
 `DELETE /v1/shares/{share_id}` -> `{"share_id", "status": "revoked"}`.
