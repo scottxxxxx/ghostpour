@@ -312,9 +312,17 @@ async def share_page(token: str, request: Request, db: aiosqlite.Connection = De
     except Exception as e:  # noqa: BLE001  (BadZipFile, OSError, anything)
         logger.warning("share_bundle_unreadable", extra={"share_id": row["id"], "error": type(e).__name__})
         bundle = {"meetings": []}
+    settings = shares.share_settings(request.app.state.remote_configs)
     html = render_share_page(
         bundle, card_title=row["title"], card_desc=row["summary_line"] or "",
-        transcript_included=bool(row["transcript_included"]), expires_at=row["expires_at"])
+        transcript_included=bool(row["transcript_included"]), expires_at=row["expires_at"],
+        app_store_id=settings["app_store_id"],
+        # The canonical URL for THIS share, handed to Apple's banner as
+        # app-argument so "Open" lands the app on this meeting rather than
+        # on its home screen. Built from the served host, not from the
+        # request, so a share opened through any hostname still points the
+        # app at the one we publish.
+        share_url=f"{settings['host']}/s/{token}")
     return HTMLResponse(html, headers={"X-Robots-Tag": "noindex", "Cache-Control": "private, no-store"})
 
 

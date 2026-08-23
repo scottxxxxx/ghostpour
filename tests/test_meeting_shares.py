@@ -741,3 +741,54 @@ def test_a_head_never_counts_as_a_view(client, pro_user):
 
     assert client.get(f"/s/{token}").status_code == 200
     assert views() == start + 1, "the counter stopped working, so the test above proved nothing"
+
+
+def test_the_app_store_id_actually_reaches_the_page_through_the_route(client, pro_user):
+    """The WIRING, which the renderer tests cannot see.
+
+    Predicted and confirmed by sabotage: replacing the route's
+    `app_store_id=settings["app_store_id"]` with None left all 91 renderer
+    and share tests green. The renderer was well covered and the wiring
+    between config and renderer was covered by nothing, which is the same
+    seam the percent-decode sat in earlier the same day: a function tested
+    directly proves nothing about whether the route calls it.
+
+    Driven through POST /v1/shares and GET /s/{token} with the dial set,
+    so this fails if the config key is renamed, the route stops reading it,
+    or the renderer stops receiving it."""
+    from app.main import app
+    cc = app.state.remote_configs.setdefault("client-config", {})
+    original = cc.get("share")
+    cc["share"] = {**(original or {}), "app_store_id": "6760098225",
+                   "host": "https://share.example.com"}
+    try:
+        token = _create(client, pro_user).json()["url"].rsplit("/", 1)[1]
+        page = client.get(f"/s/{token}").text
+        assert "app-id=6760098225" in page, "the configured id never reached the page"
+        assert f"app-argument=https://share.example.com/s/{token}" in page, (
+            "the banner points the app at the wrong URL")
+        assert "https://apps.apple.com/app/id6760098225" in page
+    finally:
+        if original is None:
+            cc.pop("share", None)
+        else:
+            cc["share"] = original
+
+
+def test_no_configured_id_leaves_the_page_without_a_store_route(client, pro_user):
+    """The other half of the wiring: the dial being absent has to reach the
+    page as absence, not as a broken link."""
+    from app.main import app
+    cc = app.state.remote_configs.setdefault("client-config", {})
+    original = cc.get("share")
+    cc["share"] = {k: v for k, v in (original or {}).items() if k != "app_store_id"}
+    try:
+        token = _create(client, pro_user).json()["url"].rsplit("/", 1)[1]
+        page = client.get(f"/s/{token}").text
+        assert "apple-itunes-app" not in page
+        assert "apps.apple.com" not in page
+    finally:
+        if original is None:
+            cc.pop("share", None)
+        else:
+            cc["share"] = original
