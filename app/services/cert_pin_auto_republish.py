@@ -8,10 +8,16 @@ manifest fresh without anyone watching a calendar.
 
 Two responsibilities:
 
-1. `maybe_auto_republish` — daily background task. If the latest
-   manifest expires within `_AUTO_REPUBLISH_THRESHOLD_DAYS`, fetch the
-   live TLS chain off our own host, take the intermediate + roots
-   (everything above the leaf), and publish a new monotonic version.
+1. `maybe_auto_republish` — daily background task. Republishes on
+   EITHER of two triggers: the manifest expires within
+   `_AUTO_REPUBLISH_THRESHOLD_DAYS`, or the live chain has rotated away
+   from the published pins. The second trigger was missing until
+   2026-08-22, and its absence meant this module watched the manifest's
+   freshness and called that health: v3 pinned Let's Encrypt's YE1 while
+   cz and api had already moved to YE2, and the banner read "healthy,
+   31.3d to expiry" throughout. Fetches the chain off EVERY pinned host
+   and publishes the union, because they do not all present the same
+   one mid-rotation.
    If the resulting pin set differs from the previously published
    manifest, fire an incident — LE may have rotated an intermediate
    (expected, rare) or something more concerning is going on.
@@ -103,6 +109,28 @@ def _parse_iso(s: str) -> datetime:
 # --- Auto-republish --------------------------------------------------------
 
 
+async def _live_pins(settings: Settings) -> list[str]:
+    """The UNION of the chains every pinned host presents, above the leaf.
+
+    Union rather than one host's chain, because they do not all present
+    the same one. On 2026-08-22 cz and api served Let's Encrypt's YE2
+    while share, issued that morning mid-rotation, still served YE1.
+    Probing a single host and publishing its pins would have dropped the
+    other's intermediate and demoted it to a roots-only match, which is
+    the same silent loss of assurance this function exists to prevent,
+    caused by the fix for it.
+
+    Order is stabilised so a republish driven by drift produces a stable
+    manifest rather than one that reshuffles on every tick.
+    """
+    seen: list[str] = []
+    for host in settings.cert_pin_host_list:
+        for pin in await asyncio.to_thread(fetch_current_chain_pins, host):
+            if pin not in seen:
+                seen.append(pin)
+    return sorted(seen)
+
+
 async def maybe_auto_republish(
     db: aiosqlite.Connection,
     settings: Settings,
@@ -128,6 +156,7 @@ async def maybe_auto_republish(
     current = await latest_manifest(db)
     needs_republish = False
     days_remaining: float | None = None
+    drifted = False
 
     if current is None:
         # Fresh deployment — go publish v1 right now using the live chain.
@@ -140,20 +169,54 @@ async def maybe_auto_republish(
         if days_remaining <= _AUTO_REPUBLISH_THRESHOLD_DAYS:
             needs_republish = True
 
+    # DRIFT, checked on every tick and not only near expiry. This is the
+    # defect this function shipped with: it watched the manifest's
+    # FRESHNESS and called that health, so a manifest could be perfectly
+    # unexpired while pinning an intermediate nobody serves any more, and
+    # the dashboard said green the whole time.
+    #
+    # Measured 2026-08-22: Let's Encrypt had rotated YE1 to YE2, cz and
+    # api were already serving YE2, the published manifest v3 pinned only
+    # YE1, and the banner read "healthy, 31.3d to expiry". Nothing was
+    # broken, because iOS soft-fails on a pin miss and logs, but the
+    # tripwire had silently stopped covering the intermediate and would
+    # have stayed that way for 24 more days until the expiry window
+    # happened to fire.
+    #
+    # Cost of checking is one TLS handshake per host per day.
+    live_pins: list[str] = []
+    if not needs_republish and prior_pins:
+        try:
+            live_pins = await _live_pins(settings)
+            drifted = bool(live_pins) and not set(live_pins).issubset(set(prior_pins))
+            if drifted:
+                needs_republish = True
+        except Exception as e:
+            # A probe failure is not drift and must not be reported as
+            # either health or breakage: say what actually happened.
+            logger.warning("cert_pin drift probe failed: %s", e)
+            result = CheckResult(
+                checked_at=now, action="probe_failed",
+                version_after=current["version"] if current else None,
+                detail=f"could not read the live chain: {e}",
+            )
+            _last_check = result
+            return result
+
     if not needs_republish:
         result = CheckResult(
             checked_at=now,
             action="noop_healthy",
             version_after=current["version"] if current else None,
-            detail=f"manifest healthy, {days_remaining:.1f}d to expiry",
+            detail=f"manifest healthy, {days_remaining:.1f}d to expiry, pins match the live chain",
         )
         _last_check = result
         return result
 
     # Republish path. Anything that goes wrong here gets logged + alerted.
     try:
-        host = settings.cert_pin_self_host
-        live_pins = await asyncio.to_thread(fetch_current_chain_pins, host)
+        host = ",".join(settings.cert_pin_host_list)
+        live_pins = live_pins or await _live_pins(settings)
     except Exception as e:
         logger.error("cert_pin auto-republish: chain fetch failed: %s", e)
         await _alert(
@@ -215,17 +278,18 @@ async def maybe_auto_republish(
                 "new_version": manifest["version"],
                 "prior_pins": prior_pins,
                 "new_pins": live_pins,
-                "host": settings.cert_pin_self_host,
+                "hosts": settings.cert_pin_host_list,
             },
         )
 
     result = CheckResult(
         checked_at=now,
-        action="republished",
+        action="republished_drift" if drifted else "republished",
         version_after=manifest["version"],
         detail=(
             f"v{manifest['version']} published, {len(live_pins)} pins, "
-            f"expires {manifest['expires_at']}, pins_changed={pins_changed}"
+            f"expires {manifest['expires_at']}, pins_changed={pins_changed}, "
+            f"reason={'drift' if drifted else 'expiry'}"
         ),
     )
     _last_check = result
@@ -274,6 +338,17 @@ def compute_status(
     if last_check and last_check.action == "failed":
         level = "red"
         text = f"Auto-republish FAILED at last check. {last_check.detail}"
+    elif last_check and last_check.action == "probe_failed":
+        # Not health and not breakage. A banner that showed green here
+        # would be asserting something nobody checked.
+        level = "yellow"
+        text = f"Could not read the live chain at last check. {last_check.detail}"
+    elif last_check and last_check.action == "republished_drift":
+        level = "yellow"
+        text = (
+            f"Cert pin manifest republished to v{current['version']}: the live "
+            "chain had rotated away from the published pins."
+        )
     elif days_remaining <= 0:
         level = "red"
         text = f"Cert pin manifest EXPIRED {abs(days_remaining):.1f}d ago. Republish now."

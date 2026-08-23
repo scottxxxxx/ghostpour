@@ -138,6 +138,22 @@ class Settings(BaseSettings):
     # via CZ_CERT_PIN_SELF_HOST for staging.
     cert_pin_self_host: str = "cz.shouldersurf.com"
 
+    # Every host iOS pins, comma separated. The manifest is the UNION of
+    # their chains, because they do NOT all present the same one: on
+    # 2026-08-22 cz and api were already on Let's Encrypt's YE2
+    # intermediate while share, issued that morning mid-rotation, was
+    # still on YE1. Probing one host and publishing its pins would have
+    # dropped the other's intermediate and quietly demoted it to a
+    # roots-only match. Empty falls back to `cert_pin_self_host`, so a
+    # deployment that sets nothing behaves exactly as before.
+    cert_pin_hosts: str = ""
+
+    @property
+    def cert_pin_host_list(self) -> list[str]:
+        raw = [h.strip() for h in (self.cert_pin_hosts or "").split(",")]
+        hosts = [h for h in raw if h]
+        return hosts or ([self.cert_pin_self_host] if self.cert_pin_self_host else [])
+
     # Context Quilt integration
     cq_base_url: str = ""              # e.g., "https://cq.example.com"
     cq_app_id: str = "cloudzap"        # Default CQ app identity (ShoulderSurf rides this)
