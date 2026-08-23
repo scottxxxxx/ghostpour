@@ -37,7 +37,12 @@ def test_dials_match_the_sheet_in_every_locale():
     for loc in TIERS:
         assert [_fd(loc, t, "search", "searches_per_month") for t in ("free", "plus", "pro")] == [5, 75, 120], loc
         assert [_fd(loc, t, "generation", "generations_per_month") for t in ("free", "plus", "pro")] == [5, None, 100], loc
-        assert [_fd(loc, t, "project_chat", "max_input_tokens") for t in ("free", "plus", "pro")] == [50000, 150000, 180000], loc
+        # Pro doubled 2026-08-23 on Scott's instruction, OVERRIDING the
+        # sheet, which still says 180000. Japanese Pro stays half: the
+        # chars/4 heuristic underestimates CJK, so its cap is deliberately
+        # tighter and this mirror has to track it.
+        pro = 180000 if loc.endswith("ja") else 360000
+        assert [_fd(loc, t, "project_chat", "max_input_tokens") for t in ("free", "plus", "pro")] == [50000, 150000, pro], loc
         assert _fd(loc, "plus", "context_quilt", "recall_max_age_days") == 30, loc
         assert _fd(loc, "pro", "context_quilt", "recall_max_age_days") is None, loc
 

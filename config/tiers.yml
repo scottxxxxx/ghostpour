@@ -115,7 +115,7 @@ tiers:
     # Pro context cap — slightly under model context window for system-prompt
     # headroom. Pro reports run on Sonnet; cost variance absorbed by unlimited
     # budget at this tier.
-    max_input_tokens: 180000
+    max_input_tokens: 360000
     storekit_product_id: "com.weirtech.shouldersurf.sub.pro.monthly"
     feature_bullets:
       - "Unlimited meetings with AI assistance"

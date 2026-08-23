@@ -1,11 +1,12 @@
 {
-  "version": 19,
+  "version": 22,
   "limits": {
     "project_chat": {
       "max_input_chars": {
         "free": 100000,
         "plus": 300000,
-        "pro": 360000
+        "pro": 720000,
+        "automation": 720000
       }
     }
   },
