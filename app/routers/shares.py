@@ -343,8 +343,9 @@ async def share_page(token: str, request: Request, db: aiosqlite.Connection = De
         logger.warning("share_bundle_unreadable", extra={"share_id": row["id"], "error": type(e).__name__})
         bundle = {"meetings": []}
     settings = shares.share_settings(request.app.state.remote_configs)
+    card_title, card_desc = shares.card_text(row)
     html = render_share_page(
-        bundle, card_title=row["title"], card_desc=row["summary_line"] or "",
+        bundle, card_title=card_title, card_desc=card_desc,
         transcript_included=bool(row["transcript_included"]), expires_at=row["expires_at"],
         app_store_id=settings["app_store_id"],
         og_image_url=settings["og_image_url"],

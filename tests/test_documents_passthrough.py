@@ -114,8 +114,12 @@ def test_bundled_client_config_documents_live_and_pro_gated():
     assert flat["allowed_users"], "flat bundle carries the permanent test lane"
     for entry in flat["allowed_users"]:
         assert uuid_re.match(entry), f"non-UUID in public bundle: {entry!r}"
-    for f in ("client-config.es.json", "client-config.ja.json"):
-        assert json.load(open(f"config/remote/{f}"))["documents"]["allowed_users"] == []
+    # 2026-08-23: every locale carries the SAME list. This used to pin es
+    # and ja to [] while fr had the user, which meant the override depended
+    # on the phone's language. Scott's rule: all languages get what English
+    # gets, and tests/test_locale_parity.py holds every slug to that.
+    for f in ("client-config.es.json", "client-config.fr.json", "client-config.ja.json"):
+        assert json.load(open(f"config/remote/{f}"))["documents"]["allowed_users"] == flat["allowed_users"], f
 
 
 # --- passthrough path ---

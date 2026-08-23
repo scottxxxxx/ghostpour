@@ -164,19 +164,24 @@ NO_LOCALE_NEEDED = {
 
 # Known, accepted gaps. Each is a translation owed, tracked here rather
 # than in somebody's head.
-DECLARED_LOCALE_GAPS = {
-    "protected-prompts": {
-        "ja": "No Japanese instruction file exists, so Japanese users receive "
-              "the entire English instruction block, including the literal "
-              "reply in rule 4. Found 2026-08-03. Translation owed."
-    },
-    "canned-report": {
-        "fr": "French locale rollout 2026-07-27 covered seven surfaces; this "
-              "one was not among them. Translation owed."
-    },
-    # report-strings.fr: declared missing here from 2026-07-27; shipped
-    # 2026-08-21 with the masthead localization fix, so the declaration
-    # is gone and the check holds French to the same key set as English.
+DECLARED_LOCALE_GAPS: dict[str, dict[str, str]] = {
+    # Empty on purpose, and it took until 2026-08-23 to get here.
+    #
+    # protected-prompts.ja: declared owed 2026-08-03 ("Japanese users
+    # receive the entire English instruction block"). Paid 2026-08-23, the
+    # day Scott found it from the other end, after the Help Me Respond fix
+    # shipped to three locales and he asked why not four.
+    #
+    # canned-report.fr: declared owed 2026-07-27. Paid the same day.
+    #
+    # report-strings.fr: declared 2026-07-27, paid 2026-08-21.
+    #
+    # The lesson those three dates carry: a declared gap is a debt with a
+    # tracking number and no due date, and "translation owed" stayed true
+    # for twenty days with nobody owing it. tests/test_locale_parity.py
+    # now holds every localised slug to every locale AND to the English
+    # key set, so the next gap is a red test on the PR that opens it, not a
+    # declaration that waits for someone to notice.
 }
 
 

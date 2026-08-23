@@ -78,6 +78,95 @@ def is_preview_fetcher(user_agent: str | None) -> bool:
     return any(m in ua for m in _PREVIEW_UA_MARKERS)
 
 
+# --- card text --------------------------------------------------------------
+#
+# Scott's ruling, 2026-08-23, from a bubble that read "Summary: Unable to
+# provide meaningful meeting summary / share.shouldersurf.com": a failed
+# summary is never rendered anywhere a recipient can see it. og:title is
+# the meeting title; og:description is the summary only when a real one
+# exists, otherwise the date and duration.
+#
+# The client stored that failure string in BOTH title and summary_line on
+# a real share, and the page rendered exactly what it was given. SS has
+# since made their title refuse failure text, but the rows already stored
+# still carry it, older builds still send it, and a rule that lives only
+# in one client is a rule that is only sometimes true. So it lives here
+# too, at render time, which also repairs every share already stored.
+
+_FAILURE_MARKERS = (
+    "unable to provide meaningful meeting summary",
+    "unable to provide a meaningful",
+    "no meaningful summary",
+    "not enough content to summarize",
+    "insufficient content",
+)
+
+
+def _is_failure_text(text: str | None) -> bool:
+    t = (text or "").strip().lower()
+    return not t or any(m in t for m in _FAILURE_MARKERS)
+
+
+def _clean_line(text: str) -> str:
+    """A summary line as a sentence, not as markdown: strip bold markers,
+    heading hashes and a leading "Summary:" label, collapse whitespace."""
+    t = text.replace("**", "").replace("__", "")
+    t = re.sub(r"^\s*#+\s*", "", t)
+    t = re.sub(r"^\s*summary\s*:\s*", "", t, flags=re.I)
+    return " ".join(t.split())
+
+
+def _format_when(meeting_date: str | None) -> str | None:
+    """The date as a recipient reads it, in the sender's own offset.
+    Accepts ISO with offset or a display string; a display string is
+    returned as is, since the client already formatted it."""
+    if not meeting_date:
+        return None
+    try:
+        dt = datetime.fromisoformat(meeting_date)
+    except (TypeError, ValueError):
+        return meeting_date.strip() or None
+    return dt.strftime("%b %-d, %Y at %-I:%M %p")
+
+
+def _format_duration(seconds) -> str | None:
+    if not isinstance(seconds, (int, float)) or isinstance(seconds, bool) or seconds <= 0:
+        return None
+    m = int(round(seconds / 60))
+    if m < 1:
+        return "under a minute"
+    if m < 60:
+        return f"{m} min"
+    h, r = divmod(m, 60)
+    return f"{h} hr {r} min" if r else f"{h} hr"
+
+
+def card_text(row) -> tuple[str, str]:
+    """(title, description) for the card tags, with the ruling applied.
+
+    Title: the stored title unless it is a failure string, then the
+    meeting date, then "Shared meeting". Never empty, because an empty
+    og:title makes some fetchers show the URL as the title.
+
+    Description: the stored summary line, cleaned, unless it is a failure
+    string, then date and duration, then "" (a missing description
+    renders as nothing, which is correct; a fabricated one is not).
+    """
+    when = _format_when(row["meeting_date"])
+    dur = _format_duration(row["duration_seconds"])
+    raw_title = row["title"]
+    if _is_failure_text(raw_title):
+        title = when or "Shared meeting"
+    else:
+        title = _clean_line(raw_title)
+    raw_desc = row["summary_line"]
+    if _is_failure_text(raw_desc):
+        desc = " · ".join(x for x in (when, dur) if x)
+    else:
+        desc = _clean_line(raw_desc)
+    return title, desc
+
+
 # --- dials ------------------------------------------------------------------
 
 def share_settings(remote_configs: dict) -> dict:

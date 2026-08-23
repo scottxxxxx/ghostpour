@@ -1,5 +1,5 @@
 {
-  "version": 15,
+  "version": 16,
   "defaultPromptReserveTokens": 8000,
   "models": {
     "foundation-models": {
@@ -815,5 +815,6 @@
         "enabled"
       ]
     }
-  }
+  },
+  "minPromptReserveTokens": 4096
 }

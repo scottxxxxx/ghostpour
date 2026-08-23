@@ -1,5 +1,5 @@
 {
-  "version": 19,
+  "version": 20,
   "native_actions": {
     "enabled": true,
     "kinds": [
@@ -64,13 +64,51 @@
         },
         "offer_text_gist": "On dirait que vous voulez {format} {gist}. Créer le vrai fichier prend un peu plus de temps, ou je peux le présenter ici dans le chat. Vous voulez le fichier ?",
         "teaser_text": "Vous voulez ceci sous forme de vrai fichier téléchargeable ?",
-        "no_file_text": "Aucun fichier n'a été créé pour celle-ci, la réponse se trouve donc ci-dessus. Préciser un format, par exemple un tableur, permet généralement d'en obtenir un."
+        "no_file_text": "Aucun fichier n'a été créé pour celle-ci, la réponse se trouve donc ci-dessus. Préciser un format, par exemple un tableur, permet généralement d'en obtenir un.",
+        "lane_question_text": "Je peux créer votre fichier Excel de deux façons.\n\nNotre classeur d'état de projet utilise un format que nous avons affiné pour partager l'avancement avec une équipe : une chronologie de type Gantt, une courbe de progression du réalisé par rapport au prévu, l'historique de chaque échéance déplacée et une feuille de justificatifs montrant la ligne de réunion derrière chaque chiffre, pour que chacun puisse vérifier d'où vient une valeur.\n\nUn classeur sur mesure, construit exactement selon ce que vous décrivez, dans la forme qui convient à votre demande.\n\nLes deux s'appuient sur vos notes de réunion. Lequel préférez-vous : le classeur d'état ou le sur mesure ?"
       },
       "upsell": {
         "enabled": true,
         "text": "Avec un abonnement {tier}, je pourrais générer un fichier Word ou Excel pour vous."
-      }
+      },
+      "contract_lane_users": [
+        "fa4d903c-24c0-45d5-9fdb-b5496e32501b"
+      ]
     },
     "_tier_note": "2026-08-21 tier matrix: documents Plus and Pro now (Free at 5/mo, 10 MB waits on the per-tier document dial); file generation every tier, Free capped 5/mo by the generation dial."
+  },
+  "post_session": {
+    "report_min_seconds": 300,
+    "allow_request_below_minimum": true,
+    "request_min_seconds": 30,
+    "analysis_min_seconds": 120,
+    "analysis_min_words": 300
+  },
+  "enrichment": {
+    "max_auto_attempts": 5,
+    "retry_interval_seconds": 86400,
+    "in_flight_stale_seconds": 300,
+    "foreground_sweep_recovery_cap": 5
+  },
+  "session": {
+    "resumable_window_seconds": 3600,
+    "min_post_processing_seconds": 120
+  },
+  "chat": {
+    "max_history_pairs": 6,
+    "response_reserve_tokens": 1024,
+    "user_content_reserve_tokens": 4000,
+    "context_window_fallback_tokens": 32000,
+    "_note": "Current client values, served so they can change without a release. context_window_fallback_tokens is the first one to tune: 32000 is wrong for most models we route to today, and it silently caps how much fits in project chat. Image sizing is NOT here on purpose: it is already served per tier at tiers.feature_definitions.images, and a second source for the same field is how the free-tier copy drifted."
+  },
+  "share": {
+    "host": "https://share.shouldersurf.com",
+    "default_expiry_days": 30,
+    "max_expiry_days": 365,
+    "aasa_app_ids": [
+      "F22KGHDYAE.com.shouldersurf.ShoulderSurf"
+    ],
+    "_note": "App ID verified 2026-08-22 from the entitlements of the signed binary on Scott's phone (application-identifier), not from project.yml or a cert: team F22KGHDYAE, bundle com.shouldersurf.ShoulderSurf. com.weirtech.* is only the StoreKit product prefix.",
+    "app_store_id": "6760098225"
   }
 }

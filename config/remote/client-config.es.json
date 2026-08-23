@@ -1,5 +1,5 @@
 {
-  "version": 22,
+  "version": 24,
   "limits": {
     "project_chat": {
       "max_input_chars": {
@@ -23,7 +23,9 @@
     ],
     "per_file_max_mb": 25,
     "max_files": 2,
-    "allowed_users": [],
+    "allowed_users": [
+      "fa4d903c-24c0-45d5-9fdb-b5496e32501b"
+    ],
     "passthrough": {
       "max_pdf_pages": 600,
       "max_total_mb": 22
@@ -52,12 +54,16 @@
         },
         "offer_text_gist": "Parece que quieres {format} {gist}. Crear el archivo real tarda un poco más, o puedo mostrarlo aquí mismo en el chat. ¿Quieres el archivo?",
         "teaser_text": "¿Quieres esto como un archivo descargable?",
-        "no_file_text": "No se creó ningún archivo para esta, así que la respuesta está arriba. Pedir un formato concreto, por ejemplo una hoja de cálculo, suele conseguir uno."
+        "no_file_text": "No se creó ningún archivo para esta, así que la respuesta está arriba. Pedir un formato concreto, por ejemplo una hoja de cálculo, suele conseguir uno.",
+        "lane_question_text": "Puedo crear tu archivo de Excel de dos maneras.\n\nNuestro libro de estado del proyecto usa un formato que hemos refinado para compartir el estado con un equipo: una línea de tiempo tipo Gantt, una curva de progreso de lo reportado frente a lo planificado, el historial de cada fecha de entrega que cambió y una hoja de comprobantes que muestra la línea de la reunión detrás de cada número, para que cualquiera pueda verificar de dónde salió un valor.\n\nUn libro personalizado construido exactamente según lo que describas, con la forma que mejor se ajuste a tu petición.\n\nAmbos se basan en tus notas de reunión. ¿Cuál prefieres: el libro de estado o uno personalizado?"
       },
       "upsell": {
         "enabled": true,
         "text": "Si tuvieras una suscripción {tier}, podría generar un archivo de Word o Excel para ti."
-      }
+      },
+      "contract_lane_users": [
+        "fa4d903c-24c0-45d5-9fdb-b5496e32501b"
+      ]
     },
     "_tier_note": "2026-08-21 tier matrix: documents Plus and Pro now (Free at 5/mo, 10 MB waits on the per-tier document dial); file generation every tier, Free capped 5/mo by the generation dial."
   },
@@ -70,5 +76,39 @@
   "image_quality_note": {
     "enabled": false,
     "blur_threshold": 200
+  },
+  "post_session": {
+    "report_min_seconds": 300,
+    "allow_request_below_minimum": true,
+    "request_min_seconds": 30,
+    "analysis_min_seconds": 120,
+    "analysis_min_words": 300
+  },
+  "enrichment": {
+    "max_auto_attempts": 5,
+    "retry_interval_seconds": 86400,
+    "in_flight_stale_seconds": 300,
+    "foreground_sweep_recovery_cap": 5
+  },
+  "session": {
+    "resumable_window_seconds": 3600,
+    "min_post_processing_seconds": 120
+  },
+  "chat": {
+    "max_history_pairs": 6,
+    "response_reserve_tokens": 1024,
+    "user_content_reserve_tokens": 4000,
+    "context_window_fallback_tokens": 32000,
+    "_note": "Current client values, served so they can change without a release. context_window_fallback_tokens is the first one to tune: 32000 is wrong for most models we route to today, and it silently caps how much fits in project chat. Image sizing is NOT here on purpose: it is already served per tier at tiers.feature_definitions.images, and a second source for the same field is how the free-tier copy drifted."
+  },
+  "share": {
+    "host": "https://share.shouldersurf.com",
+    "default_expiry_days": 30,
+    "max_expiry_days": 365,
+    "aasa_app_ids": [
+      "F22KGHDYAE.com.shouldersurf.ShoulderSurf"
+    ],
+    "_note": "App ID verified 2026-08-22 from the entitlements of the signed binary on Scott's phone (application-identifier), not from project.yml or a cert: team F22KGHDYAE, bundle com.shouldersurf.ShoulderSurf. com.weirtech.* is only the StoreKit product prefix.",
+    "app_store_id": "6760098225"
   }
 }
