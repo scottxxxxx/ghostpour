@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+from pathlib import Path
 
 import aiosqlite
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
@@ -247,6 +248,35 @@ async def share_stats(share_id: str, user: UserRecord = Depends(get_current_user
 _GONE_HTML = "<!doctype html><meta charset='utf-8'><title>Shoulder Surf</title><p>This shared meeting is no longer available.</p>"
 
 
+# The two images the share card points at. Served by GP rather than by a
+# CDN so the share origin is the only host a recipient's messenger ever
+# fetches from, and served by name rather than by a StaticFiles mount so
+# there is nothing to walk. Scott, 2026-08-23, on his first real share:
+# the iMessage bubble showed a Safari compass where the app icon should
+# be, because the page served og:title and og:description and no
+# og:image. "Doesn't look very polished or refined."
+_SHARE_ASSET_DIR = Path(__file__).resolve().parent.parent / "static" / "share"
+_SHARE_ASSETS = {
+    "card-1200x630.png": "image/png",   # og:image / twitter:image, the unfurl card
+    "icon-512.png": "image/png",        # apple-touch-icon, the compact bubble
+}
+
+
+@public.api_route("/share-assets/{name}", methods=["GET", "HEAD"])
+async def share_asset(name: str):
+    media = _SHARE_ASSETS.get(name)
+    if not media:
+        raise HTTPException(status_code=404)
+    path = _SHARE_ASSET_DIR / name
+    if not path.is_file():
+        logger.error("share_asset_missing_on_disk name=%s", name)
+        raise HTTPException(status_code=404)
+    # Immutable for a day: messengers cache previews at send time anyway,
+    # and the name changes if the image does.
+    return Response(content=path.read_bytes(), media_type=media,
+                    headers={"Cache-Control": "public, max-age=86400"})
+
+
 @public.api_route("/.well-known/apple-app-site-association", methods=["GET", "HEAD"])
 async def aasa(request: Request):
     ids = shares.aasa_app_ids(request.app.state.remote_configs)
@@ -317,6 +347,8 @@ async def share_page(token: str, request: Request, db: aiosqlite.Connection = De
         bundle, card_title=row["title"], card_desc=row["summary_line"] or "",
         transcript_included=bool(row["transcript_included"]), expires_at=row["expires_at"],
         app_store_id=settings["app_store_id"],
+        og_image_url=settings["og_image_url"],
+        icon_url=settings["icon_url"],
         # The canonical URL for THIS share, handed to Apple's banner as
         # app-argument so "Open" lands the app on this meeting rather than
         # on its home screen. Built from the served host, not from the

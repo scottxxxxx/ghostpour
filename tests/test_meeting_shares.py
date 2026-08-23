@@ -792,3 +792,123 @@ def test_no_configured_id_leaves_the_page_without_a_store_route(client, pro_user
             cc.pop("share", None)
         else:
             cc["share"] = original
+
+
+# --- The unfurl image (2026-08-23) -----------------------------------------
+#
+# Scott's first real share, screenshot in hand: the iMessage bubble showed
+# the title and the domain with a generic Safari compass where the app
+# icon should be. The page served og:title and og:description and no
+# og:image, so the messenger fell back. "Doesn't look very polished."
+#
+# Two images served by GP on the share origin, by NAME from an allowlist
+# rather than a StaticFiles mount so there is nothing to walk, and pointed
+# at from the page. Dials, defaulting to the share origin's own assets so
+# a bare config still produces a bubble with the mark on it.
+
+def test_the_two_share_assets_are_served_with_the_right_type_and_cache(client):
+    for name in ("card-1200x630.png", "icon-512.png"):
+        r = client.get(f"/share-assets/{name}")
+        assert r.status_code == 200, name
+        assert r.headers["content-type"] == "image/png"
+        assert r.content[:8] == b"\x89PNG\r\n\x1a\n", f"{name} is not a PNG"
+        assert "max-age" in r.headers.get("cache-control", "")
+        assert client.head(f"/share-assets/{name}").status_code == 200
+
+
+def test_the_card_is_actually_1200_by_630():
+    """The page declares og:image:width/height; the bytes must agree or the
+    messenger lays out a box the image does not fill."""
+    import struct
+    data = open("app/static/share/card-1200x630.png", "rb").read()
+    w, h = struct.unpack(">II", data[16:24])
+    assert (w, h) == (1200, 630)
+
+
+def test_a_real_file_in_the_directory_is_not_served_unless_named(client):
+    """The allowlist, tested as an allowlist.
+
+    The first version of this test tried `../admin.html` and passed, and
+    sabotage showed it passed for the wrong reason: Starlette decodes the
+    path before routing and `{name}` cannot contain a slash, so traversal
+    never reaches the handler at all. Good, but it proves nothing about
+    the allowlist. So: put a REAL file in the served directory that is not
+    on the list, and assert it still 404s. Removing the allowlist turns
+    exactly this red and nothing else."""
+    import os
+    stray = "app/static/share/not-on-the-list.png"
+    with open(stray, "wb") as f:
+        f.write(b"\x89PNG\r\n\x1a\n" + b"\0" * 32)
+    try:
+        r = client.get("/share-assets/not-on-the-list.png")
+        assert r.status_code == 404, "a file in the directory was served by existing, not by being named"
+    finally:
+        os.remove(stray)
+
+
+@pytest.mark.parametrize("bad", ["../admin.html", "admin.html", "card-1200x630.png.bak", "", "x"])
+def test_nothing_outside_the_directory_or_list_is_served(client, bad):
+    from urllib.parse import quote
+    r = client.get(f"/share-assets/{quote(bad, safe='')}")
+    assert r.status_code == 404, f"{bad!r} got {r.status_code}"
+
+
+def test_the_page_carries_the_image_tags_and_the_large_card_type(client, pro_user):
+    token = _create(client, pro_user).json()["url"].rsplit("/", 1)[1]
+    page = client.get(f"/s/{token}").text
+    import html.parser
+
+    class P(html.parser.HTMLParser):
+        def __init__(self):
+            super().__init__(); self.meta = {}; self.links = {}
+        def handle_starttag(self, tag, attrs):
+            d = dict(attrs)
+            if tag == "meta" and "content" in d:
+                k = d.get("property") or d.get("name")
+                if k: self.meta[k] = d["content"]
+            if tag == "link" and d.get("rel") == "apple-touch-icon":
+                self.links["apple-touch-icon"] = d.get("href")
+
+    p = P(); p.feed(page)
+    og = p.meta.get("og:image")
+    assert og and og.endswith("/share-assets/card-1200x630.png"), og
+    assert og.startswith("https://"), "absolute URL or the messenger cannot fetch it"
+    assert p.meta.get("twitter:image") == og
+    assert p.meta.get("og:image:width") == "1200" and p.meta.get("og:image:height") == "630"
+    assert p.meta.get("twitter:card") == "summary_large_image"
+    assert p.links.get("apple-touch-icon", "").endswith("/share-assets/icon-512.png")
+
+
+def test_the_image_url_is_a_dial(client, pro_user):
+    """A CDN or a redesign must not need a deploy."""
+    from app.main import app
+    cc = app.state.remote_configs.setdefault("client-config", {})
+    original = cc.get("share")
+    cc["share"] = {**(original or {}), "og_image_url": "https://cdn.example.com/new-card.png"}
+    try:
+        token = _create(client, pro_user).json()["url"].rsplit("/", 1)[1]
+        html = client.get(f"/s/{token}").text
+        assert "https://cdn.example.com/new-card.png" in html
+        assert "card-1200x630.png" not in html
+    finally:
+        if original is None: cc.pop("share", None)
+        else: cc["share"] = original
+
+
+def test_the_image_url_defaults_to_the_share_origin(client, pro_user):
+    """Pointed at the configured share host, not the API host the page was
+    fetched through, so the messenger fetches one origin and the value is
+    right on whichever hostname served the page."""
+    from app.main import app
+    cc = app.state.remote_configs.setdefault("client-config", {})
+    original = cc.get("share")
+    cc["share"] = {k: v for k, v in (original or {}).items() if k not in ("og_image_url", "icon_url")}
+    cc["share"]["host"] = "https://share.example.com"
+    try:
+        token = _create(client, pro_user).json()["url"].rsplit("/", 1)[1]
+        html = client.get(f"/s/{token}").text
+        assert "https://share.example.com/share-assets/card-1200x630.png" in html
+        assert "https://share.example.com/share-assets/icon-512.png" in html
+    finally:
+        if original is None: cc.pop("share", None)
+        else: cc["share"] = original

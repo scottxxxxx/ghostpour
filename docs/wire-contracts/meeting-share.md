@@ -95,6 +95,34 @@ posture on their side regardless of what this says.
 So: **treat `share.host` as an origin.** Derive a bare host from it when
 a hostname is what you need; never assume it is one.
 
+## The unfurl image (2026-08-23)
+
+`GET /s/{token}` serves `og:image`, `og:image:width/height` (1200x630),
+`twitter:image`, `twitter:card: summary_large_image` and an
+`apple-touch-icon`. Without these iMessage rendered a generic Safari
+compass where the app mark should be (Scott's first real share).
+
+The images are served by GP on the share origin, by name from an
+allowlist of two, so there is nothing to walk:
+
+| path | use | size |
+|---|---|---|
+| `/share-assets/card-1200x630.png` | `og:image` / `twitter:image` | 1200x630, the mark centred on the brand gradient |
+| `/share-assets/icon-512.png` | `apple-touch-icon` | 512 square |
+
+Both URLs are dials, `client-config.share.og_image_url` and
+`client-config.share.icon_url`, defaulting to the share origin's own
+paths so a bare config still unfurls with the mark. A CDN or a redesign
+is a config edit, not a deploy.
+
+**Edge:** `/share-assets/*` must be on the share host's path allowlist at
+the edge (Bifrost), alongside `/s/*` and the AASA path. Asked 2026-08-23.
+Until it is, the page serves the tags and the messenger's fetch of the
+image 404s at the edge, which renders exactly as before: the compass.
+
+Messengers fetch the preview at SEND time and cache it, so a bubble sent
+before this deployed does not update; a newly sent link does.
+
 ## Revoke and stats (authenticated, owner only)
 
 `DELETE /v1/shares/{share_id}` -> `{"share_id", "status": "revoked"}`.
