@@ -372,6 +372,27 @@ CAPTURE_METADATA_ALLOWLIST = frozenset({
     # because it can only appear near midnight, never in a fixture written
     # at a round hour.
     "recording_started_at",
+    # Who each diarized label actually is, answered at LIVE label time by
+    # the client from its cached roster, because that is the only hop that
+    # can ask "which Christina?" while anyone is still there to answer.
+    # Added 2026-08-23 for CQ #318 (their main 3dcd5d6, contract
+    # docs/architecture/16-people.md 5.17): their ingest reads the map and
+    # rewrites `[label]` to the canonical name BEFORE extraction runs, so
+    # a dropped entry does not degrade a name, it silently reverts a
+    # user's explicit answer to guesswork.
+    #
+    # Shape, forwarded verbatim and never inspected here: a list of
+    # objects, each with `label`, and exactly one of `entity_id` or
+    # (`create_new` + `name`). GP models none of that on purpose. CQ owns
+    # the shape, and a schema here would be a second place to update and a
+    # new way to drop a field they add later.
+    #
+    # Absent and empty are the same state on CQ's side (both fall back to
+    # their existing matching), so the allowlist's None-drop costs nothing.
+    # A populated array going missing is the `to_name` shape again, which
+    # is why the receipt for this is a request-side test rather than a
+    # response-side one.
+    "speaker_identities",
 })
 
 

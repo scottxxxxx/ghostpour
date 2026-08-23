@@ -76,3 +76,43 @@ lacks a date, and neither endpoint would hold evidence that anything was
 wrong. That is `to_name` exactly. The gate is
 `CAPTURE_METADATA_ALLOWLIST` in `app/services/context_quilt.py`, and the
 receipts are in `tests/test_capture_transcript_request_passthrough.py`.
+
+
+---
+
+## Also on this carrier: `metadata.speaker_identities` (CQ #318, 2026-08-23)
+
+Same hop, same allowlist, same reason for a request-side test.
+
+Scott's ruling: the "which Christina?" question is asked at LIVE label
+time, and the only hop that can ask it is the client, from its cached
+roster, while someone is still in the room to answer. The answer rides the
+capture body.
+
+```json
+"speaker_identities": [
+  {"label": "christina", "entity_id": "<uuid>"},
+  {"label": "Speaker 2", "create_new": true, "name": "Christina Lopez"}
+]
+```
+
+A list of objects. `label` always present; exactly one of `entity_id` or
+(`create_new` + `name`) per entry. GP forwards it verbatim into CQ's
+capture metadata and models none of it: CQ owns the shape, and a schema
+here would be a second place to update and a new way to silently drop a
+field they add later.
+
+CQ's ingest (their main `3dcd5d6`, contract
+`docs/architecture/16-people.md` 5.17) reads the map and rewrites
+`[label]` to the canonical name **before extraction runs**. That is why a
+dropped entry is worse than a dropped name: it does not degrade the
+result, it silently reverts a user's explicit answer to guesswork, and the
+output still reads as a plausible match.
+
+Absent and empty are the same state on CQ's side, so the allowlist's
+None-drop costs nothing and an empty array crossing is harmless. GP never
+invents a map: a fabricated identity assignment is indistinguishable at CQ
+from a real answer and would rewrite a name during extraction.
+
+Sender: SS, from `MeetingRecord.speakerIdentities`, on the session-end
+capture, both enrichment replays, and the replay driver.

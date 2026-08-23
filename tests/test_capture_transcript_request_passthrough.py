@@ -223,3 +223,82 @@ def test_a_null_recording_start_does_not_travel_as_null(client, pro_user, cq_wir
                        headers=pro_user["headers"])
     assert resp.status_code == 200, resp.text
     assert "recording_started_at" not in _wait_for_wire(cq_wire)["metadata"]
+
+
+# --- speaker_identities (CQ #318, 2026-08-23) ------------------------------
+#
+# Scott's ruling: the "which Christina?" question is asked at LIVE label
+# time, and the only hop that can ask it is the client, from its cached
+# roster, while someone is still in the room to answer. The answer rides
+# the capture body. CQ's ingest reads the map and rewrites `[label]` to the
+# canonical name BEFORE extraction runs.
+#
+# Which is why a dropped entry is worse than a dropped name: it does not
+# degrade the result, it silently reverts a user's explicit answer back to
+# guesswork, and the output still looks like a plausible match. SS sees a
+# correct send, CQ sees a capture that simply carries no map, and the hole
+# lives only on this hop. Rule 3, so the receipt is request-side.
+
+SPEAKER_IDENTITIES = [
+    {"label": "christina", "entity_id": "9f1c2f4e-0b7a-4d1e-8b33-2a6c5d9e7f01"},
+    {"label": "Speaker 2", "create_new": True, "name": "Christina Lopez"},
+]
+
+
+@pytest.fixture
+def sent_with_speakers(client, pro_user, cq_wire):
+    body = json.loads(json.dumps(SS_BODY))
+    body["metadata"]["speaker_identities"] = SPEAKER_IDENTITIES
+    resp = client.post("/v1/capture-transcript", json=body,
+                       headers=pro_user["headers"])
+    assert resp.status_code == 200, resp.text
+    return _wait_for_wire(cq_wire)
+
+
+def test_speaker_identities_reaches_cq(sent_with_speakers):
+    md = sent_with_speakers["metadata"]
+    assert "speaker_identities" in md, (
+        "the allowlist ate it: the user's explicit answer silently becomes "
+        "guesswork and nothing at either end says so")
+    assert md["speaker_identities"] == SPEAKER_IDENTITIES
+
+
+def test_the_whole_nested_shape_survives_not_just_the_key(sent_with_speakers):
+    """GP models none of this and must not. Asserted element by element and
+    field by field, because "the key is present" would pass against a
+    forward that flattened the objects, reordered the array, or turned the
+    bool into a string, and every one of those still looks like a map."""
+    got = sent_with_speakers["metadata"]["speaker_identities"]
+    assert isinstance(got, list) and len(got) == 2
+    assert [e["label"] for e in got] == ["christina", "Speaker 2"], "order moved"
+
+    known, created = got
+    assert known == {"label": "christina",
+                     "entity_id": "9f1c2f4e-0b7a-4d1e-8b33-2a6c5d9e7f01"}
+    assert "create_new" not in known and "name" not in known, (
+        "an entry gained the other variant's fields")
+
+    assert created["create_new"] is True and type(created["create_new"]) is bool
+    assert created["name"] == "Christina Lopez"
+    assert "entity_id" not in created, (
+        "the create_new entry gained an entity_id it never had")
+
+
+def test_an_empty_map_is_not_a_problem_either_way(client, pro_user, cq_wire):
+    """CQ treats absent and empty as the same state, so an empty array may
+    cross or be dropped. What must NOT happen is a 4xx or a crash: an
+    exporter that always sends the key would then fail every capture."""
+    body = json.loads(json.dumps(SS_BODY))
+    body["metadata"]["speaker_identities"] = []
+    resp = client.post("/v1/capture-transcript", json=body,
+                       headers=pro_user["headers"])
+    assert resp.status_code == 200, resp.text
+    md = _wait_for_wire(cq_wire)["metadata"]
+    assert md.get("speaker_identities", []) == []
+
+
+def test_a_capture_without_the_key_is_unchanged(sent):
+    """`sent` is the measured SS body, which carries no map. GP must not
+    invent one: a fabricated identity assignment is indistinguishable at CQ
+    from a user's real answer, and it would rewrite a name in extraction."""
+    assert "speaker_identities" not in sent["metadata"]
