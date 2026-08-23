@@ -85,8 +85,9 @@ def share_settings(remote_configs: dict) -> dict:
     Every value has a code default so an absent block serves the feature
     at the scoped numbers rather than breaking it."""
     block = ((remote_configs.get("client-config") or {}).get("share")) or {}
+    host = str(block.get("host") or DEFAULT_HOST).rstrip("/")
     return {
-        "host": str(block.get("host") or DEFAULT_HOST).rstrip("/"),
+        "host": host,
         "default_expiry_days": int(block.get("default_expiry_days") or DEFAULT_EXPIRY_DAYS),
         "max_expiry_days": int(block.get("max_expiry_days") or MAX_EXPIRY_DAYS),
         # Numeric App Store id, as a STRING because it is an identifier
@@ -97,6 +98,12 @@ def share_settings(remote_configs: dict) -> dict:
         # stranger opens is worse than no link.
         "app_store_id": str(block["app_store_id"]).strip()
         if str(block.get("app_store_id") or "").strip() else None,
+        # The unfurl image and the touch icon. Dials so they can move to a
+        # CDN or a redesign without a deploy; default to the share origin's
+        # own /share-assets/ so a bare config still produces a bubble with
+        # the mark on it rather than a Safari compass.
+        "og_image_url": str(block.get("og_image_url") or f"{host}/share-assets/card-1200x630.png"),
+        "icon_url": str(block.get("icon_url") or f"{host}/share-assets/icon-512.png"),
     }
 
 

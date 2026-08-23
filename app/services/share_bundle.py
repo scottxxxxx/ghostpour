@@ -168,7 +168,8 @@ def _duration(sec) -> str:
 
 def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcript_included: bool,
                       expires_at: str, og_image_url: str | None = None,
-                      app_store_id: str | None = None, share_url: str | None = None) -> str:
+                      app_store_id: str | None = None, share_url: str | None = None,
+                      icon_url: str | None = None) -> str:
     """The hosted page for a recipient without the app (Variant A: the
     whole meeting). Card tags for iMessage and every other messenger;
     noindex; `reportHTML` when the record carries it, in a sandboxed
@@ -218,7 +219,17 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
         parts.append(f"<section><h1>{_esc(title)}</h1><p class='dim'>{_esc(meta)}</p>{''.join(body)}</section>")
     if not parts:
         parts.append(f"<section><h1>{_esc(card_title)}</h1><p class='dim'>This share holds no meeting.</p></section>")
-    og_img = f"<meta property='og:image' content='{_esc(og_image_url)}'>" if og_image_url else ""
+    # og:image is the difference between the app mark and a Safari compass
+    # in the iMessage bubble. Width/height let the messenger lay the card
+    # out before the fetch completes; the twitter card type switches from
+    # the compact thumbnail to the wide banner once there is an image.
+    og_img = (
+        f"<meta property='og:image' content='{_esc(og_image_url)}'>"
+        f"<meta property='og:image:width' content='1200'><meta property='og:image:height' content='630'>"
+        f"<meta name='twitter:image' content='{_esc(og_image_url)}'>"
+    ) if og_image_url else ""
+    icon = f"<link rel='apple-touch-icon' href='{_esc(icon_url)}'>" if icon_url else ""
+    card_type = "summary_large_image" if og_image_url else "summary"
 
     # The route a recipient WITHOUT the app takes, which is the case this
     # page exists for and the one it did not serve until 2026-08-23.
@@ -253,8 +264,8 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
         "<meta name='viewport' content='width=device-width,initial-scale=1'>"
         f"<meta property='og:title' content='{_esc(card_title)}'><meta property='og:description' content='{_esc(card_desc)}'>"
         f"<meta property='og:type' content='article'><meta property='og:site_name' content='Shoulder Surf'>{og_img}"
-        f"<meta name='twitter:card' content='summary'><meta name='twitter:title' content='{_esc(card_title)}'><meta name='twitter:description' content='{_esc(card_desc)}'>"
-        + banner +
+        f"<meta name='twitter:card' content='{card_type}'><meta name='twitter:title' content='{_esc(card_title)}'><meta name='twitter:description' content='{_esc(card_desc)}'>"
+        + banner + icon +
         "<style>body{font:16px/1.5 -apple-system,system-ui,sans-serif;max-width:720px;margin:0 auto;padding:1rem;color:#1a1a1a;background:#fafaf8}"
         "h1{font-size:1.4rem;margin:.5rem 0}.dim{color:#777}.k{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:#888;margin:1.2rem 0 .2rem}"
         ".summary{font-size:1.05rem}ul{padding-left:1.2rem}.tx pre{white-space:pre-wrap;background:#f1f1ee;padding:1rem;border-radius:8px}"
