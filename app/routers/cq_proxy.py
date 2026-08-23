@@ -1303,3 +1303,116 @@ async def get_person(
     return await _cq_proxy(
         "GET", f"/v1/people/{_subj(request, user_id)}/{entity_id}",
         query=request.url.query or None)
+
+
+# --- Alignment Layer (CQ #20, 2026-08-23) ----------------------------------
+#
+# Scott's direction via CQ: the Alignment Layer (Claude Design project
+# e6ee7ae8). CQ's phase 1 is merged and deployed (their main 54b5037,
+# contract docs/architecture/20-alignment-layer.md). Four routes, all
+# app-authenticated like People, additive, and the chat context flow is
+# untouched.
+#
+# Two things the contract makes load bearing and this proxy already does,
+# stated so nobody "tidies" them away: the 409 and 422 BODIES are the
+# contract (NOT_CONFIRMABLE, SHARED_TEXT_REJECTED carrying the term,
+# CORRECTION_CONFLICT carrying existing and proposed), and _cq_proxy
+# forwards CQ's status and JSON body unchanged, so a client can act on
+# them. And every array (supersedes, impact, evidence, history) keeps
+# its order, because _null_non_finite rebuilds lists in place and nothing
+# else touches the body. Nothing in any response is private; CQ never
+# selects the one private column, so there is nothing here to strip.
+#
+# Gated on the `alignment` entitlement, enabled for every tier, checked
+# anyway for the same reason People is: so the dashboard toggle closes the
+# door rather than hiding the tab.
+
+_ALIGNMENT_FEATURE = "alignment"
+
+
+async def _require_alignment(request: Request, user: UserRecord, user_id: str) -> None:
+    if user.id != user_id:
+        raise HTTPException(
+            status_code=403, detail="Cannot access another user's alignment")
+    from app.services.entitlements import entitlement_state
+    configs = getattr(request.app.state, "remote_configs", None)
+    if configs is None:
+        logger.warning("alignment_entitlement_skipped: remote_configs unavailable")
+        return
+    state = entitlement_state(configs, user.effective_tier, _ALIGNMENT_FEATURE)
+    if state == "disabled":
+        raise HTTPException(status_code=403, detail={
+            "code": "feature_disabled",
+            "feature": _ALIGNMENT_FEATURE,
+            "message": "Alignment is not available on this plan",
+        })
+
+
+@router.get("/alignment/{user_id}/meetings/{origin_id}")
+async def alignment_meeting_card(
+    user_id: str,
+    origin_id: str,
+    request: Request,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Proxy: the meeting card. `events: []` means no card, and that is a
+    200 with an empty list, never a 404, so a client can tell "nothing
+    happened in this meeting" from "the route is missing"."""
+    await _require_alignment(request, user, user_id)
+    return await _cq_proxy(
+        "GET", f"/v1/alignment/{_subj(request, user_id)}/meetings/{origin_id}",
+        query=request.url.query or None)
+
+
+@router.get("/alignment/{user_id}/projects/{project_id}")
+async def alignment_project_record(
+    user_id: str,
+    project_id: str,
+    request: Request,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Proxy: the project record (current_directions, awaiting_confirmation,
+    history, direction_change_count, cumulative_impact, definitions)."""
+    await _require_alignment(request, user, user_id)
+    return await _cq_proxy(
+        "GET", f"/v1/alignment/{_subj(request, user_id)}/projects/{project_id}",
+        query=request.url.query or None)
+
+
+@router.post("/alignment/{user_id}/events/{event_id}/confirm")
+async def alignment_confirm_event(
+    user_id: str,
+    event_id: str,
+    request: Request,
+    body: dict | None = None,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Proxy: confirm an event. Body {confirmed_by, on_behalf} forwarded
+    verbatim; CQ owns the shape. 409 NOT_CONFIRMABLE passes through with
+    its body."""
+    await _require_alignment(request, user, user_id)
+    return await _cq_proxy(
+        "POST", f"/v1/alignment/{_subj(request, user_id)}/events/{event_id}/confirm",
+        body=body, query=request.url.query or None)
+
+
+@router.post("/alignment/{user_id}/events/{event_id}/correct")
+async def alignment_correct_event(
+    user_id: str,
+    event_id: str,
+    request: Request,
+    body: dict | None = None,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Proxy: correct an event. Body {statement, reason, corrected_by,
+    rationale?} forwarded verbatim. 422 SHARED_TEXT_REJECTED (carries
+    `term`) and 409 CORRECTION_CONFLICT (carries `existing` and
+    `proposed`) pass through with their bodies, which IS the contract."""
+    await _require_alignment(request, user, user_id)
+    return await _cq_proxy(
+        "POST", f"/v1/alignment/{_subj(request, user_id)}/events/{event_id}/correct",
+        body=body, query=request.url.query or None)

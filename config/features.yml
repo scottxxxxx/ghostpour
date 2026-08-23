@@ -156,6 +156,17 @@ features:
     upgrade_cta: "Sign in to build your People list"
     category: "intelligence"
 
+  alignment:
+    display_name: "Alignment"
+    description: "What your projects have decided, what changed, and what is still waiting on someone to confirm."
+    # Same decoder constraint as People: both strings are non-optional on
+    # the shipped iOS FeatureDefinitionInfo, and neither names a plan
+    # because Alignment is gated on auth, not tier (Scott, 2026-08-23,
+    # via CQ: "app-authenticated like People").
+    teaser_description: "Alignment keeps every project's decisions and changes in one record."
+    upgrade_cta: "Sign in to see your project alignment"
+    category: "intelligence"
+
   share:
     display_name: "Meeting Share"
     description: "Share a meeting as a link that opens in Shoulder Surf or in any browser."
