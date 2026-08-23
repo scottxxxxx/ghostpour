@@ -1,0 +1,26 @@
+{
+ "short_question_to_user": {
+  "Help Me Respond": "\"So one of the areas I've been focused on is [specific skill or area you're working to improve]. What I've done to address that is [concrete steps you've taken, like courses, practice, feedback you've sought]. I've seen [what's changed or gotten better as a result], which tells me the work is paying off. There's still room to grow, but I feel good about the progress.\""
+ },
+ "short_small_talk": {
+  "Help Me Respond": "This is just small talk with no substantive meeting content."
+ },
+ "short_standup": {
+  "Help Me Respond": "\"Thursday works. Send over the latency numbers when you have them and we'll hold the rollout decision until then.\""
+ },
+ "short_one_line": {
+  "Help Me Respond": "\"Exactly, and it creates the wrong incentive where the more adoption you drive, the more your bill goes up. We want to reward usage, not penalize it. So what are we thinking instead, usage-based or something outcome-oriented?\""
+ },
+ "long_technical": {
+  "Help Me Respond": "\"Roll four on schedule, hold three pending the hardware review. Site three is showing latency issues we're tracing to the 2019 units, and we want clean data before we commit to a date. Thursday we'll have numbers, so Thursday is when we can give you a real answer on three, not before.\""
+ },
+ "long_sales_call": {
+  "Help Me Respond": "\"Sounds good on all of that. I'll watch for the one-pager Monday and share it with the board ahead of the ninth. Keeping the number where it is makes sense on our end too.\""
+ },
+ "long_interview_user_spoke": {
+  "Help Me Respond": "\"Honestly, I'd say [the area you've been working on, e.g. public speaking, stakeholder communication, a technical skill]. I recognized it was holding me back when [specific situation where it showed up]. What I've actually done about it is [concrete steps you took, e.g. courses, deliberate practice, seeking out certain projects], and the result has been [what changed or what you've seen so far].\""
+ },
+ "long_one_sided": {
+  "Help Me Respond": "Good question on timing. Honestly it's a bit of both. [describe the contract situation or renewal window if there is one] and we're also hitting some capacity walls with how we're currently handling [the specific pipeline or ingestion bottleneck]. So the pressure is coming from a few directions at once."
+ }
+}

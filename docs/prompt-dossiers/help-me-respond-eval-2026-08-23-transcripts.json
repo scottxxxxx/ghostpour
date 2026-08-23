@@ -1,0 +1,42 @@
+{
+ "short_question_to_user": {
+  "project": "Micro1",
+  "minutes": 2,
+  "transcript": "[Speaker 1] What about your development areas?  What do you have identified as your greatest and biggest improvement in areas?  And what have you done to improve them so far?"
+ },
+ "short_small_talk": {
+  "project": "Weekly sync",
+  "minutes": 1,
+  "transcript": "[Speaker 1] Morning. Coffee machine's broken again.\n[Speaker 2] Third time this month.\n[Speaker 1] I'll grab something on the way in. You good?\n[Speaker 2] Yeah, fine. Cold though."
+ },
+ "short_standup": {
+  "project": "Northwind Terminal",
+  "minutes": 2,
+  "transcript": "[Priya] Scanner lag is still on site three. I think it's firmware, not hardware.\n[Marcus] If it's firmware we can ship the rollout and patch after.\n[Priya] I want the latency numbers first. Give me until Thursday."
+ },
+ "short_one_line": {
+  "project": "Pricing",
+  "minutes": 1,
+  "transcript": "[Speaker 1] We're not doing per-seat. It punishes the teams we most want using this."
+ },
+ "long_technical": {
+  "project": "Northwind Terminal",
+  "minutes": 22,
+  "transcript": "[Priya] Let's start with site three. The scanner lag is averaging 800 milliseconds now, was 200 last week.\n[Marcus] Did anything change on our side?\n[Priya] We pushed the firmware update on the 12th. Sites one and two took it fine.\n[Dev] Site three is on older hardware. The 2019 units.\n[Marcus] So it's the firmware on old hardware, not the firmware.\n[Priya] That's my read. I want numbers before I say it out loud to the terminal leads.\n[Marcus] What's the exposure if we roll site four on schedule?\n[Dev] Site four is all 2022 units. Same as one and two.\n[Marcus] Then I'd rather roll four and hold three.\n[Priya] I don't love splitting the fleet. Two firmware versions in production is how we end up debugging the wrong thing.\n[Marcus] It's already split. Three is behaving differently whether we admit it or not.\n[Priya] Fair. Okay, roll four, hold three, and I'll have latency numbers by Thursday.\n[Dev] I can pull the per-unit breakdown tonight if that helps.\n[Priya] It would. Send it to both of us.\n[Marcus] What do we tell the terminal leads?\n[Priya] The truth. Site three is holding pending a hardware question, no date yet.\n[Marcus] They'll ask for a date.\n[Priya] Then say Thursday for a date, not Thursday for a rollout. Those are different sentences and they will hear whichever one we say.\n[Dev] Do we need finance in this?\n[Priya] Only if we end up replacing the 2019 units. Let's not borrow that yet.\n[Marcus] Agreed. Last thing, the install estimate. Finance asked twice.\n[Priya] That's on me. I'll get it to them by end of week.\n[Marcus] Then we're done."
+ },
+ "long_sales_call": {
+  "project": "Halloway account",
+  "minutes": 14,
+  "transcript": "[Dana, Halloway] I'll be honest, the number came in higher than we budgeted.\n[Rob] What did you have penciled?\n[Dana] Around forty. You came in at fifty-eight.\n[Rob] That fifty-eight includes the migration work. If you did the migration in-house it's forty-four.\n[Dana] We don't have anyone to do it in-house until Q1.\n[Rob] Then we're comparing forty-four plus your Q1 capacity against fifty-eight now.\n[Dana] Put that way it's closer than it looked.\n[Rob] I'd also say the migration is where these go wrong. It's not the part I'd hand to a team doing it for the first time.\n[Dana] That's fair. What I can't do is sign anything before the board meets on the ninth.\n[Rob] Understood. What would you need in front of them?\n[Dana] A one-pager. Cost, timeline, and what happens if we do nothing.\n[Rob] I can have that Monday. Do you want the do-nothing case honest or gentle?\n[Dana] Honest. They've seen gentle.\n[Rob] Then I'll put the renewal exposure in it.\n[Dana] Do that. And keep the fifty-eight, don't discount it before the meeting. If it drops now they'll assume it drops again.\n[Rob] Agreed. One-pager Monday, board on the ninth, no movement on price before then."
+ },
+ "long_interview_user_spoke": {
+  "project": "Micro1",
+  "minutes": 11,
+  "transcript": "[Interviewer] Tell me about the last thing you shipped that you were proud of.\n[Candidate] We replaced the batch importer with a streaming one. The old one held the whole file in memory and fell over above about two hundred megabytes.\n[Interviewer] What was hard about it?\n[Candidate] Convincing people it was worth doing. It wasn't failing loudly, it was failing for the three biggest customers only, so from the dashboard it looked like a rare edge case.\n[Interviewer] How did you make the case?\n[Candidate] I pulled the failures by account size instead of by count. Same data, and suddenly it was obviously the top of the market.\n[Interviewer] What about your development areas? What have you identified as your biggest area for improvement, and what have you done about it?"
+ },
+ "long_one_sided": {
+  "project": "Vendor review",
+  "minutes": 18,
+  "transcript": "[Vendor] So the platform handles ingestion, normalisation, and routing in one pass.\n[Vendor] Most of our customers come to us after trying to build this internally.\n[Vendor] The normalisation layer is the part people underestimate. Everyone thinks their data is clean.\n[Vendor] We support about forty connectors out of the box, and custom ones take us roughly two weeks.\n[Vendor] Pricing is per pipeline, not per record, which matters if your volume is spiky.\n[Vendor] The onboarding is six weeks typically. Four if your schemas are already documented.\n[Vendor] I'd want to understand your current stack before I say where the friction is.\n[Vendor] What's driving the timing on your side? Is there a contract coming up, or is this a capacity thing?"
+ }
+}
