@@ -1,5 +1,5 @@
 {
-  "version": 49,
+  "version": 50,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -630,6 +630,20 @@
       "description": "Ask your AI to look up current information from the web during a query.",
       "teaser_description": "Web search is a paid feature.",
       "upgrade_cta": "Upgrade to Plus to enable web search"
+    }
+  },
+  "upgrade_nudges": {
+    "context_fits_higher": {
+      "text": "This is {needed}K characters. {tier_name} fits up to {cap}K.",
+      "label": "See {tier_name}"
+    },
+    "memory_excluded_scope": {
+      "text": "This answer skipped {excluded} earlier meeting{plural} that memory found. Plus brings them into every conversation.",
+      "label": "See Plus"
+    },
+    "memory_excluded_window": {
+      "text": "{excluded} matching meeting{plural} older than {window} days were out of reach. Pro has no window.",
+      "label": "See Pro"
     }
   }
 }

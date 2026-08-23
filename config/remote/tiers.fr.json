@@ -1,5 +1,5 @@
 {
-  "version": 47,
+  "version": 48,
   "tiers": {
     "free": {
       "display_name": "Gratuit",
@@ -493,6 +493,20 @@
       "description": "Demandez à votre IA de rechercher des informations actuelles sur le web pendant une requête.",
       "teaser_description": "La recherche web est une fonctionnalité payante.",
       "upgrade_cta": "Passez à Plus pour activer la recherche web"
+    }
+  },
+  "upgrade_nudges": {
+    "context_fits_higher": {
+      "text": "Cela fait {needed}K caractères. {tier_name} accepte jusqu'à {cap}K.",
+      "label": "Voir {tier_name}"
+    },
+    "memory_excluded_scope": {
+      "text": "Réunions antérieures trouvées par la mémoire mais non utilisées ici : {excluded}. Plus les intègre à chaque conversation.",
+      "label": "Voir Plus"
+    },
+    "memory_excluded_window": {
+      "text": "Réunions correspondantes de plus de {window} jours restées hors de portée : {excluded}. Pro n'a aucune limite.",
+      "label": "Voir Pro"
     }
   }
 }
