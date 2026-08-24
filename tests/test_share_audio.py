@@ -97,7 +97,7 @@ def test_page_without_audio_has_no_player_but_keeps_segments_closed():
 
 def test_page_without_segments_falls_back_to_plain_transcript():
     html = _rendered(_bundle(with_segments=False), {ORIGIN: [f"media/{ORIGIN}/audio/session-0.m4a"]})
-    assert "<audio" in html and "<pre>" in html and "data-s=" not in html
+    assert "<audio" in html and "<pre class='orig-plain'>" in html and "data-s=" not in html
 
 
 # --- route -------------------------------------------------------------------
@@ -192,18 +192,29 @@ def test_multi_meeting_bundle_numbers_players_the_way_the_route_does(client, pro
     assert "querySelectorAll('section')" in page and "A[0]" not in page
 
 
-# --- transcript language picker (Scott 2026-08-24): translated lines ride
-# --- the page's segment ids so the follow-along tracks them --------------------
+# --- transcript language picker, renditions-driven (Scott 2026-08-24 ruling) ---
+# Picker = Original + the languages the sender already translated in the
+# app (bundle transcriptRenditions), opens on manifest share_language,
+# no web-side translation, no picker when nothing was translated.
 
-def _bundle_lang(lang="es", with_segments=True):
-    rec = {"title": "Kickoff", "durationSeconds": 90.0, "rollingSummary": "s",
-           "transcript": "Hola a todos. Empecemos.", "transcriptLanguage": lang}
-    if with_segments:
-        rec["transcriptSegments"] = [
-            {"text": "Hola a todos.", "speakerLabel": "A", "sessionTimeOffset": 0.0, "endTimeOffset": 2.5},
-            {"text": "Empecemos.", "speakerLabel": "B", "sessionTimeOffset": 2.5, "endTimeOffset": 4.0}]
-    entries = {"manifest.json": json.dumps({"formatVersion": 1}).encode(),
-               f"meetings/{ORIGIN}.json": json.dumps(rec).encode()}
+SEGS = [{"text": "Hola a todos.", "speakerLabel": "A", "sessionTimeOffset": 0.0, "endTimeOffset": 2.5},
+        {"text": "Empecemos.", "speakerLabel": "B", "sessionTimeOffset": 2.5, "endTimeOffset": 4.0}]
+
+
+def _bundle_rend(renditions=None, share_language=None, spoken="es", segments=True, images=0):
+    rec = {"title": "Kickoff", "durationSeconds": 90.0, "rollingSummary": "Resumen corto.",
+           "transcript": "A Hola a todos.\nB Empecemos.", "transcriptLanguage": spoken}
+    if segments:
+        rec["transcriptSegments"] = SEGS
+    if renditions is not None:
+        rec["transcriptRenditions"] = renditions
+    manifest = {"formatVersion": 1}
+    if share_language:
+        manifest["share_language"] = share_language
+    entries = {"manifest.json": json.dumps(manifest).encode(),
+               f"meetings/{ORIGIN}.json": json.dumps(rec, ensure_ascii=False).encode()}
+    for i in range(images):
+        entries[f"media/{ORIGIN}/images/img-{i}.jpg"] = b"\xff\xd8\xff" + bytes(50)
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         for name, data in entries.items():
@@ -211,50 +222,52 @@ def _bundle_lang(lang="es", with_segments=True):
     return buf.getvalue()
 
 
-def test_page_offers_picker_only_with_a_stated_source_language(client, pro_user):
-    token = _share(client, pro_user, _bundle_lang("es"))
+EN = {"lang": "en", "engine_version": 1, "created_at": "2026-08-24T18:00:00Z",
+      "transcript": "A Hello everyone.\nB Let's begin.", "summary": "Short summary.", "report_html": None}
+
+
+def test_picker_offers_only_original_plus_rendition_langs_and_opens_on_share_language(client, pro_user):
+    token = _share(client, pro_user, _bundle_rend([EN], share_language="en"))
     page = client.get(f"/s/{token}").text
-    assert "<select class='lang'>" in page and "value='en'" in page and "value='es'" not in page
-    assert f"data-id='{ORIGIN}:0'" in page and "<span class='tr'></span>" in page
-    token2 = _share(client, pro_user, _bundle_lang(lang=None))
-    assert "<select class='lang'>" not in client.get(f"/s/{token2}").text
+    assert "<select class='lang'>" in page
+    assert "<option value='en' selected>English</option>" in page
+    assert "value='fr'" not in page and "value='ja'" not in page and "value='es'" not in page
+    # aligned lines ride each segment with the same timing
+    assert "data-tr-en='A Hello everyone.'" in page and "data-tr-en='B Let&#x27;s begin.'" in page or "data-tr-en='B Let" in page
+    assert "data-s='2.50' data-e='4.00'" in page
+    # translated summary rides the summary element
+    assert "data-sum-en='Short summary.'" in page and "data-sum-orig='Resumen corto.'" in page
+    # nothing on the page fetches a translation
+    assert "/transcript?lang=" not in page
 
 
-def test_transcript_route_translates_by_segment_id_and_bills_the_owner(client, pro_user, mock_provider, tmp_db_path):
-    token = _share(client, pro_user, _bundle_lang("es"))
-    mock_provider.return_value.text = json.dumps([
-        {"id": f"{ORIGIN}:0", "text": "Hello everyone."}, {"id": f"{ORIGIN}:1", "text": "Let's begin."}])
-    r = client.get(f"/s/{token}/transcript?lang=en&origin={ORIGIN}")
-    assert r.status_code == 200, r.text
-    assert r.json()["segments"] == [{"id": f"{ORIGIN}:0", "text": "Hello everyone."},
-                                    {"id": f"{ORIGIN}:1", "text": "Let's begin."}]
-    assert r.json()["source_language"] == "es"
-    # Billed to the OWNER as a translation, exactly once (second call is cached).
-    client.get(f"/s/{token}/transcript?lang=en&origin={ORIGIN}")
-    n = sqlite3.connect(tmp_db_path).execute(
-        "SELECT COUNT(*) FROM usage_log WHERE user_id=? AND call_type='translation'",
-        (pro_user["user_id"],)).fetchone()[0]
-    assert n == 1
+def test_no_picker_when_nothing_was_translated(client, pro_user):
+    token = _share(client, pro_user, _bundle_rend(None))
+    page = client.get(f"/s/{token}").text
+    assert "<select class='lang'>" not in page and "data-tr-en=" not in page
 
 
-def test_transcript_route_same_language_echoes_without_a_model_call(client, pro_user, mock_provider):
-    token = _share(client, pro_user, _bundle_lang("es"))
-    before = mock_provider.call_count
-    r = client.get(f"/s/{token}/transcript?lang=es-MX&origin={ORIGIN}")
-    assert r.status_code == 200 and r.json()["segments"][0]["text"] == "Hola a todos."
-    assert mock_provider.call_count == before
+def test_misaligned_rendition_falls_back_to_plain_text_not_a_guess(client, pro_user):
+    bad = dict(EN, transcript="Hello everyone. Let's begin.")   # one line for two segments
+    token = _share(client, pro_user, _bundle_rend([bad], share_language="en"))
+    page = client.get(f"/s/{token}").text
+    assert "data-tr-en=" not in page                                # never guessed onto lines
+    assert "<pre class='rend' data-lang='en'" in page               # shown as plain text instead
+    assert "<option value='en' selected>English</option>" in page   # still pickable
 
 
-def test_transcript_route_refuses_without_source_language_and_on_bad_lang(client, pro_user):
-    token = _share(client, pro_user, _bundle_lang(lang=None))
-    assert client.get(f"/s/{token}/transcript?lang=en").status_code == 422
-    token2 = _share(client, pro_user, _bundle_lang("es"))
-    assert client.get(f"/s/{token2}/transcript?lang=???").status_code == 422
-    assert client.get("/s/notatoken/transcript?lang=en").status_code == 410
+def test_transcript_window_is_scrollable_and_route_is_gone(client, pro_user):
+    token = _share(client, pro_user, _bundle_rend([EN], share_language="en"))
+    page = client.get(f"/s/{token}").text
+    assert "max-height:60vh;overflow-y:auto" in page
+    assert "box.scrollTop=" in page                                  # autoscroll inside the window
+    assert client.get(f"/s/{token}/transcript?lang=en").status_code == 404
 
 
-def test_transcript_route_429s_when_the_owner_is_out_of_allocation(client, exhausted_user, mock_provider):
-    token = _share(client, exhausted_user, _bundle_lang("es"))
-    r = client.get(f"/s/{token}/transcript?lang=en&origin={ORIGIN}")
-    assert r.status_code == 429
-    assert r.json()["detail"]["code"] == "allocation_exhausted"
+def test_contents_descriptor_comes_off_the_bytes_localized_to_share_language(client, pro_user):
+    token = _share(client, pro_user, _bundle_rend([EN], share_language="en", images=3))
+    page = client.get(f"/s/{token}").text
+    assert "Transcript · 3 photos" in page                            # meta line (no report, no audio in this bundle)
+    assert "content='Transcript · 3 photos" in page                   # og:description prefix
+    token2 = _share(client, pro_user, _bundle_rend(None, share_language="es", images=1))
+    assert "Transcripción · 1 foto" in client.get(f"/s/{token2}").text
