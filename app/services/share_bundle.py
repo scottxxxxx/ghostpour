@@ -166,10 +166,105 @@ def _duration(sec) -> str:
     return f"{h}h {m}m" if h else f"{m}m {s}s"
 
 
+# Audio (Scott 2026-08-24: playable on the page, synced to the transcript).
+# The bundle carries media/<ORIGIN>/audio/<name>.m4a, opt-in, AAC 16 kHz
+# mono 32 kbps, so ~4 KB/s: a 2 h meeting is ~29 MB. The page reader
+# still never inflates audio; the audio ROUTE extracts one entry to a
+# sidecar file next to the archive on first request (bounded), and the
+# sidecar is served with Range support so scrubbing works. Sidecars are
+# deleted with the share.
+MAX_AUDIO_ENTRY_BYTES = 64 * 1024 * 1024
+
+
+def list_audio_entries(archive_bytes_or_path) -> dict[str, list[str]]:
+    """{origin_id: [entry names in name order]} for every audio entry in the
+    zip. Names only: nothing is inflated here."""
+    import zipfile
+    out: dict[str, list[str]] = {}
+    try:
+        zf = zipfile.ZipFile(archive_bytes_or_path if not isinstance(archive_bytes_or_path, (bytes, bytearray))
+                             else __import__("io").BytesIO(archive_bytes_or_path))
+    except zipfile.BadZipFile:
+        return out
+    with zf:
+        for name in zf.namelist():
+            parts = name.split("/")
+            if len(parts) == 4 and parts[0] == "media" and parts[2] == "audio" and name.lower().endswith(".m4a"):
+                out.setdefault(parts[1], []).append(name)
+    for k in out:
+        out[k].sort()
+    return out
+
+
+def extract_audio_sidecar(archive_path: str, entry_name: str, sidecar_path: str) -> bool:
+    """Inflate ONE audio entry to `sidecar_path`, streaming, with the same
+    in-loop bound discipline as `_json` (a claimed size is not a size).
+    Returns False (and leaves no partial file) when the entry is missing,
+    oversized, or unreadable."""
+    import os, zipfile
+    from pathlib import Path
+    tmp = sidecar_path + ".part"
+    try:
+        with zipfile.ZipFile(archive_path) as zf:
+            try:
+                info = zf.getinfo(entry_name)
+            except KeyError:
+                return False
+            if info.file_size > MAX_AUDIO_ENTRY_BYTES:
+                return False
+            written = 0
+            with zf.open(info) as src, open(tmp, "wb") as dst:
+                while True:
+                    chunk = src.read(_CHUNK)
+                    if not chunk:
+                        break
+                    written += len(chunk)
+                    if written > MAX_AUDIO_ENTRY_BYTES:
+                        raise ShareBundleTooLarge(entry_name)
+                    dst.write(chunk)
+        os.replace(tmp, sidecar_path)
+        return True
+    except (zipfile.BadZipFile, ShareBundleTooLarge, OSError):
+        Path(tmp).unlink(missing_ok=True)
+        return False
+
+
+def _segments_html(segments: list) -> str:
+    """Per-line transcript with data-s/data-e (seconds) so the player can
+    highlight the line being spoken and a tap can seek. Falls back to the
+    plain transcript when the record has no segments."""
+    rows = []
+    for seg in segments:
+        if not isinstance(seg, dict) or not isinstance(seg.get("text"), str):
+            continue
+        try:
+            s0 = float(seg.get("sessionTimeOffset") or 0.0)
+            e0 = float(seg.get("endTimeOffset") or s0)
+        except (TypeError, ValueError):
+            s0, e0 = 0.0, 0.0
+        who = seg.get("speakerLabel")
+        rows.append(
+            f"<p class='seg' data-s='{s0:.2f}' data-e='{e0:.2f}'>"
+            + (f"<b>{_esc(who)}</b> " if isinstance(who, str) and who.strip() else "")
+            + _esc(seg["text"]) + "</p>")
+    return "".join(rows)
+
+
+_PLAYER_JS = (
+    "<script>(function(){var A=document.querySelectorAll('audio.sa');var S=Array.prototype.slice.call(document.querySelectorAll('p.seg'));"
+    "if(!A.length||!S.length)return;var cur=null;function tick(a){var t=a.currentTime,hit=null;"
+    "for(var i=0;i<S.length;i++){var s=+S[i].dataset.s,e=+S[i].dataset.e;if(t>=s&&(t<e||(e<=s&&(i+1>=S.length||t<+S[i+1].dataset.s)))){hit=S[i];break;}}"
+    "if(hit!==cur){if(cur)cur.classList.remove('on');cur=hit;if(cur){cur.classList.add('on');var d=cur.closest('details');if(d&&!d.open)d.open=true;"
+    "cur.scrollIntoView({block:'center',behavior:'smooth'});}}}"
+    "A.forEach(function(a){a.addEventListener('timeupdate',function(){tick(a)});});"
+    "S.forEach(function(p){p.addEventListener('click',function(){var a=A[0];a.currentTime=+p.dataset.s;a.play();});});})();</script>"
+)
+
+
 def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcript_included: bool,
                       expires_at: str, og_image_url: str | None = None,
                       app_store_id: str | None = None, share_url: str | None = None,
-                      icon_url: str | None = None) -> str:
+                      icon_url: str | None = None, audio_by_origin: dict[str, list[str]] | None = None) -> str:
     """The hosted page for a recipient without the app (Variant A: the
     whole meeting). Card tags for iMessage and every other messenger;
     noindex; `reportHTML` when the record carries it, in a sandboxed
@@ -213,8 +308,21 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
                 body.append("<p class='k'>Open questions</p><ul>" + "".join(f"<li>{_esc(q.get('question') or q.get('text') or q)}</li>" for q in oq) + "</ul>")
             if not body:
                 body.append("<p class='dim'>This meeting was shared without a report.</p>")
+        # Audio players: one per audio entry, in name order, served by
+        # /s/{token}/audio/{n} where n indexes this meeting's entries.
+        audio_names = (audio_by_origin or {}).get(m.get("origin_id") or "", [])
+        if audio_names and share_url:
+            for n, _name in enumerate(audio_names):
+                body.append(
+                    f"<p class='k'>Recording{'' if len(audio_names) == 1 else f' {n + 1}'}</p>"
+                    f"<audio class='sa' controls preload='metadata' src='{_esc(share_url)}/audio/{n}'></audio>")
         transcript = rec.get("transcript") if isinstance(rec.get("transcript"), str) else ""
-        if transcript_included and transcript.strip():
+        segments = rec.get("transcriptSegments") if isinstance(rec.get("transcriptSegments"), list) else []
+        seg_html = _segments_html(segments) if transcript_included else ""
+        if seg_html:
+            body.append("<details class='tx'" + (" open" if audio_names else "") +
+                        "><summary>Show transcript</summary><div class='segs'>" + seg_html + "</div></details>")
+        elif transcript_included and transcript.strip():
             body.append("<details class='tx'><summary>Show transcript</summary><pre>" + _esc(transcript) + "</pre></details>")
         parts.append(f"<section><h1>{_esc(title)}</h1><p class='dim'>{_esc(meta)}</p>{''.join(body)}</section>")
     if not parts:
@@ -270,10 +378,11 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
         "<style>body{font:16px/1.5 -apple-system,system-ui,sans-serif;max-width:720px;margin:0 auto;padding:1rem;color:#1a1a1a;background:#fafaf8}"
         "h1{font-size:1.4rem;margin:.5rem 0}.dim{color:#777}.k{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:#888;margin:1.2rem 0 .2rem}"
         ".summary{font-size:1.05rem}ul{padding-left:1.2rem}.tx pre{white-space:pre-wrap;background:#f1f1ee;padding:1rem;border-radius:8px}"
+        ".segs{background:#f1f1ee;padding:.5rem 1rem;border-radius:8px}.seg{margin:.15rem 0;padding:.15rem .4rem;border-radius:4px;cursor:pointer}.seg.on{background:#ffe9a8}audio.sa{width:100%;margin:.25rem 0 .75rem}"
         ".foot{margin-top:2rem;font-size:.8rem;color:#888}"
         ".get{margin:.25rem 0 1rem}.get a{display:inline-block;background:#1a1a1a;color:#fff;text-decoration:none;"
         "padding:.5rem .9rem;border-radius:8px;font-size:.9rem}</style></head><body>"
         + get_app + "".join(parts) +
         f"<p class='foot'>Shared from Shoulder Surf. This link stops working on {_esc(expires_at[:10])}.</p>"
-        "</body></html>"
+        + _PLAYER_JS + "</body></html>"
     )
