@@ -186,3 +186,24 @@ the full page renderer (#754, live on `da76aca`).
   than hardcoding either name, and treat "the configured host does not
   resolve" as a real error state rather than a hang, because that is the
   live state on every device until the DNS lands.
+
+## Audio on the hosted page (2026-08-24)
+
+Scott's ruling: the recording is playable on the web page and the
+transcript follows it. Nothing changes for SS's exporter; this is read
+off the bundle as a FACT (any `media/<origin>/audio/*.m4a` entry).
+
+- `GET /s/{token}/audio/{n}` (public, GET/HEAD): the n-th audio entry
+  of the bundle in name order across its meetings, `audio/mp4`, with
+  HTTP Range (206 + Content-Range + Accept-Ranges: bytes). Safari's
+  audio element probes `Range: bytes=0-1` and needs the 206. 404 when
+  n is past the entries or the bundle has no audio; 410 on a dead share.
+  Bifrost's edge admits `/audio/[0-9]{1,3}` only (n 0-999).
+- The entry is inflated ONCE to a sidecar `<archive>.audio{n}.m4a`
+  beside the archive (bounded at 64 MB per entry, streamed, no partial
+  file on failure) and the sidecar dies with the share on purge.
+- The page renders `transcriptSegments` as timed lines
+  (`sessionTimeOffset`/`endTimeOffset`); playback highlights and scrolls
+  the current line, a tap on a line seeks. Records without segments keep
+  the plain transcript. The transcript panel opens itself when audio is
+  present.

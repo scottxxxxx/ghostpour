@@ -335,10 +335,12 @@ async def share_page(token: str, request: Request, db: aiosqlite.Connection = De
     # The page: card chrome plus the bundle's own report (SS's archive
     # spec 2026-08-22). A bundle that is not a zip, or a zip with odd
     # contents, still gets the card; the bytes are never the page.
-    from app.services.share_bundle import read_bundle, render_share_page
+    from app.services.share_bundle import list_audio_entries, read_bundle, render_share_page
+    audio_by_origin: dict[str, list[str]] = {}
     try:
         with open(row["storage_path"], "rb") as f:
             bundle = read_bundle(f.read())
+        audio_by_origin = list_audio_entries(row["storage_path"])
     except Exception as e:  # noqa: BLE001  (BadZipFile, OSError, anything)
         logger.warning("share_bundle_unreadable", extra={"share_id": row["id"], "error": type(e).__name__})
         bundle = {"meetings": []}
@@ -355,8 +357,30 @@ async def share_page(token: str, request: Request, db: aiosqlite.Connection = De
         # on its home screen. Built from the served host, not from the
         # request, so a share opened through any hostname still points the
         # app at the one we publish.
-        share_url=f"{settings['host']}/s/{token}")
+        share_url=f"{settings['host']}/s/{token}",
+        audio_by_origin=audio_by_origin)
     return HTMLResponse(html, headers={"X-Robots-Tag": "noindex", "Cache-Control": "private, no-store"})
+
+
+@public.api_route("/s/{token}/audio/{n}", methods=["GET", "HEAD"])
+async def share_audio(request: Request, token: str, n: int, db: aiosqlite.Connection = Depends(get_db)):
+    """One audio entry of the shared meeting, as bytes with Range support
+    (Scott 2026-08-24: playable on the page). `n` indexes the bundle's
+    audio entries in name order across its meetings. Extracted once to a
+    sidecar beside the archive; the sidecar dies with the share."""
+    from fastapi.responses import FileResponse
+    from app.services.share_bundle import extract_audio_sidecar, list_audio_entries
+    row = await shares.share_by_token(db, token) if shares.is_token_shaped(token) else None
+    if not shares.is_live(row):
+        raise HTTPException(status_code=410)
+    entries = [name for names in list_audio_entries(row["storage_path"]).values() for name in names]
+    if n < 0 or n >= len(entries):
+        raise HTTPException(status_code=404)
+    sidecar = f"{row['storage_path']}.audio{n}.m4a"
+    if not Path(sidecar).exists() and not extract_audio_sidecar(row["storage_path"], entries[n], sidecar):
+        raise HTTPException(status_code=404)
+    hdrs = {"Cache-Control": "private, no-store", "X-Robots-Tag": "noindex", "Accept-Ranges": "bytes"}
+    return FileResponse(sidecar, media_type="audio/mp4", headers=hdrs, method=request.method)
 
 
 def _esc(s: str) -> str:
