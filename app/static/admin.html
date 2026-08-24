@@ -338,6 +338,9 @@
       <th onclick="sortUserTable('alloc')" style="cursor:pointer">Allocation<span class="sa" data-sk="alloc"></span></th>
       <th onclick="sortUserTable('resets')" style="cursor:pointer">Resets<span class="sa" data-sk="resets"></span></th>
       <th onclick="sortUserTable('genbuilds')" style="cursor:pointer" title="File generations this allocation period / tier cap (uncapped shows no denominator)">Files<span class="sa" data-sk="genbuilds"></span></th>
+      <th onclick="sortUserTable('docs')" style="cursor:pointer" title="Documents included in queries in the selected period, counted server-side off the wire (metadata.documents.count)">Docs<span class="sa" data-sk="docs"></span></th>
+      <th onclick="sortUserTable('photos')" style="cursor:pointer" title="Photos included in queries in the selected period, counted server-side off the wire (image_count)">Photos<span class="sa" data-sk="photos"></span></th>
+      <th onclick="sortUserTable('transl')" style="cursor:pointer" title="Translation requests in the selected period. Zero for everyone until /v1/translations ships; the column is ready the day it does">Transl<span class="sa" data-sk="transl"></span></th>
       <th onclick="sortUserTable('window')" style="cursor:pointer"><span id="user-table-window-cost-th">Period Cost</span><span class="sa" data-sk="window"></span></th>
       <th onclick="sortUserTable('lifetime')" style="cursor:pointer">Lifetime Cost<span class="sa" data-sk="lifetime"></span></th>
       <th onclick="sortUserTable('last')" style="cursor:pointer">Last Active<span class="sa" data-sk="last"></span></th>
@@ -1861,6 +1864,9 @@ function _userSortVal(u, key) {
     case 'alloc': return u.percent_used || 0;
     case 'resets': return u.allocation_resets_at || '';
     case 'genbuilds': return u.generations_used || 0;
+    case 'docs': return u.window_documents || 0;
+    case 'photos': return u.window_photos || 0;
+    case 'transl': return u.window_translations || 0;
     case 'window': return u.window_cost_usd || 0;
     case 'lifetime': return u.lifetime_cost_usd || 0;
     case 'last': return u.last_request || '';
@@ -2003,6 +2009,9 @@ function renderUserRows() {
     <td>${allocBar}</td>
     <td>${resets}</td>
     <td>${genBuilds}</td>
+    <td title="lifetime: ${(u.lifetime_documents||0).toLocaleString()}">${(u.window_documents||0).toLocaleString()}</td>
+    <td title="lifetime: ${(u.lifetime_photos||0).toLocaleString()}">${(u.window_photos||0).toLocaleString()}</td>
+    <td title="lifetime: ${(u.lifetime_translations||0).toLocaleString()}">${(u.window_translations||0).toLocaleString()}</td>
     <td>${fmtCost(u.window_cost_usd)}</td>
     <td>${fmtCost(u.lifetime_cost_usd)}</td>
     <td>${timeAgo(u.last_request)}</td>
@@ -2020,7 +2029,7 @@ function renderUserRows() {
       <button class="refresh-btn" onclick="showUserDetail('${u.id}','${u.email||"User"}')">Detail</button>
     </td>
   </tr>`;
-  }).join('') || '<tr><td colspan="19" style="text-align:center;color:var(--text-dim)">No users yet</td></tr>';
+  }).join('') || '<tr><td colspan="22" style="text-align:center;color:var(--text-dim)">No users yet</td></tr>';
   // Update sort-direction arrows on the headers.
   document.querySelectorAll('#user-table .sa').forEach(s => {
     s.textContent = s.dataset.sk === _userSort.key ? (dir > 0 ? ' ▲' : ' ▼') : '';
