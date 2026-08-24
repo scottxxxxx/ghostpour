@@ -652,8 +652,8 @@
       "feature_locked": {
         "body": "You've used your free hours. Subscribe to unlock meeting memory, photo analysis, and richer insights from every session."
       },
-      "out_of_credits": {
-        "title": "You're out of AI credits",
+      "allowance_exhausted": {
+        "title": "You're out of free hours",
         "body": "Unlock unlimited AI for this meeting and beyond."
       }
     },

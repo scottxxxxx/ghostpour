@@ -652,8 +652,8 @@
       "feature_locked": {
         "body": "Vous avez utilisé vos heures gratuites. Abonnez-vous pour débloquer la mémoire des réunions, l'analyse de photos et des analyses plus riches à chaque session."
       },
-      "out_of_credits": {
-        "title": "Vous n'avez plus de crédits d'IA",
+      "allowance_exhausted": {
+        "title": "Vous avez épuisé vos heures gratuites",
         "body": "Débloquez l'IA illimitée pour cette réunion et les suivantes."
       }
     },

@@ -652,8 +652,8 @@
       "feature_locked": {
         "body": "Has usado tus horas gratuitas. Suscríbete para desbloquear la memoria de reuniones, análisis de fotos e información más detallada de cada sesión."
       },
-      "out_of_credits": {
-        "title": "Te has quedado sin créditos de IA",
+      "allowance_exhausted": {
+        "title": "Te quedaste sin horas gratuitas",
         "body": "Desbloquea IA ilimitada para esta reunión y las siguientes."
       }
     },
