@@ -77,7 +77,9 @@ def test_recall_degrade_is_loud(monkeypatch, caplog):
             user_id="u-1", text="q",
             metadata={"project": "Kore", "memory_signals": True}))
 
-    assert result == {"context": "", "matched_entities": [], "patch_count": 0}
+    assert {k: result[k] for k in ("context", "matched_entities", "patch_count")} == {"context": "", "matched_entities": [], "patch_count": 0}
+    # 2026-08-24: a degrade also says so, so the route can raise an incident.
+    assert result["degraded"] in ("timeout", "error") and "recall_scope" in result
     degraded = [r for r in caplog.records if "cq_recall_degraded" in r.getMessage()]
     assert len(degraded) == 1
     assert degraded[0].levelno == logging.ERROR
