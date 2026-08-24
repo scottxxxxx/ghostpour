@@ -245,7 +245,10 @@ def test_picker_offers_only_original_plus_rendition_langs_and_opens_on_share_lan
     seg_window = page[page.index("<div class='segs'>"):page.index("</details>", page.index("<div class='segs'>"))]
     assert "<div class='view' data-lang=''>" in seg_window and "<div class='view' data-lang='en'" in seg_window
     assert "data-s='2.50' data-e='4.00'><b>B</b> Let&#39;s begin.</p>" in seg_window
-    assert "data-sum-en='Short summary.'" in page and "data-sum-orig='Resumen corto.'" in page
+    # summary is rendered markdown now (a paragraph), stored as safe HTML for the swap
+    assert "data-sum-en='&lt;p&gt;Short summary.&lt;/p&gt;'" in page
+    assert "data-sum-orig='&lt;p&gt;Resumen corto.&lt;/p&gt;'" in page
+    assert "<div class='summary' data-sum-orig=" in page
     assert "/transcript?lang=" not in page
 
 

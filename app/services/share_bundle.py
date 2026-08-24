@@ -161,6 +161,54 @@ def _esc(s) -> str:
     return str(s if s is not None else "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;").replace("'", "&#39;")
 
 
+def _md_inline(t: str) -> str:
+    """Inline markdown on ALREADY-ESCAPED text: bold, italic, code, links.
+    Runs after _esc so it can never introduce unescaped HTML."""
+    import re as _re
+    t = _re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", t)
+    t = _re.sub(r"__(.+?)__", r"<strong>\1</strong>", t)
+    t = _re.sub(r"(?<![\*\w])\*(?!\s)(.+?)(?<!\s)\*(?![\*\w])", r"<em>\1</em>", t)
+    t = _re.sub(r"`([^`]+?)`", r"<code>\1</code>", t)
+    # [text](http...) — only http(s), href re-escaped so quotes can't break out
+    def _link(m):
+        url = m.group(2)
+        if not (url.startswith("http://") or url.startswith("https://")):
+            return m.group(0)
+        return f"<a href=\"{_esc(url)}\" target=\"_blank\" rel=\"noopener nofollow\">{m.group(1)}</a>"
+    t = _re.sub(r"\[([^\]]+)\]\(([^)\s]+)\)", _link, t)
+    return t
+
+
+def render_markdown(text: str) -> str:
+    """A small, SAFE markdown -> HTML for the share page's summary (Scott
+    2026-08-24: the model writes headings, bold and bullets and the page
+    was showing the raw characters). HTML is escaped FIRST, so only the
+    formatting we add is live; no library, no arbitrary HTML."""
+    import re as _re
+    if not text or not str(text).strip():
+        return ""
+    out, in_ul = [], False
+    for raw in _esc(text).split("\n"):
+        line = raw.rstrip()
+        h = _re.match(r"^(#{1,6})\s+(.*)$", line)
+        b = _re.match(r"^\s*(?:[-*\u2022]|\d+\.)\s+(.*)$", line)
+        if b:
+            if not in_ul:
+                out.append("<ul>"); in_ul = True
+            out.append(f"<li>{_md_inline(b.group(1))}</li>")
+            continue
+        if in_ul:
+            out.append("</ul>"); in_ul = False
+        if h:
+            lvl = min(len(h.group(1)) + 2, 6)
+            out.append(f"<h{lvl}>{_md_inline(h.group(2))}</h{lvl}>")
+        elif line.strip():
+            out.append(f"<p>{_md_inline(line)}</p>")
+    if in_ul:
+        out.append("</ul>")
+    return "".join(out)
+
+
 def _duration(sec) -> str:
     try:
         sec = int(float(sec))
@@ -501,7 +549,7 @@ _PLAYER_JS = (
     "function pick(lang){var views=sec.querySelectorAll('.view');var shown=null;views.forEach(function(v){var on=(v.getAttribute('data-lang')||'')===(lang||'');v.style.display=on?'':'none';if(on)shown=v;});"
     "if(!shown&&views.length){views[0].style.display='';shown=views[0];}"
     "S=shown?Array.prototype.slice.call(shown.querySelectorAll('p.seg')):[];if(cur){cur.classList.remove('on');cur=null;}"
-    "if(sum){var sv=lang?sum.getAttribute('data-sum-'+lang):null;sum.textContent=sv||sum.getAttribute('data-sum-orig');}}"
+    "if(sum){var sv=lang?sum.getAttribute('data-sum-'+lang):null;sum.innerHTML=sv||sum.getAttribute('data-sum-orig');}}"
     "var cur=null;pick(sel?sel.value:'');if(sel){sel.addEventListener('change',function(){pick(sel.value);});}"
     "if(!a)return;a.addEventListener('timeupdate',function(){var t=a.currentTime,hit=null;"
     "for(var i=0;i<S.length;i++){var s=+S[i].dataset.s,e=+S[i].dataset.e;if(t>=s&&(t<e||(e<=s&&(i+1>=S.length||t<+S[i+1].dataset.s)))){hit=S[i];break;}}"
@@ -550,10 +598,15 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
             header = rep.get("header") or {}
             summary = header.get("summary") or rec.get("rollingSummary") or ""
             if summary:
+                rendered = render_markdown(summary)
+                # Each stored value is server-rendered safe HTML; the picker
+                # swaps it in with innerHTML. _esc into the attribute so the
+                # markup survives as an attribute value and decodes back.
                 sum_attrs = "".join(
-                    f" data-sum-{_esc(r['lang'])}='{_esc(r['summary'])}'" for r in renditions_of(rec)
+                    f" data-sum-{_esc(r['lang'])}='{_esc(render_markdown(r['summary']))}'"
+                    for r in renditions_of(rec)
                     if isinstance(r.get("summary"), str) and r["summary"].strip())
-                body.append(f"<p class='summary' data-sum-orig='{_esc(summary)}'{sum_attrs}>{_esc(summary)}</p>")
+                body.append(f"<div class='summary' data-sum-orig='{_esc(rendered)}'{sum_attrs}>{rendered}</div>")
             attendees = header.get("attendees") or []
             if attendees:
                 body.append("<p class='k'>With</p><p>" + ", ".join(_esc(a) for a in attendees) + "</p>")
@@ -687,7 +740,7 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
         + banner + icon +
         "<style>body{font:16px/1.5 -apple-system,system-ui,sans-serif;max-width:720px;margin:0 auto;padding:1rem;color:#1a1a1a;background:#fafaf8}"
         "h1{font-size:1.4rem;margin:.5rem 0}.dim{color:#777}.k{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:#888;margin:1.2rem 0 .2rem}"
-        ".summary{font-size:1.05rem}ul{padding-left:1.2rem}.tx pre{white-space:pre-wrap;background:#f1f1ee;padding:1rem;border-radius:8px}"
+        ".summary{font-size:1.05rem}.summary h3,.summary h4,.summary h5{margin:1rem 0 .3rem;font-size:1.05rem}.summary p{margin:.5rem 0}.summary ul{margin:.4rem 0}.summary code{background:#eee;padding:0 .25rem;border-radius:4px}ul{padding-left:1.2rem}.tx pre{white-space:pre-wrap;background:#f1f1ee;padding:1rem;border-radius:8px}"
         ".segs{background:#f1f1ee;padding:.5rem 1rem;border-radius:8px;max-height:60vh;overflow-y:auto;position:relative}.seg .tr{display:none}.seg .tr:empty{display:none}select.lang{font:inherit;padding:.15rem .4rem}.rend,.orig-plain{white-space:pre-wrap;background:#f1f1ee;padding:1rem;border-radius:8px;max-height:60vh;overflow-y:auto}.seg{margin:.15rem 0;padding:.15rem .4rem;border-radius:4px;cursor:pointer}.seg.on{background:#ffe9a8}audio.sa{width:100%;margin:.25rem 0 .75rem}"
         ".foot{margin-top:2rem;font-size:.8rem;color:#888}"
         ".get{margin:.25rem 0 1rem}.get a{display:inline-block;background:#1a1a1a;color:#fff;text-decoration:none;"
