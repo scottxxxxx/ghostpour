@@ -1,5 +1,5 @@
 {
-  "version": 21,
+  "version": 22,
   "native_actions": {
     "enabled": true,
     "kinds": [
@@ -112,6 +112,6 @@
     "app_store_id": "6760098225"
   },
   "translations": {
-    "group_size": 25
+    "group_size": 12
   }
 }

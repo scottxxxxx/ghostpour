@@ -1,5 +1,5 @@
 {
-  "version": 25,
+  "version": 26,
   "limits": {
     "project_chat": {
       "max_input_chars": {
@@ -112,6 +112,6 @@
     "app_store_id": "6760098225"
   },
   "translations": {
-    "group_size": 25
+    "group_size": 12
   }
 }
