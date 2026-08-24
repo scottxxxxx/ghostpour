@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 
 import aiosqlite
@@ -352,7 +353,7 @@ async def share_page(token: str, request: Request, db: aiosqlite.Connection = De
         bundle, card_title=card_title, card_desc=card_desc,
         transcript_included=bool(row["transcript_included"]), expires_at=row["expires_at"],
         app_store_id=settings["app_store_id"],
-        og_image_url=settings["og_image_url"],
+        og_image_url=(f"{settings['host']}/s/{token}/card.png" if settings.get("dynamic_card") else settings["og_image_url"]),
         icon_url=settings["icon_url"],
         # The canonical URL for THIS share, handed to Apple's banner as
         # app-argument so "Open" lands the app on this meeting rather than
@@ -363,6 +364,38 @@ async def share_page(token: str, request: Request, db: aiosqlite.Connection = De
         audio_by_origin=audio_by_origin, images_by_origin=images_by_origin,
         qr_url=settings["qr_url"])
     return HTMLResponse(html, headers={"X-Robots-Tag": "noindex", "Cache-Control": "private, no-store"})
+
+
+@public.api_route("/s/{token}/card.png", methods=["GET", "HEAD"])
+async def share_card(request: Request, token: str, db: aiosqlite.Connection = Depends(get_db)):
+    """The link-preview card (ledger 2b), rendered once per share from the
+    bundle bytes and the share row, cached as a sidecar beside the archive
+    (preview bots fetch og:image several times per unfurl; the edge does
+    not cache for us). Dies with the share on purge."""
+    from fastapi.responses import FileResponse
+    from app.services.share_bundle import list_audio_entries, read_bundle
+    from app.services.share_card import facts_from_share, render_card
+    row = await shares.share_by_token(db, token) if shares.is_token_shaped(token) else None
+    if not shares.is_live(row):
+        raise HTTPException(status_code=410)
+    sidecar = f"{row['storage_path']}.card.png"
+    if not Path(sidecar).exists():
+        try:
+            with open(row["storage_path"], "rb") as f:
+                bundle = read_bundle(f.read())
+            audio = list_audio_entries(row["storage_path"])
+        except Exception:  # noqa: BLE001
+            bundle, audio = {"meetings": []}, {}
+        settings = shares.share_settings(request.app.state.remote_configs)
+        facts = facts_from_share(row, bundle, audio_count=sum(len(v) for v in audio.values()),
+                                 cta_text=settings.get("card_cta_text"), pill_text=settings.get("card_pill_text"))
+        png = render_card(facts)
+        tmp = sidecar + ".part"
+        with open(tmp, "wb") as f:
+            f.write(png)
+        os.replace(tmp, sidecar)
+    hdrs = {"Cache-Control": "public, max-age=3600", "X-Robots-Tag": "noindex"}
+    return FileResponse(sidecar, media_type="image/png", headers=hdrs, method=request.method)
 
 
 @public.api_route("/s/{token}/audio/{n}", methods=["GET", "HEAD"])
