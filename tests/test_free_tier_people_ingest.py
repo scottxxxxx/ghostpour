@@ -66,8 +66,9 @@ def test_paid_tiers_are_untouched():
                    people_enabled=True).verdict == "capture"
     assert verdict(feature_state="enabled", has_quota=False,
                    people_enabled=True).cta_kind is None
-    assert verdict(feature_state="teaser", has_quota=False,
-                   people_enabled=True).verdict == "recall_only"
+    # teaser is Free since 2026-08-24: same rules as disabled, never recall_only.
+    assert verdict(feature_state="teaser", has_quota=False, people_enabled=True).verdict == \
+        verdict(feature_state="disabled", has_quota=False, people_enabled=True).verdict
 
 
 def test_the_call_site_reads_people_from_the_matrix():

@@ -21,10 +21,14 @@ def test_pro_always_captures_no_cta(has_quota):
 
 
 @pytest.mark.parametrize("has_quota", [True, False])
-def test_plus_recall_only_no_cta(has_quota):
-    v = resolve_memory_capture_verdict(feature_state="teaser", has_quota=has_quota)
-    assert v.verdict == "recall_only"
-    assert v.cta_kind is None
+@pytest.mark.parametrize("people_enabled", [True, False])
+def test_teaser_is_free_and_follows_the_free_rules(has_quota, people_enabled):
+    """Free flipped disabled -> teaser on 2026-08-24; the capture rules did
+    not move with it. Teaser must resolve exactly as disabled does."""
+    t = resolve_memory_capture_verdict(feature_state="teaser", has_quota=has_quota, people_enabled=people_enabled)
+    d = resolve_memory_capture_verdict(feature_state="disabled", has_quota=has_quota, people_enabled=people_enabled)
+    assert (t.verdict, t.cta_kind) == (d.verdict, d.cta_kind)
+    assert t.verdict != "recall_only"
 
 
 def test_free_within_quota_captures_with_cta():

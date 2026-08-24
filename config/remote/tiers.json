@@ -1,5 +1,5 @@
 {
-  "version": 52,
+  "version": 53,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -63,6 +63,12 @@
           "label": "Summary mode",
           "value": "Just what's new",
           "icon": "doc"
+        },
+        {
+          "label": "Meeting Memory",
+          "value": "preview",
+          "icon": "brain",
+          "state": "teaser"
         },
         {
           "label": "Project chat",

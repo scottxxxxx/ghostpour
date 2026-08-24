@@ -1,5 +1,5 @@
 {
-  "version": 51,
+  "version": 52,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -63,6 +63,12 @@
           "label": "要約モード",
           "value": "新しい内容のみ",
           "icon": "doc"
+        },
+        {
+          "label": "ミーティングメモリー",
+          "value": "プレビュー",
+          "icon": "brain",
+          "state": "teaser"
         },
         {
           "label": "プロジェクトチャット",
