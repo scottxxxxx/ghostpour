@@ -1593,6 +1593,15 @@ async def chat(
                 request.app.state.remote_configs, user.effective_tier,
                 feature_name)
         run_hook = state != "disabled"
+        # Free teaser flip (Scott 2026-08-24): a `teaser` state on a client
+        # that sends no context_quilt flag (every Free build, by served
+        # entitlement) must still run the People-scoped lane, or the flip
+        # would silently drop Free recall and the by_scope block the
+        # Free-to-Plus nudge reads. Clients that DO send the flag under
+        # teaser keep the hook's metadata-only teaser recall.
+        if (feature_name == "context_quilt" and state == "teaser"
+                and not body.context_quilt):
+            run_hook = False
         if not run_hook and feature_name == "context_quilt":
             # People-scoped recall lane (decision 2026-08-11: People
             # launches at full value on every tier, and the assistant may

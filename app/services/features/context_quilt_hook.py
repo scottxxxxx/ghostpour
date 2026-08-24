@@ -40,11 +40,14 @@ class ContextQuiltHook:
             "gated": False,
         }
 
-        if feature_state == "disabled":
+        if feature_state == "disabled" or (feature_state == "teaser" and not body.context_quilt):
             # People-scoped recall lane. The dispatch in chat.py only
             # routes a disabled-state call here when the people
             # entitlement is enabled, so reaching this branch IS the free
             # lane; the dashboard People toggle closes it at the dispatch.
+            # Teaser without the client flag (every Free build, 2026-08-24
+            # flip) is the same lane: the flag is what selects the hook's
+            # own metadata-only teaser recall below.
             return await self._people_scoped_recall(
                 user, body, result, app_id, recall_max_age_days)
 
