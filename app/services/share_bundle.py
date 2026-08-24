@@ -462,6 +462,34 @@ def contents_descriptor(rec: dict, audio_count: int, image_count: int, lang: str
     return " · ".join(parts)
 
 
+_LIGHTBOX_HTML = (
+    "<div class='lb' aria-hidden='true'><button class='close' aria-label='Close'>&times;</button>"
+    "<button class='prev' aria-label='Previous'>&#8249;</button>"
+    "<img alt=''><button class='next' aria-label='Next'>&#8250;</button>"
+    "<div class='count'></div></div>"
+)
+
+# Photo viewer overlay: opens on top of the page (never replacing it),
+# cycles with the arrows or the keyboard, closes on X / Escape / backdrop
+# (Scott 2026-08-24).
+_LIGHTBOX_JS = (
+    "<script>(function(){var lb=document.querySelector('.lb');if(!lb)return;"
+    "var thumbs=Array.prototype.slice.call(document.querySelectorAll('.thumb'));if(!thumbs.length)return;"
+    "var img=lb.querySelector('img'),cnt=lb.querySelector('.count'),i=0;"
+    "function show(n){i=(n+thumbs.length)%thumbs.length;img.src=thumbs[i].dataset.full;cnt.textContent=(i+1)+' / '+thumbs.length;}"
+    "function open(n){show(n);lb.classList.add('on');lb.setAttribute('aria-hidden','false');}"
+    "function close(){lb.classList.remove('on');lb.setAttribute('aria-hidden','true');img.src='';}"
+    "thumbs.forEach(function(t,n){t.addEventListener('click',function(){open(n);});});"
+    "lb.querySelector('.close').addEventListener('click',close);"
+    "lb.querySelector('.prev').addEventListener('click',function(e){e.stopPropagation();show(i-1);});"
+    "lb.querySelector('.next').addEventListener('click',function(e){e.stopPropagation();show(i+1);});"
+    "lb.addEventListener('click',function(e){if(e.target===lb)close();});"
+    "document.addEventListener('keydown',function(e){if(!lb.classList.contains('on'))return;"
+    "if(e.key==='Escape')close();else if(e.key==='ArrowLeft')show(i-1);else if(e.key==='ArrowRight')show(i+1);});"
+    "})();</script>"
+)
+
+
 # Sync is scoped per <section>: each meeting's player drives only that
 # meeting's segments, highlights and auto-scrolls INSIDE the transcript
 # window (never the page), and a tap on a line seeks that meeting's
@@ -587,7 +615,7 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
         if n_images and share_url:
             flat_imgs = flat_image_entries(images_by_origin_names or {})
             thumbs = "".join(
-                f"<a href='{_esc(share_url)}/image/{n}' target='_blank' rel='noopener'><img src='{_esc(share_url)}/image/{n}' loading='lazy' alt=''></a>"
+                f"<button type='button' class='thumb' data-full='{_esc(share_url)}/image/{n}'><img src='{_esc(share_url)}/image/{n}' loading='lazy' alt=''></button>"
                 for n, (o, _name) in enumerate(flat_imgs) if o == origin)
             if thumbs:
                 body.append(f"<p class='k'>Photos</p><div class='gallery'>{thumbs}</div>")
@@ -665,9 +693,13 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
         ".get{margin:.25rem 0 1rem}.get a{display:inline-block;background:#1a1a1a;color:#fff;text-decoration:none;"
         "padding:.5rem .9rem;border-radius:8px;font-size:.9rem}"
         ".dl{display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap;margin:0 0 1rem;padding:1rem 1.25rem;background:#fff;border:1px solid #e6e6e2;border-radius:14px}"
-        ".gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.5rem}.gallery img{width:100%;height:120px;object-fit:cover;border-radius:8px;display:block}"
+        ".gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.5rem}.thumb{padding:0;border:0;background:none;cursor:zoom-in}.gallery img{width:100%;height:120px;object-fit:cover;border-radius:8px;display:block}"
+        ".lb{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;z-index:50}.lb.on{display:flex}"
+        ".lb img{max-width:92vw;max-height:86vh;object-fit:contain;border-radius:6px}"
+        ".lb button{position:absolute;background:rgba(0,0,0,.45);color:#fff;border:0;border-radius:999px;width:44px;height:44px;font-size:1.5rem;line-height:1;cursor:pointer}"
+        ".lb .close{top:16px;right:16px}.lb .prev{left:12px}.lb .next{right:12px}.lb .prev,.lb .next{top:50%;transform:translateY(-50%)}.lb .count{position:absolute;bottom:16px;left:0;right:0;text-align:center;color:#ccc;font-size:.9rem;background:none;width:auto;height:auto;border-radius:0}"
         ".dl .badge img{display:block}.dl .qr img{display:block;border-radius:8px}.qrtxt{margin:0;max-width:16rem;color:#555;font-size:.95rem}</style></head><body>"
-        + download + get_app + "".join(parts) +
+        + get_app + "".join(parts) +
         f"<p class='foot'>Shared from Shoulder Surf. This link stops working on {_esc(expires_at[:10])}.</p>"
-        + _PLAYER_JS + "</body></html>"
+        + download + _LIGHTBOX_HTML + _PLAYER_JS + _LIGHTBOX_JS + "</body></html>"
     )
