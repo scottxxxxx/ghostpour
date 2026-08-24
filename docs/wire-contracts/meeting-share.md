@@ -208,28 +208,29 @@ off the bundle as a FACT (any `media/<origin>/audio/*.m4a` entry).
   the plain transcript. The transcript panel opens itself when audio is
   present.
 
-## Transcript language picker on the hosted page (2026-08-24)
+## Transcript language picker on the hosted page (2026-08-24, ruled the same night)
 
-Scott's ruling: a viewer picks a language, the transcript shows the
-translated line under each original, and the audio follow-along tracks
-both. Nothing changes for SS's exporter; it needs `transcriptLanguage`
-on the record (SS 22ee73e stamps it).
+Scott's ruling after the first translated share: the picker offers
+ONLY Original plus the languages the sender already translated in the
+app, opens on the one that was shared, never translates from the web
+view, and shows no picker when nothing was translated. The transcript
+sits in a fixed-height window that auto-scrolls with the audio.
 
-- `GET /s/{token}/transcript?lang=<BCP-47>&origin=<meeting uuid>`
-  (public GET): the meeting's `transcriptSegments` through the
-  translation engine in served-size groups
-  (`client-config.translations.group_size`), returned as
-  `{segments: [{id, text}], source_language, target_language,
-  engine_version}` where `id` is `<origin>:<index>`, the same id the page
-  stamps on each line. Same primary language as the source echoes the
-  originals with no model call. 422 `source_language_unknown` when the
-  record has no `transcriptLanguage` (the engine never guesses), 422
-  `invalid_language`, 410 on a dead share or one without a transcript,
-  429 `allocation_exhausted` when the OWNER's monthly allocation is used
-  up.
-- BILLED TO THE SHARE OWNER as `call_type=translation`, exactly like a
-  translation they run in the app; content-hash cached, so the first
-  viewer of a language pays once and every later viewer is free. The
-  picker offers the served locales (en/es/fr/ja) minus the source.
-- Bifrost's edge admits `/transcript` (65458c0); query strings never
-  affect the match.
+- The bundle carries the translations (SS f318ab0): on each meeting JSON
+  `transcriptRenditions: [{lang, engine_version?, created_at?, transcript,
+  summary?, report_html?}]` as FULL TEXT, one line per original
+  transcript line with the speaker label intact; and manifest
+  `share_language` = the rendition the sender chose. `transcriptLanguage`
+  stays the SPOKEN language (SS's overlay bug that stamped the target is
+  gone as of the same commit).
+- GP aligns rendition line i to transcriptSegment i and reuses the
+  segment's timing, so the follow-along highlights the translated line.
+  No ids cross the wire. When a rendition's line count does not match
+  the segment count, it renders as plain text without highlight and GP
+  logs `share_rendition_misaligned`.
+- The `GET /s/{token}/transcript` route from earlier the same day is
+  REMOVED (never reached a real viewer): no web-side translation, no
+  owner billing from the page.
+- The card's "what this is" line (og:description prefix and a line on
+  the page) is composed from the bundle bytes (report, transcript,
+  audio, photo count), localized to `share_language`; no header.

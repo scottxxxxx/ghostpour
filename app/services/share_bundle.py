@@ -23,6 +23,10 @@ document and is what SS renders itself, so it is the preferred page.
 """
 from __future__ import annotations
 
+import logging
+
+logger = logging.getLogger("ghostpour.share_bundle")
+
 import base64
 import io
 import json
@@ -205,6 +209,22 @@ def flat_audio_entries(audio_by_origin: dict[str, list[str]]) -> list[tuple[str,
     return [(origin, name) for origin in sorted(audio_by_origin) for name in audio_by_origin[origin]]
 
 
+def list_image_counts(archive_path) -> dict[str, int]:
+    """{origin_id: count} of media/<origin>/images/* entries. Names only."""
+    import zipfile
+    out: dict[str, int] = {}
+    try:
+        zf = zipfile.ZipFile(archive_path)
+    except zipfile.BadZipFile:
+        return out
+    with zf:
+        for name in zf.namelist():
+            parts = name.split("/")
+            if len(parts) == 4 and parts[0] == "media" and parts[2] == "images" and parts[3]:
+                out[parts[1]] = out.get(parts[1], 0) + 1
+    return out
+
+
 def extract_audio_sidecar(archive_path: str, entry_name: str, sidecar_path: str) -> bool:
     """Inflate ONE audio entry to `sidecar_path`, streaming, with the same
     in-loop bound discipline as `_json` (a claimed size is not a size).
@@ -238,28 +258,62 @@ def extract_audio_sidecar(archive_path: str, entry_name: str, sidecar_path: str)
         return False
 
 
-# Languages the picker offers: the served locales. The engine can do any
-# BCP-47 target; the picker is deliberately the four we serve copy for.
-PICKER_LANGUAGES = [("en", "English"), ("es", "Español"), ("fr", "Français"), ("ja", "日本語")]
+# Language labels for the picker. The picker offers ONLY Original plus the
+# languages the sender already translated in the app (Scott 2026-08-24):
+# no translating from the web view, no picker when nothing was translated.
+LANG_LABELS = {"en": "English", "es": "Español", "fr": "Français", "ja": "日本語",
+               "de": "Deutsch", "pt": "Português", "it": "Italiano", "zh": "中文", "ko": "한국어"}
+
+# "What this is" on the card (Scott 2026-08-24), composed from the bundle
+# BYTES, never from a header: report, transcript, audio, photos.
+CONTENTS_WORDS = {
+    "en": {"report": "Report", "transcript": "Transcript", "audio": "Audio", "photos": "{n} photos", "photo": "1 photo"},
+    "es": {"report": "Informe", "transcript": "Transcripción", "audio": "Audio", "photos": "{n} fotos", "photo": "1 foto"},
+    "fr": {"report": "Rapport", "transcript": "Transcription", "audio": "Audio", "photos": "{n} photos", "photo": "1 photo"},
+    "ja": {"report": "レポート", "transcript": "文字起こし", "audio": "音声", "photos": "写真{n}枚", "photo": "写真1枚"},
+}
 
 
-def segment_items(origin: str, segments: list) -> list[dict]:
-    """Stable {id, text} items for a meeting's transcriptSegments: the id
-    is origin + index, the same on the page and in the transcript route,
-    so a translated line lands on the line it came from."""
+def _lang_label(tag: str) -> str:
+    return LANG_LABELS.get(tag.split("-")[0].lower(), tag)
+
+
+def renditions_of(rec: dict) -> list[dict]:
+    """The sender's stored translations, as emitted by SS (f318ab0):
+    transcriptRenditions[{lang, engine_version?, created_at?, transcript,
+    summary?, report_html?}], full text. Malformed entries are dropped."""
     out = []
-    for i, seg in enumerate(segments or []):
-        if isinstance(seg, dict) and isinstance(seg.get("text"), str) and seg["text"].strip():
-            out.append({"id": f"{origin}:{i}", "text": seg["text"]})
+    for r in (rec.get("transcriptRenditions") or []):
+        if isinstance(r, dict) and isinstance(r.get("lang"), str) and r["lang"].strip():
+            out.append(r)
     return out
 
 
-def _segments_html(segments: list, origin: str = "") -> str:
-    """Per-line transcript with data-s/data-e (seconds) so the player can
-    highlight the line being spoken and a tap can seek. Falls back to the
-    plain transcript when the record has no segments."""
+def _rendition_lines(text: str) -> list[str]:
+    return [ln.strip() for ln in (text or "").splitlines() if ln.strip()]
+
+
+def align_rendition(rendition: dict, segments: list) -> list[str] | None:
+    """Rendition transcript line i <-> segment i (SS emits one line per
+    original line, labels intact). Returns the lines when the counts
+    match, else None: a mismatch is shown as plain text, never guessed."""
+    lines = _rendition_lines(rendition.get("transcript") if isinstance(rendition.get("transcript"), str) else "")
+    kept = [seg for seg in segments if isinstance(seg, dict) and isinstance(seg.get("text"), str) and seg["text"].strip()]
+    if not lines or len(lines) != len(kept):
+        if lines:
+            logger.warning("share_rendition_misaligned", extra={
+                "lang": rendition.get("lang"), "lines": len(lines), "segments": len(kept)})
+        return None
+    return lines
+
+
+def _segments_html(segments: list, aligned: dict[str, list[str]]) -> str:
+    """Per-line transcript with data-s/data-e (seconds) and, per aligned
+    rendition, a data-tr-<lang> with that line's translation, so the
+    picker swaps text without touching timing."""
     rows = []
-    for i, seg in enumerate(segments):
+    i = 0
+    for seg in segments:
         if not isinstance(seg, dict) or not isinstance(seg.get("text"), str) or not seg["text"].strip():
             continue
         try:
@@ -268,57 +322,67 @@ def _segments_html(segments: list, origin: str = "") -> str:
         except (TypeError, ValueError):
             s0, e0 = 0.0, 0.0
         who = seg.get("speakerLabel")
+        attrs = "".join(f" data-tr-{_esc(lang)}='{_esc(lines[i])}'" for lang, lines in aligned.items())
         rows.append(
-            f"<p class='seg' data-id='{_esc(origin)}:{i}' data-s='{s0:.2f}' data-e='{e0:.2f}'>"
+            f"<p class='seg' data-s='{s0:.2f}' data-e='{e0:.2f}'{attrs}>"
             + (f"<b>{_esc(who)}</b> " if isinstance(who, str) and who.strip() else "")
             + f"<span class='orig'>{_esc(seg['text'])}</span><span class='tr'></span></p>")
+        i += 1
     return "".join(rows)
 
 
-def _picker_html(source_lang: str | None) -> str:
-    """The transcript language picker. Needs a stated source language
-    (transcriptLanguage on the record): without one the engine will not
-    guess, so the picker is not offered."""
-    if not source_lang:
+def _picker_html(langs: list[str], default: str | None) -> str:
+    if not langs:
         return ""
-    src = source_lang.split("-")[0].lower()
-    opts = "".join(f"<option value='{code}'>{label}</option>"
-                   for code, label in PICKER_LANGUAGES if code != src)
-    if not opts:
-        return ""
+    opts = "".join(
+        f"<option value='{_esc(l)}'{' selected' if default and l.split('-')[0].lower() == default.split('-')[0].lower() else ''}>{_esc(_lang_label(l))}</option>"
+        for l in langs)
     return ("<p class='k'>Show transcript in <select class='lang'>"
-            "<option value=''>Original</option>" + opts + "</select> <span class='lstat dim'></span></p>")
+            "<option value=''>Original</option>" + opts + "</select></p>")
+
+
+def contents_descriptor(rec: dict, audio_count: int, image_count: int, lang: str | None) -> str:
+    words = CONTENTS_WORDS.get((lang or "en").split("-")[0].lower(), CONTENTS_WORDS["en"])
+    parts = []
+    if rec.get("reportHTML") or rec.get("reportJSONData"):
+        parts.append(words["report"])
+    if isinstance(rec.get("transcript"), str) and rec["transcript"].strip():
+        parts.append(words["transcript"])
+    if audio_count:
+        parts.append(words["audio"])
+    if image_count == 1:
+        parts.append(words["photo"])
+    elif image_count > 1:
+        parts.append(words["photos"].format(n=image_count))
+    return " · ".join(parts)
 
 
 # Sync is scoped per <section>: each meeting's player drives only that
-# meeting's segments, and a tap on a line seeks that meeting's player.
+# meeting's segments, highlights and auto-scrolls INSIDE the transcript
+# window (never the page), and a tap on a line seeks that meeting's
+# player. The picker swaps each line's text from its data-tr-<lang>.
 _PLAYER_JS = (
     "<script>(function(){document.querySelectorAll('section').forEach(function(sec){"
-    "var a=sec.querySelector('audio.sa');var S=Array.prototype.slice.call(sec.querySelectorAll('p.seg'));"
+    "var a=sec.querySelector('audio.sa');var box=sec.querySelector('.segs');var S=Array.prototype.slice.call(sec.querySelectorAll('p.seg'));"
+    "var sel=sec.querySelector('select.lang');var sum=sec.querySelector('.summary');"
+    "function pick(lang){S.forEach(function(p){var t=p.querySelector('.tr'),o=p.querySelector('.orig');var v=lang?p.getAttribute('data-tr-'+lang):null;"
+    "if(v){t.textContent=v;t.style.display='';o.style.display='none';}else{t.textContent='';t.style.display='none';o.style.display='';}});"
+    "sec.querySelectorAll('.rend').forEach(function(r){r.style.display=(lang&&r.getAttribute('data-lang')===lang)?'':'none';});"
+    "if(sum){var sv=lang?sum.getAttribute('data-sum-'+lang):null;sum.textContent=sv||sum.getAttribute('data-sum-orig');}}"
+    "if(sel){sel.addEventListener('change',function(){pick(sel.value);});if(sel.value)pick(sel.value);}"
     "if(!a||!S.length)return;var cur=null;a.addEventListener('timeupdate',function(){var t=a.currentTime,hit=null;"
     "for(var i=0;i<S.length;i++){var s=+S[i].dataset.s,e=+S[i].dataset.e;if(t>=s&&(t<e||(e<=s&&(i+1>=S.length||t<+S[i+1].dataset.s)))){hit=S[i];break;}}"
     "if(hit!==cur){if(cur)cur.classList.remove('on');cur=hit;if(cur){cur.classList.add('on');var d=cur.closest('details');if(d&&!d.open)d.open=true;"
-    "cur.scrollIntoView({block:'center',behavior:'smooth'});}}});"
-    "S.forEach(function(p){p.addEventListener('click',function(){a.currentTime=+p.dataset.s;a.play();});});});"
-    # Language picker: fetch translated lines for this meeting and lay each
-    # under its original by data-id; timing attributes never change, so the
-    # player keeps highlighting both.
-    "document.querySelectorAll('details.tx').forEach(function(d){var sel=d.querySelector('select.lang');if(!sel)return;"
-    "var st=d.querySelector('.lstat');var base=location.pathname.replace(/\\/$/,'');"
-    "sel.addEventListener('change',function(){var lang=sel.value;d.querySelectorAll('p.seg .tr').forEach(function(t){t.textContent='';});"
-    "d.classList.toggle('translated',!!lang);if(!lang){st.textContent='';return;}st.textContent='Translating…';"
-    "fetch(base+'/transcript?lang='+encodeURIComponent(lang)+'&origin='+encodeURIComponent(d.dataset.origin))"
-    ".then(function(r){if(!r.ok)throw r;return r.json();}).then(function(j){var m={};(j.segments||[]).forEach(function(x){m[x.id]=x.text;});"
-    "d.querySelectorAll('p.seg').forEach(function(p){var t=p.querySelector('.tr');if(m[p.dataset.id])t.textContent=m[p.dataset.id];});st.textContent='';})"
-    ".catch(function(r){st.textContent=(r&&r.status===429)?'Translation unavailable: the sharer\\u2019s monthly AI allocation is used up.':'Translation unavailable right now.';sel.value='';d.classList.remove('translated');});});});"
-    "})();</script>"
+    "if(box){box.scrollTop=Math.max(0,cur.offsetTop-box.offsetTop-box.clientHeight/2+cur.clientHeight/2);}}}});"
+    "S.forEach(function(p){p.addEventListener('click',function(){a.currentTime=+p.dataset.s;a.play();});});});})();</script>"
 )
 
 
 def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcript_included: bool,
                       expires_at: str, og_image_url: str | None = None,
                       app_store_id: str | None = None, share_url: str | None = None,
-                      icon_url: str | None = None, audio_by_origin: dict[str, list[str]] | None = None) -> str:
+                      icon_url: str | None = None, audio_by_origin: dict[str, list[str]] | None = None,
+                      share_language: str | None = None, images_by_origin: dict[str, int] | None = None) -> str:
     """The hosted page for a recipient without the app (Variant A: the
     whole meeting). Card tags for iMessage and every other messenger;
     noindex; `reportHTML` when the record carries it, in a sandboxed
@@ -326,13 +390,24 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
     report; the transcript, when present and included, behind a
     tap-to-reveal. Never raises on odd content: every field is optional."""
     meetings = bundle.get("meetings") or []
+    manifest = bundle.get("manifest") if isinstance(bundle.get("manifest"), dict) else {}
+    if share_language is None and isinstance(manifest.get("share_language"), str):
+        share_language = manifest["share_language"]
     parts = []
+    contents_line = ""
     for m in meetings:
         rec = m.get("record") or {}; rep = m.get("report") or {}
         title = rec.get("title") or (rep.get("header") or {}).get("title") or card_title
         when = m.get("started_at"); when_s = when.strftime("%B %-d, %Y, %-I:%M %p UTC") if when else ""
         dur = _duration(rec.get("durationSeconds"))
         meta = " · ".join(x for x in (when_s, dur) if x)
+        contents = contents_descriptor(
+            rec, len((audio_by_origin or {}).get(m.get("origin_id") or "", [])),
+            int((images_by_origin or {}).get(m.get("origin_id") or "", 0)), share_language)
+        if contents and not contents_line:
+            contents_line = contents
+        if contents:
+            meta = " · ".join(x for x in (meta, contents) if x)
         body = []
         html_doc = rec.get("reportHTML") if isinstance(rec.get("reportHTML"), str) else ""
         if html_doc.strip():
@@ -341,7 +416,10 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
             header = rep.get("header") or {}
             summary = header.get("summary") or rec.get("rollingSummary") or ""
             if summary:
-                body.append(f"<p class='summary'>{_esc(summary)}</p>")
+                sum_attrs = "".join(
+                    f" data-sum-{_esc(r['lang'])}='{_esc(r['summary'])}'" for r in renditions_of(rec)
+                    if isinstance(r.get("summary"), str) and r["summary"].strip())
+                body.append(f"<p class='summary' data-sum-orig='{_esc(summary)}'{sum_attrs}>{_esc(summary)}</p>")
             attendees = header.get("attendees") or []
             if attendees:
                 body.append("<p class='k'>With</p><p>" + ", ".join(_esc(a) for a in attendees) + "</p>")
@@ -375,15 +453,25 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
                     f"<audio class='sa' controls preload='metadata' src='{_esc(share_url)}/audio/{n}'></audio>")
         transcript = rec.get("transcript") if isinstance(rec.get("transcript"), str) else ""
         segments = rec.get("transcriptSegments") if isinstance(rec.get("transcriptSegments"), list) else []
-        seg_html = _segments_html(segments, origin) if transcript_included else ""
-        if seg_html:
-            src_lang = rec.get("transcriptLanguage") if isinstance(rec.get("transcriptLanguage"), str) else None
-            picker = _picker_html(src_lang) if share_url else ""
+        rends = renditions_of(rec)
+        aligned = {}
+        plain = []
+        for r in rends:
+            lines = align_rendition(r, segments)
+            if lines is not None:
+                aligned[r["lang"]] = lines
+            elif isinstance(r.get("transcript"), str) and r["transcript"].strip():
+                plain.append(r)
+        seg_html = _segments_html(segments, aligned) if transcript_included else ""
+        if seg_html or (transcript_included and transcript.strip()):
+            langs = [r["lang"] for r in rends if r["lang"] in aligned or any(pr is r for pr in plain)]
+            picker = _picker_html(langs, share_language)
+            plain_html = "".join(
+                f"<pre class='rend' data-lang='{_esc(r['lang'])}' style='display:none'>{_esc(r['transcript'])}</pre>" for r in plain)
+            inner = ("<div class='segs'>" + seg_html + "</div>") if seg_html else ("<pre class='orig-plain'>" + _esc(transcript) + "</pre>")
             body.append("<details class='tx'" + (" open" if audio_names else "") +
-                        f" data-origin='{_esc(origin)}'><summary>Show transcript</summary>" + picker +
-                        "<div class='segs'>" + seg_html + "</div></details>")
-        elif transcript_included and transcript.strip():
-            body.append("<details class='tx'><summary>Show transcript</summary><pre>" + _esc(transcript) + "</pre></details>")
+                        f" data-origin='{_esc(origin)}'><summary>Show transcript</summary>" + picker + inner + plain_html + "</details>")
+
         parts.append(f"<section><h1>{_esc(title)}</h1><p class='dim'>{_esc(meta)}</p>{''.join(body)}</section>")
     if not parts:
         parts.append(f"<section><h1>{_esc(card_title)}</h1><p class='dim'>This share holds no meeting.</p></section>")
@@ -398,6 +486,8 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
     ) if og_image_url else ""
     icon = f"<link rel='apple-touch-icon' href='{_esc(icon_url)}'>" if icon_url else ""
     card_type = "summary_large_image" if og_image_url else "summary"
+    if contents_line:
+        card_desc = f"{contents_line} · {card_desc}" if card_desc else contents_line
 
     # The route a recipient WITHOUT the app takes, which is the case this
     # page exists for and the one it did not serve until 2026-08-23.
@@ -438,7 +528,7 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
         "<style>body{font:16px/1.5 -apple-system,system-ui,sans-serif;max-width:720px;margin:0 auto;padding:1rem;color:#1a1a1a;background:#fafaf8}"
         "h1{font-size:1.4rem;margin:.5rem 0}.dim{color:#777}.k{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:#888;margin:1.2rem 0 .2rem}"
         ".summary{font-size:1.05rem}ul{padding-left:1.2rem}.tx pre{white-space:pre-wrap;background:#f1f1ee;padding:1rem;border-radius:8px}"
-        ".segs{background:#f1f1ee;padding:.5rem 1rem;border-radius:8px}.seg .tr{display:block;color:#3a3a3a;font-style:italic}.seg .tr:empty{display:none}select.lang{font:inherit;padding:.15rem .4rem}.seg{margin:.15rem 0;padding:.15rem .4rem;border-radius:4px;cursor:pointer}.seg.on{background:#ffe9a8}audio.sa{width:100%;margin:.25rem 0 .75rem}"
+        ".segs{background:#f1f1ee;padding:.5rem 1rem;border-radius:8px;max-height:60vh;overflow-y:auto;position:relative}.seg .tr{display:none}.seg .tr:empty{display:none}select.lang{font:inherit;padding:.15rem .4rem}.rend,.orig-plain{white-space:pre-wrap;background:#f1f1ee;padding:1rem;border-radius:8px;max-height:60vh;overflow-y:auto}.seg{margin:.15rem 0;padding:.15rem .4rem;border-radius:4px;cursor:pointer}.seg.on{background:#ffe9a8}audio.sa{width:100%;margin:.25rem 0 .75rem}"
         ".foot{margin-top:2rem;font-size:.8rem;color:#888}"
         ".get{margin:.25rem 0 1rem}.get a{display:inline-block;background:#1a1a1a;color:#fff;text-decoration:none;"
         "padding:.5rem .9rem;border-radius:8px;font-size:.9rem}</style></head><body>"
