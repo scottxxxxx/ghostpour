@@ -36,6 +36,11 @@ class UserPublic(BaseModel):
     id: str
     tier: str
     email: str | None = None
+    # Apple hands fullName over ONCE, on the very first authorization; GP
+    # persists it then and returns it on EVERY sign-in and refresh so a
+    # fresh phone can rehydrate the display name (2026-08-24 lost-phone
+    # mandate). A later null never overwrites a stored name.
+    display_name: str | None = None
 
 
 class AppleAuthRequest(BaseModel):
