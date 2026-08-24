@@ -854,8 +854,20 @@ def test_nothing_outside_the_directory_or_list_is_served(client, bad):
 
 
 def test_the_page_carries_the_image_tags_and_the_large_card_type(client, pro_user):
-    token = _create(client, pro_user).json()["url"].rsplit("/", 1)[1]
-    page = client.get(f"/s/{token}").text
+    # The static-mark og:image path (dynamic_card OFF). The per-share card
+    # path is covered in tests/test_share_card.py.
+    from app.main import app
+    cc = app.state.remote_configs.setdefault("client-config", {})
+    _orig = cc.get("share")
+    cc["share"] = {**(_orig or {}), "dynamic_card": False}
+    try:
+        token = _create(client, pro_user).json()["url"].rsplit("/", 1)[1]
+        page = client.get(f"/s/{token}").text
+    finally:
+        if _orig is None:
+            cc.pop("share", None)
+        else:
+            cc["share"] = _orig
     import html.parser
 
     class P(html.parser.HTMLParser):
@@ -884,7 +896,7 @@ def test_the_image_url_is_a_dial(client, pro_user):
     from app.main import app
     cc = app.state.remote_configs.setdefault("client-config", {})
     original = cc.get("share")
-    cc["share"] = {**(original or {}), "og_image_url": "https://cdn.example.com/new-card.png"}
+    cc["share"] = {**(original or {}), "og_image_url": "https://cdn.example.com/new-card.png", "dynamic_card": False}
     try:
         token = _create(client, pro_user).json()["url"].rsplit("/", 1)[1]
         html = client.get(f"/s/{token}").text
@@ -904,6 +916,7 @@ def test_the_image_url_defaults_to_the_share_origin(client, pro_user):
     original = cc.get("share")
     cc["share"] = {k: v for k, v in (original or {}).items() if k not in ("og_image_url", "icon_url")}
     cc["share"]["host"] = "https://share.example.com"
+    cc["share"]["dynamic_card"] = False
     try:
         token = _create(client, pro_user).json()["url"].rsplit("/", 1)[1]
         html = client.get(f"/s/{token}").text
