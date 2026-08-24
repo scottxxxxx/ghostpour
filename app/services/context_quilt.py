@@ -293,6 +293,10 @@ async def recall(
             },
         )
         _debug_dump_recall(body, result)
+        # Stamped so the chat route can heal the per-scope incident on a
+        # healthy recall (the degrade branches below stamp it too).
+        if isinstance(result, dict):
+            result.setdefault("recall_scope", merged_metadata.get("recall_scope", "full"))
         return result
 
     # Degrades are ERROR, not WARNING: the turn still answers, but WITHOUT
@@ -300,6 +304,9 @@ async def recall(
     # timeout silently ate the contract-test turn and was only caught
     # forensically). Context fields make the lost turn identifiable
     # without a dump.
+    # A degraded result carries `degraded` (reason) and `recall_scope` so
+    # the chat route can raise an incident: a silent degrade hid eleven
+    # days of Free-lane 500s (2026-08-24). Never raises past here.
     except httpx.TimeoutException:
         logger.error(
             "cq_recall_degraded reason=timeout — turn proceeds WITHOUT memory block",
@@ -310,7 +317,8 @@ async def recall(
                 "recall_scope": merged_metadata.get("recall_scope", "full"),
             },
         )
-        return {"context": "", "matched_entities": [], "patch_count": 0}
+        return {"context": "", "matched_entities": [], "patch_count": 0,
+                "degraded": "timeout", "recall_scope": merged_metadata.get("recall_scope", "full")}
     except Exception as e:
         logger.error(
             "cq_recall_degraded reason=error — turn proceeds WITHOUT memory block",
@@ -321,7 +329,9 @@ async def recall(
                 "recall_scope": merged_metadata.get("recall_scope", "full"),
             },
         )
-        return {"context": "", "matched_entities": [], "patch_count": 0}
+        return {"context": "", "matched_entities": [], "patch_count": 0,
+                "degraded": "error", "degraded_error": str(e)[:200],
+                "recall_scope": merged_metadata.get("recall_scope", "full")}
 
 
 # Client-supplied metadata keys forwarded verbatim on capture. One

@@ -89,6 +89,16 @@ KNOWN_CATEGORIES: dict[str, dict] = {
             "refused. Affects recall + capture for all users."
         ),
     },
+    "cq_recall_degraded": {
+        "label": "Context Quilt recall degraded",
+        "description": (
+            "A recall to Context Quilt failed (5xx, timeout, or bad "
+            "response) and the turn answered WITHOUT its memory block. "
+            "One incident per recall scope; resolves on the next healthy "
+            "recall in that scope. Found 2026-08-24: every Free "
+            "people-scoped recall had 500'd silently for eleven days."
+        ),
+    },
     "provider_auth_failed": {
         "label": "Managed LLM key rejected",
         "description": (

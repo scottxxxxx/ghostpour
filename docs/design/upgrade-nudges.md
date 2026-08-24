@@ -85,9 +85,11 @@ miss that built it. Real values from Scott's ABM project:
 - Only on PROJECT-SCOPED requests (the chat flow is). `by_window` only
   when `metadata.max_age_days` was sent; `by_scope` only when
   `metadata.recall_scope == "people"`.
-- Absent = CQ did not compute it. Present with zero = a condition applied
+- The key is ALWAYS present. `null` = CQ did not compute it (no project
+  scope, or no condition applied); a block with zero = a condition applied
   and nothing was kept out. Both are silence for GP; the wire keeps the
-  two facts apart.
+  two facts apart. (Amended 2026-08-24 to match the wire: the first draft
+  said absent, the proxied proof showed null, CQ ruled null.)
 - Counts are MEETINGS (distinct origin_id) the tier could not use, never
   counts returned. **They are not matches that scored.** `by_window` is
   the age predicate inverted over the project scope (last observation
