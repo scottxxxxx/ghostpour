@@ -85,8 +85,9 @@ async def test_no_recall_metadata_when_recall_returns_empty_context():
 
 @pytest.mark.asyncio
 async def test_no_recall_metadata_for_teaser_state():
-    """Plus tier (recall_only) runs recall for matched-entities metadata
-    only — should not stash a cache block."""
+    """teaser is Free since 2026-08-24 and routes to the People-scoped lane,
+    which DOES inject the scoped block (people is what the user's own
+    screens show). The old Plus recall-only lane no longer exists."""
     hook = ContextQuiltHook()
     body = ChatRequest(
         provider="anthropic",
@@ -108,7 +109,7 @@ async def test_no_recall_metadata_for_teaser_state():
             skip_teasers=set(),
         )
 
-    assert (new_body.metadata or {}).get("cq_recall_block") is None
+    assert (new_body.metadata or {}).get("cq_recall_block") is not None
 
 
 # --- memory contract v1 keys (CQ working session 2026-07-15/16) ---

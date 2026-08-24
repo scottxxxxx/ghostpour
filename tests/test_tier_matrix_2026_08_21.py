@@ -83,4 +83,6 @@ def test_paywall_cards_say_what_the_dials_enforce():
         assert _status(loc, "free", "paperclip") is None, loc
         # Memory row: Plus and Pro enabled; Free has none while its cell is disabled
         assert _status(loc, "plus", "brain")["state"] == "enabled" and _status(loc, "pro", "brain")["state"] == "enabled", loc
-        assert _status(loc, "free", "brain") is None, loc
+        # 2026-08-24 (Scott): Free flipped to teaser, so the card carries a
+        # Memory row in the teaser state (the card says what the matrix does).
+        assert _status(loc, "free", "brain")["state"] == "teaser", loc
