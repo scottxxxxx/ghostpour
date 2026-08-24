@@ -1,5 +1,5 @@
 {
-  "version": 46,
+  "version": 47,
   "native_actions": {
     "enabled": true,
     "kinds": [
@@ -109,7 +109,8 @@
       "F22KGHDYAE.com.shouldersurf.ShoulderSurf"
     ],
     "_note": "App ID verified 2026-08-22 from the entitlements of the signed binary on Scott's phone (application-identifier), not from project.yml or a cert: team F22KGHDYAE, bundle com.shouldersurf.ShoulderSurf. com.weirtech.* is only the StoreKit product prefix.",
-    "app_store_id": "6760098225"
+    "app_store_id": "6760098225",
+    "dynamic_card": true
   },
   "translations": {
     "group_size": 12
