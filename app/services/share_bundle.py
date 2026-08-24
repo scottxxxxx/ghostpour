@@ -209,6 +209,29 @@ def flat_audio_entries(audio_by_origin: dict[str, list[str]]) -> list[tuple[str,
     return [(origin, name) for origin in sorted(audio_by_origin) for name in audio_by_origin[origin]]
 
 
+def list_image_entries(archive_path) -> dict[str, list[str]]:
+    """{origin_id: [entry names in name order]} for media/<origin>/images/*."""
+    import zipfile
+    out: dict[str, list[str]] = {}
+    try:
+        zf = zipfile.ZipFile(archive_path)
+    except zipfile.BadZipFile:
+        return out
+    with zf:
+        for name in zf.namelist():
+            parts = name.split("/")
+            if len(parts) == 4 and parts[0] == "media" and parts[2] == "images" and parts[3]:
+                out.setdefault(parts[1], []).append(name)
+    for k in out:
+        out[k].sort()
+    return out
+
+
+def flat_image_entries(images_by_origin: dict[str, list[str]]) -> list[tuple[str, str]]:
+    """The ONE ordering both the route and the page use for image n."""
+    return [(o, n) for o in sorted(images_by_origin) for n in images_by_origin[o]]
+
+
 def list_image_counts(archive_path) -> dict[str, int]:
     """{origin_id: count} of media/<origin>/images/* entries. Names only."""
     import zipfile
@@ -309,42 +332,108 @@ def _rendition_lines(text: str) -> list[str]:
     return [ln.strip() for ln in (text or "").splitlines() if ln.strip()]
 
 
-def align_rendition(rendition: dict, segments: list) -> list[str] | None:
-    """Rendition transcript line i <-> segment i (SS emits one line per
-    original line, labels intact). Returns the lines when the counts
-    match, else None: a mismatch is shown as plain text, never guessed."""
-    lines = _rendition_lines(rendition.get("transcript") if isinstance(rendition.get("transcript"), str) else "")
-    kept = [seg for seg in segments if isinstance(seg, dict) and isinstance(seg.get("text"), str) and seg["text"].strip()]
-    if not lines or len(lines) != len(kept):
-        if lines:
-            logger.warning("share_rendition_misaligned", extra={
-                "lang": rendition.get("lang"), "lines": len(lines), "segments": len(kept)})
+def _norm(t: str) -> str:
+    return " ".join((t or "").split()).lower()
+
+
+def _strip_label(line: str) -> str:
+    """'[Maureen Bowyer] text' or 'Maureen Bowyer: text' -> 'text'."""
+    line = line.strip()
+    if line.startswith("[") and "]" in line:
+        return line[line.index("]") + 1:].strip()
+    return line
+
+
+def group_segments_by_transcript_lines(transcript: str, segments: list) -> list[list[int]] | None:
+    """SS's `transcript` text has one line per SPOKEN TURN, and a turn can
+    span several transcriptSegments. Map each text line to the run of
+    consecutive segment indexes whose texts concatenate into it (measured
+    on Scott's 2026-08-24 share: 41 lines over 44 segments). Returns one
+    index list per text line, or None when the texts do not line up."""
+    kept = [(i, seg) for i, seg in enumerate(segments)
+            if isinstance(seg, dict) and isinstance(seg.get("text"), str) and seg["text"].strip()]
+    lines = [_strip_label(l) for l in (transcript or "").splitlines() if l.strip()]
+    if not lines or not kept:
         return None
-    return lines
+    groups, pos = [], 0
+    for line in lines:
+        target = _norm(line)
+        acc, idxs = "", []
+        while pos < len(kept):
+            i, seg = kept[pos]
+            cand = _norm((acc + " " + seg["text"]).strip())
+            if not target.startswith(cand):
+                break
+            acc, pos = (acc + " " + seg["text"]).strip(), pos + 1
+            idxs.append(i)
+            if cand == target:
+                break
+        if not idxs or _norm(acc) != target:
+            return None
+        groups.append(idxs)
+    return groups if pos == len(kept) else None
 
 
-def _segments_html(segments: list, aligned: dict[str, list[str]]) -> str:
-    """Per-line transcript with data-s/data-e (seconds) and, per aligned
-    rendition, a data-tr-<lang> with that line's translation, so the
-    picker swaps text without touching timing."""
+def align_rendition(rendition: dict, segments: list, transcript: str = "") -> list[tuple[list[int], str]] | None:
+    """Rendition line i <-> the segment group of transcript line i (or
+    segment i when the rendition has one line per segment). Returns
+    [(segment indexes, translated line)] or None: a mismatch is shown as
+    plain text IN PLACE, never guessed onto the wrong lines."""
+    lines = _rendition_lines(rendition.get("transcript") if isinstance(rendition.get("transcript"), str) else "")
+    kept = [i for i, seg in enumerate(segments)
+            if isinstance(seg, dict) and isinstance(seg.get("text"), str) and seg["text"].strip()]
+    if not lines:
+        return None
+    if len(lines) == len(kept):
+        return [([i], _strip_label(l)) for i, l in zip(kept, lines)]
+    groups = group_segments_by_transcript_lines(transcript, segments)
+    if groups is not None and len(groups) == len(lines):
+        return [(g, _strip_label(l)) for g, l in zip(groups, lines)]
+    logger.warning("share_rendition_misaligned", extra={
+        "lang": rendition.get("lang"), "lines": len(lines), "segments": len(kept),
+        "transcript_lines": len([l for l in (transcript or "").splitlines() if l.strip()])})
+    return None
+
+
+def _times(seg: dict) -> tuple[float, float]:
+    try:
+        s0 = float(seg.get("sessionTimeOffset") or 0.0)
+        e0 = float(seg.get("endTimeOffset") or s0)
+    except (TypeError, ValueError):
+        s0, e0 = 0.0, 0.0
+    return s0, e0
+
+
+def _segments_html(segments: list, aligned: dict[str, list[tuple[list[int], str]]]) -> str:
+    """The ORIGINAL view: one <p class='seg'> per segment with timing.
+    Then, per aligned rendition, a TRANSLATED view of the same window:
+    one <p class='seg'> per translated line spanning its segment group's
+    timing, hidden until picked. Both live inside the same window, so a
+    picked language replaces the original in place and the follow-along
+    highlights whichever view is showing."""
     rows = []
-    i = 0
     for seg in segments:
         if not isinstance(seg, dict) or not isinstance(seg.get("text"), str) or not seg["text"].strip():
             continue
-        try:
-            s0 = float(seg.get("sessionTimeOffset") or 0.0)
-            e0 = float(seg.get("endTimeOffset") or s0)
-        except (TypeError, ValueError):
-            s0, e0 = 0.0, 0.0
+        s0, e0 = _times(seg)
         who = seg.get("speakerLabel")
-        attrs = "".join(f" data-tr-{_esc(lang)}='{_esc(lines[i])}'" for lang, lines in aligned.items())
         rows.append(
-            f"<p class='seg' data-s='{s0:.2f}' data-e='{e0:.2f}'{attrs}>"
+            f"<p class='seg' data-s='{s0:.2f}' data-e='{e0:.2f}'>"
             + (f"<b>{_esc(who)}</b> " if isinstance(who, str) and who.strip() else "")
-            + f"<span class='orig'>{_esc(seg['text'])}</span><span class='tr'></span></p>")
-        i += 1
-    return "".join(rows)
+            + _esc(seg["text"]) + "</p>")
+    views = [f"<div class='view' data-lang=''>{''.join(rows)}</div>"]
+    for lang, pairs in aligned.items():
+        trows = []
+        for idxs, text in pairs:
+            first, last = segments[idxs[0]], segments[idxs[-1]]
+            s0, _ = _times(first); _, e0 = _times(last)
+            who = first.get("speakerLabel")
+            trows.append(
+                f"<p class='seg' data-s='{s0:.2f}' data-e='{e0:.2f}'>"
+                + (f"<b>{_esc(who)}</b> " if isinstance(who, str) and who.strip() else "")
+                + _esc(text) + "</p>")
+        views.append(f"<div class='view' data-lang='{_esc(lang)}' style='display:none'>{''.join(trows)}</div>")
+    return "".join(views)
 
 
 def _picker_html(langs: list[str], default: str | None) -> str:
@@ -379,18 +468,18 @@ def contents_descriptor(rec: dict, audio_count: int, image_count: int, lang: str
 # player. The picker swaps each line's text from its data-tr-<lang>.
 _PLAYER_JS = (
     "<script>(function(){document.querySelectorAll('section').forEach(function(sec){"
-    "var a=sec.querySelector('audio.sa');var box=sec.querySelector('.segs');var S=Array.prototype.slice.call(sec.querySelectorAll('p.seg'));"
-    "var sel=sec.querySelector('select.lang');var sum=sec.querySelector('.summary');"
-    "function pick(lang){S.forEach(function(p){var t=p.querySelector('.tr'),o=p.querySelector('.orig');var v=lang?p.getAttribute('data-tr-'+lang):null;"
-    "if(v){t.textContent=v;t.style.display='';o.style.display='none';}else{t.textContent='';t.style.display='none';o.style.display='';}});"
-    "sec.querySelectorAll('.rend').forEach(function(r){r.style.display=(lang&&r.getAttribute('data-lang')===lang)?'':'none';});"
+    "var a=sec.querySelector('audio.sa');var box=sec.querySelector('.segs');"
+    "var sel=sec.querySelector('select.lang');var sum=sec.querySelector('.summary');var S=[];"
+    "function pick(lang){var views=sec.querySelectorAll('.view');var shown=null;views.forEach(function(v){var on=(v.getAttribute('data-lang')||'')===(lang||'');v.style.display=on?'':'none';if(on)shown=v;});"
+    "if(!shown&&views.length){views[0].style.display='';shown=views[0];}"
+    "S=shown?Array.prototype.slice.call(shown.querySelectorAll('p.seg')):[];if(cur){cur.classList.remove('on');cur=null;}"
     "if(sum){var sv=lang?sum.getAttribute('data-sum-'+lang):null;sum.textContent=sv||sum.getAttribute('data-sum-orig');}}"
-    "if(sel){sel.addEventListener('change',function(){pick(sel.value);});if(sel.value)pick(sel.value);}"
-    "if(!a||!S.length)return;var cur=null;a.addEventListener('timeupdate',function(){var t=a.currentTime,hit=null;"
+    "var cur=null;pick(sel?sel.value:'');if(sel){sel.addEventListener('change',function(){pick(sel.value);});}"
+    "if(!a)return;a.addEventListener('timeupdate',function(){var t=a.currentTime,hit=null;"
     "for(var i=0;i<S.length;i++){var s=+S[i].dataset.s,e=+S[i].dataset.e;if(t>=s&&(t<e||(e<=s&&(i+1>=S.length||t<+S[i+1].dataset.s)))){hit=S[i];break;}}"
     "if(hit!==cur){if(cur)cur.classList.remove('on');cur=hit;if(cur){cur.classList.add('on');var d=cur.closest('details');if(d&&!d.open)d.open=true;"
     "if(box){box.scrollTop=Math.max(0,cur.offsetTop-box.offsetTop-box.clientHeight/2+cur.clientHeight/2);}}}});"
-    "S.forEach(function(p){p.addEventListener('click',function(){a.currentTime=+p.dataset.s;a.play();});});});})();</script>"
+    "sec.addEventListener('click',function(ev){var p=ev.target.closest('p.seg');if(p&&sec.contains(p)){a.currentTime=+p.dataset.s;a.play();}});});})();</script>"
 )
 
 
@@ -399,7 +488,7 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
                       app_store_id: str | None = None, share_url: str | None = None,
                       icon_url: str | None = None, audio_by_origin: dict[str, list[str]] | None = None,
                       share_language: str | None = None, images_by_origin: dict[str, int] | None = None,
-                      qr_url: str | None = None) -> str:
+                      qr_url: str | None = None, images_by_origin_names: dict[str, list[str]] | None = None) -> str:
     """The hosted page for a recipient without the app (Variant A: the
     whole meeting). Card tags for iMessage and every other messenger;
     noindex; `reportHTML` when the record carries it, in a sandboxed
@@ -474,20 +563,34 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
         aligned = {}
         plain = []
         for r in rends:
-            lines = align_rendition(r, segments)
-            if lines is not None:
-                aligned[r["lang"]] = lines
+            pairs = align_rendition(r, segments, transcript)
+            if pairs is not None:
+                aligned[r["lang"]] = pairs
             elif isinstance(r.get("transcript"), str) and r["transcript"].strip():
                 plain.append(r)
-        seg_html = _segments_html(segments, aligned) if transcript_included else ""
+        seg_html = _segments_html(segments, aligned) if (transcript_included and segments) else ""
         if seg_html or (transcript_included and transcript.strip()):
             langs = [r["lang"] for r in rends if r["lang"] in aligned or any(pr is r for pr in plain)]
             picker = _picker_html(langs, share_language)
-            plain_html = "".join(
-                f"<pre class='rend' data-lang='{_esc(r['lang'])}' style='display:none'>{_esc(r['transcript'])}</pre>" for r in plain)
-            inner = ("<div class='segs'>" + seg_html + "</div>") if seg_html else ("<pre class='orig-plain'>" + _esc(transcript) + "</pre>")
+            # A rendition that could not be aligned still replaces the
+            # original IN PLACE (same window), just without timing.
+            plain_views = "".join(
+                f"<div class='view' data-lang='{_esc(r['lang'])}' style='display:none'><pre class='rend'>{_esc(r['transcript'])}</pre></div>"
+                for r in plain)
+            orig_view = seg_html if seg_html else f"<div class='view' data-lang=''><pre class='orig-plain'>{_esc(transcript)}</pre></div>"
             body.append("<details class='tx'" + (" open" if audio_names else "") +
-                        f" data-origin='{_esc(origin)}'><summary>Show transcript</summary>" + picker + inner + plain_html + "</details>")
+                        f" data-origin='{_esc(origin)}'><summary>Show transcript</summary>" + picker +
+                        "<div class='segs'>" + orig_view + plain_views + "</div></details>")
+        # Photos shared with the meeting (Scott 2026-08-24: they were in the
+        # bundle and never on the page). Served by /s/{token}/image/{n}.
+        n_images = int((images_by_origin or {}).get(origin, 0))
+        if n_images and share_url:
+            flat_imgs = flat_image_entries(images_by_origin_names or {})
+            thumbs = "".join(
+                f"<a href='{_esc(share_url)}/image/{n}' target='_blank' rel='noopener'><img src='{_esc(share_url)}/image/{n}' loading='lazy' alt=''></a>"
+                for n, (o, _name) in enumerate(flat_imgs) if o == origin)
+            if thumbs:
+                body.append(f"<p class='k'>Photos</p><div class='gallery'>{thumbs}</div>")
 
         parts.append(f"<section><h1>{_esc(title)}</h1><p class='dim'>{_esc(meta)}</p>{''.join(body)}</section>")
     if not parts:
@@ -561,9 +664,10 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
         ".foot{margin-top:2rem;font-size:.8rem;color:#888}"
         ".get{margin:.25rem 0 1rem}.get a{display:inline-block;background:#1a1a1a;color:#fff;text-decoration:none;"
         "padding:.5rem .9rem;border-radius:8px;font-size:.9rem}"
-        ".dl{display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap;margin:2rem 0 0;padding:1rem 1.25rem;background:#fff;border:1px solid #e6e6e2;border-radius:14px}"
+        ".dl{display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap;margin:0 0 1rem;padding:1rem 1.25rem;background:#fff;border:1px solid #e6e6e2;border-radius:14px}"
+        ".gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.5rem}.gallery img{width:100%;height:120px;object-fit:cover;border-radius:8px;display:block}"
         ".dl .badge img{display:block}.dl .qr img{display:block;border-radius:8px}.qrtxt{margin:0;max-width:16rem;color:#555;font-size:.95rem}</style></head><body>"
-        + get_app + "".join(parts) + download +
+        + download + get_app + "".join(parts) +
         f"<p class='foot'>Shared from Shoulder Surf. This link stops working on {_esc(expires_at[:10])}.</p>"
         + _PLAYER_JS + "</body></html>"
     )
