@@ -1,5 +1,5 @@
 {
-  "version": 51,
+  "version": 52,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -644,6 +644,132 @@
     "memory_excluded_window": {
       "text": "This project has {excluded} meeting{plural} older than {window} days, outside the Plus window. Pro has no window.",
       "label": "See Pro"
+    }
+  },
+  "paywall": {
+    "headline": "Your AI that learns from every meeting",
+    "subheads": {
+      "feature_locked": {
+        "body": "You've used your free hours. Subscribe to unlock meeting memory, photo analysis, and richer insights from every session."
+      },
+      "allowance_exhausted": {
+        "title": "You're out of free hours",
+        "body": "Unlock unlimited AI for this meeting and beyond."
+      }
+    },
+    "cq_card": {
+      "title": "Context Quilt",
+      "badge": "Plus & up",
+      "badge_short": "CQ",
+      "tagline": "Your AI builds a memory graph from every meeting, recalling past decisions, commitments, and context when you need it most.",
+      "bullets": [
+        "Recalls decisions and commitments from past meetings",
+        "Connects the dots across projects and conversations",
+        "Remembers who said what, across sessions",
+        "Gets smarter and more relevant the more you use it"
+      ]
+    },
+    "comparison": {
+      "cloud_title": "Shoulder Surf AI",
+      "device_title": "On-Device AI",
+      "rows": [
+        {
+          "cloud_label": "Meeting memory (CQ)",
+          "device_label": "Meeting memory (CQ)",
+          "cloud_has": true,
+          "device_has": false
+        },
+        {
+          "cloud_label": "Photo analysis",
+          "device_label": "Photo analysis",
+          "cloud_has": true,
+          "device_has": false
+        },
+        {
+          "cloud_label": "Long context window",
+          "device_label": "Short context only",
+          "cloud_has": true,
+          "device_has": false
+        },
+        {
+          "cloud_label": "Richer summaries",
+          "device_label": "Basic responses",
+          "cloud_has": true,
+          "device_has": false
+        },
+        {
+          "cloud_label": "Works offline",
+          "device_label": "Works offline",
+          "cloud_has": false,
+          "device_has": true
+        }
+      ],
+      "learn_more_label": "Learn more about Shoulder Surf AI"
+    },
+    "choose_plan_label": "Choose a plan",
+    "testflight_banner": {
+      "title": "Subscriptions are free during beta testing",
+      "body": "You're on the TestFlight beta, so Apple won't charge you. Prices are shown, but subscriptions started during beta testing are free.",
+      "link_label": "Read more on Apple's TestFlight page"
+    },
+    "trial_pill": {
+      "day": {
+        "one": "{n}-day trial",
+        "other": "{n}-day trial"
+      },
+      "week": {
+        "one": "{n}-week trial",
+        "other": "{n}-week trial"
+      },
+      "month": {
+        "one": "{n}-month trial",
+        "other": "{n}-month trial"
+      },
+      "year": {
+        "one": "{n}-year trial",
+        "other": "{n}-year trial"
+      }
+    },
+    "welcome_back": {
+      "title": "Welcome back offer",
+      "day": {
+        "one": "Welcome back: {n}-day free",
+        "other": "Welcome back: {n}-day free"
+      },
+      "week": {
+        "one": "Welcome back: {n}-week free",
+        "other": "Welcome back: {n}-week free"
+      },
+      "month": {
+        "one": "Welcome back: {n}-month free",
+        "other": "Welcome back: {n}-month free"
+      },
+      "year": {
+        "one": "Welcome back: {n}-year free",
+        "other": "Welcome back: {n}-year free"
+      }
+    },
+    "per_month_suffix": "/mo",
+    "other_options": {
+      "title": "Other options",
+      "recommended": "Recommended",
+      "subscribe": "Subscribe",
+      "picker_hint": "Pick how you'd like to handle this meeting. You can come back and change this any time in Settings.",
+      "byok": {
+        "title": "Use my own API key",
+        "subtitle": "Use OpenAI, Anthropic, or other providers with your own account",
+        "body": "Bring your own OpenAI / Anthropic / OpenRouter key. You'll pay them directly.",
+        "add_key": "Add your own API key",
+        "keep_using": "Keep using {provider}",
+        "key_continues": "Your API key continues to handle queries."
+      },
+      "on_device": {
+        "title": "Use On-Device AI",
+        "subtitle": "Free, private, works offline. Quality is more limited than Shoulder Surf AI.",
+        "enable": "Enable Apple Intelligence",
+        "enable_hint": "Free on-device AI. Turn on in Settings → Apple Intelligence & Siri",
+        "requires": "Requires iPhone 15 Pro or later with Apple Intelligence enabled."
+      }
     }
   }
 }

@@ -1,5 +1,5 @@
 {
-  "version": 50,
+  "version": 51,
   "tiers": {
     "free": {
       "display_name": "Gratuit",
@@ -644,6 +644,132 @@
     "memory_excluded_window": {
       "text": "Ce projet compte {excluded} réunions de plus de {window} jours, hors de la fenêtre Plus. Pro n'a aucune limite.",
       "label": "Voir Pro"
+    }
+  },
+  "paywall": {
+    "headline": "Votre IA qui apprend de chaque réunion",
+    "subheads": {
+      "feature_locked": {
+        "body": "Vous avez utilisé vos heures gratuites. Abonnez-vous pour débloquer la mémoire des réunions, l'analyse de photos et des analyses plus riches à chaque session."
+      },
+      "allowance_exhausted": {
+        "title": "Vous avez épuisé vos heures gratuites",
+        "body": "Débloquez l'IA illimitée pour cette réunion et les suivantes."
+      }
+    },
+    "cq_card": {
+      "title": "Context Quilt",
+      "badge": "Plus et au-delà",
+      "badge_short": "CQ",
+      "tagline": "Votre IA construit un graphe de mémoire à partir de chaque réunion, rappelant les décisions, les engagements et le contexte passés au moment où vous en avez le plus besoin.",
+      "bullets": [
+        "Rappelle les décisions et les engagements des réunions passées",
+        "Fait le lien entre vos projets et vos conversations",
+        "Retient qui a dit quoi, d'une session à l'autre",
+        "Devient plus pertinent à mesure que vous l'utilisez"
+      ]
+    },
+    "comparison": {
+      "cloud_title": "Shoulder Surf AI",
+      "device_title": "IA sur l'appareil",
+      "rows": [
+        {
+          "cloud_label": "Mémoire des réunions (CQ)",
+          "device_label": "Mémoire des réunions (CQ)",
+          "cloud_has": true,
+          "device_has": false
+        },
+        {
+          "cloud_label": "Analyse de photo",
+          "device_label": "Analyse de photo",
+          "cloud_has": true,
+          "device_has": false
+        },
+        {
+          "cloud_label": "Grande fenêtre de contexte",
+          "device_label": "Contexte court uniquement",
+          "cloud_has": true,
+          "device_has": false
+        },
+        {
+          "cloud_label": "Résumés plus riches",
+          "device_label": "Réponses basiques",
+          "cloud_has": true,
+          "device_has": false
+        },
+        {
+          "cloud_label": "Fonctionne hors ligne",
+          "device_label": "Fonctionne hors ligne",
+          "cloud_has": false,
+          "device_has": true
+        }
+      ],
+      "learn_more_label": "En savoir plus sur Shoulder Surf AI"
+    },
+    "choose_plan_label": "Choisissez une formule",
+    "testflight_banner": {
+      "title": "Les abonnements sont gratuits pendant la phase de test bêta",
+      "body": "Vous êtes sur la bêta TestFlight, Apple ne vous facturera donc rien. Les prix sont affichés, mais les abonnements souscrits pendant la phase de test sont gratuits.",
+      "link_label": "En savoir plus sur la page TestFlight d'Apple"
+    },
+    "trial_pill": {
+      "day": {
+        "one": "essai de {n} jour",
+        "other": "essai de {n} jours"
+      },
+      "week": {
+        "one": "essai de {n} semaine",
+        "other": "essai de {n} semaines"
+      },
+      "month": {
+        "one": "essai de {n} mois",
+        "other": "essai de {n} mois"
+      },
+      "year": {
+        "one": "essai de {n} an",
+        "other": "essai de {n} ans"
+      }
+    },
+    "welcome_back": {
+      "title": "Offre de retour",
+      "day": {
+        "one": "Bon retour : {n} jour gratuit",
+        "other": "Bon retour : {n} jours gratuits"
+      },
+      "week": {
+        "one": "Bon retour : {n} semaine gratuite",
+        "other": "Bon retour : {n} semaines gratuites"
+      },
+      "month": {
+        "one": "Bon retour : {n} mois gratuit",
+        "other": "Bon retour : {n} mois gratuits"
+      },
+      "year": {
+        "one": "Bon retour : {n} an gratuit",
+        "other": "Bon retour : {n} ans gratuits"
+      }
+    },
+    "per_month_suffix": "/mois",
+    "other_options": {
+      "title": "Autres options",
+      "recommended": "Recommandé",
+      "subscribe": "S'abonner",
+      "picker_hint": "Choisissez comment traiter cette réunion. Vous pouvez revenir modifier ce choix à tout moment dans Réglages.",
+      "byok": {
+        "title": "Utiliser ma propre clé API",
+        "subtitle": "Utilisez OpenAI, Anthropic ou d'autres fournisseurs avec votre propre compte",
+        "body": "Utilisez votre propre clé OpenAI / Anthropic / OpenRouter. Vous les payez directement.",
+        "add_key": "Ajoutez votre propre clé API",
+        "keep_using": "Continuer avec {provider}",
+        "key_continues": "Votre clé API continue de traiter les requêtes."
+      },
+      "on_device": {
+        "title": "Utiliser l'IA sur l'appareil",
+        "subtitle": "Gratuit, confidentiel, fonctionne hors ligne. La qualité est plus limitée qu'avec Shoulder Surf AI.",
+        "enable": "Activer Apple Intelligence",
+        "enable_hint": "IA gratuite sur l'appareil. Activez-la dans Réglages → Apple Intelligence et Siri",
+        "requires": "Nécessite un iPhone 15 Pro ou plus récent avec Apple Intelligence activé."
+      }
     }
   }
 }
