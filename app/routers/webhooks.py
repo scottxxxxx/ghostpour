@@ -2443,6 +2443,36 @@ async def list_users(
             (SELECT COALESCE(SUM(lt4.estimated_cost_usd), 0)
              FROM usage_log lt4 WHERE lt4.user_id = u.id AND lt4.status = 'success'{_app_filt('lt4')})
               as lifetime_cost_usd,
+            -- Usage-visibility metrics (Scott 2026-08-23): what people
+            -- actually put through the AI, all intercepted server-side
+            -- from usage_log — zero client involvement. Windowed like the
+            -- token columns; lifetime shown in the user detail. Counts:
+            -- files GENERATED (metadata.generated.count, one per staged
+            -- artifact, not per request), DOCUMENTS included in queries
+            -- (metadata.documents.count), PHOTOS included (image_count
+            -- column), TRANSLATION requests (call_type='translation',
+            -- zero until the /v1/translations endpoint ships — the
+            -- column is ready the day it does).
+            (SELECT COALESCE(SUM(json_extract(m1.metadata,'$.generated.count')),0)
+             FROM usage_log m1 WHERE m1.user_id = u.id AND m1.status = 'success'
+             AND m1.request_timestamp >= date('now', ?){_app_filt('m1')}) as window_files_generated,
+            (SELECT COALESCE(SUM(json_extract(m2.metadata,'$.documents.count')),0)
+             FROM usage_log m2 WHERE m2.user_id = u.id AND m2.status = 'success'
+             AND m2.request_timestamp >= date('now', ?){_app_filt('m2')}) as window_documents,
+            (SELECT COALESCE(SUM(COALESCE(m3.image_count,0)),0)
+             FROM usage_log m3 WHERE m3.user_id = u.id AND m3.status = 'success'
+             AND m3.request_timestamp >= date('now', ?){_app_filt('m3')}) as window_photos,
+            (SELECT COUNT(*) FROM usage_log m4 WHERE m4.user_id = u.id
+             AND m4.status = 'success' AND m4.call_type = 'translation'
+             AND m4.request_timestamp >= date('now', ?){_app_filt('m4')}) as window_translations,
+            (SELECT COALESCE(SUM(json_extract(n1.metadata,'$.generated.count')),0)
+             FROM usage_log n1 WHERE n1.user_id = u.id AND n1.status = 'success'{_app_filt('n1')}) as lifetime_files_generated,
+            (SELECT COALESCE(SUM(json_extract(n2.metadata,'$.documents.count')),0)
+             FROM usage_log n2 WHERE n2.user_id = u.id AND n2.status = 'success'{_app_filt('n2')}) as lifetime_documents,
+            (SELECT COALESCE(SUM(COALESCE(n3.image_count,0)),0)
+             FROM usage_log n3 WHERE n3.user_id = u.id AND n3.status = 'success'{_app_filt('n3')}) as lifetime_photos,
+            (SELECT COUNT(*) FROM usage_log n4 WHERE n4.user_id = u.id
+             AND n4.status = 'success' AND n4.call_type = 'translation'{_app_filt('n4')}) as lifetime_translations,
             (SELECT MAX(l4.request_timestamp) FROM usage_log l4 WHERE l4.user_id = u.id{_app_filt('l4')}) as last_request,
             u.marketing_opt_in,
             -- Latest non-null device/version/locale from telemetry pings.
@@ -2498,6 +2528,14 @@ async def list_users(
             *app_params,                    # lifetime_input_tokens
             *app_params,                    # lifetime_output_tokens
             *app_params,                    # lifetime_cost_usd
+            f"-{days} days", *app_params,   # window_files_generated
+            f"-{days} days", *app_params,   # window_documents
+            f"-{days} days", *app_params,   # window_photos
+            f"-{days} days", *app_params,   # window_translations
+            *app_params,                    # lifetime_files_generated
+            *app_params,                    # lifetime_documents
+            *app_params,                    # lifetime_photos
+            *app_params,                    # lifetime_translations
             *app_params,                    # last_request
             *app_user_params,               # outer WHERE: hide non-app users
         ),
@@ -2629,6 +2667,16 @@ async def list_users(
             "window_output_tokens": window_output,
             "window_tokens": window_input + window_output,
             "window_cost_usd": round(window_cost, 4),
+            # Usage-visibility metrics (Scott 2026-08-23): counted
+            # server-side off usage_log, no client field involved.
+            "window_files_generated": int(r["window_files_generated"] or 0),
+            "window_documents": int(r["window_documents"] or 0),
+            "window_photos": int(r["window_photos"] or 0),
+            "window_translations": int(r["window_translations"] or 0),
+            "lifetime_files_generated": int(r["lifetime_files_generated"] or 0),
+            "lifetime_documents": int(r["lifetime_documents"] or 0),
+            "lifetime_photos": int(r["lifetime_photos"] or 0),
+            "lifetime_translations": int(r["lifetime_translations"] or 0),
             # Lifetime totals — all time, no date filter.
             "lifetime_requests": r["lifetime_requests"],
             "lifetime_input_tokens": lifetime_input,
