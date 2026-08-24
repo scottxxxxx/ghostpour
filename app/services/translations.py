@@ -139,3 +139,91 @@ def parse_model_output(text: str, expected_ids: list[str]) -> list[dict] | None:
     if [o["id"] for o in cleaned] != expected_ids:
         return None
     return cleaned
+
+
+# ---------------------------------------------------------------------------
+# The engine as a service call, used by POST /v1/translations and by the
+# share page's transcript picker. Raises HTTPException on budget block or
+# provider failure so both callers surface the same shapes.
+
+class TranslationBlocked(Exception):
+    """The paying user's monthly allocation is exhausted (the only gate)."""
+
+
+class TranslationFailed(Exception):
+    """Provider error or an output that never round-tripped its ids."""
+
+
+async def translate_group(app_state, db: aiosqlite.Connection, user, segments: list[dict],
+                          source: str, target: str, artifact: str, app_id: str | None,
+                          request_id: str | None = None) -> tuple[list[dict], bool]:
+    """Translate one segment group for `user` (who pays). Returns
+    (segments, cached). Cache first; budget pre-gate; one retry on a bad
+    round-trip; metering as call_type=translation on success or error."""
+    import json as _json
+    import time as _time
+    from app.models.chat import ChatRequest
+
+    key = cache_key(segments, source, target)
+    hit = await cache_get(db, key)
+    if hit is not None:
+        return hit, True
+
+    tier = app_state.tier_config.tiers.get(user.effective_tier)
+    if tier is None:
+        raise TranslationBlocked("unknown_tier")
+    effective_limit = tier.monthly_cost_limit_usd
+    if user.is_trial and tier.trial_cost_limit_usd is not None:
+        effective_limit = tier.trial_cost_limit_usd
+    if effective_limit != -1:
+        row = await (await db.execute(
+            "SELECT monthly_used_usd FROM users WHERE id = ?", (user.id,))).fetchone()
+        monthly_used = float(row["monthly_used_usd"] or 0) if row else 0.0
+        if monthly_used >= effective_limit:
+            raise TranslationBlocked("allocation_exhausted")
+
+    expected_ids = [s["id"] for s in segments]
+    chat_request = ChatRequest(
+        provider=TRANSLATION_PROVIDER, model=TRANSLATION_MODEL,
+        system_prompt=system_prompt(artifact),
+        user_content=f"Target language: {target}. Source language: {source}.\n"
+                     + _json.dumps(segments, ensure_ascii=False),
+        max_tokens=8192, temperature=0.2,
+        metadata={"call_type": "translation", "request_id": request_id,
+                  "translation_artifact": artifact, "translation_segments": len(segments),
+                  "translation_source": source, "translation_target": target},
+    )
+    start = _time.monotonic()
+    out = None
+    response = None
+    for attempt in (1, 2):
+        try:
+            response = await app_state.provider_router.route(chat_request)
+        except Exception as e:  # noqa: BLE001
+            logger.error("translation LLM call failed: %s", e)
+            raise TranslationFailed("provider_error")
+        out = parse_model_output(response.text or "", expected_ids)
+        if out is not None:
+            break
+        logger.warning("translation id round-trip failed attempt=%d", attempt)
+    elapsed_ms = int((_time.monotonic() - start) * 1000)
+
+    pricing = app_state.pricing
+    usage_tracker = app_state.usage_tracker
+    request_cost = 0.0
+    if pricing.is_loaded and response is not None:
+        cost = pricing.calculate_cost(
+            provider=TRANSLATION_PROVIDER, model=TRANSLATION_MODEL, usage=response.usage,
+            input_tokens=response.input_tokens, output_tokens=response.output_tokens)
+        response.cost = cost
+        request_cost = cost.get("total_cost", 0.0)
+    await usage_tracker.record_cost(db, user.id, request_cost, tier, user=user)
+    await usage_tracker.log_usage(
+        db, user.id, chat_request, response, elapsed_ms,
+        status="success" if out is not None else "error",
+        error_msg=None if out is not None else "id_round_trip_failed",
+        app_id=app_id or "unknown")
+    if out is None:
+        raise TranslationFailed("translation_shape_error")
+    await cache_put(db, key, artifact, source, target, out)
+    return out, False

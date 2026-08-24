@@ -238,13 +238,29 @@ def extract_audio_sidecar(archive_path: str, entry_name: str, sidecar_path: str)
         return False
 
 
-def _segments_html(segments: list) -> str:
+# Languages the picker offers: the served locales. The engine can do any
+# BCP-47 target; the picker is deliberately the four we serve copy for.
+PICKER_LANGUAGES = [("en", "English"), ("es", "Español"), ("fr", "Français"), ("ja", "日本語")]
+
+
+def segment_items(origin: str, segments: list) -> list[dict]:
+    """Stable {id, text} items for a meeting's transcriptSegments: the id
+    is origin + index, the same on the page and in the transcript route,
+    so a translated line lands on the line it came from."""
+    out = []
+    for i, seg in enumerate(segments or []):
+        if isinstance(seg, dict) and isinstance(seg.get("text"), str) and seg["text"].strip():
+            out.append({"id": f"{origin}:{i}", "text": seg["text"]})
+    return out
+
+
+def _segments_html(segments: list, origin: str = "") -> str:
     """Per-line transcript with data-s/data-e (seconds) so the player can
     highlight the line being spoken and a tap can seek. Falls back to the
     plain transcript when the record has no segments."""
     rows = []
-    for seg in segments:
-        if not isinstance(seg, dict) or not isinstance(seg.get("text"), str):
+    for i, seg in enumerate(segments):
+        if not isinstance(seg, dict) or not isinstance(seg.get("text"), str) or not seg["text"].strip():
             continue
         try:
             s0 = float(seg.get("sessionTimeOffset") or 0.0)
@@ -253,10 +269,25 @@ def _segments_html(segments: list) -> str:
             s0, e0 = 0.0, 0.0
         who = seg.get("speakerLabel")
         rows.append(
-            f"<p class='seg' data-s='{s0:.2f}' data-e='{e0:.2f}'>"
+            f"<p class='seg' data-id='{_esc(origin)}:{i}' data-s='{s0:.2f}' data-e='{e0:.2f}'>"
             + (f"<b>{_esc(who)}</b> " if isinstance(who, str) and who.strip() else "")
-            + _esc(seg["text"]) + "</p>")
+            + f"<span class='orig'>{_esc(seg['text'])}</span><span class='tr'></span></p>")
     return "".join(rows)
+
+
+def _picker_html(source_lang: str | None) -> str:
+    """The transcript language picker. Needs a stated source language
+    (transcriptLanguage on the record): without one the engine will not
+    guess, so the picker is not offered."""
+    if not source_lang:
+        return ""
+    src = source_lang.split("-")[0].lower()
+    opts = "".join(f"<option value='{code}'>{label}</option>"
+                   for code, label in PICKER_LANGUAGES if code != src)
+    if not opts:
+        return ""
+    return ("<p class='k'>Show transcript in <select class='lang'>"
+            "<option value=''>Original</option>" + opts + "</select> <span class='lstat dim'></span></p>")
 
 
 # Sync is scoped per <section>: each meeting's player drives only that
@@ -268,7 +299,19 @@ _PLAYER_JS = (
     "for(var i=0;i<S.length;i++){var s=+S[i].dataset.s,e=+S[i].dataset.e;if(t>=s&&(t<e||(e<=s&&(i+1>=S.length||t<+S[i+1].dataset.s)))){hit=S[i];break;}}"
     "if(hit!==cur){if(cur)cur.classList.remove('on');cur=hit;if(cur){cur.classList.add('on');var d=cur.closest('details');if(d&&!d.open)d.open=true;"
     "cur.scrollIntoView({block:'center',behavior:'smooth'});}}});"
-    "S.forEach(function(p){p.addEventListener('click',function(){a.currentTime=+p.dataset.s;a.play();});});});})();</script>"
+    "S.forEach(function(p){p.addEventListener('click',function(){a.currentTime=+p.dataset.s;a.play();});});});"
+    # Language picker: fetch translated lines for this meeting and lay each
+    # under its original by data-id; timing attributes never change, so the
+    # player keeps highlighting both.
+    "document.querySelectorAll('details.tx').forEach(function(d){var sel=d.querySelector('select.lang');if(!sel)return;"
+    "var st=d.querySelector('.lstat');var base=location.pathname.replace(/\\/$/,'');"
+    "sel.addEventListener('change',function(){var lang=sel.value;d.querySelectorAll('p.seg .tr').forEach(function(t){t.textContent='';});"
+    "d.classList.toggle('translated',!!lang);if(!lang){st.textContent='';return;}st.textContent='Translating…';"
+    "fetch(base+'/transcript?lang='+encodeURIComponent(lang)+'&origin='+encodeURIComponent(d.dataset.origin))"
+    ".then(function(r){if(!r.ok)throw r;return r.json();}).then(function(j){var m={};(j.segments||[]).forEach(function(x){m[x.id]=x.text;});"
+    "d.querySelectorAll('p.seg').forEach(function(p){var t=p.querySelector('.tr');if(m[p.dataset.id])t.textContent=m[p.dataset.id];});st.textContent='';})"
+    ".catch(function(r){st.textContent=(r&&r.status===429)?'Translation unavailable: the sharer\\u2019s monthly AI allocation is used up.':'Translation unavailable right now.';sel.value='';d.classList.remove('translated');});});});"
+    "})();</script>"
 )
 
 
@@ -332,10 +375,13 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
                     f"<audio class='sa' controls preload='metadata' src='{_esc(share_url)}/audio/{n}'></audio>")
         transcript = rec.get("transcript") if isinstance(rec.get("transcript"), str) else ""
         segments = rec.get("transcriptSegments") if isinstance(rec.get("transcriptSegments"), list) else []
-        seg_html = _segments_html(segments) if transcript_included else ""
+        seg_html = _segments_html(segments, origin) if transcript_included else ""
         if seg_html:
+            src_lang = rec.get("transcriptLanguage") if isinstance(rec.get("transcriptLanguage"), str) else None
+            picker = _picker_html(src_lang) if share_url else ""
             body.append("<details class='tx'" + (" open" if audio_names else "") +
-                        "><summary>Show transcript</summary><div class='segs'>" + seg_html + "</div></details>")
+                        f" data-origin='{_esc(origin)}'><summary>Show transcript</summary>" + picker +
+                        "<div class='segs'>" + seg_html + "</div></details>")
         elif transcript_included and transcript.strip():
             body.append("<details class='tx'><summary>Show transcript</summary><pre>" + _esc(transcript) + "</pre></details>")
         parts.append(f"<section><h1>{_esc(title)}</h1><p class='dim'>{_esc(meta)}</p>{''.join(body)}</section>")
@@ -392,7 +438,7 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
         "<style>body{font:16px/1.5 -apple-system,system-ui,sans-serif;max-width:720px;margin:0 auto;padding:1rem;color:#1a1a1a;background:#fafaf8}"
         "h1{font-size:1.4rem;margin:.5rem 0}.dim{color:#777}.k{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:#888;margin:1.2rem 0 .2rem}"
         ".summary{font-size:1.05rem}ul{padding-left:1.2rem}.tx pre{white-space:pre-wrap;background:#f1f1ee;padding:1rem;border-radius:8px}"
-        ".segs{background:#f1f1ee;padding:.5rem 1rem;border-radius:8px}.seg{margin:.15rem 0;padding:.15rem .4rem;border-radius:4px;cursor:pointer}.seg.on{background:#ffe9a8}audio.sa{width:100%;margin:.25rem 0 .75rem}"
+        ".segs{background:#f1f1ee;padding:.5rem 1rem;border-radius:8px}.seg .tr{display:block;color:#3a3a3a;font-style:italic}.seg .tr:empty{display:none}select.lang{font:inherit;padding:.15rem .4rem}.seg{margin:.15rem 0;padding:.15rem .4rem;border-radius:4px;cursor:pointer}.seg.on{background:#ffe9a8}audio.sa{width:100%;margin:.25rem 0 .75rem}"
         ".foot{margin-top:2rem;font-size:.8rem;color:#888}"
         ".get{margin:.25rem 0 1rem}.get a{display:inline-block;background:#1a1a1a;color:#fff;text-decoration:none;"
         "padding:.5rem .9rem;border-radius:8px;font-size:.9rem}</style></head><body>"
