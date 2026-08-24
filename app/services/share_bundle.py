@@ -274,6 +274,22 @@ CONTENTS_WORDS = {
 }
 
 
+DOWNLOAD_STRINGS = {
+    "en": {"badge_locale": "en-us", "badge_alt": "Download on the App Store",
+           "qr_alt": "QR code to download Shoulder Surf",
+           "desktop": "On a desktop? Point your iPhone camera here to download."},
+    "es": {"badge_locale": "es-es", "badge_alt": "Descárgalo en el App Store",
+           "qr_alt": "Código QR para descargar Shoulder Surf",
+           "desktop": "¿Estás en un ordenador? Apunta la cámara de tu iPhone aquí para descargarla."},
+    "fr": {"badge_locale": "fr-fr", "badge_alt": "Télécharger dans l'App Store",
+           "qr_alt": "QR code pour télécharger Shoulder Surf",
+           "desktop": "Sur un ordinateur ? Pointez l'appareil photo de votre iPhone ici pour télécharger."},
+    "ja": {"badge_locale": "ja-jp", "badge_alt": "App Storeでダウンロード",
+           "qr_alt": "Shoulder SurfをダウンロードするQRコード",
+           "desktop": "パソコンでご覧ですか？iPhoneのカメラをここにかざしてダウンロードできます。"},
+}
+
+
 def _lang_label(tag: str) -> str:
     return LANG_LABELS.get(tag.split("-")[0].lower(), tag)
 
@@ -382,7 +398,8 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
                       expires_at: str, og_image_url: str | None = None,
                       app_store_id: str | None = None, share_url: str | None = None,
                       icon_url: str | None = None, audio_by_origin: dict[str, list[str]] | None = None,
-                      share_language: str | None = None, images_by_origin: dict[str, int] | None = None) -> str:
+                      share_language: str | None = None, images_by_origin: dict[str, int] | None = None,
+                      qr_url: str | None = None) -> str:
     """The hosted page for a recipient without the app (Variant A: the
     whole meeting). Card tags for iMessage and every other messenger;
     noindex; `reportHTML` when the record carries it, in a sandboxed
@@ -508,13 +525,25 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
     #
     # Absent id = neither appears. No dead App Store link on a page a
     # stranger opens, and the page is otherwise unchanged.
-    banner = get_app = ""
+    banner = get_app = download = ""
     if app_store_id:
         arg = f",app-argument={_esc(share_url)}" if share_url else ""
         banner = f"<meta name='apple-itunes-app' content='app-id={_esc(app_store_id)}{arg}'>"
         store = f"https://apps.apple.com/app/id{_esc(app_store_id)}"
         get_app = (f"<p class='get'><a href='{store}'>Open in Shoulder Surf</a>"
                    "<span class='dim'> or read it here</span></p>")
+        # The website's download block, on every hosted meeting (Scott
+        # 2026-08-24): Apple's official badge for a phone in hand, the QR
+        # for someone reading on a desktop. Localized to the shared
+        # language; the badge art comes from Apple's badge service in the
+        # matching locale, the QR from the website (served url).
+        dl = DOWNLOAD_STRINGS.get((share_language or "en").split("-")[0].lower(), DOWNLOAD_STRINGS["en"])
+        badge = (f"https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/"
+                 f"{dl['badge_locale']}?size=250x83")
+        qr = (f"<a class='qr' href='{store}'><img src='{_esc(qr_url)}' width='120' height='120' alt='{_esc(dl['qr_alt'])}'></a>"
+              f"<p class='qrtxt'>{_esc(dl['desktop'])}</p>") if qr_url else ""
+        download = (f"<div class='dl'><a href='{store}' class='badge'><img src='{badge}' height='56' alt='{_esc(dl['badge_alt'])}'></a>"
+                    + qr + "</div>")
 
     return (
         "<!doctype html><html lang='en'><head><meta charset='utf-8'>"
@@ -531,8 +560,10 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
         ".segs{background:#f1f1ee;padding:.5rem 1rem;border-radius:8px;max-height:60vh;overflow-y:auto;position:relative}.seg .tr{display:none}.seg .tr:empty{display:none}select.lang{font:inherit;padding:.15rem .4rem}.rend,.orig-plain{white-space:pre-wrap;background:#f1f1ee;padding:1rem;border-radius:8px;max-height:60vh;overflow-y:auto}.seg{margin:.15rem 0;padding:.15rem .4rem;border-radius:4px;cursor:pointer}.seg.on{background:#ffe9a8}audio.sa{width:100%;margin:.25rem 0 .75rem}"
         ".foot{margin-top:2rem;font-size:.8rem;color:#888}"
         ".get{margin:.25rem 0 1rem}.get a{display:inline-block;background:#1a1a1a;color:#fff;text-decoration:none;"
-        "padding:.5rem .9rem;border-radius:8px;font-size:.9rem}</style></head><body>"
-        + get_app + "".join(parts) +
+        "padding:.5rem .9rem;border-radius:8px;font-size:.9rem}"
+        ".dl{display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap;margin:2rem 0 0;padding:1rem 1.25rem;background:#fff;border:1px solid #e6e6e2;border-radius:14px}"
+        ".dl .badge img{display:block}.dl .qr img{display:block;border-radius:8px}.qrtxt{margin:0;max-width:16rem;color:#555;font-size:.95rem}</style></head><body>"
+        + get_app + "".join(parts) + download +
         f"<p class='foot'>Shared from Shoulder Surf. This link stops working on {_esc(expires_at[:10])}.</p>"
         + _PLAYER_JS + "</body></html>"
     )

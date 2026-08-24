@@ -271,3 +271,33 @@ def test_contents_descriptor_comes_off_the_bytes_localized_to_share_language(cli
     assert "content='Transcript · 3 photos" in page                   # og:description prefix
     token2 = _share(client, pro_user, _bundle_rend(None, share_language="es", images=1))
     assert "Transcripción · 1 foto" in client.get(f"/s/{token2}").text
+
+
+# --- App Store badge + QR on every hosted meeting (Scott 2026-08-24) ----------
+
+def test_page_carries_the_badge_and_qr_localized_to_the_shared_language(client, pro_user):
+    token = _share(client, pro_user, _bundle_rend([EN], share_language="es"))
+    page = client.get(f"/s/{token}").text
+    assert "https://apps.apple.com/app/id6760098225" in page
+    assert "badges/download-on-the-app-store/black/es-es" in page
+    assert "src='https://shouldersurf.com/appstore-qr.svg?v=2'" in page
+    assert "Apunta la cámara de tu iPhone" in page
+    token2 = _share(client, pro_user, _bundle_rend(None))
+    page2 = client.get(f"/s/{token2}").text
+    assert "black/en-us" in page2 and "Point your iPhone camera here to download." in page2
+
+
+def test_no_app_store_id_means_no_download_block(client, pro_user):
+    from app.main import app
+    share = app.state.remote_configs.setdefault("client-config", {}).setdefault("share", {})
+    prev = share.get("app_store_id")
+    share["app_store_id"] = ""
+    try:
+        token = _share(client, pro_user, _bundle_rend(None))
+        page = client.get(f"/s/{token}").text
+        assert "class='dl'" not in page and "appstore-qr.svg" not in page
+    finally:
+        if prev is None:
+            share.pop("app_store_id", None)
+        else:
+            share["app_store_id"] = prev
