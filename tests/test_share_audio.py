@@ -382,3 +382,46 @@ def test_h1_prefers_the_display_title_from_the_header_over_a_raw_rec_title(clien
     page = client.get(f"/s/{r.json()['url'].rsplit('/',1)[1]}").text
     assert "<h1>Alineacion del Alcance del Proyecto</h1>" in page
     assert "Project Scope Alignment English" not in page
+
+
+# --- global meeting-language control (Scott 2026-08-24: one surface, at the top) ---
+
+ESREND = {"lang": "es", "engine_version": 1, "created_at": "2026-08-24T18:00:00Z",
+          "transcript": "[A] Hola a todos.\n[B] Empecemos.", "summary": "## Resumen\n- Casos", "report_html": None}
+
+
+def test_language_bar_is_at_the_top_one_control_localized_to_the_shared_language(client, pro_user):
+    token = _share(client, pro_user, _bundle_rend([ESREND], share_language="es", spoken="en"))
+    page = client.get(f"/s/{token}").text
+    # exactly one language control, in the top bar, above the CTA and the meeting
+    assert page.count("<select class='lang'>") == 1
+    assert "<div class='langbar'>" in page
+    assert page.index("langbar") < page.index("class='get'") < page.index("<section>")
+    # opens on the shared language (Spanish), offers Original + Spanish only
+    assert "value='es' selected" in page
+    assert "value='fr'" not in page
+    # the label and CTA render in the shared language by default, with swap attrs
+    assert "Ver la reunión en" in page
+    assert "Abrir en Shoulder Surf" in page and "data-i18n-orig='Open in Shoulder Surf'" in page
+    assert "Mostrar transcripción" in page and "data-i18n-orig='Show transcript'" in page
+    # the transcript picker is no longer inside the transcript details
+    details = page[page.index("<details class='tx'"):page.index("</details>", page.index("<details class='tx'"))]
+    assert "<select" not in details
+
+
+def test_toggle_drives_the_whole_page_globally(client, pro_user):
+    token = _share(client, pro_user, _bundle_rend([EN], share_language="es"))
+    page = client.get(f"/s/{token}").text
+    # one applier list fed by the single top select; summary and views both swap
+    assert "select.lang" in page and "applyLang" in page and "apply.push(setLang)" in page
+    assert "data-sum-en=" in page and "<div class='view' data-lang='en'" in page
+    # chrome swaps by data-i18n-<lang>
+    assert "data-i18n-es='Abrir en Shoulder Surf'" in page and "el.getAttribute('data-i18n-'+lang)" in page
+
+
+def test_no_translations_means_no_language_bar(client, pro_user):
+    token = _share(client, pro_user, _bundle_rend(None, share_language=None))
+    page = client.get(f"/s/{token}").text
+    assert "<div class='langbar'>" not in page and "<select class='lang'>" not in page
+    # a report-less/original share still gets the CTA in English
+    assert "Open in Shoulder Surf" in page
