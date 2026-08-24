@@ -300,7 +300,10 @@ def test_photos_render_as_a_gallery_and_serve_from_the_bundle(client, pro_user):
     page = client.get(f"/s/{token}").text
     assert "<div class='gallery'>" in page
     for n in range(3):
-        assert f"src='https://share.shouldersurf.com/s/{token}/image/{n}'" in page
+        assert f"data-full='https://share.shouldersurf.com/s/{token}/image/{n}'" in page
+    # a lightbox overlay opens on top (never replaces the page)
+    assert "<div class='lb'" in page and "class='thumb'" in page and "target='_blank'" not in page
+    assert "e.key==='Escape'" in page and "ArrowLeft" in page and "ArrowRight" in page
     r = client.get(f"/s/{token}/image/1")
     assert r.status_code == 200 and r.headers["content-type"] == "image/jpeg"
     assert r.content == b"\xff\xd8\xff" + bytes([1]) * 50
@@ -321,8 +324,8 @@ def test_page_carries_the_badge_and_qr_localized_to_the_shared_language(client, 
     token2 = _share(client, pro_user, _bundle_rend(None))
     page2 = client.get(f"/s/{token2}").text
     assert "black/en-us" in page2 and "Point your iPhone camera here to download." in page2
-    # at the very top: before the meeting content (Scott 2026-08-24)
-    assert page2.index("<div class='dl'>") < page2.index("<section>")
+    # at the very bottom now (Scott 2026-08-24): after the meeting content
+    assert page2.index("<div class='dl'>") > page2.rindex("</section>")
 
 
 def test_no_app_store_id_means_no_download_block(client, pro_user):
@@ -339,3 +342,17 @@ def test_no_app_store_id_means_no_download_block(client, pro_user):
             share.pop("app_store_id", None)
         else:
             share["app_store_id"] = prev
+
+
+def test_photos_open_in_a_lightbox_and_download_block_is_at_the_bottom(client, pro_user):
+    token = _share(client, pro_user, _bundle_rend(None, images=2))
+    page = client.get(f"/s/{token}").text
+    # thumbnails are buttons that feed the overlay, not links that navigate away
+    assert page.count("class='thumb'") == 2 and "target='_blank'" not in page
+    assert "<div class='lb'" in page and ".lb.on{display:flex}" in page
+    assert "class='prev'" in page and "class='next'" in page and "class='close'" in page
+    # download block is the last content block, below the meeting
+    assert page.index("<div class='dl'>") > page.rindex("</section>")
+    # a share with no photos has no lightbox
+    plain = client.get(f"/s/{_share(client, pro_user, _bundle_rend(None))}").text
+    assert "<div class='lb'" not in plain or "class='thumb'" not in plain
