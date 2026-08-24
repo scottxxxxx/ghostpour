@@ -506,6 +506,21 @@ MIGRATIONS = [
     )""",
     "CREATE INDEX IF NOT EXISTS idx_meeting_shares_user ON meeting_shares(user_id, created_at)",
     "CREATE INDEX IF NOT EXISTS idx_meeting_shares_expiry ON meeting_shares(expires_at)",
+    # Meeting translations cache (2026-08-24): content-hash idempotency
+    # for /v1/translations. cache_key already carries source+target+
+    # engine_version. TRANSCRIPT rows inherit transcript retention and
+    # are purged by the startup sweep; summary/report rows follow report
+    # retention. See docs/wire-contracts/meeting-translations.md.
+    """CREATE TABLE IF NOT EXISTS translations_cache (
+        cache_key TEXT PRIMARY KEY,
+        artifact TEXT NOT NULL,
+        source_language TEXT NOT NULL,
+        target_language TEXT NOT NULL,
+        engine_version INTEGER NOT NULL,
+        response_json TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_translations_artifact_age ON translations_cache(artifact, created_at)",
     # Generation turn records (phase 2 rescue, handoff Part 4): terminal
     # state of confirmed generation turns keyed by the CLIENT-minted
     # generation_id, same 6h clock as staging. files_json snapshots the
