@@ -1,5 +1,5 @@
 {
-  "version": 50,
+  "version": 51,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -644,6 +644,132 @@
     "memory_excluded_window": {
       "text": "このプロジェクトには{window}日より前の会議が{excluded}件あり、Plusの対象期間外です。Proには期間の制限がありません。",
       "label": "Proを見る"
+    }
+  },
+  "paywall": {
+    "headline": "すべてのミーティングから学ぶAI",
+    "subheads": {
+      "feature_locked": {
+        "body": "無料時間を使い切りました。サブスクリプションに登録して、ミーティングメモリー、写真分析、各セッションからのより豊富なインサイトをアンロックしてください。"
+      },
+      "out_of_credits": {
+        "title": "AI クレジットを使い切りました",
+        "body": "このミーティング以降も無制限の AI 機能を利用できるようになります。"
+      }
+    },
+    "cq_card": {
+      "title": "Context Quilt",
+      "badge": "Plus以上",
+      "badge_short": "CQ",
+      "tagline": "あなたの AI はすべての会議からメモリーグラフを構築し、過去の決定事項やコミットメント、背景情報を必要なときに呼び出します。",
+      "bullets": [
+        "過去のミーティングでの決定事項やコミットメントを思い出します",
+        "プロジェクトや会話をまたいで点と点をつなげます",
+        "誰が何を言ったかをセッションをまたいで記憶します",
+        "使うほど賢く、より的確になります"
+      ]
+    },
+    "comparison": {
+      "cloud_title": "Shoulder Surf AI",
+      "device_title": "オンデバイスAI",
+      "rows": [
+        {
+          "cloud_label": "会議メモリ（CQ）",
+          "device_label": "会議メモリ（CQ）",
+          "cloud_has": true,
+          "device_has": false
+        },
+        {
+          "cloud_label": "写真分析",
+          "device_label": "写真分析",
+          "cloud_has": true,
+          "device_has": false
+        },
+        {
+          "cloud_label": "長いコンテキストウィンドウ",
+          "device_label": "短いコンテキストのみ",
+          "cloud_has": true,
+          "device_has": false
+        },
+        {
+          "cloud_label": "より充実した要約",
+          "device_label": "基本的な応答",
+          "cloud_has": true,
+          "device_has": false
+        },
+        {
+          "cloud_label": "オフラインで動作",
+          "device_label": "オフラインで動作",
+          "cloud_has": false,
+          "device_has": true
+        }
+      ],
+      "learn_more_label": "Shoulder Surf AIの詳細"
+    },
+    "choose_plan_label": "プランを選択",
+    "testflight_banner": {
+      "title": "ベータテスト中のサブスクリプションは無料です",
+      "body": "TestFlightベータ版をご利用中のため、Appleから請求されることはありません。価格は表示されますが、ベータテスト中に開始したサブスクリプションは無料です。",
+      "link_label": "AppleのTestFlightページで詳細を見る"
+    },
+    "trial_pill": {
+      "day": {
+        "one": "{n}日間の無料トライアル",
+        "other": "{n}日間の無料トライアル"
+      },
+      "week": {
+        "one": "{n}週間の無料トライアル",
+        "other": "{n}週間の無料トライアル"
+      },
+      "month": {
+        "one": "{n}ヶ月の無料トライアル",
+        "other": "{n}ヶ月の無料トライアル"
+      },
+      "year": {
+        "one": "{n}年間の無料トライアル",
+        "other": "{n}年間の無料トライアル"
+      }
+    },
+    "welcome_back": {
+      "title": "復帰特典",
+      "day": {
+        "one": "おかえりなさい：{n}日間無料",
+        "other": "おかえりなさい：{n}日間無料"
+      },
+      "week": {
+        "one": "おかえりなさい：{n}週間無料",
+        "other": "おかえりなさい：{n}週間無料"
+      },
+      "month": {
+        "one": "おかえりなさい：{n}ヶ月無料",
+        "other": "おかえりなさい：{n}ヶ月無料"
+      },
+      "year": {
+        "one": "おかえりなさい：{n}年間無料",
+        "other": "おかえりなさい：{n}年間無料"
+      }
+    },
+    "per_month_suffix": "/月",
+    "other_options": {
+      "title": "その他のオプション",
+      "recommended": "推奨",
+      "subscribe": "サブスクリプションに登録",
+      "picker_hint": "この会議の進め方を選んでください。設定からいつでも変更できます。",
+      "byok": {
+        "title": "自分の API キーを使う",
+        "subtitle": "OpenAI、Anthropic、その他のプロバイダーを自分のアカウントで使用",
+        "body": "OpenAI / Anthropic / OpenRouter のキーを使います。料金は各プロバイダーに直接支払います。",
+        "add_key": "自分のAPIキーを追加",
+        "keep_using": "{provider}を使い続ける",
+        "key_continues": "APIキーで引き続きクエリを処理します。"
+      },
+      "on_device": {
+        "title": "オンデバイスの AI を使う",
+        "subtitle": "無料・プライバシー保護・オフライン対応。Shoulder Surf AI に比べて精度は限定的です。",
+        "enable": "Apple Intelligenceを有効にする",
+        "enable_hint": "無料のオンデバイスAI、設定 → Apple IntelligenceとSiriで有効にしてください",
+        "requires": "iPhone 15 Pro 以降で Apple Intelligence を有効にする必要があります。"
+      }
     }
   }
 }
