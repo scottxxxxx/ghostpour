@@ -365,6 +365,65 @@ def _lang_label(tag: str) -> str:
     return LANG_LABELS.get(tag.split("-")[0].lower(), tag)
 
 
+# Localizable chrome on the share page. The whole meeting toggles as ONE
+# surface (Scott 2026-08-24: reading half in English and half in Spanish
+# is wrong), so every label that is not content gets a translation and
+# swaps with the top language control.
+CHROME = {
+    "en": {"show_in": "Show meeting in", "original": "Original",
+           "open_app": "Open in Shoulder Surf", "read_here": "or read it here",
+           "show_transcript": "Show transcript"},
+    "es": {"show_in": "Ver la reunión en", "original": "Original",
+           "open_app": "Abrir en Shoulder Surf", "read_here": "o léela aquí",
+           "show_transcript": "Mostrar transcripción"},
+    "fr": {"show_in": "Voir la réunion en", "original": "Original",
+           "open_app": "Ouvrir dans Shoulder Surf", "read_here": "ou lisez-la ici",
+           "show_transcript": "Afficher la transcription"},
+    "ja": {"show_in": "会議の表示言語", "original": "原文",
+           "open_app": "Shoulder Surfで開く", "read_here": "またはここで読む",
+           "show_transcript": "文字起こしを表示"},
+}
+
+
+def _chrome(key: str) -> str:
+    """en text (the data-i18n-orig / Original value)."""
+    return CHROME["en"][key]
+
+
+def _i18n_attrs(key: str) -> str:
+    """data-i18n-orig plus one data-i18n-<lang> per non-English locale, so
+    the global control can swap this label's text to the picked language."""
+    a = f"data-i18n-orig='{_esc(CHROME['en'][key])}'"
+    for code in ("es", "fr", "ja"):
+        a += f" data-i18n-{code}='{_esc(CHROME[code][key])}'"
+    return a
+
+
+def _chrome_for(key: str, lang: str | None) -> str:
+    """The label text in the page's DEFAULT language (the shared one), so
+    the page loads already coherent before any toggle."""
+    dl = (lang or "en").split("-")[0].lower()
+    return CHROME.get(dl, CHROME["en"])[key]
+
+
+def language_bar(langs: list[str], default: str | None) -> str:
+    """The ONE meeting-language control, at the very top. Offers Original
+    plus the languages the sender translated in the app; opens on the
+    shared language. Absent when nothing was translated."""
+    if not langs:
+        return ""
+    dl = (default or "").split("-")[0].lower()
+    match = next((l for l in langs if l.split("-")[0].lower() == dl), None) if dl else None
+    orig_label = _chrome_for("original", default)
+    opts = f"<option value=''{'' if match else ' selected'}>{_esc(orig_label)}</option>"
+    for l in langs:
+        sel = " selected" if l == match else ""
+        opts += f"<option value='{_esc(l)}'{sel}>{_esc(_lang_label(l))}</option>"
+    label = _chrome_for("show_in", default)
+    return ("<div class='langbar'><span class='langlabel' " + _i18n_attrs("show_in") + f">{_esc(label)}</span> "
+            "<select class='lang'>" + opts + "</select></div>")
+
+
 def renditions_of(rec: dict) -> list[dict]:
     """The sender's stored translations, as emitted by SS (f318ab0):
     transcriptRenditions[{lang, engine_version?, created_at?, transcript,
@@ -538,26 +597,39 @@ _LIGHTBOX_JS = (
 )
 
 
-# Sync is scoped per <section>: each meeting's player drives only that
-# meeting's segments, highlights and auto-scrolls INSIDE the transcript
-# window (never the page), and a tap on a line seeks that meeting's
-# player. The picker swaps each line's text from its data-tr-<lang>.
+# One global language control (top of page) drives every section: it
+# toggles each meeting's transcript view and summary together and swaps
+# all localizable chrome, so the page is never half one language and half
+# another. Audio highlight/auto-scroll re-reads the visible view's
+# segments on each switch.
 _PLAYER_JS = (
-    "<script>(function(){document.querySelectorAll('section').forEach(function(sec){"
-    "var a=sec.querySelector('audio.sa');var box=sec.querySelector('.segs');"
-    "var sel=sec.querySelector('select.lang');var sum=sec.querySelector('.summary');var S=[];"
-    "function pick(lang){var views=sec.querySelectorAll('.view');var shown=null;views.forEach(function(v){var on=(v.getAttribute('data-lang')||'')===(lang||'');v.style.display=on?'':'none';if(on)shown=v;});"
+    "<script>(function(){"
+    # The whole meeting is ONE language surface (Scott 2026-08-24): the top
+    # control drives every section's transcript view AND summary, and swaps
+    # every localizable chrome label, so nothing is half-and-half.
+    "var sel=document.querySelector('select.lang');"
+    "var apply=[];"
+    "Array.prototype.slice.call(document.querySelectorAll('section')).forEach(function(sec){"
+    "var a=sec.querySelector('audio.sa');var box=sec.querySelector('.segs');var sum=sec.querySelector('.summary');"
+    "var cur=null;var S=[];"
+    "function setLang(lang){var views=sec.querySelectorAll('.view');var shown=null;"
+    "views.forEach(function(v){var on=(v.getAttribute('data-lang')||'')===(lang||'');v.style.display=on?'':'none';if(on)shown=v;});"
     "if(!shown&&views.length){views[0].style.display='';shown=views[0];}"
     "S=shown?Array.prototype.slice.call(shown.querySelectorAll('p.seg')):[];if(cur){cur.classList.remove('on');cur=null;}"
     "if(sum){var sv=lang?sum.getAttribute('data-sum-'+lang):null;sum.innerHTML=sv||sum.getAttribute('data-sum-orig');}}"
-    "var cur=null;pick(sel?sel.value:'');if(sel){sel.addEventListener('change',function(){pick(sel.value);});}"
-    "if(!a)return;a.addEventListener('timeupdate',function(){var t=a.currentTime,hit=null;"
+    "apply.push(setLang);"
+    "if(a){a.addEventListener('timeupdate',function(){var t=a.currentTime,hit=null;"
     "for(var i=0;i<S.length;i++){var s=+S[i].dataset.s,e=+S[i].dataset.e;if(t>=s&&(t<e||(e<=s&&(i+1>=S.length||t<+S[i+1].dataset.s)))){hit=S[i];break;}}"
     "if(hit!==cur){if(cur)cur.classList.remove('on');cur=hit;if(cur){cur.classList.add('on');var d=cur.closest('details');if(d&&!d.open)d.open=true;"
     "if(box){box.scrollTop=Math.max(0,cur.offsetTop-box.offsetTop-box.clientHeight/2+cur.clientHeight/2);}}}});"
-    "sec.addEventListener('click',function(ev){var p=ev.target.closest('p.seg');if(p&&sec.contains(p)){a.currentTime=+p.dataset.s;a.play();}});});})();</script>"
+    "sec.addEventListener('click',function(ev){var p=ev.target.closest('p.seg');if(p&&sec.contains(p)){a.currentTime=+p.dataset.s;a.play();}});}});"
+    "function chrome(lang){Array.prototype.slice.call(document.querySelectorAll('[data-i18n-orig]')).forEach(function(el){"
+    "var v=lang?el.getAttribute('data-i18n-'+lang):null;el.textContent=(v!=null?v:el.getAttribute('data-i18n-orig'));});}"
+    "function applyLang(lang){apply.forEach(function(f){f(lang);});chrome(lang);}"
+    "applyLang(sel?sel.value:'');"
+    "if(sel){sel.addEventListener('change',function(){applyLang(sel.value);});}"
+    "})();</script>"
 )
-
 
 def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcript_included: bool,
                       expires_at: str, og_image_url: str | None = None,
@@ -577,6 +649,7 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
         share_language = manifest["share_language"]
     parts = []
     contents_line = ""
+    page_langs: list[str] = []
     for m in meetings:
         rec = m.get("record") or {}; rep = m.get("report") or {}
         # card_title is X-Share-Title = the client's displayTitle: the most
@@ -661,7 +734,9 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
         seg_html = _segments_html(segments, aligned) if (transcript_included and segments) else ""
         if seg_html or (transcript_included and transcript.strip()):
             langs = [r["lang"] for r in rends if r["lang"] in aligned or any(pr is r for pr in plain)]
-            picker = _picker_html(langs, share_language)
+            for l in langs:
+                if l not in page_langs:
+                    page_langs.append(l)
             # A rendition that could not be aligned still replaces the
             # original IN PLACE (same window), just without timing.
             plain_views = "".join(
@@ -669,7 +744,8 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
                 for r in plain)
             orig_view = seg_html if seg_html else f"<div class='view' data-lang=''><pre class='orig-plain'>{_esc(transcript)}</pre></div>"
             body.append("<details class='tx'" + (" open" if audio_names else "") +
-                        f" data-origin='{_esc(origin)}'><summary>Show transcript</summary>" + picker +
+                        f" data-origin='{_esc(origin)}'><summary " + _i18n_attrs("show_transcript") +
+                        f">{_esc(_chrome_for('show_transcript', share_language))}</summary>"
                         "<div class='segs'>" + orig_view + plain_views + "</div></details>")
         # Photos shared with the meeting (Scott 2026-08-24: they were in the
         # bundle and never on the page). Served by /s/{token}/image/{n}.
@@ -723,8 +799,11 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
         arg = f",app-argument={_esc(share_url)}" if share_url else ""
         banner = f"<meta name='apple-itunes-app' content='app-id={_esc(app_store_id)}{arg}'>"
         store = f"https://apps.apple.com/app/id{_esc(app_store_id)}"
-        get_app = (f"<p class='get'><a href='{store}'>Open in Shoulder Surf</a>"
-                   "<span class='dim'> or read it here</span></p>")
+        get_app = (
+            f"<p class='get'><a href='{store}'><span " + _i18n_attrs("open_app") + ">"
+            + _esc(_chrome_for("open_app", share_language)) + "</span></a>"
+            "<span class='dim'> <span " + _i18n_attrs("read_here") + ">"
+            + _esc(_chrome_for("read_here", share_language)) + "</span></span></p>")
         # The website's download block, on every hosted meeting (Scott
         # 2026-08-24): Apple's official badge for a phone in hand, the QR
         # for someone reading on a desktop. Localized to the shared
@@ -755,13 +834,14 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
         ".get{margin:.25rem 0 1rem}.get a{display:inline-block;background:#1a1a1a;color:#fff;text-decoration:none;"
         "padding:.5rem .9rem;border-radius:8px;font-size:.9rem}"
         ".dl{display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap;margin:0 0 1rem;padding:1rem 1.25rem;background:#fff;border:1px solid #e6e6e2;border-radius:14px}"
+        ".langbar{margin:0 0 1rem;padding:.6rem .9rem;background:#fff;border:1px solid #e6e6e2;border-radius:10px;font-size:.95rem}.langlabel{color:#555;margin-right:.4rem}"
         ".gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.5rem}.thumb{padding:0;border:0;background:none;cursor:zoom-in}.gallery img{width:100%;height:120px;object-fit:cover;border-radius:8px;display:block}"
         ".lb{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;z-index:50}.lb.on{display:flex}"
         ".lb img{max-width:92vw;max-height:86vh;object-fit:contain;border-radius:6px}"
         ".lb button{position:absolute;background:rgba(0,0,0,.45);color:#fff;border:0;border-radius:999px;width:44px;height:44px;font-size:1.5rem;line-height:1;cursor:pointer}"
         ".lb .close{top:16px;right:16px}.lb .prev{left:12px}.lb .next{right:12px}.lb .prev,.lb .next{top:50%;transform:translateY(-50%)}.lb .count{position:absolute;bottom:16px;left:0;right:0;text-align:center;color:#ccc;font-size:.9rem;background:none;width:auto;height:auto;border-radius:0}"
         ".dl .badge img{display:block}.dl .qr img{display:block;border-radius:8px}.qrtxt{margin:0;max-width:16rem;color:#555;font-size:.95rem}</style></head><body>"
-        + get_app + "".join(parts) +
+        + language_bar(page_langs, share_language) + get_app + "".join(parts) +
         f"<p class='foot'>Shared from Shoulder Surf. This link stops working on {_esc(expires_at[:10])}.</p>"
         + download + _LIGHTBOX_HTML + _PLAYER_JS + _LIGHTBOX_JS + "</body></html>"
     )
