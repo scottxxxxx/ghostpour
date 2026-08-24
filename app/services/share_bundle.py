@@ -579,7 +579,16 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
     contents_line = ""
     for m in meetings:
         rec = m.get("record") or {}; rep = m.get("report") or {}
-        title = rec.get("title") or (rep.get("header") or {}).get("title") or card_title
+        # card_title is X-Share-Title = the client's displayTitle: the most
+        # current, authoritatively-derived, and (on a translated share)
+        # localized title. For a SINGLE-meeting share it IS this meeting's
+        # display title, so prefer it over the bundle's raw rec.title (the
+        # untranslated stored title, or a bare date on a report-less meeting
+        # from before SS's derivation fix). For a MULTI-meeting bundle
+        # card_title is one share-level title, so each section keeps its own
+        # meeting title. (Scott 2026-08-24.)
+        _mtitle = rec.get("title") or (rep.get("header") or {}).get("title")
+        title = (card_title or _mtitle) if len(meetings) == 1 else (_mtitle or card_title)
         when = m.get("started_at"); when_s = when.strftime("%B %-d, %Y, %-I:%M %p UTC") if when else ""
         dur = _duration(rec.get("durationSeconds"))
         meta = " · ".join(x for x in (when_s, dur) if x)

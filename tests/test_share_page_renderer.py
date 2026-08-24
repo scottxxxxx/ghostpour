@@ -57,7 +57,10 @@ def test_every_fixture_produces_a_page_with_the_card_and_the_title(name):
     html = render_share_page(b, card_title="Card title", card_desc="Card line", transcript_included=True,
                              expires_at="2026-09-21T00:00:00+00:00")
     assert "og:title" in html and "Card title" in html and "noindex" in html
-    assert "Northwind Ferry Terminal" in html
+    # card_title is the display title (X-Share-Title); for these
+    # single-meeting fixtures it is the H1. rec.title is no longer the H1
+    # source (2026-08-24: it was the untranslated/date-fallback one).
+    assert "<h1>Card title</h1>" in html
     assert "2026-09-21" in html  # expiry stated to the recipient
 
 
@@ -97,7 +100,7 @@ def test_report_html_is_framed_sandboxed_and_minimal_falls_back_to_fields():
 
 def test_a_record_with_nothing_at_all_still_says_so():
     b = {"meetings": [{"origin_id": "x", "record": {"title": "Bare"}, "report": None, "started_at": None}]}
-    html = render_share_page(b, card_title="t", card_desc="", transcript_included=True, expires_at="2026-09-21")
+    html = render_share_page(b, card_title="Bare", card_desc="", transcript_included=True, expires_at="2026-09-21")
     assert "Bare" in html and "shared without a report" in html
 
 
