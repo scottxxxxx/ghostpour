@@ -277,7 +277,10 @@ def test_free_teaser_without_client_flag_still_runs_the_people_lane(client_with_
         _set_free_cq(prev)
 
 
-def test_free_teaser_with_client_flag_keeps_the_metadata_only_teaser_recall(client_with_cq, free_user, mock_provider, mock_cq):
+def test_free_teaser_with_client_flag_still_runs_the_people_lane(client_with_cq, free_user, mock_provider, mock_cq):
+    """Teaser routes to the People lane whether or not the client sends
+    the flag: the flag is a served-entitlement echo, never a scope switch
+    (option one), and the Free nudge reads by_scope off this lane."""
     prev = _set_free_cq("teaser")
     try:
         resp = client_with_cq.post("/v1/chat", json=chat_request(
@@ -285,9 +288,7 @@ def test_free_teaser_with_client_flag_keeps_the_metadata_only_teaser_recall(clie
         ), headers=free_user["headers"])
         assert resp.status_code == 200
         mock_cq["recall"].assert_awaited_once()
-        sent = mock_cq["recall"].await_args.kwargs["metadata"] or {}
-        assert "recall_scope" not in sent                      # the hook's own teaser lane
-        assert "User prefers concise answers" not in mock_provider.call_args.args[0].system_prompt  # not injected
+        assert mock_cq["recall"].await_args.kwargs["metadata"]["recall_scope"] == "people"
     finally:
         _set_free_cq(prev)
 

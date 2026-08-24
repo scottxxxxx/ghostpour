@@ -40,7 +40,7 @@ class ContextQuiltHook:
             "gated": False,
         }
 
-        if feature_state == "disabled" or (feature_state == "teaser" and not body.context_quilt):
+        if feature_state in ("disabled", "teaser"):
             # People-scoped recall lane. The dispatch in chat.py only
             # routes a disabled-state call here when the people
             # entitlement is enabled, so reaching this branch IS the free

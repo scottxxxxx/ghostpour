@@ -1599,8 +1599,7 @@ async def chat(
         # would silently drop Free recall and the by_scope block the
         # Free-to-Plus nudge reads. Clients that DO send the flag under
         # teaser keep the hook's metadata-only teaser recall.
-        if (feature_name == "context_quilt" and state == "teaser"
-                and not body.context_quilt):
+        if feature_name == "context_quilt" and state == "teaser":
             run_hook = False
         if not run_hook and feature_name == "context_quilt":
             # People-scoped recall lane (decision 2026-08-11: People

@@ -1,5 +1,5 @@
 {
-  "version": 51,
+  "version": 52,
   "tiers": {
     "free": {
       "display_name": "Gratis",
@@ -63,6 +63,12 @@
           "label": "Modo de resumen",
           "value": "Solo lo nuevo",
           "icon": "doc"
+        },
+        {
+          "label": "Memoria de Reuniones",
+          "value": "vista previa",
+          "icon": "brain",
+          "state": "teaser"
         },
         {
           "label": "Chat de proyecto",

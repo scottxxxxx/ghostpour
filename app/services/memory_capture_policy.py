@@ -47,7 +47,7 @@ def resolve_memory_capture_verdict(
     Args:
         feature_state: The user's tier-resolved state for context_quilt.
             "enabled"  → Pro: full capture, no CTA.
-            "teaser"   → Plus: existing recall-only behavior; no capture, no CTA.
+            "teaser"   → Free (since 2026-08-24): same rules as disabled.
             "disabled" → Free: gated by has_quota.
         has_quota: For Free, whether the user has remaining captures this
             period. Always True for unlimited (-1) or paid tiers (paid tiers
@@ -66,10 +66,11 @@ def resolve_memory_capture_verdict(
     if feature_state == "enabled":
         return MemoryVerdict(verdict="capture", cta_kind=None)
 
-    if feature_state == "teaser":
-        return MemoryVerdict(verdict="recall_only", cta_kind=None)
-
-    # feature_state == "disabled" → Free tier
+    # feature_state "teaser" or "disabled" → Free tier. Free flipped from
+    # disabled to teaser on 2026-08-24 (Scott) so the client renders the
+    # memory nudge; the capture rules below are unchanged by that flip.
+    # (The old "teaser = Plus, recall only" era predates Plus being
+    # enabled and no tier resolves to it any more.)
     if people_enabled:
         # Capture regardless of quota, because the capture feeds TWO things
         # and only one of them is paid. Person entities are People, which is
