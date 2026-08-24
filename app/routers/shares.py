@@ -336,14 +336,16 @@ async def share_page(token: str, request: Request, db: aiosqlite.Connection = De
     # The page: card chrome plus the bundle's own report (SS's archive
     # spec 2026-08-22). A bundle that is not a zip, or a zip with odd
     # contents, still gets the card; the bytes are never the page.
-    from app.services.share_bundle import list_audio_entries, list_image_counts, read_bundle, render_share_page
+    from app.services.share_bundle import list_audio_entries, list_image_counts, list_image_entries, read_bundle, render_share_page
     audio_by_origin: dict[str, list[str]] = {}
     images_by_origin: dict[str, int] = {}
+    images_by_origin_names: dict[str, list[str]] = {}
     try:
         with open(row["storage_path"], "rb") as f:
             bundle = read_bundle(f.read())
         audio_by_origin = list_audio_entries(row["storage_path"])
         images_by_origin = list_image_counts(row["storage_path"])
+        images_by_origin_names = list_image_entries(row["storage_path"])
     except Exception as e:  # noqa: BLE001  (BadZipFile, OSError, anything)
         logger.warning("share_bundle_unreadable", extra={"share_id": row["id"], "error": type(e).__name__})
         bundle = {"meetings": []}
@@ -362,8 +364,37 @@ async def share_page(token: str, request: Request, db: aiosqlite.Connection = De
         # app at the one we publish.
         share_url=f"{settings['host']}/s/{token}",
         audio_by_origin=audio_by_origin, images_by_origin=images_by_origin,
-        qr_url=settings["qr_url"])
+        qr_url=settings["qr_url"], images_by_origin_names=images_by_origin_names)
     return HTMLResponse(html, headers={"X-Robots-Tag": "noindex", "Cache-Control": "private, no-store"})
+
+
+@public.api_route("/s/{token}/image/{n}", methods=["GET", "HEAD"])
+async def share_image(request: Request, token: str, n: int, db: aiosqlite.Connection = Depends(get_db)):
+    """One photo shared with the meeting, straight out of the bundle
+    (Scott 2026-08-24). n indexes the bundle's image entries in name order
+    across meetings; bounded read, never a partial file."""
+    from app.services.share_bundle import MAX_ENTRY_BYTES, flat_image_entries, list_image_entries
+    row = await shares.share_by_token(db, token) if shares.is_token_shaped(token) else None
+    if not shares.is_live(row):
+        raise HTTPException(status_code=410)
+    entries = flat_image_entries(list_image_entries(row["storage_path"]))
+    if n < 0 or n >= len(entries):
+        raise HTTPException(status_code=404)
+    import zipfile
+    try:
+        with zipfile.ZipFile(row["storage_path"]) as zf:
+            info = zf.getinfo(entries[n][1])
+            if info.file_size > MAX_ENTRY_BYTES:
+                raise HTTPException(status_code=413)
+            data = zf.read(info)
+    except (zipfile.BadZipFile, KeyError, OSError):
+        raise HTTPException(status_code=404)
+    name = entries[n][1].lower()
+    media = "image/png" if name.endswith(".png") else "image/jpeg"
+    hdrs = {"Cache-Control": "private, max-age=3600", "X-Robots-Tag": "noindex"}
+    if request.method == "HEAD":
+        return Response(status_code=200, media_type=media, headers={**hdrs, "Content-Length": str(len(data))})
+    return Response(content=data, media_type=media, headers=hdrs)
 
 
 @public.api_route("/s/{token}/card.png", methods=["GET", "HEAD"])

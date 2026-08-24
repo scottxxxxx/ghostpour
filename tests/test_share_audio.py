@@ -192,20 +192,29 @@ def test_multi_meeting_bundle_numbers_players_the_way_the_route_does(client, pro
     assert "querySelectorAll('section')" in page and "A[0]" not in page
 
 
-# --- transcript language picker, renditions-driven (Scott 2026-08-24 ruling) ---
+# --- transcript language picker, renditions-driven (Scott 2026-08-24 rulings) --
 # Picker = Original + the languages the sender already translated in the
 # app (bundle transcriptRenditions), opens on manifest share_language,
-# no web-side translation, no picker when nothing was translated.
+# no web-side translation, no picker when nothing was translated, and
+# the translation REPLACES the original in the same window.
 
 SEGS = [{"text": "Hola a todos.", "speakerLabel": "A", "sessionTimeOffset": 0.0, "endTimeOffset": 2.5},
         {"text": "Empecemos.", "speakerLabel": "B", "sessionTimeOffset": 2.5, "endTimeOffset": 4.0}]
+# The measured shape (Scott's share ddfeb96f): a transcript TURN spans
+# several segments, so the transcript text has fewer lines than segments.
+SEGS3 = [{"text": "Hola a todos.", "speakerLabel": "A", "sessionTimeOffset": 0.0, "endTimeOffset": 2.5},
+         {"text": "Bienvenidos.", "speakerLabel": "A", "sessionTimeOffset": 2.5, "endTimeOffset": 3.5},
+         {"text": "Empecemos.", "speakerLabel": "B", "sessionTimeOffset": 3.5, "endTimeOffset": 5.0}]
 
 
-def _bundle_rend(renditions=None, share_language=None, spoken="es", segments=True, images=0):
+def _bundle_rend(renditions=None, share_language=None, spoken="es", segments=True, images=0,
+                 segs=None, transcript=None):
+    segs = SEGS if segs is None else segs
     rec = {"title": "Kickoff", "durationSeconds": 90.0, "rollingSummary": "Resumen corto.",
-           "transcript": "A Hola a todos.\nB Empecemos.", "transcriptLanguage": spoken}
+           "transcript": transcript if transcript is not None else "\n".join(f"[{x['speakerLabel']}] {x['text']}" for x in segs),
+           "transcriptLanguage": spoken}
     if segments:
-        rec["transcriptSegments"] = SEGS
+        rec["transcriptSegments"] = segs
     if renditions is not None:
         rec["transcriptRenditions"] = renditions
     manifest = {"formatVersion": 1}
@@ -214,7 +223,7 @@ def _bundle_rend(renditions=None, share_language=None, spoken="es", segments=Tru
     entries = {"manifest.json": json.dumps(manifest).encode(),
                f"meetings/{ORIGIN}.json": json.dumps(rec, ensure_ascii=False).encode()}
     for i in range(images):
-        entries[f"media/{ORIGIN}/images/img-{i}.jpg"] = b"\xff\xd8\xff" + bytes(50)
+        entries[f"media/{ORIGIN}/images/img-{i}.jpg"] = b"\xff\xd8\xff" + bytes([i]) * 50
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         for name, data in entries.items():
@@ -223,7 +232,7 @@ def _bundle_rend(renditions=None, share_language=None, spoken="es", segments=Tru
 
 
 EN = {"lang": "en", "engine_version": 1, "created_at": "2026-08-24T18:00:00Z",
-      "transcript": "A Hello everyone.\nB Let's begin.", "summary": "Short summary.", "report_html": None}
+      "transcript": "[A] Hello everyone.\n[B] Let's begin.", "summary": "Short summary.", "report_html": None}
 
 
 def test_picker_offers_only_original_plus_rendition_langs_and_opens_on_share_language(client, pro_user):
@@ -232,45 +241,72 @@ def test_picker_offers_only_original_plus_rendition_langs_and_opens_on_share_lan
     assert "<select class='lang'>" in page
     assert "<option value='en' selected>English</option>" in page
     assert "value='fr'" not in page and "value='ja'" not in page and "value='es'" not in page
-    # aligned lines ride each segment with the same timing
-    assert "data-tr-en='A Hello everyone.'" in page and "data-tr-en='B Let&#x27;s begin.'" in page or "data-tr-en='B Let" in page
-    assert "data-s='2.50' data-e='4.00'" in page
-    # translated summary rides the summary element
+    # the translated VIEW lives inside the same window as the original, with the segment timing
+    seg_window = page[page.index("<div class='segs'>"):page.index("</details>", page.index("<div class='segs'>"))]
+    assert "<div class='view' data-lang=''>" in seg_window and "<div class='view' data-lang='en'" in seg_window
+    assert "data-s='2.50' data-e='4.00'><b>B</b> Let&#39;s begin.</p>" in seg_window
     assert "data-sum-en='Short summary.'" in page and "data-sum-orig='Resumen corto.'" in page
-    # nothing on the page fetches a translation
     assert "/transcript?lang=" not in page
+
+
+def test_turn_lines_that_span_segments_align_by_grouping(client, pro_user):
+    rend = dict(EN, transcript="[A] Hello everyone. Welcome.\n[B] Let's begin.")   # 2 lines over 3 segments
+    token = _share(client, pro_user, _bundle_rend([rend], share_language="en", segs=SEGS3,
+                                                  transcript="[A] Hola a todos. Bienvenidos.\n[B] Empecemos."))
+    page = client.get(f"/s/{token}").text
+    en_view = page[page.index("<div class='view' data-lang='en'"):page.index("</div>", page.index("<div class='view' data-lang='en'"))]
+    assert "data-s='0.00' data-e='3.50'><b>A</b> Hello everyone. Welcome.</p>" in en_view   # spans segs 0-1
+    assert "data-s='3.50' data-e='5.00'><b>B</b> Let&#39;s begin.</p>" in en_view
+    assert "<pre class='rend'>" not in page
 
 
 def test_no_picker_when_nothing_was_translated(client, pro_user):
     token = _share(client, pro_user, _bundle_rend(None))
     page = client.get(f"/s/{token}").text
-    assert "<select class='lang'>" not in page and "data-tr-en=" not in page
+    assert "<select class='lang'>" not in page and "data-lang='en'" not in page
 
 
-def test_misaligned_rendition_falls_back_to_plain_text_not_a_guess(client, pro_user):
-    bad = dict(EN, transcript="Hello everyone. Let's begin.")   # one line for two segments
+def test_misaligned_rendition_shows_in_place_as_plain_text_not_below(client, pro_user):
+    bad = dict(EN, transcript="Hello everyone. Let's begin. Extra line.\nMore.\nMore.")   # 3 lines, 2 segs, 2 turns
     token = _share(client, pro_user, _bundle_rend([bad], share_language="en"))
     page = client.get(f"/s/{token}").text
-    assert "data-tr-en=" not in page                                # never guessed onto lines
-    assert "<pre class='rend' data-lang='en'" in page               # shown as plain text instead
-    assert "<option value='en' selected>English</option>" in page   # still pickable
+    window = page[page.index("<div class='segs'>"):page.index("</details>", page.index("<div class='segs'>"))]
+    assert "<div class='view' data-lang='en' style='display:none'><pre class='rend'>" in window   # inside the window
+    assert page.count("<pre class='rend'>") == 1
+    assert "<option value='en' selected>English</option>" in page
 
 
 def test_transcript_window_is_scrollable_and_route_is_gone(client, pro_user):
     token = _share(client, pro_user, _bundle_rend([EN], share_language="en"))
     page = client.get(f"/s/{token}").text
     assert "max-height:60vh;overflow-y:auto" in page
-    assert "box.scrollTop=" in page                                  # autoscroll inside the window
+    assert "box.scrollTop=" in page
     assert client.get(f"/s/{token}/transcript?lang=en").status_code == 404
 
 
 def test_contents_descriptor_comes_off_the_bytes_localized_to_share_language(client, pro_user):
     token = _share(client, pro_user, _bundle_rend([EN], share_language="en", images=3))
     page = client.get(f"/s/{token}").text
-    assert "Transcript · 3 photos" in page                            # meta line (no report, no audio in this bundle)
-    assert "content='Transcript · 3 photos" in page                   # og:description prefix
+    assert "Transcript · 3 photos" in page
+    assert "content='Transcript · 3 photos" in page
     token2 = _share(client, pro_user, _bundle_rend(None, share_language="es", images=1))
     assert "Transcripción · 1 foto" in client.get(f"/s/{token2}").text
+
+
+# --- photos shared with the meeting (Scott 2026-08-24) ------------------------
+
+def test_photos_render_as_a_gallery_and_serve_from_the_bundle(client, pro_user):
+    token = _share(client, pro_user, _bundle_rend(None, images=3))
+    page = client.get(f"/s/{token}").text
+    assert "<div class='gallery'>" in page
+    for n in range(3):
+        assert f"src='https://share.shouldersurf.com/s/{token}/image/{n}'" in page
+    r = client.get(f"/s/{token}/image/1")
+    assert r.status_code == 200 and r.headers["content-type"] == "image/jpeg"
+    assert r.content == b"\xff\xd8\xff" + bytes([1]) * 50
+    assert client.get(f"/s/{token}/image/3").status_code == 404
+    assert client.head(f"/s/{token}/image/0").status_code == 200
+    assert "<div class='gallery'>" not in client.get(f"/s/{_share(client, pro_user, _bundle_rend(None))}").text
 
 
 # --- App Store badge + QR on every hosted meeting (Scott 2026-08-24) ----------
@@ -285,6 +321,8 @@ def test_page_carries_the_badge_and_qr_localized_to_the_shared_language(client, 
     token2 = _share(client, pro_user, _bundle_rend(None))
     page2 = client.get(f"/s/{token2}").text
     assert "black/en-us" in page2 and "Point your iPhone camera here to download." in page2
+    # at the very top: before the meeting content (Scott 2026-08-24)
+    assert page2.index("<div class='dl'>") < page2.index("<section>")
 
 
 def test_no_app_store_id_means_no_download_block(client, pro_user):
