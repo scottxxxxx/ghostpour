@@ -1358,6 +1358,13 @@ async def list_tiers(request: Request):
     }
     if display_config and "version" in display_config:
         response["version"] = display_config["version"]
+    # Paywall copy (Scott 2026-08-23: ALL subscription copy GP-served).
+    # This route is a PROJECTION, so a new top-level bundle key does not
+    # ride automatically — the block sat in the file and never left the
+    # server until SS checked the echo (2026-08-24). Pass-through, not a
+    # re-shape: the client renders paywall.* verbatim.
+    if display_config and "paywall" in display_config:
+        response["paywall"] = display_config["paywall"]
     # Plus recall window: fill `{recall_window_days}` from the dial so the
     # served copy and the enforced number can never disagree.
     from app.services.recall_window import render_recall_window_copy
