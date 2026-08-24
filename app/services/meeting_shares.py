@@ -195,6 +195,12 @@ def share_settings(remote_configs: dict) -> dict:
         # The website's App Store QR, shown on every hosted meeting (Scott
         # 2026-08-24). Served so a regenerated code never needs a deploy.
         "qr_url": str(block.get("qr_url") or "https://shouldersurf.com/appstore-qr.svg?v=2"),
+        # Ledger card (Scott 2026-08-24): per-share og:image once he has
+        # approved a real render. Off = the static mark above.
+        "dynamic_card": bool(block.get("dynamic_card") or False),
+        # Footer copy is Social's; served here when they give the words.
+        "card_cta_text": (str(block.get("card_cta_text")).strip() or None) if block.get("card_cta_text") else None,
+        "card_pill_text": (str(block.get("card_pill_text")).strip() or None) if block.get("card_pill_text") else None,
         "icon_url": str(block.get("icon_url") or f"{host}/share-assets/icon-512.png"),
     }
 
@@ -318,6 +324,7 @@ async def purge_expired(db: aiosqlite.Connection) -> int:
                 sp = Path(r["storage_path"])
                 for side in sp.parent.glob(sp.name + ".audio*.m4a"):
                     side.unlink(missing_ok=True)
+                Path(str(sp) + ".card.png").unlink(missing_ok=True)
             except OSError as e:
                 logger.warning("meeting_share purge: could not delete %s: %s", r["storage_path"], e)
     if rows:
