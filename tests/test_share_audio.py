@@ -359,3 +359,26 @@ def test_photos_open_in_a_lightbox_and_download_block_is_at_the_bottom(client, p
     # a share with no photos has no lightbox
     plain = client.get(f"/s/{_share(client, pro_user, _bundle_rend(None))}").text
     assert "<div class='lb'" not in plain or "class='thumb'" not in plain
+
+
+def test_h1_prefers_the_display_title_from_the_header_over_a_raw_rec_title(client, pro_user):
+    """On a translated share the client sends the localized displayTitle as
+    X-Share-Title while the bundle's rec.title is the raw English one; the
+    H1 must show the localized display title, matching the card and page."""
+    import io as _io, json as _json, zipfile as _zip
+    O = "0F1F2F3F-1111-4222-8333-999999999999"
+    rec = {"title": "Project Scope Alignment English", "durationSeconds": 60.0,
+           "rollingSummary": "s", "transcript": "hi", "transcriptLanguage": "en"}
+    buf = _io.BytesIO()
+    with _zip.ZipFile(buf, "w", _zip.ZIP_DEFLATED) as z:
+        z.writestr("manifest.json", _json.dumps({"formatVersion": 1, "share_language": "es"}))
+        z.writestr(f"meetings/{O}.json", _json.dumps(rec, ensure_ascii=False))
+    r = client.post("/v1/shares", content=buf.getvalue(), headers={**pro_user["headers"],
+        "Content-Type": "application/vnd.shouldersurf.archive",
+        "X-Share-Title": "Alineacion del Alcance del Proyecto",
+        "X-Share-Date": "2026-08-24", "X-Share-Duration-Seconds": "60",
+        "X-Share-Summary-Line": "s", "X-Share-Transcript-Included": "true"})
+    assert r.status_code == 200, r.text
+    page = client.get(f"/s/{r.json()['url'].rsplit('/',1)[1]}").text
+    assert "<h1>Alineacion del Alcance del Proyecto</h1>" in page
+    assert "Project Scope Alignment English" not in page
