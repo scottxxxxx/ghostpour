@@ -151,3 +151,42 @@ async def test_purge_deletes_the_sidecar_with_the_share(client, pro_user, tmp_db
         db.row_factory = aiosqlite.Row
         assert await purge_expired(db) == 1
     assert not sidecar.exists() and not Path(storage_path).exists()
+
+
+# --- multi-meeting bundles: one player per ORIGIN, n shared by route and page
+
+ORIGIN2 = "9E9E9E9E-2222-4333-8444-555555555555"
+AUDIO2 = b"\x00\x00\x00\x18ftypM4A second" + bytes(range(255, -1, -1)) * 40
+
+
+def _two_meeting_bundle():
+    def rec(title, text):
+        return json.dumps({"title": title, "durationSeconds": 30.0, "rollingSummary": "s", "transcript": text,
+                           "transcriptSegments": [{"text": text, "speakerLabel": "A",
+                                                   "sessionTimeOffset": 0.0, "endTimeOffset": 3.0}]}).encode()
+    # Origins deliberately inserted out of sorted order: the ordering rule,
+    # not zip order, decides n.
+    entries = {"manifest.json": json.dumps({"formatVersion": 1}).encode(),
+               f"meetings/{ORIGIN2}.json": rec("Second", "segunda"),
+               f"media/{ORIGIN2}/audio/a.m4a": AUDIO2,
+               f"meetings/{ORIGIN}.json": rec("First", "primera"),
+               f"media/{ORIGIN}/audio/a.m4a": AUDIO}
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for name, data in entries.items():
+            z.writestr(name, data)
+    return buf.getvalue()
+
+
+def test_multi_meeting_bundle_numbers_players_the_way_the_route_does(client, pro_user):
+    token = _share(client, pro_user, _two_meeting_bundle())
+    page = client.get(f"/s/{token}").text
+    # ORIGIN sorts before ORIGIN2 ("2C..." < "9E..."), so First is /audio/0 and Second /audio/1
+    first = page.index("<h1>First</h1>"); second = page.index("<h1>Second</h1>")
+    assert f"/s/{token}/audio/0'" in page[first:second]
+    assert f"/s/{token}/audio/1'" in page[second:]
+    assert client.get(f"/s/{token}/audio/0").content == AUDIO
+    assert client.get(f"/s/{token}/audio/1").content == AUDIO2
+    assert client.get(f"/s/{token}/audio/2").status_code == 404
+    # sync is scoped per section, never bound to the first player globally
+    assert "querySelectorAll('section')" in page and "A[0]" not in page

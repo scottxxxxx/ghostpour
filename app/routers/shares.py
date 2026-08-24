@@ -369,15 +369,15 @@ async def share_audio(request: Request, token: str, n: int, db: aiosqlite.Connec
     audio entries in name order across its meetings. Extracted once to a
     sidecar beside the archive; the sidecar dies with the share."""
     from fastapi.responses import FileResponse
-    from app.services.share_bundle import extract_audio_sidecar, list_audio_entries
+    from app.services.share_bundle import extract_audio_sidecar, flat_audio_entries, list_audio_entries
     row = await shares.share_by_token(db, token) if shares.is_token_shaped(token) else None
     if not shares.is_live(row):
         raise HTTPException(status_code=410)
-    entries = [name for names in list_audio_entries(row["storage_path"]).values() for name in names]
+    entries = flat_audio_entries(list_audio_entries(row["storage_path"]))
     if n < 0 or n >= len(entries):
         raise HTTPException(status_code=404)
     sidecar = f"{row['storage_path']}.audio{n}.m4a"
-    if not Path(sidecar).exists() and not extract_audio_sidecar(row["storage_path"], entries[n], sidecar):
+    if not Path(sidecar).exists() and not extract_audio_sidecar(row["storage_path"], entries[n][1], sidecar):
         raise HTTPException(status_code=404)
     hdrs = {"Cache-Control": "private, no-store", "X-Robots-Tag": "noindex", "Accept-Ranges": "bytes"}
     return FileResponse(sidecar, media_type="audio/mp4", headers=hdrs, method=request.method)
