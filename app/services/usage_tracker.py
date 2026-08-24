@@ -214,6 +214,15 @@ class UsageTracker:
                 "count": request.get_meta("document_count"),
                 "raw_bytes": request.get_meta("document_bytes"),
             }
+        # Meeting translations (2026-08-24): the allowlist lesson below
+        # applies — name the keys or lose the dimension.
+        if request.get_meta("translation_segments"):
+            metadata["translation"] = {
+                "artifact": request.get_meta("translation_artifact"),
+                "segments": request.get_meta("translation_segments"),
+                "source": request.get_meta("translation_source"),
+                "target": request.get_meta("translation_target"),
+            }
         # Document generation (phase 2a): staged artifact count + bytes.
         if request.get_meta("generated_count"):
             metadata["generated"] = {

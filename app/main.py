@@ -288,6 +288,8 @@ async def lifespan(app: FastAPI):
                     await purge_turns(db)  # same 6h clock, same sweep
                     from app.services.meeting_shares import purge_expired as purge_shares
                     await purge_shares(db)  # expired or revoked meeting shares
+                    from app.services.translations import purge_transcript_translations
+                    await purge_transcript_translations(db)  # cache never outlives its source
             except Exception as e:  # noqa: BLE001 — sweep must never die
                 logging.getLogger("app.main").warning(
                     "generated_files sweep failed: %s", e,
@@ -434,4 +436,6 @@ if get_settings().cq_base_url:
     app.include_router(cq_proxy.router, prefix="/v1", tags=["context-quilt"])
 from app.routers import shares as _shares
 app.include_router(_shares.router, prefix="/v1", tags=["shares"])
+from app.routers import translations as _translations
+app.include_router(_translations.router, prefix="/v1", tags=["translations"])
 app.include_router(_shares.public, tags=["shares-public"])
