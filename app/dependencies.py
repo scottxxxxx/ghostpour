@@ -36,31 +36,7 @@ async def get_current_user(
     if not row:
         raise HTTPException(status_code=401, detail="User not found")
 
-    user = UserRecord(
-        id=row["id"],
-        apple_sub=row["apple_sub"],
-        email=row["email"],
-        display_name=row["display_name"],
-        tier=row["tier"],
-        created_at=row["created_at"],
-        updated_at=row["updated_at"],
-        is_active=bool(row["is_active"]),
-        monthly_cost_limit_usd=row["monthly_cost_limit_usd"],
-        monthly_used_usd=float(row["monthly_used_usd"] or 0),
-        overage_balance_usd=float(row["overage_balance_usd"] or 0),
-        allocation_resets_at=row["allocation_resets_at"],
-        simulated_tier=row["simulated_tier"],
-        simulated_exhausted=bool(row["simulated_exhausted"]),
-        is_trial=bool(row["is_trial"]),
-        trial_start=row["trial_start"],
-        trial_end=row["trial_end"],
-        ever_subscribed=bool(row["ever_subscribed"]),
-        first_subscribed_at=row["first_subscribed_at"],
-        memory_used_this_period=int(row["memory_used_this_period"] or 0),
-        memory_period=row["memory_period"],
-        memory_last_origin_id=row["memory_last_origin_id"],
-        memory_last_cta_kind=row["memory_last_cta_kind"],
-    )
+    user = user_from_row(row)
 
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")
@@ -101,7 +77,19 @@ async def get_current_user_optional(
     if not row:
         return None
 
-    user = UserRecord(
+    user = user_from_row(row)
+
+    if not user.is_active:
+        return None
+
+    return user
+
+
+def user_from_row(row) -> UserRecord:
+    """One place that maps a users row to a UserRecord (auth deps and
+    share-owner billing both use it; a column added in one and not the
+    other is how a field silently reads as default)."""
+    return UserRecord(
         id=row["id"],
         apple_sub=row["apple_sub"],
         email=row["email"],
@@ -127,7 +115,3 @@ async def get_current_user_optional(
         memory_last_cta_kind=row["memory_last_cta_kind"],
     )
 
-    if not user.is_active:
-        return None
-
-    return user

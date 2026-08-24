@@ -362,6 +362,63 @@ async def share_page(token: str, request: Request, db: aiosqlite.Connection = De
     return HTMLResponse(html, headers={"X-Robots-Tag": "noindex", "Cache-Control": "private, no-store"})
 
 
+@public.get("/s/{token}/transcript")
+async def share_transcript(request: Request, token: str, lang: str, origin: str | None = None,
+                           db: aiosqlite.Connection = Depends(get_db)):
+    """The transcript of one shared meeting, translated (Scott 2026-08-24:
+    a language picker on the page; the follow-along tracks the translated
+    lines). Runs the bundle's transcriptSegments through the translation
+    engine in served-size groups, BILLED TO THE SHARE OWNER like any of
+    their translations, cached by content so repeat viewers are free.
+    Returns [{id, text}] keyed by the page's segment ids."""
+    from app.services import translations as tr
+    from app.services.share_bundle import read_bundle, segment_items
+    row = await shares.share_by_token(db, token) if shares.is_token_shaped(token) else None
+    if not shares.is_live(row) or not row["transcript_included"]:
+        raise HTTPException(status_code=410)
+    target = tr.normalize_language(lang)
+    if not target:
+        raise HTTPException(status_code=422, detail={"code": "invalid_language"})
+    try:
+        with open(row["storage_path"], "rb") as f:
+            bundle = read_bundle(f.read())
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=410)
+    meetings = bundle.get("meetings") or []
+    meeting = next((m for m in meetings if not origin or m.get("origin_id") == origin), None)
+    if meeting is None:
+        raise HTTPException(status_code=404)
+    rec = meeting.get("record") or {}
+    source = tr.normalize_language(rec.get("transcriptLanguage"))
+    if not source:
+        # The engine never guesses a source language (transcript-language doctrine).
+        raise HTTPException(status_code=422, detail={"code": "source_language_unknown"})
+    items = segment_items(meeting.get("origin_id") or "", rec.get("transcriptSegments") or [])
+    if not items:
+        return JSONResponse({"segments": [], "source_language": source, "target_language": target})
+    if source.split("-")[0].lower() == target.split("-")[0].lower():
+        return JSONResponse({"segments": items, "source_language": source, "target_language": target})
+    owner = await shares.owner_user(db, row["user_id"])
+    if owner is None:
+        raise HTTPException(status_code=410)
+    rc = request.app.state.remote_configs
+    group = int(((rc.get("client-config") or {}).get("translations") or {}).get("group_size") or 25)
+    out: list[dict] = []
+    try:
+        for i in range(0, len(items), group):
+            seg, _cached = await tr.translate_group(
+                request.app.state, db, owner, items[i:i + group], source, target, "transcript",
+                app_id="share-page", request_id=getattr(request.state, "request_id", None))
+            out.extend(seg)
+    except tr.TranslationBlocked:
+        raise HTTPException(status_code=429, detail={"code": "allocation_exhausted"})
+    except tr.TranslationFailed as e:
+        raise HTTPException(status_code=502, detail={"code": str(e)})
+    return JSONResponse({"segments": out, "source_language": source, "target_language": target,
+                         "engine_version": tr.ENGINE_VERSION},
+                        headers={"Cache-Control": "private, max-age=86400", "X-Robots-Tag": "noindex"})
+
+
 @public.api_route("/s/{token}/audio/{n}", methods=["GET", "HEAD"])
 async def share_audio(request: Request, token: str, n: int, db: aiosqlite.Connection = Depends(get_db)):
     """One audio entry of the shared meeting, as bytes with Range support

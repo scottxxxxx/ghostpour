@@ -84,7 +84,7 @@ def test_page_carries_player_and_timed_segments_when_bundle_has_audio():
     assert "<audio class='sa' controls" in html
     assert "src='https://share.example.com/s/TOKEN/audio/0'" in html
     assert "data-s='0.00' data-e='2.50'" in html and "data-s='2.50' data-e='4.00'" in html
-    assert "<details class='tx' open>" in html          # opens itself when there is audio
+    assert "<details class='tx' open data-origin=" in html   # opens itself when there is audio
     assert "timeupdate" in html and "currentTime" in html  # the sync script rides
 
 
@@ -92,7 +92,7 @@ def test_page_without_audio_has_no_player_but_keeps_segments_closed():
     html = _rendered(_bundle(with_audio=False), {})
     assert "<audio" not in html
     assert "data-s='0.00'" in html
-    assert "<details class='tx'>" in html
+    assert "<details class='tx' data-origin=" in html
 
 
 def test_page_without_segments_falls_back_to_plain_transcript():
@@ -190,3 +190,71 @@ def test_multi_meeting_bundle_numbers_players_the_way_the_route_does(client, pro
     assert client.get(f"/s/{token}/audio/2").status_code == 404
     # sync is scoped per section, never bound to the first player globally
     assert "querySelectorAll('section')" in page and "A[0]" not in page
+
+
+# --- transcript language picker (Scott 2026-08-24): translated lines ride
+# --- the page's segment ids so the follow-along tracks them --------------------
+
+def _bundle_lang(lang="es", with_segments=True):
+    rec = {"title": "Kickoff", "durationSeconds": 90.0, "rollingSummary": "s",
+           "transcript": "Hola a todos. Empecemos.", "transcriptLanguage": lang}
+    if with_segments:
+        rec["transcriptSegments"] = [
+            {"text": "Hola a todos.", "speakerLabel": "A", "sessionTimeOffset": 0.0, "endTimeOffset": 2.5},
+            {"text": "Empecemos.", "speakerLabel": "B", "sessionTimeOffset": 2.5, "endTimeOffset": 4.0}]
+    entries = {"manifest.json": json.dumps({"formatVersion": 1}).encode(),
+               f"meetings/{ORIGIN}.json": json.dumps(rec).encode()}
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for name, data in entries.items():
+            z.writestr(name, data)
+    return buf.getvalue()
+
+
+def test_page_offers_picker_only_with_a_stated_source_language(client, pro_user):
+    token = _share(client, pro_user, _bundle_lang("es"))
+    page = client.get(f"/s/{token}").text
+    assert "<select class='lang'>" in page and "value='en'" in page and "value='es'" not in page
+    assert f"data-id='{ORIGIN}:0'" in page and "<span class='tr'></span>" in page
+    token2 = _share(client, pro_user, _bundle_lang(lang=None))
+    assert "<select class='lang'>" not in client.get(f"/s/{token2}").text
+
+
+def test_transcript_route_translates_by_segment_id_and_bills_the_owner(client, pro_user, mock_provider, tmp_db_path):
+    token = _share(client, pro_user, _bundle_lang("es"))
+    mock_provider.return_value.text = json.dumps([
+        {"id": f"{ORIGIN}:0", "text": "Hello everyone."}, {"id": f"{ORIGIN}:1", "text": "Let's begin."}])
+    r = client.get(f"/s/{token}/transcript?lang=en&origin={ORIGIN}")
+    assert r.status_code == 200, r.text
+    assert r.json()["segments"] == [{"id": f"{ORIGIN}:0", "text": "Hello everyone."},
+                                    {"id": f"{ORIGIN}:1", "text": "Let's begin."}]
+    assert r.json()["source_language"] == "es"
+    # Billed to the OWNER as a translation, exactly once (second call is cached).
+    client.get(f"/s/{token}/transcript?lang=en&origin={ORIGIN}")
+    n = sqlite3.connect(tmp_db_path).execute(
+        "SELECT COUNT(*) FROM usage_log WHERE user_id=? AND call_type='translation'",
+        (pro_user["user_id"],)).fetchone()[0]
+    assert n == 1
+
+
+def test_transcript_route_same_language_echoes_without_a_model_call(client, pro_user, mock_provider):
+    token = _share(client, pro_user, _bundle_lang("es"))
+    before = mock_provider.call_count
+    r = client.get(f"/s/{token}/transcript?lang=es-MX&origin={ORIGIN}")
+    assert r.status_code == 200 and r.json()["segments"][0]["text"] == "Hola a todos."
+    assert mock_provider.call_count == before
+
+
+def test_transcript_route_refuses_without_source_language_and_on_bad_lang(client, pro_user):
+    token = _share(client, pro_user, _bundle_lang(lang=None))
+    assert client.get(f"/s/{token}/transcript?lang=en").status_code == 422
+    token2 = _share(client, pro_user, _bundle_lang("es"))
+    assert client.get(f"/s/{token2}/transcript?lang=???").status_code == 422
+    assert client.get("/s/notatoken/transcript?lang=en").status_code == 410
+
+
+def test_transcript_route_429s_when_the_owner_is_out_of_allocation(client, exhausted_user, mock_provider):
+    token = _share(client, exhausted_user, _bundle_lang("es"))
+    r = client.get(f"/s/{token}/transcript?lang=en&origin={ORIGIN}")
+    assert r.status_code == 429
+    assert r.json()["detail"]["code"] == "allocation_exhausted"

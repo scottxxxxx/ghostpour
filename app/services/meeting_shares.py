@@ -322,3 +322,13 @@ async def purge_expired(db: aiosqlite.Connection) -> int:
                          [r["id"] for r in rows])
         await db.commit()
     return len(rows)
+
+
+async def owner_user(db: aiosqlite.Connection, user_id: str):
+    """The share owner as a UserRecord, for work billed to them (page
+    translations). None when the row is gone or the account is disabled."""
+    from app.dependencies import user_from_row
+    row = await (await db.execute("SELECT * FROM users WHERE id = ?", (user_id,))).fetchone()
+    if not row or not row["is_active"]:
+        return None
+    return user_from_row(row)
