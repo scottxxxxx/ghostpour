@@ -196,6 +196,15 @@ def list_audio_entries(archive_bytes_or_path) -> dict[str, list[str]]:
     return out
 
 
+def flat_audio_entries(audio_by_origin: dict[str, list[str]]) -> list[tuple[str, str]]:
+    """The ONE ordering both the route and the page use for `n`: origins
+    sorted, then names sorted within each. SS's model (2026-08-24): a
+    meeting carries at most one audio file, so a bundle with several is
+    a multi-meeting bundle and each file belongs to its own origin's
+    segments; never stitch across files."""
+    return [(origin, name) for origin in sorted(audio_by_origin) for name in audio_by_origin[origin]]
+
+
 def extract_audio_sidecar(archive_path: str, entry_name: str, sidecar_path: str) -> bool:
     """Inflate ONE audio entry to `sidecar_path`, streaming, with the same
     in-loop bound discipline as `_json` (a claimed size is not a size).
@@ -250,14 +259,16 @@ def _segments_html(segments: list) -> str:
     return "".join(rows)
 
 
+# Sync is scoped per <section>: each meeting's player drives only that
+# meeting's segments, and a tap on a line seeks that meeting's player.
 _PLAYER_JS = (
-    "<script>(function(){var A=document.querySelectorAll('audio.sa');var S=Array.prototype.slice.call(document.querySelectorAll('p.seg'));"
-    "if(!A.length||!S.length)return;var cur=null;function tick(a){var t=a.currentTime,hit=null;"
+    "<script>(function(){document.querySelectorAll('section').forEach(function(sec){"
+    "var a=sec.querySelector('audio.sa');var S=Array.prototype.slice.call(sec.querySelectorAll('p.seg'));"
+    "if(!a||!S.length)return;var cur=null;a.addEventListener('timeupdate',function(){var t=a.currentTime,hit=null;"
     "for(var i=0;i<S.length;i++){var s=+S[i].dataset.s,e=+S[i].dataset.e;if(t>=s&&(t<e||(e<=s&&(i+1>=S.length||t<+S[i+1].dataset.s)))){hit=S[i];break;}}"
     "if(hit!==cur){if(cur)cur.classList.remove('on');cur=hit;if(cur){cur.classList.add('on');var d=cur.closest('details');if(d&&!d.open)d.open=true;"
-    "cur.scrollIntoView({block:'center',behavior:'smooth'});}}}"
-    "A.forEach(function(a){a.addEventListener('timeupdate',function(){tick(a)});});"
-    "S.forEach(function(p){p.addEventListener('click',function(){var a=A[0];a.currentTime=+p.dataset.s;a.play();});});})();</script>"
+    "cur.scrollIntoView({block:'center',behavior:'smooth'});}}});"
+    "S.forEach(function(p){p.addEventListener('click',function(){a.currentTime=+p.dataset.s;a.play();});});});})();</script>"
 )
 
 
@@ -310,11 +321,14 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
                 body.append("<p class='dim'>This meeting was shared without a report.</p>")
         # Audio players: one per audio entry, in name order, served by
         # /s/{token}/audio/{n} where n indexes this meeting's entries.
-        audio_names = (audio_by_origin or {}).get(m.get("origin_id") or "", [])
+        origin = m.get("origin_id") or ""
+        audio_names = (audio_by_origin or {}).get(origin, [])
         if audio_names and share_url:
-            for n, _name in enumerate(audio_names):
+            flat = flat_audio_entries(audio_by_origin or {})
+            for name in audio_names:
+                n = flat.index((origin, name))
                 body.append(
-                    f"<p class='k'>Recording{'' if len(audio_names) == 1 else f' {n + 1}'}</p>"
+                    "<p class='k'>Recording</p>"
                     f"<audio class='sa' controls preload='metadata' src='{_esc(share_url)}/audio/{n}'></audio>")
         transcript = rec.get("transcript") if isinstance(rec.get("transcript"), str) else ""
         segments = rec.get("transcriptSegments") if isinstance(rec.get("transcriptSegments"), list) else []
