@@ -360,7 +360,8 @@ async def share_page(token: str, request: Request, db: aiosqlite.Connection = De
         # request, so a share opened through any hostname still points the
         # app at the one we publish.
         share_url=f"{settings['host']}/s/{token}",
-        audio_by_origin=audio_by_origin, images_by_origin=images_by_origin)
+        audio_by_origin=audio_by_origin, images_by_origin=images_by_origin,
+        qr_url=settings["qr_url"])
     return HTMLResponse(html, headers={"X-Robots-Tag": "noindex", "Cache-Control": "private, no-store"})
 
 

@@ -192,6 +192,9 @@ def share_settings(remote_configs: dict) -> dict:
         # own /share-assets/ so a bare config still produces a bubble with
         # the mark on it rather than a Safari compass.
         "og_image_url": str(block.get("og_image_url") or f"{host}/share-assets/card-1200x630.png"),
+        # The website's App Store QR, shown on every hosted meeting (Scott
+        # 2026-08-24). Served so a regenerated code never needs a deploy.
+        "qr_url": str(block.get("qr_url") or "https://shouldersurf.com/appstore-qr.svg?v=2"),
         "icon_url": str(block.get("icon_url") or f"{host}/share-assets/icon-512.png"),
     }
 
