@@ -1617,6 +1617,26 @@ async def chat(
                 recall_max_age_days=_recall_window(
                     request.app.state.remote_configs, user.effective_tier))
             hook_results[feature_name] = result
+            # Recall health is an INCIDENT, not a log line (2026-08-24: a
+            # silent degrade hid eleven days of Free-lane 500s). One open
+            # incident per recall scope; heals on the next healthy recall.
+            _cqr = (result or {}).get("cq_result") or {}
+            if isinstance(_cqr, dict) and "recall_scope" in _cqr:
+                try:
+                    from app.services.alerting import report_incident, resolve_incident
+                    _scope = _cqr.get("recall_scope") or "full"
+                    if _cqr.get("degraded"):
+                        await report_incident(
+                            db, category="cq_recall_degraded", subject=f"scope={_scope}",
+                            details={"reason": _cqr.get("degraded"),
+                                     "error": _cqr.get("degraded_error"),
+                                     "tier": user.effective_tier,
+                                     "request_id": getattr(request.state, "request_id", None)},
+                            from_addr=request.app.state.settings.alert_email_from)
+                    else:
+                        await resolve_incident(db, "cq_recall_degraded", f"scope={_scope}")
+                except Exception as _exc:  # noqa: BLE001 — never breaks the turn
+                    logger.warning("cq_recall_incident_failed reason=%s", str(_exc)[:200])
 
     # Memory capability line (the #431 pattern, for memory instead of
     # files): a Meeting Memory user whose chat send arrived WITHOUT the
