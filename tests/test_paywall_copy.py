@@ -62,3 +62,16 @@ def test_es_week_pluralization_is_the_bug_fix():
     pw = _paywall(".es")
     assert pw["trial_pill"]["week"]["one"].endswith("semana")
     assert pw["trial_pill"]["week"]["other"].endswith("semanas")
+
+
+# --- the /v1/tiers ROUTE serves the block (it is a projection: a key in
+# --- the file is NOT on the wire unless named here — SS caught exactly that)
+
+@pytest.mark.parametrize("lang,badge", [("en", "Plus & up"), ("es", "Plus o superior")])
+def test_tiers_route_carries_paywall_block(client, lang, badge):
+    r = client.get("/v1/tiers", headers={"Accept-Language": lang})
+    assert r.status_code == 200
+    pw = r.json().get("paywall")
+    assert pw, "paywall block missing from /v1/tiers — projection dropped it"
+    assert pw["cq_card"]["badge"] == badge
+    assert "{n}" in pw["trial_pill"]["week"]["one"]
