@@ -528,7 +528,7 @@ def _segments_html(segments: list, aligned: dict[str, list[tuple[list[int], str]
             f"<p class='seg' data-s='{s0:.2f}' data-e='{e0:.2f}'>"
             + (f"<b>{_esc(who)}</b> " if isinstance(who, str) and who.strip() else "")
             + _esc(seg["text"]) + "</p>")
-    views = [f"<div class='view' data-lang=''>{''.join(rows)}</div>"]
+    views = [f"<div class='view' data-group='tx' data-lang=''>{''.join(rows)}</div>"]
     for lang, pairs in aligned.items():
         trows = []
         for idxs, text in pairs:
@@ -539,7 +539,7 @@ def _segments_html(segments: list, aligned: dict[str, list[tuple[list[int], str]
                 f"<p class='seg' data-s='{s0:.2f}' data-e='{e0:.2f}'>"
                 + (f"<b>{_esc(who)}</b> " if isinstance(who, str) and who.strip() else "")
                 + _esc(text) + "</p>")
-        views.append(f"<div class='view' data-lang='{_esc(lang)}' style='display:none'>{''.join(trows)}</div>")
+        views.append(f"<div class='view' data-group='tx' data-lang='{_esc(lang)}' style='display:none'>{''.join(trows)}</div>")
     return "".join(views)
 
 
@@ -612,10 +612,12 @@ _PLAYER_JS = (
     "Array.prototype.slice.call(document.querySelectorAll('section')).forEach(function(sec){"
     "var a=sec.querySelector('audio.sa');var box=sec.querySelector('.segs');var sum=sec.querySelector('.summary');"
     "var cur=null;var S=[];"
-    "function setLang(lang){var views=sec.querySelectorAll('.view');var shown=null;"
-    "views.forEach(function(v){var on=(v.getAttribute('data-lang')||'')===(lang||'');v.style.display=on?'':'none';if(on)shown=v;});"
-    "if(!shown&&views.length){views[0].style.display='';shown=views[0];}"
-    "S=shown?Array.prototype.slice.call(shown.querySelectorAll('p.seg')):[];if(cur){cur.classList.remove('on');cur=null;}"
+    "function setLang(lang){var groups={};Array.prototype.slice.call(sec.querySelectorAll('.view')).forEach(function(v){var g=v.getAttribute('data-group')||'x';(groups[g]=groups[g]||[]).push(v);});"
+    "var tx=null;Object.keys(groups).forEach(function(g){var vs=groups[g],shown=null;"
+    "vs.forEach(function(v){var on=(v.getAttribute('data-lang')||'')===(lang||'');v.style.display=on?'':'none';if(on)shown=v;});"
+    "if(!shown){vs.forEach(function(v){if((v.getAttribute('data-lang')||'')===''){v.style.display='';shown=v;}});if(!shown&&vs.length){vs[0].style.display='';shown=vs[0];}}"
+    "if(g==='tx')tx=shown;});"
+    "S=tx?Array.prototype.slice.call(tx.querySelectorAll('p.seg')):[];if(cur){cur.classList.remove('on');cur=null;}"
     "if(sum){var sv=lang?sum.getAttribute('data-sum-'+lang):null;sum.innerHTML=sv||sum.getAttribute('data-sum-orig');}}"
     "apply.push(setLang);"
     "if(a){a.addEventListener('timeupdate',function(){var t=a.currentTime,hit=null;"
@@ -645,8 +647,13 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
     tap-to-reveal. Never raises on odd content: every field is optional."""
     meetings = bundle.get("meetings") or []
     manifest = bundle.get("manifest") if isinstance(bundle.get("manifest"), dict) else {}
-    if share_language is None and isinstance(manifest.get("share_language"), str):
-        share_language = manifest["share_language"]
+    # SS writes the shared language as camelCase `shareLanguage`
+    # (SHOULDERSURF_BUNDLE_FORMAT); accept the snake form too. Reading the
+    # wrong key made every Spanish share open in English (Scott 2026-08-24).
+    if share_language is None:
+        _sl = manifest.get("shareLanguage") or manifest.get("share_language")
+        if isinstance(_sl, str) and _sl.strip():
+            share_language = _sl
     parts = []
     contents_line = ""
     page_langs: list[str] = []
@@ -675,7 +682,23 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
         body = []
         html_doc = rec.get("reportHTML") if isinstance(rec.get("reportHTML"), str) else ""
         if html_doc.strip():
-            body.append(f"<iframe sandbox=\"\" srcdoc=\"{_esc(html_doc)}\" style=\"width:100%;min-height:70vh;border:0;border-radius:12px;background:#fff\" title=\"Meeting report\"></iframe>")
+            # The report is part of the ONE language surface (Scott
+            # 2026-08-24: the summary switched but the report stayed
+            # English). SS ships the translated report as
+            # rendition.report_html; render the original plus each
+            # translation as data-group='report' views the top control
+            # toggles alongside the summary and transcript.
+            def _report_frame(doc: str) -> str:
+                return (f"<iframe sandbox=\"\" srcdoc=\"{_esc(doc)}\" "
+                        "style=\"width:100%;min-height:70vh;border:0;border-radius:12px;background:#fff\" "
+                        "title=\"Meeting report\"></iframe>")
+            rviews = [f"<div class='view' data-group='report' data-lang=''>{_report_frame(html_doc)}</div>"]
+            for _r in renditions_of(rec):
+                if isinstance(_r.get("report_html"), str) and _r["report_html"].strip():
+                    rviews.append(
+                        f"<div class='view' data-group='report' data-lang='{_esc(_r['lang'])}' "
+                        f"style='display:none'>{_report_frame(_r['report_html'])}</div>")
+            body.append("".join(rviews))
         else:
             header = rep.get("header") or {}
             summary = header.get("summary") or rec.get("rollingSummary") or ""
@@ -740,9 +763,9 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
             # A rendition that could not be aligned still replaces the
             # original IN PLACE (same window), just without timing.
             plain_views = "".join(
-                f"<div class='view' data-lang='{_esc(r['lang'])}' style='display:none'><pre class='rend'>{_esc(r['transcript'])}</pre></div>"
+                f"<div class='view' data-group='tx' data-lang='{_esc(r['lang'])}' style='display:none'><pre class='rend'>{_esc(r['transcript'])}</pre></div>"
                 for r in plain)
-            orig_view = seg_html if seg_html else f"<div class='view' data-lang=''><pre class='orig-plain'>{_esc(transcript)}</pre></div>"
+            orig_view = seg_html if seg_html else f"<div class='view' data-group='tx' data-lang=''><pre class='orig-plain'>{_esc(transcript)}</pre></div>"
             body.append("<details class='tx'" + (" open" if audio_names else "") +
                         f" data-origin='{_esc(origin)}'><summary " + _i18n_attrs("show_transcript") +
                         f">{_esc(_chrome_for('show_transcript', share_language))}</summary>"

@@ -243,7 +243,7 @@ def test_picker_offers_only_original_plus_rendition_langs_and_opens_on_share_lan
     assert "value='fr'" not in page and "value='ja'" not in page and "value='es'" not in page
     # the translated VIEW lives inside the same window as the original, with the segment timing
     seg_window = page[page.index("<div class='segs'>"):page.index("</details>", page.index("<div class='segs'>"))]
-    assert "<div class='view' data-lang=''>" in seg_window and "<div class='view' data-lang='en'" in seg_window
+    assert "<div class='view' data-group='tx' data-lang=''>" in seg_window and "<div class='view' data-group='tx' data-lang='en'" in seg_window
     assert "data-s='2.50' data-e='4.00'><b>B</b> Let&#39;s begin.</p>" in seg_window
     # summary is rendered markdown now (a paragraph), stored as safe HTML for the swap
     assert "data-sum-en='&lt;p&gt;Short summary.&lt;/p&gt;'" in page
@@ -257,7 +257,7 @@ def test_turn_lines_that_span_segments_align_by_grouping(client, pro_user):
     token = _share(client, pro_user, _bundle_rend([rend], share_language="en", segs=SEGS3,
                                                   transcript="[A] Hola a todos. Bienvenidos.\n[B] Empecemos."))
     page = client.get(f"/s/{token}").text
-    en_view = page[page.index("<div class='view' data-lang='en'"):page.index("</div>", page.index("<div class='view' data-lang='en'"))]
+    en_view = page[page.index("<div class='view' data-group='tx' data-lang='en'"):page.index("</div>", page.index("<div class='view' data-group='tx' data-lang='en'"))]
     assert "data-s='0.00' data-e='3.50'><b>A</b> Hello everyone. Welcome.</p>" in en_view   # spans segs 0-1
     assert "data-s='3.50' data-e='5.00'><b>B</b> Let&#39;s begin.</p>" in en_view
     assert "<pre class='rend'>" not in page
@@ -274,7 +274,7 @@ def test_misaligned_rendition_shows_in_place_as_plain_text_not_below(client, pro
     token = _share(client, pro_user, _bundle_rend([bad], share_language="en"))
     page = client.get(f"/s/{token}").text
     window = page[page.index("<div class='segs'>"):page.index("</details>", page.index("<div class='segs'>"))]
-    assert "<div class='view' data-lang='en' style='display:none'><pre class='rend'>" in window   # inside the window
+    assert "<div class='view' data-group='tx' data-lang='en' style='display:none'><pre class='rend'>" in window   # inside the window
     assert page.count("<pre class='rend'>") == 1
     assert "<option value='en' selected>English</option>" in page
 
@@ -414,7 +414,7 @@ def test_toggle_drives_the_whole_page_globally(client, pro_user):
     page = client.get(f"/s/{token}").text
     # one applier list fed by the single top select; summary and views both swap
     assert "select.lang" in page and "applyLang" in page and "apply.push(setLang)" in page
-    assert "data-sum-en=" in page and "<div class='view' data-lang='en'" in page
+    assert "data-sum-en=" in page and "<div class='view' data-group='tx' data-lang='en'" in page
     # chrome swaps by data-i18n-<lang>
     assert "data-i18n-es='Abrir en Shoulder Surf'" in page and "el.getAttribute('data-i18n-'+lang)" in page
 
@@ -425,3 +425,48 @@ def test_no_translations_means_no_language_bar(client, pro_user):
     assert "<div class='langbar'>" not in page and "<select class='lang'>" not in page
     # a report-less/original share still gets the CTA in English
     assert "Open in Shoulder Surf" in page
+
+
+# --- report is part of the language surface + shareLanguage default (Scott 2026-08-24) ---
+
+def _bundle_report(share_language_key="shareLanguage", share_language="es"):
+    import io as _io, json as _json, zipfile as _zip
+    O = "0B0B0B0B-1111-4222-8333-777777777777"
+    rec = {"title": "Meta Legal", "durationSeconds": 261.0,
+           "reportHTML": "<html><body><h1>Report English</h1></body></html>",
+           "transcript": "[A] Hello.", "transcriptLanguage": "en",
+           "transcriptRenditions": [{"lang": "es", "transcript": "[A] Hola.", "summary": "Resumen",
+                                     "report_html": "<html><body><h1>Informe Espanol</h1></body></html>"}],
+           "transcriptSegments": [{"text": "Hello.", "speakerLabel": "A", "sessionTimeOffset": 0.0, "endTimeOffset": 2.0}]}
+    man = {"formatVersion": 1}
+    if share_language:
+        man[share_language_key] = share_language
+    buf = _io.BytesIO()
+    with _zip.ZipFile(buf, "w", _zip.ZIP_DEFLATED) as z:
+        z.writestr("manifest.json", _json.dumps(man))
+        z.writestr(f"meetings/{O}.json", _json.dumps(rec, ensure_ascii=False))
+    return buf.getvalue()
+
+
+def test_camelcase_shareLanguage_makes_the_page_default_to_the_shared_language(client, pro_user):
+    # SS writes shareLanguage (camelCase); reading share_language (snake) made
+    # every Spanish share open in English.
+    token = _share(client, pro_user, _bundle_report("shareLanguage", "es"))
+    page = client.get(f"/s/{token}").text
+    assert "value='es' selected" in page                 # opens in Spanish
+    assert "Ver la reunión en" in page                   # chrome in Spanish
+    # the snake_case form still works as a fallback
+    token2 = _share(client, pro_user, _bundle_report("share_language", "es"))
+    assert "value='es' selected" in client.get(f"/s/{token2}").text
+
+
+def test_the_report_toggles_language_with_the_summary_and_transcript(client, pro_user):
+    token = _share(client, pro_user, _bundle_report())
+    page = client.get(f"/s/{token}").text
+    # both report views present, grouped, toggled by the one control
+    assert "data-group='report' data-lang=''" in page and "data-group='report' data-lang='es'" in page
+    assert "Report English" in page and "Informe Espanol" in page
+    # transcript views are grouped separately so audio sync still finds segments
+    assert "data-group='tx'" in page and "tx=shown" in page
+    # the report has no per-report picker; the top control drives it
+    assert page.count("<select class='lang'>") == 1
