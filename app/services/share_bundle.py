@@ -365,6 +365,33 @@ def _lang_label(tag: str) -> str:
     return LANG_LABELS.get(tag.split("-")[0].lower(), tag)
 
 
+def _primary(tag) -> str:
+    return (tag or "en").split("-")[0].lower() if isinstance(tag, str) and tag.strip() else "en"
+
+
+MONTHS = {
+    "es": ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
+           "septiembre", "octubre", "noviembre", "diciembre"],
+    "fr": ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août",
+           "septembre", "octobre", "novembre", "décembre"],
+}
+
+
+def _when_str(when, lang) -> str:
+    """The meeting date line in the language the page is showing. The
+    English shape is unchanged; es/fr/ja follow their own conventions."""
+    if not when:
+        return ""
+    l = _primary(lang)
+    if l == "es":
+        return f"{when.day} de {MONTHS['es'][when.month - 1]} de {when.year}, {when:%H:%M} UTC"
+    if l == "fr":
+        return f"{when.day} {MONTHS['fr'][when.month - 1]} {when.year}, {when:%H:%M} UTC"
+    if l == "ja":
+        return f"{when.year}年{when.month}月{when.day}日 {when:%H:%M} UTC"
+    return when.strftime("%B %-d, %Y, %-I:%M %p UTC")
+
+
 # Localizable chrome on the share page. The whole meeting toggles as ONE
 # surface (Scott 2026-08-24: reading half in English and half in Spanish
 # is wrong), so every label that is not content gets a translation and
@@ -372,56 +399,132 @@ def _lang_label(tag: str) -> str:
 CHROME = {
     "en": {"show_in": "Show meeting in", "original": "Original",
            "open_app": "Open in Shoulder Surf", "read_here": "or read it here",
-           "show_transcript": "Show transcript"},
+           "show_transcript": "Show transcript",
+           "with": "With", "sentiment": "Sentiment", "actions": "Action items",
+           "decisions": "Decisions", "open_questions": "Open questions",
+           "recording": "Recording", "photos": "Photos",
+           "no_report": "This meeting was shared without a report.",
+           "foot": "Shared from Shoulder Surf. This link stops working on {d}."},
     "es": {"show_in": "Ver la reunión en", "original": "Original",
            "open_app": "Abrir en Shoulder Surf", "read_here": "o léela aquí",
-           "show_transcript": "Mostrar transcripción"},
+           "show_transcript": "Mostrar transcripción",
+           "with": "Con", "sentiment": "Sentimiento", "actions": "Tareas",
+           "decisions": "Decisiones", "open_questions": "Preguntas abiertas",
+           "recording": "Grabación", "photos": "Fotos",
+           "no_report": "Esta reunión se compartió sin informe.",
+           "foot": "Compartido desde Shoulder Surf. Este enlace deja de funcionar el {d}."},
     "fr": {"show_in": "Voir la réunion en", "original": "Original",
            "open_app": "Ouvrir dans Shoulder Surf", "read_here": "ou lisez-la ici",
-           "show_transcript": "Afficher la transcription"},
+           "show_transcript": "Afficher la transcription",
+           "with": "Avec", "sentiment": "Sentiment", "actions": "Actions à mener",
+           "decisions": "Décisions", "open_questions": "Questions ouvertes",
+           "recording": "Enregistrement", "photos": "Photos",
+           "no_report": "Cette réunion a été partagée sans rapport.",
+           "foot": "Partagé depuis Shoulder Surf. Ce lien cesse de fonctionner le {d}."},
     "ja": {"show_in": "会議の表示言語", "original": "原文",
            "open_app": "Shoulder Surfで開く", "read_here": "またはここで読む",
-           "show_transcript": "文字起こしを表示"},
+           "show_transcript": "文字起こしを表示",
+           "with": "参加者", "sentiment": "感情", "actions": "アクション項目",
+           "decisions": "決定事項", "open_questions": "未解決の質問",
+           "recording": "録音", "photos": "写真",
+           "no_report": "この会議はレポートなしで共有されました。",
+           "foot": "Shoulder Surfから共有されました。このリンクは{d}に無効になります。"},
 }
 
 
-def _chrome(key: str) -> str:
-    """en text (the data-i18n-orig / Original value)."""
-    return CHROME["en"][key]
+def _clang(lang) -> str:
+    """Primary subtag with a CHROME table, else en."""
+    l = _primary(lang)
+    return l if l in CHROME else "en"
 
 
-def _i18n_attrs(key: str) -> str:
-    """data-i18n-orig plus one data-i18n-<lang> per non-English locale, so
-    the global control can swap this label's text to the picked language."""
-    a = f"data-i18n-orig='{_esc(CHROME['en'][key])}'"
-    for code in ("es", "fr", "ja"):
+def _i18n_attrs(key: str, orig=None) -> str:
+    """data-i18n-orig carries the label in the ORIGINAL language of the
+    meeting (what "Original" shows), plus one data-i18n-<lang> per locale
+    we have, so the global control swaps this label with the content.
+    Before 2026-08-25 orig was hardwired to English, which is why a
+    Spanish meeting switched back to Original got English chrome."""
+    a = f"data-i18n-orig='{_esc(CHROME[_clang(orig)][key])}'"
+    for code in CHROME:
         a += f" data-i18n-{code}='{_esc(CHROME[code][key])}'"
     return a
 
 
+def _i18n_values(values: dict, orig=None) -> str:
+    """Same attribute scheme for a composed string (the date line, the
+    footer): values keyed by primary subtag."""
+    o = _primary(orig)
+    base = values[o] if o in values else values.get(_clang(orig), values.get("en", ""))
+    a = f"data-i18n-orig='{_esc(base)}'"
+    for code, v in values.items():
+        a += f" data-i18n-{code}='{_esc(v)}'"
+    return a
+
+
 def _chrome_for(key: str, lang: str | None) -> str:
-    """The label text in the page's DEFAULT language (the shared one), so
-    the page loads already coherent before any toggle."""
-    dl = (lang or "en").split("-")[0].lower()
-    return CHROME.get(dl, CHROME["en"])[key]
+    """The label text in the language the page SHOWS on load (the shared
+    language when a rendition matches it, else the original), so the
+    page is coherent before any toggle."""
+    return CHROME[_clang(lang)][key]
 
 
-def language_bar(langs: list[str], default: str | None) -> str:
+def original_language(meetings: list) -> str:
+    """The page's Original language: the meetings' transcriptLanguage
+    (SS stamps it, BCP-47) when they agree; en when absent or mixed."""
+    langs = {_primary(((m.get("record") or {}).get("transcriptLanguage")))
+             for m in meetings if isinstance((m.get("record") or {}).get("transcriptLanguage"), str)
+             and (m.get("record") or {})["transcriptLanguage"].strip()}
+    return langs.pop() if len(langs) == 1 else "en"
+
+
+def opens_on(langs: list[str], share_language: str | None) -> str | None:
+    """The rendition the page opens on: the shared language when the
+    bundle carries that rendition, else None (Original)."""
+    sl = _primary(share_language) if share_language else ""
+    return next((l for l in langs if _primary(l) == sl), None) if sl else None
+
+
+def language_bar(langs: list[str], default: str | None, orig: str | None = None) -> str:
     """The ONE meeting-language control, at the very top. Offers Original
-    plus the languages the sender translated in the app; opens on the
-    shared language. Absent when nothing was translated."""
+    (with the original language's autonym, so the reader knows what they
+    are switching into: "Original (Español)", Scott 2026-08-25) plus the
+    languages the sender translated in the app; opens on the shared
+    language. Absent when nothing was translated."""
     if not langs:
         return ""
-    dl = (default or "").split("-")[0].lower()
-    match = next((l for l in langs if l.split("-")[0].lower() == dl), None) if dl else None
-    orig_label = _chrome_for("original", default)
+    match = opens_on(langs, default)
+    ui = match or orig
+    autonym = LANG_LABELS.get(_primary(orig)) if orig else None
+    orig_label = _chrome_for("original", orig)
+    if autonym:
+        orig_label = f"{orig_label} ({autonym})"
     opts = f"<option value=''{'' if match else ' selected'}>{_esc(orig_label)}</option>"
     for l in langs:
         sel = " selected" if l == match else ""
         opts += f"<option value='{_esc(l)}'{sel}>{_esc(_lang_label(l))}</option>"
-    label = _chrome_for("show_in", default)
-    return ("<div class='langbar'><span class='langlabel' " + _i18n_attrs("show_in") + f">{_esc(label)}</span> "
+    label = _chrome_for("show_in", ui)
+    return ("<div class='langbar'><span class='langlabel' " + _i18n_attrs("show_in", orig) + f">{_esc(label)}</span> "
             "<select class='lang'>" + opts + "</select></div>")
+
+
+def page_languages(meetings: list, transcript_included: bool) -> list[str]:
+    """The rendition languages the page will offer: every rendition whose
+    transcript can be shown (aligned to segments or as plain text), in
+    meeting order, deduplicated. Mirrors the per-meeting rule in
+    render_share_page so chrome can be resolved before any section."""
+    out: list[str] = []
+    for m in meetings:
+        rec = m.get("record") or {}
+        transcript = rec.get("transcript") if isinstance(rec.get("transcript"), str) else ""
+        segments = rec.get("transcriptSegments") if isinstance(rec.get("transcriptSegments"), list) else []
+        if not (transcript_included and (segments or transcript.strip())):
+            continue
+        for r in renditions_of(rec):
+            shown = align_rendition(r, segments, transcript) is not None or (
+                isinstance(r.get("transcript"), str) and r["transcript"].strip())
+            if shown and r["lang"] not in out:
+                out.append(r["lang"])
+    return out
 
 
 def renditions_of(rec: dict) -> list[dict]:
@@ -625,8 +728,10 @@ _PLAYER_JS = (
     "if(hit!==cur){if(cur)cur.classList.remove('on');cur=hit;if(cur){cur.classList.add('on');var d=cur.closest('details');if(d&&!d.open)d.open=true;"
     "if(box){box.scrollTop=Math.max(0,cur.offsetTop-box.offsetTop-box.clientHeight/2+cur.clientHeight/2);}}}});"
     "sec.addEventListener('click',function(ev){var p=ev.target.closest('p.seg');if(p&&sec.contains(p)){a.currentTime=+p.dataset.s;a.play();}});}});"
-    "function chrome(lang){Array.prototype.slice.call(document.querySelectorAll('[data-i18n-orig]')).forEach(function(el){"
-    "var v=lang?el.getAttribute('data-i18n-'+lang):null;el.textContent=(v!=null?v:el.getAttribute('data-i18n-orig'));});}"
+    "function chrome(lang){var p=lang?lang.split('-')[0].toLowerCase():'';"
+    "document.documentElement.lang=lang||document.documentElement.getAttribute('data-orig-lang')||'en';"
+    "Array.prototype.slice.call(document.querySelectorAll('[data-i18n-orig]')).forEach(function(el){"
+    "var v=lang?(el.getAttribute('data-i18n-'+lang)||el.getAttribute('data-i18n-'+p)):null;el.textContent=(v!=null?v:el.getAttribute('data-i18n-orig'));});}"
     "function applyLang(lang){apply.forEach(function(f){f(lang);});chrome(lang);}"
     "applyLang(sel?sel.value:'');"
     "if(sel){sel.addEventListener('change',function(){applyLang(sel.value);});}"
@@ -656,7 +761,24 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
             share_language = _sl
     parts = []
     contents_line = ""
-    page_langs: list[str] = []
+    # Resolve the page's languages ONCE, before any section: the
+    # renditions offered, the Original language (transcriptLanguage), and
+    # the language the page shows on load (`ui`: the shared language when
+    # its rendition is in the bundle, else Original). Every non-content
+    # label renders in `ui` and carries the swap attributes keyed off the
+    # Original language, so no toggle can leave the chrome in a third
+    # language (Scott 2026-08-25: French title, English report, Spanish
+    # transcript, English chrome, French date labels on one page).
+    page_langs = page_languages(meetings, transcript_included)
+    orig_lang = original_language(meetings)
+    on = opens_on(page_langs, share_language)
+    ui = on or orig_lang
+    sl = _primary(share_language) if share_language else None
+    chrome_langs = list(dict.fromkeys([orig_lang] + [_primary(l) for l in page_langs] + ([sl] if sl else [])))
+
+    def _k(key: str) -> str:
+        return f"<p class='k' {_i18n_attrs(key, orig_lang)}>{_esc(_chrome_for(key, ui))}</p>"
+
     for m in meetings:
         rec = m.get("record") or {}; rep = m.get("report") or {}
         # card_title is X-Share-Title = the client's displayTitle: the most
@@ -669,16 +791,29 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
         # meeting title. (Scott 2026-08-24.)
         _mtitle = rec.get("title") or (rep.get("header") or {}).get("title")
         title = (card_title or _mtitle) if len(meetings) == 1 else (_mtitle or card_title)
-        when = m.get("started_at"); when_s = when.strftime("%B %-d, %Y, %-I:%M %p UTC") if when else ""
+        # The h1 is part of the language surface too (Scott 2026-08-25: it
+        # stayed French after switching back to Original). card_title is
+        # the share-level title in the SHARED language; rec.title is the
+        # original. On a single-meeting share that opens on a rendition,
+        # Original shows rec.title and the shared language shows
+        # card_title; a rendition without a title of its own falls back to
+        # the original one (the JS falls through to data-i18n-orig).
+        h1_attrs = ""
+        if len(meetings) == 1 and on and sl and card_title and _mtitle and _mtitle != card_title:
+            h1_attrs = " " + _i18n_values({orig_lang: _mtitle, sl: card_title}, orig_lang)
+        when = m.get("started_at")
         dur = _duration(rec.get("durationSeconds"))
-        meta = " · ".join(x for x in (when_s, dur) if x)
-        contents = contents_descriptor(
-            rec, len((audio_by_origin or {}).get(m.get("origin_id") or "", [])),
-            int((images_by_origin or {}).get(m.get("origin_id") or "", 0)), share_language)
+        n_audio = len((audio_by_origin or {}).get(m.get("origin_id") or "", []))
+        n_img = int((images_by_origin or {}).get(m.get("origin_id") or "", 0))
+        contents = contents_descriptor(rec, n_audio, n_img, share_language)
         if contents and not contents_line:
             contents_line = contents
-        if contents:
-            meta = " · ".join(x for x in (meta, contents) if x)
+        # The date line (date, duration, what the share holds) swaps with
+        # the control like every other label.
+        metas = {l: " · ".join(x for x in (_when_str(when, l), dur, contents_descriptor(rec, n_audio, n_img, l)) if x)
+                 for l in chrome_langs}
+        meta = metas.get(_primary(ui), metas.get(orig_lang, ""))
+        meta_attrs = _i18n_values(metas, orig_lang)
         body = []
         html_doc = rec.get("reportHTML") if isinstance(rec.get("reportHTML"), str) else ""
         if html_doc.strip():
@@ -714,24 +849,24 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
                 body.append(f"<div class='summary' data-sum-orig='{_esc(rendered)}'{sum_attrs}>{rendered}</div>")
             attendees = header.get("attendees") or []
             if attendees:
-                body.append("<p class='k'>With</p><p>" + ", ".join(_esc(a) for a in attendees) + "</p>")
+                body.append(_k("with") + "<p>" + ", ".join(_esc(a) for a in attendees) + "</p>")
             sent = rep.get("sentiment") or {}
             if sent.get("label") or rec.get("sentimentLabel"):
-                body.append(f"<p class='k'>Sentiment</p><p>{_esc(sent.get('label') or rec.get('sentimentLabel'))}</p>")
+                body.append(_k("sentiment") + f"<p>{_esc(sent.get('label') or rec.get('sentimentLabel'))}</p>")
             actions = [a for a in (rep.get("actions") or []) if isinstance(a, dict)]
             if actions:
-                body.append("<p class='k'>Action items</p><ul>" + "".join(
+                body.append(_k("actions") + "<ul>" + "".join(
                     f"<li><b>{_esc(a.get('task'))}</b>" + (f" <span class='dim'>{_esc(a.get('owner'))}</span>" if a.get("owner") else "")
                     + (f" <span class='dim'>· {_esc(a.get('deadline'))}</span>" if a.get("deadline") else "") + "</li>"
                     for a in actions) + "</ul>")
             decisions = [d for d in (rep.get("decisions") or []) if isinstance(d, dict)]
             if decisions:
-                body.append("<p class='k'>Decisions</p><ul>" + "".join(f"<li>{_esc(d.get('title') or d.get('text') or d)}</li>" for d in decisions) + "</ul>")
+                body.append(_k("decisions") + "<ul>" + "".join(f"<li>{_esc(d.get('title') or d.get('text') or d)}</li>" for d in decisions) + "</ul>")
             oq = [q for q in (rep.get("open_questions") or []) if isinstance(q, dict)]
             if oq:
-                body.append("<p class='k'>Open questions</p><ul>" + "".join(f"<li>{_esc(q.get('question') or q.get('text') or q)}</li>" for q in oq) + "</ul>")
+                body.append(_k("open_questions") + "<ul>" + "".join(f"<li>{_esc(q.get('question') or q.get('text') or q)}</li>" for q in oq) + "</ul>")
             if not body:
-                body.append("<p class='dim'>This meeting was shared without a report.</p>")
+                body.append(f"<p class='dim' {_i18n_attrs('no_report', orig_lang)}>{_esc(_chrome_for('no_report', ui))}</p>")
         # Audio players: one per audio entry, in name order, served by
         # /s/{token}/audio/{n} where n indexes this meeting's entries.
         origin = m.get("origin_id") or ""
@@ -741,7 +876,7 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
             for name in audio_names:
                 n = flat.index((origin, name))
                 body.append(
-                    "<p class='k'>Recording</p>"
+                    _k("recording") +
                     f"<audio class='sa' controls preload='metadata' src='{_esc(share_url)}/audio/{n}'></audio>")
         transcript = rec.get("transcript") if isinstance(rec.get("transcript"), str) else ""
         segments = rec.get("transcriptSegments") if isinstance(rec.get("transcriptSegments"), list) else []
@@ -756,10 +891,6 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
                 plain.append(r)
         seg_html = _segments_html(segments, aligned) if (transcript_included and segments) else ""
         if seg_html or (transcript_included and transcript.strip()):
-            langs = [r["lang"] for r in rends if r["lang"] in aligned or any(pr is r for pr in plain)]
-            for l in langs:
-                if l not in page_langs:
-                    page_langs.append(l)
             # A rendition that could not be aligned still replaces the
             # original IN PLACE (same window), just without timing.
             plain_views = "".join(
@@ -767,8 +898,8 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
                 for r in plain)
             orig_view = seg_html if seg_html else f"<div class='view' data-group='tx' data-lang=''><pre class='orig-plain'>{_esc(transcript)}</pre></div>"
             body.append("<details class='tx'" + (" open" if audio_names else "") +
-                        f" data-origin='{_esc(origin)}'><summary " + _i18n_attrs("show_transcript") +
-                        f">{_esc(_chrome_for('show_transcript', share_language))}</summary>"
+                        f" data-origin='{_esc(origin)}'><summary " + _i18n_attrs("show_transcript", orig_lang) +
+                        f">{_esc(_chrome_for('show_transcript', ui))}</summary>"
                         "<div class='segs'>" + orig_view + plain_views + "</div></details>")
         # Photos shared with the meeting (Scott 2026-08-24: they were in the
         # bundle and never on the page). Served by /s/{token}/image/{n}.
@@ -779,9 +910,9 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
                 f"<button type='button' class='thumb' data-full='{_esc(share_url)}/image/{n}'><img src='{_esc(share_url)}/image/{n}' loading='lazy' alt=''></button>"
                 for n, (o, _name) in enumerate(flat_imgs) if o == origin)
             if thumbs:
-                body.append(f"<p class='k'>Photos</p><div class='gallery'>{thumbs}</div>")
+                body.append(_k("photos") + f"<div class='gallery'>{thumbs}</div>")
 
-        parts.append(f"<section><h1>{_esc(title)}</h1><p class='dim'>{_esc(meta)}</p>{''.join(body)}</section>")
+        parts.append(f"<section><h1{h1_attrs}>{_esc(title)}</h1><p class='dim' {meta_attrs}>{_esc(meta)}</p>{''.join(body)}</section>")
     if not parts:
         parts.append(f"<section><h1>{_esc(card_title)}</h1><p class='dim'>This share holds no meeting.</p></section>")
     # og:image is the difference between the app mark and a Safari compass
@@ -823,25 +954,27 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
         banner = f"<meta name='apple-itunes-app' content='app-id={_esc(app_store_id)}{arg}'>"
         store = f"https://apps.apple.com/app/id{_esc(app_store_id)}"
         get_app = (
-            f"<p class='get'><a href='{store}'><span " + _i18n_attrs("open_app") + ">"
-            + _esc(_chrome_for("open_app", share_language)) + "</span></a>"
-            "<span class='dim'> <span " + _i18n_attrs("read_here") + ">"
-            + _esc(_chrome_for("read_here", share_language)) + "</span></span></p>")
+            f"<p class='get'><a href='{store}'><span " + _i18n_attrs("open_app", orig_lang) + ">"
+            + _esc(_chrome_for("open_app", ui)) + "</span></a>"
+            "<span class='dim'> <span " + _i18n_attrs("read_here", orig_lang) + ">"
+            + _esc(_chrome_for("read_here", ui)) + "</span></span></p>")
         # The website's download block, on every hosted meeting (Scott
         # 2026-08-24): Apple's official badge for a phone in hand, the QR
         # for someone reading on a desktop. Localized to the shared
         # language; the badge art comes from Apple's badge service in the
         # matching locale, the QR from the website (served url).
-        dl = DOWNLOAD_STRINGS.get((share_language or "en").split("-")[0].lower(), DOWNLOAD_STRINGS["en"])
+        dl = DOWNLOAD_STRINGS.get(_primary(ui), DOWNLOAD_STRINGS["en"])
+        qr_texts = {l: DOWNLOAD_STRINGS.get(l, DOWNLOAD_STRINGS["en"])["desktop"] for l in chrome_langs}
         badge = (f"https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/"
                  f"{dl['badge_locale']}?size=250x83")
         qr = (f"<a class='qr' href='{store}'><img src='{_esc(qr_url)}' width='120' height='120' alt='{_esc(dl['qr_alt'])}'></a>"
-              f"<p class='qrtxt'>{_esc(dl['desktop'])}</p>") if qr_url else ""
+              f"<p class='qrtxt' {_i18n_values(qr_texts, orig_lang)}>{_esc(dl['desktop'])}</p>") if qr_url else ""
         download = (f"<div class='dl'><a href='{store}' class='badge'><img src='{badge}' height='56' alt='{_esc(dl['badge_alt'])}'></a>"
                     + qr + "</div>")
 
+    foots = {l: CHROME[_clang(l)]["foot"].format(d=expires_at[:10]) for l in chrome_langs}
     return (
-        "<!doctype html><html lang='en'><head><meta charset='utf-8'>"
+        f"<!doctype html><html lang='{_esc(ui)}' data-orig-lang='{_esc(orig_lang)}'><head><meta charset='utf-8'>"
         f"<title>{_esc(card_title)}</title><meta name='robots' content='noindex'>"
         "<meta name='viewport' content='width=device-width,initial-scale=1'>"
         f"<meta property='og:title' content='{_esc(card_title)}'><meta property='og:description' content='{_esc(card_desc)}'>"
@@ -864,7 +997,7 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
         ".lb button{position:absolute;background:rgba(0,0,0,.45);color:#fff;border:0;border-radius:999px;width:44px;height:44px;font-size:1.5rem;line-height:1;cursor:pointer}"
         ".lb .close{top:16px;right:16px}.lb .prev{left:12px}.lb .next{right:12px}.lb .prev,.lb .next{top:50%;transform:translateY(-50%)}.lb .count{position:absolute;bottom:16px;left:0;right:0;text-align:center;color:#ccc;font-size:.9rem;background:none;width:auto;height:auto;border-radius:0}"
         ".dl .badge img{display:block}.dl .qr img{display:block;border-radius:8px}.qrtxt{margin:0;max-width:16rem;color:#555;font-size:.95rem}</style></head><body>"
-        + language_bar(page_langs, share_language) + get_app + "".join(parts) +
-        f"<p class='foot'>Shared from Shoulder Surf. This link stops working on {_esc(expires_at[:10])}.</p>"
+        + language_bar(page_langs, share_language, orig_lang) + get_app + "".join(parts) +
+        f"<p class='foot' {_i18n_values(foots, orig_lang)}>{_esc(foots.get(_primary(ui), foots[orig_lang]))}</p>"
         + download + _LIGHTBOX_HTML + _PLAYER_JS + _LIGHTBOX_JS + "</body></html>"
     )
