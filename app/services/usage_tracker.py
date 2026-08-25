@@ -246,6 +246,15 @@ class UsageTracker:
         # handler) — makes partner-quoted ids a one-line usage_log query.
         if request.get_meta("request_id"):
             metadata["request_id"] = request.get_meta("request_id")
+        # Report locale evidence (2026-08-25): which locale the language
+        # directive was built from and what the client stated, so a
+        # wrong-language report is one query, not an edge-log dig. Named
+        # here for the same allowlist reason as artifact_type.
+        if request.call_type == "report":
+            metadata["report"] = {
+                "locale": request.get_meta("report_locale"),
+                "transcript_language": request.get_meta("transcript_language"),
+            }
 
         metadata_json = json.dumps(metadata, ensure_ascii=False) if metadata else None
 
