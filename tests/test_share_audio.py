@@ -324,7 +324,9 @@ def test_page_carries_the_badge_and_qr_localized_to_the_shared_language(client, 
     assert "badges/download-on-the-app-store/black/es-es" in page
     assert "src='https://shouldersurf.com/appstore-qr.svg?v=2'" in page
     assert "Apunta la cámara de tu iPhone" in page
-    token2 = _share(client, pro_user, _bundle_rend(None))
+    # an English meeting with nothing translated: English block (the
+    # block follows the language the page shows, Scott 2026-08-25)
+    token2 = _share(client, pro_user, _bundle_rend(None, spoken="en"))
     page2 = client.get(f"/s/{token2}").text
     assert "black/en-us" in page2 and "Point your iPhone camera here to download." in page2
     # at the very bottom now (Scott 2026-08-24): after the meeting content
@@ -423,8 +425,14 @@ def test_no_translations_means_no_language_bar(client, pro_user):
     token = _share(client, pro_user, _bundle_rend(None, share_language=None))
     page = client.get(f"/s/{token}").text
     assert "<div class='langbar'>" not in page and "<select class='lang'>" not in page
-    # a report-less/original share still gets the CTA in English
-    assert "Open in Shoulder Surf" in page
+    # chrome follows the language the page shows (Scott 2026-08-25): a
+    # Spanish original with nothing translated gets Spanish chrome, with
+    # the English string available only as a swap value
+    assert ">Abrir en Shoulder Surf</span>" in page and "data-i18n-en='Open in Shoulder Surf'" in page
+    assert "<html lang='es' data-orig-lang='es'>" in page
+    # an English original with nothing translated still reads English
+    page_en = client.get(f"/s/{_share(client, pro_user, _bundle_rend(None, share_language=None, spoken='en'))}").text
+    assert ">Open in Shoulder Surf</span>" in page_en and "<html lang='en' data-orig-lang='en'>" in page_en
 
 
 # --- report is part of the language surface + shareLanguage default (Scott 2026-08-24) ---
@@ -470,3 +478,101 @@ def test_the_report_toggles_language_with_the_summary_and_transcript(client, pro
     assert "data-group='tx'" in page and "tx=shown" in page
     # the report has no per-report picker; the top control drives it
     assert page.count("<select class='lang'>") == 1
+
+
+# --- Original toggle after a rendition (Scott 2026-08-25, via CQ) --------------
+# Real topology: meeting SPOKEN in Spanish, translated to French in the
+# app, shared in French. SS's X-Share-Title is the French display title,
+# rec.title the Spanish original. Switching back to Original showed a
+# French h1, English chrome and French date labels on a Spanish page.
+
+FRREND = {"lang": "fr", "engine_version": 1, "created_at": "2026-08-25T18:45:30Z",
+          "transcript": "[A] Bonjour à tous.\n[B] Commençons.",
+          "summary": "# Résumé de Réunion\n- Origine",
+          "report_html": "<html><body><h1>Rapport</h1></body></html>"}
+
+
+def _bundle_scott(share_language="fr", renditions=(FRREND,), spoken="es"):
+    rec = {"title": "Origen del negocio", "durationSeconds": 420.5, "date": 809036193.487709,
+           "reportHTML": "<html><body><h1>Report English</h1></body></html>",
+           "transcript": "[A] Hola a todos.\n[B] Empecemos.", "transcriptLanguage": spoken,
+           "transcriptSegments": SEGS, "transcriptRenditions": list(renditions)}
+    man = {"formatVersion": 1}
+    if share_language:
+        man["shareLanguage"] = share_language
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("manifest.json", json.dumps(man))
+        z.writestr(f"meetings/{ORIGIN}.json", json.dumps(rec, ensure_ascii=False))
+    return buf.getvalue()
+
+
+def _share_titled(client, user, body, title):
+    from urllib.parse import quote
+    # the X-Share-* contract: UTF-8, percent-encoded (see routers/shares._card_text)
+    r = client.post("/v1/shares", content=body, headers={**user["headers"], **HDRS, "X-Share-Title": quote(title, safe="")})
+    assert r.status_code == 200, r.text
+    return r.json()["url"].rsplit("/", 1)[1]
+
+
+def test_original_is_labelled_with_its_autonym_and_every_label_swaps_back_to_it(client, pro_user):
+    token = _share_titled(client, pro_user, _bundle_scott(), "Origine de la société")
+    page = client.get(f"/s/{token}").text
+    # opens in French (the shared language has a rendition)
+    assert "<html lang='fr' data-orig-lang='es'>" in page
+    assert "value='fr' selected" in page
+    # the Original option names the language it switches into
+    assert "<option value=''>Original (Español)</option>" in page
+    # the h1 shows the French display title and carries the Spanish original for the swap back
+    assert ("<h1 data-i18n-orig='Origen del negocio' data-i18n-es='Origen del negocio' "
+            "data-i18n-fr='Origine de la société'>Origine de la société</h1>") in page
+    # chrome renders French and swaps to SPANISH under Original (was English)
+    assert ">Voir la réunion en</span>" in page and "data-i18n-orig='Ver la reunión en'" in page
+    assert ">Ouvrir dans Shoulder Surf</span>" in page and "data-i18n-orig='Abrir en Shoulder Surf'" in page
+    assert ">Afficher la transcription</summary>" in page and "data-i18n-orig='Mostrar transcripción'" in page
+    assert "data-i18n-en='Open in Shoulder Surf'" in page
+    # the date line (date, contents) is part of the surface too
+    meta = page[page.index("<p class='dim' data-i18n-orig="):page.index("</p>", page.index("<p class='dim' data-i18n-orig="))]
+    assert "data-i18n-orig='21 de agosto de 2026, 20:16 UTC" in meta and "Informe · Transcripción" in meta
+    assert meta.endswith("Rapport · Transcription") and "21 août 2026, 20:16 UTC" in meta.rsplit(">", 1)[1]
+    # the date line carries a value per language the CONTROL offers
+    # (Original + the renditions), not one per locale we know: nothing on
+    # this page can select English, so there is no English value to swap in
+    assert "data-i18n-en=" not in meta
+    # footer likewise
+    assert ">Partagé depuis Shoulder Surf. Ce lien cesse de fonctionner le " in page
+    assert "data-i18n-orig='Compartido desde Shoulder Surf." in page
+    # the report keeps both views; the JS keeps <html lang> honest on toggle
+    assert "data-group='report' data-lang=''" in page and "data-group='report' data-lang='fr'" in page
+    assert "document.documentElement.lang=lang||document.documentElement.getAttribute('data-orig-lang')" in page
+
+
+def test_a_share_that_opens_on_original_keeps_the_display_title_and_original_chrome(client, pro_user):
+    # shared in Spanish (the original) while a French rendition exists
+    token = _share_titled(client, pro_user, _bundle_scott(share_language="es"), "Origen del negocio (display)")
+    page = client.get(f"/s/{token}").text
+    assert "<html lang='es' data-orig-lang='es'>" in page
+    assert "<option value='' selected>Original (Español)</option>" in page and "value='fr'>Français" in page
+    # no rendition matches the shared language, so the h1 is the display title, no swap needed
+    assert "<h1>Origen del negocio (display)</h1>" in page
+    assert ">Ver la reunión en</span>" in page and ">Abrir en Shoulder Surf</span>" in page
+    assert "21 de agosto de 2026, 20:16 UTC" in page
+
+
+def test_original_language_and_date_line_helpers():
+    from datetime import datetime, timezone
+    from app.services.share_bundle import _when_str, original_language, page_languages
+    d = datetime(2026, 8, 21, 20, 16, tzinfo=timezone.utc)
+    assert _when_str(d, "en") == "August 21, 2026, 8:16 PM UTC"
+    assert _when_str(d, "es-US") == "21 de agosto de 2026, 20:16 UTC"
+    assert _when_str(d, "fr") == "21 août 2026, 20:16 UTC"
+    assert _when_str(d, "ja") == "2026年8月21日 20:16 UTC"
+    assert _when_str(d, "de") == "August 21, 2026, 8:16 PM UTC"
+    assert _when_str(None, "es") == ""
+    assert original_language([{"record": {"transcriptLanguage": "es-MX"}}]) == "es"
+    assert original_language([{"record": {"transcriptLanguage": "es"}}, {"record": {"transcriptLanguage": "en"}}]) == "en"
+    assert original_language([{"record": {}}]) == "en"
+    rec = {"transcript": "[A] Hola a todos.\n[B] Empecemos.", "transcriptSegments": SEGS,
+           "transcriptRenditions": [FRREND, {"lang": "de", "transcript": "   "}]}
+    assert page_languages([{"record": rec}], True) == ["fr"]
+    assert page_languages([{"record": rec}], False) == []
