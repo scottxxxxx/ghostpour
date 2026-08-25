@@ -535,7 +535,10 @@ def test_original_is_labelled_with_its_autonym_and_every_label_swaps_back_to_it(
     meta = page[page.index("<p class='dim' data-i18n-orig="):page.index("</p>", page.index("<p class='dim' data-i18n-orig="))]
     assert "data-i18n-orig='21 de agosto de 2026, 20:16 UTC" in meta and "Informe · Transcripción" in meta
     assert meta.endswith("Rapport · Transcription") and "21 août 2026, 20:16 UTC" in meta.rsplit(">", 1)[1]
-    assert "data-i18n-en='August 21, 2026, 8:16 PM UTC" in meta and "Report · Transcript" in meta
+    # the date line carries a value per language the CONTROL offers
+    # (Original + the renditions), not one per locale we know: nothing on
+    # this page can select English, so there is no English value to swap in
+    assert "data-i18n-en=" not in meta
     # footer likewise
     assert ">Partagé depuis Shoulder Surf. Ce lien cesse de fonctionner le " in page
     assert "data-i18n-orig='Compartido desde Shoulder Surf." in page
