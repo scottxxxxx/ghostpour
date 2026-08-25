@@ -152,9 +152,20 @@ def render_card(facts: dict) -> bytes:
     label = S["report"] if facts.get("has_report") else ""
     if facts.get("transcript_included"):
         label = (label + S["plus"] if label else "") + S["transcript"]
-    _tracked(d, (x, 32), label or S["transcript"], font(21, 700), LABEL_BLUE, 0.13)
+    label = label or S["transcript"]
+    # Right-aligned "read-only" first, so the artifact label has a hard
+    # right edge and cannot collide with it (the Spanish/French labels are
+    # long). Drop the ' + TRANSCRIPT' half, then ellipsize, to fit.
     f_ro = font(20, 500)
-    d.text((W - 68 - d.textlength(S["readonly"], font=f_ro), 32), S["readonly"], font=f_ro, fill=DIM)
+    ro_w = d.textlength(S["readonly"], font=f_ro)
+    d.text((W - 68 - ro_w, 32), S["readonly"], font=f_ro, fill=DIM)
+    f_lab = font(21, 700)
+    avail = (W - 68 - ro_w - 28) - x
+    if _tracked_width(d, label, f_lab, 0.13) > avail and facts.get("has_report"):
+        label = S["report"]  # too long with both: keep just the report label
+    while label and _tracked_width(d, label, f_lab, 0.13) > avail:
+        label = label[:-1]
+    _tracked(d, (x, 32), label, f_lab, LABEL_BLUE, 0.13)
 
     # --- body
     y = 86 + 46
@@ -225,11 +236,13 @@ def render_card(facts: dict) -> bytes:
     d.line((0, H - 96, W, H - 96), fill=FOOT_LINE, width=1)
     f_cta = font(22, 500)
     d.text((68, H - 96 + 36), facts.get("cta_text") or S["cta"], font=f_cta, fill=MUTED)
-    pill = facts.get("pill_text") or S["pill"]; f_pill = font(22, 650)
-    pw = d.textlength(pill, font=f_pill) + 44
-    px = W - 68 - pw; py = H - 96 + 24
-    d.rounded_rectangle((px, py, px + pw, py + 48), radius=999, fill=BLUE)
-    d.text((px + 22, py + 11), pill, font=f_pill, fill="white")
+    pill = facts.get("pill_text") or S["pill"]; f_pill = font(21, 650)
+    ph = 44
+    pw = d.textlength(pill, font=f_pill) + 48
+    px = W - 68 - pw; py = H - 96 + (96 - ph) // 2
+    d.rounded_rectangle((px, py, px + pw, py + ph), radius=ph // 2, fill=BLUE)
+    ty = py + (ph - (f_pill.getbbox(pill)[3] - f_pill.getbbox(pill)[1])) // 2 - f_pill.getbbox(pill)[1]
+    d.text((px + 24, ty), pill, font=f_pill, fill="white")
 
     # --- translated ribbon (top-left, over the header)
     if translated:
@@ -245,6 +258,37 @@ def render_card(facts: dict) -> bytes:
 
     out = io.BytesIO(); img.save(out, format="PNG", optimize=True)
     return out.getvalue()
+
+
+def _manifest_share_language(manifest: dict) -> str | None:
+    """SS writes the shared language as camelCase `shareLanguage`; accept
+    the snake form too. Reading the wrong key rendered the card in English
+    (no localization, no ribbon) on a translated share."""
+    v = manifest.get("shareLanguage") or manifest.get("share_language")
+    return v if isinstance(v, str) and v.strip() else None
+
+
+def _insight_line(text: str) -> str:
+    """One real sentence for the card, not a boilerplate heading or raw
+    markdown. The summary the client sends often starts with a heading
+    line ('# Resumen de la Reunion', '## Meeting Summary'); skip those and
+    strip inline markdown, then take the first substantive sentence."""
+    import re as _re
+    BOILER = ("meeting summary", "resumen de la reunion", "resumen de la reunión",
+              "résumé de la réunion", "会議の要約", "会議のまとめ")
+    for raw in (text or "").splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        line = _re.sub(r"^#{1,6}\s*", "", line)            # drop heading marks
+        line = _re.sub(r"^[-*\u2022]\s+", "", line)        # drop a leading bullet
+        line = _re.sub(r"[*_`#]", "", line)                 # strip inline markdown emphasis
+        line = _re.sub(r"\s{2,}", " ", line).strip()
+        if not line or line.lower().rstrip(":").strip() in BOILER:
+            continue
+        # If the line is itself a short label ('Topic: X'), keep the value.
+        return line
+    return ""
 
 
 def facts_from_share(row, bundle: dict, *, audio_count: int = 0, cta_text: str | None = None,
@@ -263,10 +307,10 @@ def facts_from_share(row, bundle: dict, *, audio_count: int = 0, cta_text: str |
         "title": row["title"], "date": row["meeting_date"], "duration_seconds": row["duration_seconds"],
         "attendees": len(header.get("attendees") or []),
         "action_count": len(actions), "urgent_count": urgent, "sentiment": sent,
-        "summary_line": row["summary_line"] or header.get("summary") or rec.get("rollingSummary") or "",
+        "summary_line": _insight_line(row["summary_line"] or header.get("summary") or rec.get("rollingSummary") or ""),
         "transcript_included": bool(row["transcript_included"]),
         "has_report": bool(rec.get("reportHTML") or rec.get("reportJSONData")),
-        "share_language": manifest.get("share_language") if isinstance(manifest.get("share_language"), str) else None,
+        "share_language": _manifest_share_language(manifest),
         "source_language": rec.get("transcriptLanguage") if isinstance(rec.get("transcriptLanguage"), str) else None,
         "audio_count": audio_count, "cta_text": cta_text, "pill_text": pill_text,
     }
