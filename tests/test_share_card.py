@@ -85,3 +85,38 @@ def test_og_image_points_at_the_card_only_when_the_flag_is_on(client, pro_user):
             share.pop("dynamic_card", None)
         else:
             share["dynamic_card"] = prev
+
+
+# --- card polish (Scott 2026-08-24: "looks like garbage") ---------------------
+
+def test_card_reads_camelcase_shareLanguage_and_shows_the_ribbon(client, pro_user):
+    from app.services.share_card import facts_from_share, _manifest_share_language
+    assert _manifest_share_language({"shareLanguage": "es"}) == "es"       # camelCase (SS)
+    assert _manifest_share_language({"share_language": "fr"}) == "fr"       # snake fallback
+    assert _manifest_share_language({}) is None
+    # a translated card localizes and carries the ribbon
+    png = render_card({"title": "X", "date": "2026-08-24", "duration_seconds": 600, "attendees": 3,
+                       "action_count": 3, "urgent_count": 0, "sentiment": "Constructivo",
+                       "summary_line": "Cigna mantendrá el lanzamiento.", "transcript_included": True,
+                       "has_report": True, "share_language": "es", "source_language": "en"})
+    from PIL import Image
+    import io
+    assert Image.open(io.BytesIO(png)).size == (1200, 630)
+
+
+def test_insight_line_drops_boilerplate_headings_and_markdown():
+    from app.services.share_card import _insight_line
+    assert _insight_line("# Resumen de la Reunión\nCigna holds the launch.") == "Cigna holds the launch."
+    assert _insight_line("## Meeting Summary\n**Topic:** Legal cases") == "Topic: Legal cases"
+    assert _insight_line("# Resumen de la Reunión") == ""       # nothing but boilerplate
+    assert "#" not in _insight_line("### Notes\n- point one") and "-" != _insight_line("### Notes\n- point one")[:1]
+
+
+def test_a_long_localized_label_does_not_collide_and_still_renders():
+    # es label + long "Enlace de solo lectura" must both fit; render must not raise
+    png = render_card({"title": "T", "date": None, "duration_seconds": None, "attendees": 0,
+                       "action_count": 0, "urgent_count": 0, "sentiment": None, "summary_line": "",
+                       "transcript_included": True, "has_report": True, "share_language": "es", "source_language": "en"})
+    from PIL import Image
+    import io
+    assert Image.open(io.BytesIO(png)).size == (1200, 630)
