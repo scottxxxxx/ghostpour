@@ -325,6 +325,12 @@ async def generate_report(
                 locale=locale,
             )
 
+    # Locale evidence (2026-08-25). A Spanish meeting's report came back
+    # English because a regeneration from an old build stated no
+    # transcript_language and carried an English Accept-Language. Finding
+    # that took the edge log: nothing GP stored said which locale the
+    # directive was built from, or whether the client stated one. Now every
+    # report row carries both, raw as sent (usage_tracker names the keys).
     chat_request = ChatRequest(
         provider=report_provider,
         model=report_model,
@@ -334,17 +340,9 @@ async def generate_report(
         # request-id correlation (#380 extended): partners quote the
         # X-Request-ID header; the chat route stamps it, this route didn't —
         # TR's determinism-fixture ids couldn't match their own rows.
-        metadata={
-            "request_id": getattr(request.state, "request_id", None),
-            # Locale evidence (2026-08-25). A Spanish meeting's report came
-            # back English because a regeneration from an old build stated
-            # no transcript_language and carried an English Accept-Language.
-            # Finding that took the edge log: nothing GP stored said which
-            # locale the directive was built from, or whether the client
-            # stated one. Now every report row carries both, raw as sent.
-            "report_locale": locale,
-            "transcript_language": body.transcript_language,
-        },
+        metadata={"request_id": getattr(request.state, "request_id", None),
+                  "report_locale": locale,
+                  "transcript_language": body.transcript_language},
         # Pinned low (TR field report 2026-07-12): back-to-back
         # regenerations of the same conversation flipped the stoplight
         # red -> yellow with no input change. Same rule as parse, match,
