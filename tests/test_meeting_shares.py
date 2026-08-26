@@ -1006,6 +1006,9 @@ def test_the_rule_is_applied_on_the_served_page_for_a_stored_row(client, pro_use
     head = page.split("<body", 1)[0]
     assert "Unable to provide" not in head, "the failure string reached a recipient-visible tag"
     assert "<title>Aug 22, 2026 at 11:04 PM</title>" in head
-    assert "og:description' content='Aug 22, 2026 at 11:04 PM · 2 min'" in head
+    # the description may lead with the card's headline ("2 open items · ...")
+    # when the dynamic card is on; the rule under test is that the failure
+    # string was replaced by date and duration, which must still be there
+    assert "Aug 22, 2026 at 11:04 PM · 2 min'" in head
     assert f"og:url' content='{url}'" in head
     assert "<script" not in head.lower(), "iMessage's fetcher runs no scripts; the tags must be static"

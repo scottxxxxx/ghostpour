@@ -351,6 +351,17 @@ async def share_page(token: str, request: Request, db: aiosqlite.Connection = De
         bundle = {"meetings": []}
     settings = shares.share_settings(request.app.state.remote_configs)
     card_title, card_desc = shares.card_text(row)
+    if settings.get("dynamic_card"):
+        # og:description leads with the card's headline ("4 open items, 2
+        # urgent") for clients that show it (Slack, WhatsApp); iMessage
+        # ignores it. The title stays og:title only (R1).
+        from app.services.share_card import facts_from_share, headline_text, plan_card
+        try:
+            _desc_lead = headline_text(plan_card(facts_from_share(row, bundle)))
+        except Exception:  # noqa: BLE001  (odd bundle: keep the plain description)
+            _desc_lead = None
+    else:
+        _desc_lead = None
     html = render_share_page(
         bundle, card_title=card_title, card_desc=card_desc,
         transcript_included=bool(row["transcript_included"]), expires_at=row["expires_at"],
@@ -364,7 +375,8 @@ async def share_page(token: str, request: Request, db: aiosqlite.Connection = De
         # app at the one we publish.
         share_url=f"{settings['host']}/s/{token}",
         audio_by_origin=audio_by_origin, images_by_origin=images_by_origin,
-        qr_url=settings["qr_url"], images_by_origin_names=images_by_origin_names)
+        qr_url=settings["qr_url"], images_by_origin_names=images_by_origin_names,
+        desc_lead=_desc_lead)
     return HTMLResponse(html, headers={"X-Robots-Tag": "noindex", "Cache-Control": "private, no-store"})
 
 
@@ -409,7 +421,8 @@ async def share_card(request: Request, token: str, db: aiosqlite.Connection = De
     row = await shares.share_by_token(db, token) if shares.is_token_shaped(token) else None
     if not shares.is_live(row):
         raise HTTPException(status_code=410)
-    sidecar = f"{row['storage_path']}.card.png"
+    from app.services.share_card import sidecar_path
+    sidecar = sidecar_path(row["storage_path"])
     if not Path(sidecar).exists():
         try:
             with open(row["storage_path"], "rb") as f:

@@ -324,7 +324,8 @@ async def purge_expired(db: aiosqlite.Connection) -> int:
                 sp = Path(r["storage_path"])
                 for side in sp.parent.glob(sp.name + ".audio*.m4a"):
                     side.unlink(missing_ok=True)
-                Path(str(sp) + ".card.png").unlink(missing_ok=True)
+                for side in sp.parent.glob(sp.name + ".card*.png"):
+                    side.unlink(missing_ok=True)
             except OSError as e:
                 logger.warning("meeting_share purge: could not delete %s: %s", r["storage_path"], e)
     if rows:
