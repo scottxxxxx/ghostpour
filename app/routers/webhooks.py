@@ -4625,6 +4625,9 @@ class AppVersionOverrideRequest(BaseModel):
     min_supported_version: str | None = None
     min_supported_blocking: bool | None = None
     blocked_versions: list[str] | None = None
+    # Report WRITE floor (2026-08-26): a build below it gets 412
+    # report_build_floor on report generation only. 0 clears the floor.
+    report_write_min_build: int | None = None
 
 
 def _reload_app_versions(request: Request):
@@ -4664,6 +4667,8 @@ async def app_version_override(
         plat["min_supported_blocking"] = body.min_supported_blocking
     if body.blocked_versions is not None:
         plat["blocked_versions"] = body.blocked_versions
+    if body.report_write_min_build is not None:
+        plat["report_write_min_build"] = body.report_write_min_build
     av.save_overlay(overlay)
     eff = _reload_app_versions(request)
     effective_plat = (eff.get(body.bundle_id, {}).get("platforms", {}) or {}).get(body.platform, {})

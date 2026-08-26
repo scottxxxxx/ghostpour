@@ -158,6 +158,28 @@ def test_build_parsing_prefers_the_header_and_reads_only_this_apps_user_agent():
     assert version_gate.report_write_floor(reg, {"apps": {"x": {"bundle_id": "com.x.y"}}}, "x") is None
 
 
+def test_the_floor_moves_at_runtime_through_the_admin_override(client, pro_user, tmp_db_path, monkeypatch):
+    """No PR, no deploy: the same break-glass overlay the 426 gate uses."""
+    ADMIN = {"X-Admin-Key": "test-admin-key"}
+    BUNDLE = "com.shouldersurf.ShoulderSurf"
+    _wire(monkeypatch)
+    try:
+        r = client.post("/webhooks/admin/app-version/override",
+                        json={"bundle_id": BUNDLE, "report_write_min_build": 2000}, headers=ADMIN)
+        assert r.status_code == 200, r.text
+        assert r.json()["effective"]["report_write_min_build"] == 2000
+        assert _floor(client) == 2000
+        m1 = _seed(tmp_db_path, pro_user["user_id"])
+        r = _post(client, pro_user, m1, build=1193)
+        assert r.status_code == 412 and r.json()["detail"]["min_build"] == 2000
+    finally:
+        d = client.delete(f"/webhooks/admin/app-version/override/{BUNDLE}?platform=ios", headers=ADMIN)
+        assert d.status_code == 200, d.text
+    assert _floor(client) == 1193
+    m2 = _seed(tmp_db_path, pro_user["user_id"])
+    assert _post(client, pro_user, m2, build=1193).status_code == 200
+
+
 # --- the echo -------------------------------------------------------------------
 
 def test_generate_and_fetch_say_the_language_the_report_was_written_in(client, pro_user, tmp_db_path, monkeypatch):
