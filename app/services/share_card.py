@@ -1,17 +1,35 @@
-"""The link-preview card for a shared meeting: variant 2b, the LEDGER
-(Scott's pick, Claude Design e6ee7ae8, spec relayed by SS 2026-08-24).
+"""The link-preview card for a shared meeting: STATUS-LED (Scott's Claude
+Design "iMessage Card Redesign", 2026-08-26), replacing the 2b ledger.
 
-Rendered server-side with Pillow from the bundle bytes plus the share
-row's headers; 1200x630 PNG. Inter (OFL, vendored at app/static/fonts).
-Copy for the footer CTA is Social's and lands in served config; the
-placeholder here is theirs until then.
+iMessage already draws the meeting title and the domain in the caption
+under the image, so the image spends every pixel on what iMessage cannot
+show: open items, urgent items, one named item, sentiment. Rules R1-R9
+from the design, applied here:
+  R1 title is caption-only (og:title), never rasterised;
+  R2 nothing button-shaped inside the image, no CTA copy;
+  R3 attribution (wordmark + artifact label) replaces the CTA;
+  R4 counts are the headline, urgent in amber only when > 0, no glyph;
+  R5 one real item, named and dated, 88 chars, then "+ n more";
+  R6 sentiment footer-right, labelled, lowercase, <= 34 chars, or omitted;
+  R7 zero state: "No open items" + the summary line + the artifact note;
+  R8 translation is a top-right chip replacing the artifact label;
+  R9 localise the whole card or none of it (the card's locale is the
+     shared language, else the language the meeting was held in).
+
+One deliberate deviation from the mock: R5's "Due Thu — Priya to ..."
+uses an em dash; served copy carries no dashes (standing rule), so the
+rendered line is "Due Thu: Priya to ...".
+
+Two stages on purpose: plan_card() decides every string the image will
+carry (caps applied, locale resolved) and is what the tests pin;
+render_card() only draws the plan. 1200x630 PNG, Inter (OFL, vendored).
 """
 from __future__ import annotations
 
 import io
 import logging
-import math
-from datetime import datetime
+import re
+from datetime import date, datetime
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
@@ -19,29 +37,46 @@ from PIL import Image, ImageDraw, ImageFont
 logger = logging.getLogger("ghostpour.share_card")
 
 W, H = 1200, 630
+CARD_VERSION = 3  # bump when the render changes; the sidecar name carries it
 FONT_PATH = Path(__file__).resolve().parent.parent / "static" / "fonts" / "Inter.ttf"
 LOGO_PATH = Path(__file__).resolve().parent.parent / "static" / "share" / "icon-512.png"
 
-INK = "#0B0F14"; BLUE = "#0A84FF"; LABEL_BLUE = "#6FB6FF"; MUTED = "#6B7480"; CAPTION = "#8A93A0"
-DIM = "#8792A0"; HAIR = "#ECEDF0"; FOOT_BG = "#F5F6F8"; FOOT_LINE = "#E4E6EA"; INSIGHT = "#3C3C43"
-URGENT = "#C77700"; BOLT = "#FF9F0A"
+PLATE = "#0B0B0F"; WHITE = "#FFFFFF"; BODY = "#F2F2F7"; DIM = "#AEAEB2"; GREY = "#8E8E93"
+CHIP = "#C7C7CC"; AMBER = "#FF9F0A"; BLUE = "#4DA3FF"
+RULE = (40, 40, 44)       # 1px rgba(255,255,255,0.12) over the plate
+CHIP_LINE = (61, 61, 66)  # rgba(255,255,255,0.22) over the plate
+PAD_X, PAD_TOP, PAD_BOTTOM = 56, 44, 44
+
+LINE1_CAP, LINE2_CAP, SUMMARY_CAP, SENTIMENT_CAP, SECOND_CAP = 88, 72, 96, 34, 40
 
 STRINGS = {
-    "en": {"report": "MEETING REPORT", "transcript": "TRANSCRIPT", "plus": " + ", "readonly": "Read-only link",
-           "min": "{n} min", "people": "{n} people", "person": "1 person", "full_tx": "Full transcript included",
-           "translated_from": "Translated from {lang}", "actions": "ACTION ITEMS", "urgent": "URGENT",
-           "sentiment": "SENTIMENT", "ribbon": "TRANSLATED",
-           "cta": "Your meetings could arrive like this.", "pill": "Get Shoulder Surf free"},
-    "es": {"report": "INFORME DE REUNIÓN", "transcript": "TRANSCRIPCIÓN", "plus": " + ", "readonly": "Enlace de solo lectura",
-           "min": "{n} min", "people": "{n} personas", "person": "1 persona", "full_tx": "Transcripción completa incluida",
-           "translated_from": "Traducido del {lang}", "actions": "ACCIONES", "urgent": "URGENTES",
-           "sentiment": "TONO", "ribbon": "TRADUCIDO",
-           "cta": "Tus reuniones podrían llegar así.", "pill": "Prueba Shoulder Surf gratis"},
-    "fr": {"report": "COMPTE RENDU", "transcript": "TRANSCRIPTION", "plus": " + ", "readonly": "Lien en lecture seule",
-           "min": "{n} min", "people": "{n} personnes", "person": "1 personne", "full_tx": "Transcription complète incluse",
-           "translated_from": "Traduit de l'{lang}", "actions": "ACTIONS", "urgent": "URGENTES",
-           "sentiment": "TON", "ribbon": "TRADUIT",
-           "cta": "Vos réunions pourraient arriver ainsi.", "pill": "Essayer Shoulder Surf"},
+    "en": {"report": "MEETING REPORT", "transcript": "TRANSCRIPT", "plus": " + ",
+           "open_one": "1 open item", "open_n": "{n} open items", "open_none": "No open items",
+           "urgent": "{n} urgent", "urgent_one": "1 urgent",
+           "due_who": "Due {day}: {who} to {text}", "due": "Due {day}: {text}", "who": "{who} to {text}",
+           "more": "+ {n} more, incl. {second}", "more_plain": "+ {n} more",
+           "sentiment": "Sentiment: {s}",
+           "min": "{n} min", "people": "{n} people", "person": "1 person",
+           "full_tx": "Full transcript included", "report_note": "Meeting report included",
+           "translated_from": "Translated from {lang}"},
+    "es": {"report": "INFORME DE REUNIÓN", "transcript": "TRANSCRIPCIÓN", "plus": " + ",
+           "open_one": "1 tarea abierta", "open_n": "{n} tareas abiertas", "open_none": "Sin tareas abiertas",
+           "urgent": "{n} urgentes", "urgent_one": "1 urgente",
+           "due_who": "Para el {day}: {who} debe {text}", "due": "Para el {day}: {text}", "who": "{who} debe {text}",
+           "more": "+ {n} más, incl. {second}", "more_plain": "+ {n} más",
+           "sentiment": "Tono: {s}",
+           "min": "{n} min", "people": "{n} personas", "person": "1 persona",
+           "full_tx": "Transcripción completa incluida", "report_note": "Informe de reunión incluido",
+           "translated_from": "Traducido del {lang}"},
+    "fr": {"report": "COMPTE RENDU", "transcript": "TRANSCRIPTION", "plus": " + ",
+           "open_one": "1 action ouverte", "open_n": "{n} actions ouvertes", "open_none": "Aucune action ouverte",
+           "urgent": "{n} urgentes", "urgent_one": "1 urgente",
+           "due_who": "Pour {day} : {who} doit {text}", "due": "Pour {day} : {text}", "who": "{who} doit {text}",
+           "more": "+ {n} de plus, dont {second}", "more_plain": "+ {n} de plus",
+           "sentiment": "Ton : {s}",
+           "min": "{n} min", "people": "{n} personnes", "person": "1 personne",
+           "full_tx": "Transcription complète incluse", "report_note": "Compte rendu inclus",
+           "translated_from": "Traduit de l'{lang}"},
 }
 LANG_NAMES = {"en": {"en": "English", "es": "Spanish", "fr": "French", "ja": "Japanese"},
               "es": {"en": "inglés", "es": "español", "fr": "francés", "ja": "japonés"},
@@ -51,14 +86,232 @@ MONTHS = {"en": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", 
           "fr": ["janv", "févr", "mars", "avr", "mai", "juin", "juil", "août", "sept", "oct", "nov", "déc"]}
 DAYS = {"en": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], "es": ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"],
         "fr": ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"]}
+# R9: the sentiment CATEGORY is a wire enum (English keys, never translated by
+# the model), so it is the one thing that can be said in the card's locale
+# no matter which language the report was generated in.
+SENTIMENT_WORDS = {
+    "en": {"positive": "upbeat", "collaborative": "collaborative", "informational": "informational",
+           "cautious": "cautious", "pressured": "under pressure", "tense": "tense",
+           "disconnected": "disconnected", "decisive": "decisive"},
+    "es": {"positive": "positivo", "collaborative": "colaborativo", "informational": "informativo",
+           "cautious": "cauteloso", "pressured": "bajo presión", "tense": "tenso",
+           "disconnected": "desconectado", "decisive": "decidido"},
+    "fr": {"positive": "positif", "collaborative": "collaboratif", "informational": "informatif",
+           "cautious": "prudent", "pressured": "sous pression", "tense": "tendu",
+           "disconnected": "distant", "decisive": "décisif"},
+}
+_WEEKDAYS = {  # free-text deadlines that name a day, any of our locales
+    "monday": 0, "mon": 0, "lunes": 0, "lundi": 0, "tuesday": 1, "tue": 1, "martes": 1, "mardi": 1,
+    "wednesday": 2, "wed": 2, "miércoles": 2, "miercoles": 2, "mercredi": 2, "thursday": 3, "thu": 3,
+    "jueves": 3, "jeudi": 3, "friday": 4, "fri": 4, "viernes": 4, "vendredi": 4, "saturday": 5, "sat": 5,
+    "sábado": 5, "sabado": 5, "samedi": 5, "sunday": 6, "sun": 6, "domingo": 6, "dimanche": 6,
+}
+_URGENT = ("critical", "urgent", "high")
+_NOBODY = ("", "multiple", "unknown", "tbd", "unassigned", "n/a", "none")
 
 
 def _lang(tag: str | None) -> str:
-    # Inter has no CJK glyphs, so ja cards render their chrome in English
-    # until a CJK face is vendored; the NAME and summary are drawn as-is.
+    # Inter has no CJK glyphs, so a ja card renders its chrome in English
+    # until a CJK face is vendored; content strings are drawn as-is.
     l = (tag or "en").split("-")[0].lower()
     return l if l in STRINGS else "en"
 
+
+def card_locale(share_language: str | None, source_language: str | None) -> str:
+    """R9: the shared language when the share is translated, else the
+    language the meeting was held in. One locale for the whole card."""
+    return _lang(share_language or source_language)
+
+
+def _cap(text: str, n: int) -> str:
+    """Hard char cap on a word boundary, with an ellipsis; never mid-word."""
+    text = re.sub(r"\s+", " ", (text or "")).strip()
+    if len(text) <= n:
+        return text
+    cut = text[: n - 1].rstrip()
+    if " " in cut:
+        cut = cut[: cut.rfind(" ")].rstrip(" ,;:")
+    return cut + "…"
+
+
+def _short_day(deadline, lang: str) -> str | None:
+    """A short day label for "Due {day}" from a free-text or ISO deadline,
+    or None when it cannot be said briefly. Returns (label) and stores the
+    sort key on the side via _due_sort_key."""
+    if not isinstance(deadline, str) or not deadline.strip():
+        return None
+    raw = deadline.strip()
+    d = _parse_date(raw)
+    if d is not None:
+        return f"{DAYS[lang][d.weekday()]} {d.day} {MONTHS[lang][d.month - 1]}" if abs((d - date.today()).days) > 6 \
+            else DAYS[lang][d.weekday()]
+    wd = _WEEKDAYS.get(raw.lower().rstrip("."))
+    if wd is not None:
+        return DAYS[lang][wd]
+    return raw if len(raw) <= 16 else None
+
+
+def _parse_date(raw: str) -> date | None:
+    for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S%z", "%b %d, %Y", "%B %d, %Y", "%b %d", "%B %d", "%d %b %Y", "%d %B %Y"):
+        try:
+            d = datetime.strptime(raw, fmt)
+            if "%Y" not in fmt:
+                d = d.replace(year=date.today().year)
+            return d.date()
+        except ValueError:
+            continue
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00")).date()
+    except ValueError:
+        return None
+
+
+def _due_sort_key(deadline) -> tuple:
+    if not isinstance(deadline, str) or not deadline.strip():
+        return (2, "")
+    d = _parse_date(deadline.strip())
+    if d is not None:
+        return (0, d.isoformat())
+    wd = _WEEKDAYS.get(deadline.strip().lower().rstrip("."))
+    if wd is not None:
+        return (0, f"wd{wd}")
+    return (1, deadline.strip().lower())
+
+
+def open_items(actions: list) -> list[dict]:
+    """The report's action items, urgent first, then earliest due, then
+    the report's own order. An item flagged done/closed is not open."""
+    out = []
+    for i, a in enumerate(actions or []):
+        if not isinstance(a, dict):
+            continue
+        st = str(a.get("status") or "").lower()
+        if a.get("done") is True or st in ("done", "closed", "completed"):
+            continue
+        text = a.get("task") or a.get("text") or a.get("title")
+        if not isinstance(text, str) or not text.strip():
+            continue
+        out.append((0 if str(a.get("priority") or "").lower() in _URGENT else 1,
+                    _due_sort_key(a.get("deadline") or a.get("due")), i, a))
+    out.sort(key=lambda t: t[:3])
+    return [a for *_, a in out]
+
+
+def _who(a: dict) -> str | None:
+    who = a.get("owner") or a.get("assignee")
+    if not isinstance(who, str) or who.strip().lower() in _NOBODY:
+        return None
+    return who.strip()
+
+
+def _text(a: dict) -> str:
+    t = (a.get("task") or a.get("text") or a.get("title") or "").strip()
+    return t[0].lower() + t[1:] if t and t[0].isupper() and not t[:2].isupper() else t
+
+
+def item_line(a: dict, lang: str) -> str:
+    """R5: "Due {day}: {who} to {text}", each part dropped when unknown."""
+    S = STRINGS[lang]
+    day = _short_day(a.get("deadline") or a.get("due"), lang)
+    who = _who(a)
+    text = _text(a)
+    if day and who:
+        line = S["due_who"].format(day=day, who=who, text=text)
+    elif day:
+        line = S["due"].format(day=day, text=text)
+    elif who:
+        line = S["who"].format(who=who, text=text)
+    else:
+        line = text[0].upper() + text[1:] if text else ""
+    return _cap(line, LINE1_CAP)
+
+
+def _sentiment(facts: dict, lang: str) -> str | None:
+    """R6 + R9: the category word in the card's locale; the model's label
+    only when it is already in that locale (untranslated share); else none."""
+    cat = str(facts.get("sentiment_category") or "").lower().strip()
+    word = SENTIMENT_WORDS.get(lang, SENTIMENT_WORDS["en"]).get(cat)
+    if word:
+        return word
+    label = facts.get("sentiment")
+    if isinstance(label, str) and label.strip() and not facts.get("share_language"):
+        return _cap(label.strip().lower(), SENTIMENT_CAP)
+    return None
+
+
+def plan_card(facts: dict) -> dict:
+    """Every string the image will carry, decided once. facts: title,
+    date, duration_seconds, attendees (int), actions (list), sentiment
+    (label), sentiment_category, summary_line, transcript_included,
+    has_report, share_language, source_language."""
+    lang = card_locale(facts.get("share_language"), facts.get("source_language"))
+    S = STRINGS[lang]
+    items = open_items(facts.get("actions") or [])
+    n = len(items)
+    urgent = sum(1 for a in items if str(a.get("priority") or "").lower() in _URGENT)
+    translated = bool(facts.get("share_language")) and \
+        _lang(facts.get("share_language")) != _lang(facts.get("source_language")) if facts.get("source_language") \
+        else bool(facts.get("share_language"))
+
+    label = S["report"] if facts.get("has_report") else ""
+    if facts.get("transcript_included"):
+        label = (label + S["plus"] if label else "") + S["transcript"]
+    label = label or S["transcript"]
+    chip = None
+    if translated:
+        src = LANG_NAMES.get(lang, LANG_NAMES["en"]).get(
+            str(facts.get("source_language") or "").split("-")[0].lower(), facts.get("source_language") or "")
+        chip = S["translated_from"].format(lang=src) if src else None
+
+    if n == 0:
+        headline, urgent_text = S["open_none"], None
+        line1 = _cap(facts.get("summary_line") or "", SUMMARY_CAP)
+        line2 = S["full_tx"] if facts.get("transcript_included") else (S["report_note"] if facts.get("has_report") else "")
+    else:
+        headline = S["open_one"] if n == 1 else S["open_n"].format(n=n)
+        urgent_text = (S["urgent_one"] if urgent == 1 else S["urgent"].format(n=urgent)) if urgent else None
+        line1 = item_line(items[0], lang)
+        rest = n - 1
+        if rest and len(items) > 1:
+            line2 = _cap(S["more"].format(n=rest, second=_cap(_text(items[1]), SECOND_CAP)), LINE2_CAP)
+        elif rest:
+            line2 = S["more_plain"].format(n=rest)
+        else:
+            line2 = ""
+
+    meta = []
+    dt = facts.get("date")
+    if dt:
+        try:
+            p = datetime.fromisoformat(str(dt).replace("Z", "+00:00"))
+            meta.append(f"{DAYS[lang][p.weekday()]}, {MONTHS[lang][p.month - 1]} {p.day}")
+        except ValueError:
+            pass
+    if facts.get("duration_seconds"):
+        meta.append(S["min"].format(n=max(1, round(float(facts["duration_seconds"]) / 60))))
+    people = int(facts.get("attendees") or 0)
+    if people == 1:
+        meta.append(S["person"])
+    elif people > 1:
+        meta.append(S["people"].format(n=people))
+    sent = _sentiment(facts, lang)
+    return {
+        "lang": lang, "label": label, "chip": chip,
+        "headline": headline, "urgent": urgent_text,
+        "line1": line1, "line2": line2,
+        "footer_left": " · ".join(meta),
+        "footer_right": S["sentiment"].format(s=sent) if sent else None,
+        "open_count": n, "urgent_count": urgent,
+    }
+
+
+def headline_text(plan: dict) -> str:
+    """The headline as one string, for og:description on clients that
+    show it (Slack, WhatsApp); iMessage ignores it."""
+    return plan["headline"] + (f", {plan['urgent']}" if plan.get("urgent") else "")
+
+
+# --- drawing ------------------------------------------------------------------
 
 _fonts: dict[tuple[int, int], ImageFont.FreeTypeFont] = {}
 
@@ -76,7 +329,6 @@ def font(size: int, weight: int) -> ImageFont.FreeTypeFont:
 
 
 def _tracked(draw, xy, text, f, fill, tracking_em=0.0):
-    """Letter-spaced text (Pillow has no tracking); returns end x."""
     x, y = xy
     extra = f.size * tracking_em
     for ch in text:
@@ -89,8 +341,9 @@ def _tracked_width(draw, text, f, tracking_em=0.0):
     return sum(draw.textlength(ch, font=f) + f.size * tracking_em for ch in text)
 
 
-def _fit(draw, text, f, max_w, max_lines=1):
-    """Greedy wrap into at most max_lines, ellipsis on overflow."""
+def _wrap(draw, text, f, max_w, max_lines):
+    """Greedy wrap to at most max_lines; the plan already capped chars, this
+    only breaks lines and ellipsizes if the pixels still overflow."""
     words = (text or "").split()
     lines, cur = [], ""
     for w in words:
@@ -105,10 +358,7 @@ def _fit(draw, text, f, max_w, max_lines=1):
                 break
     if cur and len(lines) < max_lines:
         lines.append(cur)
-    if len(lines) > max_lines or (words and " ".join(lines).split() != words[:len(" ".join(lines).split())]):
-        lines = lines[:max_lines]
-    joined = " ".join(lines)
-    if joined.split() != words:
+    if " ".join(lines).split() != words:
         last = lines[-1] if lines else ""
         while last and draw.textlength(last + "…", font=f) > max_w:
             last = last[:-1].rstrip()
@@ -116,7 +366,11 @@ def _fit(draw, text, f, max_w, max_lines=1):
     return lines
 
 
-def _rounded_logo(size=42, radius=10):
+def _fit_one(draw, text, f, max_w):
+    return _wrap(draw, text, f, max_w, 1)[0] if text else ""
+
+
+def _rounded_logo(size=50, radius=13):
     if not LOGO_PATH.exists():
         return None
     img = Image.open(LOGO_PATH).convert("RGBA").resize((size, size), Image.LANCZOS)
@@ -127,190 +381,130 @@ def _rounded_logo(size=42, radius=10):
 
 
 def render_card(facts: dict) -> bytes:
-    """facts: title, date (ISO or None), duration_seconds, attendees (int),
-    action_count, urgent_count, sentiment (str|None), summary_line,
-    transcript_included (bool), has_report (bool), share_language,
-    source_language, cta_text?, pill_text?"""
-    lang = _lang(facts.get("share_language"))
-    S = STRINGS[lang]
-    translated = bool(facts.get("share_language"))
-    left = 190 if translated else 68
-
-    img = Image.new("RGB", (W, H), "white")
+    plan = plan_card(facts)
+    img = Image.new("RGB", (W, H), PLATE)
     d = ImageDraw.Draw(img)
+    right = W - PAD_X
 
-    # --- header band
-    d.rectangle((0, 0, W, 86), fill=INK)
-    x = left
+    # header: wordmark left, artifact label or translation chip right
+    x = PAD_X
     logo = _rounded_logo()
     if logo is not None:
-        img.paste(logo, (x, 22), logo); x += 42 + 14
-    f_brand = font(22, 700)
-    d.text((x, 30), "Shoulder Surf", font=f_brand, fill="white")
-    x += d.textlength("Shoulder Surf", font=f_brand) + 18
-    d.line((x, 30, x, 56), fill=(255, 255, 255, 46), width=1); x += 18
-    label = S["report"] if facts.get("has_report") else ""
-    if facts.get("transcript_included"):
-        label = (label + S["plus"] if label else "") + S["transcript"]
-    label = label or S["transcript"]
-    # Right-aligned "read-only" first, so the artifact label has a hard
-    # right edge and cannot collide with it (the Spanish/French labels are
-    # long). Drop the ' + TRANSCRIPT' half, then ellipsize, to fit.
-    f_ro = font(20, 500)
-    ro_w = d.textlength(S["readonly"], font=f_ro)
-    d.text((W - 68 - ro_w, 32), S["readonly"], font=f_ro, fill=DIM)
-    f_lab = font(21, 700)
-    avail = (W - 68 - ro_w - 28) - x
-    if _tracked_width(d, label, f_lab, 0.13) > avail and facts.get("has_report"):
-        label = S["report"]  # too long with both: keep just the report label
-    while label and _tracked_width(d, label, f_lab, 0.13) > avail:
-        label = label[:-1]
-    _tracked(d, (x, 32), label, f_lab, LABEL_BLUE, 0.13)
+        img.paste(logo, (x, PAD_TOP), logo)
+        x += 50 + 16
+    f_brand = font(34, 700)
+    d.text((x, PAD_TOP + 4), "Shoulder Surf", font=f_brand, fill=WHITE)
+    x_brand_end = x + d.textlength("Shoulder Surf", font=f_brand)
+    if plan["chip"]:
+        f_chip = font(26, 500)
+        cw = d.textlength(plan["chip"], font=f_chip) + 48
+        ch_h = 46
+        cx, cy = right - cw, PAD_TOP + 2
+        d.rounded_rectangle((cx, cy, cx + cw, cy + ch_h), radius=ch_h // 2, outline=CHIP_LINE, width=2)
+        d.text((cx + 24, cy + 8), plan["chip"], font=f_chip, fill=CHIP)
+    else:
+        f_lab = font(24, 600)
+        label = plan["label"]
+        avail = right - x_brand_end - 40
+        while label and _tracked_width(d, label, f_lab, 0.08) > avail:
+            label = label[:-1]
+        lw = _tracked_width(d, label, f_lab, 0.08)
+        _tracked(d, (right - lw, PAD_TOP + 12), label, f_lab, GREY, 0.08)
 
-    # --- body
-    y = 86 + 46
-    f_name = font(56, 700)
-    for line in _fit(d, facts.get("title") or "", f_name, W - left - 68, max_lines=2):
-        d.text((left, y), line, font=f_name, fill=INK); y += 64
-    y += 6
-    meta = []
-    dt = facts.get("date")
-    if dt:
-        try:
-            p = datetime.fromisoformat(str(dt).replace("Z", "+00:00"))
-            meta.append(f"{DAYS[lang][p.weekday()]}, {MONTHS[lang][p.month - 1]} {p.day}")
-        except ValueError:
-            pass
-    if facts.get("duration_seconds"):
-        meta.append(S["min"].format(n=max(1, round(float(facts["duration_seconds"]) / 60))))
-    n_people = int(facts.get("attendees") or 0)
-    if n_people == 1:
-        meta.append(S["person"])
-    elif n_people > 1:
-        meta.append(S["people"].format(n=n_people))
-    if translated and facts.get("source_language"):
-        src = LANG_NAMES.get(lang, LANG_NAMES["en"]).get(str(facts["source_language"]).split("-")[0].lower(), facts["source_language"])
-        meta.append(S["translated_from"].format(lang=src))
-    elif facts.get("transcript_included"):
-        meta.append(S["full_tx"])
-    f_meta = font(23, 500)
-    d.text((left, y), " · ".join(meta), font=f_meta, fill=MUTED); y += 40
+    # headline: counts (R4) or the zero state (R7)
+    y = 150
+    f_head = font(64, 700)
+    d.text((PAD_X, y), plan["headline"], font=f_head, fill=WHITE)
+    if plan["urgent"]:
+        hx = PAD_X + d.textlength(plan["headline"], font=f_head) + 26
+        f_urg = font(40, 700)
+        d.text((hx, y + 22), plan["urgent"], font=f_urg, fill=AMBER)
 
-    # --- stat row with hairlines
-    d.line((left, y, W - 68, y), fill=HAIR, width=2); y += 26
-    x = left
-    f_big = font(52, 700); f_cap = font(20, 600)
-    def stat(x, value_draw, caption):
-        vx = value_draw(x)
-        _tracked(d, (x, y + 60), caption, f_cap, CAPTION, 0.06)
-        return max(vx, x + _tracked_width(d, caption, f_cap, 0.06)) + 52
-    def v_actions(x):
-        t = str(int(facts.get("action_count") or 0)); d.text((x, y), t, font=f_big, fill=INK)
-        return x + d.textlength(t, font=f_big)
-    def v_urgent(x):
-        # bolt glyph
-        bx, by = x, y + 10
-        d.polygon([(bx + 16, by), (bx + 4, by + 24), (bx + 14, by + 24), (bx + 10, by + 42), (bx + 24, by + 16), (bx + 14, by + 16)], fill=BOLT)
-        t = str(int(facts.get("urgent_count") or 0)); d.text((bx + 34, y), t, font=f_big, fill=URGENT)
-        return bx + 34 + d.textlength(t, font=f_big)
-    def v_sent(x):
-        # wave glyph
-        pts = [(x + i, y + 30 + 9 * math.sin(i / 4.5)) for i in range(0, 36, 2)]
-        d.line(pts, fill=BLUE, width=4, joint="curve")
-        t = (facts.get("sentiment") or "—"); f_s = font(34, 700)
-        d.text((x + 46, y + 12), t, font=f_s, fill=INK)
-        return x + 46 + d.textlength(t, font=f_s)
-    x = stat(x, v_actions, S["actions"])
-    x = stat(x, v_urgent, S["urgent"])
-    x = stat(x, v_sent, S["sentiment"])
-    y += 60 + 26 + 26
-    d.line((left, y, W - 68, y), fill=HAIR, width=2); y += 22
+    # body: one named item + the rest (R5), or summary + artifact note (R7)
+    y = 252
+    f_l1 = font(40, 600)
+    for line in _wrap(d, plan["line1"], f_l1, right - PAD_X, 2):
+        d.text((PAD_X, y), line, font=f_l1, fill=BODY)
+        y += 52
+    if plan["line2"]:
+        f_l2 = font(33, 400)
+        d.text((PAD_X, y + 10), _fit_one(d, plan["line2"], f_l2, right - PAD_X), font=f_l2, fill=DIM)
 
-    # --- insight line
-    f_ins = font(26, 400)
-    for line in _fit(d, facts.get("summary_line") or "", f_ins, min(940, W - left - 68), max_lines=2):
-        d.text((left, y), line, font=f_ins, fill=INSIGHT); y += int(26 * 1.45)
+    # footer: rule, meta left, sentiment right (R6)
+    ry = H - PAD_BOTTOM - 36 - 16
+    d.line((PAD_X, ry, right, ry), fill=RULE, width=1)
+    fy = ry + 18
+    f_ft = font(28, 500)
+    f_sent = font(28, 600)
+    sent = plan["footer_right"] or ""
+    sw = d.textlength(sent, font=f_sent) if sent else 0
+    left_avail = right - PAD_X - (sw + 40 if sent else 0)
+    d.text((PAD_X, fy), _fit_one(d, plan["footer_left"], f_ft, left_avail), font=f_ft, fill=GREY)
+    if sent:
+        d.text((right - sw, fy), sent, font=f_sent, fill=BLUE)
 
-    # --- footer band
-    d.rectangle((0, H - 96, W, H), fill=FOOT_BG)
-    d.line((0, H - 96, W, H - 96), fill=FOOT_LINE, width=1)
-    f_cta = font(22, 500)
-    d.text((68, H - 96 + 36), facts.get("cta_text") or S["cta"], font=f_cta, fill=MUTED)
-    pill = facts.get("pill_text") or S["pill"]; f_pill = font(21, 650)
-    ph = 44
-    pw = d.textlength(pill, font=f_pill) + 48
-    px = W - 68 - pw; py = H - 96 + (96 - ph) // 2
-    d.rounded_rectangle((px, py, px + pw, py + ph), radius=ph // 2, fill=BLUE)
-    ty = py + (ph - (f_pill.getbbox(pill)[3] - f_pill.getbbox(pill)[1])) // 2 - f_pill.getbbox(pill)[1]
-    d.text((px + 24, ty), pill, font=f_pill, fill="white")
-
-    # --- translated ribbon (top-left, over the header)
-    if translated:
-        rib = Image.new("RGBA", (360, 360), (0, 0, 0, 0))
-        rd = ImageDraw.Draw(rib)
-        rd.rectangle((0, 150, 360, 206), fill=BLUE)
-        f_rib = font(20, 700)
-        text = S["ribbon"]
-        tw = _tracked_width(rd, text, f_rib, 0.16)
-        _tracked(rd, ((360 - tw) / 2, 165), text, f_rib, "white", 0.16)
-        rib = rib.rotate(45, resample=Image.BICUBIC, expand=False)
-        img.paste(rib, (-110, -110), rib)
-
-    out = io.BytesIO(); img.save(out, format="PNG", optimize=True)
+    out = io.BytesIO()
+    img.save(out, format="PNG", optimize=True)
     return out.getvalue()
 
 
+def sidecar_path(storage_path: str) -> str:
+    """Where the rendered card is cached beside the archive. The render
+    version is in the name, so a renderer change never serves a stale
+    card (the old sidecar was byte-identical after every deploy until
+    someone deleted it as root). Purge removes `<archive>.card*.png`."""
+    return f"{storage_path}.card.v{CARD_VERSION}.png"
+
+
+# --- facts from the share -------------------------------------------------------
+
 def _manifest_share_language(manifest: dict) -> str | None:
     """SS writes the shared language as camelCase `shareLanguage`; accept
-    the snake form too. Reading the wrong key rendered the card in English
-    (no localization, no ribbon) on a translated share."""
+    the snake form too."""
     v = manifest.get("shareLanguage") or manifest.get("share_language")
     return v if isinstance(v, str) and v.strip() else None
 
 
 def _insight_line(text: str) -> str:
-    """One real sentence for the card, not a boilerplate heading or raw
-    markdown. The summary the client sends often starts with a heading
-    line ('# Resumen de la Reunion', '## Meeting Summary'); skip those and
-    strip inline markdown, then take the first substantive sentence."""
-    import re as _re
+    """One real sentence, not a boilerplate heading or raw markdown."""
     BOILER = ("meeting summary", "resumen de la reunion", "resumen de la reunión",
               "résumé de la réunion", "会議の要約", "会議のまとめ")
     for raw in (text or "").splitlines():
         line = raw.strip()
         if not line:
             continue
-        line = _re.sub(r"^#{1,6}\s*", "", line)            # drop heading marks
-        line = _re.sub(r"^[-*\u2022]\s+", "", line)        # drop a leading bullet
-        line = _re.sub(r"[*_`#]", "", line)                 # strip inline markdown emphasis
-        line = _re.sub(r"\s{2,}", " ", line).strip()
+        line = re.sub(r"^#{1,6}\s*", "", line)
+        line = re.sub(r"^[-*•]\s+", "", line)
+        line = re.sub(r"[*_`#]", "", line)
+        line = re.sub(r"\s{2,}", " ", line).strip()
         if not line or line.lower().rstrip(":").strip() in BOILER:
             continue
-        # If the line is itself a short label ('Topic: X'), keep the value.
         return line
     return ""
 
 
 def facts_from_share(row, bundle: dict, *, audio_count: int = 0, cta_text: str | None = None,
                      pill_text: str | None = None) -> dict:
-    """Card facts from the share row (headers SS sent, localized when the
-    share is translated) and the bundle bytes (everything else)."""
+    """Card facts from the share row and the bundle bytes. cta_text and
+    pill_text are accepted for callers that still pass them and ignored:
+    the image carries no CTA (R2)."""
     meetings = bundle.get("meetings") or []
     m = meetings[0] if meetings else {}
-    rec = m.get("record") or {}; rep = m.get("report") or {}
+    rec = m.get("record") or {}
+    rep = m.get("report") or {}
     manifest = bundle.get("manifest") if isinstance(bundle.get("manifest"), dict) else {}
-    actions = [a for a in (rep.get("actions") or []) if isinstance(a, dict)]
-    urgent = sum(1 for a in actions if str(a.get("priority") or "").lower() in ("critical", "urgent", "high"))
     header = rep.get("header") or {}
-    sent = (rep.get("sentiment") or {}).get("label") or rec.get("sentimentLabel")
+    sent = rep.get("sentiment") or {}
     return {
         "title": row["title"], "date": row["meeting_date"], "duration_seconds": row["duration_seconds"],
         "attendees": len(header.get("attendees") or []),
-        "action_count": len(actions), "urgent_count": urgent, "sentiment": sent,
+        "actions": [a for a in (rep.get("actions") or []) if isinstance(a, dict)],
+        "sentiment": sent.get("label") or rec.get("sentimentLabel"),
+        "sentiment_category": sent.get("category"),
         "summary_line": _insight_line(row["summary_line"] or header.get("summary") or rec.get("rollingSummary") or ""),
         "transcript_included": bool(row["transcript_included"]),
         "has_report": bool(rec.get("reportHTML") or rec.get("reportJSONData")),
         "share_language": _manifest_share_language(manifest),
         "source_language": rec.get("transcriptLanguage") if isinstance(rec.get("transcriptLanguage"), str) else None,
-        "audio_count": audio_count, "cta_text": cta_text, "pill_text": pill_text,
+        "audio_count": audio_count,
     }

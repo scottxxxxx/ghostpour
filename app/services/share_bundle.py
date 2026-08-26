@@ -743,7 +743,8 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
                       app_store_id: str | None = None, share_url: str | None = None,
                       icon_url: str | None = None, audio_by_origin: dict[str, list[str]] | None = None,
                       share_language: str | None = None, images_by_origin: dict[str, int] | None = None,
-                      qr_url: str | None = None, images_by_origin_names: dict[str, list[str]] | None = None) -> str:
+                      qr_url: str | None = None, images_by_origin_names: dict[str, list[str]] | None = None,
+                      desc_lead: str | None = None) -> str:
     """The hosted page for a recipient without the app (Variant A: the
     whole meeting). Card tags for iMessage and every other messenger;
     noindex; `reportHTML` when the record carries it, in a sandboxed
@@ -926,8 +927,10 @@ def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcri
     ) if og_image_url else ""
     icon = f"<link rel='apple-touch-icon' href='{_esc(icon_url)}'>" if icon_url else ""
     card_type = "summary_large_image" if og_image_url else "summary"
-    if contents_line:
-        card_desc = f"{contents_line} · {card_desc}" if card_desc else contents_line
+    # og:description order: the card's headline first ("4 open items, 2
+    # urgent", the status-led card's own words, for clients that show it),
+    # then what the share holds, then the summary line.
+    card_desc = " · ".join(x for x in (desc_lead, contents_line, card_desc) if x)
 
     # The route a recipient WITHOUT the app takes, which is the case this
     # page exists for and the one it did not serve until 2026-08-23.
