@@ -57,34 +57,58 @@ def recall_max_age_days(remote_configs: dict, tier: str) -> int | None:
 PLACEHOLDER = "{recall_window_days}"
 
 
+def _shared_window_tier(remote_configs: dict) -> str:
+    """The tier a SHARED string (feature_definitions, cta_strings, paywall)
+    talks about: the lowest tier whose memory mode is enabled, i.e. the
+    upgrade target ("Plus brings your last N days"). Read from the mode
+    dial, not assumed; Plus when the matrix is silent."""
+    from app.services.entitlements import entitlement_state
+    for t in ("free", "plus", "pro"):
+        if entitlement_state(remote_configs, t, "context_quilt") == "enabled":
+            return t
+    return "plus"
+
+
 def render_recall_window_copy(payload, remote_configs: dict):
     """Return a copy of `payload` with every `{recall_window_days}` filled.
 
     Pure: the served bundle in app.state is never mutated, so a later
-    dial change renders fresh. If the Plus dial is unset (None) the copy
-    has nothing true to say, so the placeholder is replaced by "recent"
-    and a warning names the string: a visible wobble in grammar beats a
-    shipped brace or an invented number.
+    dial change renders fresh. Each tier's OWN strings (anything under
+    `tiers.<name>`, in the bundle or the /v1/tiers response, both keyed
+    by tier name) read that tier's dial; strings outside a tier block
+    read the upgrade target's dial (`_shared_window_tier`). A dial that is
+    unset for a string that names a number has nothing true to say, so
+    the placeholder is replaced by "recent" and a warning names the
+    string: a visible wobble in grammar beats a shipped brace or an
+    invented number.
     """
-    days = recall_max_age_days(remote_configs, "plus")
-    fill = str(days) if days is not None else "recent"
+    shared_days = recall_max_age_days(remote_configs, _shared_window_tier(remote_configs))
 
-    def walk(node):
-        if isinstance(node, str):
-            if PLACEHOLDER in node:
-                if days is None:
-                    import logging
-                    logging.getLogger(__name__).warning(
-                        "recall_window_copy_unfilled", extra={"string": node[:80]})
-                return node.replace(PLACEHOLDER, fill)
-            return node
-        if isinstance(node, list):
-            return [walk(x) for x in node]
-        if isinstance(node, dict):
-            return {k: walk(v) for k, v in node.items()}
+    def fill(node, days):
+        if PLACEHOLDER in node:
+            if days is None:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "recall_window_copy_unfilled", extra={"string": node[:80]})
+            return node.replace(PLACEHOLDER, str(days) if days is not None else "recent")
         return node
 
-    return walk(payload)
+    def walk(node, days, at_top=False):
+        if isinstance(node, str):
+            return fill(node, days)
+        if isinstance(node, list):
+            return [walk(x, days) for x in node]
+        if isinstance(node, dict):
+            out = {}
+            for k, v in node.items():
+                if at_top and k == "tiers" and isinstance(v, dict):
+                    out[k] = {name: walk(block, recall_max_age_days(remote_configs, name) if isinstance(name, str) else days)
+                              for name, block in v.items()}
+                else:
+                    out[k] = walk(v, days)
+            return out
+        return node
+    return walk(payload, shared_days, at_top=True)
 
 
 # --- Server-side window on the meeting content itself (2026-08-26) ---------

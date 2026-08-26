@@ -207,3 +207,27 @@ async def test_dossier_fetch_sends_no_key_for_unlimited_and_never_zero(cq_get):
     for unlimited in (None, 0, -5, False):
         await cq.quilt_dossier("u-1", "p-1", app_id="shouldersurf", max_age_days=unlimited)
         assert "max_age_days" not in _dossier_params(cq_get), unlimited
+
+
+# --- each tier's own strings read its own dial (Scott via CQ, 2026-08-26) --------
+
+def test_each_tiers_strings_read_that_tiers_dial_and_shared_strings_read_the_upgrade_target():
+    rc = {"entitlements": {"matrix": {"context_quilt": {"free": "teaser", "plus": "enabled", "pro": "enabled"}}},
+          "tiers": {"tiers": {
+              "free": {"feature_definitions": {"context_quilt": {"recall_max_age_days": 15}}, "card": "free: last {recall_window_days} days"},
+              "plus": {"feature_definitions": {"context_quilt": {"recall_max_age_days": 30}}, "card": "plus: last {recall_window_days} days"},
+              "pro": {"feature_definitions": {"context_quilt": {"recall_max_age_days": None}}, "card": "pro: last {recall_window_days} days"}},
+              "feature_definitions": {"context_quilt": {"upgrade_cta": "shared: last {recall_window_days} days"}}}}
+    out = render_recall_window_copy(rc["tiers"], rc)
+    assert out["tiers"]["free"]["card"] == "free: last 15 days"
+    assert out["tiers"]["plus"]["card"] == "plus: last 30 days"
+    assert out["tiers"]["pro"]["card"] == "pro: last recent days"          # unset dial: wobble, never a number
+    assert out["feature_definitions"]["context_quilt"]["upgrade_cta"] == "shared: last 30 days"
+
+
+def test_shared_strings_follow_the_mode_dial_to_the_lowest_enabled_tier():
+    rc = {"entitlements": {"matrix": {"context_quilt": {"free": "enabled", "plus": "enabled", "pro": "enabled"}}},
+          "tiers": {"tiers": {"free": {"feature_definitions": {"context_quilt": {"recall_max_age_days": 15}}},
+                              "plus": {"feature_definitions": {"context_quilt": {"recall_max_age_days": 30}}}},
+                    "cta": "last {recall_window_days} days"}}
+    assert render_recall_window_copy(rc["tiers"], rc)["cta"] == "last 15 days"

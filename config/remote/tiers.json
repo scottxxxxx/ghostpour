@@ -1,5 +1,5 @@
 {
-  "version": 53,
+  "version": 54,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -644,12 +644,14 @@
       "label": "See {tier_name}"
     },
     "memory_excluded_scope": {
-      "text": "Memory from {excluded} meeting{plural} in this project is not available on Free. Plus brings it into every conversation.",
-      "label": "See Plus"
+      "text": "Memory from {excluded} meeting{plural} in this project is not available on {tier_name}. {next_tier} brings it into every conversation.",
+      "label": "See {next_tier}"
     },
     "memory_excluded_window": {
-      "text": "This project has {excluded} meeting{plural} older than {window} days, outside the Plus window. Pro has no window.",
-      "label": "See Pro"
+      "text": "This project has {excluded} meeting{plural} older than {window} days, outside the {tier_name} window. {next_tier} has {next_window}.",
+      "label": "See {next_tier}",
+      "next_window_none": "no window",
+      "next_window_days": "a {n} day window"
     }
   },
   "paywall": {
