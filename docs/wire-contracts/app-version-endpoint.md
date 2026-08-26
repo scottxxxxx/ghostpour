@@ -246,6 +246,21 @@ mid-session, independent of the user updating.
   "upgrade_url": str, "min_supported_version": str }`. Client keys on
   `code == "upgrade_required"`, shows `message`, wires Update to `upgrade_url`.
 
+**Per-route floor: report writes** (2026-08-26). Two more `platforms.ios`
+fields, additive:
+
+- `report_write_min_build` (int, absent or 0 = no floor). A build below it
+  gets `412 Precondition Failed` with `detail.code == "report_build_floor"`
+  on `POST /v1/meetings/{id}/report` only; reads, render, chat and config
+  serve normally. Independent of `min_supported_blocking`. Shoulder Surf:
+  1193, the first build that states `transcript_language`. Contract detail
+  in `transcript-language.md`.
+- `user_agent_app_name` (string). The `CFBundleName` a default URLSession
+  User-Agent leads with (`Shoulder%20Surf/335 CFNetwork/...`), so a build
+  that predates `X-App-Build` (added at 648) can still be read for this
+  floor. Only the named app's token is read; anything else is unknown and
+  allowed.
+
 **Request headers** (iOS sends on every call, alongside `X-App-ID`):
 
 - `X-App-Version` — `CFBundleShortVersionString` (e.g. `"1.14"`); compared to

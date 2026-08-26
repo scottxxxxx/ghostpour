@@ -235,6 +235,13 @@ MIGRATIONS = [
     # cleanup feature flag is enabled; NULL otherwise. iOS reads this
     # field optionally and falls back to its raw transcript when absent.
     "ALTER TABLE meeting_reports ADD COLUMN cleaned_transcript TEXT",
+    # 2026-08-26: the language a report was GENERATED in (primary subtag the
+    # LANGUAGE directive was built from, "en" when none) and the client's
+    # stated transcript_language, raw. Echoed on generate and fetch so SS can
+    # tag each stored report and refuse a cross-language sync overwrite (a
+    # build-335 regeneration replaced a Spanish report with an English one).
+    "ALTER TABLE meeting_reports ADD COLUMN report_language TEXT",
+    "ALTER TABLE meeting_reports ADD COLUMN transcript_language TEXT",
     # Persist the cleaned transcript canonically beside the raw one, so the
     # served transcript can be the cleaned version and the dashboard can show
     # original-vs-cleaned. `transcript` stays raw; `cleaned_transcript` is the

@@ -46,3 +46,49 @@ Not a 200 on the config push. A real summary call carrying
 `metadata.language: "es"` whose `usage_log.raw_request` system prompt ends
 with the `TRANSCRIPT LANGUAGE: es` line, and a Spanish transcript that comes
 back summarized in Spanish.
+
+## The report says which language it was written in (2026-08-26)
+
+Every report response carries two additive top-level fields:
+
+- `report_language` (string): the BCP-47 primary subtag the LANGUAGE
+  directive was built from, e.g. `"es"`. `"en"` when no directive was
+  applied, because the model wrote English then and null would be a lie.
+  On `GET /v1/meetings/{id}/report` for a report cached before this
+  shipped the value is `null`: untagged, not English.
+- `transcript_language` (string or null): the client's stated value,
+  echoed raw as sent (`"es-US"`). Evidence, not something to merge on.
+
+Present on `POST /v1/meetings/{id}/report` (real and canned), on the
+cached `GET`, and on `POST /v1/reports/render`, where it is only an echo
+of the optional request field `report_language` (rendering does not
+generate, so it never discovers a language; send the value you stored).
+
+SS stores `report_language` as the report's generated-language tag and
+its CloudKit merge refuses a cross-language overwrite. Why: on 2026-08-24
+a build-335 regeneration of a Spanish meeting followed the device locale
+(that build predates this field), came back English, and sync replaced
+the Spanish report with it. Same pair lands in `usage_log`
+`metadata.report` on every report row (#805).
+
+## Report writes have a build floor (2026-08-26)
+
+`POST /v1/meetings/{id}/report` from a build below the served
+`report_write_min_build` (app-versions.yml, `platforms.ios`; 1193 for
+Shoulder Surf, the first build that states `transcript_language`) is
+refused with **`412 Precondition Failed`** and the FastAPI `detail`
+envelope, like every other coded report error:
+
+```json
+{"detail": {"code": "report_build_floor",
+            "message": "This build cannot generate reports; update Shoulder Surf.",
+            "min_build": 1193, "app_build": 335, "recovery_action": "update_app"}}
+```
+
+Reads (`GET`), render, chat and config are untouched: an old build keeps
+working, it just cannot generate or overwrite a report. The build is read
+from `X-App-Build`, else from the leading `<CFBundleName>/<build>` token
+of a default URLSession User-Agent when it names the app
+(`user_agent_app_name` beside the floor; builds before 648 sent no
+`X-App-Build`). No readable build, no floor configured, or an app without
+one: allowed, never guessed. Not 426: that is the app-wide hard gate.
