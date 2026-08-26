@@ -25,6 +25,17 @@
 com.shouldersurf.ShoulderSurf:
   platforms:
     ios:
+      # Report WRITE floor (2026-08-26, Scott via CQ). A build below this
+      # gets 412 report_build_floor on POST /v1/meetings/{id}/report and
+      # nothing else changes for it (reads, chat, config all serve). Set
+      # at the first build that states transcript_language on the report
+      # call, so a regeneration can never follow the device locale
+      # instead of the meeting's language. Absent or 0 = no floor.
+      report_write_min_build: 1193
+      # CFBundleName, the token a default URLSession User-Agent leads with
+      # ("Shoulder%20Surf/335 CFNetwork/..."). Builds before 648 sent no
+      # X-App-Build, so this is how their build is read for the floor.
+      user_agent_app_name: "Shoulder Surf"
       latest:
         # Bump on every release. Client shows a dismissible toast when
         # the device's CFBundleShortVersionString is below this.
