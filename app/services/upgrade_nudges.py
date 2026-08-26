@@ -61,12 +61,14 @@ DEFAULT_COPY: dict[str, dict[str, str]] = {
     # by_window = meetings whose last observation is older than the
     # window). Copy must claim the project count, not "memory found".
     "memory_excluded_scope": {
-        "text": "Memory from {excluded} meeting{plural} in this project is not available on Free. Plus brings it into every conversation.",
-        "label": "See Plus",
+        "text": "Memory from {excluded} meeting{plural} in this project is not available on {tier_name}. {next_tier} brings it into every conversation.",
+        "label": "See {next_tier}",
     },
     "memory_excluded_window": {
-        "text": "This project has {excluded} meeting{plural} older than {window} days, outside the Plus window. Pro has no window.",
-        "label": "See Pro",
+        "text": "This project has {excluded} meeting{plural} older than {window} days, outside the {tier_name} window. {next_tier} has {next_window}.",
+        "next_window_none": "no window",
+        "next_window_days": "a {n} day window",
+        "label": "See {next_tier}",
     },
 }
 
@@ -130,6 +132,12 @@ def context_upgrade_action(
     }
 
 
+def _tier_display(remote_configs: dict, tier: str) -> str:
+    t = ((remote_configs.get("tiers") or {}).get("tiers") or {}).get(tier) or {}
+    name = t.get("display_name") if isinstance(t, dict) else None
+    return name if isinstance(name, str) and name else tier.capitalize()
+
+
 def memory_excluded_cta(
     remote_configs: dict,
     current_tier: str,
@@ -139,8 +147,16 @@ def memory_excluded_cta(
     """A feature_state for the chat envelope when CQ reports matches it
     could not use. Two shapes, by what did the excluding:
 
-      by_scope   Free's People-scoped recall left matches out  -> Plus
-      by_window  Plus's N-day window left older matches out    -> Pro
+      by_scope   a not-enabled tier's People-scoped recall left matches out
+      by_window  a windowed tier's N-day window left older matches out
+
+    The TARGET is read from the dials, never assumed from a tier name
+    (Scott via CQ, 2026-08-26: mode and window are two independent dials
+    per tier and every combination must work by configuration alone).
+    by_scope sells the lowest higher tier whose memory mode is "enabled";
+    by_window sells the lowest higher tier whose window is wider or
+    unlimited. No such tier: silence. Copy placeholders: {excluded}
+    {plural} {window} {tier_name} {next_tier} {next_window}.
 
     `excluded` is CQ's additive block: {"by_scope": {"meetings": n},
     "by_window": {"meetings": n, "oldest": iso}}. Any of it may be
@@ -149,6 +165,8 @@ def memory_excluded_cta(
     """
     if not isinstance(excluded, dict) or current_tier not in LADDER:
         return None
+    from app.services.entitlements import entitlement_state
+    from app.services.recall_window import recall_max_age_days
 
     def _n(block) -> int:
         v = (block or {}).get("meetings") if isinstance(block, dict) else None
@@ -156,19 +174,41 @@ def memory_excluded_cta(
 
     by_scope = _n(excluded.get("by_scope"))
     by_window = _n(excluded.get("by_window"))
+    above = LADDER[LADDER.index(current_tier) + 1:]
+    mode = entitlement_state(remote_configs, current_tier, "context_quilt")
+    cur = window_days if isinstance(window_days, int) and not isinstance(window_days, bool) and window_days >= 1 else None
+    me = _tier_display(remote_configs, current_tier)
 
-    if current_tier == "free" and by_scope:
+    if mode != "enabled" and by_scope:
+        plan = next((t for t in above if entitlement_state(remote_configs, t, "context_quilt") == "enabled"), None)
+        if plan is None:
+            return None
         copy = _copy(remote_configs, "memory_excluded_scope")
-        n, plan = by_scope, "plus"
-        text = _fmt(copy["text"], excluded=n, plural="" if n == 1 else "s")
+        n = by_scope
+        fmt = dict(excluded=n, plural="" if n == 1 else "s", tier_name=me,
+                   next_tier=_tier_display(remote_configs, plan))
         kind = "memory_excluded_scope"
-    elif current_tier == "plus" and by_window and window_days:
+    elif cur and by_window:
+        def _wider(t):
+            w = recall_max_age_days(remote_configs, t)
+            return w is None or w > cur
+        plan = next((t for t in above if _wider(t)), None)
+        if plan is None:
+            return None
         copy = _copy(remote_configs, "memory_excluded_window")
-        n, plan = by_window, "pro"
-        text = _fmt(copy["text"], excluded=n, plural="" if n == 1 else "s", window=window_days)
+        n = by_window
+        nw = recall_max_age_days(remote_configs, plan)
+        phrase = _copy(remote_configs, "memory_excluded_window").get(
+            "next_window_none" if nw is None else "next_window_days",
+            DEFAULT_COPY["memory_excluded_window"]["next_window_none" if nw is None else "next_window_days"])
+        fmt = dict(excluded=n, plural="" if n == 1 else "s", window=cur, tier_name=me,
+                   next_tier=_tier_display(remote_configs, plan),
+                   next_window=_fmt(phrase, n=nw if nw is not None else ""))
         kind = "memory_excluded_window"
     else:
         return None
+    text = _fmt(copy["text"], **fmt)
+    label = _fmt(copy["label"], **fmt)
 
     return {
         "feature": "context_quilt",
@@ -176,8 +216,9 @@ def memory_excluded_cta(
         "cta": {
             "kind": kind,
             "text": text,
-            "primary_action": {"label": copy["label"], "action": "open_paywall", "plan": plan},
+            "primary_action": {"label": label, "action": "open_paywall", "plan": plan},
             "secondary_action": {"label": "Not now", "action": "dismiss"},
-            "details": {"excluded_meetings": n, **({"window_days": window_days} if window_days else {})},
+            "details": {"excluded_meetings": n, **({"window_days": cur} if cur else {}),
+                        "next_tier": plan},
         },
     }

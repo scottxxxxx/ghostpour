@@ -1,5 +1,5 @@
 {
-  "version": 52,
+  "version": 53,
   "tiers": {
     "free": {
       "display_name": "Gratis",
@@ -644,12 +644,14 @@
       "label": "Ver {tier_name}"
     },
     "memory_excluded_scope": {
-      "text": "La memoria de {excluded} reuniones de este proyecto no está disponible en Free. Plus la incorpora a cada conversación.",
-      "label": "Ver Plus"
+      "text": "La memoria de {excluded} reuniones de este proyecto no está disponible en {tier_name}. {next_tier} la incorpora a cada conversación.",
+      "label": "Ver {next_tier}"
     },
     "memory_excluded_window": {
-      "text": "Este proyecto tiene {excluded} reuniones de hace más de {window} días, fuera de la ventana de Plus. Pro no tiene límite de tiempo.",
-      "label": "Ver Pro"
+      "text": "Este proyecto tiene {excluded} reuniones de hace más de {window} días, fuera de la ventana de {tier_name}. {next_tier} {next_window}.",
+      "label": "Ver {next_tier}",
+      "next_window_none": "no tiene ventana",
+      "next_window_days": "tiene una ventana de {n} días"
     }
   },
   "paywall": {

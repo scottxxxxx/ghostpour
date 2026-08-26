@@ -13,7 +13,20 @@ import pytest
 
 from app.services import upgrade_nudges as un
 
-RC = {"tiers": {}}  # no served copy -> code defaults, which is the floor
+# No served copy -> code defaults, which is the floor. The DIALS are what a
+# nudge keys on (Scott via CQ, 2026-08-26): a memory mode per tier and a
+# window per tier, both served, never a tier name.
+def _rc(modes=None, windows=None, copy=None):
+    modes = modes or {"free": "teaser", "plus": "enabled", "pro": "enabled"}
+    windows = windows if windows is not None else {"plus": 30, "pro": None}
+    tiers = {t: {"display_name": t.capitalize(),
+                 "feature_definitions": {"context_quilt": {"recall_max_age_days": windows[t]}} if t in windows else {}}
+             for t in ("free", "plus", "pro")}
+    return {"entitlements": {"matrix": {"context_quilt": modes}},
+            "tiers": {"tiers": tiers, **({"upgrade_nudges": copy} if copy else {})}}
+
+
+RC = _rc()
 
 
 def _caps(table):
@@ -83,6 +96,7 @@ def test_a_locale_that_skips_a_placeholder_does_not_crash():
     is the one outcome worse than no nudge."""
     rc = {"tiers": {"upgrade_nudges": {"memory_excluded_scope": {
         "text": "Omitidas: {excluded}", "label": "Ver Plus"}}}}
+    rc = {**RC, "tiers": {**RC["tiers"], **rc["tiers"]}}
     s = un.memory_excluded_cta(rc, "free", {"by_scope": {"meetings": 3}}, None)
     assert s["cta"]["text"] == "Omitidas: 3"
 
@@ -103,7 +117,8 @@ def test_plus_window_exclusion_nudges_to_pro_with_the_number_and_the_window():
     assert s["cta"]["kind"] == "memory_excluded_window"
     assert "4 meetings older than 30 days" in s["cta"]["text"]
     assert s["cta"]["primary_action"]["plan"] == "pro"
-    assert s["cta"]["details"] == {"excluded_meetings": 4, "window_days": 30}
+    assert s["cta"]["details"] == {"excluded_meetings": 4, "window_days": 30, "next_tier": "pro"}
+    assert "Pro has no window" in s["cta"]["text"]
 
 
 def test_singular_reads_as_singular():
@@ -142,7 +157,7 @@ def test_cq_real_block_renders_with_its_extra_keys_ignored():
     free = un.memory_excluded_cta(RC, "free", CQ_EXCLUDED, None)
     plus = un.memory_excluded_cta(RC, "plus", CQ_EXCLUDED, 30)
     assert free["cta"]["details"]["excluded_meetings"] == 67
-    assert plus["cta"]["details"] == {"excluded_meetings": 60, "window_days": 30}
+    assert plus["cta"]["details"] == {"excluded_meetings": 60, "window_days": 30, "next_tier": "pro"}
 
 
 OVERCLAIMS = {
@@ -216,3 +231,80 @@ def test_context_block_on_pro_offers_nothing_because_nothing_fits(client, pro_us
         assert "Deselect" in cta["text"]
     finally:
         cc["limits"] = original
+
+
+# --- the dials, not the names (Scott via CQ, 2026-08-26) ------------------------
+
+def test_free_enabled_with_a_window_is_nudged_by_window_to_the_next_wider_tier():
+    rc = _rc(modes={"free": "enabled", "plus": "enabled", "pro": "enabled"}, windows={"free": 15, "plus": None, "pro": None})
+    s = un.memory_excluded_cta(rc, "free", {"by_scope": {"meetings": 9}, "by_window": {"meetings": 2}}, 15)
+    assert s["cta"]["kind"] == "memory_excluded_window"       # scope cannot apply: Free is enabled
+    assert s["cta"]["primary_action"]["plan"] == "plus" and "Plus has no window" in s["cta"]["text"]
+    assert "older than 15 days, outside the Free window" in s["cta"]["text"]
+
+
+def test_free_teaser_with_a_window_still_sells_scope_first():
+    rc = _rc(windows={"free": 15, "plus": 30, "pro": None})
+    s = un.memory_excluded_cta(rc, "free", {"by_scope": {"meetings": 3}, "by_window": {"meetings": 8}}, 15)
+    assert s["cta"]["kind"] == "memory_excluded_scope" and s["cta"]["primary_action"]["plan"] == "plus"
+
+
+def test_the_window_target_is_the_next_tier_that_is_wider_and_says_its_window():
+    rc = _rc(windows={"plus": 30, "pro": 60})
+    s = un.memory_excluded_cta(rc, "plus", {"by_window": {"meetings": 4}}, 30)
+    assert s["cta"]["primary_action"]["plan"] == "pro" and "Pro has a 60 day window" in s["cta"]["text"]
+    same = _rc(windows={"plus": 30, "pro": 30})
+    assert un.memory_excluded_cta(same, "plus", {"by_window": {"meetings": 4}}, 30) is None
+    narrower = _rc(windows={"plus": 30, "pro": 7})
+    assert un.memory_excluded_cta(narrower, "plus", {"by_window": {"meetings": 4}}, 30) is None
+
+
+def test_scope_sells_the_lowest_higher_tier_whose_mode_is_enabled():
+    rc = _rc(modes={"free": "teaser", "plus": "teaser", "pro": "enabled"})
+    s = un.memory_excluded_cta(rc, "free", {"by_scope": {"meetings": 2}}, None)
+    assert s["cta"]["primary_action"]["plan"] == "pro" and "Pro brings it" in s["cta"]["text"]
+    s2 = un.memory_excluded_cta(rc, "plus", {"by_scope": {"meetings": 2}}, None)
+    assert s2["cta"]["primary_action"]["plan"] == "pro"
+
+
+def test_all_tiers_enabled_and_unlimited_means_no_memory_nudge_can_fire():
+    rc = _rc(modes={"free": "enabled", "plus": "enabled", "pro": "enabled"}, windows={"free": None, "plus": None, "pro": None})
+    for tier in ("free", "plus", "pro"):
+        assert un.memory_excluded_cta(rc, tier, {"by_scope": {"meetings": 5}, "by_window": {"meetings": 5}}, None) is None
+
+
+def test_nobody_enabled_above_means_silence_not_a_dead_end_paywall():
+    rc = _rc(modes={"free": "teaser", "plus": "teaser", "pro": "teaser"})
+    assert un.memory_excluded_cta(rc, "free", {"by_scope": {"meetings": 5}}, None) is None
+
+
+def test_display_names_come_from_the_served_tiers():
+    rc = _rc(); rc["tiers"]["tiers"]["pro"]["display_name"] = "Pro Max"
+    s = un.memory_excluded_cta(rc, "plus", {"by_window": {"meetings": 1}}, 30)
+    assert "Pro Max has no window" in s["cta"]["text"] and s["cta"]["primary_action"]["label"] == "See Pro Max"
+
+
+def test_served_copy_with_the_new_placeholders_and_a_localized_window_phrase():
+    copy = {"memory_excluded_window": {"text": "{tier_name}: {excluded} fuera de {window} días. {next_tier} {next_window}.",
+                                       "label": "Ver {next_tier}", "next_window_none": "no tiene ventana",
+                                       "next_window_days": "tiene una ventana de {n} días"}}
+    rc = _rc(windows={"plus": 30, "pro": None}, copy=copy)
+    s = un.memory_excluded_cta(rc, "plus", {"by_window": {"meetings": 2}}, 30)
+    assert s["cta"]["text"] == "Plus: 2 fuera de 30 días. Pro no tiene ventana." and s["cta"]["primary_action"]["label"] == "Ver Pro"
+    rc2 = _rc(windows={"plus": 30, "pro": 90}, copy=copy)
+    assert "Pro tiene una ventana de 90 días." in un.memory_excluded_cta(rc2, "plus", {"by_window": {"meetings": 2}}, 30)["cta"]["text"]
+
+
+def test_every_served_locale_uses_the_placeholders_not_tier_names():
+    import json
+    from pathlib import Path
+    root = Path(__file__).parent.parent / "config" / "remote"
+    for loc in ("tiers", "tiers.es", "tiers.fr", "tiers.ja"):
+        u = json.loads((root / f"{loc}.json").read_text())["upgrade_nudges"]
+        for key in ("memory_excluded_scope", "memory_excluded_window"):
+            blob = u[key]["text"] + u[key]["label"]
+            assert "{next_tier}" in blob and "{tier_name}" in u[key]["text"], (loc, key)
+            for name in ("Free", "Plus", "Pro"):
+                assert name not in blob, (loc, key, name)
+        assert "{n}" in u["memory_excluded_window"]["next_window_days"], loc
+        assert u["memory_excluded_window"]["next_window_none"], loc

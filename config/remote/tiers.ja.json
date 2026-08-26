@@ -1,5 +1,5 @@
 {
-  "version": 52,
+  "version": 53,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -644,12 +644,14 @@
       "label": "{tier_name}を見る"
     },
     "memory_excluded_scope": {
-      "text": "このプロジェクトの会議{excluded}件のメモリはFreeでは利用できません。Plusならすべての会話に取り込みます。",
-      "label": "Plusを見る"
+      "text": "このプロジェクトの会議{excluded}件のメモリは{tier_name}では利用できません。{next_tier}ならすべての会話に取り込みます。",
+      "label": "{next_tier}を見る"
     },
     "memory_excluded_window": {
-      "text": "このプロジェクトには{window}日より前の会議が{excluded}件あり、Plusの対象期間外です。Proには期間の制限がありません。",
-      "label": "Proを見る"
+      "text": "このプロジェクトには{window}日より前の会議が{excluded}件あり、{tier_name}の対象期間外です。{next_tier}{next_window}。",
+      "label": "{next_tier}を見る",
+      "next_window_none": "には期間の制限がありません",
+      "next_window_days": "の対象期間は{n}日です"
     }
   },
   "paywall": {

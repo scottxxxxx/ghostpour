@@ -2836,7 +2836,7 @@ function renderTiers(tiers) {
           <button class="refresh-btn" style="background:var(--accent);color:#000;font-weight:600;padding:6px 12px"
                   onclick="saveRecallWindow('${name}')">Save</button>
         </div>
-        <div id="recall-window-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px">empty = unlimited. Sent to CQ as metadata.max_age_days on every recall; the Plus number also fills {recall_window_days} in served copy. Mirror to the repo after saving.</div>
+        <div id="recall-window-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px">empty = unlimited. Independent of the memory mode cell (Entitlements matrix). Sent to CQ as metadata.max_age_days on every recall and applied to project chat meeting content; fills {recall_window_days} in this tier's own strings (shared strings read the upgrade target's). Nudges read these dials, not tier names. Mirror to the repo after saving.</div>
       </div>
       <div style="margin-top:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:6px">
         <div class="lbl" style="margin-bottom:6px">Meeting share: archive size cap (MB)</div>
