@@ -1,5 +1,5 @@
 {
-  "version": 53,
+  "version": 54,
   "tiers": {
     "free": {
       "display_name": "Gratuit",
@@ -153,6 +153,9 @@
         },
         "generation": {
           "generations_per_month": 5
+        },
+        "context_quilt": {
+          "recall_max_age_days": null
         }
       }
     },
@@ -628,6 +631,26 @@
         "quota_exhausted": "Vous avez utilisé vos {total} Chats de projet gratuits pour ce mois. Passez à Plus pour un accès illimité.",
         "unlimited": "Chat de projet par Shoulder Surf.",
         "login_required": "Connectez-vous pour utiliser le Chat de projet."
+      },
+      "entry": {
+        "coach_mark_title": "Choisissez ce que l'IA peut voir",
+        "coach_mark_body": "Cette zone définit les réunions et les notes incluses dans cette discussion, et affiche les dates couvertes. Modifiable à tout moment.",
+        "coach_mark_dismiss_label": "Ne plus afficher",
+        "context_range_label": "Réunions du {start} au {end}",
+        "context_range_windowed_label": "Vos {window_days} derniers jours : du {start} au {end}",
+        "context_range_empty_label": "Aucune réunion sélectionnée",
+        "quick_prompts": [
+          {
+            "id": "evolved",
+            "label": "Comment ce projet a-t-il évolué ?",
+            "prompt": "Comment ce projet a-t-il évolué au fil du temps ?"
+          },
+          {
+            "id": "decisions",
+            "label": "Quelles décisions ont été prises ?",
+            "prompt": "Quelles décisions ont été prises dans ce projet, et quand ?"
+          }
+        ]
       }
     },
     "search": {

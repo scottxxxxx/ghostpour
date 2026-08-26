@@ -59,6 +59,12 @@ OPTIONAL_KEYS = {
         "gp_chat_flag": "Routing flag that only the project_chat feature has ever carried.",
         "teaser_response": "The canned upsell body, carried only by features with a teaser state.",
         "signed_out": "people only; added 2026-08-03 and no shipped build requires it.",
+        "entry": (
+            "project_chat only (coach mark, context range labels, quick prompt "
+            "chips, 2026-08-26). No shipped build decodes it; SS declares it "
+            "Optional on the shared FeatureDefinitionInfo, agreed in writing "
+            "with shouldersurf-6f the day it was added."
+        ),
     },
 }
 
