@@ -16,6 +16,8 @@ Free has no quilt leg (teaser), so its value is never read on a recall.
 """
 from __future__ import annotations
 
+import re
+
 FEATURE = "context_quilt"
 FIELD = "recall_max_age_days"
 
@@ -83,3 +85,82 @@ def render_recall_window_copy(payload, remote_configs: dict):
         return node
 
     return walk(payload)
+
+
+# --- Server-side window on the meeting content itself (2026-08-26) ---------
+#
+# Scott's ruling (via CQ, supersedes earlier): a Plus user's project chat
+# is hydrated with the LAST N DAYS of meetings, a sliding window ending
+# now, even when the project holds more; Pro has no window; N is the dial
+# above, never a constant. CQ applies N to memory patches. The meeting
+# content (summaries, transcript excerpts, prior Q&A) is assembled by the
+# client into system_prompt from its slider, and until now GP passed it
+# through whatever the slider said. The slider is UI, not a gate; this is
+# the gate, reading the SAME dial, so there is no hole between the halves.
+#
+# Anchor: the assembly contract (docs/wire-contracts/project-chat-prompt-
+# assembly.md) puts every meeting under a dated H2:
+#     ## Meeting {i} of {N} — {YYYY-MM-DD} · "{title}" ({relative_time})
+# A block runs to the next H2 or the end. Numbering is NOT rewritten (the
+# client keeps an i -> meeting_id map for follow-up actions); only the
+# "You have context from N meeting(s), spanning A to B" preamble is
+# re-stated so the model is not told about meetings it cannot see.
+# Fail open per block: a header whose date does not parse is kept.
+
+_MEETING_H2 = __import__("re").compile(
+    r"^## Meeting (\d+) of (\d+) [\u2014\-\u2013] (\d{4}-\d{2}-\d{2})\b", re.M)
+_PREAMBLE = __import__("re").compile(
+    r"You have context from (?:one meeting, dated \d{4}-\d{2}-\d{2}|\d+ meeting\(s\)?, spanning "
+    r"\d{4}-\d{2}-\d{2} to \d{4}-\d{2}-\d{2})(, ordered oldest \u2192 newest)?")
+
+
+def clamp_meeting_blocks(system_prompt: str | None, max_age_days: int | None,
+                         today=None) -> tuple[str | None, list[str]]:
+    """Drop every dated meeting block older than `max_age_days` (UTC days,
+    inclusive: a meeting exactly N days old is still in). Returns the
+    prompt and the dates dropped, in order. No window, no prompt, or no
+    dated blocks: unchanged."""
+    if not system_prompt or not isinstance(max_age_days, int) or isinstance(max_age_days, bool) \
+            or max_age_days < 1:
+        return system_prompt, []
+    from datetime import date, datetime, timedelta, timezone
+    if today is None:
+        today = datetime.now(timezone.utc).date()
+    cutoff = today - timedelta(days=max_age_days)
+    heads = list(_MEETING_H2.finditer(system_prompt))
+    if not heads:
+        return system_prompt, []
+    # block boundaries: each block ends at the next H2 of ANY kind, or EOF
+    h2_starts = [m.start() for m in re.finditer(r"^## ", system_prompt, re.M)]
+    out, pos, dropped, kept_dates = [], 0, [], []
+    for m in heads:
+        start = m.start()
+        nxt = next((s for s in h2_starts if s > start), len(system_prompt))
+        try:
+            when = date.fromisoformat(m.group(3))
+        except ValueError:
+            kept_dates.append(None)
+            continue  # unreadable date: keep the block
+        if when < cutoff:
+            out.append(system_prompt[pos:start])
+            pos = nxt
+            dropped.append(m.group(3))
+        else:
+            kept_dates.append(when)
+    out.append(system_prompt[pos:])
+    text = "".join(out)
+    if dropped:
+        real = [d for d in kept_dates if d is not None]
+        n_kept = len(kept_dates)
+        if n_kept == 0:
+            pre = "You have context from no meetings in the last %d days." % max_age_days
+        elif n_kept == 1 and len(real) == 1:
+            pre = "You have context from one meeting, dated %s." % real[0].isoformat()
+        elif real:
+            pre = "You have context from %d meeting(s), spanning %s to %s" % (
+                n_kept, min(real).isoformat(), max(real).isoformat())
+        else:
+            pre = None
+        if pre:
+            text, n_sub = _PREAMBLE.subn(lambda mm: pre + (mm.group(1) or ""), text, count=1)
+    return text, dropped
