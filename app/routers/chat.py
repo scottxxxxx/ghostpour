@@ -1690,6 +1690,23 @@ async def chat(
     if _lang_sys != body.system_prompt:
         body = body.model_copy(update={"system_prompt": _lang_sys})
 
+    # Plus recall window, meeting-content half (Scott via CQ, 2026-08-26):
+    # a windowed tier's project chat is hydrated with the last N days of
+    # meetings, sliding from today. CQ windows the memory patches with the
+    # same dial (metadata.max_age_days above); this drops the client-
+    # assembled meeting blocks older than N regardless of what the slider
+    # sent, so both halves cut at the same day. Pro's dial is null: nothing
+    # happens. Project chat only: that is the surface the ruling names.
+    if body.get_meta("prompt_mode") == "ProjectChat":
+        from app.services.recall_window import clamp_meeting_blocks, recall_max_age_days as _win
+        _n_days = _win(request.app.state.remote_configs, user.effective_tier)
+        if _n_days is not None:
+            _clamped, _dropped = clamp_meeting_blocks(body.system_prompt, _n_days)
+            if _dropped:
+                logger.info("project_chat_window_clamp tier=%s window_days=%d dropped=%d oldest=%s",
+                            user.effective_tier, _n_days, len(_dropped), min(_dropped))
+                body = body.model_copy(update={"system_prompt": _clamped})
+
     # Safety net: the CQ hook fills the {{context_quilt}} placeholder ONLY
     # when CQ is enabled AND recall returned content. In every other path —
     # recall empty, teaser tier, CQ-disabled tier (hook skipped entirely
