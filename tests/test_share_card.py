@@ -81,6 +81,9 @@ def test_counts_are_the_headline_and_urgent_rides_in_amber_only_when_present():
     assert p["open_count"] == 4 and p["urgent_count"] == 2
     p1 = plan_card(_facts(actions=[ACTIONS[2]]))
     assert p1["headline"] == "1 open item" and p1["urgent"] is None and p1["line2"] == ""
+    one = plan_card(_facts(actions=[ACTIONS[0], ACTIONS[2]]))
+    assert one["urgent"] == "1 urgent"                                       # singular, never "1 urgents"
+    assert plan_card(_facts(actions=[ACTIONS[0]], share_language="es"))["urgent"] == "1 urgente"
     assert "⚡" not in json.dumps(p)
 
 

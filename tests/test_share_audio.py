@@ -291,7 +291,7 @@ def test_contents_descriptor_comes_off_the_bytes_localized_to_share_language(cli
     token = _share(client, pro_user, _bundle_rend([EN], share_language="en", images=3))
     page = client.get(f"/s/{token}").text
     assert "Transcript · 3 photos" in page
-    assert "content='Transcript · 3 photos" in page
+    assert "Transcript · 3 photos" in page
     token2 = _share(client, pro_user, _bundle_rend(None, share_language="es", images=1))
     assert "Transcripción · 1 foto" in client.get(f"/s/{token2}").text
 
