@@ -1,5 +1,5 @@
 {
-  "version": 54,
+  "version": 55,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -153,6 +153,9 @@
         },
         "generation": {
           "generations_per_month": 5
+        },
+        "context_quilt": {
+          "recall_max_age_days": null
         }
       }
     },
@@ -628,6 +631,26 @@
         "quota_exhausted": "You've used your {total} free Project Chats for this month. Upgrade to Plus for unlimited.",
         "unlimited": "Project Chat by Shoulder Surf.",
         "login_required": "Sign in to use Project Chat."
+      },
+      "entry": {
+        "coach_mark_title": "Choose what the AI can see",
+        "coach_mark_body": "This area sets which meetings and notes go into this chat, and shows the dates covered. Change it any time.",
+        "coach_mark_dismiss_label": "Don't show this again",
+        "context_range_label": "Using meetings from {start} to {end}",
+        "context_range_windowed_label": "Your last {window_days} days: {start} to {end}",
+        "context_range_empty_label": "No meetings selected",
+        "quick_prompts": [
+          {
+            "id": "evolved",
+            "label": "How has this project evolved?",
+            "prompt": "How has this project evolved over time?"
+          },
+          {
+            "id": "decisions",
+            "label": "What decisions have been made?",
+            "prompt": "What decisions have been made in this project, and when?"
+          }
+        ]
       }
     },
     "search": {

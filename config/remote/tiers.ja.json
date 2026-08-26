@@ -1,5 +1,5 @@
 {
-  "version": 53,
+  "version": 54,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -153,6 +153,9 @@
         },
         "generation": {
           "generations_per_month": 5
+        },
+        "context_quilt": {
+          "recall_max_age_days": null
         }
       }
     },
@@ -628,6 +631,26 @@
         "quota_exhausted": "今月の無料プロジェクトチャット{total}回をすべて使い切りました。Plusにアップグレードすると無制限にご利用いただけます。",
         "unlimited": "Shoulder Surfのプロジェクトチャット。",
         "login_required": "プロジェクトチャットを使用するにはサインインしてください。"
+      },
+      "entry": {
+        "coach_mark_title": "AIに見せる範囲を選ぶ",
+        "coach_mark_body": "ここで、このチャットに含める会議とメモを決め、対象となる日付の範囲を確認できます。いつでも変更できます。",
+        "coach_mark_dismiss_label": "今後表示しない",
+        "context_range_label": "{start}から{end}までの会議を使用",
+        "context_range_windowed_label": "直近{window_days}日間: {start}から{end}まで",
+        "context_range_empty_label": "会議が選択されていません",
+        "quick_prompts": [
+          {
+            "id": "evolved",
+            "label": "このプロジェクトはどう進展しましたか？",
+            "prompt": "このプロジェクトは時間とともにどう進展しましたか？"
+          },
+          {
+            "id": "decisions",
+            "label": "どんな決定がなされましたか？",
+            "prompt": "このプロジェクトではどんな決定が、いつなされましたか？"
+          }
+        ]
       }
     },
     "search": {

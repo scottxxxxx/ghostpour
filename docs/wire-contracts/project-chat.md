@@ -76,3 +76,30 @@ with the same inputs the preflight saw. Outcomes:
 Free-tier blocking happens after this resolver in the budget gate. A
 Free user who's over their monthly spend cap gets the `budget_exhausted`
 envelope from `app/services/budget_gate.py`, not from this resolver.
+
+## Entry flow copy (2026-08-26, Scott via CQ)
+
+Opening a project chat from the project page ("Ask about this project"
+or a quick prompt chip) is a client flow; it produces the SAME
+`/v1/chat` ProjectChat request as any other project chat (same dated
+H2 meeting blocks, same recall legs, same server-side window). GP's half
+is the copy, served under `feature_definitions.project_chat.entry` on
+`/v1/config/tiers` and `/v1/tiers`, every locale, editable on the
+Remote Configs tab:
+
+- `coach_mark_title`, `coach_mark_body`, `coach_mark_dismiss_label`
+  (the first-run coach mark on the context area and its checkbox).
+- `context_range_label` ("Using meetings from {start} to {end}"),
+  `context_range_windowed_label` ("Your last {window_days} days: {start}
+  to {end}"), `context_range_empty_label`.
+- `quick_prompts`: `[{id, label, prompt}]`; `label` is the chip,
+  `prompt` is prefilled in the composer.
+
+`{start}`, `{end}` and `{window_days}` are the CLIENT's to fill.
+`window_days` comes from `tiers.<tier>.feature_definitions.context_quilt
+.recall_max_age_days` for the user's tier (explicit on every tier; null
+means no ceiling, use `context_range_label`), the same key that caps the
+slider, so the displayed range never claims a meeting the server-side
+window will drop. Not `{recall_window_days}`: GP fills that at serve time
+from the upgrade target's dial, which is right for upgrade copy and wrong
+for a label about the user's own tier.
