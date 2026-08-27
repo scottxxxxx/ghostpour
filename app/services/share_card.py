@@ -37,7 +37,7 @@ from PIL import Image, ImageDraw, ImageFont
 logger = logging.getLogger("ghostpour.share_card")
 
 W, H = 1200, 630
-CARD_VERSION = 3  # bump when the render changes; the sidecar name carries it
+CARD_VERSION = 4  # bump on EVERY plan or render change; the sidecar name carries it
 FONT_PATH = Path(__file__).resolve().parent.parent / "static" / "fonts" / "Inter.ttf"
 LOGO_PATH = Path(__file__).resolve().parent.parent / "static" / "share" / "icon-512.png"
 
@@ -476,12 +476,15 @@ _BOILER = re.compile(
 
 
 def _insight_line(text: str) -> str:
-    """One real sentence, not a boilerplate heading or raw markdown."""
+    """One real sentence, not a heading or raw markdown. EVERY markdown
+    heading is skipped, not only the boilerplate one: the live French card
+    (2026-08-26) took "## Origine de l'Entreprise", the summary's first
+    section title, once "# Résumé de Réunion" was filtered. A heading is a
+    label for what follows; the sentence is what follows."""
     for raw in (text or "").splitlines():
         line = raw.strip()
-        if not line:
+        if not line or re.match(r"^#{1,6}\s", line) or re.match(r"^#{1,6}$", line):
             continue
-        line = re.sub(r"^#{1,6}\s*", "", line)
         line = re.sub(r"^[-*•]\s+", "", line)
         line = re.sub(r"[*_`#]", "", line)
         line = re.sub(r"\s{2,}", " ", line).strip()
