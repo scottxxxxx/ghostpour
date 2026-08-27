@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "server_only": true,
+  "timeout_ms": 1500
+}

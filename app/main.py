@@ -290,6 +290,8 @@ async def lifespan(app: FastAPI):
                     await purge_shares(db)  # expired or revoked meeting shares
                     from app.services.translations import purge_transcript_translations
                     await purge_transcript_translations(db)  # cache never outlives its source
+                    from app.services.recall_tuning import purge_observations
+                    await purge_observations(db)  # recall telemetry, same 30d posture
             except Exception as e:  # noqa: BLE001 — sweep must never die
                 logging.getLogger("app.main").warning(
                     "generated_files sweep failed: %s", e,

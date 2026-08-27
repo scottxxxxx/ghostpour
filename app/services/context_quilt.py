@@ -231,6 +231,7 @@ async def recall(
     metadata: dict | None = None,
     subscription_tier: str | None = None,
     app_id: str | None = None,
+    timeout_ms: int | None = None,
 ) -> dict:
     """
     Fetch relevant context from Context Quilt's graph memory.
@@ -247,7 +248,18 @@ async def recall(
     if not settings.cq_base_url:
         return {"context": "", "matched_entities": [], "patch_count": 0}
 
-    timeout_sec = settings.cq_recall_timeout_ms / 1000.0
+    # The budget is resolved by the caller from the served dial (chat.py,
+    # beside the recall-window read) so this stays the one place that spends
+    # it. None means nobody resolved one: fall back to settings rather than
+    # inventing a number.
+    budget_ms = int(timeout_ms) if isinstance(timeout_ms, int) and not isinstance(timeout_ms, bool) \
+        and timeout_ms > 0 else settings.cq_recall_timeout_ms
+    timeout_sec = budget_ms / 1000.0
+    import time as _time
+    _t0 = _time.monotonic()
+
+    def _elapsed_ms() -> int:
+        return int((_time.monotonic() - _t0) * 1000)
 
     body: dict[str, Any] = {
         # The per-app subject, not the raw GP user id. SS resolves to the
@@ -297,6 +309,12 @@ async def recall(
         # healthy recall (the degrade branches below stamp it too).
         if isinstance(result, dict):
             result.setdefault("recall_scope", merged_metadata.get("recall_scope", "full"))
+            # How long it actually took, and the budget it ran under, so
+            # "did raising the timeout help" is answerable from the stored
+            # rows alone rather than from a container log that dies on the
+            # next deploy.
+            result["duration_ms"] = _elapsed_ms()
+            result["timeout_ms"] = budget_ms
         return result
 
     # Degrades are ERROR, not WARNING: the turn still answers, but WITHOUT
@@ -311,19 +329,23 @@ async def recall(
         logger.error(
             "cq_recall_degraded reason=timeout — turn proceeds WITHOUT memory block",
             extra={
-                "timeout_ms": settings.cq_recall_timeout_ms,
+                "timeout_ms": budget_ms,
+                "duration_ms": _elapsed_ms(),
                 "project": merged_metadata.get("project"),
                 "memory_signals": merged_metadata.get("memory_signals", "absent"),
                 "recall_scope": merged_metadata.get("recall_scope", "full"),
             },
         )
         return {"context": "", "matched_entities": [], "patch_count": 0,
-                "degraded": "timeout", "recall_scope": merged_metadata.get("recall_scope", "full")}
+                "degraded": "timeout", "recall_scope": merged_metadata.get("recall_scope", "full"),
+                "duration_ms": _elapsed_ms(), "timeout_ms": budget_ms}
     except Exception as e:
         logger.error(
             "cq_recall_degraded reason=error — turn proceeds WITHOUT memory block",
             extra={
                 "error": str(e),
+                "timeout_ms": budget_ms,
+                "duration_ms": _elapsed_ms(),
                 "project": merged_metadata.get("project"),
                 "memory_signals": merged_metadata.get("memory_signals", "absent"),
                 "recall_scope": merged_metadata.get("recall_scope", "full"),
@@ -331,7 +353,8 @@ async def recall(
         )
         return {"context": "", "matched_entities": [], "patch_count": 0,
                 "degraded": "error", "degraded_error": str(e)[:200],
-                "recall_scope": merged_metadata.get("recall_scope", "full")}
+                "recall_scope": merged_metadata.get("recall_scope", "full"),
+                "duration_ms": _elapsed_ms(), "timeout_ms": budget_ms}
 
 
 # Client-supplied metadata keys forwarded verbatim on capture. One

@@ -34,6 +34,7 @@ class ContextQuiltHook:
         skip_teasers: set[str],
         app_id: str | None = None,
         recall_max_age_days: int | None = None,
+        recall_timeout_ms: int | None = None,
     ) -> tuple[ChatRequest, dict[str, Any]]:
         result: dict[str, Any] = {
             "cq_result": {"context": "", "matched_entities": [], "patch_count": 0},
@@ -49,7 +50,8 @@ class ContextQuiltHook:
             # flip) is the same lane: the flag is what selects the hook's
             # own metadata-only teaser recall below.
             return await self._people_scoped_recall(
-                user, body, result, app_id, recall_max_age_days)
+                user, body, result, app_id, recall_max_age_days,
+                recall_timeout_ms)
 
         if not body.context_quilt:
             return body, result
@@ -197,6 +199,7 @@ class ContextQuiltHook:
                 text=body.user_content,
                 metadata=cq_metadata or None,
                 subscription_tier=user.effective_tier,
+                timeout_ms=recall_timeout_ms,
             )
             result["cq_result"] = cq_result
 
@@ -242,6 +245,7 @@ class ContextQuiltHook:
                 text=body.user_content,
                 metadata=cq_metadata or None,
                 subscription_tier=user.effective_tier,
+                timeout_ms=recall_timeout_ms,
             )
             result["cq_result"] = cq_result
             if cq_result.get("matched_entities"):
@@ -256,6 +260,7 @@ class ContextQuiltHook:
         result: dict[str, Any],
         app_id: str | None,
         recall_max_age_days: int | None = None,
+        recall_timeout_ms: int | None = None,
     ) -> tuple[ChatRequest, dict[str, Any]]:
         """Free lane: recall scoped to what the People tab shows.
 
@@ -293,6 +298,7 @@ class ContextQuiltHook:
             text=body.user_content,
             metadata=cq_metadata,
             subscription_tier=user.effective_tier,
+            timeout_ms=recall_timeout_ms,
         )
         result["cq_result"] = cq_result
         if cq_result.get("context"):

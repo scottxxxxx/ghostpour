@@ -166,6 +166,7 @@ NO_LOCALE_NEEDED = {
     "entitlements": "A tier/state matrix. Carries no user-facing prose.",
     "model-routing": "Server-side routing table. Never reaches a user.",
     "prompt-envelope": "Composition recipe. Section ids are machine tokens, not prose.",
+    "cq-recall": "Server-side recall budget in milliseconds. One number, no prose, never reaches a user.",
 }
 
 # Known, accepted gaps. Each is a translation owed, tracked here rather
