@@ -185,7 +185,7 @@ def test_card_route_renders_once_caches_by_version_and_dies_with_the_share(clien
     conn = sqlite3.connect(tmp_db_path); conn.row_factory = sqlite3.Row
     row = conn.execute("SELECT id, storage_path FROM meeting_shares WHERE token = ?", (token,)).fetchone(); conn.close()
     side = Path(sidecar_path(row["storage_path"]))
-    assert side.exists() and side.name.endswith(f".card.v{CARD_VERSION}.png")
+    assert side.exists() and side.name.endswith(f".card.v{CARD_VERSION}.png") and CARD_VERSION >= 4
     first = side.read_bytes()
     assert client.get(f"/s/{token}/card.png").content == first          # served from the sidecar
     r = client.delete(f"/v1/shares/{row['id']}", headers=pro_user["headers"])
@@ -226,6 +226,10 @@ def test_insight_line_drops_boilerplate_headings_and_markdown():
     # the article-less headings SS actually sends (live zero-state card, 2026-08-26)
     for heading in ("# Résumé de Réunion", "# Resumen de Reunión", "## Summary", "# 会議の要約", "Résumé de réunion:"):
         assert _insight_line(heading) == "", heading
+    # every heading is skipped, not only the boilerplate one (live card 2026-08-26)
+    fr = "# Résumé de Réunion\n\n## Origine de l'Entreprise\n- Antonio et Abraham ont décidé de créer une entreprise."
+    assert _insight_line(fr) == "Antonio et Abraham ont décidé de créer une entreprise."
+    assert _insight_line("## Only headings\n### And more") == ""
 
 
 def test_a_heading_only_summary_line_falls_through_to_the_rendition_then_the_report():
