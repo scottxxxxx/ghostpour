@@ -5,7 +5,9 @@ iMessage already draws the meeting title and the domain in the caption
 under the image, so the image spends every pixel on what iMessage cannot
 show: open items, urgent items, one named item, sentiment. Rules R1-R9
 from the design, applied here:
-  R1 title is caption-only (og:title), never rasterised;
+  R1 (OVERRIDDEN by Scott, 2026-08-26 evening): the meeting subject sits in
+     the big top slot of the image after all; the counts headline moves to
+     the row beneath it. og:title still carries the title for the caption.
   R2 nothing button-shaped inside the image, no CTA copy;
   R3 attribution (wordmark + artifact label) replaces the CTA;
   R4 counts are the headline, urgent in amber only when > 0, no glyph;
@@ -37,7 +39,7 @@ from PIL import Image, ImageDraw, ImageFont
 logger = logging.getLogger("ghostpour.share_card")
 
 W, H = 1200, 630
-CARD_VERSION = 4  # bump on EVERY plan or render change; the sidecar name carries it
+CARD_VERSION = 5  # bump on EVERY plan or render change; the sidecar name carries it
 FONT_PATH = Path(__file__).resolve().parent.parent / "static" / "fonts" / "Inter.ttf"
 LOGO_PATH = Path(__file__).resolve().parent.parent / "static" / "share" / "icon-512.png"
 
@@ -47,7 +49,7 @@ RULE = (40, 40, 44)       # 1px rgba(255,255,255,0.12) over the plate
 CHIP_LINE = (61, 61, 66)  # rgba(255,255,255,0.22) over the plate
 PAD_X, PAD_TOP, PAD_BOTTOM = 56, 44, 44
 
-LINE1_CAP, LINE2_CAP, SUMMARY_CAP, SENTIMENT_CAP, SECOND_CAP = 88, 72, 96, 34, 40
+LINE1_CAP, LINE2_CAP, SUMMARY_CAP, SENTIMENT_CAP, SECOND_CAP, TITLE_CAP = 88, 72, 96, 34, 40, 90
 
 STRINGS = {
     "en": {"report": "MEETING REPORT", "transcript": "TRANSCRIPT", "plus": " + ",
@@ -297,6 +299,8 @@ def plan_card(facts: dict) -> dict:
     sent = _sentiment(facts, lang)
     return {
         "lang": lang, "label": label, "chip": chip,
+        # the subject, top slot (Scott's flip); og:title carries it for the caption too
+        "title": _cap(str(facts.get("title") or ""), TITLE_CAP),
         "headline": headline, "urgent": urgent_text,
         "line1": line1, "line2": line2,
         "footer_left": " · ".join(meta),
@@ -411,24 +415,34 @@ def render_card(facts: dict) -> bytes:
         lw = _tracked_width(d, label, f_lab, 0.08)
         _tracked(d, (right - lw, PAD_TOP + 12), label, f_lab, GREY, 0.08)
 
-    # headline: counts (R4) or the zero state (R7)
-    y = 150
-    f_head = font(64, 700)
+    # top slot: the meeting subject (Scott's flip, 2026-08-26), up to two lines
+    y = 134
+    f_title = font(54, 700)
+    title_lines = _wrap(d, plan["title"], f_title, right - PAD_X, 2) if plan["title"] else []
+    for line in title_lines:
+        d.text((PAD_X, y), line, font=f_title, fill=WHITE)
+        y += 62
+    if not title_lines:
+        y += 62
+    y += 14
+
+    # counts row (R4) or the zero state (R7), where the subject used to be
+    f_head = font(40, 700)
     d.text((PAD_X, y), plan["headline"], font=f_head, fill=WHITE)
     if plan["urgent"]:
-        hx = PAD_X + d.textlength(plan["headline"], font=f_head) + 26
-        f_urg = font(40, 700)
-        d.text((hx, y + 22), plan["urgent"], font=f_urg, fill=AMBER)
+        hx = PAD_X + d.textlength(plan["headline"], font=f_head) + 22
+        f_urg = font(32, 700)
+        d.text((hx, y + 7), plan["urgent"], font=f_urg, fill=AMBER)
+    y += 58
 
     # body: one named item + the rest (R5), or summary + artifact note (R7)
-    y = 252
-    f_l1 = font(40, 600)
+    f_l1 = font(33, 600)
     for line in _wrap(d, plan["line1"], f_l1, right - PAD_X, 2):
         d.text((PAD_X, y), line, font=f_l1, fill=BODY)
-        y += 52
+        y += 43
     if plan["line2"]:
-        f_l2 = font(33, 400)
-        d.text((PAD_X, y + 10), _fit_one(d, plan["line2"], f_l2, right - PAD_X), font=f_l2, fill=DIM)
+        f_l2 = font(28, 400)
+        d.text((PAD_X, y + 6), _fit_one(d, plan["line2"], f_l2, right - PAD_X), font=f_l2, fill=DIM)
 
     # footer: rule, meta left, sentiment right (R6)
     ry = H - PAD_BOTTOM - 36 - 16
