@@ -240,6 +240,27 @@ MIGRATIONS = [
     # stated transcript_language, raw. Echoed on generate and fetch so SS can
     # tag each stored report and refuse a cross-language sync overwrite (a
     # build-335 regeneration replaced a Spanish report with an English one).
+    # v2026-08-27: every recall attempt, so "is the timeout right" is a
+    # query rather than a guess. The container log answered it until now
+    # and resets on every deploy, which is why the 08-27 degrade rate
+    # (44% of full-scope recalls) could only be computed for one day.
+    # `timeout_ms` records the budget each row RAN UNDER, so a later
+    # change to the dial stays legible in the same table.
+    """CREATE TABLE IF NOT EXISTS recall_observations (
+        id TEXT PRIMARY KEY,
+        created_at TEXT NOT NULL,
+        app_id TEXT,
+        user_id TEXT,
+        tier TEXT,
+        scope TEXT NOT NULL,
+        outcome TEXT NOT NULL,
+        duration_ms INTEGER,
+        timeout_ms INTEGER,
+        matched INTEGER,
+        patch_count INTEGER
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_recall_obs_created ON recall_observations(created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_recall_obs_scope ON recall_observations(scope, outcome)",
     "ALTER TABLE meeting_reports ADD COLUMN report_language TEXT",
     "ALTER TABLE meeting_reports ADD COLUMN transcript_language TEXT",
     # Persist the cleaned transcript canonically beside the raw one, so the

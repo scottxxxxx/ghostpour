@@ -1620,16 +1620,33 @@ async def chat(
             # served tiers dial here, next to every other entitlement
             # read, and handed to the hook so it lands on every recall leg.
             from app.services.recall_window import recall_max_age_days as _recall_window
+            # The recall budget, read from the served dial here beside the
+            # window so both tunables resolve in one place (Scott 2026-08-27:
+            # 500ms was the binding constraint, raised to 1500 and made a
+            # dashboard dial while CQ works the traversal cost).
+            from app.services.recall_tuning import recall_timeout_ms as _recall_timeout
             body, result = await hook.before_llm(
                 user, body, tier, state, skip_teasers, app_id=app_id,
                 recall_max_age_days=_recall_window(
-                    request.app.state.remote_configs, user.effective_tier))
+                    request.app.state.remote_configs, user.effective_tier),
+                recall_timeout_ms=_recall_timeout(
+                    request.app.state.remote_configs, request.app.state.settings))
             hook_results[feature_name] = result
             # Recall health is an INCIDENT, not a log line (2026-08-24: a
             # silent degrade hid eleven days of Free-lane 500s). One open
             # incident per recall scope; heals on the next healthy recall.
             _cqr = (result or {}).get("cq_result") or {}
             if isinstance(_cqr, dict) and "recall_scope" in _cqr:
+                try:
+                    # One durable row per attempt, degraded or not: the rate
+                    # is the thing that decides whether the budget is right,
+                    # and it cannot be recovered from a log that dies on the
+                    # next deploy.
+                    from app.services.recall_tuning import record_observation
+                    await record_observation(db, app_id=app_id, user_id=user.id,
+                                             tier=user.effective_tier, cq_result=_cqr)
+                except Exception as _exc:  # noqa: BLE001 — telemetry never breaks a turn
+                    logger.warning("recall_observation_failed reason=%s", str(_exc)[:200])
                 try:
                     from app.services.alerting import report_incident, resolve_incident
                     _scope = _cqr.get("recall_scope") or "full"
