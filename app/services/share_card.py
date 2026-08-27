@@ -465,10 +465,18 @@ def _manifest_share_language(manifest: dict) -> str | None:
     return v if isinstance(v, str) and v.strip() else None
 
 
+# The heading every summary opens with, in every language the app writes,
+# with or without the article ("Résumé de Réunion" is what SS actually sends
+# as X-Share-Summary-Line; the filter used to know only "Résumé de la
+# réunion", so the live zero-state card said "Résumé de Réunion" instead of
+# a sentence, 2026-08-26).
+_BOILER = re.compile(
+    r"^(?:meeting summary|summary|resumen(?: de (?:la )?reuni[oó]n)?|r[ée]sum[ée](?: de (?:la )?r[ée]union)?"
+    r"|会議の(?:要約|まとめ)|要約)[:：]?$", re.I)
+
+
 def _insight_line(text: str) -> str:
     """One real sentence, not a boilerplate heading or raw markdown."""
-    BOILER = ("meeting summary", "resumen de la reunion", "resumen de la reunión",
-              "résumé de la réunion", "会議の要約", "会議のまとめ")
     for raw in (text or "").splitlines():
         line = raw.strip()
         if not line:
@@ -477,9 +485,30 @@ def _insight_line(text: str) -> str:
         line = re.sub(r"^[-*•]\s+", "", line)
         line = re.sub(r"[*_`#]", "", line)
         line = re.sub(r"\s{2,}", " ", line).strip()
-        if not line or line.lower().rstrip(":").strip() in BOILER:
+        if not line or _BOILER.match(line):
             continue
         return line
+    return ""
+
+
+def summary_line_for_card(row, rec: dict, header: dict, share_language: str | None) -> str:
+    """The first real sentence from the best source: the row's summary line
+    (SS's X-Share-Summary-Line), then, on a translated share, the rendition
+    summary in the shared language, then the report summary, then the
+    rolling summary. Each candidate is cleaned; a candidate that is only a
+    heading falls through instead of ending the search."""
+    candidates = [row["summary_line"]]
+    sl = (share_language or "").split("-")[0].lower()
+    if sl:
+        for r in (rec.get("transcriptRenditions") or []):
+            if isinstance(r, dict) and str(r.get("lang") or "").split("-")[0].lower() == sl \
+                    and isinstance(r.get("summary"), str):
+                candidates.append(r["summary"])
+    candidates += [header.get("summary"), rec.get("rollingSummary")]
+    for c in candidates:
+        line = _insight_line(c) if isinstance(c, str) else ""
+        if line:
+            return line
     return ""
 
 
@@ -501,7 +530,7 @@ def facts_from_share(row, bundle: dict, *, audio_count: int = 0, cta_text: str |
         "actions": [a for a in (rep.get("actions") or []) if isinstance(a, dict)],
         "sentiment": sent.get("label") or rec.get("sentimentLabel"),
         "sentiment_category": sent.get("category"),
-        "summary_line": _insight_line(row["summary_line"] or header.get("summary") or rec.get("rollingSummary") or ""),
+        "summary_line": summary_line_for_card(row, rec, header, _manifest_share_language(manifest)),
         "transcript_included": bool(row["transcript_included"]),
         "has_report": bool(rec.get("reportHTML") or rec.get("reportJSONData")),
         "share_language": _manifest_share_language(manifest),

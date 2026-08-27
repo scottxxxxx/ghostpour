@@ -223,3 +223,18 @@ def test_insight_line_drops_boilerplate_headings_and_markdown():
     assert _insight_line("# Resumen de la Reunión\nCigna holds the launch.") == "Cigna holds the launch."
     assert _insight_line("## Meeting Summary\n**Topic:** Legal cases") == "Topic: Legal cases"
     assert _insight_line("# Resumen de la Reunión") == ""
+    # the article-less headings SS actually sends (live zero-state card, 2026-08-26)
+    for heading in ("# Résumé de Réunion", "# Resumen de Reunión", "## Summary", "# 会議の要約", "Résumé de réunion:"):
+        assert _insight_line(heading) == "", heading
+
+
+def test_a_heading_only_summary_line_falls_through_to_the_rendition_then_the_report():
+    from app.services.share_card import summary_line_for_card
+    rec = {"rollingSummary": "# Resumen de Reunión\n- Antonio relata cómo nació la empresa.",
+           "transcriptRenditions": [{"lang": "fr", "summary": "# Résumé de Réunion\n- Antonio raconte la naissance de l'entreprise."}]}
+    header = {"summary": "Antonio and Abraham recounted how the company began."}
+    row = {"summary_line": "# Résumé de Réunion"}
+    assert summary_line_for_card(row, rec, header, "fr") == "Antonio raconte la naissance de l'entreprise."
+    assert summary_line_for_card(row, rec, header, None) == "Antonio and Abraham recounted how the company began."
+    assert summary_line_for_card({"summary_line": "Real first line."}, rec, header, "fr") == "Real first line."
+    assert summary_line_for_card({"summary_line": None}, {}, {}, None) == ""
