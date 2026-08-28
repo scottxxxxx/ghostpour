@@ -44,11 +44,18 @@ from PIL import Image, ImageDraw, ImageFont
 logger = logging.getLogger("ghostpour.share_card")
 
 W, H = 1200, 630
-CARD_VERSION = 7  # bump on EVERY plan or render change; the sidecar name carries it
+CARD_VERSION = 8  # bump on EVERY plan or render change; the sidecar name carries it
 FONT_PATH = Path(__file__).resolve().parent.parent / "static" / "fonts" / "Inter.ttf"
 LOGO_PATH = Path(__file__).resolve().parent.parent / "static" / "share" / "icon-512.png"
 
 PLATE = "#0B0B0F"; WHITE = "#FFFFFF"; BODY = "#F2F2F7"; DIM = "#AEAEB2"; GREY = "#8E8E93"
+# The ledger sandwich (Scott 2026-08-28): a light card closed top and
+# bottom by black bars, so it reads as one pill in the bubble. The bars
+# also make the card self-framing against a light OR a dark iMessage
+# bubble, which is what the light/dark question was really after.
+PAPER = "#FFFFFF"; INK = "#0B0F14"; LABEL_BLUE = "#6FB6FF"; MUTED = "#6B7480"
+CAPTION = "#8A93A0"; HAIR = "#ECEDF0"; INSIGHT = "#3C3C43"; URGENT = "#C77700"; BOLT = "#FF9F0A"
+BAR_TOP, BAR_BOT = 96, 96
 CHIP = "#C7C7CC"; AMBER = "#FF9F0A"; BLUE = "#4DA3FF"
 RULE = (40, 40, 44)       # 1px rgba(255,255,255,0.12) over the plate
 CHIP_LINE = (61, 61, 66)  # rgba(255,255,255,0.22) over the plate
@@ -64,6 +71,8 @@ STRINGS = {
            "more": "+ {n} more, incl. {second}", "more_plain": "+ {n} more",
            "sentiment": "Sentiment: {s}",
            "min": "{n} min", "people": "{n} people", "person": "1 person",
+           "stat_actions": "ACTION ITEMS", "stat_urgent": "URGENT", "stat_sentiment": "SENTIMENT",
+           "readonly": "Read-only link",
            "full_tx": "Full transcript included", "report_note": "Meeting report included",
            "translated_from": "Translated from {lang}"},
     "es": {"report": "INFORME DE REUNIÓN", "transcript": "TRANSCRIPCIÓN", "plus": " + ",
@@ -73,6 +82,8 @@ STRINGS = {
            "more": "+ {n} más, incl. {second}", "more_plain": "+ {n} más",
            "sentiment": "Tono: {s}",
            "min": "{n} min", "people": "{n} personas", "person": "1 persona",
+           "stat_actions": "TAREAS", "stat_urgent": "URGENTES", "stat_sentiment": "TONO",
+           "readonly": "Enlace de solo lectura",
            "full_tx": "Transcripción completa incluida", "report_note": "Informe de reunión incluido",
            "translated_from": "Traducido del {lang}"},
     "fr": {"report": "COMPTE RENDU", "transcript": "TRANSCRIPTION", "plus": " + ",
@@ -82,6 +93,8 @@ STRINGS = {
            "more": "+ {n} de plus, dont {second}", "more_plain": "+ {n} de plus",
            "sentiment": "Ton : {s}",
            "min": "{n} min", "people": "{n} personnes", "person": "1 personne",
+           "stat_actions": "ACTIONS", "stat_urgent": "URGENTES", "stat_sentiment": "TON",
+           "readonly": "Lien en lecture seule",
            "full_tx": "Transcription complète incluse", "report_note": "Compte rendu inclus",
            "translated_from": "Traduit de l'{lang}"},
 }
@@ -319,7 +332,15 @@ def plan_card(facts: dict) -> dict:
     elif people > 1:
         meta.append(S["people"].format(n=people))
     sent = _sentiment(facts, lang)
+    note = S["full_tx"] if facts.get("transcript_included") else (S["report_note"] if facts.get("has_report") else "")
     return {
+        # The ledger's own fields: the stat row wants the bare sentiment
+        # value (its caption says SENTIMENT), and the meta line carries
+        # what the share holds.
+        "sentiment_value": sent,
+        "contents_note": note,
+        "stat_labels": (S["stat_actions"], S["stat_urgent"], S["stat_sentiment"]),
+        "readonly": S["readonly"],
         "lang": lang, "label": label, "chip": chip,
         "headline": headline, "urgent": urgent_text,
         "line1": line1, "line2": line2,
@@ -405,67 +426,132 @@ def _rounded_logo(size=50, radius=13):
 
 
 def render_card(facts: dict) -> bytes:
+    """The ledger sandwich (Scott 2026-08-28): a light card closed by a
+    black bar top and bottom so the bubble reads as one pill.
+
+    The subject is deliberately NOT drawn: iMessage prints og:title in the
+    caption immediately below the image, and printing it here too is the
+    duplication this card exists to avoid. The stat row is the hero,
+    because open items, urgency and sentiment are exactly what the
+    caption cannot show."""
+    import math
+
     plan = plan_card(facts)
-    img = Image.new("RGB", (W, H), PLATE)
+    img = Image.new("RGB", (W, H), PAPER)
     d = ImageDraw.Draw(img)
     right = W - PAD_X
+    body_bottom = H - BAR_BOT
 
-    # header: wordmark left, artifact label or translation chip right
+    # --- top bar: brand, artifact label, and the read-only note or chip ---
+    d.rectangle((0, 0, W, BAR_TOP), fill=PLATE)
     x = PAD_X
-    logo = _rounded_logo()
+    logo = _rounded_logo(size=44, radius=11)
     if logo is not None:
-        img.paste(logo, (x, PAD_TOP), logo)
-        x += 50 + 16
-    f_brand = font(34, 700)
-    d.text((x, PAD_TOP + 4), "Shoulder Surf", font=f_brand, fill=WHITE)
-    x_brand_end = x + d.textlength("Shoulder Surf", font=f_brand)
+        img.paste(logo, (x, (BAR_TOP - 44) // 2), logo)
+        x += 44 + 14
+    f_brand = font(28, 700)
+    by = (BAR_TOP - 34) // 2
+    d.text((x, by), "Shoulder Surf", font=f_brand, fill="white")
+    x += d.textlength("Shoulder Surf", font=f_brand) + 18
+    d.line((x, by + 4, x, by + 28), fill=(70, 74, 82), width=2)
+    x += 18
+
+    # right edge first, so the artifact label can never collide with it
+    f_right = font(21, 500)
     if plan["chip"]:
-        f_chip = font(26, 500)
-        cw = d.textlength(plan["chip"], font=f_chip) + 48
-        ch_h = 46
-        cx, cy = right - cw, PAD_TOP + 2
-        d.rounded_rectangle((cx, cy, cx + cw, cy + ch_h), radius=ch_h // 2, outline=CHIP_LINE, width=2)
-        d.text((cx + 24, cy + 8), plan["chip"], font=f_chip, fill=CHIP)
+        cw = d.textlength(plan["chip"], font=f_right) + 40
+        ch = 40
+        cx, cy = right - cw, (BAR_TOP - ch) // 2
+        d.rounded_rectangle((cx, cy, cx + cw, cy + ch), radius=ch // 2, outline=CHIP_LINE, width=2)
+        d.text((cx + 20, cy + 9), plan["chip"], font=f_right, fill=CHIP)
+        right_edge = cx
     else:
-        f_lab = font(24, 600)
-        label = plan["label"]
-        avail = right - x_brand_end - 40
-        while label and _tracked_width(d, label, f_lab, 0.08) > avail:
-            label = label[:-1]
-        lw = _tracked_width(d, label, f_lab, 0.08)
-        _tracked(d, (right - lw, PAD_TOP + 12), label, f_lab, GREY, 0.08)
+        rw = d.textlength(plan["readonly"], font=f_right)
+        d.text((right - rw, by + 7), plan["readonly"], font=f_right, fill=GREY)
+        right_edge = right - rw
 
-    # headline: counts (R4) or the zero state (R7)
-    y = 150
-    f_head = font(64, 700)
-    d.text((PAD_X, y), plan["headline"], font=f_head, fill=WHITE)
-    if plan["urgent"]:
-        hx = PAD_X + d.textlength(plan["headline"], font=f_head) + 26
-        f_urg = font(40, 700)
-        d.text((hx, y + 22), plan["urgent"], font=f_urg, fill=AMBER)
+    f_lab = font(21, 700)
+    label = plan["label"]
+    avail = right_edge - x - 28
+    if _tracked_width(d, label, f_lab, 0.11) > avail and facts.get("has_report"):
+        label = STRINGS[plan["lang"]]["report"]
+    while label and _tracked_width(d, label, f_lab, 0.11) > avail:
+        label = label[:-1]
+    _tracked(d, (x, by + 6), label, f_lab, LABEL_BLUE, 0.11)
 
-    # body: one named item + the rest (R5), or summary + artifact note (R7)
-    y = 252
-    f_l1 = font(40, 600)
+    # --- meta: when, how long, who, what the share holds ---
+    y = BAR_TOP + 52
+    meta = " · ".join(p for p in (plan["footer_left"], plan["contents_note"]) if p)
+    f_meta = font(24, 500)
+    d.text((PAD_X, y), _fit_one(d, meta, f_meta, right - PAD_X), font=f_meta, fill=MUTED)
+
+    # --- the stat row, which is the whole point of the image ---
+    y += 56
+    d.line((PAD_X, y, right, y), fill=HAIR, width=2)
+    y += 34
+    f_big = font(56, 700)
+    f_cap = font(19, 600)
+    cap_y = y + 70
+    lab_actions, lab_urgent, lab_sentiment = plan["stat_labels"]
+    sx = PAD_X
+
+    def _stat(sx, draw_value, caption) -> int:
+        end_x = draw_value(sx)
+        _tracked(d, (sx, cap_y), caption, f_cap, CAPTION, 0.06)
+        return max(end_x, sx + _tracked_width(d, caption, f_cap, 0.06)) + 56
+
+    if plan["open_count"] == 0:
+        # "0 / 0" reads as a worthless meeting; say the state instead.
+        def _v_zero(px):
+            f_zero = font(40, 700)
+            d.text((px, y + 12), plan["headline"], font=f_zero, fill=INK)
+            return px + d.textlength(plan["headline"], font=f_zero)
+        sx = _stat(sx, _v_zero, "")
+    else:
+        def _v_actions(px):
+            t = str(plan["open_count"])
+            d.text((px, y), t, font=f_big, fill=INK)
+            return px + d.textlength(t, font=f_big)
+        sx = _stat(sx, _v_actions, lab_actions)
+        if plan["urgent_count"]:
+            def _v_urgent(px):
+                bx, byy = px, y + 12
+                d.polygon([(bx + 17, byy), (bx + 4, byy + 26), (bx + 15, byy + 26),
+                           (bx + 11, byy + 46), (bx + 26, byy + 17), (bx + 15, byy + 17)], fill=BOLT)
+                t = str(plan["urgent_count"])
+                d.text((bx + 36, y), t, font=f_big, fill=URGENT)
+                return bx + 36 + d.textlength(t, font=f_big)
+            sx = _stat(sx, _v_urgent, lab_urgent)
+
+    if plan["sentiment_value"]:
+        def _v_sent(px):
+            pts = [(px + i, y + 34 + 10 * math.sin(i / 4.5)) for i in range(0, 38, 2)]
+            d.line(pts, fill=BLUE, width=4, joint="curve")
+            f_s = font(32, 700)
+            t = _fit_one(d, plan["sentiment_value"], f_s, right - (px + 50))
+            d.text((px + 50, y + 14), t, font=f_s, fill=INK)
+            return px + 50 + d.textlength(t, font=f_s)
+        _stat(sx, _v_sent, lab_sentiment)
+
+    # --- the one named item, the reason to open the link ---
+    y = cap_y + 46
+    d.line((PAD_X, y, right, y), fill=HAIR, width=2)
+    y += 34
+    f_l1 = font(30, 600)
     for line in _wrap(d, plan["line1"], f_l1, right - PAD_X, 2):
-        d.text((PAD_X, y), line, font=f_l1, fill=BODY)
-        y += 52
-    if plan["line2"]:
-        f_l2 = font(33, 400)
-        d.text((PAD_X, y + 10), _fit_one(d, plan["line2"], f_l2, right - PAD_X), font=f_l2, fill=DIM)
+        if y + 40 > body_bottom:
+            break
+        d.text((PAD_X, y), line, font=f_l1, fill=INSIGHT)
+        y += 42
+    # The meta line already names what the share holds, so the zero
+    # state's artifact note would say it twice in one card.
+    tail = "" if plan["line2"] == plan["contents_note"] else plan["line2"]
+    if tail and y + 34 <= body_bottom:
+        f_l2 = font(25, 400)
+        d.text((PAD_X, y + 6), _fit_one(d, tail, f_l2, right - PAD_X), font=f_l2, fill=CAPTION)
 
-    # footer: rule, meta left, sentiment right (R6)
-    ry = H - PAD_BOTTOM - 36 - 16
-    d.line((PAD_X, ry, right, ry), fill=RULE, width=1)
-    fy = ry + 18
-    f_ft = font(28, 500)
-    f_sent = font(28, 600)
-    sent = plan["footer_right"] or ""
-    sw = d.textlength(sent, font=f_sent) if sent else 0
-    left_avail = right - PAD_X - (sw + 40 if sent else 0)
-    d.text((PAD_X, fy), _fit_one(d, plan["footer_left"], f_ft, left_avail), font=f_ft, fill=GREY)
-    if sent:
-        d.text((right - sw, fy), sent, font=f_sent, fill=BLUE)
+    # --- bottom bar: closes the sandwich, deliberately empty ---
+    d.rectangle((0, body_bottom, W, H), fill=PLATE)
 
     out = io.BytesIO()
     img.save(out, format="PNG", optimize=True)

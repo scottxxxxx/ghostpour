@@ -67,8 +67,13 @@ def test_the_plan_never_carries_the_title_or_anything_button_shaped():
     blob = json.dumps(p).lower()
     assert "telemetry data quality gaps, cab approval" not in blob        # R1: title is og:title only
     import re
-    for word in ("get shoulder surf", "your meetings could", "read-only", "read only"):
-        assert word not in blob, word                                      # R2: no CTA, no affordance copy
+    # R2 bans AFFORDANCES, not facts. "Read-only link" is a factual note
+    # about what the recipient is getting and it lives in the top bar of
+    # the ledger Scott chose on 2026-08-28; it is not something you can
+    # tap and does not compete with the bubble's single tap target. The
+    # CTA copy and the fake pill remain banned.
+    for word in ("get shoulder surf", "your meetings could", "upgrade", "free"):
+        assert word not in blob, word
     for verb in ("tap", "try", "get"):
         assert not re.search(rf"\b{verb}\b", blob), verb
     assert p["label"] == "MEETING REPORT + TRANSCRIPT"                     # R3: attribution
@@ -354,3 +359,61 @@ async def test_no_owner_no_translation_rather_than_a_crash():
     from app.services.share_card import translate_card_facts
     f = _tr_facts()
     assert await translate_card_facts(f, app_state=None, db=None, user=None) is f
+
+
+# --- the ledger sandwich (Scott 2026-08-28) -------------------------------------
+
+def _px(png_bytes):
+    return Image.open(io.BytesIO(png_bytes)).convert("RGB")
+
+
+def test_the_card_is_a_light_panel_closed_by_a_black_bar_top_and_bottom():
+    """Scott's ask: 'a black bar at the bottom, just black, no text' so it
+    'looks like a complete little pill or tab'. Checked in PIXELS, because
+    that is the whole of the change and a plan assertion cannot see it."""
+    from app.services.share_card import BAR_BOT, BAR_TOP
+    im = _px(render_card(_facts()))
+    w, h = im.size
+    for y in (2, BAR_TOP - 6):                       # inside the top bar
+        assert sum(im.getpixel((w // 2, y))) < 120, y
+    for y in (h - BAR_BOT + 6, h - 3):               # inside the bottom bar
+        assert sum(im.getpixel((w // 2, y))) < 120, y
+    assert sum(im.getpixel((w // 2, h // 2))) > 600  # the body is light
+    # and the bottom bar carries NO text: every row in it is uniformly dark
+    for y in range(h - BAR_BOT + 8, h - 4, 6):
+        row = [sum(im.getpixel((x, y))) for x in range(40, w - 40, 20)]
+        assert max(row) < 130, f"something is drawn in the bottom bar at y={y}"
+
+
+def test_the_subject_is_still_not_drawn_anywhere_in_the_image():
+    """The one thing that must survive every redesign: iMessage prints
+    og:title in the caption, so the image drawing it too is the exact
+    duplication Scott has now objected to twice."""
+    p = plan_card(_facts())
+    assert "title" not in p
+
+
+def test_the_stat_row_survives_localisation_and_the_zero_state_says_so():
+    es = plan_card(_facts(share_language="es", source_language="en", sentiment_category="pressured"))
+    assert es["stat_labels"] == ("TAREAS", "URGENTES", "TONO")
+    assert es["sentiment_value"] == "bajo presión"        # bare value; the caption says TONO
+    assert es["readonly"] == "Enlace de solo lectura"
+    zero = plan_card(_facts(actions=[]))
+    assert zero["headline"] == "No open items" and zero["open_count"] == 0
+
+
+def test_the_zero_state_does_not_say_what_the_share_holds_twice():
+    """The meta line names the contents; the body line must not repeat it."""
+    p = plan_card(_facts(actions=[], summary_line="A short recap of the call."))
+    assert p["contents_note"] == "Full transcript included"
+    assert p["line2"] == p["contents_note"]      # the plan still offers it...
+    im = _px(render_card(_facts(actions=[], summary_line="A short recap of the call.")))
+    assert im.size == (1200, 630)               # ...and the renderer drops it (see render_card)
+
+
+def test_every_language_and_the_floor_case_still_render():
+    for lang in (None, "es", "fr", "ja"):
+        assert _px(render_card(_facts(share_language=lang))).size == (1200, 630)
+    floor = _facts(title=None, date=None, duration_seconds=None, attendees=0, actions=[], sentiment=None,
+                   sentiment_category=None, summary_line="", transcript_included=False, has_report=False)
+    assert _px(render_card(floor)).size == (1200, 630)
