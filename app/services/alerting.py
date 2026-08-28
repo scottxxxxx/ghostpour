@@ -165,6 +165,23 @@ KNOWN_CATEGORIES: dict[str, dict] = {
             "move."
         ),
     },
+    "assn_foreign_bundle": {
+        "tone": "attention",
+        "label": "Apple notification refused: not our app",
+        "description": (
+            "A notification arrived at /v1/apple-notifications whose "
+            "data.bundleId is not one of ours, and it was refused. Two "
+            "readings, both needing a human. Either someone is relaying a "
+            "genuine Apple-signed notification from another App Store app "
+            "at us (the endpoint is unauthenticated by design, so the "
+            "bundleId check is the only thing standing there), or the "
+            "guard added 2026-08-28 is wrong about where Apple puts the "
+            "field and we are now REFUSING REAL NOTIFICATIONS, which "
+            "makes subscription state go stale silently. Baseline when "
+            "it shipped: 47 real notifications across 6 types in both "
+            "environments, all carrying a bundleId of ours, none refused."
+        ),
+    },
     "receipt_unverified": {
         "tone": "attention",
         "label": "A purchase we could not verify with Apple",

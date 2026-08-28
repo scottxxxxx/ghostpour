@@ -392,3 +392,22 @@ def test_a_notification_for_our_app_is_processed(client, monkeypatch):
     this guard was written)."""
     r = _post_notification(client, monkeypatch, "com.test.app")
     assert r.status_code == 200, r.text
+
+
+def test_a_refused_notification_is_not_silent(client, monkeypatch, tmp_db_path):
+    """If this guard is ever wrong about where Apple puts bundleId, the
+    symptom is refused REAL notifications and subscription state going
+    stale with nothing to show for it. Same silent-degrade shape that let
+    a Free recall 500 for eleven days."""
+    _post_notification(client, monkeypatch, "com.someoneelse.app")
+
+    conn = sqlite3.connect(tmp_db_path)
+    try:
+        rows = conn.execute(
+            "SELECT subject, details_json FROM alert_incidents "
+            "WHERE category = 'assn_foreign_bundle'").fetchall()
+    finally:
+        conn.close()
+    assert len(rows) == 1, rows
+    assert rows[0][0] == "com.someoneelse.app"
+    assert "EXPIRED" in rows[0][1]
