@@ -341,3 +341,54 @@ def test_enforcement_accepts_a_verified_receipt(client, free_user, monkeypatch):
         assert r.json()["new_tier"] == "pro"
     finally:
         client.app.state.remote_configs.pop("verify-receipt", None)
+
+
+# --- the same hole on the push side ----------------------------------------
+
+def _post_notification(client, monkeypatch, bundle_id):
+    """Drive /v1/apple-notifications with a decoded payload we control.
+
+    The JWS crypto is not what is under test here; whether we check WHOSE
+    app the notification is about is.
+    """
+    from app.routers import apple_webhooks
+
+    monkeypatch.setattr(
+        apple_webhooks, "decode_notification",
+        lambda payload, bid: {
+            "notificationType": "EXPIRED",
+            "subtype": "VOLUNTARY",
+            "data": {
+                "bundleId": bundle_id,
+                "environment": "Production",
+                "signedTransactionInfo": {
+                    "originalTransactionId": REAL_OTID,
+                    "transactionId": REAL_OTID,
+                    "productId": "com.weirtech.shouldersurf.sub.pro.monthly",
+                },
+            },
+        })
+    return client.post("/v1/apple-notifications",
+                       json={"signedPayload": "j.w.s"})
+
+
+def test_a_notification_for_another_app_is_refused(client, monkeypatch):
+    """/v1/apple-notifications is unauthenticated by design, and the JWS
+    check only establishes that APPLE signed it, never that Apple signed
+    it FOR US. Without this a third-party developer could put one of our
+    user ids in their own app's appAccountToken and relay an EXPIRED to
+    strip that user's entitlement."""
+    r = _post_notification(client, monkeypatch, "com.someoneelse.app")
+    assert r.status_code == 400, r.text
+    assert "com.someoneelse.app" in r.json()["error"]
+
+
+def test_a_notification_for_our_app_is_processed(client, monkeypatch):
+    """The guard must not become a wall. `com.test.app` is what conftest
+    sets CZ_APPLE_BUNDLE_ID to; in prod the same comparison is against
+    com.shouldersurf.ShoulderSurf, which real notifications do carry in
+    data.bundleId (checked against Apple's Production notification
+    history for SUBSCRIBED, DID_CHANGE_RENEWAL_STATUS and EXPIRED before
+    this guard was written)."""
+    r = _post_notification(client, monkeypatch, "com.test.app")
+    assert r.status_code == 200, r.text
