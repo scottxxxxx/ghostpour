@@ -10,6 +10,8 @@ import io
 import json
 import sqlite3
 import zipfile
+
+import pytest
 from pathlib import Path
 
 from PIL import Image
@@ -185,7 +187,7 @@ def test_card_route_renders_once_caches_by_version_and_dies_with_the_share(clien
     conn = sqlite3.connect(tmp_db_path); conn.row_factory = sqlite3.Row
     row = conn.execute("SELECT id, storage_path FROM meeting_shares WHERE token = ?", (token,)).fetchone(); conn.close()
     side = Path(sidecar_path(row["storage_path"]))
-    assert side.exists() and side.name.endswith(f".card.v{CARD_VERSION}.png") and CARD_VERSION >= 6
+    assert side.exists() and side.name.endswith(f".card.v{CARD_VERSION}.png") and CARD_VERSION >= 7
     first = side.read_bytes()
     assert client.get(f"/s/{token}/card.png").content == first          # served from the sidecar
     r = client.delete(f"/v1/shares/{row['id']}", headers=pro_user["headers"])
@@ -242,3 +244,113 @@ def test_a_heading_only_summary_line_falls_through_to_the_rendition_then_the_rep
     assert summary_line_for_card(row, rec, header, None) == "Antonio and Abraham recounted how the company began."
     assert summary_line_for_card({"summary_line": "Real first line."}, rec, header, "fr") == "Real first line."
     assert summary_line_for_card({"summary_line": None}, {}, {}, None) == ""
+
+
+# --- a day label must be a DAY (Scott 2026-08-28, from a real Spanish card) ------
+
+def test_a_duration_is_not_a_day_and_never_gets_a_due_prefix():
+    """The card read 'Para el 7 to 14 days' — "on the 7 to 14 days". The
+    deadline was a duration, and free text is also untranslatable, so it
+    is dropped rather than prefixed."""
+    a = {"task": "Contact Scott when biopsy results are available", "owner": "Multiple",
+         "deadline": "7 to 14 days"}
+    assert item_line(a, "en") == "Contact Scott when biopsy results are available"
+    assert item_line(a, "es") == "Contact Scott when biopsy results are available"
+    for junk in ("7 to 14 days", "ASAP", "end of week", "next sprint", "TBD", "2 weeks"):
+        line = item_line({"task": "Ship it", "deadline": junk}, "es")
+        assert line == "Ship it", (junk, line)
+        assert "Para el" not in line
+
+
+def test_real_days_and_dates_still_label_and_localize():
+    assert item_line({"task": "Ship it", "deadline": "Thursday"}, "en") == "Due Thu: ship it"
+    assert item_line({"task": "Ship it", "deadline": "jueves"}, "es") == "Para el jue: ship it"
+    assert item_line({"task": "Ship it", "deadline": "2026-12-25"}, "en").startswith("Due Fri 25 Dec")
+
+
+# --- render-time translation of the quoted content ------------------------------
+
+def _tr_facts(**over):
+    base = _facts(share_language="es", source_language="en", sentiment="Warm and candid",
+                  sentiment_category=None,
+                  actions=[{"task": "Contact Scott when biopsy results are available",
+                            "owner": "Multiple", "priority": "critical", "deadline": "7 to 14 days"},
+                           {"task": "Send Scott an electronic document", "owner": "Multiple"}])
+    return {**base, **over}
+
+
+class _FakeUser:
+    id = "u"; effective_tier = "pro"; is_trial = False
+
+
+def _patch_tr(mapping=None, raises=None):
+    from unittest.mock import AsyncMock, patch
+    from app.services import translations as tr
+
+    async def fake(app_state, db, user, segments, source, target, artifact, app_id=None, request_id=None):
+        if raises:
+            raise raises
+        return [{"id": s["id"], "text": (mapping or {}).get(s["id"], "ES:" + s["text"])} for s in segments], False
+    return patch.object(tr, "translate_group", AsyncMock(side_effect=fake))
+
+
+@pytest.mark.asyncio
+async def test_the_quoted_action_text_comes_back_in_the_cards_language():
+    from app.services.share_card import translate_card_facts
+    with _patch_tr({"a0": "Contactar a Scott cuando estén los resultados", "a1": "Enviar un documento",
+                    "s": "Cálido y franco"}):
+        out = await translate_card_facts(_tr_facts(), app_state=None, db=None, user=_FakeUser())
+    p = plan_card(out)
+    assert p["line1"] == "Contactar a Scott cuando estén los resultados"     # no English, no "Para el"
+    assert "incl. enviar un documento" in p["line2"]
+    assert p["footer_right"] == "Tono: cálido y franco"                       # was omitted entirely before
+    assert "biopsy" not in json.dumps(p) and "Send Scott" not in json.dumps(p)
+
+
+@pytest.mark.asyncio
+async def test_an_untranslated_share_is_left_completely_alone():
+    from app.services.share_card import translate_card_facts
+    from unittest.mock import AsyncMock, patch
+    from app.services import translations as tr
+    with patch.object(tr, "translate_group", AsyncMock()) as m:
+        f = _tr_facts(share_language=None)
+        assert await translate_card_facts(f, app_state=None, db=None, user=_FakeUser()) is f
+        same = _tr_facts(share_language="en", source_language="en")
+        assert await translate_card_facts(same, app_state=None, db=None, user=_FakeUser()) is same
+        assert not m.called, "nothing to translate must cost nothing"
+
+
+@pytest.mark.asyncio
+async def test_the_enum_path_stays_free_and_only_the_label_is_ever_sent():
+    """A category we can name is exact and costs nothing; only an
+    unmappable free-text label is worth a translation segment."""
+    from app.services.share_card import translate_card_facts
+    sent = {}
+    from unittest.mock import AsyncMock, patch
+    from app.services import translations as tr
+
+    async def fake(app_state, db, user, segments, source, target, artifact, app_id=None, request_id=None):
+        sent["ids"] = [s["id"] for s in segments]
+        return [{"id": s["id"], "text": "x"} for s in segments], False
+    with patch.object(tr, "translate_group", AsyncMock(side_effect=fake)):
+        await translate_card_facts(_tr_facts(sentiment_category="pressured"),
+                                   app_state=None, db=None, user=_FakeUser())
+    assert sent["ids"] == ["a0", "a1"], "the mappable category must not be sent for translation"
+
+
+@pytest.mark.asyncio
+async def test_a_translation_failure_still_produces_a_card():
+    """A card in the wrong language is a blemish; a card that fails to
+    render is a broken link preview."""
+    from app.services.share_card import translate_card_facts
+    with _patch_tr(raises=RuntimeError("allocation exhausted")):
+        out = await translate_card_facts(_tr_facts(), app_state=None, db=None, user=_FakeUser())
+    assert Image.open(io.BytesIO(render_card(out))).size == (1200, 630)
+    assert plan_card(out)["line1"].startswith("Contact Scott")     # original text, still a card
+
+
+@pytest.mark.asyncio
+async def test_no_owner_no_translation_rather_than_a_crash():
+    from app.services.share_card import translate_card_facts
+    f = _tr_facts()
+    assert await translate_card_facts(f, app_state=None, db=None, user=None) is f

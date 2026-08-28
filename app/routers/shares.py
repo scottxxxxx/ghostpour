@@ -433,6 +433,15 @@ async def share_card(request: Request, token: str, db: aiosqlite.Connection = De
         settings = shares.share_settings(request.app.state.remote_configs)
         facts = facts_from_share(row, bundle, audio_count=sum(len(v) for v in audio.values()),
                                  cta_text=settings.get("card_cta_text"), pill_text=settings.get("card_pill_text"))
+        # A translated share quotes its action text from the report's
+        # ORIGINAL language (the bundle carries no structured translated
+        # report), so translate what the card shows before drawing it.
+        # Billed to the share owner, like the page translations.
+        from app.services.share_card import translate_card_facts
+        facts = await translate_card_facts(
+            facts, app_state=request.app.state, db=db,
+            user=await shares.owner_user(db, row["user_id"]),
+            app_id=row["app_id"], request_id=getattr(request.state, "request_id", None))
         png = render_card(facts)
         tmp = sidecar + ".part"
         with open(tmp, "wb") as f:
