@@ -403,12 +403,23 @@ def test_the_stat_row_survives_localisation_and_the_zero_state_says_so():
 
 
 def test_the_zero_state_does_not_say_what_the_share_holds_twice():
-    """The meta line names the contents; the body line must not repeat it."""
-    p = plan_card(_facts(actions=[], summary_line="A short recap of the call."))
+    """The meta line names the contents; the body must not repeat it.
+
+    Checked in PIXELS. The first version of this test asserted only that
+    the image was 1200x630, which is true whether or not the duplicate is
+    drawn — a test that could not fail, caught by sabotaging the drop and
+    watching it stay green."""
+    from app.services.share_card import BAR_BOT
+    f = _facts(actions=[], summary_line="A short recap of the call.")
+    p = plan_card(f)
     assert p["contents_note"] == "Full transcript included"
-    assert p["line2"] == p["contents_note"]      # the plan still offers it...
-    im = _px(render_card(_facts(actions=[], summary_line="A short recap of the call.")))
-    assert im.size == (1200, 630)               # ...and the renderer drops it (see render_card)
+    assert p["line2"] == p["contents_note"], "the plan still offers it; the renderer must drop it"
+    im = _px(render_card(f))
+    w, h = im.size
+    # the band between the one-line summary and the bottom bar must be bare
+    dark = sum(1 for y in range(432, h - BAR_BOT - 4, 3)
+               for x in range(56, w - 56, 4) if sum(im.getpixel((x, y))) < 480)
+    assert dark == 0, f"{dark} dark pixels below the summary: the contents note is drawn twice"
 
 
 def test_every_language_and_the_floor_case_still_render():
