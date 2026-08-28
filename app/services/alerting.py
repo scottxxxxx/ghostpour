@@ -165,6 +165,23 @@ KNOWN_CATEGORIES: dict[str, dict] = {
             "move."
         ),
     },
+    "receipt_unverified": {
+        "tone": "attention",
+        "label": "A purchase we could not verify with Apple",
+        "description": (
+            "A verify-receipt call arrived whose transaction identity we "
+            "could not stand behind: either no Apple-signed transaction, "
+            "a signature we refused (wrong bundle id, or a chain that is "
+            "not Apple's root, which is what an Xcode StoreKit "
+            "configuration file produces), or an id that cannot be an "
+            "Apple id at all. Found 2026-08-28: a local Xcode run granted "
+            "Pro and booked $14.99 of MRR for a purchase Apple has no "
+            "record of, and stored original_transaction_id='0' over a "
+            "good id. The tier grant still applied while the enforcement "
+            "dial is off, so treat this as 'that subscription may not be "
+            "real', not as a failed request."
+        ),
+    },
     "assn_unmatched": {
         "tone": "attention",
         "label": "Apple notification with no matching user",
