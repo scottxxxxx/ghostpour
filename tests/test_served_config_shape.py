@@ -167,6 +167,12 @@ NO_LOCALE_NEEDED = {
     "model-routing": "Server-side routing table. Never reaches a user.",
     "prompt-envelope": "Composition recipe. Section ids are machine tokens, not prose.",
     "cq-recall": "Server-side recall budget in milliseconds. One number, no prose, never reaches a user.",
+    "verify-receipt": (
+        "Server-side enforcement switch for Apple receipt verification. One "
+        "boolean, no prose, never reaches a user. The 400 it gates carries a "
+        "machine code (`receipt_unverified`) for the client to map, which is "
+        "the surface that would need translating if we ever render it."
+    ),
 }
 
 # Known, accepted gaps. Each is a translation owed, tracked here rather
