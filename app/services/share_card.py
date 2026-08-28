@@ -44,7 +44,7 @@ from PIL import Image, ImageDraw, ImageFont
 logger = logging.getLogger("ghostpour.share_card")
 
 W, H = 1200, 630
-CARD_VERSION = 6  # bump on EVERY plan or render change; the sidecar name carries it
+CARD_VERSION = 7  # bump on EVERY plan or render change; the sidecar name carries it
 FONT_PATH = Path(__file__).resolve().parent.parent / "static" / "fonts" / "Inter.ttf"
 LOGO_PATH = Path(__file__).resolve().parent.parent / "static" / "share" / "icon-512.png"
 
@@ -155,7 +155,17 @@ def _short_day(deadline, lang: str) -> str | None:
     wd = _WEEKDAYS.get(raw.lower().rstrip("."))
     if wd is not None:
         return DAYS[lang][wd]
-    return raw if len(raw) <= 16 else None
+    # Anything else is NOT a day and must not be prefixed with "Due".
+    # Two failures, one rule (Scott 2026-08-28, from a real card): the
+    # deadline "7 to 14 days" is a DURATION, and it rendered as "Para el
+    # 7 to 14 days" ("on the 7 to 14 days"), which is nonsense in Spanish
+    # and wrong in English too. And any free text here is by definition
+    # in the report's original language, so on a translated card it would
+    # print an English fragment inside Spanish chrome. A date or a
+    # weekday we can localize; arbitrary prose we cannot, so it is
+    # dropped and the task text (which usually carries the timing anyway)
+    # stands on its own.
+    return None
 
 
 def _parse_date(raw: str) -> date | None:
@@ -240,6 +250,13 @@ def _sentiment(facts: dict, lang: str) -> str | None:
     word = SENTIMENT_WORDS.get(lang, SENTIMENT_WORDS["en"]).get(cat)
     if word:
         return word
+    # Translated at render time when the category enum did not carry it
+    # (see translate_card_facts): before this the whole segment was
+    # dropped on a translated share rather than print English in Spanish
+    # chrome, which is why Scott's card showed no sentiment line at all.
+    trans = facts.get("sentiment_translated")
+    if isinstance(trans, str) and trans.strip():
+        return _cap(trans.strip().lower(), SENTIMENT_CAP)
     label = facts.get("sentiment")
     if isinstance(label, str) and label.strip() and not facts.get("share_language"):
         return _cap(label.strip().lower(), SENTIMENT_CAP)
@@ -547,3 +564,69 @@ def facts_from_share(row, bundle: dict, *, audio_count: int = 0, cta_text: str |
         "source_language": rec.get("transcriptLanguage") if isinstance(rec.get("transcriptLanguage"), str) else None,
         "audio_count": audio_count,
     }
+
+
+# --- render-time translation ----------------------------------------------------
+#
+# Scott, 2026-08-28, looking at a real Spanish card: "there are parts of
+# this that were not translated, we should show it all in the translated
+# language." He is right and it is structural. The CHROME localizes from
+# our own tables, but the CONTENT the card quotes (the action item text)
+# is read from the report's structured JSON, which exists only in the
+# language the report was generated in. The bundle's translated rendition
+# carries `summary`, `transcript` and `report_html` and NO structured
+# report, so there is nothing translated for the card to read.
+#
+# Rather than wait on a new field from the client, translate the two or
+# three strings the card actually shows, at render time, through the
+# translation service we already own. The card is rendered once per share
+# and cached as a sidecar, and translate_group is content-hash cached on
+# top of that, so a re-mint costs nothing. Billed to the share OWNER,
+# which is the same principle the page translations already use.
+#
+# Fail-open on purpose: a card that renders in the wrong language is a
+# blemish, a card that fails to render is a broken link preview.
+
+async def translate_card_facts(facts: dict, *, app_state, db, user, app_id: str | None = None,
+                               request_id: str | None = None) -> dict:
+    """`facts` with the card's quoted content in the card's own language."""
+    from app.services import translations as tr
+
+    target = card_locale(facts.get("share_language"), facts.get("source_language"))
+    source = _lang(facts.get("source_language"))
+    if not facts.get("share_language") or target == source or user is None:
+        return facts
+
+    items = open_items(facts.get("actions") or [])[:2]
+    segments, marks = [], []
+    for i, a in enumerate(items):
+        text = (a.get("task") or a.get("text") or a.get("title") or "").strip()
+        if text:
+            segments.append({"id": f"a{i}", "text": text})
+            marks.append((f"a{i}", a))
+    # The sentiment label only needs translating when the category enum
+    # could not supply the word; the enum path is free and exact.
+    if not SENTIMENT_WORDS.get(target, {}).get(str(facts.get("sentiment_category") or "").lower().strip()):
+        label = facts.get("sentiment")
+        if isinstance(label, str) and label.strip():
+            segments.append({"id": "s", "text": label.strip()})
+    if not segments:
+        return facts
+
+    try:
+        out, _cached = await tr.translate_group(
+            app_state, db, user, segments, source, target, "summary",
+            app_id=app_id, request_id=request_id)
+    except Exception as e:  # noqa: BLE001 — never fail a card over its translation
+        logger.warning("card_translation_skipped reason=%s", str(e)[:160])
+        return facts
+
+    by_id = {o["id"]: o["text"] for o in out if isinstance(o, dict)}
+    swapped = {id(a): by_id[k] for k, a in marks if by_id.get(k)}
+    new_facts = dict(facts)
+    if swapped:
+        new_facts["actions"] = [{**a, "task": swapped[id(a)]} if id(a) in swapped else a
+                                for a in (facts.get("actions") or [])]
+    if by_id.get("s"):
+        new_facts["sentiment_translated"] = by_id["s"]
+    return new_facts
