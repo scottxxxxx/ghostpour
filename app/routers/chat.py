@@ -485,21 +485,40 @@ async def verify_receipt(
                 if product_id:
                     PRODUCT_TO_TIER[product_id] = name
 
+    # Who says this transaction happened. Apple, if the client sent a JWS
+    # we can chain to Apple's root AND that names one of our bundle ids;
+    # otherwise the client's own word, marked as such. Resolved BEFORE
+    # the product lookup, because which product was bought is part of
+    # what Apple signed.
+    identity = receipt_verification.resolve_identity(body, get_settings())
+
+    # WHICH product was bought, not merely THAT something was. When Apple
+    # signed the transaction its productId is the answer and it overrides
+    # the client's claim. Skipping this would leave the hole the
+    # signature was meant to close: a caller could present a genuine,
+    # fully verifiable Plus receipt while sending product_id for Pro, and
+    # verification would confirm a real purchase happened right up to the
+    # moment we granted the tier they named instead of the one they
+    # bought. Verify the property, do not just carry it around.
+    _effective_product_id = body.product_id
+    if identity.verified and identity.product_id:
+        _effective_product_id = identity.product_id
+        if identity.product_id != body.product_id:
+            logger.warning(
+                "verify-receipt: client claimed product %s but Apple signed %s "
+                "for user %s; using Apple's",
+                body.product_id, identity.product_id, user.id)
+
     # Look up tier for this product
-    new_tier_name = PRODUCT_TO_TIER.get(body.product_id)
+    new_tier_name = PRODUCT_TO_TIER.get(_effective_product_id)
     if not new_tier_name:
         raise HTTPException(
             status_code=400,
-            detail=f"Unknown product ID: {body.product_id}",
+            detail=f"Unknown product ID: {_effective_product_id}",
         )
 
     new_tier = tier_config.tiers[new_tier_name]
     old_tier_name = user.tier
-
-    # Who says this transaction happened. Apple, if the client sent a JWS
-    # we can chain to Apple's root AND that names one of our bundle ids;
-    # otherwise the client's own word, marked as such.
-    identity = receipt_verification.resolve_identity(body, get_settings())
 
     if identity.reject_reason:
         # Never silent. A machine decision nobody sees is unexamined, and
@@ -667,7 +686,7 @@ async def verify_receipt(
                 await subs.record_subscription_event(
                     db, user_id=user.id, event_type="subscribed", subtype="trial",
                     from_tier=old_tier_name, to_tier=new_tier_name,
-                    product_id=body.product_id, transaction_id=_txn_id,
+                    product_id=_effective_product_id, transaction_id=_txn_id,
                     original_transaction_id=_otid,
                     source="verify_receipt", price_usd=0.0,
                     environment=_environment,
@@ -777,7 +796,7 @@ async def verify_receipt(
                 db, user_id=user.id, event_type=_sub_evt,
                 subtype="conversion" if trial_to_paid else None,
                 from_tier=old_tier_name, to_tier=new_tier_name,
-                product_id=body.product_id, transaction_id=_txn_id,
+                product_id=_effective_product_id, transaction_id=_txn_id,
                 original_transaction_id=_otid,
                 source="verify_receipt",
                 environment=_environment,

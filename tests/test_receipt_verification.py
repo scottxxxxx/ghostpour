@@ -246,3 +246,98 @@ def test_enforcement_refuses_an_unsigned_receipt(client, free_user, tmp_db_path)
         assert tier == "free"
     finally:
         client.app.state.remote_configs.pop("verify-receipt", None)
+
+
+def test_apples_product_wins_over_the_clients_claim(client, free_user, tmp_db_path,
+                                                    monkeypatch):
+    """The hole the signature would otherwise leave open: proving a real
+    purchase happened says nothing about WHICH product it was for. A
+    genuine Plus receipt presented alongside product_id=pro must buy
+    Plus, not Pro."""
+    from app.services import receipt_verification as _rv
+
+    monkeypatch.setattr(
+        _rv, "verify_signed_transaction",
+        lambda jws, bundle_ids: {
+            "bundleId": "com.weirtech.shouldersurf",
+            "originalTransactionId": REAL_OTID,
+            "transactionId": REAL_TXN,
+            "environment": "Production",
+            "productId": "com.weirtech.shouldersurf.sub.plus.monthly",
+        })
+
+    r = client.post("/v1/verify-receipt", json={
+        "product_id": "com.weirtech.shouldersurf.sub.pro.monthly",
+        "transaction_id": REAL_OTID,
+        "signed_transaction": "j.w.s",
+    }, headers=free_user["headers"])
+
+    assert r.status_code == 200, r.text
+    assert r.json()["new_tier"] == "plus"
+
+    conn = sqlite3.connect(tmp_db_path)
+    try:
+        tier = conn.execute(
+            "SELECT tier FROM users WHERE id = ?",
+            (free_user["user_id"],)).fetchone()[0]
+    finally:
+        conn.close()
+    assert tier == "plus"
+
+
+def test_a_verified_receipt_records_apples_environment_not_an_inference(
+        client, free_user, tmp_db_path, monkeypatch):
+    """Every environment we have ever stored on a verify_receipt row was
+    inferred from an EARLIER event, because the signed_transaction branch
+    had never once executed. This is that branch running."""
+    from app.services import receipt_verification as _rv
+
+    monkeypatch.setattr(
+        _rv, "verify_signed_transaction",
+        lambda jws, bundle_ids: {
+            "bundleId": "com.weirtech.shouldersurf",
+            "originalTransactionId": REAL_OTID,
+            "transactionId": REAL_TXN,
+            "environment": "Sandbox",
+            "productId": "com.weirtech.shouldersurf.sub.pro.monthly",
+        })
+
+    r = client.post("/v1/verify-receipt", json={
+        "product_id": "com.weirtech.shouldersurf.sub.pro.monthly",
+        "transaction_id": REAL_OTID,
+        "signed_transaction": "j.w.s",
+    }, headers=free_user["headers"])
+    assert r.status_code == 200, r.text
+
+    events = _events(tmp_db_path, free_user["user_id"])
+    assert len(events) == 1, events
+    assert events[0]["environment"] == "Sandbox"
+    assert events[0]["original_transaction_id"] == REAL_OTID
+    assert events[0]["transaction_id"] == REAL_TXN
+
+
+def test_enforcement_accepts_a_verified_receipt(client, free_user, monkeypatch):
+    """The dial must refuse the unverifiable without refusing everything."""
+    from app.services import receipt_verification as _rv
+
+    monkeypatch.setattr(
+        _rv, "verify_signed_transaction",
+        lambda jws, bundle_ids: {
+            "bundleId": "com.weirtech.shouldersurf",
+            "originalTransactionId": REAL_OTID,
+            "transactionId": REAL_TXN,
+            "environment": "Production",
+            "productId": "com.weirtech.shouldersurf.sub.pro.monthly",
+        })
+    client.app.state.remote_configs["verify-receipt"] = {
+        "require_signed_transaction": True}
+    try:
+        r = client.post("/v1/verify-receipt", json={
+            "product_id": "com.weirtech.shouldersurf.sub.pro.monthly",
+            "transaction_id": REAL_OTID,
+            "signed_transaction": "j.w.s",
+        }, headers=free_user["headers"])
+        assert r.status_code == 200, r.text
+        assert r.json()["new_tier"] == "pro"
+    finally:
+        client.app.state.remote_configs.pop("verify-receipt", None)
