@@ -60,14 +60,10 @@ def _share(client, user, body):
 
 # --- R1, R2, R3: what the image never carries and what replaces it -------------
 
-def test_the_subject_is_the_top_slot_and_nothing_is_button_shaped():
+def test_the_plan_never_carries_the_title_or_anything_button_shaped():
     p = plan_card(_facts())
     blob = json.dumps(p).lower()
-    # Scott's flip (2026-08-26): the subject sits at the top of the image, capped on a word boundary
-    assert p["title"] == "Telemetry Data Quality Gaps, CAB Approval, and Production Promotion Planning"
-    long = plan_card(_facts(title="word " * 40))["title"]
-    assert len(long) <= 90 and long.endswith("…")
-    assert plan_card(_facts(title=None))["title"] == ""
+    assert "telemetry data quality gaps, cab approval" not in blob        # R1: title is og:title only
     import re
     for word in ("get shoulder surf", "your meetings could", "read-only", "read only"):
         assert word not in blob, word                                      # R2: no CTA, no affordance copy
@@ -189,7 +185,7 @@ def test_card_route_renders_once_caches_by_version_and_dies_with_the_share(clien
     conn = sqlite3.connect(tmp_db_path); conn.row_factory = sqlite3.Row
     row = conn.execute("SELECT id, storage_path FROM meeting_shares WHERE token = ?", (token,)).fetchone(); conn.close()
     side = Path(sidecar_path(row["storage_path"]))
-    assert side.exists() and side.name.endswith(f".card.v{CARD_VERSION}.png") and CARD_VERSION >= 5
+    assert side.exists() and side.name.endswith(f".card.v{CARD_VERSION}.png") and CARD_VERSION >= 6
     first = side.read_bytes()
     assert client.get(f"/s/{token}/card.png").content == first          # served from the sidecar
     r = client.delete(f"/v1/shares/{row['id']}", headers=pro_user["headers"])
