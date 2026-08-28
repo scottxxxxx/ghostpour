@@ -131,6 +131,7 @@ from app.dependencies import get_current_user
 from app.models.chat import ChatRequest, ChatResponse
 from app.models.user import UserRecord
 from app.services import context_quilt as cq
+from app.services import receipt_verification
 from app.services.allocation_reset import compute_next_reset, lazy_reset_if_due
 from app.services.entitlements import entitlement_state, resolved_features
 
@@ -375,39 +376,56 @@ def _resolve_model_routing(
 
 
 class VerifyReceiptRequest(BaseModel):
+    """What Shoulder Surf actually sends, which is not what we used to model.
+
+    Four fields below (`current_transaction_id`, `payment_mode`,
+    `purchase_date`, `expiration_date`) were on the wire from the client
+    for months and declared nowhere here, so pydantic dropped every one
+    of them without a sound. That is the `to_name` shape from rule 3: SS
+    saw a correct send, we saw a complete request, and the loss lived
+    only in the gap between them. `current_transaction_id` is the one
+    that cost us, because its absence is why the per-renewal id and the
+    original id were the same value written into two columns.
+    """
+
     product_id: str              # e.g., "com.example.myapp.sub.ultra.monthly"
-    transaction_id: str          # StoreKit 2 original transaction ID
-    signed_transaction: str | None = None  # JWS for future server-side verification
+    transaction_id: str          # StoreKit `Transaction.originalID`
+    current_transaction_id: str | None = None  # StoreKit `Transaction.id`, this renewal
+    signed_transaction: str | None = None  # JWS; the only field Apple actually signs
     offer_type: str | None = None  # "introductory" for free trial, None for paid
-    offer_price: float | None = None  # 0.00 for free trial
+    offer_price: float | None = None  # 0.00 for free trial; SS sends payment_mode instead
+    payment_mode: str | None = None  # StoreKit offer payment mode, e.g. "freeTrial"
+    purchase_date: str | None = None  # ISO-8601, from the signed transaction
+    expiration_date: str | None = None  # ISO-8601, from the signed transaction
     is_trial: bool | None = None  # Explicit trial flag from client (preferred over inference)
-    offer_id: str | None = None  # ASC offer reference (StoreKit transaction.offer.id) —
+    offer_id: str | None = None  # ASC offer reference (StoreKit transaction.offer.id),
     # per-pool redemption attribution (Apple never exposes the redeemed code string)
 
 
 async def _resolve_storekit_environment(
-    db: aiosqlite.Connection, user_id: str, body: "VerifyReceiptRequest"
+    db: aiosqlite.Connection, user_id: str, verified_environment: str | None
 ) -> str | None:
     """"Production" | "Sandbox" | None for a verify-receipt purchase.
 
     Until 2026-08-02 this path recorded no environment at all, so every
     TestFlight purchase it wrote was indistinguishable from a real one and
-    landed in MRR. The signed transaction carries the answer and the client
-    already sends it; verification failures fall through rather than
-    rejecting the purchase, because entitlement must not hinge on
-    reporting metadata.
+    landed in MRR.
+
+    The fix for that read the environment off the signed transaction, and
+    its comment said "the client already sends it". The client has never
+    sent it: `signed_transaction` appears nowhere in the Shoulder Surf
+    codebase, so that branch had not run once, and every `environment`
+    recorded on a verify_receipt row to date is this fallback inferring
+    it from an EARLIER event rather than measuring this one. Scott's
+    08-28 row reads "Production" purely because his trial's EXPIRED
+    notification, hours earlier, was.
+
+    So the argument is now the caller's verified value, and the fallback
+    is explicitly a guess of last resort. When the enforcement dial is on
+    there is no guessing left to do.
     """
-    if body.signed_transaction:
-        try:
-            from app.services.apple_notifications import decode_and_verify_jws
-            payload = decode_and_verify_jws(
-                body.signed_transaction, get_settings().apple_bundle_id)
-            env = payload.get("environment")
-            if env in ("Production", "Sandbox"):
-                return env
-        except Exception as e:
-            logger.warning("verify-receipt: could not read environment "
-                           "from signed_transaction: %s", e)
+    if verified_environment in ("Production", "Sandbox"):
+        return verified_environment
     row = await (await db.execute(
         "SELECT environment FROM subscription_events "
         "WHERE user_id = ? AND environment IS NOT NULL "
@@ -445,10 +463,17 @@ async def verify_receipt(
     Called by the iOS app after a successful purchase or on app launch
     when checking currentEntitlements.
 
-    For MVP: trusts the product_id from the authenticated client.
-    StoreKit 2 transactions are cryptographically signed by Apple —
-    the client has already verified them. Full server-side JWS
-    verification can be added in v0.3.
+    This used to say it trusted `product_id` from the authenticated
+    client, and that "full server-side JWS verification can be added in
+    v0.3". On 2026-08-28 the bill arrived: an Xcode run against the local
+    StoreKit configuration file granted Pro and booked $14.99 of MRR for
+    a purchase Apple has no record of. See `receipt_verification` for the
+    evidence and the reasoning.
+
+    Now: the identity of the transaction comes from something Apple
+    signed whenever the client sends one, an implausible id can never
+    overwrite a good one, and refusing unverifiable receipts outright is
+    a served dial waiting on the Shoulder Surf build that sends the JWS.
     """
     tier_config = request.app.state.tier_config
 
@@ -460,25 +485,89 @@ async def verify_receipt(
                 if product_id:
                     PRODUCT_TO_TIER[product_id] = name
 
+    # Who says this transaction happened. Apple, if the client sent a JWS
+    # we can chain to Apple's root AND that names one of our bundle ids;
+    # otherwise the client's own word, marked as such. Resolved BEFORE
+    # the product lookup, because which product was bought is part of
+    # what Apple signed.
+    identity = receipt_verification.resolve_identity(body, get_settings())
+
+    # WHICH product was bought, not merely THAT something was. When Apple
+    # signed the transaction its productId is the answer and it overrides
+    # the client's claim. Skipping this would leave the hole the
+    # signature was meant to close: a caller could present a genuine,
+    # fully verifiable Plus receipt while sending product_id for Pro, and
+    # verification would confirm a real purchase happened right up to the
+    # moment we granted the tier they named instead of the one they
+    # bought. Verify the property, do not just carry it around.
+    _effective_product_id = body.product_id
+    if identity.verified and identity.product_id:
+        _effective_product_id = identity.product_id
+        if identity.product_id != body.product_id:
+            logger.warning(
+                "verify-receipt: client claimed product %s but Apple signed %s "
+                "for user %s; using Apple's",
+                body.product_id, identity.product_id, user.id)
+
     # Look up tier for this product
-    new_tier_name = PRODUCT_TO_TIER.get(body.product_id)
+    new_tier_name = PRODUCT_TO_TIER.get(_effective_product_id)
     if not new_tier_name:
         raise HTTPException(
             status_code=400,
-            detail=f"Unknown product ID: {body.product_id}",
+            detail=f"Unknown product ID: {_effective_product_id}",
         )
 
     new_tier = tier_config.tiers[new_tier_name]
     old_tier_name = user.tier
 
+    if identity.reject_reason:
+        # Never silent. A machine decision nobody sees is unexamined, and
+        # this exact field going bad sat unnoticed for six days.
+        logger.warning(
+            "verify-receipt: unusable transaction identity user=%s reason=%s",
+            user.id, identity.reject_reason)
+        try:
+            from app.services.alerting import report_incident
+            await report_incident(
+                db,
+                category="receipt_unverified",
+                subject=str(user.id),
+                details={
+                    "user_id": user.id,
+                    "reason": identity.reject_reason,
+                    "verified": identity.verified,
+                    "product_id": body.product_id,
+                    "claimed_transaction_id": body.transaction_id,
+                },
+                from_addr=get_settings().alert_email_from,
+            )
+        except Exception as e:
+            logger.warning("receipt_unverified alert failed (non-fatal): %s", e)
+
+    if receipt_verification.require_signed_transaction(
+            request.app.state.remote_configs, get_settings()):
+        if not identity.verified or not identity.original_transaction_id:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "receipt_unverified",
+                    "message": "This purchase could not be verified with Apple.",
+                    "reason": identity.reject_reason or "no_signed_transaction",
+                },
+            )
+
     # StoreKit environment, so this purchase can be told apart from a
     # TestFlight one downstream (revenue reporting, purchase alerts).
-    # Read off the signed transaction the client already sends — no new
-    # wire field, so no two-sided deploy. Falls back to the last
-    # environment Apple told us about for this account (the ASSN path
-    # always carries it), then to unknown, which reporting counts
-    # separately rather than guessing.
-    _environment = await _resolve_storekit_environment(db, user.id, body)
+    _environment = await _resolve_storekit_environment(
+        db, user.id, identity.environment)
+
+    # The id Apple's server notifications are matched on, and the id of
+    # this particular renewal. They are NOT the same value: storing the
+    # original in both columns is what made `transaction_id='0'` and
+    # `original_transaction_id='0'` look like two facts when they were
+    # one fact written twice.
+    _otid = identity.original_transaction_id
+    _txn_id = identity.transaction_id or _otid
 
     # Detect free trial: prefer explicit flag from client, fall back to inference
     if body.is_trial is not None:
@@ -522,26 +611,29 @@ async def verify_receipt(
     # (account switch on same device, or anon-purchase → later sign-in to a
     # different account). Without this, two rows hold the same id and the
     # apple-notifications webhook lookup only updates one of them.
-    await db.execute(
-        "UPDATE users SET original_transaction_id = NULL "
-        "WHERE original_transaction_id = ? AND id != ?",
-        (body.transaction_id, user.id),
-    )
+    # Guarded on a plausible id: with `'0'` in hand this statement would
+    # have cleared the id off every OTHER user who had also been given a
+    # `'0'`, turning one bad row into a widening blast radius.
+    if _otid:
+        await db.execute(
+            "UPDATE users SET original_transaction_id = NULL "
+            "WHERE original_transaction_id = ? AND id != ?",
+            (_otid, user.id),
+        )
 
     # This verify claims the transaction — close any open orphan alert
     # for it. SS's deferred receipt-replay can land hours or days after
     # the assn_unmatched alert legitimately fired (their queue drains on
     # next sign-in); that late arrival is the alert healing, not a fresh
     # incident. Best-effort: alert bookkeeping never breaks a verify.
-    if body.transaction_id:
+    if _otid:
         try:
             from app.services.alerting import resolve_incident
-            await resolve_incident(
-                db, "assn_unmatched", str(body.transaction_id))
+            await resolve_incident(db, "assn_unmatched", str(_otid))
         except Exception:
             logger.warning(
                 "assn_unmatched auto-resolve failed for txn %s (non-fatal)",
-                body.transaction_id)
+                _otid)
 
     if is_trial:
         # Trial: use trial_cost_limit_usd, 7-day period
@@ -564,11 +656,11 @@ async def verify_receipt(
                     is_trial = 1,
                     trial_start = ?,
                     trial_end = ?,
-                    original_transaction_id = ?
+                    original_transaction_id = COALESCE(?, original_transaction_id)
                    WHERE id = ?""",
                 (
                     new_tier_name, trial_limit, resets_at, now.isoformat(),
-                    now.isoformat(), trial_end, body.transaction_id, user.id,
+                    now.isoformat(), trial_end, _otid, user.id,
                 ),
             )
             # Zero Memory capture quota counter on Free → trial upgrade so
@@ -594,8 +686,8 @@ async def verify_receipt(
                 await subs.record_subscription_event(
                     db, user_id=user.id, event_type="subscribed", subtype="trial",
                     from_tier=old_tier_name, to_tier=new_tier_name,
-                    product_id=body.product_id, transaction_id=body.transaction_id,
-                    original_transaction_id=body.transaction_id,
+                    product_id=_effective_product_id, transaction_id=_txn_id,
+                    original_transaction_id=_otid,
                     source="verify_receipt", price_usd=0.0,
                     environment=_environment,
                     offer_id=body.offer_id,
@@ -610,9 +702,9 @@ async def verify_receipt(
                     monthly_cost_limit_usd = ?,
                     updated_at = ?,
                     is_trial = 1,
-                    original_transaction_id = ?
+                    original_transaction_id = COALESCE(?, original_transaction_id)
                    WHERE id = ?""",
-                (trial_limit, now.isoformat(), body.transaction_id, user.id),
+                (trial_limit, now.isoformat(), _otid, user.id),
             )
         await db.commit()
 
@@ -664,11 +756,11 @@ async def verify_receipt(
                 is_trial = 0,
                 trial_start = NULL,
                 trial_end = NULL,
-                original_transaction_id = ?
+                original_transaction_id = COALESCE(?, original_transaction_id)
                WHERE id = ?""",
             (
                 new_tier_name, new_tier.monthly_cost_limit_usd, resets_at,
-                now.isoformat(), body.transaction_id, user.id,
+                now.isoformat(), _otid, user.id,
             ),
         )
         if trial_to_paid:
@@ -704,8 +796,8 @@ async def verify_receipt(
                 db, user_id=user.id, event_type=_sub_evt,
                 subtype="conversion" if trial_to_paid else None,
                 from_tier=old_tier_name, to_tier=new_tier_name,
-                product_id=body.product_id, transaction_id=body.transaction_id,
-                original_transaction_id=body.transaction_id,
+                product_id=_effective_product_id, transaction_id=_txn_id,
+                original_transaction_id=_otid,
                 source="verify_receipt",
                 environment=_environment,
                 offer_id=body.offer_id,
@@ -719,11 +811,11 @@ async def verify_receipt(
                 monthly_cost_limit_usd = ?,
                 updated_at = ?,
                 is_trial = 0,
-                original_transaction_id = ?
+                original_transaction_id = COALESCE(?, original_transaction_id)
                WHERE id = ?""",
             (
                 new_tier.monthly_cost_limit_usd, now.isoformat(),
-                body.transaction_id, user.id,
+                _otid, user.id,
             ),
         )
     await db.commit()

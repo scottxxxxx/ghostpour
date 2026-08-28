@@ -21,7 +21,7 @@ class TestVerifyReceipt:
             "/v1/verify-receipt",
             json={
                 "product_id": _PLUS_PRODUCT,
-                "transaction_id": "txn_123",
+                "transaction_id": "2000001300000123",
             },
             headers=headers,
         )
@@ -40,7 +40,7 @@ class TestVerifyReceipt:
             "/v1/verify-receipt",
             json={
                 "product_id": _PRO_PRODUCT,
-                "transaction_id": "txn_456",
+                "transaction_id": "2000001300000456",
                 "offer_type": "introductory",
                 "offer_price": 0,
             },
@@ -72,7 +72,7 @@ class TestVerifyReceipt:
             "/v1/verify-receipt",
             json={
                 "product_id": _PLUS_PRODUCT,
-                "transaction_id": "txn_same",
+                "transaction_id": "2000001300000789",
                 "is_trial": False,
             },
             headers=headers,
@@ -105,7 +105,7 @@ class TestVerifyReceipt:
             "/v1/verify-receipt",
             json={
                 "product_id": _PLUS_PRODUCT,
-                "transaction_id": "txn_trial_same",
+                "transaction_id": "2000001300000790",
                 "offer_type": "introductory",
                 "offer_price": 0,
                 "is_trial": True,
@@ -143,7 +143,7 @@ class TestVerifyReceipt:
         conn = sqlite3.connect(tmp_db_path)
         conn.execute(
             "UPDATE users SET original_transaction_id = ? WHERE id = ?",
-            ("txn_replay", "user-a"),
+            ("2000001300000791", "user-a"),
         )
         conn.commit()
         conn.close()
@@ -158,7 +158,7 @@ class TestVerifyReceipt:
             "/v1/verify-receipt",
             json={
                 "product_id": _PLUS_PRODUCT,
-                "transaction_id": "txn_replay",
+                "transaction_id": "2000001300000791",
                 "is_trial": False,
             },
             headers=headers,
@@ -168,7 +168,7 @@ class TestVerifyReceipt:
         conn = sqlite3.connect(tmp_db_path)
         rows = conn.execute(
             "SELECT id FROM users WHERE original_transaction_id = ?",
-            ("txn_replay",),
+            ("2000001300000791",),
         ).fetchall()
         a_txn = conn.execute(
             "SELECT original_transaction_id FROM users WHERE id = ?",
@@ -192,7 +192,7 @@ class TestVerifyReceipt:
             "/v1/verify-receipt",
             json={
                 "product_id": "com.fake.product",
-                "transaction_id": "txn_789",
+                "transaction_id": "2000001300000792",
             },
             headers=headers,
         )
@@ -231,7 +231,7 @@ class TestVerifyReceipt:
             "/v1/verify-receipt",
             json={
                 "product_id": _PLUS_PRODUCT,
-                "transaction_id": "txn_placeholder_count",
+                "transaction_id": "2000001300000793",
             },
             headers=headers,
         )
@@ -251,7 +251,7 @@ class TestVerifyReceipt:
             "/v1/verify-receipt",
             json={
                 "product_id": _PLUS_PRODUCT,
-                "transaction_id": "txn_no_placeholders",
+                "transaction_id": "2000001300000794",
             },
             headers=headers,
         )
@@ -432,7 +432,7 @@ class TestOfferIdAttribution:
             "/v1/verify-receipt",
             json={
                 "product_id": _PRO_PRODUCT,
-                "transaction_id": "txn_email_offer",
+                "transaction_id": "2000001300000795",
                 "offer_id": "ss_email_launch_2026",
             },
             headers=headers,
@@ -455,7 +455,7 @@ class TestOfferIdAttribution:
         headers = {"Authorization": f"Bearer {_jwt_token('no-offer-user')}"}
         resp = client.post(
             "/v1/verify-receipt",
-            json={"product_id": _PLUS_PRODUCT, "transaction_id": "txn_plain"},
+            json={"product_id": _PLUS_PRODUCT, "transaction_id": "2000001300000796"},
             headers=headers,
         )
         assert resp.status_code == 200
@@ -478,7 +478,7 @@ class TestOfferIdAttribution:
                 "/v1/verify-receipt",
                 json={
                     "product_id": _PRO_PRODUCT,
-                    "transaction_id": f"txn_redeem_{i}",
+                    "transaction_id": f"20000013100000{i}",
                     "offer_id": offer,
                 },
                 headers={"Authorization": f"Bearer {_jwt_token(uid)}"},
