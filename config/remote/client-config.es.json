@@ -1,5 +1,5 @@
 {
-  "version": 27,
+  "version": 28,
   "limits": {
     "project_chat": {
       "max_input_chars": {
@@ -99,7 +99,22 @@
     "response_reserve_tokens": 1024,
     "user_content_reserve_tokens": 4000,
     "context_window_fallback_tokens": 32000,
-    "_note": "Current client values, served so they can change without a release. context_window_fallback_tokens is the first one to tune: 32000 is wrong for most models we route to today, and it silently caps how much fits in project chat. Image sizing is NOT here on purpose: it is already served per tier at tiers.feature_definitions.images, and a second source for the same field is how the free-tier copy drifted."
+    "_note": "Current client values, served so they can change without a release. context_window_fallback_tokens is the first one to tune: 32000 is wrong for most models we route to today, and it silently caps how much fits in project chat. Image sizing is NOT here on purpose: it is already served per tier at tiers.feature_definitions.images, and a second source for the same field is how the free-tier copy drifted.",
+    "retry": {
+      "auto_delays_ms": [
+        10000,
+        30000,
+        60000
+      ],
+      "title": "Se interrumpió la conexión",
+      "body": "Tu mensaje y los archivos adjuntos están guardados. Reintentando.",
+      "countdown_label": "Reintentando en {seconds} s",
+      "retry_now_label": "Reintentar ahora",
+      "exhausted_title": "Aún sin conexión",
+      "exhausted_body": "Tu mensaje y los archivos adjuntos están guardados. Toca para reintentar.",
+      "retry_label": "Reintentar",
+      "_note": "Retry schedule and copy for a chat turn whose connection dropped. auto_delays_ms is the ladder of AUTOMATIC attempts after the failure; when it is exhausted the client stops and waits for a manual tap. The countdown is honest because we own the timer, unlike a progress bar for a finish we cannot predict. Delays are milliseconds so the ladder can be tuned without a release."
+    }
   },
   "share": {
     "host": "https://share.shouldersurf.com",
