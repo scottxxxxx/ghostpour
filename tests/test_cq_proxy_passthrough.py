@@ -171,3 +171,37 @@ def test_the_two_fields_that_were_being_eaten_are_modelled_by_name():
     # SS's updatePatch sends this; we modelled `category` and not this, so
     # every patch-type edit was a silent no-op.
     assert "patch_type" in cq.PatchUpdateRequest.model_fields
+
+
+@pytest.mark.parametrize("raw", [
+    "2026-09-01", "2026-9-1", "2026-09-01T00:00:00Z", "next tuesday",
+    "", "2026-13-45",
+])
+def test_deadline_date_is_passed_through_byte_identical(raw):
+    """CQ stores and echoes the EXACT string and SS compares it, so any
+    normalisation on this hop is a defect (CQ, 2026-08-30).
+
+    Typing this field as `datetime.date` would look like an improvement and
+    would quietly break that contract: it would coerce "2026-9-1" to
+    "2026-09-01" and reject the malformed ones here, where CQ has deliberately
+    different rules per route (dropped with a warning on create, so a user
+    does not lose the task they just typed; 422 INVALID_DEADLINE_DATE on
+    edit, because the item is already safe and a silent no-op reported as 200
+    is worse). Neither of those decisions is ours to pre-empt from the middle.
+    """
+    created = cq.PatchCreateRequest(type="commitment", text="t",
+                                    deadline_date=raw).model_dump()
+    updated = cq.PatchUpdateRequest(deadline_date=raw).model_dump()
+    assert created["deadline_date"] == raw
+    assert updated["deadline_date"] == raw
+    assert isinstance(created["deadline_date"], str)
+
+
+def test_patch_update_keeps_both_spellings():
+    """Three-way mismatch (CQ, 2026-08-30): we modelled `category`, SS sends
+    `patch_type`, and CQ's PatchUpdate modelled `category` too. Correcting any
+    ONE of the three leaves the bug alive, so CQ now accepts both and we must
+    keep forwarding both rather than renaming. Renaming to fix a compatibility
+    bug is how you get a third name."""
+    assert "category" in cq.PatchUpdateRequest.model_fields
+    assert "patch_type" in cq.PatchUpdateRequest.model_fields
