@@ -57,12 +57,19 @@ def test_the_replayed_body_is_the_whole_body_not_just_the_text(
     stored summary would silently drop fields and only show up as a subtly
     wrong UI on the retry path, which is the path nobody looks at."""
     tid = str(uuid.uuid4())
-    first = client.post("/v1/chat", json=_turn(tid), headers=_h(free_user)).json()
-    second = client.post("/v1/chat", json=_turn(tid), headers=_h(free_user)).json()
+    live = client.post("/v1/chat", json=_turn(tid), headers=_h(free_user)).json()
 
-    assert set(first).issubset(set(second)), set(first) - set(second)
-    for k, v in first.items():
-        assert second[k] == v, k
+    # Read what was STORED, not what a second identical run produced. The
+    # first version of this test compared two live responses, and the mock
+    # provider returns the same canned answer every time, so it passed even
+    # with the replay disabled entirely: a test that could not fail on the
+    # bug it was written for. Caught by sabotage, 2026-08-30.
+    stored = client.get(f"/v1/chat/turns/{tid}", headers=_h(free_user)).json()["body"]
+
+    missing = set(live) - set(stored)
+    assert not missing, f"dropped from the stored body: {missing}"
+    for k, v in live.items():
+        assert stored[k] == v, k
 
 
 def test_a_turn_without_an_id_still_runs_every_time(
