@@ -203,11 +203,27 @@ def test_the_rate_that_decides_the_budget_is_one_query(client, plus_user, free_u
 
 
 @pytest.mark.asyncio
-async def test_observations_purge_at_the_same_thirty_days_as_everything_else(client, tmp_db_path):
+async def test_observations_purge_at_the_same_thirty_days_as_everything_else(tmp_db_path):
+    """No `client` fixture, deliberately.
+
+    This raced the app's own sweep and lost on CI (2026-08-30). `main.py`'s
+    `_generated_files_sweep_loop` calls `purge_observations` immediately at
+    startup and then hourly, as a concurrent task on the app's loop, so a row
+    inserted here can be deleted by the sweep before our own call sees it and
+    the count comes back 0. Proven by probe, not inferred: with the client
+    fixture up, a row inserted after startup disappeared 0.05s later.
+
+    It had always been racy and only surfaced when an unrelated branch added
+    ~17 tests and shifted the timing, which is the worst way for a race to
+    announce itself. The test never needed a running app, only the schema, so
+    it builds one directly and the race cannot happen.
+    """
     import uuid
     from datetime import datetime, timedelta, timezone
     import aiosqlite
+    from app.database import init_db
     from app.services.recall_tuning import purge_observations
+    await init_db(f"sqlite+aiosqlite:///{tmp_db_path}")
     old = (datetime.now(timezone.utc) - timedelta(days=31)).isoformat()
     new = datetime.now(timezone.utc).isoformat()
     async with aiosqlite.connect(tmp_db_path) as db:
