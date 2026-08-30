@@ -1495,6 +1495,43 @@ async def chat(
             body.metadata = {}
         body.metadata["request_id"] = _rid
 
+    # 0.5. Turn idempotency (2026-08-30). Deliberately the FIRST thing after
+    # request identity, before the tier lookup, before document extraction,
+    # before the generation_intent classifier and long before any upstream
+    # call. A retry that gets this far has already paid the upload; there is
+    # no reason for it to pay for anything else.
+    #
+    # On 2026-08-29 the same question was answered three times at $0.2738,
+    # $0.2623 and $0.2633 and delivered zero times. This is the half of the
+    # fix that makes the retry free; #820 was the half that stops the drop.
+    #
+    # Registering here also puts the record in place BEFORE any SSE frame can
+    # be written, which is the ordering SS's retry logic depends on: a frame
+    # means "there is a row you can look up". See app/services/chat_turns.py.
+    _turn_id = (body.turn_id or "").strip() or None
+    if _turn_id:
+        from app.services import chat_turns as _chat_turns
+        _stored = await _chat_turns.lookup_terminal(db, user.id, _turn_id)
+        if _stored is not None and _stored["status"] == "done":
+            logger.info("chat_turn replayed turn_id=%s user=%s", _turn_id, user.id)
+            return JSONResponse(content={**_stored["body"], "replayed": True})
+        if _stored is not None:                      # terminal failure
+            logger.info("chat_turn replayed failure turn_id=%s", _turn_id)
+            return JSONResponse(
+                status_code=200,
+                content={"type": "error", "replayed": True,
+                         **(_stored.get("error") or {})})
+        _running = _chat_turns.running_info(user.id, _turn_id)
+        if _running is not None:
+            # The turn is already running in this process. Answering rather
+            # than attaching is the point: holding the request open is the
+            # long silent socket that started all of this.
+            logger.info("chat_turn already in flight turn_id=%s elapsed=%ss",
+                        _turn_id, _running["elapsed_seconds"])
+            return JSONResponse(status_code=200,
+                                content={"type": "turn_in_progress", **_running})
+        _chat_turns.begin(user.id, _turn_id)
+
     # 1. Look up tier (respects simulation override)
     effective_tier_name = user.effective_tier
     tier = tier_config.tiers.get(effective_tier_name)
@@ -4189,11 +4226,45 @@ async def chat(
                 request.headers.get("User-Agent"),
                 version_gate.user_agent_app_name(_registry, _apps, _app)))
 
+    async def _run_turn_tracked(db=db) -> JSONResponse:
+        """`_run_turn_tail` plus the terminal turn record.
+
+        One wrapper rather than a record at each call site: the tail is
+        reached from the plain JSON path and from inside the SSE envelope's
+        task, and a store that only covers one of them would make the retry
+        free on some turns and not others, which is worse than not having it
+        because nobody could predict which.
+
+        A failure is recorded too. "We tried and it failed" is a real answer
+        and replaying it beats re-running a turn that will fail the same way.
+        """
+        if not _turn_id:
+            return await _run_turn_tail(db=db)
+        from app.services import chat_turns as _ct
+        try:
+            _resp = await _run_turn_tail(db=db)
+        except HTTPException as _e:
+            _d = _e.detail if isinstance(_e.detail, dict) else {"message": str(_e.detail)}
+            await _ct.finish(db, user_id=user.id, app_id=app_id, turn_id=_turn_id,
+                             status="failed",
+                             error={"code": _d.get("code", "provider_error"),
+                                    "message": _d.get("message", "the turn failed"),
+                                    "http_status": _e.status_code})
+            raise
+        except Exception:
+            # Never leave the id in flight on an unexpected error: a retry
+            # would poll `in_progress` until the leak valve expired it.
+            _ct.abandon(user.id, _turn_id)
+            raise
+        await _ct.finish(db, user_id=user.id, app_id=app_id, turn_id=_turn_id,
+                         status="done", body=json.loads(bytes(_resp.body)))
+        return _resp
+
     _chat_sse = bool(not _gen_sse and is_project_chat and body.stream
                      and _chat_sse_build_ok())
 
     if not (_gen_sse or _chat_sse):
-        return await _run_turn_tail()
+        return await _run_turn_tracked()
 
     import json as _json
 
@@ -4281,7 +4352,7 @@ async def chat(
             # completion and write its rescue row + stage its artifact —
             # that's the entire paid-but-unseen case rescue exists for.
             try:
-                return await _run_turn_tail(db=_sse_db)
+                return await _run_turn_tracked(db=_sse_db)
             finally:
                 await _sse_db.close()
 
@@ -4679,3 +4750,30 @@ async def _handle_stream(
         media_type="text/event-stream",
         headers=headers,
     )
+
+
+@router.get("/chat/turns/{turn_id}")
+async def lookup_chat_turn(
+    turn_id: str,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Recover a chat turn whose answer never reached the client.
+
+    Owner-only. `in_progress` carries observed elapsed seconds and no
+    prediction, because we hold no honest estimate for a chat turn.
+
+    Never-existed, expired, not-yours and lost-to-restart are ONE
+    indistinguishable 404, matching /v1/generations, because the client's
+    answer to all four is identical: resend the turn in full. It is also the
+    cheap case, since a turn we have no record of never reached an upstream
+    call and so was never billed.
+    """
+    from app.services import chat_turns
+    running = chat_turns.running_info(user.id, turn_id)
+    if running is not None:
+        return JSONResponse(running, headers={"Cache-Control": "private, no-store"})
+    stored = await chat_turns.lookup_terminal(db, user.id, turn_id)
+    if stored is not None:
+        return JSONResponse(stored, headers={"Cache-Control": "private, no-store"})
+    raise HTTPException(status_code=404, detail="not found")

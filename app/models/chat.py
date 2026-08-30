@@ -66,6 +66,13 @@ class ChatRequest(BaseModel):
     max_tokens: int | None = None
     temperature: float | None = None  # GP-controlled; None => provider default
     stream: bool = False
+    # Client-minted id for one USER-AUTHORED turn, resent unchanged on every
+    # retry of that turn and re-minted whenever the user edits the text or
+    # changes the attachments (2026-08-30). Keyed with user_id, it makes a
+    # retry a lookup instead of a second model call and a second 400 KB
+    # upload. Absent means today's behaviour exactly, so every shipped build
+    # is unaffected and this is additive on the wire.
+    turn_id: str | None = None
     reasoning: ReasoningLevel | None = None
     # GP-controlled lane setting, NOT the user-facing picker above. Only
     # "disabled" is meaningful today: models that think by default (Sonnet 5,
