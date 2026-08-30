@@ -24,6 +24,28 @@ from app.services.providers.anthropic import _build_system_blocks
 from tests.conftest import chat_request
 
 
+def _guard() -> str:
+    """The guard text, with a non-vacuity check welded on.
+
+    Every placement assertion in this file uses the guard as a NEEDLE, and
+    an empty needle is found everywhere: `"" in s` is True, and `s.index("")`
+    is 0, which sorts below any other index. So an emptied or stubbed
+    constant would satisfy "guard is present" and "guard comes first"
+    simultaneously, and the whole file would go green on a broken fix.
+
+    Not hypothetical. Sabotage 2026-08-30 replaced the constant with `""`
+    and six of eight tests stayed green, including EVERY placement test.
+    The only one that caught it did so through a source-text substring
+    assertion, which is the same shape this codebase has already proven
+    blind elsewhere. So no test here takes the needle without first
+    proving it is one.
+    """
+    assert RECALL_USE_GUARD, "guard is empty; every placement test below is vacuous"
+    assert len(RECALL_USE_GUARD) > 200, "guard looks stubbed"
+    assert "[HOW TO USE THE CONTEXT BELOW]" in RECALL_USE_GUARD
+    return RECALL_USE_GUARD
+
+
 def _req(system_prompt: str) -> ChatRequest:
     return ChatRequest(
         provider="anthropic",
@@ -39,12 +61,12 @@ def test_guard_precedes_block_on_append_path():
     """No {{context_quilt}} in the template, so the block is appended.
     The guard must land BEFORE it: after the block it would read as part
     of the recalled material rather than as instruction about it."""
+    guard = _guard()
     block = "Don owes a status update on the CTS promotion."
     out = _inject_recall_block(_req("BASE RULES."), block)
 
-    assert RECALL_USE_GUARD in out.system_prompt
-    assert out.system_prompt.index(RECALL_USE_GUARD) < \
-        out.system_prompt.index(block)
+    assert guard in out.system_prompt
+    assert out.system_prompt.index(guard) < out.system_prompt.index(block)
     # The base prompt is untouched and the block still arrives intact.
     assert "BASE RULES." in out.system_prompt
     assert block in out.system_prompt
@@ -53,14 +75,14 @@ def test_guard_precedes_block_on_append_path():
 def test_guard_precedes_block_on_placeholder_path():
     """When the client template carries the placeholder, the guard fills
     in alongside the block, still ahead of it."""
+    guard = _guard()
     block = "Don owes a status update on the CTS promotion."
     out = _inject_recall_block(
         _req("BASE RULES.\n\n{{context_quilt}}\n\nAnswer the user."), block)
 
     assert "{{context_quilt}}" not in out.system_prompt
-    assert RECALL_USE_GUARD in out.system_prompt
-    assert out.system_prompt.index(RECALL_USE_GUARD) < \
-        out.system_prompt.index(block)
+    assert guard in out.system_prompt
+    assert out.system_prompt.index(guard) < out.system_prompt.index(block)
     assert "Answer the user." in out.system_prompt
 
 
@@ -91,6 +113,7 @@ def test_append_path_keeps_recall_in_the_uncached_tail():
     text placed after the block would turn the empty suffix non-empty and
     do exactly that. Assert the layout the adapter documents: two blocks,
     recall last, no cache_control on it."""
+    guard = _guard()
     block = "Don owes a status update on the CTS promotion."
     out = _inject_recall_block(_req("BASE RULES."), block)
 
@@ -98,7 +121,7 @@ def test_append_path_keeps_recall_in_the_uncached_tail():
 
     assert len(blocks) == 2
     assert blocks[0]["cache_control"] == {"type": "ephemeral"}
-    assert RECALL_USE_GUARD in blocks[0]["text"], \
+    assert guard in blocks[0]["text"], \
         "guard belongs in the cached prefix, not the volatile tail"
     assert blocks[1]["text"] == block
     assert "cache_control" not in blocks[1], \
@@ -132,10 +155,11 @@ def test_guard_present_on_a_live_cq_chat_turn(
     )
     assert resp.status_code == 200
 
+    guard = _guard()
     sent = mock_provider.await_args_list[-1].args[0]
-    assert RECALL_USE_GUARD in sent.system_prompt
+    assert guard in sent.system_prompt
     # And it is still ahead of the recalled material the fixture returns.
-    assert sent.system_prompt.index(RECALL_USE_GUARD) < \
+    assert sent.system_prompt.index(guard) < \
         sent.system_prompt.index("User prefers concise answers")
 
 
@@ -151,5 +175,5 @@ def test_no_guard_when_no_context_was_injected(
         headers=pro_user["headers"],
     )
     assert resp.status_code == 200
-    assert RECALL_USE_GUARD not in \
+    assert _guard() not in \
         mock_provider.await_args_list[-1].args[0].system_prompt
