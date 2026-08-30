@@ -4,7 +4,7 @@
 kept it immune to the 07-13 bug where a confirmed Gantt turn token-streamed
 raw task-graph JSON into the bubble and built no file. The exclusion also took
 it off the only path that emits heartbeats, so a Project Chat turn sent
-nothing at all — not one byte, not even HTTP response headers — until the whole
+nothing at all, not one byte and not even HTTP response headers, until the whole
 JSON was built.
 
 Measured on Scott's device that day: three turns carrying 400,653 bytes of
@@ -25,6 +25,11 @@ import pytest
 from tests.conftest import chat_request
 
 
+# 803 is the App Store build SS verified line by line; the floor is 695.
+BUILD_OK = 803
+UA_BELOW = "Shoulder%20Surf/694 CFNetwork/3860.700.1 Darwin/25.6.0"
+
+
 def _project_chat(stream: bool, **meta):
     return chat_request(
         prompt_mode="ProjectChat",
@@ -35,9 +40,18 @@ def _project_chat(stream: bool, **meta):
     )
 
 
+def _headers(user, *, build=BUILD_OK, ua=None):
+    h = {**user["headers"], "X-App-ID": "shouldersurf"}
+    if build is not None:
+        h["X-App-Build"] = str(build)
+    if ua is not None:
+        h["User-Agent"] = ua
+    return h
+
+
 def test_streaming_project_chat_answers_as_sse(client, free_user, mock_provider):
     r = client.post("/v1/chat", json=_project_chat(stream=True),
-                    headers=free_user["headers"])
+                    headers=_headers(free_user))
     assert r.status_code == 200
     assert "text/event-stream" in r.headers["content-type"]
     assert "event: generation_result" in r.text
@@ -47,12 +61,12 @@ def test_the_delivered_body_is_the_json_body_unchanged(
         client, free_user, mock_provider):
     """The whole point: transport moves, payload does not."""
     plain = client.post("/v1/chat", json=_project_chat(stream=False),
-                        headers=free_user["headers"])
+                        headers=_headers(free_user))
     assert plain.status_code == 200
     assert "application/json" in plain.headers["content-type"]
 
     streamed = client.post("/v1/chat", json=_project_chat(stream=True),
-                           headers=free_user["headers"])
+                           headers=_headers(free_user))
     assert streamed.status_code == 200
     delivered = _json.loads(
         streamed.text.split("event: generation_result\ndata: ")[1].split("\n")[0])
@@ -69,7 +83,7 @@ def test_a_chat_turn_never_arms_the_generation_family(
     on the client, which gates its "your file is still being built" copy. A
     plain chat turn promising a build is the exact defect Scott hit."""
     r = client.post("/v1/chat", json=_project_chat(stream=True),
-                    headers=free_user["headers"])
+                    headers=_headers(free_user))
     # Anchor first: without this the assertions below pass vacuously on any
     # change that puts the turn back on the silent JSON path.
     assert "event: generation_result" in r.text
@@ -95,7 +109,7 @@ def test_heartbeats_arrive_while_the_turn_is_still_running(
     mock_provider.side_effect = _slow
 
     r = client.post("/v1/chat", json=_project_chat(stream=True),
-                    headers=free_user["headers"])
+                    headers=_headers(free_user))
     assert r.status_code == 200
     assert "event: progress" in r.text
     # Ordering is the claim: liveness reached the client before the answer.
@@ -106,7 +120,7 @@ def test_unstreamed_project_chat_still_answers_as_json(
         client, free_user, mock_provider):
     """A client that did not ask to stream keeps today's behaviour exactly."""
     r = client.post("/v1/chat", json=_project_chat(stream=False),
-                    headers=free_user["headers"])
+                    headers=_headers(free_user))
     assert r.status_code == 200
     assert "application/json" in r.headers["content-type"]
     assert "event: generation_result" not in r.text
@@ -119,7 +133,7 @@ def test_non_project_chat_is_untouched_by_the_envelope(
     r = client.post("/v1/chat", json=chat_request(
         prompt_mode="MeetingChat", call_type="query",
         user_content="What did we decide?", stream=True,
-    ), headers=free_user["headers"])
+    ), headers=_headers(free_user))
     assert r.status_code == 200
     assert "event: generation_result" not in r.text
 
@@ -132,3 +146,49 @@ def test_missing_or_non_bearer_auth_is_401_not_403(client, headers):
     in `get_current_user` is already a 401."""
     r = client.get("/v1/generations/does-not-exist", headers=headers)
     assert r.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# The build floor. The repo can name the build that understands the envelope;
+# it cannot say what is installed. Below 695 the envelope arrives as a stream
+# carrying no text events and renders an EMPTY answer, which is worse than the
+# silence it replaces, so this gate fails CLOSED on a build it cannot read.
+
+
+def test_a_build_below_the_floor_keeps_the_json_path(
+        client, free_user, mock_provider):
+    r = client.post("/v1/chat", json=_project_chat(stream=True),
+                    headers=_headers(free_user, build=694))
+    assert r.status_code == 200
+    assert "application/json" in r.headers["content-type"]
+    assert "event: generation_result" not in r.text
+
+
+def test_the_floor_build_itself_gets_the_envelope(
+        client, free_user, mock_provider):
+    """695 is the floor, so 695 is included. An off-by-one here silently
+    strands the exact build SS verified."""
+    r = client.post("/v1/chat", json=_project_chat(stream=True),
+                    headers=_headers(free_user, build=695))
+    assert "text/event-stream" in r.headers["content-type"]
+    assert "event: generation_result" in r.text
+
+
+def test_an_unreadable_build_fails_closed(client, free_user, mock_provider):
+    """No X-App-Build and no readable UA token. Every other gate in
+    version_gate allows here; this one must not."""
+    r = client.post("/v1/chat", json=_project_chat(stream=True),
+                    headers=_headers(free_user, build=None,
+                                     ua="python-httpx/0.27"))
+    assert "application/json" in r.headers["content-type"]
+    assert "event: generation_result" not in r.text
+
+
+def test_the_build_can_be_read_from_the_user_agent_alone(
+        client, free_user, mock_provider):
+    """Builds before 648 sent no X-App-Build, so the UA token is the only
+    reading. Pinned so a UA-only old build is refused for the right reason
+    rather than passing as unreadable."""
+    r = client.post("/v1/chat", json=_project_chat(stream=True),
+                    headers=_headers(free_user, build=None, ua=UA_BELOW))
+    assert "application/json" in r.headers["content-type"]

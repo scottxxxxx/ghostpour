@@ -4168,7 +4168,29 @@ async def chat(
     # what now gates its "your file is still being built" copy. A plain chat
     # turn must never arm that claim, so its heartbeat rides the untyped
     # family instead. Verified in their parser, not assumed.
-    _chat_sse = bool(not _gen_sse and is_project_chat and body.stream)
+    # Gated on the build, because the repo can name the floor but cannot say
+    # what is installed. SS read build 695 (c08d89c) and build 803 (4661176)
+    # line by line: both carry the `generation_result` case AND the JSON
+    # branch's `?? result.data` fallback, and either half missing would make
+    # the frame useless. Below 695 the envelope would arrive as a stream with
+    # no text events and render an EMPTY answer, which is worse than the
+    # silence it replaces, so `chat_sse_allowed` fails CLOSED on a build it
+    # cannot read. Drop the floor once the installed distribution is known.
+    def _chat_sse_build_ok() -> bool:
+        from app.routers.config import load_apps
+        from app.services import version_gate
+        _registry = getattr(request.app.state, "app_versions", {}) or {}
+        _apps = load_apps()
+        _app = getattr(request.state, "app_id", None)
+        return version_gate.chat_sse_allowed(
+            version_gate.chat_sse_floor(_registry, _apps, _app),
+            version_gate.build_number(
+                request.headers.get("X-App-Build"),
+                request.headers.get("User-Agent"),
+                version_gate.user_agent_app_name(_registry, _apps, _app)))
+
+    _chat_sse = bool(not _gen_sse and is_project_chat and body.stream
+                     and _chat_sse_build_ok())
 
     if not (_gen_sse or _chat_sse):
         return await _run_turn_tail()
