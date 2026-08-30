@@ -192,3 +192,27 @@ def test_the_build_can_be_read_from_the_user_agent_alone(
     r = client.post("/v1/chat", json=_project_chat(stream=True),
                     headers=_headers(free_user, build=None, ua=UA_BELOW))
     assert "application/json" in r.headers["content-type"]
+
+
+def test_a_ua_only_build_above_the_floor_STILL_gets_the_envelope(
+        client, free_user, mock_provider):
+    """The gap that made a wrong conclusion plausible (2026-08-30).
+
+    SS found that the chat stream builds its own URLSessionConfiguration and
+    sets only X-App-ID, so X-App-Build is absent on that socket, and read that
+    as "the gate refuses every device". It does not: `build_number` falls back
+    to the default URLSession User-Agent's leading token, which is why that
+    fallback exists at all. Measured at the edge the same night, 630 of 793
+    POST /v1/chat requests carried a readable `Shoulder%20Surf/<build>` token
+    and the 163 without one were Tech Rehearsal, curl and python-urllib.
+
+    The old UA test only pinned the BELOW-floor direction, so nothing here
+    proved the gate OPENS on a UA-only read. That asymmetry is the whole
+    reason the claim survived as long as it did.
+    """
+    ua = "Shoulder%20Surf/803 CFNetwork/3860.700.1 Darwin/25.6.0"
+    r = client.post("/v1/chat", json=_project_chat(stream=True),
+                    headers=_headers(free_user, build=None, ua=ua))
+    assert r.status_code == 200
+    assert "text/event-stream" in r.headers["content-type"]
+    assert "event: generation_result" in r.text
