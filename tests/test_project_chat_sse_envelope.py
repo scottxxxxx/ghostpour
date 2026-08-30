@@ -216,3 +216,23 @@ def test_a_ua_only_build_above_the_floor_STILL_gets_the_envelope(
     assert r.status_code == 200
     assert "text/event-stream" in r.headers["content-type"]
     assert "event: generation_result" in r.text
+
+def test_the_response_head_flushes_before_the_answer_is_ready(
+        client, free_user, mock_provider):
+    """The socket must get a byte immediately, not at the first tick.
+
+    Measured on Scott's device 2026-08-30, turn 4b5ef89ad55f: the phone saw
+    no headers until +10.34s. Server side, the first 5s tick was written at
+    03:46:21.120 and the device observed headers at 03:46:21.140, a 20 ms
+    gap, which proves the response head is flushed WITH the first body chunk
+    rather than before it. Half that window was pure waiting.
+
+    The mock provider returns instantly, so the turn completes before any
+    tick could fire. Without the immediate frame there is no `progress` frame
+    on this turn at all, which is exactly the silent-socket shape.
+    """
+    r = client.post("/v1/chat", json=_project_chat(stream=True),
+                    headers=_headers(free_user))
+    assert r.status_code == 200
+    assert r.text.startswith("event: progress"), r.text[:120]
+    assert r.text.index("event: progress") < r.text.index("event: generation_result")

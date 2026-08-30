@@ -4246,6 +4246,26 @@ async def chat(
         # client's still-building copy. See 6c.
         if not _chat_sse:
             yield _sse("generation_started", _started)
+        else:
+            # Flush the response head NOW. Measured on Scott's device
+            # 2026-08-30, turn 4b5ef89ad55f: the phone did not see headers
+            # until +10.34s, and the first 5s tick was written at
+            # 03:46:21.120 against headers observed at 03:46:21.140. A 20 ms
+            # gap: the head is flushed WITH the first body chunk, never
+            # before it, so "time to headers" is really time to first byte
+            # and the socket is silent until something is written.
+            #
+            # That 10.34s was 5.32s of pre-flight (400 KB uplink draining,
+            # document extraction, the generation_intent classifier's own
+            # 2.15s call, prompt assembly) plus a further 5.00s doing
+            # nothing but waiting for the first tick. This kills the second
+            # half. The generation lane never had the problem because
+            # `generation_started` already flushes at t=0.
+            #
+            # The remaining 5.32s needs the response to start BEFORE the
+            # pre-flight, which is a real change and not this one. Worth
+            # doing: this morning's two lost turns died 3s and 9s in.
+            yield _sse("progress", {"type": "progress", "elapsed_seconds": 0})
         # Own DB connection: this generator outlives the request scope (the
         # dependency-injected connection is already torn down while the
         # stream body runs — caught by CI, ValueError: no active connection).
