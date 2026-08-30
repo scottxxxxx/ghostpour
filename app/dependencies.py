@@ -8,16 +8,28 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.database import get_db
 from app.models.user import UserRecord
 
-bearer_scheme = HTTPBearer()
+# auto_error=False so a MISSING or non-Bearer Authorization header is a 401
+# like every other auth failure below, not FastAPI's default 403.
+#
+# The 403 was not cosmetic. SS's rescue lookup treats anything that is not
+# 200 or 404 as "unparseable or missing status" and keeps polling, so on
+# 2026-08-29 a token-refresh gap turned into 90 minutes of polling that could
+# never succeed, and from the outside it was indistinguishable from an ACL
+# ruling. `{"detail":"Not authenticated"}` is exactly 30 bytes, which is how
+# it was told apart from the route's own 22-byte 404 in the edge log.
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
     request: Request,
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: aiosqlite.Connection = Depends(get_db),
 ) -> UserRecord:
     """Verify JWT access token and return the user record."""
     jwt_service = request.app.state.jwt_service
+
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
     try:
         payload = jwt_service.verify_access_token(credentials.credentials)

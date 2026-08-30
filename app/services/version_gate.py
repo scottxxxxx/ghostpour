@@ -105,10 +105,11 @@ def build_number(app_build: str | None, user_agent: str | None,
     return None
 
 
-def report_write_floor(version_registry: dict, apps_registry: dict, app_id: str | None,
-                       platform: str = "ios") -> int | None:
-    """The `report_write_min_build` for this app's platform, or None when no
-    floor is configured (never block by default)."""
+def _platform_min_build(version_registry: dict, apps_registry: dict,
+                        app_id: str | None, key: str,
+                        platform: str = "ios") -> int | None:
+    """A per-platform build floor read out of the version registry by name,
+    or None when it is absent, unparseable or not positive."""
     bundle = _bundle_for_app(apps_registry, app_id)
     if not bundle:
         return None
@@ -118,12 +119,49 @@ def report_write_floor(version_registry: dict, apps_registry: dict, app_id: str 
     plat = (entry.get("platforms") or {}).get(platform)
     if not isinstance(plat, dict):
         return None
-    raw = plat.get("report_write_min_build")
+    raw = plat.get(key)
     try:
         floor = int(raw)
     except (TypeError, ValueError):
         return None
     return floor if floor > 0 else None
+
+
+def report_write_floor(version_registry: dict, apps_registry: dict, app_id: str | None,
+                       platform: str = "ios") -> int | None:
+    """The `report_write_min_build` for this app's platform, or None when no
+    floor is configured (never block by default)."""
+    return _platform_min_build(version_registry, apps_registry, app_id,
+                               "report_write_min_build", platform)
+
+
+def chat_sse_floor(version_registry: dict, apps_registry: dict, app_id: str | None,
+                   platform: str = "ios") -> int | None:
+    """The `chat_sse_min_build` for this app's platform: the first build whose
+    SSE parser routes `generation_result` into the JSON branch."""
+    return _platform_min_build(version_registry, apps_registry, app_id,
+                               "chat_sse_min_build", platform)
+
+
+def chat_sse_allowed(min_build: int | None, app_build: int | None) -> bool:
+    """⚠ This gate FAILS CLOSED, unlike every other gate in this module, and
+    the inversion is deliberate.
+
+    Everywhere else an unreadable build means "allow", because the harm is
+    blocking someone who is fine. Here the harm runs the other way: a build
+    below the floor takes the SSE envelope as a stream carrying no text
+    events and renders an EMPTY answer, which is worse than the silent JSON
+    path it replaces. An unreadable build is not evidence of a new one, so it
+    keeps today's behaviour.
+
+    No floor configured still means allow: that is an operator saying the
+    envelope is ungated, not a missing reading.
+    """
+    if min_build is None:
+        return True
+    if app_build is None:
+        return False
+    return app_build >= min_build
 
 
 def user_agent_app_name(version_registry: dict, apps_registry: dict, app_id: str | None,

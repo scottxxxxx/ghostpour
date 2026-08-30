@@ -1,5 +1,5 @@
 {
-  "version": 23,
+  "version": 24,
   "native_actions": {
     "enabled": true,
     "kinds": [
@@ -99,7 +99,22 @@
     "response_reserve_tokens": 1024,
     "user_content_reserve_tokens": 4000,
     "context_window_fallback_tokens": 32000,
-    "_note": "Current client values, served so they can change without a release. context_window_fallback_tokens is the first one to tune: 32000 is wrong for most models we route to today, and it silently caps how much fits in project chat. Image sizing is NOT here on purpose: it is already served per tier at tiers.feature_definitions.images, and a second source for the same field is how the free-tier copy drifted."
+    "_note": "Current client values, served so they can change without a release. context_window_fallback_tokens is the first one to tune: 32000 is wrong for most models we route to today, and it silently caps how much fits in project chat. Image sizing is NOT here on purpose: it is already served per tier at tiers.feature_definitions.images, and a second source for the same field is how the free-tier copy drifted.",
+    "retry": {
+      "auto_delays_ms": [
+        10000,
+        30000,
+        60000
+      ],
+      "title": "La connexion a été interrompue",
+      "body": "Votre message et vos pièces jointes sont enregistrés. Nouvel essai en cours.",
+      "countdown_label": "Nouvel essai dans {seconds} s",
+      "retry_now_label": "Réessayer maintenant",
+      "exhausted_title": "Toujours pas de connexion",
+      "exhausted_body": "Votre message et vos pièces jointes sont enregistrés. Touchez pour réessayer.",
+      "retry_label": "Réessayer",
+      "_note": "Retry schedule and copy for a chat turn whose connection dropped. auto_delays_ms is the ladder of AUTOMATIC attempts after the failure; when it is exhausted the client stops and waits for a manual tap. The countdown is honest because we own the timer, unlike a progress bar for a finish we cannot predict. Delays are milliseconds so the ladder can be tuned without a release."
+    }
   },
   "share": {
     "host": "https://share.shouldersurf.com",

@@ -4139,7 +4139,60 @@ async def chat(
         and body.get_meta("generation_confirmed")
         and _gen_confirmation_enabled
     )
-    if not _gen_sse:
+    # 6c. Chat transport (2026-08-29). Project Chat is excluded from
+    # `should_stream` above, deliberately and correctly — that exclusion is
+    # what kept it immune to the 07-13 bug where a confirmed Gantt turn
+    # token-streamed raw task-graph JSON into the bubble and built no file.
+    # But the exclusion also took it off the ONLY path that emits heartbeats,
+    # so a Project Chat turn sent nothing at all — not one byte, not even
+    # HTTP response headers — until the whole JSON was built.
+    #
+    # Measured on Scott's device 2026-08-29: three turns carrying 400,653
+    # bytes of documents ran 66.4s, 56.3s and 56.7s, completed successfully,
+    # cost $0.7995, and NONE reached the phone. All three logged 499 at the
+    # edge. The turn that survived was the 2.5s one — delivery tracked
+    # DURATION, not the files. SS's device log proved the other half: turn 4
+    # died in the FOREGROUND after 36s with `request_id=none` and zero lines
+    # parsed, so response headers never arrived either.
+    #
+    # So: keep the model output buffered internally (the renderer and the
+    # generation diversion are untouched, nothing token-streams) and change
+    # only the TRANSPORT. Heartbeat every `_PROGRESS_TICK_SECONDS`, then
+    # deliver the byte-identical JSON body in `generation_result`, which is
+    # the frame the client already substitutes for a non-stream body
+    # (CloudZapProvider.swift:967). Zero client changes, so builds already
+    # on phones get the fix.
+    #
+    # NOT `generation_started`, and NOT `generation_progress`: any
+    # `generation_*` event sets `sawGenerationEvents` on the client, which is
+    # what now gates its "your file is still being built" copy. A plain chat
+    # turn must never arm that claim, so its heartbeat rides the untyped
+    # family instead. Verified in their parser, not assumed.
+    # Gated on the build, because the repo can name the floor but cannot say
+    # what is installed. SS read build 695 (c08d89c) and build 803 (4661176)
+    # line by line: both carry the `generation_result` case AND the JSON
+    # branch's `?? result.data` fallback, and either half missing would make
+    # the frame useless. Below 695 the envelope would arrive as a stream with
+    # no text events and render an EMPTY answer, which is worse than the
+    # silence it replaces, so `chat_sse_allowed` fails CLOSED on a build it
+    # cannot read. Drop the floor once the installed distribution is known.
+    def _chat_sse_build_ok() -> bool:
+        from app.routers.config import load_apps
+        from app.services import version_gate
+        _registry = getattr(request.app.state, "app_versions", {}) or {}
+        _apps = load_apps()
+        _app = getattr(request.state, "app_id", None)
+        return version_gate.chat_sse_allowed(
+            version_gate.chat_sse_floor(_registry, _apps, _app),
+            version_gate.build_number(
+                request.headers.get("X-App-Build"),
+                request.headers.get("User-Agent"),
+                version_gate.user_agent_app_name(_registry, _apps, _app)))
+
+    _chat_sse = bool(not _gen_sse and is_project_chat and body.stream
+                     and _chat_sse_build_ok())
+
+    if not (_gen_sse or _chat_sse):
         return await _run_turn_tail()
 
     import json as _json
@@ -4188,7 +4241,11 @@ async def chat(
         # the observed `phase` token supersedes it, additively.
         if _researching:
             _started["search_expected_seconds"] = SEARCH_PHASE_SECONDS
-        yield _sse("generation_started", _started)
+        # A plain chat turn announces nothing: no build is starting, and
+        # `generation_started` would both promise a file and arm the
+        # client's still-building copy. See 6c.
+        if not _chat_sse:
+            yield _sse("generation_started", _started)
         # Own DB connection: this generator outlives the request scope (the
         # dependency-injected connection is already torn down while the
         # stream body runs — caught by CI, ValueError: no active connection).
@@ -4221,11 +4278,24 @@ async def chat(
             # before. We never guess this from a clock: a label that is
             # right most of the time is still a fabrication, and it is
             # the fabrication this whole thread began as.
-            yield _sse("generation_progress", {
-                "elapsed_seconds": int(time.monotonic() - _t0),
-                "expected_seconds": _expected,
-                "phase": _phase["name"],
-            })
+            if _chat_sse:
+                # Untyped family on purpose (see 6c). The client stamps
+                # `lastEventAt` at the top of processSSELine for EVERY line
+                # it parses, handled or not, so this resets its 30s stale
+                # guard without claiming a build is underway. No expectation
+                # is served because we do not have an honest one for a chat
+                # turn, and a fabricated countdown is the defect this whole
+                # lane began as.
+                yield _sse("progress", {
+                    "type": "progress",
+                    "elapsed_seconds": int(time.monotonic() - _t0),
+                })
+            else:
+                yield _sse("generation_progress", {
+                    "elapsed_seconds": int(time.monotonic() - _t0),
+                    "expected_seconds": _expected,
+                    "phase": _phase["name"],
+                })
         try:
             _resp = _task.result()
             yield _sse("generation_result", _json.loads(bytes(_resp.body)))
@@ -4235,11 +4305,23 @@ async def chat(
                    "message": _detail.get("message", "generation failed")}
             if isinstance(_detail.get("details"), dict):
                 _ev["details"] = _detail["details"]   # same typed family as HTTP errors
-            yield _sse("generation_error", _ev)
+            if _chat_sse:
+                # Untyped `error` rather than `generation_error`: the client's
+                # generation_* branch sets `sawGenerationEvents`, and this
+                # frame is richer anyway (it carries http_status). A chat turn
+                # never touches the generation family.
+                _ev.update({"type": "error", "http_status": e.status_code})
+                yield _sse("error", _ev)
+            else:
+                yield _sse("generation_error", _ev)
         except Exception:
-            logger.exception("generation transport: turn failed")
-            yield _sse("generation_error", {"code": "provider_error",
-                                            "message": "generation failed"})
+            logger.exception("chat/generation transport: turn failed")
+            if _chat_sse:
+                yield _sse("error", {"type": "error", "code": "provider_error",
+                                     "message": "the turn failed"})
+            else:
+                yield _sse("generation_error", {"code": "provider_error",
+                                                "message": "generation failed"})
 
     return StreamingResponse(_generation_events(), media_type="text/event-stream")
 
