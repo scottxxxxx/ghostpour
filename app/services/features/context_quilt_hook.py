@@ -21,6 +21,44 @@ from app.services import context_quilt as cq
 logger = logging.getLogger(__name__)
 
 
+# Placed immediately BEFORE any injected context block, never after.
+#
+# 2026-08-30: a 31 second recording tagged to an unrelated project produced
+# a summary that, unable to find matching content, explained itself by
+# LISTING the injected context: a real customer engagement, named
+# individuals, an overdue commitment and a promotion decision, none of which
+# were in the recording. Recall scoping is a separate and larger piece of
+# work; it shrinks the blast radius but it does not make reciting safe, so
+# this guard is independent of anything CQ changes.
+#
+# The rule that does the work is the LAST sentence: forbid naming what
+# appears ONLY in the context. A blanket "never mention these names" would
+# be wrong, because in a meeting that genuinely IS about that engagement the
+# same names are legitimately grounded in the transcript.
+#
+# Placement is load-bearing. `_inject_recall_block` stashes the block on
+# metadata.cq_recall_block and the Anthropic adapter slices system_prompt at
+# that boundary. Text placed AFTER the block turns an empty suffix into a
+# non-empty one, which flips recall from the uncached tail into a
+# cache_control breakpoint covering prefix+recall — an entry that changes
+# every turn and can never be reused. Before the block, this rides in the
+# prefix that was already being cached.
+RECALL_USE_GUARD = (
+    "[HOW TO USE THE CONTEXT BELOW]\n"
+    "This context is background reference for you. It is not part of the "
+    "recording or document under discussion, and the user has not seen it.\n"
+    "Draw on it when it genuinely informs your answer. Do not enumerate it, "
+    "quote it, summarize it, or otherwise report its contents back to the "
+    "user as an account of what you were given.\n"
+    "If the material under discussion does not relate to this context, say "
+    "plainly that it does not cover that ground and stop there. Do not name "
+    "any project, person, client, organization, system, decision, or "
+    "commitment that appears in this context but not in the material itself. "
+    "Listing what the context contained is never an acceptable way to "
+    "explain that it did not apply."
+)
+
+
 class ContextQuiltHook:
     def __init__(self, feature_def: FeatureDefinition | None = None):
         self._skip_modes = set(feature_def.capture_skip_modes) if feature_def else set()
@@ -165,14 +203,20 @@ class ContextQuiltHook:
                         block = cq.format_dossier(dossier)
                         if "{{context_quilt}}" in body.system_prompt:
                             new_system = body.system_prompt.replace(
-                                "{{context_quilt}}", block)
+                                "{{context_quilt}}",
+                                f"{RECALL_USE_GUARD}\n{block}")
                         else:
                             # APPEND, not prepend. See the note on the other
                             # injection path below: the envelope declares
                             # context_quilt last in the system block, and
                             # prepending put a per-turn block ahead of
                             # everything we want cached.
-                            new_system = body.system_prompt + "\n\n" + block
+                            # The guard leads the block here for the same
+                            # reason it does there: a dossier is scoped to
+                            # one project, which bounds WHAT can be recited
+                            # but not WHETHER reciting happens.
+                            new_system = (body.system_prompt + "\n\n"
+                                          + RECALL_USE_GUARD + "\n" + block)
                         new_meta = dict(body.metadata or {})
                         new_meta["cq_recall_block"] = block
                         body = body.model_copy(update={
@@ -443,6 +487,10 @@ def _inject_recall_block(body: ChatRequest, cq_context: str) -> ChatRequest:
     envelope places it LAST in the system block. Appending puts it where
     the spec says.
 
+    Guard: RECALL_USE_GUARD goes immediately BEFORE the block on both
+    paths, so a turn that cannot use the context refuses without reciting
+    it. See the constant for why before and not after.
+
     Stash: the exact recall text rides metadata.cq_recall_block so
     cache-aware adapters (Anthropic) can split the system prompt at the
     recall boundary into separate cache_control blocks. Once CQ #89 made
@@ -456,9 +504,13 @@ def _inject_recall_block(body: ChatRequest, cq_context: str) -> ChatRequest:
         cq_context = _sanitize_you_suffix(cq_context)
     base = body.system_prompt or ""
     if "{{context_quilt}}" in base:
-        new_system = base.replace("{{context_quilt}}", cq_context)
+        new_system = base.replace(
+            "{{context_quilt}}", f"{RECALL_USE_GUARD}\n{cq_context}")
     else:
-        new_system = f"{base}\n\n[CONTEXT FROM PREVIOUS MEETINGS]\n{cq_context}"
+        new_system = (
+            f"{base}\n\n{RECALL_USE_GUARD}\n"
+            f"[CONTEXT FROM PREVIOUS MEETINGS]\n{cq_context}"
+        )
     new_meta = dict(body.metadata or {})
     new_meta["cq_recall_block"] = cq_context
     return body.model_copy(update={
