@@ -281,3 +281,79 @@ def test_a_users_digest_is_not_served_to_another_user(
     client.get("/v1/memory/woven", headers=_h(free_user))
     client.get("/v1/memory/woven", headers=_h(pro_user))
     assert seen["n"] == 2, "two users shared one digest"
+
+
+# --- project_known: "wrong project" is not "quiet week" ---
+
+def test_project_known_survives_the_hop(client, free_user, monkeypatch):
+    """CQ's answer to a question I had framed badly.
+
+    I asked whether to tolerate a project NAME or reject a non-id. Both miss
+    the defect: "no such project" and "this project had a quiet week"
+    produce an IDENTICAL empty response, and only one of them is a bug.
+    Rejecting non-ids leaves the real-but-stale id case returning the same
+    silent empty.
+
+    `project_known` false plus an empty `patches` means WRONG PROJECT, and
+    the client can say so instead of rendering an empty grid. GP must not
+    flatten it.
+    """
+    _capture(monkeypatch, body={**_digest(0), "project_known": False})
+    b = client.get("/v1/memory/woven?project_id=NOPE",
+                   headers=_h(free_user)).json()
+    assert b["project_known"] is False
+    assert b["patches"] == []
+
+
+def test_a_quiet_week_is_distinguishable_from_a_wrong_project(
+    client, free_user, monkeypatch
+):
+    """The pair, asserted together, because the whole point is that these
+    two are no longer the same observable."""
+    _capture(monkeypatch, body={**_digest(0), "project_known": True})
+    quiet = client.get("/v1/memory/woven?project_id=REAL",
+                       headers=_h(free_user)).json()
+    woven_cache.clear()
+    _capture(monkeypatch, body={**_digest(0), "project_known": False})
+    wrong = client.get("/v1/memory/woven?project_id=NOPE",
+                       headers=_h(free_user)).json()
+
+    assert quiet["patches"] == wrong["patches"] == []
+    assert quiet["project_known"] is not wrong["project_known"], (
+        "an empty quilt for a real project reads identically to one for a "
+        "project that does not exist"
+    )
+
+
+def test_a_degraded_project_check_is_served_but_NOT_cached(
+    client, free_user, monkeypatch
+):
+    """CQ returns project_known NULL when their existence check failed, so
+    an error can never accuse a real project of not existing. That makes
+    null-with-a-filter the same kind of answer as a 5xx: honest, and not
+    something to pin for a UTC day.
+
+    Caching it would turn one transient blip into a whole day of "we could
+    not tell", which is the same anti-pattern as caching an error and
+    interacts especially badly with a key that only rolls at midnight.
+    """
+    seen = _capture(monkeypatch, body={**_digest(2), "project_known": None})
+    first = client.get("/v1/memory/woven?project_id=P1", headers=_h(free_user))
+    second = client.get("/v1/memory/woven?project_id=P1", headers=_h(free_user))
+
+    assert first.status_code == 200 and second.status_code == 200
+    assert len(first.json()["patches"]) == 2, "the user still gets their tiles"
+    assert seen["n"] == 2, "a degraded answer was cached day-stable"
+    assert first.json()["_freshness"]["cached"] is False
+
+
+def test_a_null_project_known_with_NO_filter_is_normal_and_cached(
+    client, free_user, monkeypatch
+):
+    """null means "nothing to check" when no project was requested. Treating
+    that as degraded would make the unfiltered home digest uncacheable,
+    which is the common path."""
+    seen = _capture(monkeypatch, body={**_digest(), "project_known": None})
+    client.get("/v1/memory/woven", headers=_h(free_user))
+    client.get("/v1/memory/woven", headers=_h(free_user))
+    assert seen["n"] == 1, "the unfiltered digest stopped caching"

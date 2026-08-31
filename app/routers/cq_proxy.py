@@ -1380,6 +1380,14 @@ async def create_person(
         query=request.url.query or None)
 
 
+class _WovenDegraded(Exception):
+    """Serve this body, but do not put it in a day-stable cache."""
+
+    def __init__(self, body: dict):
+        super().__init__("woven degraded")
+        self.body = body
+
+
 def _json_of(resp) -> dict:
     """Body of a JSONResponse as a dict.
 
@@ -1497,9 +1505,31 @@ async def woven_home(
     async def _fetch() -> dict:
         resp = await _cq_proxy(
             "GET", f"/v1/quilt/{_subj(request, user.id)}/woven", query=q)
-        return _json_of(resp)
+        body = _json_of(resp)
+        # A DEGRADED answer must not be pinned for a UTC day.
+        #
+        # CQ returns project_known null when their existence check FAILED,
+        # deliberately, so an error can never accuse a real project of not
+        # existing. That makes null-with-a-filter the same kind of answer as
+        # a 5xx: honest, and not something to cache day-stable. Caching it
+        # would turn one transient blip into a whole day of "we could not
+        # tell", which is the same anti-pattern as caching an error, and it
+        # interacts especially badly with a key that only rolls at midnight.
+        #
+        # null with NO filter is normal and cacheable: there was nothing to
+        # check.
+        if scope and body.get("project_known", "absent") is None:
+            raise _WovenDegraded(body)
+        return body
 
-    body, stale = await _woven.get_or_refresh(k, _fetch)
+    try:
+        body, stale = await _woven.get_or_refresh(k, _fetch)
+    except _WovenDegraded as d:
+        # Serve it, do not store it. The user still gets their tiles.
+        return JSONResponse(content={
+            **d.body,
+            "_freshness": {"as_of": None, "stale": False, "cached": False},
+        })
     entry = _woven.peek(k)
     return JSONResponse(content={**body, "_freshness": _woven_meta(entry, stale)})
 
