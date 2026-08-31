@@ -103,7 +103,14 @@ def test_the_ownership_guard_still_compares_the_plain_user_id():
     another user's quilt, which is both wrong and misleading."""
     assert "if user.id != user_id:" in SRC
     assert "user.id != _subj" not in SRC
-    assert "_subj(request, user.id)" not in SRC
+
+    offenders = [
+        ln.strip() for ln in SRC.splitlines()
+        if "_subj(request, user.id)" in ln and ("!=" in ln or "==" in ln)
+    ]
+    assert not offenders, (
+        "the namespaced subject leaked into an ownership comparison: "
+        + "; ".join(offenders))
 
 
 # --- phase 2: memory CREATION is namespaced too -----------------------
