@@ -208,3 +208,30 @@ def test_the_budget_follows_meeting_title_and_is_not_a_second_copy(monkeypatch):
     # 8 characters: over a budget of 5, under the real 60. A copy of 60
     # still living in translations.py flags nothing here.
     assert tr.over_budget_titles([{"id": "t", "text": "12345678"}]) == ["t"]
+
+
+def test_engine_version_1_prompts_are_byte_frozen():
+    """Adding `title` must not disturb the three artifacts that already
+    have renditions cached under ENGINE_VERSION 1.
+
+    The cache key carries engine_version, so a prompt edit without a bump
+    silently changes what a stored rendition means, and a bump without a
+    need re-translates every cached transcript at real cost. Neither is a
+    judgement call you want to make by accident, so these hashes force it
+    to be made on purpose: if you MEANT to change one of these prompts,
+    bump ENGINE_VERSION and update the hash in the same commit.
+
+    `title` is deliberately absent here. It is new, nothing is cached
+    under it, and pinning it would only freeze a prompt we still expect
+    to tune.
+    """
+    import hashlib
+    frozen = {
+        "transcript": "9009fa75933e159e",
+        "summary": "fc2cbdcf55f2d385",
+        "report": "fc2cbdcf55f2d385",
+    }
+    assert tr.ENGINE_VERSION == 1, "the hashes below belong to version 1"
+    for artifact, digest in frozen.items():
+        got = hashlib.sha256(tr.system_prompt(artifact).encode()).hexdigest()[:16]
+        assert got == digest, f"{artifact} prompt changed under ENGINE_VERSION 1"
