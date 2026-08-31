@@ -184,7 +184,10 @@ dark ship indistinguishable from a broken client.
 
 ## ⚠ CORRECTION to two things above
 
-**1. The headline backfill is RUNNING, not pending Scott.** CQ reports
+**1. The headline backfill is FINISHED** (CQ confirmed 3,839 patches carry a
+written headline, 2026-08-31). It was never pending Scott, and the earlier
+"first contact will be almost all nulls" warning has now expired entirely.
+The original correction, kept because the sequence is the receipt: CQ reports
 1,475 of 4,637 processed, 1,125 written, 76% accepted; the validator refuses
 ~1 in 4 and has caught invented numbers. So "the first digest will be almost
 entirely null headlines" has a shelf life of minutes, not days.
@@ -216,3 +219,66 @@ sees what TRAVELS, CQ sees what it believes it sends, SS sees what it
 decodes and was told to ignore. Invisible from both ends, obvious from the
 middle. Rule 5 with the sign flipped: usually the middle hop is where a
 defect hides, here it was the only place it was visible.
+
+---
+
+## Late addition 2: CQ paging, and a cache key that would have eaten the fix
+
+CQ moved the woven route while this session was open. **PR #839** (CI
+running at handoff time; #838 is GREEN and also open).
+
+    limit    was 1..6, now 1..60   default still 6
+    offset   NEW, >= 0, default 0
+    total_available / offset / has_more   NEW response fields, HOME ONLY
+
+**Two defects on GP's hop, both quiet:**
+
+1. `offset` was not a parameter at all, so every page returned page one.
+2. `_woven_limit` did `max(1, min(6, n))`. CQ predicted a client asking for
+   30 would be REJECTED here. It was not: it was **SILENTLY CLAMPED** to 6,
+   a 200 carrying the wrong page size. Rejection is the loud failure;
+   clamping is the quiet one, and it is the same family as everything else
+   on this feature: an observable indistinguishable from success. A cap on
+   the middle hop is invisible from BOTH ends, so a ceiling has to be
+   checked against the partner's published range, never chosen alone.
+
+**⚠ The half that would have shipped broken.** Forwarding `offset` does NOT
+fix the scroll on its own. GP's day-stable cache was keyed on
+`(kind, user_id, window, limit, project_id)`. With offset forwarded but not
+KEYED: page two asks CQ correctly, CQ answers page two correctly, and GP
+serves page one from its own cache. A 200, six correct-looking tiles, no
+scroll, and NEITHER hop holds the evidence, because CQ's log shows a healthy
+request and SS's shows a healthy response.
+
+Proved rather than reasoned: with offset on the wire but out of the key,
+**all four request-side forwarding tests PASSED** while the scroll was dead.
+Only a test asserting CQ was consulted a SECOND time for a second offset
+caught it. Predictions written BEFORE running, and all three landed exactly:
+key sabotage 1 test, wire sabotage 4, ceiling sabotage 2.
+
+Filed as `feedback_cache_key_hides_a_forwarded_param.md`. CQ adopted the
+reciprocal and will now ask by default: **when a new param changes WHICH
+rows come back rather than how they are computed, ask the middle hop whether
+their cache key includes it.** Candidate for a CLAUDE.md rule 8; it cost
+real debugging today, which is the bar that file sets.
+
+**Needing no GP change, confirmed not assumed:** the three new response
+fields pass through by construction (`{**body, "_freshness": ...}`, no
+response model); the tile ARRANGEMENT change (types interleave rather than
+following rank) does not move GP fixtures, which assert against a mock, not
+live CQ; the seam route's "GP must not reorder" test is unaffected.
+
+**CQ RULED: `offset` does NOT apply to the seam route.** One meeting in
+capture order has nothing to page or arrange, and it serves none of the
+three new fields. Adding the param at GP's hop would have created a knob
+that does nothing, which is worse than an absent one because somebody
+eventually sets it and reasons from the result. **Leave the seam forwarding
+NO query params.**
+
+**Cache memory, recorded before someone finds it at 2am.** At CQ's ~713
+bytes/tile a 60-tile entry is ~42 KB against ~4 KB for six, so the bounded
+cache (`_MAX_ENTRIES = 2048`) moves from ~8.5 MB worst case to ~88 MB.
+Bounded either way. CQ notes the ceiling is unlikely in practice: `limit`
+still defaults to 6 and SS has no window switcher or infinite scroll yet, so
+nothing requests 60 today. Scott has been told and can ask for a lower cap.
+
