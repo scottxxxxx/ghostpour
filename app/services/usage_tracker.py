@@ -201,6 +201,13 @@ class UsageTracker:
         metadata: dict = {}
         if response and response.usage:
             metadata["usage"] = response.usage
+            # A provider answered and reported usage, so this turn cost
+            # money. That fact decides whether a FAILURE later in the same
+            # request is worth storing for replay; see chat_turns.
+            # Set here rather than in the adapter because this is the one
+            # place every lane funnels through with a real response in hand.
+            from app.services.chat_turns import mark_upstream_billed
+            mark_upstream_billed()
         if response and response.cost:
             metadata["cost"] = response.cost
         if response and response.raw_request_json:

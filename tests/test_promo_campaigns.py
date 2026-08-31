@@ -87,7 +87,10 @@ def test_cta_action_type_allowlist(client):
     ok = _campaign(id="cta_ok", variants=_native(
         {"label": "Get it", "action": {"type": "appstore", "value": "id1"}},
         {"label": "Upgrade", "action": {"type": "paywall"}},
-        {"label": "Offer", "action": {"type": "storekit_offer", "value": "prod.month"}},
+        # storekit_offer must now say which pool it draws from, or admit it
+        # is sharing one code. See test_storekit_offer_* below.
+        {"label": "Offer", "action": {"type": "storekit_offer",
+                                     "offer_id": "OFF1", "environment": "sandbox"}},
         {"label": "Site", "action": {"type": "url", "value": "https://x/y"}},
         {"label": "Open", "action": {"type": "deeplink", "value": "shouldersurf://record"}},
         {"label": "Dismiss", "action": {"type": "none"}},
@@ -172,3 +175,71 @@ def test_list_scoped_by_app(client):
     tr = client.get(f"{BASE}/campaigns?app=techrehearsal", headers=ADMIN).json()["campaigns"]
     ids = {c["id"] for c in tr}
     assert "tr1" in ids and "ss1" not in ids
+
+
+# --- storekit_offer: one code is ONE redemption -----------------------------
+
+def test_storekit_offer_dispensable_cta_is_accepted(client):
+    """The good shape: offer_id + environment, no value. Promo resolve fills
+    `value` with a code reserved to that actor from the pool."""
+    ok = _campaign(id="offer_dispensable", variants=_native(
+        {"label": "Start 3 free months",
+         "action": {"type": "storekit_offer",
+                    "offer_id": "OFFER1", "environment": "production"}}))
+    assert client.post(f"{BASE}/campaigns", json=ok, headers=ADMIN).status_code == 200
+
+
+def test_a_hardcoded_offer_code_must_be_acknowledged(client):
+    """The bug that shipped, caught at authoring time.
+
+    A one-time-use offer code is ONE redemption. A CTA carrying a hardcoded
+    `value` hands the SAME code to everyone who sees the card, and the
+    second person to tap gets a code Apple has already burned.
+
+    On 2026-08-29 a friend-code card shipped carrying the exact code sitting
+    in an earlier campaign's CTA, already redeemed in July. GP has had a
+    reserve-once dispense pool since #310 and every live CTA bypassed it,
+    because nothing ever asked which one the author meant.
+
+    The dangerous shape stays AVAILABLE and stops being the ACCIDENTAL one.
+    """
+    bad = _campaign(id="offer_bare_value", variants=_native(
+        {"label": "Redeem", "action": {"type": "storekit_offer",
+                                       "value": "AYJW8TXXTM3JEJ6K3P"}}))
+    r = client.post(f"{BASE}/campaigns", json=bad, headers=ADMIN)
+    assert r.status_code == 400
+    assert "shared_code" in r.text
+
+
+def test_an_acknowledged_shared_code_is_allowed(client):
+    """Sharing one code is legitimate for a single-recipient card. It just
+    has to be said out loud, because a shared code and a per-user code are
+    indistinguishable in the payload."""
+    ok = _campaign(id="offer_shared", variants=_native(
+        {"label": "Redeem", "action": {"type": "storekit_offer",
+                                       "value": "AYJW8TXXTM3JEJ6K3P",
+                                       "shared_code": True}}))
+    assert client.post(f"{BASE}/campaigns", json=ok, headers=ADMIN).status_code == 200
+
+
+def test_offer_id_plus_a_hardcoded_value_is_rejected(client):
+    """Contradictory: resolve OVERWRITES value from the pool, so the authored
+    code would silently never be used. Someone who wrote both meant one of
+    them and this is the only moment we can ask which."""
+    bad = _campaign(id="offer_both", variants=_native(
+        {"label": "Redeem", "action": {"type": "storekit_offer",
+                                       "offer_id": "OFFER1",
+                                       "environment": "production",
+                                       "value": "HARDCODED"}}))
+    r = client.post(f"{BASE}/campaigns", json=bad, headers=ADMIN)
+    assert r.status_code == 400
+    assert "never be used" in r.text
+
+
+def test_shared_code_without_a_value_is_rejected(client):
+    """An empty shared code renders a button that cannot do anything."""
+    bad = _campaign(id="offer_shared_empty", variants=_native(
+        {"label": "Redeem", "action": {"type": "storekit_offer",
+                                       "shared_code": True}}))
+    assert client.post(f"{BASE}/campaigns", json=bad,
+                       headers=ADMIN).status_code == 400
