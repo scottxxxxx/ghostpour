@@ -370,6 +370,11 @@ CQ_REAL_BODY = {
     "patches": [
         {"patch_id": "p1", "patch_type": "takeaway",
          "fact": "Target market of 60-67% small firms is ideal.",
+         # Written by a model at ingest, NOT truncated from fact. The tiles
+         # render this and the meeting list renders fact; truncating fact
+         # for a tile reads as a cut-off sentence, which is the most visible
+         # thing on the screen.
+         "headline": "60-67% small firms is the sweet spot",
          "weight": 3, "span": 3, "height": 118,
          "source_meeting_id": "MEET-1",
          "occurred_at": "2026-08-28T16:11:00Z",
@@ -377,6 +382,11 @@ CQ_REAL_BODY = {
                          {"patch_id": "p7", "label": "Go-to-market"}]},
         {"patch_id": "p2", "patch_type": "constraint",
          "fact": "Zero data retention with AI providers.",
+         # NULL is a real state, not a bug: the line is REFUSED when it
+         # breaks the design rules, and existing patches carry none until a
+         # backfill runs. A client that treats null as an error would show a
+         # failure for a patch that is working correctly.
+         "headline": None,
          "weight": 2, "span": 3, "height": 118,
          "source_meeting_id": "MEET-1",
          "occurred_at": "2026-08-28T16:17:00Z",
@@ -448,3 +458,43 @@ def test_patch_links_survive_as_objects_not_strings(
     link = got["patches"][0]["stitched_to"][0]
     assert isinstance(link, dict)
     assert link["patch_id"] == "p9" and link["label"] == "$3M ARR goal"
+
+
+def test_a_new_cq_field_needs_no_gp_change(client, free_user, monkeypatch):
+    """Why the echo test is byte-identity rather than a key list.
+
+    CQ is adding `headline` and warned it might break a fixture asserting a
+    fixed set of patch keys. It does not, and the reason is the design: the
+    test asserts GP returns whatever CQ sent, so a field GP has never heard
+    of passes by construction rather than by being enumerated.
+
+    That is the property worth having. A key list would have to be updated
+    for every CQ field forever, and the update that gets forgotten is
+    exactly the field that then goes missing silently.
+    """
+    invented = {
+        **CQ_REAL_BODY,
+        "a_field_gp_has_never_heard_of": {"nested": [1, 2, 3]},
+    }
+    invented["patches"] = [
+        {**CQ_REAL_BODY["patches"][0], "some_future_patch_key": "keep me"},
+        *CQ_REAL_BODY["patches"][1:],
+    ]
+    _capture(monkeypatch, body=invented)
+    got = client.get("/v1/memory/woven", headers=_h(free_user)).json()
+
+    served = {k: v for k, v in got.items() if k != "_freshness"}
+    assert served == invented
+    assert served["patches"][0]["some_future_patch_key"] == "keep me"
+
+
+def test_a_null_headline_is_carried_not_dropped(client, free_user, monkeypatch):
+    """Null is a REAL state: the headline is refused when it breaks the
+    design's rules, and patches predating the backfill have none. Dropping
+    the key would make "refused" and "not yet generated" indistinguishable
+    from "this CQ version has no headlines at all"."""
+    _capture(monkeypatch, body=CQ_REAL_BODY)
+    got = client.get("/v1/memory/woven", headers=_h(free_user)).json()
+    assert "headline" in got["patches"][1], "a null headline key was dropped"
+    assert got["patches"][1]["headline"] is None
+    assert got["patches"][0]["headline"] == "60-67% small firms is the sweet spot"
