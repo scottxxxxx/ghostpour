@@ -632,13 +632,20 @@ def test_the_lean_home_shape_survives(client, free_user, monkeypatch):
     """CQ's real leanest home patch, not an idealised one."""
     _capture(monkeypatch, body=LEAN_HOME_BODY)
     got = client.get("/v1/memory/woven", headers=_h(free_user)).json()
-    assert {k: v for k, v in got.items() if k != "_freshness"} == LEAN_HOME_BODY
     p0 = got["patches"][0]
-    assert p0["headline"] is None and "headline" in p0
-    assert p0["occurred_at"] is None and "occurred_at" in p0
-    assert p0["_gp_unknown_key_probe"] == {"nested": ["a", 1, None]}, (
+
+    # The NAMED asserts run BEFORE the byte-identity one on purpose. Whole
+    # body equality catches every mutation below first, so any assert placed
+    # after it can never fire and its message can never print: measured, not
+    # assumed, by stripping underscore keys in the handler and watching the
+    # equality fail while these three sat unreached. Specific first, catch
+    # all last.
+    assert "headline" in p0 and p0["headline"] is None
+    assert "occurred_at" in p0 and p0["occurred_at"] is None
+    assert p0.get("_gp_unknown_key_probe") == {"nested": ["a", 1, None]}, (
         "GP dropped or reshaped a key it does not understand"
     )
+    assert {k: v for k, v in got.items() if k != "_freshness"} == LEAN_HOME_BODY
 
 
 def test_the_SEAM_shape_has_no_layout_fields_and_still_survives(
