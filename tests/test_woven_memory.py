@@ -628,6 +628,83 @@ LEAN_SEAM_BODY = {
 }
 
 
+# --- paging: CQ moved to limit 1..60 plus a new `offset` (2026-08-31) ------
+#
+# Rule 3: a response-side test cannot see a request-side hole. Every
+# assertion here reads the OUTBOUND query GP built, because that is the only
+# place a dropped or clamped param is visible. Both ends look healthy: SS
+# gets a 200 with correct-looking tiles, CQ never sees the value that was
+# lost, so the whole defect lives on this hop.
+
+def test_offset_is_forwarded_to_cq(client, free_user, monkeypatch):
+    """The dark half. Without this, every page request returns page one."""
+    seen = _capture(monkeypatch)
+    client.get("/v1/memory/woven?window=7d&limit=6&offset=12",
+               headers=_h(free_user))
+    assert "offset=12" in seen["queries"][0], seen["queries"][0]
+
+
+def test_offset_reaches_the_CACHE_KEY_not_just_the_wire(
+    client, free_user, monkeypatch
+):
+    """The half that forwarding alone does not fix.
+
+    If offset rides the wire but not the key, page two asks CQ correctly and
+    is then served page one out of GP's cache. A test that only checked the
+    outbound query would pass while the user still cannot scroll, so this
+    asserts CQ was consulted a SECOND time for a second offset.
+    """
+    seen = _capture(monkeypatch)
+    client.get("/v1/memory/woven?window=7d&limit=6&offset=0",
+               headers=_h(free_user))
+    client.get("/v1/memory/woven?window=7d&limit=6&offset=6",
+               headers=_h(free_user))
+    assert seen["n"] == 2, (
+        f"offset is not in the cache key: {seen['n']} call(s) to CQ for two "
+        f"different pages, so the second page was served from page one's entry"
+    )
+    assert "offset=6" in seen["queries"][1], seen["queries"][1]
+
+
+def test_a_limit_of_30_is_not_silently_clamped_to_6(
+    client, free_user, monkeypatch
+):
+    """CQ's range is 1..60. A ceiling of 6 here did not reject a larger ask,
+    it quietly served the wrong page size under a 200."""
+    seen = _capture(monkeypatch)
+    client.get("/v1/memory/woven?window=7d&limit=30", headers=_h(free_user))
+    assert "limit=30" in seen["queries"][0], seen["queries"][0]
+
+
+def test_the_ceiling_is_CQ_s_60_and_still_bounded(
+    client, free_user, monkeypatch
+):
+    """Track the partner's range, but do not become unbounded doing it."""
+    seen = _capture(monkeypatch)
+    client.get("/v1/memory/woven?window=7d&limit=600", headers=_h(free_user))
+    assert "limit=60" in seen["queries"][0], seen["queries"][0]
+
+
+def test_a_garbage_offset_pages_to_the_start_rather_than_422(
+    client, free_user, monkeypatch
+):
+    """Same leniency argument as `limit`: a typo must not cost the tab.
+    A plain `int` annotation would 422 before CQ's tolerance ever ran."""
+    seen = _capture(monkeypatch)
+    r = client.get("/v1/memory/woven?window=7d&offset=banana",
+                   headers=_h(free_user))
+    assert r.status_code == 200, r.status_code
+    assert "offset=0" in seen["queries"][0], seen["queries"][0]
+
+
+def test_a_negative_offset_clamps_to_CQ_s_floor(
+    client, free_user, monkeypatch
+):
+    seen = _capture(monkeypatch)
+    client.get("/v1/memory/woven?window=7d&offset=-5", headers=_h(free_user))
+    assert "offset=0" in seen["queries"][0], seen["queries"][0]
+
+
 def test_the_lean_home_shape_survives(client, free_user, monkeypatch):
     """CQ's real leanest home patch, not an idealised one."""
     _capture(monkeypatch, body=LEAN_HOME_BODY)

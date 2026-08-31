@@ -1475,12 +1475,32 @@ def _woven_limit(raw: str | None) -> int:
     annotation here would have FastAPI 422 the request before CQ's
     tolerance ever ran. Their leniency would have been defeated by my
     signature.
+
+    ⚠ The CEILING MUST TRACK CQ'S, and did not. CQ moved to 1..60 while
+    this still said 6, so a client asking for 30 was not REJECTED here, it
+    was SILENTLY CLAMPED to 6: a 200 carrying the wrong page size, which is
+    the quieter failure. Neither end could see it. SS gets a valid-looking
+    response and CQ never sees the 30, so the cap on the middle hop is
+    invisible from both ends and has to be checked against the partner's
+    published range rather than chosen independently here.
     """
     try:
         n = int(str(raw))
     except (TypeError, ValueError):
         return 6
-    return max(1, min(6, n))
+    return max(1, min(60, n))
+
+
+def _woven_offset(raw: str | None) -> int:
+    """Same leniency as `_woven_limit`, for the same reason.
+
+    An unreadable offset pages to the start rather than 422ing, because a
+    typo must not cost the user the tab. Negative clamps to CQ's floor of 0.
+    """
+    try:
+        return max(0, int(str(raw)))
+    except (TypeError, ValueError):
+        return 0
 
 
 @router.get("/memory/woven")
@@ -1488,6 +1508,7 @@ async def woven_home(
     request: Request,
     window: str = "7d",
     limit: str = "6",
+    offset: str = "0",
     project_id: str | None = None,
     project: str | None = None,
     user: UserRecord = Depends(get_current_user),
@@ -1505,6 +1526,7 @@ async def woven_home(
     """
     await _require_people(request, user, user.id)
     n = _woven_limit(limit)
+    off = _woven_offset(offset)
 
     # ⚠ A RENAME ACROSS THE HOP, made explicit rather than done silently.
     #
@@ -1517,11 +1539,16 @@ async def woven_home(
     # which is the silent shape this whole class keeps taking.
     scope = project_id or project
 
-    q = f"window={window}&limit={n}"
+    q = f"window={window}&limit={n}&offset={off}"
     if scope:
         q += f"&project_id={scope}"
 
-    k = _woven.key(user.id, "home", window, str(n), scope)
+    # ⚠ `offset` MUST be in the cache key. Forwarding it while keying
+    # without it RELOCATES the bug it fixes rather than closing it: page two
+    # asks CQ correctly, then gets served page one out of this cache. Still
+    # a 200, still six correct-looking tiles, still a scroll that never
+    # advances, and now the evidence is on neither hop.
+    k = _woven.key(user.id, "home", window, str(n), str(off), scope)
 
     async def _fetch() -> dict:
         resp = await _cq_proxy(
