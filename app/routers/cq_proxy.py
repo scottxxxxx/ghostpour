@@ -22,6 +22,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import UserRecord
 from app.services import context_quilt as cq
+from app.services import woven_cache as _woven
 from app.services.cq_subject import subject_for
 from app.services.memory_capture_policy import resolve_memory_capture_verdict
 from app.services.memory_capture_quota import (
@@ -1377,6 +1378,128 @@ async def create_person(
     return await _cq_proxy(
         "POST", f"/v1/people/{_subj(request, user_id)}", body=body,
         query=request.url.query or None)
+
+
+def _json_of(resp) -> dict:
+    """Body of a JSONResponse as a dict.
+
+    _cq_proxy returns a Response (which is what makes any response_model
+    inert and is load-bearing elsewhere), so the caching layer has to unwrap
+    it. A non-2xx is raised rather than cached: caching an error would pin a
+    CQ blip to a user for a whole UTC day, which is the worst possible
+    interaction with a day-stable key.
+    """
+    import json as _json_mod
+    status = getattr(resp, "status_code", 200)
+    raw = getattr(resp, "body", b"") or b"{}"
+    try:
+        parsed = _json_mod.loads(raw)
+    except Exception:
+        parsed = {}
+    if status >= 400:
+        raise HTTPException(status_code=status, detail=parsed or {
+            "code": "woven_upstream", "message": "memory digest unavailable"})
+    return parsed if isinstance(parsed, dict) else {"items": parsed}
+
+
+# --- Woven memory digest (Memory Quilt.dc.html, §5) -----------------------
+#
+# Two reads. The client makes NO ranking decisions: CQ returns patches
+# already pruned and ordered, index 0 strongest.
+#
+# GP's job here is caching and nothing else. In particular GP does NOT join
+# meeting titles, durations or minute marks into the body, even though the
+# spec's §5 asks for them. CQ deliberately serves no meeting titles (their
+# doc 15 item 5) and keeps no transcript spans (their doc 21), and GP holds
+# no meeting titles either: meeting_transcripts, meeting_reports and
+# usage_log all carry meeting_id and none carry a title. Checked, not
+# recalled.
+#
+# ⚠ meeting_shares DOES have title, meeting_date and duration_seconds and is
+# the obvious shortcut. It is a trap. That row exists only when a user
+# SHARED a meeting, so it covers a small self-selected subset and is a
+# snapshot that goes stale on the first rename. Joining on it would return a
+# real title for a handful of meetings and null for the rest, so "no title"
+# and "never shared" become one observable. The device joins on
+# source_meeting_id against its own MeetingRecord, which is where the title
+# and durationSeconds actually live.
+
+
+def _woven_meta(entry, stale: bool) -> dict:
+    """The freshness envelope, on EVERY response including a fresh one.
+
+    `as_of` is present whether or not the digest is stale so the client
+    renders one code path. The spec defines an "as of <date>" overline for
+    the slow path; with stale-while-revalidate that path is the normal one,
+    so a field that only appears when things go wrong would be the rarer
+    case and therefore the less tested one.
+    """
+    return {"as_of": _woven.as_of(entry), "stale": stale}
+
+
+@router.get("/memory/woven")
+async def woven_home(
+    request: Request,
+    window: str = "7d",
+    limit: int = 6,
+    project: str | None = None,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """The home digest: lifetime totals plus a windowed patch selection.
+
+    Two time bases in one response, which is easy to get wrong in the
+    direction that guts the screen. Read off the design: the header says
+    "SINCE MARCH · 41 MEETINGS" and "2,770 things you'd have forgotten",
+    which are ALL-TIME, while the grid under "THIS WEEK'S PATCHES" is the
+    `window`. So total_memories, meetings_count and since are lifetime and
+    only `patches` is windowed. CQ owns producing both; GP only passes the
+    window through and must not let it leak onto the totals.
+    """
+    await _require_people(request, user, user.id)
+    q = f"window={window}&limit={int(limit)}"
+    if project:
+        q += f"&project={project}"
+
+    k = _woven.key(user.id, "home", window, str(limit), project)
+
+    async def _fetch() -> dict:
+        resp = await _cq_proxy(
+            "GET", f"/v1/memory/woven/{_subj(request, user.id)}", query=q)
+        return _json_of(resp)
+
+    body, stale = await _woven.get_or_refresh(k, _fetch)
+    entry = _woven.peek(k)
+    return JSONResponse(content={**body, "_freshness": _woven_meta(entry, stale)})
+
+
+@router.get("/memory/meetings/{meeting_id}/woven")
+async def woven_meeting(
+    meeting_id: str,
+    request: Request,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """One meeting's patches.
+
+    Cached on the same day-stable key as the home digest rather than the
+    spec's 24h TTL, for the same reason: the property wanted is stability
+    within a session, and a clock-based TTL delivers movement instead. A
+    meeting's patch set is also far more static than the home ranking, so
+    this is the cheap side of the decision.
+    """
+    await _require_people(request, user, user.id)
+    k = _woven.key(user.id, "meeting", meeting_id)
+
+    async def _fetch() -> dict:
+        resp = await _cq_proxy(
+            "GET",
+            f"/v1/memory/meetings/{_subj(request, user.id)}/{meeting_id}/woven")
+        return _json_of(resp)
+
+    body, stale = await _woven.get_or_refresh(k, _fetch)
+    entry = _woven.peek(k)
+    return JSONResponse(content={**body, "_freshness": _woven_meta(entry, stale)})
 
 
 @router.get("/people/{user_id}/network")
