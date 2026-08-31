@@ -1437,11 +1437,29 @@ def _woven_meta(entry, stale: bool) -> dict:
     return {"as_of": _woven.as_of(entry), "stale": stale}
 
 
+def _woven_limit(raw: str | None) -> int:
+    """Coerce, never 4xx.
+
+    CQ made `window` fall back rather than reject, on the grounds that a
+    typo in a query param must not cost a user their memory tab on a browse
+    surface. The same argument applies to `limit`, and a plain `int`
+    annotation here would have FastAPI 422 the request before CQ's
+    tolerance ever ran. Their leniency would have been defeated by my
+    signature.
+    """
+    try:
+        n = int(str(raw))
+    except (TypeError, ValueError):
+        return 6
+    return max(1, min(6, n))
+
+
 @router.get("/memory/woven")
 async def woven_home(
     request: Request,
     window: str = "7d",
-    limit: int = 6,
+    limit: str = "6",
+    project_id: str | None = None,
     project: str | None = None,
     user: UserRecord = Depends(get_current_user),
     db: aiosqlite.Connection = Depends(get_db),
@@ -1457,15 +1475,28 @@ async def woven_home(
     window through and must not let it leak onto the totals.
     """
     await _require_people(request, user, user.id)
-    q = f"window={window}&limit={int(limit)}"
-    if project:
-        q += f"&project={project}"
+    n = _woven_limit(limit)
 
-    k = _woven.key(user.id, "home", window, str(limit), project)
+    # ⚠ A RENAME ACROSS THE HOP, made explicit rather than done silently.
+    #
+    # The §5 spec spells this `project`; CQ's endpoint takes `project_id`.
+    # That is the misnaming half of the typed-hop class, which is the half
+    # with no instrument, so it is not something to paper over in a query
+    # string. Both spellings are accepted here and BOTH are forwarded under
+    # CQ's name, but the VALUE must be an id either way: forwarding a
+    # project NAME as `project_id` would return an empty digest with a 200,
+    # which is the silent shape this whole class keeps taking.
+    scope = project_id or project
+
+    q = f"window={window}&limit={n}"
+    if scope:
+        q += f"&project_id={scope}"
+
+    k = _woven.key(user.id, "home", window, str(n), scope)
 
     async def _fetch() -> dict:
         resp = await _cq_proxy(
-            "GET", f"/v1/memory/woven/{_subj(request, user.id)}", query=q)
+            "GET", f"/v1/quilt/{_subj(request, user.id)}/woven", query=q)
         return _json_of(resp)
 
     body, stale = await _woven.get_or_refresh(k, _fetch)
@@ -1487,6 +1518,12 @@ async def woven_meeting(
     within a session, and a clock-based TTL delivers movement instead. A
     meeting's patch set is also far more static than the home ranking, so
     this is the cheap side of the decision.
+
+    ⚠ CQ returns these in CAPTURE ORDER, not ranked, and GP must not
+    reorder them. The screen exists to walk a meeting as it happened; a
+    ranked timeline is a different screen that nobody asked for. This
+    handler passes the array through untouched and there is a test on it,
+    because "sort the patches" is an obvious-looking improvement.
     """
     await _require_people(request, user, user.id)
     k = _woven.key(user.id, "meeting", meeting_id)
@@ -1494,7 +1531,7 @@ async def woven_meeting(
     async def _fetch() -> dict:
         resp = await _cq_proxy(
             "GET",
-            f"/v1/memory/meetings/{_subj(request, user.id)}/{meeting_id}/woven")
+            f"/v1/quilt/{_subj(request, user.id)}/meetings/{meeting_id}/woven")
         return _json_of(resp)
 
     body, stale = await _woven.get_or_refresh(k, _fetch)

@@ -100,10 +100,90 @@ def test_the_window_reaches_cq_and_does_not_touch_the_totals(
     client, free_user, monkeypatch
 ):
     seen = _capture(monkeypatch)
-    client.get("/v1/memory/woven?window=30d&limit=4&project=Cigna",
+    client.get("/v1/memory/woven?window=30d&limit=4&project_id=PROJ-1",
                headers=_h(free_user))
     q = seen["queries"][0]
-    assert "window=30d" in q and "limit=4" in q and "project=Cigna" in q
+    assert "window=30d" in q and "limit=4" in q and "project_id=PROJ-1" in q
+
+
+def test_the_project_rename_across_the_hop_is_explicit(
+    client, free_user, monkeypatch
+):
+    """The §5 spec spells it `project`; CQ takes `project_id`.
+
+    A rename across a hop is the MISNAMING half of the typed-hop class, the
+    half with no instrument, so it gets a test rather than a quiet query
+    string. Both spellings are accepted and both forward under CQ's name.
+
+    The value must be an ID either way. Forwarding a project NAME as
+    project_id returns an empty digest with a 200, which is the silent
+    shape this class keeps taking.
+    """
+    seen = _capture(monkeypatch)
+    client.get("/v1/memory/woven?project=PROJ-9", headers=_h(free_user))
+    assert "project_id=PROJ-9" in seen["queries"][0]
+    assert "project=PROJ-9" not in seen["queries"][0].replace("project_id=", "")
+
+
+def test_it_forwards_to_CQS_path_not_an_invented_one(
+    client, free_user, monkeypatch
+):
+    """A proxy pointed at a path that does not exist 404s at CQ and reads
+    as a CQ bug from here."""
+    seen = _capture(monkeypatch)
+    client.get("/v1/memory/woven", headers=_h(free_user))
+    client.get("/v1/memory/meetings/MEET-7/woven", headers=_h(free_user))
+    assert seen["paths"][0].endswith("/woven")
+    assert "/v1/quilt/" in seen["paths"][0]
+    assert seen["paths"][1].endswith("/meetings/MEET-7/woven")
+    assert "/v1/quilt/" in seen["paths"][1]
+
+
+@pytest.mark.parametrize("raw,expect", [
+    ("4", "limit=4"), ("banana", "limit=6"), ("", "limit=6"),
+    ("0", "limit=1"), ("99", "limit=6"),
+])
+def test_a_bad_limit_never_4xxs(raw, expect, client, free_user, monkeypatch):
+    """CQ made `window` fall back rather than reject: a typo must not cost
+    a user their memory tab on a browse surface. A plain `int` annotation
+    here would have FastAPI 422 the request before their tolerance ever
+    ran, so my signature would have defeated their decision."""
+    seen = _capture(monkeypatch)
+    r = client.get(f"/v1/memory/woven?limit={raw}", headers=_h(free_user))
+    assert r.status_code == 200, f"limit={raw!r} produced {r.status_code}"
+    assert expect in seen["queries"][0]
+
+
+def test_a_bad_window_never_4xxs(client, free_user, monkeypatch):
+    _capture(monkeypatch)
+    r = client.get("/v1/memory/woven?window=%%%", headers=_h(free_user))
+    assert r.status_code == 200
+
+
+def test_the_seam_keeps_CAPTURE_ORDER(client, free_user, monkeypatch):
+    """CQ returns a meeting's patches in capture order, NOT ranked, and GP
+    must not reorder. The screen exists to walk a meeting as it happened;
+    a ranked timeline is a different screen nobody asked for. 'Sort the
+    patches' is an obvious-looking improvement, hence a test."""
+    ordered = {"meeting_id": "MEET-1", "dropped": {}, "patches": [
+        {"patch_id": "c", "patch_type": "goal", "fact": "third"},
+        {"patch_id": "a", "patch_type": "takeaway", "fact": "first"},
+        {"patch_id": "b", "patch_type": "blocker", "fact": "second"},
+    ]}
+    _capture(monkeypatch, body=ordered)
+    b = client.get("/v1/memory/meetings/MEET-1/woven",
+                   headers=_h(free_user)).json()
+    assert [p["patch_id"] for p in b["patches"]] == ["c", "a", "b"]
+
+
+def test_dropped_survives_the_hop(client, free_user, monkeypatch):
+    """An empty quilt with {'sensitive_content': 4} behind it is a very
+    different product state from an empty quilt with nothing behind it, and
+    only one of them is a bug. Swallowing it at this hop would erase the
+    distinction."""
+    _capture(monkeypatch, body={**_digest(0), "dropped": {"sensitive_content": 4}})
+    b = client.get("/v1/memory/woven", headers=_h(free_user)).json()
+    assert b["dropped"] == {"sensitive_content": 4}
 
 
 # --- GP joins nothing ---
