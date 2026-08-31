@@ -4166,6 +4166,47 @@ def _validate_campaign(body: CampaignBody) -> None:
                         status_code=400,
                         detail=f"deeplink {value!r} not in {body.app_id} allowlist {sorted(allowed)}",
                     )
+            if atype == "storekit_offer":
+                # A one-time-use offer code is ONE redemption. A CTA that
+                # carries a hardcoded `value` therefore hands the SAME code
+                # to every person who sees the card, and the second person
+                # to tap it gets a code Apple has already burned.
+                #
+                # That is not hypothetical. On 2026-08-29 a friend-code card
+                # shipped carrying the exact code sitting in an earlier
+                # campaign's CTA, already redeemed in July. GP has had a
+                # reserve-once dispense pool for this since #310 and every
+                # live CTA bypassed it, because nothing here ever asked.
+                #
+                # So: a storekit_offer CTA must either be DISPENSABLE
+                # (offer_id + environment, so promo resolve draws a code
+                # reserved to that actor) or say out loud that it is
+                # deliberately sharing one code. The dangerous case stays
+                # available and stops being the ACCIDENTAL one.
+                act = cta.get("action") or {}
+                dispensable = bool(act.get("offer_id")) and bool(act.get("environment"))
+                if dispensable and act.get("value"):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="storekit_offer cta has offer_id AND a hardcoded "
+                               "value; resolve overwrites value from the pool, so "
+                               "the authored code would silently never be used",
+                    )
+                if not dispensable and not act.get("shared_code"):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="storekit_offer cta needs offer_id + environment to "
+                               "dispense a per-user code from the pool, or "
+                               "shared_code: true to acknowledge that every "
+                               "recipient gets the SAME one-time-use code and only "
+                               "the first tap can redeem it",
+                    )
+                if not dispensable and not act.get("value"):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="storekit_offer cta with shared_code needs a value",
+                    )
+
             if atype == "paywall":
                 # value = optional placement id (string); absent => default paywall.
                 # plan = optional featured plan; client highlights plus|pro.
