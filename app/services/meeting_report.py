@@ -205,6 +205,7 @@ Rules:
   - Repeated confusion such as "wait, I thought we agreed" means disconnected, not cautious.
   - NO QUOTE, NO CLAIM. If you cannot quote participants disagreeing, you may not answer tense; if you cannot quote recurring urgency compelling action, you may not answer pressured; if you cannot quote the misalignment, you may not answer disconnected. And the ungated categories are not an escape: collaborative must point at the stretch where the work happened in the meeting itself (it does not need to have finished), cautious must point at the hedge or the wait, positive and decisive must describe the meeting's character rather than one nice moment. When nothing earns its way past the default, the answer is informational. An empty sentiment_category_evidence with a gated category is a contract violation.
 - The sentiment label must be the human phrasing of the chosen category, in the output language: the category decides, the label says it in words. A label that names a different feeling than the category is a contract violation. Example: category pressured with label "Heavy deadline pressure, spirits holding" is correct; category pressured with label "Tense standoff" is a violation.
+- AFTER choosing sentiment_category, fill sentiment_category_also. Two of the eight values describe what a meeting DID rather than how it went: decisive (a decision got made, direction got locked) and disconnected (misalignment the meeting did not resolve). A meeting can be collaborative in character AND have locked a decision; it can be pressured in character AND have left people misaligned. sentiment_category_also lists zero, one or two of ONLY those two values that ALSO earned their way past the default in this meeting and are NOT the value you chose for sentiment_category. Each entry carries a verbatim quote as its evidence: for decisive, the words where the decision was made; for disconnected, the misalignment itself. NO QUOTE, NO ENTRY. Most meetings get an empty list, and an empty list is a correct answer. Never put positive, collaborative, informational, cautious, pressured or tense in this list: those describe how it went, and sentiment_category already names the dominant one.
 - For suggested_tags: return at most 2 tags from the provided TAG TAXONOMY list, applied only when they capture what makes THIS meeting distinctive from a typical meeting. Most meetings should produce 1 tag, or 0 if nothing stands out. Do not apply a tag just because it could plausibly fit. Each tag needs a reason explaining why it applies and what makes it distinguishing.
 - For queries_during_meeting: include them exactly as provided in the input, do not modify query text or response text
 - Never fabricate information not present in the transcript
@@ -236,6 +237,12 @@ JSON SCHEMA:
     "detail": "string: 1 to 2 sentences describing the overall emotional tone",
     "category": "string: exactly one of: positive, collaborative, informational, cautious, pressured, tense, disconnected, decisive",
     "category_evidence": "string: REQUIRED when category is tense, pressured, or disconnected. A verbatim quote from the transcript: participants disagreeing (tense), time or workload forcing an action (pressured), or the misalignment itself (disconnected). Empty string for every other category.",
+    "category_also": [
+      {{
+        "category": "string: decisive | disconnected, and never the value chosen for category above",
+        "evidence": "string: REQUIRED, a verbatim quote from the transcript: the decision being made (decisive) or the misalignment itself (disconnected)"
+      }}
+    ],
     "arc": [
       {{
         "value": "number 0-100, sentiment score for this segment of the meeting (0 = very negative, 50 = neutral, 100 = very positive). Use the full range: see Rules.",
@@ -494,6 +501,7 @@ _DEFAULT_REPORT_STRINGS = {
     # entry. Mirrors config/remote/report-strings.json so a deployment without
     # the remote config still renders correctly.
     "header_label": "Meeting Report",
+    "project_label": "Project",
     "speakers_heading": "Identified speakers",
     "sentiment_label": "Sentiment",
     "view_arc_button": "View sentiment arc",
@@ -583,6 +591,62 @@ _EMOJI_LABEL_TO_GLYPH = {
 }
 
 
+# `category_also` (2026-08-21, SS's ask): one `category` string cannot
+# carry a meeting that was both collaborative and decisive, or both
+# pressured and disconnected; the second reading was lost in the prompt
+# and never reached the client as a choice. This list carries the two
+# OFF-LADDER values (decisive, disconnected) that also applied, each
+# with its own quote, because SS's contract is that an accusation never
+# arrives without evidence behind it. Strictly additive: `category` keeps
+# its meaning, old builds ignore the list, a purely disconnected meeting
+# is still category=disconnected with an empty list.
+#
+# Enforced here structurally, not merely instructed in the prompt: an
+# entry that names an on-ladder value, repeats the chosen category, or
+# carries no quote is DROPPED and logged, so the wire never carries a
+# shape the contract forbids.
+_ALSO_ALLOWED = frozenset({"decisive", "disconnected"})
+
+
+def normalize_category_also(report_json: dict) -> dict:
+    """Make `sentiment.category_also` a list that obeys the contract.
+
+    Mutates and returns `report_json`. When the sentiment block has a
+    category, the field is always present afterwards (possibly empty);
+    when there is no category, nothing is touched, so older stored
+    reports re-rendered through this path stay exactly as they were.
+    """
+    sentiment = report_json.get("sentiment")
+    if not isinstance(sentiment, dict) or not sentiment.get("category"):
+        return report_json
+    chosen = sentiment.get("category")
+    raw = sentiment.get("category_also")
+    kept: list[dict] = []
+    seen: set[str] = set()
+    for entry in raw if isinstance(raw, list) else []:
+        cat = entry.get("category") if isinstance(entry, dict) else None
+        ev = entry.get("evidence") if isinstance(entry, dict) else None
+        reason = None
+        if cat not in _ALSO_ALLOWED:
+            reason = "not_off_ladder"
+        elif cat == chosen:
+            reason = "repeats_category"
+        elif not isinstance(ev, str) or not ev.strip():
+            reason = "no_evidence"
+        elif cat in seen:
+            reason = "duplicate"
+        if reason:
+            logger.warning(
+                "sentiment_category_also_dropped",
+                extra={"category": str(cat)[:40], "reason": reason},
+            )
+            continue
+        seen.add(cat)
+        kept.append({"category": cat, "evidence": ev.strip()})
+    sentiment["category_also"] = kept
+    return report_json
+
+
 def derive_sentiment_fields(report_json: dict) -> dict:
     """Fill emoji_label and emoji from the model's chosen category.
 
@@ -615,6 +679,28 @@ def derive_sentiment_fields(report_json: dict) -> dict:
     if glyph:
         sentiment["emoji"] = glyph
     return report_json
+
+
+_MONTHS = {
+    "es": ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+           "agosto", "septiembre", "octubre", "noviembre", "diciembre"],
+    "fr": ["janvier", "février", "mars", "avril", "mai", "juin", "juillet",
+           "août", "septembre", "octobre", "novembre", "décembre"],
+}
+
+
+def format_meeting_date(dt, locale: str | None) -> str:
+    """The masthead date in the report's language. strftime("%B") is
+    English regardless of locale (a Spanish report read "August 21, 2026"
+    under a Spanish header, 2026-08-21), so the month names live here.
+    Unknown locales fall back to English rather than to a wrong language."""
+    lang = (locale or "en").split("-")[0].lower()
+    if lang == "ja":
+        return f"{dt.year}年{dt.month}月{dt.day}日"
+    if lang in _MONTHS:
+        month = _MONTHS[lang][dt.month - 1]
+        return f"{dt.day} de {month} de {dt.year}" if lang == "es" else f"{dt.day} {month} {dt.year}"
+    return dt.strftime("%B %-d, %Y")
 
 
 def render_report_html(

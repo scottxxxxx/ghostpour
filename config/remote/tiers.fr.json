@@ -1,14 +1,19 @@
 {
-  "version": 41,
+  "version": 54,
   "tiers": {
     "free": {
       "display_name": "Gratuit",
-      "description": "Découvrez l'assistance de réunion par IA : environ cinq heures de réunions par mois avec l'IA dans le cloud.",
+      "description": "Une mémoire de chaque réunion, Personnes, résumés en direct et rapports, avec une allocation mensuelle d'IA pour essayer le reste.",
       "feature_bullets": [
         "L'IA dans le cloud pour environ cinq heures de réunions par mois",
-        "Des résumés rédigés pendant que la réunion est encore en cours",
-        "Transcription sur l'appareil (illimitée)",
-        "1 photo ou image par question"
+        "Une mémoire construite à partir de chaque réunion enregistrée",
+        "Personnes : qui vous rencontrez et ce qu'elles vous doivent",
+        "Résumés en direct et rapport complet après chaque réunion",
+        "Chat de projet : aperçu",
+        "Chat de réunion avec une allocation mensuelle",
+        "Recherche web : 5 par mois",
+        "Générer des fichiers depuis le chat : 5 par mois",
+        "1 image par message"
       ],
       "feature_items": [
         {
@@ -16,15 +21,35 @@
           "icon": "checkmark"
         },
         {
-          "label": "Des résumés rédigés pendant que la réunion est encore en cours",
-          "icon": "doc"
+          "label": "Une mémoire construite à partir de chaque réunion enregistrée",
+          "icon": "brain"
         },
         {
-          "label": "Transcription sur l'appareil (illimitée)",
+          "label": "Personnes : qui vous rencontrez et ce qu'elles vous doivent",
           "icon": "checkmark"
         },
         {
-          "label": "1 photo ou image par question",
+          "label": "Résumés en direct et rapport complet après chaque réunion",
+          "icon": "doc"
+        },
+        {
+          "label": "Chat de projet : aperçu",
+          "icon": "chat"
+        },
+        {
+          "label": "Chat de réunion avec une allocation mensuelle",
+          "icon": "chat"
+        },
+        {
+          "label": "Recherche web : 5 par mois",
+          "icon": "search"
+        },
+        {
+          "label": "Générer des fichiers depuis le chat : 5 par mois",
+          "icon": "filegen"
+        },
+        {
+          "label": "1 image par message",
           "icon": "photo"
         }
       ],
@@ -40,8 +65,30 @@
           "icon": "doc"
         },
         {
-          "label": "Images max",
-          "value": "1 par question",
+          "label": "Mémoire des réunions",
+          "value": "aperçu",
+          "icon": "brain",
+          "state": "teaser"
+        },
+        {
+          "label": "Chat de projet",
+          "value": "aperçu",
+          "icon": "chat",
+          "state": "teaser"
+        },
+        {
+          "label": "Recherche web",
+          "value": "5 par mois",
+          "icon": "search"
+        },
+        {
+          "label": "Génération de fichiers",
+          "value": "5 par mois",
+          "icon": "filegen"
+        },
+        {
+          "label": "Images max.",
+          "value": "1 par message",
           "icon": "photo"
         }
       ],
@@ -57,7 +104,7 @@
           }
         },
         "search": {
-          "searches_per_month": 0,
+          "searches_per_month": 5,
           "searches_soft_threshold": null,
           "cta_hard_cap": {
             "kind": "search_paywall_required",
@@ -103,48 +150,54 @@
               "Placez l'appareil bien en face plutôt qu'en angle"
             ]
           }
+        },
+        "generation": {
+          "generations_per_month": 5
+        },
+        "context_quilt": {
+          "recall_max_age_days": null
         }
       }
     },
     "plus": {
       "display_name": "Plus",
-      "description": "Assistance de réunion IA illimitée. Résumés, rapports et chat de projet.",
+      "description": "Vos {recall_window_days} derniers jours de réunions dans chaque conversation. Documents, recherche web, génération de fichiers, usage illimité.",
       "feature_bullets": [
-        "Réunions illimitées avec assistance IA",
-        "Des résumés rédigés pendant que la réunion est encore en cours",
-        "Rapports de réunion partageables",
-        "Posez des questions sur toutes les réunions d'un projet",
-        "Mémoire des réunions : l'IA se souvient de vos réunions passées",
-        "Recherche web : des infos actuelles dans vos réponses (75/mois)",
-        "3 photos ou images par question"
+        "Vos {recall_window_days} derniers jours de réunions, dans chaque conversation",
+        "Chat de réunion et de projet illimités",
+        "Joignez des documents, la réponse les lit en entier",
+        "Recherche web : 75 par mois",
+        "Générez de vrais fichiers depuis le chat : Excel, Word, PowerPoint, PDF",
+        "Trois fois plus de contexte par message",
+        "3 images par message"
       ],
       "feature_items": [
         {
-          "label": "Réunions illimitées avec assistance IA",
-          "icon": "checkmark"
-        },
-        {
-          "label": "Des résumés rédigés pendant que la réunion est encore en cours",
-          "icon": "doc"
-        },
-        {
-          "label": "Rapports de réunion partageables",
-          "icon": "share"
-        },
-        {
-          "label": "Posez des questions sur toutes les réunions d'un projet",
-          "icon": "chat"
-        },
-        {
-          "label": "Mémoire des réunions : l'IA se souvient de vos réunions passées",
+          "label": "Vos {recall_window_days} derniers jours de réunions, dans chaque conversation",
           "icon": "brain"
         },
         {
-          "label": "Recherche web : des infos actuelles dans vos réponses (75/mois)",
+          "label": "Chat de réunion et de projet illimités",
+          "icon": "chat"
+        },
+        {
+          "label": "Joignez des documents, la réponse les lit en entier",
+          "icon": "paperclip"
+        },
+        {
+          "label": "Recherche web : 75 par mois",
           "icon": "search"
         },
         {
-          "label": "3 photos ou images par question",
+          "label": "Générez de vrais fichiers depuis le chat : Excel, Word, PowerPoint, PDF",
+          "icon": "filegen"
+        },
+        {
+          "label": "Trois fois plus de contexte par message",
+          "icon": "cpu"
+        },
+        {
+          "label": "3 images par message",
           "icon": "photo"
         }
       ],
@@ -165,9 +218,16 @@
           "icon": "cpu"
         },
         {
-          "label": "Images max",
-          "value": "3 par question",
-          "icon": "photo"
+          "label": "Mémoire des réunions",
+          "value": "{recall_window_days} derniers jours",
+          "icon": "brain",
+          "state": "enabled"
+        },
+        {
+          "label": "Chat de projet",
+          "value": "oui",
+          "icon": "chat",
+          "state": "enabled"
         },
         {
           "label": "Recherche web",
@@ -176,15 +236,18 @@
         },
         {
           "label": "Génération de fichiers",
-          "value": "passez à Pro",
-          "icon": "filegen",
-          "state": "teaser"
+          "value": "Excel, Word, PowerPoint, PDF",
+          "icon": "filegen"
         },
         {
-          "label": "Mémoire des réunions",
-          "value": "activée",
-          "icon": "brain",
-          "state": "enabled"
+          "label": "Pièces jointes",
+          "value": "2 fichiers, jusqu'à 25 Mo chacun",
+          "icon": "paperclip"
+        },
+        {
+          "label": "Images max.",
+          "value": "3 par message",
+          "icon": "photo"
         }
       ],
       "feature_definitions": {
@@ -230,48 +293,54 @@
               "Placez l'appareil bien en face plutôt qu'en angle"
             ]
           }
+        },
+        "context_quilt": {
+          "recall_max_age_days": 30
+        },
+        "generation": {
+          "generations_per_month": null
         }
       }
     },
     "pro": {
       "display_name": "Pro",
-      "description": "Tout Plus, avec l'IA avancée et la génération de vrais fichiers.",
+      "description": "Tout ce que vous avez enregistré, dans chaque conversation, avec le modèle le plus puissant pour l'analyse et les rapports.",
       "feature_bullets": [
-        "IA avancée pour des rapports et analyses plus approfondis",
-        "Récapitulatif complet ou seulement les nouveautés, au choix",
-        "Recherche web : des infos actuelles dans vos réponses (120/mois)",
-        "Mémoire des réunions : l'IA se souvient de vos réunions passées",
-        "Crée de vrais fichiers à partager : Excel, Word, PowerPoint, PDF",
-        "Joignez des documents au chat (2 fichiers, 25 Mo chacun)",
-        "5 photos ou images par question"
+        "Toutes les réunions que vous avez enregistrées, dans chaque conversation",
+        "Le modèle le plus puissant pour l'analyse et les rapports",
+        "Le plus grand contexte par message",
+        "Recherche web : 120 par mois",
+        "Générez de vrais fichiers depuis le chat : Excel, Word, PowerPoint, PDF",
+        "Joignez des documents, la réponse les lit en entier",
+        "5 images par message"
       ],
       "feature_items": [
         {
-          "label": "IA avancée pour des rapports et analyses plus approfondis",
-          "icon": "checkmark.plus"
-        },
-        {
-          "label": "Récapitulatif complet ou seulement les nouveautés, au choix",
-          "icon": "doc"
-        },
-        {
-          "label": "Recherche web : des infos actuelles dans vos réponses (120/mois)",
-          "icon": "search"
-        },
-        {
-          "label": "Mémoire des réunions : l'IA se souvient de vos réunions passées",
+          "label": "Toutes les réunions que vous avez enregistrées, dans chaque conversation",
           "icon": "brain"
         },
         {
-          "label": "Crée de vrais fichiers à partager : Excel, Word, PowerPoint, PDF",
+          "label": "Le modèle le plus puissant pour l'analyse et les rapports",
+          "icon": "cpu"
+        },
+        {
+          "label": "Le plus grand contexte par message",
+          "icon": "cpu"
+        },
+        {
+          "label": "Recherche web : 120 par mois",
+          "icon": "search"
+        },
+        {
+          "label": "Générez de vrais fichiers depuis le chat : Excel, Word, PowerPoint, PDF",
           "icon": "filegen"
         },
         {
-          "label": "Joignez des documents au chat (2 fichiers, 25 Mo chacun)",
+          "label": "Joignez des documents, la réponse les lit en entier",
           "icon": "paperclip"
         },
         {
-          "label": "5 photos ou images par question",
+          "label": "5 images par message",
           "icon": "photo"
         }
       ],
@@ -288,13 +357,20 @@
         },
         {
           "label": "IA",
-          "value": "Avancée",
+          "value": "Modèle le plus puissant",
           "icon": "cpu"
         },
         {
-          "label": "Images max",
-          "value": "5 par question",
-          "icon": "photo"
+          "label": "Mémoire des réunions",
+          "value": "tout, depuis toujours",
+          "icon": "brain",
+          "state": "enabled"
+        },
+        {
+          "label": "Chat de projet",
+          "value": "oui",
+          "icon": "chat",
+          "state": "enabled"
         },
         {
           "label": "Recherche web",
@@ -312,15 +388,14 @@
           "icon": "paperclip"
         },
         {
-          "label": "Mémoire des réunions",
-          "value": "activée",
-          "icon": "brain",
-          "state": "enabled"
+          "label": "Images max.",
+          "value": "5 par message",
+          "icon": "photo"
         }
       ],
       "feature_definitions": {
         "project_chat": {
-          "max_input_tokens": 180000
+          "max_input_tokens": 360000
         },
         "search": {
           "searches_per_month": 120,
@@ -364,6 +439,146 @@
               "Placez l'appareil bien en face plutôt qu'en angle"
             ]
           }
+        },
+        "context_quilt": {
+          "recall_max_age_days": null
+        }
+      }
+    },
+    "automation": {
+      "display_name": "Automation (internal)",
+      "description": "Partner test harness credentials. Mirrors Pro so a harness exercises the lane a paying user gets.",
+      "feature_bullets": [
+        "Advanced AI for deeper reports and analysis",
+        "Full recap or just-what's-new summaries, your choice",
+        "Web search: current info in your answers (120/mo)",
+        "Meeting Memory: AI remembers past meetings",
+        "Builds real files you can share: Excel, Word, PowerPoint, PDF",
+        "Attach documents to chat (2 files, 25 MB each)",
+        "5 photos or images per question"
+      ],
+      "feature_items": [
+        {
+          "label": "Advanced AI for deeper reports and analysis",
+          "icon": "checkmark.plus"
+        },
+        {
+          "label": "Full recap or just-what's-new summaries, your choice",
+          "icon": "doc"
+        },
+        {
+          "label": "Web search: current info in your answers (120/mo)",
+          "icon": "search"
+        },
+        {
+          "label": "Meeting Memory: AI remembers past meetings",
+          "icon": "brain"
+        },
+        {
+          "label": "Builds real files you can share: Excel, Word, PowerPoint, PDF",
+          "icon": "filegen"
+        },
+        {
+          "label": "Attach documents to chat (2 files, 25 MB each)",
+          "icon": "paperclip"
+        },
+        {
+          "label": "5 photos or images per question",
+          "icon": "photo"
+        }
+      ],
+      "status_items": [
+        {
+          "label": "Auto-summary",
+          "value": "every 10 min",
+          "icon": "clock"
+        },
+        {
+          "label": "Summary mode",
+          "value": "Full or just what's new (your choice)",
+          "icon": "doc"
+        },
+        {
+          "label": "AI",
+          "value": "Advanced",
+          "icon": "cpu"
+        },
+        {
+          "label": "Max images",
+          "value": "5 per question",
+          "icon": "photo"
+        },
+        {
+          "label": "Web search",
+          "value": "120 per month",
+          "icon": "search"
+        },
+        {
+          "label": "File generation",
+          "value": "Excel, Word, PowerPoint, PDF",
+          "icon": "filegen"
+        },
+        {
+          "label": "Document attachments",
+          "value": "2 files, up to 25 MB each",
+          "icon": "paperclip"
+        },
+        {
+          "label": "Meeting Memory",
+          "value": "enabled",
+          "icon": "brain",
+          "state": "enabled"
+        }
+      ],
+      "feature_definitions": {
+        "project_chat": {
+          "max_input_tokens": 360000
+        },
+        "search": {
+          "searches_per_month": 120,
+          "searches_soft_threshold": 80,
+          "cta_hard_cap": {
+            "kind": "search_cap_exhausted",
+            "title": "Web search limit reached",
+            "body": "You've used all {total} searches this month. Searches resume on {reset_date}.",
+            "primary_action": {
+              "label": "OK",
+              "action": "dismiss"
+            }
+          },
+          "cta_soft_cap": {
+            "kind": "search_soft_cap_warning",
+            "title": "Approaching your monthly search limit",
+            "body": "You've used {used} of {total} searches this month."
+          },
+          "cta_unavailable": {
+            "kind": "search_unavailable_for_provider",
+            "title": "Web search not available for this model",
+            "body": "Switch to SS AI to use web search on this query.",
+            "primary_action": {
+              "label": "OK",
+              "action": "dismiss"
+            }
+          }
+        },
+        "generation": {
+          "generations_per_month": 100
+        },
+        "images": {
+          "max_long_edge": 1568,
+          "jpeg_quality": 0.8,
+          "capture_guidance": {
+            "title": "For the sharpest read",
+            "tips": [
+              "Fill the frame with the sheet so the text is as large as possible",
+              "Hold steady until the text looks sharp before you shoot",
+              "Light the whole sheet evenly and avoid glare or shadows",
+              "Line the camera up straight on rather than at an angle"
+            ]
+          }
+        },
+        "context_quilt": {
+          "recall_max_age_days": null
         }
       }
     }
@@ -374,11 +589,11 @@
       "display_name": "Mémoire des réunions",
       "description": "Votre IA se souvient des réunions passées et utilise ces connaissances automatiquement.",
       "teaser_description": "Votre IA a trouvé des liens avec vos réunions passées",
-      "upgrade_cta": "Passez à Plus pour débloquer la Mémoire des réunions",
+      "upgrade_cta": "Passez à Plus pour intégrer vos {recall_window_days} derniers jours de réunions à chaque réponse",
       "cta_strings": {
-        "free_within_quota_footer": "✨ C'était votre Mémoire gratuite sur {total} ce mois-ci. Passez à Plus pour continuer à construire votre Mémoire.",
-        "free_no_quota_only": "✨ Vous voulez que votre IA se souvienne de vos réunions ? Passez à Plus pour commencer à construire votre Mémoire.",
-        "free_people_only": "✨ Ton IA construit ta liste de Personnes à partir de cette réunion. Passe à Plus pour relire ce dont elle se souvient."
+        "free_within_quota_footer": "✨ C'était votre Mémoire gratuite de {total} ce mois-ci. Plus intègre vos {recall_window_days} derniers jours de réunions à chaque réponse.",
+        "free_no_quota_only": "✨ Vous avez utilisé votre IA gratuite pour ce mois-ci. Plus la rend illimitée et intègre vos {recall_window_days} derniers jours de réunions à chaque réponse.",
+        "free_people_only": "✨ Votre IA construit votre liste de Personnes à partir de cette réunion. Plus intègre vos {recall_window_days} derniers jours de réunions à chaque réponse."
       }
     },
     "meeting_reports": {
@@ -416,6 +631,26 @@
         "quota_exhausted": "Vous avez utilisé vos {total} Chats de projet gratuits pour ce mois. Passez à Plus pour un accès illimité.",
         "unlimited": "Chat de projet par Shoulder Surf.",
         "login_required": "Connectez-vous pour utiliser le Chat de projet."
+      },
+      "entry": {
+        "coach_mark_title": "Choisissez ce que l'IA peut voir",
+        "coach_mark_body": "Cette zone définit les réunions et les notes incluses dans cette discussion, et affiche les dates couvertes. Modifiable à tout moment.",
+        "coach_mark_dismiss_label": "Ne plus afficher",
+        "context_range_label": "Réunions du {start} au {end}",
+        "context_range_windowed_label": "Vos {window_days} derniers jours : du {start} au {end}",
+        "context_range_empty_label": "Aucune réunion sélectionnée",
+        "quick_prompts": [
+          {
+            "id": "evolved",
+            "label": "Comment ce projet a-t-il évolué ?",
+            "prompt": "Comment ce projet a-t-il évolué au fil du temps ?"
+          },
+          {
+            "id": "decisions",
+            "label": "Quelles décisions ont été prises ?",
+            "prompt": "Quelles décisions ont été prises dans ce projet, et quand ?"
+          }
+        ]
       }
     },
     "search": {
@@ -424,6 +659,148 @@
       "description": "Demandez à votre IA de rechercher des informations actuelles sur le web pendant une requête.",
       "teaser_description": "La recherche web est une fonctionnalité payante.",
       "upgrade_cta": "Passez à Plus pour activer la recherche web"
+    }
+  },
+  "upgrade_nudges": {
+    "context_fits_higher": {
+      "text": "Cela fait {needed}K caractères. {tier_name} accepte jusqu'à {cap}K.",
+      "label": "Voir {tier_name}"
+    },
+    "memory_excluded_scope": {
+      "text": "La mémoire de {excluded} réunions de ce projet n'est pas disponible avec {tier_name}. {next_tier} l'intègre à chaque conversation.",
+      "label": "Voir {next_tier}"
+    },
+    "memory_excluded_window": {
+      "text": "Ce projet compte {excluded} réunions de plus de {window} jours, hors de la fenêtre {tier_name}. {next_tier} {next_window}.",
+      "label": "Voir {next_tier}",
+      "next_window_none": "n'a pas de fenêtre",
+      "next_window_days": "a une fenêtre de {n} jours"
+    }
+  },
+  "paywall": {
+    "headline": "Votre IA qui apprend de chaque réunion",
+    "subheads": {
+      "feature_locked": {
+        "body": "Vous avez utilisé vos heures gratuites. Abonnez-vous pour débloquer la mémoire des réunions, l'analyse de photos et des analyses plus riches à chaque session."
+      },
+      "allowance_exhausted": {
+        "title": "Vous avez épuisé vos heures gratuites",
+        "body": "Débloquez l'IA illimitée pour cette réunion et les suivantes."
+      }
+    },
+    "cq_card": {
+      "title": "Context Quilt",
+      "badge": "Plus et au-delà",
+      "badge_short": "CQ",
+      "tagline": "Votre IA construit un graphe de mémoire à partir de chaque réunion, rappelant les décisions, les engagements et le contexte passés au moment où vous en avez le plus besoin.",
+      "bullets": [
+        "Rappelle les décisions et les engagements des réunions passées",
+        "Fait le lien entre vos projets et vos conversations",
+        "Retient qui a dit quoi, d'une session à l'autre",
+        "Devient plus pertinent à mesure que vous l'utilisez"
+      ]
+    },
+    "comparison": {
+      "cloud_title": "Shoulder Surf AI",
+      "device_title": "IA sur l'appareil",
+      "rows": [
+        {
+          "cloud_label": "Mémoire des réunions (CQ)",
+          "device_label": "Mémoire des réunions (CQ)",
+          "cloud_has": true,
+          "device_has": false
+        },
+        {
+          "cloud_label": "Analyse de photo",
+          "device_label": "Analyse de photo",
+          "cloud_has": true,
+          "device_has": false
+        },
+        {
+          "cloud_label": "Grande fenêtre de contexte",
+          "device_label": "Contexte court uniquement",
+          "cloud_has": true,
+          "device_has": false
+        },
+        {
+          "cloud_label": "Résumés plus riches",
+          "device_label": "Réponses basiques",
+          "cloud_has": true,
+          "device_has": false
+        },
+        {
+          "cloud_label": "Fonctionne hors ligne",
+          "device_label": "Fonctionne hors ligne",
+          "cloud_has": false,
+          "device_has": true
+        }
+      ],
+      "learn_more_label": "En savoir plus sur Shoulder Surf AI"
+    },
+    "choose_plan_label": "Choisissez une formule",
+    "testflight_banner": {
+      "title": "Les abonnements sont gratuits pendant la phase de test bêta",
+      "body": "Vous êtes sur la bêta TestFlight, Apple ne vous facturera donc rien. Les prix sont affichés, mais les abonnements souscrits pendant la phase de test sont gratuits.",
+      "link_label": "En savoir plus sur la page TestFlight d'Apple"
+    },
+    "trial_pill": {
+      "day": {
+        "one": "essai de {n} jour",
+        "other": "essai de {n} jours"
+      },
+      "week": {
+        "one": "essai de {n} semaine",
+        "other": "essai de {n} semaines"
+      },
+      "month": {
+        "one": "essai de {n} mois",
+        "other": "essai de {n} mois"
+      },
+      "year": {
+        "one": "essai de {n} an",
+        "other": "essai de {n} ans"
+      }
+    },
+    "welcome_back": {
+      "title": "Offre de retour",
+      "day": {
+        "one": "Bon retour : {n} jour gratuit",
+        "other": "Bon retour : {n} jours gratuits"
+      },
+      "week": {
+        "one": "Bon retour : {n} semaine gratuite",
+        "other": "Bon retour : {n} semaines gratuites"
+      },
+      "month": {
+        "one": "Bon retour : {n} mois gratuit",
+        "other": "Bon retour : {n} mois gratuits"
+      },
+      "year": {
+        "one": "Bon retour : {n} an gratuit",
+        "other": "Bon retour : {n} ans gratuits"
+      }
+    },
+    "per_month_suffix": "/mois",
+    "other_options": {
+      "title": "Autres options",
+      "recommended": "Recommandé",
+      "subscribe": "S'abonner",
+      "picker_hint": "Choisissez comment traiter cette réunion. Vous pouvez revenir modifier ce choix à tout moment dans Réglages.",
+      "byok": {
+        "title": "Utiliser ma propre clé API",
+        "subtitle": "Utilisez OpenAI, Anthropic ou d'autres fournisseurs avec votre propre compte",
+        "body": "Utilisez votre propre clé OpenAI / Anthropic / OpenRouter. Vous les payez directement.",
+        "add_key": "Ajoutez votre propre clé API",
+        "keep_using": "Continuer avec {provider}",
+        "key_continues": "Votre clé API continue de traiter les requêtes."
+      },
+      "on_device": {
+        "title": "Utiliser l'IA sur l'appareil",
+        "subtitle": "Gratuit, confidentiel, fonctionne hors ligne. La qualité est plus limitée qu'avec Shoulder Surf AI.",
+        "enable": "Activer Apple Intelligence",
+        "enable_hint": "IA gratuite sur l'appareil. Activez-la dans Réglages → Apple Intelligence et Siri",
+        "requires": "Nécessite un iPhone 15 Pro ou plus récent avec Apple Intelligence activé."
+      }
     }
   }
 }

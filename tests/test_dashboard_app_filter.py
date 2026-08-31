@@ -7,9 +7,10 @@ app_id. These tests seed rows tagged with distinct app_ids and assert the
 filter narrows the result.
 """
 
+import json
 import sqlite3
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 ADMIN = {"X-Admin-Key": "test-admin-key"}
 
@@ -196,3 +197,69 @@ def test_telemetry_rich_app_filter(client):
 
     assert tr["kpis"]["total_events"] == 2
     assert tr["kpis"]["total_events"] < all_apps["kpis"]["total_events"]
+
+
+# --- usage-visibility metrics (Scott 2026-08-23): files / docs / photos /
+# --- translations, all intercepted server-side from usage_log ----------------
+
+def _insert_media_usage(db_path, user_id, *, metadata=None, image_count=0,
+                        call_type="chat", days_ago=0, status="success"):
+    now = (datetime.now(timezone.utc) - timedelta(days=days_ago)).isoformat()
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        """INSERT INTO usage_log
+           (id, user_id, provider, model, input_tokens, output_tokens,
+            estimated_cost_usd, request_timestamp, response_time_ms,
+            status, call_type, image_count, metadata, app_id)
+           VALUES (?, ?, 'anthropic', 'claude-haiku-4-5', 100, 50, 0.01, ?,
+                   120, ?, ?, ?, ?, 'shouldersurf')""",
+        (str(uuid.uuid4()), user_id, now, status, call_type, image_count,
+         json.dumps(metadata) if metadata else None),
+    )
+    conn.commit()
+    conn.close()
+
+
+def test_users_carry_media_metrics_from_usage_log(client, tmp_db_path):
+    """Docs, photos, generated files, and translations are summed off the
+    wire records alone — no client field, no users-table counter."""
+    from tests.conftest import _insert_user
+    _insert_user(tmp_db_path, user_id="media-u", tier="free", monthly_limit=2.00)
+    # Two chat turns with attachments: 3 docs + 2 docs, 4 photos + 1 photo.
+    _insert_media_usage(tmp_db_path, "media-u",
+                        metadata={"documents": {"count": 3, "raw_bytes": 900}}, image_count=4)
+    _insert_media_usage(tmp_db_path, "media-u",
+                        metadata={"documents": {"count": 2, "raw_bytes": 500}}, image_count=1)
+    # One generation staging 2 artifacts.
+    _insert_media_usage(tmp_db_path, "media-u", call_type="artifact_generation",
+                        metadata={"generated": {"count": 2, "bytes": 12000}})
+    # One translation call (future endpoint's shape: only call_type matters).
+    _insert_media_usage(tmp_db_path, "media-u", call_type="translation")
+    # Noise that must NOT count: a failed request and an out-of-window row.
+    _insert_media_usage(tmp_db_path, "media-u", image_count=9, status="error")
+    _insert_media_usage(tmp_db_path, "media-u", image_count=7,
+                        metadata={"documents": {"count": 7}}, days_ago=30)
+
+    payload = client.get("/webhooks/admin/users?days=7", headers=ADMIN).json()
+    row = next(u for u in payload["users"] if u["id"] == "media-u")
+    assert row["window_documents"] == 5
+    assert row["window_photos"] == 5
+    assert row["window_files_generated"] == 2
+    assert row["window_translations"] == 1
+    # Lifetime picks up the old row but still never the failed one.
+    assert row["lifetime_documents"] == 12
+    assert row["lifetime_photos"] == 12
+    assert row["lifetime_translations"] == 1
+
+
+def test_media_metrics_scope_to_app_filter(client, tmp_db_path):
+    from tests.conftest import _insert_user
+    _insert_user(tmp_db_path, user_id="media-v", tier="pro", monthly_limit=5.10)
+    _insert_media_usage(tmp_db_path, "media-v", image_count=3)  # shouldersurf
+    payload = client.get(
+        "/webhooks/admin/users?days=7&app=techrehearsal", headers=ADMIN).json()
+    assert all(u["id"] != "media-v" for u in payload["users"])
+    payload = client.get(
+        "/webhooks/admin/users?days=7&app=shouldersurf", headers=ADMIN).json()
+    row = next(u for u in payload["users"] if u["id"] == "media-v")
+    assert row["window_photos"] == 3

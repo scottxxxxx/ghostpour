@@ -131,6 +131,7 @@ from app.dependencies import get_current_user
 from app.models.chat import ChatRequest, ChatResponse
 from app.models.user import UserRecord
 from app.services import context_quilt as cq
+from app.services import receipt_verification
 from app.services.allocation_reset import compute_next_reset, lazy_reset_if_due
 from app.services.entitlements import entitlement_state, resolved_features
 
@@ -375,39 +376,56 @@ def _resolve_model_routing(
 
 
 class VerifyReceiptRequest(BaseModel):
+    """What Shoulder Surf actually sends, which is not what we used to model.
+
+    Four fields below (`current_transaction_id`, `payment_mode`,
+    `purchase_date`, `expiration_date`) were on the wire from the client
+    for months and declared nowhere here, so pydantic dropped every one
+    of them without a sound. That is the `to_name` shape from rule 3: SS
+    saw a correct send, we saw a complete request, and the loss lived
+    only in the gap between them. `current_transaction_id` is the one
+    that cost us, because its absence is why the per-renewal id and the
+    original id were the same value written into two columns.
+    """
+
     product_id: str              # e.g., "com.example.myapp.sub.ultra.monthly"
-    transaction_id: str          # StoreKit 2 original transaction ID
-    signed_transaction: str | None = None  # JWS for future server-side verification
+    transaction_id: str          # StoreKit `Transaction.originalID`
+    current_transaction_id: str | None = None  # StoreKit `Transaction.id`, this renewal
+    signed_transaction: str | None = None  # JWS; the only field Apple actually signs
     offer_type: str | None = None  # "introductory" for free trial, None for paid
-    offer_price: float | None = None  # 0.00 for free trial
+    offer_price: float | None = None  # 0.00 for free trial; SS sends payment_mode instead
+    payment_mode: str | None = None  # StoreKit offer payment mode, e.g. "freeTrial"
+    purchase_date: str | None = None  # ISO-8601, from the signed transaction
+    expiration_date: str | None = None  # ISO-8601, from the signed transaction
     is_trial: bool | None = None  # Explicit trial flag from client (preferred over inference)
-    offer_id: str | None = None  # ASC offer reference (StoreKit transaction.offer.id) —
+    offer_id: str | None = None  # ASC offer reference (StoreKit transaction.offer.id),
     # per-pool redemption attribution (Apple never exposes the redeemed code string)
 
 
 async def _resolve_storekit_environment(
-    db: aiosqlite.Connection, user_id: str, body: "VerifyReceiptRequest"
+    db: aiosqlite.Connection, user_id: str, verified_environment: str | None
 ) -> str | None:
     """"Production" | "Sandbox" | None for a verify-receipt purchase.
 
     Until 2026-08-02 this path recorded no environment at all, so every
     TestFlight purchase it wrote was indistinguishable from a real one and
-    landed in MRR. The signed transaction carries the answer and the client
-    already sends it; verification failures fall through rather than
-    rejecting the purchase, because entitlement must not hinge on
-    reporting metadata.
+    landed in MRR.
+
+    The fix for that read the environment off the signed transaction, and
+    its comment said "the client already sends it". The client has never
+    sent it: `signed_transaction` appears nowhere in the Shoulder Surf
+    codebase, so that branch had not run once, and every `environment`
+    recorded on a verify_receipt row to date is this fallback inferring
+    it from an EARLIER event rather than measuring this one. Scott's
+    08-28 row reads "Production" purely because his trial's EXPIRED
+    notification, hours earlier, was.
+
+    So the argument is now the caller's verified value, and the fallback
+    is explicitly a guess of last resort. When the enforcement dial is on
+    there is no guessing left to do.
     """
-    if body.signed_transaction:
-        try:
-            from app.services.apple_notifications import decode_and_verify_jws
-            payload = decode_and_verify_jws(
-                body.signed_transaction, get_settings().apple_bundle_id)
-            env = payload.get("environment")
-            if env in ("Production", "Sandbox"):
-                return env
-        except Exception as e:
-            logger.warning("verify-receipt: could not read environment "
-                           "from signed_transaction: %s", e)
+    if verified_environment in ("Production", "Sandbox"):
+        return verified_environment
     row = await (await db.execute(
         "SELECT environment FROM subscription_events "
         "WHERE user_id = ? AND environment IS NOT NULL "
@@ -445,10 +463,17 @@ async def verify_receipt(
     Called by the iOS app after a successful purchase or on app launch
     when checking currentEntitlements.
 
-    For MVP: trusts the product_id from the authenticated client.
-    StoreKit 2 transactions are cryptographically signed by Apple —
-    the client has already verified them. Full server-side JWS
-    verification can be added in v0.3.
+    This used to say it trusted `product_id` from the authenticated
+    client, and that "full server-side JWS verification can be added in
+    v0.3". On 2026-08-28 the bill arrived: an Xcode run against the local
+    StoreKit configuration file granted Pro and booked $14.99 of MRR for
+    a purchase Apple has no record of. See `receipt_verification` for the
+    evidence and the reasoning.
+
+    Now: the identity of the transaction comes from something Apple
+    signed whenever the client sends one, an implausible id can never
+    overwrite a good one, and refusing unverifiable receipts outright is
+    a served dial waiting on the Shoulder Surf build that sends the JWS.
     """
     tier_config = request.app.state.tier_config
 
@@ -460,25 +485,89 @@ async def verify_receipt(
                 if product_id:
                     PRODUCT_TO_TIER[product_id] = name
 
+    # Who says this transaction happened. Apple, if the client sent a JWS
+    # we can chain to Apple's root AND that names one of our bundle ids;
+    # otherwise the client's own word, marked as such. Resolved BEFORE
+    # the product lookup, because which product was bought is part of
+    # what Apple signed.
+    identity = receipt_verification.resolve_identity(body, get_settings())
+
+    # WHICH product was bought, not merely THAT something was. When Apple
+    # signed the transaction its productId is the answer and it overrides
+    # the client's claim. Skipping this would leave the hole the
+    # signature was meant to close: a caller could present a genuine,
+    # fully verifiable Plus receipt while sending product_id for Pro, and
+    # verification would confirm a real purchase happened right up to the
+    # moment we granted the tier they named instead of the one they
+    # bought. Verify the property, do not just carry it around.
+    _effective_product_id = body.product_id
+    if identity.verified and identity.product_id:
+        _effective_product_id = identity.product_id
+        if identity.product_id != body.product_id:
+            logger.warning(
+                "verify-receipt: client claimed product %s but Apple signed %s "
+                "for user %s; using Apple's",
+                body.product_id, identity.product_id, user.id)
+
     # Look up tier for this product
-    new_tier_name = PRODUCT_TO_TIER.get(body.product_id)
+    new_tier_name = PRODUCT_TO_TIER.get(_effective_product_id)
     if not new_tier_name:
         raise HTTPException(
             status_code=400,
-            detail=f"Unknown product ID: {body.product_id}",
+            detail=f"Unknown product ID: {_effective_product_id}",
         )
 
     new_tier = tier_config.tiers[new_tier_name]
     old_tier_name = user.tier
 
+    if identity.reject_reason:
+        # Never silent. A machine decision nobody sees is unexamined, and
+        # this exact field going bad sat unnoticed for six days.
+        logger.warning(
+            "verify-receipt: unusable transaction identity user=%s reason=%s",
+            user.id, identity.reject_reason)
+        try:
+            from app.services.alerting import report_incident
+            await report_incident(
+                db,
+                category="receipt_unverified",
+                subject=str(user.id),
+                details={
+                    "user_id": user.id,
+                    "reason": identity.reject_reason,
+                    "verified": identity.verified,
+                    "product_id": body.product_id,
+                    "claimed_transaction_id": body.transaction_id,
+                },
+                from_addr=get_settings().alert_email_from,
+            )
+        except Exception as e:
+            logger.warning("receipt_unverified alert failed (non-fatal): %s", e)
+
+    if receipt_verification.require_signed_transaction(
+            request.app.state.remote_configs, get_settings()):
+        if not identity.verified or not identity.original_transaction_id:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "receipt_unverified",
+                    "message": "This purchase could not be verified with Apple.",
+                    "reason": identity.reject_reason or "no_signed_transaction",
+                },
+            )
+
     # StoreKit environment, so this purchase can be told apart from a
     # TestFlight one downstream (revenue reporting, purchase alerts).
-    # Read off the signed transaction the client already sends — no new
-    # wire field, so no two-sided deploy. Falls back to the last
-    # environment Apple told us about for this account (the ASSN path
-    # always carries it), then to unknown, which reporting counts
-    # separately rather than guessing.
-    _environment = await _resolve_storekit_environment(db, user.id, body)
+    _environment = await _resolve_storekit_environment(
+        db, user.id, identity.environment)
+
+    # The id Apple's server notifications are matched on, and the id of
+    # this particular renewal. They are NOT the same value: storing the
+    # original in both columns is what made `transaction_id='0'` and
+    # `original_transaction_id='0'` look like two facts when they were
+    # one fact written twice.
+    _otid = identity.original_transaction_id
+    _txn_id = identity.transaction_id or _otid
 
     # Detect free trial: prefer explicit flag from client, fall back to inference
     if body.is_trial is not None:
@@ -522,26 +611,29 @@ async def verify_receipt(
     # (account switch on same device, or anon-purchase → later sign-in to a
     # different account). Without this, two rows hold the same id and the
     # apple-notifications webhook lookup only updates one of them.
-    await db.execute(
-        "UPDATE users SET original_transaction_id = NULL "
-        "WHERE original_transaction_id = ? AND id != ?",
-        (body.transaction_id, user.id),
-    )
+    # Guarded on a plausible id: with `'0'` in hand this statement would
+    # have cleared the id off every OTHER user who had also been given a
+    # `'0'`, turning one bad row into a widening blast radius.
+    if _otid:
+        await db.execute(
+            "UPDATE users SET original_transaction_id = NULL "
+            "WHERE original_transaction_id = ? AND id != ?",
+            (_otid, user.id),
+        )
 
     # This verify claims the transaction — close any open orphan alert
     # for it. SS's deferred receipt-replay can land hours or days after
     # the assn_unmatched alert legitimately fired (their queue drains on
     # next sign-in); that late arrival is the alert healing, not a fresh
     # incident. Best-effort: alert bookkeeping never breaks a verify.
-    if body.transaction_id:
+    if _otid:
         try:
             from app.services.alerting import resolve_incident
-            await resolve_incident(
-                db, "assn_unmatched", str(body.transaction_id))
+            await resolve_incident(db, "assn_unmatched", str(_otid))
         except Exception:
             logger.warning(
                 "assn_unmatched auto-resolve failed for txn %s (non-fatal)",
-                body.transaction_id)
+                _otid)
 
     if is_trial:
         # Trial: use trial_cost_limit_usd, 7-day period
@@ -564,11 +656,11 @@ async def verify_receipt(
                     is_trial = 1,
                     trial_start = ?,
                     trial_end = ?,
-                    original_transaction_id = ?
+                    original_transaction_id = COALESCE(?, original_transaction_id)
                    WHERE id = ?""",
                 (
                     new_tier_name, trial_limit, resets_at, now.isoformat(),
-                    now.isoformat(), trial_end, body.transaction_id, user.id,
+                    now.isoformat(), trial_end, _otid, user.id,
                 ),
             )
             # Zero Memory capture quota counter on Free → trial upgrade so
@@ -594,8 +686,8 @@ async def verify_receipt(
                 await subs.record_subscription_event(
                     db, user_id=user.id, event_type="subscribed", subtype="trial",
                     from_tier=old_tier_name, to_tier=new_tier_name,
-                    product_id=body.product_id, transaction_id=body.transaction_id,
-                    original_transaction_id=body.transaction_id,
+                    product_id=_effective_product_id, transaction_id=_txn_id,
+                    original_transaction_id=_otid,
                     source="verify_receipt", price_usd=0.0,
                     environment=_environment,
                     offer_id=body.offer_id,
@@ -610,9 +702,9 @@ async def verify_receipt(
                     monthly_cost_limit_usd = ?,
                     updated_at = ?,
                     is_trial = 1,
-                    original_transaction_id = ?
+                    original_transaction_id = COALESCE(?, original_transaction_id)
                    WHERE id = ?""",
-                (trial_limit, now.isoformat(), body.transaction_id, user.id),
+                (trial_limit, now.isoformat(), _otid, user.id),
             )
         await db.commit()
 
@@ -664,11 +756,11 @@ async def verify_receipt(
                 is_trial = 0,
                 trial_start = NULL,
                 trial_end = NULL,
-                original_transaction_id = ?
+                original_transaction_id = COALESCE(?, original_transaction_id)
                WHERE id = ?""",
             (
                 new_tier_name, new_tier.monthly_cost_limit_usd, resets_at,
-                now.isoformat(), body.transaction_id, user.id,
+                now.isoformat(), _otid, user.id,
             ),
         )
         if trial_to_paid:
@@ -704,8 +796,8 @@ async def verify_receipt(
                 db, user_id=user.id, event_type=_sub_evt,
                 subtype="conversion" if trial_to_paid else None,
                 from_tier=old_tier_name, to_tier=new_tier_name,
-                product_id=body.product_id, transaction_id=body.transaction_id,
-                original_transaction_id=body.transaction_id,
+                product_id=_effective_product_id, transaction_id=_txn_id,
+                original_transaction_id=_otid,
                 source="verify_receipt",
                 environment=_environment,
                 offer_id=body.offer_id,
@@ -719,11 +811,11 @@ async def verify_receipt(
                 monthly_cost_limit_usd = ?,
                 updated_at = ?,
                 is_trial = 0,
-                original_transaction_id = ?
+                original_transaction_id = COALESCE(?, original_transaction_id)
                WHERE id = ?""",
             (
                 new_tier.monthly_cost_limit_usd, now.isoformat(),
-                body.transaction_id, user.id,
+                _otid, user.id,
             ),
         )
     await db.commit()
@@ -1358,6 +1450,17 @@ async def list_tiers(request: Request):
     }
     if display_config and "version" in display_config:
         response["version"] = display_config["version"]
+    # Paywall copy (Scott 2026-08-23: ALL subscription copy GP-served).
+    # This route is a PROJECTION, so a new top-level bundle key does not
+    # ride automatically — the block sat in the file and never left the
+    # server until SS checked the echo (2026-08-24). Pass-through, not a
+    # re-shape: the client renders paywall.* verbatim.
+    if display_config and "paywall" in display_config:
+        response["paywall"] = display_config["paywall"]
+    # Plus recall window: fill `{recall_window_days}` from the dial so the
+    # served copy and the enforced number can never disagree.
+    from app.services.recall_window import render_recall_window_copy
+    response = render_recall_window_copy(response, configs)
     if locale:
         return JSONResponse(content=response, headers={"X-Config-Locale": locale})
     return response
@@ -1391,6 +1494,43 @@ async def chat(
         if body.metadata is None:
             body.metadata = {}
         body.metadata["request_id"] = _rid
+
+    # 0.5. Turn idempotency (2026-08-30). Deliberately the FIRST thing after
+    # request identity, before the tier lookup, before document extraction,
+    # before the generation_intent classifier and long before any upstream
+    # call. A retry that gets this far has already paid the upload; there is
+    # no reason for it to pay for anything else.
+    #
+    # On 2026-08-29 the same question was answered three times at $0.2738,
+    # $0.2623 and $0.2633 and delivered zero times. This is the half of the
+    # fix that makes the retry free; #820 was the half that stops the drop.
+    #
+    # Registering here also puts the record in place BEFORE any SSE frame can
+    # be written, which is the ordering SS's retry logic depends on: a frame
+    # means "there is a row you can look up". See app/services/chat_turns.py.
+    _turn_id = (body.turn_id or "").strip() or None
+    if _turn_id:
+        from app.services import chat_turns as _chat_turns
+        _stored = await _chat_turns.lookup_terminal(db, user.id, _turn_id)
+        if _stored is not None and _stored["status"] == "done":
+            logger.info("chat_turn replayed turn_id=%s user=%s", _turn_id, user.id)
+            return JSONResponse(content={**_stored["body"], "replayed": True})
+        if _stored is not None:                      # terminal failure
+            logger.info("chat_turn replayed failure turn_id=%s", _turn_id)
+            return JSONResponse(
+                status_code=200,
+                content={"type": "error", "replayed": True,
+                         **(_stored.get("error") or {})})
+        _running = _chat_turns.running_info(user.id, _turn_id)
+        if _running is not None:
+            # The turn is already running in this process. Answering rather
+            # than attaching is the point: holding the request open is the
+            # long silent socket that started all of this.
+            logger.info("chat_turn already in flight turn_id=%s elapsed=%ss",
+                        _turn_id, _running["elapsed_seconds"])
+            return JSONResponse(status_code=200,
+                                content={"type": "turn_in_progress", **_running})
+        _chat_turns.begin(user.id, _turn_id)
 
     # 1. Look up tier (respects simulation override)
     effective_tier_name = user.effective_tier
@@ -1582,6 +1722,14 @@ async def chat(
                 request.app.state.remote_configs, user.effective_tier,
                 feature_name)
         run_hook = state != "disabled"
+        # Free teaser flip (Scott 2026-08-24): a `teaser` state on a client
+        # that sends no context_quilt flag (every Free build, by served
+        # entitlement) must still run the People-scoped lane, or the flip
+        # would silently drop Free recall and the by_scope block the
+        # Free-to-Plus nudge reads. Clients that DO send the flag under
+        # teaser keep the hook's metadata-only teaser recall.
+        if feature_name == "context_quilt" and state == "teaser":
+            run_hook = False
         if not run_hook and feature_name == "context_quilt":
             # People-scoped recall lane (decision 2026-08-11: People
             # launches at full value on every tier, and the assistant may
@@ -1597,8 +1745,52 @@ async def chat(
                 request.app.state.remote_configs, user.effective_tier,
                 "people") == "enabled"
         if run_hook:
-            body, result = await hook.before_llm(user, body, tier, state, skip_teasers, app_id=app_id)
+            # Plus recall window: the tier's Memory window, read from the
+            # served tiers dial here, next to every other entitlement
+            # read, and handed to the hook so it lands on every recall leg.
+            from app.services.recall_window import recall_max_age_days as _recall_window
+            # The recall budget, read from the served dial here beside the
+            # window so both tunables resolve in one place (Scott 2026-08-27:
+            # 500ms was the binding constraint, raised to 1500 and made a
+            # dashboard dial while CQ works the traversal cost).
+            from app.services.recall_tuning import recall_timeout_ms as _recall_timeout
+            body, result = await hook.before_llm(
+                user, body, tier, state, skip_teasers, app_id=app_id,
+                recall_max_age_days=_recall_window(
+                    request.app.state.remote_configs, user.effective_tier),
+                recall_timeout_ms=_recall_timeout(
+                    request.app.state.remote_configs, request.app.state.settings))
             hook_results[feature_name] = result
+            # Recall health is an INCIDENT, not a log line (2026-08-24: a
+            # silent degrade hid eleven days of Free-lane 500s). One open
+            # incident per recall scope; heals on the next healthy recall.
+            _cqr = (result or {}).get("cq_result") or {}
+            if isinstance(_cqr, dict) and "recall_scope" in _cqr:
+                try:
+                    # One durable row per attempt, degraded or not: the rate
+                    # is the thing that decides whether the budget is right,
+                    # and it cannot be recovered from a log that dies on the
+                    # next deploy.
+                    from app.services.recall_tuning import record_observation
+                    await record_observation(db, app_id=app_id, user_id=user.id,
+                                             tier=user.effective_tier, cq_result=_cqr)
+                except Exception as _exc:  # noqa: BLE001 — telemetry never breaks a turn
+                    logger.warning("recall_observation_failed reason=%s", str(_exc)[:200])
+                try:
+                    from app.services.alerting import report_incident, resolve_incident
+                    _scope = _cqr.get("recall_scope") or "full"
+                    if _cqr.get("degraded"):
+                        await report_incident(
+                            db, category="cq_recall_degraded", subject=f"scope={_scope}",
+                            details={"reason": _cqr.get("degraded"),
+                                     "error": _cqr.get("degraded_error"),
+                                     "tier": user.effective_tier,
+                                     "request_id": getattr(request.state, "request_id", None)},
+                            from_addr=request.app.state.settings.alert_email_from)
+                    else:
+                        await resolve_incident(db, "cq_recall_degraded", f"scope={_scope}")
+                except Exception as _exc:  # noqa: BLE001 — never breaks the turn
+                    logger.warning("cq_recall_incident_failed reason=%s", str(_exc)[:200])
 
     # Memory capability line (the #431 pattern, for memory instead of
     # files): a Meeting Memory user whose chat send arrived WITHOUT the
@@ -1628,6 +1820,38 @@ async def chat(
         body = body.model_copy(update={
             "system_prompt": (_sys_mem + "\n\n" + _mem_line)
             if _sys_mem else _mem_line})
+
+    # Transcript language (2026-08-21): when the client states the language
+    # the meeting was SPOKEN in (metadata.transcript_language, BCP-47), say
+    # so to the model server-side. A Spanish meeting got an English refusal
+    # because nothing on the wire or in the recipe named the language;
+    # inference is what failed, so the client may state it.
+    #
+    # NOT metadata.language: that key already exists on capture and means
+    # the DEVICE language (CQ writes memory in it, which is the behaviour
+    # Scott wants). One key, two meanings across a hop is how a field gets
+    # silently misread, so the spoken language is its own key.
+    from app.services.language_directive import append_language_line
+    _lang_sys = append_language_line(body.system_prompt, body.get_meta("transcript_language"))
+    if _lang_sys != body.system_prompt:
+        body = body.model_copy(update={"system_prompt": _lang_sys})
+
+    # Plus recall window, meeting-content half (Scott via CQ, 2026-08-26):
+    # a windowed tier's project chat is hydrated with the last N days of
+    # meetings, sliding from today. CQ windows the memory patches with the
+    # same dial (metadata.max_age_days above); this drops the client-
+    # assembled meeting blocks older than N regardless of what the slider
+    # sent, so both halves cut at the same day. Pro's dial is null: nothing
+    # happens. Project chat only: that is the surface the ruling names.
+    if body.get_meta("prompt_mode") == "ProjectChat":
+        from app.services.recall_window import clamp_meeting_blocks, recall_max_age_days as _win
+        _n_days = _win(request.app.state.remote_configs, user.effective_tier)
+        if _n_days is not None:
+            _clamped, _dropped = clamp_meeting_blocks(body.system_prompt, _n_days)
+            if _dropped:
+                logger.info("project_chat_window_clamp tier=%s window_days=%d dropped=%d oldest=%s",
+                            user.effective_tier, _n_days, len(_dropped), min(_dropped))
+                body = body.model_copy(update={"system_prompt": _clamped})
 
     # Safety net: the CQ hook fills the {{context_quilt}} placeholder ONLY
     # when CQ is enabled AND recall returned content. In every other path —
@@ -1719,6 +1943,31 @@ async def chat(
         and cap_chars != -1
         and actual_chars > cap_chars
     ):
+        # The one Plus-to-Pro moment that already fires for real, and
+        # until 2026-08-23 it told every tier the same thing: trim. Now it
+        # names the lowest tier whose served cap would have fit THIS
+        # request, with both numbers, and only when one exists. No tier
+        # fits -> no upgrade affordance, because "upgrade" is a lie when
+        # trimming is the only fix. Additive: `action` stays trim_context
+        # and the upgrade rides `secondary_action`, which the search CTAs
+        # already taught the client to render.
+        from app.services.upgrade_nudges import context_upgrade_action
+        _upgrade = context_upgrade_action(
+            request.app.state.remote_configs, user.effective_tier, actual_chars,
+            lambda t: project_chat_max_input_chars(
+                request.app.state.remote_configs, t, locale=locale, fallback_chars=None))
+        _cta = {
+            "kind": "context_too_large",
+            "text": (
+                f"Selected context is {actual_chars // 1000}K chars, "
+                f"over your {cap_chars // 1000}K-char limit. "
+                + (_upgrade["reason"] if _upgrade
+                   else "Deselect meetings or drop transcripts to fit.")
+            ),
+            "action": "trim_context",
+        }
+        if _upgrade:
+            _cta["secondary_action"] = {k: v for k, v in _upgrade.items() if k != "reason"}
         raise HTTPException(
             status_code=413,
             detail={
@@ -1730,20 +1979,13 @@ async def chat(
                 ),
                 "feature_state": {
                     "feature": "project_chat",
-                    "cta": {
-                        "kind": "context_too_large",
-                        "text": (
-                            f"Selected context is {actual_chars // 1000}K chars, "
-                            f"over your {cap_chars // 1000}K-char limit. "
-                            f"Deselect meetings or drop transcripts to fit."
-                        ),
-                        "action": "trim_context",
-                    },
+                    "cta": _cta,
                     "details": {
                         "max_chars": cap_chars,
                         "actual_chars": actual_chars,
                         "locale": locale or "en",
                         "tokenizer": "chars_direct",
+                        **({"fits_on": _upgrade["plan"]} if _upgrade else {}),
                     },
                 },
             },
@@ -3142,6 +3384,30 @@ async def chat(
             },
         }
 
+    # Memory nudge (2026-08-23): what recall FOUND and could not USE, with
+    # the number. Free's People-scoped recall leaves matches out (Plus
+    # would bring them in); Plus's N-day window leaves older ones out (Pro
+    # has no window). CQ applies both predicates, so CQ counts what each
+    # cut and reports it as an additive `excluded` block on the recall
+    # response; GP renders served copy around the count. Absent block,
+    # zero count, or a tier with nothing above it all mean silence.
+    #
+    # The envelope carries ONE feature_state, and an in-flow generation
+    # offer is worth more than a nudge, so the offer keeps the slot.
+    if _teaser_state is None:
+        _cq_hook_result = hook_results.get("context_quilt") or {}
+        _excluded = (_cq_hook_result.get("cq_result") or {}).get("excluded")
+        if _excluded:
+            from app.services.recall_window import recall_max_age_days as _rw
+            from app.services.upgrade_nudges import memory_excluded_cta
+            _teaser_state = memory_excluded_cta(
+                request.app.state.remote_configs, user.effective_tier, _excluded,
+                _rw(request.app.state.remote_configs, user.effective_tier))
+            if _teaser_state:
+                logger.info("memory_nudge kind=%s tier=%s excluded=%s",
+                            _teaser_state["cta"]["kind"], user.effective_tier,
+                            _teaser_state["cta"]["details"].get("excluded_meetings"))
+
     # 6. Stream or non-stream based on request + call_type
     # Only stream interactive queries; background tasks (summary, analysis) get full JSON.
     # Project Chat is also forced non-streaming so feature_state can land
@@ -3910,8 +4176,95 @@ async def chat(
         and body.get_meta("generation_confirmed")
         and _gen_confirmation_enabled
     )
-    if not _gen_sse:
-        return await _run_turn_tail()
+    # 6c. Chat transport (2026-08-29). Project Chat is excluded from
+    # `should_stream` above, deliberately and correctly — that exclusion is
+    # what kept it immune to the 07-13 bug where a confirmed Gantt turn
+    # token-streamed raw task-graph JSON into the bubble and built no file.
+    # But the exclusion also took it off the ONLY path that emits heartbeats,
+    # so a Project Chat turn sent nothing at all — not one byte, not even
+    # HTTP response headers — until the whole JSON was built.
+    #
+    # Measured on Scott's device 2026-08-29: three turns carrying 400,653
+    # bytes of documents ran 66.4s, 56.3s and 56.7s, completed successfully,
+    # cost $0.7995, and NONE reached the phone. All three logged 499 at the
+    # edge. The turn that survived was the 2.5s one — delivery tracked
+    # DURATION, not the files. SS's device log proved the other half: turn 4
+    # died in the FOREGROUND after 36s with `request_id=none` and zero lines
+    # parsed, so response headers never arrived either.
+    #
+    # So: keep the model output buffered internally (the renderer and the
+    # generation diversion are untouched, nothing token-streams) and change
+    # only the TRANSPORT. Heartbeat every `_PROGRESS_TICK_SECONDS`, then
+    # deliver the byte-identical JSON body in `generation_result`, which is
+    # the frame the client already substitutes for a non-stream body
+    # (CloudZapProvider.swift:967). Zero client changes, so builds already
+    # on phones get the fix.
+    #
+    # NOT `generation_started`, and NOT `generation_progress`: any
+    # `generation_*` event sets `sawGenerationEvents` on the client, which is
+    # what now gates its "your file is still being built" copy. A plain chat
+    # turn must never arm that claim, so its heartbeat rides the untyped
+    # family instead. Verified in their parser, not assumed.
+    # Gated on the build, because the repo can name the floor but cannot say
+    # what is installed. SS read build 695 (c08d89c) and build 803 (4661176)
+    # line by line: both carry the `generation_result` case AND the JSON
+    # branch's `?? result.data` fallback, and either half missing would make
+    # the frame useless. Below 695 the envelope would arrive as a stream with
+    # no text events and render an EMPTY answer, which is worse than the
+    # silence it replaces, so `chat_sse_allowed` fails CLOSED on a build it
+    # cannot read. Drop the floor once the installed distribution is known.
+    def _chat_sse_build_ok() -> bool:
+        from app.routers.config import load_apps
+        from app.services import version_gate
+        _registry = getattr(request.app.state, "app_versions", {}) or {}
+        _apps = load_apps()
+        _app = getattr(request.state, "app_id", None)
+        return version_gate.chat_sse_allowed(
+            version_gate.chat_sse_floor(_registry, _apps, _app),
+            version_gate.build_number(
+                request.headers.get("X-App-Build"),
+                request.headers.get("User-Agent"),
+                version_gate.user_agent_app_name(_registry, _apps, _app)))
+
+    async def _run_turn_tracked(db=db) -> JSONResponse:
+        """`_run_turn_tail` plus the terminal turn record.
+
+        One wrapper rather than a record at each call site: the tail is
+        reached from the plain JSON path and from inside the SSE envelope's
+        task, and a store that only covers one of them would make the retry
+        free on some turns and not others, which is worse than not having it
+        because nobody could predict which.
+
+        A failure is recorded too. "We tried and it failed" is a real answer
+        and replaying it beats re-running a turn that will fail the same way.
+        """
+        if not _turn_id:
+            return await _run_turn_tail(db=db)
+        from app.services import chat_turns as _ct
+        try:
+            _resp = await _run_turn_tail(db=db)
+        except HTTPException as _e:
+            _d = _e.detail if isinstance(_e.detail, dict) else {"message": str(_e.detail)}
+            await _ct.finish(db, user_id=user.id, app_id=app_id, turn_id=_turn_id,
+                             status="failed",
+                             error={"code": _d.get("code", "provider_error"),
+                                    "message": _d.get("message", "the turn failed"),
+                                    "http_status": _e.status_code})
+            raise
+        except Exception:
+            # Never leave the id in flight on an unexpected error: a retry
+            # would poll `in_progress` until the leak valve expired it.
+            _ct.abandon(user.id, _turn_id)
+            raise
+        await _ct.finish(db, user_id=user.id, app_id=app_id, turn_id=_turn_id,
+                         status="done", body=json.loads(bytes(_resp.body)))
+        return _resp
+
+    _chat_sse = bool(not _gen_sse and is_project_chat and body.stream
+                     and _chat_sse_build_ok())
+
+    if not (_gen_sse or _chat_sse):
+        return await _run_turn_tracked()
 
     import json as _json
 
@@ -3959,7 +4312,31 @@ async def chat(
         # the observed `phase` token supersedes it, additively.
         if _researching:
             _started["search_expected_seconds"] = SEARCH_PHASE_SECONDS
-        yield _sse("generation_started", _started)
+        # A plain chat turn announces nothing: no build is starting, and
+        # `generation_started` would both promise a file and arm the
+        # client's still-building copy. See 6c.
+        if not _chat_sse:
+            yield _sse("generation_started", _started)
+        else:
+            # Flush the response head NOW. Measured on Scott's device
+            # 2026-08-30, turn 4b5ef89ad55f: the phone did not see headers
+            # until +10.34s, and the first 5s tick was written at
+            # 03:46:21.120 against headers observed at 03:46:21.140. A 20 ms
+            # gap: the head is flushed WITH the first body chunk, never
+            # before it, so "time to headers" is really time to first byte
+            # and the socket is silent until something is written.
+            #
+            # That 10.34s was 5.32s of pre-flight (400 KB uplink draining,
+            # document extraction, the generation_intent classifier's own
+            # 2.15s call, prompt assembly) plus a further 5.00s doing
+            # nothing but waiting for the first tick. This kills the second
+            # half. The generation lane never had the problem because
+            # `generation_started` already flushes at t=0.
+            #
+            # The remaining 5.32s needs the response to start BEFORE the
+            # pre-flight, which is a real change and not this one. Worth
+            # doing: this morning's two lost turns died 3s and 9s in.
+            yield _sse("progress", {"type": "progress", "elapsed_seconds": 0})
         # Own DB connection: this generator outlives the request scope (the
         # dependency-injected connection is already torn down while the
         # stream body runs — caught by CI, ValueError: no active connection).
@@ -3975,7 +4352,7 @@ async def chat(
             # completion and write its rescue row + stage its artifact —
             # that's the entire paid-but-unseen case rescue exists for.
             try:
-                return await _run_turn_tail(db=_sse_db)
+                return await _run_turn_tracked(db=_sse_db)
             finally:
                 await _sse_db.close()
 
@@ -3992,11 +4369,24 @@ async def chat(
             # before. We never guess this from a clock: a label that is
             # right most of the time is still a fabrication, and it is
             # the fabrication this whole thread began as.
-            yield _sse("generation_progress", {
-                "elapsed_seconds": int(time.monotonic() - _t0),
-                "expected_seconds": _expected,
-                "phase": _phase["name"],
-            })
+            if _chat_sse:
+                # Untyped family on purpose (see 6c). The client stamps
+                # `lastEventAt` at the top of processSSELine for EVERY line
+                # it parses, handled or not, so this resets its 30s stale
+                # guard without claiming a build is underway. No expectation
+                # is served because we do not have an honest one for a chat
+                # turn, and a fabricated countdown is the defect this whole
+                # lane began as.
+                yield _sse("progress", {
+                    "type": "progress",
+                    "elapsed_seconds": int(time.monotonic() - _t0),
+                })
+            else:
+                yield _sse("generation_progress", {
+                    "elapsed_seconds": int(time.monotonic() - _t0),
+                    "expected_seconds": _expected,
+                    "phase": _phase["name"],
+                })
         try:
             _resp = _task.result()
             yield _sse("generation_result", _json.loads(bytes(_resp.body)))
@@ -4006,11 +4396,23 @@ async def chat(
                    "message": _detail.get("message", "generation failed")}
             if isinstance(_detail.get("details"), dict):
                 _ev["details"] = _detail["details"]   # same typed family as HTTP errors
-            yield _sse("generation_error", _ev)
+            if _chat_sse:
+                # Untyped `error` rather than `generation_error`: the client's
+                # generation_* branch sets `sawGenerationEvents`, and this
+                # frame is richer anyway (it carries http_status). A chat turn
+                # never touches the generation family.
+                _ev.update({"type": "error", "http_status": e.status_code})
+                yield _sse("error", _ev)
+            else:
+                yield _sse("generation_error", _ev)
         except Exception:
-            logger.exception("generation transport: turn failed")
-            yield _sse("generation_error", {"code": "provider_error",
-                                            "message": "generation failed"})
+            logger.exception("chat/generation transport: turn failed")
+            if _chat_sse:
+                yield _sse("error", {"type": "error", "code": "provider_error",
+                                     "message": "the turn failed"})
+            else:
+                yield _sse("generation_error", {"code": "provider_error",
+                                                "message": "generation failed"})
 
     return StreamingResponse(_generation_events(), media_type="text/event-stream")
 
@@ -4348,3 +4750,30 @@ async def _handle_stream(
         media_type="text/event-stream",
         headers=headers,
     )
+
+
+@router.get("/chat/turns/{turn_id}")
+async def lookup_chat_turn(
+    turn_id: str,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Recover a chat turn whose answer never reached the client.
+
+    Owner-only. `in_progress` carries observed elapsed seconds and no
+    prediction, because we hold no honest estimate for a chat turn.
+
+    Never-existed, expired, not-yours and lost-to-restart are ONE
+    indistinguishable 404, matching /v1/generations, because the client's
+    answer to all four is identical: resend the turn in full. It is also the
+    cheap case, since a turn we have no record of never reached an upstream
+    call and so was never billed.
+    """
+    from app.services import chat_turns
+    running = chat_turns.running_info(user.id, turn_id)
+    if running is not None:
+        return JSONResponse(running, headers={"Cache-Control": "private, no-store"})
+    stored = await chat_turns.lookup_terminal(db, user.id, turn_id)
+    if stored is not None:
+        return JSONResponse(stored, headers={"Cache-Control": "private, no-store"})
+    raise HTTPException(status_code=404, detail="not found")

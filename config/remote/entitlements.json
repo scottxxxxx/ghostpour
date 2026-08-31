@@ -1,21 +1,14 @@
 {
-  "version": 4,
+  "version": 8,
   "matrix": {
     "context_quilt": {
-      "free": "disabled",
+      "free": "teaser",
       "plus": "enabled",
       "pro": "enabled",
       "admin": "enabled",
       "automation": "enabled"
     },
     "meeting_reports": {
-      "free": "enabled",
-      "plus": "enabled",
-      "pro": "enabled",
-      "admin": "enabled",
-      "automation": "enabled"
-    },
-    "people": {
       "free": "enabled",
       "plus": "enabled",
       "pro": "enabled",
@@ -44,7 +37,28 @@
       "automation": "enabled"
     },
     "web_search": {
-      "free": "disabled",
+      "free": "enabled",
+      "plus": "enabled",
+      "pro": "enabled",
+      "admin": "enabled",
+      "automation": "enabled"
+    },
+    "people": {
+      "free": "enabled",
+      "plus": "enabled",
+      "pro": "enabled",
+      "admin": "enabled",
+      "automation": "enabled"
+    },
+    "share": {
+      "admin": "enabled",
+      "automation": "enabled",
+      "free": "enabled",
+      "plus": "enabled",
+      "pro": "enabled"
+    },
+    "alignment": {
+      "free": "enabled",
       "plus": "enabled",
       "pro": "enabled",
       "admin": "enabled",

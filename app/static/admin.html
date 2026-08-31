@@ -338,6 +338,9 @@
       <th onclick="sortUserTable('alloc')" style="cursor:pointer">Allocation<span class="sa" data-sk="alloc"></span></th>
       <th onclick="sortUserTable('resets')" style="cursor:pointer">Resets<span class="sa" data-sk="resets"></span></th>
       <th onclick="sortUserTable('genbuilds')" style="cursor:pointer" title="File generations this allocation period / tier cap (uncapped shows no denominator)">Files<span class="sa" data-sk="genbuilds"></span></th>
+      <th onclick="sortUserTable('docs')" style="cursor:pointer" title="Documents included in queries in the selected period, counted server-side off the wire (metadata.documents.count)">Docs<span class="sa" data-sk="docs"></span></th>
+      <th onclick="sortUserTable('photos')" style="cursor:pointer" title="Photos included in queries in the selected period, counted server-side off the wire (image_count)">Photos<span class="sa" data-sk="photos"></span></th>
+      <th onclick="sortUserTable('transl')" style="cursor:pointer" title="Translation requests in the selected period. Zero for everyone until /v1/translations ships; the column is ready the day it does">Transl<span class="sa" data-sk="transl"></span></th>
       <th onclick="sortUserTable('window')" style="cursor:pointer"><span id="user-table-window-cost-th">Period Cost</span><span class="sa" data-sk="window"></span></th>
       <th onclick="sortUserTable('lifetime')" style="cursor:pointer">Lifetime Cost<span class="sa" data-sk="lifetime"></span></th>
       <th onclick="sortUserTable('last')" style="cursor:pointer">Last Active<span class="sa" data-sk="last"></span></th>
@@ -1861,6 +1864,9 @@ function _userSortVal(u, key) {
     case 'alloc': return u.percent_used || 0;
     case 'resets': return u.allocation_resets_at || '';
     case 'genbuilds': return u.generations_used || 0;
+    case 'docs': return u.window_documents || 0;
+    case 'photos': return u.window_photos || 0;
+    case 'transl': return u.window_translations || 0;
     case 'window': return u.window_cost_usd || 0;
     case 'lifetime': return u.lifetime_cost_usd || 0;
     case 'last': return u.last_request || '';
@@ -2003,6 +2009,9 @@ function renderUserRows() {
     <td>${allocBar}</td>
     <td>${resets}</td>
     <td>${genBuilds}</td>
+    <td title="lifetime: ${(u.lifetime_documents||0).toLocaleString()}">${(u.window_documents||0).toLocaleString()}</td>
+    <td title="lifetime: ${(u.lifetime_photos||0).toLocaleString()}">${(u.window_photos||0).toLocaleString()}</td>
+    <td title="lifetime: ${(u.lifetime_translations||0).toLocaleString()}">${(u.window_translations||0).toLocaleString()}</td>
     <td>${fmtCost(u.window_cost_usd)}</td>
     <td>${fmtCost(u.lifetime_cost_usd)}</td>
     <td>${timeAgo(u.last_request)}</td>
@@ -2020,7 +2029,7 @@ function renderUserRows() {
       <button class="refresh-btn" onclick="showUserDetail('${u.id}','${u.email||"User"}')">Detail</button>
     </td>
   </tr>`;
-  }).join('') || '<tr><td colspan="19" style="text-align:center;color:var(--text-dim)">No users yet</td></tr>';
+  }).join('') || '<tr><td colspan="22" style="text-align:center;color:var(--text-dim)">No users yet</td></tr>';
   // Update sort-direction arrows on the headers.
   document.querySelectorAll('#user-table .sa').forEach(s => {
     s.textContent = s.dataset.sk === _userSort.key ? (dir > 0 ? ' ▲' : ' ▼') : '';
@@ -2346,13 +2355,16 @@ async function refreshCertPinBanner() {
     const banner = document.getElementById('cert-pin-banner');
     const text = document.getElementById('cert-pin-banner-text');
     const meta = document.getElementById('cert-pin-banner-meta');
-    if (s.level === 'green') {
-      banner.style.display = 'none';
-      return;
-    }
+    // Green used to hide this entirely, which is how the 2026-08-23 gap
+    // stayed invisible: the banner said healthy and then said nothing at
+    // all, so "probed one host" had nowhere to appear. Green now renders
+    // a quiet line instead of vanishing, because the thing worth seeing
+    // in the healthy case is WHICH hosts the health was computed from.
     const palette = s.level === 'red'
       ? {bg: 'rgba(220, 53, 69, 0.18)', border: '#dc3545', fg: '#ffb3bc'}
-      : {bg: 'rgba(255, 193, 7, 0.18)', border: '#ffc107', fg: '#ffe48a'};
+      : s.level === 'yellow'
+      ? {bg: 'rgba(255, 193, 7, 0.18)', border: '#ffc107', fg: '#ffe48a'}
+      : {bg: 'rgba(255, 255, 255, 0.04)', border: 'rgba(255,255,255,0.18)', fg: 'rgba(255,255,255,0.55)'};
     banner.style.background = palette.bg;
     banner.style.borderLeft = `4px solid ${palette.border}`;
     banner.style.color = palette.fg;
@@ -2360,7 +2372,13 @@ async function refreshCertPinBanner() {
     const checked = s.last_check && s.last_check.checked_at
       ? `last check ${new Date(s.last_check.checked_at).toLocaleString()}`
       : 'no auto-check yet';
-    meta.textContent = `(${checked})`;
+    // A manifest is only as complete as the set of chains it was built
+    // from. Stated as a fact, not judged: this side cannot know how many
+    // hosts there are meant to be, only how many it looked at.
+    const hosts = (s.probed_hosts && s.probed_hosts.length)
+      ? `probed ${s.probed_hosts.join(', ')}`
+      : 'no host list recorded';
+    meta.textContent = `(${checked} · ${hosts})`;
     banner.style.display = '';
   } catch (_) { /* silent */ }
 }
@@ -2806,6 +2824,32 @@ function renderTiers(tiers) {
                   onclick="saveGenerationCap('${name}')">Save</button>
         </div>
         <div id="gen-cap-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px">empty = uncapped; at cap the user is told in chat and answered inline</div>
+      </div>
+      <div style="margin-top:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:6px">
+        <div class="lbl" style="margin-bottom:6px">Memory recall window (days)</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:11px;color:var(--text-dim);width:60px">Days</span>
+          <input type="number" id="recall-window-${name}" value="${t.recall_max_age_days != null ? t.recall_max_age_days : ''}"
+                 placeholder="unlimited"
+                 style="flex:1;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:12px;font-family:monospace"
+                 min="1" step="1">
+          <button class="refresh-btn" style="background:var(--accent);color:#000;font-weight:600;padding:6px 12px"
+                  onclick="saveRecallWindow('${name}')">Save</button>
+        </div>
+        <div id="recall-window-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px">empty = unlimited. Independent of the memory mode cell (Entitlements matrix). Sent to CQ as metadata.max_age_days on every recall and applied to project chat meeting content; fills {recall_window_days} in this tier's own strings (shared strings read the upgrade target's). Nudges read these dials, not tier names. Mirror to the repo after saving.</div>
+      </div>
+      <div style="margin-top:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:6px">
+        <div class="lbl" style="margin-bottom:6px">Meeting share: archive size cap (MB)</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:11px;color:var(--text-dim);width:60px">MB</span>
+          <input type="number" id="share-cap-${name}" value="${t.share_max_archive_mb != null ? t.share_max_archive_mb : ''}"
+                 placeholder="no cap"
+                 style="flex:1;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:12px;font-family:monospace"
+                 min="1" step="1">
+          <button class="refresh-btn" style="background:var(--accent);color:#000;font-weight:600;padding:6px 12px"
+                  onclick="saveShareCap('${name}')">Save</button>
+        </div>
+        <div id="share-cap-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px">empty = no cap (real bundles run 0.3 to 37 MB; audio is ~14 MB per hour). Over the cap the client gets a 413 naming both numbers. Creations/day: ${t.share_creations_per_day}.</div>
       </div>
       <div style="margin-top:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:6px">
         <div class="lbl" style="margin-bottom:6px">Image send config (SS AI tiers; chat + generation)</div>
@@ -3460,6 +3504,81 @@ async function saveSearchCap(tierName, field) {
 // .generations_per_month and hot-reloads, so a save here changes
 // enforcement on the very next /v1/chat call. Empty input = null =
 // uncapped (the entitlement still gates who can generate at all).
+// --- Memory recall window (2026-08-21) ---
+// tiers.{tier}.feature_definitions.context_quilt.recall_max_age_days. Hot:
+// the next chat call sends it to CQ and the next /v1/tiers renders it into
+// the copy. Every save is logged server-side (tunable_tier_field_saved);
+// mirroring to the repo is still a PR.
+// --- Meeting share archive cap (2026-08-22) ---
+// tiers.{tier}.feature_definitions.share.max_archive_mb; empty = no cap,
+// Scott's default. Hot on the next share create. Every save is logged.
+async function saveShareCap(tierName) {
+  const input = document.getElementById(`share-cap-${tierName}`);
+  const status = document.getElementById('share-cap-status-' + tierName);
+  let value;
+  if (input.value === '' || input.value === null) {
+    value = null;   // no cap
+  } else {
+    value = parseFloat(input.value);
+    if (isNaN(value) || value <= 0) {
+      status.textContent = 'Must be a positive number of MB (or empty for no cap).';
+      status.style.color = 'var(--red)';
+      return;
+    }
+  }
+  status.textContent = 'Saving share cap…';
+  status.style.color = 'var(--orange)';
+  const resp = await fetch(`${BASE}/webhooks/admin/tunable/tier-field`, {
+    method: 'PUT',
+    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
+    body: JSON.stringify({tier: tierName, feature: 'share', field: 'max_archive_mb', value: value}),
+  });
+  if (resp.ok) {
+    const data = await resp.json();
+    const n = (data.files_updated || []).length;
+    status.textContent = n > 0 ? `Saved. Updated ${n} locale file(s); live on the next share. Mirror it to the repo.` : 'No change (already at that value).';
+    status.style.color = 'var(--green)';
+  } else {
+    status.textContent = `Save failed: ${resp.status} ${await resp.text()}`;
+    status.style.color = 'var(--red)';
+  }
+}
+
+async function saveRecallWindow(tierName) {
+  const input = document.getElementById(`recall-window-${tierName}`);
+  const status = document.getElementById('recall-window-status-' + tierName);
+  let value;
+  if (input.value === '' || input.value === null) {
+    value = null;   // unlimited
+  } else {
+    value = parseInt(input.value, 10);
+    if (isNaN(value) || value < 1) {
+      status.textContent = 'Must be a whole number of days, 1 or more (or empty for unlimited).';
+      status.style.color = 'var(--red)';
+      return;
+    }
+  }
+  status.textContent = 'Saving recall window…';
+  status.style.color = 'var(--orange)';
+  const resp = await fetch(`${BASE}/webhooks/admin/tunable/tier-field`, {
+    method: 'PUT',
+    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
+    body: JSON.stringify({tier: tierName, feature: 'context_quilt',
+                          field: 'recall_max_age_days', value: value}),
+  });
+  if (resp.ok) {
+    const data = await resp.json();
+    const n = (data.files_updated || []).length;
+    status.textContent = n > 0
+      ? `Saved. Updated ${n} locale file(s); live on the next recall and the next /v1/tiers. Now mirror it to the repo.`
+      : 'No change (already at that value).';
+    status.style.color = 'var(--green)';
+  } else {
+    status.textContent = `Save failed: ${resp.status} ${await resp.text()}`;
+    status.style.color = 'var(--red)';
+  }
+}
+
 async function saveGenerationCap(tierName) {
   const input = document.getElementById(`gen-cap-${tierName}`);
   const status = document.getElementById('gen-cap-status-' + tierName);

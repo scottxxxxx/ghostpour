@@ -105,13 +105,21 @@ def test_bundled_client_config_documents_live_and_pro_gated():
     for f in ("client-config.json", "client-config.es.json", "client-config.ja.json"):
         docs = json.load(open(f"config/remote/{f}"))["documents"]
         assert docs["enabled"] is True
-        assert docs["min_tier"] == "pro"
+        # TIER MATRIX 2026-08-21 (Scott's sheet is the ruling): documents
+        # on Plus and Pro now; Free at 5/mo and 10 MB per file waits on the
+        # per-tier document dial, so Free stays OUT until that dial exists
+        # rather than getting more than the sheet says.
+        assert docs["min_tier"] == "plus"
     flat = json.load(open("config/remote/client-config.json"))["documents"]
     assert flat["allowed_users"], "flat bundle carries the permanent test lane"
     for entry in flat["allowed_users"]:
         assert uuid_re.match(entry), f"non-UUID in public bundle: {entry!r}"
-    for f in ("client-config.es.json", "client-config.ja.json"):
-        assert json.load(open(f"config/remote/{f}"))["documents"]["allowed_users"] == []
+    # 2026-08-23: every locale carries the SAME list. This used to pin es
+    # and ja to [] while fr had the user, which meant the override depended
+    # on the phone's language. Scott's rule: all languages get what English
+    # gets, and tests/test_locale_parity.py holds every slug to that.
+    for f in ("client-config.es.json", "client-config.fr.json", "client-config.ja.json"):
+        assert json.load(open(f"config/remote/{f}"))["documents"]["allowed_users"] == flat["allowed_users"], f
 
 
 # --- passthrough path ---

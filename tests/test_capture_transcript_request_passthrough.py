@@ -143,3 +143,162 @@ def test_a_metadata_key_outside_the_allowlist_does_not_cross(client, pro_user, c
     assert "invented_by_a_future_build" not in md
     # and dropping it cost nothing else
     assert md["user_label"] == "Scott"
+
+
+# --- recording_started_at (2026-08-22) --------------------------------------
+#
+# Until this key existed the capture body carried NO timestamp of any kind.
+# That is why no end of this lane has ever known when a meeting happened:
+# CQ spends the ingest clock resolving relative deadlines and drops it, so
+# every timestamp they serve is the clock of when their importer ran, and GP
+# was never sending them anything better. SS's MeetingStore was the only
+# place in the entire system holding a real one.
+#
+# This is a POST, so unlike the person-detail GET a request-side test here
+# is the one rule 3 actually asks for: the field is dropped SILENTLY if it
+# is not on the allowlist, SS would see a correct send, CQ would see a
+# complete request that merely lacks a date, and the hole would live only on
+# this hop. That is `to_name` exactly, and it is why SS is holding their
+# build until this is confirmed rather than sending and hoping.
+#
+# Named for what it is: SS does not hold a meeting start, only when the
+# RECORDING began. They sometimes hold a calendar event start, but only on a
+# confident prep match, and folding that into this field would make one
+# field mean two things depending on whether a match happened.
+
+RECORDING_STARTED_AT = "2026-08-21T23:30:00-07:00"
+
+
+@pytest.fixture
+def sent_with_recording_start(client, pro_user, cq_wire):
+    body = json.loads(json.dumps(SS_BODY))
+    body["metadata"]["recording_started_at"] = RECORDING_STARTED_AT
+    resp = client.post("/v1/capture-transcript", json=body,
+                       headers=pro_user["headers"])
+    assert resp.status_code == 200, resp.text
+    return _wait_for_wire(cq_wire)
+
+
+def test_recording_started_at_reaches_cq(sent_with_recording_start):
+    """The allowlist is the gate. Before 2026-08-22 this key was not on it,
+    so this exact send would have been eaten here with nothing to show for
+    it at either end."""
+    md = sent_with_recording_start["metadata"]
+    assert "recording_started_at" in md, (
+        "the allowlist ate it: SS sees a correct send, CQ sees a request "
+        "that merely lacks a date, and nobody holds evidence of the hole")
+    assert md["recording_started_at"] == RECORDING_STARTED_AT
+
+
+def test_the_offset_is_carried_as_sent_and_not_normalised(sent_with_recording_start):
+    """The whole value of the field. 23:30 at UTC-7 is 06:30 the NEXT day in
+    UTC, so a helpful normalisation to Z names a different day while naming
+    the same instant, and a day is the only thing this field exists to say.
+    GP must forward the STRING, not parse it and re-emit it: asserted
+    character for character, including the literal offset, because a
+    round trip through a datetime is exactly how the offset gets lost."""
+    value = sent_with_recording_start["metadata"]["recording_started_at"]
+    assert value == RECORDING_STARTED_AT
+    assert type(value) is str
+    assert value.endswith("-07:00"), "the offset was rewritten"
+    assert "Z" not in value and "+00:00" not in value, "normalised to UTC"
+    assert value[:10] == "2026-08-21", "the DAY moved, which is the only thing that matters"
+
+
+def test_it_is_absent_rather_than_guessed_when_the_client_sends_none(sent):
+    """`sent` is the measured SS body, which does not carry the key. GP must
+    not fill it in: a fabricated recording time is indistinguishable at CQ
+    from a real one, and CQ's migration treats absent as unknown. Absent is
+    a state we can fix later; a guess is one nobody can detect."""
+    assert "recording_started_at" not in sent["metadata"]
+
+
+def test_a_null_recording_start_does_not_travel_as_null(client, pro_user, cq_wire):
+    """The allowlist drops None, so an explicit null arrives as absent
+    rather than as a null CQ has to model. Pinned so the two states stay
+    one state on this hop."""
+    body = json.loads(json.dumps(SS_BODY))
+    body["metadata"]["recording_started_at"] = None
+    resp = client.post("/v1/capture-transcript", json=body,
+                       headers=pro_user["headers"])
+    assert resp.status_code == 200, resp.text
+    assert "recording_started_at" not in _wait_for_wire(cq_wire)["metadata"]
+
+
+# --- speaker_identities (CQ #318, 2026-08-23) ------------------------------
+#
+# Scott's ruling: the "which Christina?" question is asked at LIVE label
+# time, and the only hop that can ask it is the client, from its cached
+# roster, while someone is still in the room to answer. The answer rides
+# the capture body. CQ's ingest reads the map and rewrites `[label]` to the
+# canonical name BEFORE extraction runs.
+#
+# Which is why a dropped entry is worse than a dropped name: it does not
+# degrade the result, it silently reverts a user's explicit answer back to
+# guesswork, and the output still looks like a plausible match. SS sees a
+# correct send, CQ sees a capture that simply carries no map, and the hole
+# lives only on this hop. Rule 3, so the receipt is request-side.
+
+SPEAKER_IDENTITIES = [
+    {"label": "christina", "entity_id": "9f1c2f4e-0b7a-4d1e-8b33-2a6c5d9e7f01"},
+    {"label": "Speaker 2", "create_new": True, "name": "Christina Lopez"},
+]
+
+
+@pytest.fixture
+def sent_with_speakers(client, pro_user, cq_wire):
+    body = json.loads(json.dumps(SS_BODY))
+    body["metadata"]["speaker_identities"] = SPEAKER_IDENTITIES
+    resp = client.post("/v1/capture-transcript", json=body,
+                       headers=pro_user["headers"])
+    assert resp.status_code == 200, resp.text
+    return _wait_for_wire(cq_wire)
+
+
+def test_speaker_identities_reaches_cq(sent_with_speakers):
+    md = sent_with_speakers["metadata"]
+    assert "speaker_identities" in md, (
+        "the allowlist ate it: the user's explicit answer silently becomes "
+        "guesswork and nothing at either end says so")
+    assert md["speaker_identities"] == SPEAKER_IDENTITIES
+
+
+def test_the_whole_nested_shape_survives_not_just_the_key(sent_with_speakers):
+    """GP models none of this and must not. Asserted element by element and
+    field by field, because "the key is present" would pass against a
+    forward that flattened the objects, reordered the array, or turned the
+    bool into a string, and every one of those still looks like a map."""
+    got = sent_with_speakers["metadata"]["speaker_identities"]
+    assert isinstance(got, list) and len(got) == 2
+    assert [e["label"] for e in got] == ["christina", "Speaker 2"], "order moved"
+
+    known, created = got
+    assert known == {"label": "christina",
+                     "entity_id": "9f1c2f4e-0b7a-4d1e-8b33-2a6c5d9e7f01"}
+    assert "create_new" not in known and "name" not in known, (
+        "an entry gained the other variant's fields")
+
+    assert created["create_new"] is True and type(created["create_new"]) is bool
+    assert created["name"] == "Christina Lopez"
+    assert "entity_id" not in created, (
+        "the create_new entry gained an entity_id it never had")
+
+
+def test_an_empty_map_is_not_a_problem_either_way(client, pro_user, cq_wire):
+    """CQ treats absent and empty as the same state, so an empty array may
+    cross or be dropped. What must NOT happen is a 4xx or a crash: an
+    exporter that always sends the key would then fail every capture."""
+    body = json.loads(json.dumps(SS_BODY))
+    body["metadata"]["speaker_identities"] = []
+    resp = client.post("/v1/capture-transcript", json=body,
+                       headers=pro_user["headers"])
+    assert resp.status_code == 200, resp.text
+    md = _wait_for_wire(cq_wire)["metadata"]
+    assert md.get("speaker_identities", []) == []
+
+
+def test_a_capture_without_the_key_is_unchanged(sent):
+    """`sent` is the measured SS body, which carries no map. GP must not
+    invent one: a fabricated identity assignment is indistinguishable at CQ
+    from a user's real answer, and it would rewrite a name in extraction."""
+    assert "speaker_identities" not in sent["metadata"]

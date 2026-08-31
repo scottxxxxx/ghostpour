@@ -750,7 +750,10 @@ async def update_tier_tunable_field(
 
     from app.routers.config import CONFIG_DIR, load_remote_configs
 
-    locale_slugs = ["tiers", "tiers.es", "tiers.ja"]
+    # Every shipped locale, in lockstep. French was added 2026-07-27 and
+    # this list did not learn it until 2026-08-21, so every tier-field save
+    # in between left tiers.fr.json on the old number.
+    locale_slugs = ["tiers", "tiers.es", "tiers.fr", "tiers.ja"]
     updated: list[dict] = []
     for slug in locale_slugs:
         path = CONFIG_DIR / f"{slug}.json"
@@ -785,6 +788,21 @@ async def update_tier_tunable_field(
 
     # Hot-reload so the next /v1/chat call sees the new cap immediately.
     request.app.state.remote_configs = load_remote_configs()
+
+    # The record. Served routing drifted eleven dial saves from its repo
+    # mirror with no trace of who set what (found 2026-08-20); every
+    # tunable save now logs old and new so the next drift is readable.
+    # Mirroring to the repo is still a PR, by a person; this is the log
+    # that PR is written from.
+    logger.info(
+        "tunable_tier_field_saved",
+        extra={
+            "tier": body.tier, "feature": body.feature, "field": body.field,
+            "old": [u["old"] for u in updated][:1] or None,
+            "new": body.value, "files": [u["slug"] for u in updated],
+            "remote": getattr(getattr(request, "client", None), "host", None),
+        },
+    )
 
     return {
         "status": "updated",
@@ -1627,6 +1645,8 @@ async def get_tiers(
             generation_monthly_cap as _gen_cap,
             tier_feature_block as _tier_feature_block,
         )
+        from app.services.recall_window import recall_max_age_days as _recall_window
+        from app.services.meeting_shares import tier_share_caps as _share_caps
         tiers[name] = {
             "display_name": tier.display_name,
             "default_model": tier.default_model,
@@ -1649,6 +1669,13 @@ async def get_tiers(
             "searches_per_month": sc.searches_per_month,
             "searches_soft_threshold": sc.searches_soft_threshold,
             "generations_per_month": _gen_cap(remote_configs, name),
+            # Plus recall window (2026-08-21): days of Memory a tier's chat
+            # recalls; None = unlimited. Served copy is templated from it.
+            "recall_max_age_days": _recall_window(remote_configs, name),
+            # Meeting share dials (2026-08-22): archive size cap in MB, None =
+            # no cap (Scott's default); creations per day.
+            "share_max_archive_mb": _share_caps(remote_configs, name)["max_archive_bytes"] and round(_share_caps(remote_configs, name)["max_archive_bytes"] / 1048576, 2),
+            "share_creations_per_day": _share_caps(remote_configs, name)["creations_per_day"],
             # Per-tier image send config GP dictates to SS (chat +
             # generation send path): downscale long-edge + JPEG quality.
             # SS-AI tiers only; BYOK is SS's own call. 2026-07-20.
@@ -2416,6 +2443,36 @@ async def list_users(
             (SELECT COALESCE(SUM(lt4.estimated_cost_usd), 0)
              FROM usage_log lt4 WHERE lt4.user_id = u.id AND lt4.status = 'success'{_app_filt('lt4')})
               as lifetime_cost_usd,
+            -- Usage-visibility metrics (Scott 2026-08-23): what people
+            -- actually put through the AI, all intercepted server-side
+            -- from usage_log — zero client involvement. Windowed like the
+            -- token columns; lifetime shown in the user detail. Counts:
+            -- files GENERATED (metadata.generated.count, one per staged
+            -- artifact, not per request), DOCUMENTS included in queries
+            -- (metadata.documents.count), PHOTOS included (image_count
+            -- column), TRANSLATION requests (call_type='translation',
+            -- zero until the /v1/translations endpoint ships — the
+            -- column is ready the day it does).
+            (SELECT COALESCE(SUM(json_extract(m1.metadata,'$.generated.count')),0)
+             FROM usage_log m1 WHERE m1.user_id = u.id AND m1.status = 'success'
+             AND m1.request_timestamp >= date('now', ?){_app_filt('m1')}) as window_files_generated,
+            (SELECT COALESCE(SUM(json_extract(m2.metadata,'$.documents.count')),0)
+             FROM usage_log m2 WHERE m2.user_id = u.id AND m2.status = 'success'
+             AND m2.request_timestamp >= date('now', ?){_app_filt('m2')}) as window_documents,
+            (SELECT COALESCE(SUM(COALESCE(m3.image_count,0)),0)
+             FROM usage_log m3 WHERE m3.user_id = u.id AND m3.status = 'success'
+             AND m3.request_timestamp >= date('now', ?){_app_filt('m3')}) as window_photos,
+            (SELECT COUNT(*) FROM usage_log m4 WHERE m4.user_id = u.id
+             AND m4.status = 'success' AND m4.call_type = 'translation'
+             AND m4.request_timestamp >= date('now', ?){_app_filt('m4')}) as window_translations,
+            (SELECT COALESCE(SUM(json_extract(n1.metadata,'$.generated.count')),0)
+             FROM usage_log n1 WHERE n1.user_id = u.id AND n1.status = 'success'{_app_filt('n1')}) as lifetime_files_generated,
+            (SELECT COALESCE(SUM(json_extract(n2.metadata,'$.documents.count')),0)
+             FROM usage_log n2 WHERE n2.user_id = u.id AND n2.status = 'success'{_app_filt('n2')}) as lifetime_documents,
+            (SELECT COALESCE(SUM(COALESCE(n3.image_count,0)),0)
+             FROM usage_log n3 WHERE n3.user_id = u.id AND n3.status = 'success'{_app_filt('n3')}) as lifetime_photos,
+            (SELECT COUNT(*) FROM usage_log n4 WHERE n4.user_id = u.id
+             AND n4.status = 'success' AND n4.call_type = 'translation'{_app_filt('n4')}) as lifetime_translations,
             (SELECT MAX(l4.request_timestamp) FROM usage_log l4 WHERE l4.user_id = u.id{_app_filt('l4')}) as last_request,
             u.marketing_opt_in,
             -- Latest non-null device/version/locale from telemetry pings.
@@ -2471,6 +2528,14 @@ async def list_users(
             *app_params,                    # lifetime_input_tokens
             *app_params,                    # lifetime_output_tokens
             *app_params,                    # lifetime_cost_usd
+            f"-{days} days", *app_params,   # window_files_generated
+            f"-{days} days", *app_params,   # window_documents
+            f"-{days} days", *app_params,   # window_photos
+            f"-{days} days", *app_params,   # window_translations
+            *app_params,                    # lifetime_files_generated
+            *app_params,                    # lifetime_documents
+            *app_params,                    # lifetime_photos
+            *app_params,                    # lifetime_translations
             *app_params,                    # last_request
             *app_user_params,               # outer WHERE: hide non-app users
         ),
@@ -2602,6 +2667,16 @@ async def list_users(
             "window_output_tokens": window_output,
             "window_tokens": window_input + window_output,
             "window_cost_usd": round(window_cost, 4),
+            # Usage-visibility metrics (Scott 2026-08-23): counted
+            # server-side off usage_log, no client field involved.
+            "window_files_generated": int(r["window_files_generated"] or 0),
+            "window_documents": int(r["window_documents"] or 0),
+            "window_photos": int(r["window_photos"] or 0),
+            "window_translations": int(r["window_translations"] or 0),
+            "lifetime_files_generated": int(r["lifetime_files_generated"] or 0),
+            "lifetime_documents": int(r["lifetime_documents"] or 0),
+            "lifetime_photos": int(r["lifetime_photos"] or 0),
+            "lifetime_translations": int(r["lifetime_translations"] or 0),
             # Lifetime totals — all time, no date filter.
             "lifetime_requests": r["lifetime_requests"],
             "lifetime_input_tokens": lifetime_input,
@@ -4550,6 +4625,9 @@ class AppVersionOverrideRequest(BaseModel):
     min_supported_version: str | None = None
     min_supported_blocking: bool | None = None
     blocked_versions: list[str] | None = None
+    # Report WRITE floor (2026-08-26): a build below it gets 412
+    # report_build_floor on report generation only. 0 clears the floor.
+    report_write_min_build: int | None = None
 
 
 def _reload_app_versions(request: Request):
@@ -4589,6 +4667,8 @@ async def app_version_override(
         plat["min_supported_blocking"] = body.min_supported_blocking
     if body.blocked_versions is not None:
         plat["blocked_versions"] = body.blocked_versions
+    if body.report_write_min_build is not None:
+        plat["report_write_min_build"] = body.report_write_min_build
     av.save_overlay(overlay)
     eff = _reload_app_versions(request)
     effective_plat = (eff.get(body.bundle_id, {}).get("platforms", {}) or {}).get(body.platform, {})

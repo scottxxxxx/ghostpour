@@ -1,13 +1,12 @@
 {
-  "version": 14,
-  "native_actions": {"enabled": true, "kinds": ["reminders"]},
-  "image_quality_note": {"enabled": false, "blur_threshold": 200},
+  "version": 28,
   "limits": {
     "project_chat": {
       "max_input_chars": {
         "free": 100000,
         "plus": 300000,
-        "pro": 360000
+        "pro": 720000,
+        "automation": 720000
       }
     }
   },
@@ -15,7 +14,7 @@
   "intervals": {},
   "documents": {
     "enabled": true,
-    "min_tier": "pro",
+    "min_tier": "plus",
     "accepted_types": [
       "application/pdf",
       "application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -24,14 +23,16 @@
     ],
     "per_file_max_mb": 25,
     "max_files": 2,
-    "allowed_users": [],
+    "allowed_users": [
+      "fa4d903c-24c0-45d5-9fdb-b5496e32501b"
+    ],
     "passthrough": {
       "max_pdf_pages": 600,
       "max_total_mb": 22
     },
     "generation": {
       "enabled": true,
-      "min_tier": "pro",
+      "min_tier": "free",
       "formats": [
         "application/pdf",
         "application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -53,12 +54,101 @@
         },
         "offer_text_gist": "{gist}の{format}をご希望のようですね。実ファイルの作成には少し時間がかかります。このチャットに直接表示することもできます。ファイルを作成しますか？",
         "teaser_text": "これをダウンロードできるファイルにしますか？",
-        "no_file_text": "今回はファイルを作成しませんでしたので、回答は上に記載しています。スプレッドシートなど具体的な形式を指定すると、通常はファイルを作成できます。"
+        "no_file_text": "今回はファイルを作成しませんでしたので、回答は上に記載しています。スプレッドシートなど具体的な形式を指定すると、通常はファイルを作成できます。",
+        "lane_question_text": "Excelファイルは二つの方法で作成できます。\n\nプロジェクト状況ワークブックは、チームと状況を共有するために磨き上げてきた形式です: ガントチャート形式のタイムライン、報告値と計画値の進捗曲線、変更されたすべての期日の履歴、そして各数値の根拠となる会議の発言を示す裏付けシート。誰でも数値の出どころを確認できます。\n\nカスタムワークブックは、あなたの説明どおりに、ご要望に合った形で作成します。\n\nどちらも会議のメモから作られます。状況ワークブックとカスタム、どちらにしますか？"
       },
       "upsell": {
         "enabled": true,
         "text": "{tier}プランにご加入いただくと、WordやExcelのファイルを作成してお渡しできます。"
-      }
+      },
+      "contract_lane_users": [
+        "fa4d903c-24c0-45d5-9fdb-b5496e32501b"
+      ]
+    },
+    "_tier_note": "2026-08-21 tier matrix: documents Plus and Pro now (Free at 5/mo, 10 MB waits on the per-tier document dial); file generation every tier, Free capped 5/mo by the generation dial."
+  },
+  "native_actions": {
+    "enabled": true,
+    "kinds": [
+      "reminders"
+    ]
+  },
+  "image_quality_note": {
+    "enabled": false,
+    "blur_threshold": 200
+  },
+  "post_session": {
+    "report_min_seconds": 300,
+    "allow_request_below_minimum": true,
+    "request_min_seconds": 30,
+    "analysis_min_seconds": 120,
+    "analysis_min_words": 300
+  },
+  "enrichment": {
+    "max_auto_attempts": 5,
+    "retry_interval_seconds": 86400,
+    "in_flight_stale_seconds": 300,
+    "foreground_sweep_recovery_cap": 5
+  },
+  "session": {
+    "resumable_window_seconds": 3600,
+    "min_post_processing_seconds": 120
+  },
+  "chat": {
+    "max_history_pairs": 6,
+    "response_reserve_tokens": 1024,
+    "user_content_reserve_tokens": 4000,
+    "context_window_fallback_tokens": 32000,
+    "_note": "Current client values, served so they can change without a release. context_window_fallback_tokens is the first one to tune: 32000 is wrong for most models we route to today, and it silently caps how much fits in project chat. Image sizing is NOT here on purpose: it is already served per tier at tiers.feature_definitions.images, and a second source for the same field is how the free-tier copy drifted.",
+    "retry": {
+      "auto_delays_ms": [
+        10000,
+        30000,
+        60000
+      ],
+      "title": "接続が切断されました",
+      "body": "メッセージと添付ファイルは保存されています。再試行しています。",
+      "countdown_label": "{seconds}秒後に再試行します",
+      "retry_now_label": "今すぐ再試行",
+      "exhausted_title": "まだ接続できません",
+      "exhausted_body": "メッセージと添付ファイルは保存されています。タップして再試行してください。",
+      "retry_label": "再試行",
+      "_note": "Retry schedule and copy for a chat turn whose connection dropped. auto_delays_ms is the ladder of AUTOMATIC attempts after the failure; when it is exhausted the client stops and waits for a manual tap. The countdown is honest because we own the timer, unlike a progress bar for a finish we cannot predict. Delays are milliseconds so the ladder can be tuned without a release."
     }
+  },
+  "share": {
+    "host": "https://share.shouldersurf.com",
+    "default_expiry_days": 30,
+    "max_expiry_days": 365,
+    "aasa_app_ids": [
+      "F22KGHDYAE.com.shouldersurf.ShoulderSurf"
+    ],
+    "_note": "App ID verified 2026-08-22 from the entitlements of the signed binary on Scott's phone (application-identifier), not from project.yml or a cert: team F22KGHDYAE, bundle com.shouldersurf.ShoulderSurf. com.weirtech.* is only the StoreKit product prefix.",
+    "app_store_id": "6760098225",
+    "dynamic_card": true
+  },
+  "translations": {
+    "group_size": 12
+  },
+  "redeem": {
+    "promo_redeem_unconfirmed": {
+      "title": "このコードは適用されていません",
+      "body": "App Storeからこのコードの引き換え情報が届いていないため、サブスクリプションは変更されていません。入力した場合は、完了しなかった可能性があります。もう一度お試しください。",
+      "dismiss_label": "閉じる",
+      "secondary_label": "もう一度試す",
+      "secondary_action": "retry_redeem"
+    },
+    "promo_redeem_settling": {
+      "title": "コードを適用しています",
+      "body": "App Storeで引き換えが確認され、現在処理を完了しています。サブスクリプションは自動的に更新されるため、お客様の操作は必要ありません。",
+      "dismiss_label": "OK"
+    },
+    "promo_redeem_settling_signed_out": {
+      "title": "サインインしてコードを適用してください",
+      "body": "App Storeで引き換えが確認されました。Appleでサインインすると、コードがサブスクリプションに適用されます。",
+      "dismiss_label": "OK"
+    },
+    "redeem_timeout_ms": 8000,
+    "_note": "Served copy for an offer-code redemption that did not visibly succeed. Today the client shows NOTHING on failure, and it presents nothing until this block is served: no English fallback on a subscription surface. THREE outcomes, chosen by the client from what it observed. promo_redeem_unconfirmed: no transaction ever arrived, so we genuinely cannot say why, and the copy must not pretend otherwise. promo_redeem_settling: a transaction arrived and verify_failure is 'failed' or ABSENT; nothing for the user to do. promo_redeem_settling_signed_out: a transaction arrived with verify_failure = 'deferred_no_token'; signing in applies it. ABSENT verify_failure MUST pick plain settling: 'we never learned a reason' is not 'we know you are signed out'. redeem_timeout_ms is accumulated FOREGROUND milliseconds after returning from the App Store, not wall clock from the tap, because the App Store hop is when iOS reclaims the process. secondary_action is a GP-owned allowlist: 'retry_redeem' or absent. No contact_support (there is no destination) and no sign_in in v1 (needs client work; the text carries it instead). No time estimate anywhere on purpose: we do not know how long settling takes, and a number nobody measured is the honest-progress rule broken."
   }
 }

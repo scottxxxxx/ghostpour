@@ -37,14 +37,21 @@ def test_generation_defaults_ship_dark():
     assert cfg["max_files_out"] == 2 and cfg["max_file_out_mb"] == 25
 
 
-def test_bundled_config_generation_live_pro_gated():
-    # FLIPPED LIVE 2026-07-13 (Scott: TestFlight-scale user base, wants the
-    # feature in hand this week). Load-bearing invariants: pro gate intact,
-    # locales agree, all four formats.
-    for f in ("client-config.json", "client-config.es.json", "client-config.ja.json"):
+def test_bundled_config_generation_live_on_every_tier_with_free_capped():
+    # FLIPPED LIVE 2026-07-13 at min_tier pro. TIER MATRIX 2026-08-21
+    # (Scott's sheet is the ruling): file generation on every tier, Free
+    # capped at 5 a month by the per-tier generation dial, Plus uncapped,
+    # Pro keeps its quiet 100. Load-bearing invariants: min_tier free in
+    # every locale, the caps as the sheet says, all four formats.
+    for f in ("client-config.json", "client-config.es.json", "client-config.fr.json", "client-config.ja.json"):
         gen = json.load(open(f"config/remote/{f}"))["documents"]["generation"]
-        assert gen["enabled"] is True and gen["min_tier"] == "pro"
+        assert gen["enabled"] is True and gen["min_tier"] == "free", f
         assert len(gen["formats"]) == 4
+    for loc in ("", ".es", ".fr", ".ja"):
+        t = json.load(open(f"config/remote/tiers{loc}.json"))["tiers"]
+        assert t["free"]["feature_definitions"]["generation"]["generations_per_month"] == 5, loc
+        assert t["plus"]["feature_definitions"]["generation"]["generations_per_month"] is None, loc
+        assert t["pro"]["feature_definitions"]["generation"]["generations_per_month"] == 100, loc
 
 
 def _gate(**over):

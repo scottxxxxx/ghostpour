@@ -41,7 +41,10 @@ def test_plus_gets_meeting_memory():
 def test_free_stays_quota_gated_rather_than_open():
     """Free is deliberately `disabled` plus a monthly quota, which is the
     existing upsell design. Opening it is a cost decision, not a copy fix."""
-    assert ENTITLEMENTS["matrix"]["context_quilt"]["free"] == "disabled"
+    # 2026-08-24 (Scott): Free flipped to `teaser`. The People-scoped recall
+    # lane and the capture quota are unchanged; teaser is what lets the
+    # Free-to-Plus memory nudge render on the client.
+    assert ENTITLEMENTS["matrix"]["context_quilt"]["free"] == "teaser"
     assert FEATURES["features"]["context_quilt"]["free_quota_per_month"] >= 1
 
 

@@ -138,6 +138,22 @@ class Settings(BaseSettings):
     # via CZ_CERT_PIN_SELF_HOST for staging.
     cert_pin_self_host: str = "cz.shouldersurf.com"
 
+    # Every host iOS pins, comma separated. The manifest is the UNION of
+    # their chains, because they do NOT all present the same one: on
+    # 2026-08-22 cz and api were already on Let's Encrypt's YE2
+    # intermediate while share, issued that morning mid-rotation, was
+    # still on YE1. Probing one host and publishing its pins would have
+    # dropped the other's intermediate and quietly demoted it to a
+    # roots-only match. Empty falls back to `cert_pin_self_host`, so a
+    # deployment that sets nothing behaves exactly as before.
+    cert_pin_hosts: str = ""
+
+    @property
+    def cert_pin_host_list(self) -> list[str]:
+        raw = [h.strip() for h in (self.cert_pin_hosts or "").split(",")]
+        hosts = [h for h in raw if h]
+        return hosts or ([self.cert_pin_self_host] if self.cert_pin_self_host else [])
+
     # Context Quilt integration
     cq_base_url: str = ""              # e.g., "https://cq.example.com"
     cq_app_id: str = "cloudzap"        # Default CQ app identity (ShoulderSurf rides this)
@@ -162,11 +178,41 @@ class Settings(BaseSettings):
     # Max wait for CQ recall (ms). 500 ratified 2026-07-18: CQ renders are
     # bimodal (35-60ms fast mode, 140-190ms slow mode on entity-rich
     # follow-up texts, ~3 in 8 runs), so 200 regularly ate follow-up turns
-    # as chats grow; 500 clears worst observed by >2x with network
-    # headroom. CQ is hunting the slow mode; if their p99 drops, 500
-    # becomes generous, which is the right way around. Prod overrides via
-    # CZ_CQ_RECALL_TIMEOUT_MS in .env.prod — keep the two in agreement.
-    cq_recall_timeout_ms: int = 500
+    # as chats grow. 500 was chosen next and held until 2026-08-27, when
+    # the degrade data said it was the binding constraint rather than the
+    # headroom it was meant to be: over the 3 days since #790 made
+    # degrades visible, every single degrade was a TIMEOUT on a FULL-scope
+    # recall, and on 08-27 full-scope ran 5 ok / 4 degraded (44%) against
+    # 16 ok / 0 degraded for the People-scoped lane. CQ measured the
+    # matching request server-side at 740ms, so the work completed and we
+    # abandoned it; full scope is the minority of traffic and carried
+    # 100% of the failures. Scott raised it to 1500 to see whether those
+    # turns come back rather than to hide the slow mode: CQ is still
+    # hunting the traversal cost (53ms at 6 matched entities, 327ms at
+    # 17), and if their p99 drops this becomes generous again, which is
+    # the right way around. The cost of the raise is latency on the
+    # failing turns only: a recall that would have degraded at 500ms now
+    # holds the answer up to 1500ms before proceeding memory-blind.
+    # Prod overrides via CZ_CQ_RECALL_TIMEOUT_MS in .env.prod — keep the
+    # two in agreement (raised there in the same change).
+    cq_recall_timeout_ms: int = 1500
+    # Below this many chars of MATERIAL (summary/analysis lanes only, never
+    # chat), do not inject a recall block at all. The incident turn had 608
+    # chars of transcript against a 2261-char context block, so the context
+    # was 3.7x the thing it was asked to summarize. 0 disables the gate.
+    #
+    # 900 is deliberately more conservative than CQ's measured 1200 (which
+    # covers 25% of the lane at 96% zero-yield vs 22% at 97%). CQ priced
+    # the difference exactly: the 900-1200 band is TEN calls in 30 days,
+    # 2.8% of the lane, eight of which produced nothing. So moving this
+    # dial to 1200 buys coverage of ~2 real turns a month and costs the
+    # memory continuity of ~10. Two reasons for starting low:
+    # the smallest material that produced a genuine summary in sampled
+    # traffic was 963, and CQ flagged that their calibration proxy is
+    # EXTRACTION yield rather than "a summary was impossible". Raising a
+    # floor later is easy; explaining lost continuity is not. Re-derive
+    # from measured recital events once the response-side detector has run.
+    cq_recall_min_material_chars: int = 900
     # The rundown dossier is the deliberate heavyweight path (user asked
     # for everything; the turn runs a minute regardless) — reusing the
     # 200ms recall budget starved it on a cold cache (live 2026-07-16

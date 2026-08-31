@@ -235,6 +235,34 @@ MIGRATIONS = [
     # cleanup feature flag is enabled; NULL otherwise. iOS reads this
     # field optionally and falls back to its raw transcript when absent.
     "ALTER TABLE meeting_reports ADD COLUMN cleaned_transcript TEXT",
+    # 2026-08-26: the language a report was GENERATED in (primary subtag the
+    # LANGUAGE directive was built from, "en" when none) and the client's
+    # stated transcript_language, raw. Echoed on generate and fetch so SS can
+    # tag each stored report and refuse a cross-language sync overwrite (a
+    # build-335 regeneration replaced a Spanish report with an English one).
+    # v2026-08-27: every recall attempt, so "is the timeout right" is a
+    # query rather than a guess. The container log answered it until now
+    # and resets on every deploy, which is why the 08-27 degrade rate
+    # (44% of full-scope recalls) could only be computed for one day.
+    # `timeout_ms` records the budget each row RAN UNDER, so a later
+    # change to the dial stays legible in the same table.
+    """CREATE TABLE IF NOT EXISTS recall_observations (
+        id TEXT PRIMARY KEY,
+        created_at TEXT NOT NULL,
+        app_id TEXT,
+        user_id TEXT,
+        tier TEXT,
+        scope TEXT NOT NULL,
+        outcome TEXT NOT NULL,
+        duration_ms INTEGER,
+        timeout_ms INTEGER,
+        matched INTEGER,
+        patch_count INTEGER
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_recall_obs_created ON recall_observations(created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_recall_obs_scope ON recall_observations(scope, outcome)",
+    "ALTER TABLE meeting_reports ADD COLUMN report_language TEXT",
+    "ALTER TABLE meeting_reports ADD COLUMN transcript_language TEXT",
     # Persist the cleaned transcript canonically beside the raw one, so the
     # served transcript can be the cleaned version and the dashboard can show
     # original-vs-cleaned. `transcript` stays raw; `cleaned_transcript` is the
@@ -482,6 +510,45 @@ MIGRATIONS = [
     )""",
     "CREATE INDEX IF NOT EXISTS idx_generated_files_user ON generated_files(user_id, expires_at)",
     "CREATE INDEX IF NOT EXISTS idx_generated_files_expiry ON generated_files(expires_at)",
+    # Meeting share via iMessage (2026-08-21): SS's .shouldersurf archive
+    # stored as uploaded and served back by share id; token is the URL and
+    # carries no user id. Rows and bytes are deleted on expiry or revoke
+    # by the retention sweep. See docs/design/meeting-share-scoping.md.
+    """CREATE TABLE IF NOT EXISTS meeting_shares (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        app_id TEXT,
+        token TEXT NOT NULL UNIQUE,
+        storage_path TEXT NOT NULL,
+        media_type TEXT NOT NULL,
+        size_bytes INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        meeting_date TEXT,
+        duration_seconds INTEGER,
+        summary_line TEXT,
+        transcript_included INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        revoked_at TEXT,
+        view_count INTEGER NOT NULL DEFAULT 0
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_meeting_shares_user ON meeting_shares(user_id, created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_meeting_shares_expiry ON meeting_shares(expires_at)",
+    # Meeting translations cache (2026-08-24): content-hash idempotency
+    # for /v1/translations. cache_key already carries source+target+
+    # engine_version. TRANSCRIPT rows inherit transcript retention and
+    # are purged by the startup sweep; summary/report rows follow report
+    # retention. See docs/wire-contracts/meeting-translations.md.
+    """CREATE TABLE IF NOT EXISTS translations_cache (
+        cache_key TEXT PRIMARY KEY,
+        artifact TEXT NOT NULL,
+        source_language TEXT NOT NULL,
+        target_language TEXT NOT NULL,
+        engine_version INTEGER NOT NULL,
+        response_json TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_translations_artifact_age ON translations_cache(artifact, created_at)",
     # Generation turn records (phase 2 rescue, handoff Part 4): terminal
     # state of confirmed generation turns keyed by the CLIENT-minted
     # generation_id, same 6h clock as staging. files_json snapshots the
@@ -500,6 +567,29 @@ MIGRATIONS = [
         PRIMARY KEY (generation_id, user_id)
     )""",
     "CREATE INDEX IF NOT EXISTS idx_generations_expiry ON generations(expires_at)",
+    # Chat turn records (2026-08-30). Same shape and same 6h clock as
+    # `generations` above, separate table because the semantics differ: this
+    # one stores the WHOLE response body so a replay is indistinguishable
+    # from the original answer, and it carries no expected-duration field
+    # because we hold no honest estimate for a chat turn.
+    #
+    # Exists because three identical answers were built and paid for on
+    # 2026-08-29 ($0.7995) and none reached the phone. A retry keyed on
+    # turn_id costs a lookup instead of a second model call and a second
+    # 400 KB upload.
+    """CREATE TABLE IF NOT EXISTS chat_turns (
+        turn_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        app_id TEXT,
+        status TEXT NOT NULL,
+        body_json TEXT,
+        error_json TEXT,
+        started_at TEXT NOT NULL,
+        completed_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        PRIMARY KEY (turn_id, user_id)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_chat_turns_expiry ON chat_turns(expires_at)",
     # Quiet per-tier monthly generation count cap (2026-07-19).
     # generations_used mirrors searches_used: rolling counter for the
     # current allocation period, incremented on each DONE generation and

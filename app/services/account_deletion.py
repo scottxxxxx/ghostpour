@@ -36,13 +36,29 @@ logger = logging.getLogger(__name__)
 # Deleted WHERE user_id = ? AND app_id = ? on a scoped delete.
 APP_SCOPED_TABLES = [
     "ad_attribution",
+    # Chat turn records (2026-08-30). Stored so a dropped connection costs a
+    # lookup instead of a second model call, which means each row holds the
+    # user's own question and our answer to it verbatim. Their content, so it
+    # goes with them, alongside generations below. The 6h expiry is a cost
+    # ceiling, never a deletion promise: an account deleted at minute one
+    # must not leave six hours of its own conversation behind.
+    "chat_turns",
     # Diagnostic only (poisoned-config-cache detection), but it is keyed to
     # a person and carries their build, so it goes with the rest.
     "config_stalls",
     "generated_files",
     "generations",
+    # Meeting shares (2026-08-21): the user's own meeting content, hosted
+    # at a public URL. Goes with the account, bytes included; a share must
+    # not outlive the person who made it.
+    "meeting_shares",
     "plan_snapshots",
     "promo_events",
+    # Recall telemetry (2026-08-27): operational, but each row names the
+    # person whose turn it measured, so it is theirs and goes with them.
+    # The rate it exists to answer is computed per scope, never per user,
+    # and survives fine on the remaining rows.
+    "recall_observations",
     "refresh_tokens",
     "search_usage",
     "telemetry_events",
@@ -85,10 +101,11 @@ async def remaining_apps(
 
 
 async def _unlink_staged_files(
-    db: aiosqlite.Connection, user_id: str, app_id: str | None
+    db: aiosqlite.Connection, user_id: str, app_id: str | None,
+    table: str = "generated_files",
 ) -> int:
     """Remove staged artifact bytes that sit on disk beside their rows."""
-    sql = "SELECT storage_path FROM generated_files WHERE user_id = ?"
+    sql = f"SELECT storage_path FROM {table} WHERE user_id = ?"
     params: list = [user_id]
     if app_id is not None:
         sql += " AND app_id = ?"
@@ -124,6 +141,8 @@ async def delete_user_data(
 
     counts["generated_files_disk"] = await _unlink_staged_files(
         db, user_id, app_id)
+    counts["meeting_shares_disk"] = await _unlink_staged_files(
+        db, user_id, app_id, table="meeting_shares")
 
     for table in APP_SCOPED_TABLES:
         if app_id is None:

@@ -1,74 +1,154 @@
 {
- "version": 14,
- "native_actions": {
-  "enabled": true,
-  "kinds": [
-   "reminders"
-  ]
- },
- "image_quality_note": {
-  "enabled": false,
-  "blur_threshold": 200
- },
- "limits": {
-  "project_chat": {
-   "max_input_chars": {
-    "free": 200000,
-    "plus": 600000,
-    "pro": 720000
-   }
-  }
- },
- "flags": {},
- "intervals": {},
- "documents": {
-  "enabled": true,
-  "min_tier": "pro",
-  "accepted_types": [
-   "application/pdf",
-   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-  ],
-  "per_file_max_mb": 25,
-  "max_files": 2,
-  "allowed_users": [
-   "fa4d903c-24c0-45d5-9fdb-b5496e32501b"
-  ],
-  "passthrough": {
-   "max_pdf_pages": 600,
-   "max_total_mb": 22
+  "version": 24,
+  "native_actions": {
+    "enabled": true,
+    "kinds": [
+      "reminders"
+    ]
   },
-  "generation": {
-   "enabled": true,
-   "min_tier": "pro",
-   "formats": [
-    "application/pdf",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-   ],
-   "max_files_out": 2,
-   "max_file_out_mb": 25,
-   "confirmation": {
+  "image_quality_note": {
+    "enabled": false,
+    "blur_threshold": 200
+  },
+  "limits": {
+    "project_chat": {
+      "max_input_chars": {
+        "free": 200000,
+        "plus": 600000,
+        "pro": 1440000,
+        "automation": 1440000
+      }
+    }
+  },
+  "flags": {},
+  "intervals": {},
+  "documents": {
     "enabled": true,
-    "expected_seconds": 150,
-    "poll_after_seconds": 5,
-    "offer_text": "On dirait une demande de fichier. Je peux créer {format} à télécharger et à partager (cela prend un peu plus de temps), ou simplement répondre ici dans le chat. Vous voulez le fichier ?",
-    "format_nouns": {
-     "xlsx": "une feuille de calcul Excel native (.xlsx)",
-     "docx": "un document Word natif (.docx)",
-     "pptx": "une présentation PowerPoint native (.pptx)",
-     "pdf": "un fichier PDF"
+    "min_tier": "plus",
+    "accepted_types": [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    ],
+    "per_file_max_mb": 25,
+    "max_files": 2,
+    "allowed_users": [
+      "fa4d903c-24c0-45d5-9fdb-b5496e32501b"
+    ],
+    "passthrough": {
+      "max_pdf_pages": 600,
+      "max_total_mb": 22
     },
-    "offer_text_gist": "On dirait que vous voulez {format} {gist}. Créer le vrai fichier prend un peu plus de temps, ou je peux le présenter ici dans le chat. Vous voulez le fichier ?",
-    "teaser_text": "Vous voulez ceci sous forme de vrai fichier téléchargeable ?",
-    "no_file_text": "Aucun fichier n'a été créé pour celle-ci, la réponse se trouve donc ci-dessus. Préciser un format, par exemple un tableur, permet généralement d'en obtenir un."
-   },
-   "upsell": {
-    "enabled": true,
-    "text": "Avec un abonnement {tier}, je pourrais générer un fichier Word ou Excel pour vous."
-   }
+    "generation": {
+      "enabled": true,
+      "min_tier": "free",
+      "formats": [
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      ],
+      "max_files_out": 2,
+      "max_file_out_mb": 25,
+      "confirmation": {
+        "enabled": true,
+        "expected_seconds": 150,
+        "poll_after_seconds": 5,
+        "offer_text": "On dirait une demande de fichier. Je peux créer {format} à télécharger et à partager (cela prend un peu plus de temps), ou simplement répondre ici dans le chat. Vous voulez le fichier ?",
+        "format_nouns": {
+          "xlsx": "une feuille de calcul Excel native (.xlsx)",
+          "docx": "un document Word natif (.docx)",
+          "pptx": "une présentation PowerPoint native (.pptx)",
+          "pdf": "un fichier PDF"
+        },
+        "offer_text_gist": "On dirait que vous voulez {format} {gist}. Créer le vrai fichier prend un peu plus de temps, ou je peux le présenter ici dans le chat. Vous voulez le fichier ?",
+        "teaser_text": "Vous voulez ceci sous forme de vrai fichier téléchargeable ?",
+        "no_file_text": "Aucun fichier n'a été créé pour celle-ci, la réponse se trouve donc ci-dessus. Préciser un format, par exemple un tableur, permet généralement d'en obtenir un.",
+        "lane_question_text": "Je peux créer votre fichier Excel de deux façons.\n\nNotre classeur d'état de projet utilise un format que nous avons affiné pour partager l'avancement avec une équipe : une chronologie de type Gantt, une courbe de progression du réalisé par rapport au prévu, l'historique de chaque échéance déplacée et une feuille de justificatifs montrant la ligne de réunion derrière chaque chiffre, pour que chacun puisse vérifier d'où vient une valeur.\n\nUn classeur sur mesure, construit exactement selon ce que vous décrivez, dans la forme qui convient à votre demande.\n\nLes deux s'appuient sur vos notes de réunion. Lequel préférez-vous : le classeur d'état ou le sur mesure ?"
+      },
+      "upsell": {
+        "enabled": true,
+        "text": "Avec un abonnement {tier}, je pourrais générer un fichier Word ou Excel pour vous."
+      },
+      "contract_lane_users": [
+        "fa4d903c-24c0-45d5-9fdb-b5496e32501b"
+      ]
+    },
+    "_tier_note": "2026-08-21 tier matrix: documents Plus and Pro now (Free at 5/mo, 10 MB waits on the per-tier document dial); file generation every tier, Free capped 5/mo by the generation dial."
+  },
+  "post_session": {
+    "report_min_seconds": 300,
+    "allow_request_below_minimum": true,
+    "request_min_seconds": 30,
+    "analysis_min_seconds": 120,
+    "analysis_min_words": 300
+  },
+  "enrichment": {
+    "max_auto_attempts": 5,
+    "retry_interval_seconds": 86400,
+    "in_flight_stale_seconds": 300,
+    "foreground_sweep_recovery_cap": 5
+  },
+  "session": {
+    "resumable_window_seconds": 3600,
+    "min_post_processing_seconds": 120
+  },
+  "chat": {
+    "max_history_pairs": 6,
+    "response_reserve_tokens": 1024,
+    "user_content_reserve_tokens": 4000,
+    "context_window_fallback_tokens": 32000,
+    "_note": "Current client values, served so they can change without a release. context_window_fallback_tokens is the first one to tune: 32000 is wrong for most models we route to today, and it silently caps how much fits in project chat. Image sizing is NOT here on purpose: it is already served per tier at tiers.feature_definitions.images, and a second source for the same field is how the free-tier copy drifted.",
+    "retry": {
+      "auto_delays_ms": [
+        10000,
+        30000,
+        60000
+      ],
+      "title": "La connexion a été interrompue",
+      "body": "Votre message et vos pièces jointes sont enregistrés. Nouvel essai en cours.",
+      "countdown_label": "Nouvel essai dans {seconds} s",
+      "retry_now_label": "Réessayer maintenant",
+      "exhausted_title": "Toujours pas de connexion",
+      "exhausted_body": "Votre message et vos pièces jointes sont enregistrés. Touchez pour réessayer.",
+      "retry_label": "Réessayer",
+      "_note": "Retry schedule and copy for a chat turn whose connection dropped. auto_delays_ms is the ladder of AUTOMATIC attempts after the failure; when it is exhausted the client stops and waits for a manual tap. The countdown is honest because we own the timer, unlike a progress bar for a finish we cannot predict. Delays are milliseconds so the ladder can be tuned without a release."
+    }
+  },
+  "share": {
+    "host": "https://share.shouldersurf.com",
+    "default_expiry_days": 30,
+    "max_expiry_days": 365,
+    "aasa_app_ids": [
+      "F22KGHDYAE.com.shouldersurf.ShoulderSurf"
+    ],
+    "_note": "App ID verified 2026-08-22 from the entitlements of the signed binary on Scott's phone (application-identifier), not from project.yml or a cert: team F22KGHDYAE, bundle com.shouldersurf.ShoulderSurf. com.weirtech.* is only the StoreKit product prefix.",
+    "app_store_id": "6760098225",
+    "dynamic_card": true
+  },
+  "translations": {
+    "group_size": 12
+  },
+  "redeem": {
+    "promo_redeem_unconfirmed": {
+      "title": "Ce code n'a pas été appliqué",
+      "body": "L'App Store ne nous a envoyé aucune utilisation pour ce code, donc votre abonnement n'a pas changé. Si vous l'avez saisi, il se peut qu'il n'ait pas abouti. Vous pouvez réessayer.",
+      "dismiss_label": "Fermer",
+      "secondary_label": "Réessayer",
+      "secondary_action": "retry_redeem"
+    },
+    "promo_redeem_settling": {
+      "title": "Votre code est en cours d'application",
+      "body": "L'App Store a confirmé votre utilisation du code et nous terminons l'opération. Votre abonnement se mettra à jour tout seul, vous n'avez rien à faire.",
+      "dismiss_label": "J'ai compris"
+    },
+    "promo_redeem_settling_signed_out": {
+      "title": "Connectez-vous pour appliquer votre code",
+      "body": "L'App Store a confirmé votre utilisation du code. Connectez-vous avec Apple et le code sera appliqué à votre abonnement.",
+      "dismiss_label": "J'ai compris"
+    },
+    "redeem_timeout_ms": 8000,
+    "_note": "Served copy for an offer-code redemption that did not visibly succeed. Today the client shows NOTHING on failure, and it presents nothing until this block is served: no English fallback on a subscription surface. THREE outcomes, chosen by the client from what it observed. promo_redeem_unconfirmed: no transaction ever arrived, so we genuinely cannot say why, and the copy must not pretend otherwise. promo_redeem_settling: a transaction arrived and verify_failure is 'failed' or ABSENT; nothing for the user to do. promo_redeem_settling_signed_out: a transaction arrived with verify_failure = 'deferred_no_token'; signing in applies it. ABSENT verify_failure MUST pick plain settling: 'we never learned a reason' is not 'we know you are signed out'. redeem_timeout_ms is accumulated FOREGROUND milliseconds after returning from the App Store, not wall clock from the tap, because the App Store hop is when iOS reclaims the process. secondary_action is a GP-owned allowlist: 'retry_redeem' or absent. No contact_support (there is no destination) and no sign_in in v1 (needs client work; the text carries it instead). No time estimate anywhere on purpose: we do not know how long settling takes, and a number nobody measured is the honest-progress rule broken."
   }
- }
 }

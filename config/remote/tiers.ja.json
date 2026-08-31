@@ -1,14 +1,19 @@
 {
-  "version": 42,
+  "version": 54,
   "tiers": {
     "free": {
       "display_name": "無料",
-      "description": "AIミーティングアシスタントをお試しください。クラウドAIで毎月約5時間のミーティングに対応します。",
+      "description": "すべての会議からメモリーを構築。People、ライブ要約、レポート、そして残りの機能を試せる月間AI利用枠。",
       "feature_bullets": [
         "クラウドAIで毎月約5時間のミーティング",
-        "リアルタイム自動要約",
-        "デバイス上の文字起こし（無制限）",
-        "1つの質問につき写真・画像1枚"
+        "記録したすべての会議からメモリーを構築",
+        "People：誰と会い、何を約束されたか",
+        "会議中のライブ要約と終了後の完全なレポート",
+        "プロジェクトチャット：プレビュー",
+        "月間の利用枠で使える会議チャット",
+        "ウェブ検索：月5回",
+        "チャットからのファイル生成：月5回",
+        "1メッセージあたり画像1枚"
       ],
       "feature_items": [
         {
@@ -16,15 +21,35 @@
           "icon": "checkmark"
         },
         {
-          "label": "リアルタイム自動要約",
-          "icon": "doc"
+          "label": "記録したすべての会議からメモリーを構築",
+          "icon": "brain"
         },
         {
-          "label": "デバイス上の文字起こし（無制限）",
+          "label": "People：誰と会い、何を約束されたか",
           "icon": "checkmark"
         },
         {
-          "label": "1つの質問につき写真・画像1枚",
+          "label": "会議中のライブ要約と終了後の完全なレポート",
+          "icon": "doc"
+        },
+        {
+          "label": "プロジェクトチャット：プレビュー",
+          "icon": "chat"
+        },
+        {
+          "label": "月間の利用枠で使える会議チャット",
+          "icon": "chat"
+        },
+        {
+          "label": "ウェブ検索：月5回",
+          "icon": "search"
+        },
+        {
+          "label": "チャットからのファイル生成：月5回",
+          "icon": "filegen"
+        },
+        {
+          "label": "1メッセージあたり画像1枚",
           "icon": "photo"
         }
       ],
@@ -40,8 +65,30 @@
           "icon": "doc"
         },
         {
-          "label": "最大画像数",
-          "value": "1つの質問につき1枚",
+          "label": "ミーティングメモリー",
+          "value": "プレビュー",
+          "icon": "brain",
+          "state": "teaser"
+        },
+        {
+          "label": "プロジェクトチャット",
+          "value": "プレビュー",
+          "icon": "chat",
+          "state": "teaser"
+        },
+        {
+          "label": "ウェブ検索",
+          "value": "月5回",
+          "icon": "search"
+        },
+        {
+          "label": "ファイル生成",
+          "value": "月5回",
+          "icon": "filegen"
+        },
+        {
+          "label": "画像上限",
+          "value": "1メッセージあたり1枚",
           "icon": "photo"
         }
       ],
@@ -57,7 +104,7 @@
           }
         },
         "search": {
-          "searches_per_month": 0,
+          "searches_per_month": 5,
           "searches_soft_threshold": null,
           "cta_hard_cap": {
             "kind": "search_paywall_required",
@@ -103,48 +150,54 @@
               "斜めからではなく、正面からカメラを合わせてください"
             ]
           }
+        },
+        "generation": {
+          "generations_per_month": 5
+        },
+        "context_quilt": {
+          "recall_max_age_days": null
         }
       }
     },
     "plus": {
       "display_name": "Plus",
-      "description": "無制限のAIミーティングアシスタント。要約、レポート、プロジェクトチャット。",
+      "description": "直近{recall_window_days}日間の会議をすべての会話に。ドキュメント、ウェブ検索、ファイル生成、無制限の利用。",
       "feature_bullets": [
-        "AIアシスタント付きの無制限ミーティング",
-        "会議中にリアルタイムで要約を作成",
-        "共有できるミーティングレポート",
-        "プロジェクト内のすべてのミーティングに質問",
-        "ミーティングメモリー：AIが過去の会議を記憶",
-        "Web検索：最新情報を回答に反映（月75回）",
-        "1つの質問につき写真・画像3枚"
+        "直近{recall_window_days}日間の会議を、すべての会話に",
+        "会議チャットとプロジェクトチャットが無制限",
+        "ドキュメントを添付すると、回答が全文を読み込みます",
+        "ウェブ検索：月75回",
+        "チャットから実ファイルを生成：Excel、Word、PowerPoint、PDF",
+        "1メッセージあたりのコンテキストが3倍",
+        "1メッセージあたり画像3枚"
       ],
       "feature_items": [
         {
-          "label": "AIアシスタント付きの無制限ミーティング",
-          "icon": "checkmark"
-        },
-        {
-          "label": "会議中にリアルタイムで要約を作成",
-          "icon": "doc"
-        },
-        {
-          "label": "共有できるミーティングレポート",
-          "icon": "share"
-        },
-        {
-          "label": "プロジェクト内のすべてのミーティングに質問",
-          "icon": "chat"
-        },
-        {
-          "label": "ミーティングメモリー：AIが過去の会議を記憶",
+          "label": "直近{recall_window_days}日間の会議を、すべての会話に",
           "icon": "brain"
         },
         {
-          "label": "Web検索：最新情報を回答に反映（月75回）",
+          "label": "会議チャットとプロジェクトチャットが無制限",
+          "icon": "chat"
+        },
+        {
+          "label": "ドキュメントを添付すると、回答が全文を読み込みます",
+          "icon": "paperclip"
+        },
+        {
+          "label": "ウェブ検索：月75回",
           "icon": "search"
         },
         {
-          "label": "1つの質問につき写真・画像3枚",
+          "label": "チャットから実ファイルを生成：Excel、Word、PowerPoint、PDF",
+          "icon": "filegen"
+        },
+        {
+          "label": "1メッセージあたりのコンテキストが3倍",
+          "icon": "cpu"
+        },
+        {
+          "label": "1メッセージあたり画像3枚",
           "icon": "photo"
         }
       ],
@@ -165,9 +218,16 @@
           "icon": "cpu"
         },
         {
-          "label": "最大画像数",
-          "value": "1つの質問につき3枚",
-          "icon": "photo"
+          "label": "ミーティングメモリー",
+          "value": "直近{recall_window_days}日間",
+          "icon": "brain",
+          "state": "enabled"
+        },
+        {
+          "label": "プロジェクトチャット",
+          "value": "あり",
+          "icon": "chat",
+          "state": "enabled"
         },
         {
           "label": "ウェブ検索",
@@ -176,15 +236,18 @@
         },
         {
           "label": "ファイル生成",
-          "value": "Proにアップグレード",
-          "icon": "filegen",
-          "state": "teaser"
+          "value": "Excel、Word、PowerPoint、PDF",
+          "icon": "filegen"
         },
         {
-          "label": "ミーティングメモリー",
-          "value": "有効",
-          "icon": "brain",
-          "state": "enabled"
+          "label": "ドキュメント添付",
+          "value": "2ファイル、各25MBまで",
+          "icon": "paperclip"
+        },
+        {
+          "label": "画像上限",
+          "value": "1メッセージあたり3枚",
+          "icon": "photo"
         }
       ],
       "feature_definitions": {
@@ -230,48 +293,54 @@
               "斜めからではなく、正面からカメラを合わせてください"
             ]
           }
+        },
+        "context_quilt": {
+          "recall_max_age_days": 30
+        },
+        "generation": {
+          "generations_per_month": null
         }
       }
     },
     "pro": {
       "display_name": "Pro",
-      "description": "Plusの全機能に加え、高度なAI、ファイル生成。",
+      "description": "記録したすべてを、すべての会話に。分析とレポートにはより高性能なモデル。",
       "feature_bullets": [
-        "より深いレポートと分析のための高度なAI",
-        "全文要約または新しい内容だけ、選べます",
-        "Web検索：最新情報を回答に反映（月120回）",
-        "ミーティングメモリー：AIが過去の会議を記憶",
-        "共有できる本物のファイルを作成：Excel、Word、PowerPoint、PDF",
-        "チャットにドキュメントを添付（2ファイル、各25MB）",
-        "1つの質問につき写真・画像5枚"
+        "記録したすべての会議を、すべての会話に",
+        "会議後の分析とレポートにより高性能なモデル",
+        "1メッセージあたり最大のコンテキスト",
+        "ウェブ検索：月120回",
+        "チャットから実ファイルを生成：Excel、Word、PowerPoint、PDF",
+        "ドキュメントを添付すると、回答が全文を読み込みます",
+        "1メッセージあたり画像5枚"
       ],
       "feature_items": [
         {
-          "label": "より深いレポートと分析のための高度なAI",
-          "icon": "checkmark.plus"
-        },
-        {
-          "label": "全文要約または新しい内容だけ、選べます",
-          "icon": "doc"
-        },
-        {
-          "label": "Web検索：最新情報を回答に反映（月120回）",
-          "icon": "search"
-        },
-        {
-          "label": "ミーティングメモリー：AIが過去の会議を記憶",
+          "label": "記録したすべての会議を、すべての会話に",
           "icon": "brain"
         },
         {
-          "label": "共有できる本物のファイルを作成：Excel、Word、PowerPoint、PDF",
+          "label": "会議後の分析とレポートにより高性能なモデル",
+          "icon": "cpu"
+        },
+        {
+          "label": "1メッセージあたり最大のコンテキスト",
+          "icon": "cpu"
+        },
+        {
+          "label": "ウェブ検索：月120回",
+          "icon": "search"
+        },
+        {
+          "label": "チャットから実ファイルを生成：Excel、Word、PowerPoint、PDF",
           "icon": "filegen"
         },
         {
-          "label": "チャットにドキュメントを添付（2ファイル、各25MB）",
+          "label": "ドキュメントを添付すると、回答が全文を読み込みます",
           "icon": "paperclip"
         },
         {
-          "label": "1つの質問につき写真・画像5枚",
+          "label": "1メッセージあたり画像5枚",
           "icon": "photo"
         }
       ],
@@ -288,13 +357,20 @@
         },
         {
           "label": "AI",
-          "value": "高度",
+          "value": "高性能モデル",
           "icon": "cpu"
         },
         {
-          "label": "最大画像数",
-          "value": "1つの質問につき5枚",
-          "icon": "photo"
+          "label": "ミーティングメモリー",
+          "value": "すべて",
+          "icon": "brain",
+          "state": "enabled"
+        },
+        {
+          "label": "プロジェクトチャット",
+          "value": "あり",
+          "icon": "chat",
+          "state": "enabled"
         },
         {
           "label": "ウェブ検索",
@@ -312,10 +388,9 @@
           "icon": "paperclip"
         },
         {
-          "label": "ミーティングメモリー",
-          "value": "有効",
-          "icon": "brain",
-          "state": "enabled"
+          "label": "画像上限",
+          "value": "1メッセージあたり5枚",
+          "icon": "photo"
         }
       ],
       "feature_definitions": {
@@ -364,6 +439,146 @@
               "斜めからではなく、正面からカメラを合わせてください"
             ]
           }
+        },
+        "context_quilt": {
+          "recall_max_age_days": null
+        }
+      }
+    },
+    "automation": {
+      "display_name": "Automation (internal)",
+      "description": "Partner test harness credentials. Mirrors Pro so a harness exercises the lane a paying user gets.",
+      "feature_bullets": [
+        "Advanced AI for deeper reports and analysis",
+        "Full recap or just-what's-new summaries, your choice",
+        "Web search: current info in your answers (120/mo)",
+        "Meeting Memory: AI remembers past meetings",
+        "Builds real files you can share: Excel, Word, PowerPoint, PDF",
+        "Attach documents to chat (2 files, 25 MB each)",
+        "5 photos or images per question"
+      ],
+      "feature_items": [
+        {
+          "label": "Advanced AI for deeper reports and analysis",
+          "icon": "checkmark.plus"
+        },
+        {
+          "label": "Full recap or just-what's-new summaries, your choice",
+          "icon": "doc"
+        },
+        {
+          "label": "Web search: current info in your answers (120/mo)",
+          "icon": "search"
+        },
+        {
+          "label": "Meeting Memory: AI remembers past meetings",
+          "icon": "brain"
+        },
+        {
+          "label": "Builds real files you can share: Excel, Word, PowerPoint, PDF",
+          "icon": "filegen"
+        },
+        {
+          "label": "Attach documents to chat (2 files, 25 MB each)",
+          "icon": "paperclip"
+        },
+        {
+          "label": "5 photos or images per question",
+          "icon": "photo"
+        }
+      ],
+      "status_items": [
+        {
+          "label": "Auto-summary",
+          "value": "every 10 min",
+          "icon": "clock"
+        },
+        {
+          "label": "Summary mode",
+          "value": "Full or just what's new (your choice)",
+          "icon": "doc"
+        },
+        {
+          "label": "AI",
+          "value": "Advanced",
+          "icon": "cpu"
+        },
+        {
+          "label": "Max images",
+          "value": "5 per question",
+          "icon": "photo"
+        },
+        {
+          "label": "Web search",
+          "value": "120 per month",
+          "icon": "search"
+        },
+        {
+          "label": "File generation",
+          "value": "Excel, Word, PowerPoint, PDF",
+          "icon": "filegen"
+        },
+        {
+          "label": "Document attachments",
+          "value": "2 files, up to 25 MB each",
+          "icon": "paperclip"
+        },
+        {
+          "label": "Meeting Memory",
+          "value": "enabled",
+          "icon": "brain",
+          "state": "enabled"
+        }
+      ],
+      "feature_definitions": {
+        "project_chat": {
+          "max_input_tokens": 360000
+        },
+        "search": {
+          "searches_per_month": 120,
+          "searches_soft_threshold": 80,
+          "cta_hard_cap": {
+            "kind": "search_cap_exhausted",
+            "title": "Web search limit reached",
+            "body": "You've used all {total} searches this month. Searches resume on {reset_date}.",
+            "primary_action": {
+              "label": "OK",
+              "action": "dismiss"
+            }
+          },
+          "cta_soft_cap": {
+            "kind": "search_soft_cap_warning",
+            "title": "Approaching your monthly search limit",
+            "body": "You've used {used} of {total} searches this month."
+          },
+          "cta_unavailable": {
+            "kind": "search_unavailable_for_provider",
+            "title": "Web search not available for this model",
+            "body": "Switch to SS AI to use web search on this query.",
+            "primary_action": {
+              "label": "OK",
+              "action": "dismiss"
+            }
+          }
+        },
+        "generation": {
+          "generations_per_month": 100
+        },
+        "images": {
+          "max_long_edge": 1568,
+          "jpeg_quality": 0.8,
+          "capture_guidance": {
+            "title": "For the sharpest read",
+            "tips": [
+              "Fill the frame with the sheet so the text is as large as possible",
+              "Hold steady until the text looks sharp before you shoot",
+              "Light the whole sheet evenly and avoid glare or shadows",
+              "Line the camera up straight on rather than at an angle"
+            ]
+          }
+        },
+        "context_quilt": {
+          "recall_max_age_days": null
         }
       }
     }
@@ -374,11 +589,11 @@
       "display_name": "ミーティングメモリー",
       "description": "AIが過去の会議を記憶し、その知識を自動的に活用します。",
       "teaser_description": "AIが過去の会議とのつながりを発見しました",
-      "upgrade_cta": "Plusにアップグレードしてミーティングメモリーを解除",
+      "upgrade_cta": "Plusにアップグレードして、直近{recall_window_days}日間の会議をすべての回答に反映",
       "cta_strings": {
-        "free_within_quota_footer": "✨ 今月の無料メモリー{total}回のうちの1つを使いました。Plusにアップグレードしてメモリーを構築し続けましょう。",
-        "free_no_quota_only": "✨ AIに会議を記憶してほしいですか？Plusにアップグレードしてメモリーの構築を始めましょう。",
-        "free_people_only": "✨ AIがこの会議からPeopleリストを作成しています。Plusにアップグレードすると、記憶した内容を読み返せます。"
+        "free_within_quota_footer": "✨ これは今月の無料メモリー（{total}回分）でした。Plusなら直近{recall_window_days}日間の会議がすべての回答に反映されます。",
+        "free_no_quota_only": "✨ 今月の無料AIを使い切りました。Plusなら無制限になり、直近{recall_window_days}日間の会議がすべての回答に反映されます。",
+        "free_people_only": "✨ AIがこの会議からPeopleリストを作成しています。Plusなら直近{recall_window_days}日間の会議がすべての回答に反映されます。"
       }
     },
     "meeting_reports": {
@@ -416,6 +631,26 @@
         "quota_exhausted": "今月の無料プロジェクトチャット{total}回をすべて使い切りました。Plusにアップグレードすると無制限にご利用いただけます。",
         "unlimited": "Shoulder Surfのプロジェクトチャット。",
         "login_required": "プロジェクトチャットを使用するにはサインインしてください。"
+      },
+      "entry": {
+        "coach_mark_title": "AIに見せる範囲を選ぶ",
+        "coach_mark_body": "ここで、このチャットに含める会議とメモを決め、対象となる日付の範囲を確認できます。いつでも変更できます。",
+        "coach_mark_dismiss_label": "今後表示しない",
+        "context_range_label": "{start}から{end}までの会議を使用",
+        "context_range_windowed_label": "直近{window_days}日間: {start}から{end}まで",
+        "context_range_empty_label": "会議が選択されていません",
+        "quick_prompts": [
+          {
+            "id": "evolved",
+            "label": "このプロジェクトはどう進展しましたか？",
+            "prompt": "このプロジェクトは時間とともにどう進展しましたか？"
+          },
+          {
+            "id": "decisions",
+            "label": "どんな決定がなされましたか？",
+            "prompt": "このプロジェクトではどんな決定が、いつなされましたか？"
+          }
+        ]
       }
     },
     "search": {
@@ -424,6 +659,148 @@
       "description": "質問への回答中にAIがWebから最新情報を取得できます。",
       "teaser_description": "Web検索は有料機能です。",
       "upgrade_cta": "PlusにアップグレードしてWeb検索を有効にする"
+    }
+  },
+  "upgrade_nudges": {
+    "context_fits_higher": {
+      "text": "これは{needed}K文字です。{tier_name}なら{cap}Kまで対応します。",
+      "label": "{tier_name}を見る"
+    },
+    "memory_excluded_scope": {
+      "text": "このプロジェクトの会議{excluded}件のメモリは{tier_name}では利用できません。{next_tier}ならすべての会話に取り込みます。",
+      "label": "{next_tier}を見る"
+    },
+    "memory_excluded_window": {
+      "text": "このプロジェクトには{window}日より前の会議が{excluded}件あり、{tier_name}の対象期間外です。{next_tier}{next_window}。",
+      "label": "{next_tier}を見る",
+      "next_window_none": "には期間の制限がありません",
+      "next_window_days": "の対象期間は{n}日です"
+    }
+  },
+  "paywall": {
+    "headline": "すべてのミーティングから学ぶAI",
+    "subheads": {
+      "feature_locked": {
+        "body": "無料時間を使い切りました。サブスクリプションに登録して、ミーティングメモリー、写真分析、各セッションからのより豊富なインサイトをアンロックしてください。"
+      },
+      "allowance_exhausted": {
+        "title": "無料時間を使い切りました",
+        "body": "このミーティング以降も無制限の AI 機能を利用できるようになります。"
+      }
+    },
+    "cq_card": {
+      "title": "Context Quilt",
+      "badge": "Plus以上",
+      "badge_short": "CQ",
+      "tagline": "あなたの AI はすべての会議からメモリーグラフを構築し、過去の決定事項やコミットメント、背景情報を必要なときに呼び出します。",
+      "bullets": [
+        "過去のミーティングでの決定事項やコミットメントを思い出します",
+        "プロジェクトや会話をまたいで点と点をつなげます",
+        "誰が何を言ったかをセッションをまたいで記憶します",
+        "使うほど賢く、より的確になります"
+      ]
+    },
+    "comparison": {
+      "cloud_title": "Shoulder Surf AI",
+      "device_title": "オンデバイスAI",
+      "rows": [
+        {
+          "cloud_label": "会議メモリ（CQ）",
+          "device_label": "会議メモリ（CQ）",
+          "cloud_has": true,
+          "device_has": false
+        },
+        {
+          "cloud_label": "写真分析",
+          "device_label": "写真分析",
+          "cloud_has": true,
+          "device_has": false
+        },
+        {
+          "cloud_label": "長いコンテキストウィンドウ",
+          "device_label": "短いコンテキストのみ",
+          "cloud_has": true,
+          "device_has": false
+        },
+        {
+          "cloud_label": "より充実した要約",
+          "device_label": "基本的な応答",
+          "cloud_has": true,
+          "device_has": false
+        },
+        {
+          "cloud_label": "オフラインで動作",
+          "device_label": "オフラインで動作",
+          "cloud_has": false,
+          "device_has": true
+        }
+      ],
+      "learn_more_label": "Shoulder Surf AIの詳細"
+    },
+    "choose_plan_label": "プランを選択",
+    "testflight_banner": {
+      "title": "ベータテスト中のサブスクリプションは無料です",
+      "body": "TestFlightベータ版をご利用中のため、Appleから請求されることはありません。価格は表示されますが、ベータテスト中に開始したサブスクリプションは無料です。",
+      "link_label": "AppleのTestFlightページで詳細を見る"
+    },
+    "trial_pill": {
+      "day": {
+        "one": "{n}日間の無料トライアル",
+        "other": "{n}日間の無料トライアル"
+      },
+      "week": {
+        "one": "{n}週間の無料トライアル",
+        "other": "{n}週間の無料トライアル"
+      },
+      "month": {
+        "one": "{n}ヶ月の無料トライアル",
+        "other": "{n}ヶ月の無料トライアル"
+      },
+      "year": {
+        "one": "{n}年間の無料トライアル",
+        "other": "{n}年間の無料トライアル"
+      }
+    },
+    "welcome_back": {
+      "title": "復帰特典",
+      "day": {
+        "one": "おかえりなさい：{n}日間無料",
+        "other": "おかえりなさい：{n}日間無料"
+      },
+      "week": {
+        "one": "おかえりなさい：{n}週間無料",
+        "other": "おかえりなさい：{n}週間無料"
+      },
+      "month": {
+        "one": "おかえりなさい：{n}ヶ月無料",
+        "other": "おかえりなさい：{n}ヶ月無料"
+      },
+      "year": {
+        "one": "おかえりなさい：{n}年間無料",
+        "other": "おかえりなさい：{n}年間無料"
+      }
+    },
+    "per_month_suffix": "/月",
+    "other_options": {
+      "title": "その他のオプション",
+      "recommended": "推奨",
+      "subscribe": "サブスクリプションに登録",
+      "picker_hint": "この会議の進め方を選んでください。設定からいつでも変更できます。",
+      "byok": {
+        "title": "自分の API キーを使う",
+        "subtitle": "OpenAI、Anthropic、その他のプロバイダーを自分のアカウントで使用",
+        "body": "OpenAI / Anthropic / OpenRouter のキーを使います。料金は各プロバイダーに直接支払います。",
+        "add_key": "自分のAPIキーを追加",
+        "keep_using": "{provider}を使い続ける",
+        "key_continues": "APIキーで引き続きクエリを処理します。"
+      },
+      "on_device": {
+        "title": "オンデバイスの AI を使う",
+        "subtitle": "無料・プライバシー保護・オフライン対応。Shoulder Surf AI に比べて精度は限定的です。",
+        "enable": "Apple Intelligenceを有効にする",
+        "enable_hint": "無料のオンデバイスAI、設定 → Apple IntelligenceとSiriで有効にしてください",
+        "requires": "iPhone 15 Pro 以降で Apple Intelligence を有効にする必要があります。"
+      }
     }
   }
 }

@@ -1,5 +1,5 @@
 {
-  "version": 21,
+  "version": 48,
   "native_actions": {
     "enabled": true,
     "kinds": [
@@ -15,7 +15,8 @@
       "max_input_chars": {
         "free": 200000,
         "plus": 600000,
-        "pro": 720000
+        "pro": 1440000,
+        "automation": 1440000
       }
     }
   },
@@ -26,21 +27,11 @@
     "analysis_min_seconds": 120,
     "analysis_min_words": 300
   },
-  "enrichment": {
-    "max_auto_attempts": 5,
-    "retry_interval_seconds": 86400,
-    "in_flight_stale_seconds": 300,
-    "foreground_sweep_recovery_cap": 5
-  },
-  "session": {
-    "resumable_window_seconds": 3600,
-    "min_post_processing_seconds": 120
-  },
   "flags": {},
   "intervals": {},
   "documents": {
     "enabled": true,
-    "min_tier": "pro",
+    "min_tier": "plus",
     "accepted_types": [
       "application/pdf",
       "application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -58,7 +49,7 @@
     },
     "generation": {
       "enabled": true,
-      "min_tier": "pro",
+      "min_tier": "free",
       "formats": [
         "application/pdf",
         "application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -80,20 +71,84 @@
         },
         "offer_text_gist": "Sounds like you want {format} {gist}. Building the real file takes about two minutes, or I can just lay it out right here in chat. Want the file?",
         "teaser_text": "Want this as a real downloadable file?",
-        "lane_question_text": "I can build your Excel file two ways.\n\nOur project status workbook uses a format we've refined for sharing status with a team: a Gantt style timeline, a progress curve of reported versus planned, the history of every due date that moved, and a receipts sheet showing the meeting line behind each number, so anyone can check where a value came from.\n\nA custom workbook built to exactly what you describe, in whatever shape fits your ask.\n\nBoth come from your meeting notes. Which would you like: the status workbook, or custom?"
+        "lane_question_text": "I can build your Excel file two ways.\n\nOur project status workbook uses a format we've refined for sharing status with a team: a Gantt style timeline, a progress curve of reported versus planned, the history of every due date that moved, and a receipts sheet showing the meeting line behind each number, so anyone can check where a value came from.\n\nA custom workbook built to exactly what you describe, in whatever shape fits your ask.\n\nBoth come from your meeting notes. Which would you like: the status workbook, or custom?",
+        "no_file_text": "No file was produced for this one, so the answer is above instead. Asking for a specific format, like a spreadsheet, usually gets one built."
       },
       "upsell": {
         "enabled": true,
         "text": "If you were a {tier} subscriber, I could generate a Word or Excel file for you."
       },
-      "contract_lane_users": []
-    }
+      "contract_lane_users": [
+        "fa4d903c-24c0-45d5-9fdb-b5496e32501b"
+      ]
+    },
+    "_tier_note": "2026-08-21 tier matrix: documents Plus and Pro now (Free at 5/mo, 10 MB waits on the per-tier document dial); file generation every tier, Free capped 5/mo by the generation dial."
+  },
+  "enrichment": {
+    "max_auto_attempts": 5,
+    "retry_interval_seconds": 86400,
+    "in_flight_stale_seconds": 300,
+    "foreground_sweep_recovery_cap": 5
+  },
+  "session": {
+    "resumable_window_seconds": 3600,
+    "min_post_processing_seconds": 120
   },
   "chat": {
     "max_history_pairs": 6,
     "response_reserve_tokens": 1024,
     "user_content_reserve_tokens": 4000,
     "context_window_fallback_tokens": 32000,
-    "_note": "Current client values, served so they can change without a release. context_window_fallback_tokens is the first one to tune: 32000 is wrong for most models we route to today, and it silently caps how much fits in project chat. Image sizing is NOT here on purpose: it is already served per tier at tiers.feature_definitions.images, and a second source for the same field is how the free-tier copy drifted."
+    "_note": "Current client values, served so they can change without a release. context_window_fallback_tokens is the first one to tune: 32000 is wrong for most models we route to today, and it silently caps how much fits in project chat. Image sizing is NOT here on purpose: it is already served per tier at tiers.feature_definitions.images, and a second source for the same field is how the free-tier copy drifted.",
+    "retry": {
+      "auto_delays_ms": [
+        10000,
+        30000,
+        60000
+      ],
+      "title": "The connection dropped",
+      "body": "Your message and any attachments are saved. Trying again.",
+      "countdown_label": "Trying again in {seconds}s",
+      "retry_now_label": "Try now",
+      "exhausted_title": "Still not connecting",
+      "exhausted_body": "Your message and any attachments are saved. Tap to try again.",
+      "retry_label": "Try again",
+      "_note": "Retry schedule and copy for a chat turn whose connection dropped. auto_delays_ms is the ladder of AUTOMATIC attempts after the failure; when it is exhausted the client stops and waits for a manual tap. The countdown is honest because we own the timer, unlike a progress bar for a finish we cannot predict. Delays are milliseconds so the ladder can be tuned without a release."
+    }
+  },
+  "share": {
+    "host": "https://share.shouldersurf.com",
+    "default_expiry_days": 30,
+    "max_expiry_days": 365,
+    "aasa_app_ids": [
+      "F22KGHDYAE.com.shouldersurf.ShoulderSurf"
+    ],
+    "_note": "App ID verified 2026-08-22 from the entitlements of the signed binary on Scott's phone (application-identifier), not from project.yml or a cert: team F22KGHDYAE, bundle com.shouldersurf.ShoulderSurf. com.weirtech.* is only the StoreKit product prefix.",
+    "app_store_id": "6760098225",
+    "dynamic_card": true
+  },
+  "translations": {
+    "group_size": 12
+  },
+  "redeem": {
+    "promo_redeem_unconfirmed": {
+      "title": "That code has not been applied",
+      "body": "The App Store has not sent us a redemption for this code, so your subscription has not changed. If you entered it, it may not have gone through. You can try again.",
+      "dismiss_label": "Close",
+      "secondary_label": "Try again",
+      "secondary_action": "retry_redeem"
+    },
+    "promo_redeem_settling": {
+      "title": "Your code is being applied",
+      "body": "The App Store confirmed your redemption and we are finishing up. Your subscription will update on its own, so there is nothing you need to do.",
+      "dismiss_label": "Got it"
+    },
+    "promo_redeem_settling_signed_out": {
+      "title": "Sign in to finish applying your code",
+      "body": "The App Store confirmed your redemption. Sign in with Apple and the code will be applied to your subscription.",
+      "dismiss_label": "Got it"
+    },
+    "redeem_timeout_ms": 8000,
+    "_note": "Served copy for an offer-code redemption that did not visibly succeed. Today the client shows NOTHING on failure, and it presents nothing until this block is served: no English fallback on a subscription surface. THREE outcomes, chosen by the client from what it observed. promo_redeem_unconfirmed: no transaction ever arrived, so we genuinely cannot say why, and the copy must not pretend otherwise. promo_redeem_settling: a transaction arrived and verify_failure is 'failed' or ABSENT; nothing for the user to do. promo_redeem_settling_signed_out: a transaction arrived with verify_failure = 'deferred_no_token'; signing in applies it. ABSENT verify_failure MUST pick plain settling: 'we never learned a reason' is not 'we know you are signed out'. redeem_timeout_ms is accumulated FOREGROUND milliseconds after returning from the App Store, not wall clock from the tap, because the App Store hop is when iOS reclaims the process. secondary_action is a GP-owned allowlist: 'retry_redeem' or absent. No contact_support (there is no destination) and no sign_in in v1 (needs client work; the text carries it instead). No time estimate anywhere on purpose: we do not know how long settling takes, and a number nobody measured is the honest-progress rule broken."
   }
 }

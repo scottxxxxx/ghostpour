@@ -27,6 +27,8 @@ from app.services.meeting_report import (
     format_duration,
     gather_meeting_data,
     derive_sentiment_fields,
+    format_meeting_date,
+    normalize_category_also,
     render_report_html,
 )
 from app.services.transcript_cleanup import (
@@ -46,6 +48,13 @@ class ReportRequest(BaseModel):
     tag_taxonomy: list[str] | None = None  # Custom tags; defaults to built-in 8
     meeting_start_iso: str | None = None  # ISO 8601 with timezone, e.g. "2026-04-14T13:01:00-05:00"
     timezone_abbr: str | None = None  # e.g. "CST", "EST", "IST" — from device locale
+    # The language the meeting was SPOKEN in (BCP-47), from the client's
+    # language picker. When present it wins over Accept-Language for the
+    # report's locale directive: the device locale says what the UI is
+    # in, not what the people in the room spoke (2026-08-21). Named
+    # transcript_language, not language, because `language` on capture
+    # already means the device language.
+    transcript_language: str | None = None
     # Source of the raw transcript: "ocr_captions" (OCR'd on-screen captions),
     # "speech_to_text" (microphone STT), or "mixed" (both contributed ≥20%).
     # Drives whether a server-side cleanup pass runs before report generation;
@@ -88,6 +97,29 @@ async def generate_report(
     tier = tier_config.tiers.get(user.effective_tier)
     if not tier:
         raise HTTPException(status_code=500, detail="Unknown tier")
+
+    # Report WRITE build floor (Scott via CQ, 2026-08-26). Build 335 regenerated
+    # a Spanish meeting's report in English (it predates transcript_language)
+    # and sync overwrote the Spanish one. A build below the served floor cannot
+    # generate or overwrite a report; it can still read one and chat. 412 with
+    # a named code, never a silent 200. Fail open when no floor is configured
+    # for this app or the build cannot be read at all.
+    from app.routers.config import load_apps
+    from app.services import version_gate
+    _min_build = version_gate.report_write_floor(
+        getattr(request.app.state, "app_versions", {}) or {}, load_apps(),
+        getattr(request.state, "app_id", None))
+    if _min_build is not None:
+        _have = version_gate.build_number(
+            request.headers.get("X-App-Build"), request.headers.get("User-Agent"),
+            version_gate.user_agent_app_name(
+                getattr(request.app.state, "app_versions", {}) or {}, load_apps(),
+                getattr(request.state, "app_id", None)))
+        if _have is not None and _have < _min_build:
+            logger.info("report_build_floor refused app_build=%s min_build=%s user=%s meeting=%s",
+                        _have, _min_build, user.id, meeting_id)
+            raise HTTPException(status_code=412,
+                                detail=version_gate.report_write_refusal(_min_build, _have))
 
     # Below the floor a session is a mis-tap, not a meeting, and a report
     # built from nine seconds of audio is nonsense rather than a thin report.
@@ -180,7 +212,8 @@ async def generate_report(
     # meeting_reports.cleaned_transcript so cached GETs return it. Failures
     # are silent: we fall back to raw and omit the response field.
     from app.routers.config import _parse_accept_language
-    locale = _parse_accept_language(request.headers.get("Accept-Language"))
+    from app.services.language_directive import resolve_report_locale
+    locale = resolve_report_locale(body.transcript_language, request.headers.get("Accept-Language"))
     cleaned_transcript = None
     settings = request.app.state.settings
     # Cleanup is gated purely on the source the client REPORTS — we do not infer
@@ -315,6 +348,12 @@ async def generate_report(
                 locale=locale,
             )
 
+    # Locale evidence (2026-08-25). A Spanish meeting's report came back
+    # English because a regeneration from an old build stated no
+    # transcript_language and carried an English Accept-Language. Finding
+    # that took the edge log: nothing GP stored said which locale the
+    # directive was built from, or whether the client stated one. Now every
+    # report row carries both, raw as sent (usage_tracker names the keys).
     chat_request = ChatRequest(
         provider=report_provider,
         model=report_model,
@@ -324,7 +363,9 @@ async def generate_report(
         # request-id correlation (#380 extended): partners quote the
         # X-Request-ID header; the chat route stamps it, this route didn't —
         # TR's determinism-fixture ids couldn't match their own rows.
-        metadata={"request_id": getattr(request.state, "request_id", None)},
+        metadata={"request_id": getattr(request.state, "request_id", None),
+                  "report_locale": locale,
+                  "transcript_language": body.transcript_language},
         # Pinned low (TR field report 2026-07-12): back-to-back
         # regenerations of the same conversation flipped the stoplight
         # red -> yellow with no input change. Same rule as parse, match,
@@ -411,6 +452,7 @@ async def _build_report_response(response, body, db, user, report_model, request
     # only consumer is the client, the email renders neither field, and
     # the re-render route takes client supplied JSON so it needs nothing.
     report_json = derive_sentiment_fields(report_json)
+    report_json = normalize_category_also(report_json)
 
     # 6. Render HTML — use meeting start time if provided, else fall back to now
     if body.meeting_start_iso:
@@ -436,7 +478,7 @@ async def _build_report_response(response, body, db, user, report_model, request
             tz_label += f":{remainder // 60:02d}"
 
     metadata = {
-        "meeting_date": meeting_dt.strftime("%B %-d, %Y"),
+        "meeting_date": format_meeting_date(meeting_dt, locale),
         "meeting_time": meeting_dt.strftime("%-I:%M %p") + tz_label,
         "meeting_duration": format_duration(body.duration_seconds),
         "project_name": body.project or "",
@@ -460,8 +502,8 @@ async def _build_report_response(response, body, db, user, report_model, request
            (id, user_id, meeting_id, report_json, report_html,
             model, ai_tier, input_tokens, output_tokens, cost_usd,
             generation_ms, created_at, report_status, is_editable,
-            cleaned_transcript)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            cleaned_transcript, report_language, transcript_language)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             str(uuid.uuid4()),
             user.id,
@@ -478,6 +520,8 @@ async def _build_report_response(response, body, db, user, report_model, request
             None,  # report_status: real reports have no status marker
             1,     # is_editable: real reports are editable
             cleaned_transcript,
+            _report_language(locale),
+            body.transcript_language,
         ),
     )
     await db.commit()
@@ -493,10 +537,21 @@ async def _build_report_response(response, body, db, user, report_model, request
         "generation_ms": elapsed_ms,
         "report_status": None,
         "is_editable": True,
+        # The language this report was generated in (SS stores it as the
+        # report's tag; the sync merge refuses a cross-language overwrite)
+        # and the client's stated transcript_language, echoed raw.
+        "report_language": _report_language(locale),
+        "transcript_language": body.transcript_language,
     }
     if cleaned_transcript:
         response_payload["cleaned_transcript"] = cleaned_transcript
     return response_payload
+
+
+def _report_language(locale: str | None) -> str:
+    """The generated language as a primary subtag. No directive means the
+    model wrote English, so "en" is the truth there, never null."""
+    return (locale or "en").split("-")[0].lower()
 
 
 async def _build_canned_report_response(
@@ -557,8 +612,8 @@ async def _build_canned_report_response(
            (id, user_id, meeting_id, report_json, report_html,
             model, ai_tier, input_tokens, output_tokens, cost_usd,
             generation_ms, created_at, report_status, is_editable,
-            cleaned_transcript)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            cleaned_transcript, report_language, transcript_language)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             str(uuid.uuid4()),
             user.id,
@@ -570,6 +625,8 @@ async def _build_canned_report_response(
             "placeholder_budget_blocked",
             0,  # is_editable=false
             None,  # cleaned_transcript: canned reports never carry one
+            _report_language(locale),
+            body.transcript_language,
         ),
     )
     await db.commit()
@@ -589,6 +646,8 @@ async def _build_canned_report_response(
         "generation_ms": 0,
         "report_status": "placeholder_budget_blocked",
         "is_editable": False,
+        "report_language": _report_language(locale),
+        "transcript_language": body.transcript_language,
         "feature_state": {
             "feature": "meeting_report",
             "credits_remaining": credits_remaining,
@@ -660,6 +719,9 @@ async def get_cached_report(
         "generated_at": row["created_at"],
         "report_status": cached_status,
         "is_editable": cached_editable,
+        # null on rows cached before 2026-08-26: untagged, not English
+        "report_language": _safe("report_language"),
+        "transcript_language": _safe("transcript_language"),
     }
     if cached_cleaned:
         payload["cleaned_transcript"] = cached_cleaned
@@ -669,6 +731,19 @@ async def get_cached_report(
 class RenderRequest(BaseModel):
     report_json: dict
     duration_seconds: int
+    # The meeting's real start, same field and same format the generate
+    # path takes. Added 2026-08-22 because without it this route had NO
+    # way to know when the meeting was and stamped the header with the
+    # render clock, so editing Monday's report on Wednesday produced a
+    # document headed Wednesday. Optional, so a client that does not send
+    # it behaves exactly as before; see the fallback note in
+    # render_report for the half of this that is still Scott's call.
+    meeting_start_iso: str | None = None  # ISO 8601 with tz, e.g. "2026-04-14T13:01:00-05:00"
+    timezone_abbr: str | None = None  # e.g. "CST", "EST", "IST"
+    # The report's generated language, as the client stored it from
+    # generate/fetch. Rendering does not generate, so it is echoed here,
+    # never discovered.
+    report_language: str | None = None
 
 
 @router.post("/reports/render")
@@ -683,10 +758,36 @@ async def render_report(
     """
     from app.routers.config import _parse_accept_language
     locale = _parse_accept_language(request.headers.get("Accept-Language"))
-    now = datetime.now(timezone.utc)
+
+    # Prefer the meeting's real start. The fallback is still the render
+    # clock, which is WRONG and known to be wrong: the header then claims
+    # the meeting happened on the day the user pressed edit.
+    #
+    # CQ's recommendation, and mine, is that the fallback should render no
+    # date at all rather than invent one, on the argument that a missing
+    # date is a gap the reader can see and ask about while a wrong date is
+    # a claim they cannot distinguish from a right one, on a document they
+    # KEEP. That is a product ruling and it is Scott's, so it is NOT taken
+    # here. What this change does is make the ruling cheap to apply and
+    # stop the guess firing for any client that sends the field: today
+    # nothing can, because the field did not exist.
+    meeting_dt = None
+    if body.meeting_start_iso:
+        try:
+            meeting_dt = datetime.fromisoformat(body.meeting_start_iso)
+        except (ValueError, TypeError):
+            meeting_dt = None
+    fabricated = meeting_dt is None
+    if fabricated:
+        meeting_dt = datetime.now(timezone.utc)
+        logger.info("report_render_date_fabricated", extra={
+            "reason": "no_meeting_start_iso" if not body.meeting_start_iso
+                      else "unparseable_meeting_start_iso"})
+
+    tz_label = f" {body.timezone_abbr}" if body.timezone_abbr else ""
     metadata = {
-        "meeting_date": now.strftime("%B %-d, %Y"),
-        "meeting_time": now.strftime("%-I:%M %p"),
+        "meeting_date": format_meeting_date(meeting_dt, locale),
+        "meeting_time": meeting_dt.strftime("%-I:%M %p") + tz_label,
         "meeting_duration": format_duration(body.duration_seconds),
     }
 
@@ -696,4 +797,4 @@ async def render_report(
         remote_configs=request.app.state.remote_configs,
         locale=locale,
     )
-    return {"report_html": report_html}
+    return {"report_html": report_html, "report_language": body.report_language}

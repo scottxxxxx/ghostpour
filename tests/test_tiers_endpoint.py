@@ -39,11 +39,22 @@ def test_tiers_endpoint_stamps_top_level_version(client):
 
 def test_tiers_endpoint_caps_match_bundled_source(client):
     """Defense-in-depth: when no dashboard edit has been made, the caps that
-    flow through to iOS via /v1/tiers should match what's in the bundled
-    tiers.json source — i.e., 50K/150K/180K for free/plus/pro."""
+    flow through to iOS via /v1/tiers should match the bundled tiers.json,
+    i.e. 50K/150K/360K for free/plus/pro. Pro doubled 2026-08-23 on Scott's
+    instruction, which OVERRIDES the tier matrix sheet in
+    `Subscription Info/`; see tests/test_tier_max_input_tokens.py for the
+    full note.
+
+    This one failed in CI while passing locally, and the reason is worth
+    keeping: `data/remote-config/` is a persistent OVERLAY that shadows the
+    bundle, and a developer machine that has one carries stale values. CI
+    has no overlay, so it reads the bundle. A local full-suite run is
+    therefore NOT a check on any bundled-config change: it silently tests
+    whatever the overlay happens to hold. Run config changes past CI, or
+    clear the local overlay first."""
     resp = client.get("/v1/tiers")
     body = resp.json()
-    expected = {"free": 50_000, "plus": 150_000, "pro": 180_000}
+    expected = {"free": 50_000, "plus": 150_000, "pro": 360_000}
     for tier, expected_cap in expected.items():
         actual = (
             body["tiers"][tier]

@@ -15,7 +15,7 @@ import aiosqlite
 import httpx
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.config import get_settings
 from app.database import get_db
@@ -183,7 +183,39 @@ def _primary_language_tag(header: str | None) -> str | None:
     return first or None
 
 
+# ---------------------------------------------------------------------------
+# Proxy request bodies: NEVER silently drop a key.
+#
+# This is the third instance of one bug. Each time, a field a client really
+# sent was eaten by a schema on the middle hop, and each time the fix was
+# "add the missing field", which left the class alive:
+#
+#   to_name        silent, found only by a three-way audit
+#   project_name   LOUD, CQ answered 422 naming the field we ate, 7 calls
+#   client_id +    SILENT, 200s and correctly rendered rows, found because
+#   deadline_date  CQ noticed an item that could never become overdue
+#
+# The class is getting QUIETER as fields get more additive, which is the
+# direction all three teams ship in, so exposure rises exactly as
+# detectability falls. Rule 5 in CLAUDE.md describes this bug in advance and
+# did not prevent any of the three: a rule with no mechanism is memory.
+#
+# `extra="allow"` keeps unmodelled keys in `model_dump()` so a forward
+# carries them. Declared fields still validate, so a genuinely malformed
+# request fails here rather than reaching CQ. Modelling a field explicitly is
+# still worth doing (it documents the contract and types it); this is the
+# floor under the ones nobody has modelled yet.
+#
+# ⚠ This alone is NOT sufficient, and tests/test_cq_proxy_passthrough.py is
+# what actually holds the line: a handler that builds its payload by hand
+# instead of from `model_dump()` would drop keys again with every model here
+# set to allow. The test asserts the PROPERTY by running the route, not the
+# config value.
+# ---------------------------------------------------------------------------
+
+
 class TranscriptCaptureRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
     transcript: str
     # Origin scoping — preferred going forward:
     origin_id: str | None = None
@@ -414,11 +446,23 @@ async def get_quilt_insights(
 
 
 class PatchCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
     type: str  # e.g., "person", "fact", "commitment"
     text: str
     owner: str | None = None
     project_id: str | None = None
     connections: list[dict] | None = None  # [{"target_patch_id", "role", "label"}]
+    # Both sent by SS since they shipped manual action items, both eaten here
+    # until 2026-08-30. `client_id` is their idempotency key (it dedupes
+    # concurrent posts at CQ) and `deadline_date` is the due date. Without the
+    # date a completable can never be overdue, never reaches the project
+    # recall guarantee's overdue slot, and anchors decay on updated_at: the
+    # item is tracked and will never be chased, and no screen says so.
+    #
+    # The drop was silent because both are OPTIONAL and additive at CQ, so
+    # nothing 4xx'd and the row rendered correctly on the phone.
+    client_id: str | None = None
+    deadline_date: str | None = None
 
 
 @router.post("/quilt/{user_id}/patches")
@@ -436,10 +480,16 @@ async def create_quilt_patch(
 
 
 class PatchUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
     fact: str | None = None
     category: str | None = None
     owner: str | None = None
     project_id: str | None = None
+    # SS's updatePatch sends `patch_type` (QuiltService, "Update a patch's
+    # text, type, or owner"). We modelled `category` and not this, so every
+    # type edit has been a silent no-op: 200 back, nothing changed. Two calls
+    # at the edge in the retained window, which is why nobody noticed.
+    patch_type: str | None = None
 
 
 @router.patch("/quilt/{user_id}/patches/{patch_id}")
@@ -490,6 +540,72 @@ async def complete_quilt_patch(
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
     return await _cq_proxy("POST", f"/v1/quilt/{_subj(request, user_id)}/patches/{patch_id}/complete", body)
+
+
+# --- Projects (2026-08-21) ---
+#
+# SS has sent PATCH /v1/projects/{user}/{project} on every project rename
+# since at least 2026-07-31 (QuiltService.renameProject, body {"name"}),
+# and GP never carried the route, so every one of them died here as a
+# 404 that SS's client discarded as a silent false. Seven in the proxy
+# log between 07-26 and 08-21, including Scott's own rename on 08-20.
+# The standing rule from 08-10, stated again: a route is additive only
+# at the gateway. A verb a client ships needs a handler here first.
+#
+# Body is an untyped dict forwarded VERBATIM (CQ owns the shape: {"name"}
+# today, {"status": "archived"} on the same verb) and CQ's status and body
+# come back unchanged, so the client can compare the returned name to the
+# one it sent (rule 4) instead of trusting a 200.
+
+
+@router.patch("/projects/{user_id}/{project_id}")
+async def update_project(
+    request: Request,
+    user_id: str,
+    project_id: str,
+    user: UserRecord = Depends(get_current_user),
+    body: dict | None = Body(default=None),
+):
+    """Proxy: rename or archive a project (SS QuiltService.renameProject)."""
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify another user's projects")
+    return await _cq_proxy("PATCH", f"/v1/projects/{_subj(request, user_id)}/{project_id}", body)
+
+
+@router.post("/projects/{user_id}/{project_id}/unscope")
+async def unscope_project(
+    request: Request,
+    user_id: str,
+    project_id: str,
+    user: UserRecord = Depends(get_current_user),
+    body: dict | None = Body(default=None),
+):
+    """Proxy: unscope a project (SS QuiltService; in their inventory
+    2026-08-21, never carried here, zero calls in the proxy log since
+    07-23 so nothing was lost yet; it would have 404ed silently)."""
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify another user's projects")
+    return await _cq_proxy("POST", f"/v1/projects/{_subj(request, user_id)}/{project_id}/unscope", body)
+
+
+@router.post("/origins/{user_id}/{origin_type}/{origin_id}/unassign-project")
+async def unassign_origin_project(
+    request: Request,
+    user_id: str,
+    origin_type: str,
+    origin_id: str,
+    user: UserRecord = Depends(get_current_user),
+    body: dict | None = Body(default=None),
+):
+    """Proxy: the other half of assign-project. SS sends it on the
+    /v1/origins form (their inventory 2026-08-21); only assign was carried.
+    Zero calls in the proxy log since 07-23."""
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify another user's origins")
+    return await _cq_proxy(
+        "POST",
+        f"/v1/origins/{_subj(request, user_id)}/{origin_type}/{origin_id}/unassign-project",
+        body)
 
 
 # --- Ledger triage (2026-08-07, SS Turn 4) ---
@@ -589,6 +705,7 @@ async def unshelve_quilt_patch(
 
 
 class ConnectionRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
     source_patch_id: str
     target_patch_id: str
     # `label`, not `relationship`. CQ's ConnectionCreate has always taken
@@ -632,8 +749,27 @@ async def delete_connection(
 
 
 class AssignProjectRequest(BaseModel):
+    """Body SS sends on assign-project: {"project_id", "project_name"}
+    (QuiltService, verbatim 2026-08-21).
+
+    Until 2026-08-21 this model knew `project` and not `project_name`,
+    so pydantic dropped SS's key on the floor, the forward carried
+    project_id alone, and CQ answered 422 naming the field we had eaten:
+    seven calls between 07-23 and 08-05, every one. SS logged the status
+    and discarded the body, so the 422 was visible and the reason was
+    not. The to_name shape again (rule 3): a field sent by the client
+    and silently dropped by an unmodelled schema in the middle.
+
+    `project` stays as an alias for any client that sent it; `project_name`
+    is what CQ's model requires and what is forwarded.
+    """
+    model_config = ConfigDict(extra="allow")
     project_id: str
-    project: str | None = None  # Display name, optional
+    project_name: str | None = None
+    project: str | None = None  # legacy spelling, mapped onto project_name
+
+    def display_name(self) -> str | None:
+        return self.project_name if self.project_name is not None else self.project
 
 
 @router.post("/origins/{user_id}/{origin_type}/{origin_id}/assign-project")
@@ -653,9 +789,17 @@ async def assign_origin_project(
     """
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's origins")
-    payload = {"project_id": body.project_id}
-    if body.project is not None:
-        payload["project_name"] = body.project
+    # Built from model_dump so an unmodelled key survives the hop, THEN the
+    # legacy alias is folded in. Hand-building this dict is what kept these
+    # two routes dropping keys even after every model here allowed extras:
+    # extra="allow" only helps a forward that actually carries model_dump().
+    # CQ predicted exactly this when they asked for a behavioural test rather
+    # than a config assertion, and the test caught it on its first run.
+    payload = {k: v for k, v in body.model_dump().items() if v is not None}
+    payload.pop("project", None)   # legacy spelling, mapped below, never sent
+    payload.pop("project_name", None)
+    if body.display_name() is not None:
+        payload["project_name"] = body.display_name()
     return await _cq_proxy(
         "POST",
         f"/v1/origins/{_subj(request, user_id)}/{origin_type}/{origin_id}/assign-project",
@@ -679,9 +823,17 @@ async def assign_meeting_project(
     """
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's meetings")
-    payload = {"project_id": body.project_id}
-    if body.project is not None:
-        payload["project_name"] = body.project
+    # Built from model_dump so an unmodelled key survives the hop, THEN the
+    # legacy alias is folded in. Hand-building this dict is what kept these
+    # two routes dropping keys even after every model here allowed extras:
+    # extra="allow" only helps a forward that actually carries model_dump().
+    # CQ predicted exactly this when they asked for a behavioural test rather
+    # than a config assertion, and the test caught it on its first run.
+    payload = {k: v for k, v in body.model_dump().items() if v is not None}
+    payload.pop("project", None)   # legacy spelling, mapped below, never sent
+    payload.pop("project_name", None)
+    if body.display_name() is not None:
+        payload["project_name"] = body.display_name()
     return await _cq_proxy(
         "POST",
         f"/v1/origins/{_subj(request, user_id)}/meeting/{meeting_id}/assign-project",
@@ -706,6 +858,7 @@ async def get_schema(user: UserRecord = Depends(get_current_user)):
 
 
 class RenameSpeakerRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
     old_name: str
     new_name: str
 
@@ -731,11 +884,13 @@ async def rename_speaker(
 
 
 class FromLabel(BaseModel):
+    model_config = ConfigDict(extra="allow")
     label: str
     meeting_id: str
 
 
 class ReassignSpeakerRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
     from_labels: list[FromLabel]
     to_self: bool | None = None
     to_person_id: str | None = None
@@ -1219,3 +1374,116 @@ async def get_person(
     return await _cq_proxy(
         "GET", f"/v1/people/{_subj(request, user_id)}/{entity_id}",
         query=request.url.query or None)
+
+
+# --- Alignment Layer (CQ #20, 2026-08-23) ----------------------------------
+#
+# Scott's direction via CQ: the Alignment Layer (Claude Design project
+# e6ee7ae8). CQ's phase 1 is merged and deployed (their main 54b5037,
+# contract docs/architecture/20-alignment-layer.md). Four routes, all
+# app-authenticated like People, additive, and the chat context flow is
+# untouched.
+#
+# Two things the contract makes load bearing and this proxy already does,
+# stated so nobody "tidies" them away: the 409 and 422 BODIES are the
+# contract (NOT_CONFIRMABLE, SHARED_TEXT_REJECTED carrying the term,
+# CORRECTION_CONFLICT carrying existing and proposed), and _cq_proxy
+# forwards CQ's status and JSON body unchanged, so a client can act on
+# them. And every array (supersedes, impact, evidence, history) keeps
+# its order, because _null_non_finite rebuilds lists in place and nothing
+# else touches the body. Nothing in any response is private; CQ never
+# selects the one private column, so there is nothing here to strip.
+#
+# Gated on the `alignment` entitlement, enabled for every tier, checked
+# anyway for the same reason People is: so the dashboard toggle closes the
+# door rather than hiding the tab.
+
+_ALIGNMENT_FEATURE = "alignment"
+
+
+async def _require_alignment(request: Request, user: UserRecord, user_id: str) -> None:
+    if user.id != user_id:
+        raise HTTPException(
+            status_code=403, detail="Cannot access another user's alignment")
+    from app.services.entitlements import entitlement_state
+    configs = getattr(request.app.state, "remote_configs", None)
+    if configs is None:
+        logger.warning("alignment_entitlement_skipped: remote_configs unavailable")
+        return
+    state = entitlement_state(configs, user.effective_tier, _ALIGNMENT_FEATURE)
+    if state == "disabled":
+        raise HTTPException(status_code=403, detail={
+            "code": "feature_disabled",
+            "feature": _ALIGNMENT_FEATURE,
+            "message": "Alignment is not available on this plan",
+        })
+
+
+@router.get("/alignment/{user_id}/meetings/{origin_id}")
+async def alignment_meeting_card(
+    user_id: str,
+    origin_id: str,
+    request: Request,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Proxy: the meeting card. `events: []` means no card, and that is a
+    200 with an empty list, never a 404, so a client can tell "nothing
+    happened in this meeting" from "the route is missing"."""
+    await _require_alignment(request, user, user_id)
+    return await _cq_proxy(
+        "GET", f"/v1/alignment/{_subj(request, user_id)}/meetings/{origin_id}",
+        query=request.url.query or None)
+
+
+@router.get("/alignment/{user_id}/projects/{project_id}")
+async def alignment_project_record(
+    user_id: str,
+    project_id: str,
+    request: Request,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Proxy: the project record (current_directions, awaiting_confirmation,
+    history, direction_change_count, cumulative_impact, definitions)."""
+    await _require_alignment(request, user, user_id)
+    return await _cq_proxy(
+        "GET", f"/v1/alignment/{_subj(request, user_id)}/projects/{project_id}",
+        query=request.url.query or None)
+
+
+@router.post("/alignment/{user_id}/events/{event_id}/confirm")
+async def alignment_confirm_event(
+    user_id: str,
+    event_id: str,
+    request: Request,
+    body: dict | None = None,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Proxy: confirm an event. Body {confirmed_by, on_behalf} forwarded
+    verbatim; CQ owns the shape. 409 NOT_CONFIRMABLE passes through with
+    its body."""
+    await _require_alignment(request, user, user_id)
+    return await _cq_proxy(
+        "POST", f"/v1/alignment/{_subj(request, user_id)}/events/{event_id}/confirm",
+        body=body, query=request.url.query or None)
+
+
+@router.post("/alignment/{user_id}/events/{event_id}/correct")
+async def alignment_correct_event(
+    user_id: str,
+    event_id: str,
+    request: Request,
+    body: dict | None = None,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Proxy: correct an event. Body {statement, reason, corrected_by,
+    rationale?} forwarded verbatim. 422 SHARED_TEXT_REJECTED (carries
+    `term`) and 409 CORRECTION_CONFLICT (carries `existing` and
+    `proposed`) pass through with their bodies, which IS the contract."""
+    await _require_alignment(request, user, user_id)
+    return await _cq_proxy(
+        "POST", f"/v1/alignment/{_subj(request, user_id)}/events/{event_id}/correct",
+        body=body, query=request.url.query or None)

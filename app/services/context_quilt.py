@@ -231,6 +231,7 @@ async def recall(
     metadata: dict | None = None,
     subscription_tier: str | None = None,
     app_id: str | None = None,
+    timeout_ms: int | None = None,
 ) -> dict:
     """
     Fetch relevant context from Context Quilt's graph memory.
@@ -247,7 +248,18 @@ async def recall(
     if not settings.cq_base_url:
         return {"context": "", "matched_entities": [], "patch_count": 0}
 
-    timeout_sec = settings.cq_recall_timeout_ms / 1000.0
+    # The budget is resolved by the caller from the served dial (chat.py,
+    # beside the recall-window read) so this stays the one place that spends
+    # it. None means nobody resolved one: fall back to settings rather than
+    # inventing a number.
+    budget_ms = int(timeout_ms) if isinstance(timeout_ms, int) and not isinstance(timeout_ms, bool) \
+        and timeout_ms > 0 else settings.cq_recall_timeout_ms
+    timeout_sec = budget_ms / 1000.0
+    import time as _time
+    _t0 = _time.monotonic()
+
+    def _elapsed_ms() -> int:
+        return int((_time.monotonic() - _t0) * 1000)
 
     body: dict[str, Any] = {
         # The per-app subject, not the raw GP user id. SS resolves to the
@@ -293,6 +305,16 @@ async def recall(
             },
         )
         _debug_dump_recall(body, result)
+        # Stamped so the chat route can heal the per-scope incident on a
+        # healthy recall (the degrade branches below stamp it too).
+        if isinstance(result, dict):
+            result.setdefault("recall_scope", merged_metadata.get("recall_scope", "full"))
+            # How long it actually took, and the budget it ran under, so
+            # "did raising the timeout help" is answerable from the stored
+            # rows alone rather than from a container log that dies on the
+            # next deploy.
+            result["duration_ms"] = _elapsed_ms()
+            result["timeout_ms"] = budget_ms
         return result
 
     # Degrades are ERROR, not WARNING: the turn still answers, but WITHOUT
@@ -300,28 +322,39 @@ async def recall(
     # timeout silently ate the contract-test turn and was only caught
     # forensically). Context fields make the lost turn identifiable
     # without a dump.
+    # A degraded result carries `degraded` (reason) and `recall_scope` so
+    # the chat route can raise an incident: a silent degrade hid eleven
+    # days of Free-lane 500s (2026-08-24). Never raises past here.
     except httpx.TimeoutException:
         logger.error(
             "cq_recall_degraded reason=timeout — turn proceeds WITHOUT memory block",
             extra={
-                "timeout_ms": settings.cq_recall_timeout_ms,
+                "timeout_ms": budget_ms,
+                "duration_ms": _elapsed_ms(),
                 "project": merged_metadata.get("project"),
                 "memory_signals": merged_metadata.get("memory_signals", "absent"),
                 "recall_scope": merged_metadata.get("recall_scope", "full"),
             },
         )
-        return {"context": "", "matched_entities": [], "patch_count": 0}
+        return {"context": "", "matched_entities": [], "patch_count": 0,
+                "degraded": "timeout", "recall_scope": merged_metadata.get("recall_scope", "full"),
+                "duration_ms": _elapsed_ms(), "timeout_ms": budget_ms}
     except Exception as e:
         logger.error(
             "cq_recall_degraded reason=error — turn proceeds WITHOUT memory block",
             extra={
                 "error": str(e),
+                "timeout_ms": budget_ms,
+                "duration_ms": _elapsed_ms(),
                 "project": merged_metadata.get("project"),
                 "memory_signals": merged_metadata.get("memory_signals", "absent"),
                 "recall_scope": merged_metadata.get("recall_scope", "full"),
             },
         )
-        return {"context": "", "matched_entities": [], "patch_count": 0}
+        return {"context": "", "matched_entities": [], "patch_count": 0,
+                "degraded": "error", "degraded_error": str(e)[:200],
+                "recall_scope": merged_metadata.get("recall_scope", "full"),
+                "duration_ms": _elapsed_ms(), "timeout_ms": budget_ms}
 
 
 # Client-supplied metadata keys forwarded verbatim on capture. One
@@ -340,6 +373,59 @@ CAPTURE_METADATA_ALLOWLIST = frozenset({
     "scenario",
     "scenario_kind",
     "transcript_source",
+    # When the RECORDING started, ISO 8601 with a real UTC offset
+    # ("2026-08-21T23:30:00-07:00"), added 2026-08-22.
+    #
+    # Until now the capture body carried no timestamp of any kind, which is
+    # why no end of this lane has ever known when a meeting happened: CQ
+    # spends the ingest clock resolving relative deadlines and drops it, so
+    # every timestamp they serve is the clock of when the importer ran, and
+    # we were never sending them anything better. SS's MeetingStore is
+    # currently the only place in the system where a real meeting date
+    # exists.
+    #
+    # Named for what it IS, on SS's insistence and they are right. They do
+    # not hold a meeting start: MeetingRecord.date is when the recording
+    # began, after however long someone spent opening the app. They
+    # sometimes hold a calendar event start, but only when the prep matcher
+    # made a confident match, and putting that into this field when it
+    # exists would make one field mean two things depending on whether a
+    # match happened. If the calendar start is ever wanted it is a second,
+    # separately nullable field with its own honest name.
+    #
+    # Note that ReportRequest.meeting_start_iso is fed from the same
+    # MeetingRecord.date and is therefore misnamed. The precise name and
+    # the sloppy one now coexist; this comment is so the next person knows
+    # which is which rather than assuming they are different quantities.
+    #
+    # The OFFSET is load bearing and not a formatting preference. A UTC
+    # normalisation of the same instant names a different DAY for anything
+    # near midnight, which is the only thing a date on a meeting is for.
+    # SS shipped exactly that bug on the report path and it survived
+    # because it can only appear near midnight, never in a fixture written
+    # at a round hour.
+    "recording_started_at",
+    # Who each diarized label actually is, answered at LIVE label time by
+    # the client from its cached roster, because that is the only hop that
+    # can ask "which Christina?" while anyone is still there to answer.
+    # Added 2026-08-23 for CQ #318 (their main 3dcd5d6, contract
+    # docs/architecture/16-people.md 5.17): their ingest reads the map and
+    # rewrites `[label]` to the canonical name BEFORE extraction runs, so
+    # a dropped entry does not degrade a name, it silently reverts a
+    # user's explicit answer to guesswork.
+    #
+    # Shape, forwarded verbatim and never inspected here: a list of
+    # objects, each with `label`, and exactly one of `entity_id` or
+    # (`create_new` + `name`). GP models none of that on purpose. CQ owns
+    # the shape, and a schema here would be a second place to update and a
+    # new way to drop a field they add later.
+    #
+    # Absent and empty are the same state on CQ's side (both fall back to
+    # their existing matching), so the allowlist's None-drop costs nothing.
+    # A populated array going missing is the `to_name` shape again, which
+    # is why the receipt for this is a request-side test rather than a
+    # response-side one.
+    "speaker_identities",
 })
 
 
@@ -575,7 +661,8 @@ def is_rundown_ask(question: str) -> bool:
 
 async def quilt_dossier(user_id: str, project_id: str | None,
                         app_id: str | None = None,
-                        limit: int | None = DOSSIER_LIMIT) -> dict | None:
+                        limit: int | None = DOSSIER_LIMIT,
+                        max_age_days: int | None = None) -> dict | None:
     """GET /v1/quilt/{user_id}?project_id&group_by=origin&limit — the
     complete scoped memory, meeting-grouped, newest first. None on any
     failure (caller falls back to recall).
@@ -605,7 +692,14 @@ async def quilt_dossier(user_id: str, project_id: str | None,
                     "group_by": "origin",
                     # Omitted entirely when None: CQ defaults to no cap,
                     # and sending one is what makes them truncate.
-                    **({"limit": limit} if limit is not None else {})},
+                    **({"limit": limit} if limit is not None else {}),
+                    # Plus recall window (CQ #297, second commit): same
+                    # predicate as /v1/recall, applied before the count so
+                    # total_available is the windowed population. Absent =
+                    # untouched; 0 is a 422 on their side, never a sentinel.
+                    **({"max_age_days": max_age_days}
+                       if isinstance(max_age_days, int) and not isinstance(max_age_days, bool)
+                       and max_age_days >= 1 else {})},
             headers=await _get_auth_headers(app_id),
             timeout=httpx.Timeout(settings.cq_dossier_timeout_ms / 1000.0),
         )
@@ -684,9 +778,27 @@ def format_dossier(data: dict, limit: int | None = DOSSIER_LIMIT) -> str:
         # confusing thing to put in a prompt.
         if not rendered:
             continue
+        # NOT the date of the meeting, and the heading must not imply it
+        # is. CQ never persists a meeting date: one arrives at ingest, is
+        # spent resolving relative deadlines, and is dropped, so every
+        # timestamp CQ serves is an ingest clock (CQ, 2026-08-22). GP
+        # cannot supply one either, because the capture body we POST to
+        # /v1/memory carries no timestamp field at all, only user_id,
+        # interaction_type, content and the metadata allowlist.
+        #
+        # This heading used to read "## Meeting 1 of 5 (2026-08-11)",
+        # which the model reads as the day the meeting happened. Live
+        # capture usually runs minutes after the meeting so it was usually
+        # right by accident, and on any backfill or delayed send every
+        # meeting collapses onto the importer's date and the model
+        # confidently narrates a week that never happened. Saying what the
+        # stamp actually is keeps the recency signal, which is worth
+        # having, without asserting a fact nobody on this hop knows.
+        # SS caught the same shape in CQ's own sparkline design before it
+        # shipped; this is that bug wearing GP's colours.
         stamp = (rendered[0].get("created_at") or "")[:10]
         lines.append(f"## Meeting {i} of {len(meetings)}"
-                     + (f" ({stamp})" if stamp else ""))
+                     + (f" (added to memory on {stamp})" if stamp else ""))
         for p in rendered:
             lines.append(_format_patch(p))
             total += 1

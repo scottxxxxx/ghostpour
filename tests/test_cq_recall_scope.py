@@ -247,3 +247,53 @@ def test_people_toggle_closes_the_free_lane(client_with_cq, free_user, mock_cq):
         ), headers=free_user["headers"])
     assert resp.status_code == 200
     mock_cq["recall"].assert_not_awaited()
+
+
+# --- Free context_quilt = teaser (Scott 2026-08-24) ---------------------------
+
+def _set_free_cq(state):
+    from app.main import app
+    matrix = app.state.remote_configs.setdefault("entitlements", {}).setdefault("matrix", {})
+    cell = matrix.setdefault("context_quilt", {})
+    prev = cell.get("free")
+    cell["free"] = state
+    return prev
+
+
+def test_free_teaser_without_client_flag_still_runs_the_people_lane(client_with_cq, free_user, mock_provider, mock_cq):
+    """The flip must not drop Free recall: a teaser state on a client
+    that sends no flag (every Free build) routes to the People-scoped
+    lane exactly like disabled did, so by_scope keeps arriving."""
+    prev = _set_free_cq("teaser")
+    try:
+        resp = client_with_cq.post("/v1/chat", json=chat_request(
+            user_content="what does Bob owe me?",
+        ), headers=free_user["headers"])
+        assert resp.status_code == 200
+        mock_cq["recall"].assert_awaited_once()
+        assert mock_cq["recall"].await_args.kwargs["metadata"]["recall_scope"] == "people"
+        assert "User prefers concise answers" in mock_provider.call_args.args[0].system_prompt
+    finally:
+        _set_free_cq(prev)
+
+
+def test_free_teaser_with_client_flag_still_runs_the_people_lane(client_with_cq, free_user, mock_provider, mock_cq):
+    """Teaser routes to the People lane whether or not the client sends
+    the flag: the flag is a served-entitlement echo, never a scope switch
+    (option one), and the Free nudge reads by_scope off this lane."""
+    prev = _set_free_cq("teaser")
+    try:
+        resp = client_with_cq.post("/v1/chat", json=chat_request(
+            user_content="what does Bob owe me?", context_quilt=True,
+        ), headers=free_user["headers"])
+        assert resp.status_code == 200
+        mock_cq["recall"].assert_awaited_once()
+        assert mock_cq["recall"].await_args.kwargs["metadata"]["recall_scope"] == "people"
+    finally:
+        _set_free_cq(prev)
+
+
+def test_bundled_matrix_serves_free_context_quilt_as_teaser():
+    import json
+    with open("config/remote/entitlements.json") as f:
+        assert json.load(f)["matrix"]["context_quilt"]["free"] == "teaser"

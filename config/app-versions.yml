@@ -25,6 +25,27 @@
 com.shouldersurf.ShoulderSurf:
   platforms:
     ios:
+      # Report WRITE floor (2026-08-26, Scott via CQ). A build below this
+      # gets 412 report_build_floor on POST /v1/meetings/{id}/report and
+      # nothing else changes for it (reads, chat, config all serve). Set
+      # at the first build that states transcript_language on the report
+      # call, so a regeneration can never follow the device locale
+      # instead of the meeting's language. Absent or 0 = no floor.
+      report_write_min_build: 1193
+      # Project Chat SSE envelope floor (2026-08-29). At or above this
+      # build the chat turn is answered as text/event-stream with heartbeats
+      # and a `generation_result` frame; below it, the old buffered JSON.
+      # 695 = commit c08d89c, the first build whose parser carries BOTH the
+      # `generation_result` case and the JSON branch's `?? result.data`
+      # fallback; SS verified 695 and 803 line by line at their own commits.
+      # Below it the envelope renders an EMPTY answer, so this gate fails
+      # CLOSED on an unreadable build, unlike report_write_min_build above.
+      # Remove once the installed build distribution is known from ASC.
+      chat_sse_min_build: 695
+      # CFBundleName, the token a default URLSession User-Agent leads with
+      # ("Shoulder%20Surf/335 CFNetwork/..."). Builds before 648 sent no
+      # X-App-Build, so this is how their build is read for the floor.
+      user_agent_app_name: "Shoulder Surf"
       latest:
         # Bump on every release. Client shows a dismissible toast when
         # the device's CFBundleShortVersionString is below this.

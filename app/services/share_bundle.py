@@ -1,0 +1,1006 @@
+"""Read a `.shouldersurf` bundle for the hosted share page.
+
+Spec: SS's AudioRoutingPrototype/docs/SHOULDERSURF_BUNDLE_FORMAT.md
+(formatVersion 1, 2026-08-22). A real deflate zip: manifest.json always,
+project.json for project bundles, meetings/<ORIGIN_UUID>.json one per
+meeting, media/ and generated_files/ opt-in. Unknown entries are ignored;
+the format is additive.
+
+Two traps, both verified by SS on a real record from Scott's iPad and
+reproduced here on purpose rather than "fixed":
+
+1. Dates are Doubles of seconds since 2001-01-01 (Swift's
+   .deferredToDate, the Apple reference date), NOT unix epoch and NOT
+   ISO 8601. unix = value + 978307200.
+2. `reportJSONData` is a Swift Data, so it arrives as a base64 STRING
+   whose decoded bytes are the report JSON. Decode, then parse. The
+   meeting record is camelCase, the report inside it is snake_case
+   (it came from GP), and neither is normalised.
+
+The transcript is opt-in and usually absent; a bundle without one is
+normal. `reportHTML`, when present, is a complete standalone HTML
+document and is what SS renders itself, so it is the preferred page.
+"""
+from __future__ import annotations
+
+import logging
+
+logger = logging.getLogger("ghostpour.share_bundle")
+
+import base64
+import io
+import json
+import zipfile
+from datetime import datetime, timedelta, timezone
+
+APPLE_REFERENCE_EPOCH_OFFSET = 978307200  # 2001-01-01T00:00:00Z in unix seconds
+
+
+def apple_date(value) -> datetime | None:
+    """Seconds since 2001-01-01 -> aware UTC datetime. None for anything
+    that is not a number: a bad value is a missing date, never a crash."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    try:
+        return datetime(2001, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=float(value))
+    except (OverflowError, ValueError):
+        return None
+
+
+def decode_report(report_json_data) -> dict | None:
+    """base64 string -> bytes -> JSON dict. None when absent or malformed."""
+    if not isinstance(report_json_data, str) or not report_json_data:
+        return None
+    try:
+        return json.loads(base64.b64decode(report_json_data, validate=False).decode("utf-8"))
+    except Exception:  # noqa: BLE001
+        return None
+
+
+# Bounds on what we will decompress. Raised by CQ 2026-08-22 after SS found
+# the same shape in their own reader and fixed it.
+#
+# This page unzips bytes that arrived from a client. The upload is
+# authenticated, so it is not open to the world, but an authenticated
+# client is not a trusted one, and the blast radius is not the same as
+# SS's: a client-side OOM kills one person's app, a server-side one takes
+# GhostPour down for everyone, including every CQ call that proxies
+# through us. A deflate bomb is a few kilobytes on the wire and unbounded
+# in RAM, so a cheap upload buying a whole-process death is a bad trade.
+#
+# Sized against reality rather than guessed: SS measured real bundles at
+# 275 KB to 36.9 MB, and the big part of that is audio and images, which
+# this reader NEVER opens. All we read is manifest.json, project.json and
+# meetings/*.json, so even a 21-meeting project bundle is small here.
+MAX_ENTRIES = 10_000
+MAX_ENTRY_BYTES = 32 * 1024 * 1024
+MAX_TOTAL_READ_BYTES = 128 * 1024 * 1024
+_CHUNK = 64 * 1024
+
+
+class ShareBundleTooLarge(Exception):
+    """The archive is or claims to be past what we will decompress."""
+
+
+def read_bundle(archive: bytes) -> dict:
+    """Parse the zip into {manifest, project, meetings:[...]}. Each meeting
+    carries the raw record plus `report` (decoded) and `started_at`
+    (aware datetime or None). Never raises on a well-formed zip with odd
+    contents; raises zipfile.BadZipFile on a non-zip and
+    ShareBundleTooLarge on one that would cost more memory than a share
+    page is worth."""
+    out = {"manifest": None, "project": None, "meetings": []}
+    with zipfile.ZipFile(io.BytesIO(archive)) as zf:
+        if len(zf.infolist()) > MAX_ENTRIES:
+            raise ShareBundleTooLarge(f"{len(zf.infolist())} entries")
+        budget = [MAX_TOTAL_READ_BYTES]
+        names = set(zf.namelist())
+        if "manifest.json" in names:
+            out["manifest"] = _json(zf, "manifest.json", budget)
+        if "project.json" in names:
+            out["project"] = _json(zf, "project.json", budget)
+        for name in sorted(names):
+            if name.startswith("meetings/") and name.endswith(".json") and name.count("/") == 1:
+                rec = _json(zf, name, budget)
+                if not isinstance(rec, dict):
+                    continue
+                out["meetings"].append({
+                    "origin_id": name[len("meetings/"):-len(".json")],
+                    "record": rec,
+                    "report": decode_report(rec.get("reportJSONData")),
+                    "started_at": apple_date(rec.get("date")),
+                })
+    return out
+
+
+def _read_bounded(zf: zipfile.ZipFile, name: str, budget: list[int]) -> bytes | None:
+    """Decompress one entry, stopping the moment it goes past its bounds.
+
+    The check runs INSIDE the read loop, not after the entry finishes.
+    SS's point and it is the whole thing: checking a completed entry means
+    the bomb is already in memory by the time you object to it, which is
+    exactly what you were trying to prevent. `ZipExtFile.read(n)`
+    decompresses only about n bytes, so this really is streaming.
+
+    The declared size is checked first because it is free, and NOT trusted,
+    because a crafted central directory can lie about it. It is a fast
+    path, not the bound.
+    """
+    try:
+        if zf.getinfo(name).file_size > MAX_ENTRY_BYTES:
+            return None
+    except KeyError:
+        return None
+    buf = bytearray()
+    cap = min(MAX_ENTRY_BYTES, budget[0])
+    with zf.open(name) as fh:
+        while True:
+            chunk = fh.read(_CHUNK)
+            if not chunk:
+                break
+            buf += chunk
+            if len(buf) > cap:
+                return None
+    budget[0] -= len(buf)
+    return bytes(buf)
+
+
+def _json(zf: zipfile.ZipFile, name: str, budget: list[int]):
+    raw = _read_bounded(zf, name, budget)
+    if raw is None:
+        return None
+    try:
+        return json.loads(raw.decode("utf-8"))
+    except Exception:  # noqa: BLE001
+        return None
+
+
+# --- the page --------------------------------------------------------------
+
+def _esc(s) -> str:
+    return str(s if s is not None else "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;").replace("'", "&#39;")
+
+
+def _md_inline(t: str) -> str:
+    """Inline markdown on ALREADY-ESCAPED text: bold, italic, code, links.
+    Runs after _esc so it can never introduce unescaped HTML."""
+    import re as _re
+    t = _re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", t)
+    t = _re.sub(r"__(.+?)__", r"<strong>\1</strong>", t)
+    t = _re.sub(r"(?<![\*\w])\*(?!\s)(.+?)(?<!\s)\*(?![\*\w])", r"<em>\1</em>", t)
+    t = _re.sub(r"`([^`]+?)`", r"<code>\1</code>", t)
+    # [text](http...) — only http(s), href re-escaped so quotes can't break out
+    def _link(m):
+        url = m.group(2)
+        if not (url.startswith("http://") or url.startswith("https://")):
+            return m.group(0)
+        return f"<a href=\"{_esc(url)}\" target=\"_blank\" rel=\"noopener nofollow\">{m.group(1)}</a>"
+    t = _re.sub(r"\[([^\]]+)\]\(([^)\s]+)\)", _link, t)
+    return t
+
+
+def render_markdown(text: str) -> str:
+    """A small, SAFE markdown -> HTML for the share page's summary (Scott
+    2026-08-24: the model writes headings, bold and bullets and the page
+    was showing the raw characters). HTML is escaped FIRST, so only the
+    formatting we add is live; no library, no arbitrary HTML."""
+    import re as _re
+    if not text or not str(text).strip():
+        return ""
+    out, in_ul = [], False
+    for raw in _esc(text).split("\n"):
+        line = raw.rstrip()
+        h = _re.match(r"^(#{1,6})\s+(.*)$", line)
+        b = _re.match(r"^\s*(?:[-*\u2022]|\d+\.)\s+(.*)$", line)
+        if b:
+            if not in_ul:
+                out.append("<ul>"); in_ul = True
+            out.append(f"<li>{_md_inline(b.group(1))}</li>")
+            continue
+        if in_ul:
+            out.append("</ul>"); in_ul = False
+        if h:
+            lvl = min(len(h.group(1)) + 2, 6)
+            out.append(f"<h{lvl}>{_md_inline(h.group(2))}</h{lvl}>")
+        elif line.strip():
+            out.append(f"<p>{_md_inline(line)}</p>")
+    if in_ul:
+        out.append("</ul>")
+    return "".join(out)
+
+
+def _duration(sec) -> str:
+    try:
+        sec = int(float(sec))
+    except (TypeError, ValueError):
+        return ""
+    h, rem = divmod(sec, 3600); m, s = divmod(rem, 60)
+    return f"{h}h {m}m" if h else f"{m}m {s}s"
+
+
+# Audio (Scott 2026-08-24: playable on the page, synced to the transcript).
+# The bundle carries media/<ORIGIN>/audio/<name>.m4a, opt-in, AAC 16 kHz
+# mono 32 kbps, so ~4 KB/s: a 2 h meeting is ~29 MB. The page reader
+# still never inflates audio; the audio ROUTE extracts one entry to a
+# sidecar file next to the archive on first request (bounded), and the
+# sidecar is served with Range support so scrubbing works. Sidecars are
+# deleted with the share.
+MAX_AUDIO_ENTRY_BYTES = 64 * 1024 * 1024
+
+
+def list_audio_entries(archive_bytes_or_path) -> dict[str, list[str]]:
+    """{origin_id: [entry names in name order]} for every audio entry in the
+    zip. Names only: nothing is inflated here."""
+    import zipfile
+    out: dict[str, list[str]] = {}
+    try:
+        zf = zipfile.ZipFile(archive_bytes_or_path if not isinstance(archive_bytes_or_path, (bytes, bytearray))
+                             else __import__("io").BytesIO(archive_bytes_or_path))
+    except zipfile.BadZipFile:
+        return out
+    with zf:
+        for name in zf.namelist():
+            parts = name.split("/")
+            if len(parts) == 4 and parts[0] == "media" and parts[2] == "audio" and name.lower().endswith(".m4a"):
+                out.setdefault(parts[1], []).append(name)
+    for k in out:
+        out[k].sort()
+    return out
+
+
+def flat_audio_entries(audio_by_origin: dict[str, list[str]]) -> list[tuple[str, str]]:
+    """The ONE ordering both the route and the page use for `n`: origins
+    sorted, then names sorted within each. SS's model (2026-08-24): a
+    meeting carries at most one audio file, so a bundle with several is
+    a multi-meeting bundle and each file belongs to its own origin's
+    segments; never stitch across files."""
+    return [(origin, name) for origin in sorted(audio_by_origin) for name in audio_by_origin[origin]]
+
+
+def list_image_entries(archive_path) -> dict[str, list[str]]:
+    """{origin_id: [entry names in name order]} for media/<origin>/images/*."""
+    import zipfile
+    out: dict[str, list[str]] = {}
+    try:
+        zf = zipfile.ZipFile(archive_path)
+    except zipfile.BadZipFile:
+        return out
+    with zf:
+        for name in zf.namelist():
+            parts = name.split("/")
+            if len(parts) == 4 and parts[0] == "media" and parts[2] == "images" and parts[3]:
+                out.setdefault(parts[1], []).append(name)
+    for k in out:
+        out[k].sort()
+    return out
+
+
+def flat_image_entries(images_by_origin: dict[str, list[str]]) -> list[tuple[str, str]]:
+    """The ONE ordering both the route and the page use for image n."""
+    return [(o, n) for o in sorted(images_by_origin) for n in images_by_origin[o]]
+
+
+def list_image_counts(archive_path) -> dict[str, int]:
+    """{origin_id: count} of media/<origin>/images/* entries. Names only."""
+    import zipfile
+    out: dict[str, int] = {}
+    try:
+        zf = zipfile.ZipFile(archive_path)
+    except zipfile.BadZipFile:
+        return out
+    with zf:
+        for name in zf.namelist():
+            parts = name.split("/")
+            if len(parts) == 4 and parts[0] == "media" and parts[2] == "images" and parts[3]:
+                out[parts[1]] = out.get(parts[1], 0) + 1
+    return out
+
+
+def extract_audio_sidecar(archive_path: str, entry_name: str, sidecar_path: str) -> bool:
+    """Inflate ONE audio entry to `sidecar_path`, streaming, with the same
+    in-loop bound discipline as `_json` (a claimed size is not a size).
+    Returns False (and leaves no partial file) when the entry is missing,
+    oversized, or unreadable."""
+    import os, zipfile
+    from pathlib import Path
+    tmp = sidecar_path + ".part"
+    try:
+        with zipfile.ZipFile(archive_path) as zf:
+            try:
+                info = zf.getinfo(entry_name)
+            except KeyError:
+                return False
+            if info.file_size > MAX_AUDIO_ENTRY_BYTES:
+                return False
+            written = 0
+            with zf.open(info) as src, open(tmp, "wb") as dst:
+                while True:
+                    chunk = src.read(_CHUNK)
+                    if not chunk:
+                        break
+                    written += len(chunk)
+                    if written > MAX_AUDIO_ENTRY_BYTES:
+                        raise ShareBundleTooLarge(entry_name)
+                    dst.write(chunk)
+        os.replace(tmp, sidecar_path)
+        return True
+    except (zipfile.BadZipFile, ShareBundleTooLarge, OSError):
+        Path(tmp).unlink(missing_ok=True)
+        return False
+
+
+# Language labels for the picker. The picker offers ONLY Original plus the
+# languages the sender already translated in the app (Scott 2026-08-24):
+# no translating from the web view, no picker when nothing was translated.
+LANG_LABELS = {"en": "English", "es": "Español", "fr": "Français", "ja": "日本語",
+               "de": "Deutsch", "pt": "Português", "it": "Italiano", "zh": "中文", "ko": "한국어"}
+
+# "What this is" on the card (Scott 2026-08-24), composed from the bundle
+# BYTES, never from a header: report, transcript, audio, photos.
+CONTENTS_WORDS = {
+    "en": {"report": "Report", "transcript": "Transcript", "audio": "Audio", "photos": "{n} photos", "photo": "1 photo"},
+    "es": {"report": "Informe", "transcript": "Transcripción", "audio": "Audio", "photos": "{n} fotos", "photo": "1 foto"},
+    "fr": {"report": "Rapport", "transcript": "Transcription", "audio": "Audio", "photos": "{n} photos", "photo": "1 photo"},
+    "ja": {"report": "レポート", "transcript": "文字起こし", "audio": "音声", "photos": "写真{n}枚", "photo": "写真1枚"},
+}
+
+
+DOWNLOAD_STRINGS = {
+    "en": {"badge_locale": "en-us", "badge_alt": "Download on the App Store",
+           "qr_alt": "QR code to download Shoulder Surf",
+           "desktop": "On a desktop? Point your iPhone camera here to download."},
+    "es": {"badge_locale": "es-es", "badge_alt": "Descárgalo en el App Store",
+           "qr_alt": "Código QR para descargar Shoulder Surf",
+           "desktop": "¿Estás en un ordenador? Apunta la cámara de tu iPhone aquí para descargarla."},
+    "fr": {"badge_locale": "fr-fr", "badge_alt": "Télécharger dans l'App Store",
+           "qr_alt": "QR code pour télécharger Shoulder Surf",
+           "desktop": "Sur un ordinateur ? Pointez l'appareil photo de votre iPhone ici pour télécharger."},
+    "ja": {"badge_locale": "ja-jp", "badge_alt": "App Storeでダウンロード",
+           "qr_alt": "Shoulder SurfをダウンロードするQRコード",
+           "desktop": "パソコンでご覧ですか？iPhoneのカメラをここにかざしてダウンロードできます。"},
+}
+
+
+def _lang_label(tag: str) -> str:
+    return LANG_LABELS.get(tag.split("-")[0].lower(), tag)
+
+
+def _primary(tag) -> str:
+    return (tag or "en").split("-")[0].lower() if isinstance(tag, str) and tag.strip() else "en"
+
+
+MONTHS = {
+    "es": ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
+           "septiembre", "octubre", "noviembre", "diciembre"],
+    "fr": ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août",
+           "septembre", "octobre", "novembre", "décembre"],
+}
+
+
+def _when_str(when, lang) -> str:
+    """The meeting date line in the language the page is showing. The
+    English shape is unchanged; es/fr/ja follow their own conventions."""
+    if not when:
+        return ""
+    l = _primary(lang)
+    if l == "es":
+        return f"{when.day} de {MONTHS['es'][when.month - 1]} de {when.year}, {when:%H:%M} UTC"
+    if l == "fr":
+        return f"{when.day} {MONTHS['fr'][when.month - 1]} {when.year}, {when:%H:%M} UTC"
+    if l == "ja":
+        return f"{when.year}年{when.month}月{when.day}日 {when:%H:%M} UTC"
+    return when.strftime("%B %-d, %Y, %-I:%M %p UTC")
+
+
+# Localizable chrome on the share page. The whole meeting toggles as ONE
+# surface (Scott 2026-08-24: reading half in English and half in Spanish
+# is wrong), so every label that is not content gets a translation and
+# swaps with the top language control.
+CHROME = {
+    "en": {"show_in": "Show meeting in", "original": "Original",
+           "open_app": "Open in Shoulder Surf", "read_here": "or read it here",
+           "show_transcript": "Show transcript",
+           "with": "With", "sentiment": "Sentiment", "actions": "Action items",
+           "decisions": "Decisions", "open_questions": "Open questions",
+           "recording": "Recording", "photos": "Photos",
+           "no_report": "This meeting was shared without a report.",
+           "foot": "Shared from Shoulder Surf. This link stops working on {d}."},
+    "es": {"show_in": "Ver la reunión en", "original": "Original",
+           "open_app": "Abrir en Shoulder Surf", "read_here": "o léela aquí",
+           "show_transcript": "Mostrar transcripción",
+           "with": "Con", "sentiment": "Sentimiento", "actions": "Tareas",
+           "decisions": "Decisiones", "open_questions": "Preguntas abiertas",
+           "recording": "Grabación", "photos": "Fotos",
+           "no_report": "Esta reunión se compartió sin informe.",
+           "foot": "Compartido desde Shoulder Surf. Este enlace deja de funcionar el {d}."},
+    "fr": {"show_in": "Voir la réunion en", "original": "Original",
+           "open_app": "Ouvrir dans Shoulder Surf", "read_here": "ou lisez-la ici",
+           "show_transcript": "Afficher la transcription",
+           "with": "Avec", "sentiment": "Sentiment", "actions": "Actions à mener",
+           "decisions": "Décisions", "open_questions": "Questions ouvertes",
+           "recording": "Enregistrement", "photos": "Photos",
+           "no_report": "Cette réunion a été partagée sans rapport.",
+           "foot": "Partagé depuis Shoulder Surf. Ce lien cesse de fonctionner le {d}."},
+    "ja": {"show_in": "会議の表示言語", "original": "原文",
+           "open_app": "Shoulder Surfで開く", "read_here": "またはここで読む",
+           "show_transcript": "文字起こしを表示",
+           "with": "参加者", "sentiment": "感情", "actions": "アクション項目",
+           "decisions": "決定事項", "open_questions": "未解決の質問",
+           "recording": "録音", "photos": "写真",
+           "no_report": "この会議はレポートなしで共有されました。",
+           "foot": "Shoulder Surfから共有されました。このリンクは{d}に無効になります。"},
+}
+
+
+def _clang(lang) -> str:
+    """Primary subtag with a CHROME table, else en."""
+    l = _primary(lang)
+    return l if l in CHROME else "en"
+
+
+def _i18n_attrs(key: str, orig=None) -> str:
+    """data-i18n-orig carries the label in the ORIGINAL language of the
+    meeting (what "Original" shows), plus one data-i18n-<lang> per locale
+    we have, so the global control swaps this label with the content.
+    Before 2026-08-25 orig was hardwired to English, which is why a
+    Spanish meeting switched back to Original got English chrome."""
+    a = f"data-i18n-orig='{_esc(CHROME[_clang(orig)][key])}'"
+    for code in CHROME:
+        a += f" data-i18n-{code}='{_esc(CHROME[code][key])}'"
+    return a
+
+
+def _i18n_values(values: dict, orig=None) -> str:
+    """Same attribute scheme for a composed string (the date line, the
+    footer): values keyed by primary subtag."""
+    o = _primary(orig)
+    base = values[o] if o in values else values.get(_clang(orig), values.get("en", ""))
+    a = f"data-i18n-orig='{_esc(base)}'"
+    for code, v in values.items():
+        a += f" data-i18n-{code}='{_esc(v)}'"
+    return a
+
+
+def _chrome_for(key: str, lang: str | None) -> str:
+    """The label text in the language the page SHOWS on load (the shared
+    language when a rendition matches it, else the original), so the
+    page is coherent before any toggle."""
+    return CHROME[_clang(lang)][key]
+
+
+def original_language(meetings: list) -> str:
+    """The page's Original language: the meetings' transcriptLanguage
+    (SS stamps it, BCP-47) when they agree; en when absent or mixed."""
+    langs = {_primary(((m.get("record") or {}).get("transcriptLanguage")))
+             for m in meetings if isinstance((m.get("record") or {}).get("transcriptLanguage"), str)
+             and (m.get("record") or {})["transcriptLanguage"].strip()}
+    return langs.pop() if len(langs) == 1 else "en"
+
+
+def opens_on(langs: list[str], share_language: str | None) -> str | None:
+    """The rendition the page opens on: the shared language when the
+    bundle carries that rendition, else None (Original)."""
+    sl = _primary(share_language) if share_language else ""
+    return next((l for l in langs if _primary(l) == sl), None) if sl else None
+
+
+def language_bar(langs: list[str], default: str | None, orig: str | None = None) -> str:
+    """The ONE meeting-language control, at the very top. Offers Original
+    (with the original language's autonym, so the reader knows what they
+    are switching into: "Original (Español)", Scott 2026-08-25) plus the
+    languages the sender translated in the app; opens on the shared
+    language. Absent when nothing was translated."""
+    if not langs:
+        return ""
+    match = opens_on(langs, default)
+    ui = match or orig
+    autonym = LANG_LABELS.get(_primary(orig)) if orig else None
+    orig_label = _chrome_for("original", orig)
+    if autonym:
+        orig_label = f"{orig_label} ({autonym})"
+    opts = f"<option value=''{'' if match else ' selected'}>{_esc(orig_label)}</option>"
+    for l in langs:
+        sel = " selected" if l == match else ""
+        opts += f"<option value='{_esc(l)}'{sel}>{_esc(_lang_label(l))}</option>"
+    label = _chrome_for("show_in", ui)
+    return ("<div class='langbar'><span class='langlabel' " + _i18n_attrs("show_in", orig) + f">{_esc(label)}</span> "
+            "<select class='lang'>" + opts + "</select></div>")
+
+
+def page_languages(meetings: list, transcript_included: bool) -> list[str]:
+    """The rendition languages the page will offer: every rendition whose
+    transcript can be shown (aligned to segments or as plain text), in
+    meeting order, deduplicated. Mirrors the per-meeting rule in
+    render_share_page so chrome can be resolved before any section."""
+    out: list[str] = []
+    for m in meetings:
+        rec = m.get("record") or {}
+        transcript = rec.get("transcript") if isinstance(rec.get("transcript"), str) else ""
+        segments = rec.get("transcriptSegments") if isinstance(rec.get("transcriptSegments"), list) else []
+        if not (transcript_included and (segments or transcript.strip())):
+            continue
+        for r in renditions_of(rec):
+            shown = align_rendition(r, segments, transcript) is not None or (
+                isinstance(r.get("transcript"), str) and r["transcript"].strip())
+            if shown and r["lang"] not in out:
+                out.append(r["lang"])
+    return out
+
+
+def renditions_of(rec: dict) -> list[dict]:
+    """The sender's stored translations, as emitted by SS (f318ab0):
+    transcriptRenditions[{lang, engine_version?, created_at?, transcript,
+    summary?, report_html?}], full text. Malformed entries are dropped."""
+    out = []
+    for r in (rec.get("transcriptRenditions") or []):
+        if isinstance(r, dict) and isinstance(r.get("lang"), str) and r["lang"].strip():
+            out.append(r)
+    return out
+
+
+def _rendition_lines(text: str) -> list[str]:
+    return [ln.strip() for ln in (text or "").splitlines() if ln.strip()]
+
+
+def _norm(t: str) -> str:
+    return " ".join((t or "").split()).lower()
+
+
+def _strip_label(line: str) -> str:
+    """'[Maureen Bowyer] text' or 'Maureen Bowyer: text' -> 'text'."""
+    line = line.strip()
+    if line.startswith("[") and "]" in line:
+        return line[line.index("]") + 1:].strip()
+    return line
+
+
+def group_segments_by_transcript_lines(transcript: str, segments: list) -> list[list[int]] | None:
+    """SS's `transcript` text has one line per SPOKEN TURN, and a turn can
+    span several transcriptSegments. Map each text line to the run of
+    consecutive segment indexes whose texts concatenate into it (measured
+    on Scott's 2026-08-24 share: 41 lines over 44 segments). Returns one
+    index list per text line, or None when the texts do not line up."""
+    kept = [(i, seg) for i, seg in enumerate(segments)
+            if isinstance(seg, dict) and isinstance(seg.get("text"), str) and seg["text"].strip()]
+    lines = [_strip_label(l) for l in (transcript or "").splitlines() if l.strip()]
+    if not lines or not kept:
+        return None
+    groups, pos = [], 0
+    for line in lines:
+        target = _norm(line)
+        acc, idxs = "", []
+        while pos < len(kept):
+            i, seg = kept[pos]
+            cand = _norm((acc + " " + seg["text"]).strip())
+            if not target.startswith(cand):
+                break
+            acc, pos = (acc + " " + seg["text"]).strip(), pos + 1
+            idxs.append(i)
+            if cand == target:
+                break
+        if not idxs or _norm(acc) != target:
+            return None
+        groups.append(idxs)
+    return groups if pos == len(kept) else None
+
+
+def align_rendition(rendition: dict, segments: list, transcript: str = "") -> list[tuple[list[int], str]] | None:
+    """Rendition line i <-> the segment group of transcript line i (or
+    segment i when the rendition has one line per segment). Returns
+    [(segment indexes, translated line)] or None: a mismatch is shown as
+    plain text IN PLACE, never guessed onto the wrong lines."""
+    lines = _rendition_lines(rendition.get("transcript") if isinstance(rendition.get("transcript"), str) else "")
+    kept = [i for i, seg in enumerate(segments)
+            if isinstance(seg, dict) and isinstance(seg.get("text"), str) and seg["text"].strip()]
+    if not lines:
+        return None
+    if len(lines) == len(kept):
+        return [([i], _strip_label(l)) for i, l in zip(kept, lines)]
+    groups = group_segments_by_transcript_lines(transcript, segments)
+    if groups is not None and len(groups) == len(lines):
+        return [(g, _strip_label(l)) for g, l in zip(groups, lines)]
+    logger.warning("share_rendition_misaligned", extra={
+        "lang": rendition.get("lang"), "lines": len(lines), "segments": len(kept),
+        "transcript_lines": len([l for l in (transcript or "").splitlines() if l.strip()])})
+    return None
+
+
+def _times(seg: dict) -> tuple[float, float]:
+    try:
+        s0 = float(seg.get("sessionTimeOffset") or 0.0)
+        e0 = float(seg.get("endTimeOffset") or s0)
+    except (TypeError, ValueError):
+        s0, e0 = 0.0, 0.0
+    return s0, e0
+
+
+def _segments_html(segments: list, aligned: dict[str, list[tuple[list[int], str]]]) -> str:
+    """The ORIGINAL view: one <p class='seg'> per segment with timing.
+    Then, per aligned rendition, a TRANSLATED view of the same window:
+    one <p class='seg'> per translated line spanning its segment group's
+    timing, hidden until picked. Both live inside the same window, so a
+    picked language replaces the original in place and the follow-along
+    highlights whichever view is showing."""
+    rows = []
+    for seg in segments:
+        if not isinstance(seg, dict) or not isinstance(seg.get("text"), str) or not seg["text"].strip():
+            continue
+        s0, e0 = _times(seg)
+        who = seg.get("speakerLabel")
+        rows.append(
+            f"<p class='seg' data-s='{s0:.2f}' data-e='{e0:.2f}'>"
+            + (f"<b>{_esc(who)}</b> " if isinstance(who, str) and who.strip() else "")
+            + _esc(seg["text"]) + "</p>")
+    views = [f"<div class='view' data-group='tx' data-lang=''>{''.join(rows)}</div>"]
+    for lang, pairs in aligned.items():
+        trows = []
+        for idxs, text in pairs:
+            first, last = segments[idxs[0]], segments[idxs[-1]]
+            s0, _ = _times(first); _, e0 = _times(last)
+            who = first.get("speakerLabel")
+            trows.append(
+                f"<p class='seg' data-s='{s0:.2f}' data-e='{e0:.2f}'>"
+                + (f"<b>{_esc(who)}</b> " if isinstance(who, str) and who.strip() else "")
+                + _esc(text) + "</p>")
+        views.append(f"<div class='view' data-group='tx' data-lang='{_esc(lang)}' style='display:none'>{''.join(trows)}</div>")
+    return "".join(views)
+
+
+def _picker_html(langs: list[str], default: str | None) -> str:
+    if not langs:
+        return ""
+    opts = "".join(
+        f"<option value='{_esc(l)}'{' selected' if default and l.split('-')[0].lower() == default.split('-')[0].lower() else ''}>{_esc(_lang_label(l))}</option>"
+        for l in langs)
+    return ("<p class='k'>Show transcript in <select class='lang'>"
+            "<option value=''>Original</option>" + opts + "</select></p>")
+
+
+def contents_descriptor(rec: dict, audio_count: int, image_count: int, lang: str | None) -> str:
+    words = CONTENTS_WORDS.get((lang or "en").split("-")[0].lower(), CONTENTS_WORDS["en"])
+    parts = []
+    if rec.get("reportHTML") or rec.get("reportJSONData"):
+        parts.append(words["report"])
+    if isinstance(rec.get("transcript"), str) and rec["transcript"].strip():
+        parts.append(words["transcript"])
+    if audio_count:
+        parts.append(words["audio"])
+    if image_count == 1:
+        parts.append(words["photo"])
+    elif image_count > 1:
+        parts.append(words["photos"].format(n=image_count))
+    return " · ".join(parts)
+
+
+_LIGHTBOX_HTML = (
+    "<div class='lb' aria-hidden='true'><button class='close' aria-label='Close'>&times;</button>"
+    "<button class='prev' aria-label='Previous'>&#8249;</button>"
+    "<img alt=''><button class='next' aria-label='Next'>&#8250;</button>"
+    "<div class='count'></div></div>"
+)
+
+# Photo viewer overlay: opens on top of the page (never replacing it),
+# cycles with the arrows or the keyboard, closes on X / Escape / backdrop
+# (Scott 2026-08-24).
+_LIGHTBOX_JS = (
+    "<script>(function(){var lb=document.querySelector('.lb');if(!lb)return;"
+    "var thumbs=Array.prototype.slice.call(document.querySelectorAll('.thumb'));if(!thumbs.length)return;"
+    "var img=lb.querySelector('img'),cnt=lb.querySelector('.count'),i=0;"
+    "function show(n){i=(n+thumbs.length)%thumbs.length;img.src=thumbs[i].dataset.full;cnt.textContent=(i+1)+' / '+thumbs.length;}"
+    "function open(n){show(n);lb.classList.add('on');lb.setAttribute('aria-hidden','false');}"
+    "function close(){lb.classList.remove('on');lb.setAttribute('aria-hidden','true');img.src='';}"
+    "thumbs.forEach(function(t,n){t.addEventListener('click',function(){open(n);});});"
+    "lb.querySelector('.close').addEventListener('click',close);"
+    "lb.querySelector('.prev').addEventListener('click',function(e){e.stopPropagation();show(i-1);});"
+    "lb.querySelector('.next').addEventListener('click',function(e){e.stopPropagation();show(i+1);});"
+    "lb.addEventListener('click',function(e){if(e.target===lb)close();});"
+    "document.addEventListener('keydown',function(e){if(!lb.classList.contains('on'))return;"
+    "if(e.key==='Escape')close();else if(e.key==='ArrowLeft')show(i-1);else if(e.key==='ArrowRight')show(i+1);});"
+    "})();</script>"
+)
+
+
+# One global language control (top of page) drives every section: it
+# toggles each meeting's transcript view and summary together and swaps
+# all localizable chrome, so the page is never half one language and half
+# another. Audio highlight/auto-scroll re-reads the visible view's
+# segments on each switch.
+_PLAYER_JS = (
+    "<script>(function(){"
+    # The whole meeting is ONE language surface (Scott 2026-08-24): the top
+    # control drives every section's transcript view AND summary, and swaps
+    # every localizable chrome label, so nothing is half-and-half.
+    "var sel=document.querySelector('select.lang');"
+    "var apply=[];"
+    "Array.prototype.slice.call(document.querySelectorAll('section')).forEach(function(sec){"
+    "var a=sec.querySelector('audio.sa');var box=sec.querySelector('.segs');var sum=sec.querySelector('.summary');"
+    "var cur=null;var S=[];"
+    "function setLang(lang){var groups={};Array.prototype.slice.call(sec.querySelectorAll('.view')).forEach(function(v){var g=v.getAttribute('data-group')||'x';(groups[g]=groups[g]||[]).push(v);});"
+    "var tx=null;Object.keys(groups).forEach(function(g){var vs=groups[g],shown=null;"
+    "vs.forEach(function(v){var on=(v.getAttribute('data-lang')||'')===(lang||'');v.style.display=on?'':'none';if(on)shown=v;});"
+    "if(!shown){vs.forEach(function(v){if((v.getAttribute('data-lang')||'')===''){v.style.display='';shown=v;}});if(!shown&&vs.length){vs[0].style.display='';shown=vs[0];}}"
+    "if(g==='tx')tx=shown;});"
+    "S=tx?Array.prototype.slice.call(tx.querySelectorAll('p.seg')):[];if(cur){cur.classList.remove('on');cur=null;}"
+    "if(sum){var sv=lang?sum.getAttribute('data-sum-'+lang):null;sum.innerHTML=sv||sum.getAttribute('data-sum-orig');}}"
+    "apply.push(setLang);"
+    "if(a){a.addEventListener('timeupdate',function(){var t=a.currentTime,hit=null;"
+    "for(var i=0;i<S.length;i++){var s=+S[i].dataset.s,e=+S[i].dataset.e;if(t>=s&&(t<e||(e<=s&&(i+1>=S.length||t<+S[i+1].dataset.s)))){hit=S[i];break;}}"
+    "if(hit!==cur){if(cur)cur.classList.remove('on');cur=hit;if(cur){cur.classList.add('on');var d=cur.closest('details');if(d&&!d.open)d.open=true;"
+    "if(box){box.scrollTop=Math.max(0,cur.offsetTop-box.offsetTop-box.clientHeight/2+cur.clientHeight/2);}}}});"
+    "sec.addEventListener('click',function(ev){var p=ev.target.closest('p.seg');if(p&&sec.contains(p)){a.currentTime=+p.dataset.s;a.play();}});}});"
+    "function chrome(lang){var p=lang?lang.split('-')[0].toLowerCase():'';"
+    "document.documentElement.lang=lang||document.documentElement.getAttribute('data-orig-lang')||'en';"
+    "Array.prototype.slice.call(document.querySelectorAll('[data-i18n-orig]')).forEach(function(el){"
+    "var v=lang?(el.getAttribute('data-i18n-'+lang)||el.getAttribute('data-i18n-'+p)):null;el.textContent=(v!=null?v:el.getAttribute('data-i18n-orig'));});}"
+    "function applyLang(lang){apply.forEach(function(f){f(lang);});chrome(lang);}"
+    "applyLang(sel?sel.value:'');"
+    "if(sel){sel.addEventListener('change',function(){applyLang(sel.value);});}"
+    "})();</script>"
+)
+
+def render_share_page(bundle: dict, *, card_title: str, card_desc: str, transcript_included: bool,
+                      expires_at: str, og_image_url: str | None = None,
+                      app_store_id: str | None = None, share_url: str | None = None,
+                      icon_url: str | None = None, audio_by_origin: dict[str, list[str]] | None = None,
+                      share_language: str | None = None, images_by_origin: dict[str, int] | None = None,
+                      qr_url: str | None = None, images_by_origin_names: dict[str, list[str]] | None = None,
+                      desc_lead: str | None = None) -> str:
+    """The hosted page for a recipient without the app (Variant A: the
+    whole meeting). Card tags for iMessage and every other messenger;
+    noindex; `reportHTML` when the record carries it, in a sandboxed
+    frame (no scripts run); otherwise a page built from the decoded
+    report; the transcript, when present and included, behind a
+    tap-to-reveal. Never raises on odd content: every field is optional."""
+    meetings = bundle.get("meetings") or []
+    manifest = bundle.get("manifest") if isinstance(bundle.get("manifest"), dict) else {}
+    # SS writes the shared language as camelCase `shareLanguage`
+    # (SHOULDERSURF_BUNDLE_FORMAT); accept the snake form too. Reading the
+    # wrong key made every Spanish share open in English (Scott 2026-08-24).
+    if share_language is None:
+        _sl = manifest.get("shareLanguage") or manifest.get("share_language")
+        if isinstance(_sl, str) and _sl.strip():
+            share_language = _sl
+    parts = []
+    contents_line = ""
+    # Resolve the page's languages ONCE, before any section: the
+    # renditions offered, the Original language (transcriptLanguage), and
+    # the language the page shows on load (`ui`: the shared language when
+    # its rendition is in the bundle, else Original). Every non-content
+    # label renders in `ui` and carries the swap attributes keyed off the
+    # Original language, so no toggle can leave the chrome in a third
+    # language (Scott 2026-08-25: French title, English report, Spanish
+    # transcript, English chrome, French date labels on one page).
+    page_langs = page_languages(meetings, transcript_included)
+    orig_lang = original_language(meetings)
+    on = opens_on(page_langs, share_language)
+    ui = on or orig_lang
+    sl = _primary(share_language) if share_language else None
+    chrome_langs = list(dict.fromkeys([orig_lang] + [_primary(l) for l in page_langs] + ([sl] if sl else [])))
+
+    def _k(key: str) -> str:
+        return f"<p class='k' {_i18n_attrs(key, orig_lang)}>{_esc(_chrome_for(key, ui))}</p>"
+
+    for m in meetings:
+        rec = m.get("record") or {}; rep = m.get("report") or {}
+        # card_title is X-Share-Title = the client's displayTitle: the most
+        # current, authoritatively-derived, and (on a translated share)
+        # localized title. For a SINGLE-meeting share it IS this meeting's
+        # display title, so prefer it over the bundle's raw rec.title (the
+        # untranslated stored title, or a bare date on a report-less meeting
+        # from before SS's derivation fix). For a MULTI-meeting bundle
+        # card_title is one share-level title, so each section keeps its own
+        # meeting title. (Scott 2026-08-24.)
+        _mtitle = rec.get("title") or (rep.get("header") or {}).get("title")
+        title = (card_title or _mtitle) if len(meetings) == 1 else (_mtitle or card_title)
+        # The h1 is part of the language surface too (Scott 2026-08-25: it
+        # stayed French after switching back to Original). card_title is
+        # the share-level title in the SHARED language; rec.title is the
+        # original. On a single-meeting share that opens on a rendition,
+        # Original shows rec.title and the shared language shows
+        # card_title; a rendition without a title of its own falls back to
+        # the original one (the JS falls through to data-i18n-orig).
+        h1_attrs = ""
+        if len(meetings) == 1 and on and sl and card_title and _mtitle and _mtitle != card_title:
+            h1_attrs = " " + _i18n_values({orig_lang: _mtitle, sl: card_title}, orig_lang)
+        when = m.get("started_at")
+        dur = _duration(rec.get("durationSeconds"))
+        n_audio = len((audio_by_origin or {}).get(m.get("origin_id") or "", []))
+        n_img = int((images_by_origin or {}).get(m.get("origin_id") or "", 0))
+        contents = contents_descriptor(rec, n_audio, n_img, share_language)
+        if contents and not contents_line:
+            contents_line = contents
+        # The date line (date, duration, what the share holds) swaps with
+        # the control like every other label.
+        metas = {l: " · ".join(x for x in (_when_str(when, l), dur, contents_descriptor(rec, n_audio, n_img, l)) if x)
+                 for l in chrome_langs}
+        meta = metas.get(_primary(ui), metas.get(orig_lang, ""))
+        meta_attrs = _i18n_values(metas, orig_lang)
+        body = []
+        html_doc = rec.get("reportHTML") if isinstance(rec.get("reportHTML"), str) else ""
+        if html_doc.strip():
+            # The report is part of the ONE language surface (Scott
+            # 2026-08-24: the summary switched but the report stayed
+            # English). SS ships the translated report as
+            # rendition.report_html; render the original plus each
+            # translation as data-group='report' views the top control
+            # toggles alongside the summary and transcript.
+            def _report_frame(doc: str) -> str:
+                return (f"<iframe sandbox=\"\" srcdoc=\"{_esc(doc)}\" "
+                        "style=\"width:100%;min-height:70vh;border:0;border-radius:12px;background:#fff\" "
+                        "title=\"Meeting report\"></iframe>")
+            rviews = [f"<div class='view' data-group='report' data-lang=''>{_report_frame(html_doc)}</div>"]
+            for _r in renditions_of(rec):
+                if isinstance(_r.get("report_html"), str) and _r["report_html"].strip():
+                    rviews.append(
+                        f"<div class='view' data-group='report' data-lang='{_esc(_r['lang'])}' "
+                        f"style='display:none'>{_report_frame(_r['report_html'])}</div>")
+            body.append("".join(rviews))
+        else:
+            header = rep.get("header") or {}
+            summary = header.get("summary") or rec.get("rollingSummary") or ""
+            if summary:
+                rendered = render_markdown(summary)
+                # Each stored value is server-rendered safe HTML; the picker
+                # swaps it in with innerHTML. _esc into the attribute so the
+                # markup survives as an attribute value and decodes back.
+                sum_attrs = "".join(
+                    f" data-sum-{_esc(r['lang'])}='{_esc(render_markdown(r['summary']))}'"
+                    for r in renditions_of(rec)
+                    if isinstance(r.get("summary"), str) and r["summary"].strip())
+                body.append(f"<div class='summary' data-sum-orig='{_esc(rendered)}'{sum_attrs}>{rendered}</div>")
+            attendees = header.get("attendees") or []
+            if attendees:
+                body.append(_k("with") + "<p>" + ", ".join(_esc(a) for a in attendees) + "</p>")
+            sent = rep.get("sentiment") or {}
+            if sent.get("label") or rec.get("sentimentLabel"):
+                body.append(_k("sentiment") + f"<p>{_esc(sent.get('label') or rec.get('sentimentLabel'))}</p>")
+            actions = [a for a in (rep.get("actions") or []) if isinstance(a, dict)]
+            if actions:
+                body.append(_k("actions") + "<ul>" + "".join(
+                    f"<li><b>{_esc(a.get('task'))}</b>" + (f" <span class='dim'>{_esc(a.get('owner'))}</span>" if a.get("owner") else "")
+                    + (f" <span class='dim'>· {_esc(a.get('deadline'))}</span>" if a.get("deadline") else "") + "</li>"
+                    for a in actions) + "</ul>")
+            decisions = [d for d in (rep.get("decisions") or []) if isinstance(d, dict)]
+            if decisions:
+                body.append(_k("decisions") + "<ul>" + "".join(f"<li>{_esc(d.get('title') or d.get('text') or d)}</li>" for d in decisions) + "</ul>")
+            oq = [q for q in (rep.get("open_questions") or []) if isinstance(q, dict)]
+            if oq:
+                body.append(_k("open_questions") + "<ul>" + "".join(f"<li>{_esc(q.get('question') or q.get('text') or q)}</li>" for q in oq) + "</ul>")
+            if not body:
+                body.append(f"<p class='dim' {_i18n_attrs('no_report', orig_lang)}>{_esc(_chrome_for('no_report', ui))}</p>")
+        # Audio players: one per audio entry, in name order, served by
+        # /s/{token}/audio/{n} where n indexes this meeting's entries.
+        origin = m.get("origin_id") or ""
+        audio_names = (audio_by_origin or {}).get(origin, [])
+        if audio_names and share_url:
+            flat = flat_audio_entries(audio_by_origin or {})
+            for name in audio_names:
+                n = flat.index((origin, name))
+                body.append(
+                    _k("recording") +
+                    f"<audio class='sa' controls preload='metadata' src='{_esc(share_url)}/audio/{n}'></audio>")
+        transcript = rec.get("transcript") if isinstance(rec.get("transcript"), str) else ""
+        segments = rec.get("transcriptSegments") if isinstance(rec.get("transcriptSegments"), list) else []
+        rends = renditions_of(rec)
+        aligned = {}
+        plain = []
+        for r in rends:
+            pairs = align_rendition(r, segments, transcript)
+            if pairs is not None:
+                aligned[r["lang"]] = pairs
+            elif isinstance(r.get("transcript"), str) and r["transcript"].strip():
+                plain.append(r)
+        seg_html = _segments_html(segments, aligned) if (transcript_included and segments) else ""
+        if seg_html or (transcript_included and transcript.strip()):
+            # A rendition that could not be aligned still replaces the
+            # original IN PLACE (same window), just without timing.
+            plain_views = "".join(
+                f"<div class='view' data-group='tx' data-lang='{_esc(r['lang'])}' style='display:none'><pre class='rend'>{_esc(r['transcript'])}</pre></div>"
+                for r in plain)
+            orig_view = seg_html if seg_html else f"<div class='view' data-group='tx' data-lang=''><pre class='orig-plain'>{_esc(transcript)}</pre></div>"
+            body.append("<details class='tx'" + (" open" if audio_names else "") +
+                        f" data-origin='{_esc(origin)}'><summary " + _i18n_attrs("show_transcript", orig_lang) +
+                        f">{_esc(_chrome_for('show_transcript', ui))}</summary>"
+                        "<div class='segs'>" + orig_view + plain_views + "</div></details>")
+        # Photos shared with the meeting (Scott 2026-08-24: they were in the
+        # bundle and never on the page). Served by /s/{token}/image/{n}.
+        n_images = int((images_by_origin or {}).get(origin, 0))
+        if n_images and share_url:
+            flat_imgs = flat_image_entries(images_by_origin_names or {})
+            thumbs = "".join(
+                f"<button type='button' class='thumb' data-full='{_esc(share_url)}/image/{n}'><img src='{_esc(share_url)}/image/{n}' loading='lazy' alt=''></button>"
+                for n, (o, _name) in enumerate(flat_imgs) if o == origin)
+            if thumbs:
+                body.append(_k("photos") + f"<div class='gallery'>{thumbs}</div>")
+
+        parts.append(f"<section><h1{h1_attrs}>{_esc(title)}</h1><p class='dim' {meta_attrs}>{_esc(meta)}</p>{''.join(body)}</section>")
+    if not parts:
+        parts.append(f"<section><h1>{_esc(card_title)}</h1><p class='dim'>This share holds no meeting.</p></section>")
+    # og:image is the difference between the app mark and a Safari compass
+    # in the iMessage bubble. Width/height let the messenger lay the card
+    # out before the fetch completes; the twitter card type switches from
+    # the compact thumbnail to the wide banner once there is an image.
+    og_img = (
+        f"<meta property='og:image' content='{_esc(og_image_url)}'>"
+        f"<meta property='og:image:width' content='1200'><meta property='og:image:height' content='630'>"
+        f"<meta name='twitter:image' content='{_esc(og_image_url)}'>"
+    ) if og_image_url else ""
+    icon = f"<link rel='apple-touch-icon' href='{_esc(icon_url)}'>" if icon_url else ""
+    card_type = "summary_large_image" if og_image_url else "summary"
+    # og:description order: the card's headline first ("4 open items, 2
+    # urgent", the status-led card's own words, for clients that show it),
+    # then what the share holds, then the summary line.
+    card_desc = " · ".join(x for x in (desc_lead, contents_line, card_desc) if x)
+
+    # The route a recipient WITHOUT the app takes, which is the case this
+    # page exists for and the one it did not serve until 2026-08-23.
+    #
+    # Two mechanisms on purpose, because they cover different people:
+    #
+    # `apple-itunes-app` is Apple's own banner. iOS Safari renders it
+    # natively at the top of the page and decides the verb itself: "Open"
+    # when the app is installed, "Get" when it is not. We cannot detect
+    # installation from a web page and must not try; this is the one
+    # thing that can. `app-argument` hands this share's URL to the app on
+    # Open, so the app lands on THIS meeting rather than on its home
+    # screen.
+    #
+    # The visible link is for everyone Safari's banner does not reach:
+    # Chrome on iOS, Android, and every desktop browser, which is where a
+    # link pasted into Slack actually gets opened.
+    #
+    # Absent id = neither appears. No dead App Store link on a page a
+    # stranger opens, and the page is otherwise unchanged.
+    banner = get_app = download = ""
+    if app_store_id:
+        arg = f",app-argument={_esc(share_url)}" if share_url else ""
+        banner = f"<meta name='apple-itunes-app' content='app-id={_esc(app_store_id)}{arg}'>"
+        store = f"https://apps.apple.com/app/id{_esc(app_store_id)}"
+        get_app = (
+            f"<p class='get'><a href='{store}'><span " + _i18n_attrs("open_app", orig_lang) + ">"
+            + _esc(_chrome_for("open_app", ui)) + "</span></a>"
+            "<span class='dim'> <span " + _i18n_attrs("read_here", orig_lang) + ">"
+            + _esc(_chrome_for("read_here", ui)) + "</span></span></p>")
+        # The website's download block, on every hosted meeting (Scott
+        # 2026-08-24): Apple's official badge for a phone in hand, the QR
+        # for someone reading on a desktop. Localized to the shared
+        # language; the badge art comes from Apple's badge service in the
+        # matching locale, the QR from the website (served url).
+        dl = DOWNLOAD_STRINGS.get(_primary(ui), DOWNLOAD_STRINGS["en"])
+        qr_texts = {l: DOWNLOAD_STRINGS.get(l, DOWNLOAD_STRINGS["en"])["desktop"] for l in chrome_langs}
+        badge = (f"https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/"
+                 f"{dl['badge_locale']}?size=250x83")
+        qr = (f"<a class='qr' href='{store}'><img src='{_esc(qr_url)}' width='120' height='120' alt='{_esc(dl['qr_alt'])}'></a>"
+              f"<p class='qrtxt' {_i18n_values(qr_texts, orig_lang)}>{_esc(dl['desktop'])}</p>") if qr_url else ""
+        download = (f"<div class='dl'><a href='{store}' class='badge'><img src='{badge}' height='56' alt='{_esc(dl['badge_alt'])}'></a>"
+                    + qr + "</div>")
+
+    foots = {l: CHROME[_clang(l)]["foot"].format(d=expires_at[:10]) for l in chrome_langs}
+    return (
+        f"<!doctype html><html lang='{_esc(ui)}' data-orig-lang='{_esc(orig_lang)}'><head><meta charset='utf-8'>"
+        f"<title>{_esc(card_title)}</title><meta name='robots' content='noindex'>"
+        "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+        f"<meta property='og:title' content='{_esc(card_title)}'><meta property='og:description' content='{_esc(card_desc)}'>"
+        f"<meta property='og:type' content='article'><meta property='og:site_name' content='Shoulder Surf'>"
+        + (f"<meta property='og:url' content='{_esc(share_url)}'>" if share_url else "") + og_img +
+        f"<meta name='twitter:card' content='{card_type}'><meta name='twitter:title' content='{_esc(card_title)}'><meta name='twitter:description' content='{_esc(card_desc)}'>"
+        + banner + icon +
+        "<style>body{font:16px/1.5 -apple-system,system-ui,sans-serif;max-width:720px;margin:0 auto;padding:1rem;color:#1a1a1a;background:#fafaf8}"
+        "h1{font-size:1.4rem;margin:.5rem 0}.dim{color:#777}.k{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:#888;margin:1.2rem 0 .2rem}"
+        ".summary{font-size:1.05rem}.summary h3,.summary h4,.summary h5{margin:1rem 0 .3rem;font-size:1.05rem}.summary p{margin:.5rem 0}.summary ul{margin:.4rem 0}.summary code{background:#eee;padding:0 .25rem;border-radius:4px}ul{padding-left:1.2rem}.tx pre{white-space:pre-wrap;background:#f1f1ee;padding:1rem;border-radius:8px}"
+        ".segs{background:#f1f1ee;padding:.5rem 1rem;border-radius:8px;max-height:60vh;overflow-y:auto;position:relative}.seg .tr{display:none}.seg .tr:empty{display:none}select.lang{font:inherit;padding:.15rem .4rem}.rend,.orig-plain{white-space:pre-wrap;background:#f1f1ee;padding:1rem;border-radius:8px;max-height:60vh;overflow-y:auto}.seg{margin:.15rem 0;padding:.15rem .4rem;border-radius:4px;cursor:pointer}.seg.on{background:#ffe9a8}audio.sa{width:100%;margin:.25rem 0 .75rem}"
+        ".foot{margin-top:2rem;font-size:.8rem;color:#888}"
+        ".get{margin:.25rem 0 1rem}.get a{display:inline-block;background:#1a1a1a;color:#fff;text-decoration:none;"
+        "padding:.5rem .9rem;border-radius:8px;font-size:.9rem}"
+        ".dl{display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap;margin:0 0 1rem;padding:1rem 1.25rem;background:#fff;border:1px solid #e6e6e2;border-radius:14px}"
+        ".langbar{margin:0 0 1rem;padding:.6rem .9rem;background:#fff;border:1px solid #e6e6e2;border-radius:10px;font-size:.95rem}.langlabel{color:#555;margin-right:.4rem}"
+        ".gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.5rem}.thumb{padding:0;border:0;background:none;cursor:zoom-in}.gallery img{width:100%;height:120px;object-fit:cover;border-radius:8px;display:block}"
+        ".lb{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;z-index:50}.lb.on{display:flex}"
+        ".lb img{max-width:92vw;max-height:86vh;object-fit:contain;border-radius:6px}"
+        ".lb button{position:absolute;background:rgba(0,0,0,.45);color:#fff;border:0;border-radius:999px;width:44px;height:44px;font-size:1.5rem;line-height:1;cursor:pointer}"
+        ".lb .close{top:16px;right:16px}.lb .prev{left:12px}.lb .next{right:12px}.lb .prev,.lb .next{top:50%;transform:translateY(-50%)}.lb .count{position:absolute;bottom:16px;left:0;right:0;text-align:center;color:#ccc;font-size:.9rem;background:none;width:auto;height:auto;border-radius:0}"
+        ".dl .badge img{display:block}.dl .qr img{display:block;border-radius:8px}.qrtxt{margin:0;max-width:16rem;color:#555;font-size:.95rem}</style></head><body>"
+        + language_bar(page_langs, share_language, orig_lang) + get_app + "".join(parts) +
+        f"<p class='foot' {_i18n_values(foots, orig_lang)}>{_esc(foots.get(_primary(ui), foots[orig_lang]))}</p>"
+        + download + _LIGHTBOX_HTML + _PLAYER_JS + _LIGHTBOX_JS + "</body></html>"
+    )

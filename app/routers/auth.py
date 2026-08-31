@@ -23,6 +23,7 @@ async def _build_auth_response(
     tier: str,
     email: str | None,
     app_id: str | None = None,
+    display_name: str | None = None,
 ) -> AuthResponse:
     """Create access + refresh tokens and return AuthResponse.
 
@@ -58,7 +59,7 @@ async def _build_auth_response(
         access_token=access_token,
         refresh_token=raw_refresh,
         expires_in=jwt_service.access_expire.total_seconds(),
-        user=UserPublic(id=user_id, tier=tier, email=email),
+        user=UserPublic(id=user_id, tier=tier, email=email, display_name=display_name),
     )
 
 
@@ -93,6 +94,11 @@ async def apple_auth(
     if row:
         user_id = row["id"]
         tier = row["tier"]
+        # The stored name survives sign-ins that carry none (Apple only
+        # sends fullName the first time); a fresh non-null one wins.
+        stored_name = row["display_name"] if "display_name" in row.keys() else None
+        if not display_name:
+            display_name = stored_name
         # Update email and display_name when available (idempotent)
         updates = []
         params = []
@@ -124,6 +130,7 @@ async def apple_auth(
     return await _build_auth_response(
         db, jwt_service, user_id, tier, email,
         app_id=getattr(request.state, "app_id", None),
+        display_name=display_name,
     )
 
 
@@ -140,7 +147,7 @@ async def refresh_token(
     now = datetime.now(timezone.utc).isoformat()
 
     cursor = await db.execute(
-        """SELECT rt.*, u.tier, u.email, u.is_active
+        """SELECT rt.*, u.tier, u.email, u.is_active, u.display_name
            FROM refresh_tokens rt
            JOIN users u ON rt.user_id = u.id
            WHERE rt.token_hash = ? AND rt.revoked = 0 AND rt.expires_at > ?""",
@@ -170,5 +177,5 @@ async def refresh_token(
 
     return await _build_auth_response(
         db, jwt_service, row["user_id"], row["tier"], row["email"],
-        app_id=header_app,
+        app_id=header_app, display_name=row["display_name"],
     )

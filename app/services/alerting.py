@@ -89,6 +89,16 @@ KNOWN_CATEGORIES: dict[str, dict] = {
             "refused. Affects recall + capture for all users."
         ),
     },
+    "cq_recall_degraded": {
+        "label": "Context Quilt recall degraded",
+        "description": (
+            "A recall to Context Quilt failed (5xx, timeout, or bad "
+            "response) and the turn answered WITHOUT its memory block. "
+            "One incident per recall scope; resolves on the next healthy "
+            "recall in that scope. Found 2026-08-24: every Free "
+            "people-scoped recall had 500'd silently for eleven days."
+        ),
+    },
     "provider_auth_failed": {
         "label": "Managed LLM key rejected",
         "description": (
@@ -153,6 +163,40 @@ KNOWN_CATEGORIES: dict[str, dict] = {
             "usage mix and decide whether the attachment-allowance "
             "discussion in docs/decisions/cost-and-limits.md should "
             "move."
+        ),
+    },
+    "assn_foreign_bundle": {
+        "tone": "attention",
+        "label": "Apple notification refused: not our app",
+        "description": (
+            "A notification arrived at /v1/apple-notifications whose "
+            "data.bundleId is not one of ours, and it was refused. Two "
+            "readings, both needing a human. Either someone is relaying a "
+            "genuine Apple-signed notification from another App Store app "
+            "at us (the endpoint is unauthenticated by design, so the "
+            "bundleId check is the only thing standing there), or the "
+            "guard added 2026-08-28 is wrong about where Apple puts the "
+            "field and we are now REFUSING REAL NOTIFICATIONS, which "
+            "makes subscription state go stale silently. Baseline when "
+            "it shipped: 47 real notifications across 6 types in both "
+            "environments, all carrying a bundleId of ours, none refused."
+        ),
+    },
+    "receipt_unverified": {
+        "tone": "attention",
+        "label": "A purchase we could not verify with Apple",
+        "description": (
+            "A verify-receipt call arrived whose transaction identity we "
+            "could not stand behind: either no Apple-signed transaction, "
+            "a signature we refused (wrong bundle id, or a chain that is "
+            "not Apple's root, which is what an Xcode StoreKit "
+            "configuration file produces), or an id that cannot be an "
+            "Apple id at all. Found 2026-08-28: a local Xcode run granted "
+            "Pro and booked $14.99 of MRR for a purchase Apple has no "
+            "record of, and stored original_transaction_id='0' over a "
+            "good id. The tier grant still applied while the enforcement "
+            "dial is off, so treat this as 'that subscription may not be "
+            "real', not as a failed request."
         ),
     },
     "assn_unmatched": {

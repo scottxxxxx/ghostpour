@@ -1,819 +1,820 @@
 {
- "version": 15,
- "defaultPromptReserveTokens": 8000,
- "models": {
-  "foundation-models": {
-   "provider": "Apple",
-   "description": "Modèle gratuit sur l'appareil (Apple Intelligence). Privé, fonctionne hors ligne. Fenêtre de contexte de 4K. Nécessite un iPhone 15 Pro ou plus récent.",
-   "inputCostPerMillion": null,
-   "outputCostPerMillion": null,
-   "contextWindow": "4K",
-   "weights": "Closed",
-   "supportsImages": false,
-   "requiredParams": "instructions, prompt",
-   "promptPlacement": "System",
-   "contextSlots": {
-    "transcriptBuffer": "limited",
-    "rollingSummary": "limited",
-    "deltaSummaryMode": true,
-    "fullTranscriptSummary": false,
-    "projectContext": true,
-    "projectFiles": false,
-    "followUpContext": false
-   },
-   "contextQuilt": {
-    "commProfile": "limited",
-    "factExtraction": "limited",
-    "companyIntel": "limited",
-    "meetingGuidance": "no"
-   },
-   "splitModelSummary": false,
-   "estimatedAvailableTokens": 3072,
-   "supportsReasoning": false
+  "version": 16,
+  "defaultPromptReserveTokens": 8000,
+  "models": {
+    "foundation-models": {
+      "provider": "Apple",
+      "description": "Modèle gratuit sur l'appareil (Apple Intelligence). Privé, fonctionne hors ligne. Fenêtre de contexte de 4K. Nécessite un iPhone 15 Pro ou plus récent.",
+      "inputCostPerMillion": null,
+      "outputCostPerMillion": null,
+      "contextWindow": "4K",
+      "weights": "Closed",
+      "supportsImages": false,
+      "requiredParams": "instructions, prompt",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "limited",
+        "rollingSummary": "limited",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": false,
+        "projectContext": true,
+        "projectFiles": false,
+        "followUpContext": false
+      },
+      "contextQuilt": {
+        "commProfile": "limited",
+        "factExtraction": "limited",
+        "companyIntel": "limited",
+        "meetingGuidance": "no"
+      },
+      "splitModelSummary": false,
+      "estimatedAvailableTokens": 3072,
+      "supportsReasoning": false
+    },
+    "gpt-5.5": {
+      "provider": "OpenAI",
+      "description": "Le modèle le plus intelligent d'OpenAI ; raisonnement, tâches agentiques et analyse de documents au plus haut niveau. Contexte de 1M",
+      "inputCostPerMillion": 5.0,
+      "outputCostPerMillion": 30.0,
+      "contextWindow": "1M",
+      "weights": "Closed",
+      "supportsImages": true,
+      "requiredParams": "model, messages",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 1048576,
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "default",
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ]
+    },
+    "gpt-5.2": {
+      "provider": "OpenAI",
+      "description": "Modèle généraliste de génération précédente. Moins cher que 5.5 pour les tâches courantes",
+      "inputCostPerMillion": 1.75,
+      "outputCostPerMillion": 14.0,
+      "contextWindow": "400K",
+      "weights": "Closed",
+      "supportsImages": true,
+      "requiredParams": "model, messages",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 398976,
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "default",
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ]
+    },
+    "gpt-5-mini": {
+      "provider": "OpenAI",
+      "description": "GPT-5 plus rapide et économique pour des tâches bien définies et des prompts précis",
+      "inputCostPerMillion": 0.25,
+      "outputCostPerMillion": 1.25,
+      "contextWindow": "400K",
+      "weights": "Closed",
+      "supportsImages": true,
+      "requiredParams": "model, messages",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 398976,
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "default",
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "gpt-5-nano": {
+      "provider": "OpenAI",
+      "description": "La variante GPT-5 la plus rapide et la moins chère ; idéale pour le résumé et la classification",
+      "inputCostPerMillion": 0.05,
+      "outputCostPerMillion": 0.4,
+      "contextWindow": "400K",
+      "weights": "Closed",
+      "supportsImages": false,
+      "requiredParams": "model, messages",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 398976,
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "default",
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "claude-opus-4-7": {
+      "provider": "Anthropic",
+      "description": "Le Claude le plus capable ; réflexion adaptative, saut qualitatif en codage agentique, contexte de 1M",
+      "inputCostPerMillion": 5.0,
+      "outputCostPerMillion": 25.0,
+      "contextWindow": "1M",
+      "weights": "Closed",
+      "supportsImages": true,
+      "requiredParams": "model, messages, max_tokens",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 998848,
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "default",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ]
+    },
+    "claude-sonnet-5": {
+      "provider": "Anthropic",
+      "description": "La meilleure combinaison de vitesse et d'intelligence ; codage et agentique proches d'Opus, réflexion adaptative, contexte de 1M",
+      "inputCostPerMillion": 3.0,
+      "outputCostPerMillion": 15.0,
+      "contextWindow": "1M",
+      "weights": "Closed",
+      "supportsImages": true,
+      "requiredParams": "model, messages, max_tokens",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 998848,
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "default",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ]
+    },
+    "claude-sonnet-4-6": {
+      "provider": "Anthropic",
+      "description": "Le meilleur équilibre entre vitesse et intelligence ; réflexion étendue, contexte de 1M, très bon en usage d'ordinateur",
+      "inputCostPerMillion": 3.0,
+      "outputCostPerMillion": 15.0,
+      "contextWindow": "1M",
+      "weights": "Closed",
+      "supportsImages": true,
+      "requiredParams": "model, messages, max_tokens",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 998848,
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "default",
+        "low",
+        "medium",
+        "high",
+        "max"
+      ]
+    },
+    "claude-haiku-4-5": {
+      "provider": "Anthropic",
+      "description": "Le Claude le plus rapide avec une intelligence proche de la frontière ; idéal pour les résumés et les tâches à haut volume",
+      "inputCostPerMillion": 1.0,
+      "outputCostPerMillion": 5.0,
+      "contextWindow": "200K",
+      "weights": "Closed",
+      "supportsImages": true,
+      "requiredParams": "model, messages, max_tokens",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 198976,
+      "supportsReasoning": false
+    },
+    "gemini-3.1-pro-preview": {
+      "provider": "Google",
+      "description": "Dernier modèle de raisonnement haut de gamme ; contexte de 1M, solides performances agentiques et en codage",
+      "inputCostPerMillion": 2.0,
+      "outputCostPerMillion": 12.0,
+      "contextWindow": "1M",
+      "weights": "Closed",
+      "supportsImages": true,
+      "requiredParams": "model, contents",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 1047552,
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "default",
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "gemini-3-flash-preview": {
+      "provider": "Google",
+      "description": "Variante Flash offrant un raisonnement de niveau Pro avec une latence et un coût bien moindres",
+      "inputCostPerMillion": 0.5,
+      "outputCostPerMillion": 3.0,
+      "contextWindow": "1M",
+      "weights": "Closed",
+      "supportsImages": true,
+      "requiredParams": "model, contents",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 1047552,
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "default",
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "gemini-3.1-flash-lite-preview": {
+      "provider": "Google",
+      "description": "Le modèle Gemini 3 le plus économique ; contexte de 1M, idéal pour les requêtes à haut volume",
+      "inputCostPerMillion": 0.25,
+      "outputCostPerMillion": 1.5,
+      "contextWindow": "1M",
+      "weights": "Closed",
+      "supportsImages": true,
+      "requiredParams": "model, contents",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 1047552,
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "default",
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "grok-4": {
+      "provider": "xAI",
+      "description": "Le modèle Grok le plus intelligent ; usage natif d'outils, raisonnement, recherche en temps réel intégrée",
+      "inputCostPerMillion": 3.0,
+      "outputCostPerMillion": 15.0,
+      "contextWindow": "256K",
+      "weights": "Closed",
+      "supportsImages": true,
+      "requiredParams": "model, messages",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 254976,
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "default",
+        "none",
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "grok-4.1-fast": {
+      "provider": "xAI",
+      "description": "Variante rapide de Grok 4 optimisée pour la vitesse avec prise en charge des outils d'agent ; contexte de 2M",
+      "inputCostPerMillion": 0.2,
+      "outputCostPerMillion": 0.5,
+      "contextWindow": "2M",
+      "weights": "Closed",
+      "supportsImages": true,
+      "requiredParams": "model, messages",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 1998976,
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "default",
+        "none",
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "kimi-k2.5": {
+      "provider": "Moonshot AI",
+      "description": "Modèle agentique multimodal open source phare ; MoE de 1T, essaim d'agents, vision + vidéo",
+      "inputCostPerMillion": 0.6,
+      "outputCostPerMillion": 2.5,
+      "contextWindow": "256K",
+      "weights": "Open",
+      "supportsImages": true,
+      "requiredParams": "model, messages",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 261120,
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "default",
+        "disabled",
+        "enabled"
+      ]
+    },
+    "kimi-k2-thinking": {
+      "provider": "Moonshot AI",
+      "description": "Modèle de raisonnement profond ; discussions techniques, vision stratégique, résolution de problèmes en plusieurs étapes",
+      "inputCostPerMillion": 0.6,
+      "outputCostPerMillion": 2.5,
+      "contextWindow": "256K",
+      "weights": "Open",
+      "supportsImages": true,
+      "requiredParams": "model, messages",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 261120,
+      "supportsReasoning": false
+    },
+    "qwen-plus": {
+      "provider": "Alibaba (Qwen)",
+      "description": "Applications généralistes, équilibre latence/qualité, la plupart des charges de production",
+      "inputCostPerMillion": 0.4,
+      "outputCostPerMillion": 2.4,
+      "contextWindow": "1M",
+      "weights": "Open",
+      "supportsImages": true,
+      "requiredParams": "model, messages",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 1047552,
+      "supportsReasoning": false
+    },
+    "qwen-flash": {
+      "provider": "Alibaba (Qwen)",
+      "description": "Tâches simples à haut volume, chatbots, prototypage rapide, applications sensibles au coût",
+      "inputCostPerMillion": 0.1,
+      "outputCostPerMillion": 0.4,
+      "contextWindow": "1M",
+      "weights": "Open",
+      "supportsImages": true,
+      "requiredParams": "model, messages",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 1047552,
+      "supportsReasoning": false
+    },
+    "deepseek-v4-flash": {
+      "provider": "DeepSeek",
+      "description": "MoE V4 Flash (284B/13B actifs) ; double mode (réflexion / sans réflexion), contexte de 1M, le chat texte frontière le moins cher",
+      "inputCostPerMillion": 0.14,
+      "outputCostPerMillion": 0.28,
+      "contextWindow": "1M",
+      "weights": "Open",
+      "supportsImages": false,
+      "requiredParams": "model, messages",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": false,
+        "projectContext": true,
+        "projectFiles": false,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 1047552,
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "default",
+        "disabled",
+        "enabled"
+      ]
+    },
+    "deepseek-v4-pro": {
+      "provider": "DeepSeek",
+      "description": "MoE V4 Pro (1,6T/49B actifs) ; double mode (réflexion / sans réflexion), contexte de 1M, raisonnement, maths et code de niveau frontière (promo de 75% jusqu'au 31/05/2026 ; tarif normal affiché)",
+      "inputCostPerMillion": 1.74,
+      "outputCostPerMillion": 3.48,
+      "contextWindow": "1M",
+      "weights": "Open",
+      "supportsImages": false,
+      "requiredParams": "model, messages",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": false,
+        "projectContext": true,
+        "projectFiles": false,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 1047552,
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "default",
+        "disabled",
+        "enabled"
+      ]
+    },
+    "kimi-k2.6": {
+      "provider": "Moonshot AI",
+      "description": "Modèle agentique multimodal open source phare ; MoE de 1T, essaim d'agents, vision + vidéo",
+      "inputCostPerMillion": 0.6,
+      "outputCostPerMillion": 2.5,
+      "contextWindow": "256K",
+      "weights": "Open",
+      "supportsImages": true,
+      "requiredParams": "model, messages",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 261120,
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "default",
+        "disabled",
+        "enabled"
+      ]
+    },
+    "qwen3-max": {
+      "provider": "Alibaba (Qwen)",
+      "description": "Raisonnement complexe, workflows d'entreprise, tâches à fort enjeu",
+      "inputCostPerMillion": 1.2,
+      "outputCostPerMillion": 6.0,
+      "contextWindow": "262K",
+      "weights": "Open",
+      "supportsImages": true,
+      "requiredParams": "model, messages",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 261120,
+      "supportsReasoning": false
+    },
+    "qwen3.7-max": {
+      "provider": "Alibaba (Qwen)",
+      "description": "Agent et raisonnement de frontière ; tâches au long cours, codage, travail à fort enjeu ; réfléchit par défaut",
+      "inputCostPerMillion": 1.25,
+      "outputCostPerMillion": 3.75,
+      "contextWindow": "1M",
+      "weights": "Proprietary",
+      "supportsImages": true,
+      "requiredParams": "model, messages",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 1047552,
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "default",
+        "disabled",
+        "enabled"
+      ]
+    },
+    "qwen3.7-plus": {
+      "provider": "Alibaba (Qwen)",
+      "description": "Agent multimodal (vision + langage) ; coût équilibré, production à haut volume ; réfléchit par défaut",
+      "inputCostPerMillion": 0.32,
+      "outputCostPerMillion": 1.28,
+      "contextWindow": "1M",
+      "weights": "Proprietary",
+      "supportsImages": true,
+      "requiredParams": "model, messages",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": true,
+        "projectContext": true,
+        "projectFiles": true,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "yes",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": true,
+      "estimatedAvailableTokens": 1047552,
+      "supportsReasoning": true,
+      "reasoningLevels": [
+        "default",
+        "disabled",
+        "enabled"
+      ]
+    }
   },
-  "gpt-5.5": {
-   "provider": "OpenAI",
-   "description": "Le modèle le plus intelligent d'OpenAI ; raisonnement, tâches agentiques et analyse de documents au plus haut niveau. Contexte de 1M",
-   "inputCostPerMillion": 5.0,
-   "outputCostPerMillion": 30.0,
-   "contextWindow": "1M",
-   "weights": "Closed",
-   "supportsImages": true,
-   "requiredParams": "model, messages",
-   "promptPlacement": "System",
-   "contextSlots": {
-    "transcriptBuffer": "yes",
-    "rollingSummary": "yes",
-    "deltaSummaryMode": true,
-    "fullTranscriptSummary": true,
-    "projectContext": true,
-    "projectFiles": true,
-    "followUpContext": true
-   },
-   "contextQuilt": {
-    "commProfile": "yes",
-    "factExtraction": "yes",
-    "companyIntel": "yes",
-    "meetingGuidance": "yes"
-   },
-   "splitModelSummary": true,
-   "estimatedAvailableTokens": 1048576,
-   "supportsReasoning": true,
-   "reasoningLevels": [
-    "default",
-    "none",
-    "low",
-    "medium",
-    "high",
-    "xhigh"
-   ]
-  },
-  "gpt-5.2": {
-   "provider": "OpenAI",
-   "description": "Modèle généraliste de génération précédente. Moins cher que 5.5 pour les tâches courantes",
-   "inputCostPerMillion": 1.75,
-   "outputCostPerMillion": 14.0,
-   "contextWindow": "400K",
-   "weights": "Closed",
-   "supportsImages": true,
-   "requiredParams": "model, messages",
-   "promptPlacement": "System",
-   "contextSlots": {
-    "transcriptBuffer": "yes",
-    "rollingSummary": "yes",
-    "deltaSummaryMode": true,
-    "fullTranscriptSummary": true,
-    "projectContext": true,
-    "projectFiles": true,
-    "followUpContext": true
-   },
-   "contextQuilt": {
-    "commProfile": "yes",
-    "factExtraction": "yes",
-    "companyIntel": "yes",
-    "meetingGuidance": "yes"
-   },
-   "splitModelSummary": true,
-   "estimatedAvailableTokens": 398976,
-   "supportsReasoning": true,
-   "reasoningLevels": [
-    "default",
-    "none",
-    "low",
-    "medium",
-    "high",
-    "xhigh"
-   ]
-  },
-  "gpt-5-mini": {
-   "provider": "OpenAI",
-   "description": "GPT-5 plus rapide et économique pour des tâches bien définies et des prompts précis",
-   "inputCostPerMillion": 0.25,
-   "outputCostPerMillion": 1.25,
-   "contextWindow": "400K",
-   "weights": "Closed",
-   "supportsImages": true,
-   "requiredParams": "model, messages",
-   "promptPlacement": "System",
-   "contextSlots": {
-    "transcriptBuffer": "yes",
-    "rollingSummary": "yes",
-    "deltaSummaryMode": true,
-    "fullTranscriptSummary": true,
-    "projectContext": true,
-    "projectFiles": true,
-    "followUpContext": true
-   },
-   "contextQuilt": {
-    "commProfile": "yes",
-    "factExtraction": "yes",
-    "companyIntel": "yes",
-    "meetingGuidance": "yes"
-   },
-   "splitModelSummary": true,
-   "estimatedAvailableTokens": 398976,
-   "supportsReasoning": true,
-   "reasoningLevels": [
-    "default",
-    "minimal",
-    "low",
-    "medium",
-    "high"
-   ]
-  },
-  "gpt-5-nano": {
-   "provider": "OpenAI",
-   "description": "La variante GPT-5 la plus rapide et la moins chère ; idéale pour le résumé et la classification",
-   "inputCostPerMillion": 0.05,
-   "outputCostPerMillion": 0.4,
-   "contextWindow": "400K",
-   "weights": "Closed",
-   "supportsImages": false,
-   "requiredParams": "model, messages",
-   "promptPlacement": "System",
-   "contextSlots": {
-    "transcriptBuffer": "yes",
-    "rollingSummary": "yes",
-    "deltaSummaryMode": true,
-    "fullTranscriptSummary": true,
-    "projectContext": true,
-    "projectFiles": true,
-    "followUpContext": true
-   },
-   "contextQuilt": {
-    "commProfile": "yes",
-    "factExtraction": "yes",
-    "companyIntel": "yes",
-    "meetingGuidance": "yes"
-   },
-   "splitModelSummary": true,
-   "estimatedAvailableTokens": 398976,
-   "supportsReasoning": true,
-   "reasoningLevels": [
-    "default",
-    "minimal",
-    "low",
-    "medium",
-    "high"
-   ]
-  },
-  "claude-opus-4-7": {
-   "provider": "Anthropic",
-   "description": "Le Claude le plus capable ; réflexion adaptative, saut qualitatif en codage agentique, contexte de 1M",
-   "inputCostPerMillion": 5.0,
-   "outputCostPerMillion": 25.0,
-   "contextWindow": "1M",
-   "weights": "Closed",
-   "supportsImages": true,
-   "requiredParams": "model, messages, max_tokens",
-   "promptPlacement": "System",
-   "contextSlots": {
-    "transcriptBuffer": "yes",
-    "rollingSummary": "yes",
-    "deltaSummaryMode": true,
-    "fullTranscriptSummary": true,
-    "projectContext": true,
-    "projectFiles": true,
-    "followUpContext": true
-   },
-   "contextQuilt": {
-    "commProfile": "yes",
-    "factExtraction": "yes",
-    "companyIntel": "yes",
-    "meetingGuidance": "yes"
-   },
-   "splitModelSummary": true,
-   "estimatedAvailableTokens": 998848,
-   "supportsReasoning": true,
-   "reasoningLevels": [
-    "default",
-    "low",
-    "medium",
-    "high",
-    "xhigh",
-    "max"
-   ]
-  },
-  "claude-sonnet-5": {
-   "provider": "Anthropic",
-   "description": "La meilleure combinaison de vitesse et d'intelligence ; codage et agentique proches d'Opus, réflexion adaptative, contexte de 1M",
-   "inputCostPerMillion": 3.0,
-   "outputCostPerMillion": 15.0,
-   "contextWindow": "1M",
-   "weights": "Closed",
-   "supportsImages": true,
-   "requiredParams": "model, messages, max_tokens",
-   "promptPlacement": "System",
-   "contextSlots": {
-    "transcriptBuffer": "yes",
-    "rollingSummary": "yes",
-    "deltaSummaryMode": true,
-    "fullTranscriptSummary": true,
-    "projectContext": true,
-    "projectFiles": true,
-    "followUpContext": true
-   },
-   "contextQuilt": {
-    "commProfile": "yes",
-    "factExtraction": "yes",
-    "companyIntel": "yes",
-    "meetingGuidance": "yes"
-   },
-   "splitModelSummary": true,
-   "estimatedAvailableTokens": 998848,
-   "supportsReasoning": true,
-   "reasoningLevels": [
-    "default",
-    "low",
-    "medium",
-    "high",
-    "xhigh",
-    "max"
-   ]
-  },
-  "claude-sonnet-4-6": {
-   "provider": "Anthropic",
-   "description": "Le meilleur équilibre entre vitesse et intelligence ; réflexion étendue, contexte de 1M, très bon en usage d'ordinateur",
-   "inputCostPerMillion": 3.0,
-   "outputCostPerMillion": 15.0,
-   "contextWindow": "1M",
-   "weights": "Closed",
-   "supportsImages": true,
-   "requiredParams": "model, messages, max_tokens",
-   "promptPlacement": "System",
-   "contextSlots": {
-    "transcriptBuffer": "yes",
-    "rollingSummary": "yes",
-    "deltaSummaryMode": true,
-    "fullTranscriptSummary": true,
-    "projectContext": true,
-    "projectFiles": true,
-    "followUpContext": true
-   },
-   "contextQuilt": {
-    "commProfile": "yes",
-    "factExtraction": "yes",
-    "companyIntel": "yes",
-    "meetingGuidance": "yes"
-   },
-   "splitModelSummary": true,
-   "estimatedAvailableTokens": 998848,
-   "supportsReasoning": true,
-   "reasoningLevels": [
-    "default",
-    "low",
-    "medium",
-    "high",
-    "max"
-   ]
-  },
-  "claude-haiku-4-5": {
-   "provider": "Anthropic",
-   "description": "Le Claude le plus rapide avec une intelligence proche de la frontière ; idéal pour les résumés et les tâches à haut volume",
-   "inputCostPerMillion": 1.0,
-   "outputCostPerMillion": 5.0,
-   "contextWindow": "200K",
-   "weights": "Closed",
-   "supportsImages": true,
-   "requiredParams": "model, messages, max_tokens",
-   "promptPlacement": "System",
-   "contextSlots": {
-    "transcriptBuffer": "yes",
-    "rollingSummary": "yes",
-    "deltaSummaryMode": true,
-    "fullTranscriptSummary": true,
-    "projectContext": true,
-    "projectFiles": true,
-    "followUpContext": true
-   },
-   "contextQuilt": {
-    "commProfile": "yes",
-    "factExtraction": "yes",
-    "companyIntel": "yes",
-    "meetingGuidance": "yes"
-   },
-   "splitModelSummary": true,
-   "estimatedAvailableTokens": 198976,
-   "supportsReasoning": false
-  },
-  "gemini-3.1-pro-preview": {
-   "provider": "Google",
-   "description": "Dernier modèle de raisonnement haut de gamme ; contexte de 1M, solides performances agentiques et en codage",
-   "inputCostPerMillion": 2.0,
-   "outputCostPerMillion": 12.0,
-   "contextWindow": "1M",
-   "weights": "Closed",
-   "supportsImages": true,
-   "requiredParams": "model, contents",
-   "promptPlacement": "System",
-   "contextSlots": {
-    "transcriptBuffer": "yes",
-    "rollingSummary": "yes",
-    "deltaSummaryMode": true,
-    "fullTranscriptSummary": true,
-    "projectContext": true,
-    "projectFiles": true,
-    "followUpContext": true
-   },
-   "contextQuilt": {
-    "commProfile": "yes",
-    "factExtraction": "yes",
-    "companyIntel": "yes",
-    "meetingGuidance": "yes"
-   },
-   "splitModelSummary": true,
-   "estimatedAvailableTokens": 1047552,
-   "supportsReasoning": true,
-   "reasoningLevels": [
-    "default",
-    "low",
-    "medium",
-    "high"
-   ]
-  },
-  "gemini-3-flash-preview": {
-   "provider": "Google",
-   "description": "Variante Flash offrant un raisonnement de niveau Pro avec une latence et un coût bien moindres",
-   "inputCostPerMillion": 0.5,
-   "outputCostPerMillion": 3.0,
-   "contextWindow": "1M",
-   "weights": "Closed",
-   "supportsImages": true,
-   "requiredParams": "model, contents",
-   "promptPlacement": "System",
-   "contextSlots": {
-    "transcriptBuffer": "yes",
-    "rollingSummary": "yes",
-    "deltaSummaryMode": true,
-    "fullTranscriptSummary": true,
-    "projectContext": true,
-    "projectFiles": true,
-    "followUpContext": true
-   },
-   "contextQuilt": {
-    "commProfile": "yes",
-    "factExtraction": "yes",
-    "companyIntel": "yes",
-    "meetingGuidance": "yes"
-   },
-   "splitModelSummary": true,
-   "estimatedAvailableTokens": 1047552,
-   "supportsReasoning": true,
-   "reasoningLevels": [
-    "default",
-    "minimal",
-    "low",
-    "medium",
-    "high"
-   ]
-  },
-  "gemini-3.1-flash-lite-preview": {
-   "provider": "Google",
-   "description": "Le modèle Gemini 3 le plus économique ; contexte de 1M, idéal pour les requêtes à haut volume",
-   "inputCostPerMillion": 0.25,
-   "outputCostPerMillion": 1.5,
-   "contextWindow": "1M",
-   "weights": "Closed",
-   "supportsImages": true,
-   "requiredParams": "model, contents",
-   "promptPlacement": "System",
-   "contextSlots": {
-    "transcriptBuffer": "yes",
-    "rollingSummary": "yes",
-    "deltaSummaryMode": true,
-    "fullTranscriptSummary": true,
-    "projectContext": true,
-    "projectFiles": true,
-    "followUpContext": true
-   },
-   "contextQuilt": {
-    "commProfile": "yes",
-    "factExtraction": "yes",
-    "companyIntel": "yes",
-    "meetingGuidance": "yes"
-   },
-   "splitModelSummary": true,
-   "estimatedAvailableTokens": 1047552,
-   "supportsReasoning": true,
-   "reasoningLevels": [
-    "default",
-    "minimal",
-    "low",
-    "medium",
-    "high"
-   ]
-  },
-  "grok-4": {
-   "provider": "xAI",
-   "description": "Le modèle Grok le plus intelligent ; usage natif d'outils, raisonnement, recherche en temps réel intégrée",
-   "inputCostPerMillion": 3.0,
-   "outputCostPerMillion": 15.0,
-   "contextWindow": "256K",
-   "weights": "Closed",
-   "supportsImages": true,
-   "requiredParams": "model, messages",
-   "promptPlacement": "System",
-   "contextSlots": {
-    "transcriptBuffer": "yes",
-    "rollingSummary": "yes",
-    "deltaSummaryMode": true,
-    "fullTranscriptSummary": true,
-    "projectContext": true,
-    "projectFiles": true,
-    "followUpContext": true
-   },
-   "contextQuilt": {
-    "commProfile": "yes",
-    "factExtraction": "yes",
-    "companyIntel": "yes",
-    "meetingGuidance": "yes"
-   },
-   "splitModelSummary": true,
-   "estimatedAvailableTokens": 254976,
-   "supportsReasoning": true,
-   "reasoningLevels": [
-    "default",
-    "none",
-    "low",
-    "medium",
-    "high"
-   ]
-  },
-  "grok-4.1-fast": {
-   "provider": "xAI",
-   "description": "Variante rapide de Grok 4 optimisée pour la vitesse avec prise en charge des outils d'agent ; contexte de 2M",
-   "inputCostPerMillion": 0.2,
-   "outputCostPerMillion": 0.5,
-   "contextWindow": "2M",
-   "weights": "Closed",
-   "supportsImages": true,
-   "requiredParams": "model, messages",
-   "promptPlacement": "System",
-   "contextSlots": {
-    "transcriptBuffer": "yes",
-    "rollingSummary": "yes",
-    "deltaSummaryMode": true,
-    "fullTranscriptSummary": true,
-    "projectContext": true,
-    "projectFiles": true,
-    "followUpContext": true
-   },
-   "contextQuilt": {
-    "commProfile": "yes",
-    "factExtraction": "yes",
-    "companyIntel": "yes",
-    "meetingGuidance": "yes"
-   },
-   "splitModelSummary": true,
-   "estimatedAvailableTokens": 1998976,
-   "supportsReasoning": true,
-   "reasoningLevels": [
-    "default",
-    "none",
-    "low",
-    "medium",
-    "high"
-   ]
-  },
-  "kimi-k2.5": {
-   "provider": "Moonshot AI",
-   "description": "Modèle agentique multimodal open source phare ; MoE de 1T, essaim d'agents, vision + vidéo",
-   "inputCostPerMillion": 0.6,
-   "outputCostPerMillion": 2.5,
-   "contextWindow": "256K",
-   "weights": "Open",
-   "supportsImages": true,
-   "requiredParams": "model, messages",
-   "promptPlacement": "System",
-   "contextSlots": {
-    "transcriptBuffer": "yes",
-    "rollingSummary": "yes",
-    "deltaSummaryMode": true,
-    "fullTranscriptSummary": true,
-    "projectContext": true,
-    "projectFiles": true,
-    "followUpContext": true
-   },
-   "contextQuilt": {
-    "commProfile": "yes",
-    "factExtraction": "yes",
-    "companyIntel": "yes",
-    "meetingGuidance": "yes"
-   },
-   "splitModelSummary": true,
-   "estimatedAvailableTokens": 261120,
-   "supportsReasoning": true,
-   "reasoningLevels": [
-    "default",
-    "disabled",
-    "enabled"
-   ]
-  },
-  "kimi-k2-thinking": {
-   "provider": "Moonshot AI",
-   "description": "Modèle de raisonnement profond ; discussions techniques, vision stratégique, résolution de problèmes en plusieurs étapes",
-   "inputCostPerMillion": 0.6,
-   "outputCostPerMillion": 2.5,
-   "contextWindow": "256K",
-   "weights": "Open",
-   "supportsImages": true,
-   "requiredParams": "model, messages",
-   "promptPlacement": "System",
-   "contextSlots": {
-    "transcriptBuffer": "yes",
-    "rollingSummary": "yes",
-    "deltaSummaryMode": true,
-    "fullTranscriptSummary": true,
-    "projectContext": true,
-    "projectFiles": true,
-    "followUpContext": true
-   },
-   "contextQuilt": {
-    "commProfile": "yes",
-    "factExtraction": "yes",
-    "companyIntel": "yes",
-    "meetingGuidance": "yes"
-   },
-   "splitModelSummary": true,
-   "estimatedAvailableTokens": 261120,
-   "supportsReasoning": false
-  },
-  "qwen-plus": {
-   "provider": "Alibaba (Qwen)",
-   "description": "Applications généralistes, équilibre latence/qualité, la plupart des charges de production",
-   "inputCostPerMillion": 0.4,
-   "outputCostPerMillion": 2.4,
-   "contextWindow": "1M",
-   "weights": "Open",
-   "supportsImages": true,
-   "requiredParams": "model, messages",
-   "promptPlacement": "System",
-   "contextSlots": {
-    "transcriptBuffer": "yes",
-    "rollingSummary": "yes",
-    "deltaSummaryMode": true,
-    "fullTranscriptSummary": true,
-    "projectContext": true,
-    "projectFiles": true,
-    "followUpContext": true
-   },
-   "contextQuilt": {
-    "commProfile": "yes",
-    "factExtraction": "yes",
-    "companyIntel": "yes",
-    "meetingGuidance": "yes"
-   },
-   "splitModelSummary": true,
-   "estimatedAvailableTokens": 1047552,
-   "supportsReasoning": false
-  },
-  "qwen-flash": {
-   "provider": "Alibaba (Qwen)",
-   "description": "Tâches simples à haut volume, chatbots, prototypage rapide, applications sensibles au coût",
-   "inputCostPerMillion": 0.1,
-   "outputCostPerMillion": 0.4,
-   "contextWindow": "1M",
-   "weights": "Open",
-   "supportsImages": true,
-   "requiredParams": "model, messages",
-   "promptPlacement": "System",
-   "contextSlots": {
-    "transcriptBuffer": "yes",
-    "rollingSummary": "yes",
-    "deltaSummaryMode": true,
-    "fullTranscriptSummary": true,
-    "projectContext": true,
-    "projectFiles": true,
-    "followUpContext": true
-   },
-   "contextQuilt": {
-    "commProfile": "yes",
-    "factExtraction": "yes",
-    "companyIntel": "yes",
-    "meetingGuidance": "yes"
-   },
-   "splitModelSummary": true,
-   "estimatedAvailableTokens": 1047552,
-   "supportsReasoning": false
-  },
-  "deepseek-v4-flash": {
-   "provider": "DeepSeek",
-   "description": "MoE V4 Flash (284B/13B actifs) ; double mode (réflexion / sans réflexion), contexte de 1M, le chat texte frontière le moins cher",
-   "inputCostPerMillion": 0.14,
-   "outputCostPerMillion": 0.28,
-   "contextWindow": "1M",
-   "weights": "Open",
-   "supportsImages": false,
-   "requiredParams": "model, messages",
-   "promptPlacement": "System",
-   "contextSlots": {
-    "transcriptBuffer": "yes",
-    "rollingSummary": "yes",
-    "deltaSummaryMode": true,
-    "fullTranscriptSummary": false,
-    "projectContext": true,
-    "projectFiles": false,
-    "followUpContext": true
-   },
-   "contextQuilt": {
-    "commProfile": "yes",
-    "factExtraction": "yes",
-    "companyIntel": "yes",
-    "meetingGuidance": "yes"
-   },
-   "splitModelSummary": true,
-   "estimatedAvailableTokens": 1047552,
-   "supportsReasoning": true,
-   "reasoningLevels": [
-    "default",
-    "disabled",
-    "enabled"
-   ]
-  },
-  "deepseek-v4-pro": {
-   "provider": "DeepSeek",
-   "description": "MoE V4 Pro (1,6T/49B actifs) ; double mode (réflexion / sans réflexion), contexte de 1M, raisonnement, maths et code de niveau frontière (promo de 75% jusqu'au 31/05/2026 ; tarif normal affiché)",
-   "inputCostPerMillion": 1.74,
-   "outputCostPerMillion": 3.48,
-   "contextWindow": "1M",
-   "weights": "Open",
-   "supportsImages": false,
-   "requiredParams": "model, messages",
-   "promptPlacement": "System",
-   "contextSlots": {
-    "transcriptBuffer": "yes",
-    "rollingSummary": "yes",
-    "deltaSummaryMode": true,
-    "fullTranscriptSummary": false,
-    "projectContext": true,
-    "projectFiles": false,
-    "followUpContext": true
-   },
-   "contextQuilt": {
-    "commProfile": "yes",
-    "factExtraction": "yes",
-    "companyIntel": "yes",
-    "meetingGuidance": "yes"
-   },
-   "splitModelSummary": true,
-   "estimatedAvailableTokens": 1047552,
-   "supportsReasoning": true,
-   "reasoningLevels": [
-    "default",
-    "disabled",
-    "enabled"
-   ]
-  },
-  "kimi-k2.6": {
-   "provider": "Moonshot AI",
-   "description": "Modèle agentique multimodal open source phare ; MoE de 1T, essaim d'agents, vision + vidéo",
-   "inputCostPerMillion": 0.6,
-   "outputCostPerMillion": 2.5,
-   "contextWindow": "256K",
-   "weights": "Open",
-   "supportsImages": true,
-   "requiredParams": "model, messages",
-   "promptPlacement": "System",
-   "contextSlots": {
-    "transcriptBuffer": "yes",
-    "rollingSummary": "yes",
-    "deltaSummaryMode": true,
-    "fullTranscriptSummary": true,
-    "projectContext": true,
-    "projectFiles": true,
-    "followUpContext": true
-   },
-   "contextQuilt": {
-    "commProfile": "yes",
-    "factExtraction": "yes",
-    "companyIntel": "yes",
-    "meetingGuidance": "yes"
-   },
-   "splitModelSummary": true,
-   "estimatedAvailableTokens": 261120,
-   "supportsReasoning": true,
-   "reasoningLevels": [
-    "default",
-    "disabled",
-    "enabled"
-   ]
-  },
-  "qwen3-max": {
-   "provider": "Alibaba (Qwen)",
-   "description": "Raisonnement complexe, workflows d'entreprise, tâches à fort enjeu",
-   "inputCostPerMillion": 1.2,
-   "outputCostPerMillion": 6.0,
-   "contextWindow": "262K",
-   "weights": "Open",
-   "supportsImages": true,
-   "requiredParams": "model, messages",
-   "promptPlacement": "System",
-   "contextSlots": {
-    "transcriptBuffer": "yes",
-    "rollingSummary": "yes",
-    "deltaSummaryMode": true,
-    "fullTranscriptSummary": true,
-    "projectContext": true,
-    "projectFiles": true,
-    "followUpContext": true
-   },
-   "contextQuilt": {
-    "commProfile": "yes",
-    "factExtraction": "yes",
-    "companyIntel": "yes",
-    "meetingGuidance": "yes"
-   },
-   "splitModelSummary": true,
-   "estimatedAvailableTokens": 261120,
-   "supportsReasoning": false
-  },
-  "qwen3.7-max": {
-   "provider": "Alibaba (Qwen)",
-   "description": "Agent et raisonnement de frontière ; tâches au long cours, codage, travail à fort enjeu ; réfléchit par défaut",
-   "inputCostPerMillion": 1.25,
-   "outputCostPerMillion": 3.75,
-   "contextWindow": "1M",
-   "weights": "Proprietary",
-   "supportsImages": true,
-   "requiredParams": "model, messages",
-   "promptPlacement": "System",
-   "contextSlots": {
-    "transcriptBuffer": "yes",
-    "rollingSummary": "yes",
-    "deltaSummaryMode": true,
-    "fullTranscriptSummary": true,
-    "projectContext": true,
-    "projectFiles": true,
-    "followUpContext": true
-   },
-   "contextQuilt": {
-    "commProfile": "yes",
-    "factExtraction": "yes",
-    "companyIntel": "yes",
-    "meetingGuidance": "yes"
-   },
-   "splitModelSummary": true,
-   "estimatedAvailableTokens": 1047552,
-   "supportsReasoning": true,
-   "reasoningLevels": [
-    "default",
-    "disabled",
-    "enabled"
-   ]
-  },
-  "qwen3.7-plus": {
-   "provider": "Alibaba (Qwen)",
-   "description": "Agent multimodal (vision + langage) ; coût équilibré, production à haut volume ; réfléchit par défaut",
-   "inputCostPerMillion": 0.32,
-   "outputCostPerMillion": 1.28,
-   "contextWindow": "1M",
-   "weights": "Proprietary",
-   "supportsImages": true,
-   "requiredParams": "model, messages",
-   "promptPlacement": "System",
-   "contextSlots": {
-    "transcriptBuffer": "yes",
-    "rollingSummary": "yes",
-    "deltaSummaryMode": true,
-    "fullTranscriptSummary": true,
-    "projectContext": true,
-    "projectFiles": true,
-    "followUpContext": true
-   },
-   "contextQuilt": {
-    "commProfile": "yes",
-    "factExtraction": "yes",
-    "companyIntel": "yes",
-    "meetingGuidance": "yes"
-   },
-   "splitModelSummary": true,
-   "estimatedAvailableTokens": 1047552,
-   "supportsReasoning": true,
-   "reasoningLevels": [
-    "default",
-    "disabled",
-    "enabled"
-   ]
-  }
- }
+  "minPromptReserveTokens": 4096
 }

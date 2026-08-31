@@ -155,3 +155,28 @@ Slice 2 (search caps) shipped. Slice 3 reassessment pending.
 - `meeting_id` request metadata — still sent on the request body
   (`metadata.meeting_id`) for usage logging and CQ origin scoping. That's
   separate from the rendered prompt content; nothing changes there.
+
+## Server-side window on the meeting blocks (2026-08-26)
+
+Scott's ruling (via CQ, supersedes anything earlier): a Plus user's
+project chat is hydrated with the LAST N DAYS of meetings, a sliding
+window ending at request time, even when the project holds more; Pro has
+no window; N is the served dial
+`tiers.plus.feature_definitions.context_quilt.recall_max_age_days`, never
+a constant.
+
+CQ applies N to memory patches (`metadata.max_age_days`, the key GP sends
+on every recall leg for the tier). GP applies the SAME N to the meeting
+blocks above, server-side, on `prompt_mode == "ProjectChat"`: every
+`## Meeting {i} of {N} — {YYYY-MM-DD}` block whose date is older than N
+UTC days (inclusive: a meeting exactly N days old is still in) is removed
+from `system_prompt` before the model sees it, whatever the slider
+selected. The slider is UI; this is the gate. Numbering is not rewritten
+(your `i → meeting_id` map still holds); the "You have context from N
+meeting(s), spanning A to B" preamble is re-stated to what remains. A
+header whose date does not parse keeps its block. Pro (dial null) is
+untouched. Implementation: `app/services/recall_window.py`
+`clamp_meeting_blocks`; log line `project_chat_window_clamp`.
+
+So the dated H2 header is now load-bearing for a tier gate, not only for
+the model's benefit: keep the `YYYY-MM-DD` in it.

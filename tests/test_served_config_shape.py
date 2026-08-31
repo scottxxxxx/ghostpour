@@ -59,6 +59,12 @@ OPTIONAL_KEYS = {
         "gp_chat_flag": "Routing flag that only the project_chat feature has ever carried.",
         "teaser_response": "The canned upsell body, carried only by features with a teaser state.",
         "signed_out": "people only; added 2026-08-03 and no shipped build requires it.",
+        "entry": (
+            "project_chat only (coach mark, context range labels, quick prompt "
+            "chips, 2026-08-26). No shipped build decodes it; SS declares it "
+            "Optional on the shared FeatureDefinitionInfo, agreed in writing "
+            "with shouldersurf-6f the day it was added."
+        ),
     },
 }
 
@@ -160,23 +166,35 @@ NO_LOCALE_NEEDED = {
     "entitlements": "A tier/state matrix. Carries no user-facing prose.",
     "model-routing": "Server-side routing table. Never reaches a user.",
     "prompt-envelope": "Composition recipe. Section ids are machine tokens, not prose.",
+    "cq-recall": "Server-side recall budget in milliseconds. One number, no prose, never reaches a user.",
+    "verify-receipt": (
+        "Server-side enforcement switch for Apple receipt verification. One "
+        "boolean, no prose, never reaches a user. The 400 it gates carries a "
+        "machine code (`receipt_unverified`) for the client to map, which is "
+        "the surface that would need translating if we ever render it."
+    ),
 }
 
 # Known, accepted gaps. Each is a translation owed, tracked here rather
 # than in somebody's head.
-DECLARED_LOCALE_GAPS = {
-    "protected-prompts": {
-        "ja": "No Japanese instruction file exists, so Japanese users receive "
-              "the entire English instruction block, including the literal "
-              "reply in rule 4. Found 2026-08-03. Translation owed."
-    },
-    "canned-report": {
-        "fr": "French locale rollout 2026-07-27 covered seven surfaces; this "
-              "one was not among them. Translation owed."
-    },
-    "report-strings": {
-        "fr": "Same French rollout gap as canned-report. Translation owed."
-    },
+DECLARED_LOCALE_GAPS: dict[str, dict[str, str]] = {
+    # Empty on purpose, and it took until 2026-08-23 to get here.
+    #
+    # protected-prompts.ja: declared owed 2026-08-03 ("Japanese users
+    # receive the entire English instruction block"). Paid 2026-08-23, the
+    # day Scott found it from the other end, after the Help Me Respond fix
+    # shipped to three locales and he asked why not four.
+    #
+    # canned-report.fr: declared owed 2026-07-27. Paid the same day.
+    #
+    # report-strings.fr: declared 2026-07-27, paid 2026-08-21.
+    #
+    # The lesson those three dates carry: a declared gap is a debt with a
+    # tracking number and no due date, and "translation owed" stayed true
+    # for twenty days with nobody owing it. tests/test_locale_parity.py
+    # now holds every localised slug to every locale AND to the English
+    # key set, so the next gap is a red test on the PR that opens it, not a
+    # declaration that waits for someone to notice.
 }
 
 

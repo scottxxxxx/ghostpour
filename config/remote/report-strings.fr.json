@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "strings": {
+    "header_label": "Rapport de réunion",
+    "speakers_heading": "Intervenants identifiés",
+    "sentiment_label": "Sentiment",
+    "view_arc_button": "Voir l'arc du sentiment",
+    "sentiment_arc_heading": "Arc du sentiment",
+    "action_required_heading": "Action requise",
+    "critical_issue_heading": "Problème technique critique",
+    "decisions_heading": "Décisions prises",
+    "decisions_agreed_label": "Convenu",
+    "open_questions_heading": "Questions ouvertes",
+    "open_questions_question_label": "Question",
+    "open_questions_owner_label": "Responsable",
+    "footer_powered_by": "Notes de réunion propulsées par",
+    "project_label": "Projet"
+  }
+}

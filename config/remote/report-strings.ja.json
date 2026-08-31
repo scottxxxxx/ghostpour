@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 3,
   "strings": {
     "header_label": "会議レポート",
     "speakers_heading": "識別された参加者",
@@ -13,6 +13,7 @@
     "open_questions_heading": "未解決の質問",
     "open_questions_question_label": "質問",
     "open_questions_owner_label": "担当者",
-    "footer_powered_by": "会議ノート提供"
+    "footer_powered_by": "会議ノート提供",
+    "project_label": "プロジェクト"
   }
 }

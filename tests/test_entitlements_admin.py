@@ -215,23 +215,30 @@ def test_matrix_cell_put_flips_enforcement(client, free_user):
     assert _cell({"feature": "web_search", "tier": "free",
                   "state": "on"}).status_code == 400
 
+    # web_search on Free is "enabled" since the 2026-08-21 tier matrix, so
+    # the flip under test goes the other way: disable it, watch enforcement
+    # follow, then put it back so the test leaves the bundle as the sheet
+    # says.
     before = json.loads(
         (CONFIG_DIR / "entitlements.json").read_text())["version"]
-    r = _cell({"feature": "web_search", "tier": "free", "state": "enabled"})
+    r = _cell({"feature": "web_search", "tier": "free", "state": "disabled"})
     assert r.status_code == 200 and r.json()["status"] == "updated"
     assert r.json()["version"] == before + 1
     # hot-reload: the resolver enforcement reads sees it immediately
     assert entitlement_state(client.app.state.remote_configs,
-                             "free", "web_search") == "enabled"
+                             "free", "web_search") == "disabled"
     # the GET view reflects it
     data = _get(client).json()
-    assert data["matrix"]["web_search"]["tiers"]["free"] == "enabled"
+    assert data["matrix"]["web_search"]["tiers"]["free"] == "disabled"
     # a signed-in free user's served features map reflects it
     me = client.get("/v1/usage/me", headers=free_user["headers"]).json()
-    assert me["features"]["web_search"] == "enabled"
+    assert me["features"]["web_search"] == "disabled"
     # idempotent resend
     assert _cell({"feature": "web_search", "tier": "free",
-                  "state": "enabled"}).json()["status"] == "unchanged"
+                  "state": "disabled"}).json()["status"] == "unchanged"
+    # and back to the ruling
+    assert _cell({"feature": "web_search", "tier": "free",
+                  "state": "enabled"}).json()["status"] == "updated"
 
 
 def test_config_put_validates_entitlements_matrix(client):
