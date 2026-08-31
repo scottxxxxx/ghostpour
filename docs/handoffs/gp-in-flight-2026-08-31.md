@@ -1,7 +1,11 @@
 # GhostPour: what is in flight (written 2026-08-31, session cloudzap-35 [6823a2])
 
-Prod and main both at **3bf465c**, healthy, verified on `/health`.
+Prod and main both at **d84cc1c**, healthy, verified off the container env.
 **Zero open PRs.** Supersedes `gp-in-flight-2026-08-30.md`.
+
+⚠ Later than the body below: #838 and #839 are MERGED AND DEPLOYED (18:04
+UTC). Anywhere further down that says 3bf465c or calls those PRs open is
+superseded by this line.
 
 ---
 
@@ -281,4 +285,60 @@ cache (`_MAX_ENTRIES = 2048`) moves from ~8.5 MB worst case to ~88 MB.
 Bounded either way. CQ notes the ceiling is unlikely in practice: `limit`
 still defaults to 6 and SS has no window switcher or infinite scroll yet, so
 nothing requests 60 today. Scott has been told and can ask for a lower cap.
+
+---
+
+## Close of session cloudzap-7a: both PRs merged and live
+
+Prod **d84cc1c**, healthy, zero open PRs. Scott gave the merge go.
+
+**#838** unknown-key passthrough moved off CQ's retired `_salience` onto a
+synthetic carrier, plus the assert reorder that made the named asserts
+reachable at all. **#839** forwards `offset`, keys the cache on it, and
+tracks CQ's ceiling of 60.
+
+⚠ **They were rebased, not merged blind.** Both touched
+`tests/test_woven_memory.py` and #839 was branched BEFORE #838 landed, so
+#839 still carried the old `_salience` fixture. Merging in sequence without
+checking could have reverted #838. Verified after the rebase that both
+changes coexist (probe present, no stale `_salience`, offset on the wire and
+in the key, ceiling 60), 41 local, CI green again on the rebased branch.
+
+**Verified deployed by EXECUTION, not by reading source**, because CQ's
+point was that a route table is not proof. Called inside the prod container:
+
+    _woven_limit(30) -> 30    _woven_limit(600) -> 60    _woven_limit("x") -> 6
+    _woven_offset("12") -> 12  ("-5") -> 0  ("banana") -> 0
+
+**What that does NOT cover, stated so nobody upgrades it later:** the wire
+path end to end. Auth, handler, outbound query, thirty tiles back. A defect
+between the handler and CQ survives everything above. The real check needs
+ONE authenticated call at `limit=30`, and **GP cannot make it: it needs a
+session and minting one is outside standing authority.** Same blocker as the
+prod echo. Scott opening the app once pays for all three at once (CQ's
+confirmation off the container log, #837's first turns, most of SS's echo).
+
+**Deploy side effects, both good:** the restart emptied the in-process woven
+cache, so CQ's `total_available` 322 to 265 move is fully visible with no
+day-stale window; and the cache key changed shape anyway, so every prior key
+would have missed regardless.
+
+## Still open at close
+
+1. ⚠ **Batch 549815 load STILL BLOCKED by the classifier.** Pool at 10.
+   This is the only item blocking real work: Scott cannot comp anyone.
+2. **#837 pre-flight timing: still ZERO turns.** Needs Scott to open the app.
+3. **Generic comp offer**: optional, manual ASC, forces a 500 mint.
+4. **Limit ceiling**: matched CQ's 60. Moves the bounded cache from ~8.5 MB
+   to ~88 MB worst case. Scott can ask for lower; CQ notes nothing requests
+   60 today.
+5. **CLAUDE.md rule 8 candidate**: the cache-key rule. Three-team file, so
+   Scott's call, not GP's and not CQ's.
+6. **⚠ `total_available` COLLISION, awaiting CQ.** `/v1/quilt/{user_id}` is
+   pre-cap ("the real denominator", Scott = 2136); `/v1/quilt/{user_id}/woven`
+   is post-prune (Scott = 265). Sibling routes, one name, opposite counting,
+   ~8x apart. GP renders the first into user-visible copy. Only GP sees this
+   because only GP holds both routes, same as `_salience`. SS builds the
+   expand against it THIS WEEK, so before their decoder exists is the cheap
+   moment. If CQ keeps both names, write the collision into GP's dossier docs.
 
