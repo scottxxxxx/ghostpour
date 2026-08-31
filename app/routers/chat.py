@@ -1495,6 +1495,27 @@ async def chat(
             body.metadata = {}
         body.metadata["request_id"] = _rid
 
+    # PRE-FLIGHT STOPWATCH. Everything between here and the first SSE byte is
+    # silence on the user's phone.
+    #
+    # #822 flushed the head with the first body chunk and killed 5.00s of a
+    # 10.34s wait. The remaining 5.32s is this stretch: document extraction,
+    # the generation classifier, recall, prompt assembly. It matters because
+    # this morning's two lost turns died at 3s and 9s, INSIDE this window,
+    # where no heartbeat exists to keep the socket alive.
+    #
+    # The obvious fix is to start the envelope before this work and move the
+    # pre-flight inside the generator. That is a restructure of the hottest
+    # path in the product, and nobody currently knows which phase owns the
+    # 5.32s: extraction, the classifier and recall are all plausible and only
+    # one of them is worth restructuring around. So MEASURE FIRST. This is
+    # the instrument, not the fix.
+    _pf_t0 = time.monotonic()
+    _pf_marks: list[tuple[str, float]] = []
+
+    def _pf(label: str) -> None:
+        _pf_marks.append((label, (time.monotonic() - _pf_t0) * 1000))
+
     # 0.5. Turn idempotency (2026-08-30). Deliberately the FIRST thing after
     # request identity, before the tier lookup, before document extraction,
     # before the generation_intent classifier and long before any upstream
@@ -2325,6 +2346,7 @@ async def chat(
     # client's gauge never saw. Splits each attachment between native
     # passthrough (managed Pro on Anthropic, PDF) and server-side extraction
     # inlined into user_content — a downgrade, never an error or client retry.
+    _pf("before_documents")
     if body.documents:
         from app.services.documents import process_documents
         body = await process_documents(
@@ -4315,8 +4337,32 @@ async def chat(
                          status="done", body=json.loads(bytes(_resp.body)))
         return _resp
 
+    _pf("preflight_end")
     _chat_sse = bool(not _gen_sse and is_project_chat and body.stream
                      and _chat_sse_build_ok())
+
+    # One line per turn carrying the whole breakdown, because a phase timing
+    # split across several log lines cannot be read as a total and nobody
+    # reconstructs it. Emitted for EVERY turn, not only slow ones: a
+    # threshold would make the fast turns invisible and the distribution
+    # unknowable, and "how long is pre-flight normally" is the question this
+    # exists to answer.
+    try:
+        _pf_total = (time.monotonic() - _pf_t0) * 1000
+        logger.info(
+            "chat_preflight",
+            extra={
+                "total_ms": round(_pf_total, 1),
+                "marks_ms": {k: round(v, 1) for k, v in _pf_marks},
+                "doc_count": len(body.documents or []),
+                "call_type": body.get_meta("call_type"),
+                "streaming": bool(body.stream),
+                "has_turn_id": bool(_turn_id),
+            },
+        )
+    except Exception:
+        # An instrument must never break the turn it is watching.
+        logger.exception("chat_preflight_probe_failed")
 
     if not (_gen_sse or _chat_sse):
         return await _run_turn_tracked()
