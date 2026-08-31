@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from app.services import meeting_title
 from app.services import translations as tr
 
 
@@ -133,3 +134,104 @@ def test_fenced_model_output_reaches_client_clean(client, pro_user, mock_provide
     assert r.status_code == 200
     assert r.json()["segments"][0]["text"] == "hello"
     assert "```" not in r.text
+
+
+# --- the `title` artifact (2026-08-31) ---------------------------------------
+# The defect these pin: ARTIFACTS was a three-element tuple, so a translated
+# meeting kept its English headline forever. The endpoint answered 422
+# invalid_artifact for the one field the user actually looks at first.
+
+def test_title_is_an_accepted_artifact_end_to_end(client, pro_user, mock_provider):
+    """THE bug. Before the fix this returned 422 invalid_artifact, which is
+    why three of four visible fields swapped language and the headline did
+    not. Goes through the endpoint, not the tuple, because a tuple assert
+    would still pass if the router validated against something else."""
+    mock_provider.return_value.text = '[{"id":"t1","text":"Escalación de precios Q3"}]'
+    r = client.post("/v1/translations",
+                    json=_body(artifact="title", source_language="en", target_language="es",
+                               segments=[{"id": "t1", "text": "Q3 Pricing Escalation"}]),
+                    headers=pro_user["headers"])
+    assert r.status_code == 200, r.text
+    assert r.json()["segments"] == [{"id": "t1", "text": "Escalación de precios Q3"}]
+
+
+def test_title_prompt_carries_the_name_rule_and_the_no_dash_rule():
+    """A title is a NAME with a display budget, so it needs rules the prose
+    prompt does not carry, and it still needs the served no-dash rule."""
+    p = tr.system_prompt("title")
+    assert "TITLE OF ONE MEETING" in p     # it is a name, not a sentence
+    assert "more generic" in p             # the way a translated title fails
+    assert "60 characters" in p            # the card budget is stated
+    assert "em dash" in p                  # prose rule still applies
+
+
+def test_title_rules_do_not_leak_into_the_other_artifacts():
+    """system_prompt branches; a wrong branch would hand transcript
+    translation a 60-character budget and quietly truncate speech."""
+    for other in ("transcript", "summary", "report"):
+        assert "TITLE OF ONE MEETING" not in tr.system_prompt(other)
+    # and the transcript carve-out is unchanged by the new branch
+    assert "em dash" not in tr.system_prompt("transcript")
+
+
+def test_over_budget_titles_flags_only_the_long_ones():
+    budget = meeting_title.MAX_TITLE_CHARS
+    got = tr.over_budget_titles([{"id": "short", "text": "ok"},
+                                 {"id": "at", "text": "y" * budget},
+                                 {"id": "over", "text": "x" * (budget + 1)}])
+    assert got == ["over"]          # strictly greater than, not >=
+    assert tr.over_budget_titles([]) == []
+
+
+def test_an_over_budget_title_still_reaches_the_client(client, pro_user, mock_provider):
+    """Non-blocking BY DESIGN: the fallback we would drop back to is the
+    English title on a Spanish card, the exact defect this artifact
+    removes. If this ever 4xxs or truncates, the feature has regressed
+    into the thing it replaced."""
+    long_es = "R" + "a" * meeting_title.MAX_TITLE_CHARS
+    assert len(long_es) > meeting_title.MAX_TITLE_CHARS
+    mock_provider.return_value.text = json.dumps([{"id": "t1", "text": long_es}])
+    r = client.post("/v1/translations",
+                    json=_body(artifact="title", segments=[{"id": "t1", "text": "Pricing"}]),
+                    headers=pro_user["headers"])
+    assert r.status_code == 200, r.text
+    assert r.json()["segments"][0]["text"] == long_es   # whole, not truncated
+
+
+def test_the_budget_follows_meeting_title_and_is_not_a_second_copy(monkeypatch):
+    """Two copies of 60 would drift the first time meeting_title moved, and
+    equality CANNOT catch that: a duplicated literal compares equal, and
+    `is` compares TRUE too, because CPython interns small ints. The only
+    instrument that separates a live link from a copy is MOVING the budget
+    and seeing whether the translation side follows."""
+    monkeypatch.setattr(meeting_title, "MAX_TITLE_CHARS", 5)
+    # 8 characters: over a budget of 5, under the real 60. A copy of 60
+    # still living in translations.py flags nothing here.
+    assert tr.over_budget_titles([{"id": "t", "text": "12345678"}]) == ["t"]
+
+
+def test_engine_version_1_prompts_are_byte_frozen():
+    """Adding `title` must not disturb the three artifacts that already
+    have renditions cached under ENGINE_VERSION 1.
+
+    The cache key carries engine_version, so a prompt edit without a bump
+    silently changes what a stored rendition means, and a bump without a
+    need re-translates every cached transcript at real cost. Neither is a
+    judgement call you want to make by accident, so these hashes force it
+    to be made on purpose: if you MEANT to change one of these prompts,
+    bump ENGINE_VERSION and update the hash in the same commit.
+
+    `title` is deliberately absent here. It is new, nothing is cached
+    under it, and pinning it would only freeze a prompt we still expect
+    to tune.
+    """
+    import hashlib
+    frozen = {
+        "transcript": "9009fa75933e159e",
+        "summary": "fc2cbdcf55f2d385",
+        "report": "fc2cbdcf55f2d385",
+    }
+    assert tr.ENGINE_VERSION == 1, "the hashes below belong to version 1"
+    for artifact, digest in frozen.items():
+        got = hashlib.sha256(tr.system_prompt(artifact).encode()).hexdigest()[:16]
+        assert got == digest, f"{artifact} prompt changed under ENGINE_VERSION 1"

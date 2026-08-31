@@ -21,6 +21,14 @@ from typing import Any
 
 import aiosqlite
 
+# One source of truth for the card budget: if meeting_title raises or
+# lowers what it is willing to generate, what we translate follows it.
+# Imported as the MODULE, not `from ... import MAX_TITLE_CHARS`, so the
+# link is live at call time. A from-import is a snapshot taken at import
+# and a duplicated literal is indistinguishable from it at runtime,
+# because `60 is 60` is True for any small int CPython has interned.
+from app.services import meeting_title
+
 logger = logging.getLogger("ghostpour.translations")
 
 ENGINE_VERSION = 1
@@ -29,7 +37,7 @@ ENGINE_VERSION = 1
 TRANSLATION_PROVIDER = "anthropic"
 TRANSLATION_MODEL = "claude-haiku-4-5-20251001"
 
-ARTIFACTS = ("transcript", "summary", "report")
+ARTIFACTS = ("transcript", "summary", "report", "title")
 
 # Transcript translation is FAITHFUL: no dash rule, the user's own words
 # keep their punctuation (same carve-out as transcriptCleanup).
@@ -49,8 +57,54 @@ _PROMPT_PROSE_EXTRA = (
 )
 
 
+# A meeting TITLE is a name, not prose, and it is the one artifact with a
+# hard display budget. It was missing from ARTIFACTS until 2026-08-31, so a
+# translated meeting kept its English headline forever while transcript,
+# summary and report all swapped. SS's reading of that symptom is why this
+# is worth its own prompt rather than being folded into `summary`: a
+# control that works invisibly is indistinguishable from one that does not
+# work, and three of four visible fields swapping reads as BROKEN where
+# zero would read as "not implemented".
+_PROMPT_TITLE_EXTRA = (
+    " Every text here is the TITLE OF ONE MEETING: a name, not a sentence. "
+    "Return a name. No trailing period, no article you had to invent, no "
+    "explanatory clause. Never make a title more generic than the one you "
+    "were given: a title that no longer says WHICH meeting this was has "
+    "failed, even if it is shorter and reads well. Keep each title at or "
+    "under 60 characters where the language allows it; when a literal "
+    "rendering would run longer, choose the shorter faithful wording "
+    "rather than padding or truncating mid-word."
+)
+
+
 def system_prompt(artifact: str) -> str:
-    return _PROMPT_BASE if artifact == "transcript" else _PROMPT_BASE + _PROMPT_PROSE_EXTRA
+    if artifact == "transcript":
+        return _PROMPT_BASE
+    if artifact == "title":
+        return _PROMPT_BASE + _PROMPT_PROSE_EXTRA + _PROMPT_TITLE_EXTRA
+    return _PROMPT_BASE + _PROMPT_PROSE_EXTRA
+
+
+def over_budget_titles(segments: list[dict]) -> list[str]:
+    """Ids whose translated title exceeds the client's card budget.
+
+    DELIBERATELY NON-BLOCKING, and the asymmetry with meeting_title.py is
+    the point. That module rejects a GENERATED title server-side because
+    absent beats generic: the client treats a served title as
+    authoritative and skips its own fallback, so a bad title we send is a
+    bad title that renders. Neither half of that reasoning survives here.
+    We are not inventing a name, we are carrying an already-accepted one
+    across a language, and the state we would fall back to is the ENGLISH
+    title on a Spanish card, which is the exact defect this artifact
+    exists to remove. So an over-budget title still ships and truncates in
+    the client. This makes the rate MEASURABLE instead of invisible, which
+    is all it claims to do.
+
+    Counts only ever reach the log: a meeting title is user content.
+    """
+    budget = meeting_title.MAX_TITLE_CHARS
+    return [s["id"] for s in segments
+            if isinstance(s.get("text"), str) and len(s["text"]) > budget]
 
 
 def normalize_language(tag: Any) -> str | None:
@@ -204,6 +258,12 @@ async def translate_group(app_state, db: aiosqlite.Connection, user, segments: l
             raise TranslationFailed("provider_error")
         out = parse_model_output(response.text or "", expected_ids)
         if out is not None:
+            if artifact == "title":
+                over = over_budget_titles(out)
+                if over:
+                    logger.info(
+                        "translation_title_over_budget target=%s over=%d of=%d budget=%d",
+                        target, len(over), len(out), meeting_title.MAX_TITLE_CHARS)
             break
         logger.warning("translation id round-trip failed attempt=%d", attempt)
     elapsed_ms = int((_time.monotonic() - start) * 1000)
