@@ -483,9 +483,9 @@ def _norm_words(text: str) -> list[str]:
     return re.sub(r"[^a-z0-9\s]+", " ", (text or "").lower()).split()
 
 
-def _shingles(words: list[str], n: int = _SHINGLE) -> set[tuple]:
-    if len(words) < n:
-        return {tuple(words)} if len(words) >= 3 else set()
+def _ngrams(words: list[str], n: int) -> set[tuple]:
+    if n < 1 or len(words) < n:
+        return set()
     return {tuple(words[i:i + n]) for i in range(len(words) - n + 1)}
 
 
@@ -503,24 +503,34 @@ def _recited_lines(block: str, material: str, answer: str) -> int:
     with the same not-in-the-material subtraction: an overlap the model could
     have got from the transcript is not a recital.
     """
-    mat = set()
-    for m_sh in (_shingles(_norm_words(material)),):
-        mat |= m_sh
     ans_words = _norm_words(answer)
-    ans = _shingles(ans_words)
-    if not ans:
+    mat_words = _norm_words(material)
+    if len(ans_words) < 3:
         return 0
 
+    # Compare LIKE WITH LIKE. The first version shingled every line at n=5
+    # but fell back to one whole-line tuple for lines shorter than that,
+    # while the answer only ever produced 5-grams. A 4-word line could
+    # therefore never intersect a 5-gram set, so short patch lines, the
+    # terse ones most likely to be recited verbatim, were structurally
+    # invisible. Window size is now per line and both sides use it.
+    cache: dict[int, tuple[set, set]] = {}
+
+    def sides(n: int) -> tuple[set, set]:
+        if n not in cache:
+            cache[n] = (_ngrams(ans_words, n), _ngrams(mat_words, n))
+        return cache[n]
+
     hits = 0
-    for raw in _strip_chrome(block).splitlines():
-        line = _LEADING_TAG.sub("", raw).strip()
-        if not line:
+    for raw in _strip_chrome(block, brackets=True).splitlines():
+        line_words = _norm_words(_LEADING_TAG.sub("", raw))
+        if len(line_words) < 3:
             continue
-        line_sh = _shingles(_norm_words(line))
-        if not line_sh:
-            continue
+        n = min(_SHINGLE, len(line_words))
+        ans_g, mat_g = sides(n)
+        overlap = _ngrams(line_words, n) & ans_g
         # Present in the answer, and NOT available from the material.
-        if line_sh & ans and (line_sh & ans) - mat:
+        if overlap and (overlap - mat_g):
             hits += 1
     return hits
 
@@ -549,9 +559,35 @@ _CHROME_PAREN = re.compile(r"\([^)]*\)")
 _CHROME_LABEL = re.compile(r"^[ \t]*[^\s:][^:\n]{0,28}:[ \t]+", re.M)
 
 
-def _strip_chrome(text: str) -> str:
-    """Remove CQ's rendering furniture, leaving the content it wraps."""
-    return _CHROME_LABEL.sub("", _CHROME_PAREN.sub(" ", text or ""))
+_CHROME_BRACKET = re.compile(r"\[[^\]]*\]")
+
+
+def _strip_chrome(text: str, brackets: bool = False) -> str:
+    """Remove CQ's rendering furniture, leaving the content it wraps.
+
+    `brackets` is deliberately OFF for the name predicate and ON for the
+    line predicate, because the two want opposite things from the same
+    span. Flat mode wraps details in square brackets:
+
+        [todo] Ship the API gateway [owner: Reshmi, by 2026-08-28 (OVERDUE)]
+
+    The NAME predicate wants `Reshmi` kept: it is a real person from the
+    context and reciting it is the leak. Bracket chrome costs it nothing,
+    since `todo` and `owner` are lower-case and no proper-noun match.
+
+    The LINE predicate must drop the whole bracketed group, because its
+    words land INSIDE the shingle windows and shift them off the content.
+    MEASURED against CQ's rendered block: an answer reciting two lines was
+    detected as one, because the surviving `[owner: ... 2026-08-28]` made
+    the line's 5-grams `(ship, the, api, gateway, owner)` while the answer's
+    were `(ship, the, api, gateway, and)`. A clean report on a real recital,
+    which is the failure mode this detector exists to catch, occurring in
+    the detector.
+    """
+    out = _CHROME_PAREN.sub(" ", text or "")
+    if brackets:
+        out = _CHROME_BRACKET.sub(" ", out)
+    return _CHROME_LABEL.sub("", out)
 
 
 def _recital_terms(block: str, material: str) -> set[str]:
