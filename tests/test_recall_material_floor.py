@@ -338,14 +338,58 @@ def test_every_recited_line_is_counted_not_just_the_long_ones():
     assert _recited_lines(REAL_BLOCK, MATERIAL, answer) == 2
 
 
-def test_a_SHORT_line_is_not_structurally_invisible():
-    """'Timezone drift in the dashboard' is 5 words; 'Prefers written
-    updates' is 3. The first version shingled short lines as one whole-line
-    tuple while the answer produced only 5-grams, so terse patch lines, the
-    ones most likely to be recited verbatim, could never match."""
-    assert _recited_lines(
-        REAL_BLOCK, MATERIAL,
-        "The context says: Prefers written updates.") == 1
+def test_a_SHORT_line_is_covered_by_the_NAME_predicate_not_the_line_one():
+    """Short lines are deliberately the name predicate's job.
+
+    An earlier version of this test asserted the LINE predicate caught
+    'Prefers written updates' (3 words). It did, and that was the wrong
+    design: a short window is a loose match, and the not-in-the-material
+    subtraction that normally protects against it is WEAKEST in exactly the
+    trigger case, because a near-empty transcript has almost nothing to
+    subtract. The noise would land precisely where the detector matters most.
+
+    CQ measured the trade over 5,194 patch texts: 310 are ONE word ("Test",
+    "Dana"), 563 are under four. But 555 of those 563 (99%) carry a
+    capitalised token, so the name predicate already covers them, and only
+    eight patches in the corpus are both short and caseless.
+
+    So the coverage is not lost, it moved. Assert BOTH halves, or a future
+    reader sees an abstention and "fixes" it by lowering the floor.
+    """
+    answer = "The context says: Prefers written updates."
+
+    # The line predicate abstains, on purpose.
+    assert _recited_lines(REAL_BLOCK, MATERIAL, answer) == 0
+
+    # And the content is still covered, by the other predicate.
+    assert "Prefers" in _recital_terms(REAL_BLOCK, MATERIAL)
+
+
+def test_a_short_line_still_reaches_the_detector_end_to_end(caplog):
+    """The half of the above that needs a fixture. Belt and braces: the
+    abstention above must not become a silent hole at the detector level."""
+    answer = "The context says: Prefers written updates."
+    body = ChatRequest(
+        provider="anthropic", model="claude-haiku-4-5-20251001",
+        system_prompt="s", user_content=MATERIAL,
+        metadata={"cq_recall_block": REAL_BLOCK, "call_type": "summary"},
+    )
+    resp = ChatResponse(text=answer, model="claude-haiku-4-5-20251001",
+                        provider="anthropic")
+    with caplog.at_level("WARNING"):
+        _detect_recital(body, resp)
+    rec = next(r for r in caplog.records if r.message == "cq_recital_detected")
+    assert rec.__dict__["term_count"] >= 1
+    assert rec.__dict__["line_count"] == 0
+
+
+def test_one_word_patch_lines_cannot_fire_the_line_predicate():
+    """310 patch texts in the corpus are a single word. 'Test' in a summary
+    must not trip the detector on a turn with nothing to subtract."""
+    block = "[fact] Test\n[person] Dana\n[org] Cbe"
+    answer = ("This was a test recording and Dana was not mentioned in any "
+              "meaningful way during the session.")
+    assert _recited_lines(block, "A podcast.", answer) == 0
 
 
 def test_bracket_chrome_does_not_cost_the_name_predicate_its_names():
@@ -364,3 +408,31 @@ def test_real_block_stays_silent_on_an_honest_refusal():
     assert _recited_lines(
         REAL_BLOCK, MATERIAL,
         "The material does not cover specific decisions or action items.") == 0
+
+
+def test_lowercase_initial_brand_names_are_caught():
+    """`eBay`, `iPhone`, `iOS`.
+
+    The regex required an INITIAL capital, so a lowercase-initial brand
+    evaded the name predicate completely: `\\b[A-Z]` cannot match at the `e`
+    of eBay, and there is no word boundary before the `B`. Those are exactly
+    the tokens a customer engagement is full of, and the gap would otherwise
+    have been found by someone reciting an iPhone deployment.
+
+    CQ surfaced it sideways: `eBay` turned up in a slice of caseless patches
+    because their capitalisation proxy had the same shape as my regex and
+    mis-bucketed it for the same reason.
+    """
+    block = ("[decided] migrate the eBay listing sync to iOS 26\n"
+             "[todo] ship the iPhone build")
+    terms = _recital_terms(block, material="A podcast about China.")
+    for brand in ("eBay", "iOS", "iPhone"):
+        assert brand in terms, f"{brand} evaded the name predicate"
+
+
+def test_widened_token_does_not_swallow_ordinary_words():
+    """The second arm requires an INTERNAL capital, so ordinary lowercase
+    prose must not start matching. A noisy name predicate is one that gets
+    switched off."""
+    block = "[note] the team agreed to review the pricing model next week"
+    assert _recital_terms(block, material="unrelated") == set()

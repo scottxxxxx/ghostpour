@@ -470,12 +470,35 @@ class ContextQuiltHook:
 # `\s+` this welded the last name on one line to the first on the next
 # ("CTS  \nDon" as a single term), which then matched nothing in any
 # response and silently cost the detector both names.
-_PROPER_NOUN = re.compile(r"\b[A-Z][A-Za-z0-9]{2,}(?:[ \t]+[A-Z][A-Za-z0-9]{2,})*")
+#
+# A name token is EITHER initial-capitalised (Reshmi, ABM) OR carries an
+# internal capital after a lowercase start (eBay, iPhone, iOS). The second
+# arm was missing, so lowercase-initial brand names evaded the predicate
+# entirely, and those are exactly the tokens a customer engagement is full
+# of. Found by CQ noticing `eBay` in a corpus slice their own capitalisation
+# proxy had mis-bucketed for the same reason.
+_NAME_TOKEN = r"(?:[A-Z][A-Za-z0-9]{2,}|[a-z][A-Za-z0-9]*[A-Z][A-Za-z0-9]*)"
+_PROPER_NOUN = re.compile(rf"\b{_NAME_TOKEN}(?:[ \t]+{_NAME_TOKEN})*")
 
-# Words of overlap that count as reciting a line. Long enough that ordinary
-# phrasing does not collide, short enough to catch a clause lifted out of a
-# longer patch line.
 _SHINGLE = 5
+# Lines shorter than this are NOT shingled: a short window is a loose match,
+# and the not-in-the-material subtraction that normally protects against it
+# is weakest in exactly the trigger case, since a near-empty transcript has
+# almost nothing to subtract. So the noise would land precisely where the
+# detector matters most.
+#
+# MEASURED by CQ over 5,194 active patch texts: 310 patch texts are ONE word
+# ("Test", "Dana", "Cbe"), and 563 are under four words. A one-word window
+# fires whenever the answer contains that word anywhere.
+#
+# The floor is nearly free: 555 of those 563 short lines (99%) carry a
+# capitalised token, so the NAME predicate already covers them. Only EIGHT
+# patches in the whole corpus are both short and caseless.
+#
+# DO NOT LOWER THIS to "close the gap" for short lines. Short lines are the
+# name predicate's job by design; lowering it trades a covered case for
+# false positives concentrated on the turns that matter most.
+_MIN_LINE_WORDS = 4
 _LEADING_TAG = re.compile(r"^\s*\[[a-z_]+\]\s*", re.I)
 
 
@@ -524,7 +547,7 @@ def _recited_lines(block: str, material: str, answer: str) -> int:
     hits = 0
     for raw in _strip_chrome(block, brackets=True).splitlines():
         line_words = _norm_words(_LEADING_TAG.sub("", raw))
-        if len(line_words) < 3:
+        if len(line_words) < _MIN_LINE_WORDS:
             continue
         n = min(_SHINGLE, len(line_words))
         ans_g, mat_g = sides(n)
