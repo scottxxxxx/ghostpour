@@ -252,9 +252,18 @@ attempt that stand on their own:
 
 What does stand:
 
-    38 of 162 meetings (last 14 days) produced ONLY behavior patches
-      their patch counts: min 1, median 6, max 17
+    34 of 162 meetings produced ONLY behavior patches, EVER
+      their patch counts: min 1, median 5, max 17
       all meetings:       min 1, median 14, max 43
+
+(First reported as 38. Four were artifacts of the 14-day window: 17 of the
+original 38 were ingested inside one three-minute span on 08-17, which is a
+BACKFILL running the behaviour call over historical meetings. Their own
+non-behavior patches were created weeks earlier and sat outside the window,
+so they looked behavior-only while being nothing of the kind; one had 28
+non-behavior patches from 2026-06-25. Silence is now tested unwindowed, "this
+origin has no non-behavior patch ever", and the four are reported as excluded
+artifacts rather than dropped quietly.)
 
 A meeting yielding **seventeen** behaviour observations and not one
 commitment, decision or takeaway is not explained by "too short". So the
@@ -264,16 +273,24 @@ not the other confirmed.
 
 CQ's caveat, which they put in the script rather than only in a commit
 message: dedup means a meeting whose content merged entirely into EXISTING
-patches writes no new rows and looks identical from here. So the 38 counts
-meetings producing no NEW non-behavior patch, which is not quite "extraction
+patches writes no new rows and looks identical from here. So the 34 counts
+meetings producing no non-behavior patch, which is not quite "extraction
 returned nothing". For the tire store the stronger claim does hold, since
 there was no prior tire content in the corpus to merge into.
 
-### ⚠ Correction: the instrument may exist, on GP's side
+### The instrument EXISTS, on GP's side, and is backfillable
 
-CQ's position is that transcript-length-against-yield can only be measured at
-ingest going forward, because **CQ deliberately does not persist
-transcripts**. That is true of CQ and it is not true of the pair of us.
+**Transcript length against extraction yield can be measured retroactively
+over a rolling 30 day window.** It does not have to be instrumented at ingest
+and waited for.
+
+(An earlier draft of this section led with CQ's "can only be measured going
+forward, never backfilled" and corrected it underneath. CQ asked for that
+struck rather than footnoted, because the first sentence is the one that gets
+quoted and as written it foreclosed an option that exists. They were right
+and it is struck. The constraint was true of CQ alone and was asserted across
+a boundary without checking the other side, which is rule 5: name which side
+you proved it on.)
 
 **GP retains transcripts for 30 days** (`TRANSCRIPT_RETENTION_DAYS = 30`,
 `app/services/retention.py:29`), and `meeting_transcripts` carries
@@ -300,6 +317,15 @@ Caveats, because a schema path is not a measurement:
 - **I could not run either query.** Prod container exec was blocked for this
   session, so this is a path identified by reading the schema and the write
   site, not a result. It should be run before anyone relies on it.
+- CQ adds, from their side, that the ingest-request project is what stamps CQ
+  patches, so **a null `project_id` would be systematic rather than random**.
+  Check the null rate before building on the join.
+
+**The cohort to run it against is landed and ready:**
+`2026-08-30-silent-meeting-cohort.md` carries CQ's 34 silent meetings, a
+10-meeting productive control (without which lengths prove nothing), and four
+EXCLUDED ids that a naive 14-day join on GP's side would reproduce as false
+positives.
 
 So **758 of 1196 may be splittable after all**, and I would rather correct
 that here than have my "upper bound, cannot be split" framing harden into a
