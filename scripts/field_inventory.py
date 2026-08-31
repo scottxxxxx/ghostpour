@@ -117,6 +117,17 @@ def _describe(model: type[BaseModel], seen: set[str] | None = None) -> dict:
     }
 
 
+def _unwrap_optional(annotation):
+    """`Model | None` -> `Model`; anything else unchanged.
+
+    See the note at the issubclass check for why this is not cosmetic.
+    """
+    args = [a for a in get_args(annotation) if a is not type(None)]
+    if get_origin(annotation) is not None and len(args) == 1:
+        return args[0]
+    return annotation
+
+
 def _body_models(module) -> list[tuple[str, str, type[BaseModel]]]:
     """Every route in `module` that binds a request BODY to a model.
 
@@ -131,7 +142,20 @@ def _body_models(module) -> list[tuple[str, str, type[BaseModel]]]:
         if not isinstance(r, APIRoute) or inspect.getmodule(r.endpoint) is not module:
             continue
         for _n, p in inspect.signature(r.endpoint).parameters.items():
-            ann = p.annotation
+            ann = _unwrap_optional(p.annotation)
+            # Unwrap Optional[Model] before the issubclass check. A route
+            # binding `body: Model | None = None` annotates a UNION, which is
+            # not a type, so a bare issubclass silently skipped it and the
+            # route was invisible to this enumeration entirely. That is the
+            # blind spot this file exists to close, in this file: a model that
+            # can drop keys, on a route the instrument reports as having no
+            # model at all.
+            #
+            # Found by sabotage on 2026-08-31: a typed model bound as
+            # Optional on a new route dropped `note` and the inventory stayed
+            # green. Every model bound today is non-optional, so it had not
+            # bitten yet, which is exactly why it needed finding rather than
+            # waiting.
             if (isinstance(ann, type) and issubclass(ann, BaseModel)
                     and not isinstance(p.default, DependsParam)):
                 method = sorted(r.methods - {"HEAD", "OPTIONS"})[0]
