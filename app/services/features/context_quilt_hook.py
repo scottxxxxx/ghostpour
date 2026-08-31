@@ -55,7 +55,26 @@ RECALL_USE_GUARD = (
     "any project, person, client, organization, system, decision, or "
     "commitment that appears in this context but not in the material itself. "
     "Listing what the context contained is never an acceptable way to "
-    "explain that it did not apply."
+    "explain that it did not apply.\n"
+    # The clause below is what actually does the work, and it was added only
+    # after MEASURING that the prohibition above does not. Replaying the real
+    # incident turn against the deployed prompt: the prohibition alone took
+    # the recital from 17/48 runs to 5/48. Better, not fixed. A prohibition
+    # tells the model what not to do and leaves it to invent a replacement,
+    # and the replacement it invents is to explain itself, which means naming
+    # the thing it was told not to name. Giving it the replacement outright
+    # took it to 0/48.
+    #
+    # Deliberately surface-NEUTRAL. This guard rides on Project Chat and
+    # dossier turns too, so it must not say "recording" or "summarize"; the
+    # first version that measured 0 did, and would have been a wrong answer
+    # in chat. The neutral wording was re-measured, not assumed.
+    "If the material does not let you answer, your ENTIRE reply must be a "
+    "single short sentence saying that the material does not cover it, and "
+    "nothing else. Do not explain what you expected to find, do not contrast "
+    "the material against this context, and do not name anything from this "
+    "context. Naming context material while declining is the worst possible "
+    "outcome and is never acceptable."
 )
 
 

@@ -95,6 +95,41 @@ def test_guard_forbids_naming_context_only_entities():
     assert "Listing what the context contained" in RECALL_USE_GUARD
 
 
+def test_guard_gives_a_replacement_behaviour_not_only_a_prohibition():
+    """The clause that actually works, and the reason we know the other
+    one does not.
+
+    MEASURED by replaying the real incident turn (request_id 4b0617fb7270)
+    against the deployed prompt, 20 runs per arm:
+
+        control, exactly as it went out    17/48 runs recited the context
+        prohibition only (#825 as merged)   5/48
+        prohibition + this clause           0/48
+
+    So #825 shipped a real improvement and an incomplete fix. A prohibition
+    tells the model what NOT to do and leaves it to invent a replacement,
+    and the replacement it reaches for is to explain itself, which means
+    naming the thing it was just told not to name. Handing it the
+    replacement outright is what closed it.
+
+    Also checked, on 5 real productive summary calls: the template does NOT
+    suppress genuine summaries (0/5 refused, same as without it). A fix that
+    stops the leak by refusing everything would not be a fix, and the base
+    summary prompt says "Never refuse", so that conflict was measured rather
+    than reasoned about.
+    """
+    guard = _guard()
+    assert "ENTIRE reply must be a single short sentence" in guard
+    # Surface-neutral: this guard also rides Project Chat and dossier turns,
+    # where "recording"/"summarize" would be a wrong answer. The first
+    # wording that measured 0 said both and was re-measured after neutering.
+    for surface_noun in ("recording", "summarize", "meeting transcript"):
+        assert surface_noun not in guard.split("ENTIRE reply")[1], (
+            f"refusal template mentions {surface_noun!r}; it must be neutral "
+            f"across summary, chat and dossier surfaces"
+        )
+
+
 def test_guard_carries_no_dash_punctuation():
     """Served prompt text: the model copies the punctuation it sees."""
     assert "—" not in RECALL_USE_GUARD
