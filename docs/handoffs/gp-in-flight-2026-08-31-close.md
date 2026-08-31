@@ -155,17 +155,33 @@ as `no_headline_written` in `dropped`), which dropped `total_available` from
 FINISHED at 3,839. GP needs no change: nothing pins those fields and the deploy
 restart emptied the in-process cache, so the move is already fully visible.
 
-### ⚠ OPEN, awaiting CQ: `total_available` means two opposite things
+### ✅ CLOSED same session: the `total_available` collision was RENAMED
 
-    /v1/quilt/{user_id}         pre-cap, "the real denominator"  Scott = 2136
-    /v1/quilt/{user_id}/woven   post-prune, earned a headline    Scott =  265
+Was: two sibling routes, one name, opposite counting rules, ~8x apart for
+the same user on the same day, with GP rendering one into user-visible copy.
+**CQ ruled and shipped it as `tiles_available` on the woven route (CQ prod
+`4564cf9`), before SS wrote their decoder.** There is no collision left to
+document, so do NOT add one to GP's dossier docs.
 
-Sibling routes, one name, opposite counting rule, ~8x apart for the same user
-on the same day. GP renders the FIRST into user-visible copy ("showing N of
-2136 stored patches"). Only GP can see this because only GP holds both routes,
-exactly like `_salience`. **SS builds the expand against this field THIS WEEK,
-so before their decoder exists is the cheap moment.** If CQ keeps both names,
-write the collision into GP's dossier docs.
+    /v1/quilt/{user_id}         total_available   pre-cap denominator   2136
+    /v1/quilt/{user_id}/woven   tiles_available   post-prune            265+
+
+Both counting rules were correct for their own route and neither changed:
+pre-cap has to be the real denominator because GP renders it as a FLOOR in
+user copy, and post-prune has to exclude tiles that will never appear
+because "showing 6 of N" is a promise about a scroll. The NAME was the only
+defect, so the name is what changed.
+
+**Nothing needed from GP**: forwards verbatim, no test pins it, no code
+reads it (the `total_available` hits in `context_quilt.py`, `chat.py` and
+the contract-lane tests are all the DOSSIER lane and are untouched).
+
+⚠ `tiles_available` will CLIMB over the next hours. That is expected, not
+drift: CQ's recovery pass is writing the headlines that the new
+no-headline-no-tile gate currently suppresses.
+
+**Also additive, notification only:** person detail gained `reconciling`
+(null when nothing pending). Passes through GP by construction.
 
 ---
 
