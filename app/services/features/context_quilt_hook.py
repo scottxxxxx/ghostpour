@@ -466,7 +466,11 @@ class ContextQuiltHook:
         return headers
 
 
-_PROPER_NOUN = re.compile(r"\b[A-Z][A-Za-z0-9]{2,}(?:\s+[A-Z][A-Za-z0-9]{2,})*")
+# `[ \t]+`, NOT `\s+`: a multi-word name must not span a NEWLINE. With
+# `\s+` this welded the last name on one line to the first on the next
+# ("CTS  \nDon" as a single term), which then matched nothing in any
+# response and silently cost the detector both names.
+_PROPER_NOUN = re.compile(r"\b[A-Z][A-Za-z0-9]{2,}(?:[ \t]+[A-Z][A-Za-z0-9]{2,})*")
 
 # Words of overlap that count as reciting a line. Long enough that ordinary
 # phrasing does not collide, short enough to catch a clause lifted out of a
@@ -508,7 +512,7 @@ def _recited_lines(block: str, material: str, answer: str) -> int:
         return 0
 
     hits = 0
-    for raw in (block or "").splitlines():
+    for raw in _strip_chrome(block).splitlines():
         line = _LEADING_TAG.sub("", raw).strip()
         if not line:
             continue
@@ -521,18 +525,33 @@ def _recited_lines(block: str, material: str, answer: str) -> int:
     return hits
 
 
-# Vocabulary of CQ's block FORMAT, not of its content. These are emitted by
-# the renderer on every block regardless of whose data it is, so a model
-# echoing "overdue" or "projects" has leaked nothing. Without this the name
-# predicate fires on the template and every real signal drowns in it.
-# Found by a test, not by reading: `OVERDUE` is upper-case and parsed as a
-# proper noun.
-_BLOCK_FORMAT_TERMS = {
-    "overdue", "todo", "decided", "blocker", "behavior", "person",
-    "deliverable", "project", "projects", "people", "relations", "owner",
-    "insight", "commitment", "takeaway", "constraint", "role", "trait",
-    "preference", "org", "fact", "works_on", "belongs_to",
-}
+# CQ's block CHROME, stripped by SHAPE rather than by vocabulary.
+#
+# The first version of this was a hardcoded word list (OVERDUE, Projects,
+# People, ...). CQ pointed out that is a contract with one carrier living at
+# the wrong hop: their section labels are LOCALIZED per metadata.locale
+# across five tables today, while their flat markers stay English on
+# purpose. So an English word list fails ASYMMETRICALLY. It looks perfect on
+# English traffic and goes blind the moment a French or Japanese caller
+# arrives, and nothing anywhere fails when they add a locale or rename a
+# label.
+#
+# The SHAPE is stable even when the vocabulary is not: markers are
+# parenthesised, and a section label is a short leading `Word:` at the start
+# of a line. Stripping on that is immune to their locale table and to
+# anything they add later, with no coordination between us.
+#
+# Cost, stated because it is real: content inside parentheses stops being a
+# NAME signal, so "CTS (Ticket Creation System project)" contributes CTS but
+# not the expansion. Acceptable, because the line predicate still covers a
+# recital of that whole line, and the two signals are complementary.
+_CHROME_PAREN = re.compile(r"\([^)]*\)")
+_CHROME_LABEL = re.compile(r"^[ \t]*[^\s:][^:\n]{0,28}:[ \t]+", re.M)
+
+
+def _strip_chrome(text: str) -> str:
+    """Remove CQ's rendering furniture, leaving the content it wraps."""
+    return _CHROME_LABEL.sub("", _CHROME_PAREN.sub(" ", text or ""))
 
 
 def _recital_terms(block: str, material: str) -> set[str]:
@@ -546,11 +565,9 @@ def _recital_terms(block: str, material: str) -> set[str]:
     """
     mat = material or ""
     out = set()
-    for m in _PROPER_NOUN.findall(block or ""):
+    for m in _PROPER_NOUN.findall(_strip_chrome(block)):
         term = m.strip()
         if len(term) < 3:
-            continue
-        if term.lower() in _BLOCK_FORMAT_TERMS:
             continue
         if re.search(rf"\b{re.escape(term)}\b", mat, re.I):
             continue  # grounded in the material; not a recital

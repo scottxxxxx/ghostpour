@@ -92,9 +92,15 @@ def test_floor_of_zero_disables_the_gate(monkeypatch):
 
 # --- the detector ---
 
+# The REAL block shape, copied from the incident request rather than
+# simplified. The chrome matters: `(OVERDUE)` is parenthesised and
+# `Projects:` / `People:` are leading labels, which is exactly what the
+# structural stripping keys on. An idealised block would have tested the
+# detector against a format that does not exist.
 BLOCK = ("Projects: CTS (Ticket Creation System project)\n"
          "People: Don (FSU project manager); Sai\n"
-         "[todo] Complete CTS Asset Management [owner: Vijay, OVERDUE]")
+         "[todo] Complete CTS Asset Management "
+         "[owner: Vijay, by 2026-08-18 (OVERDUE)]")
 
 
 def test_detector_flags_a_name_that_came_only_from_the_context():
@@ -184,7 +190,7 @@ def test_detector_cannot_break_the_turn():
 
 NAMELESS_BLOCK = (
     "[todo] finalize the quarterly pricing review before the end of "
-    "next week [owner: unassigned, OVERDUE]\n"
+    "next week [owner: unassigned, by 2026-08-18 (OVERDUE)]\n"
     "[decided] the migration will be deferred until after the audit closes"
 )
 
@@ -251,3 +257,48 @@ def test_detector_fires_end_to_end_on_a_nameless_recital(caplog):
     blob = str(rec.__dict__)
     for secret in ("pricing review", "migration", "audit"):
         assert secret not in blob
+
+
+# --- locale independence: the reason the word list had to go ---
+
+def test_chrome_stripping_survives_a_LOCALE_CHANGE():
+    """The defect CQ caught, made into a test.
+
+    The first version excluded chrome by an English word list. CQ's section
+    labels are LOCALIZED per metadata.locale across five tables, while their
+    flat markers stay English on purpose, so an English list fails
+    ASYMMETRICALLY: perfect on English traffic, blind the moment a French or
+    Japanese caller arrives, and nothing fails when they add a locale.
+
+    Stripping by SHAPE (parenthesised markers, a leading `Word:` label) needs
+    no shared vocabulary and no coordination. These blocks are the same
+    content in three of their five locales.
+    """
+    cases = {
+        "en": "Project: Acme\nPeople: Vijay (project manager)\n",
+        "es": "Proyecto: Acme\nPersonas: Vijay (gerente de proyecto)\n",
+        "fr": "Projet: Acme\nPersonnes: Vijay (chef de projet)\n",
+    }
+    for locale, block in cases.items():
+        terms = _recital_terms(block, material="A podcast about China.")
+        assert "Acme" in terms, f"{locale}: lost the real name"
+        assert "Vijay" in terms, f"{locale}: lost the real name"
+        for label in ("Project", "Proyecto", "Projet",
+                      "People", "Personas", "Personnes"):
+            assert label not in terms, (
+                f"{locale}: section label {label!r} leaked into the name "
+                f"predicate. An English word list would have caught only the "
+                f"English one."
+            )
+
+
+def test_parenthesised_markers_are_stripped_whatever_they_say():
+    """Flat markers stay English by design, but the rule must not depend on
+    knowing which ones exist. Anything parenthesised is chrome."""
+    block = ("[todo] renew the certificate (OVERDUE)\n"
+             "[todo] file the report (due soon)\n"
+             "(showing 2 of 9 open)\n"
+             "(no stored memory about: Zenithcorp)")
+    terms = _recital_terms(block, material="A podcast.")
+    for marker in ("OVERDUE", "Zenithcorp"):
+        assert marker not in terms, f"{marker!r} is inside chrome"
