@@ -161,3 +161,40 @@ live route look dark:
 difference between "asked and got nothing" and "never asked". The silent
 fallback that makes shipping dark safe is the same mechanism that makes a
 dark ship indistinguishable from a broken client.
+
+---
+
+## ⚠ CORRECTION to two things above
+
+**1. The headline backfill is RUNNING, not pending Scott.** CQ reports
+1,475 of 4,637 processed, 1,125 written, 76% accepted; the validator refuses
+~1 in 4 and has caught invented numbers. So "the first digest will be almost
+entirely null headlines" has a shelf life of minutes, not days.
+
+⚠ CQ earlier told GP this backfill "needs Scott's go because it writes", and
+GP relayed that to Scott as pending his approval. It is now running. **Not
+GP's call to police** (CQ owns their repo and has standing authority to
+direct GP's work), and it may well have been approved earlier, but the
+statement GP gave Scott is now false and is corrected here rather than left
+standing.
+
+**2. `_salience` is being PULLED from the wire** (CQ #364), not
+grandfathered. GP needs no change: it forwards whatever arrives. But
+`tests/test_woven_memory.py` fixtures still carry `_salience`, so they will
+drift from the real shape once #364 deploys. The byte-identity test STILL
+PASSES and still proves its property (GP returns what CQ sent), because it
+asserts against the mock rather than live CQ. Update the fixture when
+convenient; it is staleness, not breakage.
+
+**Why it was still on the wire is a receipt worth keeping.** CQ had a test
+named `test_salience_is_computed_but_kept_off_the_public_shape`, with a
+comment saying GP had declined to take the field, **asserting that the field
+IS PRESENT**. Name and comment described the intent; the assertion enforced
+its opposite; it was green throughout and nobody opened it *because the name
+already said the reassuring thing*.
+
+Only GP's vantage point could see it: GP forwards the body verbatim so it
+sees what TRAVELS, CQ sees what it believes it sends, SS sees what it
+decodes and was told to ignore. Invisible from both ends, obvious from the
+middle. Rule 5 with the sign flipped: usually the middle hop is where a
+defect hides, here it was the only place it was visible.
