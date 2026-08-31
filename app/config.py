@@ -196,6 +196,23 @@ class Settings(BaseSettings):
     # Prod overrides via CZ_CQ_RECALL_TIMEOUT_MS in .env.prod — keep the
     # two in agreement (raised there in the same change).
     cq_recall_timeout_ms: int = 1500
+    # Below this many chars of MATERIAL (summary/analysis lanes only, never
+    # chat), do not inject a recall block at all. The incident turn had 608
+    # chars of transcript against a 2261-char context block, so the context
+    # was 3.7x the thing it was asked to summarize. 0 disables the gate.
+    #
+    # 900 is deliberately more conservative than CQ's measured 1200 (which
+    # covers 25% of the lane at 96% zero-yield vs 22% at 97%). CQ priced
+    # the difference exactly: the 900-1200 band is TEN calls in 30 days,
+    # 2.8% of the lane, eight of which produced nothing. So moving this
+    # dial to 1200 buys coverage of ~2 real turns a month and costs the
+    # memory continuity of ~10. Two reasons for starting low:
+    # the smallest material that produced a genuine summary in sampled
+    # traffic was 963, and CQ flagged that their calibration proxy is
+    # EXTRACTION yield rather than "a summary was impossible". Raising a
+    # floor later is easy; explaining lost continuity is not. Re-derive
+    # from measured recital events once the response-side detector has run.
+    cq_recall_min_material_chars: int = 900
     # The rundown dossier is the deliberate heavyweight path (user asked
     # for everything; the turn runs a minute regardless) — reusing the
     # 200ms recall budget starved it on a cold cache (live 2026-07-16
