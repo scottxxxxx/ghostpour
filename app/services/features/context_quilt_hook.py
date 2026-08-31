@@ -113,6 +113,32 @@ class ContextQuiltHook:
         if not body.context_quilt:
             return body, result
 
+        # A gate that declines SILENTLY has no instrument. Without this line,
+        # "the gate fired", "recall returned nothing" and "recall was never
+        # called" collapse into one indistinguishable observable, and "is the
+        # gate working?" becomes neither verifiable nor falsifiable. CQ hit
+        # exactly this in their own repo (their #350: two early exits
+        # returning empty with no log line, which cost a prod query, an env
+        # dump, a log grep and a read of the gate to establish what one line
+        # now says). The reason is the computed comparison, not a boolean
+        # spelling of it, so the log says WHY and against what.
+        _material_chars = len(body.user_content or "")
+        _floor = _material_floor_chars()
+        if _material_below_floor(body):
+            result["recall_skipped"] = "material_below_floor"
+            logger.info(
+                "cq_recall_skipped_thin_material",
+                extra={"call_type": body.get_meta("call_type"),
+                       "material_chars": _material_chars,
+                       "floor_chars": _floor,
+                       "reason": f"{_material_chars} < {_floor}"},
+            )
+            return body, result
+        # Emitted on the INJECT path too, so the population that was gated
+        # and the population that was not are the same query with a filter
+        # rather than two reconstructions joined after the fact.
+        result["material_chars"] = _material_chars
+
         cq_metadata = _build_recall_metadata(body)
         _apply_recall_window(cq_metadata, recall_max_age_days)
 
@@ -380,6 +406,8 @@ class ContextQuiltHook:
         if feature_state != "enabled" or not body.context_quilt:
             return
 
+        _detect_recital(body, response)
+
         prompt_mode = body.get_meta("prompt_mode")
         session_duration = body.get_meta("session_duration_sec")
 
@@ -436,6 +464,137 @@ class ContextQuiltHook:
                 headers["X-CQ-Patch-IDs"] = ",".join(patch_ids[:20])
 
         return headers
+
+
+_PROPER_NOUN = re.compile(r"\b[A-Z][A-Za-z0-9]{2,}(?:\s+[A-Z][A-Za-z0-9]{2,})*")
+
+
+def _recital_terms(block: str, material: str) -> set[str]:
+    """Names that came from the CONTEXT and not from the material.
+
+    This is the guard's own rule made checkable: the prompt forbids naming
+    what appears in the context but NOT in the material itself, so the
+    detector tests exactly that predicate rather than a proxy for it. A name
+    in both is legitimate and must not fire; in a genuinely-ABM meeting
+    "CTS" belongs in the summary.
+    """
+    mat = material or ""
+    out = set()
+    for m in _PROPER_NOUN.findall(block or ""):
+        term = m.strip()
+        if len(term) < 3:
+            continue
+        if re.search(rf"\b{re.escape(term)}\b", mat, re.I):
+            continue  # grounded in the material; not a recital
+        out.add(term)
+    return out
+
+
+def _detect_recital(body: ChatRequest, response: ChatResponse) -> None:
+    """Did the answer name context-only material? Log it if so.
+
+    The reason this exists rather than another prompt tweak: #825 and #828
+    were both verified by replaying ONE turn twenty times, and 0/20 leaves a
+    95% upper bound near 14% conditional on the trigger. A sample that size
+    cannot see a small residual. This is continuous and phrasing-independent,
+    so it catches a recital produced by wording nobody anticipated, which is
+    the whole failure mode: #825's prohibition was defeated by the model
+    inventing a politer way to say the same thing.
+
+    PRIVACY: the terms are a customer's people and projects, so they are
+    NEVER logged. Only the count, the lengths and the request id go out;
+    anyone investigating pulls the stored row, which already holds the text.
+    Logging the names would turn a leak detector into a second leak.
+    """
+    try:
+        block = (body.metadata or {}).get("cq_recall_block")
+        if not block:
+            return
+        # `.text`, NOT `.content`. The first version of this read
+        # `.content`, which ChatResponse does not have, so the detector
+        # would have returned early on EVERY turn and logged nothing,
+        # while looking installed and passing any test that only
+        # checked it did not crash. A silent detector is worse than no
+        # detector: it answers "no recitals found" forever.
+        text = getattr(response, "text", None) or ""
+        if not text:
+            return
+        terms = _recital_terms(block, body.user_content or "")
+        hits = sorted(t for t in terms
+                      if re.search(rf"\b{re.escape(t)}\b", text, re.I))
+        if not hits:
+            return
+        logger.warning(
+            "cq_recital_detected",
+            extra={
+                "call_type": body.get_meta("call_type"),
+                "term_count": len(hits),
+                "material_chars": len(body.user_content or ""),
+                "block_chars": len(block),
+                "response_chars": len(text),
+                # Lengths only. See the docstring: the terms themselves are
+                # the customer data this detector exists to protect.
+                "term_lengths": [len(t) for t in hits[:10]],
+            },
+        )
+    except Exception:
+        # A detector must never break the turn it is watching.
+        logger.exception("cq_recital_detector_failed")
+
+
+# Lanes where user_content IS the material to be worked on. ONLY these are
+# gated. Chat is deliberately absent and must stay absent: there the content
+# is a QUESTION, "what did we decide about the promotion?" is forty
+# characters, and the recall block is the intended answer source. A floor
+# calibrated on transcripts would switch Meeting Memory off in chat entirely.
+#
+# An unrecognised call_type is NOT gated. Fail open: a new lane losing recall
+# silently is a worse first failure than a new lane keeping it, and #828
+# already covers the recital behaviour in the model.
+_MATERIAL_LANES = {"summary", "analysis"}
+
+
+def _material_below_floor(body: ChatRequest) -> bool:
+    """Is this a material lane whose material is too thin to work on?
+
+    MEASURED on the incident turn (request_id 4b0617fb7270):
+
+        material (the transcript) :  608 chars
+        injected context block     : 2261 chars
+        context / material         :  3.7x
+
+    The model was asked to summarize 31 seconds of podcast and handed a
+    block almost four times that size containing a customer's people,
+    overdue commitments and decisions. It read that back, which is what a
+    model does when the context IS the only substantial content in the room.
+
+    #825 and #828 both act on the model AFTER it is in that state. This
+    declines to create the state. The two are independent layers, which
+    matters because 0/20 on the deployed guard leaves a 95% upper bound
+    near 14% conditional on the trigger; that is a residual worth a second
+    mitigation rather than a rounding error.
+
+    Skipping here also skips the CQ call itself, so a turn that should not
+    have recalled no longer perturbs `last_accessed_at` decay on CQ's side.
+
+    Floor is served config, so it moves without a deploy. Default 900:
+    the incident sits at 608, while the smallest material that produced a
+    genuine summary in the sampled traffic was 963.
+    """
+    if (body.get_meta("call_type") or "") not in _MATERIAL_LANES:
+        return False
+    floor = _material_floor_chars()
+    if floor <= 0:
+        return False
+    return len(body.user_content or "") < floor
+
+
+def _material_floor_chars() -> int:
+    try:
+        return max(0, int(getattr(
+            get_settings(), "cq_recall_min_material_chars", 900)))
+    except (TypeError, ValueError):
+        return 900
 
 
 def _build_recall_metadata(body: ChatRequest) -> dict[str, Any]:
