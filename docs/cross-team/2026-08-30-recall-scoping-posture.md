@@ -1,6 +1,9 @@
 # Recall scoping posture: what is left after the cue leg
 
 **Status:** proposal, for Scott. Written 2026-08-30 by GP (session cloudzap-35).
+**Revised the same evening** after CQ measured the input this was gated on.
+The recommendation CHANGED as a result, and one of my framing numbers was
+wrong; both are marked inline rather than quietly edited out.
 **Decision it serves:** Scott ruled on 2026-08-30 that the deeper scoping
 problem "becomes real work". This is the scoping, not the build.
 **Not covered here:** the cue leg. CQ #351 closed it (word boundary plus a
@@ -60,12 +63,25 @@ appears in three projects is legitimately one person.
 
 ### 2. The flat leg's null-permissive arm
 
-`project_id = $2 OR project_id IS NULL OR ...`, against a corpus that is
-about **94.7% unstamped** (behavior 1407/1486 null, person 422/423, insight
-95/95, org 44/44). The permissive arm is correct in intent, since an
-unstamped patch genuinely might belong anywhere, but with a corpus that is
-almost entirely unstamped it means *nearly everything is visible in every
-scope*. The predicate is doing approximately nothing.
+`project_id = $2 OR project_id IS NULL OR ...`. The permissive arm is correct
+in intent, since an unstamped patch genuinely might belong anywhere.
+
+⚠ **My original framing of this was wrong and CQ corrected it with a
+measurement.** I said the corpus was "~94.7% unstamped" and treated that as
+the size of the problem. It is not, because **several types are universal BY
+DESIGN**: a preference does not belong to a project, and the flat leg serves
+it into every scope on purpose. Stamping those would be *wrong*, not missing.
+Separating them out changes the number by a lot:
+
+    active patches                                     5194
+      stamped                                          2628   50.6%
+      unstamped                                        2566   49.4%
+        universal by design (stamping would be WRONG)  1091
+        the actual gap                                 1475
+
+So the gap is 1475 rows, not "almost everything". Anyone quoting 94.7% off
+the original incident write-up, including me, was counting rows that are
+doing exactly what they should.
 
 Both of these are **design, not defect**. Neither is a bug someone
 introduced; they are choices that were right when the corpus was small and
@@ -97,9 +113,55 @@ This is the option I would put first if the inference is reliable, because it
 fixes leg 2 with **no behaviour change in the hot path**, which matters given
 CQ's byte-stability-within-a-UTC-day prompt-caching dependency.
 
-Unknown that has to be settled before costing it: **what fraction of
-unstamped patches can actually have a project inferred?** Neither team has
-measured this. If it is 20%, this option is not worth much.
+#### MEASURED (CQ, 2026-08-30). The headline number is good and should not reassure anyone.
+
+Method: same-meeting inheritance only. A project-null patch counts as
+inferable when its origin has sibling patches carrying exactly one distinct
+`project_id`. Where siblings disagree it was counted **ambiguous rather than
+guessed**, which is the right call. Other signals (a `parent` connection to a
+stamped patch, entity overlap) are unmeasured, so **82.1% is a floor for this
+method, not a ceiling for all methods**.
+
+    over the 1475-row gap
+      inferable, siblings agree on one project         1211   82.1%
+      ambiguous, siblings name more than one             20    1.4%
+      meeting has NO stamped sibling at all             195   13.2%
+      no origin_id to inherit from                       49    3.3%
+
+**82.1% is one type wearing a trenchcoat.** 1210 of those 1211 are `behavior`:
+
+    behavior      1210 / 1407    86.0%
+    role             1 /    1   100.0%
+    commitment       0 /   17     0.0%
+    takeaway         0 /   17     0.0%
+    decision         0 /    9     0.0%
+    deliverable      0 /    8     0.0%
+    constraint       0 /    4     0.0%
+    blocker          0 /    1     0.0%
+
+Of the 68 non-behavior rows in the gap, **exactly one** is inferable. The
+zeroes are not coincidence: those meetings have no stamped sibling because
+**they have no project at all**. They are the tire store and the vet visit.
+
+#### What that does to this option
+
+1. **"Stamp the corpus" is really "stamp `behavior`"**, and that is a decision
+   about one type rather than a corpus-wide backfill. Behavior is 1407 of the
+   1475 gap rows, 95.4% of it. Much smaller and more tractable than my
+   original framing implied, and it closes a real leak: behaviour is what came
+   through the null arm in the original incident.
+2. **The remaining 68 rows can never be inherited, by any amount of
+   stamping.** They are Scott's casual-use case, and they will not shrink.
+   What a project-less meeting is entitled to is a **design question**, not a
+   backfill problem.
+3. **The ordering question this document posed partly dissolves.** If stamping
+   is one type, and the header has to solve project-less meetings regardless,
+   then stamping first is cheap but does **not** buy down the header work. The
+   two are closer to independent than sequential.
+
+CQ explicitly declined to call the ordering settled on their number alone,
+which is correct: they measured one input to options I wrote, and neither of
+us should conclude on the other's half.
 
 ### C. Give the entity header a project-aware mode.
 
@@ -121,18 +183,56 @@ it. I would not start here.
 
 ---
 
-## Recommendation
+## Recommendation (REVISED after CQ's measurement)
 
-**B and C, in that order, and only after the measurement in B is done.**
+The measurement is in, so this is no longer gated.
 
-B first because it fixes the leg with the widest reach without touching hot
-path logic. C second because it fixes the leg the actual customer names came
-through, which B does not touch at all.
+**Do B, scoped down to `behavior` only. Treat C as independent work, not as
+something B is a prerequisite for.**
 
-A is the honest fallback if the B measurement comes back poor and C prices
-badly. It should be a decision, not a default.
+B is now a small, well-bounded job: one patch type, 1210 inferable rows,
+inheriting from same-meeting siblings that agree, leaving the 20 ambiguous
+ones alone. It closes the leg that the original incident actually came
+through, with no hot-path change. It is worth doing on that basis.
 
-D I would park.
+But B **no longer earns its "first" billing in the way I originally argued**.
+I put it first on the theory that it would shrink the problem C has to solve.
+It does not: the 68 non-behavior rows are untouchable by inheritance and are
+precisely the project-less case C has to answer for. Sequencing them was my
+error, and it came from assuming a corpus-wide backfill where the data says
+one type.
+
+C remains the leg the actual customer names came through, and nothing in the
+measurement makes it smaller.
+
+A stays the honest fallback and should be a decision rather than a default.
+D stays parked.
+
+---
+
+## ⚠ A finding that may outrank this entire document
+
+While measuring the above, CQ looked at Scott's **tire store** meeting, the
+case this document is designed around. CQ kept **one** patch from it: a
+single behaviour observation, from the dedicated behaviour call. The main
+extraction produced **nothing at all**. No price, no commitment.
+
+The **vet visit**, by contrast, got a project and produced ten patches
+including a real commitment. So this is *not* "personal topics fail", and
+neither team knows yet what differs. CQ is explicitly not asserting a cause.
+
+If that generalises, then for the casual-use case that motivated the whole
+scoping constraint, **the header and the null arm are both downstream of a
+capture gap that leaves almost nothing to serve.** Scoping recall better does
+not help when there is nothing in it.
+
+I would not let this block B, which is worth doing regardless. But I would
+want it understood before anyone prices C, because C is largely justified by
+serving project-less meetings well, and we do not currently know whether
+project-less meetings have anything to serve.
+
+**This is unexplained, not diagnosed.** One meeting each way is an
+observation, not a pattern.
 
 ---
 
