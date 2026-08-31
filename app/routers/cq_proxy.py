@@ -1433,16 +1433,37 @@ def _json_of(resp) -> dict:
 # and durationSeconds actually live.
 
 
-def _woven_meta(entry, stale: bool) -> dict:
-    """The freshness envelope, on EVERY response including a fresh one.
+def _woven_meta(entry, stale: bool, cached: bool = True) -> dict:
+    """The freshness envelope. ONE shape, on every response.
 
     `as_of` is present whether or not the digest is stale so the client
     renders one code path. The spec defines an "as of <date>" overline for
     the slow path; with stale-while-revalidate that path is the normal one,
     so a field that only appears when things go wrong would be the rarer
     case and therefore the less tested one.
+
+    ⚠ The first version broke that rule in the branch below it. The degraded
+    path built the envelope INLINE with an extra `cached` key the normal
+    path did not have, and with `as_of: null`. Two shapes for one field, and
+    the rarer one is the one a client gets wrong.
+
+    The null was worse. SS parses `as_of` as a DAY, with a formatter pinned
+    to en_US_POSIX/UTC because it is a machine day rather than a displayed
+    one. A null throws their decoder, the fetch returns nil, and the screen
+    falls back to the local builder, which ON A DEVICE IS INDISTINGUISHABLE
+    FROM THE ROUTE BEING DARK. That is the lean-patch defect they had just
+    fixed in their own decoder, reproduced in my field, and it would have
+    made a genuinely good first deploy read to them as still dark.
+
+    So: the same three keys always, and `as_of` never null. A degraded
+    answer was fetched just now and simply not stored, which makes today the
+    honest day for it.
     """
-    return {"as_of": _woven.as_of(entry), "stale": stale}
+    return {
+        "as_of": _woven.as_of(entry) if entry is not None else _woven.today_iso(),
+        "stale": stale,
+        "cached": cached,
+    }
 
 
 def _woven_limit(raw: str | None) -> int:
@@ -1528,7 +1549,7 @@ async def woven_home(
         # Serve it, do not store it. The user still gets their tiles.
         return JSONResponse(content={
             **d.body,
-            "_freshness": {"as_of": None, "stale": False, "cached": False},
+            "_freshness": _woven_meta(None, stale=False, cached=False),
         })
     entry = _woven.peek(k)
     return JSONResponse(content={**body, "_freshness": _woven_meta(entry, stale)})

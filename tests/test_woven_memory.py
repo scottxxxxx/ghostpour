@@ -498,3 +498,65 @@ def test_a_null_headline_is_carried_not_dropped(client, free_user, monkeypatch):
     assert "headline" in got["patches"][1], "a null headline key was dropped"
     assert got["patches"][1]["headline"] is None
     assert got["patches"][0]["headline"] == "60-67% small firms is the sweet spot"
+
+
+# --- _freshness: ONE shape, always ------------------------------------------
+
+import datetime as _dt  # noqa: E402
+
+
+def _freshness_of(resp) -> dict:
+    return resp.json()["_freshness"]
+
+
+def test_freshness_has_the_same_keys_on_every_path(
+    client, free_user, monkeypatch
+):
+    """One shape, three paths.
+
+    The first version built the degraded envelope inline with an extra
+    `cached` key the normal path lacked. Two shapes for one field, and the
+    rarer one is the one a client gets wrong, which is the same reasoning as
+    logging a detector's clean case.
+    """
+    expected = {"as_of", "stale", "cached"}
+
+    _capture(monkeypatch)
+    fresh = _freshness_of(client.get("/v1/memory/woven", headers=_h(free_user)))
+    assert set(fresh) == expected, f"fresh path: {sorted(fresh)}"
+
+    woven_cache.clear()
+    _capture(monkeypatch, body={**_digest(2), "project_known": None})
+    degraded = _freshness_of(
+        client.get("/v1/memory/woven?project_id=P1", headers=_h(free_user)))
+    assert set(degraded) == expected, f"degraded path: {sorted(degraded)}"
+    assert degraded["cached"] is False
+
+
+def test_as_of_is_never_null_and_is_a_bare_DAY(client, free_user, monkeypatch):
+    """SS parses this as a day with a formatter pinned to en_US_POSIX/UTC,
+    because it is a machine day rather than a displayed one.
+
+    A null would throw their decoder, the fetch would return nil, and the
+    screen would fall back to the local builder, which on a device is
+    INDISTINGUISHABLE from the route being dark. That is the lean-patch
+    defect they just fixed, and the degraded path had it in my field.
+
+    A time component would be worse than useless: it would invent precision
+    GP never has and drift by the reader's zone.
+    """
+    for url, body in (
+        ("/v1/memory/woven", None),
+        ("/v1/memory/woven?project_id=P1", {**_digest(2), "project_known": None}),
+        ("/v1/memory/meetings/MEET-1/woven", None),
+    ):
+        woven_cache.clear()
+        _capture(monkeypatch, body=body)
+        got = _freshness_of(client.get(url, headers=_h(free_user)))
+        assert got["as_of"] is not None, f"{url} sent a null day"
+        # Parses as a bare date, and ONLY as a bare date.
+        _dt.date.fromisoformat(got["as_of"])
+        assert "T" not in got["as_of"] and ":" not in got["as_of"], (
+            f"{url} sent {got['as_of']!r}; a time invents precision GP does "
+            f"not have and drifts by the reader's zone"
+        )

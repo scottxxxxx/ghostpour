@@ -100,6 +100,17 @@ def store(k: str, body: dict) -> None:
                       stored_at=datetime.now(timezone.utc))
 
 
+def today_iso() -> str:
+    """The day a NOT-cached answer is as of.
+
+    Exists so the degraded path and the cached path format the day the same
+    way rather than each rolling their own. SS pins their parser to
+    en_US_POSIX/UTC precisely because this is a machine day, and two
+    formatters is how one of them quietly stops matching.
+    """
+    return _today().isoformat()
+
+
 def as_of(e: Entry) -> str:
     """What the client stamps on the overline when serving a stale digest."""
     return e.day.isoformat()
