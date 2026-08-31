@@ -120,3 +120,44 @@ not to name.
 - ⚠ **Sabotage-revert trap hit twice more today (4th and 5th).** Reading the
   note does not work. The only mechanism is: **commit BEFORE sabotaging, as
   one motion.**
+
+---
+
+## Late addition: SS ran the device half, token expired
+
+SS ran the probe on Scott's iPad (build 1400). GP's side, confirmed in the
+container log:
+
+    15:24:47.040  GET /v1/memory/woven?window=7d&limit=6                     401  3ms
+    15:24:47.099  GET /v1/memory/woven?…&project_id=not-a-real-project-id    401  2ms
+
+**The query string arrived intact**, which SS's 401 could not prove from
+their end (auth refuses identically with params stripped). 2-3ms means auth
+rejected before any CQ call, so nothing reached CQ and nothing was cached.
+
+⚠ **A 401 leaves NOTHING in GP's request ring** (it records inbound bodies,
+after auth). I had offered the ring as the matching half; it only carries
+the call once the token is valid.
+
+**Still owed: the wrong-`project_id` BODY**, i.e. `project_known: false`
+versus the key being absent. The iPad's stored token is expired. Cheapest
+path is to open the app so the ordinary refresh runs, then re-run the probe.
+**GP cannot do this half alone** — it needs a session, and minting one is
+outside standing authority.
+
+Two SS client defects found on the way, both of which would have made this
+live route look dark:
+
+- `WovenDigestClient` read keychain account `cloudzap_jwt`; everything else
+  uses `cloudzap_api_key`. The fetch returned nil BEFORE requesting, so a
+  signed-in device falls back forever, indistinguishable from a 404. SS
+  would have reported the route dark after a good deploy, confidently.
+- Their probe's first run wrote an EMPTY FILE: the no-credential path
+  `continue`d past the write, so "could not run" looked like "ran and found
+  nothing" — under a comment that said a probe recording only success is not
+  an instrument. Second comment-versus-code divergence in two days.
+
+**The generalisation (SS's, worth keeping):** a FALLBACK erases the
+difference between "asked and got nothing" and "never asked". The silent
+fallback that makes shipping dark safe is the same mechanism that makes a
+dark ship indistinguishable from a broken client.
