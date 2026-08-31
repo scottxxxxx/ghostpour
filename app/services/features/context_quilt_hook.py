@@ -468,6 +468,72 @@ class ContextQuiltHook:
 
 _PROPER_NOUN = re.compile(r"\b[A-Z][A-Za-z0-9]{2,}(?:\s+[A-Z][A-Za-z0-9]{2,})*")
 
+# Words of overlap that count as reciting a line. Long enough that ordinary
+# phrasing does not collide, short enough to catch a clause lifted out of a
+# longer patch line.
+_SHINGLE = 5
+_LEADING_TAG = re.compile(r"^\s*\[[a-z_]+\]\s*", re.I)
+
+
+def _norm_words(text: str) -> list[str]:
+    return re.sub(r"[^a-z0-9\s]+", " ", (text or "").lower()).split()
+
+
+def _shingles(words: list[str], n: int = _SHINGLE) -> set[tuple]:
+    if len(words) < n:
+        return {tuple(words)} if len(words) >= 3 else set()
+    return {tuple(words[i:i + n]) for i in range(len(words) - n + 1)}
+
+
+def _recited_lines(block: str, material: str, answer: str) -> int:
+    """How many injected LINES were echoed back, names or not.
+
+    CQ's correction, and it is the right one: a name is a proxy for the harm,
+    not the harm. The original incident leaked an overdue customer
+    COMMITMENT. A turn that recites "ship the API gateway by Friday" carries
+    another project's commitment into an unrelated meeting with no proper
+    noun anywhere in it, and a name-keyed detector calls that clean.
+
+    This does not need NER and is not a heuristic, because we know exactly
+    what text we injected. Compare the answer against the BLOCK'S OWN LINES,
+    with the same not-in-the-material subtraction: an overlap the model could
+    have got from the transcript is not a recital.
+    """
+    mat = set()
+    for m_sh in (_shingles(_norm_words(material)),):
+        mat |= m_sh
+    ans_words = _norm_words(answer)
+    ans = _shingles(ans_words)
+    if not ans:
+        return 0
+
+    hits = 0
+    for raw in (block or "").splitlines():
+        line = _LEADING_TAG.sub("", raw).strip()
+        if not line:
+            continue
+        line_sh = _shingles(_norm_words(line))
+        if not line_sh:
+            continue
+        # Present in the answer, and NOT available from the material.
+        if line_sh & ans and (line_sh & ans) - mat:
+            hits += 1
+    return hits
+
+
+# Vocabulary of CQ's block FORMAT, not of its content. These are emitted by
+# the renderer on every block regardless of whose data it is, so a model
+# echoing "overdue" or "projects" has leaked nothing. Without this the name
+# predicate fires on the template and every real signal drowns in it.
+# Found by a test, not by reading: `OVERDUE` is upper-case and parsed as a
+# proper noun.
+_BLOCK_FORMAT_TERMS = {
+    "overdue", "todo", "decided", "blocker", "behavior", "person",
+    "deliverable", "project", "projects", "people", "relations", "owner",
+    "insight", "commitment", "takeaway", "constraint", "role", "trait",
+    "preference", "org", "fact", "works_on", "belongs_to",
+}
+
 
 def _recital_terms(block: str, material: str) -> set[str]:
     """Names that came from the CONTEXT and not from the material.
@@ -483,6 +549,8 @@ def _recital_terms(block: str, material: str) -> set[str]:
     for m in _PROPER_NOUN.findall(block or ""):
         term = m.strip()
         if len(term) < 3:
+            continue
+        if term.lower() in _BLOCK_FORMAT_TERMS:
             continue
         if re.search(rf"\b{re.escape(term)}\b", mat, re.I):
             continue  # grounded in the material; not a recital
@@ -519,16 +587,22 @@ def _detect_recital(body: ChatRequest, response: ChatResponse) -> None:
         text = getattr(response, "text", None) or ""
         if not text:
             return
-        terms = _recital_terms(block, body.user_content or "")
+        material = body.user_content or ""
+        terms = _recital_terms(block, material)
         hits = sorted(t for t in terms
                       if re.search(rf"\b{re.escape(t)}\b", text, re.I))
-        if not hits:
+        # Names are ONE signal inside the predicate, not the predicate. A
+        # recited commitment with no proper noun in it is the same
+        # confidentiality failure and the name check reports it clean.
+        line_hits = _recited_lines(block, material, text)
+        if not hits and not line_hits:
             return
         logger.warning(
             "cq_recital_detected",
             extra={
                 "call_type": body.get_meta("call_type"),
                 "term_count": len(hits),
+                "line_count": line_hits,
                 "material_chars": len(body.user_content or ""),
                 "block_chars": len(block),
                 "response_chars": len(text),

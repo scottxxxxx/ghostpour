@@ -29,6 +29,7 @@ from app.services.features.context_quilt_hook import (
     _detect_recital,
     _material_below_floor,
     _recital_terms,
+    _recited_lines,
 )
 
 
@@ -177,3 +178,76 @@ def test_detector_cannot_break_the_turn():
         metadata={"cq_recall_block": BLOCK},
     )
     _detect_recital(body, object())  # not a ChatResponse at all
+
+
+# --- CQ's correction: names are a proxy for the harm, not the harm ---
+
+NAMELESS_BLOCK = (
+    "[todo] finalize the quarterly pricing review before the end of "
+    "next week [owner: unassigned, OVERDUE]\n"
+    "[decided] the migration will be deferred until after the audit closes"
+)
+
+
+def test_a_recited_commitment_with_NO_name_in_it_is_caught():
+    """CQ's gap, and it is the shape of the original incident.
+
+    The leak that started all of this was an overdue customer COMMITMENT. A
+    turn that recites another project's commitment carries the same
+    confidentiality failure whether or not a proper noun rides along, and a
+    name-keyed detector reports it clean.
+    """
+    material = "A podcast about China and predictions."
+    answer = ("I cannot summarize this. It does not mention finalize the "
+              "quarterly pricing review before the end of next week.")
+
+    # The name check alone is BLIND to it. This assertion is the reason the
+    # line signal exists; if it ever starts passing, the line signal has
+    # become redundant and this test should be revisited rather than deleted.
+    assert not _recital_terms(NAMELESS_BLOCK, material), \
+        "block has no proper nouns; the name predicate cannot see this leak"
+
+    assert _recited_lines(NAMELESS_BLOCK, material, answer) >= 1
+
+
+def test_line_signal_does_not_fire_on_material_the_model_was_given():
+    """Same not-in-the-material subtraction as the name check. If the
+    transcript itself discussed the pricing review, echoing it is the job."""
+    material = ("We spent the hour on how to finalize the quarterly pricing "
+                "review before the end of next week, and agreed to defer.")
+    answer = ("The team discussed how to finalize the quarterly pricing "
+              "review before the end of next week.")
+    assert _recited_lines(NAMELESS_BLOCK, material, answer) == 0
+
+
+def test_line_signal_silent_on_an_honest_refusal():
+    """What #828 produces. Ordinary phrasing must not collide with a block
+    line, or the detector is noise and gets switched off."""
+    assert _recited_lines(
+        NAMELESS_BLOCK,
+        "A podcast about China.",
+        "The material does not cover specific decisions or action items.",
+    ) == 0
+
+
+def test_detector_fires_end_to_end_on_a_nameless_recital(caplog):
+    body = ChatRequest(
+        provider="anthropic", model="claude-haiku-4-5-20251001",
+        system_prompt="s", user_content="A podcast about China.",
+        metadata={"cq_recall_block": NAMELESS_BLOCK, "call_type": "summary"},
+    )
+    resp = ChatResponse(
+        text=("Not related. The context covers the migration will be "
+              "deferred until after the audit closes."),
+        model="claude-haiku-4-5-20251001", provider="anthropic",
+    )
+    with caplog.at_level("WARNING"):
+        _detect_recital(body, resp)
+    rec = next(r for r in caplog.records if r.message == "cq_recital_detected")
+    assert rec.__dict__["line_count"] >= 1
+    assert rec.__dict__["term_count"] == 0, \
+        "this leak is invisible to the name predicate; that is the point"
+    # The no-logging-of-text rule survives the predicate change unchanged.
+    blob = str(rec.__dict__)
+    for secret in ("pricing review", "migration", "audit"):
+        assert secret not in blob
