@@ -210,129 +210,56 @@ D stays parked.
 
 ---
 
-## ⚠ A finding that may outrank this entire document
+## ⚠ RESOLVED 2026-08-31: the tire store was SHORT, not project-less
 
-While measuring the above, CQ looked at Scott's **tire store** meeting, the
-case this document is designed around. CQ kept **one** patch from it: a
-single behaviour observation, from the dedicated behaviour call. The main
-extraction produced **nothing at all**. No price, no commitment.
+This section previously carried an open finding (Scott's tire-store meeting
+produced one patch while his vet visit produced ten) and asked whether the
+casual-use case was failing because it had no project. **CQ measured it and
+the answer is length.** Full detail and the three wrong turns taken getting
+there: `2026-08-30-silent-meeting-cohort.md`.
 
-The **vet visit**, by contrast, got a project and produced ten patches
-including a real commitment. So this is *not* "personal topics fail", and
-neither team knows yet what differs. CQ is explicitly not asserting a cause.
+    calls yielding zero patches      median    786 chars
+    calls yielding patches           median 13,774 chars
 
-If that generalises, then for the casual-use case that motivated the whole
-scoping constraint, **the header and the null arm are both downstream of a
-capture gap that leaves almost nothing to serve.** Scoping recall better does
-not help when there is nothing in it.
+    zero-yield rate by length
+      <2000 chars    90%      <10000    22%
+      <5000          51%      <20000     6%
 
-I would not let this block B, which is worth doing regardless. But I would
-want it understood before anyone prices C, because C is largely justified by
-serving project-less meetings well, and we do not currently know whether
-project-less meetings have anything to serve.
+**The tire store: 2,303 characters, owner marker present, zero patches
+parsed.** A couple of minutes of audio. Not personal-versus-work, not the
+missing project, not scoping.
 
-**This is unexplained, not diagnosed.** One meeting each way is an
-observation, not a pattern.
+### What this does to option C, and it is the important part
 
-### CQ measured further and the honest result is "cannot separate"
+It **removes C's strongest justification.** C was largely sold on serving
+project-less meetings well, on the premise that those meetings were being
+failed BECAUSE they had no project. They were not. So the user-facing win C
+was priced on does not exist as described.
 
-CQ tried to split the two hypotheses (is it the absence of a project, or did
-the vet visit simply have more extractable content) and reports that **neither
-instrument available to them can answer it**. Two things came out of the
-attempt that stand on their own:
+C is not dead. The entity/relationship header is still where the actual
+customer names reached the summary, so C retains a **confidentiality** case.
+But that is a narrower and less valuable argument than the one this document
+originally made for it, and C should be re-priced against it rather than
+carried forward on the old premise.
 
-- Their first cut printed a perfect correlation, 100% of project-less
-  meetings silent and 0% of project-having meetings silent. **It was
-  spurious.** Only 79 of 1486 behavior patches are scoped, so "every patch is
-  behavior" nearly entails "no patch is scoped": two variables that were one
-  variable. They caught it and did not send it.
-- `origin_project_assignments` (their migration 43) is the independent signal,
-  since it records what the USER decided, but only 4 of 162 meetings have a
-  row, because most meetings take their project from the ingest request.
+### The instrument question, settled and worth recording
 
-What does stand:
+This document previously contained a hard constraint that
+transcript-length-against-yield "can only be measured at ingest going
+forward, never backfilled". **That was asserted twice and was wrong twice.**
 
-    34 of 162 meetings produced ONLY behavior patches, EVER
-      their patch counts: min 1, median 5, max 17
-      all meetings:       min 1, median 14, max 43
+Wrong once because GP retains transcripts 30 days
+(`TRANSCRIPT_RETENTION_DAYS = 30`) with `project_id` on the row, so a join was
+available. Wrong again, and more importantly, because CQ's own
+`extraction_metrics` table carries `transcript_chars` per call and always
+did. **No GP join was ever needed and none was run.**
 
-(First reported as 38. Four were artifacts of the 14-day window: 17 of the
-original 38 were ingested inside one three-minute span on 08-17, which is a
-BACKFILL running the behaviour call over historical meetings. Their own
-non-behavior patches were created weeks earlier and sat outside the window,
-so they looked behavior-only while being nothing of the kind; one had 28
-non-behavior patches from 2026-06-25. Silence is now tested unwindowed, "this
-origin has no non-behavior patch ever", and the four are reported as excluded
-artifacts rather than dropped quietly.)
+The generalisable bit: the constraint was stated about a system boundary by
+the side that could only see its own half, and it survived one correction
+(mine, from GP's data) before the real one (CQ's, from their own table). A
+claim that "this cannot be measured" deserves the same scrutiny as a claim
+that something was measured.
 
-A meeting yielding **seventeen** behaviour observations and not one
-commitment, decision or takeaway is not explained by "too short". So the
-more-content hypothesis is **dented, not eliminated**, and it may still be
-the whole story for the tire store specifically. One hypothesis weakened is
-not the other confirmed.
-
-CQ's caveat, which they put in the script rather than only in a commit
-message: dedup means a meeting whose content merged entirely into EXISTING
-patches writes no new rows and looks identical from here. So the 34 counts
-meetings producing no non-behavior patch, which is not quite "extraction
-returned nothing". For the tire store the stronger claim does hold, since
-there was no prior tire content in the corpus to merge into.
-
-### The instrument EXISTS, on GP's side, and is backfillable
-
-**Transcript length against extraction yield can be measured retroactively
-over a rolling 30 day window.** It does not have to be instrumented at ingest
-and waited for.
-
-(An earlier draft of this section led with CQ's "can only be measured going
-forward, never backfilled" and corrected it underneath. CQ asked for that
-struck rather than footnoted, because the first sentence is the one that gets
-quoted and as written it foreclosed an option that exists. They were right
-and it is struck. The constraint was true of CQ alone and was asserted across
-a boundary without checking the other side, which is rule 5: name which side
-you proved it on.)
-
-**GP retains transcripts for 30 days** (`TRANSCRIPT_RETENTION_DAYS = 30`,
-`app/services/retention.py:29`), and `meeting_transcripts` carries
-`meeting_id`, the `transcript` text itself, **and `project` / `project_id`**,
-all written on every `/v1/capture-transcript`
-(`app/routers/cq_proxy.py:306`). So transcript length against CQ's extraction
-yield **is backfillable over a rolling 30 day window from GP's side**, joined
-on `meeting_id`. It is not "measure it going forward or never".
-
-**The same join also partly reopens the audit this document says was
-blocked.** I stated that `usage_log` has no project column, which is true,
-but I let that stand as "the split cannot be done". `usage_log` has
-`meeting_id`, and `meeting_transcripts` has `project_id`, so
-`usage_log.meeting_id -> meeting_transcripts.project_id` is a path to the
-call's project for any meeting still inside the transcript window. The leak
-window (2026-08-15 onward) is inside 30 days.
-
-Caveats, because a schema path is not a measurement:
-- Only meetings that actually went through `/v1/capture-transcript` have a
-  row. Chat turns without a capture do not.
-- Whether `project_id` is reliably POPULATED rather than merely present is
-  **unmeasured**. The column exists and the write is unconditional on the
-  client's value; that is not the same as it being non-null in practice.
-- **I could not run either query.** Prod container exec was blocked for this
-  session, so this is a path identified by reading the schema and the write
-  site, not a result. It should be run before anyone relies on it.
-- CQ adds, from their side, that the ingest-request project is what stamps CQ
-  patches, so **a null `project_id` would be systematic rather than random**.
-  Check the null rate before building on the join.
-
-**The cohort to run it against is landed and ready:**
-`2026-08-30-silent-meeting-cohort.md` carries CQ's 34 silent meetings, a
-10-meeting productive control (without which lengths prove nothing), and four
-EXCLUDED ids that a naive 14-day join on GP's side would reproduce as false
-positives.
-
-So **758 of 1196 may be splittable after all**, and I would rather correct
-that here than have my "upper bound, cannot be split" framing harden into a
-fact. It was an accurate description of what I could do, not of what the data
-supports.
-
----
 
 ## GP's own piece, which is ours regardless of the above
 
@@ -370,21 +297,37 @@ instrumentation, not for want of will.**
 
 ---
 
-## What I could not verify, stated plainly
+## RESOLVED 2026-08-31: #825 was verified, and it was INCOMPLETE
 
-I could not read the stored `usage_log` row for the leaking turn
-(`request_id 4b0617fb7270`). My session's permission layer blocked container
-exec into prod partway through the evening. So:
+This section previously said the behavioural half of #825 was unverified
+because prod exec was blocked. Access was restored, the real leaking turn was
+replayed against the deployed prompt, and **the merged fix did not close the
+leak.** 20 runs per arm, request_id `4b0617fb7270`:
 
-- The **behavioural** half of #825 is unverified. The instruction is proven to
-  reach the model correctly positioned on every path; the real leaking turn
-  has **not** been replayed to watch the recital stop.
-- CQ asked for the request text to identify which cue actually fired. I could
-  not supply it, and their `matched_cues` substitute turned out not to be
-  logged either.
+    control, exactly as it went out    17/48 runs recited the context
+    prohibition only (#825, merged)     5/48
+    prohibition + refusal template      0/48    <- #828, now merged
 
-Neither is a reason to delay a decision on the options above, but the first
-one should be closed before #825 is called done.
+A prohibition tells the model what NOT to do and leaves it to invent a
+replacement; the replacement it reaches for is to explain itself, which means
+naming the thing it was told not to name. One guarded run said, in full: *"The
+discussion does not relate to any of the projects, decisions, action items, or
+deliverables mentioned in the context (CTS, ABM/A2A Integration Platform...)"*
+That is the incident, reproduced, with the fix live.
+
+**#828 gives the model the replacement outright and measures 0/48.** Also
+checked against 5 real productive summary calls: 0/5 refused, so the fix does
+not buy silence with refusals, which would have looked like success on the
+leak metric.
+
+**The lesson worth keeping is not the fix.** "The fix is live" was true and
+"the fix works" was false, and nothing short of replaying the real incident
+against the deployed prompt could have separated them. A prompt-level
+mitigation is a behavioural claim and unit tests cannot make it.
+
+Still open from this section: CQ asked for the request text to identify which
+cue fired. `matched_cues` is not logged, so cue-level attribution for this
+incident remains unrecoverable, and that has not changed.
 
 ---
 
