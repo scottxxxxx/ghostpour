@@ -217,3 +217,46 @@ def test_all_bundled_tr_prompt_configs_carry_the_flag():
     routing = json.loads(
         pathlib.Path("config/remote/model-routing.json").read_text())
     assert routing.get("server_only") is True
+
+
+# --- N-400 Helper tenant registration (2026-08-31) ---------------------------
+
+def test_n400_resolves_to_its_own_dir_and_not_the_shouldersurf_fallback():
+    """The registration IS the isolation, and its absence is SILENT.
+
+    resolve_app_dir fails open by design, so an unregistered `n400` returns
+    "shouldersurf" and the app is served ShoulderSurf's config with nothing
+    but a log line: no 404, no 4xx, and a client that looks like it works.
+    That makes this assert the only thing standing between a registry edit
+    and a tenant quietly sharing another app's config.
+    """
+    assert cfg.resolve_app_dir("n400") == "n400"
+    # the failure mode this exists to catch, stated so it cannot be misread
+    assert cfg.resolve_app_dir("n400") != "shouldersurf"
+    # same case-insensitivity every other app gets
+    assert cfg.resolve_app_dir(" N400 ") == "n400"
+    # and a near-miss is NOT the tenant: it falls open like any unknown id
+    assert cfg.resolve_app_dir("n400helper") == "shouldersurf"
+
+
+def test_n400_registry_entry_carries_what_the_version_gate_needs():
+    """bundle_id is the key into app-versions.yml. Without it the force-
+    upgrade gate cannot resolve a floor for this app and fails open, so we
+    could never require an upgrade. Pinned because it is a string nobody
+    would notice going missing."""
+    entry = cfg.load_apps()["apps"]["n400"]
+    assert entry["bundle_id"] == "com.weirtech.n400helper"
+    assert entry["label"] == "N-400 Helper"
+
+
+def test_n400_has_no_budget_block_on_purpose():
+    """N-400's paid tier is a client-gated StoreKit non-consumable, so no
+    per-call entitlement reaches GP and the entitlement-keyed budget gate
+    has nothing to key on. If someone adds a `budget` block here without
+    also giving N-400 an entitlement axis, the gate reads a missing header,
+    `cap_for_entitlement` returns None, and it silently never fires: a
+    budget that looks configured and enforces nothing. Fail loudly here
+    instead.
+    """
+    entry = cfg.load_apps()["apps"]["n400"]
+    assert "budget" not in entry

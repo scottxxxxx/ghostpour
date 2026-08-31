@@ -75,3 +75,33 @@ apps:
     # app_id=techrehearsal — SS (shouldersurf / no header) is never touched.
     tier_overrides:
       max_images_per_request: 1   # TR live-interview single-shot cap (TR ask 2026-06-23; tunable)
+  n400:
+    dir: n400
+    label: N-400 Helper
+    bundle_id: com.weirtech.n400helper
+    # Registered 2026-08-31, BEFORE the first TestFlight, which is the whole
+    # point: resolve_app_dir fails open, so an unregistered id would have been
+    # served ShoulderSurf's config with only a log line and nothing would have
+    # errored. `n400` was already pinned on the client side (their
+    # BACKEND-CONTRACTS.md and GPGateway.appID) before we wrote this, so the
+    # string is theirs, not ours, and it is permanent once a build ships.
+    #
+    # NO `budget` BLOCK AND NO `tier_overrides`, deliberately, and the reason
+    # is worth reading before adding one. N-400's paid tier is a StoreKit
+    # non-consumable (com.weirtech.n400helper.case) gated ENTIRELY on the
+    # client, per case. Nothing about it reaches GP, so there is no per-call
+    # entitlement for a gate to read and the `budget` mechanism (which is
+    # entitlement-keyed) has nothing to key on.
+    #
+    # ⚠ THAT IS NOT THE SAME AS "N-400 SPEND IS FREE". usage_tracker
+    # .record_cost does `UPDATE users SET monthly_used_usd = ... WHERE id = ?`
+    # with NO app scoping, and the account row is shared across every app
+    # under this developer team. So an N-400 call draws down the SAME monthly
+    # allowance the user's ShoulderSurf tier grants, and a heavy N-400 user on
+    # SS free can exhaust their ShoulderSurf allowance without ever opening
+    # ShoulderSurf. That is leak 2 of docs/design/per-app-tenancy-and-
+    # entitlement.md, arriving concretely rather than theoretically. Fixing it
+    # is the generalized per-app budget gate in that doc, not a line here.
+    #
+    # No `cq` block: N-400 has not asked for ContextQuilt, so it stays on the
+    # default identity rather than being handed one it does not use.
