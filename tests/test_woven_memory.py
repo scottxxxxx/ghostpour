@@ -578,7 +578,20 @@ LEAN_HOME_PATCH = {
     "weight": 3, "span": 6, "height": 118,
     "source_meeting_id": "2222-bbbb",
     "occurred_at": None,          # genuinely nullable
-    "_salience": 1.0,             # CQ-internal, may vanish; GP must not care
+    # The UNKNOWN-KEY PROBE, deliberately synthetic.
+    #
+    # This slot held `_salience`, a real CQ-internal field, until CQ #364
+    # pulled it from the wire. Nothing about GP broke, but the fixture then
+    # described a shape CQ no longer sends, and the obvious repair (delete
+    # the key, delete the assert) deletes the PROPERTY along with it: that
+    # GP forwards keys it does not understand. So the carrier is now a name
+    # CQ will never define. It cannot drift when their schema moves, and it
+    # cannot be mistaken for a stale CQ field and tidied away by the next
+    # reader, which is exactly how `_salience` came to be sitting here.
+    #
+    # The value is NESTED on purpose. Flattening is one of the passthrough
+    # failures this suite exists to catch and a scalar cannot detect it.
+    "_gp_unknown_key_probe": {"nested": ["a", 1, None]},
     "stitched_to": [],
 }
 
@@ -623,7 +636,9 @@ def test_the_lean_home_shape_survives(client, free_user, monkeypatch):
     p0 = got["patches"][0]
     assert p0["headline"] is None and "headline" in p0
     assert p0["occurred_at"] is None and "occurred_at" in p0
-    assert p0["_salience"] == 1.0, "GP dropped a key it does not understand"
+    assert p0["_gp_unknown_key_probe"] == {"nested": ["a", 1, None]}, (
+        "GP dropped or reshaped a key it does not understand"
+    )
 
 
 def test_the_SEAM_shape_has_no_layout_fields_and_still_survives(
