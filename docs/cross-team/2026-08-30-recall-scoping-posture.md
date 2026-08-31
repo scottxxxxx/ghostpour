@@ -234,6 +234,78 @@ project-less meetings have anything to serve.
 **This is unexplained, not diagnosed.** One meeting each way is an
 observation, not a pattern.
 
+### CQ measured further and the honest result is "cannot separate"
+
+CQ tried to split the two hypotheses (is it the absence of a project, or did
+the vet visit simply have more extractable content) and reports that **neither
+instrument available to them can answer it**. Two things came out of the
+attempt that stand on their own:
+
+- Their first cut printed a perfect correlation, 100% of project-less
+  meetings silent and 0% of project-having meetings silent. **It was
+  spurious.** Only 79 of 1486 behavior patches are scoped, so "every patch is
+  behavior" nearly entails "no patch is scoped": two variables that were one
+  variable. They caught it and did not send it.
+- `origin_project_assignments` (their migration 43) is the independent signal,
+  since it records what the USER decided, but only 4 of 162 meetings have a
+  row, because most meetings take their project from the ingest request.
+
+What does stand:
+
+    38 of 162 meetings (last 14 days) produced ONLY behavior patches
+      their patch counts: min 1, median 6, max 17
+      all meetings:       min 1, median 14, max 43
+
+A meeting yielding **seventeen** behaviour observations and not one
+commitment, decision or takeaway is not explained by "too short". So the
+more-content hypothesis is **dented, not eliminated**, and it may still be
+the whole story for the tire store specifically. One hypothesis weakened is
+not the other confirmed.
+
+CQ's caveat, which they put in the script rather than only in a commit
+message: dedup means a meeting whose content merged entirely into EXISTING
+patches writes no new rows and looks identical from here. So the 38 counts
+meetings producing no NEW non-behavior patch, which is not quite "extraction
+returned nothing". For the tire store the stronger claim does hold, since
+there was no prior tire content in the corpus to merge into.
+
+### ⚠ Correction: the instrument may exist, on GP's side
+
+CQ's position is that transcript-length-against-yield can only be measured at
+ingest going forward, because **CQ deliberately does not persist
+transcripts**. That is true of CQ and it is not true of the pair of us.
+
+**GP retains transcripts for 30 days** (`TRANSCRIPT_RETENTION_DAYS = 30`,
+`app/services/retention.py:29`), and `meeting_transcripts` carries
+`meeting_id`, the `transcript` text itself, **and `project` / `project_id`**,
+all written on every `/v1/capture-transcript`
+(`app/routers/cq_proxy.py:306`). So transcript length against CQ's extraction
+yield **is backfillable over a rolling 30 day window from GP's side**, joined
+on `meeting_id`. It is not "measure it going forward or never".
+
+**The same join also partly reopens the audit this document says was
+blocked.** I stated that `usage_log` has no project column, which is true,
+but I let that stand as "the split cannot be done". `usage_log` has
+`meeting_id`, and `meeting_transcripts` has `project_id`, so
+`usage_log.meeting_id -> meeting_transcripts.project_id` is a path to the
+call's project for any meeting still inside the transcript window. The leak
+window (2026-08-15 onward) is inside 30 days.
+
+Caveats, because a schema path is not a measurement:
+- Only meetings that actually went through `/v1/capture-transcript` have a
+  row. Chat turns without a capture do not.
+- Whether `project_id` is reliably POPULATED rather than merely present is
+  **unmeasured**. The column exists and the write is unconditional on the
+  client's value; that is not the same as it being non-null in practice.
+- **I could not run either query.** Prod container exec was blocked for this
+  session, so this is a path identified by reading the schema and the write
+  site, not a result. It should be run before anyone relies on it.
+
+So **758 of 1196 may be splittable after all**, and I would rather correct
+that here than have my "upper bound, cannot be split" framing harden into a
+fact. It was an accurate description of what I could do, not of what the data
+supports.
+
 ---
 
 ## GP's own piece, which is ours regardless of the above
@@ -244,9 +316,21 @@ an unrelated project", so the widely-quoted **758 of 1196 is an upper bound
 and not a leak count**. Nobody should carry it as measured.
 
 Adding project to the usage row is GP-only, cheap, and worth doing on its own
-merits. Note `usage_log` already carries `meeting_id`, so there may be an
-indirect route that needs no schema change at all. **Not started, and I would
-want your yes before a schema change against prod rows.**
+merits.
+
+⚠ **But the indirect route is more than a "maybe" and I under-sold it.**
+`usage_log` carries `meeting_id`; `meeting_transcripts` carries `meeting_id`
+AND `project_id`, written on every capture and retained 30 days. That is a
+join, not a hope, and it needs **no schema change at all** for any meeting
+inside the transcript window. See the correction under the tire-store section
+for the caveats, chiefly that I could not run it and that whether
+`project_id` is reliably populated is unmeasured.
+
+A schema column is still worth having, because it survives the 30 day purge
+and covers calls with no capture. But it is an improvement on an audit that
+is probably already possible, not the thing standing between us and one.
+**Not started, and I would want your yes before a schema change against prod
+rows.**
 
 Second gap, same shape: **GP does not log `matched_cues`.** `cq_recall_ok`
 records `matched` as a *count* of matched entities, and the full `/v1/recall`
