@@ -5,43 +5,58 @@ Prod and main both at **3bf465c**, healthy, verified on `/health`.
 
 ---
 
-## ⚠ TOP ITEM: offer codes. Scott said "mint and load"; minting is NOT what is needed.
+## ⚠ TOP ITEM (REWRITTEN 2026-08-31, session cloudzap-7a): offer codes.
 
-**The pool is no longer empty.** Loaded batch `550023` (10 codes) into
-`offer_id=9142a39c-8808-4304-b414-f0bff691e94b` (`friend-john-kirker-v2`),
-production. `available: 10`. Idempotency proven by running it twice
-(`loaded 0, skipped 10`).
+**Scott corrected the premise: Steven ALREADY GOT AND ACCEPTED his offer.**
+Everything the previous version of this section said about needing a
+`friend-steven-williams` offer is now FALSE and is replaced here rather than
+left standing. What Scott wants to mint is for OTHER people he wants to
+comp, not for Steven.
 
-**I did not mint, and minting would have been wrong.** Discovered read-only
-against App Store Connect:
+**Verified in prod today, read-only against App Store Connect:**
 
-    OFFER da9a627b…  'Pro 50 off 3 months'    active   batch 530358 n=100
-    OFFER bee79264…  'friend-john-kirker'     INACTIVE batches 549830/549866/549884
-    OFFER 9142a39c…  'friend-john-kirker-v2'  active   batches 549815 n=500, 550023 n=10
-    OFFER 92951d61…  'ops-test-scott'         active   batch 549971 n=500
+    OFFER da9a627b  'Pro 50 off 3 months'    active   batch 530358 n=100  exp 2026-09-30
+    OFFER bee79264  'friend-john-kirker'     INACTIVE batches 549830/549866/549884 (expired 2026-07-27)
+    OFFER 9142a39c  'friend-john-kirker-v2'  active   batch 549815 n=500, 550023 n=10, both exp 2026-10-01
+    OFFER 92951d61  'ops-test-scott'         active   batch 549971 n=500  exp 2026-10-01
 
-- **There is NO Steven Williams offer.** That is the whole root cause: his
-  card served a code from JOHN's offer because he never had one of his own.
-- Live unexpired codes already exist (500 + 10, expiring 2026-10-01), so
-  minting would have created 500 MORE real 3-month-free entitlements for
-  nothing. **Apple's production minimum is 500 per batch** (live-probed
-  2026-07-27; sandbox accepts 10). "One offer per person, batch of 10" is
-  sandbox sizing and cannot be done in production.
+**Supply is NOT the problem. 1,000 free-3-month codes are already minted and
+UNLOADED** (549815 n=500 and 549971 n=500). The dispense pool holds only the
+10 from 550023, `available: 10`, nothing reserved or dispensed.
 
-**What Scott must do by hand, and only he can:** create a
-`friend-steven-williams` offer in App Store Connect. Apple has **no API** to
-create an offer, only to mint codes against one. Then:
+**The constraint is the CLOCK, not the count.** Every unexpired batch dies
+**2026-10-01**, 31 days out. That is the only real reason to mint: Apple
+allows an expiry up to 6 months out. Production minimum is still 500/batch
+(live-probed 2026-07-27); sandbox accepts 10.
 
-1. `POST /webhooks/admin/offer-codes/mint` (min 500 in production)
-2. `POST /webhooks/admin/offer-codes/load-pool` with the returned `batch_id`
-3. Rewrite the CTA to carry `offer_id` + `environment` and DROP its
-   hardcoded `value`
-4. `GET /webhooks/admin/offer-codes/pool-status` is the exhaustion gauge
+**A minted batch is permanently bound to the offer it was minted against.**
+It cannot be re-parented. So Scott's two rulings today are two ROUNDS, not
+one:
 
-**Until then `ss_friend_steven_williams` is ACTIVE and still serving a
-hardcoded shared code.** #836 stops NEW campaigns doing this accidentally
-(a `storekit_offer` CTA must be dispensable or say `shared_code: true`), but
-it validates on WRITE, so the existing four are untouched and still live.
+1. **Now:** load batch 549815 into the pool under its true offer 9142a39c.
+   Zero minting, zero new entitlements, 500 codes available immediately.
+   ⚠ **NOT DONE: the load was BLOCKED by the auto-mode classifier.** It
+   needs Scott's approval or his own hands. Idempotent (`INSERT OR IGNORE`
+   on the code PK), so re-running is safe.
+2. **Then:** Scott creates a generic comp offer (e.g. `friend-comp-3mo`) BY
+   HAND in App Store Connect. Apple has NO API for offer creation. Only then
+   can GP mint 500 against it and load. This necessarily creates 500 new
+   entitlements, which is why it is a separate decision from step 1.
+
+**`ss_friend_steven_williams` is INERT, not leaking.** It is the only
+campaign still `active` and it still carries a hardcoded one-time-use code
+that Steven has now burned. Blast radius was CHECKED, not assumed: it
+targets one address (`dr54zs2js7@privaterelay.appleid.com`) AND
+`tiers: ["free"]`, and his row now reads `tier: pro`, so it no longer
+matches. Worth pausing for hygiene; nothing is exposed.
+
+**All four storekit_offer campaigns hardcode a SHARED code in
+`action.value`** (`ss_native_test_scott`, `ss_friend_john_kirker`,
+`ss_friend_john_kirker_preview` paused; `ss_friend_steven_williams` active).
+That is the shape #836 now blocks on WRITE for new campaigns. Comping
+several people wants a DISPENSABLE CTA carrying `offer_id` + `environment`
+with NO `value`, so each person draws their own code from the pool. Config
+write, not a deploy.
 
 ---
 
@@ -66,7 +81,10 @@ not to name.
 
 ## Waiting on Scott
 
-1. **The Steven offer** (above). Manual ASC work, nobody else can.
+1. **Offer codes (see the rewritten TOP ITEM).** Steven is DONE. Two
+   things are open: approve the load of batch 549815 (blocked by the
+   auto-mode classifier, creates nothing), and decide whether to create
+   a generic comp offer by hand, which forces a 500-code mint.
 2. **Woven headline backfill.** CQ's lane writes forward only, so the first
    real digest will be almost entirely `headline: null` and tiles render
    `fact`. It is a WRITE, so it needs his go. SS will explain it so a thin
