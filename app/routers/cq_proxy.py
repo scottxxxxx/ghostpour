@@ -1307,6 +1307,63 @@ async def unmark_not_a_person(
         query=request.url.query or None)
 
 
+@router.post("/people/{user_id}/{entity_id}/descriptions/dismiss")
+async def dismiss_person_description(
+    user_id: str,
+    entity_id: str,
+    request: Request,
+    body: dict | None = None,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Proxy: the user says the inferred description of this person is wrong.
+
+    The gap this closes, from Scott's own card: a contact's STATED role had
+    already won the precedence rule and the card correctly said "Stated, not
+    inferred", so that half worked. But `entity_descriptions` had no status
+    column and no write path, and a chat correction operates on
+    `context_patches` and never reaches it. So the inferred series kept
+    rendering under the right title with the wrong premise, and there was no
+    way to say so.
+
+    Body is optional and forwarded verbatim; CQ owns the shape. An absent
+    note means "this is inaccurate"; a note means "correct this" and carries
+    the user's own words, at which point CQ enqueues the correction on its
+    own stream rather than calling back through here.
+    """
+    await _require_people(request, user, user_id)
+    return await _cq_proxy(
+        "POST",
+        f"/v1/people/{_subj(request, user_id)}/{entity_id}/descriptions/dismiss",
+        body=body, query=request.url.query or None)
+
+
+@router.delete("/people/{user_id}/{entity_id}/descriptions/dismiss")
+async def undismiss_person_description(
+    user_id: str,
+    entity_id: str,
+    request: Request,
+    body: dict | None = None,
+    user: UserRecord = Depends(get_current_user),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Proxy: lift a description dismissal.
+
+    Body is bound OPTIONAL rather than omitted even though CQ's DELETE takes
+    none. A parameter that accepts nothing and something cannot be the reason
+    a call fails, whereas binding no body at all would make a client that
+    sends one for any reason (a retry helper, a middlebox, a future field)
+    fail on the shape rather than on the intent. Same reasoning and same
+    pair-shape as not-a-person and shelve/unshelve, so a lift can never be
+    mistaken for a repeat dismissal.
+    """
+    await _require_people(request, user, user_id)
+    return await _cq_proxy(
+        "DELETE",
+        f"/v1/people/{_subj(request, user_id)}/{entity_id}/descriptions/dismiss",
+        body=body, query=request.url.query or None)
+
+
 @router.post("/people/{user_id}")
 async def create_person(
     user_id: str,
