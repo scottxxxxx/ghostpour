@@ -357,3 +357,94 @@ def test_a_null_project_known_with_NO_filter_is_normal_and_cached(
     client.get("/v1/memory/woven", headers=_h(free_user))
     client.get("/v1/memory/woven", headers=_h(free_user))
     assert seen["n"] == 1, "the unfiltered digest stopped caching"
+
+
+# --- the echo: CQ's body must survive byte-identical -----------------------
+
+CQ_REAL_BODY = {
+    "total_memories": 2770,
+    "meetings_count": 41,
+    "since": "2026-03-01",
+    "window_days": 7,
+    "project_known": None,
+    "patches": [
+        {"patch_id": "p1", "patch_type": "takeaway",
+         "fact": "Target market of 60-67% small firms is ideal.",
+         "weight": 3, "span": 3, "height": 118,
+         "source_meeting_id": "MEET-1",
+         "occurred_at": "2026-08-28T16:11:00Z",
+         "stitched_to": [{"patch_id": "p9", "label": "$3M ARR goal"},
+                         {"patch_id": "p7", "label": "Go-to-market"}]},
+        {"patch_id": "p2", "patch_type": "constraint",
+         "fact": "Zero data retention with AI providers.",
+         "weight": 2, "span": 3, "height": 118,
+         "source_meeting_id": "MEET-1",
+         "occurred_at": "2026-08-28T16:17:00Z",
+         "stitched_to": []},
+    ],
+    # An ARRAY OF PAIRS. A flattening or re-sorting hop destroys the layout
+    # and nothing errors: the quilt just renders wrong.
+    "row_pairs": [[0, 1], [2, 3], [4, 5]],
+    # An OPEN map. Keys are not a fixed vocabulary and new ones get added,
+    # so anything that enumerates known keys silently drops the new ones.
+    "dropped": {"no_text": 353, "sensitive_content": 4, "some_future_rule": 1},
+}
+
+
+def test_cqs_whole_body_survives_byte_identical(client, free_user, monkeypatch):
+    """The echo CQ asked for, as a test rather than a status code.
+
+    "A 200 has told us the wrong thing twice." So this asserts the body GP
+    forwards is byte-identical to what CQ served, not that the call
+    succeeded. Compared as a whole document rather than key by key, because
+    a per-key check only finds the keys someone thought to list, and the
+    failure mode is the key nobody thought of.
+    """
+    _capture(monkeypatch, body=CQ_REAL_BODY)
+    got = client.get("/v1/memory/woven", headers=_h(free_user)).json()
+
+    served = {k: v for k, v in got.items() if k != "_freshness"}
+    assert served == CQ_REAL_BODY, "GP altered CQ's body in transit"
+
+
+def test_row_pairs_keeps_its_nesting_and_order(client, free_user, monkeypatch):
+    """Called out by CQ specifically: an array of arrays, where a flattening
+    or re-sorting middlebox destroys the layout SILENTLY. Asserted on its
+    own because equality above would pass a document that was right for
+    other reasons."""
+    _capture(monkeypatch, body=CQ_REAL_BODY)
+    got = client.get("/v1/memory/woven", headers=_h(free_user)).json()
+    assert got["row_pairs"] == [[0, 1], [2, 3], [4, 5]]
+    assert all(isinstance(r, list) for r in got["row_pairs"]), "rows flattened"
+
+
+def test_dropped_keeps_UNKNOWN_reason_keys(client, free_user, monkeypatch):
+    """`dropped` looks like debug output and is not.
+
+    It diagnosed a total CQ failure in one run: 353 candidates in, 0 tiles
+    out, reading no_text: 353. An empty quilt WITH a reason is a different
+    product state from an empty one without, and only one of them is a bug.
+
+    The keys are an OPEN vocabulary, so the thing to pin is that a reason GP
+    has never heard of still arrives.
+    """
+    _capture(monkeypatch, body=CQ_REAL_BODY)
+    got = client.get("/v1/memory/woven", headers=_h(free_user)).json()
+    assert got["dropped"]["no_text"] == 353
+    assert got["dropped"]["some_future_rule"] == 1, (
+        "an unrecognised prune reason was dropped; the vocabulary is open "
+        "and GP must not enumerate it"
+    )
+
+
+def test_patch_links_survive_as_objects_not_strings(
+    client, free_user, monkeypatch
+):
+    """CQ corrected me on this: the prototype renders flat label strings, but
+    the contract is {patch_id, label} because every link must OPEN a patch.
+    Serving labels alone loses the tap and would look fine on screen."""
+    _capture(monkeypatch, body=CQ_REAL_BODY)
+    got = client.get("/v1/memory/woven", headers=_h(free_user)).json()
+    link = got["patches"][0]["stitched_to"][0]
+    assert isinstance(link, dict)
+    assert link["patch_id"] == "p9" and link["label"] == "$3M ARR goal"
