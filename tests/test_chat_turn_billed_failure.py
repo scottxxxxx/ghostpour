@@ -26,6 +26,7 @@ has ten tests and not one exercises a failure. That is why this shipped.
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 
 import aiosqlite
@@ -79,7 +80,7 @@ async def test_the_flag_does_not_leak_between_requests():
 # --- the decision ---
 
 def test_an_UNBILLED_failure_is_abandoned_so_a_retry_re_runs(
-    client, free_user, mock_provider, monkeypatch
+    client, free_user, mock_provider, monkeypatch, tmp_db_path
 ):
     """The bug, from the client's side. A gate raising before any upstream
     call must leave the id UNKNOWN, so resending it runs the turn rather
@@ -98,10 +99,23 @@ def test_an_UNBILLED_failure_is_abandoned_so_a_retry_re_runs(
     first = client.post("/v1/chat", json=_turn(tid), headers=_h(free_user))
     assert first.status_code >= 400
 
-    # The id must not have been recorded, so a resend RUNS rather than
-    # replaying. That is the whole point of the billed axis.
-    assert chat_turns.running_info(free_user["user_id"], tid) is None, \
-        "the id was left in flight; a retry would poll in_progress"
+    # NOT running_info(). Both abandon() AND finish() clear the in-flight
+    # entry, so that assertion is true under the bug as well as under the
+    # fix and cannot tell them apart. Proven by sabotage: restoring the
+    # store-everything behaviour left it green.
+    #
+    # The distinguishing fact is whether a terminal ROW exists. No row means
+    # the id reads unknown, which is what makes the resend re-run.
+    async def _stored():
+        async with aiosqlite.connect(tmp_db_path) as db:
+            db.row_factory = aiosqlite.Row
+            return await chat_turns.lookup_terminal(
+                db, free_user["user_id"], tid)
+
+    assert asyncio.run(_stored()) is None, \
+        "an unbilled failure was STORED; every retry of this id now replays \
+it instantly and forever without reaching a model"
+    assert chat_turns.running_info(free_user["user_id"], tid) is None
 
 
 def test_a_live_unbilled_error_says_it_is_retryable(
