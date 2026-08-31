@@ -645,10 +645,15 @@ def _detect_recital(body: ChatRequest, response: ChatResponse) -> None:
     the whole failure mode: #825's prohibition was defeated by the model
     inventing a politer way to say the same thing.
 
+    Emits on EVERY checked turn, not only on a hit: `cq_recital_checked` when
+    clean, `cq_recital_detected` when not. Absence of both on a turn that
+    received a block therefore means the detector did not run, which is the
+    difference between a measurement and an inference.
+
     PRIVACY: the terms are a customer's people and projects, so they are
-    NEVER logged. Only the count, the lengths and the request id go out;
-    anyone investigating pulls the stored row, which already holds the text.
-    Logging the names would turn a leak detector into a second leak.
+    NEVER logged. Only the counts and the lengths go out; anyone investigating
+    pulls the stored row, which already holds the text. Logging the names
+    would turn a leak detector into a second leak.
     """
     try:
         block = (body.metadata or {}).get("cq_recall_block")
@@ -671,17 +676,36 @@ def _detect_recital(body: ChatRequest, response: ChatResponse) -> None:
         # recited commitment with no proper noun in it is the same
         # confidentiality failure and the name check reports it clean.
         line_hits = _recited_lines(block, material, text)
+
+        # BOTH SIDES, always. Logging only on a hit leaves "ran and found
+        # nothing", "never ran" and "ran and crashed" as one observable, so
+        # the detector's own reachability could only ever be argued from the
+        # source. That is the defect this detector exists to catch, in the
+        # detector: a silent one answers "no recitals found" forever and is
+        # indistinguishable from a working one.
+        #
+        # Caught by CQ, one hour after I instrumented the material gate
+        # correctly for exactly this reason and did not carry it across.
+        #
+        # It also makes the denominator real. Counting turns CHECKED is a
+        # query; inferring them from turns that received a block is a
+        # reconstruction, and a rate built on a reconstructed denominator is
+        # the kind of number that survives review and is wrong.
+        common = {
+            "call_type": body.get_meta("call_type"),
+            "term_count": len(hits),
+            "line_count": line_hits,
+            "material_chars": len(material),
+            "block_chars": len(block),
+            "response_chars": len(text),
+        }
         if not hits and not line_hits:
+            logger.info("cq_recital_checked", extra=common)
             return
         logger.warning(
             "cq_recital_detected",
             extra={
-                "call_type": body.get_meta("call_type"),
-                "term_count": len(hits),
-                "line_count": line_hits,
-                "material_chars": len(body.user_content or ""),
-                "block_chars": len(block),
-                "response_chars": len(text),
+                **common,
                 # Lengths only. See the docstring: the terms themselves are
                 # the customer data this detector exists to protect.
                 "term_lengths": [len(t) for t in hits[:10]],

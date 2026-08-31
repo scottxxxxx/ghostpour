@@ -436,3 +436,74 @@ def test_widened_token_does_not_swallow_ordinary_words():
     switched off."""
     block = "[note] the team agreed to review the pricing model next week"
     assert _recital_terms(block, material="unrelated") == set()
+
+
+# --- the detector must report BOTH ways, or its silence means nothing ---
+
+def test_a_clean_turn_is_LOGGED_as_checked(caplog):
+    """CQ's catch, and it is the same defect one layer up.
+
+    Logging only on a hit leaves "ran and found nothing", "never ran" and
+    "ran and crashed" as ONE observable, so the detector's own reachability
+    could only ever be argued from the source. A silent detector answers "no
+    recitals found" forever and looks exactly like a working one.
+
+    Absence of BOTH events on a turn that received a block now means the
+    detector did not run. That is the difference between a measurement and
+    an inference, and it makes the denominator a query rather than a
+    reconstruction.
+    """
+    body = ChatRequest(
+        provider="anthropic", model="claude-haiku-4-5-20251001",
+        system_prompt="s", user_content=MATERIAL,
+        metadata={"cq_recall_block": REAL_BLOCK, "call_type": "summary"},
+    )
+    resp = ChatResponse(
+        text="The material does not cover specific decisions or action items.",
+        model="claude-haiku-4-5-20251001", provider="anthropic")
+
+    with caplog.at_level("INFO"):
+        _detect_recital(body, resp)
+
+    checked = [r for r in caplog.records if r.message == "cq_recital_checked"]
+    assert len(checked) == 1, "a clean turn must still say it was checked"
+    d = checked[0].__dict__
+    assert d["term_count"] == 0 and d["line_count"] == 0
+    # The denominator fields have to be on the CLEAN event too, or the join
+    # can only characterise the turns that fired.
+    assert d["block_chars"] > 0
+    assert d["response_chars"] > 0
+    assert d["call_type"] == "summary"
+    assert not any(r.message == "cq_recital_detected" for r in caplog.records)
+
+
+def test_exactly_one_event_per_checked_turn(caplog):
+    """Never both. A turn counted twice is worse than a turn not counted,
+    because it inflates the denominator silently."""
+    body = ChatRequest(
+        provider="anthropic", model="claude-haiku-4-5-20251001",
+        system_prompt="s", user_content=MATERIAL,
+        metadata={"cq_recall_block": REAL_BLOCK, "call_type": "summary"},
+    )
+    for text in ("The material does not cover specific decisions.",
+                 "The context mentions Timezone drift in the dashboard."):
+        caplog.clear()
+        with caplog.at_level("INFO"):
+            _detect_recital(body, ChatResponse(
+                text=text, model="m", provider="anthropic"))
+        events = [r for r in caplog.records
+                  if r.message in ("cq_recital_checked", "cq_recital_detected")]
+        assert len(events) == 1, f"{len(events)} events for {text!r}"
+
+
+def test_no_block_means_no_event(caplog):
+    """A turn that never received a block was not CHECKED and must not be
+    counted as one. The material gate already logs its own declines, so that
+    population is visible from the other side."""
+    body = ChatRequest(
+        provider="anthropic", model="claude-haiku-4-5-20251001",
+        system_prompt="s", user_content=MATERIAL, metadata={"call_type": "summary"})
+    with caplog.at_level("INFO"):
+        _detect_recital(body, ChatResponse(
+            text="A normal summary.", model="m", provider="anthropic"))
+    assert not any(r.message.startswith("cq_recital_") for r in caplog.records)
