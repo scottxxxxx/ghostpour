@@ -23,6 +23,15 @@ Two directions, because they fail independently:
             way out, and that failure is invisible from both endpoints for
             the same reason the request-side one was.
 
+⚠ 2026-08-30, AFTER this was written: Scott ruled the memory layer should
+not concern itself with artifacts, so CQ's write path is UNCHANGED and the
+five rows stay as they are. That does not retire this file. What it tests is
+the GENERAL property, that GP does not eat a patch type it does not model,
+and `artifact` is just the live value that prompted the question. CQ kept it
+reported rather than allowlisted in their own audit for the same reason:
+suppressing a known case is how an instrument loses the ability to report an
+unknown one.
+
 Note on scope, so nobody reads more into a green run than it earns: the five
 `artifact` rows did NOT travel this route. They carry
 `source_prompt=meeting_summary, origin_mode=inferred`, so CQ's own extraction
