@@ -15,7 +15,7 @@ import aiosqlite
 import httpx
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.config import get_settings
 from app.database import get_db
@@ -183,7 +183,39 @@ def _primary_language_tag(header: str | None) -> str | None:
     return first or None
 
 
+# ---------------------------------------------------------------------------
+# Proxy request bodies: NEVER silently drop a key.
+#
+# This is the third instance of one bug. Each time, a field a client really
+# sent was eaten by a schema on the middle hop, and each time the fix was
+# "add the missing field", which left the class alive:
+#
+#   to_name        silent, found only by a three-way audit
+#   project_name   LOUD, CQ answered 422 naming the field we ate, 7 calls
+#   client_id +    SILENT, 200s and correctly rendered rows, found because
+#   deadline_date  CQ noticed an item that could never become overdue
+#
+# The class is getting QUIETER as fields get more additive, which is the
+# direction all three teams ship in, so exposure rises exactly as
+# detectability falls. Rule 5 in CLAUDE.md describes this bug in advance and
+# did not prevent any of the three: a rule with no mechanism is memory.
+#
+# `extra="allow"` keeps unmodelled keys in `model_dump()` so a forward
+# carries them. Declared fields still validate, so a genuinely malformed
+# request fails here rather than reaching CQ. Modelling a field explicitly is
+# still worth doing (it documents the contract and types it); this is the
+# floor under the ones nobody has modelled yet.
+#
+# ⚠ This alone is NOT sufficient, and tests/test_cq_proxy_passthrough.py is
+# what actually holds the line: a handler that builds its payload by hand
+# instead of from `model_dump()` would drop keys again with every model here
+# set to allow. The test asserts the PROPERTY by running the route, not the
+# config value.
+# ---------------------------------------------------------------------------
+
+
 class TranscriptCaptureRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
     transcript: str
     # Origin scoping — preferred going forward:
     origin_id: str | None = None
@@ -414,11 +446,23 @@ async def get_quilt_insights(
 
 
 class PatchCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
     type: str  # e.g., "person", "fact", "commitment"
     text: str
     owner: str | None = None
     project_id: str | None = None
     connections: list[dict] | None = None  # [{"target_patch_id", "role", "label"}]
+    # Both sent by SS since they shipped manual action items, both eaten here
+    # until 2026-08-30. `client_id` is their idempotency key (it dedupes
+    # concurrent posts at CQ) and `deadline_date` is the due date. Without the
+    # date a completable can never be overdue, never reaches the project
+    # recall guarantee's overdue slot, and anchors decay on updated_at: the
+    # item is tracked and will never be chased, and no screen says so.
+    #
+    # The drop was silent because both are OPTIONAL and additive at CQ, so
+    # nothing 4xx'd and the row rendered correctly on the phone.
+    client_id: str | None = None
+    deadline_date: str | None = None
 
 
 @router.post("/quilt/{user_id}/patches")
@@ -436,10 +480,16 @@ async def create_quilt_patch(
 
 
 class PatchUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
     fact: str | None = None
     category: str | None = None
     owner: str | None = None
     project_id: str | None = None
+    # SS's updatePatch sends `patch_type` (QuiltService, "Update a patch's
+    # text, type, or owner"). We modelled `category` and not this, so every
+    # type edit has been a silent no-op: 200 back, nothing changed. Two calls
+    # at the edge in the retained window, which is why nobody noticed.
+    patch_type: str | None = None
 
 
 @router.patch("/quilt/{user_id}/patches/{patch_id}")
@@ -655,6 +705,7 @@ async def unshelve_quilt_patch(
 
 
 class ConnectionRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
     source_patch_id: str
     target_patch_id: str
     # `label`, not `relationship`. CQ's ConnectionCreate has always taken
@@ -712,6 +763,7 @@ class AssignProjectRequest(BaseModel):
     `project` stays as an alias for any client that sent it; `project_name`
     is what CQ's model requires and what is forwarded.
     """
+    model_config = ConfigDict(extra="allow")
     project_id: str
     project_name: str | None = None
     project: str | None = None  # legacy spelling, mapped onto project_name
@@ -737,7 +789,15 @@ async def assign_origin_project(
     """
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's origins")
-    payload = {"project_id": body.project_id}
+    # Built from model_dump so an unmodelled key survives the hop, THEN the
+    # legacy alias is folded in. Hand-building this dict is what kept these
+    # two routes dropping keys even after every model here allowed extras:
+    # extra="allow" only helps a forward that actually carries model_dump().
+    # CQ predicted exactly this when they asked for a behavioural test rather
+    # than a config assertion, and the test caught it on its first run.
+    payload = {k: v for k, v in body.model_dump().items() if v is not None}
+    payload.pop("project", None)   # legacy spelling, mapped below, never sent
+    payload.pop("project_name", None)
     if body.display_name() is not None:
         payload["project_name"] = body.display_name()
     return await _cq_proxy(
@@ -763,7 +823,15 @@ async def assign_meeting_project(
     """
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's meetings")
-    payload = {"project_id": body.project_id}
+    # Built from model_dump so an unmodelled key survives the hop, THEN the
+    # legacy alias is folded in. Hand-building this dict is what kept these
+    # two routes dropping keys even after every model here allowed extras:
+    # extra="allow" only helps a forward that actually carries model_dump().
+    # CQ predicted exactly this when they asked for a behavioural test rather
+    # than a config assertion, and the test caught it on its first run.
+    payload = {k: v for k, v in body.model_dump().items() if v is not None}
+    payload.pop("project", None)   # legacy spelling, mapped below, never sent
+    payload.pop("project_name", None)
     if body.display_name() is not None:
         payload["project_name"] = body.display_name()
     return await _cq_proxy(
@@ -790,6 +858,7 @@ async def get_schema(user: UserRecord = Depends(get_current_user)):
 
 
 class RenameSpeakerRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
     old_name: str
     new_name: str
 
@@ -815,11 +884,13 @@ async def rename_speaker(
 
 
 class FromLabel(BaseModel):
+    model_config = ConfigDict(extra="allow")
     label: str
     meeting_id: str
 
 
 class ReassignSpeakerRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
     from_labels: list[FromLabel]
     to_self: bool | None = None
     to_person_id: str | None = None

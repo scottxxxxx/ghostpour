@@ -22,7 +22,7 @@ def _user_row(db_path, user_id):
 def test_offer_code_redemption_is_not_a_trial(client, free_user, tmp_db_path):
     r = client.post("/v1/verify-receipt", json={
         "product_id": "com.weirtech.shouldersurf.sub.pro.monthly",
-        "transaction_id": "txn-offer-1",
+        "transaction_id": "2000001211148772",
         "is_trial": True,
         "offer_id": "friend-test-offer",
     }, headers=free_user["headers"])
@@ -35,7 +35,7 @@ def test_offer_code_redemption_is_not_a_trial(client, free_user, tmp_db_path):
 def test_genuine_intro_trial_still_marks_trial(client, free_user, tmp_db_path):
     r = client.post("/v1/verify-receipt", json={
         "product_id": "com.weirtech.shouldersurf.sub.plus.monthly",
-        "transaction_id": "txn-intro-1",
+        "transaction_id": "2000001198031298",
         "is_trial": True,
         "offer_type": "introductory",
         "offer_price": 0,

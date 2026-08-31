@@ -237,6 +237,54 @@ async def apple_notifications(
     notification_type = notification.get("notificationType", "")
     subtype = notification.get("subtype", "")
     data = notification.get("data", {})
+
+    # WHOSE app is this notification about? Nothing above answers that.
+    # `decode_notification` takes a bundle_id, passes it to
+    # `_verify_x5c_chain`, and that function never reads it, so all the
+    # verification above establishes is "Apple signed this", not "Apple
+    # signed this FOR US". This endpoint is unauthenticated by design
+    # (Apple posts to it), so without this check anyone could relay a
+    # genuine Apple-signed notification from another App Store app. The
+    # reachable harm is a third-party developer setting appAccountToken
+    # to one of our user ids in their own app and relaying an EXPIRED to
+    # strip that user's entitlement.
+    #
+    # Verified against real payloads before adding: `data.bundleId` is
+    # present on SUBSCRIBED, DID_CHANGE_RENEWAL_STATUS and EXPIRED in
+    # Apple's Production notification history, and matches
+    # apple_bundle_id, so this refuses nothing we legitimately receive.
+    _ours = {b.strip() for b in (settings.apple_bundle_id or "").split(",") if b.strip()}
+    _claimed = data.get("bundleId")
+    if _claimed not in _ours:
+        logger.warning(
+            "Apple notification for a bundle that is not ours: %r (type=%s)",
+            _claimed, notification_type)
+        # Loud on purpose. If this guard is ever wrong about where Apple
+        # puts the field, the symptom is refused REAL notifications and
+        # subscription state going stale with nothing in the product to
+        # show for it, which is the same silent-degrade shape that let
+        # a Free recall 500 for eleven days. Best-effort: alerting must
+        # not be what breaks the endpoint.
+        try:
+            from app.services.alerting import report_incident
+            await report_incident(
+                db,
+                category="assn_foreign_bundle",
+                subject=str(_claimed),
+                details={
+                    "claimed_bundle_id": _claimed,
+                    "our_bundle_ids": sorted(_ours),
+                    "notification_type": notification_type,
+                    "subtype": subtype,
+                },
+                from_addr=settings.alert_email_from,
+            )
+        except Exception as e:
+            logger.warning("assn_foreign_bundle alert failed (non-fatal): %s", e)
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"notification is for bundleId {_claimed!r}"})
+
     transaction_info = data.get("signedTransactionInfo", {})
 
     # Log the notification

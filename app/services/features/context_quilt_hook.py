@@ -21,6 +21,63 @@ from app.services import context_quilt as cq
 logger = logging.getLogger(__name__)
 
 
+# Placed immediately BEFORE any injected context block, never after.
+#
+# 2026-08-30: a 31 second recording tagged to an unrelated project produced
+# a summary that, unable to find matching content, explained itself by
+# LISTING the injected context: a real customer engagement, named
+# individuals, an overdue commitment and a promotion decision, none of which
+# were in the recording. Recall scoping is a separate and larger piece of
+# work; it shrinks the blast radius but it does not make reciting safe, so
+# this guard is independent of anything CQ changes.
+#
+# The rule that does the work is the LAST sentence: forbid naming what
+# appears ONLY in the context. A blanket "never mention these names" would
+# be wrong, because in a meeting that genuinely IS about that engagement the
+# same names are legitimately grounded in the transcript.
+#
+# Placement is load-bearing. `_inject_recall_block` stashes the block on
+# metadata.cq_recall_block and the Anthropic adapter slices system_prompt at
+# that boundary. Text placed AFTER the block turns an empty suffix into a
+# non-empty one, which flips recall from the uncached tail into a
+# cache_control breakpoint covering prefix+recall — an entry that changes
+# every turn and can never be reused. Before the block, this rides in the
+# prefix that was already being cached.
+RECALL_USE_GUARD = (
+    "[HOW TO USE THE CONTEXT BELOW]\n"
+    "This context is background reference for you. It is not part of the "
+    "recording or document under discussion, and the user has not seen it.\n"
+    "Draw on it when it genuinely informs your answer. Do not enumerate it, "
+    "quote it, summarize it, or otherwise report its contents back to the "
+    "user as an account of what you were given.\n"
+    "If the material under discussion does not relate to this context, say "
+    "plainly that it does not cover that ground and stop there. Do not name "
+    "any project, person, client, organization, system, decision, or "
+    "commitment that appears in this context but not in the material itself. "
+    "Listing what the context contained is never an acceptable way to "
+    "explain that it did not apply.\n"
+    # The clause below is what actually does the work, and it was added only
+    # after MEASURING that the prohibition above does not. Replaying the real
+    # incident turn against the deployed prompt: the prohibition alone took
+    # the recital from 17/48 runs to 5/48. Better, not fixed. A prohibition
+    # tells the model what not to do and leaves it to invent a replacement,
+    # and the replacement it invents is to explain itself, which means naming
+    # the thing it was told not to name. Giving it the replacement outright
+    # took it to 0/48.
+    #
+    # Deliberately surface-NEUTRAL. This guard rides on Project Chat and
+    # dossier turns too, so it must not say "recording" or "summarize"; the
+    # first version that measured 0 did, and would have been a wrong answer
+    # in chat. The neutral wording was re-measured, not assumed.
+    "If the material does not let you answer, your ENTIRE reply must be a "
+    "single short sentence saying that the material does not cover it, and "
+    "nothing else. Do not explain what you expected to find, do not contrast "
+    "the material against this context, and do not name anything from this "
+    "context. Naming context material while declining is the worst possible "
+    "outcome and is never acceptable."
+)
+
+
 class ContextQuiltHook:
     def __init__(self, feature_def: FeatureDefinition | None = None):
         self._skip_modes = set(feature_def.capture_skip_modes) if feature_def else set()
@@ -55,6 +112,32 @@ class ContextQuiltHook:
 
         if not body.context_quilt:
             return body, result
+
+        # A gate that declines SILENTLY has no instrument. Without this line,
+        # "the gate fired", "recall returned nothing" and "recall was never
+        # called" collapse into one indistinguishable observable, and "is the
+        # gate working?" becomes neither verifiable nor falsifiable. CQ hit
+        # exactly this in their own repo (their #350: two early exits
+        # returning empty with no log line, which cost a prod query, an env
+        # dump, a log grep and a read of the gate to establish what one line
+        # now says). The reason is the computed comparison, not a boolean
+        # spelling of it, so the log says WHY and against what.
+        _material_chars = len(body.user_content or "")
+        _floor = _material_floor_chars()
+        if _material_below_floor(body):
+            result["recall_skipped"] = "material_below_floor"
+            logger.info(
+                "cq_recall_skipped_thin_material",
+                extra={"call_type": body.get_meta("call_type"),
+                       "material_chars": _material_chars,
+                       "floor_chars": _floor,
+                       "reason": f"{_material_chars} < {_floor}"},
+            )
+            return body, result
+        # Emitted on the INJECT path too, so the population that was gated
+        # and the population that was not are the same query with a filter
+        # rather than two reconstructions joined after the fact.
+        result["material_chars"] = _material_chars
 
         cq_metadata = _build_recall_metadata(body)
         _apply_recall_window(cq_metadata, recall_max_age_days)
@@ -165,14 +248,20 @@ class ContextQuiltHook:
                         block = cq.format_dossier(dossier)
                         if "{{context_quilt}}" in body.system_prompt:
                             new_system = body.system_prompt.replace(
-                                "{{context_quilt}}", block)
+                                "{{context_quilt}}",
+                                f"{RECALL_USE_GUARD}\n{block}")
                         else:
                             # APPEND, not prepend. See the note on the other
                             # injection path below: the envelope declares
                             # context_quilt last in the system block, and
                             # prepending put a per-turn block ahead of
                             # everything we want cached.
-                            new_system = body.system_prompt + "\n\n" + block
+                            # The guard leads the block here for the same
+                            # reason it does there: a dossier is scoped to
+                            # one project, which bounds WHAT can be recited
+                            # but not WHETHER reciting happens.
+                            new_system = (body.system_prompt + "\n\n"
+                                          + RECALL_USE_GUARD + "\n" + block)
                         new_meta = dict(body.metadata or {})
                         new_meta["cq_recall_block"] = block
                         body = body.model_copy(update={
@@ -317,6 +406,8 @@ class ContextQuiltHook:
         if feature_state != "enabled" or not body.context_quilt:
             return
 
+        _detect_recital(body, response)
+
         prompt_mode = body.get_meta("prompt_mode")
         session_duration = body.get_meta("session_duration_sec")
 
@@ -373,6 +464,287 @@ class ContextQuiltHook:
                 headers["X-CQ-Patch-IDs"] = ",".join(patch_ids[:20])
 
         return headers
+
+
+# `[ \t]+`, NOT `\s+`: a multi-word name must not span a NEWLINE. With
+# `\s+` this welded the last name on one line to the first on the next
+# ("CTS  \nDon" as a single term), which then matched nothing in any
+# response and silently cost the detector both names.
+#
+# A name token is EITHER initial-capitalised (Reshmi, ABM) OR carries an
+# internal capital after a lowercase start (eBay, iPhone, iOS). The second
+# arm was missing, so lowercase-initial brand names evaded the predicate
+# entirely, and those are exactly the tokens a customer engagement is full
+# of. Found by CQ noticing `eBay` in a corpus slice their own capitalisation
+# proxy had mis-bucketed for the same reason.
+_NAME_TOKEN = r"(?:[A-Z][A-Za-z0-9]{2,}|[a-z][A-Za-z0-9]*[A-Z][A-Za-z0-9]*)"
+_PROPER_NOUN = re.compile(rf"\b{_NAME_TOKEN}(?:[ \t]+{_NAME_TOKEN})*")
+
+_SHINGLE = 5
+# Lines shorter than this are NOT shingled: a short window is a loose match,
+# and the not-in-the-material subtraction that normally protects against it
+# is weakest in exactly the trigger case, since a near-empty transcript has
+# almost nothing to subtract. So the noise would land precisely where the
+# detector matters most.
+#
+# MEASURED by CQ over 5,194 active patch texts: 310 patch texts are ONE word
+# ("Test", "Dana", "Cbe"), and 563 are under four words. A one-word window
+# fires whenever the answer contains that word anywhere.
+#
+# The floor is nearly free: 555 of those 563 short lines (99%) carry a
+# capitalised token, so the NAME predicate already covers them. Only EIGHT
+# patches in the whole corpus are both short and caseless.
+#
+# DO NOT LOWER THIS to "close the gap" for short lines. Short lines are the
+# name predicate's job by design; lowering it trades a covered case for
+# false positives concentrated on the turns that matter most.
+_MIN_LINE_WORDS = 4
+_LEADING_TAG = re.compile(r"^\s*\[[a-z_]+\]\s*", re.I)
+
+
+def _norm_words(text: str) -> list[str]:
+    return re.sub(r"[^a-z0-9\s]+", " ", (text or "").lower()).split()
+
+
+def _ngrams(words: list[str], n: int) -> set[tuple]:
+    if n < 1 or len(words) < n:
+        return set()
+    return {tuple(words[i:i + n]) for i in range(len(words) - n + 1)}
+
+
+def _recited_lines(block: str, material: str, answer: str) -> int:
+    """How many injected LINES were echoed back, names or not.
+
+    CQ's correction, and it is the right one: a name is a proxy for the harm,
+    not the harm. The original incident leaked an overdue customer
+    COMMITMENT. A turn that recites "ship the API gateway by Friday" carries
+    another project's commitment into an unrelated meeting with no proper
+    noun anywhere in it, and a name-keyed detector calls that clean.
+
+    This does not need NER and is not a heuristic, because we know exactly
+    what text we injected. Compare the answer against the BLOCK'S OWN LINES,
+    with the same not-in-the-material subtraction: an overlap the model could
+    have got from the transcript is not a recital.
+    """
+    ans_words = _norm_words(answer)
+    mat_words = _norm_words(material)
+    if len(ans_words) < 3:
+        return 0
+
+    # Compare LIKE WITH LIKE. The first version shingled every line at n=5
+    # but fell back to one whole-line tuple for lines shorter than that,
+    # while the answer only ever produced 5-grams. A 4-word line could
+    # therefore never intersect a 5-gram set, so short patch lines, the
+    # terse ones most likely to be recited verbatim, were structurally
+    # invisible. Window size is now per line and both sides use it.
+    cache: dict[int, tuple[set, set]] = {}
+
+    def sides(n: int) -> tuple[set, set]:
+        if n not in cache:
+            cache[n] = (_ngrams(ans_words, n), _ngrams(mat_words, n))
+        return cache[n]
+
+    hits = 0
+    for raw in _strip_chrome(block, brackets=True).splitlines():
+        line_words = _norm_words(_LEADING_TAG.sub("", raw))
+        if len(line_words) < _MIN_LINE_WORDS:
+            continue
+        n = min(_SHINGLE, len(line_words))
+        ans_g, mat_g = sides(n)
+        overlap = _ngrams(line_words, n) & ans_g
+        # Present in the answer, and NOT available from the material.
+        if overlap and (overlap - mat_g):
+            hits += 1
+    return hits
+
+
+# CQ's block CHROME, stripped by SHAPE rather than by vocabulary.
+#
+# The first version of this was a hardcoded word list (OVERDUE, Projects,
+# People, ...). CQ pointed out that is a contract with one carrier living at
+# the wrong hop: their section labels are LOCALIZED per metadata.locale
+# across five tables today, while their flat markers stay English on
+# purpose. So an English word list fails ASYMMETRICALLY. It looks perfect on
+# English traffic and goes blind the moment a French or Japanese caller
+# arrives, and nothing anywhere fails when they add a locale or rename a
+# label.
+#
+# The SHAPE is stable even when the vocabulary is not: markers are
+# parenthesised, and a section label is a short leading `Word:` at the start
+# of a line. Stripping on that is immune to their locale table and to
+# anything they add later, with no coordination between us.
+#
+# Cost, stated because it is real: content inside parentheses stops being a
+# NAME signal, so "CTS (Ticket Creation System project)" contributes CTS but
+# not the expansion. Acceptable, because the line predicate still covers a
+# recital of that whole line, and the two signals are complementary.
+_CHROME_PAREN = re.compile(r"\([^)]*\)")
+_CHROME_LABEL = re.compile(r"^[ \t]*[^\s:][^:\n]{0,28}:[ \t]+", re.M)
+
+
+_CHROME_BRACKET = re.compile(r"\[[^\]]*\]")
+
+
+def _strip_chrome(text: str, brackets: bool = False) -> str:
+    """Remove CQ's rendering furniture, leaving the content it wraps.
+
+    `brackets` is deliberately OFF for the name predicate and ON for the
+    line predicate, because the two want opposite things from the same
+    span. Flat mode wraps details in square brackets:
+
+        [todo] Ship the API gateway [owner: Reshmi, by 2026-08-28 (OVERDUE)]
+
+    The NAME predicate wants `Reshmi` kept: it is a real person from the
+    context and reciting it is the leak. Bracket chrome costs it nothing,
+    since `todo` and `owner` are lower-case and no proper-noun match.
+
+    The LINE predicate must drop the whole bracketed group, because its
+    words land INSIDE the shingle windows and shift them off the content.
+    MEASURED against CQ's rendered block: an answer reciting two lines was
+    detected as one, because the surviving `[owner: ... 2026-08-28]` made
+    the line's 5-grams `(ship, the, api, gateway, owner)` while the answer's
+    were `(ship, the, api, gateway, and)`. A clean report on a real recital,
+    which is the failure mode this detector exists to catch, occurring in
+    the detector.
+    """
+    out = _CHROME_PAREN.sub(" ", text or "")
+    if brackets:
+        out = _CHROME_BRACKET.sub(" ", out)
+    return _CHROME_LABEL.sub("", out)
+
+
+def _recital_terms(block: str, material: str) -> set[str]:
+    """Names that came from the CONTEXT and not from the material.
+
+    This is the guard's own rule made checkable: the prompt forbids naming
+    what appears in the context but NOT in the material itself, so the
+    detector tests exactly that predicate rather than a proxy for it. A name
+    in both is legitimate and must not fire; in a genuinely-ABM meeting
+    "CTS" belongs in the summary.
+    """
+    mat = material or ""
+    out = set()
+    for m in _PROPER_NOUN.findall(_strip_chrome(block)):
+        term = m.strip()
+        if len(term) < 3:
+            continue
+        if re.search(rf"\b{re.escape(term)}\b", mat, re.I):
+            continue  # grounded in the material; not a recital
+        out.add(term)
+    return out
+
+
+def _detect_recital(body: ChatRequest, response: ChatResponse) -> None:
+    """Did the answer name context-only material? Log it if so.
+
+    The reason this exists rather than another prompt tweak: #825 and #828
+    were both verified by replaying ONE turn twenty times, and 0/20 leaves a
+    95% upper bound near 14% conditional on the trigger. A sample that size
+    cannot see a small residual. This is continuous and phrasing-independent,
+    so it catches a recital produced by wording nobody anticipated, which is
+    the whole failure mode: #825's prohibition was defeated by the model
+    inventing a politer way to say the same thing.
+
+    PRIVACY: the terms are a customer's people and projects, so they are
+    NEVER logged. Only the count, the lengths and the request id go out;
+    anyone investigating pulls the stored row, which already holds the text.
+    Logging the names would turn a leak detector into a second leak.
+    """
+    try:
+        block = (body.metadata or {}).get("cq_recall_block")
+        if not block:
+            return
+        # `.text`, NOT `.content`. The first version of this read
+        # `.content`, which ChatResponse does not have, so the detector
+        # would have returned early on EVERY turn and logged nothing,
+        # while looking installed and passing any test that only
+        # checked it did not crash. A silent detector is worse than no
+        # detector: it answers "no recitals found" forever.
+        text = getattr(response, "text", None) or ""
+        if not text:
+            return
+        material = body.user_content or ""
+        terms = _recital_terms(block, material)
+        hits = sorted(t for t in terms
+                      if re.search(rf"\b{re.escape(t)}\b", text, re.I))
+        # Names are ONE signal inside the predicate, not the predicate. A
+        # recited commitment with no proper noun in it is the same
+        # confidentiality failure and the name check reports it clean.
+        line_hits = _recited_lines(block, material, text)
+        if not hits and not line_hits:
+            return
+        logger.warning(
+            "cq_recital_detected",
+            extra={
+                "call_type": body.get_meta("call_type"),
+                "term_count": len(hits),
+                "line_count": line_hits,
+                "material_chars": len(body.user_content or ""),
+                "block_chars": len(block),
+                "response_chars": len(text),
+                # Lengths only. See the docstring: the terms themselves are
+                # the customer data this detector exists to protect.
+                "term_lengths": [len(t) for t in hits[:10]],
+            },
+        )
+    except Exception:
+        # A detector must never break the turn it is watching.
+        logger.exception("cq_recital_detector_failed")
+
+
+# Lanes where user_content IS the material to be worked on. ONLY these are
+# gated. Chat is deliberately absent and must stay absent: there the content
+# is a QUESTION, "what did we decide about the promotion?" is forty
+# characters, and the recall block is the intended answer source. A floor
+# calibrated on transcripts would switch Meeting Memory off in chat entirely.
+#
+# An unrecognised call_type is NOT gated. Fail open: a new lane losing recall
+# silently is a worse first failure than a new lane keeping it, and #828
+# already covers the recital behaviour in the model.
+_MATERIAL_LANES = {"summary", "analysis"}
+
+
+def _material_below_floor(body: ChatRequest) -> bool:
+    """Is this a material lane whose material is too thin to work on?
+
+    MEASURED on the incident turn (request_id 4b0617fb7270):
+
+        material (the transcript) :  608 chars
+        injected context block     : 2261 chars
+        context / material         :  3.7x
+
+    The model was asked to summarize 31 seconds of podcast and handed a
+    block almost four times that size containing a customer's people,
+    overdue commitments and decisions. It read that back, which is what a
+    model does when the context IS the only substantial content in the room.
+
+    #825 and #828 both act on the model AFTER it is in that state. This
+    declines to create the state. The two are independent layers, which
+    matters because 0/20 on the deployed guard leaves a 95% upper bound
+    near 14% conditional on the trigger; that is a residual worth a second
+    mitigation rather than a rounding error.
+
+    Skipping here also skips the CQ call itself, so a turn that should not
+    have recalled no longer perturbs `last_accessed_at` decay on CQ's side.
+
+    Floor is served config, so it moves without a deploy. Default 900:
+    the incident sits at 608, while the smallest material that produced a
+    genuine summary in the sampled traffic was 963.
+    """
+    if (body.get_meta("call_type") or "") not in _MATERIAL_LANES:
+        return False
+    floor = _material_floor_chars()
+    if floor <= 0:
+        return False
+    return len(body.user_content or "") < floor
+
+
+def _material_floor_chars() -> int:
+    try:
+        return max(0, int(getattr(
+            get_settings(), "cq_recall_min_material_chars", 900)))
+    except (TypeError, ValueError):
+        return 900
 
 
 def _build_recall_metadata(body: ChatRequest) -> dict[str, Any]:
@@ -443,6 +815,10 @@ def _inject_recall_block(body: ChatRequest, cq_context: str) -> ChatRequest:
     envelope places it LAST in the system block. Appending puts it where
     the spec says.
 
+    Guard: RECALL_USE_GUARD goes immediately BEFORE the block on both
+    paths, so a turn that cannot use the context refuses without reciting
+    it. See the constant for why before and not after.
+
     Stash: the exact recall text rides metadata.cq_recall_block so
     cache-aware adapters (Anthropic) can split the system prompt at the
     recall boundary into separate cache_control blocks. Once CQ #89 made
@@ -456,9 +832,13 @@ def _inject_recall_block(body: ChatRequest, cq_context: str) -> ChatRequest:
         cq_context = _sanitize_you_suffix(cq_context)
     base = body.system_prompt or ""
     if "{{context_quilt}}" in base:
-        new_system = base.replace("{{context_quilt}}", cq_context)
+        new_system = base.replace(
+            "{{context_quilt}}", f"{RECALL_USE_GUARD}\n{cq_context}")
     else:
-        new_system = f"{base}\n\n[CONTEXT FROM PREVIOUS MEETINGS]\n{cq_context}"
+        new_system = (
+            f"{base}\n\n{RECALL_USE_GUARD}\n"
+            f"[CONTEXT FROM PREVIOUS MEETINGS]\n{cq_context}"
+        )
     new_meta = dict(body.metadata or {})
     new_meta["cq_recall_block"] = cq_context
     return body.model_copy(update={

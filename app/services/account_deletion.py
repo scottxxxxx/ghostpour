@@ -36,6 +36,13 @@ logger = logging.getLogger(__name__)
 # Deleted WHERE user_id = ? AND app_id = ? on a scoped delete.
 APP_SCOPED_TABLES = [
     "ad_attribution",
+    # Chat turn records (2026-08-30). Stored so a dropped connection costs a
+    # lookup instead of a second model call, which means each row holds the
+    # user's own question and our answer to it verbatim. Their content, so it
+    # goes with them, alongside generations below. The 6h expiry is a cost
+    # ceiling, never a deletion promise: an account deleted at minute one
+    # must not leave six hours of its own conversation behind.
+    "chat_turns",
     # Diagnostic only (poisoned-config-cache detection), but it is keyed to
     # a person and carries their build, so it goes with the rest.
     "config_stalls",

@@ -1,5 +1,5 @@
 {
-  "version": 47,
+  "version": 48,
   "native_actions": {
     "enabled": true,
     "kinds": [
@@ -99,7 +99,22 @@
     "response_reserve_tokens": 1024,
     "user_content_reserve_tokens": 4000,
     "context_window_fallback_tokens": 32000,
-    "_note": "Current client values, served so they can change without a release. context_window_fallback_tokens is the first one to tune: 32000 is wrong for most models we route to today, and it silently caps how much fits in project chat. Image sizing is NOT here on purpose: it is already served per tier at tiers.feature_definitions.images, and a second source for the same field is how the free-tier copy drifted."
+    "_note": "Current client values, served so they can change without a release. context_window_fallback_tokens is the first one to tune: 32000 is wrong for most models we route to today, and it silently caps how much fits in project chat. Image sizing is NOT here on purpose: it is already served per tier at tiers.feature_definitions.images, and a second source for the same field is how the free-tier copy drifted.",
+    "retry": {
+      "auto_delays_ms": [
+        10000,
+        30000,
+        60000
+      ],
+      "title": "The connection dropped",
+      "body": "Your message and any attachments are saved. Trying again.",
+      "countdown_label": "Trying again in {seconds}s",
+      "retry_now_label": "Try now",
+      "exhausted_title": "Still not connecting",
+      "exhausted_body": "Your message and any attachments are saved. Tap to try again.",
+      "retry_label": "Try again",
+      "_note": "Retry schedule and copy for a chat turn whose connection dropped. auto_delays_ms is the ladder of AUTOMATIC attempts after the failure; when it is exhausted the client stops and waits for a manual tap. The countdown is honest because we own the timer, unlike a progress bar for a finish we cannot predict. Delays are milliseconds so the ladder can be tuned without a release."
+    }
   },
   "share": {
     "host": "https://share.shouldersurf.com",
@@ -114,5 +129,26 @@
   },
   "translations": {
     "group_size": 12
+  },
+  "redeem": {
+    "promo_redeem_unconfirmed": {
+      "title": "That code has not been applied",
+      "body": "The App Store has not sent us a redemption for this code, so your subscription has not changed. If you entered it, it may not have gone through. You can try again.",
+      "dismiss_label": "Close",
+      "secondary_label": "Try again",
+      "secondary_action": "retry_redeem"
+    },
+    "promo_redeem_settling": {
+      "title": "Your code is being applied",
+      "body": "The App Store confirmed your redemption and we are finishing up. Your subscription will update on its own, so there is nothing you need to do.",
+      "dismiss_label": "Got it"
+    },
+    "promo_redeem_settling_signed_out": {
+      "title": "Sign in to finish applying your code",
+      "body": "The App Store confirmed your redemption. Sign in with Apple and the code will be applied to your subscription.",
+      "dismiss_label": "Got it"
+    },
+    "redeem_timeout_ms": 8000,
+    "_note": "Served copy for an offer-code redemption that did not visibly succeed. Today the client shows NOTHING on failure, and it presents nothing until this block is served: no English fallback on a subscription surface. THREE outcomes, chosen by the client from what it observed. promo_redeem_unconfirmed: no transaction ever arrived, so we genuinely cannot say why, and the copy must not pretend otherwise. promo_redeem_settling: a transaction arrived and verify_failure is 'failed' or ABSENT; nothing for the user to do. promo_redeem_settling_signed_out: a transaction arrived with verify_failure = 'deferred_no_token'; signing in applies it. ABSENT verify_failure MUST pick plain settling: 'we never learned a reason' is not 'we know you are signed out'. redeem_timeout_ms is accumulated FOREGROUND milliseconds after returning from the App Store, not wall clock from the tap, because the App Store hop is when iOS reclaims the process. secondary_action is a GP-owned allowlist: 'retry_redeem' or absent. No contact_support (there is no destination) and no sign_in in v1 (needs client work; the text carries it instead). No time estimate anywhere on purpose: we do not know how long settling takes, and a number nobody measured is the honest-progress rule broken."
   }
 }

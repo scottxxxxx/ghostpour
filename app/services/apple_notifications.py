@@ -105,6 +105,28 @@ def decode_and_verify_jws(signed_payload: str, bundle_id: str) -> dict:
 
     Returns the decoded JSON payload.
     Raises AppleJWSError on verification failure.
+
+    WHAT THIS DOES NOT DO, and the caller must: it never checks the
+    payload's `bundleId`. `bundle_id` is threaded through to
+    `_verify_x5c_chain`, which does not read it either. So a successful
+    return proves "Apple signed this", NEVER "Apple signed this for one
+    of OUR apps".
+
+    That gap cost us twice, found together on 2026-08-28. On
+    `/v1/verify-receipt` the JWS arrives from a client, so without a
+    caller-side check a signed transaction from any App Store app would
+    have bought its holder a subscription. On `/v1/apple-notifications`,
+    which is unauthenticated because Apple posts to it, a third-party
+    developer could set `appAccountToken` to one of our user ids in
+    their own app and relay a genuine EXPIRED to strip that user's
+    entitlement.
+
+    Both call sites now compare against `settings.apple_bundle_id`
+    (comma-joined; this gateway serves several apps). Any NEW caller
+    must do the same. The parameter is kept rather than deleted because
+    removing it would silently change four call sites' signatures during
+    the same change that closed the holes; it is documented as inert
+    instead, which is the honest state.
     """
     parts = signed_payload.split(".")
     if len(parts) != 3:

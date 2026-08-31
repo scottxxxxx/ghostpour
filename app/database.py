@@ -567,6 +567,29 @@ MIGRATIONS = [
         PRIMARY KEY (generation_id, user_id)
     )""",
     "CREATE INDEX IF NOT EXISTS idx_generations_expiry ON generations(expires_at)",
+    # Chat turn records (2026-08-30). Same shape and same 6h clock as
+    # `generations` above, separate table because the semantics differ: this
+    # one stores the WHOLE response body so a replay is indistinguishable
+    # from the original answer, and it carries no expected-duration field
+    # because we hold no honest estimate for a chat turn.
+    #
+    # Exists because three identical answers were built and paid for on
+    # 2026-08-29 ($0.7995) and none reached the phone. A retry keyed on
+    # turn_id costs a lookup instead of a second model call and a second
+    # 400 KB upload.
+    """CREATE TABLE IF NOT EXISTS chat_turns (
+        turn_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        app_id TEXT,
+        status TEXT NOT NULL,
+        body_json TEXT,
+        error_json TEXT,
+        started_at TEXT NOT NULL,
+        completed_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        PRIMARY KEY (turn_id, user_id)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_chat_turns_expiry ON chat_turns(expires_at)",
     # Quiet per-tier monthly generation count cap (2026-07-19).
     # generations_used mirrors searches_used: rolling counter for the
     # current allocation period, incremented on each DONE generation and
