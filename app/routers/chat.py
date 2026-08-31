@@ -1517,9 +1517,16 @@ async def chat(
             return JSONResponse(content={**_stored["body"], "replayed": True})
         if _stored is not None:                      # terminal failure
             logger.info("chat_turn replayed failure turn_id=%s", _turn_id)
+            # retryable defaults FALSE here and the stored value overrides
+            # it. Only a BILLED failure is stored now, so every fresh row
+            # already says False; the default exists for rows written by the
+            # previous behaviour that are still inside the 6h TTL. An absent
+            # field would make the client infer, which is the thing this
+            # whole change removes.
             return JSONResponse(
                 status_code=200,
                 content={"type": "error", "replayed": True,
+                         "retryable": False,
                          **(_stored.get("error") or {})})
         _running = _chat_turns.running_info(user.id, _turn_id)
         if _running is not None:
@@ -4245,11 +4252,59 @@ async def chat(
             _resp = await _run_turn_tail(db=db)
         except HTTPException as _e:
             _d = _e.detail if isinstance(_e.detail, dict) else {"message": str(_e.detail)}
-            await _ct.finish(db, user_id=user.id, app_id=app_id, turn_id=_turn_id,
-                             status="failed",
-                             error={"code": _d.get("code", "provider_error"),
-                                    "message": _d.get("message", "the turn failed"),
-                                    "http_status": _e.status_code})
+            # Store a terminal failure ONLY when the turn actually cost
+            # money. Otherwise abandon the id so a retry RE-RUNS.
+            #
+            # As merged, #823 stored every failure, so once a turn was
+            # recorded failed every subsequent send of that id replayed it
+            # instantly and forever without reaching a model. Correct for
+            # "do not rebuild work we already did", wrong for a retry
+            # button: a client reusing the id, which is what the whole
+            # design tells it to do, got an affordance guaranteed to fail.
+            # And the failure most likely to be replayed forever was a
+            # transient upstream one, which is precisely what a retry fixes.
+            #
+            # The axis is COST, not the error code. SS proposed a list of
+            # transient-versus-terminal codes and the billed property is
+            # better: it is the thing "do not rebuild work" is actually
+            # about, and it needs no string list to agree across two
+            # codebases, which is the misnaming half of the typed-hop class.
+            #
+            # retryable falls out of the SAME fact rather than a second
+            # list: if we abandoned, a retry re-runs and may differ; if we
+            # stored, a retry replays this and cannot. One property, one
+            # source, nothing for the client to re-derive.
+            _billed = _ct.upstream_was_billed()
+            _err = {"code": _d.get("code", "provider_error"),
+                    "message": _d.get("message", "the turn failed"),
+                    "http_status": _e.status_code,
+                    "retryable": not _billed}
+            if _billed:
+                await _ct.finish(db, user_id=user.id, app_id=app_id,
+                                 turn_id=_turn_id, status="failed", error=_err)
+            else:
+                _ct.abandon(user.id, _turn_id)
+            logger.info("chat_turn failed turn_id=%s billed=%s stored=%s",
+                        _turn_id, _billed, _billed)
+            # Re-raise CARRYING retryable, not bare.
+            #
+            # The first version of this built `_err` for storage and then
+            # `raise`d the original exception, so the field reached the
+            # stored row and never reached the LIVE response. That is half
+            # of what SS asked for, and the half they cannot work around:
+            # the live error is the one their retry ladder reads. Caught by
+            # writing the test, which had asserted only `status >= 400` and
+            # passed without the feature existing.
+            #
+            # Only enriched when the detail was ALREADY a dict. A string
+            # detail promoted to an object would be a wire-shape change for
+            # every client parsing it, which is a two-sided deploy, and
+            # these paths raise dicts.
+            if isinstance(_e.detail, dict):
+                raise HTTPException(
+                    status_code=_e.status_code,
+                    detail={**_e.detail, "retryable": not _billed},
+                ) from _e
             raise
         except Exception:
             # Never leave the id in flight on an unexpected error: a retry

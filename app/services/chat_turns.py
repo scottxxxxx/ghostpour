@@ -38,6 +38,7 @@ resolve to 404 rather than to a promise nothing is keeping.
 from __future__ import annotations
 
 import json
+from contextvars import ContextVar
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -65,6 +66,37 @@ _IN_FLIGHT_MAX_SECONDS = 240
 
 # (user_id, turn_id) -> {"started_at": datetime}
 _IN_FLIGHT: dict[tuple[str, str], dict] = {}
+
+# Did THIS request actually spend money upstream?
+#
+# The axis that decides whether a failure is worth storing, and it is not the
+# error code. SS proposed keying the decision on a list of transient-versus-
+# terminal codes; the better property is whether the turn incurred cost,
+# because that is what "do not rebuild work we already did" is actually
+# about. Keying on cost also means no list of error strings has to agree
+# across two codebases, which is the misnaming half of the typed-hop class
+# and the half we have no instrument for.
+#
+# A ContextVar rather than plumbing: every request runs in its own asyncio
+# Task and contextvars are copied at task creation, so a value set inside one
+# request cannot be seen by a sibling. Default False, so anything that fails
+# before reaching a provider reads as unbilled without having to say so.
+#
+# Deliberately CONSERVATIVE. A mid-stream timeout may well have been billed
+# and will still read False here, so we abandon and a retry re-runs. That is
+# never worse than the pre-turn_id world, where every retry re-ran
+# unconditionally: storing is the optimisation and has to be earned, while
+# abandoning only forfeits it.
+_upstream_billed: ContextVar[bool] = ContextVar("cz_upstream_billed", default=False)
+
+
+def mark_upstream_billed() -> None:
+    """Called once a provider response with real token usage is in hand."""
+    _upstream_billed.set(True)
+
+
+def upstream_was_billed() -> bool:
+    return _upstream_billed.get()
 
 
 def _now() -> datetime:
@@ -108,10 +140,14 @@ def begin(user_id: str, turn_id: str) -> bool:
 
 
 def abandon(user_id: str, turn_id: str) -> None:
-    """Drop the in-flight entry without recording a terminal row, for a turn
-    that died before anything billable ran (a gate raised, say). The id then
-    reads as unknown, which is correct: a full resend is the cheap answer when
-    no upstream call happened."""
+    """Drop the in-flight entry without recording a terminal row.
+
+    For a turn that died before anything billable ran. The id then reads as
+    unknown, which is correct and is the WHOLE point of the billed axis: a
+    full resend is the cheap answer when no upstream call happened, and a
+    stored failure would instead hand the client an affordance guaranteed to
+    fail instantly and forever.
+    """
     _IN_FLIGHT.pop((user_id, turn_id), None)
 
 
