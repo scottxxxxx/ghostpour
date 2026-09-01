@@ -1,7 +1,7 @@
 ---
 call_type: n400_interview_turn
 config_slug: n400/interview-turn
-served_version: 2
+served_version: 3
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 reconciled: 2026-09-01

@@ -185,3 +185,49 @@ def test_a_turn_missing_metadata_is_422_not_a_silent_send(client, free_user):
     detail = r.json()["detail"]
     assert detail["code"] == "missing_prompt_variables"
     assert "known_facts" in detail["details"]["missing"]
+
+
+# --- optional variables -----------------------------------------------------
+
+def test_a_declared_optional_variable_that_is_absent_resolves_to_nothing():
+    """N-400 sends section_end_instruction only at a section boundary, which
+    is most turns without it. Before this, the placeholder survived into the
+    prompt as the literal text "{{section_end_instruction}}" and the model
+    read it as content. Found by N-400 telling us they send it ABSENT rather
+    than empty, not by reading the code."""
+    configs = _cfg(userPromptTemplate="A{{opt}}B", requiredVariables=[],
+                   optionalVariables=["opt"])
+    out = assemble_prompt(_CALL, "x", configs, variables={})
+    assert out["user_content"] == "AB"
+
+
+def test_an_optional_variable_that_is_sent_is_still_substituted():
+    configs = _cfg(userPromptTemplate="A{{opt}}B", requiredVariables=[],
+                   optionalVariables=["opt"])
+    out = assemble_prompt(_CALL, "x", configs, variables={"opt": "MIDDLE"})
+    assert out["user_content"] == "AMIDDLEB"
+
+
+def test_an_undeclared_leftover_is_not_silently_swallowed():
+    """Blanking anything unrecognised would hide a typo in the template. Only
+    declared names are blanked; the rest stay visible and warn."""
+    configs = _cfg(userPromptTemplate="A{{typoo}}B", requiredVariables=[],
+                   optionalVariables=["opt"])
+    out = assemble_prompt(_CALL, "x", configs, variables={})
+    assert out["user_content"] == "A{{typoo}}B"
+
+
+def test_the_shipped_config_leaves_no_literal_braces_on_a_mid_section_turn():
+    """End to end against the REAL config: send the eight required keys and
+    omit the optional one, exactly as N-400's client does, and assert the
+    assembled prompt carries no unsubstituted placeholder."""
+    import json as _json
+    import re as _re
+    from pathlib import Path as _Path
+
+    cfg = _json.loads((_Path(__file__).parent.parent / "config" / "remote"
+                       / "n400" / "interview-turn.json").read_text())
+    supplied = {name: f"<{name}>" for name in cfg["requiredVariables"]}
+    out = assemble_prompt(_CALL, "April 12th, 1987", {_SLUG: cfg},
+                          variables=supplied)
+    assert not _re.search(r"\{\{\w+\}\}", out["user_content"]), out["user_content"]

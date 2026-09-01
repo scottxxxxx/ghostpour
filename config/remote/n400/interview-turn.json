@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "server_only": true,
   "_comment": [
     "n400_interview_turn: one conversational turn of the N-400 intake.",
@@ -67,5 +67,8 @@
     "field_ids",
     "known_facts"
   ],
-  "jurisdictions": {}
+  "jurisdictions": {},
+  "optionalVariables": [
+    "section_end_instruction"
+  ]
 }

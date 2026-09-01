@@ -305,7 +305,20 @@ def assemble_prompt(
                          config_slug, missing)
             raise MissingPromptVariables(config_slug, missing)
         for name, value in supplied.items():
+            if value is None:
+                continue
             assembled_user = assembled_user.replace("{{%s}}" % name, str(value))
+
+        # Declared-optional variables that were not sent resolve to nothing.
+        # Without this, an optional placeholder the caller legitimately
+        # omitted survives into the prompt as the literal text
+        # "{{section_end_instruction}}" and the model reads it as content.
+        # Only DECLARED names are blanked: an undeclared leftover is a typo
+        # in the template and must stay visible in the warning below rather
+        # than being silently swallowed.
+        for name in config.get("optionalVariables") or []:
+            if name not in supplied or supplied.get(name) is None:
+                assembled_user = assembled_user.replace("{{%s}}" % name, "")
 
         # Check if any unreplaced placeholders remain
         remaining = re.findall(r"\{\{(\w+)\}\}", assembled_user)
