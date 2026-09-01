@@ -92,6 +92,9 @@ def _public(entry: dict) -> dict:
 # numeric fields like max_tokens/prompt_tokens pass through untouched.
 _REDACT_SUBSTRINGS = ("token", "secret", "password", "key", "signed_transaction", "credential")
 
+# A query string is a URL component; anything longer is not a param list.
+_MAX_QUERY_LOG = 2048
+
 
 def get_recent_logs(limit: int = 50) -> list[dict]:
     """Return the most recent log entries, newest first."""
@@ -229,6 +232,7 @@ class StreamingBypassMiddleware:
             "app_id": app_id,
             "method": method,
             "path": path,
+            "query": _format_query(scope.get("query_string")),
             "status": response_status,
             "latency_ms": elapsed_ms,
             "client_ip": req_headers.get("x-real-ip", ""),
@@ -413,6 +417,44 @@ def _format_body(body: str | None) -> str:
         return json.dumps(parsed, indent=2, ensure_ascii=False)[:_MAX_BODY_LOG]
     except (json.JSONDecodeError, TypeError):
         return body[:_MAX_BODY_LOG]
+
+
+def _format_query(raw: bytes | None) -> str | None:
+    """The request's query string for the live log, sensitive values masked.
+
+    WHY THIS EXISTS. The live log recorded no query string at all until
+    2026-09-01, so every row-selecting param a client ever sent was
+    invisible to the one instrument built for answering "what did they
+    actually send": `?since=` and `?delta=true` on quilt sync, `?limit=`
+    and `?offset=` on the woven route, `?project_id=` on resolve. A param
+    dropped on the middle hop is exactly the failure nobody can see from
+    either endpoint, and this is the surface that was supposed to make it
+    visible.
+
+    The bug was that the ONLY logging middleware in use
+    (`StreamingBypassMiddleware`) never put `query` in its entry, while
+    the class beside it that does is `RequestLoggingMiddleware`, which
+    main.py explicitly does NOT add. So the correct-looking code was real,
+    reachable by reading, and never executed. Rule 7: a name that sounded
+    right and was never opened.
+
+    Redaction matches the body rule (`_redact_sensitive`) rather than
+    inventing a second policy, because a query string is no less likely to
+    carry a token than a body is.
+    """
+    if not raw:
+        return None
+    text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
+    if not text:
+        return None
+    out = []
+    for part in text.split("&"):
+        name, sep, value = part.partition("=")
+        if sep and value and _is_sensitive_key(name):
+            out.append(f"{name}=<redacted>")
+        else:
+            out.append(part)
+    return "&".join(out)[:_MAX_QUERY_LOG]
 
 
 def _is_sensitive_key(key) -> bool:
