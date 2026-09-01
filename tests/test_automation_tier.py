@@ -56,8 +56,36 @@ def test_entitlements_mirror_pro():
 
 
 def test_routing_mirrors_pro_for_every_app_and_call_type():
+    """Automation must never resolve to a lane nobody ships.
+
+    Two ways an app can satisfy that, and both are checked rather than one
+    being an omission that slips through:
+
+    1. It declares a tier axis, in which case `automation` must be in it and
+       every call_type that dials `pro` must dial `automation` identically.
+    2. It declares NO tier axis, in which case every call_type must be
+       `default` only. `_resolve_model_routing` reads
+       `models.get(tier_name) or models.get("default")`, so one model
+       answers for every caller including automation, and the mirror holds
+       by construction.
+
+    Case 2 arrived with N-400 (2026-09-01), whose paid tier is a
+    client-gated StoreKit non-consumable: no per-call entitlement reaches
+    GP, so there is no tier name a per-tier dial could key on. Before this,
+    a missing `tiers` key was an unhandled KeyError, which is why the
+    absence has to be a CHECKED statement here rather than a gap: an app
+    that omits the axis and then grows a `pro` key would otherwise have an
+    automation lane nobody looked at.
+    """
     for app, cfg in ROUTING["apps"].items():
-        assert "automation" in cfg["tiers"], app
+        tiers = cfg.get("tiers")
+        if tiers is None:
+            for name, ct in cfg["call_types"].items():
+                assert set(ct["models"]) == {"default"}, (
+                    f"{app}.{name} dials a tier while {app} declares no tier "
+                    f"axis, so automation is unmirrored")
+            continue
+        assert "automation" in tiers, app
         for name, ct in cfg["call_types"].items():
             models = ct["models"]
             if "pro" in models:
