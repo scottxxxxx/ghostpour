@@ -263,3 +263,125 @@ def test_media_metrics_scope_to_app_filter(client, tmp_db_path):
         "/webhooks/admin/users?days=7&app=shouldersurf", headers=ADMIN).json()
     row = next(u for u in payload["users"] if u["id"] == "media-v")
     assert row["window_photos"] == 3
+
+
+# ---------------------------------------------------------------------------
+# Multi-select (2026-09-01). Scott's requirement is one holistic view that can
+# be narrowed to ONE OR MORE apps, never a page per tenant. The wire form is
+# one comma-separated `app` param, so every single-app caller above keeps
+# working unchanged and the tests above are the proof of that.
+# ---------------------------------------------------------------------------
+
+from app.routers.webhooks import _app_sql, _apps_from_filter  # noqa: E402
+
+
+def test_parsing_the_filter():
+    # Nothing selected means EVERY app. The operator view is holistic by
+    # default and narrowing is the deliberate act.
+    for empty in (None, "", "   ", ",", " , "):
+        assert _apps_from_filter(empty) == ()
+    assert _apps_from_filter("n400") == ("n400",)
+    assert _apps_from_filter("n400,techrehearsal") == ("n400", "techrehearsal")
+    # Lowercased and de-duplicated, matching resolve_app_dir, so a filter
+    # built from a checkbox list cannot disagree with config resolution
+    # about what "N400" means.
+    assert _apps_from_filter(" N400 , techrehearsal ,n400") == (
+        "n400", "techrehearsal")
+
+
+def test_building_the_clause():
+    assert _app_sql(()) == ""
+    assert _app_sql(("n400",)) == " AND app_id IN (?)"
+    assert _app_sql(("a", "b")) == " AND app_id IN (?, ?)"
+    assert _app_sql(("a", "b"), "l.app_id") == " AND l.app_id IN (?, ?)"
+
+
+def test_dashboard_totals_for_two_apps_are_the_union(client, tmp_db_path):
+    from tests.conftest import _insert_user
+
+    user_id = "multi-app-user"
+    _insert_user(tmp_db_path, user_id=user_id, tier="pro", monthly_limit=5.10)
+    for _ in range(3):
+        _insert_usage(tmp_db_path, user_id, "shouldersurf")
+    for _ in range(2):
+        _insert_usage(tmp_db_path, user_id, "techrehearsal")
+    _insert_usage(tmp_db_path, user_id, "n400")
+
+    def _total(q):
+        return client.get(
+            f"/webhooks/admin/dashboard?days=7{q}", headers=ADMIN
+        ).json()["usage"]["total_requests"]
+
+    assert _total("") == 6
+    assert _total("&app=n400") == 1
+    # The union of two, and NOT the total: a filter that quietly ignored the
+    # second id would return 3 here and a filter that ignored both would
+    # return 6, so this distinguishes all three behaviours.
+    assert _total("&app=shouldersurf,techrehearsal") == 5
+    assert _total("&app=n400,techrehearsal") == 3
+
+
+def test_users_list_keeps_users_active_in_either_selected_app(
+        client, tmp_db_path):
+    from tests.conftest import _insert_user
+
+    for uid, app in (("multi-ss", "shouldersurf"),
+                     ("multi-tr", "techrehearsal"),
+                     ("multi-n4", "n400")):
+        _insert_user(tmp_db_path, user_id=uid, tier="free", monthly_limit=1.0)
+        _insert_usage(tmp_db_path, uid, app)
+
+    def _ids(q):
+        payload = client.get(
+            f"/webhooks/admin/users?days=7{q}", headers=ADMIN).json()
+        return {u["id"] for u in payload["users"]}
+
+    both = _ids("&app=shouldersurf,n400")
+    assert "multi-ss" in both and "multi-n4" in both
+    assert "multi-tr" not in both
+
+
+def test_errors_panel_takes_more_than_one_app(client, tmp_db_path):
+    from tests.conftest import _insert_user
+
+    _insert_user(tmp_db_path, user_id="multi-err", tier="free", monthly_limit=1.0)
+    _insert_usage(tmp_db_path, "multi-err", "shouldersurf", status="error")
+    _insert_usage(tmp_db_path, "multi-err", "techrehearsal", status="error")
+    _insert_usage(tmp_db_path, "multi-err", "n400", status="error")
+
+    def _count(q):
+        return client.get(
+            f"/webhooks/admin/errors?days=7{q}", headers=ADMIN).json()["total"]
+
+    assert _count("") == 3
+    assert _count("&app=shouldersurf,techrehearsal") == 2
+    assert _count("&app=n400") == 1
+
+
+def test_the_tenant_list_comes_from_the_registry(client):
+    """The filter's options must be DERIVED, not typed.
+
+    The old selector was four hardcoded <option> tags, which is how N-400
+    became a registered tenant with its own config and no way to isolate it
+    on any screen. Registering an app has to be the only step.
+    """
+    payload = client.get("/webhooks/admin/apps", headers=ADMIN).json()
+    ids = [a["id"] for a in payload["apps"]]
+    assert "shouldersurf" in ids
+    assert "techrehearsal" in ids
+    assert "n400" in ids, "a registered tenant is missing from the filter"
+    # Not a tenant, but real traffic: a request with a missing or
+    # unrecognised X-App-ID is logged with this literal app_id, so without
+    # it there is traffic no selection could ever show.
+    assert "unknown" in ids
+    assert all(a["label"] for a in payload["apps"])
+
+
+def test_every_registered_app_is_offered(client):
+    """Pins the derivation itself rather than a list of names, so adding a
+    fourth tenant cannot pass this while being absent from the filter."""
+    from app.routers.config import load_apps
+
+    payload = client.get("/webhooks/admin/apps", headers=ADMIN).json()
+    offered = {a["id"] for a in payload["apps"]}
+    assert set((load_apps()["apps"] or {}).keys()) <= offered
