@@ -559,6 +559,55 @@ async def complete_quilt_patch(
 # one it sent (rule 4) instead of trusting a 200.
 
 
+# ⚠ DECLARATION ORDER IS LOAD-BEARING. `resolve` MUST stay above any
+# route on the `/projects/{user_id}/{project_id}` pattern, because that
+# pattern MATCHES `.../resolve` with `project_id = "resolve"`. Today only
+# PATCH and POST are declared on it, so a GET to `.../resolve` that fell
+# through would answer 405 rather than a wrong 200; that is the trap being
+# jammed, not absent. The day somebody adds a project-detail GET below,
+# order is the only thing standing between this route and a plausible 200
+# answering a different question, which is the failure SS flagged before
+# writing the client: not a 404 telling you the route is missing, an
+# answer to a question you did not ask.
+# `test_resolve_is_not_swallowed_by_the_project_id_pattern` fails if this
+# route stops being reached, so the ordering cannot be quietly undone.
+
+
+@router.get("/projects/{user_id}/resolve")
+async def resolve_project(
+    request: Request,
+    user_id: str,
+    user: UserRecord = Depends(get_current_user),
+):
+    """Proxy: resolve a project by id or by name (CQ `efa1e12`).
+
+    `GET /v1/projects/{user}/resolve?project_id=<id>` or `?name=<name>`.
+
+    Pure passthrough, and three things about the payload are deliberate
+    rather than incidental, because each one would be silent if broken:
+
+    - The query string is forwarded VERBATIM. CQ echoes it back on every
+      response precisely so a dropped param is visible to the caller, and
+      that check only works if the echo is not rebuilt here.
+    - CQ answers 200 for all three outcomes, distinguished by which
+      fields are populated: `resolved` carries `project_id` with
+      `candidates` empty, `ambiguous` carries `candidates` with
+      `project_id` NULL, `unknown` carries neither. An explicit null and
+      an absent key mean different things, so nothing may normalise one
+      into the other.
+    - CQ returns the EXACT stored name, and real data contains
+      `Immigration  Interview App` with a double space. That string is
+      what the client compares its own name against, so collapsing
+      whitespace in a JSON string value would destroy the one signal the
+      feature runs on, and would do it without an error anywhere.
+    """
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot access another user's projects")
+    return await _cq_proxy(
+        "GET", f"/v1/projects/{_subj(request, user_id)}/resolve",
+        query=request.url.query or None)
+
+
 @router.patch("/projects/{user_id}/{project_id}")
 async def update_project(
     request: Request,
