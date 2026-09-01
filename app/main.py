@@ -24,6 +24,7 @@ from app.routers import (
     config,
     features,
     health,
+    n400_policy,
     preferences,
     promo,
     reports,
@@ -430,6 +431,7 @@ app.include_router(telemetry.router, prefix="/v1", tags=["telemetry"])
 app.include_router(promo.router, prefix="/v1", tags=["promo"])
 app.include_router(acquisition.router, prefix="/v1", tags=["acquisition"])
 app.include_router(app_version.router, prefix="/v1", tags=["app-version"])
+app.include_router(n400_policy.router, prefix="/v1", tags=["n400-policy"])
 app.include_router(account.router, prefix="/v1", tags=["account"])
 
 # Context Quilt proxy routes — only included when CQ is configured
