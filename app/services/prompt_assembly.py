@@ -35,6 +35,27 @@ import re
 
 logger = logging.getLogger("ghostpour.prompt_assembly")
 
+
+class MissingPromptVariables(Exception):
+    """A config declared `requiredVariables` and the caller did not send them.
+
+    Raised rather than warned, and the difference matters. The existing
+    behaviour on an unreplaced placeholder is a log line plus a prompt
+    containing the literal text "{{answer_text}}", and the behaviour when
+    assembly returns None is a request that proceeds with NO system prompt.
+    Both are fail-OPEN: a model answering immigration questions with no
+    instructions is far worse than a refused turn the caller can see.
+
+    Only configs that declare `requiredVariables` can raise this, so every
+    existing prompt behaves exactly as before.
+    """
+
+    def __init__(self, config_slug: str, missing: list[str]):
+        self.config_slug = config_slug
+        self.missing = missing
+        super().__init__(
+            f"{config_slug} requires {missing} and they were not provided")
+
 # Map call_type → config slug for server-side prompt assembly. Post-B2 (#249)
 # these are per-app composite slugs (techrehearsal/<name>); _resolve_config
 # falls back to the legacy flat `tr-<name>` slug so assembly works whether or
@@ -58,6 +79,12 @@ _CALL_TYPE_TO_CONFIG = {
     # counterpart was a pre-generated script that ignored his answers) —
     # the model plays the other person per turn, in character.
     "tr_counterpart_turn": "techrehearsal/counterpart-turn",
+    # N-400 Helper (2026-09-01). Registering it here is what makes the config
+    # READ: `interview-turn.json` is server_only, so /v1/config 404s it on
+    # purpose, and without this row assemble_prompt returns None and the
+    # request proceeds with NO system prompt at all. A prompt config nothing
+    # is mapped to is a file, not a lane.
+    "n400_interview_turn": "n400/interview-turn",
 }
 
 
@@ -176,11 +203,33 @@ def assemble_prompt(
     prompt_mode: str | None = None,
     scenario_kind: str | None = None,
     scenario: str | None = None,
+    jurisdiction: str | None = None,
+    variables: dict | None = None,
 ) -> dict | None:
     """Assemble system_prompt + user_content from a prompt config.
 
     Returns {"system_prompt": ..., "user_content": ..., "max_tokens": ...}
     or None if no config exists for this call_type.
+
+    Three selectors can override fields on the way through, and they compose
+    in this order, later winning:
+
+      modes[prompt_mode]           which surface is asking
+      jurisdictions[jurisdiction]  where the caller is
+
+    `jurisdictions` (2026-09-01, Scott) is how one call_type serves a
+    different prompt by location while the app keeps calling one endpoint.
+    It is deliberately the SAME mechanism as `modes` rather than a new one:
+    variants live inside one document, so the dashboard shows Texas and the
+    default side by side in a single editor and there is no file per state
+    per language to drift apart. An absent or unrecognised jurisdiction
+    inherits the base prompt, which is the safe direction: a location we
+    have not written a variant for gets the general one rather than nothing.
+
+    `variables` supplies {{placeholder}} values for the user template. A
+    config may declare `requiredVariables`; if it does and any are missing,
+    this raises MissingPromptVariables rather than sending a prompt with
+    literal braces in it.
     """
     config_slug = _CALL_TYPE_TO_CONFIG.get(call_type)
     if not config_slug:
@@ -194,6 +243,20 @@ def assemble_prompt(
     mode_overrides = (config.get("modes") or {}).get(prompt_mode) if prompt_mode else None
     if mode_overrides:
         config = {**config, **mode_overrides}
+
+    # Location variant. Applied AFTER modes so a jurisdiction can override a
+    # surface-specific prompt, which is the order that matches why it exists:
+    # the mode says what is being asked, the jurisdiction says what we are
+    # allowed to say there.
+    juris_key = (jurisdiction or "").strip()
+    juris_overrides = (config.get("jurisdictions") or {}).get(juris_key) if juris_key else None
+    if juris_overrides:
+        config = {**config, **juris_overrides}
+        logger.info("prompt_assembly: jurisdiction variant %s applied to %s",
+                    juris_key, config_slug)
+    elif juris_key and config.get("jurisdictions"):
+        logger.info("prompt_assembly: no %s variant for %s, using base",
+                    juris_key, config_slug)
 
     system_prompt = config.get("systemPrompt", "")
     user_template = config.get("userPromptTemplate", "")
@@ -214,11 +277,35 @@ def assemble_prompt(
     # As a fallback, if no known placeholder is found, append user_content
     # to the template.
     if "{{" in user_template:
-        # Replace all known placeholders
+        # The three legacy names all mean "the single payload the client
+        # sent". They predate configs that need more than one value and are
+        # kept so every existing prompt substitutes exactly as before.
         assembled_user = user_template
-        assembled_user = assembled_user.replace("{{job_description}}", user_content)
-        assembled_user = assembled_user.replace("{{resume_text}}", user_content)
-        assembled_user = assembled_user.replace("{{user_input}}", user_content)
+        for legacy in ("{{job_description}}", "{{resume_text}}", "{{user_input}}"):
+            assembled_user = assembled_user.replace(legacy, user_content)
+
+        # Named variables, supplied by the caller from request metadata. A
+        # config declares what it needs instead of this function growing a
+        # hardcoded name per app.
+        required = list(config.get("requiredVariables") or [])
+        supplied = dict(variables or {})
+        # `str(None)` is "None", which is truthy and would have substituted
+        # the literal word None into the prompt. Check the value, not its
+        # repr. Caught by a parametrized test rather than by reading.
+        def _absent(name: str) -> bool:
+            value = supplied.get(name)
+            return value is None or not str(value).strip()
+
+        missing = [name for name in required if _absent(name)]
+        if missing:
+            # Fail closed. The alternative is a prompt that reaches a model
+            # with "{{known_facts}}" written in it, which reads as a
+            # perfectly formed request and is not one.
+            logger.error("prompt_assembly: %s missing required variables %s",
+                         config_slug, missing)
+            raise MissingPromptVariables(config_slug, missing)
+        for name, value in supplied.items():
+            assembled_user = assembled_user.replace("{{%s}}" % name, str(value))
 
         # Check if any unreplaced placeholders remain
         remaining = re.findall(r"\{\{(\w+)\}\}", assembled_user)

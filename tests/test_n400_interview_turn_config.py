@@ -27,9 +27,11 @@ _DOSSIER = _ROOT / "docs" / "prompt-dossiers" / "n400-interview-turn.md"
 # Every placeholder the client is expected to fill. A template placeholder
 # outside this set is one the client has never been told about, which shows
 # up as the literal text "{{whatever}}" reaching a model.
+# `user_input` is the request payload (answer.final_text); the rest are read
+# by name from request metadata.
 _DECLARED = {
     "form_code", "jurisdiction", "locale", "turn_id", "section_label",
-    "question_text", "field_ids", "known_facts", "answer_text",
+    "question_text", "field_ids", "known_facts", "user_input",
     "section_end_instruction",
 }
 
@@ -172,3 +174,51 @@ def test_the_dossier_is_reconciled_to_the_version_that_ships(cfg):
     assert slug == "n400/interview-turn"
     assert served == cfg["version"], (
         f"dossier says v{served}, config ships v{cfg['version']}")
+
+
+# --- the config is reachable at all -----------------------------------------
+
+def test_the_call_type_is_registered_or_nothing_reads_this_file():
+    """The defect this test exists for.
+
+    interview-turn.json is `server_only`, so /v1/config 404s it on purpose.
+    If the call_type is also absent from _CALL_TYPE_TO_CONFIG then
+    assemble_prompt returns None and the request proceeds with NO system
+    prompt: an unguarded model answering immigration questions. The config
+    shipped in that state for the length of one PR review.
+    """
+    from app.services.prompt_assembly import _CALL_TYPE_TO_CONFIG
+
+    assert _CALL_TYPE_TO_CONFIG.get("n400_interview_turn") == "n400/interview-turn"
+
+
+def test_every_required_variable_is_actually_used_by_the_template(cfg):
+    """A required variable the template never substitutes is a refusal with
+    no purpose: turns get 422'd for omitting a value that would have changed
+    nothing."""
+    used = set(re.findall(r"\{\{(\w+)\}\}", cfg["userPromptTemplate"]))
+    assert set(cfg["requiredVariables"]) <= used
+
+
+def test_the_payload_is_not_in_the_required_list(cfg):
+    """{{user_input}} is the request body, not metadata. Requiring it would
+    reject every turn, because the check reads the metadata bag."""
+    assert "user_input" not in cfg["requiredVariables"]
+
+
+def test_the_optional_section_instruction_is_not_required(cfg):
+    """It is empty except at a section boundary. Requiring it would 422 every
+    mid-section turn, which is most of them."""
+    assert "section_end_instruction" not in cfg["requiredVariables"]
+
+
+def test_the_jurisdiction_axis_exists_and_is_empty(cfg):
+    """Present so the variant point is discoverable in the dashboard editor,
+    empty because the base prompt is correct everywhere until a location
+    needs different words. An entry here must be a partial config, never a
+    bare string."""
+    juris = cfg["jurisdictions"]
+    assert isinstance(juris, dict)
+    for key, override in juris.items():
+        assert isinstance(override, dict), f"{key} must be a partial config"
+        assert override, f"{key} overrides nothing"

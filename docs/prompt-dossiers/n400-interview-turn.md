@@ -1,7 +1,7 @@
 ---
 call_type: n400_interview_turn
 config_slug: n400/interview-turn
-served_version: 1
+served_version: 2
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 reconciled: 2026-09-01
@@ -18,8 +18,21 @@ actually stated, and a clarification or conflict when either is warranted.
 Output contract is the TurnResponse object in N-400's
 `contracts/shared-data-model.md`.
 
-Phase 1 is client-assembled: GP serves this config and the client fills the
-placeholders. "Then we flip promptless" is their phase 2 and is not built.
+**GP assembles this server-side.** An earlier draft of this dossier said
+"phase 1 is client-assembled", which was wrong about this codebase and was
+caught before merge: `interview-turn.json` is `server_only`, so `/v1/config`
+404s it deliberately, and the client therefore cannot fetch it at all. The
+lane is `_CALL_TYPE_TO_CONFIG` in `app/services/prompt_assembly.py`. The
+client sends `call_type`, the answer and metadata; GP builds the message.
+That IS "promptless".
+
+For one PR review this file shipped with the config written and the
+call_type NOT registered, which meant nothing read it: the client could not
+fetch it and the server would not assemble it, and `assemble_prompt`
+returning None leaves a request with NO system prompt at all. A prompt
+config nothing is mapped to is a file, not a lane, and
+`test_the_call_type_is_registered_or_nothing_reads_this_file` exists so that
+cannot recur quietly.
 
 ## What binds this prompt
 
@@ -101,6 +114,55 @@ ESCALATE there and `interpret_legally`, `determine_eligibility` are BLOCK
 everywhere. If the two ever disagree, the matrix wins and the prompt is the
 bug.
 
+## Variables, and failing closed
+
+The template takes `{{user_input}}` (the answer, `answer.final_text`) plus
+named values read from request metadata: `form_code`, `jurisdiction`,
+`locale`, `turn_id`, `section_label`, `question_text`, `field_ids`,
+`known_facts`, `section_end_instruction`.
+
+`requiredVariables` lists the ones a turn cannot be assembled without, and a
+missing one is a **422 `missing_prompt_variables`**, not a warning. Before
+this, an unsupplied placeholder produced a log line and a prompt carrying
+the literal text `{{known_facts}}` to the model, which reads as a
+well-formed request everywhere except in the answer. Only configs that
+declare `requiredVariables` can raise, so every prompt that predates the
+change behaves exactly as before.
+
+`section_end_instruction` is deliberately NOT required: it is empty except
+at a section boundary, and requiring it would refuse most turns.
+
+⚠ **N-400 must be told which metadata keys to send.** Their `gp-ask.md`
+declares `{case_id, node_id, jurisdiction, form_code}`; this needs more than
+that. Until they send them, every turn 422s, which is the correct failure
+(loud, named, and pointing at the missing keys) but it is a two-sided
+change and it has NOT been relayed as of writing.
+
+## Jurisdiction variants
+
+`jurisdictions` maps a jurisdiction string to a partial config that
+overrides fields for callers there, so one call_type serves a different
+prompt by location while the app keeps calling one endpoint (Scott's ask,
+2026-09-01).
+
+Deliberately the same mechanism as `modes` rather than a new one, and
+deliberately inside one document rather than a file per location: one
+document is what lets the dashboard config editor show every variant side
+by side, and it is what stops a file per state per language from drifting
+apart silently. Composition order is modes, then jurisdictions, so a
+location can override a surface-specific prompt. That order is not
+arbitrary: the mode says what is being asked, the jurisdiction says what we
+are permitted to say there, and the second is the one that must not be
+overridable.
+
+An absent or unrecognised jurisdiction inherits the base prompt. That is the
+safe direction: a location nobody has written a variant for gets the general
+prompt rather than nothing.
+
+The map ships EMPTY and that is not a placeholder awaiting content. The base
+prompt is correct everywhere until a location needs different words; the key
+is present so the variant point is discoverable in the editor.
+
 ## Wire notes
 
 - Feed `answer.final_text`, NOT `answer.transcript`. `final_text` is what
@@ -119,7 +181,11 @@ bug.
 
 ## Shaping history
 
-- 2026-09-01 (#852): first version. Authored from N-400's `gp-ask.md` §2,
+- 2026-09-01 (#852, v2): registered the call_type, so the config is read at
+  all; named prompt variables with a fail-closed `requiredVariables` guard;
+  added the `jurisdictions` variant axis. Also corrected this dossier's
+  claim that assembly was client-side, which it never was here.
+- 2026-09-01 (#852, v1): first version. Authored from N-400's `gp-ask.md` §2,
   the TurnResponse contract, Scott's four intake rulings, and the two real
   transcriptions from his device trial. `fewShots` empty pending a real
   export. No eval has been run: there is nothing honest to evaluate against
