@@ -1,4 +1,5 @@
 import json
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -9,6 +10,8 @@ from app.models.chat import ChatRequest, ChatResponse
 from app.models.tier import TierDefinition
 from app.models.user import UserRecord
 from app.services.allocation_reset import lazy_reset_if_due
+
+logger = logging.getLogger("ghostpour.usage_tracker")
 
 
 def _normalize_scenario(value: object) -> str | None:
@@ -171,13 +174,38 @@ class UsageTracker:
         cost: float,
         tier: TierDefinition,
         user: UserRecord | None = None,
+        app_id: str | None = None,
     ) -> None:
-        """Deduct cost from monthly allocation or overage balance."""
+        """Deduct cost from the ACCOUNT allowance, unless this app meters itself.
+
+        `users.monthly_used_usd` is one row per account and every app under
+        this developer team shares it, because SIWA issues subject ids per
+        team. Until 2026-09-01 this method took no app argument at all, one
+        line above a `log_usage` call that did, so a Tech Rehearsal or N-400
+        call drew down the user's SHOULDERSURF tier allowance. An app that
+        carries its own enforced cap is now skipped here and metered against
+        its own `usage_log` rows instead. See app/services/app_budget.py for
+        why leaving the shared meter requires having a cap first.
+
+        Callers MUST pass app_id. It defaults to None so an unaudited caller
+        keeps today's behaviour (charge the shared row) rather than silently
+        becoming free, but None is a fallthrough, not an intention.
+        """
         effective_limit = tier.monthly_cost_limit_usd
         if user and user.is_trial and tier.trial_cost_limit_usd is not None:
             effective_limit = tier.trial_cost_limit_usd
 
         if effective_limit == -1 or cost <= 0:
+            return
+
+        from app.routers.config import load_apps
+        from app.services.app_budget import meters_on_its_own
+
+        if meters_on_its_own(load_apps(), app_id):
+            logger.debug(
+                "record_cost_skipped_account_row app=%s cost=%.6f "
+                "(app carries its own cap)", app_id, cost,
+            )
             return
 
         await db.execute(
@@ -356,7 +384,8 @@ class UsageTracker:
             )
             response.cost = cost
             request_cost = cost.get("total_cost", 0.0)
-        await self.record_cost(db, user.id, request_cost, tier, user=user)
+        await self.record_cost(db, user.id, request_cost, tier, user=user,
+                               app_id=app_id)
         await self.log_usage(
             db, user.id, request, response, elapsed_ms, status=status, app_id=app_id,
         )

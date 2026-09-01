@@ -65,9 +65,20 @@ apps:
     # in the field with X-TR-Entitlement on every call.
     budget:
       enabled: true
+      shape: entitlement
       monthly_cost_limit_usd:
         free: 5.0
         paid: 25.0
+      # ⚠ TR IS STILL DOUBLE-METERED, AND FLIPPING THIS IS SCOTT'S CALL.
+      # record_cost adds TR spend to users.monthly_used_usd, the row the
+      # ShoulderSurf TIER allowance is measured against, so since this gate
+      # went live 2026-07-05 a TR user has been paying twice: once against
+      # the cap above, once against an allowance belonging to an app they may
+      # never have opened. Setting own_account_meter true stops that, but it
+      # changes live metering for real users and hands them back headroom,
+      # so it is not a change to make on the way past. Unwinding the spend
+      # already recorded is a separate question and also Scott's.
+      own_account_meter: false
     # Per-app tier overrides (#249): values that REPLACE the user's SS-tier
     # value when X-App-ID resolves to this app. TR users share the SS user row,
     # so their tier (e.g. pro) carries SS defaults; these scope app-specific
@@ -86,22 +97,33 @@ apps:
     # BACKEND-CONTRACTS.md and GPGateway.appID) before we wrote this, so the
     # string is theirs, not ours, and it is permanent once a build ships.
     #
-    # NO `budget` BLOCK AND NO `tier_overrides`, deliberately, and the reason
-    # is worth reading before adding one. N-400's paid tier is a StoreKit
-    # non-consumable (com.weirtech.n400helper.case) gated ENTIRELY on the
-    # client, per case. Nothing about it reaches GP, so there is no per-call
-    # entitlement for a gate to read and the `budget` mechanism (which is
-    # entitlement-keyed) has nothing to key on.
+    # NO `tier_overrides`: N-400's paid tier is a StoreKit non-consumable
+    # (com.weirtech.n400helper.case) gated ENTIRELY on the client, per case,
+    # so no per-call entitlement of theirs ever reaches GP.
     #
-    # ⚠ THAT IS NOT THE SAME AS "N-400 SPEND IS FREE". usage_tracker
-    # .record_cost does `UPDATE users SET monthly_used_usd = ... WHERE id = ?`
-    # with NO app scoping, and the account row is shared across every app
-    # under this developer team. So an N-400 call draws down the SAME monthly
-    # allowance the user's ShoulderSurf tier grants, and a heavy N-400 user on
-    # SS free can exhaust their ShoulderSurf allowance without ever opening
-    # ShoulderSurf. That is leak 2 of docs/design/per-app-tenancy-and-
-    # entitlement.md, arriving concretely rather than theoretically. Fixing it
-    # is the generalized per-app budget gate in that doc, not a line here.
+    # The budget below is FLAT for exactly that reason. Tech Rehearsal's is
+    # `entitlement`-shaped and keys on X-TR-Entitlement; keying N-400's the
+    # same way would read a header nobody sends, resolve to no cap, and
+    # enforce nothing while looking configured. `shape: flat` is one ceiling
+    # for every caller, which is the only shape that can work here.
+    # tests/test_per_app_config.py fails if this is ever changed to
+    # `entitlement` without an entitlement axis arriving first.
+    #
+    # $5.00/month approved by Scott 2026-09-01, and he expects to lower it.
+    # The VALUE lives in served config (config/remote/n400/budget.json) so it
+    # is a dashboard dial; the number here is the FLOOR used when the served
+    # document cannot be read, because for money an unreadable config must
+    # never mean unlimited. Only an explicit -1 means unlimited.
+    budget:
+      enabled: true
+      shape: flat
+      config_slug: n400/budget
+      monthly_cost_limit_usd: 5.0
+      # Take N-400 spend OFF the shared account meter. Safe here and ONLY
+      # here today: this app has a cap of its own that actually runs, so it
+      # is capped rather than uncapped after leaving. See the note on
+      # techrehearsal, which is the same bug with live users attached.
+      own_account_meter: true
     #
     # No `cq` block: N-400 has not asked for ContextQuilt, so it stays on the
     # default identity rather than being handed one it does not use.

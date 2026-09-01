@@ -277,7 +277,8 @@ async def translate_group(app_state, db: aiosqlite.Connection, user, segments: l
             input_tokens=response.input_tokens, output_tokens=response.output_tokens)
         response.cost = cost
         request_cost = cost.get("total_cost", 0.0)
-    await usage_tracker.record_cost(db, user.id, request_cost, tier, user=user)
+    await usage_tracker.record_cost(db, user.id, request_cost, tier, user=user,
+                                    app_id=app_id or "unknown")
     await usage_tracker.log_usage(
         db, user.id, chat_request, response, elapsed_ms,
         status="success" if out is not None else "error",

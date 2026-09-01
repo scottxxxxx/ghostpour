@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "server_only": true,
+
+  "_comment": [
+    "N-400's monthly spend ceiling, and the copy shown when it is reached.",
+    "The SHAPE of this gate is declared in config/apps.yml (flat, one cap for",
+    "every caller, because no per-call entitlement of N-400's reaches GP).",
+    "The NUMBER lives here so it is a dashboard dial rather than a deploy.",
+    "",
+    "⚠ Per config/remote/OWNERSHIP.md, ADDING this file propagates on boot but",
+    "CHANGING the number below does not. To move the cap in production, push it",
+    "through PUT /webhooks/admin/config/n400/budget and verify against prod.",
+    "Editing this file alone does nothing to a running server.",
+    "",
+    "If this document cannot be read, the gate falls back to the floor in",
+    "apps.yml rather than to no cap. Absent config must never mean unlimited."
+  ],
+
+  "monthly_cost_limit_usd": 5.0,
+
+  "exhausted": {
+    "kind": "budget_exhausted",
+    "text": {
+      "en": "You have used this month's questions. Your answers are saved, and your allowance renews at the start of next month.",
+      "es": "Ha usado las preguntas de este mes. Sus respuestas están guardadas, y su asignación se renueva al comenzar el próximo mes.",
+      "pt": "Você usou as perguntas deste mês. Suas respostas estão salvas, e sua cota é renovada no início do próximo mês."
+    },
+    "renews_prefix": {
+      "en": "Renews",
+      "es": "Se renueva",
+      "pt": "Renova"
+    },
+    "action": null
+  }
+}
