@@ -110,8 +110,9 @@ unmeasured, which is exactly our mistake. They reordered task 14.
 
 ## The open pairing (pick this up first)
 
-**SS's sweep has not fired. Scott has not opened the app.** On his next
-cold open of build 1443, SS predicts at GP's edge:
+**Build is 1447, NOT 1443** (SS shipped a fix after this handoff was
+first written; see the addendum at the bottom, read it before acting).
+Scott has not opened it. On his next cold open, SS predicts at GP's edge:
 
     ~60  project_id=  calls
      0   name=        calls
@@ -135,7 +136,8 @@ a quiet one. That mistake was made and caught tonight.
 
 Now that #845 is live, the query strings of those calls WILL be visible in
 `/webhooks/admin/live-log` (ring buffer, evicts, resets on deploy, so read
-it promptly).
+it promptly). **SS has asked for the STRINGS, not the counts** — see the
+addendum.
 
 ---
 
@@ -196,3 +198,48 @@ Two `gh pr create` calls hit "already exists" this session; both times the
 PR was mine and nothing was clobbered. A stale `gitStatus` in context also
 showed this session's own commits as if they predated it. **Check before
 concluding you overwrote someone.**
+
+
+---
+
+# ADDENDUM (written at session close, after the above)
+
+## The zero in this handoff is CORRECT but its cause was not what anyone assumed
+
+SS found it after the last edge check. **The sweep fired every time. It
+never made a request.**
+
+`ProjectResolveClient.resolve` guards on a keychain bearer and a `userId`.
+In the launch task, projects become ready at `loadFromDiskAsync` while the
+session becomes ready at `checkExistingSession` about ninety lines later,
+and the call sat after the first. Sixty projects, no session, sixty guards
+returning nil before a URL was ever built. Fixed by moving the call, and
+generalised: their throttle now refuses to record a pass that checked
+nothing, rather than depending on having predicted every precondition.
+Build **1447**.
+
+### ⚠ The instrument lesson, and it is the important part
+
+**GP's zero, CQ's zero and GP's own healthy 23-request handshake were all
+simultaneously correct**, because nothing was ever sent. **No server log
+on any hop can distinguish "never fired" from "fired and made no
+request."** Only a client-side entry line separates them, and it only
+existed because CQ asked SS to log on ENTRY rather than on completion.
+
+So when reading an absence at our edge, "the client did not run" and "the
+client ran and sent nothing" are the same observation from here. Do not
+report one as the other. Ask SS for the entry-line breadcrumb, which reads
+like `0 of 60 projects checked, 60 unreachable`.
+
+## What SS now wants from GP, which is NOT counts
+
+With #845 live, they want the **actual query strings**, because counts
+cannot answer their real question:
+
+- Is `name=` **genuinely absent**, or present and logged as something else?
+- On each `project_id=` call, is the value a **real UUID**?
+
+Their claim is that a healthy account never spends a name query, and only
+the strings can test it. Read them from `/webhooks/admin/live-log`
+(promptly: ring buffer, evicts, resets on deploy) and cross-check against
+the edge log for anything the buffer has already dropped.
