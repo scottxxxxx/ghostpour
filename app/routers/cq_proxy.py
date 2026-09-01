@@ -583,6 +583,27 @@ async def resolve_project(
 
     `GET /v1/projects/{user}/resolve?project_id=<id>` or `?name=<name>`.
 
+    ⚠ NEVER FIRING IS THE EXPECTED RESULT. DO NOT DELETE THIS AS DEAD CODE.
+
+    This route exists because Scott ruled converge-on-ID over name, and it
+    backs a client audit that is a SAFETY NET FOR A DEFECT NOBODY HAS
+    OBSERVED. The UUID drift it was originally built for did not exist:
+    SS read `projects.json` off the device on 2026-09-01 and every project
+    held its own id. The wrong id came from a reused SwiftUI view whose
+    load state survived a swap, on the device, invisible to any server log
+    on either side. An inference from a symptom had hardened into a shared
+    premise across three teams and generated a client converge, a CQ
+    endpoint, this route and a ruling, before anyone opened the file.
+
+    So a reader a year from now will find a route that has never changed
+    anything and conclude it is unused. That conclusion is the SAME MOVE
+    that caused the original error, one step further out: inferring
+    purpose from behaviour rather than reading the thing. Zero repairs is
+    this route working. **A repair is a FINDING, not a success**, and it
+    means either genuine new drift or a wrong answer out of the resolve
+    path; do not assume the first. SS carries the identical note on their
+    audit, sweep and `DRIFT REPAIRED` log line (`93a4a75`).
+
     Pure passthrough, and three things about the payload are deliberate
     rather than incidental, because each one would be silent if broken:
 
