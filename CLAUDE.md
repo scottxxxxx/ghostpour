@@ -91,3 +91,19 @@ it has cost something.
    which passed a syntax check and would have been a NameError on the
    first real call. Two teams, one day, one shape: a name that sounded
    right and was never opened. A comment cannot be wrong out loud.
+
+8. **Wherever two systems each apply a CORRECT filter, the intersection
+   is invisible to both.** Scott asked why Suresh, his highest-data
+   person at 140 meetings, showed FEWER insight lenses than a colleague
+   at 104. CQ's `one_card_per_lens` collapse kept one card per lens,
+   correctly. SS dropped any claim with fewer than three receipts,
+   correctly, because three receipts is what separates a pattern from a
+   coincidence. The collapse happened to keep the cards with TWO rows,
+   so the client dropped them and the page starved. CQ saw three cards
+   shipped, SS saw one rendered, and the deciding number lived inside a
+   card neither team was inspecting. No error, no log, no failing test,
+   both halves behaving exactly as written. This predicts WHERE to look
+   rather than describing the damage afterwards: when a user reports
+   "less than I expected" and both sides look correct, stop hunting for
+   a fault and go find the INTERSECTION of two filters. Then make each
+   side's drop audible, because the other team cannot build your half.
