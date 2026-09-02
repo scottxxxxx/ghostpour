@@ -107,3 +107,29 @@ it has cost something.
    "less than I expected" and both sides look correct, stop hunting for
    a fault and go find the INTERSECTION of two filters. Then make each
    side's drop audible, because the other team cannot build your half.
+
+9. **A mechanism that fits the observable is a hypothesis, and a peer with
+   the same habit cannot test it.** SS explained a wire field as the
+   `to_name` drop shape; the two cases shared a shape and differed on the
+   one property that decided the outcome, `extra="allow"`, which nobody had
+   opened. SS then explained a "6 meetings" hero as a downgrade caused by
+   CQ's key removal; it fit the observable exactly, and the truth was a
+   client decoder that had never read the field from any route, months
+   before the removal. Both times CQ relayed the mechanism onward as a
+   finding, and both times it was about to cost a third team real work:
+   GP hunting a dropped request field, then a dropped response field,
+   neither of which existed. Neither correction came from the two of us
+   agreeing harder. The first came from GP opening the schema after CQ
+   carried the claim to them as a blocker; the second from SS opening its
+   own decoder after CQ sent a number that did not fit. So the rule is not
+   "be less confident", because both explanations were reasonable and one
+   was nearly right. It is that **the check is somebody reading the code
+   that produces the behaviour**, and that this cannot be delegated to the
+   other team when the other team fails the same way: two parties who both
+   reason from the observable will confirm each other indefinitely.
+   Before passing a mechanism to a third team, name the file that would
+   settle it and say whether anyone has opened it. "I think X drops it"
+   and "I read the schema and X drops it" are different messages, and only
+   the second is worth another team's afternoon. Neither near miss reached
+   a user; the cost was two hours of somebody else's day, caught within the
+   hour each time, and the rule is not worth more than that.
