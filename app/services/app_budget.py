@@ -226,3 +226,57 @@ def exhausted_copy(remote_configs: dict | None, apps_registry: dict,
             return copy
     logger.warning("app_budget_exhausted_copy_missing app=%s slug=%s", app_id, slug)
     return dict(_FALLBACK_COPY)
+
+
+# --- counters that live on the shared ACCOUNT row --------------------------
+#
+# `users` is one row per account and SIWA issues subject ids per developer
+# TEAM, so these counters serve all three apps at once. Scott's multitenancy
+# ruling (2026-09-02) says that is exactly what the apps must not do.
+#
+# MEASURED the same day: both leaks are LATENT. artifact_generation is
+# ShoulderSurf's alone (6 calls ever) and no other app produces capture
+# traffic, so nothing is sharing these today. That is the argument FOR
+# guarding them: a latent leak gives no signal on the day it stops being
+# latent, and the second app's first generation would simply spend the
+# first app's allowance behind a 200.
+#
+# The permanent fix is a per-app counter table. Deliberately not built:
+# these two use DIFFERENT period models (memory carries its own
+# `memory_period`, generations rides the allocation cycle), so reconciling
+# them is a migration with a backfill rather than a guard.
+SHARED_ACCOUNT_COUNTERS = {
+    "memory_used_this_period": "shouldersurf",
+    "generations_used": "shouldersurf",
+}
+
+
+def may_charge_shared_counter(counter: str, app_id: str | None) -> bool:
+    """May this app decrement a counter that lives on the shared account row?
+
+    False for an app that does not own the lane. Refusing to charge is the
+    safe direction: sharing is the bug, so the failure mode should be "this
+    app got no decrement" rather than "this app spent another app's
+    allowance".
+
+    Identity is resolved through `resolve_app_dir` rather than compared as a
+    raw string, so this agrees with config resolution instead of
+    reimplementing it. That matters more than it looks: a missing header
+    reaches different call sites as None and as the LITERAL STRING
+    "unknown", and the first version of this compared strings and refused
+    the second one. Two real tests caught it, both for users whose requests
+    carry no app id at all, which is most of the older field builds.
+
+    So absent, blank, "unknown" and unrecognised all resolve to the default
+    app and CHARGE, failing open to today's behaviour exactly as
+    resolve_app_dir does. Only an app that resolves to a DIFFERENT
+    registered dir is refused.
+
+    An unregistered counter name charges too, so this can never become a
+    silent gate on something nobody put in the map.
+    """
+    owner = SHARED_ACCOUNT_COUNTERS.get(counter)
+    if owner is None:
+        return True
+    from app.routers.config import resolve_app_dir
+    return resolve_app_dir(app_id) == resolve_app_dir(owner)

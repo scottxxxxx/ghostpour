@@ -385,7 +385,7 @@ async def capture_transcript(
 
     if verdict.verdict == "capture_with_cta":
         # Free-within-quota: count it.
-        await decrement_memory_quota(db, user.id)
+        await decrement_memory_quota(db, user.id, app_id=_app(request))
 
     # verdict.cta_kind still names the free-Memory copy state, but GP no
     # longer stamps it per meeting or injects a synthetic card into the
