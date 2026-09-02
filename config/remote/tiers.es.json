@@ -1,5 +1,5 @@
 {
-  "version": 55,
+  "version": 56,
   "tiers": {
     "free": {
       "display_name": "Gratis",
@@ -652,6 +652,13 @@
           }
         ]
       }
+    },
+    "web_search": {
+      "category": "intelligence",
+      "display_name": "Búsqueda web",
+      "description": "Pídele a tu IA que busque información actualizada en la web durante una consulta.",
+      "teaser_description": "Todos los planes incluyen búsqueda web. Plus y Pro incluyen más al mes.",
+      "upgrade_cta": "Actualiza a Plus para más búsquedas web al mes"
     },
     "search": {
       "category": "intelligence",

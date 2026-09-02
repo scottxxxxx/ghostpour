@@ -1,5 +1,5 @@
 {
-  "version": 55,
+  "version": 56,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -652,6 +652,13 @@
           }
         ]
       }
+    },
+    "web_search": {
+      "category": "intelligence",
+      "display_name": "Web検索",
+      "description": "質問への回答中にAIがWebから最新情報を取得できます。",
+      "teaser_description": "Web検索はすべてのプランでご利用いただけます。PlusとProでは月あたりの回数が増えます。",
+      "upgrade_cta": "Plusにアップグレードして月あたりの検索回数を増やす"
     },
     "search": {
       "category": "intelligence",

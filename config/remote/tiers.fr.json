@@ -1,5 +1,5 @@
 {
-  "version": 55,
+  "version": 56,
   "tiers": {
     "free": {
       "display_name": "Gratuit",
@@ -652,6 +652,13 @@
           }
         ]
       }
+    },
+    "web_search": {
+      "category": "intelligence",
+      "display_name": "Recherche web",
+      "description": "Demandez à votre IA de rechercher des informations actuelles sur le web pendant une requête.",
+      "teaser_description": "Tous les forfaits incluent la recherche web. Plus et Pro en incluent davantage chaque mois.",
+      "upgrade_cta": "Passez à Plus pour plus de recherches web chaque mois"
     },
     "search": {
       "category": "intelligence",

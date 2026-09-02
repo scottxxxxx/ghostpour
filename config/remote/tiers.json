@@ -1,5 +1,5 @@
 {
-  "version": 56,
+  "version": 57,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -652,6 +652,13 @@
           }
         ]
       }
+    },
+    "web_search": {
+      "category": "intelligence",
+      "display_name": "Web Search",
+      "description": "Ask your AI to look up current information from the web during a query.",
+      "teaser_description": "Every plan includes web search. Plus and Pro include more each month.",
+      "upgrade_cta": "Upgrade to Plus for more web searches each month"
     },
     "search": {
       "category": "intelligence",

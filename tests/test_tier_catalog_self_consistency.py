@@ -117,3 +117,50 @@ def test_every_locale_states_the_same_free_allowance(name):
     assert _load(name)["tiers"]["free"]["feature_definitions"]["search"][
         "searches_per_month"] == _load("tiers.json")["tiers"]["free"][
         "feature_definitions"]["search"]["searches_per_month"]
+
+
+# ---------------------------------------------------------------------------
+# TWO ENDPOINTS SERVE TIER COPY AND THEY READ DIFFERENT KEYS.
+#
+# Found by ShoulderSurf QA immediately after the fix above shipped, which is
+# the part worth keeping: the first fix corrected the surface almost nobody
+# calls. In the current edge-log window, /v1/tiers was requested 248 times and
+# /v1/config/tiers once (that once being the QA check itself).
+#
+#   /v1/config/tiers  serves the remote config verbatim -> key `search`
+#   /v1/tiers         builds feature_definitions by iterating features.yml
+#                     NAMES, preferring a remote entry of the same name and
+#                     falling back to the YAML copy -> key `web_search`
+#
+# features.yml calls it `web_search`; the remote config called it `search`.
+# So the lookup always missed and /v1/tiers always served the YAML fallback,
+# which still carried the pre-08-20 "Upgrade to Plus to let your AI search
+# the web" and an EMPTY teaser. Both endpoints reported version 58, because
+# /v1/tiers echoes the display config's version while sourcing the feature
+# copy from somewhere else entirely: the version number described one half of
+# a document assembled from two.
+#
+# Fix: carry the same entry under BOTH names. Copying rather than
+# retranslating is deliberate, so the two cannot drift apart in four
+# languages, and this test is what keeps the copy honest.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("name", _TIERS)
+def test_both_key_names_carry_the_same_feature_entry(name):
+    fd = _load(name)["feature_definitions"]
+    assert "search" in fd, f"{name}: /v1/config/tiers consumers read this key"
+    assert "web_search" in fd, (
+        f"{name}: /v1/tiers looks up features.yml names, so without this key "
+        f"it falls back to the YAML copy and serves retired text")
+    assert fd["web_search"] == fd["search"], (
+        f"{name}: the two endpoints would describe the feature differently")
+
+
+def test_the_yaml_fallback_name_is_still_web_search():
+    """Pins WHY the duplicate exists. If features.yml is ever renamed to
+    `search`, the duplicate becomes dead weight and should go; if this test
+    fails, read the comment above before deleting anything."""
+    import yaml
+    features = yaml.safe_load(open("config/features.yml"))["features"]
+    assert "web_search" in features
+    assert "search" not in features
