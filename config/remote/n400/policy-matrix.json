@@ -1,0 +1,171 @@
+{
+  "version": 1,
+  "schema_version": 1,
+  "form": "N-400",
+
+  "_comment_namespace": [
+    "FIRST FILE IN THE n400 NAMESPACE, AND IT CARRIES REAL CONTENT.",
+    "N-400's standing rule (their BACKEND-CONTRACTS.md) is that GP must never",
+    "create empty placeholder files for their bespoke names, because a",
+    "placeholder turns a loud 404 into a silent versioned {} their decoder",
+    "would treat as a real answer. `policy-matrix` is bespoke (it collides",
+    "with no flat name), so before this file it 404'd, which was correct.",
+    "This file is the answer, not a placeholder. Do not add siblings here",
+    "until they hold real content too."
+  ],
+
+  "legal_review": {
+    "status": "PENDING",
+    "owner": "Scott",
+    "reviewed_at": null,
+    "_comment": [
+      "Scott owns the formal legal review (2026-09-01) and every row below",
+      "is an ENGINEERING DEFAULT until he replaces this block with a real",
+      "reviewer and date. `basis` on each rule says what the default was",
+      "grounded in: PUBLISHED means a citable public source, NEEDS_LEGAL",
+      "means the row is a judgment call held at its safest defensible",
+      "setting until reviewed. Nothing here reads as reviewed by accident:",
+      "tests/test_n400_policy.py fails if status flips to REVIEWED while",
+      "any NEEDS_LEGAL row is still ALLOW."
+    ]
+  },
+
+  "capabilities": [
+    {
+      "capability": "transcribe",
+      "basis": "PUBLISHED",
+      "basis_note": "Rendering speech to text is mechanical and carries no legal conclusion. Transcription happens on device; GP only ever receives text.",
+      "matrix": [
+        {"state": "*", "form": "N-400", "outcome": "ALLOW"}
+      ]
+    },
+    {
+      "capability": "translate",
+      "basis": "PUBLISHED",
+      "basis_note": "Language access is not legal advice. NOTE FOR N-400: the RESTRICT case you described (a locale we do not serve) cannot be expressed on this matrix, because the axes are State x Form and the constraint is per LOCALE. See the ask relayed 2026-09-01.",
+      "matrix": [
+        {"state": "*", "form": "N-400", "outcome": "ALLOW"}
+      ]
+    },
+    {
+      "capability": "normalize",
+      "basis": "PUBLISHED",
+      "basis_note": "Reformatting an answer the applicant already gave (a spoken date into YYYY-MM-DD) changes form, not substance.",
+      "matrix": [
+        {"state": "*", "form": "N-400", "outcome": "ALLOW"}
+      ]
+    },
+    {
+      "capability": "populate_field",
+      "basis": "PUBLISHED",
+      "basis_note": "Writing down what the applicant states is scrivener assistance. USCIS Form N-400 instructions provide for a preparer who fills the form at the applicant's direction, and the form itself carries a preparer certification for exactly that role. TX is the launch jurisdiction; every other state is RESTRICT until reviewed, matching the client's state picker.",
+      "matrix": [
+        {"state": "TX", "form": "N-400", "outcome": "ALLOW"},
+        {"state": "*", "form": "N-400", "outcome": "RESTRICT"}
+      ]
+    },
+    {
+      "capability": "explain_question_literal",
+      "basis": "PUBLISHED",
+      "basis_note": "Reading back what USCIS itself publishes about a question, in plainer words, states a public source rather than applying it to the applicant's facts. USCIS publishes the N-400 instructions and the Policy Manual openly.",
+      "matrix": [
+        {"state": "*", "form": "N-400", "outcome": "ALLOW"}
+      ]
+    },
+    {
+      "capability": "recommend_answer",
+      "basis": "NEEDS_LEGAL",
+      "basis_note": "THE LINE ITEM MOST WORTH SCOTT'S REVIEWER'S TIME. Suggesting what an applicant should put on a federal form applies law to their facts, which is the classic boundary of unauthorized practice. Held at ESCALATE rather than BLOCK so the applicant is routed to counsel instead of hitting a wall, but a reviewer may well say BLOCK. Do not relax to ALLOW without a written opinion.",
+      "matrix": [
+        {"state": "*", "form": "N-400", "outcome": "ESCALATE"}
+      ],
+      "reason_code": "recommend_answer_is_legal_advice",
+      "halt_branch_nodes": []
+    },
+    {
+      "capability": "interpret_legally",
+      "basis": "PUBLISHED",
+      "basis_note": "8 CFR 292.1 lists who may represent someone before USCIS: attorneys and DOJ-accredited representatives. This product is neither, and USCIS publishes that same warning to applicants directly (uscis.gov/avoid-scams). Fail closed everywhere.",
+      "matrix": [
+        {"state": "*", "form": "N-400", "outcome": "BLOCK"}
+      ],
+      "reason_code": "interpretation_requires_counsel"
+    },
+    {
+      "capability": "determine_eligibility",
+      "basis": "PUBLISHED",
+      "basis_note": "Naturalization eligibility is USCIS's determination to make, and advising on it is representation under 8 CFR 292.1. BLOCK everywhere, including TX.",
+      "matrix": [
+        {"state": "*", "form": "N-400", "outcome": "BLOCK"}
+      ],
+      "reason_code": "eligibility_is_uscis_determination"
+    },
+    {
+      "capability": "assess_moral_character_impact",
+      "basis": "NEEDS_LEGAL",
+      "basis_note": "ROWS PINNED BY N-400's OWN FIXTURE (Sources/Resources/MockFixtures/policy_matrix.json). Kept byte-identical on purpose so the served matrix and their decode tests cannot disagree. Good moral character is a statutory judgment under INA 316; the client's job here is to stop and refer, never to weigh.",
+      "matrix": [
+        {"state": "TX", "form": "N-400", "outcome": "ESCALATE"},
+        {"state": "*", "form": "N-400", "outcome": "BLOCK"}
+      ],
+      "reason_code": "part9_arrest_disclosure",
+      "halt_branch_nodes": ["q_p9_arrested_explain"]
+    },
+    {
+      "capability": "escalate_to_attorney",
+      "basis": "PUBLISHED",
+      "basis_note": "Handing someone to a licensed attorney is the one capability that is always safe, and USCIS publishes the referral surface we point at (uscis.gov/legal-help). ALLOW everywhere so a fail-closed BLOCK elsewhere always has somewhere to send the applicant.",
+      "matrix": [
+        {"state": "*", "form": "N-400", "outcome": "ALLOW"}
+      ]
+    }
+  ],
+
+  "outcome_copy": {
+    "_comment": [
+      "Default copy per outcome, overridable per capability later. en is",
+      "authored; es and pt are FIRST DRAFTS and are flagged to N-400 as",
+      "needing a native read before beta. GP serves the strings so the",
+      "client never hardcodes a refusal it cannot update."
+    ],
+    "RESTRICT": {
+      "message": {
+        "en": "This part of the app is set up for Texas right now. You can keep going, and everything you have entered is saved.",
+        "es": "Esta parte de la aplicación está disponible para Texas por ahora. Puede continuar, y todo lo que ha ingresado queda guardado.",
+        "pt": "Esta parte do aplicativo está disponível para o Texas por enquanto. Você pode continuar, e tudo o que já preencheu está salvo."
+      }
+    },
+    "ESCALATE": {
+      "message": {
+        "en": "A licensed immigration attorney is the right person for this question. Your answers stay saved while you talk to one.",
+        "es": "Un abogado de inmigración con licencia es la persona indicada para esta pregunta. Sus respuestas quedan guardadas mientras habla con uno.",
+        "pt": "Um advogado de imigração licenciado é a pessoa certa para esta pergunta. Suas respostas ficam salvas enquanto você fala com um."
+      },
+      "cta": {
+        "type": "find_attorney",
+        "label": {
+          "en": "Find an immigration attorney",
+          "es": "Buscar un abogado de inmigración",
+          "pt": "Encontrar um advogado de imigração"
+        },
+        "url": "https://www.uscis.gov/legal-help"
+      }
+    },
+    "BLOCK": {
+      "message": {
+        "en": "This one takes a licensed immigration attorney. We fill in what you tell us and we can read you what USCIS publishes, and this question needs more than that.",
+        "es": "Esta pregunta requiere un abogado de inmigración con licencia. Nosotros escribimos lo que usted nos dice y podemos leerle lo que USCIS publica, y esta pregunta necesita más que eso.",
+        "pt": "Esta pergunta exige um advogado de imigração licenciado. Nós preenchemos o que você nos diz e podemos ler o que o USCIS publica, e esta pergunta precisa de mais do que isso."
+      },
+      "cta": {
+        "type": "find_attorney",
+        "label": {
+          "en": "Find an immigration attorney",
+          "es": "Buscar un abogado de inmigración",
+          "pt": "Encontrar um advogado de imigração"
+        },
+        "url": "https://www.uscis.gov/legal-help"
+      }
+    }
+  }
+}
