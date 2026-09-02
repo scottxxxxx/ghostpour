@@ -14,6 +14,30 @@ Supersedes `gp-in-flight-2026-09-01.md`.
 Scott's approval or his own hands. Recipe is in
 `gp-in-flight-2026-08-31-close.md`, still correct. Untouched today.
 
+## ⚠ UNMERGED WORK, ON A BRANCH, AT SESSION END
+
+`fix/forward-accept-language-to-cq`, commit `66ee49c`, pushed, NO PR.
+
+GP's `_cq_proxy` BUILDS its outbound headers rather than copying them and
+did not take the `request` object at all, so `Accept-Language` never reached
+CQ. Their per-locale people strings (#406, prod 750a4b1) are therefore INERT
+for every proxied caller: every user gets English no matter what the client
+sends, and because CQ's headerless output is byte-identical to their old
+output IT LOOKS LIKE THE FEATURE WORKING FROM BOTH ENDS. Neither side's
+tests could see it; CQ found it by ASKING.
+
+The fix is written: a named allowlist (CQ independently voted for the same
+shape), `request` first and required across all 41 call sites, six
+REQUEST-side tests, sabotage-proved in both directions (removing forwarding
+fails 6, copying every header fails 2 including a client Authorization
+reaching CQ). Committed ahead of the full-suite result deliberately, rather
+than leave it uncommitted on a shared worktree.
+
+NEXT SESSION: confirm the full suite, open the PR, merge, deploy, then
+verify in the container that the header actually arrives. CQ and SS are both
+already told not to expect it on a device and not to read a green send test
+as arrival.
+
 ## Waiting on Scott (nothing is blocked on GP)
 
 1. **THE TIER IS STILL SHARED.** The largest remaining instance of his own
