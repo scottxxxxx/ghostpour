@@ -439,3 +439,90 @@ def test_a_real_entity_id_still_reaches_the_detail_path(people_client, cq_return
     stub = cq_returns(PERSON_DETAIL)
     people_client.get(f"/v1/people/{USER}/{ENTITY}")
     assert _forwarded_path(stub).endswith(f"/{ENTITY}")
+
+
+# ---------------------------------------------------------------------------
+# REQUEST SIDE: Accept-Language must reach CQ.
+#
+# CQ shipped per-locale strings on the people routes (their #406, prod
+# 750a4b1) reading `Accept-Language`. GP's proxy BUILDS its outbound headers
+# rather than copying them, so every proxied call reached CQ headerless and
+# every user got English no matter what the client sent. Because CQ's
+# headerless output is deliberately byte-identical to the old output, it
+# looked like the feature working correctly FROM BOTH ENDS.
+#
+# Nothing on either side could have caught it. CQ's tests prove their
+# writer; ours proved our response passthrough. The hole was on the request
+# hop, and a response-side test cannot see a request-side hole (rule 3).
+# It was found by CQ ASKING what our proxy does with the header.
+#
+# So these are REQUEST-side: they assert what GP SENT, read off the stub's
+# recorded outbound call, not what came back.
+# ---------------------------------------------------------------------------
+
+def _sent_headers(stub) -> dict:
+    _, kwargs = stub.request.call_args
+    return {k.lower(): v for k, v in (kwargs.get("headers") or {}).items()}
+
+
+@pytest.mark.parametrize("locale", ["es", "fr", "ja", "es-MX,es;q=0.9,en;q=0.8"])
+def test_accept_language_reaches_cq_on_the_list_route(people_client, cq_returns,
+                                                     locale):
+    stub = cq_returns(PEOPLE_PAYLOAD)
+    people_client.get(f"/v1/people/{USER}", headers={"Accept-Language": locale})
+    sent = _sent_headers(stub)
+    assert sent.get("accept-language") == locale, (
+        "GP did not forward Accept-Language; CQ localisation is inert and "
+        "every user gets English while both sides look correct")
+
+
+def test_accept_language_reaches_cq_on_the_detail_route(people_client, cq_returns):
+    """The detail route is where CQ's #406 actually localises the subject
+    strings, so pinning the list alone would leave the real one untested."""
+    stub = cq_returns(PERSON_DETAIL)
+    people_client.get(f"/v1/people/{USER}/{ENTITY}",
+                      headers={"Accept-Language": "ja"})
+    assert _sent_headers(stub).get("accept-language") == "ja"
+
+
+def test_the_value_is_forwarded_verbatim_not_reinterpreted(people_client, cq_returns):
+    """GP parses Accept-Language for its own config resolution. It must not
+    hand CQ its parsed opinion: CQ has its own rules and a normalised `es`
+    would quietly lose a q-weighted preference list."""
+    raw = "fr-CA,fr;q=0.9,en;q=0.5"
+    stub = cq_returns(PEOPLE_PAYLOAD)
+    people_client.get(f"/v1/people/{USER}", headers={"Accept-Language": raw})
+    assert _sent_headers(stub).get("accept-language") == raw
+
+
+def test_a_headerless_caller_sends_no_accept_language(people_client, cq_returns):
+    """Byte-identical for headerless callers, which is what CQ promised. GP
+    must not invent a default and turn 'no preference' into a choice."""
+    stub = cq_returns(PEOPLE_PAYLOAD)
+    people_client.get(f"/v1/people/{USER}")
+    assert "accept-language" not in _sent_headers(stub)
+
+
+def test_only_the_allowlisted_headers_cross(people_client, cq_returns):
+    """The allowlist is the contract. A proxy that copied every client header
+    would leak the caller's Authorization to CQ, which is a different and
+    worse bug than the one being fixed."""
+    from app.routers.cq_proxy import _FORWARDED_REQUEST_HEADERS
+    stub = cq_returns(PEOPLE_PAYLOAD)
+    people_client.get(f"/v1/people/{USER}",
+                      headers={"Accept-Language": "es",
+                               "X-Sneaky-Header": "should-not-cross"})
+    sent = _sent_headers(stub)
+    assert "x-sneaky-header" not in sent
+    assert _FORWARDED_REQUEST_HEADERS == ("accept-language",), (
+        "the allowlist grew; each entry wants its own request-side test")
+
+
+def test_a_client_cannot_override_the_server_auth_header(people_client, cq_returns):
+    """Auth is applied LAST on purpose. If a client could set Authorization
+    and have it forwarded, it would be talking to CQ as GP."""
+    stub = cq_returns(PEOPLE_PAYLOAD)
+    people_client.get(f"/v1/people/{USER}",
+                      headers={"Authorization": "Bearer not-the-server-token"})
+    sent = _sent_headers(stub)
+    assert sent.get("authorization") != "Bearer not-the-server-token"
