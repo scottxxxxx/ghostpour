@@ -128,3 +128,73 @@ def test_no_dashes_in_any_locale(slug, loc):
         d.pop("transcriptCleanup", None)
         text = json.dumps(d, ensure_ascii=False)
     assert "—" not in text and "–" not in text, f"{path.name} carries a dash the model will copy"
+
+
+# ---------------------------------------------------------------------------
+# Key parity is not content parity (2026-09-02).
+#
+# Shoulder Surf QA found idle-tips.es served ACCENT-STRIPPED for every tip
+# ("Tocame para iniciar una sesion"), carrying a stray leading token
+# ("Ina, Tocame..."), and translating an English sentence that had since been
+# rewritten. It passed every check in this file: same keys, same locales, no
+# dashes. It was even at a HIGHER version (7) than the English base (5), so
+# the dashboard's version-drift indicator read it as ahead rather than stale.
+#
+# fr and ja were correct throughout, which is what makes the shape worth
+# pinning: one locale rotted alone, and the only signal was a human reading it.
+# ---------------------------------------------------------------------------
+
+_ACCENTED_LOCALES = {
+    # locale -> characters that a correct file in that language must contain
+    "es": "áéíóúñ¿¡",
+    "fr": "àâçéèêëîïôùûü",
+}
+
+
+def _tips(slug: str) -> list[str]:
+    path = REMOTE / f"{slug}.json"
+    return json.loads(path.read_text(encoding="utf-8")).get("tips") or []
+
+
+@pytest.mark.parametrize("loc", sorted(_ACCENTED_LOCALES))
+def test_a_latin_locale_variant_is_not_accent_stripped(loc):
+    """A Spanish or French file with NO accented character in it has been
+    through something that ate them. This cannot prove every accent is
+    present; it catches the wholesale stripping that actually shipped."""
+    text = "".join(_tips(f"idle-tips.{loc}"))
+    assert text, f"idle-tips.{loc} has no tips"
+    hits = [c for c in _ACCENTED_LOCALES[loc] if c in text.lower()]
+    assert hits, (
+        f"idle-tips.{loc} contains not one accented character across every "
+        f"tip, which is what accent stripping looks like")
+
+
+def test_the_spanish_tips_do_not_carry_the_stripped_forms():
+    """Named exactly, because the general check above passes as soon as ONE
+    accent is restored anywhere. These are the words that shipped wrong."""
+    text = " ".join(_tips("idle-tips.es"))
+    # WORD BOUNDARIES, not substrings. The first version of this used `in`
+    # and failed on the correct file: "reunion" is inside "reuniones", which
+    # is a real Spanish word that needs no accent. A guard that fires on
+    # correct content gets deleted by the next person, and then it guards
+    # nothing.
+    for stripped in ("sesion", "reunion", "Resumire", "Transcribire",
+                     "boton", "demas", "traves", "Tocame", "quien", "esta"):
+        assert not re.search(rf"\b{stripped}\b", text), (
+            f"idle-tips.es still contains the accent-stripped {stripped!r}")
+
+
+def test_no_tip_list_carries_a_stray_leading_token():
+    """The first Spanish tip began "Ina, Tocame para iniciar una sesion". No
+    other locale had it, and it rendered under the orb on every idle visit."""
+    for loc in ("", ".es", ".fr", ".ja"):
+        for tip in _tips(f"idle-tips{loc}"):
+            assert not re.match(r"^[A-Z][a-z]{1,4},\s", tip), (
+                f"idle-tips{loc}: {tip!r} starts with a stray token")
+
+
+@pytest.mark.parametrize("loc", [".es", ".fr", ".ja"])
+def test_every_locale_has_the_same_number_of_tips_as_english(loc):
+    """A translation that silently loses or gains a tip shows a different
+    rotation to that language and nothing else notices."""
+    assert len(_tips(f"idle-tips{loc}")) == len(_tips("idle-tips"))

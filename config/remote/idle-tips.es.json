@@ -1,14 +1,14 @@
 {
- "version": 7,
+ "version": 8,
  "tips": [
-  "Ina, Tocame para iniciar una sesion",
-  "Transcribire tu reunion en tiempo real",
-  "Hazme preguntas durante tu reunion",
-  "Puedo identificar quien esta hablando",
+  "Tócame para iniciar una sesión",
+  "Transcribiré tu reunión en tiempo real",
+  "Hazme preguntas durante tu reunión",
+  "Puedo identificar quién está hablando",
   "Prueba capturar una foto para contexto visual",
-  "Resumire tu reunion automaticamente",
-  "Funciono a traves de tus auriculares, invisible para los demas",
-  "Desliza hacia abajo en el boton de consulta para elegir el rango de contexto",
+  "Resumiré tu reunión automáticamente",
+  "Funciono a través de tus auriculares, invisible para los demás",
+  "Antes de tocar un botón de consulta, puedes elegir qué parte de la reunión incluir.",
   "Ahora puedes agregar documentos de referencia a tus chats de proyecto y de reuniones"
  ]
 }
