@@ -1,5 +1,5 @@
 {
-  "version": 54,
+  "version": 56,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -126,7 +126,7 @@
                 "label": "現在の価格、在庫、製品の変更"
               }
             ],
-            "footer": "Web検索はPlusまたはProのサブスクリプションでSS AIをモデルとして使用する場合に利用できます。",
+            "footer": "PlusとProでは月あたりの検索回数が増えます。SS AIをモデルとして使用する場合にご利用いただけます。",
             "primary_action": {
               "label": "アップグレード",
               "action": "open_paywall"
@@ -653,12 +653,19 @@
         ]
       }
     },
+    "web_search": {
+      "category": "intelligence",
+      "display_name": "Web検索",
+      "description": "質問への回答中にAIがWebから最新情報を取得できます。",
+      "teaser_description": "Web検索はすべてのプランでご利用いただけます。PlusとProでは月あたりの回数が増えます。",
+      "upgrade_cta": "Plusにアップグレードして月あたりの検索回数を増やす"
+    },
     "search": {
       "category": "intelligence",
       "display_name": "Web検索",
       "description": "質問への回答中にAIがWebから最新情報を取得できます。",
-      "teaser_description": "Web検索は有料機能です。",
-      "upgrade_cta": "PlusにアップグレードしてWeb検索を有効にする"
+      "teaser_description": "Web検索はすべてのプランでご利用いただけます。PlusとProでは月あたりの回数が増えます。",
+      "upgrade_cta": "Plusにアップグレードして月あたりの検索回数を増やす"
     }
   },
   "upgrade_nudges": {

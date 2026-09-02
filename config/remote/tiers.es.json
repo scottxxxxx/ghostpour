@@ -1,5 +1,5 @@
 {
-  "version": 54,
+  "version": 56,
   "tiers": {
     "free": {
       "display_name": "Gratis",
@@ -126,7 +126,7 @@
                 "label": "Precios actuales, disponibilidad o cambios de producto"
               }
             ],
-            "footer": "La búsqueda web está disponible con una suscripción Plus o Pro, cuando uses SS AI como tu modelo.",
+            "footer": "Plus y Pro incluyen más búsquedas al mes, cuando uses SS AI como tu modelo.",
             "primary_action": {
               "label": "Actualizar",
               "action": "open_paywall"
@@ -653,12 +653,19 @@
         ]
       }
     },
+    "web_search": {
+      "category": "intelligence",
+      "display_name": "Búsqueda web",
+      "description": "Pídele a tu IA que busque información actualizada en la web durante una consulta.",
+      "teaser_description": "Todos los planes incluyen búsqueda web. Plus y Pro incluyen más al mes.",
+      "upgrade_cta": "Actualiza a Plus para más búsquedas web al mes"
+    },
     "search": {
       "category": "intelligence",
       "display_name": "Búsqueda web",
       "description": "Pídele a tu IA que busque información actualizada en la web durante una consulta.",
-      "teaser_description": "La búsqueda web es una función de pago.",
-      "upgrade_cta": "Actualiza a Plus para activar la búsqueda web"
+      "teaser_description": "Todos los planes incluyen búsqueda web. Plus y Pro incluyen más al mes.",
+      "upgrade_cta": "Actualiza a Plus para más búsquedas web al mes"
     }
   },
   "upgrade_nudges": {

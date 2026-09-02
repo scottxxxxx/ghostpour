@@ -1,5 +1,5 @@
 {
-  "version": 55,
+  "version": 57,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -126,7 +126,7 @@
                 "label": "Current pricing, availability, or product changes"
               }
             ],
-            "footer": "Web search is available with a Plus or Pro subscription, when using SS AI as your model.",
+            "footer": "Plus and Pro include more searches each month, when using SS AI as your model.",
             "primary_action": {
               "label": "Upgrade",
               "action": "open_paywall"
@@ -653,12 +653,19 @@
         ]
       }
     },
+    "web_search": {
+      "category": "intelligence",
+      "display_name": "Web Search",
+      "description": "Ask your AI to look up current information from the web during a query.",
+      "teaser_description": "Every plan includes web search. Plus and Pro include more each month.",
+      "upgrade_cta": "Upgrade to Plus for more web searches each month"
+    },
     "search": {
       "category": "intelligence",
       "display_name": "Web Search",
       "description": "Ask your AI to look up current information from the web during a query.",
-      "teaser_description": "Web search is a paid feature.",
-      "upgrade_cta": "Upgrade to Plus to enable web search"
+      "teaser_description": "Every plan includes web search. Plus and Pro include more each month.",
+      "upgrade_cta": "Upgrade to Plus for more web searches each month"
     }
   },
   "upgrade_nudges": {

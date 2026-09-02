@@ -1,5 +1,5 @@
 {
- "version": 7,
+ "version": 8,
  "highlights": [
   {
    "id": "copilot",
@@ -16,7 +16,7 @@
   {
    "id": "search",
    "icon": "globe",
-   "text": "Recherche web : des infos actuelles dans vos réponses (Plus et Pro)",
+   "text": "Recherche web : des infos actuelles dans vos réponses (davantage chaque mois avec Plus et Pro)",
    "highlighted": false
   },
   {

@@ -1,5 +1,5 @@
 {
-  "version": 54,
+  "version": 56,
   "tiers": {
     "free": {
       "display_name": "Gratuit",
@@ -126,7 +126,7 @@
                 "label": "Les prix actuels, la disponibilité ou les évolutions d'un produit"
               }
             ],
-            "footer": "La recherche web est disponible avec un abonnement Plus ou Pro, lorsque SS AI est votre modèle.",
+            "footer": "Plus et Pro incluent plus de recherches chaque mois, lorsque SS AI est votre modèle.",
             "primary_action": {
               "label": "Mettre à niveau",
               "action": "open_paywall"
@@ -653,12 +653,19 @@
         ]
       }
     },
+    "web_search": {
+      "category": "intelligence",
+      "display_name": "Recherche web",
+      "description": "Demandez à votre IA de rechercher des informations actuelles sur le web pendant une requête.",
+      "teaser_description": "Tous les forfaits incluent la recherche web. Plus et Pro en incluent davantage chaque mois.",
+      "upgrade_cta": "Passez à Plus pour plus de recherches web chaque mois"
+    },
     "search": {
       "category": "intelligence",
       "display_name": "Recherche web",
       "description": "Demandez à votre IA de rechercher des informations actuelles sur le web pendant une requête.",
-      "teaser_description": "La recherche web est une fonctionnalité payante.",
-      "upgrade_cta": "Passez à Plus pour activer la recherche web"
+      "teaser_description": "Tous les forfaits incluent la recherche web. Plus et Pro en incluent davantage chaque mois.",
+      "upgrade_cta": "Passez à Plus pour plus de recherches web chaque mois"
     }
   },
   "upgrade_nudges": {
