@@ -14,29 +14,47 @@ Supersedes `gp-in-flight-2026-09-01.md`.
 Scott's approval or his own hands. Recipe is in
 `gp-in-flight-2026-08-31-close.md`, still correct. Untouched today.
 
-## ⚠ UNMERGED WORK, ON A BRANCH, AT SESSION END
+## Accept-Language: MERGED AND DEPLOYED (#858, prod `9a27d96`)
 
-`fix/forward-accept-language-to-cq`, commit `66ee49c`, pushed, NO PR.
+This section said UNMERGED at the time it was written. It shipped later the
+same session; corrected in place, and the branch it named is deleted.
 
-GP's `_cq_proxy` BUILDS its outbound headers rather than copying them and
-did not take the `request` object at all, so `Accept-Language` never reached
-CQ. Their per-locale people strings (#406, prod 750a4b1) are therefore INERT
-for every proxied caller: every user gets English no matter what the client
-sends, and because CQ's headerless output is byte-identical to their old
-output IT LOOKS LIKE THE FEATURE WORKING FROM BOTH ENDS. Neither side's
-tests could see it; CQ found it by ASKING.
+GP's `_cq_proxy` BUILT its outbound headers rather than copying them and did
+not take the `request` object at all, so `Accept-Language` never reached CQ.
+Their per-locale people strings (#406, prod 750a4b1) were therefore INERT
+for every proxied caller: every user got English no matter what the client
+sent, and because CQ's headerless output is byte-identical to their old
+output IT LOOKED LIKE THE FEATURE WORKING FROM BOTH ENDS. Neither side's
+tests could see it. CQ's prove their writer, ours proved our RESPONSE
+passthrough, and this was a REQUEST-side hole (rule 3). CQ found it by
+ASKING what the proxy does with the header.
 
-The fix is written: a named allowlist (CQ independently voted for the same
-shape), `request` first and required across all 41 call sites, six
-REQUEST-side tests, sabotage-proved in both directions (removing forwarding
-fails 6, copying every header fails 2 including a client Authorization
-reaching CQ). Committed ahead of the full-suite result deliberately, rather
-than leave it uncommitted on a shared worktree.
+Fixed with a NAMED ALLOWLIST (`_FORWARDED_REQUEST_HEADERS`), which CQ
+independently proposed too: the next header either side wants asks the same
+question, and an allowlist with a request-side test per entry is the shape
+rule 3 rewards. `request` is KEYWORD-ONLY AND REQUIRED across all 41 call
+sites; auth headers apply last so a client cannot override them.
 
-NEXT SESSION: confirm the full suite, open the PR, merge, deploy, then
-verify in the container that the header actually arrives. CQ and SS are both
-already told not to expect it on a device and not to read a green send test
-as arrival.
+**Verified in the container on the OUTBOUND call**: forwarded verbatim with
+q-weights intact, nothing outside the allowlist crosses, a client's own
+Authorization does not reach CQ, and a headerless caller still sends
+nothing.
+
+⚠ **THAT PROVES OUR HOP, NOT A DEVICE.** The agreed acceptance test for #406
+is a localized string on a phone, which needs an SS build. All three teams
+hold that framing: a device or nothing, because the failure mode is CQ
+correctly returning English to a headerless request.
+
+⚠ **CQ CLAIMED THREE FEATURES BLOCKED ON THIS HOP. ONLY ONE DID**, checked
+against the code rather than accepted. `refresh_headline` (#407) is a BODY
+field already crossing via that route's `extra="allow"` (a scar from the
+`patch_type` silent no-op), and `days_present_*` are RESPONSE fields already
+proved on real bytes by the two-read diff. Both wait on an SS client build,
+not on GP. Worth keeping because the reverse error is expensive: two teams
+parking work behind a hop that was never in their way.
+
+Also from Scott via CQ: the refresh affordance lives in the patch detail
+overflow menu, one patch at a time, so no background write arrives there.
 
 ## Waiting on Scott (nothing is blocked on GP)
 
