@@ -5,11 +5,29 @@ users. Lazy reset on every read/write keyed by calendar-month UTC, no
 cron job. The counter and period live on `users.memory_used_this_period`
 + `users.memory_period`.
 
+⚠ THE COUNTER IS ON THE ACCOUNT ROW, WHICH EVERY APP SHARES (SIWA issues
+subject ids per developer TEAM). Under Scott's multitenancy ruling of
+2026-09-02 the apps must not share anything because their users share an
+identity, so `decrement_memory_quota` now REFUSES to charge this counter
+on behalf of an app that does not own the lane.
+
+Measured 2026-09-02 before adding the guard: this lane is ShoulderSurf's
+alone, so nothing shared in practice and this is a tripwire rather than a
+repair. That is exactly why it is worth having: the leak is latent, so the
+day a second app enters the lane there would otherwise be no signal at all,
+just one app's meetings quietly eating another's free captures.
+
+The permanent fix is a per-app counter (its own table, keyed
+user_id+app_id+period). Not built: these two counters use DIFFERENT period
+models (this one carries `memory_period`; `generations_used` rides the
+allocation cycle) and reconciling them is a migration, not a guard.
+
 See docs/wire-contracts/memory-capture.md for the full spec.
 """
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -17,6 +35,16 @@ import aiosqlite
 
 from app.models.user import UserRecord
 from app.services.period import current_period_utc, next_period_resets_at
+
+
+logger = logging.getLogger("ghostpour.memory_quota")
+
+# Ownership lives in ONE place, app_budget.SHARED_ACCOUNT_COUNTERS, so the
+# two counters cannot drift apart on who owns them. Re-exported for readers
+# and for the error line below.
+from app.services.app_budget import SHARED_ACCOUNT_COUNTERS  # noqa: E402
+
+OWNING_APP = SHARED_ACCOUNT_COUNTERS["memory_used_this_period"]
 
 
 @dataclass(frozen=True)
@@ -71,12 +99,28 @@ async def decrement_memory_quota(
     user_id: str,
     *,
     now: datetime | None = None,
+    app_id: str | None = None,
 ) -> None:
     """Atomically increment used count, materializing a fresh period if needed.
 
     Caller is responsible for committing the transaction. Should be called
     only when GP is processing a `capture_with_cta` outcome for a Free user.
+
+    `app_id` is the calling app. An app that does not OWN this counter is
+    refused rather than charged: sharing is the bug, so declining to charge
+    is the safe direction, and the error line names the app so the follow-up
+    is obvious instead of archaeological.
     """
+    from app.services.app_budget import may_charge_shared_counter
+    if not may_charge_shared_counter("memory_used_this_period", app_id):
+        logger.error(
+            "memory_quota_refused app=%s: this counter lives on the shared "
+            "account row and belongs to %s. Charging it here would spend one "
+            "app's free captures on another's meetings. Give %s its own "
+            "counter before enabling this lane.",
+            app_id, OWNING_APP, app_id,
+        )
+        return
     period = current_period_utc(now)
     await db.execute(
         """UPDATE users SET

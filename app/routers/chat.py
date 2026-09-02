@@ -3966,10 +3966,34 @@ async def chat(
             # without files). Lives here, not in generation_turns.finish:
             # quota is the router's concern, and the terminal-record
             # service stays usable against the bare generations DDL.
-            await db.execute(
-                "UPDATE users SET generations_used = generations_used + 1 "
-                "WHERE id = ?", (user.id,))
-            await db.commit()
+            # ⚠ generations_used is on the ACCOUNT row, which every app
+            # shares (SIWA subject ids are per developer TEAM). Under Scott's
+            # multitenancy ruling of 2026-09-02 the apps must not share
+            # anything just because their users share an identity, so an app
+            # that does not own this lane is REFUSED rather than charged:
+            # sharing is the bug, and declining to charge is the safe
+            # direction. Measured the same day: artifact_generation is
+            # ShoulderSurf's alone (6 calls ever), so this is a tripwire
+            # rather than a repair, which is precisely why it is worth
+            # having. A latent leak gives no signal on the day it goes live.
+            #
+            # The permanent fix is a per-app counter table. Not built here:
+            # this counter rides the allocation cycle while the memory
+            # counter carries its own period, and reconciling the two is a
+            # migration rather than a guard.
+            from app.services.app_budget import may_charge_shared_counter
+            _gen_app = _app(request)
+            if not may_charge_shared_counter("generations_used", _gen_app):
+                logger.error(
+                    "generation_quota_refused app=%s: generations_used lives "
+                    "on the shared account row and belongs to shouldersurf. "
+                    "Give %s its own counter before enabling this lane.",
+                    _gen_app, _gen_app)
+            else:
+                await db.execute(
+                    "UPDATE users SET generations_used = generations_used + 1 "
+                    "WHERE id = ?", (user.id,))
+                await db.commit()
 
         # 7. Calculate cost from pricing data
         request_cost = 0.0
