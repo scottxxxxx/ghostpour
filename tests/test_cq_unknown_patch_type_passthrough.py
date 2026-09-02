@@ -366,9 +366,13 @@ def test_the_name_actually_reaches_cq(quilt_client, cq_returns, monkeypatch):
     seen = {}
     real = cq_proxy._cq_proxy
 
-    async def _spy(method, path, body=None, query=None):
+    async def _spy(method, path, body=None, query=None, **kw):
+        # **kw and the pass-through are the point: a spy that drops an
+        # argument it does not model IS the middlebox this file exists to
+        # catch. When `request` was added for header forwarding, a spy
+        # without **kw silently changed the call it was only meant to watch.
         seen["body"] = body
-        return await real(method, path, body, query)
+        return await real(method, path, body, query, **kw)
     monkeypatch.setattr(cq_proxy, "_cq_proxy", _spy)
     cq_returns({"patches_updated": 1}, status=200)
     quilt_client.post(f"/v1/quilt/{USER}/reassign-speaker", json={

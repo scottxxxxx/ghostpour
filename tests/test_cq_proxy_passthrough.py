@@ -154,8 +154,22 @@ def test_an_unmodelled_key_reaches_the_forward(
 
     seen: dict = {}
 
-    async def _capture(m, p, payload=None, *a, **kw):
-        seen["payload"] = payload
+    # Captured BY NAME, not by position. The first version took the third
+    # positional argument, and when `_cq_proxy` gained a leading `request`
+    # parameter (2026-09-02, so the proxy could forward Accept-Language)
+    # every argument shifted one place and this read the PATH as the body:
+    # eleven tests failed claiming keys had been dropped, when nothing had.
+    # A capture that depends on argument order tests the signature as much
+    # as the behaviour.
+    async def _capture(method, path, body=None, *a, **kw):
+        # Bound BY NAME against the real signature rather than by index. An
+        # earlier version took a fixed positional slot and broke twice in one
+        # session: once when `request` was briefly added as a leading
+        # positional parameter (every argument shifted and this read the PATH
+        # as the body, failing 26 tests across nine files for a reason that
+        # had nothing to do with passthrough), and again when that parameter
+        # was made keyword-only and everything shifted back.
+        seen["payload"] = kw["body"] if "body" in kw else body
         return {"ok": True}
 
     monkeypatch.setattr(cq, "_cq_proxy", _capture)
