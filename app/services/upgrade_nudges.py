@@ -175,6 +175,9 @@ def memory_excluded_cta(
     by_scope = _n(excluded.get("by_scope"))
     by_window = _n(excluded.get("by_window"))
     above = LADDER[LADDER.index(current_tier) + 1:]
+    # ⚠ NOT app-scoped: this helper has no request and renders ShoulderSurf's
+    # memory upsell copy. Reads the flat matrix, which is SS's. If another
+    # app ever renders these strings, thread app_id from its caller first.
     mode = entitlement_state(remote_configs, current_tier, "context_quilt")
     cur = window_days if isinstance(window_days, int) and not isinstance(window_days, bool) and window_days >= 1 else None
     me = _tier_display(remote_configs, current_tier)

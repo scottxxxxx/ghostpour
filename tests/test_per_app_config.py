@@ -271,3 +271,62 @@ def test_n400_budget_is_flat_and_never_entitlement_keyed():
     # axis, which N-400 does not have and cannot have while the purchase is
     # gated entirely on the device.
     assert budget.get("shape") != "entitlement"
+
+
+# ---------------------------------------------------------------------------
+# Entitlements are PER APP (Scott, 2026-09-02): "does a user share amongst
+# apps because they have the same identity? The answer is no."
+#
+# Before this, `entitlement_state` read one flat slug with no app resolution
+# anywhere, and not one of its 20 call sites passed an app id. So Tech
+# Rehearsal and N-400 users had their feature access decided by a matrix
+# written for ShoulderSurf, keyed by a tier they may have bought in a
+# different app. The module's own docstring said so and deferred it.
+# ---------------------------------------------------------------------------
+
+def test_a_per_app_matrix_overrides_the_flat_one():
+    from app.services.entitlements import entitlement_state
+    configs = {
+        "entitlements": {"matrix": {"people": {"free": "enabled"}}},
+        "n400/entitlements": {"matrix": {"people": {"free": "disabled"}}},
+    }
+    assert entitlement_state(configs, "free", "people", "n400") == "disabled"
+    assert entitlement_state(configs, "free", "people", "shouldersurf") == "enabled"
+    assert entitlement_state(configs, "free", "people", "techrehearsal") == "enabled"
+
+
+def test_with_no_per_app_file_every_app_gets_the_flat_answer():
+    """The property that made introducing the axis safe: nothing changed for
+    anyone on the day it shipped. If this ever fails, the axis stopped being
+    additive and some app silently lost its features."""
+    from app.services.entitlements import entitlement_state
+    configs = {"entitlements": {"matrix": {"people": {"free": "enabled"}}}}
+    for app_id in ("shouldersurf", "techrehearsal", "n400", None, "unknown", "nope"):
+        assert entitlement_state(configs, "free", "people", app_id) == "enabled"
+
+
+def test_an_unknown_app_gets_the_default_matrix_not_an_empty_one():
+    """Fails OPEN to today's behaviour, matching resolve_app_dir. An older
+    build that sends no header must not lose its features over app identity."""
+    from app.services.entitlements import entitlement_state, matrix_slug_for
+    assert matrix_slug_for("nope") == "shouldersurf/entitlements"
+    configs = {
+        "entitlements": {"matrix": {"people": {"free": "enabled"}}},
+        "n400/entitlements": {"matrix": {"people": {"free": "disabled"}}},
+    }
+    assert entitlement_state(configs, "free", "people", "nope") == "enabled"
+
+
+def test_resolved_features_is_scoped_too():
+    """The catalog wire shape must not disagree with enforcement: a client
+    told a feature is enabled and then refused it is the worst of both."""
+    from app.services.entitlements import entitlement_state, resolved_features
+    configs = {
+        "entitlements": {"matrix": {"people": {"free": "enabled"},
+                                    "share": {"free": "enabled"}}},
+        "n400/entitlements": {"matrix": {"people": {"free": "disabled"}}},
+    }
+    feats = resolved_features(configs, "free", "n400")
+    assert feats == {"people": "disabled"}, feats
+    for feature, state in feats.items():
+        assert entitlement_state(configs, "free", feature, "n400") == state

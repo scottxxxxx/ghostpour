@@ -179,7 +179,8 @@ async def create_share(
     X-Share-* headers so the bytes are stored exactly as uploaded with no
     multipart parsing between SS's archive and our disk."""
     rc = request.app.state.remote_configs
-    if entitlement_state(rc, user.effective_tier, "share") == "disabled":
+    if entitlement_state(rc, user.effective_tier, "share",
+                         getattr(request.state, "app_id", None)) == "disabled":
         raise HTTPException(status_code=403, detail={"code": "share_disabled", "message": "Sharing is not available on this plan."})
     caps = shares.tier_share_caps(rc, user.effective_tier)
     # A FACT about the archive, not a choice. SS's exporter has no

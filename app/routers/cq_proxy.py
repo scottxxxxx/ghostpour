@@ -240,6 +240,16 @@ class TranscriptCaptureRequest(BaseModel):
         return getattr(self, key, default)
 
 
+
+def _app(request) -> str | None:
+    """The calling app's id, for entitlement resolution.
+
+    Entitlements are per app (Scott, 2026-09-02): a shared SIWA identity does
+    not mean shared feature access. An absent id resolves to the default
+    app's matrix, which is the flat file, i.e. today's answer.
+    """
+    return getattr(request.state, "app_id", None)
+
 def _subj(request: Request, user_id: str) -> str:
     """The CQ subject for this user under the calling app.
 
@@ -322,7 +332,8 @@ async def capture_transcript(
     feature_config = request.app.state.feature_config
     from app.services.entitlements import entitlement_state
     feature_state = entitlement_state(
-        request.app.state.remote_configs, user.effective_tier, "context_quilt")
+        request.app.state.remote_configs, user.effective_tier, "context_quilt",
+        _app(request))
     cq_def = feature_config.features.get("context_quilt")
     free_quota_per_month = cq_def.free_quota_per_month if cq_def else 1
 
@@ -333,7 +344,8 @@ async def capture_transcript(
     # at all. Read from the same matrix as every other gate rather than
     # assumed, so flipping the dashboard row actually closes the door.
     _people_state = entitlement_state(
-        request.app.state.remote_configs, user.effective_tier, "people")
+        request.app.state.remote_configs, user.effective_tier, "people",
+        _app(request))
     verdict = resolve_memory_capture_verdict(
         feature_state=feature_state,
         has_quota=quota_state.has_quota,
@@ -1235,7 +1247,8 @@ async def _require_people(request: Request, user: UserRecord, user_id: str) -> N
     # entitlement check in this file reads it, and using the raw tier here
     # made People the one feature that ignores admin tier simulation, which
     # is exactly the tool you would reach for to test this gate.
-    state = entitlement_state(configs, user.effective_tier, _PEOPLE_FEATURE)
+    state = entitlement_state(configs, user.effective_tier, _PEOPLE_FEATURE,
+                              _app(request))
     if state == "disabled":
         raise HTTPException(status_code=403, detail={
             "code": "feature_disabled",
@@ -1775,7 +1788,8 @@ async def _require_alignment(request: Request, user: UserRecord, user_id: str) -
     if configs is None:
         logger.warning("alignment_entitlement_skipped: remote_configs unavailable")
         return
-    state = entitlement_state(configs, user.effective_tier, _ALIGNMENT_FEATURE)
+    state = entitlement_state(configs, user.effective_tier, _ALIGNMENT_FEATURE,
+                              _app(request))
     if state == "disabled":
         raise HTTPException(status_code=403, detail={
             "code": "feature_disabled",

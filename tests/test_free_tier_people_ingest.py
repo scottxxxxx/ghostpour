@@ -71,13 +71,25 @@ def test_paid_tiers_are_untouched():
         verdict(feature_state="disabled", has_quota=False, people_enabled=True).verdict
 
 
-def test_the_call_site_reads_people_from_the_matrix():
-    """Not hardcoded True. If someone assumed it, the dashboard toggle
-    would silently stop meaning anything."""
-    src = pathlib.Path("app/routers/cq_proxy.py").read_text()
-    assert 'entitlement_state(' in src
-    assert '"people")' in src
-    assert "people_enabled=_people_state != \"disabled\"" in src
+def test_the_people_toggle_is_not_inert():
+    """Not hardcoded True. If someone assumed it, the dashboard toggle would
+    silently stop meaning anything.
+
+    REWRITTEN 2026-09-02. It used to grep cq_proxy.py for the literal
+    `"people")` and it broke the moment that call gained an app-id argument,
+    which is a formatting change and not a behavioural one. A source-text
+    assertion cannot tell those apart, and would equally have gone green on a
+    file carrying that string inside a comment while the gate read True.
+
+    What this can prove on its own is that the verdict FOLLOWS the flag, so a
+    matrix flip has somewhere to land. That the call site actually consults
+    the resolver, and now passes the calling app, is proved on the wire by
+    tests/test_people_proxy.py, whose stub asserts it receives an app id.
+    """
+    on = verdict(feature_state="disabled", has_quota=False, people_enabled=True)
+    off = verdict(feature_state="disabled", has_quota=False, people_enabled=False)
+    assert on.verdict != off.verdict, (
+        "people_enabled does not change the verdict, so the matrix row is inert")
 
 
 # --- the copy ---------------------------------------------------------

@@ -256,6 +256,9 @@ def test_disabled_entitlement_actually_closes_the_door(people_client, proxy, mon
 # tier-conditional, and an upgrade_cta is already served for it.
 
 
+_SENTINEL = object()
+
+
 def _simulated(user_id: str, real: str, simulated: str) -> UserRecord:
     return UserRecord(
         id=user_id, apple_sub="sub_sim", tier=real, simulated_tier=simulated,
@@ -269,7 +272,11 @@ def test_the_gate_reads_the_simulated_tier(client, proxy, monkeypatch):
     app.dependency_overrides[get_current_user] = lambda: _simulated(
         USER, real="pro", simulated="free")
     try:
-        def _state(configs, tier, feature):
+        # app_id is ASSERTED, not merely accepted. A stub that swallowed
+        # the new argument would pass while the gate had stopped sending
+        # one, which is the shape this whole change exists to prevent.
+        def _state(configs, tier, feature, app_id=_SENTINEL):
+            assert app_id is not _SENTINEL, "the gate passed no app id"
             return "disabled" if tier == "free" else "enabled"
 
         with patch("app.services.entitlements.entitlement_state", _state):
@@ -287,7 +294,11 @@ def test_simulation_can_also_open_the_door(client, proxy, monkeypatch):
     app.dependency_overrides[get_current_user] = lambda: _simulated(
         USER, real="free", simulated="pro")
     try:
-        def _state(configs, tier, feature):
+        # app_id is ASSERTED, not merely accepted. A stub that swallowed
+        # the new argument would pass while the gate had stopped sending
+        # one, which is the shape this whole change exists to prevent.
+        def _state(configs, tier, feature, app_id=_SENTINEL):
+            assert app_id is not _SENTINEL, "the gate passed no app id"
             return "disabled" if tier == "free" else "enabled"
 
         with patch("app.services.entitlements.entitlement_state", _state):

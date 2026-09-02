@@ -238,7 +238,7 @@ def test_people_toggle_closes_the_free_lane(client_with_cq, free_user, mock_cq):
     """The dashboard People row must actually close the door, same
     requirement the People proxy routes carry: with people disabled too,
     a free turn makes no recall call at all."""
-    def _state(configs, tier, feature):
+    def _state(configs, tier, feature, app_id=None):
         return "disabled" if feature in ("context_quilt", "people") else "enabled"
 
     with patch("app.routers.chat.entitlement_state", side_effect=_state):

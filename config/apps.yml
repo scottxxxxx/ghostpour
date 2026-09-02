@@ -69,16 +69,29 @@ apps:
       monthly_cost_limit_usd:
         free: 5.0
         paid: 25.0
-      # ⚠ TR IS STILL DOUBLE-METERED, AND FLIPPING THIS IS SCOTT'S CALL.
-      # record_cost adds TR spend to users.monthly_used_usd, the row the
-      # ShoulderSurf TIER allowance is measured against, so since this gate
-      # went live 2026-07-05 a TR user has been paying twice: once against
-      # the cap above, once against an allowance belonging to an app they may
-      # never have opened. Setting own_account_meter true stops that, but it
-      # changes live metering for real users and hands them back headroom,
-      # so it is not a change to make on the way past. Unwinding the spend
-      # already recorded is a separate question and also Scott's.
-      own_account_meter: false
+      # TR METERS ITSELF (Scott, 2026-09-02). Until this flip, record_cost
+      # added TR spend to users.monthly_used_usd, the row the ShoulderSurf
+      # TIER allowance is measured against, so from 2026-07-05 a TR user paid
+      # twice: once against the cap above, once against an allowance
+      # belonging to an app they may never have opened.
+      #
+      # Scott's ruling is broader than this line: the apps are MULTITENANT,
+      # and a shared SIWA identity does not mean shared anything else. "Does
+      # a user share amongst apps because they have the same identity? The
+      # answer is no."
+      #
+      # ⚠ ONE FAIL-OPEN REMAINS, AND IT IS THE REASON THIS NEEDED CHECKING
+      # RATHER THAN FLIPPING. TR's cap is entitlement-keyed:
+      # cap_for_entitlement returns None for a MISSING or unrecognised
+      # X-TR-Entitlement, and would_exceed_tr_budget then does not block. So
+      # a TR call with no header has no cap of its own, and until now the
+      # shared meter was what eventually stopped it. Measured before
+      # flipping: TR lifetime spend across ALL users is $10.27, the largest
+      # single user-month is $3.39, and ZERO user-months have ever reached
+      # the $5 free cap, so the gate has never bound and the exposure is
+      # theoretical at today's volume. Close it properly by making an absent
+      # entitlement resolve to the FREE cap rather than to no cap.
+      own_account_meter: true
     # Per-app tier overrides (#249): values that REPLACE the user's SS-tier
     # value when X-App-ID resolves to this app. TR users share the SS user row,
     # so their tier (e.g. pro) carries SS defaults; these scope app-specific
