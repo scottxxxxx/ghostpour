@@ -2133,6 +2133,64 @@ async def chat(
                     },
                 })
 
+    # 5.6b. Per-app FLAT budget gate (N-400 and any later tenant whose paid
+    # tier never reaches GP). Same idea as the TR gate above and a different
+    # shape: TR keys its cap on X-TR-Entitlement, N-400 has no per-call
+    # entitlement to key on, so one ceiling applies to every caller. The cap
+    # VALUE is a served dial; the shape is declared in apps.yml.
+    #
+    # This gate is what earns N-400 its place OFF the shared account meter in
+    # record_cost. The two are a pair: if this ever stops running, that app
+    # is not merely uncapped here, it is uncapped everywhere.
+    # Both imported function-locally, matching the TR gate above: the
+    # config router imports back into this package, and `load_apps` there is
+    # bound inside the techrehearsal branch, so it is NOT in scope here when
+    # that branch does not run.
+    from app.routers.config import load_apps
+    from app.services import app_budget
+
+    _flat_budget_cfg = app_budget.budget_config(load_apps(), app_id)
+    if _flat_budget_cfg.get("enabled") and _flat_budget_cfg.get("shape") == app_budget.SHAPE_FLAT:
+        _flat_cap = app_budget.flat_cap_usd(
+            request.app.state.remote_configs, load_apps(), app_id,
+        )
+        _flat_estimate = None
+        if pricing.is_loaded:
+            _flat_estimate = estimate_call_cost_usd(
+                pricing,
+                provider=body.provider,
+                model=body.model,
+                input_tokens=estimated_input_tokens,
+                max_output_tokens=body.max_tokens,
+            )
+        _flat_block, _flat_info = await app_budget.would_exceed_flat_budget(
+            db, user.id, app_id, _flat_estimate, _flat_cap,
+        )
+        if _flat_block:
+            logger.info(
+                "app_budget_block app=%s user=%s spent=%.4f cap=%.2f",
+                app_id, user.id, _flat_info["spent"], _flat_info["cap"],
+            )
+            # Same lean envelope as the TR stop: HTTP 200 so the client does
+            # not treat a deliberate limit as an error and fall back to its
+            # on-device path, empty text, and one flag to branch on. `cta`
+            # carries a LOCALE MAP for text, which is the shape N-400's
+            # decode tests pin; TR's equivalent is a bare string.
+            return JSONResponse(status_code=200, content={
+                "text": "",
+                "model": body.model,
+                "provider": body.provider,
+                "ai_tier": _tier_to_ai_tier_lazy(user.effective_tier),
+                "feature_state": {
+                    "feature": "chat",
+                    "app": app_id,
+                    "budget_exhausted": True,
+                    "resets_at": app_budget.month_reset_iso(),
+                    "cta": app_budget.exhausted_copy(
+                        request.app.state.remote_configs, load_apps(), app_id),
+                },
+            })
+
     # 5.7. Search gate. Four outcomes:
     #
     #   - Non-Anthropic provider with search_enabled=true → silently
@@ -3884,7 +3942,8 @@ async def chat(
             request_cost = cost.get("total_cost", 0.0)
 
         # 8. Record cost against allocation/overage
-        await usage_tracker.record_cost(db, user.id, request_cost, tier, user=user)
+        await usage_tracker.record_cost(db, user.id, request_cost, tier, user=user,
+                                        app_id=app_id)
 
         # 9. Log usage
         await usage_tracker.log_usage(db, user.id, body, response, elapsed_ms, app_id=app_id)
@@ -4721,7 +4780,8 @@ async def _handle_stream(
             search_state["was_used"] = searches_performed > 0
 
         async for stream_db in _get_db():
-            await usage_tracker.record_cost(stream_db, user.id, request_cost, tier, user=user)
+            await usage_tracker.record_cost(stream_db, user.id, request_cost, tier,
+                                            user=user, app_id=app_id)
             await usage_tracker.log_usage(stream_db, user.id, body, final_response, elapsed_ms, app_id=app_id)
 
             if searches_performed > 0:

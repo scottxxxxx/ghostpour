@@ -249,14 +249,25 @@ def test_n400_registry_entry_carries_what_the_version_gate_needs():
     assert entry["label"] == "N-400 Helper"
 
 
-def test_n400_has_no_budget_block_on_purpose():
-    """N-400's paid tier is a client-gated StoreKit non-consumable, so no
-    per-call entitlement reaches GP and the entitlement-keyed budget gate
-    has nothing to key on. If someone adds a `budget` block here without
-    also giving N-400 an entitlement axis, the gate reads a missing header,
-    `cap_for_entitlement` returns None, and it silently never fires: a
-    budget that looks configured and enforces nothing. Fail loudly here
-    instead.
+def test_n400_budget_is_flat_and_never_entitlement_keyed():
+    """The hazard this has guarded since registration, restated for the cap.
+
+    N-400's paid tier is a client-gated StoreKit non-consumable, so no
+    per-call entitlement ever reaches GP. Originally that meant no `budget`
+    block at all. Since 2026-09-01 there is one, at Scott's $5, and the
+    hazard is unchanged in shape: an `entitlement`-keyed cap here would read
+    a header nobody sends, resolve to no cap, and enforce NOTHING while
+    looking configured. Only `flat` can work, and it needs a number to fall
+    back on when served config is unreadable, because for money an absent
+    config must never mean unlimited.
     """
     entry = cfg.load_apps()["apps"]["n400"]
-    assert "budget" not in entry
+    budget = entry.get("budget") or {}
+    assert budget.get("enabled") is True
+    assert budget.get("shape") == "flat"
+    assert "monthly_cost_limit_usd" in budget, "no floor to fall back to"
+    assert isinstance(budget["monthly_cost_limit_usd"], (int, float))
+    # An entitlement-shaped cap may only appear alongside a real entitlement
+    # axis, which N-400 does not have and cannot have while the purchase is
+    # gated entirely on the device.
+    assert budget.get("shape") != "entitlement"

@@ -405,7 +405,10 @@ async def generate_report(
         response.cost = cost
         request_cost = cost.get("total_cost", 0.0)
 
-    await usage_tracker.record_cost(db, user.id, request_cost, tier, user=user)
+    await usage_tracker.record_cost(
+        db, user.id, request_cost, tier, user=user,
+        app_id=getattr(request.state, "app_id", "unknown"),
+    )
     await usage_tracker.log_usage(
         db, user.id, chat_request, response, elapsed_ms,
         app_id=getattr(request.state, "app_id", "unknown"),
