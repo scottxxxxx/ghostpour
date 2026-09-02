@@ -1669,17 +1669,48 @@ async def chat(
     # 2.5. Server-side prompt assembly — if client sent no system_prompt but
     # has a call_type with a registered prompt config, assemble it server-side.
     if not body.system_prompt:
-        from app.services.prompt_assembly import assemble_prompt
+        from app.services.prompt_assembly import (
+            MissingPromptVariables,
+            assemble_prompt,
+        )
         call_type = body.get_meta("call_type")
         if call_type:
-            assembled = assemble_prompt(
-                call_type,
-                body.user_content,
-                request.app.state.remote_configs,
-                prompt_mode=body.get_meta("prompt_mode"),
-                scenario_kind=body.get_meta("scenario_kind"),
-                scenario=body.get_meta("scenario"),
-            )
+            try:
+                assembled = assemble_prompt(
+                    call_type,
+                    body.user_content,
+                    request.app.state.remote_configs,
+                    prompt_mode=body.get_meta("prompt_mode"),
+                    scenario_kind=body.get_meta("scenario_kind"),
+                    scenario=body.get_meta("scenario"),
+                    # Location variant selector. One endpoint, a different
+                    # prompt by where the caller is (Scott 2026-09-01).
+                    jurisdiction=body.get_meta("jurisdiction"),
+                    # The whole metadata bag is offered as named
+                    # {{placeholders}}; a config takes what it declares and
+                    # ignores the rest, so adding a metadata key can never
+                    # change a prompt that does not name it.
+                    variables=dict(body.metadata or {}),
+                )
+            except MissingPromptVariables as exc:
+                # 422, not a silent send. A config that says which values it
+                # needs must not be assembled without them: the alternative
+                # is a well-formed request carrying "{{known_facts}}" to a
+                # model, which looks fine everywhere except in the answer.
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "code": "missing_prompt_variables",
+                        "message": (
+                            "This call_type needs values the request did not "
+                            "carry in metadata."
+                        ),
+                        "details": {
+                            "call_type": call_type,
+                            "missing": exc.missing,
+                        },
+                    },
+                ) from exc
             if assembled:
                 updates = {
                     "system_prompt": assembled["system_prompt"],

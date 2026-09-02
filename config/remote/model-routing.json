@@ -1,5 +1,5 @@
 {
-  "version": 36,
+  "version": 37,
   "server_only": true,
   "models": [
     {
@@ -282,6 +282,17 @@
             "free": "anthropic/claude-haiku-4-5-20251001",
             "paid": "anthropic/claude-haiku-4-5-20251001",
             "default": "anthropic/claude-haiku-4-5-20251001"
+          }
+        }
+      }
+    },
+    "n400": {
+      "label": "N-400 Helper",
+      "call_types": {
+        "n400_interview_turn": {
+          "label": "N-400 interview turn",
+          "models": {
+            "default": "anthropic/claude-sonnet-5"
           }
         }
       }
