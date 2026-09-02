@@ -53,14 +53,26 @@ def test_unknown_and_absent_app_ids_stay_on_the_shared_meter():
         assert app_budget.meters_on_its_own(_reg(FLAT_ON), app_id) is False
 
 
-def test_shipped_registry_only_lets_n400_off_the_shared_meter():
-    """Pins the live decision. Tech Rehearsal has the same leak and flipping
-    it changes metering for real users, so it is Scott's call and stays
-    false until he makes it."""
+def test_every_app_but_the_default_meters_itself():
+    """Pins Scott's ruling of 2026-09-02, which is broader than the flip:
+    the apps are MULTITENANT and a shared SIWA identity does not mean shared
+    anything else. Tech Rehearsal came off the shared meter here; it had the
+    same leak as N-400 and had been double-metered since 2026-07-05.
+
+    ShoulderSurf stays False and that is not an oversight: it IS the account
+    meter. users.monthly_used_usd is what the SS tier allowance is measured
+    against, so SS metering itself separately would mean metering it twice
+    against the same number.
+    """
     reg = load_apps()
     assert app_budget.meters_on_its_own(reg, "n400") is True
-    assert app_budget.meters_on_its_own(reg, "techrehearsal") is False
+    assert app_budget.meters_on_its_own(reg, "techrehearsal") is True
     assert app_budget.meters_on_its_own(reg, "shouldersurf") is False
+    # And the direction of the rule, not just today's answer: anything that
+    # left the shared meter must carry its own enabled budget.
+    for app_id, entry in (reg["apps"] or {}).items():
+        if app_budget.meters_on_its_own(reg, app_id):
+            assert (entry.get("budget") or {}).get("enabled") is True, app_id
 
 
 # --- resolving the cap ------------------------------------------------------
@@ -235,7 +247,7 @@ async def _used(db) -> float:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("app_id", ["shouldersurf", "techrehearsal", None, "unknown"])
+@pytest.mark.parametrize("app_id", ["shouldersurf", None, "unknown", "not-an-app"])
 async def test_apps_on_the_shared_meter_still_charge_the_account_row(app_id):
     from app.services.usage_tracker import UsageTracker
     db = await _users_db()
@@ -245,11 +257,18 @@ async def test_apps_on_the_shared_meter_still_charge_the_account_row(app_id):
 
 
 @pytest.mark.asyncio
-async def test_n400_no_longer_charges_the_shouldersurf_allowance():
-    """The leak, stated as a test. N-400 is capped by its own gate instead."""
+@pytest.mark.parametrize("app_id", ["n400", "techrehearsal"])
+async def test_a_self_metering_app_does_not_charge_the_shouldersurf_allowance(app_id):
+    """The leak, stated as a test, for both apps that carry their own cap.
+
+    Tech Rehearsal joined this list on 2026-09-02 by Scott's ruling. It had
+    been double-metered since its own gate went live on 2026-07-05: once
+    against its $5/$25 cap, once against an allowance belonging to an app its
+    users may never have opened.
+    """
     from app.services.usage_tracker import UsageTracker
     db = await _users_db()
-    await UsageTracker().record_cost(db, "u1", 1.25, _TIER, app_id="n400")
+    await UsageTracker().record_cost(db, "u1", 1.25, _TIER, app_id=app_id)
     assert await _used(db) == 0.0
     await db.close()
 

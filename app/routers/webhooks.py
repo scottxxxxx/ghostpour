@@ -1729,6 +1729,8 @@ async def get_tiers(
             "storekit_product_id": tier.storekit_product_id,
             # Phase 2: feature states live in the entitlements matrix (the
             # persistent remote config), not tiers.yml — read the resolver.
+            # Flat on purpose: /admin/tiers is the global catalog and takes
+            # no `app` param. The per-app view is GET /admin/entitlements.
             "features": _resolved_features(remote_configs, name),
             # JSON-sourced tunables (dashboard-editable, JSON file is the
             # source of truth, yaml is the fallback default).
@@ -1808,7 +1810,8 @@ async def get_entitlements(
         entitlement_state,
     )
     feature_names = sorted(
-        set(feature_config.features) | set(entitlement_matrix(remote_configs)))
+        set(feature_config.features)
+        | set(entitlement_matrix(remote_configs, app_id)))
     matrix = {}
     for fname in feature_names:
         fdef = feature_config.features.get(fname)
@@ -1818,7 +1821,7 @@ async def get_entitlements(
             "teaser_description": fdef.teaser_description if fdef else None,
             "upgrade_cta": fdef.upgrade_cta if fdef else None,
             "category": fdef.category if fdef else None,
-            "tiers": {t: entitlement_state(remote_configs, t, fname)
+            "tiers": {t: entitlement_state(remote_configs, t, fname, app_id)
                       for t in tier_names},
         }
 

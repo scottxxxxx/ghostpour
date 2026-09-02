@@ -18,6 +18,7 @@ send `X-TR-Entitlement`); until then this returns "no block" for everyone.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 
 import aiosqlite
@@ -25,6 +26,8 @@ import aiosqlite
 # Allowed overage above the cap before the next call is blocked. Matches
 # app/services/budget_gate.py so TR and SS behave consistently at the boundary.
 OVERAGE_TOLERANCE_USD = 0.05
+
+logger = logging.getLogger("ghostpour.tr_budget")
 
 _APP_ID = "techrehearsal"
 
@@ -43,15 +46,48 @@ def tr_budget_config(apps_registry: dict) -> dict | None:
 
 def cap_for_entitlement(budget_cfg: dict | None, entitlement: str | None) -> float | None:
     """USD monthly cap for this entitlement, or None when the gate must not
-    apply: config absent, `enabled` false, entitlement missing/unrecognized, or
-    the cap is -1 (unlimited). None → caller does not block (fail open)."""
+    apply: config absent, `enabled` false, or the cap is -1 (unlimited).
+
+    A MISSING OR UNRECOGNISED ENTITLEMENT NO LONGER MEANS NO CAP (2026-09-02,
+    Scott). It used to, and that was survivable only because TR also charged
+    the shared account meter, which eventually stopped a runaway. Once Scott
+    ruled the apps multitenant and TR came off that meter, an absent
+    `X-TR-Entitlement` would have left the call uncapped by anything at all:
+    the header is client-supplied, so the least trustworthy input decided
+    whether a budget existed.
+
+    Unknown now resolves to the MOST RESTRICTIVE cap the config defines,
+    which is `free` in practice. Deliberately not hardcoded to the string
+    "free": a config that renames its plans would silently fail open again,
+    and the property wanted here is "the smallest ceiling on offer", not "the
+    plan we happen to call free". Unlimited entries (-1) are excluded from
+    that choice, or the most restrictive cap would be no cap.
+
+    A caller whose header went missing therefore gets the free ceiling and,
+    past it, a visible budget_exhausted envelope with a CTA. That is worth
+    more than unbounded spend nobody sees, and it is recoverable by sending
+    the header.
+    """
     if not budget_cfg or not budget_cfg.get("enabled"):
         return None
     caps = budget_cfg.get("monthly_cost_limit_usd") or {}
-    cap = caps.get((entitlement or "").strip().lower())
-    if cap is None or cap == -1:
+    key = (entitlement or "").strip().lower()
+    if key in caps:
+        cap = caps[key]
+        return None if cap == -1 else float(cap)
+
+    bounded = [float(v) for v in caps.values()
+               if isinstance(v, (int, float)) and v != -1]
+    if not bounded:
+        logger.error(
+            "tr_budget: entitlement %r unrecognised and no bounded cap exists; "
+            "the gate cannot run", entitlement)
         return None
-    return float(cap)
+    fallback = min(bounded)
+    logger.warning(
+        "tr_budget: entitlement %r unrecognised, applying the most "
+        "restrictive cap $%.2f rather than none", entitlement, fallback)
+    return fallback
 
 
 async def tr_month_spend_usd(db: aiosqlite.Connection, user_id: str) -> float:

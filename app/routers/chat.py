@@ -260,6 +260,16 @@ def _apply_routed_model(body: ChatRequest, resolved: str | None) -> ChatRequest:
     return body
 
 
+
+def _app(request) -> str | None:
+    """The calling app's id, for entitlement resolution.
+
+    Entitlements are per app (Scott, 2026-09-02): a shared SIWA identity does
+    not mean shared feature access. An absent id resolves to the default
+    app's matrix, which is the flat file, i.e. today's answer.
+    """
+    return getattr(request.state, "app_id", None)
+
 def _resolve_model_routing(
     request: Request, body: ChatRequest, tier, tier_name: str
 ) -> str | None:
@@ -1169,7 +1179,8 @@ async def usage_me(
         "summary_interval_minutes": tier.summary_interval_minutes if tier else 10,
         "max_images_per_request": _img_cap,
         "features": resolved_features(
-            request.app.state.remote_configs, user.effective_tier),
+            request.app.state.remote_configs, user.effective_tier,
+            _app(request)),
     }
 
     if is_simulated:
@@ -1423,7 +1434,7 @@ async def list_tiers(request: Request):
                 "max_images_per_request", tier.max_images_per_request
             ),
             "features": resolved_features(
-                request.app.state.remote_configs, name),
+                request.app.state.remote_configs, name, _app(request)),
             "feature_bullets": dt.get("feature_bullets", tier.feature_bullets),
             "storekit_product_id": tier.storekit_product_id,
         }
@@ -1779,7 +1790,7 @@ async def chat(
     for feature_name, hook in feature_hooks.items():
         state = entitlement_state(
                 request.app.state.remote_configs, user.effective_tier,
-                feature_name)
+                feature_name, _app(request))
         run_hook = state != "disabled"
         # Free teaser flip (Scott 2026-08-24): a `teaser` state on a client
         # that sends no context_quilt flag (every Free build, by served
@@ -1802,7 +1813,7 @@ async def chat(
             # closes this lane with it.
             run_hook = entitlement_state(
                 request.app.state.remote_configs, user.effective_tier,
-                "people") == "enabled"
+                "people", _app(request)) == "enabled"
         if run_hook:
             # Plus recall window: the tier's Memory window, read from the
             # served tiers dial here, next to every other entitlement
@@ -1864,7 +1875,8 @@ async def chat(
             and body.get_meta("prompt_mode") in ("ProjectChat", "PostMeetingChat")
             and entitlement_state(request.app.state.remote_configs,
                                   user.effective_tier,
-                                  "context_quilt") == "enabled"):
+                                  "context_quilt",
+                                  _app(request)) == "enabled"):
         _mem_line = (
             "MEMORY CAPABILITY: this product has Meeting Memory (Context "
             "Quilt): it recalls the user's previous meetings automatically "
@@ -4055,7 +4067,7 @@ async def chat(
         for feature_name, hook in feature_hooks.items():
             state = entitlement_state(
                 request.app.state.remote_configs, user.effective_tier,
-                feature_name)
+                feature_name, _app(request))
             if feature_name in hook_results:
                 await hook.after_llm(user, body, response, hook_results[feature_name], state, app_id=app_id)
 
@@ -4270,7 +4282,7 @@ async def chat(
             if feature_name in hook_results:
                 state = entitlement_state(
                 request.app.state.remote_configs, user.effective_tier,
-                feature_name)
+                feature_name, _app(request))
                 for k, v in hook.response_headers(hook_results[feature_name], state).items():
                     json_response.headers[k] = v
 
@@ -4651,7 +4663,7 @@ async def _handle_stream(
         if feature_name in hook_results:
             state = entitlement_state(
                 request.app.state.remote_configs, user.effective_tier,
-                feature_name)
+                feature_name, _app(request))
             for k, v in hook.response_headers(hook_results[feature_name], state).items():
                 headers[k] = v
 
@@ -4859,7 +4871,7 @@ async def _handle_stream(
             for feature_name, hook in feature_hooks.items():
                 state = entitlement_state(
                 request.app.state.remote_configs, user.effective_tier,
-                feature_name)
+                feature_name, _app(request))
                 if feature_name in hook_results:
                     await hook.after_llm(user, body, final_response, hook_results[feature_name], state, app_id=app_id)
 

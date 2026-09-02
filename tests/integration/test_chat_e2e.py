@@ -397,7 +397,13 @@ class TestChatCQ:
         closes the People tab closes the assistant's people lane with it."""
         from unittest.mock import patch
 
-        def _state(configs, tier, feature):
+        # app_id is asserted, not merely tolerated: a stub that swallowed the
+        # new argument would pass while the chat path had stopped sending one,
+        # which is exactly what the per-app axis exists to prevent.
+        _missing = object()
+
+        def _state(configs, tier, feature, app_id=_missing):
+            assert app_id is not _missing, "the chat gate passed no app id"
             return "disabled" if feature in ("context_quilt", "people") else "enabled"
 
         with patch("app.routers.chat.entitlement_state", side_effect=_state):

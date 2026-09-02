@@ -64,6 +64,8 @@ def _shared_window_tier(remote_configs: dict) -> str:
     dial, not assumed; Plus when the matrix is silent."""
     from app.services.entitlements import entitlement_state
     for t in ("free", "plus", "pro"):
+        # ⚠ NOT app-scoped, same reason as upgrade_nudges: no request here,
+        # and this picks the tier a SHARED ShoulderSurf string talks about.
         if entitlement_state(remote_configs, t, "context_quilt") == "enabled":
             return t
     return "plus"
