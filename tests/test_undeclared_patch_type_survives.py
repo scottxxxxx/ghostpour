@@ -198,7 +198,11 @@ def test_the_mechanism_that_makes_the_response_side_safe():
     orig_client, orig_auth = _httpx.AsyncClient, cq.cq._get_auth_headers
     _httpx.AsyncClient, cq.cq._get_auth_headers = _Client, _noauth
     try:
-        out = asyncio.run(cq._cq_proxy("GET", "/v1/quilt/x"))
+        # request=None is explicit: this exercises the proxy directly,
+        # with no caller whose headers could be forwarded. The parameter
+        # is required so a ROUTE cannot forget it; saying None here is
+        # the honest way to say there is nobody to forward from.
+        out = asyncio.run(cq._cq_proxy("GET", "/v1/quilt/x", request=None))
     finally:
         _httpx.AsyncClient, cq.cq._get_auth_headers = orig_client, orig_auth
 

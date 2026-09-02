@@ -135,11 +135,12 @@ def _forwardable_headers(request) -> dict:
 
 
 async def _cq_proxy(
-    request,
     method: str,
     path: str,
     body: dict | None = None,
     query: str | None = None,
+    *,
+    request,
 ) -> JSONResponse:
     """Forward a request to Context Quilt and return its response.
 
@@ -147,10 +148,14 @@ async def _cq_proxy(
     query features (e.g. ?since=...&delta=true on /v1/quilt) and any
     params CQ adds later pass through without GP knowing about them.
 
-    `request` is first and required rather than optional on the end: an
-    optional one would let a new route forward no headers by simply not
-    mentioning it, which is the failure this parameter exists to fix. Pass
-    None only where there genuinely is no caller.
+    `request` is KEYWORD-ONLY AND REQUIRED. Required, because an optional
+    one would let a new route forward no headers by simply not mentioning
+    it, which is the failure this parameter exists to fix. Keyword-only,
+    because the first version made it the leading POSITIONAL parameter and
+    that shifted every argument by one: 26 tests across nine files stub or
+    inspect this function positionally and failed claiming bodies had been
+    dropped when nothing had. Keyword-only keeps the safety property and
+    disturbs no caller's argument order.
 
     Auth headers are applied LAST so a client can never override them by
     sending a header of the same name.
@@ -463,7 +468,7 @@ async def get_quilt(
     # Forward the device's query string verbatim — iOS sends
     # ?since=...&delta=true for delta sync; dropping it made every poll
     # return the full quilt ("+860 updated" on each fetch).
-    return await _cq_proxy(request, "GET", f"/v1/quilt/{_subj(request, user_id)}", query=request.url.query or None)
+    return await _cq_proxy("GET", f"/v1/quilt/{_subj(request, user_id)}", query=request.url.query or None, request=request)
 
 
 @router.get("/quilt/{user_id}/insights")
@@ -490,8 +495,7 @@ async def get_quilt_insights(
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot access another user's quilt")
     return await _cq_proxy(
-            request,
-        "GET", f"/v1/quilt/{_subj(request, user_id)}/insights", query=request.url.query or None)
+        "GET", f"/v1/quilt/{_subj(request, user_id)}/insights", query=request.url.query or None, request=request)
 
 
 class PatchCreateRequest(BaseModel):
@@ -525,7 +529,7 @@ async def create_quilt_patch(
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
     payload = {k: v for k, v in body.model_dump().items() if v is not None}
-    return await _cq_proxy(request, "POST", f"/v1/quilt/{_subj(request, user_id)}/patches", payload)
+    return await _cq_proxy("POST", f"/v1/quilt/{_subj(request, user_id)}/patches", payload, request=request)
 
 
 class PatchUpdateRequest(BaseModel):
@@ -553,7 +557,7 @@ async def update_quilt_patch(
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
     payload = {k: v for k, v in body.model_dump().items() if v is not None}
-    return await _cq_proxy(request, "PATCH", f"/v1/quilt/{_subj(request, user_id)}/patches/{patch_id}", payload)
+    return await _cq_proxy("PATCH", f"/v1/quilt/{_subj(request, user_id)}/patches/{patch_id}", payload, request=request)
 
 
 @router.delete("/quilt/{user_id}/patches/{patch_id}")
@@ -566,7 +570,7 @@ async def delete_quilt_patch(
     """Proxy: delete a quilt patch."""
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
-    return await _cq_proxy(request, "DELETE", f"/v1/quilt/{_subj(request, user_id)}/patches/{patch_id}")
+    return await _cq_proxy("DELETE", f"/v1/quilt/{_subj(request, user_id)}/patches/{patch_id}", request=request)
 
 
 @router.post("/quilt/{user_id}/patches/{patch_id}/complete")
@@ -588,7 +592,7 @@ async def complete_quilt_patch(
     """
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
-    return await _cq_proxy(request, "POST", f"/v1/quilt/{_subj(request, user_id)}/patches/{patch_id}/complete", body)
+    return await _cq_proxy("POST", f"/v1/quilt/{_subj(request, user_id)}/patches/{patch_id}/complete", body, request=request)
 
 
 # --- Projects (2026-08-21) ---
@@ -673,9 +677,8 @@ async def resolve_project(
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot access another user's projects")
     return await _cq_proxy(
-            request,
         "GET", f"/v1/projects/{_subj(request, user_id)}/resolve",
-        query=request.url.query or None)
+        query=request.url.query or None, request=request)
 
 
 @router.patch("/projects/{user_id}/{project_id}")
@@ -689,7 +692,7 @@ async def update_project(
     """Proxy: rename or archive a project (SS QuiltService.renameProject)."""
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's projects")
-    return await _cq_proxy(request, "PATCH", f"/v1/projects/{_subj(request, user_id)}/{project_id}", body)
+    return await _cq_proxy("PATCH", f"/v1/projects/{_subj(request, user_id)}/{project_id}", body, request=request)
 
 
 @router.post("/projects/{user_id}/{project_id}/unscope")
@@ -705,7 +708,7 @@ async def unscope_project(
     07-23 so nothing was lost yet; it would have 404ed silently)."""
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's projects")
-    return await _cq_proxy(request, "POST", f"/v1/projects/{_subj(request, user_id)}/{project_id}/unscope", body)
+    return await _cq_proxy("POST", f"/v1/projects/{_subj(request, user_id)}/{project_id}/unscope", body, request=request)
 
 
 @router.post("/origins/{user_id}/{origin_type}/{origin_id}/unassign-project")
@@ -723,10 +726,9 @@ async def unassign_origin_project(
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's origins")
     return await _cq_proxy(
-            request,
         "POST",
         f"/v1/origins/{_subj(request, user_id)}/{origin_type}/{origin_id}/unassign-project",
-        body)
+        body, request=request)
 
 
 # --- Ledger triage (2026-08-07, SS Turn 4) ---
@@ -768,8 +770,7 @@ async def uncomplete_quilt_patch(
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
     return await _cq_proxy(
-            request,
-        "POST", f"/v1/quilt/{_subj(request, user_id)}/patches/{patch_id}/uncomplete", body)
+        "POST", f"/v1/quilt/{_subj(request, user_id)}/patches/{patch_id}/uncomplete", body, request=request)
 
 
 @router.post("/quilt/{user_id}/patches/{patch_id}/vouch")
@@ -787,7 +788,7 @@ async def vouch_quilt_patch(
     retiring something that still matters."""
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
-    return await _cq_proxy(request, "POST", f"/v1/quilt/{_subj(request, user_id)}/patches/{patch_id}/vouch", body)
+    return await _cq_proxy("POST", f"/v1/quilt/{_subj(request, user_id)}/patches/{patch_id}/vouch", body, request=request)
 
 
 @router.post("/quilt/{user_id}/patches/{patch_id}/shelve")
@@ -806,7 +807,7 @@ async def shelve_quilt_patch(
     indistinguishable from a user finishing it."""
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
-    return await _cq_proxy(request, "POST", f"/v1/quilt/{_subj(request, user_id)}/patches/{patch_id}/shelve", body)
+    return await _cq_proxy("POST", f"/v1/quilt/{_subj(request, user_id)}/patches/{patch_id}/shelve", body, request=request)
 
 
 @router.delete("/quilt/{user_id}/patches/{patch_id}/shelve")
@@ -820,7 +821,7 @@ async def unshelve_quilt_patch(
     """Proxy: undo a shelve."""
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
-    return await _cq_proxy(request, "DELETE", f"/v1/quilt/{_subj(request, user_id)}/patches/{patch_id}/shelve", body)
+    return await _cq_proxy("DELETE", f"/v1/quilt/{_subj(request, user_id)}/patches/{patch_id}/shelve", body, request=request)
 
 
 # --- Connection management ---
@@ -851,7 +852,7 @@ async def create_connection(
     """Proxy: create a connection between two patches."""
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
-    return await _cq_proxy(request, "POST", f"/v1/quilt/{_subj(request, user_id)}/connections", body.model_dump())
+    return await _cq_proxy("POST", f"/v1/quilt/{_subj(request, user_id)}/connections", body.model_dump(), request=request)
 
 
 @router.delete("/quilt/{user_id}/connections")
@@ -864,7 +865,7 @@ async def delete_connection(
     """Proxy: delete a connection between two patches."""
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
-    return await _cq_proxy(request, "DELETE", f"/v1/quilt/{_subj(request, user_id)}/connections", body.model_dump())
+    return await _cq_proxy("DELETE", f"/v1/quilt/{_subj(request, user_id)}/connections", body.model_dump(), request=request)
 
 
 # --- Origin (meeting / session / note) management ---
@@ -923,10 +924,10 @@ async def assign_origin_project(
     if body.display_name() is not None:
         payload["project_name"] = body.display_name()
     return await _cq_proxy(
-            request,
         "POST",
         f"/v1/origins/{_subj(request, user_id)}/{origin_type}/{origin_id}/assign-project",
         payload,
+    request=request,
     )
 
 
@@ -958,10 +959,10 @@ async def assign_meeting_project(
     if body.display_name() is not None:
         payload["project_name"] = body.display_name()
     return await _cq_proxy(
-            request,
         "POST",
         f"/v1/origins/{_subj(request, user_id)}/meeting/{meeting_id}/assign-project",
         payload,
+    request=request,
     )
 
 
@@ -976,7 +977,7 @@ async def get_schema(request: Request,
     Clients use this to build UI data-driven (e.g., connection picker matrix).
     GP hits CQ's /v1/schema with its own server JWT and returns the result.
     """
-    return await _cq_proxy(request, "GET", "/v1/schema")
+    return await _cq_proxy("GET", "/v1/schema", request=request)
 
 
 # --- Speaker rename (post-rename, SS flow: "Speaker 4" → "SriDev") ---
@@ -999,10 +1000,10 @@ async def rename_speaker(
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
     return await _cq_proxy(
-            request,
         "POST",
         f"/v1/quilt/{_subj(request, user_id)}/rename-speaker",
         body.model_dump(),
+    request=request,
     )
 
 
@@ -1073,10 +1074,10 @@ async def reassign_speaker(
         )
     payload = {k: v for k, v in body.model_dump().items() if v is not None}
     return await _cq_proxy(
-            request,
         "POST",
         f"/v1/quilt/{_subj(request, user_id)}/reassign-speaker",
         payload,
+    request=request,
     )
 
 
@@ -1114,11 +1115,11 @@ async def speaker_map(
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot modify another user's quilt")
     return await _cq_proxy(
-            request,
         "POST",
         f"/v1/quilt/{_subj(request, user_id)}/speaker-map",
         body,
         query=request.url.query or None,
+    request=request,
     )
 
 
@@ -1134,7 +1135,7 @@ async def prewarm_quilt(
     """Proxy: pre-warm CQ's Redis cache for this user at session start."""
     if user.id != user_id:
         raise HTTPException(status_code=403, detail="Cannot access another user's quilt")
-    return await _cq_proxy(request, "POST", f"/v1/prewarm?user_id={_subj(request, user_id)}")
+    return await _cq_proxy("POST", f"/v1/prewarm?user_id={_subj(request, user_id)}", request=request)
 
 
 # --- Graph visualization ---
@@ -1312,8 +1313,7 @@ async def list_people(
     """Proxy: list the user's people. Carries since/confirmed/min_meetings/limit."""
     await _require_people(request, user, user_id)
     return await _cq_proxy(
-            request,
-        "GET", f"/v1/people/{_subj(request, user_id)}", query=request.url.query or None)
+        "GET", f"/v1/people/{_subj(request, user_id)}", query=request.url.query or None, request=request)
 
 
 @router.post("/people/{user_id}/merge")
@@ -1327,9 +1327,8 @@ async def merge_people(
     """Proxy: merge two people into one entity."""
     await _require_people(request, user, user_id)
     return await _cq_proxy(
-            request,
         "POST", f"/v1/people/{_subj(request, user_id)}/merge", body=body,
-        query=request.url.query or None)
+        query=request.url.query or None, request=request)
 
 
 @router.post("/people/{user_id}/keep-separate")
@@ -1343,9 +1342,8 @@ async def keep_people_separate(
     """Proxy: record that two candidates are NOT the same person."""
     await _require_people(request, user, user_id)
     return await _cq_proxy(
-            request,
         "POST", f"/v1/people/{_subj(request, user_id)}/keep-separate", body=body,
-        query=request.url.query or None)
+        query=request.url.query or None, request=request)
 
 
 @router.post("/people/{user_id}/{entity_id}/confirm")
@@ -1360,9 +1358,8 @@ async def confirm_person(
     """Proxy: confirm a person's identity."""
     await _require_people(request, user, user_id)
     return await _cq_proxy(
-            request,
         "POST", f"/v1/people/{_subj(request, user_id)}/{entity_id}/confirm", body=body,
-        query=request.url.query or None)
+        query=request.url.query or None, request=request)
 
 
 @router.post("/people/{user_id}/{entity_id}/rename")
@@ -1392,9 +1389,8 @@ async def rename_person(
     another person. That is a merge question, not something to retry."""
     await _require_people(request, user, user_id)
     return await _cq_proxy(
-            request,
         "POST", f"/v1/people/{_subj(request, user_id)}/{entity_id}/rename", body=body,
-        query=request.url.query or None)
+        query=request.url.query or None, request=request)
 
 
 @router.post("/people/{user_id}/{entity_id}/not-a-person")
@@ -1415,9 +1411,8 @@ async def mark_not_a_person(
     forwarded verbatim; CQ owns the shape."""
     await _require_people(request, user, user_id)
     return await _cq_proxy(
-            request,
         "POST", f"/v1/people/{_subj(request, user_id)}/{entity_id}/not-a-person", body=body,
-        query=request.url.query or None)
+        query=request.url.query or None, request=request)
 
 
 @router.delete("/people/{user_id}/{entity_id}/not-a-person")
@@ -1438,9 +1433,8 @@ async def unmark_not_a_person(
     for a repeat suppression."""
     await _require_people(request, user, user_id)
     return await _cq_proxy(
-            request,
         "DELETE", f"/v1/people/{_subj(request, user_id)}/{entity_id}/not-a-person", body=body,
-        query=request.url.query or None)
+        query=request.url.query or None, request=request)
 
 
 @router.post("/people/{user_id}/{entity_id}/descriptions/dismiss")
@@ -1469,10 +1463,9 @@ async def dismiss_person_description(
     """
     await _require_people(request, user, user_id)
     return await _cq_proxy(
-            request,
         "POST",
         f"/v1/people/{_subj(request, user_id)}/{entity_id}/descriptions/dismiss",
-        body=body, query=request.url.query or None)
+        body=body, query=request.url.query or None, request=request)
 
 
 @router.delete("/people/{user_id}/{entity_id}/descriptions/dismiss")
@@ -1496,10 +1489,9 @@ async def undismiss_person_description(
     """
     await _require_people(request, user, user_id)
     return await _cq_proxy(
-            request,
         "DELETE",
         f"/v1/people/{_subj(request, user_id)}/{entity_id}/descriptions/dismiss",
-        body=body, query=request.url.query or None)
+        body=body, query=request.url.query or None, request=request)
 
 
 @router.post("/people/{user_id}")
@@ -1513,9 +1505,8 @@ async def create_person(
     """Proxy: create a person entity."""
     await _require_people(request, user, user_id)
     return await _cq_proxy(
-            request,
         "POST", f"/v1/people/{_subj(request, user_id)}", body=body,
-        query=request.url.query or None)
+        query=request.url.query or None, request=request)
 
 
 class _WovenDegraded(Exception):
@@ -1690,8 +1681,7 @@ async def woven_home(
 
     async def _fetch() -> dict:
         resp = await _cq_proxy(
-            request,
-            "GET", f"/v1/quilt/{_subj(request, user.id)}/woven", query=q)
+            "GET", f"/v1/quilt/{_subj(request, user.id)}/woven", query=q, request=request)
         body = _json_of(resp)
         # A DEGRADED answer must not be pinned for a UTC day.
         #
@@ -1747,9 +1737,8 @@ async def woven_meeting(
 
     async def _fetch() -> dict:
         resp = await _cq_proxy(
-            request,
             "GET",
-            f"/v1/quilt/{_subj(request, user.id)}/meetings/{meeting_id}/woven")
+            f"/v1/quilt/{_subj(request, user.id)}/meetings/{meeting_id}/woven", request=request)
         return _json_of(resp)
 
     body, stale = await _woven.get_or_refresh(k, _fetch)
@@ -1787,8 +1776,7 @@ async def get_people_network(
     """
     await _require_people(request, user, user_id)
     return await _cq_proxy(
-            request,
-        "GET", f"/v1/people/{_subj(request, user_id)}/network")
+        "GET", f"/v1/people/{_subj(request, user_id)}/network", request=request)
 
 
 @router.get("/people/{user_id}/{entity_id}")
@@ -1808,9 +1796,8 @@ async def get_person(
     """
     await _require_people(request, user, user_id)
     return await _cq_proxy(
-            request,
         "GET", f"/v1/people/{_subj(request, user_id)}/{entity_id}",
-        query=request.url.query or None)
+        query=request.url.query or None, request=request)
 
 
 # --- Alignment Layer (CQ #20, 2026-08-23) ----------------------------------
@@ -1870,9 +1857,8 @@ async def alignment_meeting_card(
     happened in this meeting" from "the route is missing"."""
     await _require_alignment(request, user, user_id)
     return await _cq_proxy(
-            request,
         "GET", f"/v1/alignment/{_subj(request, user_id)}/meetings/{origin_id}",
-        query=request.url.query or None)
+        query=request.url.query or None, request=request)
 
 
 @router.get("/alignment/{user_id}/projects/{project_id}")
@@ -1887,9 +1873,8 @@ async def alignment_project_record(
     history, direction_change_count, cumulative_impact, definitions)."""
     await _require_alignment(request, user, user_id)
     return await _cq_proxy(
-            request,
         "GET", f"/v1/alignment/{_subj(request, user_id)}/projects/{project_id}",
-        query=request.url.query or None)
+        query=request.url.query or None, request=request)
 
 
 @router.post("/alignment/{user_id}/events/{event_id}/confirm")
@@ -1906,9 +1891,8 @@ async def alignment_confirm_event(
     its body."""
     await _require_alignment(request, user, user_id)
     return await _cq_proxy(
-            request,
         "POST", f"/v1/alignment/{_subj(request, user_id)}/events/{event_id}/confirm",
-        body=body, query=request.url.query or None)
+        body=body, query=request.url.query or None, request=request)
 
 
 @router.post("/alignment/{user_id}/events/{event_id}/correct")
@@ -1926,6 +1910,5 @@ async def alignment_correct_event(
     `proposed`) pass through with their bodies, which IS the contract."""
     await _require_alignment(request, user, user_id)
     return await _cq_proxy(
-            request,
         "POST", f"/v1/alignment/{_subj(request, user_id)}/events/{event_id}/correct",
-        body=body, query=request.url.query or None)
+        body=body, query=request.url.query or None, request=request)
