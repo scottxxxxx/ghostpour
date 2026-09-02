@@ -1213,6 +1213,73 @@ def _persist_to_secret_manager(secret_name: str, value: str) -> tuple[bool, str]
         return False, f"Secret Manager write failed: {e}"
 
 
+@router.get("/admin/apps")
+async def admin_apps(request: Request, x_admin_key: str = Header(...)):
+    """The tenant list, straight from the registry the server actually uses.
+
+    This exists so the dashboard's app filter is DERIVED rather than typed.
+    Its options used to be four hardcoded `<option>` tags, which is how
+    N-400 came to be a registered tenant with its own config, its own spend
+    cap and no way to be isolated on any screen: registering an app touched
+    apps.yml and nothing told the dashboard. Reading the same
+    `load_apps()` the request path reads means adding a tenant is one edit
+    and the filter follows.
+
+    `unknown` is appended deliberately and is not a tenant. Requests with a
+    missing or unrecognised X-App-ID are logged with that literal app_id, so
+    without it there would be traffic no filter selection could ever show,
+    which is the failure this endpoint exists to prevent.
+    """
+    _verify_admin(request, x_admin_key)
+    from app.routers.config import load_apps
+
+    reg = load_apps()
+    apps = [
+        {"id": app_id, "label": (entry or {}).get("label") or app_id}
+        for app_id, entry in (reg.get("apps") or {}).items()
+    ]
+    apps.append({"id": "unknown", "label": "Unknown / unattributed"})
+    return {"default_app": reg.get("default_app"), "apps": apps}
+
+
+def _apps_from_filter(app: str | None) -> tuple[str, ...]:
+    """Parse the dashboard's app filter into a tuple of app ids.
+
+    Empty or absent means EVERY app, returned as `()`, because the operator
+    view is holistic by default and narrowing is the deliberate act. The
+    wire form is one comma-separated `app` param rather than a repeated one,
+    so every caller that already sends a single app id keeps working with no
+    change at either end.
+
+    Ids are lowercased and de-duplicated, matching `resolve_app_dir`, so a
+    filter built from a checkbox list cannot disagree with config resolution
+    about what "N400" means.
+    """
+    if not app:
+        return ()
+    seen: set[str] = set()
+    out: list[str] = []
+    for part in app.split(","):
+        norm = part.strip().lower()
+        if norm and norm not in seen:
+            seen.add(norm)
+            out.append(norm)
+    return tuple(out)
+
+
+def _app_sql(apps: tuple[str, ...], column: str = "app_id") -> str:
+    """` AND <column> IN (?, ?)` for these apps, or '' for all of them.
+
+    Returns only the CLAUSE. The caller binds `apps` itself, in the same
+    order, because these queries interleave several parameter groups and a
+    helper that returned both would have to know where in the statement it
+    was being spliced.
+    """
+    if not apps:
+        return ""
+    return f" AND {column} IN ({', '.join('?' * len(apps))})"
+
+
 @router.get("/admin/dashboard")
 async def dashboard(
     request: Request,
@@ -1229,9 +1296,10 @@ async def dashboard(
     # Optional per-app scoping. Empty/absent `app` means all apps. When set,
     # every usage_log-derived metric below is restricted to that app_id. The
     # users/trial/allocation counts stay global (users are shared across apps).
-    app_clause = " AND app_id = ?" if app else ""
-    app_clause_l = " AND l.app_id = ?" if app else ""
-    app_params = (app,) if app else ()
+    apps_filter = _apps_from_filter(app)
+    app_clause = _app_sql(apps_filter)
+    app_clause_l = _app_sql(apps_filter, "l.app_id")
+    app_params = apps_filter
 
     # --- Users ---
     cursor = await db.execute("SELECT COUNT(*) FROM users")
@@ -1543,9 +1611,10 @@ async def error_log(
     """Recent failed requests for debugging."""
     _verify_admin(request, x_admin_key)
 
-    app_clause = " AND app_id = ?" if app else ""
-    app_clause_l = " AND l.app_id = ?" if app else ""
-    app_params = (app,) if app else ()
+    apps_filter = _apps_from_filter(app)
+    app_clause = _app_sql(apps_filter)
+    app_clause_l = _app_sql(apps_filter, "l.app_id")
+    app_params = apps_filter
 
     cursor = await db.execute(
         """SELECT l.id, l.user_id, u.email, l.provider, l.model,
@@ -2024,8 +2093,9 @@ async def user_detail(
     _verify_admin(request, x_admin_key)
     tier_config = request.app.state.tier_config
 
-    app_clause = " AND app_id = ?" if app else ""
-    app_params = (app,) if app else ()
+    apps_filter = _apps_from_filter(app)
+    app_clause = _app_sql(apps_filter)
+    app_params = apps_filter
 
     # User info
     cursor = await db.execute("SELECT * FROM users WHERE id = ?", (user_id,))
@@ -2390,10 +2460,12 @@ async def list_users(
     # global. Telemetry device/locale subqueries stay unscoped — they
     # describe the user's device, not per-app activity. Each filtered
     # subquery contributes one `?` (only when `app` is set), in SELECT order.
-    def _app_filt(alias: str) -> str:
-        return f" AND {alias}.app_id = ?" if app else ""
+    apps_filter = _apps_from_filter(app)
 
-    app_params = (app,) if app else ()
+    def _app_filt(alias: str) -> str:
+        return _app_sql(apps_filter, f"{alias}.app_id")
+
+    app_params = apps_filter
 
     # When an app is selected, HIDE users with no activity in it: keep only
     # users with at least one usage_log OR telemetry_events row tagged with
@@ -2401,14 +2473,15 @@ async def list_users(
     # SS, and vice versa. Users are shared across apps, so someone active in
     # both apps shows up under both filters. The two `?`s bind last (the
     # outer WHERE follows every SELECT-list subquery in the SQL text).
+    _in = ", ".join("?" * len(apps_filter))
     app_user_filter = (
         " WHERE EXISTS (SELECT 1 FROM usage_log ux"
-        " WHERE ux.user_id = u.id AND ux.app_id = ?)"
+        f" WHERE ux.user_id = u.id AND ux.app_id IN ({_in}))"
         " OR EXISTS (SELECT 1 FROM telemetry_events tx"
-        " WHERE tx.user_id = u.id AND tx.app_id = ?)"
-        if app else ""
+        f" WHERE tx.user_id = u.id AND tx.app_id IN ({_in}))"
+        if apps_filter else ""
     )
-    app_user_params = (app, app) if app else ()
+    app_user_params = apps_filter + apps_filter if apps_filter else ()
 
     cursor = await db.execute(
         f"""SELECT u.id, u.apple_sub, u.email, u.display_name, u.tier, u.created_at, u.is_active,
@@ -2924,9 +2997,10 @@ async def telemetry_rich(
     # Build a reusable WHERE clause + bound parameters.
     clauses = ["received_at >= datetime('now', ?)"]
     params: list[object] = [f"-{days} days"]
-    if app:
-        clauses.append("app_id = ?")
-        params.append(app)
+    if _apps_from_filter(app):
+        _apps = _apps_from_filter(app)
+        clauses.append(f"app_id IN ({', '.join('?' * len(_apps))})")
+        params.extend(_apps)
     if app_version:
         clauses.append("app_version = ?")
         params.append(app_version)
@@ -3266,9 +3340,10 @@ async def telemetry_onboarding(
 
     clauses = ["received_at >= datetime('now', ?)"]
     params: list[object] = [f"-{days} days"]
-    if app:
-        clauses.append("app_id = ?")
-        params.append(app)
+    if _apps_from_filter(app):
+        _apps = _apps_from_filter(app)
+        clauses.append(f"app_id IN ({', '.join('?' * len(_apps))})")
+        params.extend(_apps)
     if distribution:
         clauses.append("distribution = ?")
         params.append(distribution)
@@ -3364,9 +3439,10 @@ async def acquisition_report(
 
     clauses = ["a.created_at >= datetime('now', ?)"]
     params: list[object] = [f"-{days} days"]
-    if app:
-        clauses.append("a.app_id = ?")
-        params.append(app)
+    if _apps_from_filter(app):
+        _apps = _apps_from_filter(app)
+        clauses.append(f"a.app_id IN ({', '.join('?' * len(_apps))})")
+        params.extend(_apps)
     where = " AND ".join(clauses)
 
     async def _all(sql: str) -> list[dict]:
@@ -4037,8 +4113,10 @@ async def list_campaigns(
     """List all promo campaigns (newest first), optionally scoped to an app."""
     _verify_admin(request, x_admin_key)
     where, params = "", ()
-    if app:
-        where, params = " WHERE app_id = ?", (app,)
+    _apps = _apps_from_filter(app)
+    if _apps:
+        where = f" WHERE app_id IN ({', '.join('?' * len(_apps))})"
+        params = _apps
     cur = await db.execute(
         f"SELECT * FROM promo_campaigns{where} ORDER BY updated_at DESC", params
     )

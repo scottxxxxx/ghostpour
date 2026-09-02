@@ -191,12 +191,33 @@
       <h2><span id="dash-subtitle">Admin Dashboard</span> <span id="build-badge" style="font-size:11px;color:var(--text-dim);font-weight:normal;margin-left:8px;"></span></h2>
     </div>
     <div style="display:flex;gap:8px;align-items:center;">
-      <select class="period-select" id="app" onchange="refresh()">
-        <option value="" selected>All apps</option>
-        <option value="shouldersurf">Shoulder Surf</option>
-        <option value="techrehearsal">Tech Rehearsal</option>
-        <option value="unknown">Unknown</option>
-      </select>
+      <!-- App filter. The visible control is a checkbox dropdown so more
+           than one tenant can be selected at once; the hidden #app input
+           still holds the comma-joined value, because several panels read
+           document.getElementById('app').value directly and keeping that
+           contract means this change cannot silently unfilter one of them.
+           Options are fetched from /admin/apps, never hardcoded: the old
+           four <option> tags are why N-400 shipped as a tenant nobody
+           could isolate. -->
+      <input type="hidden" id="app" value="">
+      <div id="app-filter" style="position:relative">
+        <button type="button" class="period-select" id="app-filter-btn"
+                onclick="toggleAppFilter(event)"
+                style="cursor:pointer;text-align:left;min-width:130px">All apps ▾</button>
+        <div id="app-filter-menu" hidden
+             style="position:absolute;top:calc(100% + 4px);left:0;z-index:50;
+                    background:var(--bg-card);border:1px solid var(--border);
+                    border-radius:6px;padding:8px;min-width:200px;
+                    box-shadow:0 6px 18px rgba(0,0,0,.35)">
+          <label style="display:flex;gap:7px;align-items:center;padding:4px 2px;cursor:pointer">
+            <input type="checkbox" id="app-filter-all" checked
+                   onchange="onAppFilterAll(this.checked)">
+            <span style="font-weight:600">All apps</span>
+          </label>
+          <div style="height:1px;background:var(--border);margin:6px 0"></div>
+          <div id="app-filter-list"></div>
+        </div>
+      </div>
       <select class="period-select" id="period" onchange="refresh()">
         <option value="1">Today</option>
         <option value="7" selected>Last 7 days</option>
@@ -683,7 +704,7 @@
   <!-- Telemetry -->
   <div id="tab-telemetry" class="section">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-      <h3 style="margin:0">Telemetry</h3>
+      <h3 style="margin:0">Telemetry <span style="font-size:11px;font-weight:normal;color:var(--text-dim)" title="telemetry_daily_rollups is keyed (day, metric) with no app column, so the trend section cannot be sliced without re-shaping the rollup job">(trend section is all apps)</span></h3>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <select id="tel-version" onchange="loadTelemetry()" class="period-select"><option value="">All versions</option></select>
         <select id="tel-os" onchange="loadTelemetry()" class="period-select"><option value="">All iOS</option></select>
@@ -750,6 +771,7 @@
         <button class="refresh-btn" onclick="reconcileSubs()" title="Pull Apple's authoritative state and fix drift">Reconcile w/ Apple</button>
       </div>
     </div>
+    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px"><strong style="color:var(--accent)">Not affected by the app filter.</strong> Apple issues subscriptions per developer TEAM, so a subscription belongs to the account rather than to one app. These numbers are always every app together, whatever is selected above.</p>
     <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Bookkeeping from the append-only subscription event log (users hold only the current tier). "Ever subscribed" feeds offer-code eligibility. MRR is list price; net is after Apple's 15% cut. Reconcile pulls Apple's authoritative state and fixes drift — dormant until the App Store Server API key is provisioned.</p>
     <div class="cards" id="sub-kpis"></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px;margin-top:16px">
@@ -951,6 +973,7 @@ function login() {
       document.getElementById('auth-screen').style.display = 'none';
       document.getElementById('dashboard').style.display = 'block';
       document.getElementById('auth-error').textContent = '';
+      loadAppFilter();
       refresh();
     })
     .catch(() => { document.getElementById('auth-error').textContent = 'Invalid admin key'; });
@@ -2384,10 +2407,82 @@ async function refreshCertPinBanner() {
 }
 
 // Selected app filter as a URL suffix ('' = all apps). Read from the one
-// global #app selector so every view scopes to the same app.
+// global #app value so every view scopes to the same selection. The value
+// is a COMMA-SEPARATED list; the server parses it with _apps_from_filter,
+// and a single id is still just that id, so nothing that predates
+// multi-select had to change.
 function appQuery() {
   const app = document.getElementById('app')?.value || '';
   return app ? `&app=${encodeURIComponent(app)}` : '';
+}
+
+// --- App filter (checkbox dropdown) ----------------------------------------
+// Holistic by default: nothing checked in the list means every app, which is
+// the same thing an empty `app` param means server-side. Narrowing is always
+// the deliberate act.
+let _APPS = [];
+
+async function loadAppFilter() {
+  try {
+    const resp = await fetch(`${BASE}/webhooks/admin/apps`, {
+      headers: {'X-Admin-Key': adminKey},
+    });
+    if (!resp.ok) return;
+    _APPS = (await resp.json()).apps || [];
+  } catch (_) { return; }
+  const list = document.getElementById('app-filter-list');
+  if (!list) return;
+  list.innerHTML = _APPS.map(a => `
+    <label style="display:flex;gap:7px;align-items:center;padding:4px 2px;cursor:pointer">
+      <input type="checkbox" class="app-filter-cb" value="${a.id}" onchange="onAppFilterChange()">
+      <span>${a.label}</span>
+    </label>`).join('');
+  applyAppFilter();
+}
+
+function toggleAppFilter(e) {
+  e?.stopPropagation();
+  const menu = document.getElementById('app-filter-menu');
+  if (menu) menu.hidden = !menu.hidden;
+}
+document.addEventListener('click', (e) => {
+  const wrap = document.getElementById('app-filter');
+  const menu = document.getElementById('app-filter-menu');
+  if (menu && !menu.hidden && wrap && !wrap.contains(e.target)) menu.hidden = true;
+});
+
+function _checkedApps() {
+  return Array.from(document.querySelectorAll('.app-filter-cb'))
+    .filter(cb => cb.checked).map(cb => cb.value);
+}
+
+function onAppFilterAll(checked) {
+  if (checked) document.querySelectorAll('.app-filter-cb').forEach(cb => { cb.checked = false; });
+  applyAppFilter();
+}
+
+function onAppFilterChange() {
+  const all = document.getElementById('app-filter-all');
+  // Checking any single app clears "All apps", and clearing the last one
+  // puts it back, so the control can never sit in a state that shows
+  // nothing at all.
+  if (all) all.checked = _checkedApps().length === 0;
+  applyAppFilter();
+}
+
+function applyAppFilter() {
+  const picked = _checkedApps();
+  const input = document.getElementById('app');
+  if (input) input.value = picked.join(',');
+  const btn = document.getElementById('app-filter-btn');
+  if (btn) {
+    const label = picked.length === 0 ? 'All apps'
+      : picked.length === 1
+        ? (_APPS.find(a => a.id === picked[0])?.label || picked[0])
+        : `${picked.length} apps`;
+    btn.textContent = `${label} ▾`;
+  }
+  refresh();
 }
 
 async function refresh() {
@@ -2403,6 +2498,10 @@ async function refresh() {
   const [dash, users, tiers] = await Promise.all([
     fetch(`${BASE}/webhooks/admin/dashboard?days=${days}${app}`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
     fetch(`${BASE}/webhooks/admin/users?days=${days}${app}`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
+    // NOT app-scoped, and correctly so: /admin/tiers reads tiers.json,
+    // which defines the tiers themselves rather than any app's activity.
+    // (Per-app tier_overrides exist in apps.yml but this endpoint does
+    // not read them; surfacing those is separate work.)
     fetch(`${BASE}/webhooks/admin/tiers`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
   ]);
 
@@ -4171,7 +4270,9 @@ function _cEsc(s) {
 }
 
 async function loadCampaigns() {
-  const data = await fetch(`${BASE}/webhooks/admin/campaigns`, {
+  // Same dropped-filter bug as the tiers panel had; the endpoint has
+  // taken `app` since promo campaigns became per-app.
+  const data = await fetch(`${BASE}/webhooks/admin/campaigns?_=1${appQuery()}`, {
     headers: {'X-Admin-Key': adminKey}
   }).then(r => r.json());
   _campaigns = data.campaigns || [];
