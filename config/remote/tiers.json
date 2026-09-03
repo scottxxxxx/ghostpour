@@ -633,8 +633,8 @@
         "login_required": "Sign in to use Project Chat."
       },
       "entry": {
-        "coach_mark_title": "Choose what the AI can see",
-        "coach_mark_body": "This area sets which meetings and notes go into this chat, and shows the dates covered. Change it any time.",
+        "coach_mark_title": "Only you know which meetings actually mattered",
+        "coach_mark_body": "Hand it those, and pick how deep it goes: the summary, the full transcript, or what it already remembers about your work. Less going in, sharper coming out. Change your mind any time.",
         "coach_mark_dismiss_label": "Don't show this again",
         "context_range_label": "Using meetings from {start} to {end}",
         "context_range_windowed_label": "Your last {window_days} days: {start} to {end}",

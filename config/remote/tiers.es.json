@@ -633,8 +633,8 @@
         "login_required": "Inicia sesión para usar Chat de proyecto."
       },
       "entry": {
-        "coach_mark_title": "Elige lo que la IA puede ver",
-        "coach_mark_body": "Aquí decides qué reuniones y notas entran en este chat, y ves las fechas que abarca. Puedes cambiarlo cuando quieras.",
+        "coach_mark_title": "Solo tú sabes qué reuniones importaron de verdad",
+        "coach_mark_body": "Dale esas y elige hasta dónde llega: el resumen, la transcripción completa o lo que ya recuerda sobre tu trabajo. Cuanto menos entre, más afilado sale. Puedes cambiar de idea cuando quieras.",
         "coach_mark_dismiss_label": "No volver a mostrar",
         "context_range_label": "Usando reuniones del {start} al {end}",
         "context_range_windowed_label": "Tus últimos {window_days} días: del {start} al {end}",

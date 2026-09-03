@@ -633,8 +633,8 @@
         "login_required": "Connectez-vous pour utiliser le Chat de projet."
       },
       "entry": {
-        "coach_mark_title": "Choisissez ce que l'IA peut voir",
-        "coach_mark_body": "Cette zone définit les réunions et les notes incluses dans cette discussion, et affiche les dates couvertes. Modifiable à tout moment.",
+        "coach_mark_title": "Vous seul savez quelles réunions ont vraiment compté",
+        "coach_mark_body": "Donnez-lui celles-là, puis choisissez jusqu'où il va : le résumé, la transcription complète ou ce qu'il retient déjà de votre travail. Moins il en reçoit, plus sa réponse est nette. Vous pouvez changer d'avis à tout moment.",
         "coach_mark_dismiss_label": "Ne plus afficher",
         "context_range_label": "Réunions du {start} au {end}",
         "context_range_windowed_label": "Vos {window_days} derniers jours : du {start} au {end}",

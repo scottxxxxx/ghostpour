@@ -633,8 +633,8 @@
         "login_required": "プロジェクトチャットを使用するにはサインインしてください。"
       },
       "entry": {
-        "coach_mark_title": "AIに見せる範囲を選ぶ",
-        "coach_mark_body": "ここで、このチャットに含める会議とメモを決め、対象となる日付の範囲を確認できます。いつでも変更できます。",
+        "coach_mark_title": "どの会議が本当に重要だったかを知っているのはあなただけです",
+        "coach_mark_body": "その会議を渡し、どこまで踏み込むかを選びます。要約、全文の文字起こし、またはあなたの仕事についてすでに記憶している内容です。入れる情報が少ないほど、返ってくる答えは鋭くなります。いつでも変更できます。",
         "coach_mark_dismiss_label": "今後表示しない",
         "context_range_label": "{start}から{end}までの会議を使用",
         "context_range_windowed_label": "直近{window_days}日間: {start}から{end}まで",
