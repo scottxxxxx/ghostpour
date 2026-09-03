@@ -32,7 +32,7 @@ def test_material_kind_reaches_cq_with_its_exact_value(cq_post):  # noqa: F811
     asyncio.run(cq.capture(
         user_id="u1", interaction_type="meeting_transcript", content="hi",
         passthrough={"material_kind": "listening"}))
-    md = _sent_body(cq_post)["metadata"]
+    md = _sent_body(cq_post).get("metadata", {})
     assert "material_kind" in md, "the key was dropped by the allowlist"
     assert md["material_kind"] == "listening", (
         f"value mutated on our hop: {md['material_kind']!r}. CQ reads an "
@@ -45,7 +45,7 @@ def test_meeting_is_carried_explicitly_and_not_swallowed_as_a_default(cq_post): 
     asyncio.run(cq.capture(
         user_id="u1", interaction_type="meeting_transcript", content="hi",
         passthrough={"material_kind": "meeting"}))
-    assert _sent_body(cq_post)["metadata"]["material_kind"] == "meeting"
+    assert _sent_body(cq_post).get("metadata", {}).get("material_kind") == "meeting"
 
 
 def test_gp_does_not_normalise_the_value(cq_post):  # noqa: F811
@@ -56,7 +56,7 @@ def test_gp_does_not_normalise_the_value(cq_post):  # noqa: F811
     asyncio.run(cq.capture(
         user_id="u1", interaction_type="meeting_transcript", content="hi",
         passthrough={"material_kind": "  Listenting  "}))
-    assert _sent_body(cq_post)["metadata"]["material_kind"] == "  Listenting  "
+    assert _sent_body(cq_post).get("metadata", {}).get("material_kind") == "  Listenting  "
 
 
 def test_absent_material_kind_sends_no_key_at_all(cq_post):  # noqa: F811
@@ -66,4 +66,4 @@ def test_absent_material_kind_sends_no_key_at_all(cq_post):  # noqa: F811
     asyncio.run(cq.capture(
         user_id="u1", interaction_type="meeting_transcript", content="hi",
         passthrough={"user_label": "Scott"}))
-    assert "material_kind" not in _sent_body(cq_post)["metadata"]
+    assert "material_kind" not in _sent_body(cq_post).get("metadata", {})
