@@ -426,6 +426,24 @@ CAPTURE_METADATA_ALLOWLIST = frozenset({
     # is why the receipt for this is a request-side test rather than a
     # response-side one.
     "speaker_identities",
+    # What KIND of material this recording is, so CQ can stop treating a
+    # podcast as a meeting. Two lowercase values, `meeting` and
+    # `listening`. Added 2026-09-02 for CQ doc 22 option C (their prod
+    # 2122234), on Scott's ruling.
+    #
+    # ⚠ CQ resolves ABSENT and UNRECOGNISED to `meeting` alike, on purpose:
+    # a client sending a kind they do not know must not lose its meeting.
+    # The cost of that kindness is that a MISSPELLING (`listenting`) is
+    # silently a meeting and looks EXACTLY like the flag never arriving.
+    # Neither end can tell those apart from the outcome, so the receipt has
+    # to be a request-side test asserting the EXACT VALUE crosses this hop
+    # unmodified, not merely that the key is present. See
+    # tests/test_capture_material_kind.py.
+    #
+    # GP does not validate the value. CQ owns the vocabulary, and a check
+    # here would be a second place to update and a new way to drop a kind
+    # they add later, which is the `to_name` shape.
+    "material_kind",
 })
 
 
