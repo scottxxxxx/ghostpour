@@ -681,6 +681,44 @@ async def resolve_project(
         query=request.url.query or None, request=request)
 
 
+@router.get("/projects/{user_id}/{project_id}/affected-people")
+async def project_affected_people(
+    request: Request,
+    user_id: str,
+    project_id: str,
+    user: UserRecord = Depends(get_current_user),
+):
+    """Proxy: who appears in this project and nowhere else (CQ #420).
+
+    Read-only, no side effects, safe to call repeatedly. It backs the
+    project-delete confirmation: it SHOWS who would be affected and there is
+    no write half, now or planned.
+
+    Ownership guard only, deliberately, matching every sibling under
+    `/projects/`. `_require_people` would add an entitlement gate no other
+    project route has, and a user with People disabled would then be unable
+    to see the confirmation for a project they are entitled to delete. The
+    payload is people-shaped; the ACTION is project deletion.
+
+    NOTHING HERE TYPES THE BODY. CQ's response carries a nested `signals`
+    object per row and a `confidence` string from an OPEN vocabulary, and
+    both are shapes this proxy has flattened or dropped before. A response
+    model would silently drop a signal CQ adds later, which is the
+    `to_name` shape and would look correct from both ends. Query is
+    forwarded verbatim for the same reason it is elsewhere.
+
+    ⚠ `total_affected` is computed by CQ BEFORE their cap, so it may exceed
+    `len(people)`. Do not derive one from the other.
+    """
+    if user.id != user_id:
+        raise HTTPException(
+            status_code=403, detail="Cannot access another user's projects")
+    return await _cq_proxy(
+        "GET",
+        f"/v1/projects/{_subj(request, user_id)}/{project_id}/affected-people",
+        query=request.url.query or None, request=request)
+
+
 @router.patch("/projects/{user_id}/{project_id}")
 async def update_project(
     request: Request,
