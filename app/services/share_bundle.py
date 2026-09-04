@@ -528,9 +528,36 @@ def page_languages(meetings: list, transcript_included: bool) -> list[str]:
 
 
 def renditions_of(rec: dict) -> list[dict]:
-    """The sender's stored translations, as emitted by SS (f318ab0):
-    transcriptRenditions[{lang, engine_version?, created_at?, transcript,
-    summary?, report_html?}], full text. Malformed entries are dropped."""
+    """The sender's stored translations from `transcriptRenditions`.
+
+    WHAT GP ACTUALLY READS off a rendition, and it is only these four:
+    `lang` (required), `transcript`, `summary`, `report_html`. Full text,
+    not deltas.
+
+    WHAT SS ALSO EMITS AND GP IGNORES ON PURPOSE: `engine_version`,
+    `created_at`, `title`, and (since 2026-09-04) `query_questions` and
+    `query_answers`, each an object keyed by the query's UUID. The
+    translated TITLE reaches the page as `card_title` from the
+    `X-Share-Title` header, which is the client's displayTitle already in
+    the shared language, so the rendition's own `title` is redundant here
+    rather than missing. Do not "fix" that by reading it.
+
+    ⚠ This list has been wrong before, in both directions. It omitted
+    `title` for weeks after SS shipped it, and SS's own `meeting-share.md`
+    omitted it too, so one wire shape was stale in both teams' docs at once
+    and neither team noticed until somebody read this for an unrelated
+    reason (2026-09-04). If you add a reader here, add the key
+    above; if SS adds a key, it costs nothing to list it.
+
+    TOLERANCE, stated so nobody has to re-derive it: unknown keys are safe.
+    Nothing here validates a schema, nothing iterates rendition keys, and
+    every read is a guarded `.get()`. SS can add keys freely.
+
+    ⚠ THE ONE CLIFF: an entry whose `lang` is missing, non-string or blank
+    is DROPPED HERE with no error and no log, and by design GP cannot tell
+    the sender. SS logs it at error level on their exporter as of their
+    `4d918f0`, which is the only side that can see it.
+    """
     out = []
     for r in (rec.get("transcriptRenditions") or []):
         if isinstance(r, dict) and isinstance(r.get("lang"), str) and r["lang"].strip():
