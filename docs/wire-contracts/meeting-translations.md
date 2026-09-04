@@ -57,6 +57,41 @@ through `report` the whole time. Same family as `total_available`
 meaning opposite things on two routes: one name, two rules, and the
 reader cannot see the collision from either side alone.
 
+**WHICH ARTIFACT carries which field, measured 2026-09-04.** The paragraph
+above says what is translatable and was silent on what to send it as, which
+is the question SS actually had. `artifact` selects a prompt branch and the
+branches differ in ways you can see:
+
+- **`header.title` goes as `title`.** It is a meeting NAME, which is what
+  that branch exists for: it returns a name rather than a sentence, refuses
+  invented articles and explanatory clauses, keeps the 60-character card
+  budget, and preserves product and team names. Measured: "Q3 Roadmap
+  Review with Platform Team" kept "Platform" as a team on the title branch
+  and became "Plataforma" on the prose branch. Classing it with narrative
+  prose above is this doc being coarse; prose works, `title` is better.
+- **`header.category` may go as EITHER, and the difference is only
+  capitalisation.** Measured on four labels: the title branch returns Title
+  Case ("Actualización de Estado"), prose returns sentence case
+  ("Actualización de estado"). No distortion either way. SS uppercases the
+  chip (`MeetingCardView.swift:107`), so it is invisible there and they
+  send it with `header.title` in one `title` call. ⚠ Their
+  `MeetingOutputIntents.swift:322` renders it AS RETURNED, where sentence
+  case is the more idiomatic Spanish; they took the one extra round trip as
+  not worth it and wrote the trade-off down. If that surface ever matters,
+  the answer flips.
+- **`stoplight.label`, `stoplight.detail`, `sentiment.label`,
+  `sentiment.detail` go as prose** (`report` or `summary`, which resolve to
+  the same branch). As of 2026-09-04 SS does not send these, so a fully
+  translated meeting still explains its own mood in English.
+
+⚠ A worry that did NOT materialise, recorded so nobody re-derives it and
+acts on it. The title branch is told "never make a title more generic than
+the one you were given". A type label is generic BY DESIGN, so that rule
+looked like it would fight `header.category` and push toward invented
+specificity. It did not fire on any of four labels. **Measured n=4 in one
+run, not guaranteed.** A category that comes back MORE SPECIFIC than it
+went in is that mechanism, and is worth reporting.
+
 ## Response
 
 ```json
