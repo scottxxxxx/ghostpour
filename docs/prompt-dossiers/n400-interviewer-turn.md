@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 6
+served_version: 7
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
@@ -196,6 +196,51 @@ and harness parse by key. Also v6: a disclosure right after a legal
 question is an answer, never a second escalation (16, 17); never skip a
 question on an inference about their life and never say something is
 recorded that was not said (19, 20); asking.node_id is a node id (6).
+
+## s2c-v6: the reorder was the fix; v7 is polish
+
+`N400 App/qa/runs/s2c-v6.eval.md`: all three v6 blockers cleared. The
+disclosure minted arrested_ever yes with both tickets' rows; Selective
+Service was asked plainly with no inference; the Part 9 summary was spoken
+unprompted at a self-detected boundary, ended on the confirmation, and
+interview_over followed the yes. Five runs of evidence say the field order
+was the mechanism. The auditor's two end-to-end runs on v6 with the
+harness user are the acceptance candidate.
+
+v7 polish, by turn id: a repeat re-speaks the standing question and every
+intent that answered nothing keeps `asking` on the standing node, a plain
+no after a repeated question is an answer (3; the client's half: a turn
+that answered nothing moves nothing, and the agenda lists every unanswered
+node); a deferral or the attorney boundary is said once, never repeated
+unprompted (14); a reason given in the same breath as an answer is
+recorded when the agenda has a field for it (13, 14); no half-promises
+(7).
+
+s2-v6-full, the difficult applicant end to end on v6, is the acceptance
+transcript: 80 turns, 127 facts, median 3.8 s, zero errors, every section
+summary spoken unprompted and confirmed. Three data rules from it, all
+cases where the reply was right and the facts did not follow, also in v7:
+a value the reply restates is a fact the response carries, and a completed
+partial re-emits the whole field (31); a correction's fact replaces at full
+confidence, deferral included (34); anything added while confirming a
+summary is a fact (47); and `asking` never names a node the conversation
+shows answered (33). From the applicant agent's addendum, also v7: a
+fact is emitted in the turn of the utterance that carries its evidence,
+never the turn after, because the client's verbatim-evidence floor drops
+late facts (68, 22, 77); never complete a state from a city, for any place
+field (49, 51); a yes confirming a summary or read-back answers nothing
+else (63, 57, 76); never imply the interview is done while the agenda has
+lines (57); a declined option opens no off-agenda questions (59).
+
+s1-v6-full (Lucia, 62 turns, 123 facts, every value matching what she
+said) released v7. From her run, also v7: a clarification composed in the
+JSON is spoken in the reply that turn (40); a section summary reads the
+values back, never a list of categories (17); when the agenda is empty the
+reply is a final read-back of every part and interview_over follows only
+the yes to that, and "go over everything once more" gets the read-back
+itself, never a pointer to a document (62). Her spouse block and the
+Selective Service gating were the client walker's derived fields, not the
+lane's.
 
 ## What is deliberately not here
 
