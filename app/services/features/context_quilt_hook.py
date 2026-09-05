@@ -141,6 +141,7 @@ class ContextQuiltHook:
 
         cq_metadata = _build_recall_metadata(body)
         _apply_recall_window(cq_metadata, recall_max_age_days)
+        result["recall_echo"] = recall_echo(cq_metadata, body)
 
         if feature_state == "enabled":
             # Correction lane (Contract item 9, dark until CQ's handler is
@@ -381,6 +382,7 @@ class ContextQuiltHook:
         cq_metadata = _build_recall_metadata(body)
         cq_metadata["recall_scope"] = "people"
         _apply_recall_window(cq_metadata, recall_max_age_days)
+        result["recall_echo"] = recall_echo(cq_metadata, body)
         cq_result = await cq.recall(
             app_id=app_id,
             user_id=user.id,
@@ -403,6 +405,16 @@ class ContextQuiltHook:
         feature_state: str,
         app_id: str | None = None,
     ) -> None:
+        # The echo rides whenever a recall leg was composed, gated or not,
+        # so the device test can read what GP sent (or that it sent none).
+        echo = hook_result.get("recall_echo")
+        if echo is not None and response is not None:
+            response.recall = echo
+            logger.info(
+                "recall_echo request_id=%s token_budget=%s draft_intent=%s prompt_mode=%s",
+                _request_id(), echo.get("token_budget"), echo.get("draft_intent"),
+                body.get_meta("prompt_mode"),
+            )
         if feature_state != "enabled" or not body.context_quilt:
             return
 
@@ -795,6 +807,22 @@ def is_draft_intent(question: str | None) -> bool:
     if not question:
         return False
     return _DRAFT_INTENT.search(question) is not None or _DRAFT_INTENT_JA.search(question) is not None
+
+
+def recall_echo(cq_metadata: dict[str, Any], body: ChatRequest) -> dict[str, Any]:
+    """What GP asked CQ for on this turn, in the two fields a device test
+    can read back: the budget it sent (None means CQ's default) and
+    whether the draft classifier fired."""
+    from app.services.document_generation import _question_portion
+    return {"token_budget": cq_metadata.get("token_budget"),
+            "draft_intent": is_draft_intent(_question_portion(body.user_content or ""))}
+
+
+def _request_id() -> str | None:
+    """The id the logging middleware minted for this request, mirrored into
+    a contextvar there; None outside a request."""
+    from app.request_context import current_request_id
+    return current_request_id.get(None)
 
 
 def _build_recall_metadata(body: ChatRequest) -> dict[str, Any]:

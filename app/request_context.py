@@ -13,3 +13,8 @@ resolves to the default identity.
 from contextvars import ContextVar
 
 current_app_id: ContextVar[str | None] = ContextVar("current_app_id", default=None)
+# The request id the logging middleware minted, mirrored the same way and
+# for the same reason (a set in pure ASGI reaches handlers and their
+# background tasks): service-layer log lines can pair with SS Diagnostics,
+# which carry the same id from the x-request-id header.
+current_request_id: ContextVar[str | None] = ContextVar("current_request_id", default=None)
