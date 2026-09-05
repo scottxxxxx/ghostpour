@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 16
+served_version: 17
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
@@ -427,6 +427,38 @@ break the client's verbatim provenance floor); the prompt says take the
 digits, quote her words. Gated to this call type and locale es. Also
 v16: an identifier is echoed once per reply, with the letter on an
 A-Number; on a long question the repeat is its short form.
+
+## conf-v15 English: every v13 and v14 item held; the envelope break (v17)
+
+English on v15 (81 turns, 127 facts): every v13 and v14 item held, the
+read-back on the question and over after her yes, one guard hit (60).
+The new break is the most important turn: on her yes to the Part 9
+summary the whole read-back came back as PLAIN PROSE with no JSON
+object (644 tokens, end_turn, not truncated), the harness could not
+parse it, she resent her yes, and the lane reopened Part 11 and minted a
+daytime phone it had said she did not have. On the phone that is an
+error banner on the last step and a repeated section.
+
+Two halves. Prompt (v17): every response is the object, the read-back
+included, named as the last step; after a resend resume where you were
+and never reopen a confirmed part; never note-to-verify and ask in the
+same breath (17, 57); two asks per breath, no asides to third parties
+(44, 48); a month and a year is a deferral, never a "2017-10" value
+(38); a stated state is its own fact (32). Route: for this call type a
+non-JSON body is retried ONCE with the same request plus a one-line
+reminder; the first attempt stays metered with status envelope_retry; a
+successful retry carries `envelope_retried: true` in the object; a retry
+that is also prose is returned as-is with a warning log
+(`n400_envelope_prose turn_id=...`), so the audit can count both.
+
+Spanish v16 stamp (conf-es-v16, 24 turns): the numeral reader minted
+627449018 first time with no correction, zero guard hits, zero stale
+asking; the Spanish data item is closed. Five smalls into v17's
+bilingual checklist: identifier once with the letter (6); no "termina en"
+plus the whole number (21, 23); "la Parte 2", never "Part 2" in a Spanish
+sentence (11, 23, 24); the first part's summary and object (6); a mumble
+repeat never grows into "Le explico" (19); no status remarks about the
+form (11).
 
 ## What is deliberately not here
 
