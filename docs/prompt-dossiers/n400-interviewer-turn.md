@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 11
+served_version: 12
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
@@ -333,6 +333,24 @@ boundary variable contradicts the agenda, the agenda wins; every part gets
 its summary before the next part's first question, even one closed by
 reasoning (49); after a yes, one clause and the next question, never the
 summary read again (44).
+
+## conf-v11: every v11 item holds; the lane is done for a first-timer
+
+`N400 App/qa/runs/conf-v11.eval.md` (74 turns, 124 facts): Selective
+Service never mentioned with the derived no in known facts, the opening
+asked only what context lacked, asking an object on every turn, Part 7
+summarized before travel, no attorney anywhere, the support box asked and
+minted, race in one warm line, the fee question neutral, the read-back
+ending on the question with interview_over after the yes. In the
+auditor's grading the lane is done for a first-timer.
+
+v12, two non-urgent items: a partly answered node's agenda line now lists
+only the ids still empty (client contract change), and the lane asks
+exactly those or defers them, never re-asks a deferred field, never
+invents a job or a date to ask about (66); finish the part you are in
+before touching another part's line unless the applicant raised it, and a
+one-question part closes with one clause, no summary, no object (the
+Part 8 to 10 to 9 to 7 to 11 zigzag).
 
 ## What is deliberately not here
 
