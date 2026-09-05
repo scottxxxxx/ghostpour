@@ -85,6 +85,7 @@ _CALL_TYPE_TO_CONFIG = {
     # request proceeds with NO system prompt at all. A prompt config nothing
     # is mapped to is a file, not a lane.
     "n400_interview_turn": "n400/interview-turn",
+    "n400_interviewer_turn": "n400/interviewer-turn",
 }
 
 
