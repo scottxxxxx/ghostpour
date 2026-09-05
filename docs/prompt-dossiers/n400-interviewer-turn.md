@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 3
+served_version: 4
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
@@ -62,7 +62,8 @@ Payload is `answer.final_text`, or `[start of interview]` on the first turn.
 
 Response is strict JSON: `schema_version`, `turn_id`, `intent`, `reply`
 (locale map), `facts`, `asking`, `clarification`, `conflict`,
-`section_checkpoint`, `escalation`, `complete`, `interview_over`. The intent
+`section_checkpoint`, `escalation`, `deferred` (v4), `complete`,
+`interview_over`. The intent
 vocabulary is the contract's fourteen values, pinned by test. Facts keep
 the extractor lane's provenance rules verbatim.
 
@@ -109,6 +110,44 @@ ends with the next question (turn 24); identifiers are echoed as separate
 spoken digits (turn 3); `complete` counts facts minted this turn (turns 2,
 19, 22, 25); the opening drops none of the before-we-begin questions and
 never asks the standing node (turn 1).
+
+## s2-v3 verdict and the seven v4 rules (2026-09-05)
+
+The auditor's scenario 2, the difficult applicant, on v3
+(`N400 App/qa/runs/s2-v3.eval.md`): recover, redirect, infer WORKS. "Is
+this the real application", "hold on let me find it", the cousin's
+ceremony, "do I have to talk about her", "say that again": every one met
+as a person would, nothing minted from any of them, and the Part 2
+checkpoint was spoken and confirmed. Turns 40 to 55 were invalid as a lane
+test (their agenda walker lacked predicate forms and listed a spouse's
+military service for a divorced man), re-run on their side.
+
+v4 folds in, by their turn ids: a checkpoint holds whenever the model
+itself sees a part is done, not only when `section_boundary` arrives (38,
+44); a correction the applicant already resolved REPLACES the fact and the
+reply says so, `conflict` is for unresolved candidates only (33); no menus
+on eligibility, propose one basis and confirm, hand "is that enough" to
+counsel without assessing (4); a house number rides the street line (30);
+a yes/no field is `yes` or `no`, never its own id (26); A-Number value is
+digits only, no A, spoken echo says A then digits (both runs disagreed);
+the agenda is authoritative, never ask off it and never invent a process
+reason (44 to 55).
+
+## s2b-v3: the deferral channel (v4, same day)
+
+The seeded re-run of the difficult applicant on v3
+(`N400 App/qa/runs/s2b-v3.eval.md`) passed on flow and recovery: 48 facts,
+the travel checkpoint spoken and confirmed, "what counts as a trip"
+explained and nothing recorded for Mexico. It found the last missing wire
+field: five times the reply said "we'll mark that to verify from your pay
+stubs" and nothing reached the client, and a company name was minted as
+the literal "unknown", which would have printed. v4 adds `deferred:
+[{field_id, reason, partial_value}]` to the response: the client treats
+the field as answered for agenda purposes, keeps the partial without
+printing it, and lists it on the review screen. A placeholder string is
+never a value; a partial date is always a deferral with a partial value.
+Also from that run: no derived dates in summaries (16), acknowledge once in
+the turn it happens (6, 8), never ask what was just minted (4).
 
 ## What is deliberately not here
 
