@@ -160,8 +160,9 @@ class StreamingBypassMiddleware:
         # create_task background work they spawn. A set inside a
         # BaseHTTPMiddleware.dispatch does NOT reach handlers (the app runs
         # outside dispatch's context) — verified against starlette 0.52.
-        from app.request_context import current_app_id
+        from app.request_context import current_app_id, current_request_id
         current_app_id.set(app_id)
+        current_request_id.set(request_id)
 
         # Peek at request body
         first_message = await receive()
