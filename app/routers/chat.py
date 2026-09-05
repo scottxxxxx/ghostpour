@@ -3786,6 +3786,43 @@ async def chat(
         if response and response.text:
             response.text = _strip_json_code_fence(response.text)
 
+        # 6.55. N-400 interviewer lane: every response must be the JSON
+        # object, the read-back included. conf-v15 turn 76 came back as
+        # prose and the phone showed an error banner on the last step of
+        # the interview. Retry ONCE with a reminder; meter the discarded
+        # attempt; mark a successful retry in the object; log a prose
+        # retry and return it as it came. See app/services/n400_envelope.py.
+        if (response and response.text
+                and body.get_meta("call_type") == "n400_interviewer_turn"):
+            from app.services.n400_envelope import (
+                ENVELOPE_REMINDER, is_envelope, mark_retried,
+            )
+            if not is_envelope(response.text):
+                _turn_id = body.get_meta("turn_id")
+                await usage_tracker.log_usage(
+                    db, user.id, body, response,
+                    int((time.monotonic() - start) * 1000),
+                    status="envelope_retry", app_id=app_id,
+                )
+                _retry_body = body.model_copy(update={
+                    "user_content": (body.user_content or "") + ENVELOPE_REMINDER})
+                _retry = await route_with_fallback(
+                    provider_router, _retry_body, db, request.app.state.settings,
+                )
+                _retry_text = _strip_json_code_fence(_retry.text or "") if _retry else ""
+                if is_envelope(_retry_text):
+                    logger.warning("n400_envelope_retried turn_id=%s", _turn_id)
+                    response = _retry
+                    response.text = mark_retried(_retry_text)
+                else:
+                    logger.warning("n400_envelope_prose turn_id=%s", _turn_id)
+                    if _retry:
+                        await usage_tracker.log_usage(
+                            db, user.id, _retry_body, _retry,
+                            int((time.monotonic() - start) * 1000),
+                            status="envelope_retry_failed", app_id=app_id,
+                        )
+
         # 6.6. Dash hygiene backstop (Scott's standing rule; live
         # 2026-08-12 a Project Chat answer shipped em dashes past the
         # template ban because the injected context is dash-heavy and
