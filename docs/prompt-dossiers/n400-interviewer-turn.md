@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 18
+served_version: 19
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
@@ -493,6 +493,33 @@ English too (2). The state from "Dallas Texas" (31) closed as the harness's: kno
 already carried p4.current_address.state: TX (derived from the
 jurisdiction, as the app does), so the lane was right not to mint what
 known facts answered.
+
+## conf-v18 both languages: the evidence floor moves server side (v19)
+
+v18 stamped in English (76 turns, 131 facts) and Spanish (26 turns):
+zero prose failures, zero retries, the extraction carrying the preamble
+cases for free (2 English, 3 Spanish), one guard hit. Every v18 rule
+held, including the stated-none facts and the read-back from Part 1.
+
+One data defect with a mechanism: turn 47, a yes to the Part 6 summary
+was written into the one empty id on the standing line
+(p6.child1.supported = yes) with the prior turn's words as evidence, and
+the read-back spoke it before the phone's floor could drop it. v19 adds
+the same floor on the server: a fact whose provenance.utterance is not
+in the applicant's current words is dropped before the reply leaves,
+marked `facts_dropped` in the object and logged, so the transcript and
+the record stay in step and the audit can count it. The route captures
+the raw utterance before assembly folds it into the user message. The
+prompt names the shape: after a summary, the yes closes the summary and
+the next reply asks the empty id.
+
+Also v19: a month and a year is the deferral on first hearing, never
+"I need exact days" (37); after a correction to the read-back, one
+clause and "anything else?", never all thirteen parts again (75); a
+line whose own question text names three or four things is asked two at
+a time in the model's words (30, 45, 47, 60, third run); and the English
+opening drops "themselves", which Spanish rendered as "usted mismo"
+through v14's fixed phrase (1).
 
 ## What is deliberately not here
 

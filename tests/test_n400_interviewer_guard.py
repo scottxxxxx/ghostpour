@@ -89,3 +89,51 @@ def test_the_route_calls_the_guard_for_this_call_type_only():
     src = open("app/routers/chat.py").read()
     i = src.index("guard_response_text(")
     assert 'body.get_meta("call_type") == "n400_interviewer_turn"' in src[i - 600:i]
+
+
+# --- the evidence floor ------------------------------------------------------
+
+def _turn_with_facts(facts):
+    return json.dumps({"schema_version": 1, "intent": "answer", "facts": facts, "asking": None,
+                       "reply": {"en": "x"}})
+
+
+def _pf(fid, utt):
+    return {"field_id": fid, "value": "yes", "value_type": "string",
+            "provenance": {"source": "user_stated", "confidence": 0.9, "utterance": utt}}
+
+
+def test_turn_47_shape_is_dropped_and_marked():
+    """conf-v18 turn 47: a yes to the summary minted the standing line's one
+    empty id with the PRIOR turn's words as evidence."""
+    from app.services.n400_interviewer_guard import drop_facts_without_current_evidence, EVIDENCE_DROP_REASON
+    out, dropped = drop_facts_without_current_evidence(
+        _turn_with_facts([_pf("p6.child1.supported", "she's my daughter, my own, I had her")]), "yes")
+    t = json.loads(out)
+    assert t["facts"] == [] and t["facts_dropped"][0]["field_id"] == "p6.child1.supported"
+    assert dropped[0]["reason"] == EVIDENCE_DROP_REASON
+
+
+def test_a_fact_quoting_the_current_words_survives_case_and_spacing():
+    from app.services.n400_interviewer_guard import drop_facts_without_current_evidence
+    text = _turn_with_facts([_pf("p11.email", "no email,  I don't have one")])
+    out, dropped = drop_facts_without_current_evidence(text, "I'm sorry, I gave that already, and No email, I don't have one")
+    assert dropped == [] and out == text
+
+
+def test_a_fact_with_no_utterance_is_dropped():
+    from app.services.n400_interviewer_guard import drop_facts_without_current_evidence
+    f = _pf("p1.a_number", ""); f["provenance"]["utterance"] = ""
+    out, dropped = drop_facts_without_current_evidence(_turn_with_facts([f]), "A 1 2 3")
+    assert len(dropped) == 1 and json.loads(out)["facts"] == []
+
+
+def test_the_floor_leaves_non_json_alone():
+    from app.services.n400_interviewer_guard import drop_facts_without_current_evidence
+    assert drop_facts_without_current_evidence("prose", "yes") == ("prose", [])
+
+
+def test_the_route_passes_the_raw_utterance_captured_before_assembly():
+    src = open("app/routers/chat.py").read()
+    assert src.index("_n400_utterance = body.user_content") < src.index("# 2.5. Server-side prompt assembly")
+    assert 'user_content=body.get_meta("user_input") or _n400_utterance' in src
