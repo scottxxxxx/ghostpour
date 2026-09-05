@@ -1,5 +1,5 @@
 {
-  "version": 38,
+  "version": 39,
   "server_only": true,
   "models": [
     {
@@ -45,9 +45,9 @@
           "label": "Auto Summary",
           "models": {
             "free": "anthropic/claude-haiku-4-5-20251001",
-            "plus": "anthropic/claude-haiku-4-5-20251001",
-            "pro": "anthropic/claude-haiku-4-5-20251001",
-            "automation": "anthropic/claude-haiku-4-5-20251001"
+            "plus": "anthropic/claude-sonnet-4-6",
+            "pro": "anthropic/claude-sonnet-4-6",
+            "automation": "anthropic/claude-sonnet-4-6"
           }
         },
         "analysis": {
