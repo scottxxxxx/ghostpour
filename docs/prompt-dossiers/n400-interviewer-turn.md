@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 17
+served_version: 18
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
@@ -459,6 +459,40 @@ plus the whole number (21, 23); "la Parte 2", never "Part 2" in a Spanish
 sentence (11, 23, 24); the first part's summary and object (6); a mumble
 repeat never grows into "Le explico" (19); no status remarks about the
 form (11).
+
+## conf-v17 English: the envelope mechanism, and the contract flip (v18)
+
+English on v17 (78 turns, 130 facts): zero guard hits, zero prose
+failures reaching the client, the read-back as the object with over
+after the yes, month-year dates all as deferrals. Five envelope retries
+recovered, against one drop in 81 on v15. Read off the discarded
+attempts in GP's usage log: four of the five CONTAIN the full object
+after a paragraph of out-loud deliberation ("Looking at this: she
+confirmed..."), the fifth is the same shape cut short. With thinking
+disabled, v17's "decide FIRST, then..." framing plus the pre-OUTPUT
+checklist invited deliberation in prose, and it landed in the output.
+v18: the route EXTRACTS an object that follows a preamble (first brace
+to last, parsed, `envelope_extracted: true`) and retries only when no
+object is present at all; the prompt says the first character of the
+response is the brace and the deciding happens inside the fields.
+
+Contract flip, the auditor's to own: a STATED NONE on an optional field
+(email, a second phone, a middle name, other names) is now a fact with
+the empty string and her words as provenance; the client maps it to a
+confirmed-empty marker and the agenda drops it. This reverses v13's
+"never mint an empty value", which predated the client mapping.
+Required fields are still never minted empty.
+
+Also v18: "my only phone" mints the daytime as that number (61); the
+note-then-ask defect was a CONFLICT between the DEFERRALS rule and the
+hedged-year rule, now one rule keyed on whether the document is in hand
+(47, 55); an agenda line with three or more ids is asked two per breath,
+which tracked a five-id line (43, 45, 46, 60); the read-back walks every
+part from Part 1 (77); the attorney sentence off the identity answer in
+English too (2). The state from "Dallas Texas" (31) closed as the harness's: known facts
+already carried p4.current_address.state: TX (derived from the
+jurisdiction, as the app does), so the lane was right not to mint what
+known facts answered.
 
 ## What is deliberately not here
 

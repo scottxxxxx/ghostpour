@@ -3795,9 +3795,16 @@ async def chat(
         if (response and response.text
                 and body.get_meta("call_type") == "n400_interviewer_turn"):
             from app.services.n400_envelope import (
-                ENVELOPE_REMINDER, is_envelope, mark_retried,
+                ENVELOPE_REMINDER, extract_envelope, is_envelope,
+                mark_extracted, mark_retried,
             )
-            if not is_envelope(response.text):
+            _embedded = None if is_envelope(response.text) else extract_envelope(response.text)
+            if _embedded is not None:
+                # conf-v17: the object was there after a paragraph of
+                # deliberation. Take it, mark it, no second call.
+                logger.warning("n400_envelope_extracted turn_id=%s", body.get_meta("turn_id"))
+                response.text = mark_extracted(_embedded)
+            elif not is_envelope(response.text):
                 _turn_id = body.get_meta("turn_id")
                 await usage_tracker.log_usage(
                     db, user.id, body, response,

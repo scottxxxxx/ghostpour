@@ -37,3 +37,27 @@ def test_the_route_retries_exactly_once_for_this_call_type_and_meters_the_discar
     assert block.count("await route_with_fallback(") == 1, "exactly one retry"
     assert 'status="envelope_retry"' in block and 'status="envelope_retry_failed"' in block
     assert "n400_envelope_retried" in block and "n400_envelope_prose" in block
+
+
+def test_a_preamble_followed_by_the_object_is_extracted_not_retried():
+    from app.services.n400_envelope import extract_envelope, mark_extracted
+    prose = ("This confirms the laundromat's city and state; I still need the ZIP.\n\n"
+             + json.dumps({"schema_version": 1, "turn_id": "t_051", "reply": {"en": "And the ZIP?"}, "facts": []}))
+    got = extract_envelope(prose)
+    assert got is not None and json.loads(got)["turn_id"] == "t_051"
+    assert json.loads(mark_extracted(got))["envelope_extracted"] is True
+
+
+def test_prose_with_no_object_or_a_broken_object_is_not_extracted():
+    from app.services.n400_envelope import extract_envelope
+    assert extract_envelope("Looking at this: she confirmed a prior job. I need to de") is None
+    assert extract_envelope("note {\"reply\": {\"en\": \"x\"") is None
+    assert extract_envelope("{\"facts\": []}") is None
+
+
+def test_the_route_extracts_before_it_retries():
+    src = open("app/routers/chat.py").read()
+    i = src.index("from app.services.n400_envelope import")
+    block = src[i:i + 2600]
+    assert block.index("extract_envelope(response.text)") < block.index("await route_with_fallback(")
+    assert "n400_envelope_extracted" in block

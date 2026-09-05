@@ -41,6 +41,36 @@ def is_envelope(text: str | None) -> bool:
     return isinstance(obj, dict) and "reply" in obj
 
 
+def extract_envelope(text: str | None) -> str | None:
+    """The object embedded in a response that has prose around it, or None.
+
+    conf-v17: four of five "prose" responses were a paragraph of out-loud
+    deliberation FOLLOWED by the complete object. Extracting it costs
+    nothing; a second model call costs a turn's money and four seconds of
+    silence on the phone. Takes the span from the first brace to the last
+    and accepts it only if it parses to the lane's object.
+    """
+    if not text:
+        return None
+    i, j = text.find("{"), text.rfind("}")
+    if i < 0 or j <= i:
+        return None
+    candidate = text[i:j + 1]
+    return candidate if is_envelope(candidate) else None
+
+
+def mark_extracted(text: str) -> str:
+    """Add `envelope_extracted: true` so the audit can count these too."""
+    try:
+        obj = json.loads(text)
+    except (TypeError, ValueError):
+        return text
+    if not isinstance(obj, dict):
+        return text
+    obj["envelope_extracted"] = True
+    return json.dumps(obj, ensure_ascii=False)
+
+
 def mark_retried(text: str) -> str:
     """Add `envelope_retried: true` to an object that came from the retry.
 
