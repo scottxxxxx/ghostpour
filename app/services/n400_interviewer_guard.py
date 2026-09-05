@@ -143,6 +143,42 @@ def drop_facts_without_current_evidence(text: str, user_content: str | None) -> 
     return json.dumps(turn, ensure_ascii=False), dropped
 
 
+BOTH_REASON = "the same field was also deferred in this response; the deferral stands"
+
+
+def drop_facts_that_are_also_deferred(text: str) -> tuple[str, list[dict]]:
+    """One field is a fact or a deferral in one response, never both.
+
+    conf-v20 turn 38: facts p4.prior_address1.from = 2017-10-01 and .to =
+    2020-06-01 rode alongside deferrals for the same fields with partials
+    2017-10 and 2020-06, and the reply said "to confirm the exact days".
+    The client keeps the fact, so two invented days stood. The deferral is
+    the honest one of the pair; the fact is dropped and the drop is marked.
+    """
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, []
+    if not isinstance(turn, dict):
+        return text, []
+    deferred_ids = {d.get("field_id") for d in (turn.get("deferred") or []) if isinstance(d, dict)}
+    facts = turn.get("facts")
+    if not deferred_ids or not isinstance(facts, list):
+        return text, []
+    kept, dropped = [], []
+    for f in facts:
+        fid = f.get("field_id") if isinstance(f, dict) else None
+        if fid in deferred_ids:
+            dropped.append({"field_id": fid, "value": f.get("value"), "reason": BOTH_REASON})
+        else:
+            kept.append(f)
+    if not dropped:
+        return text, []
+    turn["facts"] = kept
+    turn["facts_dropped"] = (turn.get("facts_dropped") or []) + dropped
+    return json.dumps(turn, ensure_ascii=False), dropped
+
+
 def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
                         user_content: str | None = None) -> str:
     new_text, info = drop_stale_asking(text, agenda)
@@ -155,4 +191,7 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
         new_text, dropped = drop_facts_without_current_evidence(new_text, user_content)
         for d in dropped:
             logger.warning("n400_fact_dropped_no_evidence turn_id=%s field_id=%s", turn_id, d["field_id"])
+    new_text, both = drop_facts_that_are_also_deferred(new_text)
+    for d in both:
+        logger.warning("n400_fact_dropped_also_deferred turn_id=%s field_id=%s", turn_id, d["field_id"])
     return new_text

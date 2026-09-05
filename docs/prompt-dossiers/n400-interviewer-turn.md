@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 20
+served_version: 21
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
@@ -540,6 +540,32 @@ read-back includes onboarding-seeded parts, one clause each (12, 13);
 and two Spanish slips get FIXED forms the way v14's opening did: the
 mumble repeat is "Perdón, no le escuché bien." plus the question, and
 the A-Number echo is one fixed line (21, 6).
+
+## conf-v20: Spanish clean, English not stamped; v21
+
+v20 (English 120 of 120 provenance spans, Spanish 20 of 20): off-agenda
+asking held, the A-Number echo held; the business-name ask was partial,
+the Parts 12 and 13 read-back failed, the Spanish mumble was read as
+help_explain. Four data items. The one that matters most, the same
+question Scott's phone test choked on in the extractor lane: the
+eligibility basis never landed. Mechanism: v4's "match it to one basis and
+confirm it in one sentence" made the model treat the basis as pending the
+applicant's yes, so it minted nothing on the turn she said it and then
+minted on the yes quoting her earlier words, which the evidence floor
+correctly dropped. v21 says the basis is minted in the same response as
+the match, the confirmation is courtesy not a gate. Second: a field is a
+fact or a deferral in one response, never both (turn 38 carried both and
+two invented days stood), now ENFORCED by the guard (the fact is dropped,
+the deferral stands, `facts_dropped` with its reason). Third: never mint
+a field the spoken question did not name (the Part 9 batch minted ten
+fields from "no, never, not even a ticket" after the lane's SPOKEN
+paraphrase had named only the first clause; the agenda line's own text
+names every item, so the batch is fine when spoken in full, and the
+client keeps its node shapes). Fourth: a description is a deferral partial, not an employer
+name. Plus the v20 partials restated harder and the Spanish warmth items
+(jargon, "el número de USCIS", ethnicity wording, list length, a known
+fact never deferred), the window-covered rule, and "take your time" as a
+stop.
 
 ## What is deliberately not here
 
