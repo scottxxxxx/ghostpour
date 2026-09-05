@@ -771,6 +771,32 @@ def _material_floor_chars() -> int:
         return 900
 
 
+# Draft intent (CQ ask 2026-09-05, measured on a blind persona test): when
+# the user asks for something to SEND, the transcript alone scored 9 and
+# the full memory block scored 6, because the block's history and overdue
+# lines pulled the draft off the actions the meeting had just listed. The
+# rows that helped were how each person likes to receive things, which CQ
+# ranks near the top, so a smaller budget keeps them and drops the rest.
+DRAFT_RECALL_TOKEN_BUDGET = 300
+_DRAFT_INTENT = re.compile(
+    r"\b(draft|write|compose|word|wording|reply|respond|send|email|e-mail|"
+    r"message|text|note|memo|dm|slack|follow[- ]?up|thank[- ]you|"
+    r"redact[ae]|escrib[aei]|correo|mensaje|responde|"
+    r"r\u00e9dige|\u00e9cri[st]|courriel|r\u00e9pond)\b",
+    re.IGNORECASE)
+# CJK has no word boundaries, so the Japanese forms match bare.
+_DRAFT_INTENT_JA = re.compile(r"\u30e1\u30fc\u30eb|\u8fd4\u4fe1|\u4e0b\u66f8\u304d|\u66f8\u3044\u3066")
+
+
+def is_draft_intent(question: str | None) -> bool:
+    """True when the ask is for something to send or write, in the four
+    served locales. A word list on purpose: it runs on every recall leg,
+    and a miss costs only the larger block the user gets today."""
+    if not question:
+        return False
+    return _DRAFT_INTENT.search(question) is not None or _DRAFT_INTENT_JA.search(question) is not None
+
+
 def _build_recall_metadata(body: ChatRequest) -> dict[str, Any]:
     """Compose the outbound recall metadata from the request.
 
@@ -802,6 +828,11 @@ def _build_recall_metadata(body: ChatRequest) -> dict[str, Any]:
     # default.
     if body.get_meta("prompt_mode") == "ProjectChat":
         cq_metadata["token_budget"] = 1200
+    # A draft ask on any surface asks for the SMALL block: the top few rows
+    # only (preferences, traits, open commitments), never the history.
+    from app.services.document_generation import _question_portion
+    if is_draft_intent(_question_portion(body.user_content or "")):
+        cq_metadata["token_budget"] = DRAFT_RECALL_TOKEN_BUDGET
     return cq_metadata
 
 
