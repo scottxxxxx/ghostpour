@@ -4111,6 +4111,17 @@ async def chat(
             audit_missing(response.usage, provider=response.provider,
                           model=response.model, call_type=body.get_meta("call_type"))
 
+        # N-400 interviewer lane: a VISIBLE backstop for a stale `asking`
+        # (the node whose answer just arrived named as the next question).
+        # Drops only when every field of that node has a fact in this same
+        # response, marks the drop in the JSON and logs it with the turn id,
+        # so the auditor can count hits per run. See
+        # app/services/n400_interviewer_guard.py.
+        if response and response.text and body.get_meta("call_type") == "n400_interviewer_turn":
+            from app.services.n400_interviewer_guard import guard_response_text
+            response.text = guard_response_text(
+                response.text, body.get_meta("agenda"), body.get_meta("turn_id"))
+
         # Surface the cleaned transcript (if cleanup ran for this analysis call)
         # so iOS can persist it to MeetingRecord.cleanedTranscript. Absent when
         # cleanup was skipped or failed — iOS falls back to raw silently.
