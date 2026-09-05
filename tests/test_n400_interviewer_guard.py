@@ -56,10 +56,20 @@ def test_a_partial_answer_keeps_asking_on_the_node():
     assert out == text and info is None
 
 
-def test_a_node_absent_from_the_agenda_is_left_alone():
-    text = _turn("q_p9_arrest_row_1", [_fact("p9.arrested_ever")])
+def test_a_node_absent_from_the_agenda_is_dropped_and_marked_off_agenda():
+    """conf-v19 English 60: asking named a node the agenda did not list and
+    nothing was minted for it, so the all-fields rule could not see it."""
+    from app.services.n400_interviewer_guard import OFF_AGENDA_REASON
+    text = _turn("q_p9_selective_service", [])
     out, info = drop_stale_asking(text, AGENDA)
-    assert out == text and info is None
+    t = json.loads(out)
+    assert t["asking"] is None and t["asking_dropped"]["reason"] == OFF_AGENDA_REASON
+    assert info["node_id"] == "q_p9_selective_service"
+
+
+def test_no_agenda_at_all_still_means_no_guard():
+    text = _turn("q_p9_selective_service", [])
+    assert drop_stale_asking(text, "") == (text, None)
 
 
 def test_no_agenda_means_no_guard():
