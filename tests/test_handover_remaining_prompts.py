@@ -16,6 +16,17 @@ import pathlib
 import pytest
 
 LOCALES = ("", ".es", ".fr")
+# ja ships analysisSchema but not freeformAskPrompt, so it joins only the
+# schema tests.
+SCHEMA_LOCALES = ("", ".es", ".fr", ".ja")
+
+# Scott's ruling, 2026-09-04: the analysis lane converges on the report
+# lane's eight. ShoulderSurf shipped the client half in f6f778d; this is
+# GP's served copy kept in step with it, verbatim, so that when the client
+# switches its reader to this key the behaviour does not move.
+THE_EIGHT = ("informational", "positive", "collaborative", "cautious",
+             "pressured", "tense", "disconnected", "decisive")
+RETIRED_FIVE = ("enthusiastic", "focused", "frustrated", "concerned", "disappointed")
 
 
 def _pp(loc=""):
@@ -55,12 +66,12 @@ def test_the_hint_stays_a_nudge_and_not_the_answer():
 # --- item 3: the analysis schema frame --------------------------------
 
 
-@pytest.mark.parametrize("loc", LOCALES)
+@pytest.mark.parametrize("loc", SCHEMA_LOCALES)
 def test_the_schema_frame_is_served(loc):
     assert _pp(loc)["analysisSchema"].strip()
 
 
-@pytest.mark.parametrize("loc", LOCALES)
+@pytest.mark.parametrize("loc", SCHEMA_LOCALES)
 def test_the_decoder_contract_is_never_translated(loc):
     """Field names and enum values are what the client decodes. Translating
     them would produce a valid-looking Spanish object that fails to parse,
@@ -70,9 +81,61 @@ def test_the_decoder_contract_is_never_translated(loc):
                   "sentimentReason", "urgency", "urgencyReason",
                   "personalityMessage", "suggestedTags", "tagReasons"):
         assert f'"{field}"' in s, (loc, field)
-    for enum in ("enthusiastic", "collaborative", "informational", "disappointed",
-                 "low", "medium", "high", "critical"):
+    for enum in (*THE_EIGHT, "low", "medium", "high", "critical"):
         assert f'"{enum}"' in s, (loc, enum)
+
+
+@pytest.mark.parametrize("loc", SCHEMA_LOCALES)
+def test_the_retired_five_are_gone_from_the_enum_lines(loc):
+    """The convergence has THREE sites per file and one of them must not
+    change. `sentimentLabel` and `sentimentEmoji` list the enum and lose the
+    five. `sentimentScore` says "+1.0 (very positive/enthusiastic)", which
+    describes a SCALE, not a category, and a find-and-replace eats it and
+    silently redefines what +1.0 means.
+
+    So the expected count is asymmetric on purpose: en/es/fr keep exactly one
+    retired word (the scale prose, which ships in English), ja keeps zero
+    (it translates the scale prose and leaves the enum lines English). One
+    number catches both a translated enum and a wrongly edited scale line."""
+    s = _pp(loc)["analysisSchema"]
+    for word in RETIRED_FIVE:
+        assert f'"{word}"' not in s, (loc, word, "still quoted as an enum value")
+    hits = sum(s.count(word) for word in RETIRED_FIVE)
+    if loc == ".ja":
+        assert hits == 0, (loc, hits)
+    else:
+        assert hits == 1, (loc, hits)
+        assert "(very positive/enthusiastic)" in s, loc
+
+
+@pytest.mark.parametrize("loc", SCHEMA_LOCALES)
+def test_the_eight_ship_with_their_definitions(loc):
+    """ShoulderSurf's own note on f6f778d: the definitions and contrast
+    rules are the load-bearing half. Without them "pressured" fires on any
+    meeting that mentions a date. Each label gets a definition bullet with
+    the identifier in English, in every locale, and the quote rule for the
+    three claims that need a quotable line survives translation."""
+    s = _pp(loc)["analysisSchema"]
+    for label in THE_EIGHT[1:]:
+        assert f'  - "{label}":' in s, (loc, label)
+    assert s.count('"informational"') >= 2, (loc, "the DEFAULT line is missing")
+    for label in ("tense", "pressured", "disconnected"):
+        assert s.count(f'"{label}"') >= 3, (loc, label, "enum, definition, quote rule")
+
+
+def test_the_english_enum_lines_are_the_client_text_verbatim():
+    """Pinned to the lines ShoulderSurf compiles in (f6f778d). If GP's copy
+    drifts from theirs, the day they switch readers is the day the wording
+    silently changes, which is the exact failure the handover exists to
+    prevent."""
+    s = _pp()["analysisSchema"]
+    assert ('- "sentimentLabel": Exactly one of: "informational", "positive", '
+            '"collaborative", "cautious", "pressured", "tense", "disconnected", '
+            '"decisive".\n') in s
+    assert ('- "sentimentEmoji": A single emoji that represents the sentiment: '
+            'informational, positive, collaborative, cautious, pressured, tense, '
+            'disconnected, decisive.\n') in s
+    assert ('each require a line you could quote: no quote, no claim.\n') in s
 
 
 @pytest.mark.parametrize("loc", (".es", ".fr"))
