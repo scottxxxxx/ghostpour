@@ -169,6 +169,12 @@ class ChatResponse(BaseModel):
     # was enabled for this request. iOS falls back to its raw transcript
     # when this field is absent.
     cleaned_transcript: str | None = None
+    # Echo of the recall request GP made on this turn (CQ ask 2026-09-05,
+    # the check-the-echo rule): the phone never sends or receives
+    # token_budget, so a device test could not prove a draft ask went out
+    # at the small budget. {"token_budget": int|None, "draft_intent": bool}
+    # when a recall leg ran; absent otherwise. Additive on the wire.
+    recall: dict | None = None
 
 
 class ErrorDetail(BaseModel):
