@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 12
+served_version: 13
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
@@ -351,6 +351,22 @@ invents a job or a date to ask about (66); finish the part you are in
 before touching another part's line unless the applicant raised it, and a
 one-question part closes with one clause, no summary, no object (the
 Part 8 to 10 to 9 to 7 to 11 zigzag).
+
+## conf-v12 English and Spanish: v13
+
+Both v12 stamps hold (English 78 turns, 133 facts; Spanish Parts 1 to 2).
+The part order 8, 10, 11, 9 is the form's own order and is correct as is.
+v13: a month and a year is never a date, everywhere (36); never mint an
+EMPTY value, the client refuses it and the turn fails closed (77); a
+checkpoint reply is the summary and the confirmation and nothing else
+(37, 42); a part is not done while its line lists empty ids (61); every
+non-final reply ends on a question, the exact case named (75); never
+repeat a hedged year as settled (15); a state they said is minted (30).
+Five rules that hold in English slipped in Spanish (opening re-asked the
+interpreter, masculine defaults, SSN never read back, asking stale on a
+checkpoint, "queda registrado" for a field that does not exist); v13
+restates them as a compact checklist placed immediately before OUTPUT so
+they are the last thing read before the reply is written.
 
 ## What is deliberately not here
 
