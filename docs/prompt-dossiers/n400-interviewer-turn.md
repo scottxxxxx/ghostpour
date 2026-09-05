@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 7
+served_version: 8
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
@@ -241,6 +241,33 @@ the yes to that, and "go over everything once more" gets the read-back
 itself, never a pointer to a document (62). Her spouse block and the
 Selective Service gating were the client walker's derived fields, not the
 lane's.
+
+## reg7: the v7 regression PASSED; the lane is done for launch, v8 is tuning
+
+`N400 App/qa/runs/reg7.eval.md` (fable-auditor-84): PASS on the three
+watch items. A harness confession first: every prior run sent the
+conversation window BACKWARDS (reply then the answer that prompted it,
+current line omitted), so the last APPLICANT line under the standing
+question was always the previous answer, which is where much of the
+"facts minted one turn late" came from (16 of 39 facts on the first v7
+crimes run). Fixed on their side and all three regressions rerun on v7:
+76 of 78 provenance spans are the current utterance, every summary reads
+values, the final read-back was spoken before interview_over (on request
+both times, so the unprompted form is untested), the legal line held,
+zero dashes across 194 values. The evidence-turn rule stays; it was
+correct behaviour even on a scrambled input.
+
+v8 tuning, by their turn ids: `asking` names the node whose question the
+reply actually ends with, decided before the reply is written, because the
+phone's cursor follows `asking` (reg7b-crimes 9, 14; reg7b-spouse 3);
+every spoken summary carries the checkpoint object including the LAST
+part's, which no `section_boundary` can announce (reg7b-crimes 14,
+reg7-crimes 13); a place is recorded exactly as said, "Houston" never
+"Houston, TX" (arrest places); a passing mention inside another answer
+opens no deferral (reg7b-open 3).
+
+Readiness, in the auditor's words: the lane is done for launch, v8 is
+tuning, the distance to the phone is the client cutover.
 
 ## What is deliberately not here
 
