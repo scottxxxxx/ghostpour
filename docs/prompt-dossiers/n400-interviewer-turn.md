@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 13
+served_version: 14
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
@@ -367,6 +367,32 @@ interpreter, masculine defaults, SSN never read back, asking stale on a
 checkpoint, "queda registrado" for a field that does not exist); v13
 restates them as a compact checklist placed immediately before OUTPUT so
 they are the last thing read before the reply is written.
+
+## conf-es-v13: the checklist took three of five; v14
+
+Spanish on v13 (27 turns): the interpreter question is gone from the
+opening, the opening ends on one question, no "a verificar" after a
+correction, no claim about recording a city, asking clean. v14: Spanish
+compound numerals parsed as two digits each with a worked example, digits
+COUNTED before any too-short claim, and a conflict spoken with both
+candidates digit by digit (21 to 24, a nervous woman told three times she
+said her own number wrong); never step past a line in the standing part
+(the name-change question, 10); the opening's Spanish forms are now
+FIXED phrases in the prompt ("por su cuenta", "si no tiene certeza",
+"hasta que revise cada respuesta en la aplicación") so gender agreement
+needs no choice before gender is known (a third recurrence, done
+structurally); no form-speak in any language, "el campo" and "El SSN
+queda anotado, corregido" named (13, 18, 24, 26); a mumble is noise, not
+a request for an explanation, so the repeat never grows (19).
+
+Stale `asking` recurred once more in Spanish (turn 4: minted the
+eligibility basis, asking still named its node while the reply asked the
+A-Number). Mechanism, same family as v6: in the v6 field order `asking`
+was written BEFORE `facts`, so the model named the node it would ask
+before committing to what it had just minted. v14 moves facts, deferred,
+clarification, conflict, escalation and complete ahead of asking; asking
+written after facts cannot name a node just minted. A deferral counts as
+answered for asking, agreed.
 
 ## What is deliberately not here
 
