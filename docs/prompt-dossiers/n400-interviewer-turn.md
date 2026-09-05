@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 14
+served_version: 15
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
@@ -393,6 +393,24 @@ before committing to what it had just minted. v14 moves facts, deferred,
 clarification, conflict, escalation and complete ahead of asking; asking
 written after facts cannot name a node just minted. A deferral counts as
 answered for asking, agreed.
+
+## conf-es-v14: the field-order read for asking was WRONG; v15
+
+Spanish on v14 (26 turns, every value right): the numerals, the fixed
+opening phrases, the name-change line and the no-form-speak rule all
+held first time. But `asking` still named the node just minted on three
+turns WITH the facts-before-asking order verified on the wire. So the v14
+mechanism read was wrong, at least for Spanish; the same turn shape in
+English v11 and v12 was clean every time. The auditor's hypothesis is
+wording: "the agenda node your question is for" reads in Spanish as "the
+question at hand". v15 defines asking mechanically on the field itself
+(the node of the NEXT question, the one the applicant hears at the end of
+this reply; if any fact in the response fills asking.node_id, asking is
+wrong), states it in Spanish as well so no translation can bend it, and
+puts the same bilingual sentence in the pre-OUTPUT checklist. Also in
+the checklist: a value in KNOWN FACTS is settled, never "a verificar"
+(regressed once in Spanish on v14), and never quote their hesitation back
+at them.
 
 ## What is deliberately not here
 
