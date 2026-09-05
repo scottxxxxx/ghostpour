@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 19
+served_version: 20
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
@@ -520,6 +520,26 @@ line whose own question text names three or four things is asked two at
 a time in the model's words (30, 45, 47, 60, third run); and the English
 opening drops "themselves", which Spanish rendered as "usted mismo"
 through v14's fixed phrase (1).
+
+## conf-v19 both languages: nothing structural open (v20 is warmth)
+
+v19 stamped clean: English 78 turns with 117 of 117 provenance spans in
+the current utterance (the first run all night with zero previous-turn
+quotes), Spanish 26 turns with 21 of 21. The support question was asked
+and minted from her answer; the evidence floor dropped two re-emissions
+whose values already stood; the two-per-breath rule took on the address
+without the fixture change. In the auditor's words, the lane has nothing
+structural open in either language.
+
+v20, four warmth items: `asking` names an agenda node only, and the
+guard now drops (visibly, reason "this node is not on the agenda") a
+node the agenda does not carry, which the all-fields rule could not see
+because nothing was minted for it (English 60); a self-employed
+applicant is self-employed, never asked to name a business (47); the
+read-back includes onboarding-seeded parts, one clause each (12, 13);
+and two Spanish slips get FIXED forms the way v14's opening did: the
+mumble repeat is "Perdón, no le escuché bien." plus the question, and
+the A-Number echo is one fixed line (21, 6).
 
 ## What is deliberately not here
 

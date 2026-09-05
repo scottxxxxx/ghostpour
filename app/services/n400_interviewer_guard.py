@@ -33,6 +33,7 @@ logger = logging.getLogger("ghostpour.n400_interviewer_guard")
 
 CALL_TYPE = "n400_interviewer_turn"
 DROP_REASON = "every field of this node was filled by a fact in this response"
+OFF_AGENDA_REASON = "this node is not on the agenda"
 
 
 def agenda_field_ids(agenda: str | None) -> dict[str, set[str]]:
@@ -71,7 +72,18 @@ def drop_stale_asking(text: str, agenda: str | None) -> tuple[str, dict | None]:
     if not isinstance(asking, dict) or not asking.get("node_id"):
         return text, None
     node_id = str(asking["node_id"])
-    node_ids = agenda_field_ids(agenda).get(node_id)
+    by_node = agenda_field_ids(agenda)
+    if by_node and node_id not in by_node:
+        # conf-v19 English 60: asking named a node the agenda did not list
+        # (Selective Service, answered by a known fact). Nothing was minted
+        # for it, so the all-fields rule below could not see it. The client
+        # falls back to its own cursor on a node off the agenda; making the
+        # drop visible is what lets the audit count it.
+        info = {"node_id": node_id, "field_ids": [], "reason": OFF_AGENDA_REASON}
+        turn["asking"] = None
+        turn["asking_dropped"] = info
+        return json.dumps(turn, ensure_ascii=False), info
+    node_ids = by_node.get(node_id)
     if not node_ids:
         return text, None
     facts = turn.get("facts") or []
