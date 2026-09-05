@@ -154,7 +154,13 @@ tiers:
     monthly_cost_limit_usd: 10.0
     daily_cost_limit_usd: -1
     daily_token_limit: -1
-    requests_per_minute: 20
+    # 20 -> 60 on 2026-09-05. The N-400 auditor runs two or three simulated
+    # applicants in parallel on one harness user, each at roughly eight
+    # seconds a turn, so about eight requests a minute per persona. Three
+    # personas crossed 20 and got 429s, and retrying around a per-user
+    # limit wastes turns and hides real latency. 60 covers seven personas
+    # and is still a ceiling on a $10-capped internal credential.
+    requests_per_minute: 60
     summary_mode: "choice"
     summary_interval_minutes: 10
     allowed_providers:
