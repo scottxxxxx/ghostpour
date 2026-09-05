@@ -281,12 +281,19 @@ async def lifespan(app: FastAPI):
         from app.services.generated_files import purge_expired
         from app.services.generation_turns import purge_expired as purge_turns
         db_path = settings.database_url.replace("sqlite+aiosqlite:///", "")
+        first = True
         while True:
             try:
                 async with aiosqlite.connect(db_path) as db:
                     db.row_factory = aiosqlite.Row
+                    if first:
+                        # Every row still "running" belonged to the process
+                        # that just died; say so rather than 404.
+                        from app.services.generation_turns import sweep_lost_to_restart
+                        await sweep_lost_to_restart(db)
+                        first = False
                     await purge_expired(db)
-                    await purge_turns(db)  # same 6h clock, same sweep
+                    await purge_turns(db)
                     from app.services.meeting_shares import purge_expired as purge_shares
                     await purge_shares(db)  # expired or revoked meeting shares
                     from app.services.translations import purge_transcript_translations

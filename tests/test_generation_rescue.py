@@ -110,7 +110,8 @@ def test_endpoint_running_done_and_uniform_404(client, pro_user, tmp_db_path):
     future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
     con = sqlite3.connect(tmp_db_path)
     con.execute(
-        "INSERT INTO generations VALUES (?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO generations (generation_id, user_id, app_id, status, text, error_json, "
+        "files_json, started_at, completed_at, expires_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
         ("gen-done", uid, "shouldersurf", "done", "answer text", None,
          '[{"file_id": "gpf_1", "name": "t.xlsx"}]', future, future, future))
     con.commit(); con.close()

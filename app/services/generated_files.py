@@ -54,6 +54,13 @@ async def stage(
     payload, or None when the per-user live cap would be exceeded (the
     generation's text answer still returns — files are best-effort)."""
     if await live_bytes_for_user(db, user_id) + len(content) > PER_USER_LIVE_CAP_BYTES:
+        # Discovery keeps done files for 7 days, so a busy week can reach the
+        # cap. Files the client has already ACKED (presented and ingested)
+        # go first, oldest first; only when nothing acked is left is the
+        # new file refused.
+        await purge_oldest_acked_for_user(
+            db, user_id, len(content) - (PER_USER_LIVE_CAP_BYTES - await live_bytes_for_user(db, user_id)))
+    if await live_bytes_for_user(db, user_id) + len(content) > PER_USER_LIVE_CAP_BYTES:
         logger.warning("generated_files: user %s over live cap — dropping %r", user_id[:8], name)
         return None
 
@@ -115,3 +122,63 @@ async def purge_expired(db: aiosqlite.Connection) -> int:
         await db.commit()
         logger.info("generated_files: purged %d expired artifact(s)", len(rows))
     return len(rows)
+
+
+async def extend_expiry(db: aiosqlite.Connection, file_ids: list[str], expires_at: str) -> int:
+    """Move staged files onto their generation's clock (7 days for done)."""
+    if not file_ids:
+        return 0
+    cur = await db.execute(
+        f"UPDATE generated_files SET expires_at = ? WHERE id IN ({','.join('?' * len(file_ids))})",
+        [expires_at, *file_ids],
+    )
+    await db.commit()
+    return cur.rowcount or 0
+
+
+async def acked_file_ids_for_user(db: aiosqlite.Connection, user_id: str) -> list[tuple[str, str]]:
+    """(file_id, acked_at) for every file of an acked generation, oldest ack first."""
+    import json as _json
+    try:
+        rows = await (await db.execute(
+            "SELECT files_json, acked_at FROM generations WHERE user_id = ? AND acked_at IS NOT NULL "
+            "ORDER BY acked_at ASC", (user_id,),
+        )).fetchall()
+    except Exception as e:  # noqa: BLE001
+        # A database without the generations table (a test's synthetic
+        # schema) has nothing acked. On prod the table always exists, so
+        # this is logged rather than swallowed silently.
+        logger.warning("generated_files: could not read acked generations for %s: %s", user_id[:8], e)
+        return []
+    out = []
+    for r in rows:
+        for f in _json.loads(r["files_json"] or "[]"):
+            if f.get("file_id"):
+                out.append((f["file_id"], r["acked_at"]))
+    return out
+
+
+async def purge_oldest_acked_for_user(db: aiosqlite.Connection, user_id: str, needed_bytes: int) -> int:
+    """Free at least `needed_bytes` by deleting this user's acked files,
+    oldest ack first. Returns bytes freed. Never touches an unacked file."""
+    freed = 0
+    if needed_bytes <= 0:
+        return 0
+    for fid, _ in await acked_file_ids_for_user(db, user_id):
+        row = await (await db.execute(
+            "SELECT id, size_bytes, storage_path FROM generated_files WHERE id = ? AND user_id = ?",
+            (fid, user_id))).fetchone()
+        if not row:
+            continue
+        try:
+            Path(row["storage_path"]).unlink(missing_ok=True)
+        except OSError as e:
+            logger.warning("generated_files: could not delete %s: %s", row["storage_path"], e)
+        await db.execute("DELETE FROM generated_files WHERE id = ?", (row["id"],))
+        freed += int(row["size_bytes"] or 0)
+        if freed >= needed_bytes:
+            break
+    await db.commit()
+    if freed:
+        logger.info("generated_files: freed %d bytes of acked files for %s", freed, user_id[:8])
+    return freed
