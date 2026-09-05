@@ -1,10 +1,11 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 1
+served_version: 2
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
+thinking: disabled
 reconciled: 2026-09-05
 ---
 
@@ -85,20 +86,26 @@ value server-side yet. Raised with the auditor as a contract addition.
 
 - No few-shots: two real utterances are not a corpus (same as v3).
 - No server-side validation of `intent`, `asking` or option identifiers.
-- No `thinking` override: the extractor lane runs Sonnet 5 at 2048 tokens
-  without one and has produced correct device turns, so this starts the
-  same way. Revisit if the JSON gets truncated on long checkpoint turns.
+- v2: `thinking: disabled`. v1 shipped without it and two of the first
+  seven live turns hit the 2048 cap inside the thinking block, one with no
+  text at all (stop_reason max_tokens, usage_log status success). Same
+  starvation `tr_counterpart_turn` guards against the same way.
 - No jurisdiction variants; the axis exists and is empty.
 
 ## Evidence
 
-No traffic yet. Cost is an estimate until the first real rows: the
-extractor lane's device turn cost $0.0092 with a 6.3k-character system
-prompt and a one-line user message; this prompt is about 13.6k characters and
-the user message carries up to twelve exchanges plus an agenda, so expect
-roughly $0.015 to $0.02 per turn on Sonnet 5, about a dollar for a 60-turn
-interview, which is five interviews per user against the $5 monthly cap.
-Measure it on the first harness run and correct this paragraph.
+First seven live turns, 2026-09-05 03:31 to 03:33Z (one GP probe, six from
+the auditor's scenario 1 run), all Sonnet 5, v1 of this config:
+
+- The system prompt is cache-read on every turn after the first (4518
+  tokens `cache_read_input_tokens`), so uncached input is 476 to 1316
+  tokens per turn. Caching was already the case and is not a lever.
+- Cost per turn $0.0044 to $0.024; the opening turn is the expensive one
+  (long preamble). Median about $0.006, well under the pre-run estimate.
+- Latency tracks OUTPUT tokens: JSON text is about 250 tokens per turn,
+  billed output 350 to 1100, the difference being default thinking; 3.5 to
+  12 seconds. Two turns hit the 2048 cap (one with no text), which is why
+  v2 disables thinking. Re-measure after v2 and replace these numbers.
 
 Acceptance is the auditor's two scenarios (Scott's reference conversation,
 then a difficult applicant) run live against the deployed container, graded
