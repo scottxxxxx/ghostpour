@@ -1677,6 +1677,10 @@ async def chat(
                     },
                 )
 
+    # The N-400 evidence floor needs the applicant's raw words, which step
+    # 2.5 folds into the assembled user message.
+    _n400_utterance = body.user_content
+
     # 2.5. Server-side prompt assembly — if client sent no system_prompt but
     # has a call_type with a registered prompt config, assemble it server-side.
     if not body.system_prompt:
@@ -4169,7 +4173,8 @@ async def chat(
         if response and response.text and body.get_meta("call_type") == "n400_interviewer_turn":
             from app.services.n400_interviewer_guard import guard_response_text
             response.text = guard_response_text(
-                response.text, body.get_meta("agenda"), body.get_meta("turn_id"))
+                response.text, body.get_meta("agenda"), body.get_meta("turn_id"),
+                user_content=body.get_meta("user_input") or _n400_utterance)
 
         # Surface the cleaned transcript (if cleanup ran for this analysis call)
         # so iOS can persist it to MeetingRecord.cleanedTranscript. Absent when

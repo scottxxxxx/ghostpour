@@ -84,11 +84,63 @@ def drop_stale_asking(text: str, agenda: str | None) -> tuple[str, dict | None]:
     return json.dumps(turn, ensure_ascii=False), info
 
 
-def guard_response_text(text: str, agenda: str | None, turn_id: str | None) -> str:
+# --- the evidence floor, server side --------------------------------------
+#
+# conf-v18 turn 47: the applicant said "yes" to a section summary and the
+# lane minted the one empty id on the standing line (p6.child1.supported =
+# yes) with a PRIOR turn's words as provenance. The phone's floor drops any
+# fact whose cited words are not in the current utterance, but by then the
+# wrong value had ridden into the spoken read-back. Applying the same floor
+# here, before the reply leaves, keeps the transcript and the record in
+# step, and every drop is visible so the audit can count them.
+
+EVIDENCE_DROP_REASON = "provenance.utterance is not in what the applicant just said"
+
+
+def _norm(s: str) -> str:
+    return " ".join((s or "").lower().split()).strip("\"'“”‘’ ")
+
+
+def drop_facts_without_current_evidence(text: str, user_content: str | None) -> tuple[str, list[dict]]:
+    """Return (possibly rewritten text, list of dropped fact summaries).
+
+    A fact stays when its `provenance.utterance` is a substring of the
+    current utterance after whitespace and case folding. A fact with no
+    utterance at all is dropped too: the contract requires one. Anything
+    that is not the lane's object passes through byte for byte.
+    """
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, []
+    if not isinstance(turn, dict) or not isinstance(turn.get("facts"), list):
+        return text, []
+    said = _norm(user_content or "")
+    kept, dropped = [], []
+    for f in turn["facts"]:
+        utt = ((f.get("provenance") or {}).get("utterance") if isinstance(f, dict) else None) or ""
+        if utt and _norm(utt) in said:
+            kept.append(f)
+        else:
+            dropped.append({"field_id": f.get("field_id") if isinstance(f, dict) else None,
+                            "utterance": utt, "reason": EVIDENCE_DROP_REASON})
+    if not dropped:
+        return text, []
+    turn["facts"] = kept
+    turn["facts_dropped"] = dropped
+    return json.dumps(turn, ensure_ascii=False), dropped
+
+
+def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
+                        user_content: str | None = None) -> str:
     new_text, info = drop_stale_asking(text, agenda)
     if info is not None:
         logger.warning(
             "n400_asking_dropped turn_id=%s node_id=%s field_ids=%s",
             turn_id, info["node_id"], ",".join(info["field_ids"]),
         )
+    if user_content is not None:
+        new_text, dropped = drop_facts_without_current_evidence(new_text, user_content)
+        for d in dropped:
+            logger.warning("n400_fact_dropped_no_evidence turn_id=%s field_id=%s", turn_id, d["field_id"])
     return new_text
