@@ -104,6 +104,28 @@ def test_the_never_complete_a_missing_piece_rule_carries_over(cfg):
     assert "verbatim span" in sp
 
 
+def test_thinking_is_disabled_so_the_reply_cannot_be_starved(cfg):
+    """Live rows 2026-09-05 03:32Z: two of the first seven turns hit the
+    2048 cap inside Sonnet 5's default thinking block, one with no text at
+    all, logged as success. `thinking: disabled` keeps the whole budget for
+    the JSON reply, the same guard tr_counterpart_turn carries. Checked
+    through the real assembler so the key has to reach the request, not
+    merely sit in the file."""
+    from app.services.prompt_assembly import assemble_prompt
+
+    assert cfg["thinking"] == "disabled"
+    out = assemble_prompt(
+        "n400_interviewer_turn", "[start of interview]",
+        {"n400/interviewer-turn": cfg},
+        variables={
+            "form_code": "N-400", "jurisdiction": "US-TX", "locale": "en",
+            "turn_id": "t_001", "conversation": "[start of interview]",
+            "known_facts": "nothing yet", "agenda": "q | Part 1 | f | Q?",
+        },
+    )
+    assert out["thinking"] == "disabled"
+
+
 def test_the_few_shot_corpus_stays_empty_until_it_is_real(cfg):
     for shot in cfg.get("fewShots") or []:
         assert (shot.get("utterance") or "").strip(), (
