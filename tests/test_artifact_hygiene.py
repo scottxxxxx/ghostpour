@@ -72,7 +72,7 @@ def test_clean_files_and_unknown_mimes_pass_through_byte_for_byte():
     d = docx.Document(); d.add_paragraph("No dashes here, just commas."); buf = BytesIO(); d.save(buf)
     blob = buf.getvalue()
     assert scrub_office_text(blob, DOCX) == (blob, {"dashes": 0, "arrows": 0, "parts": 0})
-    assert scrub_office_text(b"%PDF-1.4 — not an office file", "application/pdf")[0].startswith(b"%PDF")
+    assert scrub_office_text(b"%PDF-1.4 \xe2\x80\x94 not an office file", "application/pdf")[0].startswith(b"%PDF")
 
 
 def test_a_corrupt_zip_returns_the_original_bytes():
