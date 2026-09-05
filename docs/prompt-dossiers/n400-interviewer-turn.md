@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 15
+served_version: 16
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
@@ -56,6 +56,7 @@ Same route (`POST /v1/chat`, `X-App-ID: n400`, no `system_prompt`), new
 | `case_id` | optional | as today |
 | `section_boundary` | optional | `ending: Part N; beginning: Part M` when the standing node opens a new part |
 | `applicant_context` | optional | what onboarding knows: state, language, interpreter, filing for self |
+| `spoken_numerals` | optional, GP-computed | v16: a deterministic reading of Spanish number words in the utterance, `words = digits` pairs, for locale es only; never sent by the client |
 | `volunteer_fields` | optional | v3: comma-joined catalog ids for the current and next part; a volunteered fact must use an id from the agenda or this list, else it is omitted |
 
 Payload is `answer.final_text`, or `[start of interview]` on the first turn.
@@ -411,6 +412,21 @@ puts the same bilingual sentence in the pre-OUTPUT checklist. Also in
 the checklist: a value in KNOWN FACTS is settled, never "a verificar"
 (regressed once in Spanish on v14), and never quote their hesitation back
 at them.
+
+## conf-es-v15b: asking fixed in Spanish; numerals get a server hint (v16)
+
+Spanish on v15 with the guard live (26 turns): zero stale asking on every
+minting turn, the first Spanish run all night with none, so the bilingual
+definition took and the guard's count is what the audit reports. What did
+not hold: "noventa dieciocho" split as 0 9 1 8 again, about half the time
+across v14 and v15 despite the worked example. v16 does the arithmetic on
+the server: `app/services/spanish_numerals.py` reads the Spanish number
+words deterministically and hands the model a NUMERALS HEARD line of
+`words = digits` pairs BESIDE the untouched utterance (a rewrite would
+break the client's verbatim provenance floor); the prompt says take the
+digits, quote her words. Gated to this call type and locale es. Also
+v16: an identifier is echoed once per reply, with the letter on an
+A-Number; on a long question the repeat is its short form.
 
 ## What is deliberately not here
 
