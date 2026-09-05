@@ -44,7 +44,7 @@ _INTENTS = (
 _RESPONSE_KEYS = (
     "schema_version", "turn_id", "intent", "reply", "facts", "asking",
     "clarification", "conflict", "section_checkpoint", "escalation",
-    "complete", "interview_over",
+    "deferred", "complete", "interview_over",
 )
 
 
