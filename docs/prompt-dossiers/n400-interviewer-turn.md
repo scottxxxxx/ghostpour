@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 2
+served_version: 3
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
@@ -56,6 +56,7 @@ Same route (`POST /v1/chat`, `X-App-ID: n400`, no `system_prompt`), new
 | `case_id` | optional | as today |
 | `section_boundary` | optional | `ending: Part N; beginning: Part M` when the standing node opens a new part |
 | `applicant_context` | optional | what onboarding knows: state, language, interpreter, filing for self |
+| `volunteer_fields` | optional | v3: comma-joined catalog ids for the current and next part; a volunteered fact must use an id from the agenda or this list, else it is omitted |
 
 Payload is `answer.final_text`, or `[start of interview]` on the first turn.
 
@@ -81,6 +82,33 @@ one. If the client never sends that segment, the model has no set to pick
 from and the box prints blank, which is the 2026-09-03 probe result (three
 free-text values, none matching `spouse_usc`). GP does not validate the
 value server-side yet. Raised with the auditor as a contract addition.
+
+## v3: volunteered facts get a vocabulary
+
+The v2 probe volunteered `p1.lpr_since = "2019"` under a field id that was
+not on the agenda and does not exist in the client's catalog. The client
+drops unknown ids (their floor 0), but a backstop that drops every
+volunteered fact makes "married, no kids" in one breath useless, which was
+half the reason for the lane. v3 adds the optional `volunteer_fields`
+variable and two rules: never invent a field id (omit, do not guess), and a
+volunteered value that is less than the field's full shape (a year for a
+date) is not a fact. v3 also says `complete` counts the facts minted this
+turn, after the v2 probe returned `complete: false` with the standing
+node's fact minted at 0.9.
+
+## s1-v2 verdict and the four reply-shape rules (2026-09-05)
+
+The auditor's scenario 1 on v2 (`N400 App/qa/runs/s1-v2.eval.md`): PASS
+with fixes. 26 turns to the top of Part 5, median 3.7 s, p90 4.7 s, max
+7.0 s, 40 facts all matching their utterances, option identifiers correct
+everywhere, nothing invented, zero dashes, strict JSON every turn. Their
+own harness sent `section_boundary` one turn late, now fixed on their side.
+Folded into v3 from their turn ids: a checkpoint reply IS the summary and
+ends on the confirmation question (turn 26); a non-checkpoint reply always
+ends with the next question (turn 24); identifiers are echoed as separate
+spoken digits (turn 3); `complete` counts facts minted this turn (turns 2,
+19, 22, 25); the opening drops none of the before-we-begin questions and
+never asks the standing node (turn 1).
 
 ## What is deliberately not here
 
