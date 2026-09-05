@@ -328,3 +328,31 @@ def test_every_routing_target_is_a_registered_provider_model():
                 if ids and model not in ids:  # provider lists models -> must contain this one
                     bad.append(f"{app}.{call_type}.{tier} -> {provider}/{model}")
     assert not bad, f"routing targets not registered in providers.yml: {bad}"
+
+
+def test_shoulder_surf_auto_summary_dials_sonnet_for_paid_tiers_in_the_shipped_file():
+    """2026-09-05, Scott's company meeting: the opening three minutes were
+    garbled on the wire and Haiku declared the WHOLE 2400-word transcript
+    unusable, twice, while Sonnet 4.6 wrote a correct report from the same
+    text. Plus and Pro summaries move to Sonnet 4.6 (automation mirrors Pro,
+    per test_automation_tier); Free stays on Haiku.
+    Read from the shipped file through the real resolver, not a fixture,
+    so a dial that parses and does not resolve fails here."""
+    import json
+    from pathlib import Path
+    from types import SimpleNamespace
+    from app.routers.chat import _resolve_model_routing
+
+    routing = json.loads((Path(__file__).parent.parent / "config" / "remote" / "model-routing.json").read_text())
+    req = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(remote_configs={"model-routing": routing})),
+                          state=SimpleNamespace(app_id="shouldersurf"))
+
+    class _B:
+        def get_meta(self, k):
+            return "summary" if k == "call_type" else None
+
+    fb = SimpleNamespace(default_model="anthropic/fallback")
+    assert _resolve_model_routing(req, _B(), fb, "plus") == "anthropic/claude-sonnet-4-6"
+    assert _resolve_model_routing(req, _B(), fb, "pro") == "anthropic/claude-sonnet-4-6"
+    assert _resolve_model_routing(req, _B(), fb, "automation") == "anthropic/claude-sonnet-4-6"
+    assert _resolve_model_routing(req, _B(), fb, "free") == "anthropic/claude-haiku-4-5-20251001"
