@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 4
+served_version: 5
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
@@ -148,6 +148,36 @@ printing it, and lists it on the review screen. A placeholder string is
 never a value; a partial date is always a deferral with a partial value.
 Also from that run: no derived dates in summaries (16), acknowledge once in
 the turn it happens (6, 8), never ask what was just minted (4).
+
+## s2c-v4b, the crimes section: the first failure that cannot ship (v5)
+
+`N400 App/qa/runs/s2c-v4b.eval.md`: 117 facts, batch answers minted
+cleanly, item-by-item drill-in held, `deferred` flowed end to end, about 4
+seconds a turn. Turn 12 failed the legal line: "should I put down the
+parking ticket" got "generally don't need to be listed", "better to
+disclose", "won't make you look bad". Turn 13's plain disclosure of two
+tickets was then deferred as a disclosure decision and the speeding ticket
+vanished from the record. v5: a "should I put down X" question gets
+exactly three things (the literal question, that listing is for counsel,
+the question again); a disclosed citation is a stated fact, minted with its
+row details; a deferral is only for document verification, never for a
+stated fact or a disclosure decision; no opinion on whether a requirement
+applied; summaries carry no legal gloss; an answered node is never asked.
+
+**The checkpoint defect, four runs (s1 26, s2 38 and 44, s2b 10, s2c 28).**
+Pattern from the turn ids: the rule HELD where `section_boundary` arrived
+with its explicit instruction (s1 22) and FAILED every time the model
+decided a part was done itself. At a self-detected boundary nothing in the
+user message overrides "always end with the next question", and the object
+plus the reply are two places for one summary, which invites the split. v5
+moves the rule to the output field itself (decide before writing the reply,
+`reply` IS the summary, ends on the confirmation, `asking` null) and names
+the checkpoint as the one exception to the question rule, AND takes the
+structural fix in the same version: the auditor changed the contract so
+`section_checkpoint` is `{part, section, awaiting_confirmation}` with no
+summary field, `part` the integer part number the client indexes by. The reply is the only place a summary can exist; the client
+renders the reply as the checkpoint and draws its rows from `part` and the
+live facts. One summary with two homes was the split; now it has one.
 
 ## What is deliberately not here
 
