@@ -147,3 +147,32 @@ def test_the_route_passes_the_raw_utterance_captured_before_assembly():
     src = open("app/routers/chat.py").read()
     assert src.index("_n400_utterance = body.user_content") < src.index("# 2.5. Server-side prompt assembly")
     assert 'user_content=body.get_meta("user_input") or _n400_utterance' in src
+
+
+
+# --- a field is a fact or a deferral, never both ---------------------------
+
+def test_turn_38_shape_keeps_the_deferral_and_drops_the_invented_day():
+    from app.services.n400_interviewer_guard import BOTH_REASON, drop_facts_that_are_also_deferred
+    turn = {"facts": [_pf("p4.prior_address1.from", "October twenty seventeen"), _pf("p4.current_address.city", "Dallas")],
+            "deferred": [{"field_id": "p4.prior_address1.from", "reason": "day", "partial_value": "2017-10"}],
+            "reply": {"en": "x"}}
+    out, dropped = drop_facts_that_are_also_deferred(json.dumps(turn))
+    t = json.loads(out)
+    assert [f["field_id"] for f in t["facts"]] == ["p4.current_address.city"]
+    assert t["deferred"][0]["partial_value"] == "2017-10"
+    assert dropped == [{"field_id": "p4.prior_address1.from", "value": "yes", "reason": BOTH_REASON}]
+    assert t["facts_dropped"][0]["reason"] == BOTH_REASON
+
+
+def test_no_overlap_means_no_change():
+    from app.services.n400_interviewer_guard import drop_facts_that_are_also_deferred
+    text = json.dumps({"facts": [_pf("a", "x")], "deferred": [{"field_id": "b"}], "reply": {"en": "x"}})
+    assert drop_facts_that_are_also_deferred(text) == (text, [])
+
+
+def test_the_route_helper_runs_the_both_check_too():
+    from app.services.n400_interviewer_guard import guard_response_text
+    turn = {"facts": [_pf("a", "hello there")], "deferred": [{"field_id": "a", "partial_value": "h"}], "asking": None, "reply": {"en": "x"}}
+    out = guard_response_text(json.dumps(turn), "", "t", user_content="hello there")
+    assert json.loads(out)["facts"] == []
