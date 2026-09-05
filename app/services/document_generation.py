@@ -865,6 +865,7 @@ async def collect_generated_files(
     remote_configs: dict,
     user_id: str,
     app_id: str | None,
+    generation_id: str | None = None,
 ) -> list[dict]:
     """Download generated artifacts from the provider and stage them.
     Best-effort: every failure logs and skips; never raises."""
@@ -907,6 +908,15 @@ async def collect_generated_files(
                     # Fail-open — a rebuild error keeps the original bytes.
                     from app.services.docx_rebuild import rebuild_docx
                     content = await asyncio.to_thread(rebuild_docx, content)
+                # Dash and arrow hygiene inside the file (Scott's standing
+                # rule; 2026-09-05 a docx shipped eight of them). Counts are
+                # logged with the generation id so the rate can be watched.
+                from app.services.artifact_hygiene import scrub_office_text
+                content, _hyg = await asyncio.to_thread(scrub_office_text, content, mime)
+                if _hyg["dashes"] or _hyg["arrows"]:
+                    logger.warning(
+                        "artifact_dashes_rewritten generation_id=%s file=%s dashes=%d arrows=%d parts=%d",
+                        generation_id, name, _hyg["dashes"], _hyg["arrows"], _hyg["parts"])
                 row = await staging.stage(
                     db, user_id=user_id, app_id=app_id,
                     name=name, media_type=mime, content=content,

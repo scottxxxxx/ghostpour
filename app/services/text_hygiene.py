@@ -22,6 +22,9 @@ from __future__ import annotations
 import re
 
 _EM_EN = "–—"
+# Arrow glyphs are the same family (2026-09-05, a chat answer summarising a
+# docx joined two dates with a right arrow): a span in speech is "to".
+_ARROWS = re.compile(r"[ \t]*[\u2192\u2190\u21d2\u2794\u279c][ \t]*")
 _RANGE = re.compile(rf"(?<=\d)[ \t]*[{_EM_EN}][ \t]*(?=\d)")
 _BULLET = re.compile(rf"(?m)^([ \t]*)[{_EM_EN}][ \t]*(?=\S)")
 _ASIDE = re.compile(rf"[ \t]*[{_EM_EN}]+[ \t]*")
@@ -35,8 +38,9 @@ def normalize_dashes(text: str) -> str:
     bullets, then every remaining dash reads as an aside or break and
     becomes a comma. Runs of dashes collapse to one comma; a dash left
     hanging at line end becomes a bare comma."""
-    if not text or not any(d in text for d in _EM_EN):
+    if not text or not (any(d in text for d in _EM_EN) or _ARROWS.search(text)):
         return text
+    text = _ARROWS.sub(" to ", text)
     text = _RANGE.sub("-", text)
     text = _BULLET.sub(r"\1- ", text)
     text = _ASIDE.sub(", ", text)
