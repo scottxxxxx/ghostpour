@@ -4010,6 +4010,7 @@ async def chat(
                 remote_configs=request.app.state.remote_configs,
                 user_id=user.id,
                 app_id=app_id,
+                generation_id=_generation_id,
             )
             if generated_payload:
                 _gmeta = dict(body.metadata or {})
