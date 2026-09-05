@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 10
+served_version: 11
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
@@ -311,6 +311,28 @@ condolences only for a stated death and no asking what was just promised
 to verify (54); the jump label names what is actually asked (58); at
 most two questions in one breath for a hesitant person (43). The three
 v9 nits ride along.
+
+## conf-v10 and conf-v9b: v11
+
+conf-v10 (72 turns, 128 facts): no attorney anywhere, the close asked and
+interview_over followed the yes, Parts 10 and 11 asked on the corrected
+walker. v11 carries three sentences from conf-v9b (a fact in KNOWN FACTS
+is authoritative whoever derived it, the ban is on the model's own
+inference, which was the real cause of a woman being asked about
+Selective Service; never summarize an answer that was not given; never
+deny a question is part of the interview; announcing a read-back IS the
+read-back) and seven from conf-v10: never mint what was not said ("she
+lives with me" is not financial support, 43); the opening asks only what
+applicant_context does not answer (2, a v10 regression); checkpoint
+objects on the first and last parts' summaries too (6, 69); options never
+read as a list, race named, repeats included (25, 26); `asking` is an
+object, never a bare string (49, 56, 58, 64); the fee question in one
+neutral sentence with no "most people say no" (67); two questions at a
+time for a hesitant person, the child case named (42). Plus: when the
+boundary variable contradicts the agenda, the agenda wins; every part gets
+its summary before the next part's first question, even one closed by
+reasoning (49); after a yes, one clause and the next question, never the
+summary read again (44).
 
 ## What is deliberately not here
 
