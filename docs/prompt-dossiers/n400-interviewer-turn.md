@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 8
+served_version: 9
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
@@ -268,6 +268,26 @@ opens no deferral (reg7b-open 3).
 
 Readiness, in the auditor's words: the lane is done for launch, v8 is
 tuning, the distance to the phone is the client cutover.
+
+## reg8: three of four hold, the unprompted read-back closed; v9
+
+`N400 App/qa/runs/reg8.eval.md`: 43 turns, 201 facts, 85 of 85 provenance
+spans in the current utterance. `asking` named the spoken node on all 36
+answer turns; the last part's summary carried its object; "Houston" stayed
+"Houston"; and the whole-interview read-back came UNPROMPTED with values,
+the half of v7 no earlier run had exercised. The one "not in agenda"
+fallback was the client walker's graph, sent to the N-400 team.
+
+Failed: the passing-mention rule, on the exact utterance it was written
+for ("green card since 2019" inside the eligibility answer still produced
+a deferral, said aloud twice, and Part 2 closed with the date never asked).
+v9 restates it on that utterance verbatim and adds: a slot never closes
+with a deferral on a question that was never asked. New in v9:
+`interview_over` is false on the turn that speaks the read-back and true
+only on the following turn after the yes (the client would have closed
+before he answered); a yes/no gate with a nearly-visible answer is asked
+in passing, never skipped, and only the question it would have opened is
+what known facts let you skip (spouse A-Number gate).
 
 ## What is deliberately not here
 
