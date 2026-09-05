@@ -1680,6 +1680,7 @@ async def chat(
     # The N-400 evidence floor needs the applicant's raw words, which step
     # 2.5 folds into the assembled user message.
     _n400_utterance = body.user_content
+    _raw_user_content = body.user_content  # the applicant's or the user's own words, pre-assembly
 
     # 2.5. Server-side prompt assembly — if client sent no system_prompt but
     # has a call_type with a registered prompt config, assemble it server-side.
@@ -3624,6 +3625,18 @@ async def chat(
                     **{k: v for k, v in generation_turns.running_info(
                         user.id, _generation_id).items() if k != "status"},
                 },
+            )
+        if _stored is None:
+            # Discovery (SS contract 2026-09-05): the row exists from the
+            # first second, carrying where the turn belongs and the
+            # question, so a reinstall, a second device, or a restart
+            # mid-build can all find it later.
+            await generation_turns.record_start(
+                db, user_id=user.id, app_id=app_id, generation_id=_generation_id,
+                project_id=body.get_meta("project_id"),
+                meeting_id=body.get_meta("meeting_id"),
+                session_id=body.get_meta("session_id"),
+                question=_raw_user_content,
             )
         # a stored "failed" falls through: the resend is the retry
 
