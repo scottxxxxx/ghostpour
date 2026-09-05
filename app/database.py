@@ -567,6 +567,18 @@ MIGRATIONS = [
         PRIMARY KEY (generation_id, user_id)
     )""",
     "CREATE INDEX IF NOT EXISTS idx_generations_expiry ON generations(expires_at)",
+    # Generation DISCOVERY (2026-09-05, SS contract), AFTER the table above
+    # so the adds see it on a fresh database too: the row is written at
+    # begin() now, carrying where the turn belongs, so a project entry can
+    # find a file GP built after a reinstall, a second device, or a closed
+    # window. acked_at marks a done row the client has presented.
+    "ALTER TABLE generations ADD COLUMN project_id TEXT",
+    "ALTER TABLE generations ADD COLUMN meeting_id TEXT",
+    "ALTER TABLE generations ADD COLUMN session_id TEXT",
+    "ALTER TABLE generations ADD COLUMN question TEXT",
+    "ALTER TABLE generations ADD COLUMN acked_at TEXT",
+    "CREATE INDEX IF NOT EXISTS idx_generations_project ON generations(user_id, project_id)",
+    "CREATE INDEX IF NOT EXISTS idx_generations_meeting ON generations(user_id, meeting_id)",
     # Chat turn records (2026-08-30). Same shape and same 6h clock as
     # `generations` above, separate table because the semantics differ: this
     # one stores the WHOLE response body so a replay is indistinguishable
