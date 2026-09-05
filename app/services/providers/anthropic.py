@@ -296,7 +296,14 @@ class AnthropicAdapter(ProviderAdapter):
             _stamp = _dt.datetime.now(_dt.timezone.utc).strftime("%m%d%y")
             body["system"] = list(body["system"]) + [{
                 "type": "text",
-                "text": ("When creating Word (.docx) files in the sandbox, "
+                "text": ("Inside every file you create, exactly as in your "
+                         "chat answer, never use an em dash or an en dash as "
+                         "punctuation and never an arrow glyph: join a title "
+                         "and its subtitle with a colon, set off an aside with "
+                         "commas or parentheses, write a range as 'to'. A "
+                         "dash in a table cell or a heading is the same "
+                         "defect as a dash in chat. "
+                         "When creating Word (.docx) files in the sandbox, "
                          "use the python-docx library, not docx.js "
                          "or hand-written OOXML; Word rejects their output. "
                          "For checklists, use plain paragraphs starting with "
