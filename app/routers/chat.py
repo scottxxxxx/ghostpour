@@ -1684,6 +1684,7 @@ async def chat(
             MissingPromptVariables,
             assemble_prompt,
         )
+        from app.services.spanish_numerals import numeral_variables as _numeral_variables
         call_type = body.get_meta("call_type")
         if call_type:
             try:
@@ -1700,8 +1701,12 @@ async def chat(
                     # The whole metadata bag is offered as named
                     # {{placeholders}}; a config takes what it declares and
                     # ignores the rest, so adding a metadata key can never
-                    # change a prompt that does not name it.
-                    variables=dict(body.metadata or {}),
+                    # change a prompt that does not name it. The N-400
+                    # interviewer lane in Spanish also gets a deterministic
+                    # reading of the number words in the utterance, beside
+                    # it, never in place of it (app/services/spanish_numerals.py).
+                    variables={**dict(body.metadata or {}), **_numeral_variables(
+                        call_type, body.get_meta("locale"), body.user_content)},
                 )
             except MissingPromptVariables as exc:
                 # 422, not a silent send. A config that says which values it

@@ -28,11 +28,11 @@ _DOSSIER = _ROOT / "docs" / "prompt-dossiers" / "n400-interviewer-turn.md"
 _DECLARED = {
     "form_code", "jurisdiction", "locale", "turn_id", "case_id",
     "conversation", "known_facts", "agenda", "section_boundary",
-    "applicant_context", "volunteer_fields", "user_input",
+    "applicant_context", "volunteer_fields", "spoken_numerals", "user_input",
 }
 _REQUIRED = {"form_code", "jurisdiction", "locale", "turn_id",
              "conversation", "known_facts", "agenda"}
-_OPTIONAL = {"case_id", "section_boundary", "applicant_context", "volunteer_fields"}
+_OPTIONAL = {"case_id", "section_boundary", "applicant_context", "volunteer_fields", "spoken_numerals"}
 
 # The contract's intent vocabulary, verbatim. The client journals these and
 # the reviewer grades against them.
