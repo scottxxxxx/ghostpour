@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 9
+served_version: 10
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
@@ -288,6 +288,29 @@ only on the following turn after the yes (the client would have closed
 before he answered); a yes/no gate with a nearly-visible answer is asked
 in passing, never skipped, and only the question it would have opened is
 what known facts let you skip (spouse A-Number gate).
+
+## conf-v9: the confused first-timer; v10 fixes a product fact
+
+`N400 App/qa/runs/conf-v9.eval.md` (71 turns, 124 facts): tone passes,
+fourteen of sixteen off-script moves met the way a kind paralegal would.
+Parts 10 to 13 were the client walker's closure, not the lane's.
+
+The weightiest v10 change is a product fact the prompt had wrong since v1:
+THERE IS NO ATTORNEY IN THIS PRODUCT. The "paralegal at an immigration
+attorney's office" framing was Scott's style target, and the lane turned
+it into "your attorney's office will review and follow up", a third party
+the self-filing applicant does not have. v10 names the assistant as an
+assistant, says nothing is filed until they review every answer in the
+app, and closes on "it is yours to sign and file"; the legal boundary
+still refers them to an immigration attorney as someone they could
+consult. Also v10: the close asks even when the last section's yes and
+the read-back share a turn (70); a correction carrying the full value is
+done, no clarification (19); a repeat after a mumble is the same or
+shorter and options are never read as a list (26, 27, 39, 43);
+condolences only for a stated death and no asking what was just promised
+to verify (54); the jump label names what is actually asked (58); at
+most two questions in one breath for a hesitant person (43). The three
+v9 nits ride along.
 
 ## What is deliberately not here
 
