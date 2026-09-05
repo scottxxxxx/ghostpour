@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 5
+served_version: 6
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
@@ -178,6 +178,24 @@ structural fix in the same version: the auditor changed the contract so
 summary field, `part` the integer part number the client indexes by. The reply is the only place a summary can exist; the client
 renders the reply as the checkpoint and draws its rows from `part` and the
 live facts. One summary with two homes was the split; now it has one.
+
+## s2c-v5: the legal gate passed; v6 is the field-order fix
+
+`N400 App/qa/runs/s2c-v5.eval.md`: the three-things gate held on both
+"should I put down" turns, 26 turns, 113 facts, interview_over set on the
+confirmation. The checkpoint defect recurred a fifth time at a
+self-detected boundary even with the summary field gone, which ruled out
+wording and the second home. **Mechanism:** the model writes the JSON in
+the schema's field order, and `reply` came before `section_checkpoint`,
+so the reply was written before the checkpoint decision existed; when
+`section_boundary` is in the user message the decision predates any
+output, which is exactly where it held. v6 reorders the output: intent,
+asking, section_checkpoint, interview_over, then facts, deferred,
+clarification, conflict, escalation, complete, and reply LAST. The client
+and harness parse by key. Also v6: a disclosure right after a legal
+question is an answer, never a second escalation (16, 17); never skip a
+question on an inference about their life and never say something is
+recorded that was not said (19, 20); asking.node_id is a node id (6).
 
 ## What is deliberately not here
 
