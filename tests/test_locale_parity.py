@@ -110,7 +110,7 @@ def test_the_analysis_schema_keeps_its_wire_vocabulary(loc):
     var = json.loads((REMOTE / f"protected-prompts.{loc}.json").read_text())["analysisSchema"]
     for token in ('"title"', '"sentimentScore"', '"sentimentLabel"', '"sentimentEmoji"', '"sentimentReason"',
                   '"urgency"', '"urgencyReason"', '"personalityMessage"', '"suggestedTags"', '"tagReasons"',
-                  '"enthusiastic"', '"disappointed"', '"low"', '"critical"'):
+                  '"pressured"', '"decisive"', '"low"', '"critical"'):
         assert token in var, f"{loc} analysisSchema lost {token}"
 
 
