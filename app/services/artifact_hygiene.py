@@ -21,10 +21,12 @@ punctuation.
 
 from __future__ import annotations
 
+import html
 import logging
 import re
 import zipfile
 from io import BytesIO
+from xml.sax.saxutils import escape as _xml_escape
 
 from app.services.text_hygiene import normalize_dashes
 
@@ -72,15 +74,20 @@ def scrub_office_text(content: bytes, mime: str) -> tuple[bytes, dict]:
             if not wants(name):
                 continue
             data = src.read(name)
-            if not any(g.encode("utf-8") in data for g in _GLYPHS):
+            # openpyxl writes non-ASCII as numeric character references
+            # (&#8212;), python-docx writes the raw glyph; unescape before
+            # looking, and again per text node before rewriting.
+            if not any(g in html.unescape(data.decode("utf-8", "replace")) for g in _GLYPHS):
                 continue
 
             def _fix(m: re.Match) -> bytes:
                 nonlocal dashes, arrows
-                text = m.group(2).decode("utf-8")
+                text = html.unescape(m.group(2).decode("utf-8"))
                 d, a = _count(text)
+                if not (d or a):
+                    return m.group(0)
                 dashes += d; arrows += a
-                return m.group(1) + normalize_dashes(text).encode("utf-8") + m.group(3)
+                return m.group(1) + _xml_escape(normalize_dashes(text)).encode("utf-8") + m.group(3)
 
             new = rx.sub(_fix, data)
             if new != data:

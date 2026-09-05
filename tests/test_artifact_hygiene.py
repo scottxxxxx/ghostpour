@@ -38,7 +38,7 @@ def test_the_live_docx_shape_comes_out_clean_and_readable():
     assert "—" not in text and "–" not in text and "→" not in text
     assert "Austin Bike Mechanics, Automated Repair Service" in text
     assert "Data availability, production" in text
-    assert "October-December 2026" in text            # a range keeps a hyphen
+    assert "October to December 2026" in text          # a tight en dash between words is a range
     assert "Sept 10 preview to Nov 2026 GA" in text    # an arrow reads as "to"
     assert "Confidential, for internal distribution" in text
     assert counts["dashes"] == 4 and counts["arrows"] == 1 and counts["parts"] == 2
@@ -52,7 +52,7 @@ def test_an_xlsx_shared_string_and_inline_string_are_rewritten():
     out, counts = scrub_office_text(buf.getvalue(), XLSX)
     wb2 = openpyxl.load_workbook(BytesIO(out))
     assert wb2.active["A1"].value == "CTS deployment, CAB approval"
-    assert wb2.active["A2"].value == "Q3, Q4"   # letters, not digits: an aside, not a range
+    assert wb2.active["A2"].value == "Q3 to Q4"  # a tight en dash between words is a range
     assert wb2.active["A3"].value == 12
     assert counts["dashes"] == 2
 
@@ -94,7 +94,7 @@ def test_the_build_leg_tells_the_model_the_rule_applies_inside_files():
 
 def test_the_collector_scrubs_after_the_word_rebuild_and_logs_the_generation_id():
     src = open("app/services/document_generation.py").read()
-    assert src.index("rebuild_docx, content)") < src.index("scrub_office_text(content, mime)") < src.index("staging.stage(")
+    assert src.index("rebuild_docx, content)") < src.index("scrub_office_text, content, mime)") < src.index("staging.stage(")
     assert "artifact_dashes_rewritten generation_id=%s" in src
     chat = open("app/routers/chat.py").read()
     i = chat.index("generated_payload = await collect_generated_files(")
