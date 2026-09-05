@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 21
+served_version: 22
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
@@ -566,6 +566,26 @@ name. Plus the v20 partials restated harder and the Spanish warmth items
 (jargon, "el número de USCIS", ethnicity wording, list length, a known
 fact never deferred), the window-covered rule, and "take your time" as a
 stop.
+
+## conf-v21: stamped on its data items; v22 is the read-back's shape
+
+v21 stamped in both languages (English 117 of 117 provenance spans,
+Spanish 22 of 22): the eligibility basis lands on the turn it is said,
+every month-year is a deferral with the guard catching the one double
+emission, the battery rule held with one slip (seven of eight items
+spoken, eight minted), the description became a deferral. The read-back
+now reaches Part 13 but as one 1545-character response with twelve
+questions in one breath. v22 makes the read-back ONE PART PER RESPONSE:
+Part 1, "is that right?", stop; on the yes, Part 2; interview_over only
+after Part 13's yes; the model finds its place from the conversation.
+Also v22: the A-Number spoken once per reply in every language, the
+count silent, the summary's mention being the echo (Spanish 6); the basis
+confirmation is a statement leading into the next question, never a
+dangling question plus another question (Spanish 4); the mumble repeat is
+the shortest form of the question (Spanish 21); two per breath, never
+three (English 30, 71); a self-employed applicant working from home has
+the home address as the work address, never re-asked, deferred ZIP
+included (46); never open a record outside the window (48).
 
 ## What is deliberately not here
 
