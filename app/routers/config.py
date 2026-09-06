@@ -367,21 +367,31 @@ def detect_overlay_drift() -> dict[str, list[str]]:
     return drift
 
 
+# Declared-intentional drift lives in ONE sidecar file, deliberately NOT
+# inside the config files themselves: `GET /v1/config/{name}` returns the
+# resolved config dict verbatim, so a key added to an overlay would ship to
+# every client. Ops metadata does not belong on the wire.
+_OVERRIDES_FILE = "_intentional_overrides.json"
+
+
 def intentional_overrides() -> dict[str, set[str]]:
-    """{slug: {pointers the overlay declares it holds on purpose}}."""
+    """{slug: {pointers held away from the bundle on purpose}}.
+
+    Shape: {"n400/budget": ["/monthly_cost_limit_usd"]}. A missing or
+    malformed file means "nothing is declared", which degrades to the old
+    behaviour of warning about everything rather than silencing anything.
+    """
+    path = CONFIG_DIR / _OVERRIDES_FILE
+    try:
+        raw = json.loads(path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {}
+    if not isinstance(raw, dict):
+        return {}
     out: dict[str, set[str]] = {}
-    if not CONFIG_DIR.is_dir():
-        return out
-    for overlay_path in CONFIG_DIR.rglob("*.json"):
-        slug = overlay_path.relative_to(CONFIG_DIR).with_suffix("").as_posix()
-        try:
-            overlay = json.loads(overlay_path.read_text())
-        except (json.JSONDecodeError, OSError):
-            continue
-        if isinstance(overlay, dict):
-            declared = overlay.get("_intentional_overrides")
-            if isinstance(declared, list):
-                out[slug] = {p for p in declared if isinstance(p, str)}
+    for slug, pointers in raw.items():
+        if isinstance(slug, str) and isinstance(pointers, list):
+            out[slug] = {p for p in pointers if isinstance(p, str)}
     return out
 
 
