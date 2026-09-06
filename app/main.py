@@ -119,10 +119,23 @@ async def lifespan(app: FastAPI):
     # not drift silently either — warn per slug so ops knows to run
     # POST /webhooks/admin/config/{slug}/sync-from-bundle.
     config_drift = config.detect_overlay_drift()
-    for _slug, _ptrs in sorted(config_drift.items()):
+    # Split declared-intentional drift out of the warning stream. A warning
+    # that is always partly on stops being read: on 2026-09-06 a real drift
+    # (a silently failed sync leaving a v24 prompt serving against v25
+    # guards) sat between two permanent expected ones and was taken for
+    # part of the usual block.
+    _unexpected, _expected = config.split_drift(config_drift)
+    for _slug, _ptrs in sorted(_expected.items()):
+        logging.getLogger("app.main").info(
+            "config_drift_expected slug=%s pointers=%s — declared in the "
+            "overlay's _intentional_overrides, not a finding",
+            _slug, _ptrs[:5],
+        )
+    for _slug, _ptrs in sorted(_unexpected.items()):
         logging.getLogger("app.main").warning(
             "config_drift slug=%s pointers=%d sample=%s — bundle and overlay "
-            "values differ; sync-from-bundle if the bundle is intended",
+            "values differ and the overlay does NOT declare this deliberate; "
+            "sync-from-bundle if the bundle is intended",
             _slug, len(_ptrs), _ptrs[:5],
         )
     app.state.config_drift = config_drift

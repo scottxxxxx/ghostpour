@@ -348,6 +348,10 @@ _SECRET_MANAGER_MAPPINGS: dict[str, str] = {
     "CZ_CERT_PIN_SIGNING_KEY_RAW_B64": "cert-pin-signing-key-raw-b64",
     "CZ_APP_STORE_PRIVATE_KEY_B64": "app-store-private-key-b64",
     "CZ_ASC_CONNECT_PRIVATE_KEY_B64": "asc-connect-private-key-b64",
+    # The APNs signing key. Note the ID and team id are deliberately NOT
+    # here: they are identifiers rather than secrets, so they live in env
+    # like any other config, per the note above this table.
+    "CZ_APNS_PRIVATE_KEY_B64": "apns-private-key-b64",
 }
 
 
