@@ -244,8 +244,18 @@ def test_serve_endpoint_auth_ownership_expiry(client, pro_user, tmp_db_path, tmp
     import sqlite3
     from datetime import datetime, timedelta, timezone
 
-    blob = tmp_path / "gpf_test"
+    # ONE FILE PER ROW, which is what production does (`stage()` writes
+    # STAGING_DIR / file_id) and what this test used to violate by pointing
+    # both rows at one path. The purge sweep deletes an expired row AND
+    # unlinks its storage_path, so a shared path meant purging the DEAD row
+    # destroyed the LIVE row's bytes and the serve endpoint 404'd on a row
+    # that was still there. Whether the sweep landed between the insert and
+    # the request was a race, which is why this passed on fast machines and
+    # went red on the CI runner.
+    blob = tmp_path / "gpf_live_blob"
     blob.write_bytes(b"PK\x03\x04 artifact")
+    dead_blob = tmp_path / "gpf_dead_blob"
+    dead_blob.write_bytes(b"PK\x03\x04 artifact")
     future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
     past = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
     con = sqlite3.connect(tmp_db_path)
@@ -256,11 +266,35 @@ def test_serve_endpoint_auth_ownership_expiry(client, pro_user, tmp_db_path, tmp
     con.execute("INSERT INTO generated_files VALUES (?,?,?,?,?,?,?,?,?)",
                 ("gpf_live", uid, "shouldersurf", "t.xlsx", XLSX, 11, str(blob), future, future))
     con.execute("INSERT INTO generated_files VALUES (?,?,?,?,?,?,?,?,?)",
-                ("gpf_dead", uid, "shouldersurf", "t.xlsx", XLSX, 11, str(blob), past, past))
+                ("gpf_dead", uid, "shouldersurf", "t.xlsx", XLSX, 11, str(dead_blob), past, past))
     con.commit(); con.close()
 
     h = pro_user["headers"]
     r = client.get("/v1/generated-files/gpf_live", headers=h)
+    if r.status_code != 200:
+        # This test went red twice in CI on 2026-09-06, on two branches
+        # whose diffs could not touch it, and passed on a rerun of the
+        # identical commit and in five local configurations including CI's
+        # own environment. Rather than rerun past a third occurrence, make
+        # it explain itself: the next failure prints what the app's own
+        # database holds, the clock either side of the comparison, and
+        # whether the bytes are still on disk. Costs nothing when green.
+        import os
+        from datetime import datetime, timezone
+        con2 = sqlite3.connect(tmp_db_path)
+        rows = con2.execute(
+            "SELECT id, user_id, app_id, storage_path, created_at, expires_at "
+            "FROM generated_files").fetchall()
+        users = con2.execute("SELECT id, tier, is_active FROM users").fetchall()
+        con2.close()
+        raise AssertionError(
+            f"expected 200, got {r.status_code} body={r.text[:200]!r}\n"
+            f"  db={tmp_db_path}\n"
+            f"  now={datetime.now(timezone.utc).isoformat()} inserted_expiry={future}\n"
+            f"  blob_exists={os.path.exists(blob)} size={blob.stat().st_size if os.path.exists(blob) else None}\n"
+            f"  generated_files rows={rows}\n"
+            f"  users rows={users}\n"
+            f"  auth_user_id={uid}")
     assert r.status_code == 200
     assert r.content == b"PK\x03\x04 artifact"
     assert "no-store" in r.headers.get("cache-control", "")
