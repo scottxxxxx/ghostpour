@@ -289,6 +289,12 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
             logger.warning(
                 "n400_date_day_unspoken turn_id=%s field_id=%s claimed=%s deferred_as=%s",
                 turn_id, d["field_id"], d["value"], d["partial_value"])
+    # Before the battery marker, which reads reply.values().
+    new_text, reply_shape = normalize_reply_shape(new_text)
+    if reply_shape is not None:
+        logger.warning(
+            "n400_reply_shape_normalized turn_id=%s chars=%d",
+            turn_id, reply_shape["chars"])
     new_text, battery = mark_battery_shortfall(new_text, agenda)
     if battery is not None:
         logger.warning(
@@ -478,4 +484,37 @@ def mark_facts_minted_on_a_non_answer(text: str) -> tuple[str, dict | None]:
             "minted": sorted(str(f.get("field_id")) for f in facts if isinstance(f, dict)),
             "reason": NOT_AN_ANSWER_REASON}
     turn["minted_on_non_answer"] = info
+    return json.dumps(turn, ensure_ascii=False), info
+
+# --- the reply shape, fixed where the contract lives -----------------------
+#
+# 2026-09-06: a model returning `reply` as a bare string instead of the
+# locale-keyed object crashed `mark_battery_shortfall` here, and the N-400
+# client's LocalizedText decoder threw typeMismatch on the same wire and
+# surfaced it as a NON-RETRYABLE malformedResponse: a terminal error
+# mid-interview with no way forward. Hardening both sides was necessary and
+# is not sufficient, because the next client would have to discover this
+# for itself.
+#
+# GP owns this contract, so GP normalises it. A bare string becomes the
+# object it should always have been, under "en", which every locale falls
+# back to, so a Spanish interview still speaks the line it was sent.
+# Anything that is neither a string nor an object is left exactly as it is
+# and only counted: tolerating a string must not slide into inventing a
+# reply out of an integer.
+
+REPLY_SHAPE_REASON = "reply arrived as a bare string; wrapped under 'en', which every locale falls back to"
+
+
+def normalize_reply_shape(text: str) -> tuple[str, dict | None]:
+    """Turn a bare-string `reply` into the locale-keyed object."""
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, None
+    if not isinstance(turn, dict) or not isinstance(turn.get("reply"), str):
+        return text, None
+    info = {"chars": len(turn["reply"]), "reason": REPLY_SHAPE_REASON}
+    turn["reply"] = {"en": turn["reply"]}
+    turn["reply_shape_normalized"] = info
     return json.dumps(turn, ensure_ascii=False), info

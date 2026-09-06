@@ -430,3 +430,38 @@ def test_spanish_day_words_as_they_are_actually_spoken(value, said):
     _, moved = defer_dates_with_unspoken_day(
         _resp(facts=[{"field_id": "x", "value": value}]), said)
     assert moved == [], f"{said!r} contains the day of {value}"
+
+
+def test_a_bare_string_reply_is_normalized_at_the_gateway():
+    """GP owns this contract, so GP fixes the shape rather than leaving every
+    client to defend itself. The N-400 client's decoder threw typeMismatch on
+    this wire and surfaced it as a NON-RETRYABLE error: a terminal failure
+    mid-interview. Hardening both sides was necessary and not sufficient."""
+    from app.services.n400_interviewer_guard import guard_response_text
+
+    out = guard_response_text(
+        json.dumps({"intent": "answer", "facts": [], "reply": "Y su número de A?"}),
+        None, "t-x", "one")
+    turn = json.loads(out)
+    assert turn["reply"] == {"en": "Y su número de A?"}, (
+        "the line she was sent must still be spoken, under the key every "
+        "locale falls back to")
+    assert turn["reply_shape_normalized"]["chars"] == len("Y su número de A?")
+
+
+def test_a_proper_locale_object_is_left_exactly_alone():
+    from app.services.n400_interviewer_guard import normalize_reply_shape
+
+    text = json.dumps({"reply": {"en": "hi", "es": "hola"}})
+    out, info = normalize_reply_shape(text)
+    assert info is None and out == text
+
+
+@pytest.mark.parametrize("weird", [None, 42, ["a"], {"en": 1}])
+def test_a_reply_that_is_neither_string_nor_object_is_not_invented(weird):
+    """Tolerating a string must not slide into manufacturing a reply out of
+    an integer. These are counted elsewhere and passed through untouched."""
+    from app.services.n400_interviewer_guard import normalize_reply_shape
+
+    _, info = normalize_reply_shape(json.dumps({"reply": weird}))
+    assert info is None
