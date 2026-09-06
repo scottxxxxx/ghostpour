@@ -89,6 +89,24 @@ _title_modes = _meeting_title.TITLE_PROMPT_MODES
 _STREAM_HEARTBEAT_SECONDS = 10
 
 
+def _with_recall_echo(content: dict, hook_results: dict) -> dict:
+    """Carry the recall echo on an envelope that returns BEFORE the model call.
+
+    A generation offer is composed after the CQ hook has already run and
+    sent a recall leg, but it returns early, so `after_llm` never runs and
+    the `recall` field never reaches the client. CQ read exactly that
+    absence on 2026-09-06 and could have concluded no recall happened on a
+    turn where one did; a field that is present on ordinary turns and
+    silently absent on one class of turn is worse than no field. Only the
+    envelopes that LOOK like an ordinary chat turn to the client need it
+    (a paywall block is visibly not an answer).
+    """
+    echo = (hook_results.get("context_quilt") or {}).get("recall_echo")
+    if echo is not None and isinstance(content, dict) and "recall" not in content:
+        return {**content, "recall": echo}
+    return content
+
+
 def _strip_json_code_fence(text: str) -> str:
     """Unwrap a response that is wholly a ```code fence``` wrapping valid JSON.
 
@@ -2632,9 +2650,10 @@ async def chat(
                     search_enabled=bool(_offer.get("search_enabled")))
                 logger.info(
                     "lane_question_served offer_id=%s via=pill_tap", _lq_id)
-                return JSONResponse(content=build_lane_question_envelope(
-                    _confirmation, gist=_offer.get("gist") or "",
-                    offer_id=_lq_id))
+                return JSONResponse(content=_with_recall_echo(
+                    build_lane_question_envelope(
+                        _confirmation, gist=_offer.get("gist") or "",
+                        offer_id=_lq_id), hook_results))
             if _offer is not None:
                 _confirmed_via_offer = True
                 _template_id = _offer.get("template_id")
@@ -3124,7 +3143,8 @@ async def chat(
                                 "lane_question_served offer_id=%s via=offer "
                                 "surface=%s", _offer_id,
                                 body.get_meta("prompt_mode"))
-                            return JSONResponse(content=_envelope)
+                            return JSONResponse(content=_with_recall_echo(
+                                _envelope, hook_results))
                         _envelope = build_offer_envelope(
                             _confirmation, _intent.get("format"),
                             gist=_intent.get("gist") or "", offer_id=_offer_id,
@@ -3195,7 +3215,8 @@ async def chat(
                             _offer_id, body.get_meta("prompt_mode"), _tmpl,
                             _intent.get("format"), bool(body.stream),
                         )
-                        return JSONResponse(content=_envelope)
+                        return JSONResponse(content=_with_recall_echo(
+                            _envelope, hook_results))
 
     if _gen_armed and _contract_id:
         # Contract lane. Same shape as the template lane below (the model
