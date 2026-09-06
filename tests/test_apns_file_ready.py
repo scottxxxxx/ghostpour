@@ -295,3 +295,59 @@ async def test_a_response_without_headers_still_sends(monkeypatch):
                                    collapse_id="g1")
     assert out == "sent"
     await db.close()
+
+
+# --- the production path, which no real device has exercised yet ------------
+#
+# Everything sent on 2026-09-06 was SANDBOX, because every install so far has
+# come from Xcode. A production token appears only from TestFlight or the App
+# Store, and that path runs code neither team has run: SS's profile read
+# returning `production` (an App Store build embeds no provisioning profile
+# at all, so it takes a different branch from the one that ran), and GP's
+# production host. The key covers both environments so the path is
+# survivable, but survivable is not proved. These pin GP's half.
+
+@pytest.mark.parametrize("environment,expected_host", [
+    ("production", "https://api.push.apple.com"),
+    ("sandbox", "https://api.sandbox.push.apple.com"),
+])
+@pytest.mark.asyncio
+async def test_the_row_environment_picks_the_host_on_the_FIRST_attempt(
+        monkeypatch, environment, expected_host):
+    """Not via the retry. The retry path was already covered; the plain
+    path for a production row was not, and it is the one a TestFlight
+    build will take."""
+    monkeypatch.setattr(apns, "provider_token", lambda s: "tok")
+    db = await _db()
+    await dt.register(db, user_id="u1", device_token="abc",
+                      environment=environment, bundle_id="com.ss")
+    row = (await dt.for_user(db, "u1"))[0]
+    c = _Client(_Resp(200))
+    out = await apns.send_to_token(c, db, row=row, settings=_Settings(key="x"),
+                                   payload={"aps": {}}, expiration=1, collapse_id="g1")
+    assert out == "sent", "a plain send must not go through the retry"
+    assert len(c.calls) == 1, "exactly one request; a second means it retried"
+    assert c.calls[0]["url"].startswith(expected_host), (
+        f"{environment} row went to {c.calls[0]['url']}, not {expected_host}")
+    await db.close()
+
+
+def test_the_two_apple_hosts_are_spelled_correctly():
+    """A typo here is invisible until a real device fails, and it would
+    fail only in the environment that was not tested. Apple's hostnames,
+    pinned literally."""
+    assert apns.HOSTS == {
+        "production": "https://api.push.apple.com",
+        "sandbox": "https://api.sandbox.push.apple.com",
+    }
+
+
+def test_other_environment_flips_both_ways():
+    """The correction depends on this being an involution."""
+    assert dt.other_environment("sandbox") == "production"
+    assert dt.other_environment("production") == "sandbox"
+    # An unknown or missing value must resolve to production, matching the
+    # send path's own default, or a corrupt row would retry against itself.
+    assert dt.other_environment(None) == "production"
+    assert dt.other_environment("") == "production"
+    assert dt.other_environment("nonsense") == "production"

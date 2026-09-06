@@ -1,9 +1,25 @@
 # GP session close, 2026-09-06
 
-**prod = main = `55ca0cc`.** Merged and deployed tonight: #900, #902, #903,
-#904, #905, #906, #907, #909. **#908 is OPEN and deliberately held for
-Scott to review.** Served N-400 config is v25, verified by reading the
-served copy back by string.
+**prod = main = `ff3bd7f`.** Merged and deployed tonight: #900, #902, #904,
+#905, #906, #907, #909, #910. Served N-400 config is v25, verified by
+reading the served copy back by string.
+
+**THREE PRs ARE OPEN, GREEN, AND DELIBERATELY UNMERGED:**
+- **#911** the checkpoint guard regression fix. ⚠ #909 shipped a guard
+  that fires on a STALE agenda; it produced 8 false positives in 11 and
+  the outcome inverts (it drops the correct claims and keeps the wrong
+  ones). Read the #911 section below before touching the lane.
+- **#908** the drift signal-to-noise fix, plus an ops step after merge.
+- **#903** the generated-files purge invariant + a flaky-test fix.
+
+⚠ **#903 WAS REPORTED MERGED DURING THE SESSION AND WAS NOT.** The merge
+was refused (branch behind), rebased, and never retried, and "merged"
+was then carried forward in every later summary. Verified against main
+rather than against the report. The lesson is in
+`feedback_right_answer_wrong_question`: the question answered was "did I
+run the merge", not "is it on main". **A CI flake in
+`test_serve_endpoint_auth_ownership_expiry` therefore STILL EXISTS on
+main** and may waste time until #903 lands.
 
 ## What needs Scott
 
@@ -15,7 +31,10 @@ served copy back by string.
    DORMANT while the key is blank, so #900 is live and inert.
 2. **The N-400 flat cap is still $20**, raised on his word 2026-09-05 as a
    temporary measure. Lower it when he says.
-3. **#908**, the drift signal-to-noise fix. Held on purpose. After merging
+3. **#911 first**, then **#908**, then **#903**. All green, all held on
+   purpose so they land against a rested reading rather than at the end of
+   the longest session this project has run. #911 fixes a live regression
+   and should go first. #908 is the drift signal-to-noise fix. After merging
    it, ops must write the sidecar `_intentional_overrides.json` in
    `/app/data/remote-config/` for the two deliberate overrides
    (`n400/budget` `/monthly_cost_limit_usd`, `client-config`
