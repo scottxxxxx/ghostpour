@@ -754,12 +754,31 @@ p4.current_address.state was never minted in a run whose read-back said
 Texas twice. Both enforcement points are now stated in the prompt as
 enforced, so the lane is not relying on being asked twice.
 
-⚠ STILL OPEN, and it is a contract question, not a prompt one. Part 5 for a
-widowed applicant: she volunteered "he passed in August 2019" at turn 40,
-the lane thanked her and recorded nothing, and the final Part 5 read-back
-dropped Ernesto entirely. Whether that is a lane defect depends on whether
-the agenda HAS field ids for a deceased spouse, which the client owns and
-which I have not read. Asked rather than guessed.
+SETTLED, by somebody opening the form rather than either of us reasoning
+from the transcript. Part 5 for a widowed applicant: she volunteered "he
+passed in August 2019" at turn 40, the lane thanked her and recorded
+nothing, and the read-back dropped Ernesto. The auditor checked the USCIS
+PDF itself rather than our catalog, on the grounds that the catalog could
+have been the thing that was wrong, and the form's own labels are "Your
+Current Marriage", "Current Spouse's Legal Name", "Date You Entered into
+Marriage with Current Spouse". Every one is CURRENT. A widow is asked her
+marital status and her total times married and nothing whatever about the
+person who died.
+
+So the lane minting nothing was CORRECT and there was no field defect. The
+defect was that she said something true and material and heard "thank you"
+and nothing else, which leaves her waiting for a question that is never
+coming. v25 makes that a general rule with this as its instance: a
+volunteered fact the form has no home for is answered plainly, not
+absorbed. Both languages, with "I'm sorry" first, because the sentence
+before the procedural one is the whole point.
+
+⚠ NOT DONE and NOT ours: the form routes overflow to Part 14 Additional
+Information and the generator already has the overflow machinery, so a
+deceased spouse's name could technically be carried there. Whether the app
+volunteers unrequested content onto a federal form is Scott's call. Until
+he rules, nothing about the deceased spouse goes on the form, which is also
+the status quo.
 
 ## What is deliberately not here
 
