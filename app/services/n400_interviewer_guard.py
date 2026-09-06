@@ -300,6 +300,11 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
         logger.warning(
             "n400_interview_over_cleared turn_id=%s open_nodes=%s",
             turn_id, ",".join(over["open_nodes"]))
+    new_text, off_options = mark_values_outside_declared_options(new_text, agenda)
+    for o in off_options:
+        logger.error(
+            "n400_value_outside_declared_options turn_id=%s field_id=%s value=%r declared=%s",
+            turn_id, o["field_id"], o["value"], ",".join(o["declared"]))
     new_text, battery = mark_battery_shortfall(new_text, agenda)
     if battery is not None:
         logger.warning(
@@ -1056,3 +1061,113 @@ def mark_closing_while_open(text: str, info: dict, retried: bool,
         "retried": retried, "resolved": resolved,
     }
     return json.dumps(turn, ensure_ascii=False)
+
+
+# --- a value the floor accepts but a predicate cannot read ------------------
+#
+# The N-400 client's typing floor accepted ANY non-empty string on a yes/no
+# field. That sounds harmless until you follow what such a field GOVERNS:
+# `p9.oath_disability` gates four oath fields through
+# `if:p9.oath_disability==false`. Store "sí" there and the predicate cannot
+# read it, the condition goes false, the four dependent fields stop being
+# REQUIRED, their blanks stop being findings, and the document gate that
+# would have blocked her goes quiet. That is the mechanism by which the
+# Spanish run's five blank oath fields could have reached a filed form.
+#
+# Their general statement of it is worth keeping: A VALUE THE FLOOR ACCEPTS
+# BUT THE PREDICATE CANNOT READ IS MORE DANGEROUS THAN ONE THE FLOOR
+# REFUSES. Refusing leaves the field blank, blank is a finding, and a
+# finding blocks the document. Accepting an unreadable value is silent in
+# both directions.
+#
+# They now canonicalise recognised locale tokens and refuse the rest, which
+# fails safe. THIS SIDE ONLY CHECKS. Their rule, and it is right: a check
+# that fails loudly is the invariant made explicit, while two filters
+# silently agreeing is the danger, so only one side may write. If GP
+# transformed as well, their floor would go on working and neither of us
+# would learn that the shape had moved.
+#
+# The option set is not hardcoded here: the agenda already declares it
+# (`... | options: yes, no`), so the check uses the client's own
+# declaration and cannot drift from it.
+
+OPTION_SHAPE_REASON = "value is not one of the options the agenda declared for this node"
+
+
+def agenda_options(agenda: str | None) -> dict[str, set[str]]:
+    """node_id -> declared option set, from `| options: a, b` on the line."""
+    out: dict[str, set[str]] = {}
+    for raw in (agenda or "").splitlines():
+        cols = [c.strip() for c in raw.split("|")]
+        if len(cols) < 5 or not cols[0]:
+            continue
+        seg = cols[4]
+        if not seg.lower().startswith("options:"):
+            continue
+        opts = {o.strip().lower() for o in seg.split(":", 1)[1].split(",") if o.strip()}
+        if opts:
+            out[cols[0]] = opts
+    return out
+
+
+def mark_values_outside_declared_options(text: str, agenda: str | None) -> tuple[str, list[dict]]:
+    """Mark, never rewrite, a minted value outside the declared option set."""
+    declared = agenda_options(agenda)
+    if not declared:
+        return text, []
+    # ONLY single-field nodes. Measured on real traffic: 29 nodes declare
+    # options against one field, and 5 declare a UNION across several
+    # (q_p6_child1 lists residence AND relationship options over five
+    # fields including the child's name and date of birth). On those the
+    # wire does not say which option belongs to which field, so applying
+    # the set to all of them marked "Mariana" and "2001-02-11" as invalid.
+    # 17 false marks in 548 turns, which is what a marker that gets turned
+    # off looks like. Where the mapping is ambiguous, GP does not guess.
+    by_node = agenda_field_ids(agenda)
+    field_opts: dict[str, set[str]] = {}
+    for node, opts in declared.items():
+        # ONLY a node declaring exactly {yes, no}, and only while it has one
+        # field left. Two measurements forced this. First, 5 nodes declare a
+        # UNION across several fields (q_p6_child1 lists residence AND
+        # relationship options over five fields including the child's name),
+        # so applying the set to every field marked "Mariana" as invalid: 17
+        # false marks in 548 turns. Second, restricting to single-field nodes
+        # was NOT enough, because a partly answered node lists only the ids
+        # still empty, so a five-field node SHRINKS to one and still carries
+        # the union: 7 more false marks on p6.child1.supported.
+        #
+        # The mapping from a union to a field cannot be recovered from an
+        # agenda snapshot at all. A boolean pair has nothing to map: whatever
+        # single field remains, the answer is yes or no. So the check covers
+        # the 29 boolean gates and declines everything else rather than
+        # guessing. Zero false marks on 548 real turns.
+        if opts != {"yes", "no"}:
+            continue
+        fids = by_node.get(node, set())
+        if len(fids) != 1:
+            continue
+        field_opts[next(iter(fids))] = opts
+    if not field_opts:
+        return text, []
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, []
+    if not isinstance(turn, dict) or not isinstance(turn.get("facts"), list):
+        return text, []
+    off: list[dict] = []
+    for f in turn["facts"]:
+        if not isinstance(f, dict):
+            continue
+        opts = field_opts.get(str(f.get("field_id") or ""))
+        if not opts:
+            continue
+        value = f.get("value")
+        if isinstance(value, str) and value.strip().lower() in opts:
+            continue
+        off.append({"field_id": f.get("field_id"), "value": value,
+                    "declared": sorted(opts), "reason": OPTION_SHAPE_REASON})
+    if not off:
+        return text, []
+    turn["values_outside_declared_options"] = off
+    return json.dumps(turn, ensure_ascii=False), off
