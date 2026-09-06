@@ -785,6 +785,33 @@ because the dropper used to empty `facts` first, and `mark_battery_shortfall`
 returns early when nothing was minted. Removing the drop exposed a live
 crash path. Hardened, with a test that also passes None, an int and a list.
 
+AND IT HAD A TWIN ON THE CLIENT, which is the reason it is fixed at the
+gateway and not only in the guard. The auditor went looking the moment the
+crash was described, on the grounds that a wire shape that can reach a GP
+guard can reach their decoder, and found `LocalizedText.init(from:)`
+opening a keyed container unconditionally: the same bare-string `reply`
+threw typeMismatch, surfaced as `malformedResponse`, and malformedResponse
+is NOT retryable in their error table. So the wire that merely 500ed GP
+would have shown the applicant a TERMINAL error mid-interview with no
+retry offered. Theirs was the worse end of the same defect.
+
+Both halves are hardened, and that is still not sufficient, because the
+next client would have to discover this for itself. GP owns the contract,
+so `normalize_reply_shape` now fixes the shape at the gateway: a bare
+string becomes `{"en": ...}`, the key every locale falls back to, so a
+Spanish interview still speaks the line it was sent. A reply that is
+neither a string nor an object is passed through untouched and only
+counted, because tolerating a string must not slide into manufacturing a
+reply out of an integer.
+
+⚠ The lesson both teams drew, and it changes how to land work: the crash
+was reachable the whole time and could not fire while the dropper was
+emptying `facts`, because the shortfall marker returns early when nothing
+was minted. A WRONG DESIGN WAS STANDING IN FRONT OF A REAL BUG, and taking
+the wrong design out is what exposed it. Twice in one day, same shape. It
+argues for landing fixes one at a time rather than in a batch, since a
+batch swaps one mask for another and nobody sees what was underneath.
+
 Sabotage: forcing `_day_was_spoken` to return True turned exactly three
 tests red (the turn 35 shape, the year-is-not-a-day check, and the
 orchestrator reachability test) and left 35 green; reverting the
