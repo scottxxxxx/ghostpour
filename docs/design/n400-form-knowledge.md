@@ -34,8 +34,8 @@ fact the system does not have.
 versioned corpus: one form, eighteen parts, a few hundred fields, plus
 official instructions and the USCIS Policy Manual. Similarity search is
 the wrong instrument for it, and the reason is the failure mode. An
-embedding miss returns a *plausible neighbour* — the Part 12 interpreter
-question when asked about Part 13 preparer — and a plausible neighbour is
+embedding miss returns a *plausible neighbour*: the Part 12 interpreter
+question when asked about Part 13 preparer: and a plausible neighbour is
 exactly what produced turn 104. A curated index either has the row or it
 does not, and "does not" is detectable.
 
@@ -48,12 +48,12 @@ form has to carry a source, because the capability that authorises it
 
 | capability | basis | may GP do it |
 |---|---|---|
-| `explain_question_literal` | PUBLISHED | **yes** — "reading back what USCIS itself publishes about a question, in plainer words, states a public source" |
+| `explain_question_literal` | PUBLISHED | **yes**: "reading back what USCIS itself publishes about a question, in plainer words, states a public source" |
 | `populate_field` | PUBLISHED | yes, scrivener assistance |
 | `normalize` | PUBLISHED | yes, form not substance |
 | `recommend_answer` | NEEDS_LEGAL | no |
-| `interpret_legally` | PUBLISHED | no — 8 CFR 292.1 |
-| `determine_eligibility` | PUBLISHED | no — USCIS's determination |
+| `interpret_legally` | PUBLISHED | no: 8 CFR 292.1 |
+| `determine_eligibility` | PUBLISHED | no: USCIS's determination |
 
 So the knowledge pack may contain **what the form asks, what its terms
 mean per published sources, and what the form does not ask.** It may not

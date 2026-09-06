@@ -15,7 +15,7 @@ research existed and it holds up.
 
 ## The sharpest formulation that exists, and it is DOJ's
 
-DOJ EOIR, *"Are You a Victim of Fraud?"* — non-attorneys:
+DOJ EOIR, *"Are You a Victim of Fraud?"*, on non-attorneys:
 
 > **"CANNOT tell you which immigration forms to use or what answers to
 > put on the forms"**
@@ -66,11 +66,11 @@ here; it is Scott's call and the build continues regardless.
 
 ## Three exposure paths, and only one is about the code
 
-- **State UPL** — the code and the copy.
-- **FTC deception** — *FTC v. Forms Direct / American Immigration Center*
+- **State UPL**: the code and the copy.
+- **FTC deception**: *FTC v. Forms Direct / American Immigration Center*
   (N.D. Cal. 2018), $2.2M, an online USCIS-form preparation service. The
   theory was **government-imposter deception, not UPL**.
-- **FTC substantiation** — the DoNotPay order.
+- **FTC substantiation**: the DoNotPay order.
 
 **In both cases that reached a holding, the marketing is what lost it**,
 not the software. That is a useful and slightly counterintuitive
