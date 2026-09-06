@@ -1,6 +1,7 @@
 """The stale-asking backstop, and the two cases it must leave alone."""
 
 import json
+import pytest
 
 from app.services.n400_interviewer_guard import (
     DROP_REASON, agenda_field_ids, drop_stale_asking, guard_response_text,
@@ -254,3 +255,114 @@ def test_a_uniform_no_across_a_battery_is_still_marked():
                        "reply": {"en": "Ever been arrested? Just say no."}})
     out, info = mark_battery_shortfall(turn, _CRIMES)
     assert info is not None and len(info["minted"]) == len(ids)
+
+
+# --- conf-v24 turn 35: a day nobody spoke ----------------------------------
+
+def _resp(**kw):
+    base = {"intent": "answer", "facts": [], "deferred": [], "reply": "ok"}
+    base.update(kw)
+    return json.dumps(base)
+
+
+def test_a_day_the_applicant_never_said_becomes_a_deferral():
+    """The real conf-v24 turn 35 shape: a month and a year in, two
+    day-precision dates out. The prompt has forbidden this since v13 and
+    the lane did it anyway, in the same run where turn 32 got it right."""
+    from app.services.n400_interviewer_guard import defer_dates_with_unspoken_day
+
+    text = _resp(facts=[
+        {"field_id": "p4.prior_address1.from", "value": "2017-10-19"},
+        {"field_id": "p4.prior_address1.to", "value": "2020-06-01"},
+    ])
+    out, moved = defer_dates_with_unspoken_day(
+        text, "I moved in around October 2017 and left in June 2020")
+    turn = json.loads(out)
+    assert turn["facts"] == [], "no invented day may survive as a fact"
+    assert {d["field_id"] for d in turn["deferred"]} == {
+        "p4.prior_address1.from", "p4.prior_address1.to"}
+    assert {d["partial_value"] for d in turn["deferred"]} == {"2017-10", "2020-06"}
+    assert len(moved) == 2
+
+
+@pytest.mark.parametrize("said", [
+    "I moved in on October 19, 2017",        # digits
+    "it was the nineteenth of October 2017",  # English ordinal
+    "me mudé el diecinueve de octubre de 2017",  # Spanish word
+    "el 19 de octubre",                       # Spanish digits
+])
+def test_a_day_she_actually_said_is_left_alone(said):
+    from app.services.n400_interviewer_guard import defer_dates_with_unspoken_day
+
+    out, moved = defer_dates_with_unspoken_day(
+        _resp(facts=[{"field_id": "x", "value": "2017-10-19"}]), said)
+    assert moved == [], f"the day is right there in {said!r}"
+    assert json.loads(out)["facts"][0]["value"] == "2017-10-19"
+
+
+def test_the_year_is_not_read_as_a_day():
+    """2017 must not satisfy a day of 17, or every date passes."""
+    from app.services.n400_interviewer_guard import defer_dates_with_unspoken_day
+
+    _, moved = defer_dates_with_unspoken_day(
+        _resp(facts=[{"field_id": "x", "value": "2017-10-17"}]), "October 2017")
+    assert len(moved) == 1
+
+
+def test_a_month_precision_value_is_not_touched():
+    from app.services.n400_interviewer_guard import defer_dates_with_unspoken_day
+
+    _, moved = defer_dates_with_unspoken_day(
+        _resp(facts=[{"field_id": "x", "value": "2017-10"}]), "October 2017")
+    assert moved == []
+
+
+# --- conf-v24 turn 80: a yes she did not give ------------------------------
+
+def test_six_oath_fields_do_not_survive_i_do_not_understand():
+    """Not a data error, a consent one. A yes on six oath fields recorded
+    straight after she said she did not understand the bearing-arms part
+    has to be structurally impossible, not discouraged."""
+    from app.services.n400_interviewer_guard import (
+        drop_facts_when_the_intent_says_not_an_answer)
+
+    text = _resp(intent="help_explain", facts=[
+        {"field_id": f"p9.oath.{k}", "value": "yes"} for k in
+        ("support_constitution", "bear_arms", "noncombatant", "national_importance",
+         "renounce_titles", "oath_freely")])
+    out, dropped = drop_facts_when_the_intent_says_not_an_answer(text)
+    assert json.loads(out)["facts"] == []
+    assert len(dropped) == 6
+    assert all(d["intent"] == "help_explain" for d in dropped)
+
+
+@pytest.mark.parametrize("intent", ["answer", "partial_answer", "volunteered_extra",
+                                    "correction", "control"])
+def test_intents_that_legitimately_carry_facts_are_untouched(intent):
+    from app.services.n400_interviewer_guard import (
+        drop_facts_when_the_intent_says_not_an_answer)
+
+    _, dropped = drop_facts_when_the_intent_says_not_an_answer(
+        _resp(intent=intent, facts=[{"field_id": "a", "value": "yes"}]))
+    assert dropped == []
+
+
+def test_both_new_guards_are_actually_reached_by_the_orchestrator():
+    """A guard nobody calls is decoration. This is the only test that
+    proves guard_response_text runs them, which is what production uses."""
+    from app.services.n400_interviewer_guard import guard_response_text
+
+    out = guard_response_text(
+        _resp(intent="help_explain",
+              facts=[{"field_id": "p9.oath.bear_arms", "value": "yes",
+                      "provenance": {"utterance": "I don't understand that part"}}]),
+        None, "t-80", "I don't understand that part")
+    assert json.loads(out)["facts"] == []
+
+    out = guard_response_text(
+        _resp(facts=[{"field_id": "p4.prior_address1.from", "value": "2017-10-19",
+                      "provenance": {"utterance": "around October 2017"}}]),
+        None, "t-35", "I moved in around October 2017")
+    turn = json.loads(out)
+    assert turn["facts"] == []
+    assert turn["deferred"][0]["partial_value"] == "2017-10"

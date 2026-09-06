@@ -28,6 +28,8 @@ from __future__ import annotations
 
 import json
 import logging
+import re
+import unicodedata
 
 logger = logging.getLogger("ghostpour.n400_interviewer_guard")
 
@@ -264,6 +266,20 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
     new_text, both = drop_facts_that_are_also_deferred(new_text)
     for d in both:
         logger.warning("n400_fact_dropped_also_deferred turn_id=%s field_id=%s", turn_id, d["field_id"])
+    # Order matters here. The intent drop runs BEFORE the date deferral so a
+    # non-answer never leaves a deferral behind for a question she did not
+    # answer; the date deferral then only ever sees facts from a real answer.
+    new_text, not_answer = drop_facts_when_the_intent_says_not_an_answer(new_text)
+    for d in not_answer:
+        logger.warning(
+            "n400_fact_dropped_not_an_answer turn_id=%s field_id=%s intent=%s",
+            turn_id, d["field_id"], d["intent"])
+    if user_content is not None:
+        new_text, days = defer_dates_with_unspoken_day(new_text, user_content)
+        for d in days:
+            logger.warning(
+                "n400_date_day_unspoken turn_id=%s field_id=%s claimed=%s deferred_as=%s",
+                turn_id, d["field_id"], d["value"], d["partial_value"])
     new_text, battery = mark_battery_shortfall(new_text, agenda)
     if battery is not None:
         logger.warning(
@@ -271,3 +287,163 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
             turn_id, battery["node_id"], ",".join(battery["minted"]),
             battery["spoken_chars"], battery["question_chars"])
     return new_text
+
+
+# --- a day nobody spoke is not a date, server side -------------------------
+#
+# conf-v24 turn 35: facts p4.prior_address1.from = 2017-10-19 and .to =
+# 2020-06-01 from an utterance that gave a month and a year and no day at
+# all. The prompt has said "a month and a year is a month and a year, never
+# 2017-10-01" since v13 and the lane broke it anyway, which is why this is
+# a guard and not another sentence. `drop_facts_that_are_also_deferred`
+# already catches the version of this where the SAME response also defers
+# the field (conf-v20 turn 38, the same two dates); it cannot see this one,
+# because here nothing was deferred and the invented day stood alone.
+#
+# The fix is the prompt's own prescription applied mechanically: the fact
+# becomes the deferral it should always have been, carrying the month and
+# year it really had as `partial_value`. Nothing true is lost, and the day
+# stops being asserted on a federal form.
+
+INVENTED_DAY_REASON = "the day is not in what the applicant just said; deferring to the month and year"
+
+_ISO_DAY = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
+
+# Day words, English and Spanish, cardinal and ordinal, folded. Only 1..31
+# matter, so this is the whole space rather than a parser.
+_DAY_WORDS: dict[str, int] = {}
+for _i, _en in enumerate(
+    ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth",
+     "ninth", "tenth", "eleventh", "twelfth", "thirteenth", "fourteenth",
+     "fifteenth", "sixteenth", "seventeenth", "eighteenth", "nineteenth",
+     "twentieth", "twentyfirst", "twentysecond", "twentythird", "twentyfourth",
+     "twentyfifth", "twentysixth", "twentyseventh", "twentyeighth",
+     "twentyninth", "thirtieth", "thirtyfirst"], start=1):
+    _DAY_WORDS[_en] = _i
+for _i, _en in enumerate(
+    ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+     "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
+     "seventeen", "eighteen", "nineteen", "twenty"], start=1):
+    _DAY_WORDS[_en] = _i
+for _i, _es in enumerate(
+    ["primero", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho",
+     "nueve", "diez", "once", "doce", "trece", "catorce", "quince",
+     "dieciseis", "diecisiete", "dieciocho", "diecinueve", "veinte",
+     "veintiuno", "veintidos", "veintitres", "veinticuatro", "veinticinco",
+     "veintiseis", "veintisiete", "veintiocho", "veintinueve", "treinta"],
+        start=1):
+    _DAY_WORDS[_es] = _i
+_DAY_WORDS["uno"] = 1
+_DAY_WORDS["primer"] = 1
+
+
+def _fold_words(s: str) -> set[str]:
+    """Lowercase, strip accents, drop punctuation and hyphens, split.
+
+    "twenty-first" and "veintiún" have to match "twentyfirst" and
+    "veintiuno", so hyphens close up and accents come off.
+    """
+    t = unicodedata.normalize("NFD", (s or "").lower())
+    t = "".join(c for c in t if unicodedata.category(c) != "Mn")
+    t = t.replace("-", "").replace("‑", "")
+    return set(re.findall(r"[a-z]+", t))
+
+
+def _day_was_spoken(day: int, said: str) -> bool:
+    """True when the utterance actually contains this day of the month.
+
+    Digits first: a bare 1..31 anywhere, with or without a leading zero,
+    and ordinal suffixes ("19th", "1st"). Then the word forms in both
+    languages. A four digit run is a year, not a day, so `\\b` alone is not
+    enough and the digit search excludes longer numbers explicitly.
+    """
+    for m in re.finditer(r"\d+", said):
+        tok = m.group(0)
+        if len(tok) <= 2 and tok.lstrip("0").isdigit() and int(tok) == day:
+            return True
+    return any(_DAY_WORDS.get(w) == day for w in _fold_words(said))
+
+
+def defer_dates_with_unspoken_day(text: str, user_content: str | None) -> tuple[str, list[dict]]:
+    """Turn a day-precision date the applicant never spoke into a deferral.
+
+    Only touches facts whose value is exactly YYYY-MM-DD. A fact whose day
+    appears in the current utterance is left alone, in any of the forms a
+    person actually says it. Everything else in the response passes through
+    untouched, and a field that is already deferred is not deferred twice.
+    """
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, []
+    if not isinstance(turn, dict) or not isinstance(turn.get("facts"), list):
+        return text, []
+    said = user_content or ""
+    if not said:
+        return text, []
+    already = {d.get("field_id") for d in (turn.get("deferred") or []) if isinstance(d, dict)}
+    kept, moved = [], []
+    for f in turn["facts"]:
+        m = _ISO_DAY.match(str(f.get("value") or "")) if isinstance(f, dict) else None
+        if not m or _day_was_spoken(int(m.group(3)), said):
+            kept.append(f)
+            continue
+        fid = f.get("field_id")
+        moved.append({"field_id": fid, "value": f.get("value"),
+                      "partial_value": f"{m.group(1)}-{m.group(2)}",
+                      "reason": INVENTED_DAY_REASON})
+        if fid not in already:
+            turn.setdefault("deferred", []).append(
+                {"field_id": fid, "partial_value": f"{m.group(1)}-{m.group(2)}",
+                 "reason": INVENTED_DAY_REASON})
+    if not moved:
+        return text, []
+    turn["facts"] = kept
+    turn["facts_dropped"] = (turn.get("facts_dropped") or []) + moved
+    return json.dumps(turn, ensure_ascii=False), moved
+
+
+# --- an utterance that is not an answer mints nothing ----------------------
+#
+# conf-v24 turn 80: the applicant said plainly that she did not understand
+# the bearing-arms part of the oath, and the response minted yes across all
+# six oath fields. The lane's own `intent` vocabulary already has the words
+# for this; when it labels an utterance as one of these, that label and a
+# minted fact cannot both be true, and the label is the one the model
+# committed to first.
+
+NOT_AN_ANSWER_INTENTS = frozenset({
+    "help_explain",   # they did not understand the question
+    "dont_know",      # they cannot answer it
+    "repeat",         # they asked to hear it again
+    "question_back",  # they asked why it is needed
+    "legal_question", # they asked for advice
+    "off_topic",
+    "small_talk",
+    "noise",
+})
+NOT_AN_ANSWER_REASON = "the response's own intent says this utterance was not an answer"
+
+
+def drop_facts_when_the_intent_says_not_an_answer(text: str) -> tuple[str, list[dict]]:
+    """No facts survive an utterance the response itself calls a non-answer.
+
+    `control`, `correction`, `answer`, `partial_answer` and
+    `volunteered_extra` all legitimately carry facts and are untouched.
+    """
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, []
+    if not isinstance(turn, dict):
+        return text, []
+    intent = turn.get("intent")
+    facts = turn.get("facts")
+    if intent not in NOT_AN_ANSWER_INTENTS or not isinstance(facts, list) or not facts:
+        return text, []
+    dropped = [{"field_id": f.get("field_id") if isinstance(f, dict) else None,
+                "value": f.get("value") if isinstance(f, dict) else None,
+                "intent": intent, "reason": NOT_AN_ANSWER_REASON} for f in facts]
+    turn["facts"] = []
+    turn["facts_dropped"] = (turn.get("facts_dropped") or []) + dropped
+    return json.dumps(turn, ensure_ascii=False), dropped
