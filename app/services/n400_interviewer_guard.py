@@ -676,3 +676,86 @@ def clear_interview_over_while_agenda_open(text: str, agenda: str | None) -> tup
     turn["interview_over_cleared"] = info
     return json.dumps(turn, ensure_ascii=False), info
 
+# --- a part with nothing recorded cannot be read back ----------------------
+#
+# conf-v25 turn 104 told her she had answered no about "military or
+# Selective Service issues". The agenda check above cannot catch that,
+# because there was no OPEN node to contradict: the read-back asserted an
+# answer to a question, and no agenda line said otherwise.
+#
+# The deeper defect the auditor named is that the read-back text is
+# NARRATED from what the model believes rather than DERIVED from what is on
+# file. A read-back is the applicant's only check that the FORM matches what
+# she said; if its text comes from the model's memory of the conversation
+# instead of the values, the check is theatre, because it confirms the
+# model's belief to a person who is trusting it to confirm the record.
+#
+# Free text cannot be checked mechanically against a record. What CAN be
+# checked is eligibility: a part with no confirmed fact in KNOWN FACTS has
+# nothing to read back, so a checkpoint claiming it is refused. That is the
+# half of the auditor's rule with a mechanical test.
+#
+# KNOWN FACTS is complete and authoritative, not a window (confirmed by
+# them from both implementations, and by reading a real request off the
+# wire: `field_id: value`, one per line). Four value forms are deliberate
+# transformations and all count as RECORDED, not missing:
+#   "on file"                                  redacted identifiers
+#   a confirmed-empty marker                   "no email" is a real answer
+#   "deferred, to verify from a document..."   she is checking it later
+#   "(mentioned earlier, not yet confirmed)"   the ONE excluded case
+# Only the last is ineligible, because reading an unconfirmed mention back
+# as settled is the same error as turn 79.
+
+MENTION_TAG = "(mentioned earlier, not yet confirmed)"
+NOTHING_RECORDED_REASON = (
+    "section_checkpoint claimed a part with no confirmed fact in KNOWN FACTS"
+)
+
+_FIELD_LINE = re.compile(r"^\s*(p(\d+)\.[A-Za-z0-9_.]+)\s*:\s*(.*)$")
+
+
+def known_fact_parts(known_facts: str | None) -> dict[int, set[str]]:
+    """part number -> field ids ELIGIBLE to be read back for that part."""
+    out: dict[int, set[str]] = {}
+    for line in (known_facts or "").splitlines():
+        m = _FIELD_LINE.match(line)
+        if not m:
+            continue
+        fid, part, value = m.group(1), int(m.group(2)), m.group(3)
+        if MENTION_TAG in value:
+            continue
+        out.setdefault(part, set()).add(fid)
+    return out
+
+
+def checkpoint_reads_back_nothing(text: str, known_facts: str | None) -> dict | None:
+    """Info when a checkpoint claims a part that has nothing on file.
+
+    Returns None when KNOWN FACTS is absent or unparseable, so a malformed
+    variable disables the check rather than refusing every turn.
+    """
+    parts = known_fact_parts(known_facts)
+    if not parts:
+        return None
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(turn, dict):
+        return None
+    cp = turn.get("section_checkpoint")
+    if not isinstance(cp, dict):
+        return None
+    part = cp.get("part")
+    if not isinstance(part, int) or parts.get(part):
+        return None
+    return {"part": part, "recorded_parts": sorted(parts),
+            "reason": NOTHING_RECORDED_REASON}
+
+
+def checkpoint_is_refused(text: str, agenda: str | None,
+                          known_facts: str | None) -> dict | None:
+    """Either refusal reason, agenda contradiction first."""
+    return (checkpoint_contradicts_agenda(text, agenda)
+            or checkpoint_reads_back_nothing(text, known_facts))
+

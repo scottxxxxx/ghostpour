@@ -96,3 +96,72 @@ def test_the_orchestrator_actually_clears_interview_over():
     """A guard nobody calls is decoration."""
     out = guard_response_text(_resp(interview_over=True), AGENDA, "t-105", "yes")
     assert json.loads(out)["interview_over"] is False
+
+
+# --- turn 104: a part with nothing on file cannot be read back --------------
+
+KNOWN = """p2.ssn: on file
+p2.ssa_card_requested: yes
+p4.current_address.city: Dallas
+p4.current_address.postal_code: deferred, to verify from a document
+p4.prior_address1.from: deferred, to verify from a document, partial 2017-10
+p6.child1.child_name: Mariana
+p9.willing_bear_arms: yes
+p11.unconfirmed_thing: (mentioned earlier, not yet confirmed)"""
+
+
+def test_the_four_transformed_value_forms_all_count_as_recorded():
+    """Confirmed against a real request off the wire and against both
+    client implementations: "on file" for redacted identifiers and the
+    deferral forms are RECORDED, not missing. Only an unconfirmed mention
+    is ineligible, because reading it back as settled is turn 79 again."""
+    from app.services.n400_interviewer_guard import known_fact_parts
+
+    parts = known_fact_parts(KNOWN)
+    assert parts[2] == {"p2.ssn", "p2.ssa_card_requested"}, "'on file' is recorded"
+    assert "p4.current_address.postal_code" in parts[4], "a deferral is recorded"
+    assert "p4.prior_address1.from" in parts[4], "a deferral with a partial is recorded"
+    assert 11 not in parts, "an unconfirmed mention is NOT eligible"
+
+
+@pytest.mark.parametrize("part", [11, 13, 3])
+def test_a_part_with_nothing_on_file_is_refused(part):
+    """Turn 104 told her she had answered no about Selective Service. The
+    agenda check cannot catch that: there was no OPEN node to contradict,
+    because the lane asserted an answer to a question nobody asked."""
+    from app.services.n400_interviewer_guard import checkpoint_reads_back_nothing
+
+    info = checkpoint_reads_back_nothing(
+        _resp(section_checkpoint={"part": part}), KNOWN)
+    assert info is not None and info["part"] == part
+
+
+@pytest.mark.parametrize("part", [2, 4, 6, 9])
+def test_a_part_with_something_on_file_is_allowed(part):
+    from app.services.n400_interviewer_guard import checkpoint_reads_back_nothing
+
+    assert checkpoint_reads_back_nothing(
+        _resp(section_checkpoint={"part": part}), KNOWN) is None
+
+
+def test_unparseable_known_facts_disables_the_check_rather_than_refusing_everything():
+    """Degrade toward permitting, never toward refusing every turn: a
+    malformed variable must not brick the interview."""
+    from app.services.n400_interviewer_guard import checkpoint_reads_back_nothing
+
+    for kf in (None, "", "not a fact block at all", "{}"):
+        assert checkpoint_reads_back_nothing(
+            _resp(section_checkpoint={"part": 13}), kf) is None
+
+
+def test_both_refusal_reasons_are_reachable_through_one_entry_point():
+    from app.services.n400_interviewer_guard import checkpoint_is_refused
+
+    open_part = _resp(section_checkpoint={"part": 9})
+    assert checkpoint_is_refused(open_part, AGENDA, KNOWN)["reason"].startswith(
+        "section_checkpoint claimed a part whose node")
+    empty_part = _resp(section_checkpoint={"part": 13})
+    assert checkpoint_is_refused(empty_part, AGENDA, KNOWN)["reason"].startswith(
+        "section_checkpoint claimed a part with no confirmed fact")
+    ok = _resp(section_checkpoint={"part": 6})
+    assert checkpoint_is_refused(ok, AGENDA, KNOWN) is None

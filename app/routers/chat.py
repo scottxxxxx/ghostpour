@@ -4238,16 +4238,17 @@ async def chat(
             # dropped so nothing downstream can credit a completion that
             # never happened.
             from app.services.n400_interviewer_guard import (
-                CHECKPOINT_REMINDER, checkpoint_contradicts_agenda,
+                CHECKPOINT_REMINDER, checkpoint_is_refused,
                 drop_contradicted_checkpoint,
             )
             _agenda = body.get_meta("agenda")
-            _bad_cp = checkpoint_contradicts_agenda(response.text, _agenda)
+            _known = body.get_meta("known_facts")
+            _bad_cp = checkpoint_is_refused(response.text, _agenda, _known)
             if _bad_cp is not None:
                 _cp_turn = body.get_meta("turn_id")
                 logger.warning(
-                    "n400_checkpoint_contradicted turn_id=%s part=%s open_nodes=%s",
-                    _cp_turn, _bad_cp["part"], ",".join(_bad_cp["open_nodes"]))
+                    "n400_checkpoint_refused turn_id=%s part=%s reason=%s",
+                    _cp_turn, _bad_cp["part"], _bad_cp["reason"])
                 await usage_tracker.log_usage(
                     db, user.id, body, response,
                     int((time.monotonic() - start) * 1000),
@@ -4259,7 +4260,7 @@ async def chat(
                     provider_router, _cp_body, db, request.app.state.settings,
                 )
                 _cp_text = _strip_json_code_fence(_cp_retry.text or "") if _cp_retry else ""
-                if _cp_text and checkpoint_contradicts_agenda(_cp_text, _agenda) is None:
+                if _cp_text and checkpoint_is_refused(_cp_text, _agenda, _known) is None:
                     logger.warning("n400_checkpoint_retried turn_id=%s", _cp_turn)
                     response = _cp_retry
                     response.text = _cp_text
