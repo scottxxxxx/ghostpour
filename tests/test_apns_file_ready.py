@@ -59,10 +59,29 @@ async def _db():
 async def test_the_migration_creates_the_table_keyed_by_token_alone():
     db = await _db()
     cols = {r[1]: r for r in await (await db.execute("PRAGMA table_info(device_tokens)")).fetchall()}
-    assert set(cols) == {"device_token", "user_id", "environment", "bundle_id", "app_build",
-                         "created_at", "last_seen_at"}
+    assert set(cols) == {"device_token", "user_id", "app_id", "environment", "bundle_id",
+                         "app_build", "created_at", "last_seen_at"}
     assert cols["device_token"][5] == 1, "device_token is the primary key"
     assert cols["user_id"][5] == 0, "user_id is NOT part of the key"
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_a_token_is_app_scoped_for_account_deletion():
+    """Deleting the Shoulder Surf account must not retire the same phone's
+    N-400 push token, and a token left behind could still take that app's
+    pushes. The account-deletion schema pin caught this table unclassified,
+    which is what it is for."""
+    from app.services.account_deletion import (
+        ACCOUNT_TABLES, APP_OWNED_TABLES, APP_SCOPED_TABLES,
+    )
+    assert "device_tokens" in APP_SCOPED_TABLES
+    assert "device_tokens" not in ACCOUNT_TABLES
+    assert not any("device_tokens" in v for v in APP_OWNED_TABLES.values())
+    db = await _db()
+    await dt.register(db, user_id="u1", device_token="abc", environment="production",
+                      bundle_id="com.ss", app_id="shouldersurf")
+    assert (await dt.for_user(db, "u1"))[0]["app_id"] == "shouldersurf"
     await db.close()
 
 

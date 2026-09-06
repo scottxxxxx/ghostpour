@@ -588,6 +588,7 @@ MIGRATIONS = [
     """CREATE TABLE IF NOT EXISTS device_tokens (
         device_token TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
+        app_id TEXT,
         environment TEXT NOT NULL,
         bundle_id TEXT NOT NULL,
         app_build TEXT,

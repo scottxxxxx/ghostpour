@@ -6,7 +6,7 @@ dormant, so the day the key is provisioned every phone is already known.
 """
 
 import aiosqlite
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from app.database import get_db
@@ -19,6 +19,7 @@ router = APIRouter()
 
 @router.post("/devices/apns")
 async def register_device(
+    request: Request,
     body: dict = Body(...),
     user: UserRecord = Depends(get_current_user),
     db: aiosqlite.Connection = Depends(get_db),
@@ -33,6 +34,7 @@ async def register_device(
     await device_tokens.register(
         db, user_id=user.id, device_token=token, environment=environment,
         bundle_id=bundle_id, app_build=(body.get("app_build") or None),
+        app_id=getattr(request.state, "app_id", None),
     )
     return JSONResponse({"registered": True}, headers={"Cache-Control": "private, no-store"})
 

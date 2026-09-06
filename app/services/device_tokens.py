@@ -11,6 +11,11 @@ want this table with a different one; `environment` decides which Apple
 host the send goes to and is corrected in place when Apple says the
 token belongs to the other one.
 
+`app_id` is the tenancy key every other per-app rule uses, and it is what
+account deletion scopes on: deleting the Shoulder Surf account must not
+retire the phone's N-400 push token. `bundle_id` is the APNs topic and is
+a different thing; neither stands in for the other.
+
 The per-user cap is a ceiling, not the collector: Apple's 410
 Unregistered is what actually retires a dead token (see apns.py).
 """
@@ -39,6 +44,7 @@ def other_environment(environment: str | None) -> str:
 async def register(
     db: aiosqlite.Connection, *, user_id: str, device_token: str,
     environment: str, bundle_id: str, app_build: str | None = None,
+    app_id: str | None = None,
 ) -> None:
     """Idempotent upsert. Re-registering the same token under a new user
     rewrites the owner in place, which is what the single-column key is
@@ -46,13 +52,14 @@ async def register(
     now = _now()
     await db.execute(
         """INSERT INTO device_tokens
-           (device_token, user_id, environment, bundle_id, app_build, created_at, last_seen_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)
+           (device_token, user_id, app_id, environment, bundle_id, app_build, created_at, last_seen_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(device_token) DO UPDATE SET
-             user_id = excluded.user_id, environment = excluded.environment,
+             user_id = excluded.user_id, app_id = excluded.app_id,
+             environment = excluded.environment,
              bundle_id = excluded.bundle_id, app_build = excluded.app_build,
              last_seen_at = excluded.last_seen_at""",
-        (device_token, user_id, (environment or "production").lower(),
+        (device_token, user_id, app_id, (environment or "production").lower(),
          bundle_id, app_build, now, now),
     )
     await db.execute(
