@@ -579,6 +579,23 @@ MIGRATIONS = [
     "ALTER TABLE generations ADD COLUMN acked_at TEXT",
     "CREATE INDEX IF NOT EXISTS idx_generations_project ON generations(user_id, project_id)",
     "CREATE INDEX IF NOT EXISTS idx_generations_meeting ON generations(user_id, meeting_id)",
+    # APNs device tokens (SS contract 2026-09-05). The PRIMARY KEY is the
+    # device token ALONE: a token that moves to another user must REPLACE
+    # its row, and a composite (user_id, device_token) key would keep both,
+    # so one phone would take two pushes and one would name the wrong
+    # account's file. bundle_id rides here because it is the APNs topic and
+    # N-400 will want this table with a different one.
+    """CREATE TABLE IF NOT EXISTS device_tokens (
+        device_token TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        app_id TEXT,
+        environment TEXT NOT NULL,
+        bundle_id TEXT NOT NULL,
+        app_build TEXT,
+        created_at TEXT NOT NULL,
+        last_seen_at TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_device_tokens_user ON device_tokens(user_id)",
     # Chat turn records (2026-08-30). Same shape and same 6h clock as
     # `generations` above, separate table because the semantics differ: this
     # one stores the WHOLE response body so a replay is indistinguishable
