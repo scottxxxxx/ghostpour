@@ -99,8 +99,18 @@ def mark_battery_shortfall(text: str, agenda: str | None) -> tuple[str, dict | N
     minted = {f.get("field_id") for f in turn["facts"] if isinstance(f, dict)}
     if not minted:
         return text, None
+    # `reply` is a locale-keyed object in the contract, but a model that
+    # returns a bare string here must not take the turn down: this guard
+    # runs on every response and has no caller-side try/except. Found when
+    # the non-answer rule stopped emptying `facts`, which had been hiding
+    # this line behind an early return.
     reply = turn.get("reply") or {}
-    spoken = max((len(v) for v in reply.values() if isinstance(v, str)), default=0)
+    if isinstance(reply, str):
+        spoken = len(reply)
+    elif isinstance(reply, dict):
+        spoken = max((len(v) for v in reply.values() if isinstance(v, str)), default=0)
+    else:
+        spoken = 0
     for node_id, ids in by_node_ids.items():
         if len(ids) < BATTERY_MIN_FIELDS:
             continue
@@ -266,14 +276,13 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
     new_text, both = drop_facts_that_are_also_deferred(new_text)
     for d in both:
         logger.warning("n400_fact_dropped_also_deferred turn_id=%s field_id=%s", turn_id, d["field_id"])
-    # Order matters here. The intent drop runs BEFORE the date deferral so a
-    # non-answer never leaves a deferral behind for a question she did not
-    # answer; the date deferral then only ever sees facts from a real answer.
-    new_text, not_answer = drop_facts_when_the_intent_says_not_an_answer(new_text)
-    for d in not_answer:
+    # Marks and does not drop, so ordering is free; it sits after the evidence
+    # floor so `minted` names only facts that survived it.
+    new_text, not_answer = mark_facts_minted_on_a_non_answer(new_text)
+    if not_answer is not None:
         logger.warning(
-            "n400_fact_dropped_not_an_answer turn_id=%s field_id=%s intent=%s",
-            turn_id, d["field_id"], d["intent"])
+            "n400_minted_on_non_answer turn_id=%s intent=%s minted=%s",
+            turn_id, not_answer["intent"], ",".join(not_answer["minted"]))
     if user_content is not None:
         new_text, days = defer_dates_with_unspoken_day(new_text, user_content)
         for d in days:
@@ -403,14 +412,31 @@ def defer_dates_with_unspoken_day(text: str, user_content: str | None) -> tuple[
     return json.dumps(turn, ensure_ascii=False), moved
 
 
-# --- an utterance that is not an answer mints nothing ----------------------
+# --- an utterance the lane itself called a non-answer -----------------------
 #
-# conf-v24 turn 80: the applicant said plainly that she did not understand
-# the bearing-arms part of the oath, and the response minted yes across all
-# six oath fields. The lane's own `intent` vocabulary already has the words
-# for this; when it labels an utterance as one of these, that label and a
-# minted fact cannot both be true, and the label is the one the model
-# committed to first.
+# conf-v24 turn 80: six oath fields minted yes right after she said she did
+# not understand the bearing-arms part. That is consent, not data, and the
+# first version of this DROPPED every fact on such a turn.
+#
+# The auditor then measured it against nine graded runs before it shipped,
+# and the number killed the design: THIRTEEN facts would have been dropped
+# and THIRTEEN of them quote her current utterance, which the evidence
+# floor above had already vouched for. Zero true drops. Every one is the
+# same shape, and it is what a confused first-timer sounds like: she
+# answers and then checks whether the answer counts. "just Mariana, she's
+# grown, she lives with me, does she count" is question_back AND three
+# real facts in one breath. Re-asking her is the moment she decides the
+# machine is not listening.
+#
+# So a wrong label is a signal about the LABEL, not about the facts. This
+# marks and counts; it does not drop. Same posture as
+# `mark_battery_shortfall`, and for the same reason: a real signal you
+# must not act on is still worth counting.
+#
+# Note what this deliberately does NOT do. Dropping only the facts that
+# fail to quote her would be a pure no-op, because
+# `drop_facts_without_current_evidence` already drops exactly those, for
+# every intent, before this runs.
 
 NOT_AN_ANSWER_INTENTS = frozenset({
     "help_explain",   # they did not understand the question
@@ -422,28 +448,27 @@ NOT_AN_ANSWER_INTENTS = frozenset({
     "small_talk",
     "noise",
 })
-NOT_AN_ANSWER_REASON = "the response's own intent says this utterance was not an answer"
+NOT_AN_ANSWER_REASON = "the response's own intent says this was not an answer, yet it minted"
 
 
-def drop_facts_when_the_intent_says_not_an_answer(text: str) -> tuple[str, list[dict]]:
-    """No facts survive an utterance the response itself calls a non-answer.
+def mark_facts_minted_on_a_non_answer(text: str) -> tuple[str, dict | None]:
+    """Mark, do not drop, facts minted on a turn labelled a non-answer.
 
     `control`, `correction`, `answer`, `partial_answer` and
-    `volunteered_extra` all legitimately carry facts and are untouched.
+    `volunteered_extra` all legitimately carry facts and are not marked.
     """
     try:
         turn = json.loads(text)
     except (TypeError, ValueError):
-        return text, []
+        return text, None
     if not isinstance(turn, dict):
-        return text, []
+        return text, None
     intent = turn.get("intent")
     facts = turn.get("facts")
     if intent not in NOT_AN_ANSWER_INTENTS or not isinstance(facts, list) or not facts:
-        return text, []
-    dropped = [{"field_id": f.get("field_id") if isinstance(f, dict) else None,
-                "value": f.get("value") if isinstance(f, dict) else None,
-                "intent": intent, "reason": NOT_AN_ANSWER_REASON} for f in facts]
-    turn["facts"] = []
-    turn["facts_dropped"] = (turn.get("facts_dropped") or []) + dropped
-    return json.dumps(turn, ensure_ascii=False), dropped
+        return text, None
+    info = {"intent": intent,
+            "minted": sorted(str(f.get("field_id")) for f in facts if isinstance(f, dict)),
+            "reason": NOT_AN_ANSWER_REASON}
+    turn["minted_on_non_answer"] = info
+    return json.dumps(turn, ensure_ascii=False), info

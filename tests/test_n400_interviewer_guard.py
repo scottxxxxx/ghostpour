@@ -319,32 +319,50 @@ def test_a_month_precision_value_is_not_touched():
 
 # --- conf-v24 turn 80: a yes she did not give ------------------------------
 
-def test_six_oath_fields_do_not_survive_i_do_not_understand():
-    """Not a data error, a consent one. A yes on six oath fields recorded
-    straight after she said she did not understand the bearing-arms part
-    has to be structurally impossible, not discouraged."""
-    from app.services.n400_interviewer_guard import (
-        drop_facts_when_the_intent_says_not_an_answer)
+def test_facts_minted_on_a_non_answer_are_MARKED_and_not_dropped():
+    """This started life as a dropper and the auditor's data killed it
+    before it shipped: across nine graded runs it would have dropped
+    thirteen facts, and thirteen of the thirteen quote her current
+    utterance, which the evidence floor had already vouched for. Zero true
+    drops. The mislabel is real and worth counting; the facts are hers."""
+    from app.services.n400_interviewer_guard import mark_facts_minted_on_a_non_answer
 
-    text = _resp(intent="help_explain", facts=[
-        {"field_id": f"p9.oath.{k}", "value": "yes"} for k in
-        ("support_constitution", "bear_arms", "noncombatant", "national_importance",
-         "renounce_titles", "oath_freely")])
-    out, dropped = drop_facts_when_the_intent_says_not_an_answer(text)
-    assert json.loads(out)["facts"] == []
-    assert len(dropped) == 6
-    assert all(d["intent"] == "help_explain" for d in dropped)
+    # The exact shape from v17/v20/v22: an answer with a question wrapped
+    # round it. "just Mariana, she's grown, she lives with me, does she count"
+    text = _resp(intent="question_back", facts=[
+        {"field_id": "p6.total_children", "value": "1"},
+        {"field_id": "p6.child1.name", "value": "Mariana"},
+        {"field_id": "p6.child1.residence", "value": "resides_with_me"},
+    ])
+    out, info = mark_facts_minted_on_a_non_answer(text)
+    turn = json.loads(out)
+    assert len(turn["facts"]) == 3, "her three real facts must survive"
+    assert info["intent"] == "question_back"
+    assert turn["minted_on_non_answer"]["minted"] == [
+        "p6.child1.name", "p6.child1.residence", "p6.total_children"]
+
+
+def test_the_oath_turn_is_marked_too():
+    """conf-v24 turn 80, the case the dropper was built for. It is still
+    counted; what protects her is the gloss, because no server-side check
+    can manufacture an informed answer."""
+    from app.services.n400_interviewer_guard import mark_facts_minted_on_a_non_answer
+
+    _, info = mark_facts_minted_on_a_non_answer(_resp(
+        intent="help_explain",
+        facts=[{"field_id": f"p9.oath.{k}", "value": "yes"} for k in
+               ("support_constitution", "bear_arms", "noncombatant")]))
+    assert info is not None and len(info["minted"]) == 3
 
 
 @pytest.mark.parametrize("intent", ["answer", "partial_answer", "volunteered_extra",
                                     "correction", "control"])
-def test_intents_that_legitimately_carry_facts_are_untouched(intent):
-    from app.services.n400_interviewer_guard import (
-        drop_facts_when_the_intent_says_not_an_answer)
+def test_intents_that_legitimately_carry_facts_are_not_marked(intent):
+    from app.services.n400_interviewer_guard import mark_facts_minted_on_a_non_answer
 
-    _, dropped = drop_facts_when_the_intent_says_not_an_answer(
+    _, info = mark_facts_minted_on_a_non_answer(
         _resp(intent=intent, facts=[{"field_id": "a", "value": "yes"}]))
-    assert dropped == []
+    assert info is None
 
 
 def test_both_new_guards_are_actually_reached_by_the_orchestrator():
@@ -357,7 +375,9 @@ def test_both_new_guards_are_actually_reached_by_the_orchestrator():
               facts=[{"field_id": "p9.oath.bear_arms", "value": "yes",
                       "provenance": {"utterance": "I don't understand that part"}}]),
         None, "t-80", "I don't understand that part")
-    assert json.loads(out)["facts"] == []
+    turn = json.loads(out)
+    assert turn["facts"], "the marker must not drop what the floor vouched for"
+    assert turn["minted_on_non_answer"]["intent"] == "help_explain"
 
     out = guard_response_text(
         _resp(facts=[{"field_id": "p4.prior_address1.from", "value": "2017-10-19",
@@ -366,3 +386,27 @@ def test_both_new_guards_are_actually_reached_by_the_orchestrator():
     turn = json.loads(out)
     assert turn["facts"] == []
     assert turn["deferred"][0]["partial_value"] == "2017-10"
+
+
+def test_a_bare_string_reply_does_not_take_the_turn_down():
+    """guard_response_text runs on every response and nothing catches for
+    it, so a model that returns `reply` as a string instead of the
+    locale-keyed object must not raise. This was live until the non-answer
+    rule stopped emptying `facts`, which had been hiding the line behind
+    an early return."""
+    from app.services.n400_interviewer_guard import guard_response_text
+
+    out = guard_response_text(
+        json.dumps({"intent": "answer",
+                    "facts": [{"field_id": "a", "value": "1",
+                               "provenance": {"utterance": "one"}}],
+                    "reply": "a bare string, not an object"}),
+        None, "t-x", "she said one")
+    assert json.loads(out)["facts"], "the response must survive intact"
+
+    for weird in (None, 42, ["a"]):
+        guard_response_text(
+            json.dumps({"intent": "answer",
+                        "facts": [{"field_id": "a", "value": "1",
+                                   "provenance": {"utterance": "one"}}],
+                        "reply": weird}), None, "t-x", "she said one")
