@@ -119,8 +119,21 @@ async def send_to_token(client: httpx.AsyncClient, db: aiosqlite.Connection, *,
         "apns-expiration": str(expiration),
     }
     env = (row.get("environment") or "production").lower()
-    resp = await _post(client, host=HOSTS.get(env, HOSTS["production"]),
-                       token=row["device_token"], headers=headers, payload=payload)
+    host = HOSTS.get(env, HOSTS["production"])
+    resp = await _post(client, host=host, token=row["device_token"],
+                       headers=headers, payload=payload)
+    # One line per attempt, because "Apple accepted it and iOS dropped it"
+    # and "we never got that far" are indistinguishable from the device.
+    # `apns-id` is the receipt: Apple returns it when it has taken the
+    # notification, so its presence moves the investigation off our side.
+    # The token is truncated; it identifies a device and the prefix is
+    # enough to correlate rows.
+    logger.info(
+        "apns_send host=%s env=%s topic=%s collapse_id=%s token=%s… status=%s apns_id=%s",
+        host.replace("https://", ""), env, headers["apns-topic"],
+        headers["apns-collapse-id"], str(row["device_token"])[:8],
+        resp.status_code, getattr(resp, "headers", {}).get("apns-id", "-"),
+    )
     if resp.status_code == 200:
         return "sent"
     reason = ""
@@ -135,6 +148,14 @@ async def send_to_token(client: httpx.AsyncClient, db: aiosqlite.Connection, *,
         other = device_tokens.other_environment(env)
         retry = await _post(client, host=HOSTS[other], token=row["device_token"],
                             headers=headers, payload=payload)
+        logger.warning(
+            "apns_send_retry host=%s from_env=%s to_env=%s collapse_id=%s "
+            "status=%s apns_id=%s — a retry here means the row's environment "
+            "was wrong, NOT a routine correction",
+            HOSTS[other].replace("https://", ""), env, other,
+            headers["apns-collapse-id"], retry.status_code,
+            getattr(retry, "headers", {}).get("apns-id", "-"),
+        )
         if retry.status_code == 200:
             await device_tokens.set_environment(db, row["device_token"], other)
             return f"sent_after_environment_correction_to_{other}"
