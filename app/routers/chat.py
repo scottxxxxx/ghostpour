@@ -4318,6 +4318,46 @@ async def chat(
                     response.text = mark_impossible_modification(
                         response.text, _bad_oath, retried=True, resolved=False)
 
+            # The flag said not over and the sentence told her to file.
+            # conf-es-full-1 turns 86, 87 and 99: interview_over was never
+            # true, the clear-guard fired correctly all three times, and she
+            # was still told "queda completa toda la solicitud" and "usted
+            # misma la firma y la presenta" with five oath fields blank. The
+            # structured field was right; only the sentence speaks to her.
+            from app.services.n400_interviewer_guard import (
+                CLOSING_WHILE_OPEN_REMINDER, closes_in_words_while_agenda_open,
+                mark_closing_while_open,
+            )
+            _closing = closes_in_words_while_agenda_open(response.text, _agenda)
+            if _closing is not None:
+                _c_turn = body.get_meta("turn_id")
+                logger.error(
+                    "n400_closed_in_words_while_open turn_id=%s locale=%s phrase=%s open=%d",
+                    _c_turn, _closing["locale"], _closing["phrase"],
+                    len(_closing["open_nodes"]))
+                await usage_tracker.log_usage(
+                    db, user.id, body, response,
+                    int((time.monotonic() - start) * 1000),
+                    status="closing_while_open_retry", app_id=app_id,
+                )
+                _c_body = body.model_copy(update={
+                    "user_content": (body.user_content or "") + CLOSING_WHILE_OPEN_REMINDER})
+                _c_retry = await route_with_fallback(
+                    provider_router, _c_body, db, request.app.state.settings,
+                )
+                _c_text = _strip_json_code_fence(_c_retry.text or "") if _c_retry else ""
+                if _c_text and closes_in_words_while_agenda_open(_c_text, _agenda) is None:
+                    logger.warning("n400_closing_while_open_retried turn_id=%s", _c_turn)
+                    response = _c_retry
+                    response.text = mark_closing_while_open(
+                        _c_text, _closing, retried=True, resolved=True)
+                else:
+                    logger.error(
+                        "n400_closing_while_open_UNRESOLVED turn_id=%s phrase=%s",
+                        _c_turn, _closing["phrase"])
+                    response.text = mark_closing_while_open(
+                        response.text, _closing, retried=True, resolved=False)
+
             response.text = guard_response_text(
                 response.text, _agenda, body.get_meta("turn_id"),
                 user_content=body.get_meta("user_input") or _n400_utterance)
