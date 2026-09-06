@@ -328,6 +328,17 @@ def detect_overlay_drift() -> dict[str, list[str]]:
     POST /webhooks/admin/config/{slug}/sync-from-bundle.
 
     Malformed files are skipped silently — hydrate already logs them.
+
+    An overlay may declare `_intentional_overrides`, a list of JSON
+    pointers it is DELIBERATELY holding away from the bundle. Those are
+    returned separately so they can be logged quietly, because a warning
+    that is always partly on stops carrying information: on 2026-09-06 a
+    real drift on `n400/interviewer-turn` (a config sync that had silently
+    failed, leaving a v24 prompt serving against v25 guards) sat between
+    two permanent expected warnings and was read as part of the usual
+    block. The detector had fired correctly and named the right slug. What
+    had failed was its signal-to-noise, which is harder to catch than a
+    missing check because everything looks present and working.
     """
     drift: dict[str, list[str]] = {}
     if not _BUNDLED_DIR.is_dir() or not CONFIG_DIR.is_dir():
@@ -354,6 +365,41 @@ def detect_overlay_drift() -> dict[str, list[str]]:
             drift[slug] = drifted
 
     return drift
+
+
+def intentional_overrides() -> dict[str, set[str]]:
+    """{slug: {pointers the overlay declares it holds on purpose}}."""
+    out: dict[str, set[str]] = {}
+    if not CONFIG_DIR.is_dir():
+        return out
+    for overlay_path in CONFIG_DIR.rglob("*.json"):
+        slug = overlay_path.relative_to(CONFIG_DIR).with_suffix("").as_posix()
+        try:
+            overlay = json.loads(overlay_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        if isinstance(overlay, dict):
+            declared = overlay.get("_intentional_overrides")
+            if isinstance(declared, list):
+                out[slug] = {p for p in declared if isinstance(p, str)}
+    return out
+
+
+def split_drift(drift: dict[str, list[str]]) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+    """(unexpected, expected) drift. Expected is what an overlay declares
+    in `_intentional_overrides`; everything else needs a human."""
+    declared = intentional_overrides()
+    unexpected: dict[str, list[str]] = {}
+    expected: dict[str, list[str]] = {}
+    for slug, pointers in drift.items():
+        ok = declared.get(slug, set())
+        u = [p for p in pointers if p not in ok]
+        e = [p for p in pointers if p in ok]
+        if u:
+            unexpected[slug] = u
+        if e:
+            expected[slug] = e
+    return unexpected, expected
 
 
 def hydrate_overlay_additions() -> int:
