@@ -114,3 +114,65 @@ ILRC's sentence should carry the corrected cite. Note also that all of
 indirectly, through (m), which would make a supervising attorney liable
 for assisting the tool's UPL. That matters if the plan ever involves an
 attorney signing off.
+
+
+## What this reclassifies, which is the consequential half
+
+The research does not mainly change what to build next. **It changes what
+several defects we already fixed actually were.** We were closer to the
+line than we knew, and had stepped back from it for the wrong reason.
+
+If a non-attorney may not tell her "what answers to put on the forms",
+then the evidence floor is not a data-quality mechanism that happens to
+be prudent. **It is the compliance boundary**, because it is the thing
+that guarantees no answer reaches the form that she did not say. Three
+defects graded as quality problems are really boundary defects:
+
+1. **conf-v10 turn 67, "Most people say no"** on the fee-reduction
+   question. Graded as a nudge. It is suggesting the answer, on the one
+   question in the form with a money consequence. The auditor has since
+   built a detector and run it over the whole corpus: **exactly one hit**,
+   that turn, across English, Spanish and Portuguese patterns.
+2. **Part 9 batteries minting ten fields from a "no" that answered one
+   clause.** Graded as over-minting. It is putting answers on her form
+   that she was never asked, which is the same act with her participation
+   removed.
+3. **The narrated read-back**, the worst of the three. A summary that
+   asserts an answer she did not give and asks her to confirm it does not
+   only record something unsaid, **it obtains her agreement to it**.
+   conf-v25 turn 79 told her the oath was recorded across the board when
+   one field of six existed, and she said yes twice.
+
+### The consequence for priority
+
+The two failure directions of the same floor now carry **different
+severities**, and they did not before:
+
+- A floor that drops too much costs a **re-ask**. Quality.
+- A floor that lets an unsaid answer through is a **boundary breach**.
+
+That asymmetry is why the non-answer rule was correctly changed from a
+dropper to a marker (all 13 would have been drops of facts she really
+said, so dropping bought nothing and cost re-asks), and it is why
+**field-level read-back derivation stops being a polish item.** A
+read-back narrated from what the model believes rather than derived from
+what is on file is the mechanism by which an unsaid answer gets her
+confirmation. That is the boundary, so it is a requirement.
+
+## ⚠ Genuinely uncertain, and a Scott question rather than ours
+
+The line between explaining what a question MEANS and suggesting what to
+ANSWER is clean in the two cases we have and **is not clean in general**.
+
+- "Bearing arms means carrying weapons" is explanation, and it is USCIS's
+  own gloss. Clearly fine.
+- "Most people say no" is suggesting the answer. Clearly not.
+- **"There is no modification available for that clause" is true,
+  published, and one step from "so you will need to answer yes."**
+
+The third is the shape we cannot resolve by reasoning, and both teams
+arriving at the same intuition about it is not evidence, it is the same
+blind spot twice. It needs the legal reviewer that `policy-matrix.json`
+already names Scott as the owner of, and it is a better use of that
+reviewer's time than the `recommend_answer` row the matrix currently
+flags as most worth it.
