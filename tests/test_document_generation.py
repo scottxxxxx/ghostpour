@@ -244,8 +244,18 @@ def test_serve_endpoint_auth_ownership_expiry(client, pro_user, tmp_db_path, tmp
     import sqlite3
     from datetime import datetime, timedelta, timezone
 
-    blob = tmp_path / "gpf_test"
+    # ONE FILE PER ROW, which is what production does (`stage()` writes
+    # STAGING_DIR / file_id) and what this test used to violate by pointing
+    # both rows at one path. The purge sweep deletes an expired row AND
+    # unlinks its storage_path, so a shared path meant purging the DEAD row
+    # destroyed the LIVE row's bytes and the serve endpoint 404'd on a row
+    # that was still there. Whether the sweep landed between the insert and
+    # the request was a race, which is why this passed on fast machines and
+    # went red on the CI runner.
+    blob = tmp_path / "gpf_live_blob"
     blob.write_bytes(b"PK\x03\x04 artifact")
+    dead_blob = tmp_path / "gpf_dead_blob"
+    dead_blob.write_bytes(b"PK\x03\x04 artifact")
     future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
     past = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
     con = sqlite3.connect(tmp_db_path)
@@ -256,11 +266,35 @@ def test_serve_endpoint_auth_ownership_expiry(client, pro_user, tmp_db_path, tmp
     con.execute("INSERT INTO generated_files VALUES (?,?,?,?,?,?,?,?,?)",
                 ("gpf_live", uid, "shouldersurf", "t.xlsx", XLSX, 11, str(blob), future, future))
     con.execute("INSERT INTO generated_files VALUES (?,?,?,?,?,?,?,?,?)",
-                ("gpf_dead", uid, "shouldersurf", "t.xlsx", XLSX, 11, str(blob), past, past))
+                ("gpf_dead", uid, "shouldersurf", "t.xlsx", XLSX, 11, str(dead_blob), past, past))
     con.commit(); con.close()
 
     h = pro_user["headers"]
     r = client.get("/v1/generated-files/gpf_live", headers=h)
+    if r.status_code != 200:
+        # This test went red twice in CI on 2026-09-06, on two branches
+        # whose diffs could not touch it, and passed on a rerun of the
+        # identical commit and in five local configurations including CI's
+        # own environment. Rather than rerun past a third occurrence, make
+        # it explain itself: the next failure prints what the app's own
+        # database holds, the clock either side of the comparison, and
+        # whether the bytes are still on disk. Costs nothing when green.
+        import os
+        from datetime import datetime, timezone
+        con2 = sqlite3.connect(tmp_db_path)
+        rows = con2.execute(
+            "SELECT id, user_id, app_id, storage_path, created_at, expires_at "
+            "FROM generated_files").fetchall()
+        users = con2.execute("SELECT id, tier, is_active FROM users").fetchall()
+        con2.close()
+        raise AssertionError(
+            f"expected 200, got {r.status_code} body={r.text[:200]!r}\n"
+            f"  db={tmp_db_path}\n"
+            f"  now={datetime.now(timezone.utc).isoformat()} inserted_expiry={future}\n"
+            f"  blob_exists={os.path.exists(blob)} size={blob.stat().st_size if os.path.exists(blob) else None}\n"
+            f"  generated_files rows={rows}\n"
+            f"  users rows={users}\n"
+            f"  auth_user_id={uid}")
     assert r.status_code == 200
     assert r.content == b"PK\x03\x04 artifact"
     assert "no-store" in r.headers.get("cache-control", "")
@@ -2340,3 +2374,45 @@ def test_artifact_filename_is_distinctive():
     name2 = artifact_filename(t, {"project": "a/b\\c: d*e?" + "x" * 100,
                                   "meeting_date": "2026-07-14"})
     assert re.fullmatch(r"a_b_c_d_e_x{30}_Gantt_071426\.xlsx", name2)
+
+
+@pytest.mark.asyncio
+async def test_purge_never_unlinks_bytes_a_live_row_still_points_at(tmp_path, monkeypatch):
+    """The exact shape that made test_serve_endpoint_auth_ownership_expiry
+    flake on 2026-09-06: two rows, one file, one of them expired. The purge
+    used to unlink the shared path and leave the live row pointing at
+    nothing, so the serve endpoint 404'd on a row that was still there.
+
+    Nothing in production can create that shape today, because stage()
+    gives every file id its own path. That invariant lives in one function
+    and is written down nowhere, which is exactly why the check exists: a
+    re-stage after a retry, a copy or a restore could reintroduce it.
+    """
+    import aiosqlite
+    from datetime import datetime, timedelta, timezone
+    from app.services import generated_files as gf
+
+    shared = tmp_path / "shared_blob"
+    shared.write_bytes(b"PK\x03\x04 artifact")
+    db = await aiosqlite.connect(":memory:")
+    db.row_factory = aiosqlite.Row
+    await db.execute("""CREATE TABLE generated_files (
+        id TEXT PRIMARY KEY, user_id TEXT, app_id TEXT, name TEXT, media_type TEXT,
+        size_bytes INTEGER, storage_path TEXT, created_at TEXT, expires_at TEXT)""")
+    future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    past = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+    for fid, exp in (("live", future), ("dead", past)):
+        await db.execute("INSERT INTO generated_files VALUES (?,?,?,?,?,?,?,?,?)",
+                         (fid, "u1", "ss", "t.xlsx", XLSX, 11, str(shared), exp, exp))
+    await db.commit()
+
+    assert await gf.purge_expired(db) == 1              # the expired row goes
+    assert shared.exists(), "the live row's bytes must survive its neighbour's purge"
+    assert await gf.fetch(db, "live", "u1") is not None  # and it is still fetchable
+
+    # and when the last row referencing the path expires, the bytes DO go
+    await db.execute("UPDATE generated_files SET expires_at = ? WHERE id = 'live'", (past,))
+    await db.commit()
+    assert await gf.purge_expired(db) == 1
+    assert not shared.exists(), "nothing references it now, so it is deleted"
+    await db.close()
