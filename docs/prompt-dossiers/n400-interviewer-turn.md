@@ -703,6 +703,64 @@ argument. If the object still drifts on v25, the next step is a
 server-side guard that rewrites `part` from the reply text, on #888's
 reasoning: the reply is what the applicant actually hears.
 
+### conf-v24: the five other items, and which two became guards
+
+The auditor's v24 stamp was strong (English 95 turns, 134 facts, asking
+dropped 0, provenance 122 of 122, dashes 0; one question mark per reply
+held with ZERO violations against three on v23; over-cap lines down to two
+in English and one in Spanish from eleven on v22; the composite-name false
+positive gone). Five items came back besides the object convention, and
+both of us independently split them the same way.
+
+TWO ARE GUARDS, not sentences.
+
+The invented days, turn 35: facts p4.prior_address1.from = 2017-10-19 and
+.to = 2020-06-01 from an utterance carrying a month and a year. The prompt
+has forbidden exactly this since v13, in three different wordings, and the
+SAME RUN complied at turn 32 and broke at turn 35, which is the signature
+of an instruction that cannot be relied on. `drop_facts_that_are_also_deferred`
+already caught the conf-v20 turn 38 version of it, the same two dates, but
+only because that response also deferred the fields; here nothing was
+deferred and the invented day stood alone. So
+`defer_dates_with_unspoken_day` converts any YYYY-MM-DD fact whose day is
+absent from the current utterance into the deferral the prompt always
+prescribed, carrying the real month and year as `partial_value`. Day words
+and digits in both languages, and a four digit year cannot satisfy a day.
+This is not a grading defect: a day nobody spoke is a false statement on a
+federal form, the one class where being helpful is worse than being silent.
+
+The oath yes, turn 80: six oath fields minted yes right after she said she
+did not understand the bearing-arms part. That is a consent question, not a
+data one, so `drop_facts_when_the_intent_says_not_an_answer` empties
+`facts` whenever the response's OWN `intent` is help_explain, dont_know,
+repeat, question_back, legal_question, off_topic, small_talk or noise. The
+model committed to that label before it wrote the facts; the label and a
+minted fact cannot both be true, and the label is the earlier commitment.
+`answer`, `partial_answer`, `volunteered_extra`, `correction` and `control`
+are untouched.
+
+Sabotage, both: forcing `_day_was_spoken` to return True turned exactly
+three tests red (the turn 35 shape, the year-is-not-a-day check, and the
+orchestrator reachability test) and left 35 green; removing help_explain
+from the non-answer set turned exactly two red. Each mutation was confirmed
+present in the file before the run and reverted after.
+
+THREE ARE PROMPT WORK. The gloss: the Recover rule already said to explain
+in plain words and turn 73's "a what" about a title of nobility still got
+nothing, so v25 names the TRIGGER ("a what?", "un qué?", a word repeated
+back) as help_explain and supplies the four glosses the form's own
+vocabulary needs. The address: "Dallas, Texas" is a city AND a state, and
+p4.current_address.state was never minted in a run whose read-back said
+Texas twice. Both enforcement points are now stated in the prompt as
+enforced, so the lane is not relying on being asked twice.
+
+⚠ STILL OPEN, and it is a contract question, not a prompt one. Part 5 for a
+widowed applicant: she volunteered "he passed in August 2019" at turn 40,
+the lane thanked her and recorded nothing, and the final Part 5 read-back
+dropped Ernesto entirely. Whether that is a lane defect depends on whether
+the agenda HAS field ids for a deceased spouse, which the client owns and
+which I have not read. Asked rather than guessed.
+
 ## What is deliberately not here
 
 - No few-shots: two real utterances are not a corpus (same as v3).
