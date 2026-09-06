@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 23
+served_version: 24
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
@@ -618,6 +618,41 @@ mark named as not a length target (a short faithful paraphrase beats a
 long burying one, and padding to look long is the failure this could
 otherwise cause); an explanation sibling is never minted for a no; a job or address they are
 still in ends "present", a fact, never a deferral.
+
+## conf-v23: the tail held, the middle did not; v24
+
+v23 stamped with the best counters of any run: facts dropped 0 for the
+first time ever, provenance 119 of 119, over-cap lines down from 11 to 4,
+the English opening 38 words against a 45 cap, Parts 12 and 13 present and
+confirmed. And the anchor that fixed the tail exposed what it did not
+cover: the walk went 1 to 8 then jumped to 12, so Parts 9, 10 and 11 were
+never read back, and "the last part was 13" is satisfied by a walk with a
+hole in it. v24: read the LOWEST part not yet read back, no gaps, and
+every part 1 to 13 must have had its own turn and its own yes before
+interview_over.
+
+The battery detector earned its keep on its first run: five marks, and the
+auditor checked every minted field against the spoken question and found
+ZERO unspoken mints, which is the evidence that keeps it a marker and not
+a dropper. Two marks were false positives on a composite name ask. Fixed
+precisely: a battery answered in one word mints ONE value many times,
+while a name mints three DIFFERENT values from an equally short reply, so
+the detector now requires the minted values to be uniform, comparing the
+model's own values to each other, which holds in every locale.
+
+Also v24: exactly one question mark per reply, counted like the word caps;
+the opening strikes every before-we-begin question APPLICANT CONTEXT
+answers before a word is written (third statement of that rule); "ends in"
+and "termina en" may only precede the last four digits; the Part 2 summary
+named as the one that runs past 60 and must split.
+
+⚠ Worth keeping: the marker surfaced a defect that was the CLIENT's and
+that neither side could see alone. At turn 68 the lane minted five of the
+armed-groups battery's eight and moved on, and the client's span rule,
+written for a genuine skip, retired the half-answered node, so three
+required boxes ended blank. "Mint only what you spoke" and a span rule
+written before it combined into a blank required field. Fixed on their
+side with a replay test.
 
 ## What is deliberately not here
 
