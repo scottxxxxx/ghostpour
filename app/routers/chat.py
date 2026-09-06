@@ -4239,7 +4239,7 @@ async def chat(
             # never happened.
             from app.services.n400_interviewer_guard import (
                 CHECKPOINT_REMINDER, checkpoint_is_refused,
-                drop_contradicted_checkpoint,
+                drop_contradicted_checkpoint, mark_checkpoint_refused,
             )
             _agenda = body.get_meta("agenda")
             _known = body.get_meta("known_facts")
@@ -4261,9 +4261,12 @@ async def chat(
                 )
                 _cp_text = _strip_json_code_fence(_cp_retry.text or "") if _cp_retry else ""
                 if _cp_text and checkpoint_is_refused(_cp_text, _agenda, _known) is None:
-                    logger.warning("n400_checkpoint_retried turn_id=%s", _cp_turn)
+                    logger.warning(
+                        "n400_checkpoint_retried turn_id=%s code=%s",
+                        _cp_turn, _bad_cp["code"])
                     response = _cp_retry
-                    response.text = _cp_text
+                    response.text = mark_checkpoint_refused(
+                        _cp_text, _bad_cp, retried=True, resolved=True)
                 else:
                     logger.warning("n400_checkpoint_retry_failed turn_id=%s", _cp_turn)
                     if _cp_retry:
@@ -4273,6 +4276,8 @@ async def chat(
                             status="checkpoint_retry_failed", app_id=app_id,
                         )
                     response.text, _ = drop_contradicted_checkpoint(response.text, _agenda)
+                    response.text = mark_checkpoint_refused(
+                        response.text, _bad_cp, retried=True, resolved=False)
 
             response.text = guard_response_text(
                 response.text, _agenda, body.get_meta("turn_id"),

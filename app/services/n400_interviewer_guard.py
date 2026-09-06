@@ -605,6 +605,11 @@ CHECKPOINT_REMINDER = (
 CHECKPOINT_CONTRADICTION_REASON = (
     "section_checkpoint claimed a part whose node is still open on the agenda"
 )
+# Short stable codes so the audit can COUNT refusals by kind rather than
+# string-match prose. The two reasons are different failures: one is a
+# claim the agenda refutes, the other a claim the record cannot support.
+REFUSED_AGENDA_OPEN = "agenda_open"
+REFUSED_NO_CONFIRMED_FACT = "no_confirmed_fact"
 
 
 def agenda_parts(agenda: str | None) -> dict[str, int]:
@@ -638,6 +643,7 @@ def checkpoint_contradicts_agenda(text: str, agenda: str | None) -> dict | None:
     if not open_nodes:
         return None
     return {"part": part, "open_nodes": open_nodes,
+            "code": REFUSED_AGENDA_OPEN,
             "reason": CHECKPOINT_CONTRADICTION_REASON}
 
 
@@ -750,6 +756,7 @@ def checkpoint_reads_back_nothing(text: str, known_facts: str | None) -> dict | 
     if not isinstance(part, int) or parts.get(part):
         return None
     return {"part": part, "recorded_parts": sorted(parts),
+            "code": REFUSED_NO_CONFIRMED_FACT,
             "reason": NOTHING_RECORDED_REASON}
 
 
@@ -759,3 +766,29 @@ def checkpoint_is_refused(text: str, agenda: str | None,
     return (checkpoint_contradicts_agenda(text, agenda)
             or checkpoint_reads_back_nothing(text, known_facts))
 
+
+def mark_checkpoint_refused(text: str, info: dict, retried: bool,
+                            resolved: bool) -> str:
+    """Put the refusal on the wire so the audit can COUNT it.
+
+    Requested by the auditor, and the reasoning is one both teams got
+    burned by tonight: without a marker the only evidence a refusal
+    happened is the ABSENCE of a bad summary, and a negative like that has
+    twice been mistaken for a clean result. It also separates two outcomes
+    a transcript cannot: the retry doing real work, versus the model
+    simply not producing the contradiction any more.
+    """
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text
+    if not isinstance(turn, dict):
+        return text
+    turn["checkpoint_refused"] = {
+        "part": info.get("part"),
+        "code": info.get("code"),
+        "reason": info.get("reason"),
+        "retried": retried,
+        "resolved": resolved,
+    }
+    return json.dumps(turn, ensure_ascii=False)

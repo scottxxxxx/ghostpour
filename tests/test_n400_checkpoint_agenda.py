@@ -165,3 +165,44 @@ def test_both_refusal_reasons_are_reachable_through_one_entry_point():
         "section_checkpoint claimed a part with no confirmed fact")
     ok = _resp(section_checkpoint={"part": 6})
     assert checkpoint_is_refused(ok, AGENDA, KNOWN) is None
+
+
+# --- the refusal must be countable, not inferable ---------------------------
+
+def test_both_refusal_codes_are_stable_and_distinct():
+    """The audit counts by code, not by string-matching prose. These two
+    are different failures: a claim the agenda refutes, versus a claim the
+    record cannot support."""
+    from app.services.n400_interviewer_guard import (
+        REFUSED_AGENDA_OPEN, REFUSED_NO_CONFIRMED_FACT, checkpoint_is_refused)
+
+    assert REFUSED_AGENDA_OPEN != REFUSED_NO_CONFIRMED_FACT
+    assert checkpoint_is_refused(_resp(section_checkpoint={"part": 9}),
+                                 AGENDA, KNOWN)["code"] == REFUSED_AGENDA_OPEN
+    assert checkpoint_is_refused(_resp(section_checkpoint={"part": 13}),
+                                 AGENDA, KNOWN)["code"] == REFUSED_NO_CONFIRMED_FACT
+
+
+@pytest.mark.parametrize("resolved", [True, False])
+def test_the_refusal_rides_on_the_wire_with_its_outcome(resolved):
+    """Without this the only evidence a refusal happened is the ABSENCE of
+    a bad summary, and a negative like that has been mistaken for a clean
+    result twice tonight. It also separates the retry doing real work from
+    the model simply not producing the contradiction any more."""
+    from app.services.n400_interviewer_guard import (
+        checkpoint_is_refused, mark_checkpoint_refused)
+
+    info = checkpoint_is_refused(_resp(section_checkpoint={"part": 9}), AGENDA, KNOWN)
+    out = mark_checkpoint_refused(_resp(), info, retried=True, resolved=resolved)
+    marker = json.loads(out)["checkpoint_refused"]
+    assert marker["part"] == 9
+    assert marker["code"] == "agenda_open"
+    assert marker["retried"] is True and marker["resolved"] is resolved
+    assert marker["reason"]
+
+
+def test_marking_never_damages_a_response_it_cannot_parse():
+    from app.services.n400_interviewer_guard import mark_checkpoint_refused
+
+    assert mark_checkpoint_refused("not json", {"part": 1}, True, True) == "not json"
+    assert mark_checkpoint_refused("[1,2]", {"part": 1}, True, True) == "[1,2]"
