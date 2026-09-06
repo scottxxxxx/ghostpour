@@ -105,11 +105,29 @@ async def fetch(db: aiosqlite.Connection, file_id: str, user_id: str) -> dict | 
 
 async def purge_expired(db: aiosqlite.Connection) -> int:
     """Delete expired rows and their bytes. Called at startup and hourly."""
+    now = _now().isoformat()
     rows = await (await db.execute(
         "SELECT id, storage_path FROM generated_files WHERE expires_at <= ?",
-        (_now().isoformat(),),
+        (now,),
     )).fetchall()
+    # Unlink only a path NOTHING ELSE still points at. `stage()` gives every
+    # file id its own path (STAGING_DIR / fid), so today nothing can share
+    # one; that invariant lives in a single function, is written down
+    # nowhere, and on 2026-09-06 a test violated it by hand and lost a live
+    # file's bytes to an expired row's purge. This makes the invariant a
+    # check instead, so a future re-stage, copy or restore that reuses a
+    # path cannot delete a file somebody is still entitled to fetch.
     for r in rows:
+        others = await (await db.execute(
+            "SELECT COUNT(*) AS n FROM generated_files "
+            "WHERE storage_path = ? AND id != ? AND expires_at > ?",
+            (r["storage_path"], r["id"], now),
+        )).fetchone()
+        if others and int(others["n"]):
+            logger.info(
+                "generated_files purge: keeping bytes at %s, %d live row(s) still reference it",
+                r["storage_path"], int(others["n"]))
+            continue
         try:
             Path(r["storage_path"]).unlink(missing_ok=True)
         except OSError as e:
