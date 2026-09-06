@@ -2374,3 +2374,45 @@ def test_artifact_filename_is_distinctive():
     name2 = artifact_filename(t, {"project": "a/b\\c: d*e?" + "x" * 100,
                                   "meeting_date": "2026-07-14"})
     assert re.fullmatch(r"a_b_c_d_e_x{30}_Gantt_071426\.xlsx", name2)
+
+
+@pytest.mark.asyncio
+async def test_purge_never_unlinks_bytes_a_live_row_still_points_at(tmp_path, monkeypatch):
+    """The exact shape that made test_serve_endpoint_auth_ownership_expiry
+    flake on 2026-09-06: two rows, one file, one of them expired. The purge
+    used to unlink the shared path and leave the live row pointing at
+    nothing, so the serve endpoint 404'd on a row that was still there.
+
+    Nothing in production can create that shape today, because stage()
+    gives every file id its own path. That invariant lives in one function
+    and is written down nowhere, which is exactly why the check exists: a
+    re-stage after a retry, a copy or a restore could reintroduce it.
+    """
+    import aiosqlite
+    from datetime import datetime, timedelta, timezone
+    from app.services import generated_files as gf
+
+    shared = tmp_path / "shared_blob"
+    shared.write_bytes(b"PK\x03\x04 artifact")
+    db = await aiosqlite.connect(":memory:")
+    db.row_factory = aiosqlite.Row
+    await db.execute("""CREATE TABLE generated_files (
+        id TEXT PRIMARY KEY, user_id TEXT, app_id TEXT, name TEXT, media_type TEXT,
+        size_bytes INTEGER, storage_path TEXT, created_at TEXT, expires_at TEXT)""")
+    future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    past = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+    for fid, exp in (("live", future), ("dead", past)):
+        await db.execute("INSERT INTO generated_files VALUES (?,?,?,?,?,?,?,?,?)",
+                         (fid, "u1", "ss", "t.xlsx", XLSX, 11, str(shared), exp, exp))
+    await db.commit()
+
+    assert await gf.purge_expired(db) == 1              # the expired row goes
+    assert shared.exists(), "the live row's bytes must survive its neighbour's purge"
+    assert await gf.fetch(db, "live", "u1") is not None  # and it is still fetchable
+
+    # and when the last row referencing the path expires, the bytes DO go
+    await db.execute("UPDATE generated_files SET expires_at = ? WHERE id = 'live'", (past,))
+    await db.commit()
+    assert await gf.purge_expired(db) == 1
+    assert not shared.exists(), "nothing references it now, so it is deleted"
+    await db.close()
