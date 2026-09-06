@@ -4227,8 +4227,54 @@ async def chat(
         # app/services/n400_interviewer_guard.py.
         if response and response.text and body.get_meta("call_type") == "n400_interviewer_turn":
             from app.services.n400_interviewer_guard import guard_response_text
+
+            # conf-v25 turn 79: the lane claimed Part 9 complete having
+            # recorded one of six oath fields, and spoke that claim aloud.
+            # The agenda still held q_p9_oath, so GP's own input refuted it.
+            # Dropping the object is not enough because the harm is in the
+            # REPLY she hears, so the turn is REFUSED and retried once with
+            # a reminder naming the open node. Same shape as the envelope
+            # retry above. If the retry still contradicts, the object is
+            # dropped so nothing downstream can credit a completion that
+            # never happened.
+            from app.services.n400_interviewer_guard import (
+                CHECKPOINT_REMINDER, checkpoint_contradicts_agenda,
+                drop_contradicted_checkpoint,
+            )
+            _agenda = body.get_meta("agenda")
+            _bad_cp = checkpoint_contradicts_agenda(response.text, _agenda)
+            if _bad_cp is not None:
+                _cp_turn = body.get_meta("turn_id")
+                logger.warning(
+                    "n400_checkpoint_contradicted turn_id=%s part=%s open_nodes=%s",
+                    _cp_turn, _bad_cp["part"], ",".join(_bad_cp["open_nodes"]))
+                await usage_tracker.log_usage(
+                    db, user.id, body, response,
+                    int((time.monotonic() - start) * 1000),
+                    status="checkpoint_retry", app_id=app_id,
+                )
+                _cp_body = body.model_copy(update={
+                    "user_content": (body.user_content or "") + CHECKPOINT_REMINDER})
+                _cp_retry = await route_with_fallback(
+                    provider_router, _cp_body, db, request.app.state.settings,
+                )
+                _cp_text = _strip_json_code_fence(_cp_retry.text or "") if _cp_retry else ""
+                if _cp_text and checkpoint_contradicts_agenda(_cp_text, _agenda) is None:
+                    logger.warning("n400_checkpoint_retried turn_id=%s", _cp_turn)
+                    response = _cp_retry
+                    response.text = _cp_text
+                else:
+                    logger.warning("n400_checkpoint_retry_failed turn_id=%s", _cp_turn)
+                    if _cp_retry:
+                        await usage_tracker.log_usage(
+                            db, user.id, _cp_body, _cp_retry,
+                            int((time.monotonic() - start) * 1000),
+                            status="checkpoint_retry_failed", app_id=app_id,
+                        )
+                    response.text, _ = drop_contradicted_checkpoint(response.text, _agenda)
+
             response.text = guard_response_text(
-                response.text, body.get_meta("agenda"), body.get_meta("turn_id"),
+                response.text, _agenda, body.get_meta("turn_id"),
                 user_content=body.get_meta("user_input") or _n400_utterance)
 
         # Surface the cleaned transcript (if cleanup ran for this analysis call)

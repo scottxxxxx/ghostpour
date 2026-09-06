@@ -295,6 +295,11 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
         logger.warning(
             "n400_reply_shape_normalized turn_id=%s chars=%d",
             turn_id, reply_shape["chars"])
+    new_text, over = clear_interview_over_while_agenda_open(new_text, agenda)
+    if over is not None:
+        logger.warning(
+            "n400_interview_over_cleared turn_id=%s open_nodes=%s",
+            turn_id, ",".join(over["open_nodes"]))
     new_text, battery = mark_battery_shortfall(new_text, agenda)
     if battery is not None:
         logger.warning(
@@ -555,3 +560,119 @@ def normalize_reply_shape(text: str) -> tuple[str, dict | None]:
     turn["reply"] = {"en": turn["reply"]}
     turn["reply_shape_normalized"] = info
     return json.dumps(turn, ensure_ascii=False), info
+
+# --- a part is not complete while its own node is still open ---------------
+#
+# conf-v25 English, turn 79, the worst defect of the run and the root cause
+# of three others. She answered one of six oath items. The lane minted
+# `p9.willing_bear_arms` ONLY and said "that's a yes across the board on the
+# oath questions. That completes Part 9". Five required oath fields did not
+# exist until turn 94. For fifteen turns it read back five facts it had
+# never recorded, summarised Part 9 as confirmed twice, and she said yes
+# both times. Had the interview ended anywhere in there, five required
+# fields would have printed BLANK on her form after she was twice told they
+# were recorded.
+#
+# Everything downstream came from that one sentence: the final read-back
+# started at turn 80 with a node still open, the node closed at 94, the
+# agenda emptied at 95, and at 96 the lane started the whole read-back AGAIN
+# from Part 1 and was still going at the 105-turn cap. `interview_over` was
+# never set once.
+#
+# GP already holds the contradiction. The agenda is the client's record of
+# what is UNANSWERED, and `q_p9_oath` correctly stayed on it from turn 78 to
+# 94. So a `section_checkpoint` claiming Part 9 while a Part 9 node is still
+# on the agenda is refuted by GP's own input, in every locale, without
+# reading a word of the reply.
+#
+# Dropping the object is not enough, because the harm is in the REPLY, which
+# is what she hears and the only check she has that the form matches what
+# she said. So this is a REFUSAL: the caller retries the turn once with a
+# reminder naming the open node, the same shape as the envelope retry that
+# already runs ahead of it. If the retry still contradicts, the object is
+# dropped so nothing downstream can credit a completion that did not happen.
+
+CHECKPOINT_REMINDER = (
+    "\n\nSTOP. Your last response claimed a part was complete while that "
+    "part still has an unanswered node on the agenda above. A part is "
+    "complete ONLY when no agenda line for it remains. Do not say or imply "
+    "that a part is finished, do not summarise it as confirmed, and do not "
+    "send section_checkpoint for it. Say only what you have actually "
+    "recorded this turn, then ask the next unanswered question on that "
+    "part's open node. Reply with the JSON object only."
+)
+
+CHECKPOINT_CONTRADICTION_REASON = (
+    "section_checkpoint claimed a part whose node is still open on the agenda"
+)
+
+
+def agenda_parts(agenda: str | None) -> dict[str, int]:
+    """node_id -> the part NUMBER of its agenda line ("Part 9: ..." is 9)."""
+    out: dict[str, int] = {}
+    for raw in (agenda or "").splitlines():
+        cols = [c.strip() for c in raw.split("|")]
+        if len(cols) < 4 or not cols[0]:
+            continue
+        m = re.match(r"Part\s+(\d+)\b", cols[1])
+        if m:
+            out[cols[0]] = int(m.group(1))
+    return out
+
+
+def checkpoint_contradicts_agenda(text: str, agenda: str | None) -> dict | None:
+    """Info when the response claims a part the agenda says is still open."""
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(turn, dict):
+        return None
+    cp = turn.get("section_checkpoint")
+    if not isinstance(cp, dict):
+        return None
+    part = cp.get("part")
+    if not isinstance(part, int):
+        return None
+    open_nodes = sorted(n for n, p in agenda_parts(agenda).items() if p == part)
+    if not open_nodes:
+        return None
+    return {"part": part, "open_nodes": open_nodes,
+            "reason": CHECKPOINT_CONTRADICTION_REASON}
+
+
+def drop_contradicted_checkpoint(text: str, agenda: str | None) -> tuple[str, dict | None]:
+    """Last resort when a retry did not fix it: remove the claim itself."""
+    info = checkpoint_contradicts_agenda(text, agenda)
+    if info is None:
+        return text, None
+    turn = json.loads(text)
+    turn["section_checkpoint"] = None
+    turn["checkpoint_dropped"] = info
+    return json.dumps(turn, ensure_ascii=False), info
+
+
+INTERVIEW_OVER_REASON = "interview_over was set while the agenda still had open nodes"
+
+
+def clear_interview_over_while_agenda_open(text: str, agenda: str | None) -> tuple[str, dict | None]:
+    """`interview_over` cannot be true while anything remains unanswered.
+
+    Never fired in conf-v25 because the lane never set it at all, which is
+    its own defect. It is here because the failure it prevents, closing an
+    interview with required fields empty, is the one that reaches her form.
+    """
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, None
+    if not isinstance(turn, dict) or turn.get("interview_over") is not True:
+        return text, None
+    open_nodes = sorted(agenda_field_ids(agenda))
+    if not open_nodes:
+        return text, None
+    info = {"open_nodes": open_nodes, "reason": INTERVIEW_OVER_REASON}
+    turn["interview_over"] = False
+    turn["interview_over_cleared"] = info
+    return json.dumps(turn, ensure_ascii=False), info
+

@@ -97,9 +97,45 @@ def test_the_route_helper_returns_the_rewritten_text():
 
 
 def test_the_route_calls_the_guard_for_this_call_type_only():
-    src = open("app/routers/chat.py").read()
-    i = src.index("guard_response_text(")
-    assert 'body.get_meta("call_type") == "n400_interviewer_turn"' in src[i - 600:i]
+    """Every guard_response_text call must sit inside an `if` that tests the
+    call type, or the N-400 guards would run on ShoulderSurf traffic.
+
+    Checked with the AST rather than by looking a fixed number of
+    characters backwards: that heuristic passed for months and then broke
+    the moment an unrelated block was inserted between the condition and
+    the call, while the property it was meant to check was still true. A
+    test that fails on a correct change is as much a defect as one that
+    passes on a wrong one.
+    """
+    import ast
+
+    tree = ast.parse(open("app/routers/chat.py").read())
+
+    def calls_guard(node):
+        return any(isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+                   and n.func.id == "guard_response_text"
+                   for n in ast.walk(node))
+
+    def tests_call_type(node):
+        return any(isinstance(n, ast.Constant) and n.value == "n400_interviewer_turn"
+                   for n in ast.walk(node))
+
+    guarded, total = 0, 0
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) \
+                and node.func.id == "guard_response_text":
+            total += 1
+    for node in ast.walk(tree):
+        if isinstance(node, ast.If) and tests_call_type(node.test) and calls_guard(node):
+            guarded += sum(
+                1 for n in ast.walk(node)
+                if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+                and n.func.id == "guard_response_text")
+
+    assert total >= 1, "the route no longer calls the guard at all"
+    assert guarded == total, (
+        f"{total - guarded} guard_response_text call(s) are not inside an "
+        f"`if` that tests call_type == n400_interviewer_turn")
 
 
 # --- the evidence floor ------------------------------------------------------
