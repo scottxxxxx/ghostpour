@@ -1,3 +1,4 @@
+import logging
 import os
 from collections.abc import AsyncGenerator
 
@@ -881,14 +882,44 @@ async def init_db(database_url: str) -> None:
     global _db_path
     _db_path = database_url.replace("sqlite+aiosqlite:///", "")
     os.makedirs(os.path.dirname(_db_path) or ".", exist_ok=True)
+    # Sub-phase timing. init_db measured 15.09s of a 17.31s startup on prod
+    # 2026-09-06, and the port stays shut for every second of it. The
+    # top-level phase marks said init_db was the cost; these say which part
+    # of it, because the last time this was reasoned about rather than
+    # measured the answer was wrong.
+    import time as _time
+    _t = _time.monotonic()
+    _log = logging.getLogger("app.database")
+
+    # The connect itself is timed SEPARATELY and deliberately. Every phase
+    # mark below sits INSIDE the `async with`, so a slow open would have
+    # been invisible to all of them, and a warm run of every phase against
+    # a copy of the real 190MB production database totals 0.63s while the
+    # deploy measured 15.09s for the same work. Whatever the difference is,
+    # it is not the statements, so the open is the first thing to rule out.
+    try:
+        _size_mb = round(os.path.getsize(_db_path) / 1e6, 1)
+    except OSError:
+        _size_mb = -1.0
     async with aiosqlite.connect(_db_path) as db:
+        _now = _time.monotonic()
+        _log.info("init_db_phase phase=connect seconds=%.2f db_mb=%.1f",
+                  _now - _t, _size_mb)
+        _t = _now
         await db.executescript(SCHEMA_SQL)
+        _now = _time.monotonic()
+        _log.info("init_db_phase phase=schema seconds=%.2f", _now - _t)
+        _t = _now
         # Run migrations for existing databases
         for sql in MIGRATIONS:
             try:
                 await db.execute(sql)
             except Exception:
                 pass  # Column already exists
+        _now = _time.monotonic()
+        _log.info("init_db_phase phase=migrations seconds=%.2f count=%d",
+                  _now - _t, len(MIGRATIONS))
+        _t = _now
 
         # Every TTL now lives in one place, windows unchanged. Each of
         # these used to be a DELETE right here and nowhere else, which
@@ -901,8 +932,12 @@ async def init_db(database_url: str) -> None:
         # lose its first-seen date on either path.
         from app.services.retention import purge_expired
         await purge_expired(db)
+        _now = _time.monotonic()
+        _log.info("init_db_phase phase=retention_purge seconds=%.2f", _now - _t)
+        _t = _now
 
         await db.commit()
+        _log.info("init_db_phase phase=commit seconds=%.2f", _time.monotonic() - _t)
 
 
 async def get_db() -> AsyncGenerator[aiosqlite.Connection, None]:

@@ -69,8 +69,26 @@ logging.basicConfig(level=logging.INFO, handlers=[_handler], force=True)
 async def lifespan(app: FastAPI):
     settings = get_settings()
 
+    # Startup phase timing. uvicorn binds its port only after this function
+    # reaches its yield, so every phase below is measured downtime at the
+    # edge on every deploy. Measured 2026-09-06: 17.6s of connection-refused
+    # per deploy, 12.5s of it in here. These marks say which phase to move
+    # next instead of leaving it to be guessed a second time.
+    _boot_log = logging.getLogger("app.main")
+    _boot_t0 = time.monotonic()
+    _boot_last = [_boot_t0]
+
+    def _mark(phase: str) -> None:
+        now = time.monotonic()
+        _boot_log.info(
+            "startup_phase phase=%s seconds=%.2f cumulative=%.2f",
+            phase, now - _boot_last[0], now - _boot_t0,
+        )
+        _boot_last[0] = now
+
     # Init database
     await init_db(settings.database_url)
+    _mark("init_db")
 
     # Store services on app state
     app.state.settings = settings
@@ -109,6 +127,7 @@ async def lifespan(app: FastAPI):
         )
     app.state.config_drift = config_drift
     app.state.remote_configs = config.load_remote_configs()
+    _mark("remote_config")
 
     # Entitlements matrix completeness (Phase 2, feature-entitlements.md):
     # a missing known feature × tier cell resolves "disabled" silently, so
@@ -152,6 +171,7 @@ async def lifespan(app: FastAPI):
     )
     await pricing.start()
     app.state.pricing = pricing
+    _mark("pricing")
 
     # Startup-time sanity warning: if the Resend webhook signing secret
     # isn't reachable, /webhooks/resend will fail-closed (503) on every
@@ -338,6 +358,10 @@ async def lifespan(app: FastAPI):
     from app.services.welcome_email import sweep_once as _welcome_once
     await _welcome_once()
     _welcome_task = _asyncio.create_task(_welcome_loop())
+    _mark("welcome_email")
+    _boot_log.info(
+        "startup_complete seconds=%.2f — the port opens now; everything "
+        "before this answered 502 at the edge", time.monotonic() - _boot_t0)
 
     yield
 
