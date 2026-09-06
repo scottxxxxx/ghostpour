@@ -90,3 +90,36 @@ def test_a_missing_or_broken_sidecar_warns_about_everything(tmp_path, monkeypatc
     assert cfg.intentional_overrides() == {}
     unexpected, _ = cfg.split_drift(cfg.detect_overlay_drift())
     assert unexpected == {"n400/budget": ["/a"]}
+
+
+def test_the_sidecar_is_not_loaded_as_a_config(tmp_path, monkeypatch):
+    """It lives in the config directory and ends in .json, so the loader
+    walks it. It must be skipped SILENTLY: it has no `version` because it is
+    not served, and without the skip it logged "missing 'version' field" on
+    every boot, forever, adding a permanent line to the very block the
+    override mechanism exists to keep clean."""
+    import logging
+
+    from app.routers.config import load_remote_configs
+
+    d = tmp_path / "overlay"
+    (d / "n400").mkdir(parents=True)
+    (d / "n400" / "budget.json").write_text(json.dumps({"version": 1, "a": 1}))
+    (d / cfg._OVERRIDES_FILE).write_text(json.dumps({"n400/budget": ["/a"]}))
+    monkeypatch.setattr(cfg, "CONFIG_DIR", d)
+
+    records = []
+    handler = logging.Handler()
+    handler.emit = records.append
+    logger = logging.getLogger("app.routers.config")
+    logger.addHandler(handler)
+    try:
+        configs = load_remote_configs()
+    finally:
+        logger.removeHandler(handler)
+
+    assert "n400/budget" in configs
+    assert not any("intentional" in str(k) or str(k).startswith("_") for k in configs), (
+        "the sidecar must never be servable")
+    noisy = [r for r in records if "intentional" in r.getMessage()]
+    assert noisy == [], f"the sidecar logged on load: {[r.getMessage() for r in noisy]}"
