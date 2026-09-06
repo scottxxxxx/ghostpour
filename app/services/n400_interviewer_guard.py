@@ -295,6 +295,11 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
         logger.warning(
             "n400_reply_shape_normalized turn_id=%s chars=%d",
             turn_id, reply_shape["chars"])
+    new_text, over = clear_interview_over_while_agenda_open(new_text, agenda)
+    if over is not None:
+        logger.warning(
+            "n400_interview_over_cleared turn_id=%s open_nodes=%s",
+            turn_id, ",".join(over["open_nodes"]))
     new_text, battery = mark_battery_shortfall(new_text, agenda)
     if battery is not None:
         logger.warning(
@@ -555,3 +560,402 @@ def normalize_reply_shape(text: str) -> tuple[str, dict | None]:
     turn["reply"] = {"en": turn["reply"]}
     turn["reply_shape_normalized"] = info
     return json.dumps(turn, ensure_ascii=False), info
+
+# --- a part is not complete while its own node is still open ---------------
+#
+# conf-v25 English, turn 79, the worst defect of the run and the root cause
+# of three others. She answered one of six oath items. The lane minted
+# `p9.willing_bear_arms` ONLY and said "that's a yes across the board on the
+# oath questions. That completes Part 9". Five required oath fields did not
+# exist until turn 94. For fifteen turns it read back five facts it had
+# never recorded, summarised Part 9 as confirmed twice, and she said yes
+# both times. Had the interview ended anywhere in there, five required
+# fields would have printed BLANK on her form after she was twice told they
+# were recorded.
+#
+# Everything downstream came from that one sentence: the final read-back
+# started at turn 80 with a node still open, the node closed at 94, the
+# agenda emptied at 95, and at 96 the lane started the whole read-back AGAIN
+# from Part 1 and was still going at the 105-turn cap. `interview_over` was
+# never set once.
+#
+# GP already holds the contradiction. The agenda is the client's record of
+# what is UNANSWERED, and `q_p9_oath` correctly stayed on it from turn 78 to
+# 94. So a `section_checkpoint` claiming Part 9 while a Part 9 node is still
+# on the agenda is refuted by GP's own input, in every locale, without
+# reading a word of the reply.
+#
+# Dropping the object is not enough, because the harm is in the REPLY, which
+# is what she hears and the only check she has that the form matches what
+# she said. So this is a REFUSAL: the caller retries the turn once with a
+# reminder naming the open node, the same shape as the envelope retry that
+# already runs ahead of it. If the retry still contradicts, the object is
+# dropped so nothing downstream can credit a completion that did not happen.
+
+CHECKPOINT_REMINDER = (
+    "\n\nSTOP. Your last response claimed a part was complete while that "
+    "part still has an unanswered node on the agenda above. A part is "
+    "complete ONLY when no agenda line for it remains. Do not say or imply "
+    "that a part is finished, do not summarise it as confirmed, and do not "
+    "send section_checkpoint for it. Say only what you have actually "
+    "recorded this turn, then ask the next unanswered question on that "
+    "part's open node. Reply with the JSON object only."
+)
+
+CHECKPOINT_CONTRADICTION_REASON = (
+    "section_checkpoint claimed a part whose node is still open on the agenda"
+)
+# Short stable codes so the audit can COUNT refusals by kind rather than
+# string-match prose. The two reasons are different failures: one is a
+# claim the agenda refutes, the other a claim the record cannot support.
+REFUSED_AGENDA_OPEN = "agenda_open"
+REFUSED_NO_CONFIRMED_FACT = "no_confirmed_fact"
+
+
+def agenda_parts(agenda: str | None) -> dict[str, int]:
+    """node_id -> the part NUMBER of its agenda line ("Part 9: ..." is 9)."""
+    out: dict[str, int] = {}
+    for raw in (agenda or "").splitlines():
+        cols = [c.strip() for c in raw.split("|")]
+        if len(cols) < 4 or not cols[0]:
+            continue
+        m = re.match(r"Part\s+(\d+)\b", cols[1])
+        if m:
+            out[cols[0]] = int(m.group(1))
+    return out
+
+
+def _ids_settled_in_this_response(turn: dict) -> set[str]:
+    """Field ids this response itself answers or defers.
+
+    A deferral counts: "she is checking it later" is a settled outcome for
+    the node, the same way `drop_facts_that_are_also_deferred` treats the
+    deferral as the honest half of a fact/deferral pair.
+    """
+    out: set[str] = set()
+    for key in ("facts", "deferred"):
+        for item in turn.get(key) or []:
+            if isinstance(item, dict) and item.get("field_id"):
+                out.add(str(item["field_id"]))
+    return out
+
+
+def checkpoint_contradicts_agenda(text: str, agenda: str | None) -> dict | None:
+    """Info when the response claims a part still open AFTER this response.
+
+    ⚠ THE AGENDA IS ONE TURN STALE BY CONSTRUCTION. It arrives with the
+    REQUEST, so it cannot know about facts minted in the response being
+    checked. The first version of this compared the claim against the
+    agenda as received, and conf-v25b showed what that costs: it fired
+    eleven times and EIGHT were false positives, every one of them the
+    ordinary shape we asked the lane for, answering the last question of a
+    part and summarising it in the same breath. "Got it, brown eyes and
+    black hair. That's Part 3, is that right?"
+
+    Worse, the outcome INVERTED. All three genuine cases resolved true on
+    retry and all eight false positives resolved false and were dropped,
+    and that is causal rather than luck: a premature claim can be fixed by
+    not making it, while a correct claim cannot be "fixed", so the model
+    re-asserts it, is refused twice, and the object dies. The guard kept
+    exactly the claims that were wrong and destroyed exactly the ones that
+    were right. Eight legitimate checkpoint cards never reached her.
+
+    So the response's own facts and deferrals are applied to the agenda
+    BEFORE the test. A node is still open only if it has a field id this
+    response does not settle.
+    """
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(turn, dict):
+        return None
+    cp = turn.get("section_checkpoint")
+    if not isinstance(cp, dict):
+        return None
+    part = cp.get("part")
+    if not isinstance(part, int):
+        return None
+    settled = _ids_settled_in_this_response(turn)
+    by_node = agenda_field_ids(agenda)
+    open_nodes = sorted(
+        node for node, node_part in agenda_parts(agenda).items()
+        if node_part == part and (by_node.get(node, set()) - settled)
+    )
+    if not open_nodes:
+        return None
+    return {"part": part, "open_nodes": open_nodes,
+            "code": REFUSED_AGENDA_OPEN,
+            "reason": CHECKPOINT_CONTRADICTION_REASON}
+
+
+def drop_contradicted_checkpoint(text: str, agenda: str | None) -> tuple[str, dict | None]:
+    """Last resort when a retry did not fix it: remove the claim itself."""
+    info = checkpoint_contradicts_agenda(text, agenda)
+    if info is None:
+        return text, None
+    turn = json.loads(text)
+    turn["section_checkpoint"] = None
+    turn["checkpoint_dropped"] = info
+    return json.dumps(turn, ensure_ascii=False), info
+
+
+INTERVIEW_OVER_REASON = "interview_over was set while the agenda still had open nodes"
+
+
+def clear_interview_over_while_agenda_open(text: str, agenda: str | None) -> tuple[str, dict | None]:
+    """`interview_over` cannot be true while anything remains unanswered.
+
+    Never fired in conf-v25 because the lane never set it at all, which is
+    its own defect. It is here because the failure it prevents, closing an
+    interview with required fields empty, is the one that reaches her form.
+    """
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, None
+    if not isinstance(turn, dict) or turn.get("interview_over") is not True:
+        return text, None
+    open_nodes = sorted(agenda_field_ids(agenda))
+    if not open_nodes:
+        return text, None
+    info = {"open_nodes": open_nodes, "reason": INTERVIEW_OVER_REASON}
+    turn["interview_over"] = False
+    turn["interview_over_cleared"] = info
+    return json.dumps(turn, ensure_ascii=False), info
+
+# --- a part with nothing recorded cannot be read back ----------------------
+#
+# conf-v25 turn 104 told her she had answered no about "military or
+# Selective Service issues". The agenda check above cannot catch that,
+# because there was no OPEN node to contradict: the read-back asserted an
+# answer to a question, and no agenda line said otherwise.
+#
+# The deeper defect the auditor named is that the read-back text is
+# NARRATED from what the model believes rather than DERIVED from what is on
+# file. A read-back is the applicant's only check that the FORM matches what
+# she said; if its text comes from the model's memory of the conversation
+# instead of the values, the check is theatre, because it confirms the
+# model's belief to a person who is trusting it to confirm the record.
+#
+# Free text cannot be checked mechanically against a record. What CAN be
+# checked is eligibility: a part with no confirmed fact in KNOWN FACTS has
+# nothing to read back, so a checkpoint claiming it is refused. That is the
+# half of the auditor's rule with a mechanical test.
+#
+# KNOWN FACTS is complete and authoritative, not a window (confirmed by
+# them from both implementations, and by reading a real request off the
+# wire: `field_id: value`, one per line). Four value forms are deliberate
+# transformations and all count as RECORDED, not missing:
+#   "on file"                                  redacted identifiers
+#   a confirmed-empty marker                   "no email" is a real answer
+#   "deferred, to verify from a document..."   she is checking it later
+#   "(mentioned earlier, not yet confirmed)"   the ONE excluded case
+# Only the last is ineligible, because reading an unconfirmed mention back
+# as settled is the same error as turn 79.
+
+MENTION_TAG = "(mentioned earlier, not yet confirmed)"
+NOTHING_RECORDED_REASON = (
+    "section_checkpoint claimed a part with no confirmed fact in KNOWN FACTS"
+)
+
+_FIELD_LINE = re.compile(r"^\s*(p(\d+)\.[A-Za-z0-9_.]+)\s*:\s*(.*)$")
+
+
+def known_fact_parts(known_facts: str | None) -> dict[int, set[str]]:
+    """part number -> field ids ELIGIBLE to be read back for that part."""
+    out: dict[int, set[str]] = {}
+    for line in (known_facts or "").splitlines():
+        m = _FIELD_LINE.match(line)
+        if not m:
+            continue
+        fid, part, value = m.group(1), int(m.group(2)), m.group(3)
+        if MENTION_TAG in value:
+            continue
+        out.setdefault(part, set()).add(fid)
+    return out
+
+
+def checkpoint_reads_back_nothing(text: str, known_facts: str | None) -> dict | None:
+    """Info when a checkpoint claims a part that has nothing on file.
+
+    Returns None when KNOWN FACTS is absent or unparseable, so a malformed
+    variable disables the check rather than refusing every turn.
+    """
+    parts = known_fact_parts(known_facts)
+    if not parts:
+        return None
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(turn, dict):
+        return None
+    cp = turn.get("section_checkpoint")
+    if not isinstance(cp, dict):
+        return None
+    part = cp.get("part")
+    if not isinstance(part, int) or parts.get(part):
+        return None
+    return {"part": part, "recorded_parts": sorted(parts),
+            "code": REFUSED_NO_CONFIRMED_FACT,
+            "reason": NOTHING_RECORDED_REASON}
+
+
+def checkpoint_is_refused(text: str, agenda: str | None,
+                          known_facts: str | None) -> dict | None:
+    """Either refusal reason, agenda contradiction first."""
+    return (checkpoint_contradicts_agenda(text, agenda)
+            or checkpoint_reads_back_nothing(text, known_facts))
+
+
+def mark_checkpoint_refused(text: str, info: dict, retried: bool,
+                            resolved: bool) -> str:
+    """Put the refusal on the wire so the audit can COUNT it.
+
+    Requested by the auditor, and the reasoning is one both teams got
+    burned by tonight: without a marker the only evidence a refusal
+    happened is the ABSENCE of a bad summary, and a negative like that has
+    twice been mistaken for a clean result. It also separates two outcomes
+    a transcript cannot: the retry doing real work, versus the model
+    simply not producing the contradiction any more.
+    """
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text
+    if not isinstance(turn, dict):
+        return text
+    turn["checkpoint_refused"] = {
+        "part": info.get("part"),
+        "code": info.get("code"),
+        "reason": info.get("reason"),
+        "retried": retried,
+        "resolved": resolved,
+    }
+    return json.dumps(turn, ensure_ascii=False)
+
+
+# --- the one harm no later correction reaches -------------------------------
+#
+# Only the BEARING ARMS and NONCOMBATANT SERVICES clauses of the Oath permit
+# a modification, on a religious or conscientious objection. WORK OF NATIONAL
+# IMPORTANCE UNDER CIVILIAN DIRECTION PERMITS NONE. USCIS instructions: "You
+# may not request a modification to the portion of the Oath requiring you to
+# perform work of national importance under civilian direction." 12 USCIS-PM
+# J.3(A)(1): "There is no exemption from the clause."
+#
+# Every other defect in this lane is recoverable by a later correction: a
+# wrong value is corrected, a starved field is re-asked, a premature
+# checkpoint is refused and retried. This one is not. An applicant told a
+# route exists either attests to something she does not accept, or is sent
+# after a remedy that does not exist and files anyway, and both are decisions
+# she makes once. That is why it is a guard and not another sentence in the
+# prompt: prompt text on this lane has failed on the same behaviour four
+# times.
+#
+# THE RULE IS THE AUDITOR'S, implemented rather than reinvented so their
+# counter and this guard agree by construction. Their first version was
+# whole-line co-occurrence, which flagged USCIS's OWN denial; the polarity
+# test below is what discriminates, and it is theirs.
+
+_WNI_EN = re.compile(r"work of national importance|national importance under civilian direction", re.I)
+_OFFER_EN = re.compile(
+    r"modif\w+|exempt\w+|opt out|opting out|waiv\w+|leave (?:it|that) out|"
+    r"get out of|skip that part", re.I)
+_NEG_EN = r"no|not|never|cannot|can't|isn't|is not|there is no|there's no|without"
+
+# Spanish and Portuguese are GP's addition, NOT the auditor's tested rule.
+# The lane runs live in Spanish, so an English-only detector would be blind
+# in the language it is least tested in, which is exactly how the day guard
+# nearly shipped broken. Flagged to them as untested against real
+# transcripts.
+_WNI_ES = re.compile(r"trabajo de importancia nacional|importancia nacional bajo direcci", re.I)
+_OFFER_ES = re.compile(r"modificaci\w+|modificar|exenci\w+|exent\w+|eximir|omitir|saltar", re.I)
+_NEG_ES = r"no|nunca|ning\w+|sin|tampoco"
+
+_WNI_PT = re.compile(r"trabalho de import[aâ]ncia nacional|import[aâ]ncia nacional sob dire", re.I)
+_OFFER_PT = re.compile(r"modifica\w+|modificar|isen\w+|omitir|pular|deixar de fora", re.I)
+_NEG_PT = r"n[aã]o|nunca|nenhum\w*|sem"
+
+_LOCALE_RULES = (("en", _WNI_EN, _OFFER_EN, _NEG_EN),
+                 ("es", _WNI_ES, _OFFER_ES, _NEG_ES),
+                 ("pt", _WNI_PT, _OFFER_PT, _NEG_PT))
+
+# How far before the offer word a negation may sit and still GOVERN it. The
+# auditor's number. "you may not request a modification" governs; "you can
+# modify that one" does not, even when a "not" appears elsewhere in the
+# sentence, which is the case whole-line search gets exactly backwards.
+_NEGATION_GOVERNS_WITHIN = 24
+
+_SENTENCE = re.compile(r"[^.!?¡¿]+[.!?]*")
+
+IMPOSSIBLE_MODIFICATION_REASON = (
+    "offered a modification of the work-of-national-importance clause, which permits none"
+)
+
+
+def _reply_strings(turn: dict) -> list[str]:
+    reply = turn.get("reply")
+    if isinstance(reply, str):
+        return [reply]
+    if isinstance(reply, dict):
+        return [v for v in reply.values() if isinstance(v, str)]
+    return []
+
+
+def offers_impossible_oath_modification(text: str) -> dict | None:
+    """Info when a reply offers a modification of the one clause that has none.
+
+    Sentence-scoped. A denial is safe ONLY when a negation governs the
+    modification word, meaning it sits within ~24 characters immediately
+    before it.
+    """
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(turn, dict):
+        return None
+    for spoken in _reply_strings(turn):
+        for sentence in _SENTENCE.findall(spoken):
+            for locale, wni, offer, neg in _LOCALE_RULES:
+                if not wni.search(sentence):
+                    continue
+                for m in offer.finditer(sentence):
+                    window = sentence[max(0, m.start() - _NEGATION_GOVERNS_WITHIN):m.start()]
+                    if re.search(r"\b(?:%s)\b" % neg, window, re.I):
+                        continue          # the negation governs: a denial
+                    return {"locale": locale, "offer": m.group(0),
+                            "sentence": sentence.strip()[:200],
+                            "reason": IMPOSSIBLE_MODIFICATION_REASON}
+    return None
+
+
+OATH_MODIFICATION_REMINDER = (
+    "\n\nSTOP. Your last response offered a modification, exemption or waiver of "
+    "the WORK OF NATIONAL IMPORTANCE UNDER CIVILIAN DIRECTION clause of the Oath. "
+    "There is no such modification. USCIS permits a modified oath ONLY for bearing "
+    "arms and for noncombatant services. Rewrite the reply: you may say a "
+    "modification exists for those two and that USCIS decides it, and for work of "
+    "national importance you must say plainly that this one has no modification and "
+    "belongs with an attorney before she files. Do not soften that and do not "
+    "suggest any route around it. Reply with the JSON object only."
+)
+
+
+def mark_impossible_modification(text: str, info: dict, retried: bool,
+                                 resolved: bool) -> str:
+    """Put it on the wire so the audit counts it, same as the other markers."""
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text
+    if not isinstance(turn, dict):
+        return text
+    turn["impossible_oath_modification"] = {
+        "locale": info.get("locale"), "offer": info.get("offer"),
+        "sentence": info.get("sentence"), "reason": info.get("reason"),
+        "retried": retried, "resolved": resolved,
+    }
+    return json.dumps(turn, ensure_ascii=False)
