@@ -1,30 +1,48 @@
 # GP session close, 2026-09-06 (second close; supersedes the earlier one)
 
-**prod = main = `d681394`.** 23 PRs merged today. **One open: #924**, green,
-a one-line loader fix. Served N-400 interviewer config is **v26**, verified
+**prod = main = `d681394`.** 23 PRs merged today. **Three open and green at close: #924** (loader fix), **#925** (this
+handoff), **#926** (the N-400 recall closure). They were in a merge chain
+when the session ended; if any is still open, it is green and needs only a
+rebase and merge. **Verify by reading main, not the merge report:** two PRs
+were silently auto-closed by a branch deletion earlier today and only a
+file read caught it. Served N-400 interviewer config is **v26**, verified
 by reading the served copy back by string.
 
 ---
 
 ## ⚠ NEEDS SCOTT, in order of consequence
 
-**1. Meeting memory is enabled for the N-400 app, pointing at ShoulderSurf's
-identity.** `entitlement_state(..., "context_quilt", "n400")` resolves to
-`enabled` at plus and pro. `users.tier` is shared across apps, so an SS Pro
-user arrives at N-400 entitled. And `apps.yml` gives n400 **no `cq` entry**,
-so `_cq_identity()` falls back to the DEFAULT ShoulderSurf identity. If that
-hook ran on an N-400 turn, GP would authenticate to ContextQuilt as
-ShoulderSurf and pull meeting memory into an immigration interview.
-- **It has never happened**: 800 n400 rows, zero CQ recall.
-- **It is not prevented, only unobserved.** The gate does not stop it and
-  the identity fallback points at the wrong tenant. The likely reason
-  nothing crosses is that the hook needs meeting/project context the N-400
-  lane never sends, which is a boundary holding BY ACCIDENT.
-- **Recommendation: disable `context_quilt` for app=n400 in the
-  entitlements matrix.** N-400 has no meetings, so the capability has no
-  meaning there, and one that exists only to be prevented eventually fires.
-  Giving n400 its own CQ identity is belt, not the fix. NOT changed:
-  another team's app, his ruling.
+**1. ✅ RULED AND BUILT: no ContextQuilt recall reaches N-400 (#926).**
+Scott ruled "disable context_quilt for n400" on 2026-09-06.
+
+⚠ **Doing literally that would NOT have closed it, and this is the part to
+carry forward.** `chat.py` reads `run_hook = state != "disabled"`, then,
+WHEN context_quilt IS disabled, falls through to
+`run_hook = entitlement_state(..., "people", app) == "enabled"`, which runs
+the PEOPLE-scoped recall lane instead. That lane still calls
+`hook.before_llm` and still resolves `_cq_identity(app_id)`, which, because
+`apps.yml` gives n400 no `cq` entry, falls back to the DEFAULT ShoulderSurf
+identity. So one feature off would have changed WHICH lane ran, not WHETHER
+GP authenticates to CQ as ShoulderSurf inside an immigration interview.
+**Both `context_quilt` and `people` are off for n400.**
+
+`config/remote/n400/entitlements.json` is the first per-app matrix.
+⚠ `entitlement_matrix()` REPLACES rather than merges, so it carries all
+nine features; a test pins that the feature set matches the flat matrix, or
+a feature added flat would go dark for N-400 silently. `web_search` copied
+verbatim and still live. Tests assert the closed PROPERTY (the hook cannot
+fire for n400 at any tier), not the two values, and one test pins the trap:
+re-enable `people` alone and the hook fires again.
+
+⚠ **OPS STEP OUTSTANDING: `sync-from-bundle` on `n400/entitlements`**,
+scoped to that slug. Merged is not served. Until it is synced the matrix on
+the box is still the flat one and recall is still reachable. Verify by
+reading the served copy back, not by trusting the sync's own report.
+
+⚠ The underlying facts are unchanged and still true: `users.tier` is shared
+across apps because Apple issues the SIWA subject per developer team, and
+n400 still has no `cq` identity of its own. The entitlement is now the only
+thing standing between the two, which is why the test asserts the property.
 
 **2. The attorney question, now concrete rather than abstract.** Two
 decisions, same underlying question: how much may the product shape what she
