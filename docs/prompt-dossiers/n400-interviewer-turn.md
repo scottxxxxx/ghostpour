@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 24
+served_version: 25
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
 thinking: disabled
-reconciled: 2026-09-05
+reconciled: 2026-09-06
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -653,6 +653,55 @@ written for a genuine skip, retired the half-answered node, so three
 required boxes ended blank. "Mint only what you spoke" and a span rule
 written before it combined into a blank required field. Fixed on their
 side with a replay test.
+
+## the object did not name the part the reply read; v25
+
+Found by the auditor instrumenting their own client guard rather than by
+grading a transcript, which is why it is here at all. Across the whole
+conf-v23 English run, `section_checkpoint.part` did not name the part the
+reply spoke: turns 82, 83 and 84 carried 2, 3 and 4 while their replies
+read Parts 1, 2 and 3, and turn 90 carried 8 while its reply read Parts 12
+and 13. Parts 1, 6, 10, 11 and 12 appeared in no object at all, so a
+client trusting the object saw a walk with five holes where the spoken
+walk had three.
+
+The consequence was theirs, not the grade's. Their guard holds the
+interview open until it has rendered a checkpoint for every part 1 to 13,
+so an object that can never say 1 would hold forever and trap the
+applicant in an interview that will not end, which is worse than the gap
+it was guarding. They shipped a stall breaker for that independently:
+after three consecutive turns where the lane says it is over and the walk
+is still short, the client closes anyway and logs which parts were
+missing.
+
+v24 already said the right thing: "`part` set to the number it just read".
+The model was wrong and the client was right. But the rule was stated
+ONCE, three thousand characters from the field it governs, and the field's
+own definition gave only the number's FORMAT ("Part 2: About you" is 2)
+and said nothing about WHICH part. A rule that far from the point of use
+is available, not stated, and that is the defect this version fixes: the
+rule moves inside the field definition, in both languages, and names the
+two wrong answers out loud (the part her yes just confirmed, the part
+coming next).
+
+v25 also makes the key ordering the mechanism instead of the hazard.
+`section_checkpoint` is emitted BEFORE `reply`, so the number is committed
+before the text exists and the text cannot correct it. The field now says
+to decide the number first and write the reply to match, and states that
+during the final walk the number and the read are the same "lowest part
+not yet read", so the two computations that disagreed become one.
+
+⚠ The ordering story is a HYPOTHESIS and is labelled as one to the
+auditor. Nobody has opened anything that shows the model computes the
+object from different state than the reply. The auditor's own reading
+strengthens it without proving it: a simple one-turn lag would have made
+turn 90 say 11 or 12, not 8, so whatever writes the object is tracking
+something else rather than trailing. This is the same shape as the v14
+field-order read for `asking`, which fit the observable and was REFUTED on
+the wire in Spanish, so the walk print is the instrument and not the
+argument. If the object still drifts on v25, the next step is a
+server-side guard that rewrites `part` from the reply text, on #888's
+reasoning: the reply is what the applicant actually hears.
 
 ## What is deliberately not here
 
