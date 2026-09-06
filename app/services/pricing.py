@@ -27,6 +27,19 @@ DEFAULT_PRICING_URL = (
 # How often to refresh pricing data (seconds)
 DEFAULT_REFRESH_INTERVAL = 86400  # 24 hours
 
+# How long the FIRST fetch may hold up startup. uvicorn does not bind its
+# port until lifespan startup returns, so every second awaited in there is
+# a second of 502s at the edge on every deploy. Measured 2026-09-06: 17.6s
+# of connection-refused per deploy, 12.5s of it inside lifespan, and this
+# fetch is an HTTP GET to a third party (raw.githubusercontent.com) whose
+# client timeout is 30s. A slow upstream must not be able to hold GhostPour
+# down for half a minute.
+FIRST_FETCH_BUDGET_SECONDS = 5.0
+
+# When we still have no prices (first fetch slow or failed) the loop must
+# not wait a full refresh interval, which is a day.
+EMPTY_PRICES_RETRY_SECONDS = 60
+
 
 class PricingService:
     def __init__(
@@ -41,8 +54,20 @@ class PricingService:
         self._refresh_task: asyncio.Task | None = None
 
     async def start(self) -> None:
-        """Fetch pricing data and start background refresh."""
-        await self._fetch()
+        """Fetch pricing data and start background refresh.
+
+        The first fetch is BOUNDED rather than unbounded: we wait a few
+        seconds for warm prices, then hand the job to the background loop
+        so the port can open. See FIRST_FETCH_BUDGET_SECONDS for why.
+        """
+        try:
+            await asyncio.wait_for(self._fetch(), FIRST_FETCH_BUDGET_SECONDS)
+        except asyncio.TimeoutError:
+            logger.warning(
+                "pricing first fetch exceeded %.1fs; opening the port and "
+                "retrying in the background every %ds until it lands",
+                FIRST_FETCH_BUDGET_SECONDS, EMPTY_PRICES_RETRY_SECONDS,
+            )
         self._refresh_task = asyncio.create_task(self._refresh_loop())
 
     async def stop(self) -> None:
@@ -98,8 +123,16 @@ class PricingService:
             # Keep stale data if we have it
 
     async def _refresh_loop(self) -> None:
+        """Refresh on the interval, but retry fast while we have nothing.
+
+        The sleep used to come first unconditionally, which was safe only
+        because start() awaited a complete fetch before this began. Now
+        that the first fetch can be abandoned to open the port, an empty
+        table must be retried in a minute rather than in a day.
+        """
         while True:
-            await asyncio.sleep(self.refresh_interval)
+            await asyncio.sleep(
+                self.refresh_interval if self._prices else EMPTY_PRICES_RETRY_SECONDS)
             await self._fetch()
 
     def get_model_pricing(self, provider: str, model: str) -> dict | None:

@@ -28,6 +28,8 @@ from __future__ import annotations
 
 import json
 import logging
+import re
+import unicodedata
 
 logger = logging.getLogger("ghostpour.n400_interviewer_guard")
 
@@ -97,8 +99,18 @@ def mark_battery_shortfall(text: str, agenda: str | None) -> tuple[str, dict | N
     minted = {f.get("field_id") for f in turn["facts"] if isinstance(f, dict)}
     if not minted:
         return text, None
+    # `reply` is a locale-keyed object in the contract, but a model that
+    # returns a bare string here must not take the turn down: this guard
+    # runs on every response and has no caller-side try/except. Found when
+    # the non-answer rule stopped emptying `facts`, which had been hiding
+    # this line behind an early return.
     reply = turn.get("reply") or {}
-    spoken = max((len(v) for v in reply.values() if isinstance(v, str)), default=0)
+    if isinstance(reply, str):
+        spoken = len(reply)
+    elif isinstance(reply, dict):
+        spoken = max((len(v) for v in reply.values() if isinstance(v, str)), default=0)
+    else:
+        spoken = 0
     for node_id, ids in by_node_ids.items():
         if len(ids) < BATTERY_MIN_FIELDS:
             continue
@@ -264,6 +276,30 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
     new_text, both = drop_facts_that_are_also_deferred(new_text)
     for d in both:
         logger.warning("n400_fact_dropped_also_deferred turn_id=%s field_id=%s", turn_id, d["field_id"])
+    # Marks and does not drop, so ordering is free; it sits after the evidence
+    # floor so `minted` names only facts that survived it.
+    new_text, not_answer = mark_facts_minted_on_a_non_answer(new_text)
+    if not_answer is not None:
+        logger.warning(
+            "n400_minted_on_non_answer turn_id=%s intent=%s minted=%s",
+            turn_id, not_answer["intent"], ",".join(not_answer["minted"]))
+    if user_content is not None:
+        new_text, days = defer_dates_with_unspoken_day(new_text, user_content)
+        for d in days:
+            logger.warning(
+                "n400_date_day_unspoken turn_id=%s field_id=%s claimed=%s deferred_as=%s",
+                turn_id, d["field_id"], d["value"], d["partial_value"])
+    # Before the battery marker, which reads reply.values().
+    new_text, reply_shape = normalize_reply_shape(new_text)
+    if reply_shape is not None:
+        logger.warning(
+            "n400_reply_shape_normalized turn_id=%s chars=%d",
+            turn_id, reply_shape["chars"])
+    new_text, over = clear_interview_over_while_agenda_open(new_text, agenda)
+    if over is not None:
+        logger.warning(
+            "n400_interview_over_cleared turn_id=%s open_nodes=%s",
+            turn_id, ",".join(over["open_nodes"]))
     new_text, battery = mark_battery_shortfall(new_text, agenda)
     if battery is not None:
         logger.warning(
@@ -271,3 +307,488 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
             turn_id, battery["node_id"], ",".join(battery["minted"]),
             battery["spoken_chars"], battery["question_chars"])
     return new_text
+
+
+# --- a day nobody spoke is not a date, server side -------------------------
+#
+# conf-v24 turn 35: facts p4.prior_address1.from = 2017-10-19 and .to =
+# 2020-06-01 from an utterance that gave a month and a year and no day at
+# all. The prompt has said "a month and a year is a month and a year, never
+# 2017-10-01" since v13 and the lane broke it anyway, which is why this is
+# a guard and not another sentence. `drop_facts_that_are_also_deferred`
+# already catches the version of this where the SAME response also defers
+# the field (conf-v20 turn 38, the same two dates); it cannot see this one,
+# because here nothing was deferred and the invented day stood alone.
+#
+# The fix is the prompt's own prescription applied mechanically: the fact
+# becomes the deferral it should always have been, carrying the month and
+# year it really had as `partial_value`. Nothing true is lost, and the day
+# stops being asserted on a federal form.
+
+INVENTED_DAY_REASON = "the day is not in what the applicant just said; deferring to the month and year"
+
+_ISO_DAY = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
+
+# Day words, English and Spanish, cardinal and ordinal, folded. Only 1..31
+# matter, so this is the whole space rather than a parser.
+_DAY_WORDS: dict[str, int] = {}
+for _i, _en in enumerate(
+    ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth",
+     "ninth", "tenth", "eleventh", "twelfth", "thirteenth", "fourteenth",
+     "fifteenth", "sixteenth", "seventeenth", "eighteenth", "nineteenth",
+     "twentieth", "twentyfirst", "twentysecond", "twentythird", "twentyfourth",
+     "twentyfifth", "twentysixth", "twentyseventh", "twentyeighth",
+     "twentyninth", "thirtieth", "thirtyfirst"], start=1):
+    _DAY_WORDS[_en] = _i
+for _i, _en in enumerate(
+    ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+     "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
+     "seventeen", "eighteen", "nineteen", "twenty"], start=1):
+    _DAY_WORDS[_en] = _i
+for _i, _es in enumerate(
+    ["primero", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho",
+     "nueve", "diez", "once", "doce", "trece", "catorce", "quince",
+     "dieciseis", "diecisiete", "dieciocho", "diecinueve", "veinte",
+     "veintiuno", "veintidos", "veintitres", "veinticuatro", "veinticinco",
+     "veintiseis", "veintisiete", "veintiocho", "veintinueve", "treinta"],
+        start=1):
+    _DAY_WORDS[_es] = _i
+_DAY_WORDS["uno"] = 1
+_DAY_WORDS["primer"] = 1
+# Apocopated Spanish, which is how these are actually spoken before a noun.
+# "veintiun" is what "veintiún" folds to once the accent comes off, and
+# without it a day she really said would be deferred as invented.
+_DAY_WORDS["veintiun"] = 21
+_DAY_WORDS["veintidos"] = 22
+_DAY_WORDS["veintitres"] = 23
+_DAY_WORDS["veintiseis"] = 26
+
+
+# Multi-word day forms. "treinta y uno" and "thirty first" are spoken all
+# the time and fold to several tokens, so the single-word map cannot see
+# them; a hyphenated "thirty-first" closes up and can. Generated rather
+# than typed so 21..31 cannot be partly covered, which is exactly how
+# "veintiun" was missed the first time.
+_DAY_PHRASES: dict[str, int] = {}
+for _ten_word, _ten in (("twenty", 20), ("thirty", 30)):
+    for _u, (_ord, _card) in enumerate(
+        [("first", "one"), ("second", "two"), ("third", "three"),
+         ("fourth", "four"), ("fifth", "five"), ("sixth", "six"),
+         ("seventh", "seven"), ("eighth", "eight"), ("ninth", "nine")], start=1):
+        if _ten + _u > 31:
+            continue
+        _DAY_PHRASES[f"{_ten_word} {_ord}"] = _ten + _u
+        _DAY_PHRASES[f"{_ten_word} {_card}"] = _ten + _u
+for _ten_word, _ten in (("veinte", 20), ("treinta", 30)):
+    for _u, _es in enumerate(
+        ["uno", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho",
+         "nueve"], start=1):
+        if _ten + _u > 31:
+            continue
+        _DAY_PHRASES[f"{_ten_word} y {_es}"] = _ten + _u
+_DAY_PHRASES["treinta y un"] = 31   # apocopated, and the one that was missed
+_DAY_PHRASES["veinte y un"] = 21
+
+
+def _fold_tokens(s: str) -> list[str]:
+    """Folded tokens IN ORDER, so multi-word day forms can be matched."""
+    t = unicodedata.normalize("NFD", (s or "").lower())
+    t = "".join(c for c in t if unicodedata.category(c) != "Mn")
+    t = t.replace("-", "").replace("\u2011", "")
+    return re.findall(r"[a-z]+", t)
+
+
+def _fold_words(s: str) -> set[str]:
+    """Lowercase, strip accents, drop punctuation and hyphens, split.
+
+    "twenty-first" and "veintiún" have to match "twentyfirst" and
+    "veintiuno", so hyphens close up and accents come off.
+    """
+    t = unicodedata.normalize("NFD", (s or "").lower())
+    t = "".join(c for c in t if unicodedata.category(c) != "Mn")
+    t = t.replace("-", "").replace("‑", "")
+    return set(re.findall(r"[a-z]+", t))
+
+
+def _day_was_spoken(day: int, said: str) -> bool:
+    """True when the utterance actually contains this day of the month.
+
+    Digits first: a bare 1..31 anywhere, with or without a leading zero,
+    and ordinal suffixes ("19th", "1st"). Then the word forms in both
+    languages. A four digit run is a year, not a day, so `\\b` alone is not
+    enough and the digit search excludes longer numbers explicitly.
+    """
+    for m in re.finditer(r"\d+", said):
+        tok = m.group(0)
+        if len(tok) <= 2 and tok.lstrip("0").isdigit() and int(tok) == day:
+            return True
+    if any(_DAY_WORDS.get(w) == day for w in _fold_words(said)):
+        return True
+    phrase = " ".join(_fold_tokens(said))
+    return any(v == day and k in phrase for k, v in _DAY_PHRASES.items())
+
+
+def defer_dates_with_unspoken_day(text: str, user_content: str | None) -> tuple[str, list[dict]]:
+    """Turn a day-precision date the applicant never spoke into a deferral.
+
+    Only touches facts whose value is exactly YYYY-MM-DD. A fact whose day
+    appears in the current utterance is left alone, in any of the forms a
+    person actually says it. Everything else in the response passes through
+    untouched, and a field that is already deferred is not deferred twice.
+    """
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, []
+    if not isinstance(turn, dict) or not isinstance(turn.get("facts"), list):
+        return text, []
+    said = user_content or ""
+    if not said:
+        return text, []
+    already = {d.get("field_id") for d in (turn.get("deferred") or []) if isinstance(d, dict)}
+    kept, moved = [], []
+    for f in turn["facts"]:
+        m = _ISO_DAY.match(str(f.get("value") or "")) if isinstance(f, dict) else None
+        if not m or _day_was_spoken(int(m.group(3)), said):
+            kept.append(f)
+            continue
+        fid = f.get("field_id")
+        moved.append({"field_id": fid, "value": f.get("value"),
+                      "partial_value": f"{m.group(1)}-{m.group(2)}",
+                      "reason": INVENTED_DAY_REASON})
+        if fid not in already:
+            turn.setdefault("deferred", []).append(
+                {"field_id": fid, "partial_value": f"{m.group(1)}-{m.group(2)}",
+                 "reason": INVENTED_DAY_REASON})
+    if not moved:
+        return text, []
+    turn["facts"] = kept
+    turn["facts_dropped"] = (turn.get("facts_dropped") or []) + moved
+    return json.dumps(turn, ensure_ascii=False), moved
+
+
+# --- an utterance the lane itself called a non-answer -----------------------
+#
+# conf-v24 turn 80: six oath fields minted yes right after she said she did
+# not understand the bearing-arms part. That is consent, not data, and the
+# first version of this DROPPED every fact on such a turn.
+#
+# The auditor then measured it against nine graded runs before it shipped,
+# and the number killed the design: THIRTEEN facts would have been dropped
+# and THIRTEEN of them quote her current utterance, which the evidence
+# floor above had already vouched for. Zero true drops. Every one is the
+# same shape, and it is what a confused first-timer sounds like: she
+# answers and then checks whether the answer counts. "just Mariana, she's
+# grown, she lives with me, does she count" is question_back AND three
+# real facts in one breath. Re-asking her is the moment she decides the
+# machine is not listening.
+#
+# So a wrong label is a signal about the LABEL, not about the facts. This
+# marks and counts; it does not drop. Same posture as
+# `mark_battery_shortfall`, and for the same reason: a real signal you
+# must not act on is still worth counting.
+#
+# Note what this deliberately does NOT do. Dropping only the facts that
+# fail to quote her would be a pure no-op, because
+# `drop_facts_without_current_evidence` already drops exactly those, for
+# every intent, before this runs.
+
+NOT_AN_ANSWER_INTENTS = frozenset({
+    "help_explain",   # they did not understand the question
+    "dont_know",      # they cannot answer it
+    "repeat",         # they asked to hear it again
+    "question_back",  # they asked why it is needed
+    "legal_question", # they asked for advice
+    "off_topic",
+    "small_talk",
+    "noise",
+})
+NOT_AN_ANSWER_REASON = "the response's own intent says this was not an answer, yet it minted"
+
+
+def mark_facts_minted_on_a_non_answer(text: str) -> tuple[str, dict | None]:
+    """Mark, do not drop, facts minted on a turn labelled a non-answer.
+
+    `control`, `correction`, `answer`, `partial_answer` and
+    `volunteered_extra` all legitimately carry facts and are not marked.
+    """
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, None
+    if not isinstance(turn, dict):
+        return text, None
+    intent = turn.get("intent")
+    facts = turn.get("facts")
+    if intent not in NOT_AN_ANSWER_INTENTS or not isinstance(facts, list) or not facts:
+        return text, None
+    info = {"intent": intent,
+            "minted": sorted(str(f.get("field_id")) for f in facts if isinstance(f, dict)),
+            "reason": NOT_AN_ANSWER_REASON}
+    turn["minted_on_non_answer"] = info
+    return json.dumps(turn, ensure_ascii=False), info
+
+# --- the reply shape, fixed where the contract lives -----------------------
+#
+# 2026-09-06: a model returning `reply` as a bare string instead of the
+# locale-keyed object crashed `mark_battery_shortfall` here, and the N-400
+# client's LocalizedText decoder threw typeMismatch on the same wire and
+# surfaced it as a NON-RETRYABLE malformedResponse: a terminal error
+# mid-interview with no way forward. Hardening both sides was necessary and
+# is not sufficient, because the next client would have to discover this
+# for itself.
+#
+# GP owns this contract, so GP normalises it. A bare string becomes the
+# object it should always have been, under "en", which every locale falls
+# back to, so a Spanish interview still speaks the line it was sent.
+# Anything that is neither a string nor an object is left exactly as it is
+# and only counted: tolerating a string must not slide into inventing a
+# reply out of an integer.
+
+REPLY_SHAPE_REASON = "reply arrived as a bare string; wrapped under 'en', which every locale falls back to"
+
+
+def normalize_reply_shape(text: str) -> tuple[str, dict | None]:
+    """Turn a bare-string `reply` into the locale-keyed object."""
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, None
+    if not isinstance(turn, dict) or not isinstance(turn.get("reply"), str):
+        return text, None
+    info = {"chars": len(turn["reply"]), "reason": REPLY_SHAPE_REASON}
+    turn["reply"] = {"en": turn["reply"]}
+    turn["reply_shape_normalized"] = info
+    return json.dumps(turn, ensure_ascii=False), info
+
+# --- a part is not complete while its own node is still open ---------------
+#
+# conf-v25 English, turn 79, the worst defect of the run and the root cause
+# of three others. She answered one of six oath items. The lane minted
+# `p9.willing_bear_arms` ONLY and said "that's a yes across the board on the
+# oath questions. That completes Part 9". Five required oath fields did not
+# exist until turn 94. For fifteen turns it read back five facts it had
+# never recorded, summarised Part 9 as confirmed twice, and she said yes
+# both times. Had the interview ended anywhere in there, five required
+# fields would have printed BLANK on her form after she was twice told they
+# were recorded.
+#
+# Everything downstream came from that one sentence: the final read-back
+# started at turn 80 with a node still open, the node closed at 94, the
+# agenda emptied at 95, and at 96 the lane started the whole read-back AGAIN
+# from Part 1 and was still going at the 105-turn cap. `interview_over` was
+# never set once.
+#
+# GP already holds the contradiction. The agenda is the client's record of
+# what is UNANSWERED, and `q_p9_oath` correctly stayed on it from turn 78 to
+# 94. So a `section_checkpoint` claiming Part 9 while a Part 9 node is still
+# on the agenda is refuted by GP's own input, in every locale, without
+# reading a word of the reply.
+#
+# Dropping the object is not enough, because the harm is in the REPLY, which
+# is what she hears and the only check she has that the form matches what
+# she said. So this is a REFUSAL: the caller retries the turn once with a
+# reminder naming the open node, the same shape as the envelope retry that
+# already runs ahead of it. If the retry still contradicts, the object is
+# dropped so nothing downstream can credit a completion that did not happen.
+
+CHECKPOINT_REMINDER = (
+    "\n\nSTOP. Your last response claimed a part was complete while that "
+    "part still has an unanswered node on the agenda above. A part is "
+    "complete ONLY when no agenda line for it remains. Do not say or imply "
+    "that a part is finished, do not summarise it as confirmed, and do not "
+    "send section_checkpoint for it. Say only what you have actually "
+    "recorded this turn, then ask the next unanswered question on that "
+    "part's open node. Reply with the JSON object only."
+)
+
+CHECKPOINT_CONTRADICTION_REASON = (
+    "section_checkpoint claimed a part whose node is still open on the agenda"
+)
+# Short stable codes so the audit can COUNT refusals by kind rather than
+# string-match prose. The two reasons are different failures: one is a
+# claim the agenda refutes, the other a claim the record cannot support.
+REFUSED_AGENDA_OPEN = "agenda_open"
+REFUSED_NO_CONFIRMED_FACT = "no_confirmed_fact"
+
+
+def agenda_parts(agenda: str | None) -> dict[str, int]:
+    """node_id -> the part NUMBER of its agenda line ("Part 9: ..." is 9)."""
+    out: dict[str, int] = {}
+    for raw in (agenda or "").splitlines():
+        cols = [c.strip() for c in raw.split("|")]
+        if len(cols) < 4 or not cols[0]:
+            continue
+        m = re.match(r"Part\s+(\d+)\b", cols[1])
+        if m:
+            out[cols[0]] = int(m.group(1))
+    return out
+
+
+def checkpoint_contradicts_agenda(text: str, agenda: str | None) -> dict | None:
+    """Info when the response claims a part the agenda says is still open."""
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(turn, dict):
+        return None
+    cp = turn.get("section_checkpoint")
+    if not isinstance(cp, dict):
+        return None
+    part = cp.get("part")
+    if not isinstance(part, int):
+        return None
+    open_nodes = sorted(n for n, p in agenda_parts(agenda).items() if p == part)
+    if not open_nodes:
+        return None
+    return {"part": part, "open_nodes": open_nodes,
+            "code": REFUSED_AGENDA_OPEN,
+            "reason": CHECKPOINT_CONTRADICTION_REASON}
+
+
+def drop_contradicted_checkpoint(text: str, agenda: str | None) -> tuple[str, dict | None]:
+    """Last resort when a retry did not fix it: remove the claim itself."""
+    info = checkpoint_contradicts_agenda(text, agenda)
+    if info is None:
+        return text, None
+    turn = json.loads(text)
+    turn["section_checkpoint"] = None
+    turn["checkpoint_dropped"] = info
+    return json.dumps(turn, ensure_ascii=False), info
+
+
+INTERVIEW_OVER_REASON = "interview_over was set while the agenda still had open nodes"
+
+
+def clear_interview_over_while_agenda_open(text: str, agenda: str | None) -> tuple[str, dict | None]:
+    """`interview_over` cannot be true while anything remains unanswered.
+
+    Never fired in conf-v25 because the lane never set it at all, which is
+    its own defect. It is here because the failure it prevents, closing an
+    interview with required fields empty, is the one that reaches her form.
+    """
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, None
+    if not isinstance(turn, dict) or turn.get("interview_over") is not True:
+        return text, None
+    open_nodes = sorted(agenda_field_ids(agenda))
+    if not open_nodes:
+        return text, None
+    info = {"open_nodes": open_nodes, "reason": INTERVIEW_OVER_REASON}
+    turn["interview_over"] = False
+    turn["interview_over_cleared"] = info
+    return json.dumps(turn, ensure_ascii=False), info
+
+# --- a part with nothing recorded cannot be read back ----------------------
+#
+# conf-v25 turn 104 told her she had answered no about "military or
+# Selective Service issues". The agenda check above cannot catch that,
+# because there was no OPEN node to contradict: the read-back asserted an
+# answer to a question, and no agenda line said otherwise.
+#
+# The deeper defect the auditor named is that the read-back text is
+# NARRATED from what the model believes rather than DERIVED from what is on
+# file. A read-back is the applicant's only check that the FORM matches what
+# she said; if its text comes from the model's memory of the conversation
+# instead of the values, the check is theatre, because it confirms the
+# model's belief to a person who is trusting it to confirm the record.
+#
+# Free text cannot be checked mechanically against a record. What CAN be
+# checked is eligibility: a part with no confirmed fact in KNOWN FACTS has
+# nothing to read back, so a checkpoint claiming it is refused. That is the
+# half of the auditor's rule with a mechanical test.
+#
+# KNOWN FACTS is complete and authoritative, not a window (confirmed by
+# them from both implementations, and by reading a real request off the
+# wire: `field_id: value`, one per line). Four value forms are deliberate
+# transformations and all count as RECORDED, not missing:
+#   "on file"                                  redacted identifiers
+#   a confirmed-empty marker                   "no email" is a real answer
+#   "deferred, to verify from a document..."   she is checking it later
+#   "(mentioned earlier, not yet confirmed)"   the ONE excluded case
+# Only the last is ineligible, because reading an unconfirmed mention back
+# as settled is the same error as turn 79.
+
+MENTION_TAG = "(mentioned earlier, not yet confirmed)"
+NOTHING_RECORDED_REASON = (
+    "section_checkpoint claimed a part with no confirmed fact in KNOWN FACTS"
+)
+
+_FIELD_LINE = re.compile(r"^\s*(p(\d+)\.[A-Za-z0-9_.]+)\s*:\s*(.*)$")
+
+
+def known_fact_parts(known_facts: str | None) -> dict[int, set[str]]:
+    """part number -> field ids ELIGIBLE to be read back for that part."""
+    out: dict[int, set[str]] = {}
+    for line in (known_facts or "").splitlines():
+        m = _FIELD_LINE.match(line)
+        if not m:
+            continue
+        fid, part, value = m.group(1), int(m.group(2)), m.group(3)
+        if MENTION_TAG in value:
+            continue
+        out.setdefault(part, set()).add(fid)
+    return out
+
+
+def checkpoint_reads_back_nothing(text: str, known_facts: str | None) -> dict | None:
+    """Info when a checkpoint claims a part that has nothing on file.
+
+    Returns None when KNOWN FACTS is absent or unparseable, so a malformed
+    variable disables the check rather than refusing every turn.
+    """
+    parts = known_fact_parts(known_facts)
+    if not parts:
+        return None
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(turn, dict):
+        return None
+    cp = turn.get("section_checkpoint")
+    if not isinstance(cp, dict):
+        return None
+    part = cp.get("part")
+    if not isinstance(part, int) or parts.get(part):
+        return None
+    return {"part": part, "recorded_parts": sorted(parts),
+            "code": REFUSED_NO_CONFIRMED_FACT,
+            "reason": NOTHING_RECORDED_REASON}
+
+
+def checkpoint_is_refused(text: str, agenda: str | None,
+                          known_facts: str | None) -> dict | None:
+    """Either refusal reason, agenda contradiction first."""
+    return (checkpoint_contradicts_agenda(text, agenda)
+            or checkpoint_reads_back_nothing(text, known_facts))
+
+
+def mark_checkpoint_refused(text: str, info: dict, retried: bool,
+                            resolved: bool) -> str:
+    """Put the refusal on the wire so the audit can COUNT it.
+
+    Requested by the auditor, and the reasoning is one both teams got
+    burned by tonight: without a marker the only evidence a refusal
+    happened is the ABSENCE of a bad summary, and a negative like that has
+    twice been mistaken for a clean result. It also separates two outcomes
+    a transcript cannot: the retry doing real work, versus the model
+    simply not producing the contradiction any more.
+    """
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text
+    if not isinstance(turn, dict):
+        return text
+    turn["checkpoint_refused"] = {
+        "part": info.get("part"),
+        "code": info.get("code"),
+        "reason": info.get("reason"),
+        "retried": retried,
+        "resolved": resolved,
+    }
+    return json.dumps(turn, ensure_ascii=False)

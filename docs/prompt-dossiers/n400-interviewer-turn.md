@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 24
+served_version: 25
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
 thinking: disabled
-reconciled: 2026-09-05
+reconciled: 2026-09-06
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -653,6 +653,205 @@ written for a genuine skip, retired the half-answered node, so three
 required boxes ended blank. "Mint only what you spoke" and a span rule
 written before it combined into a blank required field. Fixed on their
 side with a replay test.
+
+## the object did not name the part the reply read; v25
+
+Found by the auditor instrumenting their own client guard rather than by
+grading a transcript, which is why it is here at all. Across the whole
+conf-v23 English run, `section_checkpoint.part` did not name the part the
+reply spoke: turns 82, 83 and 84 carried 2, 3 and 4 while their replies
+read Parts 1, 2 and 3, and turn 90 carried 8 while its reply read Parts 12
+and 13. Parts 1, 6, 10, 11 and 12 appeared in no object at all, so a
+client trusting the object saw a walk with five holes where the spoken
+walk had three.
+
+The consequence was theirs, not the grade's. Their guard holds the
+interview open until it has rendered a checkpoint for every part 1 to 13,
+so an object that can never say 1 would hold forever and trap the
+applicant in an interview that will not end, which is worse than the gap
+it was guarding. They shipped a stall breaker for that independently:
+after three consecutive turns where the lane says it is over and the walk
+is still short, the client closes anyway and logs which parts were
+missing.
+
+v24 already said the right thing: "`part` set to the number it just read".
+The model was wrong and the client was right. But the rule was stated
+ONCE, three thousand characters from the field it governs, and the field's
+own definition gave only the number's FORMAT ("Part 2: About you" is 2)
+and said nothing about WHICH part. A rule that far from the point of use
+is available, not stated, and that is the defect this version fixes: the
+rule moves inside the field definition, in both languages, and names the
+two wrong answers out loud (the part her yes just confirmed, the part
+coming next).
+
+v25 also makes the key ordering the mechanism instead of the hazard.
+`section_checkpoint` is emitted BEFORE `reply`, so the number is committed
+before the text exists and the text cannot correct it. The field now says
+to decide the number first and write the reply to match, and states that
+during the final walk the number and the read are the same "lowest part
+not yet read", so the two computations that disagreed become one.
+
+⚠ The ordering story is a HYPOTHESIS and is labelled as one to the
+auditor. Nobody has opened anything that shows the model computes the
+object from different state than the reply. The auditor's own reading
+strengthens it without proving it: a simple one-turn lag would have made
+turn 90 say 11 or 12, not 8, so whatever writes the object is tracking
+something else rather than trailing. This is the same shape as the v14
+field-order read for `asking`, which fit the observable and was REFUTED on
+the wire in Spanish, so the walk print is the instrument and not the
+argument. If the object still drifts on v25, the next step is a
+server-side guard that rewrites `part` from the reply text, on #888's
+reasoning: the reply is what the applicant actually hears.
+
+### conf-v24: the five other items, and which two became guards
+
+The auditor's v24 stamp was strong (English 95 turns, 134 facts, asking
+dropped 0, provenance 122 of 122, dashes 0; one question mark per reply
+held with ZERO violations against three on v23; over-cap lines down to two
+in English and one in Spanish from eleven on v22; the composite-name false
+positive gone). Five items came back besides the object convention, and
+both of us independently split them the same way.
+
+TWO ARE GUARDS, not sentences.
+
+The invented days, turn 35: facts p4.prior_address1.from = 2017-10-19 and
+.to = 2020-06-01 from an utterance carrying a month and a year. The prompt
+has forbidden exactly this since v13, in three different wordings, and the
+SAME RUN complied at turn 32 and broke at turn 35, which is the signature
+of an instruction that cannot be relied on. `drop_facts_that_are_also_deferred`
+already caught the conf-v20 turn 38 version of it, the same two dates, but
+only because that response also deferred the fields; here nothing was
+deferred and the invented day stood alone. So
+`defer_dates_with_unspoken_day` converts any YYYY-MM-DD fact whose day is
+absent from the current utterance into the deferral the prompt always
+prescribed, carrying the real month and year as `partial_value`. Day words
+and digits in both languages, and a four digit year cannot satisfy a day.
+This is not a grading defect: a day nobody spoke is a false statement on a
+federal form, the one class where being helpful is worse than being silent.
+
+The oath yes, turn 80, is the one that was DESIGNED WRONG AND CAUGHT
+BEFORE IT SHIPPED, which makes it the most useful entry in this file.
+
+Six oath fields minted yes right after she said she did not understand the
+bearing-arms part. Both teams independently called it consent rather than
+data and agreed it should be structurally impossible, so the first version
+of `drop_facts_when_the_intent_says_not_an_answer` EMPTIED `facts` whenever
+the response's own `intent` was one of nine non-answer labels. The
+reasoning was that a false drop costs one re-ask while a false keep puts an
+unconfirmed value on a federal form, and those are not comparable.
+
+The reasoning was fine and the premise was false. Asked to measure rather
+than agree, the auditor ran the rule back over nine graded runs: THIRTEEN
+facts would have been dropped, and THIRTEEN of the thirteen quote her
+current utterance, which the evidence floor had already vouched for. Zero
+true drops. The "false keep" the guard was protecting against did not exist
+for a single one of them, because the floor gets there first.
+
+Every one is the same shape, and it is what a confused first-timer sounds
+like: she answers and then checks whether the answer counts. "just Mariana,
+she's grown, she lives with me, does she count" is `question_back` AND
+three real facts in one breath. "I clean houses for myself is that a job
+for the form" is `question_back` AND her occupation. Re-asking her is
+precisely the moment she decides the machine is not listening.
+
+So the wrong label is a signal about the LABEL, not about the facts.
+`mark_facts_minted_on_a_non_answer` marks and counts and drops nothing,
+the same posture as `mark_battery_shortfall`. Note what it deliberately
+does NOT do: dropping only the facts that fail to quote her would be a
+pure no-op, because `drop_facts_without_current_evidence` already drops
+exactly those, for every intent, before this runs. There was no weaker
+version of the dropper worth shipping.
+
+⚠ The residual, stated honestly because it argues with the change: the v22
+nobility turn ("what is that I'm sorry a title like a princess no no")
+quotes her current words, so it survives, and it is the uninformed-consent
+shape. She asked what the words meant, nothing answered her, and she said
+no anyway. The dropper would have been right about that one for a reason
+no provenance rule can express. That is the argument for the gloss and not
+for the guard: no server-side check can manufacture an informed answer, it
+can only refuse to record an uninformed one. Twelve clear false drops, one
+arguable, zero true drops.
+
+⚠ Also chronic, not new. The same counter run backwards says facts minted
+on a self-declared non-answer appear in four of nine runs (v17, v20, v22,
+v24), `question_back` dominant. v23's zero was luck, not evidence. Nothing
+in v24's read-back rules caused it; we simply had no counter until now.
+
+AND A BUG FELL OUT OF THE REDESIGN. `mark_battery_shortfall` computes
+`reply.values()`, so a model returning `reply` as a bare string instead of
+the locale-keyed object raised AttributeError inside a guard that runs on
+every response and has no caller-side try/except. It was invisible only
+because the dropper used to empty `facts` first, and `mark_battery_shortfall`
+returns early when nothing was minted. Removing the drop exposed a live
+crash path. Hardened, with a test that also passes None, an int and a list.
+
+AND IT HAD A TWIN ON THE CLIENT, which is the reason it is fixed at the
+gateway and not only in the guard. The auditor went looking the moment the
+crash was described, on the grounds that a wire shape that can reach a GP
+guard can reach their decoder, and found `LocalizedText.init(from:)`
+opening a keyed container unconditionally: the same bare-string `reply`
+threw typeMismatch, surfaced as `malformedResponse`, and malformedResponse
+is NOT retryable in their error table. So the wire that merely 500ed GP
+would have shown the applicant a TERMINAL error mid-interview with no
+retry offered. Theirs was the worse end of the same defect.
+
+Both halves are hardened, and that is still not sufficient, because the
+next client would have to discover this for itself. GP owns the contract,
+so `normalize_reply_shape` now fixes the shape at the gateway: a bare
+string becomes `{"en": ...}`, the key every locale falls back to, so a
+Spanish interview still speaks the line it was sent. A reply that is
+neither a string nor an object is passed through untouched and only
+counted, because tolerating a string must not slide into manufacturing a
+reply out of an integer.
+
+⚠ The lesson both teams drew, and it changes how to land work: the crash
+was reachable the whole time and could not fire while the dropper was
+emptying `facts`, because the shortfall marker returns early when nothing
+was minted. A WRONG DESIGN WAS STANDING IN FRONT OF A REAL BUG, and taking
+the wrong design out is what exposed it. Twice in one day, same shape. It
+argues for landing fixes one at a time rather than in a batch, since a
+batch swaps one mask for another and nobody sees what was underneath.
+
+Sabotage: forcing `_day_was_spoken` to return True turned exactly three
+tests red (the turn 35 shape, the year-is-not-a-day check, and the
+orchestrator reachability test) and left 35 green; reverting the
+string-reply hardening turned exactly two red. Each mutation was confirmed
+present in the file before the run and reverted after.
+
+THREE ARE PROMPT WORK. The gloss: the Recover rule already said to explain
+in plain words and turn 73's "a what" about a title of nobility still got
+nothing, so v25 names the TRIGGER ("a what?", "un qué?", a word repeated
+back) as help_explain and supplies the four glosses the form's own
+vocabulary needs. The address: "Dallas, Texas" is a city AND a state, and
+p4.current_address.state was never minted in a run whose read-back said
+Texas twice. Both enforcement points are now stated in the prompt as
+enforced, so the lane is not relying on being asked twice.
+
+SETTLED, by somebody opening the form rather than either of us reasoning
+from the transcript. Part 5 for a widowed applicant: she volunteered "he
+passed in August 2019" at turn 40, the lane thanked her and recorded
+nothing, and the read-back dropped Ernesto. The auditor checked the USCIS
+PDF itself rather than our catalog, on the grounds that the catalog could
+have been the thing that was wrong, and the form's own labels are "Your
+Current Marriage", "Current Spouse's Legal Name", "Date You Entered into
+Marriage with Current Spouse". Every one is CURRENT. A widow is asked her
+marital status and her total times married and nothing whatever about the
+person who died.
+
+So the lane minting nothing was CORRECT and there was no field defect. The
+defect was that she said something true and material and heard "thank you"
+and nothing else, which leaves her waiting for a question that is never
+coming. v25 makes that a general rule with this as its instance: a
+volunteered fact the form has no home for is answered plainly, not
+absorbed. Both languages, with "I'm sorry" first, because the sentence
+before the procedural one is the whole point.
+
+⚠ NOT DONE and NOT ours: the form routes overflow to Part 14 Additional
+Information and the generator already has the overflow machinery, so a
+deceased spouse's name could technically be carried there. Whether the app
+volunteers unrequested content onto a federal form is Scott's call. Until
+he rules, nothing about the deceased spouse goes on the form, which is also
+the status quo.
 
 ## What is deliberately not here
 

@@ -1,4 +1,7 @@
+import hashlib
+import logging
 import os
+from datetime import datetime, timezone
 from collections.abc import AsyncGenerator
 
 import aiosqlite
@@ -877,18 +880,172 @@ MIGRATIONS = [
 ]
 
 
+# --- schema convergence: fast when nothing changed, self-healing when it did
+#
+# MEASURED on prod 2026-09-06: this loop is 4.93s COLD against 0.19s warm,
+# and 15.09s of a 17.31s startup at real boot. uvicorn does not bind its
+# port until it finishes, so every second is a 502 at the edge. It is 155
+# schema statements doing random metadata access across a 190MB database on
+# an HDD-backed disk: 95 succeed as idempotent no-ops and 60 raise
+# "duplicate column name" (checked: ALL 60, nothing else hiding in there).
+# Every boot, forever, to reach a state the database was already in.
+#
+# The obvious fix, a table recording what has been applied, trades away the
+# property that makes this loop slow in the first place: it is SELF-HEALING.
+# Swallowing "duplicate column" means the schema converges on the truth
+# from any starting state. A record is a CLAIM, and a claim can be wrong in
+# ways the sweep cannot: a volume restored from a Litestream snapshot taken
+# mid-migration, a database promoted from another environment, a migration
+# edited after being recorded, a boot that dies between applying and
+# recording. The failure mode stops being a slow boot and becomes a
+# silently wrong schema serving traffic, which is a bad thing to buy with
+# fifteen seconds.
+#
+# So the record is not trusted on its own. We fingerprint the schema the
+# database ACTUALLY has, from sqlite_master, and compare it against the
+# fingerprint recorded alongside the migration set that produced it. Match
+# on both, skip everything, cost is one query and a hash. Mismatch for ANY
+# reason, run the full idempotent sweep exactly as before and re-record.
+# The fast path is the normal boot; the self-healing path is still there
+# for the abnormal one, which is the only place it was ever earning its
+# keep.
+
+_SCHEMA_STATE_TABLE = """
+CREATE TABLE IF NOT EXISTS schema_state (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    schema_fingerprint TEXT NOT NULL,
+    migrations_fingerprint TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+)
+"""
+
+# `schema_state` is excluded from the fingerprint: creating it is itself a
+# schema change, and including it would guarantee a mismatch on the very
+# first boot after this ships and every boot after a reset.
+_FINGERPRINT_SQL = """
+SELECT name, sql FROM sqlite_master
+WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' AND name != 'schema_state'
+ORDER BY name
+"""
+
+
+def _normalize(sql: str) -> str:
+    return " ".join((sql or "").split())
+
+
+def migrations_fingerprint(migrations=None) -> str:
+    """Fingerprint of the migration SET. Changes when a migration is added,
+    removed or edited, which forces one full sweep and then goes fast."""
+    items = MIGRATIONS if migrations is None else migrations
+    joined = "\n".join(_normalize(m) for m in items)
+    return hashlib.sha256(joined.encode()).hexdigest()[:32]
+
+
+async def schema_fingerprint(db) -> str:
+    """Fingerprint of the schema the database ACTUALLY has right now."""
+    rows = await (await db.execute(_FINGERPRINT_SQL)).fetchall()
+    joined = "\n".join("%s=%s" % (r[0], _normalize(r[1])) for r in rows)
+    return hashlib.sha256(joined.encode()).hexdigest()[:32]
+
+
+async def apply_migrations(db) -> dict:
+    """Converge the schema. Returns a report; see the note above.
+
+    Fast path when the recorded fingerprints both match what is really
+    there. Otherwise the full idempotent sweep, unchanged from before.
+    """
+    await db.execute(_SCHEMA_STATE_TABLE)
+    want_migrations = migrations_fingerprint()
+    have_schema = await schema_fingerprint(db)
+    row = await (await db.execute(
+        "SELECT schema_fingerprint, migrations_fingerprint FROM schema_state WHERE id = 1"
+    )).fetchone()
+
+    if row is not None and row[0] == have_schema and row[1] == want_migrations:
+        return {"path": "skipped", "ran": 0, "total": len(MIGRATIONS),
+                "already_applied": 0, "failed": 0}
+
+    ran = already = failed = 0
+    for sql in MIGRATIONS:
+        try:
+            await db.execute(sql)
+            ran += 1
+        except Exception as e:  # noqa: BLE001 — convergence must not die here
+            if _is_already_applied(e):
+                already += 1
+            else:
+                failed += 1
+                logging.getLogger("app.database").warning(
+                    "migration_failed error=%s sql=%s", e, _normalize(sql)[:120])
+
+    # Recorded AFTER the sweep, from the schema the sweep actually produced.
+    # A boot that dies before this point simply leaves no record and sweeps
+    # again next time, which is the safe direction.
+    now_schema = await schema_fingerprint(db)
+    await db.execute(
+        "INSERT INTO schema_state (id, schema_fingerprint, migrations_fingerprint, updated_at) "
+        "VALUES (1, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET "
+        "schema_fingerprint=excluded.schema_fingerprint, "
+        "migrations_fingerprint=excluded.migrations_fingerprint, "
+        "updated_at=excluded.updated_at",
+        (now_schema, want_migrations, datetime.now(timezone.utc).isoformat()),
+    )
+    return {"path": "swept", "ran": ran, "total": len(MIGRATIONS),
+            "already_applied": already, "failed": failed}
+
+
+# Errors meaning "the database is already in the target state". Measured on
+# prod: all 60 of the swallowed exceptions are the first one.
+_ALREADY_APPLIED = ("duplicate column name", "already exists")
+
+
+def _is_already_applied(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return any(marker in msg for marker in _ALREADY_APPLIED)
+
+
 async def init_db(database_url: str) -> None:
     global _db_path
     _db_path = database_url.replace("sqlite+aiosqlite:///", "")
     os.makedirs(os.path.dirname(_db_path) or ".", exist_ok=True)
+    # Sub-phase timing. init_db measured 15.09s of a 17.31s startup on prod
+    # 2026-09-06, and the port stays shut for every second of it. The
+    # top-level phase marks said init_db was the cost; these say which part
+    # of it, because the last time this was reasoned about rather than
+    # measured the answer was wrong.
+    import time as _time
+    _t = _time.monotonic()
+    _log = logging.getLogger("app.database")
+
+    # The connect itself is timed SEPARATELY and deliberately. Every phase
+    # mark below sits INSIDE the `async with`, so a slow open would have
+    # been invisible to all of them, and a warm run of every phase against
+    # a copy of the real 190MB production database totals 0.63s while the
+    # deploy measured 15.09s for the same work. Whatever the difference is,
+    # it is not the statements, so the open is the first thing to rule out.
+    try:
+        _size_mb = round(os.path.getsize(_db_path) / 1e6, 1)
+    except OSError:
+        _size_mb = -1.0
     async with aiosqlite.connect(_db_path) as db:
+        _now = _time.monotonic()
+        _log.info("init_db_phase phase=connect seconds=%.2f db_mb=%.1f",
+                  _now - _t, _size_mb)
+        _t = _now
         await db.executescript(SCHEMA_SQL)
-        # Run migrations for existing databases
-        for sql in MIGRATIONS:
-            try:
-                await db.execute(sql)
-            except Exception:
-                pass  # Column already exists
+        _now = _time.monotonic()
+        _log.info("init_db_phase phase=schema seconds=%.2f", _now - _t)
+        _t = _now
+        # Converge the schema. Fast when nothing changed, full sweep when
+        # anything did. See the note above _SCHEMA_STATE_TABLE.
+        report = await apply_migrations(db)
+        _now = _time.monotonic()
+        _log.info(
+            "init_db_phase phase=migrations seconds=%.2f path=%s ran=%d "
+            "already=%d failed=%d total=%d",
+            _now - _t, report["path"], report["ran"], report["already_applied"],
+            report["failed"], report["total"])
+        _t = _now
 
         # Every TTL now lives in one place, windows unchanged. Each of
         # these used to be a DELETE right here and nowhere else, which
@@ -901,8 +1058,12 @@ async def init_db(database_url: str) -> None:
         # lose its first-seen date on either path.
         from app.services.retention import purge_expired
         await purge_expired(db)
+        _now = _time.monotonic()
+        _log.info("init_db_phase phase=retention_purge seconds=%.2f", _now - _t)
+        _t = _now
 
         await db.commit()
+        _log.info("init_db_phase phase=commit seconds=%.2f", _time.monotonic() - _t)
 
 
 async def get_db() -> AsyncGenerator[aiosqlite.Connection, None]:
