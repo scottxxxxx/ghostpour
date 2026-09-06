@@ -5,6 +5,10 @@ pydantic-settings==2.*
 aiosqlite==0.20.*
 maxminddb==2.*
 httpx==0.28.*
+# APNs is HTTP/2 only. h2 was in the local venv and ABSENT from the prod
+# image (verified 2026-09-06), which is the shape that passes every local
+# test and fails on the first real push.
+h2==4.*
 PyJWT[crypto]==2.10.*
 cryptography==44.*
 pyyaml==6.*

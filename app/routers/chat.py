@@ -4025,6 +4025,26 @@ async def chat(
                 status="done", text=(response.text or ""),
                 generated_files=generated_payload,
             )
+            # "Your file is ready" (SS contract 2026-09-05). NOT inside
+            # finish(), which stays a pure row write and is also called on
+            # both failure paths: a fire-and-forget task with its own
+            # connection, so Apple's latency never lands in this response
+            # and a push failure can never fail a turn that succeeded. The
+            # acked_at suppression is re-read inside, at send time.
+            async def _push_file_ready(uid: str, gid: str, settings_ref):
+                import aiosqlite as _sq
+                from app.services.apns import notify_generation_done
+                try:
+                    _path = settings_ref.database_url.replace("sqlite+aiosqlite:///", "")
+                    async with _sq.connect(_path) as _db:
+                        _db.row_factory = _sq.Row
+                        await notify_generation_done(
+                            _db, settings=settings_ref, user_id=uid, generation_id=gid)
+                except Exception as _e:  # noqa: BLE001 — never touch the turn
+                    logger.warning("apns: file-ready push failed: %s", _e)
+
+            asyncio.create_task(_push_file_ready(
+                user.id, _generation_id, request.app.state.settings))
         if generated_payload:
             # Monthly count cap (2026-07-19): count builds that staged
             # artifacts — both lanes (sandbox + template). Failures burn

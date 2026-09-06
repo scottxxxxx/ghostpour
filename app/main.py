@@ -13,6 +13,7 @@ from app.models.feature import load_feature_config
 from app.models.tier import load_tier_config
 from app.routers import generated_files as generated_files_router
 from app.routers import generations as generations_router
+from app.routers import devices as devices_router
 from app.routers import (
     account,
     acquisition,
@@ -422,6 +423,7 @@ app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(chat.router, prefix="/v1", tags=["chat"])
 app.include_router(generated_files_router.router, prefix="/v1", tags=["generated-files"])
 app.include_router(generations_router.router, prefix="/v1", tags=["generations"])
+app.include_router(devices_router.router, prefix="/v1", tags=["devices"])
 # cert_pins must be registered BEFORE config so the explicit
 # `/v1/config/cert-pins` path wins over config's path-parameter
 # `/v1/config/{name}` catch-all.
