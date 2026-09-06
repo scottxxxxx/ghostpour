@@ -359,6 +359,40 @@ _DAY_WORDS["veintitres"] = 23
 _DAY_WORDS["veintiseis"] = 26
 
 
+# Multi-word day forms. "treinta y uno" and "thirty first" are spoken all
+# the time and fold to several tokens, so the single-word map cannot see
+# them; a hyphenated "thirty-first" closes up and can. Generated rather
+# than typed so 21..31 cannot be partly covered, which is exactly how
+# "veintiun" was missed the first time.
+_DAY_PHRASES: dict[str, int] = {}
+for _ten_word, _ten in (("twenty", 20), ("thirty", 30)):
+    for _u, (_ord, _card) in enumerate(
+        [("first", "one"), ("second", "two"), ("third", "three"),
+         ("fourth", "four"), ("fifth", "five"), ("sixth", "six"),
+         ("seventh", "seven"), ("eighth", "eight"), ("ninth", "nine")], start=1):
+        if _ten + _u > 31:
+            continue
+        _DAY_PHRASES[f"{_ten_word} {_ord}"] = _ten + _u
+        _DAY_PHRASES[f"{_ten_word} {_card}"] = _ten + _u
+for _ten_word, _ten in (("veinte", 20), ("treinta", 30)):
+    for _u, _es in enumerate(
+        ["uno", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho",
+         "nueve"], start=1):
+        if _ten + _u > 31:
+            continue
+        _DAY_PHRASES[f"{_ten_word} y {_es}"] = _ten + _u
+_DAY_PHRASES["treinta y un"] = 31   # apocopated, and the one that was missed
+_DAY_PHRASES["veinte y un"] = 21
+
+
+def _fold_tokens(s: str) -> list[str]:
+    """Folded tokens IN ORDER, so multi-word day forms can be matched."""
+    t = unicodedata.normalize("NFD", (s or "").lower())
+    t = "".join(c for c in t if unicodedata.category(c) != "Mn")
+    t = t.replace("-", "").replace("\u2011", "")
+    return re.findall(r"[a-z]+", t)
+
+
 def _fold_words(s: str) -> set[str]:
     """Lowercase, strip accents, drop punctuation and hyphens, split.
 
@@ -383,7 +417,10 @@ def _day_was_spoken(day: int, said: str) -> bool:
         tok = m.group(0)
         if len(tok) <= 2 and tok.lstrip("0").isdigit() and int(tok) == day:
             return True
-    return any(_DAY_WORDS.get(w) == day for w in _fold_words(said))
+    if any(_DAY_WORDS.get(w) == day for w in _fold_words(said)):
+        return True
+    phrase = " ".join(_fold_tokens(said))
+    return any(v == day and k in phrase for k, v in _DAY_PHRASES.items())
 
 
 def defer_dates_with_unspoken_day(text: str, user_content: str | None) -> tuple[str, list[dict]]:

@@ -465,3 +465,38 @@ def test_a_reply_that_is_neither_string_nor_object_is_not_invented(weird):
 
     _, info = normalize_reply_shape(json.dumps({"reply": weird}))
     assert info is None
+
+
+@pytest.mark.parametrize("day,said", [
+    (31, "el treinta y uno de octubre"),   # the one the single-word map missed
+    (31, "el treinta y un de octubre"),
+    (21, "el veintiún de octubre"),
+    (21, "el veinte y uno de octubre"),
+    (29, "el veintinueve de octubre"),
+    (24, "el veinticuatro de octubre"),
+    (31, "on the thirty first of October"),
+    (21, "on the twenty first of October"),
+    (21, "on the twenty-first of October"),
+    (28, "on the twenty-eighth of October"),
+])
+def test_every_compound_day_form_from_21_to_31(day, said):
+    """The first pass at this covered 21 and missed 31, because
+    "treinta y uno" is three tokens and the single-word map cannot see it.
+    Partial coverage of a range is how "veintiun" got missed, so the phrase
+    table is generated rather than typed."""
+    from app.services.n400_interviewer_guard import defer_dates_with_unspoken_day
+
+    _, moved = defer_dates_with_unspoken_day(
+        _resp(facts=[{"field_id": "x", "value": f"2017-10-{day:02d}"}]), said)
+    assert moved == [], f"{said!r} contains day {day}"
+
+
+@pytest.mark.parametrize("day", [1, 19, 21, 31])
+def test_a_day_still_deferred_when_only_a_month_was_spoken(day):
+    """The phrase table must not turn the guard off."""
+    from app.services.n400_interviewer_guard import defer_dates_with_unspoken_day
+
+    _, moved = defer_dates_with_unspoken_day(
+        _resp(facts=[{"field_id": "x", "value": f"2017-10-{day:02d}"}]),
+        "en octubre de 2017")
+    assert len(moved) == 1
