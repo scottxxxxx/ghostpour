@@ -1,0 +1,165 @@
+{
+  "version": 1,
+  "server_only": true,
+  "schema_version": 1,
+  "form": "N-400",
+  "form_edition": "01/20/25",
+  "_comment": [
+    "N-400 FORM KNOWLEDGE. What the form asks, what its terms mean in USCIS's",
+    "own published words, and what the form does NOT ask.",
+    "",
+    "IT MAY NOT CONTAIN WHAT SHE SHOULD ANSWER. policy-matrix.json permits",
+    "`explain_question_literal` on the stated basis that it is 'reading back",
+    "what USCIS itself publishes about a question, in plainer words'. Every row",
+    "here carries a `source` for that reason: an uncited row is outside the",
+    "capability that authorises this file. DOJ EOIR's fraud guide: a",
+    "non-attorney 'CANNOT tell you which immigration forms to use or what",
+    "answers to put on the forms'. A row that suggests an answer is not a gap",
+    "in this file, it is a defect in it.",
+    "",
+    "FAILS CLOSED. An absent row means GP does not know, and the lane must say",
+    "so rather than improvise. conf-v25 turn 104 asserted an answer about",
+    "Selective Service she never gave, using fields that exist in the catalog",
+    "but not in her record. Improvisation on a federal form is a false",
+    "statement.",
+    "",
+    "NOT a placeholder: N-400's standing rule is that GP never creates empty",
+    "files for their bespoke names, because a placeholder turns a loud 404 into",
+    "a silent versioned {}."
+  ],
+  "terms": {
+    "_comment": [
+      "THE FORM PRINTS ITS OWN GLOSSES for three of these, in parentheses, in",
+      "plain words already written for a lay reader. Use USCIS's words, never a",
+      "paraphrase: v25 shipped four glosses GP wrote and two of them NARROWED",
+      "the question, which changes what she is answering yes or no to.",
+      "These appear in the printed page text and ZERO times in the AcroForm",
+      "field labels, so an accessibility dump of the same PDF shows no glosses",
+      "at all and invites exactly that paraphrase."
+    ],
+    "bear_arms": {
+      "term_en": "bear arms",
+      "gloss_official_en": "carry weapons",
+      "basis": "PUBLISHED",
+      "source": "USCIS Form N-400 (ed. 01/20/25), Part 9 Item 35, printed parenthetical",
+      "note": "USCIS publishes no definition beyond this parenthetical. Do not add one."
+    },
+    "noncombatant_services": {
+      "term_en": "noncombatant services",
+      "gloss_official_en": "do something that does not include fighting in a war",
+      "basis": "PUBLISHED",
+      "source": "USCIS Form N-400 (ed. 01/20/25), Part 9 Item 36, printed parenthetical"
+    },
+    "work_of_national_importance": {
+      "term_en": "work of national importance under civilian direction",
+      "gloss_official_en": "do non-military work that the U.S. Government says is important to the country",
+      "basis": "PUBLISHED",
+      "source": "USCIS Form N-400 (ed. 01/20/25), Part 9 Item 37, printed parenthetical",
+      "note": "This is NOT limited to wartime or to an emergency. The form says neither."
+    },
+    "title_of_nobility": {
+      "term_en": "hereditary title or an order of nobility",
+      "gloss_official_en": null,
+      "form_wording_en": "a hereditary title or an order of nobility in any foreign country",
+      "basis": "PUBLISHED",
+      "source": "USCIS Form N-400 (ed. 01/20/25), Part 9 Item 30.a",
+      "unsettled": [
+        "No official source defines whether a courtesy title, an honorific, or a",
+        "non-hereditary honour such as a knighthood counts. If she asks, say so",
+        "and name USCIS or an attorney. Do not guess on her behalf."
+      ]
+    }
+  },
+  "rules": {
+    "oath_modification": {
+      "_comment": "The only rule here whose breach cannot be undone by a later correction.",
+      "modifiable": [
+        "p9.willing_bear_arms",
+        "p9.willing_noncombatant"
+      ],
+      "not_modifiable": [
+        "p9.willing_national_importance"
+      ],
+      "basis": "PUBLISHED",
+      "source": [
+        "USCIS Form N-400 Instructions (ed. 01/20/25): 'You may not request a modification to the portion of the Oath requiring you to perform work of national importance under civilian direction.'",
+        "12 USCIS-PM J.3(A)(1): 'There is no exemption from the clause.'"
+      ],
+      "say": "A modification exists for bearing arms and for noncombatant services, and USCIS decides it. For work of national importance there is none.",
+      "never_say": "Any implication that the work-of-national-importance clause can be modified, waived, exempted or skipped."
+    },
+    "affirmation_is_not_a_modification": {
+      "_comment": [
+        "Conflating these routes someone through a clear-and-convincing-evidence test they never needed."
+      ],
+      "basis": "PUBLISHED",
+      "source": "8 CFR 337.1(b); 12 USCIS-PM J.3(B)",
+      "say": "Substituting 'solemnly affirm' for 'on oath', and omitting 'so help me God', is available on request alone, for any reason, with no evidence and no showing. That is different from a religious modification of the bearing-arms or noncombatant clauses."
+    }
+  },
+  "not_asked": {
+    "_comment": [
+      "THE NEGATIVE SPACE, the half nothing else in the system has. Two of the",
+      "worst defects found were the lane speaking about things the form does not",
+      "ask: a widow's deceased husband, and a Selective Service answer she never",
+      "gave."
+    ],
+    "deceased_or_former_spouse": {
+      "asks": "Part 5 asks a widowed or divorced applicant ONLY her marital status and how many times she has been married, then skips to Part 6.",
+      "does_not_ask": [
+        "the deceased or former spouse's name",
+        "their date of birth or A-Number",
+        "the date of the marriage, the death, or the divorce",
+        "where the marriage ended"
+      ],
+      "basis": "PUBLISHED",
+      "source": "USCIS Form N-400 (ed. 01/20/25) Part 5. Items 4.a-8 are gated on filing under Part 1 Item 1.b or 1.d; every spouse field reads 'current spouse'.",
+      "say": "The form only asks about your marital status here, so there is nothing more I need about him.",
+      "say_es": "Lo siento. El formulario sólo pregunta por su estado civil aquí, así que no necesito nada más sobre él.",
+      "still_true_of_the_case": [
+        "The form does not ask, but USCIS still requires EVIDENCE that prior",
+        "marriages ended, and an officer may ask at interview. 'The form does",
+        "not ask' is true of the FIELDS and false of the CASE. Say both."
+      ]
+    },
+    "children_18_and_over": {
+      "asks": "Part 6 asks only about children UNDER 18.",
+      "basis": "PUBLISHED",
+      "source": "USCIS N-400 FAQ (2024 redesign): 'The new Form N-400 now only asks information about an applicant's children under 18.'"
+    },
+    "parents": {
+      "asks": "Nothing. The former Part 6 about parents was removed in the 04/01/24 edition.",
+      "note": "The only parent question is Part 2 Item 10, and it exists to tell her she may ALREADY be a citizen and should file N-600 instead.",
+      "basis": "PUBLISHED",
+      "source": "USCIS N-400 FAQ (2024 redesign)"
+    },
+    "good_moral_character_is_not_a_question": {
+      "asks": "Nothing. The word 'moral' does not appear in the form body.",
+      "note": "Good moral character is the STANDARD the Part 9 answers are used to assess. It is never a question she answers.",
+      "basis": "PUBLISHED",
+      "source": "8 CFR 316.10; 12 USCIS-PM F.1"
+    }
+  },
+  "hazards": {
+    "_comment": "Things that would send her somewhere wrong. Checked 2026-09-06.",
+    "selective_service_status_letter": {
+      "hazard": "The USCIS instructions still tell applicants to obtain a Selective Service Status Information Letter at www.sss.gov/verify/sil/. THAT PAGE IS A 404. SSS stopped issuing status letters on 2026-06-30 and neither USCIS document has been revised.",
+      "action": "NEVER tell her to obtain a Status Information Letter.",
+      "basis": "PUBLISHED",
+      "source": "Selective Service System FAQ; USCIS N-400 Instructions (ed. 01/20/25), unrevised",
+      "unsettled": "Whether USCIS accepts any substitute is not officially established."
+    },
+    "fee_reduction_floor": {
+      "hazard": "The 2024 USCIS FAQ says the reduced fee is for household income 'between 150% and 400%' of the Federal Poverty Guidelines. The CURRENT instructions and Form G-1055 both say 400% or less, with no floor.",
+      "action": "Encode 400% or less. Never tell someone below 150% that she is ineligible.",
+      "basis": "PUBLISHED",
+      "source": "USCIS Form N-400 Instructions (ed. 01/20/25); Form G-1055 (ed. 05/29/26)"
+    },
+    "no_fee_on_the_form": {
+      "hazard": "No dollar amount appears anywhere on the N-400 or its 29 pages of instructions; both delegate to Form G-1055.",
+      "action": "Read fees from G-1055, never from the form.",
+      "basis": "PUBLISHED",
+      "source": "USCIS Form N-400 and Instructions (ed. 01/20/25)"
+    }
+  }
+}

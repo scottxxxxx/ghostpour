@@ -3605,6 +3605,21 @@ async def chat(
         # sign a file was being made. Build turns belong on the
         # generation transport with the other two lanes.
         and not _contract_id
+        # THE N-400 INTERVIEWER LANE NEVER STREAMS, and the reason is a
+        # boundary one rather than a performance one. `_handle_stream`
+        # returns from `chat()` BEFORE `_run_turn_tail` runs, so a streamed
+        # interviewer turn would bypass the envelope extraction and retry,
+        # the checkpoint refusal, the oath-modification refusal, and every
+        # guard in `guard_response_text`. Those guards are what keep an
+        # answer she did not give off a federal form, so a transport that
+        # skips them is not a fast path, it is an unguarded one.
+        #
+        # It would also be useless: this lane returns a JSON object the
+        # client cannot act on half-built, so there is no partial render to
+        # gain. Measured 2026-09-06: 0 of the last 500 interviewer turns set
+        # stream, so this changes no live behaviour and closes the door
+        # before somebody reasonably opens it for latency.
+        and call_type != "n400_interviewer_turn"
     )
 
     if should_stream:
