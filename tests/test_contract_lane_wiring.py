@@ -437,7 +437,21 @@ def test_a_contract_build_does_not_take_the_plain_chat_stream() -> None:
     generation events, so the client showed its generic thinking
     indicator for three minutes with no sign a file was being built.
     """
-    assert "and not _contract_id\n    )" in CHAT_SRC
+    # Asserted from the AST rather than as a literal ending in the closing
+    # paren. The literal form broke on 2026-09-06 when an unrelated
+    # exclusion was appended after it, while the property it checks was
+    # still true: a test that fails on a correct change is as much a defect
+    # as one that passes on a wrong one.
+    import ast
+
+    _tree = ast.parse(CHAT_SRC)
+    _should_stream = next(
+        ast.get_source_segment(CHAT_SRC, n.value)
+        for n in ast.walk(_tree)
+        if isinstance(n, ast.Assign)
+        and any(isinstance(t, ast.Name) and t.id == "should_stream"
+                for t in n.targets))
+    assert "not _contract_id" in _should_stream
     # And the build transport must recognise it, or the turn streams
     # nothing useful even once it is on the right road.
     assert "(body.generation or _template_id or _contract_id)" in CHAT_SRC
