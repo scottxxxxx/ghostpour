@@ -625,8 +625,45 @@ def agenda_parts(agenda: str | None) -> dict[str, int]:
     return out
 
 
+def _ids_settled_in_this_response(turn: dict) -> set[str]:
+    """Field ids this response itself answers or defers.
+
+    A deferral counts: "she is checking it later" is a settled outcome for
+    the node, the same way `drop_facts_that_are_also_deferred` treats the
+    deferral as the honest half of a fact/deferral pair.
+    """
+    out: set[str] = set()
+    for key in ("facts", "deferred"):
+        for item in turn.get(key) or []:
+            if isinstance(item, dict) and item.get("field_id"):
+                out.add(str(item["field_id"]))
+    return out
+
+
 def checkpoint_contradicts_agenda(text: str, agenda: str | None) -> dict | None:
-    """Info when the response claims a part the agenda says is still open."""
+    """Info when the response claims a part still open AFTER this response.
+
+    ⚠ THE AGENDA IS ONE TURN STALE BY CONSTRUCTION. It arrives with the
+    REQUEST, so it cannot know about facts minted in the response being
+    checked. The first version of this compared the claim against the
+    agenda as received, and conf-v25b showed what that costs: it fired
+    eleven times and EIGHT were false positives, every one of them the
+    ordinary shape we asked the lane for, answering the last question of a
+    part and summarising it in the same breath. "Got it, brown eyes and
+    black hair. That's Part 3, is that right?"
+
+    Worse, the outcome INVERTED. All three genuine cases resolved true on
+    retry and all eight false positives resolved false and were dropped,
+    and that is causal rather than luck: a premature claim can be fixed by
+    not making it, while a correct claim cannot be "fixed", so the model
+    re-asserts it, is refused twice, and the object dies. The guard kept
+    exactly the claims that were wrong and destroyed exactly the ones that
+    were right. Eight legitimate checkpoint cards never reached her.
+
+    So the response's own facts and deferrals are applied to the agenda
+    BEFORE the test. A node is still open only if it has a field id this
+    response does not settle.
+    """
     try:
         turn = json.loads(text)
     except (TypeError, ValueError):
@@ -639,7 +676,12 @@ def checkpoint_contradicts_agenda(text: str, agenda: str | None) -> dict | None:
     part = cp.get("part")
     if not isinstance(part, int):
         return None
-    open_nodes = sorted(n for n, p in agenda_parts(agenda).items() if p == part)
+    settled = _ids_settled_in_this_response(turn)
+    by_node = agenda_field_ids(agenda)
+    open_nodes = sorted(
+        node for node, node_part in agenda_parts(agenda).items()
+        if node_part == part and (by_node.get(node, set()) - settled)
+    )
     if not open_nodes:
         return None
     return {"part": part, "open_nodes": open_nodes,
@@ -790,5 +832,130 @@ def mark_checkpoint_refused(text: str, info: dict, retried: bool,
         "reason": info.get("reason"),
         "retried": retried,
         "resolved": resolved,
+    }
+    return json.dumps(turn, ensure_ascii=False)
+
+
+# --- the one harm no later correction reaches -------------------------------
+#
+# Only the BEARING ARMS and NONCOMBATANT SERVICES clauses of the Oath permit
+# a modification, on a religious or conscientious objection. WORK OF NATIONAL
+# IMPORTANCE UNDER CIVILIAN DIRECTION PERMITS NONE. USCIS instructions: "You
+# may not request a modification to the portion of the Oath requiring you to
+# perform work of national importance under civilian direction." 12 USCIS-PM
+# J.3(A)(1): "There is no exemption from the clause."
+#
+# Every other defect in this lane is recoverable by a later correction: a
+# wrong value is corrected, a starved field is re-asked, a premature
+# checkpoint is refused and retried. This one is not. An applicant told a
+# route exists either attests to something she does not accept, or is sent
+# after a remedy that does not exist and files anyway, and both are decisions
+# she makes once. That is why it is a guard and not another sentence in the
+# prompt: prompt text on this lane has failed on the same behaviour four
+# times.
+#
+# THE RULE IS THE AUDITOR'S, implemented rather than reinvented so their
+# counter and this guard agree by construction. Their first version was
+# whole-line co-occurrence, which flagged USCIS's OWN denial; the polarity
+# test below is what discriminates, and it is theirs.
+
+_WNI_EN = re.compile(r"work of national importance|national importance under civilian direction", re.I)
+_OFFER_EN = re.compile(
+    r"modif\w+|exempt\w+|opt out|opting out|waiv\w+|leave (?:it|that) out|"
+    r"get out of|skip that part", re.I)
+_NEG_EN = r"no|not|never|cannot|can't|isn't|is not|there is no|there's no|without"
+
+# Spanish and Portuguese are GP's addition, NOT the auditor's tested rule.
+# The lane runs live in Spanish, so an English-only detector would be blind
+# in the language it is least tested in, which is exactly how the day guard
+# nearly shipped broken. Flagged to them as untested against real
+# transcripts.
+_WNI_ES = re.compile(r"trabajo de importancia nacional|importancia nacional bajo direcci", re.I)
+_OFFER_ES = re.compile(r"modificaci\w+|modificar|exenci\w+|exent\w+|eximir|omitir|saltar", re.I)
+_NEG_ES = r"no|nunca|ning\w+|sin|tampoco"
+
+_WNI_PT = re.compile(r"trabalho de import[aâ]ncia nacional|import[aâ]ncia nacional sob dire", re.I)
+_OFFER_PT = re.compile(r"modifica\w+|modificar|isen\w+|omitir|pular|deixar de fora", re.I)
+_NEG_PT = r"n[aã]o|nunca|nenhum\w*|sem"
+
+_LOCALE_RULES = (("en", _WNI_EN, _OFFER_EN, _NEG_EN),
+                 ("es", _WNI_ES, _OFFER_ES, _NEG_ES),
+                 ("pt", _WNI_PT, _OFFER_PT, _NEG_PT))
+
+# How far before the offer word a negation may sit and still GOVERN it. The
+# auditor's number. "you may not request a modification" governs; "you can
+# modify that one" does not, even when a "not" appears elsewhere in the
+# sentence, which is the case whole-line search gets exactly backwards.
+_NEGATION_GOVERNS_WITHIN = 24
+
+_SENTENCE = re.compile(r"[^.!?¡¿]+[.!?]*")
+
+IMPOSSIBLE_MODIFICATION_REASON = (
+    "offered a modification of the work-of-national-importance clause, which permits none"
+)
+
+
+def _reply_strings(turn: dict) -> list[str]:
+    reply = turn.get("reply")
+    if isinstance(reply, str):
+        return [reply]
+    if isinstance(reply, dict):
+        return [v for v in reply.values() if isinstance(v, str)]
+    return []
+
+
+def offers_impossible_oath_modification(text: str) -> dict | None:
+    """Info when a reply offers a modification of the one clause that has none.
+
+    Sentence-scoped. A denial is safe ONLY when a negation governs the
+    modification word, meaning it sits within ~24 characters immediately
+    before it.
+    """
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(turn, dict):
+        return None
+    for spoken in _reply_strings(turn):
+        for sentence in _SENTENCE.findall(spoken):
+            for locale, wni, offer, neg in _LOCALE_RULES:
+                if not wni.search(sentence):
+                    continue
+                for m in offer.finditer(sentence):
+                    window = sentence[max(0, m.start() - _NEGATION_GOVERNS_WITHIN):m.start()]
+                    if re.search(r"\b(?:%s)\b" % neg, window, re.I):
+                        continue          # the negation governs: a denial
+                    return {"locale": locale, "offer": m.group(0),
+                            "sentence": sentence.strip()[:200],
+                            "reason": IMPOSSIBLE_MODIFICATION_REASON}
+    return None
+
+
+OATH_MODIFICATION_REMINDER = (
+    "\n\nSTOP. Your last response offered a modification, exemption or waiver of "
+    "the WORK OF NATIONAL IMPORTANCE UNDER CIVILIAN DIRECTION clause of the Oath. "
+    "There is no such modification. USCIS permits a modified oath ONLY for bearing "
+    "arms and for noncombatant services. Rewrite the reply: you may say a "
+    "modification exists for those two and that USCIS decides it, and for work of "
+    "national importance you must say plainly that this one has no modification and "
+    "belongs with an attorney before she files. Do not soften that and do not "
+    "suggest any route around it. Reply with the JSON object only."
+)
+
+
+def mark_impossible_modification(text: str, info: dict, retried: bool,
+                                 resolved: bool) -> str:
+    """Put it on the wire so the audit counts it, same as the other markers."""
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text
+    if not isinstance(turn, dict):
+        return text
+    turn["impossible_oath_modification"] = {
+        "locale": info.get("locale"), "offer": info.get("offer"),
+        "sentence": info.get("sentence"), "reason": info.get("reason"),
+        "retried": retried, "resolved": resolved,
     }
     return json.dumps(turn, ensure_ascii=False)

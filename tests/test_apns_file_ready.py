@@ -22,9 +22,19 @@ class _Settings:
 
 
 class _Resp:
-    def __init__(self, status, reason=None):
+    """Stands in for an httpx.Response, INCLUDING its headers.
+
+    It had no `headers` until the per-send log line needed `apns-id`,
+    which is the header that proves Apple took the notification. A fake
+    that is missing an attribute the real object always has does not test
+    the code, it tests the fake; this one failed loudly, which is the
+    good version of that.
+    """
+
+    def __init__(self, status, reason=None, apns_id="8A8E5C1B-0000-TEST"):
         self.status_code = status
         self._reason = reason
+        self.headers = {"apns-id": apns_id} if apns_id else {}
 
     def json(self):
         return {"reason": self._reason} if self._reason else {}
@@ -260,3 +270,28 @@ def test_h2_is_pinned_because_apns_is_http2_only():
     """It was in the local venv and ABSENT from the prod image, which is
     the shape that passes every local test and fails on the first push."""
     assert "h2==" in open("requirements.txt").read()
+
+
+@pytest.mark.asyncio
+async def test_a_response_without_headers_still_sends(monkeypatch):
+    """A push must never fail because a log line could not read a header.
+    `apns-id` is diagnostic, not load-bearing, and Apple has returned
+    sparse responses before."""
+    monkeypatch.setattr(apns, "provider_token", lambda s: "tok")
+    db = await _db()
+    await dt.register(db, user_id="u1", device_token="abc",
+                      environment="sandbox", bundle_id="com.ss")
+    row = (await dt.for_user(db, "u1"))[0]
+
+    class _Bare:
+        status_code = 200
+
+        def json(self):
+            return {}
+
+    out = await apns.send_to_token(_Client(_Bare()), db, row=row,
+                                   settings=_Settings(key="x"),
+                                   payload={"aps": {}}, expiration=1,
+                                   collapse_id="g1")
+    assert out == "sent"
+    await db.close()

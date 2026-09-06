@@ -4279,6 +4279,45 @@ async def chat(
                     response.text = mark_checkpoint_refused(
                         response.text, _bad_cp, retried=True, resolved=False)
 
+            # The one harm no later correction reaches: offering a
+            # modification of the work-of-national-importance oath clause,
+            # which permits none. Refuse and retry, never block: a retry can
+            # only rewrite a sentence, while a guard that traps her
+            # mid-interview is worse than the thing it guards.
+            from app.services.n400_interviewer_guard import (
+                OATH_MODIFICATION_REMINDER, mark_impossible_modification,
+                offers_impossible_oath_modification,
+            )
+            _bad_oath = offers_impossible_oath_modification(response.text)
+            if _bad_oath is not None:
+                _o_turn = body.get_meta("turn_id")
+                logger.warning(
+                    "n400_impossible_oath_modification turn_id=%s locale=%s offer=%s",
+                    _o_turn, _bad_oath["locale"], _bad_oath["offer"])
+                await usage_tracker.log_usage(
+                    db, user.id, body, response,
+                    int((time.monotonic() - start) * 1000),
+                    status="oath_modification_retry", app_id=app_id,
+                )
+                _o_body = body.model_copy(update={
+                    "user_content": (body.user_content or "") + OATH_MODIFICATION_REMINDER})
+                _o_retry = await route_with_fallback(
+                    provider_router, _o_body, db, request.app.state.settings,
+                )
+                _o_text = _strip_json_code_fence(_o_retry.text or "") if _o_retry else ""
+                if _o_text and offers_impossible_oath_modification(_o_text) is None:
+                    logger.warning("n400_impossible_oath_modification_retried turn_id=%s", _o_turn)
+                    response = _o_retry
+                    response.text = mark_impossible_modification(
+                        _o_text, _bad_oath, retried=True, resolved=True)
+                else:
+                    # Marked and allowed through. Never blocked.
+                    logger.error(
+                        "n400_impossible_oath_modification_UNRESOLVED turn_id=%s sentence=%s",
+                        _o_turn, _bad_oath["sentence"])
+                    response.text = mark_impossible_modification(
+                        response.text, _bad_oath, retried=True, resolved=False)
+
             response.text = guard_response_text(
                 response.text, _agenda, body.get_meta("turn_id"),
                 user_content=body.get_meta("user_input") or _n400_utterance)
