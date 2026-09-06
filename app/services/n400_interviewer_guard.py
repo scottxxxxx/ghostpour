@@ -344,6 +344,13 @@ for _i, _es in enumerate(
     _DAY_WORDS[_es] = _i
 _DAY_WORDS["uno"] = 1
 _DAY_WORDS["primer"] = 1
+# Apocopated Spanish, which is how these are actually spoken before a noun.
+# "veintiun" is what "veintiún" folds to once the accent comes off, and
+# without it a day she really said would be deferred as invented.
+_DAY_WORDS["veintiun"] = 21
+_DAY_WORDS["veintidos"] = 22
+_DAY_WORDS["veintitres"] = 23
+_DAY_WORDS["veintiseis"] = 26
 
 
 def _fold_words(s: str) -> set[str]:

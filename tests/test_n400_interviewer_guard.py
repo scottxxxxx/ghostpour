@@ -410,3 +410,23 @@ def test_a_bare_string_reply_does_not_take_the_turn_down():
                         "facts": [{"field_id": "a", "value": "1",
                                    "provenance": {"utterance": "one"}}],
                         "reply": weird}), None, "t-x", "she said one")
+
+
+@pytest.mark.parametrize("value,said", [
+    ("2017-10-21", "me mudé el veintiún de octubre"),   # apocopated
+    ("2017-10-21", "el veintiuno de octubre"),
+    ("2017-10-26", "el veintiséis de octubre"),          # accented
+    ("2017-10-23", "el veintitrés de octubre"),
+    ("2017-10-01", "el primero de octubre"),
+    ("2017-10-15", "el quince de octubre"),
+])
+def test_spanish_day_words_as_they_are_actually_spoken(value, said):
+    """"veintiún" is how this is said before a noun, and it folds to
+    "veintiun", not "veintiuno". Without the apocopated forms a day she
+    really gave would be deferred as if it were invented, which is the
+    guard doing harm in the language it was least tested in."""
+    from app.services.n400_interviewer_guard import defer_dates_with_unspoken_day
+
+    _, moved = defer_dates_with_unspoken_day(
+        _resp(facts=[{"field_id": "x", "value": value}]), said)
+    assert moved == [], f"{said!r} contains the day of {value}"
