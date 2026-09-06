@@ -70,6 +70,16 @@ class Settings(BaseSettings):
     siwa_key_id: str = ""                    # SIWA key id
     siwa_private_key_b64: str = ""           # base64 of the .p8 EC private key
 
+    # APNs push key — "your file is ready" when the user force-quit the app
+    # (SS contract 2026-09-05). A DEDICATED Apple Push Notifications .p8
+    # from the Developer portal, distinct from the three Apple keys above;
+    # one key serves both the sandbox and production hosts. Blank => the
+    # sender stays DORMANT: registration still stores tokens, nothing is
+    # ever sent, nothing errors.
+    apns_team_id: str = ""                   # Apple developer team id
+    apns_key_id: str = ""                    # APNs key id
+    apns_private_key_b64: str = ""           # base64 of the .p8 EC private key
+
     # Account-delete dry-run window (App Review video recording): while
     # the current UTC time is BEFORE this ISO-8601 timestamp, SS-scoped
     # deletes return the production 200 shape but purge nothing, revoke
