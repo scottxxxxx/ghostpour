@@ -729,20 +729,66 @@ and digits in both languages, and a four digit year cannot satisfy a day.
 This is not a grading defect: a day nobody spoke is a false statement on a
 federal form, the one class where being helpful is worse than being silent.
 
-The oath yes, turn 80: six oath fields minted yes right after she said she
-did not understand the bearing-arms part. That is a consent question, not a
-data one, so `drop_facts_when_the_intent_says_not_an_answer` empties
-`facts` whenever the response's OWN `intent` is help_explain, dont_know,
-repeat, question_back, legal_question, off_topic, small_talk or noise. The
-model committed to that label before it wrote the facts; the label and a
-minted fact cannot both be true, and the label is the earlier commitment.
-`answer`, `partial_answer`, `volunteered_extra`, `correction` and `control`
-are untouched.
+The oath yes, turn 80, is the one that was DESIGNED WRONG AND CAUGHT
+BEFORE IT SHIPPED, which makes it the most useful entry in this file.
 
-Sabotage, both: forcing `_day_was_spoken` to return True turned exactly
-three tests red (the turn 35 shape, the year-is-not-a-day check, and the
-orchestrator reachability test) and left 35 green; removing help_explain
-from the non-answer set turned exactly two red. Each mutation was confirmed
+Six oath fields minted yes right after she said she did not understand the
+bearing-arms part. Both teams independently called it consent rather than
+data and agreed it should be structurally impossible, so the first version
+of `drop_facts_when_the_intent_says_not_an_answer` EMPTIED `facts` whenever
+the response's own `intent` was one of nine non-answer labels. The
+reasoning was that a false drop costs one re-ask while a false keep puts an
+unconfirmed value on a federal form, and those are not comparable.
+
+The reasoning was fine and the premise was false. Asked to measure rather
+than agree, the auditor ran the rule back over nine graded runs: THIRTEEN
+facts would have been dropped, and THIRTEEN of the thirteen quote her
+current utterance, which the evidence floor had already vouched for. Zero
+true drops. The "false keep" the guard was protecting against did not exist
+for a single one of them, because the floor gets there first.
+
+Every one is the same shape, and it is what a confused first-timer sounds
+like: she answers and then checks whether the answer counts. "just Mariana,
+she's grown, she lives with me, does she count" is `question_back` AND
+three real facts in one breath. "I clean houses for myself is that a job
+for the form" is `question_back` AND her occupation. Re-asking her is
+precisely the moment she decides the machine is not listening.
+
+So the wrong label is a signal about the LABEL, not about the facts.
+`mark_facts_minted_on_a_non_answer` marks and counts and drops nothing,
+the same posture as `mark_battery_shortfall`. Note what it deliberately
+does NOT do: dropping only the facts that fail to quote her would be a
+pure no-op, because `drop_facts_without_current_evidence` already drops
+exactly those, for every intent, before this runs. There was no weaker
+version of the dropper worth shipping.
+
+⚠ The residual, stated honestly because it argues with the change: the v22
+nobility turn ("what is that I'm sorry a title like a princess no no")
+quotes her current words, so it survives, and it is the uninformed-consent
+shape. She asked what the words meant, nothing answered her, and she said
+no anyway. The dropper would have been right about that one for a reason
+no provenance rule can express. That is the argument for the gloss and not
+for the guard: no server-side check can manufacture an informed answer, it
+can only refuse to record an uninformed one. Twelve clear false drops, one
+arguable, zero true drops.
+
+⚠ Also chronic, not new. The same counter run backwards says facts minted
+on a self-declared non-answer appear in four of nine runs (v17, v20, v22,
+v24), `question_back` dominant. v23's zero was luck, not evidence. Nothing
+in v24's read-back rules caused it; we simply had no counter until now.
+
+AND A BUG FELL OUT OF THE REDESIGN. `mark_battery_shortfall` computes
+`reply.values()`, so a model returning `reply` as a bare string instead of
+the locale-keyed object raised AttributeError inside a guard that runs on
+every response and has no caller-side try/except. It was invisible only
+because the dropper used to empty `facts` first, and `mark_battery_shortfall`
+returns early when nothing was minted. Removing the drop exposed a live
+crash path. Hardened, with a test that also passes None, an int and a list.
+
+Sabotage: forcing `_day_was_spoken` to return True turned exactly three
+tests red (the turn 35 shape, the year-is-not-a-day check, and the
+orchestrator reachability test) and left 35 green; reverting the
+string-reply hardening turned exactly two red. Each mutation was confirmed
 present in the file before the run and reverted after.
 
 THREE ARE PROMPT WORK. The gloss: the Recover rule already said to explain
