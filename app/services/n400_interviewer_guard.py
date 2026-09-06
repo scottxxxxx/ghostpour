@@ -625,8 +625,45 @@ def agenda_parts(agenda: str | None) -> dict[str, int]:
     return out
 
 
+def _ids_settled_in_this_response(turn: dict) -> set[str]:
+    """Field ids this response itself answers or defers.
+
+    A deferral counts: "she is checking it later" is a settled outcome for
+    the node, the same way `drop_facts_that_are_also_deferred` treats the
+    deferral as the honest half of a fact/deferral pair.
+    """
+    out: set[str] = set()
+    for key in ("facts", "deferred"):
+        for item in turn.get(key) or []:
+            if isinstance(item, dict) and item.get("field_id"):
+                out.add(str(item["field_id"]))
+    return out
+
+
 def checkpoint_contradicts_agenda(text: str, agenda: str | None) -> dict | None:
-    """Info when the response claims a part the agenda says is still open."""
+    """Info when the response claims a part still open AFTER this response.
+
+    ⚠ THE AGENDA IS ONE TURN STALE BY CONSTRUCTION. It arrives with the
+    REQUEST, so it cannot know about facts minted in the response being
+    checked. The first version of this compared the claim against the
+    agenda as received, and conf-v25b showed what that costs: it fired
+    eleven times and EIGHT were false positives, every one of them the
+    ordinary shape we asked the lane for, answering the last question of a
+    part and summarising it in the same breath. "Got it, brown eyes and
+    black hair. That's Part 3, is that right?"
+
+    Worse, the outcome INVERTED. All three genuine cases resolved true on
+    retry and all eight false positives resolved false and were dropped,
+    and that is causal rather than luck: a premature claim can be fixed by
+    not making it, while a correct claim cannot be "fixed", so the model
+    re-asserts it, is refused twice, and the object dies. The guard kept
+    exactly the claims that were wrong and destroyed exactly the ones that
+    were right. Eight legitimate checkpoint cards never reached her.
+
+    So the response's own facts and deferrals are applied to the agenda
+    BEFORE the test. A node is still open only if it has a field id this
+    response does not settle.
+    """
     try:
         turn = json.loads(text)
     except (TypeError, ValueError):
@@ -639,7 +676,12 @@ def checkpoint_contradicts_agenda(text: str, agenda: str | None) -> dict | None:
     part = cp.get("part")
     if not isinstance(part, int):
         return None
-    open_nodes = sorted(n for n, p in agenda_parts(agenda).items() if p == part)
+    settled = _ids_settled_in_this_response(turn)
+    by_node = agenda_field_ids(agenda)
+    open_nodes = sorted(
+        node for node, node_part in agenda_parts(agenda).items()
+        if node_part == part and (by_node.get(node, set()) - settled)
+    )
     if not open_nodes:
         return None
     return {"part": part, "open_nodes": open_nodes,
