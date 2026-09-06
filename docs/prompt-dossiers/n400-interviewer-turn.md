@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 25
+served_version: 26
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
 thinking: disabled
-reconciled: 2026-09-06
+reconciled: 2026-09-06 (v26)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -852,6 +852,58 @@ deceased spouse's name could technically be carried there. Whether the app
 volunteers unrequested content onto a federal form is Scott's call. Until
 he rules, nothing about the deceased spouse goes on the form, which is also
 the status quo.
+
+## v26: the form writes better glosses than I do, and it always did
+
+The four glosses v25 put in the prompt were MY paraphrases. The form
+prints its own, in parentheses, in plain words already written for a lay
+reader, and it has printed them the whole time:
+
+- bear arms **(carry weapons)**
+- noncombatant services **(do something that does not include fighting in
+  a war)**
+- work of national importance under civilian direction **(do non-military
+  work that the U.S. Government says is important to the country)**
+
+Mine were not merely redundant, two of them NARROWED the question. I
+wrote that work of national importance means "civilian work the
+government directs in an emergency"; the form says nothing about an
+emergency. I wrote that bearing arms means carrying a weapon "as a
+soldier"; the form says "carry weapons". Narrowing a question she is
+about to answer yes or no to is changing the question, and she answers
+the version she was read.
+
+⚠ It is also outside the capability that authorises it.
+`policy-matrix.json` permits `explain_question_literal` on the stated
+basis that it is "reading back what USCIS itself publishes about a
+question, in plainer words". A paraphrase I invented is not what USCIS
+publishes. So v25's glosses were doing a thing the matrix allows, in a
+way the matrix's own justification does not cover, and the official text
+was available in the source PDF the entire time.
+
+**Title of nobility has NO printed gloss**, so v26 uses the form's own
+phrasing ("a hereditary title or an order of nobility in a foreign
+country") and, for the case USCIS does not settle, refuses rather than
+guesses: research found no official source defining whether a courtesy
+title, honorific or non-hereditary honour counts, so if she asks whether
+an award she earned counts, the lane says it does not know and names
+USCIS or an attorney. That is the honest answer and the only one inside
+the capability.
+
+**Also v26, and it is the consequential half:** only the BEARING ARMS and
+NONCOMBATANT SERVICES questions permit a modified oath, on a religious or
+conscientious objection. **Work of national importance permits none**
+(instructions; 12 USCIS-PM J.3(A)(1): "There is no exemption from the
+clause"). So the lane may say a modification exists for the first two and
+that USCIS decides it, and must NOT imply any route around the third. A
+false reassurance there is the one she cannot undo.
+
+⚠ Related and NOT yet in the prompt, flagged for whoever does the
+knowledge pack: an AFFIRMATION (substituting "solemnly affirm" and
+omitting "so help me God") is available on request alone, for any reason,
+with no evidence, and is a different thing from a religious modification.
+Conflating the two would route someone through a clear-and-convincing
+evidence test they never needed.
 
 ## What is deliberately not here
 

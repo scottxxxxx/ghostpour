@@ -3605,6 +3605,21 @@ async def chat(
         # sign a file was being made. Build turns belong on the
         # generation transport with the other two lanes.
         and not _contract_id
+        # THE N-400 INTERVIEWER LANE NEVER STREAMS, and the reason is a
+        # boundary one rather than a performance one. `_handle_stream`
+        # returns from `chat()` BEFORE `_run_turn_tail` runs, so a streamed
+        # interviewer turn would bypass the envelope extraction and retry,
+        # the checkpoint refusal, the oath-modification refusal, and every
+        # guard in `guard_response_text`. Those guards are what keep an
+        # answer she did not give off a federal form, so a transport that
+        # skips them is not a fast path, it is an unguarded one.
+        #
+        # It would also be useless: this lane returns a JSON object the
+        # client cannot act on half-built, so there is no partial render to
+        # gain. Measured 2026-09-06: 0 of the last 500 interviewer turns set
+        # stream, so this changes no live behaviour and closes the door
+        # before somebody reasonably opens it for latency.
+        and call_type != "n400_interviewer_turn"
     )
 
     if should_stream:
@@ -4278,6 +4293,45 @@ async def chat(
                     response.text, _ = drop_contradicted_checkpoint(response.text, _agenda)
                     response.text = mark_checkpoint_refused(
                         response.text, _bad_cp, retried=True, resolved=False)
+
+            # The one harm no later correction reaches: offering a
+            # modification of the work-of-national-importance oath clause,
+            # which permits none. Refuse and retry, never block: a retry can
+            # only rewrite a sentence, while a guard that traps her
+            # mid-interview is worse than the thing it guards.
+            from app.services.n400_interviewer_guard import (
+                OATH_MODIFICATION_REMINDER, mark_impossible_modification,
+                offers_impossible_oath_modification,
+            )
+            _bad_oath = offers_impossible_oath_modification(response.text)
+            if _bad_oath is not None:
+                _o_turn = body.get_meta("turn_id")
+                logger.warning(
+                    "n400_impossible_oath_modification turn_id=%s locale=%s offer=%s",
+                    _o_turn, _bad_oath["locale"], _bad_oath["offer"])
+                await usage_tracker.log_usage(
+                    db, user.id, body, response,
+                    int((time.monotonic() - start) * 1000),
+                    status="oath_modification_retry", app_id=app_id,
+                )
+                _o_body = body.model_copy(update={
+                    "user_content": (body.user_content or "") + OATH_MODIFICATION_REMINDER})
+                _o_retry = await route_with_fallback(
+                    provider_router, _o_body, db, request.app.state.settings,
+                )
+                _o_text = _strip_json_code_fence(_o_retry.text or "") if _o_retry else ""
+                if _o_text and offers_impossible_oath_modification(_o_text) is None:
+                    logger.warning("n400_impossible_oath_modification_retried turn_id=%s", _o_turn)
+                    response = _o_retry
+                    response.text = mark_impossible_modification(
+                        _o_text, _bad_oath, retried=True, resolved=True)
+                else:
+                    # Marked and allowed through. Never blocked.
+                    logger.error(
+                        "n400_impossible_oath_modification_UNRESOLVED turn_id=%s sentence=%s",
+                        _o_turn, _bad_oath["sentence"])
+                    response.text = mark_impossible_modification(
+                        response.text, _bad_oath, retried=True, resolved=False)
 
             response.text = guard_response_text(
                 response.text, _agenda, body.get_meta("turn_id"),
