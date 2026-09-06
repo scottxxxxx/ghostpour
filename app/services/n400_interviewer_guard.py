@@ -105,6 +105,15 @@ def mark_battery_shortfall(text: str, agenda: str | None) -> tuple[str, dict | N
         hit = ids & minted
         if len(hit) < BATTERY_MIN_FIELDS:
             continue
+        # A battery answered in one word mints ONE value many times ("no",
+        # "no", "no"); a composite ask like a full name mints three
+        # DIFFERENT values from an equally short reply and is not a battery
+        # at all. conf-v23 marked q_p1_full_name twice for exactly that.
+        # Locale-safe: it compares the model's own values to each other.
+        values = {str(f.get("value")) for f in turn["facts"]
+                  if isinstance(f, dict) and f.get("field_id") in hit}
+        if len(values) != 1:
+            continue
         question = questions.get(node_id) or ""
         if not question or spoken >= BATTERY_SPOKEN_RATIO * len(question):
             continue

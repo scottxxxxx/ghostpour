@@ -229,3 +229,28 @@ def test_the_route_helper_marks_the_battery_too():
     out = guard_response_text(_battery_turn("Ever been arrested? Just say no.", ids),
                               _CRIMES, "t_067", user_content="no never not even a ticket")
     assert json.loads(out)["battery_unspoken"]["node_id"] == "q_p9_crimes"
+
+
+def test_a_composite_name_ask_is_not_a_battery_and_is_not_marked():
+    """conf-v23 marked q_p1_full_name twice: "Ana Lucia Torres" legitimately
+    mints three DIFFERENT values from a short reply. A battery answered in
+    one word mints ONE value many times; that is the difference, and it
+    compares the model's own values so it holds in every locale."""
+    from app.services.n400_interviewer_guard import mark_battery_shortfall
+    line = ("q_p2_full_name | Part 2: Your name | p2.first_name,p2.middle_name,p2.last_name | "
+            "What is your full current legal name, first, middle and last, as it appears on your document?")
+    turn = json.dumps({"facts": [
+        {"field_id": "p2.first_name", "value": "Ana"},
+        {"field_id": "p2.middle_name", "value": "Lucia"},
+        {"field_id": "p2.last_name", "value": "Torres"}],
+        "reply": {"en": "And your full legal name?"}})
+    assert mark_battery_shortfall(turn, line) == (turn, None)
+
+
+def test_a_uniform_no_across_a_battery_is_still_marked():
+    from app.services.n400_interviewer_guard import mark_battery_shortfall
+    ids = [f.strip() for f in _CRIMES.split("|")[2].split(",")]
+    turn = json.dumps({"facts": [{"field_id": i, "value": "no"} for i in ids],
+                       "reply": {"en": "Ever been arrested? Just say no."}})
+    out, info = mark_battery_shortfall(turn, _CRIMES)
+    assert info is not None and len(info["minted"]) == len(ids)
