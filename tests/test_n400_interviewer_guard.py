@@ -176,3 +176,56 @@ def test_the_route_helper_runs_the_both_check_too():
     turn = {"facts": [_pf("a", "hello there")], "deferred": [{"field_id": "a", "partial_value": "h"}], "asking": None, "reply": {"en": "x"}}
     out = guard_response_text(json.dumps(turn), "", "t", user_content="hello there")
     assert json.loads(out)["facts"] == []
+
+
+# --- the battery shortfall marker -------------------------------------------
+
+_CRIMES = ("q_p9_crimes | Part 9: Additional information | "
+           "p9.arrested_ever,p9.prostitution,p9.drugs,p9.polygamy,p9.marriage_fraud,"
+           "p9.smuggling,p9.gambling,p9.child_support,p9.benefit_fraud,p9.child_hostilities | "
+           "Have you ever been arrested, cited, detained, or charged, or committed a crime you were "
+           "not arrested for? Or been involved in prostitution, illegal drugs, being married to two "
+           "people at once, marrying for immigration papers, helping someone enter the U.S. illegally, "
+           "illegal gambling, not paying child support or alimony, or lying to get a public benefit? "
+           "If none of these apply, just say no.")
+
+
+def _battery_turn(reply, ids):
+    return json.dumps({"facts": [{"field_id": i, "value": "no",
+                                  "provenance": {"utterance": "no never not even a ticket"}} for i in ids],
+                       "reply": {"en": reply}})
+
+
+def test_conf_v22_turn_67_shape_is_marked():
+    """Ten fields minted from a question that spoke one clause."""
+    from app.services.n400_interviewer_guard import mark_battery_shortfall
+    ids = [f.strip() for f in _CRIMES.split("|")[2].split(",")]
+    short = "Have you ever been arrested, cited, detained, or charged? If none apply, just say no."
+    out, info = mark_battery_shortfall(_battery_turn(short, ids), _CRIMES)
+    assert info is not None and info["node_id"] == "q_p9_crimes"
+    assert len(info["minted"]) == 10 and info["spoken_chars"] < info["question_chars"]
+    assert json.loads(out)["battery_unspoken"]["reason"].startswith("the spoken question was far shorter")
+    # the facts are NOT dropped: which items were spoken cannot be told mechanically
+    assert len(json.loads(out)["facts"]) == 10
+
+
+def test_a_battery_spoken_in_full_is_not_marked():
+    from app.services.n400_interviewer_guard import mark_battery_shortfall
+    ids = [f.strip() for f in _CRIMES.split("|")[2].split(",")]
+    full = _CRIMES.split("|")[3].strip()
+    text = _battery_turn(full, ids)
+    assert mark_battery_shortfall(text, _CRIMES) == (text, None)
+
+
+def test_a_short_answer_on_a_small_node_is_never_marked():
+    from app.services.n400_interviewer_guard import mark_battery_shortfall
+    text = _battery_turn("And your A-Number?", ["p1.a_number"])
+    assert mark_battery_shortfall(text, AGENDA) == (text, None)
+
+
+def test_the_route_helper_marks_the_battery_too():
+    from app.services.n400_interviewer_guard import guard_response_text
+    ids = [f.strip() for f in _CRIMES.split("|")[2].split(",")]
+    out = guard_response_text(_battery_turn("Ever been arrested? Just say no.", ids),
+                              _CRIMES, "t_067", user_content="no never not even a ticket")
+    assert json.loads(out)["battery_unspoken"]["node_id"] == "q_p9_crimes"

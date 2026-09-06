@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 22
+served_version: 23
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
@@ -586,6 +586,38 @@ the shortest form of the question (Spanish 21); two per breath, never
 three (English 30, 71); a self-employed applicant working from home has
 the home address as the work address, never re-asked, deferred ZIP
 included (46); never open a record outside the window (48).
+
+## conf-v22: the read-back cadence stamped; v23 is length and one regression
+
+v22 stamped in both languages: the read-back ran nine turns of 28 to 71
+words each, stopping for her yes, interview_over only at the end, against
+1545 characters in one breath on v21; the A-Number, the basis statement,
+the shortest-form repeat, two per breath, the work-from-home address and
+the window rule all held. Zero envelopes extracted in English for the
+first time.
+
+The regression: Parts 12 and 13 vanished from the read-back, the only
+place she ever hears the interpreter and preparer answers, which are
+seeded from onboarding and never asked. v23 anchors the walk to the PART
+NUMBERS rather than to what came up: each read-back response carries
+`section_checkpoint.part`, and `interview_over` may not be set until the
+part read back was 13.
+
+The auditor's UX panel turned the breath rule into a counter, which
+reordered the rest. Caps, spoken words per turn: question 35 (42 in
+Spanish), summary 60, Part 9 battery 75, opening 45. v22 was over on
+eleven lines, worst the opening at 92 English and 94 Spanish, which is
+why a confused person asked "who is this?" before answering. v23 rewrites
+the opening to three things and one question inside 45 words and moves
+the rest of the preamble to where it first matters, states the caps as
+counted rules, and splits a summary over 60 words into two turns the way
+the read-back is split. Also: the battery rule restated on the node that
+keeps breaking it, with GP marking (never dropping) a response whose
+spoken question was far shorter than the line it minted from, with the
+mark named as not a length target (a short faithful paraphrase beats a
+long burying one, and padding to look long is the failure this could
+otherwise cause); an explanation sibling is never minted for a no; a job or address they are
+still in ends "present", a fact, never a deferral.
 
 ## What is deliberately not here
 

@@ -55,6 +55,67 @@ def agenda_field_ids(agenda: str | None) -> dict[str, set[str]]:
     return out
 
 
+def agenda_questions(agenda: str | None) -> dict[str, str]:
+    """node_id -> the question text the client sent for that line.
+
+    Same parse as `agenda_field_ids`, keeping segment four. Used to compare
+    what the lane SPOKE against what the line it minted from says, in the
+    applicant's own language, since both sides are the same locale.
+    """
+    out: dict[str, str] = {}
+    for raw in (agenda or "").splitlines():
+        parts = [p.strip() for p in raw.split("|")]
+        if len(parts) < 4 or not parts[0]:
+            continue
+        out[parts[0]] = parts[3]
+    return out
+
+
+# A battery (a line with several field ids) may be asked as one question and
+# a "no" may mint every field, but only if the spoken question named every
+# item. conf-v21 turn 64 spoke seven of eight items and minted eight;
+# conf-v22 turn 67 spoke one clause and minted ten. This MARKS that shape
+# rather than dropping it: which items were spoken cannot be told
+# mechanically across four locales, and a wrong drop would destroy real
+# answers. The comparison is length against the line's own question text,
+# so it is locale-safe (both sides are the applicant's language).
+BATTERY_MIN_FIELDS = 3
+BATTERY_SPOKEN_RATIO = 0.55
+
+
+def mark_battery_shortfall(text: str, agenda: str | None) -> tuple[str, dict | None]:
+    """(possibly marked text, info or None) for a battery minted from a
+    question far shorter than the line it came from."""
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, None
+    if not isinstance(turn, dict) or not isinstance(turn.get("facts"), list):
+        return text, None
+    by_node_ids = agenda_field_ids(agenda)
+    questions = agenda_questions(agenda)
+    minted = {f.get("field_id") for f in turn["facts"] if isinstance(f, dict)}
+    if not minted:
+        return text, None
+    reply = turn.get("reply") or {}
+    spoken = max((len(v) for v in reply.values() if isinstance(v, str)), default=0)
+    for node_id, ids in by_node_ids.items():
+        if len(ids) < BATTERY_MIN_FIELDS:
+            continue
+        hit = ids & minted
+        if len(hit) < BATTERY_MIN_FIELDS:
+            continue
+        question = questions.get(node_id) or ""
+        if not question or spoken >= BATTERY_SPOKEN_RATIO * len(question):
+            continue
+        info = {"node_id": node_id, "minted": sorted(hit),
+                "question_chars": len(question), "spoken_chars": spoken,
+                "reason": "the spoken question was far shorter than the line these fields came from"}
+        turn["battery_unspoken"] = info
+        return json.dumps(turn, ensure_ascii=False), info
+    return text, None
+
+
 def drop_stale_asking(text: str, agenda: str | None) -> tuple[str, dict | None]:
     """Return (possibly rewritten text, drop info or None).
 
@@ -194,4 +255,10 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
     new_text, both = drop_facts_that_are_also_deferred(new_text)
     for d in both:
         logger.warning("n400_fact_dropped_also_deferred turn_id=%s field_id=%s", turn_id, d["field_id"])
+    new_text, battery = mark_battery_shortfall(new_text, agenda)
+    if battery is not None:
+        logger.warning(
+            "n400_battery_unspoken turn_id=%s node_id=%s minted=%s spoken_chars=%d question_chars=%d",
+            turn_id, battery["node_id"], ",".join(battery["minted"]),
+            battery["spoken_chars"], battery["question_chars"])
     return new_text
