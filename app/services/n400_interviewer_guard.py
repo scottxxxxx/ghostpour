@@ -959,3 +959,100 @@ def mark_impossible_modification(text: str, info: dict, retried: bool,
         "retried": retried, "resolved": resolved,
     }
     return json.dumps(turn, ensure_ascii=False)
+
+
+# --- the flag said not over; the sentence told her to file ------------------
+#
+# conf-es-full-1, the first Spanish run ever taken past Part 2. Turn 84 she
+# said "sí, sí a todo, pero no entiendo eso de portar armas". Turn 85 minted
+# `p9.willing_bear_arms` ALONE and five oath fields never reached her form.
+# Then turn 86: "con esto queda completa toda la solicitud", and turn 87:
+# "usted misma la firma y la presenta".
+#
+# `interview_over` was NEVER true in 99 turns, and
+# `clear_interview_over_while_agenda_open` fired correctly at 86, 87 and 99
+# with `q_p9_oath` still on the agenda every time. The machine-readable
+# field was right throughout. The SENTENCE walked past it, and the sentence
+# is the only half she can hear.
+#
+# The client honours the flag, so the interview stayed OPEN while she was
+# twice told her application was complete and to go sign and file it. The
+# two halves of the product told her different things and only one speaks.
+#
+# This does not fix narration in general; deriving the sentence from the
+# record is the real answer and it is a larger change. What it closes is the
+# one place a closing sentence is PROVABLY wrong: a turn where GP has
+# already established, from the agenda, that the interview is not over.
+
+_CLOSING_EN = re.compile(
+    r"\b(?:sign and (?:file|submit)|file it yourself|your application is complete|"
+    r"the (?:whole )?application is (?:now )?complete|that (?:completes|finishes) "
+    r"(?:the|your) (?:whole )?application|we(?:'re| are) (?:all )?(?:done|finished)|"
+    r"you can (?:now )?(?:sign|file|submit) (?:it|the application))\b", re.I)
+_CLOSING_ES = re.compile(
+    r"(?:queda completa toda la solicitud|la solicitud (?:ya )?(?:queda|est[áa]) completa|"
+    r"toda la solicitud est[áa] completa|la firma y la presenta|firmarla y presentarla|"
+    r"ya (?:hemos )?terminamos|ya (?:hemos )?terminado|ya puede (?:firmar|presentar))",
+    re.I)
+_CLOSING_PT = re.compile(
+    r"(?:o pedido (?:j[áa] )?est[áa] completo|toda a solicita[çc][ãa]o est[áa] completa|"
+    r"assinar e (?:enviar|apresentar)|j[áa] terminamos|voc[êe] j[áa] pode (?:assinar|enviar))",
+    re.I)
+
+_CLOSING = (("en", _CLOSING_EN), ("es", _CLOSING_ES), ("pt", _CLOSING_PT))
+
+CLOSING_WHILE_OPEN_REASON = (
+    "the reply told her the application was complete, or to sign and file it, "
+    "on a turn where the agenda still had open nodes"
+)
+CLOSING_WHILE_OPEN_REMINDER = (
+    "\n\nSTOP. Your last response told the applicant that her application is "
+    "complete, or that she can sign and file it, while questions on the agenda "
+    "above are still unanswered. That is false and she may act on it. Do not say "
+    "the application is complete, do not tell her to sign, file or submit "
+    "anything, and do not imply the interview is finished. Ask the next "
+    "unanswered question on the agenda instead. Reply with the JSON object only."
+)
+
+
+def closes_in_words_while_agenda_open(text: str, agenda: str | None) -> dict | None:
+    """Info when the reply closes an interview the agenda says is open.
+
+    Deliberately narrow. It fires ONLY where the agenda still holds an open
+    node, which is the one situation where a closing sentence is provably
+    wrong rather than merely early. A claim about finishing one PART is not
+    a claim about the application and must not match.
+    """
+    open_nodes = agenda_field_ids(agenda)
+    if not open_nodes:
+        return None
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(turn, dict):
+        return None
+    for spoken in _reply_strings(turn):
+        for locale, pattern in _CLOSING:
+            m = pattern.search(spoken)
+            if m:
+                return {"locale": locale, "phrase": m.group(0),
+                        "open_nodes": sorted(open_nodes),
+                        "reason": CLOSING_WHILE_OPEN_REASON}
+    return None
+
+
+def mark_closing_while_open(text: str, info: dict, retried: bool,
+                            resolved: bool) -> str:
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text
+    if not isinstance(turn, dict):
+        return text
+    turn["closed_in_words_while_open"] = {
+        "locale": info.get("locale"), "phrase": info.get("phrase"),
+        "open_nodes": info.get("open_nodes"), "reason": info.get("reason"),
+        "retried": retried, "resolved": resolved,
+    }
+    return json.dumps(turn, ensure_ascii=False)
