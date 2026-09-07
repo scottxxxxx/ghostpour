@@ -526,6 +526,29 @@ body to a stale client is the claim, and the short-circuit at the current
 version only proves the route still discriminates. A pass on the second
 alone would be true of the pre-fix version too.
 
+⚠⚠ **The two tier endpoints answer the version header differently, and
+this already cost a peer team a probe.** Social ran the same check against
+`/v1/tiers`, correctly saw no short-circuit at any version, and was about to
+report a broken optimization. Both readings were right; they were different
+routes.
+
+    /v1/config/tiers  v=60 -> 19,567 bytes   v=61/62 -> 30 bytes
+    /v1/tiers         v=60/61/62 -> 21,474 bytes, every time
+
+`list_tiers` (`app/routers/chat.py:1381`) never reads `X-Config-Version`;
+the short-circuit is only in `get_config` (`app/routers/config.py:548`). The
+byte count and the key list tell them apart: 21.5KB with NO `upgrade_nudges`
+is `/v1/tiers`, 19.5KB with it is `/v1/config/tiers`.
+
+⭐ Follow the consequence one step, because it inverts a rule stated above.
+"A value change without a version move is invisible to every device" is true
+of `/v1/config/{slug}` and FALSE of `/v1/tiers`, which reassembles from
+`app.state` on every request. `/v1/tiers` is the endpoint the app actually
+calls, 248 to 1 on the edge log. So an unbumped value change is live to users
+immediately on the surface they see, while the config-cache path still serves
+the old document, and no version number anywhere records that the two
+disagree. See [[reference_two_tier_surfaces]].
+
 ⚠ **Bundle `version` deliberately untouched.** Bundle is 3 behind the overlay
 on every tiers slug (57/56/56/56 against 60/59/59/59), pre-existing. Had it
 been bumped AND `/version` included in the sync keys, the overlay would have
