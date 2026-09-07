@@ -298,7 +298,7 @@
           "recall_max_age_days": 30
         },
         "generation": {
-          "generations_per_month": null
+          "generations_per_month": 50
         }
       }
     },
