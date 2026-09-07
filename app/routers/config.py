@@ -505,6 +505,15 @@ def load_remote_configs() -> dict[str, dict]:
 
     for path in CONFIG_DIR.rglob("*.json"):
         slug = path.relative_to(CONFIG_DIR).with_suffix("").as_posix()
+        # Underscore-prefixed files are OPS METADATA, not configs, and are
+        # skipped silently. `_intentional_overrides.json` declares which
+        # drift is deliberate; it has no `version` because it is not served,
+        # so without this it logged "missing 'version' field" on every boot,
+        # forever. That warning would be a permanent line in the same block
+        # the override mechanism exists to keep clean, which is the defect
+        # it was built to fix wearing the fix's own clothes.
+        if path.name.startswith("_"):
+            continue
         try:
             data = json.loads(path.read_text())
             if "version" not in data:

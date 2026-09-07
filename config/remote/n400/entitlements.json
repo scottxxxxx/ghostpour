@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "_comment": [
+    "N-400's OWN entitlement matrix. Scott ruled 2026-09-06: no ContextQuilt",
+    "recall for this app.",
+    "",
+    "WHY BOTH context_quilt AND people ARE DISABLED, and this is the whole",
+    "point of the file. Disabling context_quilt ALONE does not stop the hook.",
+    "chat.py reads `run_hook = state != 'disabled'`, and then, when",
+    "context_quilt IS disabled, falls through to:",
+    "    run_hook = entitlement_state(..., 'people', app) == 'enabled'",
+    "which runs the PEOPLE-SCOPED recall lane instead. That lane still calls",
+    "hook.before_llm and therefore still resolves _cq_identity(app_id).",
+    "",
+    "AND N-400 HAS NO `cq` ENTRY IN apps.yml, so _cq_identity falls back to",
+    "the DEFAULT ShoulderSurf identity. So disabling one feature would have",
+    "changed WHICH recall lane ran, not WHETHER GP authenticates to CQ as",
+    "ShoulderSurf inside an immigration interview. Both off is what actually",
+    "closes it, and the test asserts the closed PROPERTY rather than these",
+    "two values.",
+    "",
+    "REPLACE, NOT MERGE: entitlement_matrix() returns the per-app matrix",
+    "entirely when present and never merges the flat one. So this file must",
+    "carry EVERY feature the flat matrix carries, or the missing ones resolve",
+    "'disabled' for N-400 by accident. A test pins that the feature sets",
+    "match, so a feature added flat cannot silently go dark here.",
+    "",
+    "Everything else is copied from the flat matrix verbatim and deliberately",
+    "unchanged: web_search is live for N-400 and stays live."
+  ],
+  "matrix": {
+    "context_quilt": {
+      "free": "disabled",
+      "plus": "disabled",
+      "pro": "disabled",
+      "admin": "disabled",
+      "automation": "disabled"
+    },
+    "meeting_reports": {
+      "free": "enabled",
+      "plus": "enabled",
+      "pro": "enabled",
+      "admin": "enabled",
+      "automation": "enabled"
+    },
+    "project_chat": {
+      "free": "teaser",
+      "plus": "enabled",
+      "pro": "enabled",
+      "admin": "enabled",
+      "automation": "enabled"
+    },
+    "speaker_consolidation": {
+      "free": "enabled",
+      "plus": "enabled",
+      "pro": "enabled",
+      "admin": "enabled",
+      "automation": "enabled"
+    },
+    "tag_centroids": {
+      "free": "enabled",
+      "plus": "enabled",
+      "pro": "enabled",
+      "admin": "enabled",
+      "automation": "enabled"
+    },
+    "web_search": {
+      "free": "enabled",
+      "plus": "enabled",
+      "pro": "enabled",
+      "admin": "enabled",
+      "automation": "enabled"
+    },
+    "people": {
+      "free": "disabled",
+      "plus": "disabled",
+      "pro": "disabled",
+      "admin": "disabled",
+      "automation": "disabled"
+    },
+    "share": {
+      "admin": "enabled",
+      "automation": "enabled",
+      "free": "enabled",
+      "plus": "enabled",
+      "pro": "enabled"
+    },
+    "alignment": {
+      "free": "enabled",
+      "plus": "enabled",
+      "pro": "enabled",
+      "admin": "enabled",
+      "automation": "enabled"
+    }
+  }
+}
