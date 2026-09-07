@@ -238,8 +238,23 @@ def test_the_questions_the_client_sends_reach_the_prompt_verbatim(cfg):
 
 
 def test_the_empty_set_marker_reaches_the_prompt(cfg):
+    """⚠ The obvious version of this test CANNOT FAIL, and sabotage is the
+    only reason I know. `assert _NO_OPENING in body` stayed green with
+    {{opening_questions}} deleted from the template outright, because the
+    template's own LABEL names the marker to explain what it means. The
+    check was reading the label and reporting it as the value.
+
+    So compare against the same assembly without the variable: the marker
+    must appear one MORE time when it is sent, and it must appear under the
+    heading rather than only inside the parenthetical."""
+    absent = _assemble(cfg)
     body = _assemble(cfg, opening_questions=_NO_OPENING)
-    assert _NO_OPENING in body
+    assert body.count(_NO_OPENING) == absent.count(_NO_OPENING) + 1, (
+        "the marker did not arrive as a VALUE; this test is reading the "
+        "template's explanatory label back to itself")
+    block = body[body.index("BEFORE WE BEGIN"):]
+    after_heading = block.split("\n", 1)[1]
+    assert after_heading.lstrip().startswith(_NO_OPENING)
 
 
 def test_absent_and_none_are_different_prompts(cfg):
