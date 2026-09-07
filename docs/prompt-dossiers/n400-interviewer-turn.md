@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 28
+served_version: 29
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
 thinking: disabled
-reconciled: 2026-09-07 (v28)
+reconciled: 2026-09-07 (v29)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1114,6 +1114,64 @@ the question never comes back. If these are being deferred instead, they
 stay open forever and the document gate keeps blocking. Not changed here:
 GP has not read what the client does with either channel, and it is a
 different defect from the one that was asked for.
+
+## v29: the deferral rule was written for ONE field, and it fails on two
+
+v28 said "if `deferred` carries a field, the spoken line must tell her that
+one is not settled". Singular, and every worked example carried a single
+field. **A reply that hedges one deferred field and states another flat
+satisfies that reading**, and that is how it actually fails.
+
+Three real turns, each hedging the ZIP correctly and then stating the
+move-in date as settled while it too was deferred for lacking an exact day:
+
+    conf-es-v27 t31  "Noted, zip code to verify, and since June 2020."
+    conf-v21    t31  "I've noted the ZIP to check from your mail, and June
+                      2020 for when you moved in."
+    conf-v22    t32  "I've marked the ZIP to verify from your mail, and
+                      noted June 2020 for when you moved in."
+
+Every one sounds careful. She walks away believing the date is on the form.
+
+v29 requires the hedge to attach to EVERY deferred field, by name, and gives
+it an operational step rather than a distinction to feel: read your own
+`deferred` array back before you speak and account for each entry. Same
+lesson as the v28 naming test.
+
+**How it was found is the useful part.** The auditor was not auditing my
+rule. They were trying to bound their own count from above and discovered
+their probe asked whether a hedge appears ANYWHERE in the reply rather than
+whether it attaches to the field that was deferred. **My rule had the
+identical hole**, expressed in prose instead of in a regex.
+
+⚠ **Third time in one session** that a rule was correct for the case in
+front of me and wrong for the one beside it: the v27 closing rule banned the
+section checkpoint, the v28 deferral rule was written in one direction, and
+now the same rule was written for one field. All three were caught by
+someone else reading it against real turns, never by re-reading.
+
+### The rate is corrected to a FLOOR
+
+v28's prompt text cited "24 of 225". **Both teams have now retracted their
+counts.** Reading all 24 individually, 2 were false positives: one proposes
+a value for the deferred occupation and asks her to confirm it, one asks for
+both deferred values in the same sentence. Neither is silence.
+
+Worse, the probe cannot bound the number from ABOVE at all, for exactly the
+reason above. The defensible statement is a floor: **at least 22 of 225,
+higher by an unmeasured amount.** The prompt now says that.
+
+The auditor's attempt to bound it from above failed the same way GP's did:
+a probe asking whether the reply states a deferred date as plain text
+flagged 51 turns, nearly all correct behaviour, because you cannot say "I
+have noted June 2020 to verify the exact day later" without saying June
+2020. **The assertion was satisfied by the very thing it was meant to
+distinguish.** What else could satisfy this answers itself on that one.
+
+**What survives all of it, and it is the only part worth putting in front of
+Scott: the clusters, the completion claim over a field deferred in the same
+turn, and the self-employed dead end. Every one was established by reading
+turns. Not one came from a count.**
 
 ## What is deliberately not here
 
