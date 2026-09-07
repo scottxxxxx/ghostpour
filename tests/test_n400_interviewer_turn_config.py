@@ -357,6 +357,31 @@ def test_closing_language_is_gated_on_the_agenda(cfg):
     assert "ENDS ON A QUESTION" in section
 
 
+def test_the_close_rule_does_not_ban_the_section_checkpoint(cfg):
+    """The first draft of the close rule banned the mechanism it was meant to
+    protect, and no test I wrote would have caught it.
+
+    It said the reply may not imply "the interview, the sections, or the form"
+    are complete. A section checkpoint says ONE part is done and ends on its
+    confirmation question, deliberately with a non-empty agenda, and it is the
+    mechanism the whole read-back walk is built on. conf-es-full-1 t64 is the
+    real case: Part 8 confirmed with "esta todo completo y correcto?", closing
+    flags set, agenda non-empty, and entirely legitimate.
+
+    Caught by the auditor reading the rule against that turn. So this test
+    pins the carve-out AND pins that the over-broad wording cannot come back,
+    because the failure mode is a plausible-looking edit, not a deletion."""
+    section = _section(cfg, "SECTION CHECKPOINTS")
+    assert "THIS IS NOT A BAN ON THE SECTION CHECKPOINT" in section
+    assert "THE LINE IS BETWEEN ONE PART AND THE WHOLE THING" in section
+    # The operational form. A prohibition the model cannot apply to a
+    # specific sentence is a prohibition it will apply wrongly.
+    assert "cannot name the ONE part number" in section
+    # The over-broad draft, pinned as forbidden.
+    assert "the interview, the sections, or the form are finished" not in section, (
+        "the over-broad wording is back; it bans the section checkpoint")
+
+
 def test_the_close_rule_names_the_flag_guard_it_is_not_duplicating(cfg):
     """The prompt rule and the server guard are different mechanisms on the
     same harm. If someone later reads one as redundant and deletes it, the
