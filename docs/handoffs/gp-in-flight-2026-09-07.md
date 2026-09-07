@@ -526,6 +526,26 @@ body to a stale client is the claim, and the short-circuit at the current
 version only proves the route still discriminates. A pass on the second
 alone would be true of the pre-fix version too.
 
+⚠ **The cap has no PRE-EMPTIVE warning, and that half is a client change.**
+Social's app team found that `generations_per_month` appears nowhere in
+Swift; `CloudZapAuthManager.features` comes from `/v1/usage/me`. So the
+client cannot show "2 left" and the user learns at the moment of the ask.
+
+Their note said the user gets a bare server refusal. That half is wrong and
+they have corrected it at source: `app/routers/chat.py:2590` catches the
+at-cap turn and, where `looks_like_file_ask` passes or the turn was already
+confirmed, appends `GENERATION_CAP_STEERING`
+(`app/services/document_generation.py:370`) with the reset date sliced off
+`allocation_resets_at`. The model says the allowance is spent, names the
+reset date, and delivers the content inline. The turn SUCCEEDS. Non-file
+turns carry no notice at all. Scott ruled that 2026-07-19.
+
+So the gap is only the countdown, and the fix is "read the cap and count
+down", NOT "surface the refusal". If Scott takes it up: Social reports the
+counter pattern ALREADY EXISTS in the app for web search, so this is reusing
+a shipped surface rather than building one. Scott's call, ShoulderSurf's
+build, GP owes nothing.
+
 ⚠⚠ **The two tier endpoints answer the version header differently, and
 this already cost a peer team a probe.** Social ran the same check against
 `/v1/tiers`, correctly saw no short-circuit at any version, and was about to
