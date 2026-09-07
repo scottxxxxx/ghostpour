@@ -581,6 +581,123 @@ for FEATURES AND LIMITS, the App Store for MONEY). And **four surfaces, one
 enforced**: `features`, `feature_bullets` and `feature_items` are DISPLAY;
 `feature_definitions` plus the entitlement matrix is the pair that gates.
 
+## ⚠⚠ N-400 budget EXHAUSTED 2026-09-07, and a phrase that nearly closed item 1
+
+**Nothing N-400 can run, app or harness, until Scott moves one number.**
+Roughly sixty test interviews on 09-06 and 09-07 spent the monthly ceiling.
+Three requests at 18:07 CT returned HTTP 200 with an empty `text` and
+`feature_state.budget_exhausted: true`.
+
+**The one-line ask, already in front of Scott:** raise
+`monthly_cost_limit_usd` in the served config `n400/budget`.
+
+⚠ **Scott-only, and precedented.** The auditor DIRECTS this lane, but the
+flat N-400 cap is money that spends for every caller, which is his word in
+his own session, and a relay through the auditor does not stand for it (09-05:
+two relays declined, he then typed it himself). The auditor agreed and did
+not relay. See [[feedback_fable_auditor_directs_n400_lane]].
+
+⚠ **The repo file is NOT the dial.** `config/remote/n400/budget.json` is
+`server_only: true`; per `config/remote/OWNERSHIP.md` ADDING it propagates on
+boot, CHANGING the number does not. Move it with
+`PUT /webhooks/admin/config/n400/budget`, then read the SERVED value back.
+Editing the file alone does nothing to a running server.
+
+⚠ **Two numbers, neither verified live.** Repo seed 5.0; `config/apps.yml`
+also 5.0 as the FLOOR used when the served doc is unreadable (for money an
+unreadable config must never mean unlimited; only an explicit `-1` is
+unlimited). The auditor's note says Scott raised it to 20.0, which is
+consistent with the seed still reading 5.0 since the file is inert. **The
+live value could not be read**: `server_only` makes `/v1/config` answer 404
+exactly like an unknown slug, by design, and prod shell access was blocked by
+the session's permission sandbox.
+
+### ⚠⚠ The flat cap is PER USER, and two comments read like it is not
+
+`app_month_spend_usd` (`app/services/app_budget.py:145`) keys on **both**:
+
+    WHERE user_id = ? AND app_id = ? AND request_timestamp >= <UTC month start>
+
+So every caller gets their OWN ceiling of the same size. `chat.py`'s comment
+says "one ceiling applies to every caller", which is true of the NUMBER and
+reads as one shared pot. The sixty interviews exhausted only the identity
+they ran under (harness sub `408a4694...`); a different sub starts at zero
+against the same cap, and a real Scott sign-in would NOT inherit the harness
+user's spend.
+
+⚠ **That is not a workaround and nobody should use it as one.** Minting a
+session is Scott's word (see [[feedback_ask_before_minting_a_session]]); the
+auditor was offered the inference and declined to act on it unprompted,
+correctly, because routing around a money dial with a second identity is his
+sentence to say.
+
+### ⚠⚠ `PUT /webhooks/admin/config/{slug}` is a FULL DOCUMENT REPLACE
+
+`UpdateConfigRequest` carries a single `data` dict, written to disk whole,
+rejected if it has no `version`. **A partial PUT of just
+`{"monthly_cost_limit_usd": N}` takes the number AND DELETES `exhausted`**,
+the en/es/pt ceiling copy.
+
+⚠⚠ **And that failure does not look like one.** `app_budget.py:187` holds
+`_FALLBACK_COPY` in the correct locale-map shape, so the client still renders
+a budget card. The card is NOT evidence the copy survived. The read-back must
+print the surviving locales, not just the number. Safe shape is always GET,
+change one key, PUT the whole document back.
+
+⚠ Propagation is NOT a candidate when the number looks stale: `flat_cap_usd`
+reads `app.state.remote_configs` on every call and the admin PUT hot-reloads
+into that same state. There is no cache window to wait out. A stale number
+means the write did not land, not that it has not arrived.
+
+### ⚠⚠ "First real-lane run" meant the BINARY, not live IDENTITY
+
+The auditor reported the first real-lane run of the iOS app ever, three
+requests, all 200. Read as live identity that would have CLOSED item 1 below,
+because a real Apple identity token cannot pass while the bundle id is
+missing. **It did not mean that.** Asked directly, they corrected their own
+record: the requests were launched with `-gpAccessToken "$(cat qa/.token)"`,
+the QA harness user's bearer, on the live chat route. No SIWA, no Apple
+identity token, no audience check.
+
+**Pin the distinction, because the phrase reads as the stronger claim:**
+
+    harness bearer  proves  binary + network path + request shape + lane
+    Apple id token  proves  the audience check, and NOTHING ELSE does
+
+What the run did establish, narrowly and for the first time: the binary, the
+network path, the request shape and the lane all work end to end given a
+valid bearer. **Item 1 is NOT closed.** Every logged turn is still the
+harness.
+
+### The client could not show the ceiling copy either
+
+The auditor's decoder threw on the empty `text` before consulting
+`feature_state`, so the budget-exhausted envelope has been UNREACHABLE on the
+client since 2026-09-02. Anyone at the ceiling saw a retry banner for a
+condition retrying cannot fix.
+
+⚠ **NO APPLICANT WAS EVER AFFECTED, and do not write it as if one was.**
+Scott, 2026-09-07: **N-400 has NO real users; he and the auditor are the only
+callers and they are still building it.** It was derivable from this very
+file (no Apple identity token can pass the audience check, so every turn is
+the harness) and GP still wrote "an applicant saw a retry banner". Same
+failure family as the rest of this week: a sentence that sounded right and
+was never checked against what the system could actually do. The bug was
+real and worth fixing BEFORE there are users. The harm was not. Fixed on their side 09-07 with the live body as
+the fixture. GP's envelope was correct throughout. Fourth instance this week
+of both sides correct in isolation with the failure only on the hop.
+
+✅ **VERIFIED ON THE WIRE 2026-09-07, labelled harness bearer not identity.**
+With their decode fix in, the app against GP's live lane renders a
+`budget_cta` card carrying the served sentence in en, es and pt instead of
+"That didn't go through, tap to send it again". **First time that copy has
+ever rendered on a client** since the convention shipped 09-02. Their unit
+lane: 655 tests in 66 suites green, with the live body as the fixture.
+
+⚠ This closes the CLIENT half only. The ceiling itself is still spent and
+still waiting on Scott's number; when the dial moves, the same launch command
+runs a real interview in the app, again on the harness bearer.
+
 ## ⚠⚠ Owed by Scott, in the order they bite
 
 1. **Append `com.weirtech.n400helper` to `CZ_APPLE_BUNDLE_ID`.** Prod reads
