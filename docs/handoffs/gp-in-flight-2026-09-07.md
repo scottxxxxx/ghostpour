@@ -641,6 +641,17 @@ condition retrying cannot fix. Fixed on their side 09-07 with the live body as
 the fixture. GP's envelope was correct throughout. Fourth instance this week
 of both sides correct in isolation with the failure only on the hop.
 
+✅ **VERIFIED ON THE WIRE 2026-09-07, labelled harness bearer not identity.**
+With their decode fix in, the app against GP's live lane renders a
+`budget_cta` card carrying the served sentence in en, es and pt instead of
+"That didn't go through, tap to send it again". **First time that copy has
+ever rendered on a client** since the convention shipped 09-02. Their unit
+lane: 655 tests in 66 suites green, with the live body as the fixture.
+
+⚠ This closes the CLIENT half only. The ceiling itself is still spent and
+still waiting on Scott's number; when the dial moves, the same launch command
+runs a real interview in the app, again on the harness bearer.
+
 ## ⚠⚠ Owed by Scott, in the order they bite
 
 1. **Append `com.weirtech.n400helper` to `CZ_APPLE_BUNDLE_ID`.** Prod reads
