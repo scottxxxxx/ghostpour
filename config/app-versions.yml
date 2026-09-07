@@ -81,8 +81,20 @@ com.shouldersurf.ShoulderSurf:
       # relevant channel on each release.
       latest_by_channel:
         testflight:
-          version: "1.15"
-          build: "836"
+          # 1.17 build 1659, bumped 2026-09-07 on Scott's word. Installable
+          # signal received from two SS sessions before bumping, per the
+          # standing rule never to move this ahead of one: build 1659 was
+          # uploaded to TestFlight 2026-09-06 23:50 and SS confirmed it is
+          # approved and going out to beta testers. Supersedes 1.15/836
+          # (2026-07-29).
+          #
+          # Effect is a DISMISSIBLE TOAST for testflight-channel clients
+          # below this, nothing more. min_supported_version stays 1.0 and
+          # min_supported_blocking stays false, so nobody is gated and no
+          # call is refused. Header-less clients read `latest` above and
+          # are unaffected; appstore-channel clients read the block below.
+          version: "1.17"
+          build: "1659"
           upgrade_url: "https://testflight.apple.com/join/ubRWVcXF"
         appstore:
           # PRE-STAGED 2026-07-24 (Scott's call): the App Store has never
