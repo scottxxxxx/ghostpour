@@ -612,6 +612,43 @@ live value could not be read**: `server_only` makes `/v1/config` answer 404
 exactly like an unknown slug, by design, and prod shell access was blocked by
 the session's permission sandbox.
 
+### ⚠⚠ The flat cap is PER USER, and two comments read like it is not
+
+`app_month_spend_usd` (`app/services/app_budget.py:145`) keys on **both**:
+
+    WHERE user_id = ? AND app_id = ? AND request_timestamp >= <UTC month start>
+
+So every caller gets their OWN ceiling of the same size. `chat.py`'s comment
+says "one ceiling applies to every caller", which is true of the NUMBER and
+reads as one shared pot. The sixty interviews exhausted only the identity
+they ran under (harness sub `408a4694...`); a different sub starts at zero
+against the same cap, and a real Scott sign-in would NOT inherit the harness
+user's spend.
+
+⚠ **That is not a workaround and nobody should use it as one.** Minting a
+session is Scott's word (see [[feedback_ask_before_minting_a_session]]); the
+auditor was offered the inference and declined to act on it unprompted,
+correctly, because routing around a money dial with a second identity is his
+sentence to say.
+
+### ⚠⚠ `PUT /webhooks/admin/config/{slug}` is a FULL DOCUMENT REPLACE
+
+`UpdateConfigRequest` carries a single `data` dict, written to disk whole,
+rejected if it has no `version`. **A partial PUT of just
+`{"monthly_cost_limit_usd": N}` takes the number AND DELETES `exhausted`**,
+the en/es/pt ceiling copy.
+
+⚠⚠ **And that failure does not look like one.** `app_budget.py:187` holds
+`_FALLBACK_COPY` in the correct locale-map shape, so the client still renders
+a budget card. The card is NOT evidence the copy survived. The read-back must
+print the surviving locales, not just the number. Safe shape is always GET,
+change one key, PUT the whole document back.
+
+⚠ Propagation is NOT a candidate when the number looks stale: `flat_cap_usd`
+reads `app.state.remote_configs` on every call and the admin PUT hot-reloads
+into that same state. There is no cache window to wait out. A stale number
+means the write did not land, not that it has not arrived.
+
 ### ⚠⚠ "First real-lane run" meant the BINARY, not live IDENTITY
 
 The auditor reported the first real-lane run of the iOS app ever, three
