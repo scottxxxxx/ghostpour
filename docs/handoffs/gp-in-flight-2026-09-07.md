@@ -507,6 +507,25 @@ the same shape the matrix test already uses for the Pro `project_chat`
 doubling that overrode the sheet. Pinned as a NUMBER so it cannot silently
 return to null.
 
+### ✅ Refetch verified 2026-09-07, from OUTSIDE the container
+
+The one item the close left unverified: whether a device holding the OLD
+catalog actually pulls the new one. It does. Probed over the public host
+`https://cz.shouldersurf.com`, which matters because every earlier read-back
+was taken inside the container and so could not see the proxy or the route's
+short-circuit.
+
+    X-Config-Version: 60  ->  200, full 19,567-byte payload, X-Config-Version: 61
+    X-Config-Version: 61  ->  200, {"changed": false, "version": 61}
+
+    served now:  tiers v61 (en), tiers.es / .fr / .ja v60
+    all four:    free=5  plus=50  pro=100  automation=100
+
+Both halves matter and only one of them is the presence check: serving the
+body to a stale client is the claim, and the short-circuit at the current
+version only proves the route still discriminates. A pass on the second
+alone would be true of the pre-fix version too.
+
 ⚠ **Bundle `version` deliberately untouched.** Bundle is 3 behind the overlay
 on every tiers slug (57/56/56/56 against 60/59/59/59), pre-existing. Had it
 been bumped AND `/version` included in the sync keys, the overlay would have
