@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 26
+served_version: 27
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
 thinking: disabled
-reconciled: 2026-09-06 (v26)
+reconciled: 2026-09-07 (v27)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -58,6 +58,7 @@ Same route (`POST /v1/chat`, `X-App-ID: n400`, no `system_prompt`), new
 | `applicant_context` | optional | what onboarding knows: state, language, interpreter, filing for self |
 | `spoken_numerals` | optional, GP-computed | v16: a deterministic reading of Spanish number words in the utterance, `words = digits` pairs, for locale es only; never sent by the client |
 | `volunteer_fields` | optional | v3: comma-joined catalog ids for the current and next part; a volunteered fact must use an id from the agenda or this list, else it is omitted |
+| `opening_questions` | optional | v27: the before-we-begin questions the lane may still ask, one per line, in the interview locale. Literal `[no opening questions]` for the empty set, NOT an empty string. Absent (an older client) means fall back to the four the prompt names. See v27 below for why those three states must stay distinguishable |
 
 Payload is `answer.final_text`, or `[start of interview]` on the first turn.
 
@@ -904,6 +905,96 @@ omitting "so help me God") is available on request alone, for any reason,
 with no evidence, and is a different thing from a religious modification.
 Conflating the two would route someone through a clear-and-convincing
 evidence test they never needed.
+
+## v27: the before-we-begin questions are the client's, not the prompt's
+
+The auditor's ledger #23. Until v26 the lane named its own four opening
+questions in prompt text: filing for self, interpreter, anyone else
+preparing, documents to hand. Which questions are worth asking before an
+interview starts is the client's product decision, not a sentence buried
+in a 56k system prompt, so v27 takes the set from a new optional
+`opening_questions` variable: the questions the lane may still ask, one
+per line, in the interview locale.
+
+**Three states, and keeping them distinguishable is the whole design.**
+
+| block | means | lane does |
+|---|---|---|
+| lines | this is the set | asks exactly those, in order, one per turn |
+| `[no opening questions]` | the set is empty | asks none, opens on the standing node |
+| empty | an older client sent no field | falls back to the four named in the prompt |
+
+The marker is not decoration and it is the part most likely to be
+"simplified" away later. `prompt_assembly` blanks a declared-optional
+placeholder the caller omitted, so **a client that never sends the field
+and a client that sends an empty string assemble to identical bytes**. If
+the empty set were an empty string, "ask nothing" and "ask the four you
+already know" would be the same observation and the lane could not act on
+either correctly. `test_absent_and_none_are_different_prompts` pins the
+distinction from both ends: it asserts the marker differs from absent, and
+asserts an empty string does NOT, so the reason for the marker stays
+written down in a form that fails rather than in a comment.
+
+Optional rather than required, deliberately. A required variable that is
+missing raises `MissingPromptVariables` and the turn fails, so promoting
+this one would break every client that has not shipped the field. Until
+the client sends it, the variable rides and is ignored, and the lane keeps
+its current four; nothing breaks and nothing changes.
+
+⚠ In the lines state the four carry NO weight. A question absent from the
+block is not asked even if it is one of them, which is the point: the
+client, not this file, decides what gets asked before the interview opens.
+The `APPLICANT CONTEXT` striking rule is unchanged and composes on top, so
+a question in the set that the context already settles is still struck,
+and if the context settles all of them the opening asks the standing node.
+
+## v27 also: two rules about what the lane may SAY, not two more flags
+
+The auditor's ledger asks 1 and 2, and their framing is the reason both
+are prompt rules rather than response fields. Both teams have now shipped
+guards on fields the applicant cannot see, the guards worked, and she was
+harmed anyway by a sentence she could hear. Their words: if the choice is
+between a new boolean and a change to what the lane is allowed to say,
+take the second.
+
+**Ask 1, premature closing.** They measured it before writing anything:
+2212 logged turns across 52 runs, 12 fires, 10 genuine. The signal is the
+lane declaring done-ness, naming no next question and asking nothing in
+prose, while the agenda the client just sent still listed work. Two of the
+worst, quoted from their runs: "that wraps up the sections on your agenda,
+so we're done with the interview for now" spoken with EIGHT agenda lines
+in the same request, and "that's everything Form N-400 needs from you
+today" with the whole oath section still owed.
+
+⚠ **This is NOT what #922 already does, and the difference is the point.**
+`clear_interview_over_while_agenda_open` refuses the `interview_over`
+FLAG while the agenda is open. The measured harm is in the PROSE: eight of
+the ten spoke a closing sentence, and the worst run in the project never
+sets the flag at all. A guard that clears a boolean cannot un-say a
+sentence she has already heard. So the prompt rule removes the class at
+the source and the guard stays as the backstop, which should now approach
+zero fires; if it keeps firing, the prompt rule is not landing.
+
+**`[agenda empty]` was read off the wire, not invented.** 2359 logged
+`n400_interviewer_turn` requests, the AGENDA block parsed out of the
+assembled provider request in every one of them: 95 carry exactly that
+literal and the other 2264 carry 1 to 8 real node lines. Pinning a rule to
+a token nobody had opened is how a prompt ends up talking about a string
+the client never sends, so the literal is asserted by test.
+
+**Ask 2, claimed coverage.** The same defect one layer down: telling her a
+group of questions is covered ASSERTS A RECORD, and the record is this
+response's `facts` array. conf-es-full-1 turn 85 told her one "si a todo"
+had covered five oath clauses and minted one of six. The rule is not
+"never claim more than one", it is mint-them-then-claim-them: if a blanket
+yes genuinely answers several clauses, mint them all in that response, one
+fact each, and then they may be named.
+
+**Ask 3 is not built.** They asked, low priority, for a response field
+naming which agenda node the lane believes it just satisfied, and said
+explicitly not to build it for them alone. It stays unbuilt. The output
+schema is closed at 7 fields by Scott's 2026-09-02 ruling, so adding one
+is a contract change, not an implementation detail.
 
 ## What is deliberately not here
 

@@ -28,11 +28,18 @@ _DOSSIER = _ROOT / "docs" / "prompt-dossiers" / "n400-interviewer-turn.md"
 _DECLARED = {
     "form_code", "jurisdiction", "locale", "turn_id", "case_id",
     "conversation", "known_facts", "agenda", "section_boundary",
-    "applicant_context", "volunteer_fields", "spoken_numerals", "user_input",
+    "applicant_context", "volunteer_fields", "spoken_numerals",
+    "opening_questions", "user_input",
 }
 _REQUIRED = {"form_code", "jurisdiction", "locale", "turn_id",
              "conversation", "known_facts", "agenda"}
-_OPTIONAL = {"case_id", "section_boundary", "applicant_context", "volunteer_fields", "spoken_numerals"}
+_OPTIONAL = {"case_id", "section_boundary", "applicant_context",
+             "volunteer_fields", "spoken_numerals", "opening_questions"}
+
+# v27: the client's marker for "there are no before-we-begin questions".
+# A literal token, not an empty string, and the reason is mechanical rather
+# than stylistic: see test_absent_and_none_are_different_prompts.
+_NO_OPENING = "[no opening questions]"
 
 # The contract's intent vocabulary, verbatim. The client journals these and
 # the reviewer grades against them.
@@ -178,6 +185,197 @@ def test_an_optional_variable_the_client_omits_blanks_rather_than_leaking(cfg):
     assert "{{" not in out["user_content"], out["user_content"]
     assert "[start of interview]" in out["user_content"]
     assert out["max_tokens"] == cfg["maxTokens"]
+
+
+# --- v27: the before-we-begin set is the client's, not the prompt's --------
+#
+# The auditor's ledger #23. The lane named four questions in its own text;
+# the client now sends the set. Three states, and the whole design rests on
+# them staying DISTINGUISHABLE inside the assembled prompt:
+#
+#   absent            an older client that does not send the field at all
+#   [no opening ...]  a current client saying the set is empty
+#   lines             the set, one question per line, in the interview locale
+#
+# prompt_assembly blanks an absent optional placeholder, so "absent" and
+# "sent as an empty string" both arrive as an empty block. That is exactly
+# why the empty SET carries a literal marker instead. If someone ever
+# "simplifies" the client to send "" for none, these tests go red.
+
+def _assemble(cfg, **extra):
+    """The real assembler, with the required bag filled in."""
+    from app.services.prompt_assembly import assemble_prompt
+
+    variables = {
+        "form_code": "N-400", "jurisdiction": "US-TX", "locale": "en",
+        "turn_id": "t_001", "conversation": "[start of interview]",
+        "known_facts": "nothing yet",
+        "agenda": "q_p1_basis | Part 1: Eligibility | p1.eligibility_basis | Why are you eligible?",
+    }
+    variables.update(extra)
+    out = assemble_prompt("n400_interviewer_turn", "[start of interview]",
+                          {"n400/interviewer-turn": cfg}, variables=variables)
+    assert out is not None
+    return out["user_content"]
+
+
+def test_an_older_client_that_never_sends_the_set_still_assembles(cfg):
+    """Optional, not required. If this became required, every turn from a
+    client that has not shipped the field would raise instead of running."""
+    assert "opening_questions" not in cfg["requiredVariables"]
+    body = _assemble(cfg)
+    assert "{{opening_questions}}" not in body
+    assert "{{" not in body, body
+
+
+def test_the_questions_the_client_sends_reach_the_prompt_verbatim(cfg):
+    asked = ("Are you completing this for yourself?\n"
+             "Will you use an interpreter?\n"
+             "Do you have your Green Card with you?")
+    body = _assemble(cfg, opening_questions=asked)
+    for line in asked.splitlines():
+        assert line in body, f"question dropped on the way to the model: {line}"
+
+
+def test_the_empty_set_marker_reaches_the_prompt(cfg):
+    """⚠ The obvious version of this test CANNOT FAIL, and sabotage is the
+    only reason I know. `assert _NO_OPENING in body` stayed green with
+    {{opening_questions}} deleted from the template outright, because the
+    template's own LABEL names the marker to explain what it means. The
+    check was reading the label and reporting it as the value.
+
+    So compare against the same assembly without the variable: the marker
+    must appear one MORE time when it is sent, and it must appear under the
+    heading rather than only inside the parenthetical."""
+    absent = _assemble(cfg)
+    body = _assemble(cfg, opening_questions=_NO_OPENING)
+    assert body.count(_NO_OPENING) == absent.count(_NO_OPENING) + 1, (
+        "the marker did not arrive as a VALUE; this test is reading the "
+        "template's explanatory label back to itself")
+    block = body[body.index("BEFORE WE BEGIN"):]
+    after_heading = block.split("\n", 1)[1]
+    assert after_heading.lstrip().startswith(_NO_OPENING)
+
+
+def test_absent_and_none_are_different_prompts(cfg):
+    """The load-bearing one. 'ask nothing' and 'ask the four you know' are
+    different instructions, so they must not assemble to the same bytes.
+    Sabotage check: make the client send "" for the empty set and this is
+    the test that goes red."""
+    absent = _assemble(cfg)
+    none = _assemble(cfg, opening_questions=_NO_OPENING)
+    assert absent != none, (
+        "an empty set and an older client produce an identical prompt, so "
+        "the lane cannot tell 'ask nothing' from 'fall back to the four'")
+    empty_string = _assemble(cfg, opening_questions="")
+    assert empty_string == absent, (
+        "sending an empty string is indistinguishable from not sending the "
+        "field; that is why the contract specifies a literal marker")
+
+
+def test_the_prompt_tells_the_model_what_each_state_means(cfg):
+    """Source-text, and deliberately so: this contract lives in the prompt,
+    there is no other artifact that carries it. Scoped to the opening
+    section rather than the whole 56k document so it cannot pass on a
+    coincidental mention somewhere else."""
+    sp = cfg["systemPrompt"]
+    start = sp.index("OPENING THE INTERVIEW")
+    section = sp[start:sp.index("HOW TO TALK", start)]
+    assert "BEFORE WE BEGIN" in section
+    assert _NO_OPENING in section
+    assert "EMPTY" in section
+    # The four survive ONLY as the older-client fallback. If the prompt ever
+    # goes back to naming them unconditionally, the client's set stops
+    # governing and nobody would see it from the wire.
+    assert "interpreter" in section
+    assert section.index(_NO_OPENING) < section.index("The four")
+
+
+def test_the_template_says_which_state_an_empty_block_is(cfg):
+    """The model reads the template on every turn and the system prompt
+    once. An empty block with no label there is silent about which of the
+    two silences it is."""
+    t = cfg["userPromptTemplate"]
+    assert "{{opening_questions}}" in t
+    assert _NO_OPENING in t
+    assert "EMPTY" in t
+
+
+# --- v27: two rules about what the lane may SAY ----------------------------
+#
+# The auditor's ledger asks 1 and 2. Both are prompt rules rather than new
+# response fields, on their reasoning: both teams have shipped guards on
+# fields the applicant cannot see, the guards worked, and she was harmed
+# anyway by a sentence she could hear.
+#
+# These are source-text assertions and that family has been proven blind
+# before, so each one is scoped to the section that must carry it and
+# asserts a relationship (this literal, inside this section, ahead of that
+# one) rather than "the prompt mentions closing".
+
+_AGENDA_EMPTY = "[agenda empty]"
+
+
+def _section(cfg, header: str) -> str:
+    """One top-level section of the system prompt, by its ALL CAPS header.
+
+    Scoping matters: the document is 58k characters and a bare `in` check
+    against the whole of it passes on any coincidental mention, which is how
+    a knowledge-pack test once fired on the pack's own warning sentence.
+    """
+    sp = cfg["systemPrompt"]
+    start = sp.index(header)
+    nxt = re.compile(r"^[A-Z][A-Z0-9 ,'`-]{6,}$", re.M)
+    m = nxt.search(sp, start + len(header))
+    return sp[start:m.start() if m else len(sp)]
+
+
+def test_the_empty_agenda_literal_is_the_one_on_the_wire(cfg):
+    """`[agenda empty]` is not a token I chose. It was read off 2359 logged
+    turns, 95 of which carry exactly it. The rule below is only worth
+    anything while the prompt names the SAME string the client sends, so if
+    the client ever changes it, this is where it surfaces."""
+    assert _AGENDA_EMPTY in cfg["systemPrompt"]
+
+
+def test_closing_language_is_gated_on_the_agenda(cfg):
+    """Ask 1, and the important one. The lane must not be able to say the
+    interview is finished while the agenda it was handed is non-empty.
+
+    #922 already refuses the interview_over FLAG in that state
+    (clear_interview_over_while_agenda_open). That guard cannot reach this
+    defect: eight of the ten measured cases spoke a closing SENTENCE, and
+    the worst run in the project never set the flag at all."""
+    section = _section(cfg, "SECTION CHECKPOINTS")
+    assert "CLOSING LANGUAGE IS GATED ON THE AGENDA" in section
+    assert _AGENDA_EMPTY in section
+    # It has to govern the spoken line. A rule that only talks about the
+    # flag is the guard we already have, restated.
+    assert "SPOKEN LINE" in section
+    # And it has to say what to do instead, or it is a prohibition with no
+    # exit and the model picks one.
+    assert "ENDS ON A QUESTION" in section
+
+
+def test_the_close_rule_names_the_flag_guard_it_is_not_duplicating(cfg):
+    """The prompt rule and the server guard are different mechanisms on the
+    same harm. If someone later reads one as redundant and deletes it, the
+    dossier is where the distinction lives, so pin that it is written down."""
+    dossier = _DOSSIER.read_text()
+    assert "clear_interview_over_while_agenda_open" in dossier
+    assert _AGENDA_EMPTY in dossier
+
+
+def test_claimed_coverage_is_limited_to_this_turns_facts(cfg):
+    """Ask 2. Telling her a group of questions is covered asserts a record,
+    and the record is this response's facts array. conf-es-full-1 turn 85
+    claimed five oath clauses on one blanket yes and minted one of six."""
+    section = _section(cfg, "SECTION CHECKPOINTS")
+    assert "facts` ARRAY CARRIES" in section
+    # The escape hatch has to be there: a blanket yes CAN legitimately
+    # answer several clauses, and the rule is mint-them-then-claim-them,
+    # not never-claim-more-than-one.
+    assert "MINT THEM ALL IN THIS RESPONSE" in section
 
 
 def test_a_turn_without_the_conversation_is_refused(cfg):
