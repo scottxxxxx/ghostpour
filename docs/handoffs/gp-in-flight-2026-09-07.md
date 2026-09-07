@@ -1,8 +1,12 @@
 # GP session close, 2026-09-07 (cloudzap-e1)
 
 Continuation of the 2026-09-06 close, which ended mid-merge-chain. Prod =
-main = `f62771d`. Zero PRs open. Served N-400 interviewer config **v27**,
+main = `d43388e`. Zero PRs open. Served N-400 interviewer config **v29**,
 verified by string on the container.
+
+⚠ This file was written at v27 and EXTENDED at v29. The sections below in
+the original order still stand; the v28/v29 work and the retractions are at
+the end, under "After v27". Read that part first if you are resuming.
 
 ## Everything the previous handoff left open is closed
 
@@ -214,3 +218,137 @@ The memory index was compacted from 23.8KB to 18.1KB. It was approaching the
 read limit that would have truncated it for future sessions. Nothing was
 dropped; entries were merged onto shared lines and superseded handoff detail
 was folded into one row.
+
+---
+
+# After v27: v28, v29, two retracted counts, and a shipping blocker
+
+Everything below happened after the section above was written. Prod = main =
+`d43388e`, served config **v29**, verified by string. Zero PRs open.
+
+## The auditor's v27 result: zero
+
+`conf-es-v27`, 105 turns, same persona and language as the run that closed
+with five of six oath fields blank. **PREMATURE CLOSE: 0**, against 3 fires
+on that persona before and 12 across the whole v26 era. All six oath fields
+recorded. The read-back walk covered Parts 1 to 13.
+
+Their caveat, kept because it is the honest reading: one run, and zero out of
+105 is consistent both with the rule working and with a run that did not
+reach the shape. What raises confidence is that the specific turns that fired
+last time have visibly different content now, not the count.
+
+**Turn 103 is the one to show Scott.** The lane caught its own gap
+unprompted, said Parts 12 and 13 still needed reading, read them, and only
+then closed on an empty agenda. That is the closing rule and the
+section-checkpoint carve-out working together, and the carve-out is the half
+that would have been gone if the first draft had shipped.
+
+`opening_questions` worked on its first live run: turn 1 opened on
+eligibility, and language, interpreter and filing-for-self were never asked.
+
+## v28 (#930): a deferral she is never told about
+
+Of 225 turns that deferred something, the auditor measured 24 saying nothing
+at all. Two clusters: `p4.prior_address1` read back as a settled date range,
+and `p7.employer2` skipped past entirely.
+
+⚠ **Half this rule was already in the prompt and had been since v1.** "A
+promise with no entry is a defect" guards reply to deferred. The direction
+that harms her, deferred to reply, was never stated. **A consistency rule
+written in one direction reads as complete**, and re-reading does not reveal
+the gap because the sentence you are reading is true. Both directions are now
+adjacent, and a test asserts the ORIGINAL half was not replaced by its mirror,
+because the realistic regression is tidying the pair down to the newer one.
+
+Also v28: a part is not complete while a field in it is deferred, written so
+the checkpoint still happens and only the CLAIM is constrained.
+
+## v29 (#931): the same rule was written for ONE field
+
+v28 said the spoken line must tell her "that one" is not settled. Singular,
+with only single-field examples. **A reply that hedges one deferred field and
+states another flat satisfies it**, and that is how it actually fails:
+
+    conf-es-v27 t31  "Noted, zip code to verify, and since June 2020."
+    conf-v21    t31  "I've noted the ZIP to check from your mail, and June
+                      2020 for when you moved in."
+    conf-v22    t32  "I've marked the ZIP to verify from your mail, and
+                      noted June 2020 for when you moved in."
+
+The ZIP is hedged. June 2020 is also deferred and is stated flat. Every one
+sounds careful. v29 requires attachment to EVERY deferred field by name, with
+an operational step: read your own `deferred` array back before speaking.
+
+**The auditor was not auditing my rule.** They were trying to bound their own
+count from above and found their probe asked whether a hedge appears ANYWHERE
+rather than whether it attaches to the deferred field. My rule had the
+identical hole, in prose instead of regex.
+
+## ⚠⚠ BOTH counts were retracted within the hour
+
+GP published 39 of 252. A second GP probe an hour later said 99. **Two of my
+own probes disagreeing 2.5x means at least one is wrong and neither can be
+quoted.** The auditor then retracted their 24 of 225: reading all 24, two
+were false positives, and the probe cannot bound from above at all.
+
+The defensible statement is a FLOOR: at least 22 of 225, higher by an
+unmeasured amount.
+
+⚠ **The retracted rate was inside the SERVED PROMPT**, quoted at the model
+every turn as established. Fixed in v29 with a test pinning that it cannot
+come back. **Evidence embedded in a prompt is a claim with a maintenance
+cost, and neither team can see that text at runtime.**
+
+**What survives is what was established by READING TURNS**: the two clusters,
+the completion claim over a field deferred in the same turn, and the
+self-employed dead end. Not one came from a count.
+
+## ⚠ The evidence for v28/v29 is ASYMMETRIC and that is written down
+
+The opposite direction, guarded since v1, is also violated at a raw count
+higher than the one we fixed. It is NOT reported as a finding because reading
+the samples shows the probe cannot support it. One direction measured, one
+known non-clean and unmeasured, a rule shipped for both. The rule is right
+either way.
+
+## ⚠ Verifying it SHIPPED is not verifying it WORKS
+
+The string read-back is solid and it closes the did-it-ship gap. It does not
+verify the lane OBEYS the rule. The auditor built a per-field attachment
+probe, validated it against a labelled set, got roughly 40% false positives
+on known-good turns, and **killed it before publishing a number**. Clause
+scoping cannot tell "October 2017 to June 2020, I've noted the exact days to
+verify later" from stating it flat; sentence scoping fails the other way.
+
+Neither team currently believes attachment can be measured by pattern. Their
+method for the post-v29 number is hand reading, with a persona built to
+manufacture partially answered fields. GP offered an LLM-judge option with
+its hazard attached (never give the judge the rule text, or it reads our own
+instruction back to itself) and is NOT building it unasked.
+
+## Three methods, counted honestly
+
+- Enumerating adjacent cases before shipping: both teams did it, **caught
+  nothing**.
+- Reading a rule's literal text against a NAMED REAL TURN: **caught all six
+  findings** across both teams. Not "does this sound right". A turn id.
+- Structurally present and actually occurring are **different questions**.
+  The auditor found a hole in their own detector, measured that it does not
+  occur in 2317 turns, measured that the obvious fix added 3 false positives
+  for zero catches, and ended at do nothing, with the numbers in the source.
+
+## Practices worth keeping
+
+- **A rejected refinement belongs in the source WITH its numbers.** The
+  rejected fix is usually the obvious one and the next person will have the
+  idea.
+- **Constrain a count with a second count** derivable a DIFFERENT way. ⚠ A
+  partition that SUMS is not such a check; it validates bookkeeping, not
+  classification.
+- **Derive a verdict label from the data.** A read-back printed "v27 IS
+  SERVING" on a correct v28 run, one line under "version is 28 OK", because
+  the summary was a hardcoded literal. A summary that restates a constant is
+  not a reading.
+- ⚠ `docker exec` without `-i` silently discards a heredoc. There is **no
+  curl** in the ghostpour container.
