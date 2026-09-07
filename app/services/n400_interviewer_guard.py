@@ -195,13 +195,55 @@ def _norm(s: str) -> str:
     return " ".join((s or "").lower().split()).strip("\"'“”‘’ ")
 
 
-def drop_facts_without_current_evidence(text: str, user_content: str | None) -> tuple[str, list[dict]]:
+_APPLICANT_LINE = re.compile(r"^\s*(?:APPLICANT|SOLICITANTE)\s*:\s*(.*)$", re.M)
+
+
+def _applicant_said(conversation: str | None) -> list[str]:
+    """Her lines from the conversation window, normalised.
+
+    APPLICANT lines only. The interviewer's lines are excluded on purpose:
+    if the lane could cite its own text the floor would be checking the lane
+    against itself, which is not a floor.
+    """
+    return [_norm(m.group(1)) for m in _APPLICANT_LINE.finditer(conversation or "")
+            if m.group(1).strip()]
+
+
+def drop_facts_without_current_evidence(
+    text: str, user_content: str | None, conversation: str | None = None,
+) -> tuple[str, list[dict]]:
     """Return (possibly rewritten text, list of dropped fact summaries).
 
     A fact stays when its `provenance.utterance` is a substring of the
     current utterance after whitespace and case folding. A fact with no
     utterance at all is dropped too: the contract requires one. Anything
     that is not the lane's object passes through byte for byte.
+
+    CARRY-FORWARD, added 2026-09-07, and it is deliberately narrow.
+
+    The rule above assumes her evidence is in the turn that mints it. The
+    CLARIFICATION PATH breaks that, and it is the lane at its best rather
+    than its worst: she says "Tran Minh", the lane refuses to guess whether
+    that is surname-first, asks, she answers the question, and the lane
+    mints the NAME citing her original words. Measured live, that dropped
+    both name fields and the applicant reached turn 25 with a date of
+    birth, country, nationality, gender, height and weight and NO NAME. 87
+    of 1997 fact-minting turns lose at least one fact this way, most of
+    them addresses, employers and children.
+
+    ⚠ WIDENING TO "anywhere she said it" IS NOT SAFE and was rejected after
+    checking the case this floor was built for. conf-v18 turn 47: she said
+    "yes" to a summary and the lane minted p6.child1.supported = yes citing
+    "she's my daughter, my own, I had her", which is genuinely her sentence
+    and says nothing about support. A conversation-wide match re-admits it.
+
+    So the second branch requires BOTH: her cited words appear in an
+    APPLICANT line of the conversation, AND THE MINTED VALUE APPEARS IN
+    THOSE CITED WORDS. "Tran" is inside "Tran Minh"; "yes" is not inside
+    "she's my daughter, my own, I had her". A normalised value (a date
+    rendered 1977-10-05 from "5 October 1977") fails the second test and is
+    still dropped, which is the conservative direction and is exactly
+    today's behaviour, so this cannot regress anything.
     """
     try:
         turn = json.loads(text)
@@ -210,10 +252,18 @@ def drop_facts_without_current_evidence(text: str, user_content: str | None) -> 
     if not isinstance(turn, dict) or not isinstance(turn.get("facts"), list):
         return text, []
     said = _norm(user_content or "")
+    earlier = _applicant_said(conversation)
     kept, dropped = [], []
     for f in turn["facts"]:
         utt = ((f.get("provenance") or {}).get("utterance") if isinstance(f, dict) else None) or ""
-        if utt and _norm(utt) in said:
+        cited = _norm(utt)
+        value = _norm(str(f.get("value")) if isinstance(f, dict) else "")
+        carried = bool(
+            cited and value
+            and any(cited in line for line in earlier)
+            and value in cited
+        )
+        if utt and (cited in said or carried):
             kept.append(f)
         else:
             dropped.append({"field_id": f.get("field_id") if isinstance(f, dict) else None,
@@ -262,7 +312,8 @@ def drop_facts_that_are_also_deferred(text: str) -> tuple[str, list[dict]]:
 
 
 def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
-                        user_content: str | None = None) -> str:
+                        user_content: str | None = None,
+                        conversation: str | None = None) -> str:
     new_text, info = drop_stale_asking(text, agenda)
     if info is not None:
         logger.warning(
@@ -270,7 +321,8 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
             turn_id, info["node_id"], ",".join(info["field_ids"]),
         )
     if user_content is not None:
-        new_text, dropped = drop_facts_without_current_evidence(new_text, user_content)
+        new_text, dropped = drop_facts_without_current_evidence(
+            new_text, user_content, conversation)
         for d in dropped:
             logger.warning("n400_fact_dropped_no_evidence turn_id=%s field_id=%s", turn_id, d["field_id"])
     new_text, both = drop_facts_that_are_also_deferred(new_text)
