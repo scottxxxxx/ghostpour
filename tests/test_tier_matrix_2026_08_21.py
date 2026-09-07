@@ -36,7 +36,14 @@ def test_switches_match_the_sheet():
 def test_dials_match_the_sheet_in_every_locale():
     for loc in TIERS:
         assert [_fd(loc, t, "search", "searches_per_month") for t in ("free", "plus", "pro")] == [5, 75, 120], loc
-        assert [_fd(loc, t, "generation", "generations_per_month") for t in ("free", "plus", "pro")] == [5, None, 100], loc
+        # Plus capped at 50 on 2026-09-07, Scott's ruling, SUPPLYING A NUMBER
+        # THE SHEET NEVER GAVE. Its proposal row for Plus reads just "yes"
+        # ("Scott sketch: Plus and Pro. Today Pro only; moving to Plus is one
+        # config line"), so the config carried null and null means UNCAPPED in
+        # generation_monthly_cap. Plus at $9.99 was therefore outranking Pro at
+        # $14.99 on file generation. This is a ruling on top of the sheet, the
+        # same shape as the Pro project_chat doubling below.
+        assert [_fd(loc, t, "generation", "generations_per_month") for t in ("free", "plus", "pro")] == [5, 50, 100], loc
         # Pro doubled 2026-08-23 on Scott's instruction, OVERRIDING the
         # sheet, which still says 180000. Japanese Pro stays half: the
         # chars/4 heuristic underestimates CJK, so its cap is deliberately

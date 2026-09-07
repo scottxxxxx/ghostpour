@@ -50,7 +50,10 @@ def test_bundled_config_generation_live_on_every_tier_with_free_capped():
     for loc in ("", ".es", ".fr", ".ja"):
         t = json.load(open(f"config/remote/tiers{loc}.json"))["tiers"]
         assert t["free"]["feature_definitions"]["generation"]["generations_per_month"] == 5, loc
-        assert t["plus"]["feature_definitions"]["generation"]["generations_per_month"] is None, loc
+        # 50 from 2026-09-07 (Scott). Was null, and null is UNCAPPED here, not
+        # "unset": the sheet enabled Plus without ever naming a number, so Plus
+        # outranked Pro. Pinned as a number so it cannot silently return to null.
+        assert t["plus"]["feature_definitions"]["generation"]["generations_per_month"] == 50, loc
         assert t["pro"]["feature_definitions"]["generation"]["generations_per_month"] == 100, loc
 
 
