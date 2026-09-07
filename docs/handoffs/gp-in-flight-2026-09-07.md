@@ -474,8 +474,50 @@ not merely a fidelity problem.
 
 # SESSION CLOSE. Read this first.
 
-**prod = main = `52767f6`. Zero PRs open. N-400 config v29 SERVING. 13 PRs
-merged (#924 to #936). Working tree clean.**
+**prod = main = `dca59e5`. Zero PRs open. N-400 config v29 SERVING. 15 PRs
+merged (#924 to #938). Working tree clean.**
+
+## ✅ Plus file-generation cap, CLOSED the same session
+
+Found by shouldersurfsocial-08 fact-checking the served catalog, ruled by
+Scott, shipped and synced. **Nothing owed here; this is recorded so nobody
+re-raises it.**
+
+`feature_definitions.generation.generations_per_month` was **null on Plus,
+and null means UNCAPPED**, confirmed in the enforcer docstring ("Absent block
+or null value = uncapped") AND in `chat.py`'s `if _gen_cap is not None`
+branch, which skips the check entirely. So Plus at $9.99 had unlimited file
+generation while Pro at $14.99 was capped at 100.
+
+⚠ **It was not a typo.** The tier sheet's proposal row for Plus reads just
+`yes` with no number ("Scott sketch: Plus and Pro. Today Pro only; moving to
+Plus is one config line"). Plus was ENABLED WITHOUT EVER BEING GIVEN A CAP,
+the config carried null, and null happens to mean uncapped. Scott supplied
+the missing number: **50**.
+
+Shipped in #938 across all four locale slugs, then a SCOPED sync per slug and
+a read-back of the served value AND of the enforcer's return:
+
+    tiers    v60 -> v61   tiers.es/.fr/.ja  v59 -> v60
+    served: free=5  plus=50  pro=100  in all four
+    enforcer: free 5, plus 50, pro 100, automation 100
+
+Two pinning tests hardcoded `None` and were updated with the ruling attached,
+the same shape the matrix test already uses for the Pro `project_chat`
+doubling that overrode the sheet. Pinned as a NUMBER so it cannot silently
+return to null.
+
+⚠ **Bundle `version` deliberately untouched.** Bundle is 3 behind the overlay
+on every tiers slug (57/56/56/56 against 60/59/59/59), pre-existing. Had it
+been bumped AND `/version` included in the sync keys, the overlay would have
+landed at bundle+1, which is 58 against an overlay at 60: **a version going
+backwards**. Reconciling that gap is a separate job.
+
+⚠ Standing facts confirmed while in there, worth not re-deriving: **there is
+no price key anywhere in `/v1/tiers`** and that is deliberate (GP is canonical
+for FEATURES AND LIMITS, the App Store for MONEY). And **four surfaces, one
+enforced**: `features`, `feature_bullets` and `feature_items` are DISPLAY;
+`feature_definitions` plus the entitlement matrix is the pair that gates.
 
 ## ⚠⚠ Owed by Scott, in the order they bite
 
