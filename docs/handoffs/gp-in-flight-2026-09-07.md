@@ -636,8 +636,17 @@ harness.
 
 The auditor's decoder threw on the empty `text` before consulting
 `feature_state`, so the budget-exhausted envelope has been UNREACHABLE on the
-client since 2026-09-02. An applicant at the ceiling saw a retry banner for a
-condition retrying cannot fix. Fixed on their side 09-07 with the live body as
+client since 2026-09-02. Anyone at the ceiling saw a retry banner for a
+condition retrying cannot fix.
+
+⚠ **NO APPLICANT WAS EVER AFFECTED, and do not write it as if one was.**
+Scott, 2026-09-07: **N-400 has NO real users; he and the auditor are the only
+callers and they are still building it.** It was derivable from this very
+file (no Apple identity token can pass the audience check, so every turn is
+the harness) and GP still wrote "an applicant saw a retry banner". Same
+failure family as the rest of this week: a sentence that sounded right and
+was never checked against what the system could actually do. The bug was
+real and worth fixing BEFORE there are users. The harm was not. Fixed on their side 09-07 with the live body as
 the fixture. GP's envelope was correct throughout. Fourth instance this week
 of both sides correct in isolation with the failure only on the hop.
 
