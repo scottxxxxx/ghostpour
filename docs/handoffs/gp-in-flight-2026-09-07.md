@@ -507,6 +507,68 @@ the same shape the matrix test already uses for the Pro `project_chat`
 doubling that overrode the sheet. Pinned as a NUMBER so it cannot silently
 return to null.
 
+### ✅ Refetch verified 2026-09-07, from OUTSIDE the container
+
+The one item the close left unverified: whether a device holding the OLD
+catalog actually pulls the new one. It does. Probed over the public host
+`https://cz.shouldersurf.com`, which matters because every earlier read-back
+was taken inside the container and so could not see the proxy or the route's
+short-circuit.
+
+    X-Config-Version: 60  ->  200, full 19,567-byte payload, X-Config-Version: 61
+    X-Config-Version: 61  ->  200, {"changed": false, "version": 61}
+
+    served now:  tiers v61 (en), tiers.es / .fr / .ja v60
+    all four:    free=5  plus=50  pro=100  automation=100
+
+Both halves matter and only one of them is the presence check: serving the
+body to a stale client is the claim, and the short-circuit at the current
+version only proves the route still discriminates. A pass on the second
+alone would be true of the pre-fix version too.
+
+⚠ **The cap has no PRE-EMPTIVE warning, and that half is a client change.**
+Social's app team found that `generations_per_month` appears nowhere in
+Swift; `CloudZapAuthManager.features` comes from `/v1/usage/me`. So the
+client cannot show "2 left" and the user learns at the moment of the ask.
+
+Their note said the user gets a bare server refusal. That half is wrong and
+they have corrected it at source: `app/routers/chat.py:2590` catches the
+at-cap turn and, where `looks_like_file_ask` passes or the turn was already
+confirmed, appends `GENERATION_CAP_STEERING`
+(`app/services/document_generation.py:370`) with the reset date sliced off
+`allocation_resets_at`. The model says the allowance is spent, names the
+reset date, and delivers the content inline. The turn SUCCEEDS. Non-file
+turns carry no notice at all. Scott ruled that 2026-07-19.
+
+So the gap is only the countdown, and the fix is "read the cap and count
+down", NOT "surface the refusal". If Scott takes it up: Social reports the
+counter pattern ALREADY EXISTS in the app for web search, so this is reusing
+a shipped surface rather than building one. Scott's call, ShoulderSurf's
+build, GP owes nothing.
+
+⚠⚠ **The two tier endpoints answer the version header differently, and
+this already cost a peer team a probe.** Social ran the same check against
+`/v1/tiers`, correctly saw no short-circuit at any version, and was about to
+report a broken optimization. Both readings were right; they were different
+routes.
+
+    /v1/config/tiers  v=60 -> 19,567 bytes   v=61/62 -> 30 bytes
+    /v1/tiers         v=60/61/62 -> 21,474 bytes, every time
+
+`list_tiers` (`app/routers/chat.py:1381`) never reads `X-Config-Version`;
+the short-circuit is only in `get_config` (`app/routers/config.py:548`). The
+byte count and the key list tell them apart: 21.5KB with NO `upgrade_nudges`
+is `/v1/tiers`, 19.5KB with it is `/v1/config/tiers`.
+
+⭐ Follow the consequence one step, because it inverts a rule stated above.
+"A value change without a version move is invisible to every device" is true
+of `/v1/config/{slug}` and FALSE of `/v1/tiers`, which reassembles from
+`app.state` on every request. `/v1/tiers` is the endpoint the app actually
+calls, 248 to 1 on the edge log. So an unbumped value change is live to users
+immediately on the surface they see, while the config-cache path still serves
+the old document, and no version number anywhere records that the two
+disagree. See [[reference_two_tier_surfaces]].
+
 ⚠ **Bundle `version` deliberately untouched.** Bundle is 3 behind the overlay
 on every tiers slug (57/56/56/56 against 60/59/59/59), pre-existing. Had it
 been bumped AND `/version` included in the sync keys, the overlay would have
