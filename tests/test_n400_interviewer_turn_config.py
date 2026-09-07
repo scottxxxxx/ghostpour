@@ -409,6 +409,40 @@ def test_a_deferral_must_be_audible_in_the_same_reply(cfg):
     assert "still ends on exactly one question" in section
 
 
+def test_the_deferral_hedge_must_attach_to_every_deferred_field(cfg):
+    """v29. v28 wrote this rule in the SINGULAR and every worked example
+    carried one field, so a reply hedging one deferred field and stating
+    another flat satisfied it.
+
+    The auditor found it while trying to bound their own count from above:
+    their probe asked whether a hedge appeared ANYWHERE in the reply rather
+    than whether it attached to the field that was deferred, and my rule had
+    the identical hole. Three real turns, each hedging the ZIP correctly and
+    then stating the deferred move-in date as settled.
+
+    ⚠ Third time in one session that a rule was right for the case in front
+    of me and wrong for the one beside it."""
+    section = _section(cfg, "DEFERRALS")
+    assert "EVERY DEFERRED FIELD, NAMED, NOT ONE OF THEM" in section
+    # An operational step, not a distinction the model has to feel. Same
+    # lesson as the v28 naming test in SECTION CHECKPOINTS.
+    assert "Read your own `deferred` array back" in section
+    # The worked example has to be the MULTI-field failure, or the rule is
+    # illustrated by exactly the case it already handled.
+    assert section.count("June 2020") >= 3
+
+
+def test_the_retracted_deferral_rate_is_not_quoted_as_a_rate(cfg):
+    """Both teams retracted their counts, so the prompt may not cite one as
+    if it were established. It states a FLOOR, which is what is defensible:
+    2 of the auditor's 24 were false positives on reading, and neither
+    probe can bound the number from above at all."""
+    section = _section(cfg, "DEFERRALS")
+    assert "AT LEAST 22 of 225" in section
+    assert "of 225 turns that deferred something, 24" not in section, (
+        "the retracted rate is back in the served prompt")
+
+
 def test_a_part_is_not_complete_while_a_field_in_it_is_deferred(cfg):
     """v28, the same defect at part scale: "that completes Part 4" spoken
     with a Part 4 field deferred in the same turn.

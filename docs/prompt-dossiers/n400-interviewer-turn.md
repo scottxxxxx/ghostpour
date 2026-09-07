@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 28
+served_version: 29
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
 thinking: disabled
-reconciled: 2026-09-07 (v28)
+reconciled: 2026-09-07 (v29)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1055,28 +1055,53 @@ made. The test pins the v27 carve-out as still present underneath it,
 because layering a constraint on top of a carve-out is the obvious way to
 re-break what #928 fixed.
 
-### GP's independent count differed, and the difference is the useful part
+### ⚠ GP's rate is RETRACTED. The shape stands; the number does not.
 
-The auditor's probe was wrong twice before it was right (56, then 36, then
-24), both times from a marker regex missing phrasings the lane uses. So GP
-did not rebuild the same detector. GP ran a deliberately GENEROUS marker
-set, biased toward "the reply did say something", which should
-under-report silence, and then **printed every flagged reply to be read**
-rather than counted.
+GP originally recorded 39 silent of 252 deferring turns here, against the
+auditor's 24 of 225, and explained the gap by reading the flagged replies.
+**That rate is withdrawn.** A second GP probe, run an hour later on the same
+question with a narrower marker set, said 99. Two of GP's own probes
+disagreeing by 2.5x means at least one is wrong and neither can be quoted.
 
-GP got 252 deferring turns and 39 silent (15.5%) against their 225 and 24
-(10.7%). Reading the 39 explains it: at least six are GP false positives
-where the lane did tell her in wording neither regex anticipated ("I'll
-leave that blank", "I'll leave that one open", "take your time and let me
-know when you find it", "I'll mark those for review with your attorney").
-The denominators also differ, since GP counted all logged traffic and they
-counted their run files.
+What survives is the SHAPE, and it survives because it was established by
+READING ACTUAL TURNS rather than by counting: both of the auditor's clusters
+reproduce (`p4.prior_address1` read back as a settled range,
+`p7.employer2` skipped past), and so does the worst sub-shape, the completion
+claim over a field deferred in that same turn. The v28 rules are aimed at the
+shape and do not depend on any of these numbers.
 
-**Their number is the better one.** What GP's pass independently confirmed
-is the SHAPE: both named clusters reproduce, and so does the worst
-sub-shape, the completion claim over a field deferred in the same turn.
-That is what the rule is aimed at, and it did not depend on either count
-being exact.
+The auditor's framing of the two counts is also more accurate than GP's first
+one: GP counted all logged traffic, they counted their run files, so theirs
+is NARROWER rather than more accurate and neither corrects the other. Two
+overlapping populations, one shape.
+
+**How the retraction was caught** is the transferable part, and it is the
+auditor's instrument: whenever a probe produces a count, find a second count
+already in the artifact that constrains it and print them side by side. Not
+a review of the probe, an arithmetic relationship the data already contains.
+⚠ A partition that SUMS is not such a check. GP printed
+`153 + 99 + 132 + 2077 = 2461, match True` and that passes for any labelling,
+including a wrong one; it validates bookkeeping, not classification. See
+[[feedback_constrain_a_count_with_a_second_count]].
+
+### ⚠ The evidence for v28 is ASYMMETRIC, and the rule shipped for both halves
+
+The same probe measured the OPPOSITE direction, the one the prompt has
+guarded since v1: a reply that promises to verify with no `deferred` entry.
+Raw count 132 turns, more than the 99 in the direction v28 was written for.
+
+That number is **not** reported as a finding, because reading the samples
+shows the probe cannot support it. Three false-positive families: mint-empty
+cases caught by a "leave that blank" marker when leaving an OPTIONAL field
+blank is the correct channel; summary and checkpoint turns restating a
+deferral entered on an earlier turn; and generic "review" language in the
+closing preamble.
+
+So the honest state, and it should stay written down until someone fixes it:
+**one direction measured and confirmed in shape, one direction known
+non-clean and unmeasured, and a rule shipped for both.** The rule is right
+either way. Measuring the second direction properly is open work and needs
+the care the first one got, not another first-pass regex.
 
 ### ⚠ Possibly a mis-channelled deferral, NOT verified, raised not fixed
 
@@ -1089,6 +1114,64 @@ the question never comes back. If these are being deferred instead, they
 stay open forever and the document gate keeps blocking. Not changed here:
 GP has not read what the client does with either channel, and it is a
 different defect from the one that was asked for.
+
+## v29: the deferral rule was written for ONE field, and it fails on two
+
+v28 said "if `deferred` carries a field, the spoken line must tell her that
+one is not settled". Singular, and every worked example carried a single
+field. **A reply that hedges one deferred field and states another flat
+satisfies that reading**, and that is how it actually fails.
+
+Three real turns, each hedging the ZIP correctly and then stating the
+move-in date as settled while it too was deferred for lacking an exact day:
+
+    conf-es-v27 t31  "Noted, zip code to verify, and since June 2020."
+    conf-v21    t31  "I've noted the ZIP to check from your mail, and June
+                      2020 for when you moved in."
+    conf-v22    t32  "I've marked the ZIP to verify from your mail, and
+                      noted June 2020 for when you moved in."
+
+Every one sounds careful. She walks away believing the date is on the form.
+
+v29 requires the hedge to attach to EVERY deferred field, by name, and gives
+it an operational step rather than a distinction to feel: read your own
+`deferred` array back before you speak and account for each entry. Same
+lesson as the v28 naming test.
+
+**How it was found is the useful part.** The auditor was not auditing my
+rule. They were trying to bound their own count from above and discovered
+their probe asked whether a hedge appears ANYWHERE in the reply rather than
+whether it attaches to the field that was deferred. **My rule had the
+identical hole**, expressed in prose instead of in a regex.
+
+⚠ **Third time in one session** that a rule was correct for the case in
+front of me and wrong for the one beside it: the v27 closing rule banned the
+section checkpoint, the v28 deferral rule was written in one direction, and
+now the same rule was written for one field. All three were caught by
+someone else reading it against real turns, never by re-reading.
+
+### The rate is corrected to a FLOOR
+
+v28's prompt text cited "24 of 225". **Both teams have now retracted their
+counts.** Reading all 24 individually, 2 were false positives: one proposes
+a value for the deferred occupation and asks her to confirm it, one asks for
+both deferred values in the same sentence. Neither is silence.
+
+Worse, the probe cannot bound the number from ABOVE at all, for exactly the
+reason above. The defensible statement is a floor: **at least 22 of 225,
+higher by an unmeasured amount.** The prompt now says that.
+
+The auditor's attempt to bound it from above failed the same way GP's did:
+a probe asking whether the reply states a deferred date as plain text
+flagged 51 turns, nearly all correct behaviour, because you cannot say "I
+have noted June 2020 to verify the exact day later" without saying June
+2020. **The assertion was satisfied by the very thing it was meant to
+distinguish.** What else could satisfy this answers itself on that one.
+
+**What survives all of it, and it is the only part worth putting in front of
+Scott: the clusters, the completion claim over a field deferred in the same
+turn, and the self-employed dead end. Every one was established by reading
+turns. Not one came from a count.**
 
 ## What is deliberately not here
 
