@@ -629,3 +629,27 @@ def test_carry_forward_needs_the_conversation_to_be_supplied():
           "provenance": {"utterance": "Tran Minh"}}],
         "Oh, ok.", None)
     assert kept == []
+
+
+def test_a_same_breath_spoken_date_is_untouched_by_the_value_test():
+    """⚠ THE FENCE ON THE OTHER SIDE. The value test applies ONLY to the
+    carried-forward path. If it were applied to the turn-local path too,
+    every spoken date in the product would be refused, because a normalised
+    2001-02-11 is not inside "she was born February eleven two thousand one".
+
+    conf-v18 t46, the turn immediately before the case this floor exists
+    for. The auditor hit exactly this when widening their own copy and
+    warned us; checking it here rather than reasoning about it.
+
+    test_the_case_the_floor_was_built_for_is_still_refused fences the change
+    from the loose side. This one fences it from the tight side. A guard
+    with only one fence gets tightened into a regression by the next person
+    trying to be careful."""
+    kept = _floor(
+        [{"field_id": "p6.child1.date_of_birth", "value": "2001-02-11",
+          "provenance": {"utterance": "she was born February eleven two thousand one"}}],
+        "Mariana Torres, she was born February eleven two thousand one, "
+        "she's my daughter, my own, I had her",
+        "APPLICANT: Mariana Torres, she was born February eleven two thousand "
+        "one, she's my daughter, my own, I had her\nINTERVIEWER: summary\n")
+    assert kept == ["p6.child1.date_of_birth"]
