@@ -1,10 +1,12 @@
 # GP session close, 2026-09-07 (cloudzap-e1)
 
 Continuation of the 2026-09-06 close, which ended mid-merge-chain. Prod =
-main = `c88fa66`. Zero PRs open. Served N-400 interviewer config **v29**,
+main = `52767f6`. Zero PRs open. Served N-400 interviewer config **v29**,
 verified by string on the container.
 
-⚠ This file was written at v27 and EXTENDED at v29. The sections below in
+⚠ This file was written at v27 and EXTENDED TWICE after. **Read "SESSION CLOSE" at the bottom first**; it is the current state and the owed list.
+
+⚠ Written at v27 and extended at v29. The sections below in
 the original order still stand; the v28/v29 work and the retractions are at
 the end, under "After v27". Read that part first if you are resuming.
 
@@ -467,3 +469,91 @@ not merely a fidelity problem.
   a fact about the client. Reading it as a fact about the protocol is one
   category too wide. Tell: you are about to assert an ABSENCE, or to ask
   another team to BUILD something that may already be on a wire you recorded.
+
+---
+
+# SESSION CLOSE. Read this first.
+
+**prod = main = `52767f6`. Zero PRs open. N-400 config v29 SERVING. 13 PRs
+merged (#924 to #936). Working tree clean.**
+
+## ⚠⚠ Owed by Scott, in the order they bite
+
+1. **Append `com.weirtech.n400helper` to `CZ_APPLE_BUNDLE_ID`.** Prod reads
+   exactly `com.shouldersurf.ShoulderSurf,com.weirtech.techrehearsal`. He
+   chose to make this edit himself. **This is now why the N-400 app has NEVER
+   reached the live lane in ANY environment**, not just why SIWA 401s: every
+   turn ever logged is the auditor's harness. Nothing else blocks them.
+2. **The self-employment form ruling.** A required field with genuinely no
+   value has no channel; both routes GP's prompt names terminate on the
+   client's export gate. See [[project_n400_required_field_no_value_deadend]].
+   The auditor's ask, not GP's, deliberately so he gets one framing.
+3. **Compound given names.** "Ana Lucia" may be one given name or two, and
+   nothing in the string or on the green card distinguishes it. The auditor's
+   ruling to propose: THE LANE SHOULD ASK rather than split. Measured: 5 of 60
+   named cases are four-word, 1 of 4 same-shape kept compound, and there is no
+   corpus outside their slice. Thin evidence; rule on the principle.
+4. **ShoulderSurf:** the People roster cleanup call (the `listening` flag is
+   FORWARD ONLY, so Leo's 15 appearances survive the fix), and how the app
+   decides a recording was listened to rather than taken part in.
+5. Attorney question, nominal-fee condition, $20 N-400 cap.
+6. ⚠ **The Mac data volume hit 100%** mid-session and broke tooling in two
+   sessions. 8.8Gi free on 1.8Ti.
+
+## ⚠ Two version flips that MUST land at App Store approval
+
+SS 1.17 build 1659 is in review with **NO PHASED RELEASE**, so approval is a
+step to the whole install base at once. shouldersurf-e7 will send
+"approval is live, please move the appstore channel AND the latest fallback".
+
+- `latest_by_channel.appstore` is pre-staged 1.0/803. Correct today and
+  cannot fire a false toast by construction. Becomes 1.17/1659.
+- ⚠ **The `latest` FALLBACK block is 1.15/836 with a TESTFLIGHT INVITE as its
+  `upgrade_url`.** After release a client that omits `X-App-Distribution`
+  would be pointed at a TestFlight join page. Reads to a real user as a
+  broken update prompt and would be diagnosed from the wrong end.
+
+`latest_by_channel.testflight` is already 1.17/1659, deployed and read back
+off the container. Scott's device on 1660 sees no toast; 1618 and 836 do,
+dismissible, nothing gated.
+
+## Watches armed
+
+- **Bifrost 429s, threshold ONE.** Baseline is 0 across four weeks of
+  proxy-host access logs, and that zero is trustworthy because the same
+  pattern yields 405x269 / 204x96 / 404x69. ⚠ The status sits after `] - ` in
+  the NPM log format; a pattern expecting `] ` returns zero for everything.
+- **First `POST /v1/people`.** Zero in four weeks, every people call at the
+  edge is a GET. So the first POST is the signal with no threshold to argue.
+
+## N-400: what happens next
+
+The auditor (fable-auditor-55) DIRECTS this lane. Their queue: split the slice
+into name and address (they are 22 turns apart), and build the harness key for
+the confirmed-resubmit probe.
+
+⚠ **Do not build the confirmed-resubmit path until that probe runs.** The path
+is unexercised end to end. GP and the client were BOTH about to add exemptions
+that together would have left it with NO FLOOR ON EITHER SIDE. The client has
+since narrowed unconditionally; GP builds nothing until the probe says what
+provenance the lane attaches. And do not ship it with a fabricated APPLICANT
+line: the prompt tells the lane twice that those lines are her words, and three
+guards are built on that being true.
+
+## The one thing worth carrying into any project
+
+**Nothing this session was found by reading our own code first.** Six or seven
+real defects across two codebases, every one surfaced from the other side. The
+mechanism that produced them is a two-part obligation, and neither half works
+alone:
+
+- **Sender:** describe your own work as a DEFECT WITH A RECEIPT, not a design
+  improvement. "Widening the evidence floor to handle clarifications" would
+  have made nobody look. "My guard deleted the applicant's name, here is the
+  turn id" made them open their own floor and find the identical defect.
+- **Receiver:** check whether you have THE SAME GUARD. Not the same rule.
+
+Full write-up in [[feedback_found_by_the_other_team]]. The instruments that
+actually caught things: [[feedback_constrain_a_count_with_a_second_count]],
+[[feedback_two_teams_opposite_floors]],
+[[feedback_peer_reads_the_rule_against_a_real_case]].
