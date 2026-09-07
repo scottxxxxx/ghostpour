@@ -1055,28 +1055,53 @@ made. The test pins the v27 carve-out as still present underneath it,
 because layering a constraint on top of a carve-out is the obvious way to
 re-break what #928 fixed.
 
-### GP's independent count differed, and the difference is the useful part
+### ⚠ GP's rate is RETRACTED. The shape stands; the number does not.
 
-The auditor's probe was wrong twice before it was right (56, then 36, then
-24), both times from a marker regex missing phrasings the lane uses. So GP
-did not rebuild the same detector. GP ran a deliberately GENEROUS marker
-set, biased toward "the reply did say something", which should
-under-report silence, and then **printed every flagged reply to be read**
-rather than counted.
+GP originally recorded 39 silent of 252 deferring turns here, against the
+auditor's 24 of 225, and explained the gap by reading the flagged replies.
+**That rate is withdrawn.** A second GP probe, run an hour later on the same
+question with a narrower marker set, said 99. Two of GP's own probes
+disagreeing by 2.5x means at least one is wrong and neither can be quoted.
 
-GP got 252 deferring turns and 39 silent (15.5%) against their 225 and 24
-(10.7%). Reading the 39 explains it: at least six are GP false positives
-where the lane did tell her in wording neither regex anticipated ("I'll
-leave that blank", "I'll leave that one open", "take your time and let me
-know when you find it", "I'll mark those for review with your attorney").
-The denominators also differ, since GP counted all logged traffic and they
-counted their run files.
+What survives is the SHAPE, and it survives because it was established by
+READING ACTUAL TURNS rather than by counting: both of the auditor's clusters
+reproduce (`p4.prior_address1` read back as a settled range,
+`p7.employer2` skipped past), and so does the worst sub-shape, the completion
+claim over a field deferred in that same turn. The v28 rules are aimed at the
+shape and do not depend on any of these numbers.
 
-**Their number is the better one.** What GP's pass independently confirmed
-is the SHAPE: both named clusters reproduce, and so does the worst
-sub-shape, the completion claim over a field deferred in the same turn.
-That is what the rule is aimed at, and it did not depend on either count
-being exact.
+The auditor's framing of the two counts is also more accurate than GP's first
+one: GP counted all logged traffic, they counted their run files, so theirs
+is NARROWER rather than more accurate and neither corrects the other. Two
+overlapping populations, one shape.
+
+**How the retraction was caught** is the transferable part, and it is the
+auditor's instrument: whenever a probe produces a count, find a second count
+already in the artifact that constrains it and print them side by side. Not
+a review of the probe, an arithmetic relationship the data already contains.
+⚠ A partition that SUMS is not such a check. GP printed
+`153 + 99 + 132 + 2077 = 2461, match True` and that passes for any labelling,
+including a wrong one; it validates bookkeeping, not classification. See
+[[feedback_constrain_a_count_with_a_second_count]].
+
+### ⚠ The evidence for v28 is ASYMMETRIC, and the rule shipped for both halves
+
+The same probe measured the OPPOSITE direction, the one the prompt has
+guarded since v1: a reply that promises to verify with no `deferred` entry.
+Raw count 132 turns, more than the 99 in the direction v28 was written for.
+
+That number is **not** reported as a finding, because reading the samples
+shows the probe cannot support it. Three false-positive families: mint-empty
+cases caught by a "leave that blank" marker when leaving an OPTIONAL field
+blank is the correct channel; summary and checkpoint turns restating a
+deferral entered on an earlier turn; and generic "review" language in the
+closing preamble.
+
+So the honest state, and it should stay written down until someone fixes it:
+**one direction measured and confirmed in shape, one direction known
+non-clean and unmeasured, and a rule shipped for both.** The rule is right
+either way. Measuring the second direction properly is open work and needs
+the care the first one got, not another first-pass regex.
 
 ### ⚠ Possibly a mis-channelled deferral, NOT verified, raised not fixed
 
