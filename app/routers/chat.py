@@ -4375,7 +4375,8 @@ async def chat(
 
             response.text = guard_response_text(
                 response.text, _agenda, body.get_meta("turn_id"),
-                user_content=body.get_meta("user_input") or _n400_utterance)
+                user_content=body.get_meta("user_input") or _n400_utterance,
+                conversation=body.get_meta("conversation"))
 
         # Surface the cleaned transcript (if cleanup ran for this analysis call)
         # so iOS can persist it to MeetingRecord.cleanedTranscript. Absent when

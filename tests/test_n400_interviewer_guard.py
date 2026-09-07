@@ -536,3 +536,96 @@ def test_a_day_still_deferred_when_only_a_month_was_spoken(day):
         _resp(facts=[{"field_id": "x", "value": f"2017-10-{day:02d}"}]),
         "en octubre de 2017")
     assert len(moved) == 1
+
+
+# --- carry-forward across a clarification (2026-09-07) ----------------------
+#
+# The evidence floor assumed her evidence is in the turn that mints it. The
+# CLARIFICATION PATH breaks that, and it is the lane at its best: she says
+# "Tran Minh", the lane refuses to guess whether that is surname-first, asks,
+# she answers, and the lane mints the name citing her original words.
+#
+# Measured live before the fix: both name fields dropped, and the applicant
+# reached turn 25 holding a date of birth, country, nationality, gender,
+# height and weight and NO NAME. 87 of 1997 fact-minting turns lost at least
+# one fact this way.
+#
+# Every case below is a REAL logged turn, not a constructed shape.
+
+_CLARIFY_CONVO = (
+    "INTERVIEWER: What is your full legal name?\n"
+    "APPLICANT: Tran Minh.\n"
+    "INTERVIEWER: Got it, Tran Minh. Is that your first and last name, and do "
+    "you have a legal middle name?\n"
+    "APPLICANT: I don't know, what is middle name? I don't understand.\n"
+    "INTERVIEWER: A middle name is an extra given name printed between your "
+    "first and last name on an ID. Do you have one?\n"
+)
+
+
+def _floor(facts, said, convo=None):
+    import json as _j
+    from app.services.n400_interviewer_guard import drop_facts_without_current_evidence
+    out, dropped = drop_facts_without_current_evidence(
+        _j.dumps({"reply": {"en": "x"}, "facts": facts}), said, convo)
+    return [f["field_id"] for f in _j.loads(out).get("facts", [])]
+
+
+def test_a_name_carried_across_a_clarification_survives():
+    """v14 turn 4, on the wire. Without this the applicant has no name."""
+    kept = _floor(
+        [{"field_id": "p1.first_name", "value": "Tran",
+          "provenance": {"utterance": "Tran Minh"}},
+         {"field_id": "p1.last_name", "value": "Minh",
+          "provenance": {"utterance": "Tran Minh"}},
+         {"field_id": "p2.has_middle_name", "value": "no",
+          "provenance": {"utterance": "No, I don't have that."}}],
+        "Oh, ok. No, I don't have that.", _CLARIFY_CONVO)
+    assert sorted(kept) == ["p1.first_name", "p1.last_name", "p2.has_middle_name"]
+
+
+def test_the_case_the_floor_was_built_for_is_still_refused():
+    """⚠ conf-v18 turn 47, and the reason a conversation-wide match was
+    REJECTED. She said "yes" to a summary and the lane minted
+    p6.child1.supported citing "she's my daughter, my own, I had her", which
+    is genuinely her sentence and says nothing about support.
+
+    If this ever goes green the widening has become unsafe."""
+    kept = _floor(
+        [{"field_id": "p6.child1.supported", "value": "yes",
+          "provenance": {"utterance": "she's my daughter, my own, I had her"}}],
+        "yes",
+        "APPLICANT: she's my daughter, my own, I had her\nINTERVIEWER: summary\n")
+    assert kept == []
+
+
+def test_the_lane_cannot_authorise_itself_from_an_interviewer_line():
+    """Only APPLICANT lines count. Citing the interviewer's own text would
+    make the floor check the lane against itself, which is not a floor."""
+    kept = _floor(
+        [{"field_id": "p4.current_address.city", "value": "Dallas",
+          "provenance": {"utterance": "Dallas, Texas"}}],
+        "yes",
+        "INTERVIEWER: I have Dallas, Texas for your city.\nAPPLICANT: yes\n")
+    assert kept == []
+
+
+def test_a_normalised_value_carried_forward_is_still_dropped():
+    """The value must appear in the words cited for it, so a date rendered
+    1977-10-05 from "5 October 1977" fails. Conservative, and identical to
+    the behaviour before this change, so it cannot regress anything."""
+    kept = _floor(
+        [{"field_id": "p1.date_of_birth", "value": "1977-10-05",
+          "provenance": {"utterance": "I born 5 October 1977"}}],
+        "no middle name", "APPLICANT: I born 5 October 1977\n")
+    assert kept == []
+
+
+def test_carry_forward_needs_the_conversation_to_be_supplied():
+    """No conversation, old behaviour exactly. A caller that does not pass it
+    loses nothing it had."""
+    kept = _floor(
+        [{"field_id": "p1.first_name", "value": "Tran",
+          "provenance": {"utterance": "Tran Minh"}}],
+        "Oh, ok.", None)
+    assert kept == []
