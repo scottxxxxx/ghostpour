@@ -1,7 +1,7 @@
 # GP session close, 2026-09-07 (cloudzap-e1)
 
 Continuation of the 2026-09-06 close, which ended mid-merge-chain. Prod =
-main = `d43388e`. Zero PRs open. Served N-400 interviewer config **v29**,
+main = `c88fa66`. Zero PRs open. Served N-400 interviewer config **v29**,
 verified by string on the container.
 
 ⚠ This file was written at v27 and EXTENDED at v29. The sections below in
@@ -352,3 +352,118 @@ instruction back to itself) and is NOT building it unasked.
   not a reading.
 - ⚠ `docker exec` without `-i` silently discards a heredoc. There is **no
   curl** in the ghostpour container.
+
+---
+
+# The boundary session: four collisions between GP's guards and the client's
+
+Everything below came from one exchange with the N-400 auditor after v29 was
+serving. None of it was planned. All four were found the same way, and the
+way is the finding: **two correct-looking readings of the same wire
+disagreed, and somebody chased the difference instead of reconciling it.**
+
+## 1. Opposite floors for the same collision
+
+The lane sometimes emits one field as BOTH a fact and a deferral (18 times in
+2555 live turns, most recent that day). GP's `drop_facts_that_are_also_deferred`
+keeps the deferral and drops the fact. The client's `deferralConflict` kept
+the FACT and refused the deferral. **Neither team knew the other's rule
+existed.** Both were written from a real case and correct for it.
+
+Cost, measured on their side: 12 turns through, **three invented days** in run
+records (`2017-10-01` from "October twenty seventeen", `2018-01-01` from "from
+2018 to 2021", which invents a month AND a day), plus six partials kept as
+complete. In every one the client kept the value, refused the deferral, and
+there was no open finding, so the gate would not block and she would never be
+asked again. **QA personas, no real applicant.** The mechanism was live.
+
+Resolved: they inverted to match. **The tiebreaker generalises better than the
+direction: the two errors are not comparable, so the tie goes to ASKING.** A
+spurious deferral costs one question; a spurious fact stands forever.
+
+## 2. ⚠ A correct guard disarmed a correct safety valve
+
+Found by sending them every GP guard that MUTATES the wire and asking which
+they hold a rule on. `clear_interview_over_while_agenda_open` sets
+`interview_over` false when the lane closes with the agenda open. Their client
+holds the interview open until the read-back covers every part, with a STALL
+BREAKER that closes anyway after three refusals so an applicant cannot be
+trapped. It counted `interviewOver == true`. **GP cleared the flag first, so
+the escape hatch was dead code in production, disarmed exactly where it was
+needed.**
+
+Measured: lane set `interview_over = true` 48 times, guard fires on 8, across
+6 cases. **Case `67fc8f1f` hit the threshold exactly** (three clears in two
+minutes, all with `q_p9_oath` the single open node).
+
+The signal already existed: `interview_over_cleared` ({open_nodes, reason}),
+set in the same mutation, surviving the full pipeline. They had grepped their
+client for a reader, found none, and inferred it did not exist.
+
+**Two guards that are each correct and resolve the same direction can still
+combine badly, because one can remove the INPUT the other needs. Agreement on
+direction is not enough; each side must know what the other CONSUMES.**
+
+## 3. ⚠ GP silently drops `confirmed` and `confirmed_components`
+
+Found by asking them to list every key they send. Two of fifteen never reach
+the model: not declared, not in the template, no code path in `app/`. **Silent
+by construction**: the assembler does `replace("{{name}}", str(value))`, so
+with no placeholder the replace is a no-op, and the unreplaced-placeholder
+warning only fires on braces that SURVIVE.
+
+LATENT, not live, on three independent grounds they supplied: zero of 2845
+recorded requests carry either key, the QA harness never builds them, and
+**the app has never reached the live lane at all because the bundle is still
+absent from `CZ_APPLE_BUNDLE_ID`.** So every recorded turn is the harness.
+
+## 4. ⚠⚠ Two exemptions that would have removed EVERY floor
+
+Designing the fix for 3 nearly created the worst defect of the set. Three of
+GP's six guards key off the CURRENT utterance, and a confirmed resubmit is
+definitionally a turn whose evidence lives in an earlier one, so GP proposed
+exempting the declared field ids. Unknown to GP, **the client already exempted
+confirmed turns from EVERY floor for ANY field**, which means GP's guards are
+currently the only floor on that turn.
+
+**Together those two exemptions leave the confirmed components with no floor
+on either side**, on the one turn whose purpose is writing settled values to a
+federal form. Caught before shipping only because a question asked for another
+purpose surfaced the client's half.
+
+⚠ Their narrowing must land REGARDLESS of the probe: a blanket exemption is a
+hole on its own. GP's is conditional.
+
+**Next step is one probe, not a design.** `user_content` on a confirmed
+resubmit is the CANONICAL component text, not her approval, so whether the
+evidence floor passes depends entirely on what provenance the lane attaches,
+and nobody knows because the path has never run. Read off one raw response:
+`facts[].provenance.utterance`, `facts[].field_id` vs the declared set,
+`deferred`, `facts_dropped`, `intent`.
+
+⚠ **Do not ship the confirmed path with a fabricated APPLICANT line.** Because
+`user_content` is the canonical values, the `conversation` window would record
+`"Torres Ramirez, Ana, Lucia"` as a thing she said. The system prompt states
+twice that those lines are her words, and the evidence floor and non-answer
+marker are BUILT on that promise. It is a false premise under three guards,
+not merely a fidelity problem.
+
+## The instruments that actually worked
+
+- **COULD THIS COLUMN HAVE SHOWN ME THE FAILURE IF IT HAD HAPPENED?** Their
+  form, and the best of the session. Three instances that day where a clean
+  result was structurally incapable of being anything else: `raw_response`
+  logged PRE-guard, a probe counting deferral markers as answers, and the
+  assembled request logged POST-drop.
+- **Structurally present and actually occurring are different questions.**
+  Find it, measure whether it occurs, measure the fix, and be willing to end
+  at do nothing.
+- **A tiebreaker inherits the cost model of the cases it came from**, and that
+  model is usually written nowhere. "The tie goes to asking" came from VALUE
+  collisions where asking is cheap; it fails on a TERMINATION collision where
+  asking can be unbounded. **Write down what the case ASSUMED, not only what
+  it showed.**
+- **A scope error is not an instrument error.** A grep over the client proves
+  a fact about the client. Reading it as a fact about the protocol is one
+  category too wide. Tell: you are about to assert an ABSENCE, or to ask
+  another team to BUILD something that may already be on a wire you recorded.
