@@ -322,12 +322,21 @@ def _section(cfg, header: str) -> str:
     Scoping matters: the document is 58k characters and a bare `in` check
     against the whole of it passes on any coincidental mention, which is how
     a knowledge-pack test once fired on the pack's own warning sentence.
+
+    ⚠ Anchors on the header as a WHOLE LINE, not as a substring. The
+    substring version silently mispointed the moment a v28 rule referred to
+    "the DEFERRALS section" from inside SECTION CHECKPOINTS: `.index()` took
+    that earlier mention, and every assertion about the real section then
+    ran against the wrong slice. A locator that can be captured by prose
+    about the thing it locates is not a locator.
     """
     sp = cfg["systemPrompt"]
-    start = sp.index(header)
+    m = re.search(r"^%s$" % re.escape(header), sp, re.M)
+    assert m, f"no section header line {header!r}"
+    start = m.start()
     nxt = re.compile(r"^[A-Z][A-Z0-9 ,'`-]{6,}$", re.M)
-    m = nxt.search(sp, start + len(header))
-    return sp[start:m.start() if m else len(sp)]
+    n = nxt.search(sp, m.end())
+    return sp[start:n.start() if n else len(sp)]
 
 
 def test_the_empty_agenda_literal_is_the_one_on_the_wire(cfg):
@@ -380,6 +389,40 @@ def test_the_close_rule_does_not_ban_the_section_checkpoint(cfg):
     # The over-broad draft, pinned as forbidden.
     assert "the interview, the sections, or the form are finished" not in section, (
         "the over-broad wording is back; it bans the section checkpoint")
+
+
+def test_a_deferral_must_be_audible_in_the_same_reply(cfg):
+    """v28, the auditor's measurement: 24 of 225 deferring turns said nothing
+    about it at all.
+
+    ⚠ The prompt already carried HALF of this and had since v1: "a promise
+    with no entry is a defect" guards reply -> deferred. The direction that
+    harms her is deferred -> reply, and it was never stated, which is how it
+    survived 27 versions. BOTH directions must be present, so this asserts
+    the old one has not been replaced by the new one."""
+    section = _section(cfg, "DEFERRALS")
+    assert "a promise with no entry is a defect" in section, (
+        "the original direction was dropped while adding its mirror")
+    assert "AN ENTRY WITH NO PROMISE IS THE SAME DEFECT" in section
+    # It must not cost a question, or it collides with the one-question rule
+    # and the model resolves the collision on its own.
+    assert "still ends on exactly one question" in section
+
+
+def test_a_part_is_not_complete_while_a_field_in_it_is_deferred(cfg):
+    """v28, the same defect at part scale: "that completes Part 4" spoken
+    with a Part 4 field deferred in the same turn.
+
+    Written so the CHECKPOINT still happens and still reads values back, and
+    only the CLAIM is constrained. That distinction is exactly what v27's
+    first draft got wrong, so it is pinned here rather than trusted."""
+    section = _section(cfg, "SECTION CHECKPOINTS")
+    assert "A PART IS NOT COMPLETE WHILE A FIELD IN IT IS DEFERRED" in section
+    assert "The checkpoint still happens and still reads the values back" in section
+    # The v27 carve-out must survive underneath it. Adding a constraint on
+    # top of a carve-out is the obvious way to re-break what #928 fixed.
+    assert "THIS IS NOT A BAN ON THE SECTION CHECKPOINT" in section
+    assert "cannot name the ONE part number" in section
 
 
 def test_the_close_rule_names_the_flag_guard_it_is_not_duplicating(cfg):

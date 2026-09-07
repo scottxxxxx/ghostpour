@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 27
+served_version: 28
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
 thinking: disabled
-reconciled: 2026-09-07 (v27)
+reconciled: 2026-09-07 (v28)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1022,6 +1022,73 @@ naming which agenda node the lane believes it just satisfied, and said
 explicitly not to build it for them alone. It stays unbuilt. The output
 schema is closed at 7 fields by Scott's 2026-09-02 ruling, so adding one
 is a contract change, not an implementation detail.
+
+## v28: a deferral she is never told about, and half the rule was already there
+
+The auditor measured it: of 225 turns that deferred something, **24 said
+nothing about it at all.** Two clusters. `p4.prior_address1.from`/`.to`
+read back as a settled date range in four separate runs ("Anotado, desde
+octubre de 2017 hasta junio de 2020", both fields deferred for lacking an
+exact day). And `p7.employer2`, where the employer name and both dates are
+deferred and the reply goes straight to the next question.
+
+⚠ **The prompt already carried half this rule, and had since v1.** "Every
+time the reply promises to verify something later, `deferred` carries it; a
+promise with no entry is a defect" guards **reply to deferred**. The
+direction that actually harms her is **deferred to reply**, and it was
+never stated. That is why this survived 27 versions: a consistency rule
+written in one direction reads as complete. When writing a rule tying a
+STRUCTURED FIELD to the SPOKEN LINE, state both directions explicitly and
+keep them adjacent, so dropping one is visible.
+
+The card is already right in all of these. A deferral is an open finding,
+the review screen shows it and the document gate blocks the export. Only
+the sentence was wrong, which is the same shape as v27.
+
+**The part-granularity half is not new, it falls out of the v27 closing
+rule.** "That completes Part 4" and "that fills in your current address"
+were each spoken with a Part 4 field in `deferred` in the same turn. That
+is the interview-level defect at part scale. It is written so the
+checkpoint still happens and still reads the values back, and only the
+CLAIM is constrained, which is precisely the mistake v27's first draft
+made. The test pins the v27 carve-out as still present underneath it,
+because layering a constraint on top of a carve-out is the obvious way to
+re-break what #928 fixed.
+
+### GP's independent count differed, and the difference is the useful part
+
+The auditor's probe was wrong twice before it was right (56, then 36, then
+24), both times from a marker regex missing phrasings the lane uses. So GP
+did not rebuild the same detector. GP ran a deliberately GENEROUS marker
+set, biased toward "the reply did say something", which should
+under-report silence, and then **printed every flagged reply to be read**
+rather than counted.
+
+GP got 252 deferring turns and 39 silent (15.5%) against their 225 and 24
+(10.7%). Reading the 39 explains it: at least six are GP false positives
+where the lane did tell her in wording neither regex anticipated ("I'll
+leave that blank", "I'll leave that one open", "take your time and let me
+know when you find it", "I'll mark those for review with your attorney").
+The denominators also differ, since GP counted all logged traffic and they
+counted their run files.
+
+**Their number is the better one.** What GP's pass independently confirmed
+is the SHAPE: both named clusters reproduce, and so does the worst
+sub-shape, the completion claim over a field deferred in the same turn.
+That is what the rule is aimed at, and it did not depend on either count
+being exact.
+
+### ⚠ Possibly a mis-channelled deferral, NOT verified, raised not fixed
+
+Several of the silent turns defer a field that appears to have no value at
+all rather than an unknown one: "there's no single ZIP to give, I'll leave
+that blank" defers `p7.employer1.postal_code`. The DEFERRALS section
+already says a stated none on an optional field is a FACT minted empty,
+not a deferral, and the client turns that into a confirmed-empty marker so
+the question never comes back. If these are being deferred instead, they
+stay open forever and the document gate keeps blocking. Not changed here:
+GP has not read what the client does with either channel, and it is a
+different defect from the one that was asked for.
 
 ## What is deliberately not here
 
