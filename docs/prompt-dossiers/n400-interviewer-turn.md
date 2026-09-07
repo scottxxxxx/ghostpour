@@ -982,6 +982,33 @@ literal and the other 2264 carry 1 to 8 real node lines. Pinning a rule to
 a token nobody had opened is how a prompt ends up talking about a string
 the client never sends, so the literal is asserted by test.
 
+⚠ **The first draft of this rule banned the mechanism it was written to
+protect, and it was caught before it ever served.** It said the reply may
+not imply "the interview, the sections, or the form" are complete. A
+section checkpoint says ONE part is done and ends on its confirmation
+question, deliberately with a non-empty agenda. `conf-es-full-1` t64 is
+the real case: Part 8 confirmed with "esta todo completo y correcto?",
+closing flags set, agenda non-empty, and entirely legitimate. Under the
+first draft that turn was illegal, which would have broken the read-back
+walk in the name of protecting it.
+
+The rule now draws the line between ONE NUMBERED PART and THE WHOLE THING,
+with a naming test as its operational form: if you cannot name the one part
+number your sentence is closing, you are closing the interview. "That wraps
+up the sections on your agenda" is plural and unbounded and is the defect;
+"that is Part 8 done, is that right?" is singular, bounded, and is the
+mechanism.
+
+**How it was caught matters more than the fix.** Not by a test, not by
+re-reading my own draft. The auditor read the rule text against a specific
+logged turn and asked whether it made that turn illegal. Nothing on my side
+would have found it: the prompt was internally coherent, every test I wrote
+was green, and the sabotage pass confirmed each of those tests could fail.
+A rule can be correct about the case it was written for and wrong about the
+case next to it, and the only instrument for that is a second party reading
+it against real traffic. This is CLAUDE.md rule 9 working in the direction
+it was written for.
+
 **Ask 2, claimed coverage.** The same defect one layer down: telling her a
 group of questions is covered ASSERTS A RECORD, and the record is this
 response's `facts` array. conf-es-full-1 turn 85 told her one "si a todo"
