@@ -301,6 +301,47 @@ def test_the_template_says_which_state_an_empty_block_is(cfg):
     assert "EMPTY" in t
 
 
+# --- the yes/no value shape the client's document gate depends on ----------
+#
+# The N-400 client's document gate does not read a flag; it string-compares
+# `p9.oath_disability == "no"` (the field gates four oath fields on the
+# client through `if:p9.oath_disability==false`). Production measurement,
+# 2026-09-06, SSH probe of usage_log (call_type='n400_interviewer_turn',
+# 2461 parsed turn objects): every emitted p9.oath_disability fact (27 of
+# 27) was the string 'no', value_type 'string', and the same held across
+# every other measured p9.* yes/no field (arrested_ever, understand_oath,
+# willing_full_oath, and 50-odd more): always the literal 'yes' or 'no',
+# never true/false, never 'Yes'/'No', never the field's own id.
+#
+# This suite does not talk to prod, so it cannot re-run that measurement.
+# What it pins is the RULE that produced it, so a change to the rule is
+# caught here before the next measurement would even be taken.
+
+def test_the_yes_no_value_shape_the_client_gate_depends_on(cfg):
+    """If this instruction ever allowed true/false, a capitalised 'Yes', or
+    the field's own id/label as the value, the gate's string comparison
+    would stop holding and an applicant could export a form she should not.
+
+    Scoped to HOW TO TALK, not a bare `in` check on the whole 58k document:
+    `value_type "string"` also appears once more, in the unrelated
+    STATED-NONE rule for optional fields, and the general Fact schema later
+    in the document separately lists "boolean" as a legal value_type for
+    fields that ARE genuinely boolean (complete, interview_over). A check
+    against the whole prompt would pass on either of those and prove
+    nothing about the yes/no rule specifically."""
+    section = _section(cfg, "HOW TO TALK")
+    assert (
+        "when the options are `yes, no`, the value is the literal "
+        "identifier `yes` or `no`, never true or false"
+    ) in section
+    assert 'value_type "string"' in section
+    assert "never the field's own id or label" in section
+    # The worked example ties the rule to a concrete field rather than
+    # leaving it as prose about itself; a rule with no example is easier to
+    # weaken by accident and have nothing catch it.
+    assert "a race checkbox answered yes is `yes`, not `race_black`" in section
+
+
 # --- v27: two rules about what the lane may SAY ----------------------------
 #
 # The auditor's ledger asks 1 and 2. Both are prompt rules rather than new
