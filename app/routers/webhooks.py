@@ -3431,13 +3431,41 @@ async def acquisition_report(
     POST /v1/attribution and resolved by the AdServices exchange sweep).
 
     Phase 1: raw campaign/keyword ids with install → linked → activated →
-    subscribed counts. Names + spend (true CAC) arrive with the Apple Ads
-    Campaign Management API integration (phase 2). Placeholder rows
+    started → trialing / paid counts. Names + spend (true CAC) arrive with the
+    Apple Ads Campaign Management API integration (phase 2). Placeholder rows
     (standard_payload=1, personalized ads off) are counted separately and
     excluded from the keyword table since their ids are the literal
     1234567890. "activated" = the device has at least one meeting_start in
     raw telemetry_events, which is purged at 30 days, so it undercounts on
-    longer windows."""
+    longer windows.
+
+    ⚠ THE SUBSCRIBER COLUMNS ARE THREE, NOT ONE, and the distinction is the
+    whole point for a freemium app with a 7-day trial (2026-09-08, for the
+    Apple Search Ads keyword test):
+
+      started  = users.ever_subscribed. Apple confirms A SUBSCRIPTION RECORD,
+                 which a FREE TRIAL START ALSO CREATES. So this is
+                 "began a trial or bought", NOT "paid". It is the funnel step
+                 and the denominator for trial→paid, never the numerator.
+      trialing = users.is_trial. CURRENT state only.
+      paid     = the user has a `renewed` or `upgraded` event in
+                 subscription_events, i.e. Apple actually BILLED a period
+                 beyond the first. This is the CAC-correct number.
+
+    A seven-day trial that lapses lands in `started` alone: `is_trial` is
+    cleared to 0 on downgrade (apple_webhooks.py `_downgrade_to_free`) and it
+    never renewed, so it counts in NEITHER `trialing` NOR `paid`. That case is
+    the reason these are split; counting it as a subscriber flatters every
+    keyword in the direction nobody would catch.
+
+    ⚠ KNOWN UNDERCOUNT in `paid`: a subscriber who bought outright with no
+    introductory offer has no `renewed` row until their first renewal, so they
+    read as `started` for up to one billing period. Keying on renewal is
+    deliberate anyway — it is the only signal here that means money moved.
+    Distinguishing a first purchase from a trial start needs the offer type
+    out of the `raw` transaction JSON and should not be guessed at from
+    `price_usd`, which is a TIER LOOKUP (subscriptions.py `price_for_tier`)
+    and is populated for a trial period too."""
     _verify_admin(request, x_admin_key)
 
     clauses = ["a.created_at >= datetime('now', ?)"]
@@ -3461,13 +3489,18 @@ async def acquisition_report(
           SUM(CASE WHEN a.status='pending' THEN 1 ELSE 0 END) AS pending,
           SUM(CASE WHEN a.status IN ('no_token','expired','error') THEN 1 ELSE 0 END) AS unknown,
           SUM(CASE WHEN a.user_id IS NOT NULL THEN 1 ELSE 0 END) AS linked,
-          SUM(CASE WHEN u.ever_subscribed=1 THEN 1 ELSE 0 END) AS subscribed
+          SUM(CASE WHEN u.ever_subscribed=1 THEN 1 ELSE 0 END) AS started,
+          SUM(CASE WHEN u.is_trial=1 THEN 1 ELSE 0 END) AS trialing,
+          SUM(CASE WHEN p.user_id IS NOT NULL THEN 1 ELSE 0 END) AS paid
         FROM ad_attribution a LEFT JOIN users u ON u.id = a.user_id
+        LEFT JOIN (SELECT DISTINCT user_id FROM subscription_events
+                   WHERE event_type IN ('renewed','upgraded')) p
+          ON p.user_id = a.user_id
         WHERE {where}
     """))[0]
     kpis = {key: int(k.get(key) or 0) for key in (
         "total", "attributed", "attributed_limited", "organic",
-        "pending", "unknown", "linked", "subscribed",
+        "pending", "unknown", "linked", "started", "trialing", "paid",
     )}
     source = [
         {"label": "Apple Ads (keyword-level)", "n": kpis["attributed"]},
@@ -3482,12 +3515,17 @@ async def acquisition_report(
           COUNT(*) AS installs,
           SUM(CASE WHEN a.user_id IS NOT NULL THEN 1 ELSE 0 END) AS linked,
           SUM(CASE WHEN act.device_id IS NOT NULL THEN 1 ELSE 0 END) AS activated,
-          SUM(CASE WHEN u.ever_subscribed=1 THEN 1 ELSE 0 END) AS subscribed
+          SUM(CASE WHEN u.ever_subscribed=1 THEN 1 ELSE 0 END) AS started,
+          SUM(CASE WHEN u.is_trial=1 THEN 1 ELSE 0 END) AS trialing,
+          SUM(CASE WHEN p.user_id IS NOT NULL THEN 1 ELSE 0 END) AS paid
         FROM ad_attribution a
         LEFT JOIN users u ON u.id = a.user_id
         LEFT JOIN (SELECT DISTINCT device_id FROM telemetry_events
                    WHERE event_type='meeting_start') act
           ON act.device_id = a.device_id
+        LEFT JOIN (SELECT DISTINCT user_id FROM subscription_events
+                   WHERE event_type IN ('renewed','upgraded')) p
+          ON p.user_id = a.user_id
         WHERE a.status='attributed' AND {where}
         GROUP BY a.campaign_id ORDER BY installs DESC LIMIT 50
     """)
@@ -3497,12 +3535,17 @@ async def acquisition_report(
           COUNT(*) AS installs,
           SUM(CASE WHEN a.user_id IS NOT NULL THEN 1 ELSE 0 END) AS linked,
           SUM(CASE WHEN act.device_id IS NOT NULL THEN 1 ELSE 0 END) AS activated,
-          SUM(CASE WHEN u.ever_subscribed=1 THEN 1 ELSE 0 END) AS subscribed
+          SUM(CASE WHEN u.ever_subscribed=1 THEN 1 ELSE 0 END) AS started,
+          SUM(CASE WHEN u.is_trial=1 THEN 1 ELSE 0 END) AS trialing,
+          SUM(CASE WHEN p.user_id IS NOT NULL THEN 1 ELSE 0 END) AS paid
         FROM ad_attribution a
         LEFT JOIN users u ON u.id = a.user_id
         LEFT JOIN (SELECT DISTINCT device_id FROM telemetry_events
                    WHERE event_type='meeting_start') act
           ON act.device_id = a.device_id
+        LEFT JOIN (SELECT DISTINCT user_id FROM subscription_events
+                   WHERE event_type IN ('renewed','upgraded')) p
+          ON p.user_id = a.user_id
         WHERE a.status='attributed' AND a.standard_payload=0 AND {where}
         GROUP BY a.keyword_id, a.campaign_id ORDER BY installs DESC LIMIT 100
     """)

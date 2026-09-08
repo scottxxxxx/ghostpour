@@ -299,11 +299,134 @@ def test_admin_acquisition_report(client, tmp_db_path, free_user):
     assert d["kpis"]["organic"] == 1
     assert d["kpis"]["pending"] == 1
     assert d["kpis"]["linked"] == 1
-    assert d["kpis"]["subscribed"] == 1
+    assert d["kpis"]["started"] == 1
     assert d["campaigns"][0]["campaign_id"] == 542370539
     assert d["campaigns"][0]["installs"] == 1
-    assert d["campaigns"][0]["subscribed"] == 1
+    assert d["campaigns"][0]["started"] == 1
     assert d["keywords"][0]["keyword_id"] == 87675432
+
+
+def _attributed_linked_device(client, tmp_db_path, user):
+    """One attributed, keyword-level install linked to `user`."""
+    dev = _uuid()
+    _post(client, dev, headers=user["headers"])
+    conn = sqlite3.connect(tmp_db_path)
+    conn.execute(
+        "UPDATE ad_attribution SET status='attributed', attribution=1,"
+        " campaign_id=542370539, keyword_id=87675432, token=NULL"
+        " WHERE device_id=?",
+        (dev,),
+    )
+    conn.commit()
+    conn.close()
+    return dev
+
+
+def _acq(client):
+    r = client.get(
+        "/webhooks/admin/acquisition?days=30",
+        headers={"X-Admin-Key": "test-admin-key"},
+    )
+    assert r.status_code == 200
+    return r.json()
+
+
+def _exec(db_path, sql, args):
+    conn = sqlite3.connect(db_path)
+    conn.execute(sql, args)
+    conn.commit()
+    conn.close()
+
+
+def test_lapsed_trial_counts_as_started_but_never_trialing_or_paid(
+    client, tmp_db_path, free_user
+):
+    """THE case the split exists for.
+
+    A seven-day trial that lapsed: Apple wrote a `subscribed` event at trial
+    START, so ever_subscribed is 1 and sticky. The downgrade cleared is_trial
+    to 0, and no renewal was ever billed. Counting this as a subscriber
+    flatters the keyword that produced it, which is the direction nobody
+    catches by eye.
+    """
+    _attributed_linked_device(client, tmp_db_path, free_user)
+    _exec(
+        tmp_db_path,
+        "UPDATE users SET ever_subscribed=1, is_trial=0, tier='free' WHERE id=?",
+        (free_user["user_id"],),
+    )
+
+    d = _acq(client)
+    assert d["kpis"]["started"] == 1, "trial start is a subscription record"
+    assert d["kpis"]["trialing"] == 0, "the trial lapsed; not trialing now"
+    assert d["kpis"]["paid"] == 0, "never billed a renewal; NOT a customer"
+    assert d["keywords"][0]["started"] == 1
+    assert d["keywords"][0]["trialing"] == 0
+    assert d["keywords"][0]["paid"] == 0
+    assert d["campaigns"][0]["paid"] == 0
+
+
+def test_current_trial_counts_as_trialing_not_paid(client, tmp_db_path, free_user):
+    _attributed_linked_device(client, tmp_db_path, free_user)
+    _exec(
+        tmp_db_path,
+        "UPDATE users SET ever_subscribed=1, is_trial=1, tier='pro' WHERE id=?",
+        (free_user["user_id"],),
+    )
+
+    d = _acq(client)
+    assert d["kpis"]["started"] == 1
+    assert d["kpis"]["trialing"] == 1
+    assert d["kpis"]["paid"] == 0, "a trial in progress has not been billed"
+    assert d["keywords"][0]["trialing"] == 1
+    assert d["keywords"][0]["paid"] == 0
+
+
+def test_renewed_user_counts_as_paid(client, tmp_db_path, free_user):
+    """A renewal is the only signal here that means money moved."""
+    _attributed_linked_device(client, tmp_db_path, free_user)
+    _exec(
+        tmp_db_path,
+        "UPDATE users SET ever_subscribed=1, is_trial=0, tier='pro' WHERE id=?",
+        (free_user["user_id"],),
+    )
+    _exec(
+        tmp_db_path,
+        "INSERT INTO subscription_events (id, user_id, event_type, source,"
+        " effective_at, recorded_at) VALUES (?,?,'renewed','assn',?,?)",
+        (_uuid(), free_user["user_id"], "2026-09-08T00:00:00+00:00",
+         "2026-09-08T00:00:00+00:00"),
+    )
+
+    d = _acq(client)
+    assert d["kpis"]["paid"] == 1
+    assert d["kpis"]["trialing"] == 0
+    assert d["keywords"][0]["paid"] == 1
+    assert d["campaigns"][0]["paid"] == 1
+
+
+def test_subscribed_event_alone_is_not_paid(client, tmp_db_path, free_user):
+    """The trap, pinned: a `subscribed` row is written at TRIAL START too, so
+    it must not qualify anyone as paid on its own. If this test goes green
+    after someone adds 'subscribed' to the paid event set, the lapsed-trial
+    case above silently starts counting as a customer again."""
+    _attributed_linked_device(client, tmp_db_path, free_user)
+    _exec(
+        tmp_db_path,
+        "UPDATE users SET ever_subscribed=1, is_trial=0, tier='free' WHERE id=?",
+        (free_user["user_id"],),
+    )
+    _exec(
+        tmp_db_path,
+        "INSERT INTO subscription_events (id, user_id, event_type, source,"
+        " effective_at, recorded_at) VALUES (?,?,'subscribed','assn',?,?)",
+        (_uuid(), free_user["user_id"], "2026-09-01T00:00:00+00:00",
+         "2026-09-01T00:00:00+00:00"),
+    )
+
+    d = _acq(client)
+    assert d["kpis"]["started"] == 1
+    assert d["kpis"]["paid"] == 0, "a `subscribed` row is a trial start too"
 
 
 def test_admin_acquisition_requires_key(client):
