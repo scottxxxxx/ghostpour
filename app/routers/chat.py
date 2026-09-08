@@ -3573,8 +3573,8 @@ async def chat(
         if _excluded and is_live_session_turn(
                 body.get_meta("call_type"), body.get_meta("prompt_mode")):
             logger.info(
-                "memory_nudge suppressed=live_session tier=%s excluded=%s",
-                user.effective_tier, _excluded)
+                "memory_nudge suppressed=live_session user=%s tier=%s excluded=%s",
+                user.id, user.effective_tier, _excluded)
             _excluded = None
         if _excluded:
             from app.services.recall_window import recall_max_age_days as _rw
@@ -3583,8 +3583,14 @@ async def chat(
                 request.app.state.remote_configs, user.effective_tier, _excluded,
                 _rw(request.app.state.remote_configs, user.effective_tier))
             if _teaser_state:
-                logger.info("memory_nudge kind=%s tier=%s excluded=%s",
-                            _teaser_state["cta"]["kind"], user.effective_tier,
+                # user id included 2026-09-08: this line named the TIER but
+                # not WHO, and the question it was needed for was "which
+                # account produced this nudge" — two devices disagreeing on
+                # tier, where the answer is either one account that changed
+                # or two accounts. The tier alone could not tell them apart.
+                logger.info("memory_nudge kind=%s user=%s tier=%s excluded=%s",
+                            _teaser_state["cta"]["kind"], user.id,
+                            user.effective_tier,
                             _teaser_state["cta"]["details"].get("excluded_meetings"))
 
     # 6. Stream or non-stream based on request + call_type
