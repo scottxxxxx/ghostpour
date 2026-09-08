@@ -308,3 +308,46 @@ def test_every_served_locale_uses_the_placeholders_not_tier_names():
                 assert name not in blob, (loc, key, name)
         assert "{n}" in u["memory_excluded_window"]["next_window_days"], loc
         assert u["memory_excluded_window"]["next_window_none"], loc
+
+
+# --- is_live_session_turn: where a memory upsell is an interruption ----------
+# Scott, 2026-09-08, 51 minutes into a live recording on his iPad: "I don't
+# think this is applicable in a meeting chat... when I'm in copilot." He asked
+# for it to stop appearing mid-meeting, not to be removed.
+
+@pytest.mark.parametrize("call_type", ["query", "query_follow_up"])
+def test_live_query_is_a_live_session(call_type):
+    """Catch Me Up rides the live query path, which is how it reached him."""
+    assert un.is_live_session_turn(call_type, None) is True
+    assert un.is_live_session_turn(call_type, "CatchMeUp") is True
+
+
+@pytest.mark.parametrize("prompt_mode", ["ProjectChat", "PostMeetingChat"])
+def test_legacy_client_sending_query_inside_a_chat_surface_is_not_live(prompt_mode):
+    """THE regression this guard exists for, and the reason keying on
+    call_type alone is wrong.
+
+    A client that has not migrated to the follow-up dial names sends
+    `call_type=query` INSIDE ProjectChat; chat.py's surface map relies on that
+    fallback. Suppressing on call_type alone would silence the nudge in
+    Project Chat on older builds — the surface where a PROJECT memory nudge
+    belongs most — and would do it silently, on exactly the installs least
+    likely to be noticed.
+    """
+    assert un.is_live_session_turn("query", prompt_mode) is False
+
+
+@pytest.mark.parametrize("call_type", [
+    "meeting_chat", "meeting_chat_follow_up",
+    "project_chat", "project_chat_follow_up",
+])
+def test_chat_surfaces_still_get_the_nudge(call_type):
+    assert un.is_live_session_turn(call_type, None) is False
+
+
+@pytest.mark.parametrize("call_type", ["summary", "analysis", "report", None])
+def test_background_work_is_not_a_live_session(call_type):
+    """Background calls render nothing to a person, so they are not the live
+    surface either. They were already silent for other reasons; this pins that
+    the discriminator does not accidentally claim them."""
+    assert un.is_live_session_turn(call_type, None) is False

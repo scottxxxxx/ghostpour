@@ -3558,6 +3558,24 @@ async def chat(
     if _teaser_state is None:
         _cq_hook_result = hook_results.get("context_quilt") or {}
         _excluded = (_cq_hook_result.get("cq_result") or {}).get("excluded")
+        # ⚠ NOT on the live session surface (Scott 2026-09-08). He hit this 51
+        # minutes into a recording on his iPad, where an upsell lands next to
+        # whoever he is meeting. Post-meeting and project chat still get it;
+        # this suppresses the nudge on the LIVE path only, and only this nudge
+        # — an in-flow generation offer is an action he asked for, not an
+        # interruption, and it keeps the slot as before.
+        #
+        # Decided SERVER-side rather than dropped client-side on purpose: a
+        # client that silently discards a served feature_state block for a
+        # whole surface will eventually discard one that mattered, with
+        # nothing in either team's logs saying so. Better not to send it.
+        from app.services.upgrade_nudges import is_live_session_turn
+        if _excluded and is_live_session_turn(
+                body.get_meta("call_type"), body.get_meta("prompt_mode")):
+            logger.info(
+                "memory_nudge suppressed=live_session user=%s tier=%s excluded=%s",
+                user.id, user.effective_tier, _excluded)
+            _excluded = None
         if _excluded:
             from app.services.recall_window import recall_max_age_days as _rw
             from app.services.upgrade_nudges import memory_excluded_cta
@@ -3565,8 +3583,14 @@ async def chat(
                 request.app.state.remote_configs, user.effective_tier, _excluded,
                 _rw(request.app.state.remote_configs, user.effective_tier))
             if _teaser_state:
-                logger.info("memory_nudge kind=%s tier=%s excluded=%s",
-                            _teaser_state["cta"]["kind"], user.effective_tier,
+                # user id included 2026-09-08: this line named the TIER but
+                # not WHO, and the question it was needed for was "which
+                # account produced this nudge" — two devices disagreeing on
+                # tier, where the answer is either one account that changed
+                # or two accounts. The tier alone could not tell them apart.
+                logger.info("memory_nudge kind=%s user=%s tier=%s excluded=%s",
+                            _teaser_state["cta"]["kind"], user.id,
+                            user.effective_tier,
                             _teaser_state["cta"]["details"].get("excluded_meetings"))
 
     # 6. Stream or non-stream based on request + call_type
