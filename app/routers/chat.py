@@ -3558,6 +3558,24 @@ async def chat(
     if _teaser_state is None:
         _cq_hook_result = hook_results.get("context_quilt") or {}
         _excluded = (_cq_hook_result.get("cq_result") or {}).get("excluded")
+        # ⚠ NOT on the live session surface (Scott 2026-09-08). He hit this 51
+        # minutes into a recording on his iPad, where an upsell lands next to
+        # whoever he is meeting. Post-meeting and project chat still get it;
+        # this suppresses the nudge on the LIVE path only, and only this nudge
+        # — an in-flow generation offer is an action he asked for, not an
+        # interruption, and it keeps the slot as before.
+        #
+        # Decided SERVER-side rather than dropped client-side on purpose: a
+        # client that silently discards a served feature_state block for a
+        # whole surface will eventually discard one that mattered, with
+        # nothing in either team's logs saying so. Better not to send it.
+        from app.services.upgrade_nudges import is_live_session_turn
+        if _excluded and is_live_session_turn(
+                body.get_meta("call_type"), body.get_meta("prompt_mode")):
+            logger.info(
+                "memory_nudge suppressed=live_session tier=%s excluded=%s",
+                user.effective_tier, _excluded)
+            _excluded = None
         if _excluded:
             from app.services.recall_window import recall_max_age_days as _rw
             from app.services.upgrade_nudges import memory_excluded_cta

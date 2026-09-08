@@ -72,6 +72,39 @@ DEFAULT_COPY: dict[str, dict[str, str]] = {
     },
 }
 
+# Surfaces where a memory upsell is an INTERRUPTION rather than an offer
+# (Scott, 2026-09-08, seeing one 51 minutes into a live recording on his iPad:
+# "I don't think this is applicable in a meeting chat... when I'm in copilot").
+# Post-meeting and project chat keep the nudge; the live session does not.
+# He asked for it to stop appearing mid-meeting, NOT to be removed.
+LIVE_SESSION_CALL_TYPES = frozenset({"query", "query_follow_up"})
+
+# ⚠ WHY prompt_mode IS ALSO REQUIRED, and why keying on call_type alone is
+# WRONG. `call_type == "query"` does NOT mean "live session". Per the surface
+# dial map in chat.py, a client that has not migrated sends `call_type=query`
+# INSIDE ProjectChat, and that fallback is load-bearing there. Suppressing on
+# call_type alone would therefore silence the nudge in Project Chat on older
+# builds — the surface where a PROJECT memory nudge belongs most — and it
+# would fail silently, on exactly the installs least likely to be noticed.
+CHAT_SURFACE_PROMPT_MODES = frozenset({"ProjectChat", "PostMeetingChat"})
+
+
+def is_live_session_turn(call_type: str | None, prompt_mode: str | None) -> bool:
+    """True when this turn is the LIVE meeting surface.
+
+    A live turn is a query-family call that is not carrying one of the chat
+    surfaces' prompt modes. Catch Me Up rides the live query path, which is
+    how it reached the nudge in the first place.
+
+    Deliberately positive ("is this live") rather than negative ("should we
+    suppress"): the caller decides what to do with a live turn, and a name
+    that describes the TURN cannot go stale when the policy changes.
+    """
+    if call_type not in LIVE_SESSION_CALL_TYPES:
+        return False
+    return prompt_mode not in CHAT_SURFACE_PROMPT_MODES
+
+
 TIER_NAMES = {"free": "Free", "plus": "Plus", "pro": "Pro"}
 
 
