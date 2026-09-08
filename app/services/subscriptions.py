@@ -31,7 +31,19 @@ APPLE_NET_FACTOR = 0.85  # proceeds after Apple's 15% commission
 
 # Normalized event types we record. Raw Apple notificationType is kept alongside.
 PAID_EVENT_TYPES = {"subscribed", "renewed", "upgraded"}
-# Event types that establish "this user has paid at some point".
+# Event types that establish "this user has a SUBSCRIPTION RECORD at some
+# point". ⚠ NOT "has paid": a FREE TRIAL START is a `subscribed` event, so a
+# user who trialled for seven days and lapsed without ever being billed sets
+# `ever_subscribed` exactly like a payer does. The old wording here claimed
+# "has paid at some point", which is false for every trial, and the
+# acquisition report believed it (2026-09-08) — one keyword-level subscriber
+# count that could not tell a lapsed trial from a customer.
+#
+# The behaviour is UNCHANGED and deliberately so: `ever_subscribed` is a
+# sticky cache of "began a subscription", which is the right funnel step and
+# the right denominator for trial→paid. Only the claim about it was wrong.
+# For "money actually moved", read a `renewed`/`upgraded` row out of
+# subscription_events; see the acquisition report's `paid` column.
 _MARKS_EVER_SUBSCRIBED = PAID_EVENT_TYPES
 
 
