@@ -50,14 +50,18 @@ com.shouldersurf.ShoulderSurf:
         # Bump on every release. Client shows a dismissible toast when
         # the device's CFBundleShortVersionString is below this.
         #
-        # Current shipping build is 1.15 (build 836 on TestFlight),
-        # approved and installable 2026-07-29 (Scott's signal: TestFlight
-        # users may start taking it). Supersedes 1.14/803 (2026-07-26).
-        # The App Store channel stays at the approved 1.0/803 until a new
-        # App Store release ships, so the two never cross.
+        # 1.17 build 1659, moved 2026-09-08 on Scott's word that the App
+        # Store now carries it. Supersedes 1.15/836 (2026-07-29).
+        #
+        # ⚠ THIS BLOCK IS THE HAZARD THE APPROVAL FLIP EXISTED TO CLOSE.
+        # It is what a client that sends NO X-App-Distribution reads, and
+        # it carried a TESTFLIGHT INVITE as its upgrade_url. Before the App
+        # Store had the app that was merely useless; after, it points a real
+        # App Store user at a TestFlight join page, which reads as a broken
+        # update prompt and gets diagnosed from the wrong end.
         # Bump on every TestFlight or App Store release that goes out
         # to users. Soft-banner pipeline verified end-to-end 2026-06-06.
-        version: "1.15"
+        version: "1.17"
         # CFBundleVersion (numeric string). Clients only consult this
         # when their marketing version equals `version` above:
         #   - TestFlight installs whose build number is < this show the
@@ -65,12 +69,13 @@ com.shouldersurf.ShoulderSurf:
         #   - App Store installs ignore it entirely.
         # Bump alongside `version` on every release. The bump pair from
         # SS will always come as "version + build", e.g. "1.13 build 450".
-        build: "836"
-        # Tap target for the upgrade prompt. Currently the live
-        # TestFlight invite linked from the beta button on
-        # shouldersurf.com. Swap to https://apps.apple.com/app/id<APPID>
-        # once the app is in the App Store.
-        upgrade_url: "https://testflight.apple.com/join/ubRWVcXF"
+        build: "1659"
+        # Tap target for the upgrade prompt. Swapped from the TestFlight
+        # invite to the App Store link 2026-09-08, per the standing rule
+        # in [[feedback_app_version_bump_sequence]]: "when the app reaches
+        # the App Store the calculus changes: swap upgrade_url to the App
+        # Store link and only bump to builds App Store users can get."
+        upgrade_url: "https://apps.apple.com/app/id6760098225"
       # Per-channel latest (2026-07-20). The client sends X-App-Distribution
       # from StoreKit 2 AppTransaction.environment: production -> appstore,
       # sandbox/xcode -> testflight. GP serves the matching block so a
@@ -109,8 +114,16 @@ com.shouldersurf.ShoulderSurf:
           # Approved 2026-07-26: ASC READY_FOR_SALE, version 1.0 build
           # 803 (the post-rejection resubmission carrying the deletion
           # flow; 777 never shipped).
-          version: "1.0"
-          build: "803"
+          #
+          # MOVED to 1.17/1659 on 2026-09-08, Scott: "In the app store we
+          # have 1.17 build 1659." This is the approval-day flip the
+          # handoff had been holding. Read back off prod BEFORE the change:
+          # production channel served 1.0/803, so an App Store user on any
+          # earlier build was being told 1.0 was current and saw NO update
+          # prompt at all. The cost of leaving this stale is a MISSING
+          # toast, not a false one.
+          version: "1.17"
+          build: "1659"
           # Real App Store link (apple_id from ASC). Dead until approval,
           # but unreachable until then too: only appstore-distribution
           # clients read this block and none exist pre-approval.
