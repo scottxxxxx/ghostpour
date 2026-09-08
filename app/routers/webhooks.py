@@ -3465,7 +3465,17 @@ async def acquisition_report(
     Distinguishing a first purchase from a trial start needs the offer type
     out of the `raw` transaction JSON and should not be guessed at from
     `price_usd`, which is a TIER LOOKUP (subscriptions.py `price_for_tier`)
-    and is populated for a trial period too."""
+    and is populated for a trial period too.
+
+    `paid_unconfirmed` MEASURES that undercount instead of leaving it as a
+    caveat: a linked user on a paid tier, not trialing, ever_subscribed, with
+    no renewal row yet. That is exactly the population `paid` may be missing —
+    an outright purchase inside its first period, or a conversion whose
+    renewal has not been recorded. **If it is always 0, the undercount never
+    fires and the question is closed by observation rather than by asking
+    App Store Connect.** If it is not, the number is the size of the problem.
+    Written 2026-09-08 because the alternative was waiting on a config answer
+    to a question the data can answer itself."""
     _verify_admin(request, x_admin_key)
 
     clauses = ["a.created_at >= datetime('now', ?)"]
@@ -3491,7 +3501,10 @@ async def acquisition_report(
           SUM(CASE WHEN a.user_id IS NOT NULL THEN 1 ELSE 0 END) AS linked,
           SUM(CASE WHEN u.ever_subscribed=1 THEN 1 ELSE 0 END) AS started,
           SUM(CASE WHEN u.is_trial=1 THEN 1 ELSE 0 END) AS trialing,
-          SUM(CASE WHEN p.user_id IS NOT NULL THEN 1 ELSE 0 END) AS paid
+          SUM(CASE WHEN p.user_id IS NOT NULL THEN 1 ELSE 0 END) AS paid,
+          SUM(CASE WHEN u.ever_subscribed=1 AND u.is_trial=0
+                    AND u.tier NOT IN ('free','') AND p.user_id IS NULL
+                   THEN 1 ELSE 0 END) AS paid_unconfirmed
         FROM ad_attribution a LEFT JOIN users u ON u.id = a.user_id
         LEFT JOIN (SELECT DISTINCT user_id FROM subscription_events
                    WHERE event_type IN ('renewed','upgraded')) p
@@ -3501,6 +3514,7 @@ async def acquisition_report(
     kpis = {key: int(k.get(key) or 0) for key in (
         "total", "attributed", "attributed_limited", "organic",
         "pending", "unknown", "linked", "started", "trialing", "paid",
+        "paid_unconfirmed",
     )}
     source = [
         {"label": "Apple Ads (keyword-level)", "n": kpis["attributed"]},
@@ -3517,7 +3531,10 @@ async def acquisition_report(
           SUM(CASE WHEN act.device_id IS NOT NULL THEN 1 ELSE 0 END) AS activated,
           SUM(CASE WHEN u.ever_subscribed=1 THEN 1 ELSE 0 END) AS started,
           SUM(CASE WHEN u.is_trial=1 THEN 1 ELSE 0 END) AS trialing,
-          SUM(CASE WHEN p.user_id IS NOT NULL THEN 1 ELSE 0 END) AS paid
+          SUM(CASE WHEN p.user_id IS NOT NULL THEN 1 ELSE 0 END) AS paid,
+          SUM(CASE WHEN u.ever_subscribed=1 AND u.is_trial=0
+                    AND u.tier NOT IN ('free','') AND p.user_id IS NULL
+                   THEN 1 ELSE 0 END) AS paid_unconfirmed
         FROM ad_attribution a
         LEFT JOIN users u ON u.id = a.user_id
         LEFT JOIN (SELECT DISTINCT device_id FROM telemetry_events
@@ -3537,7 +3554,10 @@ async def acquisition_report(
           SUM(CASE WHEN act.device_id IS NOT NULL THEN 1 ELSE 0 END) AS activated,
           SUM(CASE WHEN u.ever_subscribed=1 THEN 1 ELSE 0 END) AS started,
           SUM(CASE WHEN u.is_trial=1 THEN 1 ELSE 0 END) AS trialing,
-          SUM(CASE WHEN p.user_id IS NOT NULL THEN 1 ELSE 0 END) AS paid
+          SUM(CASE WHEN p.user_id IS NOT NULL THEN 1 ELSE 0 END) AS paid,
+          SUM(CASE WHEN u.ever_subscribed=1 AND u.is_trial=0
+                    AND u.tier NOT IN ('free','') AND p.user_id IS NULL
+                   THEN 1 ELSE 0 END) AS paid_unconfirmed
         FROM ad_attribution a
         LEFT JOIN users u ON u.id = a.user_id
         LEFT JOIN (SELECT DISTINCT device_id FROM telemetry_events

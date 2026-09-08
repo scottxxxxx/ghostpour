@@ -429,6 +429,74 @@ def test_subscribed_event_alone_is_not_paid(client, tmp_db_path, free_user):
     assert d["kpis"]["paid"] == 0, "a `subscribed` row is a trial start too"
 
 
+def test_outright_purchase_is_counted_as_paid_unconfirmed(
+    client, tmp_db_path, free_user
+):
+    """The documented undercount MEASURES ITSELF rather than staying a caveat.
+
+    Someone on a paid tier, not trialing, with no renewal row yet is either an
+    outright purchase inside its first period or a conversion whose renewal is
+    not recorded. `paid` cannot claim them and must not; `paid_unconfirmed`
+    counts them so the size of the gap is observable. If this stays 0 in
+    production the undercount never fires and no App Store Connect answer is
+    needed to close the question.
+    """
+    _attributed_linked_device(client, tmp_db_path, free_user)
+    _exec(
+        tmp_db_path,
+        "UPDATE users SET ever_subscribed=1, is_trial=0, tier='pro' WHERE id=?",
+        (free_user["user_id"],),
+    )
+
+    d = _acq(client)
+    assert d["kpis"]["paid"] == 0, "no renewal, so no proof money moved"
+    assert d["kpis"]["paid_unconfirmed"] == 1, "but it is VISIBLE, not dropped"
+    assert d["kpis"]["trialing"] == 0
+    assert d["keywords"][0]["paid_unconfirmed"] == 1
+    assert d["campaigns"][0]["paid_unconfirmed"] == 1
+
+
+def test_renewal_moves_a_user_out_of_paid_unconfirmed(
+    client, tmp_db_path, free_user
+):
+    """The two columns must not double-count: once a renewal lands the user is
+    `paid` and must leave the ambiguous bucket entirely."""
+    _attributed_linked_device(client, tmp_db_path, free_user)
+    _exec(
+        tmp_db_path,
+        "UPDATE users SET ever_subscribed=1, is_trial=0, tier='pro' WHERE id=?",
+        (free_user["user_id"],),
+    )
+    _exec(
+        tmp_db_path,
+        "INSERT INTO subscription_events (id, user_id, event_type, source,"
+        " effective_at, recorded_at) VALUES (?,?,'renewed','assn',?,?)",
+        (_uuid(), free_user["user_id"], "2026-09-08T00:00:00+00:00",
+         "2026-09-08T00:00:00+00:00"),
+    )
+
+    d = _acq(client)
+    assert d["kpis"]["paid"] == 1
+    assert d["kpis"]["paid_unconfirmed"] == 0, "proved, so no longer ambiguous"
+
+
+def test_lapsed_trial_is_not_paid_unconfirmed(client, tmp_db_path, free_user):
+    """A lapsed trial sits on the FREE tier, so it must not leak into the
+    ambiguous bucket either. Otherwise the split would launder the exact case
+    it exists to exclude into a column a reader might add to `paid`."""
+    _attributed_linked_device(client, tmp_db_path, free_user)
+    _exec(
+        tmp_db_path,
+        "UPDATE users SET ever_subscribed=1, is_trial=0, tier='free' WHERE id=?",
+        (free_user["user_id"],),
+    )
+
+    d = _acq(client)
+    assert d["kpis"]["started"] == 1
+    assert d["kpis"]["paid"] == 0
+    assert d["kpis"]["paid_unconfirmed"] == 0, "free tier is not ambiguous"
+
+
 def test_admin_acquisition_requires_key(client):
     r = client.get(
         "/webhooks/admin/acquisition",
