@@ -127,6 +127,84 @@ async def exchange_row(db: aiosqlite.Connection, row: aiosqlite.Row) -> str:
     return "attributed"
 
 
+# How stale the oldest unexchanged row may get before the sweep is presumed
+# dead. The sweep runs every 60s, so anything past a few minutes means it is
+# not running or not clearing. Deliberately well under TOKEN_TTL_HOURS: the
+# point is to warn while the tokens are still exchangeable, not to announce
+# the loss afterwards.
+STALE_PENDING_SECONDS = 15 * 60
+
+
+async def oldest_pending_age_seconds(
+    db: aiosqlite.Connection, app_id: str | None = None
+) -> float | None:
+    """Age of the oldest row still waiting to be exchanged, or None if none.
+
+    Derived entirely from the table rather than from a heartbeat the daemon
+    writes, and that is the point: a process cannot be trusted to report its
+    own death. A heartbeat also resets on restart and would read healthy
+    exactly when a crash loop was losing tokens.
+    """
+    sql = ("SELECT MIN(created_at) AS oldest FROM ad_attribution "
+           "WHERE status='pending'")
+    params: tuple = ()
+    if app_id:
+        sql += " AND app_id = ?"
+        params = (app_id,)
+    cur = await db.execute(sql, params)
+    row = await cur.fetchone()
+    oldest = row["oldest"] if row else None
+    if not oldest:
+        return None
+    try:
+        ts = datetime.fromisoformat(oldest)
+    except (TypeError, ValueError):
+        logger.warning("ad_attribution unparseable created_at %r", oldest)
+        return None
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - ts).total_seconds()
+
+
+async def check_sweep_liveness(
+    db: aiosqlite.Connection, app_id: str, *, from_addr: str = "alerts@noreply.invalid"
+) -> float | None:
+    """Alert if tokens are arriving and the sweep is not clearing them.
+
+    ⚠ Called from the INGEST path, not from the daemon. A dead daemon cannot
+    report itself, which is the whole failure this exists to catch. Ingest is
+    also the right trigger by cost: with no tokens arriving there is nothing
+    to lose, and every arriving token starts a 24-hour clock.
+
+    Never raises: an alert must not fail the request that noticed the problem.
+    """
+    try:
+        age = await oldest_pending_age_seconds(db, app_id)
+        if age is None or age < STALE_PENDING_SECONDS:
+            return age
+        from app.services.alerting import report_incident
+        logger.error(
+            "attribution_sweep_stalled app=%s oldest_pending_age_s=%.0f",
+            app_id, age,
+        )
+        await report_incident(
+            db,
+            category="attribution_sweep_stalled",
+            subject=app_id,
+            details={
+                "app_id": app_id,
+                "oldest_pending_age_seconds": int(age),
+                "token_ttl_hours": TOKEN_TTL_HOURS,
+                "sweep_interval_seconds": SWEEP_INTERVAL_SECONDS,
+            },
+            from_addr=from_addr,
+        )
+        return age
+    except Exception as e:  # noqa: BLE001 — never break ingest
+        logger.warning("attribution liveness check failed (non-fatal): %s", e)
+        return None
+
+
 async def sweep_pending(db: aiosqlite.Connection) -> dict[str, int]:
     """Process every pending row: expire past-TTL ones, exchange the rest.
     Returns outcome counters for logging/tests."""
@@ -142,6 +220,26 @@ async def sweep_pending(db: aiosqlite.Connection) -> dict[str, int]:
     )
     counts["expired"] = cur.rowcount or 0
     await db.commit()
+
+    # Expiry is unrecoverable: the campaign and keyword behind those installs
+    # can never be learned. Loud, not a debug counter, because the sweep
+    # writing this number is also the only thing that ever sees it.
+    if counts["expired"]:
+        logger.error(
+            "attribution_tokens_expired count=%d — these installs have no "
+            "recoverable source", counts["expired"],
+        )
+        try:
+            from app.services.alerting import report_incident
+            await report_incident(
+                db,
+                category="attribution_tokens_expired",
+                subject="apple_ads",
+                details={"expired": counts["expired"],
+                         "token_ttl_hours": TOKEN_TTL_HOURS},
+            )
+        except Exception as e:  # noqa: BLE001 — the sweep must never die
+            logger.warning("expired-token alert failed (non-fatal): %s", e)
 
     cur = await db.execute(
         "SELECT * FROM ad_attribution WHERE status='pending' AND token IS NOT NULL"

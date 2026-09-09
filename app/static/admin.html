@@ -640,7 +640,7 @@
         </select>
       </div>
     </div>
-    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Apple Ads install attribution from the AdServices token iOS posts on first launch. "Limited ads" installs came from Apple Ads but the device opted out of personalized ads, so Apple hides campaign and keyword ids. Campaign and keyword names plus spend (true CAC) arrive with the Apple Ads API integration (phase 2); until then rows show raw ids. "Activated" = device has at least one meeting_start in raw telemetry (30-day retention, so it undercounts on longer ranges). The subscriber columns are three because a free trial start looks identical to a purchase in Apple's data: "Started" means a trial OR a purchase began, "Trialing" is a trial right now, and "Paid" means Apple actually billed a renewal. A seven-day trial that lapses counts in Started only, never in Paid. A subscriber who bought with no trial reads as Started until their first renewal. "Paid?" counts exactly that ambiguous case (paid tier, not trialing, no renewal recorded yet), so the size of that undercount is visible rather than assumed: if it stays at zero, it never happens here. Reddit / campaign-link installs are not here; read those in App Store Connect Analytics.</p>
+    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Apple Ads install attribution from the AdServices token iOS posts on first launch. "Limited ads" installs came from Apple Ads but the device opted out of personalized ads, so Apple hides campaign and keyword ids. Campaign and keyword names plus spend (true CAC) arrive with the Apple Ads API integration (phase 2); until then rows show raw ids. "Activated" = device has at least one meeting_start in raw telemetry (30-day retention, so it undercounts on longer ranges). The subscriber columns are three because a free trial start looks identical to a purchase in Apple's data: "Started" means a trial OR a purchase began, "Trialing" is a trial right now, and "Paid" means Apple actually billed a renewal. A seven-day trial that lapses counts in Started only, never in Paid. A subscriber who bought with no trial reads as Started until their first renewal. "Paid?" counts exactly that ambiguous case (paid tier, not trialing, no renewal recorded yet), so the size of that undercount is visible rather than assumed: if it stays at zero, it never happens here. Reddit / campaign-link installs are not here; read those in App Store Connect Analytics. "By country" crosses country with campaign rather than rolling country up, because one campaign can span several storefronts (LatAm) and one storefront can be served by several campaigns (US exact and discovery); a rollup answers neither question. Limited-ads installs are excluded from the country and keyword tables because their campaign id is the placeholder, and they stay counted in the KPI row.</p>
     <div class="cards" id="acq-kpis"></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px;margin-top:16px">
       <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Install source</h4><div id="acq-chart-source"></div></div>
@@ -648,6 +648,12 @@
         <h4 style="margin:0 0 8px">By campaign</h4>
         <div class="table-wrap"><table id="acq-campaign-table"><thead><tr>
           <th>Campaign</th><th>Installs</th><th>Linked</th><th>Activated</th><th>Started</th><th>Trialing</th><th>Paid</th><th>Paid?</th>
+        </tr></thead><tbody></tbody></table></div>
+      </div>
+      <div class="card" style="padding:16px;grid-column:span 2">
+        <h4 style="margin:0 0 8px">By country</h4>
+        <div class="table-wrap"><table id="acq-country-table"><thead><tr>
+          <th>Country</th><th>Campaign</th><th>Installs</th><th>Linked</th><th>Activated</th><th>Started</th><th>Trialing</th><th>Paid</th><th>Paid?</th>
         </tr></thead><tbody></tbody></table></div>
       </div>
       <div class="card" style="padding:16px;grid-column:span 2">
@@ -1462,6 +1468,11 @@ function _renderAcquisition(d) {
   document.querySelector('#acq-campaign-table tbody').innerHTML = camps.length
     ? camps.map(r => `<tr><td>${_acqId(r.campaign_id)}</td><td>${r.installs}</td><td>${r.linked}</td><td>${r.activated}</td><td>${r.started}</td><td>${r.trialing}</td><td>${r.paid}</td><td>${r.paid_unconfirmed}</td></tr>`).join('')
     : '<tr><td colspan="8" style="color:var(--text-dim)">No attributed installs yet.</td></tr>';
+
+  const ctry = d.countries || [];
+  document.querySelector('#acq-country-table tbody').innerHTML = ctry.length
+    ? ctry.map(r => `<tr><td>${r.country_or_region || 'unknown'}</td><td>${_acqId(r.campaign_id)}</td><td>${r.installs}</td><td>${r.linked}</td><td>${r.activated}</td><td>${r.started}</td><td>${r.trialing}</td><td>${r.paid}</td><td>${r.paid_unconfirmed}</td></tr>`).join('')
+    : '<tr><td colspan="9" style="color:var(--text-dim)">No attributed installs yet.</td></tr>';
 
   const kws = d.keywords || [];
   document.querySelector('#acq-keyword-table tbody').innerHTML = kws.length
