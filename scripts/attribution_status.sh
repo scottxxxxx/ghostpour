@@ -13,19 +13,29 @@
 #
 # ── HOW TO READ THE OUTPUT ────────────────────────────────────────────────
 #
-# The `attribution_sweep_stalled` alert CANNOT distinguish a dead sweep from a
-# healthy one whose tokens Apple has no record for. Both leave rows pending and
-# both are silent. THIS is the discriminator:
+# Two versions of the `attribution_sweep_stalled` alert fired on a healthy
+# system on 2026-09-09. Both inferred the sweep's health from something other
+# than the sweep's own work: first the age of the oldest pending row, then the
+# age of the last successful exchange (which only moves when a NEW token
+# arrives, so 14 quiet hours read as 14 dead ones). Since 2026-09-09 the sweep
+# stamps `last_attempt_at` on every pending row it gets an answer for, and
+# section 3 below prints it. THIS is the discriminator:
 #
-#   SWEEP ALIVE   any row has a recent `last_exchange`, or rows sit in
-#                 `attributed` / `organic` / `error`. Pending rows are then
-#                 tokens Apple has no record for. They will expire at 24h and
+#   SWEEP ALIVE   every pending row's `last_attempt` is within the last
+#                 minute or two. Those rows are tokens Apple has no record
+#                 for (404 forever, by design). They expire at 24h and
 #                 NOTHING IS LOST, because Apple never had an answer to give.
+#                 `last_exchange` being hours old means nothing on its own:
+#                 it only moves when an install lands.
 #
-#   SWEEP DEAD    nothing has EVER been exchanged: no `attributed`, no
-#                 `organic`, no `error`, `last_exchange` empty everywhere,
-#                 while `pending` grows. That is a real gate before any ad
-#                 spend, because every paid install would be lost the same way.
+#   SWEEP DEAD    a pending row older than 15 minutes whose `last_attempt` is
+#                 empty or old. Nothing is touching the waiting work. That is
+#                 a real gate before any ad spend, because every paid install
+#                 would be lost the same way.
+#
+#   APPLE DOWN    same shape as SWEEP DEAD (a transport failure is not an
+#                 attempt), with `adservices exchange transient failure` in
+#                 the container log every 60s. Same consequence for tokens.
 #
 #   NO TOKENS     the table is empty or has only `no_token` rows. Then the
 #                 endpoint is live and nothing is posting to it, and the
@@ -70,15 +80,29 @@ for r in recent:
     print(" ", dict(r))
 
 print()
-print("=== 3. app_version of rows still pending (the debug-build tell) ===")
+print("=== 3. rows still pending: is the sweep touching them? ===")
+# `last_attempt` is the sweep's own footprint, stamped on every answer from
+# Apple. Within the last minute or two: alive, and the row is a token Apple
+# has no record for. Empty or old on a row older than 15 minutes: the sweep
+# is not running, or cannot reach Apple. `app_version` is the secondary
+# tell: Debug build numbers mean installs Apple never saw.
 pend = list(c.execute("""
-    SELECT app_version, COUNT(*) AS n, MIN(created_at) AS oldest
-      FROM ad_attribution WHERE status='pending'
-     GROUP BY app_version ORDER BY n DESC"""))
+    SELECT app_version, created_at, last_attempt_at
+      FROM ad_attribution WHERE status='pending' AND token IS NOT NULL
+     ORDER BY created_at"""))
 if not pend:
     print("  (nothing pending — the sweep has cleared everything)")
+from datetime import datetime, timezone
+now = datetime.now(timezone.utc)
 for r in pend:
-    print(" ", dict(r))
+    d = dict(r)
+    la = d.get("last_attempt_at")
+    try:
+        age = int((now - datetime.fromisoformat(la)).total_seconds()) if la else None
+    except ValueError:
+        age = None
+    d["last_attempt_age_s"] = "never" if age is None else age
+    print(" ", d)
 
 print()
 # ⚠ The column is `first_seen_at`, not `created_at`. The first real run of

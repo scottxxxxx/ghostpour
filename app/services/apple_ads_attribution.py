@@ -65,6 +65,25 @@ async def _post_token(token: str) -> tuple[int, dict | None]:
     return resp.status_code, None
 
 
+async def _stamp_attempt(db: aiosqlite.Connection, row_id: str, now: str) -> None:
+    """Record that the sweep reached Apple for this row and it stayed pending.
+
+    This is the sweep's footprint, and the liveness alert reads nothing else.
+    A 404 retry used to write NOTHING, so a sweep retrying one unexchangeable
+    token every 60s and a sweep that was not running left identical rows.
+
+    ⚠ Deliberately NOT called on a transport failure (connection refused,
+    timeout). The alert is named "token exchange has stopped", and a sweep
+    that runs every minute but cannot reach Apple has stopped exchanging just
+    as surely as a dead one; tokens expire at 24h either way. The details
+    block on the incident carries the distinction.
+    """
+    await db.execute(
+        "UPDATE ad_attribution SET last_attempt_at=? WHERE id=?", (now, row_id)
+    )
+    await db.commit()
+
+
 async def exchange_row(db: aiosqlite.Connection, row: aiosqlite.Row) -> str:
     """Exchange one pending row's token and persist the outcome. Returns the
     resulting status; 'pending' means retry on a later sweep."""
@@ -78,6 +97,7 @@ async def exchange_row(db: aiosqlite.Connection, row: aiosqlite.Row) -> str:
         return "pending"
 
     if code == 404:
+        await _stamp_attempt(db, row["id"], now)
         return "pending"
     if code == 400:
         await db.execute(
@@ -91,6 +111,7 @@ async def exchange_row(db: aiosqlite.Connection, row: aiosqlite.Row) -> str:
         logger.warning(
             "adservices exchange unexpected status=%s id=%s", code, row["id"]
         )
+        await _stamp_attempt(db, row["id"], now)
         return "pending"
 
     if not payload.get("attribution"):
@@ -166,21 +187,47 @@ async def oldest_pending_age_seconds(
     return (datetime.now(timezone.utc) - ts).total_seconds()
 
 
-async def newest_exchange_age_seconds(db: aiosqlite.Connection) -> float | None:
-    """Seconds since the sweep last successfully exchanged ANYTHING, or None.
+async def unattended_pending(
+    db: aiosqlite.Connection, app_id: str | None = None,
+    *, stale_seconds: int = STALE_PENDING_SECONDS,
+) -> dict | None:
+    """The oldest pending row the sweep has NOT touched within `stale_seconds`,
+    or None when every waiting row carries a recent attempt.
 
-    This is the liveness half. An old pending row says nothing on its own: a
-    token Apple has no record for 404s forever by design and sits there while
-    a perfectly healthy sweep clears everything around it.
+    This is the liveness signal, and it is the only one. It reads the sweep's
+    OWN footprint (`last_attempt_at`, stamped on every answer from Apple) on
+    the rows it is responsible for, so it does not depend on new tokens
+    arriving, on exchanges succeeding, or on any process heartbeat.
+
+    Only rows older than `stale_seconds` are eligible: a token that arrived
+    thirty seconds ago has not had a sweep pass yet and its NULL stamp means
+    nothing. A row that old with a NULL stamp, or a stamp older than the
+    window, is one the sweep has had at least fifteen passes to touch and did
+    not.
     """
-    cur = await db.execute(
-        "SELECT MAX(exchanged_at) AS newest FROM ad_attribution")
+    cutoff = (
+        datetime.now(timezone.utc) - timedelta(seconds=stale_seconds)
+    ).isoformat()
+    sql = (
+        "SELECT id, app_id, created_at, last_attempt_at FROM ad_attribution"
+        " WHERE status='pending' AND token IS NOT NULL AND created_at < ?"
+        " AND (last_attempt_at IS NULL OR last_attempt_at < ?)"
+    )
+    params: tuple = (cutoff, cutoff)
+    if app_id:
+        sql += " AND app_id = ?"
+        params += (app_id,)
+    sql += " ORDER BY created_at ASC LIMIT 1"
+    cur = await db.execute(sql, params)
     row = await cur.fetchone()
-    newest = row["newest"] if row else None
-    if not newest:
+    return dict(row) if row else None
+
+
+def _age_seconds(iso: str | None) -> float | None:
+    if not iso:
         return None
     try:
-        ts = datetime.fromisoformat(newest)
+        ts = datetime.fromisoformat(iso)
     except (TypeError, ValueError):
         return None
     if ts.tzinfo is None:
@@ -191,26 +238,34 @@ async def newest_exchange_age_seconds(db: aiosqlite.Connection) -> float | None:
 async def check_sweep_liveness(
     db: aiosqlite.Connection, app_id: str, *, from_addr: str = "alerts@noreply.invalid"
 ) -> float | None:
-    """Alert if tokens are arriving and the sweep is not clearing them.
+    """Alert if a token has been waiting and the sweep has not attempted it.
 
-    ⚠ REWRITTEN 2026-09-09 after this fired on a healthy system and nearly
-    cost a campaign launch date. The first version alerted on the age of the
-    oldest pending row alone, which CANNOT distinguish the two causes:
+    Returns the age of the oldest pending row (the old return contract, kept
+    for the caller), or None when nothing is pending.
 
-      dead sweep            nothing is being exchanged
-      healthy sweep         one token Apple has no attribution record for,
-                            404ing every 60s by design, while everything
-                            else clears in under a minute
+    ⚠ REWRITTEN TWICE, 2026-09-09, and both earlier versions fired on a
+    healthy production system. Each inferred the sweep's health from
+    something other than the sweep's own work:
 
-    Measured on production: 1 stuck row against 232 exchanged, most recent
-    exchange 19 SECONDS after arrival, and the alert said "token exchange has
-    stopped". The stuck row was `app_version 1.15`, a real build, so it was
-    not even the Debug-install explanation I had offered.
+      v1  age of the oldest pending row. One token Apple has no record for
+          404s forever by design, so a healthy sweep with one stuck row read
+          as dead (1 stuck row against 232 exchanged, most recent exchange
+          19 seconds after arrival).
+      v2  v1 AND no recent successful exchange. Exchanges only happen when
+          tokens ARRIVE, so 14 hours with no new install read as 14 hours of
+          dead sweep. It fired thirty minutes after its own deploy, at the
+          instant the next organic token landed, while the log showed the
+          sweep retrying the stuck row every 60 seconds the whole time.
 
-    The fix is the SIGNAL, not the threshold. Both conditions must hold:
-    something is waiting AND nothing has been exchanged recently. One stuck
-    row can no longer speak for the sweep, and a genuinely dead sweep still
-    trips it on the next token that arrives.
+    v3 reads the footprint. Every time the sweep gets an answer from Apple
+    for a row that stays pending it stamps `last_attempt_at`. Stalled means:
+    a row older than STALE_PENDING_SECONDS whose stamp is missing or older
+    than STALE_PENDING_SECONDS. A live sweep touches every pending row every
+    60s, so no waiting row is ever unattended for fifteen minutes, whether
+    or not anything else arrives or succeeds. A dead sweep leaves the stamp
+    where it was. A sweep that cannot reach Apple does not stamp (transport
+    failures are not attempts), which is correct for an alert named
+    "exchange has stopped".
 
     ⚠ Called from the INGEST path, not from the daemon. A dead daemon cannot
     report itself, which is the whole failure this exists to catch. Ingest is
@@ -223,19 +278,23 @@ async def check_sweep_liveness(
         age = await oldest_pending_age_seconds(db, app_id)
         if age is None or age < STALE_PENDING_SECONDS:
             return age
-        # Something is waiting. That alone is NOT a stall — see the docstring.
-        exchange_age = await newest_exchange_age_seconds(db)
-        if exchange_age is not None and exchange_age < STALE_PENDING_SECONDS:
+        # Something has been waiting a while. That alone is NOT a stall.
+        stuck = await unattended_pending(db, app_id)
+        if stuck is None:
             logger.info(
                 "attribution_pending_but_sweep_healthy app=%s oldest_pending_s=%.0f "
-                "last_exchange_s=%.0f — a token Apple has no record for, not a stall",
-                app_id, age, exchange_age,
+                "— every waiting row was attempted within %ds; a token Apple "
+                "has no record for, not a stall",
+                app_id, age, STALE_PENDING_SECONDS,
             )
             return age
         from app.services.alerting import report_incident
+        attempt_age = _age_seconds(stuck.get("last_attempt_at"))
         logger.error(
-            "attribution_sweep_stalled app=%s oldest_pending_age_s=%.0f",
-            app_id, age,
+            "attribution_sweep_stalled app=%s oldest_pending_age_s=%.0f "
+            "unattended_row=%s last_attempt_age_s=%s",
+            app_id, age, stuck["id"],
+            "never" if attempt_age is None else int(attempt_age),
         )
         await report_incident(
             db,
@@ -244,8 +303,10 @@ async def check_sweep_liveness(
             details={
                 "app_id": app_id,
                 "oldest_pending_age_seconds": int(age),
-                "seconds_since_last_exchange": (
-                    int(exchange_age) if exchange_age is not None else "never"),
+                "unattended_row_id": stuck["id"],
+                "unattended_row_created_at": stuck["created_at"],
+                "seconds_since_last_attempt": (
+                    "never" if attempt_age is None else int(attempt_age)),
                 "token_ttl_hours": TOKEN_TTL_HOURS,
                 "sweep_interval_seconds": SWEEP_INTERVAL_SECONDS,
             },
