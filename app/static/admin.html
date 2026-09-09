@@ -1139,7 +1139,7 @@ function _renderSubscriptions(rep, events) {
   // MRR run-rate: daily replay of the event log. Gross and net lines,
   // active-paid count on the right axis so the money curve has its
   // headcount context.
-  const mrr = d.mrr_trend || [];
+  const mrr = rep.mrr_trend || [];
   _renderChart('sub-chart-mrr', {
     series: [
       {name: 'MRR (list)', type: 'area', data: mrr.map(x => x.mrr_gross_usd)},
