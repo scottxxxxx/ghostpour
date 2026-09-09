@@ -823,6 +823,43 @@ async def test_a_404_retry_leaves_the_sweeps_footprint(client, tmp_db_path):
 
 
 @pytest.mark.asyncio
+async def test_last_attempt_at_lands_on_a_database_that_predates_it(tmp_path):
+    """Prod's case, which no other test here can reach: every other test
+    starts from a fresh database whose CREATE TABLE already carries the
+    column. Prod has the v31 table from 2026-07-21 and gets the column ONLY
+    from the ALTER in MIGRATIONS, because CREATE TABLE IF NOT EXISTS is a
+    no-op on an existing table. Removing that ALTER left the whole file green
+    on the first sabotage pass; this is the test that makes it red."""
+    import aiosqlite
+
+    from app.database import SCHEMA_SQL, apply_migrations
+
+    db = await aiosqlite.connect(str(tmp_path / "old.db"))
+    await db.executescript(SCHEMA_SQL)
+    await db.execute("""CREATE TABLE ad_attribution (
+        id TEXT PRIMARY KEY, device_id TEXT NOT NULL, app_id TEXT NOT NULL,
+        user_id TEXT, status TEXT NOT NULL DEFAULT 'pending',
+        attribution INTEGER, campaign_id INTEGER, ad_group_id INTEGER,
+        keyword_id INTEGER, ad_id INTEGER, conversion_type TEXT,
+        click_date TEXT, country_or_region TEXT,
+        standard_payload INTEGER NOT NULL DEFAULT 0, token TEXT,
+        app_version TEXT, first_launch_at TEXT, created_at TEXT NOT NULL,
+        exchanged_at TEXT, UNIQUE(device_id, app_id))""")
+    await db.commit()
+    before = {r[1] for r in await (await db.execute(
+        "PRAGMA table_info(ad_attribution)")).fetchall()}
+    assert "last_attempt_at" not in before, "the old shape must really be old"
+
+    report = await apply_migrations(db)
+    assert report["failed"] == 0
+
+    after = {r[1] for r in await (await db.execute(
+        "PRAGMA table_info(ad_attribution)")).fetchall()}
+    await db.close()
+    assert "last_attempt_at" in after
+
+
+@pytest.mark.asyncio
 async def test_a_transport_failure_is_not_an_attempt(client, tmp_db_path):
     """A sweep that runs every minute but cannot reach Apple has stopped
     exchanging just as surely as a dead one, and the tokens expire at 24h
