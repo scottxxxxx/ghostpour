@@ -81,11 +81,15 @@ for r in pend:
     print(" ", dict(r))
 
 print()
+# ⚠ The column is `first_seen_at`, not `created_at`. The first real run of
+# this script died here on `no such column`, which is the whole argument for
+# writing ops commands down and RUNNING them rather than pasting them into a
+# message: a query nobody has executed is a query that does not work.
 print("=== 4. attribution incidents ===")
 inc = list(c.execute("""
-    SELECT category, subject, trigger_count, created_at, last_seen_at, resolved_at
+    SELECT category, subject, trigger_count, first_seen_at, last_seen_at, resolved_at
       FROM alert_incidents WHERE category LIKE 'attribution%'
-     ORDER BY created_at DESC LIMIT 10"""))
+     ORDER BY first_seen_at DESC LIMIT 10"""))
 if not inc:
     print("  (none)")
 for r in inc:
