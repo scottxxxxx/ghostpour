@@ -116,8 +116,23 @@ def test_enabled_flat_budget_with_no_number_anywhere_cannot_gate():
 
 
 def test_shipped_n400_cap_resolves_without_any_served_config():
-    """CI has no config overlay, so this is the honest test of the floor."""
-    assert app_budget.flat_cap_usd({}, load_apps(), "n400") == 5.0
+    """CI has no config overlay, so this is the honest test of the floor.
+
+    ⭐ UNCAPPED since 2026-09-08. Scott: "we don't want to have any budget
+    limits on our development teams... There's no chance of a production user
+    using the N-400 lane so we need to open it up." Was 5.0, which exhausted
+    on ~60 test interviews and stopped the auditor's work entirely.
+
+    `None` is the resolved form of the `-1` sentinel, and it means the gate
+    imposes NO CEILING (`would_exceed_flat_budget` returns False immediately
+    on a None cap). Pinned as a deliberate value, not left to drift: if this
+    ever reads a number again, the dev lane has been silently re-capped.
+
+    ⚠ Safe only while no real user can reach the app, which holds because
+    `com.weirtech.n400helper` is absent from `CZ_APPLE_BUNDLE_ID`. If that
+    bundle id is ever added, this assertion is the one to revisit FIRST.
+    """
+    assert app_budget.flat_cap_usd({}, load_apps(), "n400") is None
 
 
 # --- spend accounting -------------------------------------------------------
@@ -224,7 +239,11 @@ def test_shipped_n400_copy_covers_every_wire_locale():
                       / "n400" / "budget.json").read_text())
     for locale in ("en", "es", "pt"):
         assert doc["exhausted"]["text"][locale].strip()
-    assert doc["monthly_cost_limit_usd"] == 5.0
+    # -1 = no ceiling (Scott 2026-09-08, dev teams are not budget limited).
+    # The COPY is still pinned above and deliberately kept: uncapping is a
+    # dial, and the sentence a user would see if it were ever re-capped must
+    # not rot in the meantime.
+    assert doc["monthly_cost_limit_usd"] == -1
 
 
 # --- record_cost: the account row itself ------------------------------------
