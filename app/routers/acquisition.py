@@ -126,4 +126,16 @@ async def report_attribution(
                 (body.attribution_token, row["id"]),
             )
     await db.commit()
+
+    # ⚠ Liveness check on the INGEST path, deliberately, not in the daemon.
+    # A dead sweep cannot report its own death, and that is the failure that
+    # actually costs something: Apple's tokens are exchangeable for 24 hours
+    # and are gone afterwards. Ingest is also the correct trigger by cost —
+    # with nothing arriving there is nothing to lose, and every token that
+    # arrives starts a clock. Never raises; an alert must not fail the
+    # request that noticed the problem.
+    from app.services.apple_ads_attribution import check_sweep_liveness
+    from app.config import get_settings as _gs
+    await check_sweep_liveness(db, app_id, from_addr=_gs().alert_email_from)
+
     return {"status": "received"}

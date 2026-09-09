@@ -214,6 +214,28 @@ KNOWN_CATEGORIES: dict[str, dict] = {
             "while open."
         ),
     },
+    "attribution_sweep_stalled": {
+        "label": "Apple Ads token exchange has stopped",
+        "description": (
+            "Attribution tokens are arriving but the exchange sweep is not "
+            "clearing them, so `pending` rows are ageing. Apple's tokens are "
+            "exchangeable for 24 HOURS ONLY and are unrecoverable after that, "
+            "so this is a countdown rather than a backlog. Subject is the app "
+            "id. Detected on the INGEST path on purpose: a dead sweep cannot "
+            "report itself, and a token arriving is exactly the moment a dead "
+            "sweep starts costing something."
+        ),
+    },
+    "attribution_tokens_expired": {
+        "label": "Apple Ads attribution tokens expired unexchanged",
+        "description": (
+            "Rows passed the 24-hour window without being exchanged, so the "
+            "campaign and keyword behind those installs are lost for good. "
+            "This is the DAMAGE alert; attribution_sweep_stalled is the "
+            "warning that precedes it. A non-zero count here means paid "
+            "installs whose source can never be known."
+        ),
+    },
     "cert_pin_auto_republish": {
         "tone": "attention",
         "label": "Cert pin auto-republish needs attention",

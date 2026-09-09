@@ -3431,7 +3431,8 @@ async def acquisition_report(
     POST /v1/attribution and resolved by the AdServices exchange sweep).
 
     Phase 1: raw campaign/keyword ids with install → linked → activated →
-    started → trialing / paid counts. Names + spend (true CAC) arrive with the
+    started → trialing / paid counts, plus a per-country breakdown crossed
+    with campaign. Names + spend (true CAC) arrive with the
     Apple Ads Campaign Management API integration (phase 2). Placeholder rows
     (standard_payload=1, personalized ads off) are counted separately and
     excluded from the keyword table since their ids are the literal
@@ -3570,8 +3571,49 @@ async def acquisition_report(
         GROUP BY a.keyword_id, a.campaign_id ORDER BY installs DESC LIMIT 100
     """)
 
+    # Per-country, crossed with campaign (2026-09-08, for the Apple Search
+    # Ads test). The LatAm campaign spans five storefronts and its entire
+    # question is which country converts to PAID at LatAm price sensitivity,
+    # which nothing here could answer before: `country_or_region` was written
+    # on every row since the table shipped and was a dimension on nothing.
+    #
+    # Crossed with campaign rather than a bare country rollup on purpose. One
+    # campaign spanning five countries and one country served by two campaigns
+    # are both real here (US Exact and US Discovery), and a rollup answers
+    # neither. Same shape as the keyword table above so the two read alike.
+    #
+    # ⚠ standard_payload rows are excluded, exactly as in the keyword table.
+    # A limited-ads install carries the literal placeholder as its campaign id,
+    # so it cannot be attributed to a campaign at all; including it would add a
+    # row under a meaningless campaign. Those installs are still counted in the
+    # KPI row as `attributed_limited`, so nothing disappears silently.
+    countries = await _all(f"""
+        SELECT a.country_or_region, a.campaign_id,
+          COUNT(*) AS installs,
+          SUM(CASE WHEN a.user_id IS NOT NULL THEN 1 ELSE 0 END) AS linked,
+          SUM(CASE WHEN act.device_id IS NOT NULL THEN 1 ELSE 0 END) AS activated,
+          SUM(CASE WHEN u.ever_subscribed=1 THEN 1 ELSE 0 END) AS started,
+          SUM(CASE WHEN u.is_trial=1 THEN 1 ELSE 0 END) AS trialing,
+          SUM(CASE WHEN p.user_id IS NOT NULL THEN 1 ELSE 0 END) AS paid,
+          SUM(CASE WHEN u.ever_subscribed=1 AND u.is_trial=0
+                    AND u.tier NOT IN ('free','') AND p.user_id IS NULL
+                   THEN 1 ELSE 0 END) AS paid_unconfirmed
+        FROM ad_attribution a
+        LEFT JOIN users u ON u.id = a.user_id
+        LEFT JOIN (SELECT DISTINCT device_id FROM telemetry_events
+                   WHERE event_type='meeting_start') act
+          ON act.device_id = a.device_id
+        LEFT JOIN (SELECT DISTINCT user_id FROM subscription_events
+                   WHERE event_type IN ('renewed','upgraded')) p
+          ON p.user_id = a.user_id
+        WHERE a.status='attributed' AND a.standard_payload=0 AND {where}
+        GROUP BY a.country_or_region, a.campaign_id
+        ORDER BY installs DESC LIMIT 100
+    """)
+
     return {"days": days, "kpis": kpis, "source": source,
-            "campaigns": campaigns, "keywords": keywords}
+            "campaigns": campaigns, "keywords": keywords,
+            "countries": countries}
 
 
 # --- Email management (Resend webhook events + suppression list) ---

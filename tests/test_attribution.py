@@ -503,3 +503,195 @@ def test_admin_acquisition_requires_key(client):
         headers={"X-Admin-Key": "wrong"},
     )
     assert r.status_code == 403
+
+
+# --- per-country breakdown (2026-09-08) --------------------------------------
+# The LatAm campaign spans five storefronts and its whole question is which
+# country converts to paid. country_or_region was written on every row since
+# the table shipped and was a dimension on nothing.
+
+def _country_device(client, tmp_db_path, country, campaign, user=None):
+    dev = _uuid()
+    _post(client, dev, headers=(user or {}).get("headers"))
+    conn = sqlite3.connect(tmp_db_path)
+    conn.execute(
+        "UPDATE ad_attribution SET status='attributed', attribution=1,"
+        " campaign_id=?, keyword_id=99, country_or_region=?, token=NULL"
+        " WHERE device_id=?",
+        (campaign, country, dev),
+    )
+    conn.commit()
+    conn.close()
+    return dev
+
+
+def test_countries_are_grouped_and_crossed_with_campaign(client, tmp_db_path):
+    """One campaign over several storefronts is the LatAm shape; one storefront
+    under several campaigns is the US shape (exact and discovery). Crossing
+    them answers both, and a bare country rollup answers neither."""
+    _country_device(client, tmp_db_path, "MX", 3001)
+    _country_device(client, tmp_db_path, "MX", 3001)
+    _country_device(client, tmp_db_path, "CL", 3001)
+    _country_device(client, tmp_db_path, "US", 2144631799)
+    _country_device(client, tmp_db_path, "US", 4002)
+
+    rows = _acq(client)["countries"]
+    got = {(r["country_or_region"], r["campaign_id"]): r["installs"] for r in rows}
+    assert got == {("MX", 3001): 2, ("CL", 3001): 1,
+                   ("US", 2144631799): 1, ("US", 4002): 1}
+
+
+def test_country_rows_carry_the_full_funnel(client, tmp_db_path, free_user):
+    """A country row is useless for the test unless it reaches `paid`: the
+    question is which country CONVERTS, not which country installs."""
+    _country_device(client, tmp_db_path, "MX", 3001, user=free_user)
+    conn = sqlite3.connect(tmp_db_path)
+    conn.execute(
+        "UPDATE users SET ever_subscribed=1, is_trial=0, tier='pro' WHERE id=?",
+        (free_user["user_id"],))
+    conn.execute(
+        "INSERT INTO subscription_events (id, user_id, event_type, source,"
+        " effective_at, recorded_at) VALUES (?,?,'renewed','assn',?,?)",
+        (_uuid(), free_user["user_id"], "2026-09-08T00:00:00+00:00",
+         "2026-09-08T00:00:00+00:00"))
+    conn.commit()
+    conn.close()
+
+    row = _acq(client)["countries"][0]
+    assert row["country_or_region"] == "MX"
+    assert row["installs"] == 1 and row["linked"] == 1
+    assert row["started"] == 1 and row["paid"] == 1
+    assert row["trialing"] == 0 and row["paid_unconfirmed"] == 0
+
+
+def test_limited_ads_installs_stay_out_of_the_country_table(client, tmp_db_path):
+    """A limited-ads row carries the literal placeholder as its campaign id, so
+    it cannot be attributed to a campaign and would add a row under a
+    meaningless one. It must still be counted in the KPI row, or the exclusion
+    would be a silent drop rather than a scoped one."""
+    dev = _uuid()
+    _post(client, dev)
+    conn = sqlite3.connect(tmp_db_path)
+    conn.execute(
+        "UPDATE ad_attribution SET status='attributed', attribution=1,"
+        " campaign_id=1234567890, keyword_id=1234567890, standard_payload=1,"
+        " country_or_region='MX', token=NULL WHERE device_id=?",
+        (dev,))
+    conn.commit()
+    conn.close()
+
+    d = _acq(client)
+    assert d["countries"] == [], "placeholder campaign is not a campaign"
+    assert d["kpis"]["attributed_limited"] == 1, "but it is NOT dropped"
+
+
+# --- sweep liveness (2026-09-08) ---------------------------------------------
+# Apple's tokens are exchangeable for 24 hours and unrecoverable after that,
+# so a sweep that quietly stops is a countdown, not a backlog. Before this
+# there was NO alert of any kind: run_daemon logged a warning if an iteration
+# threw, and nothing at all fired if the task died or never started.
+
+def _backdate_pending(db_path, device_id, minutes):
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "UPDATE ad_attribution SET created_at=? WHERE device_id=?",
+        ((datetime.now(timezone.utc) - timedelta(minutes=minutes)).isoformat(),
+         device_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def _incidents(db_path, category):
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(
+        "SELECT * FROM alert_incidents WHERE category = ?", (category,)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def test_a_stalled_sweep_is_reported_from_the_INGEST_path(client, tmp_db_path):
+    """THE design point, and the reason this is not in the daemon: a dead
+    sweep cannot report its own death. The next token to arrive is what
+    notices, which is also the first moment the silence starts costing
+    something."""
+    old = _uuid()
+    _post(client, old)
+    _backdate_pending(tmp_db_path, old, minutes=40)
+
+    _post(client, _uuid())          # a fresh token arrives; this is the trigger
+
+    found = _incidents(tmp_db_path, "attribution_sweep_stalled")
+    assert len(found) == 1, "a stalled sweep must be reported"
+    assert found[0]["subject"] == "shouldersurf"
+
+
+def test_a_healthy_sweep_reports_nothing(client, tmp_db_path):
+    """An alarm that fires while things are fine gets ignored when they are
+    not, so the quiet case is pinned as hard as the loud one."""
+    _post(client, _uuid())
+    _post(client, _uuid())
+    assert _incidents(tmp_db_path, "attribution_sweep_stalled") == []
+
+
+def test_no_pending_rows_reports_nothing(client, tmp_db_path):
+    """Nothing waiting means nothing to lose, however long the sweep has been
+    idle. Age of the OLDEST PENDING row is the signal, not time since a run.
+
+    ⚠ The existing row is inserted DIRECTLY, and the trigger is a TOKEN-LESS
+    link call which lands as `no_token`. Both details are load-bearing and two
+    earlier drafts got this wrong: the check runs on EVERY ingest, so creating
+    the first row with an ordinary post meant a fresh pending row existed
+    during that request, and the test then caught a sabotage through a path
+    its own docstring did not describe. As written now, no ingest in this test
+    ever sees a pending row, so it genuinely exercises "nothing is waiting".
+    """
+    conn = sqlite3.connect(tmp_db_path)
+    conn.execute(
+        "INSERT INTO ad_attribution (id, device_id, app_id, status, token,"
+        " created_at) VALUES (?,?,?,'organic',NULL,?)",
+        (_uuid(), _uuid(), "shouldersurf",
+         (datetime.now(timezone.utc) - timedelta(hours=48)).isoformat()))
+    conn.commit()
+    conn.close()
+
+    _post(client, _uuid(), token=None)   # link-only: no pending row created
+    rows = _incidents(tmp_db_path, "attribution_sweep_stalled")
+    assert rows == []
+
+
+def test_a_failing_alert_never_breaks_ingest(client, tmp_db_path, monkeypatch):
+    """The request that noticed the problem must still succeed."""
+    old = _uuid()
+    _post(client, old)
+    _backdate_pending(tmp_db_path, old, minutes=40)
+
+    async def _boom(*a, **k):
+        raise RuntimeError("mail down")
+
+    import app.services.alerting as alerting
+    monkeypatch.setattr(alerting, "report_incident", _boom)
+    r = _post(client, _uuid())
+    assert r.status_code == 202
+
+
+@pytest.mark.asyncio
+async def test_expired_tokens_raise_the_damage_alert(client, tmp_db_path):
+    """The other half. Stalled is the warning; expired is the loss, and the
+    sweep writing that number is the only thing that ever sees it.
+
+    Takes `client` for the schema, like the other sweep tests: the tables are
+    created by app startup, not by the tmp path.
+    """
+    dev = _uuid()
+    _post(client, dev)
+    _backdate_pending(tmp_db_path, dev, minutes=30 * 60)
+
+    counts = await _sweep(tmp_db_path)
+
+    assert counts["expired"] == 1
+    found = _incidents(tmp_db_path, "attribution_tokens_expired")
+    assert len(found) == 1
+    assert found[0]["subject"] == "apple_ads"
