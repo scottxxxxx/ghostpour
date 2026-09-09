@@ -768,3 +768,33 @@ def test_an_empty_dropped_map_is_carried_not_omitted(
     got = client.get("/v1/memory/meetings/2222-bbbb/woven",
                      headers=_h(free_user)).json()
     assert "dropped" in got and got["dropped"] == {}
+
+
+# --- `cached` must mean provenance, not "a body came back" -------------------
+
+def test_a_cold_miss_reports_cached_false(client, free_user, monkeypatch):
+    """Found by SS on 2026-09-08 against a real deploy: every successful
+    response said cached=true, including the FIRST read after the cache was
+    emptied, which had just been computed. `cached` defaulted to True and only
+    the degraded branch ever passed False.
+
+    That matters because `cached` is exactly the field someone reaches for to
+    answer "did the eviction work" — which is what SS was doing — and it would
+    have told them the opposite of the truth.
+    """
+    from app.services import woven_cache
+    woven_cache.clear()
+    _capture(monkeypatch)
+    first = client.get("/v1/memory/woven", headers=_h(free_user)).json()
+    assert first["_freshness"]["cached"] is False, "nothing was stored yet"
+
+
+def test_the_second_read_reports_cached_true(client, free_user, monkeypatch):
+    """The other half. Without this, `cached=False` everywhere would pass the
+    test above and be just as wrong in the other direction."""
+    from app.services import woven_cache
+    woven_cache.clear()
+    _capture(monkeypatch)
+    client.get("/v1/memory/woven", headers=_h(free_user))
+    second = client.get("/v1/memory/woven", headers=_h(free_user)).json()
+    assert second["_freshness"]["cached"] is True

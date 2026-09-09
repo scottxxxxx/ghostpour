@@ -457,3 +457,39 @@ async def test_the_shipped_uncapped_lane_does_not_stop_anything(
         client.app.state.remote_configs = prev
     assert r.status_code == 200, r.text
     assert (r.json().get("feature_state") or {}).get("budget_exhausted") is not True
+
+
+# --- the guard must fire on a CONFIG SAVE, not only at startup --------------
+
+@pytest.mark.asyncio
+async def test_the_audit_raises_an_incident_not_just_a_log_line(tmp_db_path):
+    """A log line is not an alert. The first version of this only logged, and
+    the auditor was right that nobody tails a log."""
+    import aiosqlite
+    from app.database import init_db
+    await init_db(f"sqlite+aiosqlite:///{tmp_db_path}")
+    async with aiosqlite.connect(tmp_db_path) as db:
+        db.row_factory = aiosqlite.Row
+        found = await app_budget.report_uncapped_reachable(
+            db, {}, load_apps(), _REACH_N400)
+        assert [v["app_id"] for v in found] == ["n400"]
+        rows = await (await db.execute(
+            "SELECT category, subject FROM alert_incidents")).fetchall()
+    assert [(r["category"], r["subject"]) for r in rows] == [
+        ("uncapped_and_reachable", "n400")]
+
+
+@pytest.mark.asyncio
+async def test_the_safe_state_raises_nothing(tmp_db_path):
+    """Today's state: uncapped but unreachable. An alert here would train
+    everyone to ignore the one that matters."""
+    import aiosqlite
+    from app.database import init_db
+    await init_db(f"sqlite+aiosqlite:///{tmp_db_path}")
+    async with aiosqlite.connect(tmp_db_path) as db:
+        db.row_factory = aiosqlite.Row
+        assert await app_budget.report_uncapped_reachable(
+            db, {}, load_apps(), _REACH) == []
+        rows = await (await db.execute(
+            "SELECT * FROM alert_incidents")).fetchall()
+    assert rows == []

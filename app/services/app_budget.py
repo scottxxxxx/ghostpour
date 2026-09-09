@@ -178,6 +178,52 @@ def audit_uncapped_reachable_apps(
     return found
 
 
+async def report_uncapped_reachable(
+    db,
+    remote_configs: dict | None,
+    apps_registry: dict,
+    apple_bundle_id: str | None,
+    *,
+    from_addr: str = "alerts@noreply.invalid",
+) -> list[dict]:
+    """Run the audit and RAISE AN INCIDENT for anything it finds.
+
+    ⚠ A log line is not an alert. The first version of this only logged at
+    startup, which fails twice: nobody tails a log, and startup is the wrong
+    moment. The bundle-id half requires a container recreate, so THAT order is
+    caught by a restart — but the cap half is a served-config save that
+    hot-reloads with NO restart. Add the bundle id first and set the cap to -1
+    afterwards and a startup-only check never runs again. So this is also
+    called from the admin config write, which is the other way in.
+
+    Never raises: an alert must not fail the write that noticed the problem.
+    """
+    try:
+        found = audit_uncapped_reachable_apps(
+            remote_configs, apps_registry, apple_bundle_id)
+        if not found:
+            return []
+        from app.services.alerting import report_incident
+        for v in found:
+            logger.error(
+                "UNCAPPED_AND_REACHABLE app=%s bundle_id=%s own_account_meter=%s "
+                "— no spend ceiling and its bundle id passes the audience "
+                "check, so every signup has an unlimited allowance",
+                v["app_id"], v["bundle_id"], v["own_account_meter"],
+            )
+            await report_incident(
+                db,
+                category="uncapped_and_reachable",
+                subject=v["app_id"],
+                details=v,
+                from_addr=from_addr,
+            )
+        return found
+    except Exception as e:  # noqa: BLE001 — never break the caller
+        logger.warning("uncapped_reachable report failed (non-fatal): %s", e)
+        return []
+
+
 def _month_start_iso() -> str:
     now = datetime.now(timezone.utc)
     return now.replace(day=1, hour=0, minute=0, second=0,

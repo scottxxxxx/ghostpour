@@ -1625,6 +1625,14 @@ def _woven_meta(entry, stale: bool, cached: bool = True) -> dict:
     So: the same three keys always, and `as_of` never null. A degraded
     answer was fetched just now and simply not stored, which makes today the
     honest day for it.
+
+    ⚠ `cached` means "an entry EXISTED before this request", not "a body was
+    returned". It defaulted to True and only the degraded branch passed False,
+    so a cold miss that had just been computed still claimed to be cached.
+    SS caught it on 2026-09-08 by reading the field against a real deploy:
+    the first read after the cache was emptied said cached=true. The field is
+    exactly what someone reaches for to answer "did the eviction work", and it
+    would have told them no. Callers now pass the pre-call state explicitly.
     """
     return {
         "as_of": _woven.as_of(entry) if entry is not None else _woven.today_iso(),
@@ -1737,6 +1745,13 @@ async def woven_home(
             raise _WovenDegraded(body)
         return body
 
+    # Whether an entry EXISTED before this call. `cached` is a claim about
+    # provenance, and only this can answer it: get_or_refresh returns
+    # (body, stale) and a cold miss is indistinguishable from a fresh hit in
+    # that pair. Found 2026-09-08 by SS reading the field against a real
+    # deploy: every successful response said cached=true, including the first
+    # read after the cache was emptied, which had just been computed.
+    was_cached = _woven.peek(k) is not None
     try:
         body, stale = await _woven.get_or_refresh(k, _fetch)
     except _WovenDegraded as d:
@@ -1746,7 +1761,8 @@ async def woven_home(
             "_freshness": _woven_meta(None, stale=False, cached=False),
         })
     entry = _woven.peek(k)
-    return JSONResponse(content={**body, "_freshness": _woven_meta(entry, stale)})
+    return JSONResponse(content={
+        **body, "_freshness": _woven_meta(entry, stale, cached=was_cached)})
 
 
 @router.get("/memory/meetings/{meeting_id}/woven")
@@ -1779,9 +1795,11 @@ async def woven_meeting(
             f"/v1/quilt/{_subj(request, user.id)}/meetings/{meeting_id}/woven", request=request)
         return _json_of(resp)
 
+    was_cached = _woven.peek(k) is not None
     body, stale = await _woven.get_or_refresh(k, _fetch)
     entry = _woven.peek(k)
-    return JSONResponse(content={**body, "_freshness": _woven_meta(entry, stale)})
+    return JSONResponse(content={
+        **body, "_freshness": _woven_meta(entry, stale, cached=was_cached)})
 
 
 @router.get("/people/{user_id}/network")

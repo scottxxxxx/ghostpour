@@ -399,6 +399,7 @@ async def update_config(
     body: UpdateConfigRequest,
     request: Request,
     x_admin_key: str = Header(...),
+    db: aiosqlite.Connection = Depends(get_db),
 ):
     """Update a remote config. Writes to disk and hot-reloads into memory."""
     _verify_admin(request, x_admin_key)
@@ -448,6 +449,20 @@ async def update_config(
 
     # Hot-reload all configs
     request.app.state.remote_configs = load_remote_configs()
+
+    # ⚠ A served cap can go to -1 HERE, with no restart, so a startup-only
+    # audit would never see it. The other half (a bundle id entering
+    # CZ_APPLE_BUNDLE_ID) does require a container recreate and so is caught
+    # at boot. This is the other way into the same dangerous state, and it is
+    # the likelier one: it is a save in a browser rather than a deploy.
+    from app.config import get_settings as _gs_audit
+    from app.routers.config import load_apps as _load_apps_audit
+    from app.services.app_budget import report_uncapped_reachable
+    await report_uncapped_reachable(
+        db, request.app.state.remote_configs, _load_apps_audit(),
+        _gs_audit().apple_bundle_id,
+        from_addr=_gs_audit().alert_email_from,
+    )
 
     return {
         "status": "updated",
