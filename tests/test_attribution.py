@@ -695,3 +695,66 @@ async def test_expired_tokens_raise_the_damage_alert(client, tmp_db_path):
     found = _incidents(tmp_db_path, "attribution_tokens_expired")
     assert len(found) == 1
     assert found[0]["subject"] == "apple_ads"
+
+
+def test_one_stuck_row_does_not_speak_for_a_healthy_sweep(client, tmp_db_path):
+    """THE false positive, measured on production 2026-09-09.
+
+    One row Apple has no attribution record for 404s every 60 seconds by
+    design and sits there forever. On prod that was 1 stuck row against 232
+    exchanged, with the most recent exchange 19 SECONDS after arrival, and the
+    alert announced that token exchange had stopped. It nearly cost a campaign
+    launch date.
+
+    An old pending row is not evidence of anything on its own. The sweep is
+    stalled only if something is waiting AND nothing has been exchanged.
+
+    ⚠ Both rows are inserted DIRECTLY. The check runs on EVERY ingest, so
+    creating the healthy row through the endpoint fires the check BEFORE its
+    exchange timestamp is set, and the test fails on an incident raised by its
+    own setup. That is the third time this session that ingest-fires-the-check
+    has bitten a test of mine; the rule is to build the state in SQL and use
+    exactly one post as the trigger.
+    """
+    now = datetime.now(timezone.utc)
+    conn = sqlite3.connect(tmp_db_path)
+    conn.execute(
+        "INSERT INTO ad_attribution (id, device_id, app_id, status, token,"
+        " created_at) VALUES (?,?,?,'pending','tok',?)",
+        (_uuid(), _uuid(), "shouldersurf",
+         (now - timedelta(minutes=40)).isoformat()))
+    conn.execute(
+        "INSERT INTO ad_attribution (id, device_id, app_id, status, attribution,"
+        " token, created_at, exchanged_at) VALUES (?,?,?,'organic',0,NULL,?,?)",
+        (_uuid(), _uuid(), "shouldersurf",
+         (now - timedelta(minutes=1)).isoformat(), now.isoformat()))
+    conn.commit()
+    conn.close()
+
+    _post(client, _uuid())          # the next token arrives; check runs
+
+    assert _incidents(tmp_db_path, "attribution_sweep_stalled") == [], (
+        "a healthy sweep with one unexchangeable token is not a stall")
+
+
+def test_a_stuck_row_AND_no_recent_exchange_still_alerts(client, tmp_db_path):
+    """The other half. Without it, never alerting would pass the test above
+    and be exactly as wrong, which is how the first version got shipped."""
+    stuck = _uuid()
+    _post(client, stuck)
+    _backdate_pending(tmp_db_path, stuck, minutes=40)
+
+    old = _uuid()
+    _post(client, old)
+    conn = sqlite3.connect(tmp_db_path)
+    conn.execute(
+        "UPDATE ad_attribution SET status='organic', token=NULL, exchanged_at=?"
+        " WHERE device_id=?",
+        ((datetime.now(timezone.utc) - timedelta(hours=6)).isoformat(), old))
+    conn.commit()
+    conn.close()
+
+    _post(client, _uuid())
+
+    found = _incidents(tmp_db_path, "attribution_sweep_stalled")
+    assert len(found) == 1, "nothing exchanged in 6h while a row waits IS a stall"
