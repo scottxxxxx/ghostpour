@@ -214,6 +214,16 @@ KNOWN_CATEGORIES: dict[str, dict] = {
             "while open."
         ),
     },
+    "uncapped_and_reachable": {
+        "label": "An app has NO spend ceiling and real users can reach it",
+        "description": (
+            "A flat-budget app resolved to no cap while its bundle id is in "
+            "CZ_APPLE_BUNDLE_ID, so every SIGNUP has an unlimited allowance "
+            "and an own_account_meter app has nothing behind it. Produced by "
+            "two safe-looking changes made in the wrong ORDER, never by one "
+            "bad one. Subject is the app id."
+        ),
+    },
     "attribution_sweep_stalled": {
         "label": "Apple Ads token exchange has stopped",
         "description": (
