@@ -233,7 +233,12 @@ KNOWN_CATEGORIES: dict[str, dict] = {
             "so this is a countdown rather than a backlog. Subject is the app "
             "id. Detected on the INGEST path on purpose: a dead sweep cannot "
             "report itself, and a token arriving is exactly the moment a dead "
-            "sweep starts costing something."
+            "sweep starts costing something. ⚠ Requires BOTH a waiting row AND "
+            "no recent successful exchange: a single token Apple has no record "
+            "for 404s forever by design and must not speak for the sweep. The "
+            "first version alerted on the waiting row alone and fired on a "
+            "healthy system (1 stuck row against 232 exchanged, most recent "
+            "exchange 19 seconds after arrival)."
         ),
     },
     "attribution_tokens_expired": {

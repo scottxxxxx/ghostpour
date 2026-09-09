@@ -166,10 +166,51 @@ async def oldest_pending_age_seconds(
     return (datetime.now(timezone.utc) - ts).total_seconds()
 
 
+async def newest_exchange_age_seconds(db: aiosqlite.Connection) -> float | None:
+    """Seconds since the sweep last successfully exchanged ANYTHING, or None.
+
+    This is the liveness half. An old pending row says nothing on its own: a
+    token Apple has no record for 404s forever by design and sits there while
+    a perfectly healthy sweep clears everything around it.
+    """
+    cur = await db.execute(
+        "SELECT MAX(exchanged_at) AS newest FROM ad_attribution")
+    row = await cur.fetchone()
+    newest = row["newest"] if row else None
+    if not newest:
+        return None
+    try:
+        ts = datetime.fromisoformat(newest)
+    except (TypeError, ValueError):
+        return None
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - ts).total_seconds()
+
+
 async def check_sweep_liveness(
     db: aiosqlite.Connection, app_id: str, *, from_addr: str = "alerts@noreply.invalid"
 ) -> float | None:
     """Alert if tokens are arriving and the sweep is not clearing them.
+
+    ⚠ REWRITTEN 2026-09-09 after this fired on a healthy system and nearly
+    cost a campaign launch date. The first version alerted on the age of the
+    oldest pending row alone, which CANNOT distinguish the two causes:
+
+      dead sweep            nothing is being exchanged
+      healthy sweep         one token Apple has no attribution record for,
+                            404ing every 60s by design, while everything
+                            else clears in under a minute
+
+    Measured on production: 1 stuck row against 232 exchanged, most recent
+    exchange 19 SECONDS after arrival, and the alert said "token exchange has
+    stopped". The stuck row was `app_version 1.15`, a real build, so it was
+    not even the Debug-install explanation I had offered.
+
+    The fix is the SIGNAL, not the threshold. Both conditions must hold:
+    something is waiting AND nothing has been exchanged recently. One stuck
+    row can no longer speak for the sweep, and a genuinely dead sweep still
+    trips it on the next token that arrives.
 
     ⚠ Called from the INGEST path, not from the daemon. A dead daemon cannot
     report itself, which is the whole failure this exists to catch. Ingest is
@@ -181,6 +222,15 @@ async def check_sweep_liveness(
     try:
         age = await oldest_pending_age_seconds(db, app_id)
         if age is None or age < STALE_PENDING_SECONDS:
+            return age
+        # Something is waiting. That alone is NOT a stall — see the docstring.
+        exchange_age = await newest_exchange_age_seconds(db)
+        if exchange_age is not None and exchange_age < STALE_PENDING_SECONDS:
+            logger.info(
+                "attribution_pending_but_sweep_healthy app=%s oldest_pending_s=%.0f "
+                "last_exchange_s=%.0f — a token Apple has no record for, not a stall",
+                app_id, age, exchange_age,
+            )
             return age
         from app.services.alerting import report_incident
         logger.error(
@@ -194,6 +244,8 @@ async def check_sweep_liveness(
             details={
                 "app_id": app_id,
                 "oldest_pending_age_seconds": int(age),
+                "seconds_since_last_exchange": (
+                    int(exchange_age) if exchange_age is not None else "never"),
                 "token_ttl_hours": TOKEN_TTL_HOURS,
                 "sweep_interval_seconds": SWEEP_INTERVAL_SECONDS,
             },
@@ -261,7 +313,14 @@ async def run_daemon(app) -> None:
             async with aiosqlite.connect(db_path) as db:
                 db.row_factory = aiosqlite.Row
                 counts = await sweep_pending(db)
-                if any(v for k, v in counts.items() if k != "pending"):
+                # ⚠ Log EVERY pass that had anything to do, including a pass
+                # whose entire workload was 404 retries. The old condition
+                # skipped exactly that case, so a sweep doing nothing but
+                # retrying was indistinguishable from a sweep that was not
+                # running: both produced no output at all. That silence is
+                # what made the stalled-vs-healthy question unanswerable from
+                # the logs on 2026-09-09.
+                if any(counts.values()):
                     logger.info("ad_attribution sweep %s", counts)
         except asyncio.CancelledError:
             raise
