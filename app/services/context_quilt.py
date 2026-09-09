@@ -469,6 +469,7 @@ async def capture(
     language: str | None = None,
     context_block: str | None = None,
     passthrough: dict[str, Any] | None = None,
+    recovery_source: str | None = None,
 ):
     """
     Send query+response to Context Quilt for learning. Fire-and-forget (async).
@@ -556,11 +557,20 @@ async def capture(
 
     try:
         client = _get_client()
-        auth_headers = await _get_auth_headers(app_id)
+        headers = dict(await _get_auth_headers(app_id))
+        # X-CZ-Recovery is set by the SS client on a capture that is a REPLAY
+        # of one that never landed (pending-ingest sweep, report-404 replay).
+        # Until 2026-09-09 GP read it, logged it, and dropped it here, so CQ
+        # could not tell a replayed ingest from a fresh duplicate: the
+        # to_name shape, additive at the sender, invisible at the reader,
+        # dead on the middle hop. Forwarded verbatim; CQ decides what to do
+        # with it, and until they read it this is inert.
+        if recovery_source:
+            headers["X-CZ-Recovery"] = recovery_source
         resp = await client.post(
             "/v1/memory",
             json=body,
-            headers=auth_headers,
+            headers=headers,
         )
         resp.raise_for_status()
         logger.info("cq_capture_ok", extra={"type": interaction_type})
