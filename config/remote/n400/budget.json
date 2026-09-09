@@ -13,11 +13,22 @@
     "through PUT /webhooks/admin/config/n400/budget and verify against prod.",
     "Editing this file alone does nothing to a running server.",
     "",
-    "If this document cannot be read, the gate falls back to the floor in",
-    "apps.yml rather than to no cap. Absent config must never mean unlimited."
+    "UNCAPPED (-1) on 2026-09-08. Scott: no budget limits on development",
+    "teams, and no production user can reach the N-400 lane. -1 is the",
+    "sentinel for no ceiling (app_budget.flat_cap_usd).",
+    "",
+    "The apps.yml floor is -1 too, so a failed read cannot silently",
+    "re-impose $5 and halt the dev lane. That INVERTS the old note here",
+    "about absent config never meaning unlimited: that rule guards against",
+    "an ACCIDENTAL uncap, and here unlimited is the intent.",
+    "",
+    "SAFE ONLY WHILE no real user can reach this app, which is true for one",
+    "reason: com.weirtech.n400helper is absent from CZ_APPLE_BUNDLE_ID. Add",
+    "that bundle id and leave this at -1 and every real user has unlimited",
+    "spend with no ceiling anywhere. Decide the two together."
   ],
 
-  "monthly_cost_limit_usd": 5.0,
+  "monthly_cost_limit_usd": -1,
 
   "exhausted": {
     "kind": "budget_exhausted",

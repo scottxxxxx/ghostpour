@@ -122,16 +122,49 @@ apps:
     # tests/test_per_app_config.py fails if this is ever changed to
     # `entitlement` without an entitlement axis arriving first.
     #
-    # $5.00/month approved by Scott 2026-09-01, and he expects to lower it.
-    # The VALUE lives in served config (config/remote/n400/budget.json) so it
-    # is a dashboard dial; the number here is the FLOOR used when the served
-    # document cannot be read, because for money an unreadable config must
-    # never mean unlimited. Only an explicit -1 means unlimited.
+    # ⭐ UNCAPPED, Scott 2026-09-08: "we don't want to have any budget limits
+    # on our development teams... There's no chance of a production user using
+    # the N-400 lane so we need to open it up." Was $5.00/month (approved
+    # 2026-09-01) and it stopped the auditor's work dead: ~60 test interviews
+    # on 09-06/09-07 exhausted it and nothing on that lane could run.
+    #
+    # ⚠ THE FLOOR IS DELIBERATELY -1 TOO, which INVERTS the rule that used to
+    # be written here ("for money an unreadable config must never mean
+    # unlimited"). That rule exists so a config failure cannot ACCIDENTALLY
+    # uncap. Here unlimited is the INTENT, so the old floor's only remaining
+    # effect would be to silently re-impose $5 and halt the dev lane again the
+    # next time the served document failed to load. The gate still RUNS; it
+    # simply has no ceiling. `-1` is the documented sentinel
+    # (app_budget.flat_cap_usd: `resolved = None if value == -1 else value`).
+    #
+    # ⚠⚠ THIS IS SAFE ONLY WHILE NO REAL USER CAN REACH THIS APP, and that is
+    # true for exactly one reason: `com.weirtech.n400helper` is absent from
+    # `CZ_APPLE_BUNDLE_ID`, so every real Apple identity token 401s on the
+    # audience check and every caller is the QA harness.
+    #
+    # ⚠⚠ THEY MUST MOVE IN ORDER, NOT TOGETHER. An earlier version of this
+    # comment said "decided together", which is the one instruction that does
+    # not protect anything: -1 must never be live at the same moment the
+    # audience check starts passing. **Put a sane per-user cap back BEFORE the
+    # bundle id lands.** (Corrected 2026-09-08 by fable-auditor, who also
+    # reported that Scott already holds the two commands to add that bundle
+    # id, so this is not a hypothetical ordering.)
+    #
+    # ⚠⚠ AND THE CAP IS PER USER, NOT A SHARED POT. `app_month_spend_usd` sums
+    # `WHERE user_id = ? AND app_id = ?`. With one QA identity that reads as
+    # harness headroom. The day real users can authenticate it is an unlimited
+    # allowance for EVERY SIGNUP, with nothing behind it, because
+    # `own_account_meter: true` below keeps this app off the shared account
+    # meter. `app_budget.audit_uncapped_reachable_apps` logs
+    # UNCAPPED_AND_REACHABLE at startup if this combination ever goes live.
+    #
+    # The VALUE also lives in served config (config/remote/n400/budget.json)
+    # and the served value WINS; this is the fallback when it cannot be read.
     budget:
       enabled: true
       shape: flat
       config_slug: n400/budget
-      monthly_cost_limit_usd: 5.0
+      monthly_cost_limit_usd: -1
       # Take N-400 spend OFF the shared account meter. Safe here and ONLY
       # here today: this app has a cap of its own that actually runs, so it
       # is capped rather than uncapped after leaving. See the note on
