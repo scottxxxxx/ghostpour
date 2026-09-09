@@ -166,7 +166,8 @@ async def _cq_proxy(
 
     try:
         auth_headers = await cq._get_auth_headers()
-        async with httpx.AsyncClient(base_url=settings.cq_base_url, timeout=10.0) as client:
+        async with httpx.AsyncClient(base_url=settings.cq_base_url, timeout=10.0,
+                                     transport=cq.connect_retry_transport()) as client:
             resp = await client.request(
                 method,
                 f"{path}?{query}" if query else path,
@@ -1210,7 +1211,8 @@ async def get_quilt_graph(
 
     try:
         auth_headers = await cq._get_auth_headers()
-        async with httpx.AsyncClient(base_url=settings.cq_base_url, timeout=15.0) as client:
+        async with httpx.AsyncClient(base_url=settings.cq_base_url, timeout=15.0,
+                                     transport=cq.connect_retry_transport()) as client:
             resp = await client.get(
                 f"/v1/quilt/{_subj(request, user_id)}/graph",
                 params={"format": format},

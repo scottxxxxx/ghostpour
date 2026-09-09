@@ -101,6 +101,28 @@ def _reset_auth_failure(cq_app: str) -> None:
     _auth_strikes.pop(cq_app, None)
 
 
+# Connection-establishment retries on every ContextQuilt client, shared so
+# the three construction sites (here and two in cq_proxy.py) cannot drift.
+#
+# WHY (2026-09-09, from Bifrost's edge logs, not inferred): on the public
+# hostname nginx re-proxied a failed upstream connect for up to ~49s, which
+# quietly absorbed every CQ container swap (113 hairpin 502s in three weeks,
+# none of which reached a phone). GhostPour had NO retry of its own. Moving
+# to the internal container network removes the edge from the hop, so a CQ
+# deploy would surface instantly as connection refused.
+#
+# httpx retries ONLY connection establishment (refused, reset, connect
+# timeout), never a request that was actually sent, so it is safe on POST:
+# a retried request is one CQ never received. Backoff is 0, 0.5, 1, 2s, so
+# three retries cover roughly a container swap and nothing longer; a real
+# outage should reach cq_recall_degraded rather than be held at the client.
+CQ_CONNECT_RETRIES = 3
+
+
+def connect_retry_transport() -> httpx.AsyncHTTPTransport:
+    return httpx.AsyncHTTPTransport(retries=CQ_CONNECT_RETRIES)
+
+
 def _get_client() -> httpx.AsyncClient:
     global _client
     if _client is None:
@@ -108,6 +130,7 @@ def _get_client() -> httpx.AsyncClient:
         _client = httpx.AsyncClient(
             base_url=settings.cq_base_url,
             timeout=httpx.Timeout(5.0),  # General timeout; recall uses its own
+            transport=connect_retry_transport(),
         )
     return _client
 
