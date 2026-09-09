@@ -170,6 +170,31 @@ async def lifespan(app: FastAPI):
         len(app.state.app_versions), settings.app_versions_path,
     )
 
+    # ⚠⚠ Uncapped AND reachable is the one combination that must never ship,
+    # and it is produced by two safe-looking changes made in the wrong ORDER
+    # rather than by one bad change (2026-09-08). Uncapping a tenant is safe
+    # while no real user can authenticate to it; adding its bundle id to the
+    # audience allowlist is safe while it is capped. Do either second and
+    # every SIGNUP gets an unlimited allowance, because the flat cap is
+    # per-user and an `own_account_meter` app has nothing behind it.
+    # Loud at startup rather than left to a comment somebody has to remember.
+    try:
+        from app.routers.config import load_apps as _load_apps_for_audit
+        from app.services.app_budget import audit_uncapped_reachable_apps
+        for _v in audit_uncapped_reachable_apps(
+                app.state.remote_configs, _load_apps_for_audit(),
+                settings.apple_bundle_id):
+            logging.getLogger("app.main").error(
+                "UNCAPPED_AND_REACHABLE app=%s bundle_id=%s own_account_meter=%s "
+                "— this app has NO spend ceiling and its bundle id now passes "
+                "the audience check, so every signup has an unlimited "
+                "allowance. Set a per-user cap or remove the bundle id.",
+                _v["app_id"], _v["bundle_id"], _v["own_account_meter"],
+            )
+    except Exception as _e:  # noqa: BLE001 — an audit must never block boot
+        logging.getLogger("app.main").warning(
+            "uncapped_reachable_audit failed (non-fatal): %s", _e)
+
     # Register feature hooks
     feature_hooks: dict[str, object] = {}
     if settings.cq_base_url:

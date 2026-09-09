@@ -140,11 +140,23 @@ apps:
     # ⚠⚠ THIS IS SAFE ONLY WHILE NO REAL USER CAN REACH THIS APP, and that is
     # true for exactly one reason: `com.weirtech.n400helper` is absent from
     # `CZ_APPLE_BUNDLE_ID`, so every real Apple identity token 401s on the
-    # audience check and every caller is the QA harness. **Adding that bundle
-    # id and leaving this at -1 gives every real N-400 user unlimited spend
-    # with no ceiling anywhere**, because `own_account_meter: true` below also
-    # keeps this app off the shared account meter. The two items are on
-    # Scott's list together and must be decided together.
+    # audience check and every caller is the QA harness.
+    #
+    # ⚠⚠ THEY MUST MOVE IN ORDER, NOT TOGETHER. An earlier version of this
+    # comment said "decided together", which is the one instruction that does
+    # not protect anything: -1 must never be live at the same moment the
+    # audience check starts passing. **Put a sane per-user cap back BEFORE the
+    # bundle id lands.** (Corrected 2026-09-08 by fable-auditor, who also
+    # reported that Scott already holds the two commands to add that bundle
+    # id, so this is not a hypothetical ordering.)
+    #
+    # ⚠⚠ AND THE CAP IS PER USER, NOT A SHARED POT. `app_month_spend_usd` sums
+    # `WHERE user_id = ? AND app_id = ?`. With one QA identity that reads as
+    # harness headroom. The day real users can authenticate it is an unlimited
+    # allowance for EVERY SIGNUP, with nothing behind it, because
+    # `own_account_meter: true` below keeps this app off the shared account
+    # meter. `app_budget.audit_uncapped_reachable_apps` logs
+    # UNCAPPED_AND_REACHABLE at startup if this combination ever goes live.
     #
     # The VALUE also lives in served config (config/remote/n400/budget.json)
     # and the served value WINS; this is the fallback when it cannot be read.

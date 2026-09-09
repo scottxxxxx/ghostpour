@@ -14,6 +14,7 @@ not just the behaviour:
     unlimited.
 """
 
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
@@ -319,14 +320,45 @@ def _chat_body():
     return chat_request(user_content="When did you become a permanent resident?")
 
 
+@contextmanager
+def _served_n400_cap(client, cap):
+    """Give the running app a served n400 cap for the duration of a test.
+
+    ⚠ Written 2026-09-08 because this test used to lean on the apps.yml FLOOR
+    being a number. When the floor went to -1 (uncapped dev lane) the test
+    broke, and it broke ONLY IN CI: a local config overlay supplies a served
+    number, so the local suite stayed green while CI, which has no overlay,
+    read the floor and failed. See [[reference_local_overlay_shadows_tests]].
+    The invariant here is "a cap that EXISTS stops an over-cap call", which
+    should not depend on what the shipped default happens to be.
+    """
+    prev = client.app.state.remote_configs
+    client.app.state.remote_configs = {
+        **prev,
+        "n400/budget": {
+            "version": 1,
+            "monthly_cost_limit_usd": cap,
+            "exhausted": {"kind": "budget_exhausted",
+                          "text": {"en": "Allowance used.",
+                                   "es": "Asignacion usada.",
+                                   "pt": "Cota usada."}},
+        },
+    }
+    try:
+        yield
+    finally:
+        client.app.state.remote_configs = prev
+
+
 @pytest.mark.asyncio
 async def test_an_over_cap_n400_call_is_stopped_on_the_route(
         client, free_user, tmp_db_path):
     """The whole point, end to end: over the cap, N-400 gets the stop
     envelope rather than a model call."""
     _seed_spend(tmp_db_path, free_user["user_id"], "n400", 99.0)
-    r = client.post("/v1/chat", json=_chat_body(),
-                    headers={**free_user["headers"], "X-App-ID": "n400"})
+    with _served_n400_cap(client, 50.0):
+        r = client.post("/v1/chat", json=_chat_body(),
+                        headers={**free_user["headers"], "X-App-ID": "n400"})
     assert r.status_code == 200, r.text
     state = r.json()["feature_state"]
     assert state["budget_exhausted"] is True
@@ -349,4 +381,79 @@ async def test_the_same_spend_does_not_stop_shouldersurf(
     _seed_spend(tmp_db_path, free_user["user_id"], "n400", 99.0)
     r = client.post("/v1/chat", json=_chat_body(),
                     headers={**free_user["headers"], "X-App-ID": "shouldersurf"})
+    assert (r.json().get("feature_state") or {}).get("budget_exhausted") is not True
+
+
+# --- uncapped AND reachable: the combination nobody should ship -------------
+# 2026-09-08. Uncapping N-400 is safe only while no real user can authenticate
+# to it, which is true only because com.weirtech.n400helper is absent from
+# CZ_APPLE_BUNDLE_ID. The auditor pointed out that "move both together" is the
+# WRONG instruction: they must move in ORDER, because -1 must never be live at
+# the same moment the audience check starts passing.
+
+_REACH = "com.shouldersurf.ShoulderSurf,com.weirtech.techrehearsal"
+_REACH_N400 = _REACH + ",com.weirtech.n400helper"
+
+
+def test_uncapped_but_unreachable_is_the_healthy_state():
+    """Today: N-400 has no ceiling and no real user can sign in. Fine."""
+    assert app_budget.audit_uncapped_reachable_apps(
+        {}, load_apps(), _REACH) == []
+
+
+def test_uncapped_and_reachable_is_reported():
+    """The moment the bundle id lands while the cap is -1, every SIGNUP has an
+    unlimited allowance, because the cap is per-user and this app is off the
+    shared account meter."""
+    found = app_budget.audit_uncapped_reachable_apps(
+        {}, load_apps(), _REACH_N400)
+    assert [v["app_id"] for v in found] == ["n400"]
+    assert found[0]["bundle_id"] == "com.weirtech.n400helper"
+    assert found[0]["own_account_meter"] is True
+
+
+def test_a_capped_app_is_not_reported_even_when_reachable():
+    """This is the SAFE ordering: cap first, then add the bundle id. If this
+    ever fails, the audit is crying wolf and will be ignored when it matters."""
+    served = {"n400/budget": {"version": 1, "monthly_cost_limit_usd": 50.0}}
+    assert app_budget.audit_uncapped_reachable_apps(
+        served, load_apps(), _REACH_N400) == []
+
+
+def test_apps_without_a_flat_budget_are_not_reported():
+    """ShoulderSurf is reachable and has no flat budget block. It is on the
+    shared account meter, which is a different mechanism, and must not be
+    swept up here."""
+    found = app_budget.audit_uncapped_reachable_apps({}, load_apps(), _REACH)
+    assert "shouldersurf" not in [v["app_id"] for v in found]
+
+
+def test_no_allowlist_reports_nothing():
+    """An empty CZ_APPLE_BUNDLE_ID means nothing can authenticate at all."""
+    assert app_budget.audit_uncapped_reachable_apps({}, load_apps(), "") == []
+    assert app_budget.audit_uncapped_reachable_apps({}, load_apps(), None) == []
+
+
+@pytest.mark.asyncio
+async def test_the_shipped_uncapped_lane_does_not_stop_anything(
+        client, free_user, tmp_db_path):
+    """The other half, and the one that pins Scott's 2026-09-08 ruling end to
+    end: with the SHIPPED config (no served doc, floor -1) a spend that would
+    blow past any sane cap sails through, because the dev lane has no ceiling.
+
+    Paired with the test above deliberately. That one proves a cap works; this
+    one proves the shipped default is not one. Either alone would let the lane
+    be silently re-capped or silently ungateable without a test noticing.
+    """
+    _seed_spend(tmp_db_path, free_user["user_id"], "n400", 9999.0)
+    rc = dict(client.app.state.remote_configs)
+    rc.pop("n400/budget", None)
+    prev = client.app.state.remote_configs
+    client.app.state.remote_configs = rc
+    try:
+        r = client.post("/v1/chat", json=_chat_body(),
+                        headers={**free_user["headers"], "X-App-ID": "n400"})
+    finally:
+        client.app.state.remote_configs = prev
+    assert r.status_code == 200, r.text
     assert (r.json().get("feature_state") or {}).get("budget_exhausted") is not True

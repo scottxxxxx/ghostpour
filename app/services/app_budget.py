@@ -128,6 +128,56 @@ def flat_cap_usd(remote_configs: dict | None, apps_registry: dict,
     return None
 
 
+def audit_uncapped_reachable_apps(
+    remote_configs: dict | None,
+    apps_registry: dict,
+    apple_bundle_id: str | None,
+) -> list[dict]:
+    """Apps that have NO spend ceiling AND whose bundle id can now sign in.
+
+    ⚠ This is the combination nobody should ever ship, and it is created by
+    two SAFE-LOOKING changes made in the wrong order rather than by one bad
+    one. Uncapping a tenant is safe while it is unreachable; adding a bundle
+    id to the audience allowlist is safe while that tenant is capped. Do
+    either second and you have unlimited spend PER SIGNUP.
+
+    ⚠⚠ PER SIGNUP, not per app. `app_month_spend_usd` sums
+    `WHERE user_id = ? AND app_id = ?`, so the cap is a ceiling for each
+    person individually, never a shared pot. With one QA identity that reads
+    as harness headroom. The day real users can authenticate it becomes an
+    unlimited allowance for every one of them, and for an app with
+    `own_account_meter` there is nothing behind it: the shared account meter
+    it was taken off is not there to catch the overflow.
+
+    Returns one entry per violating app. Empty is the healthy state.
+    """
+    allowed = {b.strip() for b in (apple_bundle_id or "").split(",") if b.strip()}
+    if not allowed:
+        return []
+
+    found: list[dict] = []
+    # The registry nests apps under an `apps` key; iterating the top level
+    # walks {'apps': ...} and silently finds nothing. `app_entry` is the
+    # accessor that knows this, and the first draft here did not use it.
+    for app_id, entry in ((apps_registry or {}).get("apps") or {}).items():
+        if not isinstance(entry, dict):
+            continue
+        bundle_id = entry.get("bundle_id")
+        if not bundle_id or bundle_id not in allowed:
+            continue
+        cfg = budget_config(apps_registry, app_id)
+        if not cfg.get("enabled") or cfg.get("shape") != SHAPE_FLAT:
+            continue
+        if flat_cap_usd(remote_configs, apps_registry, app_id) is not None:
+            continue
+        found.append({
+            "app_id": app_id,
+            "bundle_id": bundle_id,
+            "own_account_meter": bool(cfg.get("own_account_meter")),
+        })
+    return found
+
+
 def _month_start_iso() -> str:
     now = datetime.now(timezone.utc)
     return now.replace(day=1, hour=0, minute=0, second=0,
