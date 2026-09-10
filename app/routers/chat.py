@@ -151,6 +151,7 @@ from app.models.user import UserRecord
 from app.services import context_quilt as cq
 from app.services import receipt_verification
 from app.services.allocation_reset import compute_next_reset, lazy_reset_if_due
+from app.services.locale_injection import output_language_subtag
 from app.services.entitlements import entitlement_state, resolved_features
 
 router = APIRouter()
@@ -3654,6 +3655,7 @@ async def chat(
             search_state,
             upsell_line=_gen_upsell_line,
             teaser_state=_teaser_state,
+            output_locale=_output_locale,
         )
 
     # --- Non-streaming path (original) ---
@@ -4575,6 +4577,16 @@ async def chat(
                 _go_attach.attach_answer(
                     user.id, _gen_teaser_offer_id, response_data["text"])
 
+        # The language GP DIRECTED, as a BCP-47 primary subtag, or None when
+        # no directive was sent (English or missing locale). None is not
+        # reported as "en" on purpose: with no directive the served recipe
+        # says "write in the language the participants speak", so an English
+        # phone with a Spanish meeting gets Spanish, and a field claiming "en"
+        # there would be a status field that lies. SS stamps every generated
+        # artifact with this so it knows which rendition still owes
+        # (translation redesign, 2026-09-09). Streaming carries the same key
+        # on its "done" event.
+        response_data["output_language"] = output_language_subtag(_output_locale)
         json_response = JSONResponse(content=response_data)
 
         # Surface the output-language injection so a Spanish end-to-end run can be
@@ -4942,6 +4954,7 @@ async def _handle_stream(
     search_state: dict | None = None,
     upsell_line: str | None = None,
     teaser_state: dict | None = None,
+    output_locale: str | None = None,
 ):
     """SSE streaming path for interactive chat queries.
 
@@ -5212,6 +5225,8 @@ async def _handle_stream(
             "cost": final_response.cost if final_response else None,
             "usage": final_response.usage if final_response else None,
             "ai_tier": tier_to_ai_tier(user.effective_tier),
+            # Same contract as the JSON body: the directed language or None.
+            "output_language": output_language_subtag(output_locale),
         }
         # Why the model stopped, normalised to one word (TR ask, 2026-08-07).
         # It was already on the wire inside `usage.finish_reason`, but the

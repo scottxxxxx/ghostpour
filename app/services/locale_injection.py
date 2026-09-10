@@ -72,6 +72,15 @@ def language_directive(locale: str | None) -> str | None:
     )
 
 
+def output_language_subtag(output_locale: str | None) -> str | None:
+    """What GP tells the client it directed: the BCP-47 primary subtag of the
+    locale the directive was built for ("es-mx" -> "es"), or None when no
+    directive was sent. Never "en" by inference: with no directive the model
+    follows the served recipe, which names the transcript's language."""
+    loc = normalize_locale(output_locale)
+    return _base_lang(loc) if loc else None
+
+
 def apply(system_prompt: str, locale: str | None) -> str:
     """Return `system_prompt` with the language directive appended when needed.
     A no-op (returns the prompt unchanged) for English or missing locales."""
