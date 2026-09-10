@@ -87,6 +87,9 @@ ACCOUNT_TABLES = [
     # A deleted account must never receive a queued welcome letter.
     "welcome_email_queue",
     "subscription_events",
+    # One row per Apple subscription (2026-09-10); Apple issues subscriptions
+    # per developer team, so like the events it is a property of the account.
+    "subscription_status",
     # Config test-audience membership. Kept for audit while the account
     # lives (retiring sets active=0 rather than deleting), but a deleted
     # account cannot be a tester, and holding their id afterwards would
