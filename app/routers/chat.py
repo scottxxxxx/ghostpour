@@ -2228,6 +2228,44 @@ async def chat(
         _flat_cap = app_budget.flat_cap_usd(
             request.app.state.remote_configs, load_apps(), app_id,
         )
+        # ⚠ NO CEILING PLUS A REACHABLE BUNDLE ID IS REFUSED, NOT SERVED.
+        # `_flat_cap is None` inside this branch means the gate has no ceiling
+        # to enforce: either an explicit -1, or a served document that could
+        # not be read. Both are fine while no real identity can authenticate
+        # to this app. Neither is fine the moment one can, because the cap is
+        # PER SIGNUP and an app with `own_account_meter` has nothing behind it.
+        # The alternative to refusing is inventing a number, and the reasons
+        # not to are in app_budget.refuse_uncapped_reachable.
+        if _flat_cap is None:
+            _uncapped = app_budget.refuse_uncapped_reachable(
+                request.app.state.remote_configs, load_apps(), app_id,
+                get_settings().apple_bundle_id,
+            )
+            if _uncapped:
+                logger.error(
+                    "app_budget_refused_uncapped_reachable app=%s bundle_id=%s "
+                    "user=%s — refusing to serve a call with no spend ceiling "
+                    "while this app's bundle id passes the audience check",
+                    _uncapped["app_id"], _uncapped["bundle_id"], user.id,
+                )
+                # Idempotent per (category, subject) while the incident is
+                # open, so boot, the config write and this path raise ONE
+                # incident between them rather than one each.
+                await app_budget.report_uncapped_reachable(
+                    db, request.app.state.remote_configs, load_apps(),
+                    get_settings().apple_bundle_id,
+                    from_addr=get_settings().alert_email_from,
+                )
+                raise HTTPException(status_code=503, detail={
+                    "code": "app_spend_gate_misconfigured",
+                    "app": _uncapped["app_id"],
+                    "message": (
+                        "This app has no spend ceiling and its bundle id now "
+                        "passes the audience check. Serving calls in that "
+                        "state gives every signup an unlimited allowance, so "
+                        "they are refused until a per-user cap is set."
+                    ),
+                })
         _flat_estimate = None
         if pricing.is_loaded:
             _flat_estimate = estimate_call_cost_usd(

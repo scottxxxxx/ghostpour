@@ -224,6 +224,53 @@ async def report_uncapped_reachable(
         return []
 
 
+def refuse_uncapped_reachable(
+    remote_configs: dict | None,
+    apps_registry: dict,
+    app_id: str | None,
+    apple_bundle_id: str | None,
+) -> dict | None:
+    """This app's violation entry when it has NO ceiling AND its bundle id
+    passes the audience check, else None. A caller holding an entry must
+    REFUSE the call rather than serve it.
+
+    ⚠ WHY REFUSE RATHER THAN SUBSTITUTE A CEILING. There is nothing to fall
+    back to. The floor in apps.yml for the only app in this state is itself
+    -1, deliberately, so a fallback to the floor resolves to unlimited and the
+    guard reads as configured while gating nothing, which is the exact shape
+    this file already warns about for entitlement-keying. A constant in code
+    is worse: a number nobody chose, drifting from what the app is worth,
+    which would one day meter a real user at whatever last year's guess was.
+    Refusing states what has actually happened, which is that the
+    configuration is in a state the operator said must never exist.
+
+    ⚠ THIS DOES NOT OVERRIDE THE UNCAPPING. Scott's 2026-09-08 ruling is
+    quoted in apps.yml and carries its own premise: "There's no chance of a
+    production user using the N-400 lane so we need to open it up." This
+    re-imposes a stop at the moment that premise stops holding, which is the
+    condition the ruling was granted under rather than a reversal of it.
+
+    ⚠ PREVENTION, NOT DETECTION, AND BOTH ARE WANTED. `report_uncapped_reachable`
+    already raises an incident from boot and from the admin config write, so
+    the pair is not silent today. An alert tells an operator to go and fix
+    something; it does nothing about the requests served in the minutes before
+    anyone reads it. This closes those minutes.
+
+    The forbidden state is defined ONCE, in `audit_uncapped_reachable_apps`.
+    This filters that to a single app rather than restating the rule, because
+    two statements of one invariant drift and then disagree in the case
+    nobody tested.
+    """
+    norm = (app_id or "").strip().lower()
+    if not norm:
+        return None
+    for violation in audit_uncapped_reachable_apps(
+            remote_configs, apps_registry, apple_bundle_id):
+        if violation["app_id"] == norm:
+            return violation
+    return None
+
+
 def _month_start_iso() -> str:
     now = datetime.now(timezone.utc)
     return now.replace(day=1, hour=0, minute=0, second=0,

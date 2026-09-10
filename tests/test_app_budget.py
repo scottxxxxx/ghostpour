@@ -493,3 +493,92 @@ async def test_the_safe_state_raises_nothing(tmp_db_path):
         rows = await (await db.execute(
             "SELECT * FROM alert_incidents")).fetchall()
     assert rows == []
+
+
+# --- refusing the forbidden pair, rather than only alerting on it -----------
+#
+# 2026-09-10. `report_uncapped_reachable` already raises an incident from boot
+# and from the admin config write, so the pair is not silent. But an alert
+# tells an operator to go and fix something; it does nothing about the calls
+# served in the minutes before anyone reads it, and the cap is PER SIGNUP.
+# These pin the refusal, and just as importantly they pin that it stays OFF in
+# the state we are actually shipping tonight (uncapped and unreachable).
+
+def test_refusal_fires_on_the_forbidden_pair():
+    assert app_budget.refuse_uncapped_reachable(
+        {}, load_apps(), "n400", _REACH_N400)["app_id"] == "n400"
+
+
+def test_refusal_stays_off_while_the_app_is_unreachable():
+    """TONIGHT'S SHIPPING STATE. The dev lane is uncapped on purpose and the
+    bundle id is absent, so nothing may be refused. If this ever fails, the
+    guard has taken the dev lane down for the reason it was built to avoid."""
+    assert app_budget.refuse_uncapped_reachable(
+        {}, load_apps(), "n400", _REACH) is None
+
+
+def test_refusal_stays_off_when_a_cap_exists():
+    """The SAFE ordering, cap first then bundle id, must not be refused."""
+    served = {"n400/budget": {"version": 1, "monthly_cost_limit_usd": 50.0}}
+    assert app_budget.refuse_uncapped_reachable(
+        served, load_apps(), "n400", _REACH_N400) is None
+
+
+def test_refusal_is_scoped_to_the_offending_app():
+    """ShoulderSurf is reachable and must keep serving while N-400 is refused.
+    A guard that took down every app would pass the first test here and be far
+    worse than the state it protects against."""
+    assert app_budget.refuse_uncapped_reachable(
+        {}, load_apps(), "shouldersurf", _REACH_N400) is None
+
+
+@pytest.mark.parametrize("app_id", ["N400", " n400 ", "N400 "])
+def test_refusal_normalises_the_app_id_the_way_the_registry_does(app_id):
+    """The header is client-supplied. A guard that missed "N400" would be a
+    guard anyone could walk past by changing one character."""
+    assert app_budget.refuse_uncapped_reachable(
+        {}, load_apps(), app_id, _REACH_N400) is not None
+
+
+@pytest.mark.parametrize("app_id", [None, ""])
+def test_no_app_id_is_not_refused(app_id):
+    assert app_budget.refuse_uncapped_reachable(
+        {}, load_apps(), app_id, _REACH_N400) is None
+
+
+@pytest.mark.asyncio
+async def test_the_route_refuses_the_forbidden_pair(client, free_user, monkeypatch):
+    """On the wire, because the module test above would not notice if the
+    guard were never wired into the handler."""
+    from app.config import get_settings
+    settings = get_settings()
+    monkeypatch.setattr(settings, "apple_bundle_id", _REACH_N400, raising=False)
+    prev = client.app.state.remote_configs
+    client.app.state.remote_configs = {**prev, "n400/budget":
+                                       {"version": 1, "monthly_cost_limit_usd": -1}}
+    try:
+        r = client.post("/v1/chat", json=_chat_body(),
+                        headers={**free_user["headers"], "X-App-ID": "n400"})
+    finally:
+        client.app.state.remote_configs = prev
+    assert r.status_code == 503, r.text
+    assert r.json()["detail"]["code"] == "app_spend_gate_misconfigured"
+
+
+@pytest.mark.asyncio
+async def test_the_route_still_serves_the_uncapped_unreachable_lane(
+        client, free_user, monkeypatch):
+    """The pair with the test above, and the one that protects the dev lane:
+    uncapped is fine while unreachable, so this must NOT be a 503."""
+    from app.config import get_settings
+    settings = get_settings()
+    monkeypatch.setattr(settings, "apple_bundle_id", _REACH, raising=False)
+    prev = client.app.state.remote_configs
+    client.app.state.remote_configs = {**prev, "n400/budget":
+                                       {"version": 1, "monthly_cost_limit_usd": -1}}
+    try:
+        r = client.post("/v1/chat", json=_chat_body(),
+                        headers={**free_user["headers"], "X-App-ID": "n400"})
+    finally:
+        client.app.state.remote_configs = prev
+    assert r.status_code != 503, r.text
