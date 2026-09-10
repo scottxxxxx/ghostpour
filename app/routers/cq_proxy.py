@@ -409,6 +409,7 @@ async def capture_transcript(
             user_label=body.get_meta("user_label"),
             identification_source=body.get_meta("identification_source"),
             subscription_tier=user.effective_tier,
+            recovery_source=recovery_source,
             # Client metadata now rides the allowlist rather than being
             # enumerated field by field here AND again inside capture().
             # Adding a key is one edit to CAPTURE_METADATA_ALLOWLIST; before
