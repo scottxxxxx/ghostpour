@@ -454,6 +454,43 @@ MIGRATIONS = [
     # offer_id on /v1/verify-receipt; "which accounts redeemed from the email
     # offer" = GET /webhooks/admin/subscriptions/redemptions.
     "ALTER TABLE subscription_events ADD COLUMN offer_id TEXT",
+    # 2026-09-10: what Apple ACTUALLY said about the transaction, beside the
+    # list-price bookkeeping in price_usd. Scott asked why the dashboard
+    # showed $34.97 MRR when no Production subscription had ever been
+    # charged; Apple's notification history showed every transaction was a
+    # FREE_TRIAL or an offer code at price 0, while GP had recorded 9.99 on
+    # each one. price_paid is the storefront amount (Apple sends milliunits;
+    # stored as a decimal), currency its ISO code, offer_type Apple's 1..4,
+    # offer_discount_type FREE_TRIAL|PAY_AS_YOU_GO|PAY_UP_FRONT, and
+    # auto_renew_status the renewal-info flag (0 = the user has cancelled).
+    "ALTER TABLE subscription_events ADD COLUMN price_paid REAL",
+    "ALTER TABLE subscription_events ADD COLUMN currency TEXT",
+    "ALTER TABLE subscription_events ADD COLUMN offer_type INTEGER",
+    "ALTER TABLE subscription_events ADD COLUMN offer_discount_type TEXT",
+    "ALTER TABLE subscription_events ADD COLUMN auto_renew_status INTEGER",
+    # One row per subscription (Apple's originalTransactionId), refreshed
+    # from Apple's subscription-status endpoint and from each notification
+    # as it arrives. The dashboard's per-subscriber truth: trialing or
+    # paying, auto-renew on or off, what the current period cost.
+    """CREATE TABLE IF NOT EXISTS subscription_status (
+        original_transaction_id TEXT PRIMARY KEY,
+        user_id TEXT,
+        product_id TEXT,
+        tier TEXT,
+        environment TEXT,
+        status INTEGER,                 -- Apple: 1 active, 2 expired, 3 billing retry, 4 grace, 5 revoked
+        auto_renew_status INTEGER,      -- 1 on, 0 off (cancelled), NULL unknown
+        offer_type INTEGER,
+        offer_discount_type TEXT,
+        price_paid REAL,                -- the CURRENT period's charge, storefront currency
+        currency TEXT,
+        expires_at TEXT,
+        paid_ever INTEGER NOT NULL DEFAULT 0,   -- any known transaction with price_paid > 0
+        transaction_id TEXT,
+        checked_at TEXT NOT NULL,
+        source TEXT NOT NULL            -- apple_status|assn|verify_receipt
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_sub_status_user ON subscription_status(user_id)",
     "CREATE INDEX IF NOT EXISTS idx_sub_events_offer ON subscription_events(offer_id) WHERE offer_id IS NOT NULL",
     # Denormalized caches on users for the offer-code eligibility hot path
     # (never-subscribed targeting) and fast dashboard reads. Source of truth is

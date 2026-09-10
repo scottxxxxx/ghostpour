@@ -143,6 +143,7 @@ async def get_subscription_state(original_transaction_id: str) -> dict | None:
     environment = body.get("environment", get_settings().app_store_environment)
     # Find the most relevant lastTransaction across subscription groups.
     best = None
+    transactions: list[dict] = []
     for group in body.get("data", []):
         for last in group.get("lastTransactions", []):
             status = last.get("status")
@@ -153,11 +154,24 @@ async def get_subscription_state(original_transaction_id: str) -> dict | None:
                     txn = decode_and_verify_jws(signed, get_settings().apple_bundle_id)
                 except AppleJWSError as e:
                     logger.warning("Could not decode signedTransactionInfo: %s", e)
+            renewal = {}
+            signed_r = last.get("signedRenewalInfo")
+            if isinstance(signed_r, str):
+                try:
+                    renewal = decode_and_verify_jws(signed_r, get_settings().apple_bundle_id)
+                except AppleJWSError as e:
+                    logger.warning("Could not decode signedRenewalInfo: %s", e)
+            # 2026-09-10: what Apple ACTUALLY said about money and renewal.
+            from app.services.subscriptions import money_fields_from_apple
+            money = money_fields_from_apple(txn, renewal)
+            transactions.append({"transaction_id": txn.get("transactionId"), **money})
             cand = {
                 "status": status,
                 "product_id": txn.get("productId"),
                 "expires_at": _ms_to_iso(txn.get("expiresDate")),
                 "original_purchase_date": _ms_to_iso(txn.get("originalPurchaseDate")),
+                "transaction_id": txn.get("transactionId"),
+                **money,
             }
             # Prefer an entitled status if any group is active.
             if best is None or (status in _ENTITLED_STATUSES and best["status"] not in _ENTITLED_STATUSES):
@@ -174,4 +188,14 @@ async def get_subscription_state(original_transaction_id: str) -> dict | None:
         "original_purchase_date": best.get("original_purchase_date"),
         "environment": environment,
         "original_transaction_id": original_transaction_id,
+        # Additive (2026-09-10): the money and renewal truth for the current
+        # period, plus every lastTransaction Apple returned, so a caller can
+        # backfill events by transaction id.
+        "transaction_id": best.get("transaction_id"),
+        "price_paid": best.get("price_paid"),
+        "currency": best.get("currency"),
+        "offer_type": best.get("offer_type"),
+        "offer_discount_type": best.get("offer_discount_type"),
+        "auto_renew_status": best.get("auto_renew_status"),
+        "transactions": transactions,
     }

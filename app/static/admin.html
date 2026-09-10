@@ -778,11 +778,21 @@
       </div>
     </div>
     <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px"><strong style="color:var(--accent)">Not affected by the app filter.</strong> Apple issues subscriptions per developer TEAM, so a subscription belongs to the account rather than to one app. These numbers are always every app together, whatever is selected above.</p>
-    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Bookkeeping from the append-only subscription event log (users hold only the current tier). "Ever subscribed" feeds offer-code eligibility. MRR is list price; net is after Apple's 15% cut. Reconcile pulls Apple's authoritative state and fixes drift — dormant until the App Store Server API key is provisioned.</p>
+    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Money is recognised only where Apple reported a non-zero charge for the current period. A free trial or an offer code is not revenue, whatever tier it unlocks. "Refresh from Apple" pulls each subscription's status (trial, offer, auto-renew on or off, price) straight from Apple's subscription-status endpoint; Reconcile fixes tier drift.</p>
     <div class="cards" id="sub-kpis"></div>
+    <div class="card" style="padding:16px;margin-top:16px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+        <h4 style="margin:0">Subscribers, as Apple sees them</h4>
+        <span id="sub-truth-checked" style="color:var(--text-dim);font-size:12px"></span>
+        <button class="btn" style="margin-left:auto" onclick="refreshSubsFromApple()">Refresh from Apple</button>
+      </div>
+      <div class="table-wrap"><table id="sub-truth-table"><thead><tr>
+        <th>User</th><th>Tier</th><th>State</th><th>Auto-renew</th><th>Offer</th><th>This period</th><th>Period ends</th><th>Env</th><th>Paid ever</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px;margin-top:16px">
       <div class="card" style="padding:16px;grid-column:span 2">
-        <h4 style="margin:0 0 8px">MRR run-rate <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— daily, at list price; net line is after Apple's 15%. Trials and offer periods count until they lapse</span></h4>
+        <h4 style="margin:0 0 8px">Run-rate if every trial and offer converted <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">daily, at list price; net line is after Apple's 15%. Trials and offer periods count until they lapse. This is NOT recognised revenue; see the headline cards</span></h4>
         <div id="sub-chart-mrr"></div>
       </div>
       <div class="card" style="padding:16px;grid-column:span 2"><h4 style="margin:0 0 8px">Active subscribers by tier (month-end)</h4><div id="sub-chart-active"></div></div>
@@ -1116,14 +1126,25 @@ function _renderSubscriptions(rep, events) {
     env.sandbox ? `${env.sandbox} TestFlight` : null,
     env.unknown ? `${env.unknown} unclassified` : null,
   ].filter(Boolean).join(' + ');
+  // What Apple actually said (2026-09-10). The headline is recognised
+  // money: a non-zero charge on the current period, Production only. The
+  // list-price run-rate keeps its own card, labelled as a projection.
+  const t = rep.truth || {};
+  const recv = Object.entries(t.received_to_date || {}).map(([c, v]) => `${c} ${v.toLocaleString()}`).join(', ') || 'none';
+  const runRate = '$' + (s.current_mrr_gross_usd || 0).toLocaleString();
   document.getElementById('sub-kpis').innerHTML = [
-    {label: 'Paid now (production)', value: (s.paid_now || 0).toLocaleString(), hint: tierStr},
+    {label: 'Paying now (production)', value: (t.paying_now || 0).toLocaleString(),
+     hint: t.paying_now ? 'non-zero charge on the current period' : 'nobody has been charged yet'},
+    {label: 'Recognised MRR', value: '$' + (t.mrr_recognized_usd || 0).toLocaleString(),
+     hint: `net $${(t.mrr_recognized_net_usd || 0).toLocaleString()} after Apple's 15%`},
+    {label: 'Received to date', value: recv, hint: 'sum of charges Apple reported, by currency'},
+    {label: 'Trialing', value: ((t.trialing_auto_renew_on || 0) + (t.trialing_cancelled || 0)).toLocaleString(),
+     hint: `${t.trialing_auto_renew_on || 0} auto-renew on, ${t.trialing_cancelled || 0} cancelled (will lapse)`},
+    {label: 'On an offer code', value: (t.on_offer || 0).toLocaleString(), hint: 'friends and family, price 0'},
+    {label: 'Run-rate if all converted', value: runRate,
+     hint: `${tierStr}; list price, trials and offers included. Not revenue`},
+    {label: 'Trials lapsed', value: (t.trials_lapsed || 0).toLocaleString(), hint: 'cancelled or expired without a charge'},
     {label: 'Ever subscribed', value: (s.ever_subscribed || 0).toLocaleString(), hint: 'feeds offer-code eligibility'},
-    {label: 'Current MRR (gross)', value: '$' + (s.current_mrr_gross_usd || 0).toLocaleString(), hint: 'production only'},
-    {label: 'Current MRR (net)', value: '$' + (s.current_mrr_net_usd || 0).toLocaleString(), hint: "after Apple's 15%"},
-    {label: 'Not counted', value: ((env.sandbox || 0) + (env.unknown || 0)).toLocaleString(),
-     hint: excluded ? excluded + ' — excluded from MRR' : 'none'},
-    {label: 'Events logged', value: (s.total_events || 0).toLocaleString()},
   ].map(c => `
     <div class="card">
       <div class="card-label">${c.label}</div>
@@ -1208,10 +1229,57 @@ function _renderSubscriptions(rep, events) {
     return `<tr><td>${m.month}</td><td>${m.active_total}</td><td>${bt}</td><td>${m.new_subscriptions}</td><td>${m.churns}</td><td>$${m.gross_usd.toFixed(2)}</td><td>$${m.net_usd.toFixed(2)}</td></tr>`;
   }).join('') || '<tr><td colspan="7" style="color:var(--text-dim)">No data yet</td></tr>';
 
+  _renderSubscriberTruth(rep.truth || {});
   const et = document.querySelector('#sub-events-table tbody');
   et.innerHTML = events.map(e =>
     `<tr><td>${(e.effective_at || '').replace('T', ' ').slice(0, 16)}</td><td>${e.email || e.user_id || '—'}</td><td>${e.event_type}</td><td>${e.from_tier || '—'} → ${e.to_tier || '—'}</td><td>${e.source || ''}</td><td>${e.environment || ''}</td></tr>`
   ).join('') || '<tr><td colspan="6" style="color:var(--text-dim)">No events yet</td></tr>';
+}
+
+function _renderSubscriberTruth(t) {
+  const tb = document.querySelector('#sub-truth-table tbody');
+  if (!tb) return;
+  const stateLabel = {
+    paying: 'Paying', paying_cancelled: 'Paying, cancels at period end',
+    trialing: 'Trial, auto-renew ON', trial_cancelled: 'Trial, CANCELLED',
+    on_offer: 'Offer code', offer_cancelled: 'Offer code, cancelled',
+    trial_lapsed: 'Trial lapsed', offer_lapsed: 'Offer lapsed', lapsed: 'Lapsed',
+    active_unpriced: 'Active, price unknown',
+  };
+  const offerLabel = (r) => {
+    if (r.offer_discount_type === 'FREE_TRIAL') return 'free trial';
+    if (r.offer_type === 3) return 'offer code';
+    if (r.offer_type === 2) return 'promo';
+    if (r.offer_type === 4) return 'win-back';
+    if (r.offer_type === 1) return r.offer_discount_type || 'intro';
+    return '';
+  };
+  const rows = (t.subscribers || []);
+  tb.innerHTML = rows.length ? rows.map(r => `
+    <tr>
+      <td>${r.email || (r.user_id || '').slice(0, 8)}</td>
+      <td>${r.tier || ''}</td>
+      <td>${stateLabel[r.state] || r.state}</td>
+      <td>${r.auto_renew === 1 ? 'on' : r.auto_renew === 0 ? '<span style="color:#ff7b72">off</span>' : '?'}</td>
+      <td>${offerLabel(r)}</td>
+      <td>${r.price_paid == null ? '?' : (r.price_paid > 0 ? `${r.currency || ''} ${r.price_paid}` : 'free')}</td>
+      <td>${(r.expires_at || '').slice(0, 10)}</td>
+      <td>${r.environment || ''}</td>
+      <td>${r.paid_ever ? 'yes' : 'no'}</td>
+    </tr>`).join('') : '<tr><td colspan="9" style="color:var(--text-dim)">Nothing pulled from Apple yet. Press Refresh from Apple.</td></tr>';
+  const chk = document.getElementById('sub-truth-checked');
+  if (chk) chk.textContent = t.last_checked_at ? `last checked ${t.last_checked_at.slice(0, 16).replace('T', ' ')}Z` : '';
+}
+
+async function refreshSubsFromApple() {
+  const r = await fetch(`${BASE}/webhooks/admin/subscriptions/refresh-status`, {
+    method: 'POST', headers: {'X-Admin-Key': adminKey}});
+  const d = await r.json();
+  const chk = document.getElementById('sub-truth-checked');
+  if (chk) chk.textContent = d.skipped ? 'Apple API not configured'
+    : `checked ${d.checked}, updated ${d.updated}, backfilled ${d.backfilled_events} events` +
+      ((d.missing_at_apple || []).length ? `, ${d.missing_at_apple.length} unknown to Apple` : '');
+  loadSubscriptions();
 }
 
 async function reconcileSubs() {

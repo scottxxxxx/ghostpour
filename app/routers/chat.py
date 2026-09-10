@@ -719,7 +719,7 @@ async def verify_receipt(
                     original_transaction_id=_otid,
                     source="verify_receipt", price_usd=0.0,
                     environment=_environment,
-                    offer_id=body.offer_id,
+                    offer_id=body.offer_id, **identity.money,
                 )
             except Exception as e:
                 logger.warning("subscription_event (trial) record failed: %s", e)
@@ -829,7 +829,7 @@ async def verify_receipt(
                 original_transaction_id=_otid,
                 source="verify_receipt",
                 environment=_environment,
-                offer_id=body.offer_id,
+                offer_id=body.offer_id, **identity.money,
             )
         except Exception as e:
             logger.warning("subscription_event (paid) record failed: %s", e)
