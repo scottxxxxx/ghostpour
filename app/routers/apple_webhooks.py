@@ -286,6 +286,11 @@ async def apple_notifications(
             content={"error": f"notification is for bundleId {_claimed!r}"})
 
     transaction_info = data.get("signedTransactionInfo", {})
+    # Renewal info rides on SUBSCRIBED, DID_CHANGE_RENEWAL_STATUS, EXPIRED and
+    # more; it is where autoRenewStatus lives. Decoded by decode_notification.
+    renewal_info = data.get("signedRenewalInfo", {})
+    if not isinstance(renewal_info, dict):
+        renewal_info = {}
 
     # Log the notification
     product_id = transaction_info.get("productId", "unknown") if isinstance(transaction_info, dict) else "undecoded"
@@ -384,6 +389,14 @@ async def apple_notifications(
     # verify-receipt) matters because codes can be redeemed directly in the
     # App Store app without Shoulder Surf ever launching.
     _offer_id = transaction_info.get("offerIdentifier")
+    # What Apple ACTUALLY said about money and renewal (2026-09-10): price in
+    # storefront currency (0 for a free trial or an offer code), the offer
+    # type, and whether auto-renew is on. price_usd stays list-price
+    # bookkeeping; these are the fields the dashboard recognises revenue on.
+    _money = subs.money_fields_from_apple(transaction_info, renewal_info)
+    if notification_type == "DID_CHANGE_RENEWAL_STATUS" and _money.get("auto_renew_status") is None:
+        # The subtype is authoritative when the renewal payload is thin.
+        _money["auto_renew_status"] = {"AUTO_RENEW_DISABLED": 0, "AUTO_RENEW_ENABLED": 1}.get(subtype)
 
     async def _record(event_type: str, *, from_tier: str | None, to_tier: str | None) -> None:
         try:
@@ -395,10 +408,27 @@ async def apple_notifications(
                 original_transaction_id=original_transaction_id,
                 transaction_id=_txn_id, expires_at=_expires_iso,
                 environment=_environment, source="assn",
-                offer_id=_offer_id,
+                offer_id=_offer_id, **_money,
             )
         except Exception as e:
             logger.warning("subscription_event record failed (type=%s): %s", event_type, e)
+
+    # Keep the per-subscription status row current on EVERY notification
+    # that names a transaction, whatever branch below does with the tier.
+    try:
+        _status = {"SUBSCRIBED": 1, "DID_RENEW": 1, "DID_CHANGE_RENEWAL_STATUS": None,
+                   "EXPIRED": 2, "GRACE_PERIOD_EXPIRED": 2, "REVOKE": 5,
+                   "DID_FAIL_TO_RENEW": 3}.get(notification_type)
+        if original_transaction_id:
+            await subs.upsert_subscription_status(
+                db, original_transaction_id=original_transaction_id, source="assn",
+                user_id=user_id, product_id=_product_id,
+                tier=_build_product_to_tier(tier_config).get(_product_id or ""),
+                environment=_environment, status=_status, expires_at=_expires_iso,
+                transaction_id=_txn_id, commit=False, **_money,
+            )
+    except Exception as e:
+        logger.warning("subscription_status upsert failed (type=%s): %s", notification_type, e)
 
     # Handle notification by type
     if notification_type in _UPGRADE_TYPES:
@@ -491,6 +521,20 @@ async def apple_notifications(
         )
         return {"status": "received", "action": "billing_retry", "tier": old_tier}
 
+    elif notification_type == "DID_CHANGE_RENEWAL_STATUS":
+        # The user turned auto-renew off (cancelled, keeps access until the
+        # period ends) or back on. No tier change. Until 2026-09-10 this fell
+        # into the unhandled branch below and left no trace, so a cancelled
+        # trial was indistinguishable from one still running; Apple had
+        # sent five of these to Production and GP had recorded none.
+        await _record("renewal_status_changed", from_tier=old_tier, to_tier=old_tier)
+        await db.commit()
+        logger.info(
+            "Apple notification: renewal status for user %s auto_renew=%s (subtype=%s)",
+            user_id, _money.get("auto_renew_status"), subtype,
+        )
+        return {"status": "received", "action": "renewal_status",
+                "auto_renew_status": _money.get("auto_renew_status")}
     elif notification_type == "TEST":
         logger.info("Apple notification: test notification received")
         return {"status": "received", "action": "test"}

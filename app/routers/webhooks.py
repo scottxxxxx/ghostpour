@@ -4677,6 +4677,10 @@ async def subscriptions_report(
         "summary": await subs.summary(db),
         "monthly": await subs.monthly_aggregates(db),
         "mrr_trend": await subs.mrr_trend(db),
+        # 2026-09-10: what Apple actually said, per subscription. The tab's
+        # headline reads THIS; summary/mrr_trend are list-price run-rates
+        # that count trials and offers until they lapse.
+        "truth": await subs.subscription_truth(db),
     }
 
 
@@ -4759,6 +4763,22 @@ async def user_subscription(
         },
         "timeline": await subs.user_timeline(db, user_id),
     }
+
+
+@router.post("/admin/subscriptions/refresh-status")
+async def subscriptions_refresh_status(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+):
+    """Pull Apple's subscription status for every subscription GP knows,
+    rebuild `subscription_status`, and backfill the money fields on events
+    recorded before GP captured them. Read-only against Apple; writes only
+    GP's own bookkeeping. {checked, updated, backfilled_events,
+    missing_at_apple} or {skipped:'not_configured'}."""
+    _verify_admin(request, x_admin_key)
+    from app.services import subscriptions as subs
+    return await subs.refresh_status_from_apple(db)
 
 
 @router.post("/admin/subscriptions/reconcile")

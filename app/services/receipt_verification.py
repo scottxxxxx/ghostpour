@@ -46,7 +46,7 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 logger = logging.getLogger("ghostpour.receipt_verification")
 
@@ -118,6 +118,11 @@ class TransactionIdentity:
     product_id: str | None
     verified: bool
     reject_reason: str | None = None
+    # What Apple said about money on this transaction (price_paid, currency,
+    # offer_type, offer_discount_type, auto_renew_status), read off the
+    # signed payload only. Empty when unsigned: the client's word about
+    # price is worth nothing and is not recorded (2026-09-10).
+    money: dict = field(default_factory=dict)
 
     @property
     def usable_original_id(self) -> str | None:
@@ -178,12 +183,14 @@ def resolve_identity(body, settings) -> TransactionIdentity:
         otid = payload.get("originalTransactionId")
         txn = payload.get("transactionId")
         env = payload.get("environment")
+        from app.services.subscriptions import money_fields_from_apple
         return TransactionIdentity(
             original_transaction_id=otid if is_plausible_transaction_id(otid) else None,
             transaction_id=txn if is_plausible_transaction_id(txn) else None,
             environment=env if env in ("Production", "Sandbox") else None,
             product_id=payload.get("productId"),
             verified=True,
+            money=money_fields_from_apple(payload),
             reject_reason=(
                 None if is_plausible_transaction_id(otid)
                 else f"apple_signed_but_implausible_otid: {otid!r}"

@@ -105,8 +105,18 @@ async def record_subscription_event(
     raw: dict | None = None,
     offer_id: str | None = None,
     commit: bool = True,
+    price_paid: float | None = None,
+    currency: str | None = None,
+    offer_type: int | None = None,
+    offer_discount_type: str | None = None,
+    auto_renew_status: int | None = None,
 ) -> str:
     """Append one subscription event and keep the user-row caches in lockstep.
+
+    `price_usd` is LIST-price bookkeeping and says nothing about money. The
+    five trailing fields are what Apple actually said (see
+    `money_fields_from_apple`); `price_paid` is the only field that means a
+    charge happened, and only when it is greater than zero.
 
     Idempotent on the caller's side via `transaction_id`/`effective_at` if they
     choose to dedup; this function always inserts (the log is append-only). The
@@ -122,13 +132,15 @@ async def record_subscription_event(
             (id, user_id, event_type, notification_type, subtype, from_tier,
              to_tier, product_id, original_transaction_id, transaction_id,
              expires_at, environment, source, price_usd, effective_at,
-             recorded_at, raw, offer_id)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+             recorded_at, raw, offer_id,
+             price_paid, currency, offer_type, offer_discount_type, auto_renew_status)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (
             event_id, user_id, event_type, notification_type, subtype, from_tier,
             to_tier, product_id, original_transaction_id, transaction_id,
             expires_at, environment, source, price_usd, eff,
             _now_iso(), json.dumps(raw) if raw is not None else None, offer_id,
+            price_paid, currency, offer_type, offer_discount_type, auto_renew_status,
         ),
     )
     # Advance the caches when this event marks a paid state.
@@ -141,6 +153,245 @@ async def record_subscription_event(
         user_id, event_type, from_tier, to_tier, source,
     )
     return event_id
+
+
+# ---------------------------------------------------------------------------
+# What Apple actually said (2026-09-10)
+# ---------------------------------------------------------------------------
+
+def money_fields_from_apple(transaction_info: dict | None,
+                            renewal_info: dict | None = None) -> dict:
+    """The five truth fields, read off Apple's decoded transaction and
+    renewal payloads. Apple's `price` is in MILLIUNITS of `currency`
+    (9990 = 9.99), so it is divided here and nowhere else. Missing fields
+    stay None rather than defaulting: a None price is "Apple did not say",
+    which must never read as "free" or as "paid"."""
+    t = transaction_info or {}
+    r = renewal_info or {}
+    price = t.get("price")
+    try:
+        price_paid = round(int(price) / 1000.0, 2) if price is not None else None
+    except (TypeError, ValueError):
+        price_paid = None
+    ars = r.get("autoRenewStatus")
+    try:
+        auto_renew = int(ars) if ars is not None else None
+    except (TypeError, ValueError):
+        auto_renew = None
+    ot = t.get("offerType")
+    try:
+        offer_type = int(ot) if ot is not None else None
+    except (TypeError, ValueError):
+        offer_type = None
+    return {
+        "price_paid": price_paid,
+        "currency": t.get("currency"),
+        "offer_type": offer_type,
+        "offer_discount_type": t.get("offerDiscountType"),
+        "auto_renew_status": auto_renew,
+    }
+
+
+async def upsert_subscription_status(
+    db: aiosqlite.Connection, *, original_transaction_id: str, source: str,
+    user_id: str | None = None, product_id: str | None = None, tier: str | None = None,
+    environment: str | None = None, status: int | None = None,
+    auto_renew_status: int | None = None, offer_type: int | None = None,
+    offer_discount_type: str | None = None, price_paid: float | None = None,
+    currency: str | None = None, expires_at: str | None = None,
+    transaction_id: str | None = None, commit: bool = True,
+) -> None:
+    """One row per subscription. A None argument keeps the stored value
+    (COALESCE), so a notification that carries no renewal info does not
+    erase an auto_renew_status a previous one set. `paid_ever` only ever
+    turns on."""
+    paid_now = 1 if (price_paid or 0) > 0 else 0
+    await db.execute(
+        """INSERT INTO subscription_status
+             (original_transaction_id, user_id, product_id, tier, environment, status,
+              auto_renew_status, offer_type, offer_discount_type, price_paid, currency,
+              expires_at, paid_ever, transaction_id, checked_at, source)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+           ON CONFLICT(original_transaction_id) DO UPDATE SET
+             user_id=COALESCE(excluded.user_id, user_id),
+             product_id=COALESCE(excluded.product_id, product_id),
+             tier=COALESCE(excluded.tier, tier),
+             environment=COALESCE(excluded.environment, environment),
+             status=COALESCE(excluded.status, status),
+             auto_renew_status=COALESCE(excluded.auto_renew_status, auto_renew_status),
+             offer_type=COALESCE(excluded.offer_type, offer_type),
+             offer_discount_type=COALESCE(excluded.offer_discount_type, offer_discount_type),
+             price_paid=COALESCE(excluded.price_paid, price_paid),
+             currency=COALESCE(excluded.currency, currency),
+             expires_at=COALESCE(excluded.expires_at, expires_at),
+             paid_ever=MAX(paid_ever, excluded.paid_ever),
+             transaction_id=COALESCE(excluded.transaction_id, transaction_id),
+             checked_at=excluded.checked_at,
+             source=excluded.source""",
+        (original_transaction_id, user_id, product_id, tier, environment, status,
+         auto_renew_status, offer_type, offer_discount_type, price_paid, currency,
+         expires_at, paid_now, transaction_id, _now_iso(), source),
+    )
+    if commit:
+        await db.commit()
+
+
+async def refresh_status_from_apple(db: aiosqlite.Connection) -> dict:
+    """Pull Apple's subscription status for every subscription GP knows and
+    (a) upsert `subscription_status`, (b) backfill the money fields on the
+    events that were recorded before GP captured them, matched by
+    transaction_id. Apple is the only witness to whether money moved, so
+    this is the reconciliation the dashboard's headline rests on.
+
+    Returns counts. Fail-soft per subscription: one 404 or timeout must not
+    stop the sweep, and a subscription Apple has no record of is reported
+    rather than guessed."""
+    from app.services import app_store_server_api as assa
+    if not assa.is_configured():
+        return {"checked": 0, "updated": 0, "backfilled_events": 0, "skipped": "not_configured"}
+    rows = await (await db.execute(
+        """SELECT DISTINCT original_transaction_id AS otid FROM (
+             SELECT original_transaction_id FROM subscription_events
+              WHERE original_transaction_id IS NOT NULL AND original_transaction_id NOT IN ('', '0')
+             UNION
+             SELECT original_transaction_id FROM users
+              WHERE original_transaction_id IS NOT NULL AND original_transaction_id NOT IN ('', '0'))"""
+    )).fetchall()
+    checked = updated = backfilled = 0
+    missing: list[str] = []
+    for r in rows:
+        otid = r["otid"]
+        checked += 1
+        try:
+            state = await assa.get_subscription_state(otid)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("refresh_status: %s failed: %s", otid, e)
+            continue
+        if state is None:
+            missing.append(otid)
+            continue
+        urow = await (await db.execute(
+            "SELECT user_id FROM subscription_events WHERE original_transaction_id=? "
+            "ORDER BY effective_at DESC LIMIT 1", (otid,))).fetchone()
+        user_id = urow["user_id"] if urow else None
+        if user_id is None:
+            u2 = await (await db.execute(
+                "SELECT id FROM users WHERE original_transaction_id=?", (otid,))).fetchone()
+            user_id = u2["id"] if u2 else None
+        await upsert_subscription_status(
+            db, original_transaction_id=otid, source="apple_status", user_id=user_id,
+            product_id=state.get("product_id"), tier=state.get("tier"),
+            environment=state.get("environment"), status=state.get("status"),
+            auto_renew_status=state.get("auto_renew_status"),
+            offer_type=state.get("offer_type"),
+            offer_discount_type=state.get("offer_discount_type"),
+            price_paid=state.get("price_paid"), currency=state.get("currency"),
+            expires_at=state.get("expires_at"), transaction_id=state.get("transaction_id"),
+            commit=False,
+        )
+        updated += 1
+        # Backfill the events Apple can vouch for, by transaction id, only
+        # where GP recorded nothing. Never overwrite a value ASSN wrote.
+        for txn in state.get("transactions") or []:
+            tid = txn.get("transaction_id")
+            if not tid:
+                continue
+            cur = await db.execute(
+                """UPDATE subscription_events
+                      SET price_paid=COALESCE(price_paid, ?), currency=COALESCE(currency, ?),
+                          offer_type=COALESCE(offer_type, ?),
+                          offer_discount_type=COALESCE(offer_discount_type, ?)
+                    WHERE transaction_id=? AND price_paid IS NULL""",
+                (txn.get("price_paid"), txn.get("currency"), txn.get("offer_type"),
+                 txn.get("offer_discount_type"), tid),
+            )
+            backfilled += cur.rowcount or 0
+            if (txn.get("price_paid") or 0) > 0:
+                await db.execute(
+                    "UPDATE subscription_status SET paid_ever=1 WHERE original_transaction_id=?",
+                    (otid,))
+    await db.commit()
+    logger.info("refresh_status checked=%d updated=%d backfilled_events=%d missing=%d",
+                checked, updated, backfilled, len(missing))
+    return {"checked": checked, "updated": updated, "backfilled_events": backfilled,
+            "missing_at_apple": missing}
+
+
+def classify_status(row: dict) -> str:
+    """One word per subscription, for the dashboard. Reads only what Apple
+    said. `paying` needs a non-zero charge on the CURRENT period; a trial
+    or an offer code at price 0 is never paying, whatever the tier."""
+    status = row.get("status")
+    active = status in (1, 4)          # active, or grace period
+    ars = row.get("auto_renew_status")
+    price = row.get("price_paid") or 0
+    disc = row.get("offer_discount_type")
+    otype = row.get("offer_type")
+    if not active:
+        if disc == "FREE_TRIAL" or (otype == 1 and price == 0):
+            return "trial_lapsed"
+        if otype == 3 and price == 0:
+            return "offer_lapsed"
+        return "lapsed"
+    if price > 0:
+        return "paying" if ars != 0 else "paying_cancelled"
+    if disc == "FREE_TRIAL" or otype == 1:
+        return "trialing" if ars != 0 else "trial_cancelled"
+    if otype in (2, 3, 4):
+        return "on_offer" if ars != 0 else "offer_cancelled"
+    return "active_unpriced"
+
+
+async def subscription_truth(db: aiosqlite.Connection) -> dict:
+    """The headline the Subscriptions tab should quote, and the per-subscriber
+    rows behind it. Production only; money recognised only where Apple
+    reported a non-zero charge (Scott, 2026-09-10: "we should not recognize
+    MRR since we have never received money")."""
+    rows = [dict(r) for r in await (await db.execute(
+        """SELECT s.*, u.email FROM subscription_status s
+           LEFT JOIN users u ON u.id = s.user_id
+          ORDER BY s.expires_at DESC""")).fetchall()]
+    counts: dict[str, int] = {}
+    mrr = 0.0
+    subscribers = []
+    for r in rows:
+        prod = (r.get("environment") or "") == PRODUCTION
+        state = classify_status(r)
+        if prod:
+            counts[state] = counts.get(state, 0) + 1
+            if state in ("paying", "paying_cancelled"):
+                mrr += TIER_PRICE_USD.get(r.get("tier") or "", 0)
+        subscribers.append({
+            "email": r.get("email"), "user_id": r.get("user_id"), "tier": r.get("tier"),
+            "environment": r.get("environment"), "state": state,
+            "auto_renew": r.get("auto_renew_status"), "offer_type": r.get("offer_type"),
+            "offer_discount_type": r.get("offer_discount_type"),
+            "price_paid": r.get("price_paid"), "currency": r.get("currency"),
+            "expires_at": r.get("expires_at"), "paid_ever": bool(r.get("paid_ever")),
+            "checked_at": r.get("checked_at"), "source": r.get("source"),
+            "original_transaction_id": r.get("original_transaction_id"),
+        })
+    received: dict[str, float] = {}
+    async with db.execute(
+        """SELECT currency, SUM(price_paid) AS total FROM subscription_events
+            WHERE environment=? AND price_paid > 0 GROUP BY currency""", (PRODUCTION,)) as cur:
+        async for r in cur:
+            received[r["currency"] or "?"] = round(r["total"] or 0.0, 2)
+    last = await (await db.execute("SELECT MAX(checked_at) AS t FROM subscription_status")).fetchone()
+    return {
+        "paying_now": counts.get("paying", 0) + counts.get("paying_cancelled", 0),
+        "mrr_recognized_usd": round(mrr, 2),
+        "mrr_recognized_net_usd": round(mrr * APPLE_NET_FACTOR, 2),
+        "trialing_auto_renew_on": counts.get("trialing", 0),
+        "trialing_cancelled": counts.get("trial_cancelled", 0),
+        "on_offer": counts.get("on_offer", 0) + counts.get("offer_cancelled", 0),
+        "trials_lapsed": counts.get("trial_lapsed", 0),
+        "lapsed_other": counts.get("lapsed", 0) + counts.get("offer_lapsed", 0),
+        "received_to_date": received,
+        "by_state": counts,
+        "subscribers": subscribers,
+        "last_checked_at": last["t"] if last else None,
+    }
 
 
 # ---------------------------------------------------------------------------
