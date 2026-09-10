@@ -697,8 +697,38 @@ async def test_expired_tokens_raise_the_damage_alert(client, tmp_db_path):
     assert found[0]["subject"] == "apple_ads"
 
 
+def _insert_pending(db_path, *, age_minutes, last_attempt_minutes=None,
+                    app_id="shouldersurf"):
+    """A waiting row built in SQL. `last_attempt_minutes` is how long ago the
+    sweep last got an answer from Apple for it; None means never attempted."""
+    now = datetime.now(timezone.utc)
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "INSERT INTO ad_attribution (id, device_id, app_id, status, token,"
+        " created_at, last_attempt_at) VALUES (?,?,?,'pending','tok',?,?)",
+        (_uuid(), _uuid(), app_id,
+         (now - timedelta(minutes=age_minutes)).isoformat(),
+         None if last_attempt_minutes is None
+         else (now - timedelta(minutes=last_attempt_minutes)).isoformat()))
+    conn.commit()
+    conn.close()
+
+
+def _insert_exchanged(db_path, *, exchanged_minutes_ago, app_id="shouldersurf"):
+    now = datetime.now(timezone.utc)
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "INSERT INTO ad_attribution (id, device_id, app_id, status, attribution,"
+        " token, created_at, exchanged_at) VALUES (?,?,?,'organic',0,NULL,?,?)",
+        (_uuid(), _uuid(), app_id,
+         (now - timedelta(minutes=exchanged_minutes_ago + 1)).isoformat(),
+         (now - timedelta(minutes=exchanged_minutes_ago)).isoformat()))
+    conn.commit()
+    conn.close()
+
+
 def test_one_stuck_row_does_not_speak_for_a_healthy_sweep(client, tmp_db_path):
-    """THE false positive, measured on production 2026-09-09.
+    """THE false positive, measured on production 2026-09-09 (v1 signal).
 
     One row Apple has no attribution record for 404s every 60 seconds by
     design and sits there forever. On prod that was 1 stuck row against 232
@@ -706,30 +736,16 @@ def test_one_stuck_row_does_not_speak_for_a_healthy_sweep(client, tmp_db_path):
     alert announced that token exchange had stopped. It nearly cost a campaign
     launch date.
 
-    An old pending row is not evidence of anything on its own. The sweep is
-    stalled only if something is waiting AND nothing has been exchanged.
+    An old pending row is not evidence of anything on its own. What decides
+    is whether the SWEEP has been touching it: a 404 retry stamps
+    `last_attempt_at`, and a stamp from a minute ago is a live sweep.
 
-    ⚠ Both rows are inserted DIRECTLY. The check runs on EVERY ingest, so
-    creating the healthy row through the endpoint fires the check BEFORE its
-    exchange timestamp is set, and the test fails on an incident raised by its
-    own setup. That is the third time this session that ingest-fires-the-check
-    has bitten a test of mine; the rule is to build the state in SQL and use
-    exactly one post as the trigger.
+    ⚠ Rows are inserted DIRECTLY. The check runs on EVERY ingest, so building
+    state through the endpoint fires the check mid-setup. Build state in SQL
+    and use exactly one post as the trigger.
     """
-    now = datetime.now(timezone.utc)
-    conn = sqlite3.connect(tmp_db_path)
-    conn.execute(
-        "INSERT INTO ad_attribution (id, device_id, app_id, status, token,"
-        " created_at) VALUES (?,?,?,'pending','tok',?)",
-        (_uuid(), _uuid(), "shouldersurf",
-         (now - timedelta(minutes=40)).isoformat()))
-    conn.execute(
-        "INSERT INTO ad_attribution (id, device_id, app_id, status, attribution,"
-        " token, created_at, exchanged_at) VALUES (?,?,?,'organic',0,NULL,?,?)",
-        (_uuid(), _uuid(), "shouldersurf",
-         (now - timedelta(minutes=1)).isoformat(), now.isoformat()))
-    conn.commit()
-    conn.close()
+    _insert_pending(tmp_db_path, age_minutes=40, last_attempt_minutes=1)
+    _insert_exchanged(tmp_db_path, exchanged_minutes_ago=0)
 
     _post(client, _uuid())          # the next token arrives; check runs
 
@@ -737,24 +753,127 @@ def test_one_stuck_row_does_not_speak_for_a_healthy_sweep(client, tmp_db_path):
         "a healthy sweep with one unexchangeable token is not a stall")
 
 
-def test_a_stuck_row_AND_no_recent_exchange_still_alerts(client, tmp_db_path):
-    """The other half. Without it, never alerting would pass the test above
-    and be exactly as wrong, which is how the first version got shipped."""
-    stuck = _uuid()
-    _post(client, stuck)
-    _backdate_pending(tmp_db_path, stuck, minutes=40)
+def test_no_new_tokens_for_hours_is_not_a_stall_while_the_sweep_is_retrying(
+        client, tmp_db_path):
+    """THE SECOND false positive, production 2026-09-09 20:02:57Z (v2 signal),
+    thirty minutes after v2 deployed.
 
-    old = _uuid()
-    _post(client, old)
-    conn = sqlite3.connect(tmp_db_path)
-    conn.execute(
-        "UPDATE ad_attribution SET status='organic', token=NULL, exchanged_at=?"
-        " WHERE device_id=?",
-        ((datetime.now(timezone.utc) - timedelta(hours=6)).isoformat(), old))
-    conn.commit()
-    conn.close()
+    v2 required a waiting row AND no recent successful exchange. Exchanges
+    only happen when tokens ARRIVE. No install landed between 05:26Z and
+    20:02Z, so the last exchange was 14.6 hours old when the next organic
+    token arrived, the check read that as 14.6 hours of dead sweep, and it
+    emailed. The container log showed the sweep retrying the stuck 1.15 row
+    every 60 seconds the entire time, and the new token exchanged 50 seconds
+    later.
+
+    A sweep's health cannot be inferred from whether work arrived for it.
+    Under v2 this test fails with one incident raised; that is the point.
+    """
+    _insert_pending(tmp_db_path, age_minutes=20 * 60, last_attempt_minutes=1)
+    _insert_exchanged(tmp_db_path, exchanged_minutes_ago=14 * 60)
+
+    _post(client, _uuid())
+
+    assert _incidents(tmp_db_path, "attribution_sweep_stalled") == [], (
+        "the sweep touched the waiting row a minute ago; nothing is stalled")
+
+
+def test_a_waiting_row_nobody_has_attempted_in_15_minutes_IS_a_stall(
+        client, tmp_db_path):
+    """The other half. Without it, never alerting would pass the two tests
+    above and be exactly as wrong, which is how v1 got shipped.
+
+    The stamp is 20 minutes old while the sweep runs every 60 seconds, so it
+    has missed at least fifteen passes. A successful exchange one minute ago
+    on a DIFFERENT row does not excuse it: the alert reads the footprint on
+    the waiting work, nothing else.
+    """
+    _insert_pending(tmp_db_path, age_minutes=40, last_attempt_minutes=20)
+    _insert_exchanged(tmp_db_path, exchanged_minutes_ago=1)
 
     _post(client, _uuid())
 
     found = _incidents(tmp_db_path, "attribution_sweep_stalled")
-    assert len(found) == 1, "nothing exchanged in 6h while a row waits IS a stall"
+    assert len(found) == 1, "a waiting row unattended for 20 minutes IS a stall"
+    details = found[0].get("details_json") or ""
+    assert "seconds_since_last_attempt" in details
+
+
+@pytest.mark.asyncio
+async def test_a_404_retry_leaves_the_sweeps_footprint(client, tmp_db_path):
+    """The stamp the liveness check reads. A 404 used to write NOTHING, so a
+    sweep retrying one token every minute and a sweep that was not running
+    left identical rows. Under sabotage of the stamp, the healthy-sweep tests
+    above still pass (their stamps are inserted by SQL), so this is the only
+    test that proves the sweep actually produces the evidence they rely on."""
+    dev = _uuid()
+    _post(client, dev)
+    assert _row(tmp_db_path, dev)["last_attempt_at"] is None
+    with patch(
+        "app.services.apple_ads_attribution._post_token",
+        new_callable=AsyncMock,
+        return_value=(404, None),
+    ):
+        counts = await _sweep(tmp_db_path)
+    assert counts["pending"] == 1
+    row = _row(tmp_db_path, dev)
+    assert row["status"] == "pending"
+    assert row["token"] == "tok-abc123"
+    assert row["last_attempt_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_last_attempt_at_lands_on_a_database_that_predates_it(tmp_path):
+    """Prod's case, which no other test here can reach: every other test
+    starts from a fresh database whose CREATE TABLE already carries the
+    column. Prod has the v31 table from 2026-07-21 and gets the column ONLY
+    from the ALTER in MIGRATIONS, because CREATE TABLE IF NOT EXISTS is a
+    no-op on an existing table. Removing that ALTER left the whole file green
+    on the first sabotage pass; this is the test that makes it red."""
+    import aiosqlite
+
+    from app.database import SCHEMA_SQL, apply_migrations
+
+    db = await aiosqlite.connect(str(tmp_path / "old.db"))
+    await db.executescript(SCHEMA_SQL)
+    await db.execute("""CREATE TABLE ad_attribution (
+        id TEXT PRIMARY KEY, device_id TEXT NOT NULL, app_id TEXT NOT NULL,
+        user_id TEXT, status TEXT NOT NULL DEFAULT 'pending',
+        attribution INTEGER, campaign_id INTEGER, ad_group_id INTEGER,
+        keyword_id INTEGER, ad_id INTEGER, conversion_type TEXT,
+        click_date TEXT, country_or_region TEXT,
+        standard_payload INTEGER NOT NULL DEFAULT 0, token TEXT,
+        app_version TEXT, first_launch_at TEXT, created_at TEXT NOT NULL,
+        exchanged_at TEXT, UNIQUE(device_id, app_id))""")
+    await db.commit()
+    before = {r[1] for r in await (await db.execute(
+        "PRAGMA table_info(ad_attribution)")).fetchall()}
+    assert "last_attempt_at" not in before, "the old shape must really be old"
+
+    report = await apply_migrations(db)
+    assert report["failed"] == 0
+
+    after = {r[1] for r in await (await db.execute(
+        "PRAGMA table_info(ad_attribution)")).fetchall()}
+    await db.close()
+    assert "last_attempt_at" in after
+
+
+@pytest.mark.asyncio
+async def test_a_transport_failure_is_not_an_attempt(client, tmp_db_path):
+    """A sweep that runs every minute but cannot reach Apple has stopped
+    exchanging just as surely as a dead one, and the tokens expire at 24h
+    either way. So no stamp, and the alert still fires once the row has
+    waited long enough."""
+    import httpx
+
+    dev = _uuid()
+    _post(client, dev)
+    with patch(
+        "app.services.apple_ads_attribution._post_token",
+        new_callable=AsyncMock,
+        side_effect=httpx.ConnectError("no route to apple"),
+    ):
+        counts = await _sweep(tmp_db_path)
+    assert counts["pending"] == 1
+    assert _row(tmp_db_path, dev)["last_attempt_at"] is None

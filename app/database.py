@@ -693,6 +693,7 @@ MIGRATIONS = [
         first_launch_at TEXT,
         created_at TEXT NOT NULL,
         exchanged_at TEXT,
+        last_attempt_at TEXT,
         UNIQUE(device_id, app_id)
     )""",
     "CREATE INDEX IF NOT EXISTS idx_ad_attribution_status ON ad_attribution(status)",
@@ -877,6 +878,14 @@ MIGRATIONS = [
         added_at TEXT NOT NULL,
         added_by TEXT
     )""",
+    # v31b (2026-09-09): ad_attribution.last_attempt_at is stamped every time
+    # the sweep gets an ANSWER from Apple for a row that stays pending (a 404
+    # retry, an unexpected status). It is the sweep's own footprint. Without
+    # it a 404 retry wrote nothing, so a sweep retrying one unexchangeable
+    # token every 60s and a sweep that was not running left identical rows,
+    # and the liveness alert had to infer the sweep's health from exchanges
+    # that only happen when new tokens arrive. Fired falsely twice that way.
+    "ALTER TABLE ad_attribution ADD COLUMN last_attempt_at TEXT",
 ]
 
 
