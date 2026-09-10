@@ -1987,8 +1987,10 @@ async def chat(
     # way, so this brings /v1/chat in line.
     _effective_locale = body.get_meta("locale")
     if not _norm_locale(_effective_locale):
-        from app.routers.config import _parse_accept_language
-        _effective_locale = _parse_accept_language(
+        # accept_language_primary, not config's parser: that one maps "en" to
+        # None for bundle lookups, and English is a directive now.
+        from app.services.language_directive import accept_language_primary
+        _effective_locale = accept_language_primary(
             request.headers.get("Accept-Language"))
     _localized_system = _apply_locale(body.system_prompt, _effective_locale)
     if _localized_system != body.system_prompt:

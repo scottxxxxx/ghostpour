@@ -12,8 +12,12 @@ The one directive is safe for every call type:
   structure in English while only the human-readable string VALUES translate —
   so the client's parsing never breaks.
 
-English (`en` / `en-*`) and missing locales are a no-op: English is the default,
-no instruction needed. See docs/handoffs/tr-managed-prompts-and-locale.md.
+A MISSING locale is a no-op. English is NOT (2026-09-10, Scott's ruling for SS's
+translation redesign): the phone's language wins in every case. The served
+summary/analysis recipes say "write in the language the participants speak",
+so without a directive an English phone with a Spanish meeting got a Spanish
+summary. `en` now appends "Respond in English" like every other language and
+output_language echoes "en"; null is reserved for a request with no locale at all. See docs/handoffs/tr-managed-prompts-and-locale.md.
 """
 
 from __future__ import annotations
@@ -21,7 +25,7 @@ from __future__ import annotations
 # ISO 639-1 → English language name. Bare codes; a region suffix (es-MX) is
 # resolved on its base code. Extend as locales are onboarded.
 _LANGUAGE_NAMES = {
-    "es": "Spanish", "fr": "French", "de": "German", "pt": "Portuguese",
+    "en": "English", "es": "Spanish", "fr": "French", "de": "German", "pt": "Portuguese",
     "it": "Italian", "nl": "Dutch", "pl": "Polish", "sv": "Swedish",
     "tr": "Turkish", "ru": "Russian", "uk": "Ukrainian", "ja": "Japanese",
     "ko": "Korean", "zh": "Chinese", "ar": "Arabic", "hi": "Hindi",
@@ -44,7 +48,8 @@ def _base_lang(loc: str) -> str:
 
 def language_directive(locale: str | None) -> str | None:
     """The directive to append to a managed system prompt for `locale`, or None
-    when no injection is needed (English or missing).
+    when the request carried no locale at all. English injects too (see the
+    module docstring): the phone's language wins over the transcript's.
 
     Unknown non-English codes still inject, naming the ISO code so the model can
     act on it rather than silently defaulting to English.
@@ -53,8 +58,6 @@ def language_directive(locale: str | None) -> str | None:
     if loc is None:
         return None
     base = _base_lang(loc)
-    if base == "en":
-        return None
     name = _LANGUAGE_NAMES.get(base)
     target = f"{name} ({loc})" if name else f"the language with ISO code '{loc}'"
     lang = name or "that language"

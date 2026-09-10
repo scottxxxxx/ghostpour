@@ -78,15 +78,35 @@ def test_a_stated_language_is_recorded_beside_the_locale_it_resolved_to(client, 
         "locale": "es", "transcript_language": "es-US"}
 
 
-def test_the_08_24_shape_is_visible_as_nothing_stated_and_no_locale(client, pro_user, tmp_db_path, monkeypatch):
+def test_the_08_24_shape_now_resolves_the_english_phone_to_en(client, pro_user, tmp_db_path, monkeypatch):
+    """Build 335 stated nothing and sent Accept-Language en-US. Until
+    2026-09-10 that recorded locale None and no directive, and the served
+    recipe wrote in the transcript's language, which is how a Spanish report
+    got regenerated in English on 08-24 and ALSO how an English phone got a
+    Spanish report. Under Scott's ruling the phone's language wins: the
+    header alone now resolves to "en", the directive is emitted, and the
+    evidence row says so. transcript_language stays None: nothing was stated."""
     seen = _wire(client, pro_user, tmp_db_path, monkeypatch)
     meeting_id = _seed(tmp_db_path, pro_user["user_id"])
     r = client.post(f"/v1/meetings/{meeting_id}/report",
                     json={"duration_seconds": 600},
                     headers={**pro_user["headers"], "X-App-ID": "shouldersurf", "Accept-Language": "en-US"})
     assert r.status_code == 200, r.text
+    assert "BCP-47 code 'en'" in seen["system"]
+    assert _report_row(tmp_db_path, pro_user["user_id"])["report"] == {
+        "locale": "en", "transcript_language": None}
+
+
+def test_nothing_stated_and_no_header_is_visible_as_no_locale(client, pro_user, tmp_db_path, monkeypatch):
+    """The true nothing-anywhere shape. Both keys PRESENT with null values:
+    absence of the block would read as "not recorded", which is the
+    ambiguity this exists to remove."""
+    seen = _wire(client, pro_user, tmp_db_path, monkeypatch)
+    meeting_id = _seed(tmp_db_path, pro_user["user_id"])
+    r = client.post(f"/v1/meetings/{meeting_id}/report",
+                    json={"duration_seconds": 600},
+                    headers={**pro_user["headers"], "X-App-ID": "shouldersurf"})
+    assert r.status_code == 200, r.text
     assert "LANGUAGE:" not in seen["system"]
-    # both keys PRESENT with null values: absence of the block would read
-    # as "not recorded", which is the ambiguity this exists to remove
     assert _report_row(tmp_db_path, pro_user["user_id"])["report"] == {
         "locale": None, "transcript_language": None}

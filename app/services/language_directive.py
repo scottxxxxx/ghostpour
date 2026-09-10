@@ -57,11 +57,18 @@ def append_language_line(system_prompt: str | None, tag) -> str | None:
     return f"{base}\n\n{line}" if base else line
 
 
-def resolve_report_locale(stated_language, accept_language_header: str | None) -> str | None:
-    """Report lane: the language the meeting was held in, if the client
-    stated it, else the device locale from Accept-Language. The device
-    locale says what the UI is in, not what the people in the room spoke."""
-    lang = transcript_language(stated_language)
+def resolve_report_locale(stated_language, accept_language_header: str | None,
+                          requested_language=None) -> str | None:
+    """Report lane, in precedence order:
+      1. `requested_language`: what the client ASKED for (`report_language`
+         on generate; SS sends it on every per-rendition regeneration from
+         2026-09-10). Under Scott's ruling the phone's language wins, and a
+         regeneration may target a language that is neither the device's
+         nor the meeting's.
+      2. `stated_language`: the language the meeting was held in.
+      3. the device locale from Accept-Language.
+    A malformed value at any level falls through to the next."""
+    lang = transcript_language(requested_language) or transcript_language(stated_language)
     if lang:
         # Primary subtag only: report-strings.{locale} and
         # canned-report.{locale} are keyed "es", "ja", "fr", and the
@@ -70,5 +77,20 @@ def resolve_report_locale(stated_language, accept_language_header: str | None) -
         # which is the right value on the wire and must not miss the
         # bundle lookups here. The chat line keeps the full tag.
         return lang.split("-")[0].lower()
-    from app.routers.config import _parse_accept_language
-    return _parse_accept_language(accept_language_header)
+    return accept_language_primary(accept_language_header)
+
+
+def accept_language_primary(header: str | None) -> str | None:
+    """The primary subtag of the first Accept-Language tag, INCLUDING "en".
+
+    Not `app.routers.config._parse_accept_language`: that one maps English
+    to None on purpose, because its fifteen callers use None to mean "the
+    default config bundle". For a language DIRECTIVE, English is a language
+    like any other (2026-09-10), so a phone that sends only Accept-Language
+    en-US must still be told to respond in English. None only when there is
+    no header at all."""
+    if not header:
+        return None
+    first = header.split(",")[0].strip().split(";")[0].strip()
+    lang = first.split("-")[0].lower()
+    return lang or None

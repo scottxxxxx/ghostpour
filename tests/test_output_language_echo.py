@@ -66,18 +66,43 @@ def test_metadata_locale_is_honoured_per_call_over_the_device_language(
     assert r.json()["output_language"] == "fr"
 
 
-def test_english_sends_no_directive_and_echoes_null_not_en(client, free_user, mock_provider):
-    """THE case the client could not stamp correctly on its own. GP sent
-    nothing, so it says nothing; "en" here would be a status field that lies
-    whenever the meeting was not in English."""
+def test_english_is_directed_and_echoed_as_en(client, free_user, mock_provider):
+    """Scott's ruling, 2026-09-10: the phone's language wins in every case,
+    so `en` sends a directive like any other language and the echo says so.
+    Before this, English was a no-op and the echo was null, which was the one
+    case the client could not stamp correctly on its own."""
     r = client.post("/v1/chat",
                     json=chat_request(call_type="summary", locale="en"),
-                    headers=_headers(free_user, **{"Accept-Language": "en-US"}))
+                    headers=_headers(free_user, **{"Accept-Language": "es-MX"}))
+    assert r.status_code == 200, r.text
+    assert r.json()["output_language"] == "en"
+    assert r.headers.get("X-Output-Locale") == "en"
+
+
+def test_no_locale_anywhere_sends_no_directive_and_echoes_null(client, free_user, mock_provider):
+    """Null is reserved for a request that carried no locale at all: no
+    locale field, no metadata.locale, no Accept-Language. GP sent nothing,
+    so it says nothing; "en" here would be a status field that lies."""
+    r = client.post("/v1/chat",
+                    json=chat_request(call_type="summary"),
+                    headers=_headers(free_user))
     assert r.status_code == 200, r.text
     body = r.json()
     assert "output_language" in body, "the key is always present"
     assert body["output_language"] is None
     assert "X-Output-Locale" not in r.headers
+
+
+def test_an_english_phone_sending_only_accept_language_is_directed_english(
+        client, free_user, mock_provider):
+    """Older builds send no locale field. Accept-Language en-US alone must
+    still produce the English directive, or the ruling only holds for the
+    newest build."""
+    r = client.post("/v1/chat",
+                    json=chat_request(call_type="summary"),
+                    headers=_headers(free_user, **{"Accept-Language": "en-US,en;q=0.9"}))
+    assert r.status_code == 200, r.text
+    assert r.json()["output_language"] == "en"
 
 
 def test_a_missing_locale_falls_back_to_accept_language(client, free_user, mock_provider):
@@ -90,7 +115,7 @@ def test_a_missing_locale_falls_back_to_accept_language(client, free_user, mock_
 
 # --- the streaming done event ------------------------------------------------
 
-def _stream_done(client, free_user, monkeypatch, **body):
+def _stream_done(client, free_user, monkeypatch, accept_language="en-US", **body):
     import json as _json
 
     from app.models.chat import ChatResponse
@@ -110,7 +135,7 @@ def _stream_done(client, free_user, monkeypatch, **body):
     r = client.post("/v1/chat", json=chat_request(
         prompt_mode="PostMeetingChat", call_type="query", stream=True,
         user_content="Current question: what was decided?", **body,
-    ), headers=_headers(free_user, **{"Accept-Language": "en-US"}))
+    ), headers=_headers(free_user, **({"Accept-Language": accept_language} if accept_language else {})))
     assert r.status_code == 200, r.text
     assert r.headers["content-type"].startswith("text/event-stream")
     events = [_json.loads(line[len("data: "):])
@@ -126,8 +151,14 @@ def test_the_streaming_done_event_carries_the_directed_language(
     assert done["output_language"] == "es"
 
 
-def test_the_streaming_done_event_says_null_when_nothing_was_directed(
+def test_the_streaming_done_event_says_en_for_an_english_phone(
         client, free_user, mock_provider, monkeypatch):
     done = _stream_done(client, free_user, monkeypatch, locale="en")
+    assert done["output_language"] == "en"
+
+
+def test_the_streaming_done_event_says_null_when_no_locale_was_sent(
+        client, free_user, mock_provider, monkeypatch):
+    done = _stream_done(client, free_user, monkeypatch, accept_language=None)
     assert "output_language" in done
     assert done["output_language"] is None

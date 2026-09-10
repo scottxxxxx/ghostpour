@@ -25,9 +25,22 @@ def test_normalize_locale():
 
 # --- language_directive: when it is a no-op --------------------------------
 
-def test_no_directive_for_english_or_missing():
-    for loc in (None, "", "   ", "en", "EN", "en-US", "en_us"):
+def test_no_directive_only_when_no_locale_was_sent():
+    for loc in (None, "", "   "):
         assert language_directive(loc) is None, loc
+
+
+def test_english_is_a_directive_like_every_other_language():
+    """2026-09-10, Scott's ruling for SS's translation redesign: the phone's
+    language wins in every case. The served summary/analysis recipes say
+    "write in the language the participants speak in the transcript", so
+    English as a no-op meant an English phone with a Spanish meeting got a
+    Spanish summary. Sabotage: restore the old `if base == "en": return
+    None` and only this test and the English echo tests go red."""
+    for loc in ("en", "EN", "en-US", "en_us"):
+        d = language_directive(loc)
+        assert d is not None, loc
+        assert "Respond in English" in d, loc
 
 
 # --- language_directive: content -------------------------------------------
@@ -86,11 +99,11 @@ def test_apply_appends_for_non_english():
     assert "Spanish" in out
 
 
-def test_apply_is_noop_for_english_or_missing():
+def test_apply_is_noop_only_for_a_missing_locale():
     base = "You are a helpful assistant."
-    assert apply(base, "en") == base
     assert apply(base, None) == base
     assert apply(base, "") == base
+    assert apply(base, "en") != base, "English is a directive now"
 
 
 def test_apply_tolerates_empty_system_prompt():
@@ -143,10 +156,25 @@ def test_directive_reaches_routed_prompt(client, free_user, mock_provider):
     assert resp.headers.get("X-Output-Locale") == "es"
 
 
-def test_no_directive_routed_for_english(client, free_user, mock_provider):
+def test_english_directive_is_routed_like_any_other(client, free_user, mock_provider):
+    """2026-09-10: the phone's language wins in every case, so `en` is
+    directed, not left to the served recipe's "language of the transcript"."""
     resp = client.post(
         "/v1/chat",
         json=chat_request(system_prompt="Base prompt.", locale="en"),
+        headers=free_user["headers"],
+    )
+    assert resp.status_code == 200, resp.text
+    routed = mock_provider.call_args.args[0]
+    assert routed.system_prompt.startswith("Base prompt.")
+    assert "Respond in English" in routed.system_prompt
+    assert resp.headers.get("X-Output-Locale") == "en"
+
+
+def test_no_locale_anywhere_routes_the_prompt_untouched(client, free_user, mock_provider):
+    resp = client.post(
+        "/v1/chat",
+        json=chat_request(system_prompt="Base prompt."),
         headers=free_user["headers"],
     )
     assert resp.status_code == 200, resp.text
@@ -171,7 +199,10 @@ def test_accept_language_fallback_injects_without_metadata_locale(client, free_u
     assert resp.headers.get("X-Output-Locale") == "ja"
 
 
-def test_accept_language_english_is_noop(client, free_user, mock_provider):
+def test_accept_language_english_alone_is_directed_english(client, free_user, mock_provider):
+    """Older builds send no locale field. The device header alone must still
+    produce the English directive, through the directive-side reader that
+    keeps "en" (config's parser maps it to None for bundle lookups)."""
     resp = client.post(
         "/v1/chat",
         json=chat_request(system_prompt="Base prompt."),
@@ -179,8 +210,8 @@ def test_accept_language_english_is_noop(client, free_user, mock_provider):
     )
     assert resp.status_code == 200, resp.text
     routed = mock_provider.call_args.args[0]
-    assert routed.system_prompt == "Base prompt."       # untouched
-    assert "X-Output-Locale" not in resp.headers
+    assert "Respond in English" in routed.system_prompt
+    assert resp.headers.get("X-Output-Locale") == "en"
 
 
 def test_metadata_locale_wins_over_accept_language(client, free_user, mock_provider):

@@ -117,6 +117,19 @@ def test_chat_ignores_a_malformed_language_rather_than_failing(client, pro_user,
 
 # --- the report lane ----------------------------------------------------------
 
+def test_report_locale_prefers_the_requested_language_over_everything():
+    """`report_language` on generate (SS, 2026-09-10): a regeneration may
+    target a language that is neither the device's nor the meeting's. It
+    wins; a malformed value falls through to the stated language."""
+    from app.services.language_directive import resolve_report_locale
+    assert resolve_report_locale("es", "en-US", requested_language="fr") == "fr"
+    assert resolve_report_locale("es", "en-US", requested_language="pt-BR") == "pt"
+    assert resolve_report_locale("es", "en-US", requested_language="en") == "en", \
+        "English phone regenerating an English report of a Spanish meeting"
+    assert resolve_report_locale("es", "en-US", requested_language="nonsense!") == "es"
+    assert resolve_report_locale("es", "en-US", requested_language=None) == "es"
+
+
 def test_report_locale_prefers_the_stated_language_over_the_device_locale():
     from app.services.language_directive import resolve_report_locale
     assert resolve_report_locale("es", "en-US,en;q=0.9") == "es"
@@ -127,4 +140,6 @@ def test_report_locale_prefers_the_stated_language_over_the_device_locale():
     assert resolve_report_locale("zh-Hant-TW", "en-US") == "zh"
     assert resolve_report_locale(None, "es-MX,es;q=0.9") == "es"
     assert resolve_report_locale("español", "fr-FR") == "fr"
-    assert resolve_report_locale(None, None) in (None, "en")
+    assert resolve_report_locale(None, None) is None
+    assert resolve_report_locale(None, "en-US,en;q=0.9") == "en", \
+        "an English phone is told English; the config parser's None is for bundles"

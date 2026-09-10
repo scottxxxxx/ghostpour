@@ -17,10 +17,16 @@ def test_no_locale_omits_directive():
     assert "BCP-47" not in system_prompt
 
 
-def test_en_locale_omits_directive():
-    """English is the implicit default — no need to nag the model."""
+def test_en_locale_emits_directive_like_any_other():
+    """2026-09-10, Scott's ruling: the phone's language wins in every case.
+    English used to be "the implicit default, no need to nag the model", and
+    the served report recipe then wrote in the transcript's language, so an
+    English phone got a Spanish report of a Spanish meeting. Sabotage: put
+    `and locale != "en"` back on the directive condition and only this test
+    goes red."""
     system_prompt, _ = build_report_prompt(_meeting(), attendees=["A"], locale="en")
-    assert "LANGUAGE:" not in system_prompt
+    assert "LANGUAGE:" in system_prompt
+    assert "'en'" in system_prompt
 
 
 def test_es_locale_emits_directive_with_code():
