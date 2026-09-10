@@ -259,6 +259,7 @@ async def refresh_status_from_apple(db: aiosqlite.Connection) -> dict:
     )).fetchall()
     checked = updated = backfilled = 0
     missing: list[str] = []
+    sandbox_skipped: list[str] = []
     for r in rows:
         otid = r["otid"]
         checked += 1
@@ -268,7 +269,15 @@ async def refresh_status_from_apple(db: aiosqlite.Connection) -> dict:
             logger.warning("refresh_status: %s failed: %s", otid, e)
             continue
         if state is None:
-            missing.append(otid)
+            # Apple's Production endpoint cannot see a Sandbox (TestFlight)
+            # transaction; that is not a subscription Apple has lost.
+            env_row = await (await db.execute(
+                "SELECT environment FROM subscription_events WHERE original_transaction_id=? "
+                "AND environment IS NOT NULL ORDER BY effective_at DESC LIMIT 1", (otid,))).fetchone()
+            if env_row and env_row["environment"] != PRODUCTION:
+                sandbox_skipped.append(otid)
+            else:
+                missing.append(otid)
             continue
         urow = await (await db.execute(
             "SELECT user_id FROM subscription_events WHERE original_transaction_id=? "
@@ -314,7 +323,7 @@ async def refresh_status_from_apple(db: aiosqlite.Connection) -> dict:
     logger.info("refresh_status checked=%d updated=%d backfilled_events=%d missing=%d",
                 checked, updated, backfilled, len(missing))
     return {"checked": checked, "updated": updated, "backfilled_events": backfilled,
-            "missing_at_apple": missing}
+            "missing_at_apple": missing, "sandbox_skipped": len(sandbox_skipped)}
 
 
 def classify_status(row: dict) -> str:
@@ -327,18 +336,23 @@ def classify_status(row: dict) -> str:
     price = row.get("price_paid") or 0
     disc = row.get("offer_discount_type")
     otype = row.get("offer_type")
+    # An offer code (3) outranks the discount it carries: Apple attaches a
+    # FREE_TRIAL discount to a redeemed code, and it is still an offer Scott
+    # sent, not a trial the user chose. Promo (2) and win-back (4) likewise.
+    is_offer = otype in (2, 3, 4)
+    is_trial = not is_offer and (disc == "FREE_TRIAL" or otype == 1)
     if not active:
-        if disc == "FREE_TRIAL" or (otype == 1 and price == 0):
-            return "trial_lapsed"
-        if otype == 3 and price == 0:
+        if is_offer and price == 0:
             return "offer_lapsed"
+        if is_trial:
+            return "trial_lapsed"
         return "lapsed"
     if price > 0:
         return "paying" if ars != 0 else "paying_cancelled"
-    if disc == "FREE_TRIAL" or otype == 1:
-        return "trialing" if ars != 0 else "trial_cancelled"
-    if otype in (2, 3, 4):
+    if is_offer:
         return "on_offer" if ars != 0 else "offer_cancelled"
+    if is_trial:
+        return "trialing" if ars != 0 else "trial_cancelled"
     return "active_unpriced"
 
 
