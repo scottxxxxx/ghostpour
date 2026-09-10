@@ -5,10 +5,16 @@ everything it covers. That file still owns the "four defects that passed a
 green suite" section and the N-400 ordering rule; this one owns current
 state.
 
-**prod = main = `963a44d`, read off `/health` and `docker inspect`, not off
-the merge. Zero PRs open. Six merged and deployed, #951 through #956, plus
-the ContextQuilt network switch, an ops change with no PR. Working tree
-clean.**
+**prod = main = `35648f5`, read off `/health` and `docker inspect`, not off
+the merge. Zero PRs open. Eight merged and deployed, #951 through #959 (#957
+is this file), plus the ContextQuilt network switch, an ops change with no
+PR. Working tree clean.** ⚠ The first close was written at `963a44d`; the
+ADDENDUM at the bottom covers #958 and #959, which shipped afterwards in
+the same session.
+
+⚠ **SCOTT: the OWED list below is unchanged by the addendum, and the
+Subscriptions tab now tells you the truth about money. Read the addendum
+before trusting any number you remember from that tab.**
 
 Session ran from the 09-09 afternoon pickup to 04:20Z on 09-10, one GP
 session (cloudzap-16), with CQ, SS and Bifrost sessions all live and
@@ -243,3 +249,108 @@ the 09-09 file's first open question.
 - ⚠ `gh pr merge` was refused by the auto-mode classifier once this
   session and allowed later on Scott's explicit "you merge them". Expect
   a prompt.
+
+
+---
+
+## ADDENDUM, same session, 05:00Z to 07:20Z on 09-10: the Subscriptions tab told a story nobody had checked
+
+Scott looked at the tab, saw $34.97 MRR and "Paid now 3", and said he
+believed every Plus subscriber had cancelled before any money arrived.
+He asked for confirmation. **He was right, and the tab was wrong in a way
+that had been sitting in plain sight since 07-28.**
+
+**The evidence, two instruments, both read.** Apple's notification history
+for Production since 07-20, decoded transaction by transaction from inside
+the prod container: 21 notifications, every one a `FREE_TRIAL` or an offer
+code at price 0, zero `DID_RENEW`. Sandbox holds 66 renewals, so the zero
+is a real zero and not a blind instrument. GP's own event log agreed: every
+Plus account had exactly one transaction, transaction id equal to original
+transaction id, the shape of something that never renewed. **Real revenue
+to date in Production: $0.** Six Plus trials (five cancelled, one still
+auto-renewing with its first charge due 09-16), three Pro on offer codes
+Scott sent to friends, one of them his own ops test.
+
+**Two defects behind the number, both GP's:**
+
+1. `record_subscription_event` wrote `price_usd` as the LIST price on every
+   event, free trials included, while Apple's transaction said 0. Any sum
+   over that column overstated revenue. The dashboard's MRR was built on it.
+2. GP ignored `DID_CHANGE_RENEWAL_STATUS` entirely. Apple had sent five to
+   Production (each a user cancelling a trial) and GP had recorded none,
+   so a cancelled trial was indistinguishable from a running one.
+
+**#958 shipped the fix in three layers**, all read from Apple's fields and
+nothing else:
+
+- Five new event columns: `price_paid` (Apple sends MILLIUNITS; divided
+  once, in `money_fields_from_apple`, and nowhere else), `currency`,
+  `offer_type`, `offer_discount_type`, `auto_renew_status`. Recorded from
+  ASSN (transaction plus renewal info) and from the verify-receipt JWS.
+  `price_usd` stays as list-price bookkeeping and is labelled as such.
+- `subscription_status`, one row per originalTransactionId, upserted on
+  every notification and rebuilt by `POST
+  /webhooks/admin/subscriptions/refresh-status`, which pulls Apple's
+  subscription-status endpoint (`get_subscription_state`, now decoding
+  renewal info, price and offer) and backfills the money fields on events
+  recorded before today, filling only NULLs. First run on prod: 18 checked,
+  9 Production rows, 14 events backfilled.
+- `subscription_truth()` classifies each row: paying, paying_cancelled,
+  trialing, trial_cancelled, on_offer, offer_cancelled, trial_lapsed,
+  offer_lapsed, lapsed, active_unpriced. **Paying needs a non-zero charge on
+  the current period.** Production only for money. The tab's headline cards
+  read this; the old list-price run-rate keeps one card and one chart, both
+  labelled "not revenue"; a subscribers table shows each account as Apple
+  sees it, with a Refresh from Apple button.
+
+**#959, two corrections read off prod after the first refresh:** Apple
+attaches a `FREE_TRIAL` discount to a redeemed offer code, so the
+classifier (which checked the discount first) called the friends' codes
+trials; offer type now decides first. And Apple's Production status
+endpoint cannot see Sandbox transactions, so nine TestFlight ids had been
+reported as "missing at Apple"; they are `sandbox_skipped` now. Both cases
+were red before the fix and green after.
+
+**Prod reads at close (07:20Z):** paying 0, recognised MRR $0, received
+nothing; trialing 1 on (paulfulton, GBP, first charge 09-16) and 1
+cancelled (srinivas, INR, lapses 09-13); offer codes 2 active-cancelled
+(john.kirker, one private relay) and 1 lapsed (Scott's ops test); trials
+lapsed 4. Verified rendering in a fresh browser tab on the deployed build.
+
+**Also caught by the full suite:** a test enumerates every table carrying
+`user_id` and refuses any that account deletion has not classified. The
+new table is account-level, beside `subscription_events`, because Apple
+issues subscriptions per developer team.
+
+### ⭐ What to carry from this one
+
+- **A dashboard number that nobody has checked against the canonical
+  source is a guess with a currency symbol.** The $34.97 had been on the
+  tab for six weeks. It was built from a column that recorded the price
+  list, not the price paid, and no one had asked Apple. The probe that
+  settled it took one run. Ask of any money figure: which transaction did
+  Apple say was non-zero?
+- **A "paid" count that includes trials is a check that passes by
+  construction**, the same family as `cached=True`: `tier != 'free'` can
+  never report "nobody has paid" while a trial is running, which is exactly
+  the state Scott needed it to report.
+- **Apple's semantics are not yours.** `offerType 3` (an offer code) can
+  carry `offerDiscountType FREE_TRIAL`; the Production status endpoint
+  404s on Sandbox ids; `price` is in milliunits. Each of these produced a
+  wrong row on the first real run and none was findable from a fixture.
+  Read the real payload before classifying it.
+- **The receipt for a data change is the data, re-read.** Refresh ran
+  twice on prod, and the second read is the one in this file.
+
+### Watches added
+
+- **09-13:** srinivas's cancelled trial lapses; the row should move to
+  `trial_lapsed` on the next notification or refresh.
+- **09-16:** paulfulton's trial ends with auto-renew ON. If Apple charges,
+  `DID_RENEW` arrives with a non-zero `price` in GBP, `paid_ever` flips,
+  and the tab reads paying 1 with recognised MRR at the USD list price
+  (there is no FX; "Received to date" shows the GBP amount). **That would
+  be the first money the product has ever taken**, and the first live
+  exercise of the paying branch.
+- Nothing recomputes `subscription_status` on its own between
+  notifications. After a quiet stretch, press Refresh from Apple.
