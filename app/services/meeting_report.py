@@ -490,7 +490,9 @@ def build_report_prompt(
     )
 
     system_prompt = REPORT_SYSTEM_PROMPT
-    if locale and locale != "en":
+    # English gets the directive too (2026-09-10): the served report recipe
+    # would otherwise follow the transcript's language, and the phone's wins.
+    if locale:
         system_prompt = system_prompt + _LOCALE_DIRECTIVE.format(locale=locale)
 
     return system_prompt, user_message

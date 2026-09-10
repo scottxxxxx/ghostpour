@@ -55,6 +55,14 @@ class ReportRequest(BaseModel):
     # transcript_language, not language, because `language` on capture
     # already means the device language.
     transcript_language: str | None = None
+    # The language the client wants the report WRITTEN in (BCP-47). SS sends
+    # it from build 2026-09-10 on every per-rendition regeneration, alongside
+    # transcript_language. Wins over transcript_language and Accept-Language;
+    # absent means the older resolution. ⚠ Without this field pydantic
+    # silently drops the key, and the echoed report_language is GP's RESOLVED
+    # value, so a client comparing echo to request sees a mismatch on every
+    # cross-language regeneration.
+    report_language: str | None = None
     # Source of the raw transcript: "ocr_captions" (OCR'd on-screen captions),
     # "speech_to_text" (microphone STT), or "mixed" (both contributed ≥20%).
     # Drives whether a server-side cleanup pass runs before report generation;
@@ -213,7 +221,9 @@ async def generate_report(
     # are silent: we fall back to raw and omit the response field.
     from app.routers.config import _parse_accept_language
     from app.services.language_directive import resolve_report_locale
-    locale = resolve_report_locale(body.transcript_language, request.headers.get("Accept-Language"))
+    locale = resolve_report_locale(
+        body.transcript_language, request.headers.get("Accept-Language"),
+        requested_language=body.report_language)
     cleaned_transcript = None
     settings = request.app.state.settings
     # Cleanup is gated purely on the source the client REPORTS — we do not infer
