@@ -98,7 +98,21 @@ PASSIVE_EXCEPT = {
     "based", "related", "limited", "detailed", "mixed", "given", "supposed",
     "used", "needed", "allowed", "intended", "concerned", "interested",
 }
-OPEN_PRONOUN_RE = re.compile(r"^(it|this|that|these|those|them)\b", re.I)
+# A demonstrative bound to a noun ("This rule holds") is not the defect. The
+# defect is a pronoun standing alone as the subject ("That is the rule"), where
+# the reader has to guess the antecedent. So the pronoun only counts when a
+# comma or a verb follows it directly. The verb list is deliberately short:
+# under-flagging costs one missed line, while over-flagging gets the whole
+# report ignored, and this rule fired a false positive on its first real use.
+_BARE_SUBJECT_FOLLOWS = (
+    r"(?:is|are|was|were|be|been|being|means|holds|makes|does|did|has|have|had|"
+    r"will|would|can|could|should|must|may|might|gets|goes|comes|stays|reads|"
+    r"says|tells|shows|leaves|keeps|belongs|applies|counts|matters|happens|"
+    r"works|fails|remains|becomes|seems|looks|sounds|feels)"
+)
+OPEN_PRONOUN_RE = re.compile(
+    rf"^(it|this|that|these|those|them)(?:\s*,|\s+{_BARE_SUBJECT_FOLLOWS}\b)", re.I
+)
 PROHIBITION_RE = re.compile(r"\b(never|do not|don't|avoid|must not|cannot|no longer)\b", re.I)
 ALLCAPS_RE = re.compile(r"\b[A-Z]{3,}\b")
 SEMICOLON_SPLIT = re.compile(r";\s*")
@@ -344,10 +358,15 @@ def compare(result, baseline):
                 was = before.get("rules", {}).get(rule, 0)
                 if count > was:
                     worse.append(f"{path}:{key} {rule} {was} -> {count}")
-            if stats["prohibitions"] > before.get("prohibitions", 0):
+            # The RATIO, never the raw count. Splitting "never do X, and never
+            # do Y" into two sentences raises the prohibition count while
+            # making the prompt strictly more testable, and a gate that fails
+            # on that would punish exactly the edit it exists to encourage.
+            was_ratio = before.get("prohibition_ratio")
+            now_ratio = stats.get("prohibition_ratio")
+            if was_ratio is not None and now_ratio is not None and now_ratio > was_ratio:
                 worse.append(
-                    f"{path}:{key} prohibitions "
-                    f"{before.get('prohibitions', 0)} -> {stats['prohibitions']}"
+                    f"{path}:{key} prohibition ratio {was_ratio}:1 -> {now_ratio}:1"
                 )
     if worse:
         print("WORSE THAN BASELINE:")

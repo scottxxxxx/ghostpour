@@ -94,6 +94,17 @@ def test_open_pronoun_does_not_fire_mid_sentence():
     assert lint.check_sentence("Keep the rule that the transcript states.")[0] == []
 
 
+def test_a_demonstrative_bound_to_a_noun_is_not_an_open_pronoun():
+    # Found by running the lint on its own STE rewrite: "This rule holds" was
+    # flagged, and a lint that cries wolf on correct text gets switched off.
+    assert lint.check_sentence("This rule holds in English too.")[0] == []
+    assert lint.check_sentence("Those are the word caps.")[0] == ["STE_OPEN_PRONOUN"]
+
+
+def test_open_pronoun_fires_on_a_comma_after_the_pronoun():
+    assert lint.check_sentence("It, in every case, wins.")[0] == ["STE_OPEN_PRONOUN"]
+
+
 # ── segmentation, the bug that would silently inflate every count ─────────
 
 def test_a_rule_per_line_is_a_sentence_per_line():
@@ -169,8 +180,28 @@ def test_baseline_fails_when_a_count_rises(capsys):
     assert "STE_PASSIVE 5 -> 6" in capsys.readouterr().out
 
 
-def test_baseline_fails_when_prohibitions_rise():
-    assert lint.compare(_report({}, prohibitions=9), _report({}, prohibitions=8)) == 1
+def _ratio_report(ratio):
+    return {"f.json": {"systemPrompt": {"rules": {}, "prohibition_ratio": ratio}}}
+
+
+def test_baseline_fails_when_the_prohibition_ratio_rises():
+    assert lint.compare(_ratio_report(2.0), _ratio_report(1.5)) == 1
+
+
+def test_baseline_passes_when_the_ratio_falls_even_as_the_count_rises():
+    # The edit this gate exists to encourage: one sentence carrying two
+    # prohibitions becomes two sentences, so the COUNT rises while the prompt
+    # gets strictly more testable. A gate on the raw count would fail it.
+    before = {"f.json": {"systemPrompt": {"rules": {}, "prohibitions": 4,
+                                          "prohibition_ratio": 1.33}}}
+    after = {"f.json": {"systemPrompt": {"rules": {}, "prohibitions": 6,
+                                         "prohibition_ratio": 0.4}}}
+    assert lint.compare(after, before) == 0
+
+
+def test_baseline_skips_the_ratio_when_either_side_is_none():
+    assert lint.compare(_ratio_report(9.0), _ratio_report(None)) == 0
+    assert lint.compare(_ratio_report(None), _ratio_report(1.0)) == 0
 
 
 def test_baseline_ignores_a_prompt_the_baseline_never_saw():
