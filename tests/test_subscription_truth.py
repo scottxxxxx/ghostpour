@@ -51,6 +51,10 @@ def test_apple_price_is_milliunits_and_missing_stays_missing():
     ({"status": 2, "auto_renew_status": 0, "price_paid": 0, "offer_discount_type": "FREE_TRIAL"}, "trial_lapsed"),
     ({"status": 2, "price_paid": 0, "offer_type": 3}, "offer_lapsed"),
     ({"status": 1, "auto_renew_status": 1, "price_paid": None}, "active_unpriced"),
+    # Prod 2026-09-10: Apple attaches a FREE_TRIAL discount to a redeemed
+    # offer code (offerType 3). It is an offer, not a trial; Scott sent it.
+    ({"status": 1, "auto_renew_status": 0, "price_paid": 0, "offer_type": 3, "offer_discount_type": "FREE_TRIAL"}, "offer_cancelled"),
+    ({"status": 2, "auto_renew_status": 0, "price_paid": 0, "offer_type": 3, "offer_discount_type": "FREE_TRIAL"}, "offer_lapsed"),
 ])
 def test_classification_reads_only_what_apple_said(row, expected):
     assert classify_status(row) == expected
@@ -256,3 +260,25 @@ def test_refresh_reports_a_subscription_apple_does_not_know(client, tmp_db_path,
     r = client.post("/webhooks/admin/subscriptions/refresh-status", headers=ADMIN)
     assert r.json()["missing_at_apple"] == [otid]
     assert r.json()["updated"] == 0
+
+
+def test_a_sandbox_subscription_apple_cannot_see_is_not_reported_missing(client, tmp_db_path, monkeypatch):
+    """Prod's refresh listed nine TestFlight ids as 'missing at Apple'. The
+    Production endpoint cannot see Sandbox transactions; that is not a
+    subscription Apple has lost."""
+    from app.services import app_store_server_api as assa
+    otid = "otid-" + uuid.uuid4().hex[:6]
+    uid = _seed_user(tmp_db_path, otid)
+    conn = sqlite3.connect(tmp_db_path)
+    conn.execute("""INSERT INTO subscription_events (id, user_id, event_type, to_tier, original_transaction_id,
+                    environment, source, effective_at, recorded_at) VALUES (?,?,?,?,?,?,?,?,?)""",
+                 (uuid.uuid4().hex, uid, "subscribed", "plus", otid, "Sandbox", "assn",
+                  "2026-09-01T00:00:00+00:00", "2026-09-01T00:00:00+00:00"))
+    conn.commit(); conn.close()
+    async def none_state(o):
+        return None
+    monkeypatch.setattr(assa, "is_configured", lambda: True)
+    monkeypatch.setattr(assa, "get_subscription_state", none_state)
+    r = client.post("/webhooks/admin/subscriptions/refresh-status", headers=ADMIN)
+    assert r.json()["missing_at_apple"] == []
+    assert r.json()["sandbox_skipped"] == 1
