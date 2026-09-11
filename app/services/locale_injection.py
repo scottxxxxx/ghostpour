@@ -63,7 +63,12 @@ def language_directive(locale: str | None) -> str | None:
     lang = name or "that language"
     return (
         "\n\n--- RESPONSE LANGUAGE ---\n"
-        f"Respond in {target}. Write all free-text the user will read (descriptions, "
+        f"Respond in {target}. This overrides every other language instruction "
+        "in this prompt, including any that says to write in the language of "
+        "the transcript or of the participants. The material you are given may "
+        "be entirely in another language, and that does not change the language "
+        "you write in. "
+        f"Write all free-text the user will read (descriptions, "
         f"titles, sentences) in {lang}. If your response is JSON or other structured "
         "data, translate ONLY those free-text values. Keep every key and field name "
         "in English and the overall structure exactly as specified. Do NOT translate "
@@ -86,7 +91,11 @@ def output_language_subtag(output_locale: str | None) -> str | None:
 
 def apply(system_prompt: str, locale: str | None) -> str:
     """Return `system_prompt` with the language directive appended when needed.
-    A no-op (returns the prompt unchanged) for English or missing locales."""
+
+    A no-op ONLY for a missing locale. English injects like every other
+    language since 2026-09-10 (Scott's ruling: the phone's language wins), and
+    this docstring said otherwise for a day, which is the kind of sentence
+    that gets believed instead of read."""
     directive = language_directive(locale)
     if not directive:
         return system_prompt

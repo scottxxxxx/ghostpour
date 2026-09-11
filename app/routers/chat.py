@@ -1978,13 +1978,19 @@ async def chat(
         normalize_locale as _norm_locale,
     )
     _output_locale = None  # set to the resolved locale only when injection fired
-    # Prefer an explicit per-call metadata.locale; fall back to the device
-    # locale from Accept-Language when it's absent. SS sends Accept-Language
-    # but not metadata.locale today, so without this fallback managed output
-    # is never forced into the user's language (verified: 0 of 303 recent SS
-    # calls carried metadata.locale). No-op for English (the parser maps
-    # en -> None). The report path (reports.py) already resolves locale this
-    # way, so this brings /v1/chat in line.
+    # Prefer an explicit per-call locale; fall back to the device locale from
+    # Accept-Language when it's absent.
+    #
+    # ⚠ 2026-09-11, measured by SS across 171 captures off Scott's phone: the
+    # chat path sends NEITHER `metadata.locale` (0 of 171) NOR an
+    # Accept-Language header (CloudZapProvider sets only Content-Type and
+    # Authorization on both the streaming and non-streaming paths). What it
+    # sends is the TOP-LEVEL `locale`, which reaches us only because
+    # `get_meta` falls back to the top-level field. The previous version of
+    # this comment said SS sends Accept-Language but not metadata.locale;
+    # both halves were wrong, and the fallback it justifies has nothing to
+    # fall back to for this client. It stays for callers that do send the
+    # header, but it is not what makes SS work.
     _effective_locale = body.get_meta("locale")
     if not _norm_locale(_effective_locale):
         # accept_language_primary, not config's parser: that one maps "en" to
