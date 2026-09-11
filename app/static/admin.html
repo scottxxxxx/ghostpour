@@ -174,6 +174,8 @@
 </style>
 </head>
 <body>
+<!-- Which server is this page driving? Painted by renderDeploymentBanner(). -->
+<div id="deployment-banner" style="display:none;"></div>
 
 <!-- Auth Screen -->
 <div id="auth-screen">
@@ -944,23 +946,107 @@ window.fetch = async function(...args) {
   return resp;
 };
 
-// Populate the build badge in the header from /health. Unauthenticated
-// endpoint so this works pre-login too. Uses the un-wrapped fetch so
-// the admin-auth 403 handler doesn't fire on a public call. Fails
-// silently if /health is unreachable or the SHA is "unknown" (local
-// dev image where the build-arg wasn't supplied).
+// Which deployment is this page driving? null means production; anything
+// else is a {level, reason} the banner paints.
+//
+// 2026-09-10: Scott raised the N-400 spend cap twice, saw a green "Saved! v3"
+// both times, and NEITHER write reached production. Bifrost read the edge
+// access log for the whole retention window: no PUT to
+// /webhooks/admin/config/n400/budget ever arrived, not even a 4xx. He had a
+// second copy of this page open against a local server, and his edits landed
+// there. The save handler was correct, the server was correct, and the page
+// simply could not say which server it was talking to. `BASE = ''` means this
+// page always drives whoever served it, which is the right design and is
+// exactly why the mistake is invisible: the page is never misconfigured, it
+// is a different page. Three days of blocked QA and two false "the cap is
+// raised" reports came out of that.
+//
+// Deliberately NOT a list of known production hostnames. A missing entry
+// would paint the banner ON prod, and a banner that cries wolf is one people
+// stop seeing by the second week. Both signals below can only be true off
+// production: prod is a public hostname, and prod images always carry a
+// CI-supplied SHA.
+//
+// gitSha === null means /health did not answer, so the build is UNKNOWN
+// rather than absent. That distinction keeps the banner off prod during the
+// few seconds of 502 that every deploy opens.
+function deploymentWarning(host, gitSha) {
+  const hostname = (host || '').split(':')[0].toLowerCase();
+  const isLocal =
+    hostname === '' ||
+    hostname === 'localhost' ||
+    hostname === '::1' ||
+    hostname === '[::1]' ||
+    hostname.endsWith('.local') ||
+    hostname.endsWith('.localhost') ||
+    !hostname.includes('.') ||
+    /^127\./.test(hostname) ||
+    /^10\./.test(hostname) ||
+    /^192\.168\./.test(hostname) ||
+    /^172\.(1[6-9]|2[0-9]|3[01])\./.test(hostname);
+  if (isLocal) {
+    return {level: 'local',
+            reason: `This page is driving ${hostname || 'an unnamed host'}, not production. `
+                  + `Anything you save here stays here.`};
+  }
+  if (gitSha === null) return null;
+  if (!gitSha || gitSha === 'unknown') {
+    return {level: 'unidentified',
+            reason: `${hostname} reported no build SHA, so it is not a CI-built `
+                  + `production image. Confirm which server this is before saving.`};
+  }
+  return null;
+}
+
+function renderDeploymentBanner(warning) {
+  const el = document.getElementById('deployment-banner');
+  if (!el) return;
+  if (!warning) {
+    el.style.display = 'none';
+    el.textContent = '';
+    document.body.style.removeProperty('box-shadow');
+    return;
+  }
+  const colour = warning.level === 'local' ? '#b3261e' : '#8a6100';
+  el.textContent = (warning.level === 'local' ? 'NOT PRODUCTION. ' : 'UNVERIFIED BUILD. ')
+                 + warning.reason;
+  el.setAttribute('style',
+    `display:block;background:${colour};color:#fff;font-weight:600;`
+    + `padding:10px 14px;text-align:center;letter-spacing:0.02em;`);
+  // Colour is what makes a wrong tab wrong at a glance. A label alone is what
+  // people stop reading.
+  document.body.style.boxShadow = `inset 0 0 0 4px ${colour}`;
+}
+
+// Populate the build badge in the header from /health, and say WHICH HOST
+// this page is driving next to it. Unauthenticated endpoint so this works
+// pre-login too. Uses the un-wrapped fetch so the admin-auth 403 handler
+// doesn't fire on a public call.
+//
+// The old version returned early when the SHA was missing or "unknown",
+// which meant a local dev image rendered NO badge at all. That reads as "the
+// badge didn't load" rather than "this is not prod", and it is half of why
+// the 09-10 mix-up was invisible. It now always states the host.
 (async () => {
+  let sha = null;
   try {
     const r = await _origFetch(`${BASE}/health`);
-    if (!r.ok) return;
-    const d = await r.json();
-    const sha = (d.git_sha || '').slice(0, 7);
-    if (!sha || sha === 'unknown') return;
-    const el = document.getElementById('build-badge');
-    if (el) {
-      el.innerHTML = `<a href="https://github.com/scottxxxxx/ghostpour/commit/${d.git_sha}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--text-dim);">build ${sha}</a>`;
+    if (r.ok) {
+      const d = await r.json();
+      sha = d.git_sha || 'unknown';
     }
   } catch (_) {}
+
+  const host = location.host;
+  const el = document.getElementById('build-badge');
+  if (el) {
+    const shortSha = (sha && sha !== 'unknown') ? sha.slice(0, 7) : null;
+    const buildPart = shortSha
+      ? `<a href="https://github.com/scottxxxxx/ghostpour/commit/${sha}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--text-dim);">build ${shortSha}</a>`
+      : `build ${sha === 'unknown' ? 'unidentified' : 'unreachable'}`;
+    el.innerHTML = `${buildPart} <span style="opacity:0.75">on ${esc(host)}</span>`;
+  }
+  renderDeploymentBanner(deploymentWarning(host, sha));
 })();
 
 function handleAdminAuthFailure() {
