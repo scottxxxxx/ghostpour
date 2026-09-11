@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 29
+served_version: 30
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
 thinking: disabled
-reconciled: 2026-09-07 (v29)
+reconciled: 2026-09-11 (v30)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1172,6 +1172,50 @@ distinguish.** What else could satisfy this answers itself on that one.
 Scott: the clusters, the completion claim over a field deferred in the same
 turn, and the self-employed dead end. Every one was established by reading
 turns. Not one came from a count.**
+
+## v30: the disclosure was allowed to be conditional
+
+v29 closed the multi-field case: every deferred field must be named. That
+rule is about COVERAGE, and it is fully satisfied by
+
+    "I've noted June 2020 to firm up later IF NEEDED"
+
+which names the right field, attaches correctly, and sits in the same breath.
+What v29 never said is that the clause has to be UNCONDITIONAL, and a hedge
+that leaves the return optional cancels the disclosure it just made.
+
+Measured by the auditor on 30 hand-labelled post-fix replies, three do this:
+
+    "to firm up later IF NEEDED"
+    "we can pin the exact day later IF IT MATTERS"
+    "to verify the exact days IF NEEDED"
+
+**One of the three came from v29 itself**, so this was live behaviour rather
+than a property of any rewrite. Both instruments scored all three as
+disclosure, because both look for a hedge attached to the right field and
+neither has any notion of a conditional. It was invisible to every check
+either team had.
+
+Scott's ruling, 2026-09-11: *"if needed is wrong, she needs to know she must
+come back."*
+
+⚠ THE COUNTERWEIGHT IS THE HALF THAT MATTERS. The obvious fix is "forbid
+conditionals", which strips "if you can find it" and "when you have your mail
+in front of you", phrasings that are kind to someone without her paperwork to
+hand, and which scores BETTER on every readability metric while making the
+copy worse. So the rule states both directions: a condition on HOW she gets
+the answer keeps the return certain and stays allowed; a condition on WHETHER
+she comes back does not. `tests/test_n400_deferral_not_conditional.py` pins
+both halves, and the sibling case has its own test for exactly that reason.
+
+⚠ This rule is neither shorter sentences nor a better prohibition ratio, so
+the STE lint cannot see it. A rewrite that dropped it would score better on
+the lint and regress the product. If the STE rewrite of this block ever
+ships, this rule goes into it.
+
+Patch text drafted by fable-auditor, who directs this lane. 118 words onto
+1,207. Inserted after the block's existing good-examples sentence, which is
+the sentence it refines.
 
 ## What is deliberately not here
 
