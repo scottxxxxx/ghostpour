@@ -20,6 +20,14 @@ tmpfiles sweep. That is not a place to keep something you cannot rebuild.
 | `n400-deferral-ste-inputs.json` | The 42 verbatim lane requests, so a prompt A/B REGENERATES replies rather than re-judging stored ones. |
 | `judge.py` | The per-field LLM judge, validated at 41/41. Reads its credential from settings at call time and contains none. |
 
+⚠ **The interview content is QA persona material, and that is load-bearing, not
+incidental.** It is only true because `com.weirtech.n400helper` is still absent
+from `CZ_APPLE_BUNDLE_ID`, so no real Apple identity can reach the lane. **The
+day that bundle id is added, committing verbatim `known_facts` and
+`conversation` payloads to a repo becomes a different decision.** Whoever runs
+the next inputs extraction after that changes has to make it again rather than
+copy this one.
+
 ## The two label revisions, and why both exist
 
 Scott ruled on 2026-09-11: **both files, named apart, neither pretending to be
@@ -67,9 +75,27 @@ construction.
   not about the lane. The lane is measured by regenerating replies from the
   inputs file under the variant being tested.
 
-## Blindness
+## Blindness: the pack and the key are adjacent ON PURPOSE, and both say so
 
-The pack's blindness has already been spent: the 30 items were labelled and
-scored on 2026-09-11, so the key sitting beside it costs nothing now. Re-using
-these same items for another blind pass would be invalid regardless, because the
-labeller has seen them. A future blind pass needs a fresh pack.
+**A second labeller must not read `ste-label-unblinding-key.json` before
+labelling `ste-label-pack.json`.** Both files now carry a `_hazard` header
+saying that, in the direction that matters for whichever one you opened.
+
+My first reasoning here was wrong and fable-auditor caught it. I argued the
+blindness was already spent, since the 30 items were labelled and scored on
+2026-09-11, so the key beside the pack cost nothing. The first half is true and
+the conclusion does not follow: **the pack has a legitimate future use that is
+not a fresh blind pass.** A second independent read of the SAME 30 items is
+inter-rater agreement, and that is the one thing that would settle the
+conditional-hedge question empirically instead of by ruling. Two readers have
+already split on it, the 09-06 labeller and fable-auditor-55. A third read is
+the natural next experiment, and it only works if that reader never saw the arms.
+
+They stay adjacent rather than separated because **a file that is merely far
+away gets found anyway, and a file that states the cost of opening it does not
+need to be hidden.** Separation would be the same mistake as a shouty filename,
+pointed the other way: it relies on the name to carry a hazard that belongs in
+the content.
+
+⚠ A fresh blind pass on NEW turns needs a new pack either way; these items are
+spent for anyone who has already labelled them.
