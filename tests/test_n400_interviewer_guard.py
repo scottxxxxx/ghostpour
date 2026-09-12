@@ -473,6 +473,139 @@ def test_the_orchestrator_survives_an_object_shaped_intent():
     assert turn["minted_on_non_answer"]["intent"] == "help_explain"
 
 
+# --- an unusable reply is worse than no reply -------------------------------
+#
+# Measured by fable-auditor on the real decoder: `reply: {}` and
+# `reply: {"fr": "Bonjour"}` both THROW out of TurnResponse and kill the whole
+# response, because `reply` is not optional the way `intent.detail` is and no
+# `try?` sits above it. malformedResponse is not retryable, so she is
+# dead-ended. An ABSENT reply is only silent: all six InterviewEngine call
+# sites are `if let reply = response.reply`, so the turn still mints its facts
+# and advances. Absent is strictly better than unusable.
+
+def _reply(value):
+    return json.dumps({"intent": "answer", "facts": [], "deferred": [], "reply": value})
+
+
+@pytest.mark.parametrize("value,kind", [
+    ({}, "empty_map"),
+    ({"fr": "Bonjour"}, "no_readable_locale"),
+    ({"en": ""}, "no_readable_locale"),
+    ({"en": "   "}, "no_readable_locale"),
+    ({"en": None}, "no_readable_locale"),
+    ({"en": 7}, "no_readable_locale"),
+    ([], "list"),
+    (7, "int"),
+])
+def test_a_reply_the_client_would_throw_on_is_dropped(value, kind):
+    from app.services.n400_interviewer_guard import drop_unusable_reply
+
+    out, info = drop_unusable_reply(_reply(value))
+    turn = json.loads(out)
+    assert "reply" not in turn, "an unusable reply must not go on the wire"
+    assert info["kind"] == kind
+    assert turn["reply_dropped"]["reason"]
+    assert turn["facts"] == [] and turn["intent"] == "answer", "the rest of the turn survives"
+
+
+@pytest.mark.parametrize("value", [
+    {"en": "ok"},
+    {"es": "claro"},
+    {"pt": "certo"},
+    {"en": "ok", "fr": "Bonjour"},
+    {"fr": "Bonjour", "es": "claro"},
+])
+def test_a_reply_the_client_can_read_is_never_touched(value):
+    from app.services.n400_interviewer_guard import drop_unusable_reply
+
+    text = _reply(value)
+    out, info = drop_unusable_reply(text)
+    assert out == text and info is None
+
+
+def test_an_absent_reply_is_left_alone_rather_than_marked():
+    """Nothing to protect her from, so nothing to say about it."""
+    from app.services.n400_interviewer_guard import drop_unusable_reply
+
+    text = json.dumps({"intent": "answer", "facts": []})
+    assert drop_unusable_reply(text) == (text, None)
+
+
+def test_a_null_reply_is_left_alone():
+    from app.services.n400_interviewer_guard import drop_unusable_reply
+
+    text = _reply(None)
+    assert drop_unusable_reply(text) == (text, None)
+
+
+def test_the_dropped_marker_names_the_locales_that_were_there():
+    """The drop has to be AUDIBLE, or we learn nothing about a lane that has
+    started emitting a locale the client cannot read."""
+    from app.services.n400_interviewer_guard import drop_unusable_reply
+
+    _, info = drop_unusable_reply(_reply({"fr": "Bonjour", "de": "Hallo"}))
+    assert info["locales_present"] == ["de", "fr"]
+
+
+def test_the_bare_string_path_still_wins_before_the_drop_can_see_it():
+    """A bare string is NORMALIZED, never dropped: that tolerance is what keeps
+    the 09-06 defect fixed, and this guard must not undo it."""
+    from app.services.n400_interviewer_guard import guard_response_text
+
+    turn = json.loads(guard_response_text(_reply("just say this"), None, "t-1"))
+    assert turn["reply"] == {"en": "just say this"}
+    assert "reply_dropped" not in turn
+
+
+def test_the_orchestrator_drops_an_unusable_reply_end_to_end():
+    """A guard nobody calls is decoration."""
+    from app.services.n400_interviewer_guard import guard_response_text
+
+    turn = json.loads(guard_response_text(_reply({}), None, "t-1"))
+    assert "reply" not in turn and turn["reply_dropped"]["kind"] == "empty_map"
+
+
+def test_the_drop_runs_last_so_the_battery_marker_still_sees_the_reply():
+    """Ordering is load-bearing, and this assertion had to be chosen with care.
+
+    `mark_battery_shortfall` compares the SPOKEN line against the question the
+    fields came from. If the drop ran first it would measure a reply that was
+    no longer there, read zero spoken characters, and mark every battery as
+    unspoken.
+
+    The obvious test, asserting `battery_unspoken` is PRESENT after a short
+    reply, cannot fail: an absent reply is zero characters, which also satisfies
+    "spoke far less than the question", so the marker fires either way. That
+    version was written first, a sabotage moving the drop earlier turned nothing
+    red, and the wrong prediction is what found it.
+
+    So the reply here is unusable to the client but LONG, longer than the ratio
+    needs. With the ordering right, the marker sees it and stays quiet. With the
+    drop moved earlier, the marker sees nothing and marks. Present-versus-absent
+    now changes the outcome, which is the only way this can test what it says.
+    """
+    from app.services.n400_interviewer_guard import guard_response_text
+
+    question = ("Have you ever been arrested, cited, or detained by any law "
+                "enforcement officer for any reason?")
+    agenda = ("q_p9_crimes | Part 9: Additional information | "
+              "p9.arrested, p9.cited, p9.detained | " + question)
+    spoken = ("Avez-vous deja ete arrete, cite a comparaitre, ou detenu par un "
+              "agent des forces de l'ordre pour quelque raison que ce soit?")
+    assert len(spoken) >= 0.55 * len(question), "the fixture must clear the ratio"
+
+    turn = json.dumps({
+        "intent": "answer",
+        "facts": [{"field_id": f, "value": "no"} for f in
+                  ("p9.arrested", "p9.cited", "p9.detained")],
+        "reply": {"fr": spoken}})
+    out = json.loads(guard_response_text(turn, agenda, "t-1"))
+    assert "reply" not in out, "the unusable reply is still dropped"
+    assert "battery_unspoken" not in out, (
+        "the battery marker measured an absent reply as zero spoken characters, "
+        "so the drop ran before it")
+
+
 def test_both_new_guards_are_actually_reached_by_the_orchestrator():
     """A guard nobody calls is decoration. This is the only test that
     proves guard_response_text runs them, which is what production uses."""
