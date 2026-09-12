@@ -563,6 +563,28 @@ NOT_AN_ANSWER_INTENTS = frozenset({
 NOT_AN_ANSWER_REASON = "the response's own intent says this was not an answer, yet it minted"
 
 
+# `intent` is moving from a bare string to an object, `{"type": ..., ...}`,
+# in the order client, then this reader, then the prompt. The prompt is last
+# because it is the only irreversible step; until it moves, every real turn
+# still carries the string, so this reads both shapes and neither side has to
+# wait on the other.
+#
+# What it replaces: a dict went straight into `in NOT_AN_ANSWER_INTENTS` and
+# a set membership test hashes its operand, so an object-shaped intent raised
+# TypeError out of the guard. Nothing between here and the route handler
+# catches it (checked: every try block in `chat.chat` closes before the
+# `guard_response_text` call), so the turn 500s and her answer goes with it.
+# Measured on the real function, both shapes, before this was written.
+def intent_label(intent: object) -> str | None:
+    """The intent's label, from either wire shape. None when there is not one."""
+    if isinstance(intent, str):
+        return intent
+    if isinstance(intent, dict):
+        declared = intent.get("type")
+        return declared if isinstance(declared, str) else None
+    return None
+
+
 def mark_facts_minted_on_a_non_answer(text: str) -> tuple[str, dict | None]:
     """Mark, do not drop, facts minted on a turn labelled a non-answer.
 
@@ -575,11 +597,16 @@ def mark_facts_minted_on_a_non_answer(text: str) -> tuple[str, dict | None]:
         return text, None
     if not isinstance(turn, dict):
         return text, None
-    intent = turn.get("intent")
+    label = intent_label(turn.get("intent"))
     facts = turn.get("facts")
-    if intent not in NOT_AN_ANSWER_INTENTS or not isinstance(facts, list) or not facts:
+    if label not in NOT_AN_ANSWER_INTENTS or not isinstance(facts, list) or not facts:
         return text, None
-    info = {"intent": intent,
+    # The marker carries the LABEL and never the object it came in on.
+    # `minted_on_non_answer` is read by the client and formatted into the
+    # `n400_minted_on_non_answer` log line as `intent=%s`, and both want one
+    # shape whichever shape arrived. An object's other fields are the
+    # client's to keep; `turn["intent"]` still holds them untouched.
+    info = {"intent": label,
             "minted": sorted(str(f.get("field_id")) for f in facts if isinstance(f, dict)),
             "reason": NOT_AN_ANSWER_REASON}
     turn["minted_on_non_answer"] = info

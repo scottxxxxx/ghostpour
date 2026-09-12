@@ -401,6 +401,78 @@ def test_intents_that_legitimately_carry_facts_are_not_marked(intent):
     assert info is None
 
 
+# --- the intent object, read before the prompt moves -----------------------
+#
+# The client is adding `{"type": ...}` where a bare string used to be. This
+# reader goes second and the prompt goes last, so for a while both shapes are
+# live on the wire and every test below has to hold for both.
+
+def test_an_object_shaped_intent_is_read_rather_than_crashed_on():
+    """Before `intent_label`, the dict went into `in NOT_AN_ANSWER_INTENTS`,
+    which hashes it: TypeError, uncaught all the way out of the route, so a
+    turn that minted on a non-answer took the whole reply down instead of
+    being marked. Measured on the real function."""
+    from app.services.n400_interviewer_guard import mark_facts_minted_on_a_non_answer
+
+    out, info = mark_facts_minted_on_a_non_answer(_resp(
+        intent={"type": "help_explain", "confidence": 0.91},
+        facts=[{"field_id": "p3.zip", "value": "60614"}]))
+    assert info is not None, "the object shape must reach the same marking"
+    assert info["minted"] == ["p3.zip"]
+    assert json.loads(out)["minted_on_non_answer"]["intent"] == "help_explain"
+
+
+def test_the_marker_carries_the_label_and_the_turn_keeps_the_object():
+    """One shape downstream, whichever shape arrived, and the client's own
+    fields survive: the guard reads `intent`, it does not rewrite it."""
+    from app.services.n400_interviewer_guard import mark_facts_minted_on_a_non_answer
+
+    arrived = {"type": "question_back", "confidence": 0.4, "asked_about": "p3.zip"}
+    out, info = mark_facts_minted_on_a_non_answer(_resp(
+        intent=arrived, facts=[{"field_id": "p3.zip", "value": "60614"}]))
+    assert info["intent"] == "question_back", "the marker is the label, not the object"
+    assert json.loads(out)["intent"] == arrived, "the intent itself rides through untouched"
+
+
+@pytest.mark.parametrize("intent", [{"type": "answer"}, {"type": "correction"}])
+def test_an_object_shaped_answering_intent_is_not_marked(intent):
+    from app.services.n400_interviewer_guard import mark_facts_minted_on_a_non_answer
+
+    _, info = mark_facts_minted_on_a_non_answer(
+        _resp(intent=intent, facts=[{"field_id": "a", "value": "yes"}]))
+    assert info is None
+
+
+@pytest.mark.parametrize("intent", [{}, {"type": None}, {"type": 7},
+                                    {"type": ["help_explain"]},
+                                    {"kind": "help_explain"}, ["help_explain"], 7])
+def test_an_intent_with_no_usable_label_is_neither_marked_nor_raised(intent):
+    """An unreadable shape lands exactly where an unrecognised STRING lands:
+    unmarked, and the facts untouched. The marker counts a signal it trusts;
+    it has never been the thing that decides a fact's fate."""
+    from app.services.n400_interviewer_guard import mark_facts_minted_on_a_non_answer
+
+    out, info = mark_facts_minted_on_a_non_answer(
+        _resp(intent=intent, facts=[{"field_id": "a", "value": "yes"}]))
+    assert info is None
+    assert json.loads(out)["facts"] == [{"field_id": "a", "value": "yes"}]
+
+
+def test_the_orchestrator_survives_an_object_shaped_intent():
+    """The crash was a 500 on the route, so the reachability has to be tested
+    where production enters: `guard_response_text`, not the marker alone."""
+    from app.services.n400_interviewer_guard import guard_response_text
+
+    out = guard_response_text(
+        _resp(intent={"type": "help_explain", "confidence": 0.9},
+              facts=[{"field_id": "p9.oath.bear_arms", "value": "yes",
+                      "provenance": {"utterance": "I don't understand that part"}}]),
+        None, "t-80", "I don't understand that part")
+    turn = json.loads(out)
+    assert turn["facts"], "the marker must not drop what the floor vouched for"
+    assert turn["minted_on_non_answer"]["intent"] == "help_explain"
+
+
 def test_both_new_guards_are_actually_reached_by_the_orchestrator():
     """A guard nobody calls is decoration. This is the only test that
     proves guard_response_text runs them, which is what production uses."""
