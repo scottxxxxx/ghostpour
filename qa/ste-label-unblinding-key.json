@@ -1,0 +1,245 @@
+{
+  "_hazard": "READING THIS FILE SPENDS ste-label-pack.json FOR YOU, PERMANENTLY. It names the arm and rep behind every blind item. If you have been asked to LABEL those 30 items, stop and close this file: a second independent read of the same items is inter-rater agreement on the conditional-hedge question, and it only works if the reader never saw the arms. Open this only to SCORE labels that are already written down.",
+  "key": [
+    {
+      "item_id": "bb985898",
+      "run": "conf-es-full-1.json",
+      "turn": 36,
+      "variant": "A_v29",
+      "rep": 0,
+      "judge_told": true
+    },
+    {
+      "item_id": "fbb004db",
+      "run": "conf-es-full-1.json",
+      "turn": 36,
+      "variant": "B_ste",
+      "rep": 0,
+      "judge_told": true
+    },
+    {
+      "item_id": "2336291f",
+      "run": "conf-es-full-1.json",
+      "turn": 92,
+      "variant": "A_v29",
+      "rep": 2,
+      "judge_told": true
+    },
+    {
+      "item_id": "120f6cb9",
+      "run": "conf-es-full-1.json",
+      "turn": 92,
+      "variant": "B_ste",
+      "rep": 0,
+      "judge_told": true
+    },
+    {
+      "item_id": "786a35f5",
+      "run": "conf-es-v21.json",
+      "turn": 18,
+      "variant": "A_v29",
+      "rep": 1,
+      "judge_told": true
+    },
+    {
+      "item_id": "440464ad",
+      "run": "conf-es-v21.json",
+      "turn": 18,
+      "variant": "B_ste",
+      "rep": 0,
+      "judge_told": true
+    },
+    {
+      "item_id": "e88f3ab2",
+      "run": "conf-es-v27.json",
+      "turn": 31,
+      "variant": "A_v29",
+      "rep": 0,
+      "judge_told": true
+    },
+    {
+      "item_id": "56ffafb0",
+      "run": "conf-es-v27.json",
+      "turn": 31,
+      "variant": "B_ste",
+      "rep": 0,
+      "judge_told": true
+    },
+    {
+      "item_id": "95c107c4",
+      "run": "conf-v10.json",
+      "turn": 47,
+      "variant": "A_v29",
+      "rep": 0,
+      "judge_told": true
+    },
+    {
+      "item_id": "768b831a",
+      "run": "conf-v10.json",
+      "turn": 47,
+      "variant": "B_ste",
+      "rep": 0,
+      "judge_told": false
+    },
+    {
+      "item_id": "0a473ea9",
+      "run": "conf-v10.json",
+      "turn": 49,
+      "variant": "A_v29",
+      "rep": 1,
+      "judge_told": true
+    },
+    {
+      "item_id": "fc5c4761",
+      "run": "conf-v10.json",
+      "turn": 49,
+      "variant": "B_ste",
+      "rep": 1,
+      "judge_told": true
+    },
+    {
+      "item_id": "1a897ce5",
+      "run": "conf-v18.json",
+      "turn": 52,
+      "variant": "A_v29",
+      "rep": 1,
+      "judge_told": true
+    },
+    {
+      "item_id": "73fca140",
+      "run": "conf-v18.json",
+      "turn": 52,
+      "variant": "B_ste",
+      "rep": 0,
+      "judge_told": false
+    },
+    {
+      "item_id": "590a7f07",
+      "run": "conf-v21.json",
+      "turn": 31,
+      "variant": "A_v29",
+      "rep": 0,
+      "judge_told": true
+    },
+    {
+      "item_id": "a65ab378",
+      "run": "conf-v21.json",
+      "turn": 31,
+      "variant": "B_ste",
+      "rep": 0,
+      "judge_told": true
+    },
+    {
+      "item_id": "c4dfdac4",
+      "run": "conf-v21.json",
+      "turn": 49,
+      "variant": "A_v29",
+      "rep": 0,
+      "judge_told": true
+    },
+    {
+      "item_id": "35c1ab02",
+      "run": "conf-v21.json",
+      "turn": 49,
+      "variant": "B_ste",
+      "rep": 0,
+      "judge_told": true
+    },
+    {
+      "item_id": "039c2fe4",
+      "run": "conf-v22.json",
+      "turn": 35,
+      "variant": "A_v29",
+      "rep": 0,
+      "judge_told": true
+    },
+    {
+      "item_id": "60ba2096",
+      "run": "conf-v22.json",
+      "turn": 35,
+      "variant": "B_ste",
+      "rep": 0,
+      "judge_told": true
+    },
+    {
+      "item_id": "23fed3e4",
+      "run": "conf-v22.json",
+      "turn": 52,
+      "variant": "A_v29",
+      "rep": 1,
+      "judge_told": true
+    },
+    {
+      "item_id": "36d5e907",
+      "run": "conf-v22.json",
+      "turn": 52,
+      "variant": "B_ste",
+      "rep": 0,
+      "judge_told": false
+    },
+    {
+      "item_id": "a56b7d7c",
+      "run": "conf-v24.json",
+      "turn": 32,
+      "variant": "A_v29",
+      "rep": 0,
+      "judge_told": true
+    },
+    {
+      "item_id": "b33e7af8",
+      "run": "conf-v24.json",
+      "turn": 32,
+      "variant": "B_ste",
+      "rep": 0,
+      "judge_told": true
+    },
+    {
+      "item_id": "40ae0218",
+      "run": "conf-v25.json",
+      "turn": 39,
+      "variant": "A_v29",
+      "rep": 0,
+      "judge_told": true
+    },
+    {
+      "item_id": "5fd1976f",
+      "run": "conf-v25.json",
+      "turn": 39,
+      "variant": "B_ste",
+      "rep": 0,
+      "judge_told": true
+    },
+    {
+      "item_id": "11e2e796",
+      "run": "conf-v25b.json",
+      "turn": 34,
+      "variant": "A_v29",
+      "rep": 1,
+      "judge_told": true
+    },
+    {
+      "item_id": "fb49e064",
+      "run": "conf-v25b.json",
+      "turn": 34,
+      "variant": "B_ste",
+      "rep": 0,
+      "judge_told": true
+    },
+    {
+      "item_id": "9829e684",
+      "run": "s2-v6-full.json",
+      "turn": 32,
+      "variant": "A_v29",
+      "rep": 0,
+      "judge_told": true
+    },
+    {
+      "item_id": "3c83b252",
+      "run": "s2-v6-full.json",
+      "turn": 32,
+      "variant": "B_ste",
+      "rep": 0,
+      "judge_told": true
+    }
+  ]
+}

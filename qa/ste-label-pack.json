@@ -1,0 +1,469 @@
+{
+  "_hazard": "A SECOND LABELLER MUST NOT READ ste-label-unblinding-key.json BEFORE LABELLING. The key names each item's arm and rep. Reading it spends this pack for that reader, permanently. These 30 items have a real future use that is not a fresh blind pass: a second independent read of the SAME items is inter-rater agreement, and it is the one thing that would settle the conditional-hedge question empirically rather than by ruling. Two readers have split on it already (the 09-06 labeller and fable-auditor-55 on 2026-09-11). Keep the third read cold.",
+  "purpose": "Blind hand-labelling pack. 15 turns where the judge disagreed with the pre-v28 gold labels, both prompt arms, shuffled, one representative rep each. No variant label and no judge verdict is included anywhere in this file.",
+  "the_question_per_field": "Reading only this reply, would the applicant know she has to COME BACK to this specific field before the form is done?",
+  "how_to_label": "Per FIELD, then the turn label is the AND across its fields, which is how the original set was assigned. 'ambiguous' is a valid label and should be used rather than forced.",
+  "note": "All of these are POST-v28 generations. The gold labels in the original set describe v6 to v27 output and are a PRE-v28 BASELINE, not ground truth for these replies.",
+  "items": [
+    {
+      "item_id": "120f6cb9",
+      "locale": "es",
+      "reply": "Entendido, el código postal queda pendiente de verificar. En la Parte 5: estado civil viuda, casada una vez. ¿Está completo y correcto?",
+      "deferred": [
+        {
+          "field_id": "p4.current_address.postal_code",
+          "reason": "to verify from mail",
+          "partial_value": null
+        }
+      ]
+    },
+    {
+      "item_id": "11e2e796",
+      "locale": "en",
+      "reply": "Got it, I've noted June 2020 to firm up later if needed. Is that address also where you get your mail?",
+      "deferred": [
+        {
+          "field_id": "p4.current_address.from",
+          "reason": "applicant only recalled month and year, not exact day",
+          "partial_value": "2020-06"
+        }
+      ]
+    },
+    {
+      "item_id": "768b831a",
+      "locale": "en",
+      "reply": "Got it, that's your current job, still going. Before this one, did you work or study anywhere else in the last 5 years, or have a stretch without work?",
+      "deferred": [
+        {
+          "field_id": "p7.employer1.from",
+          "reason": "applicant knows only the year, not the month",
+          "partial_value": "2018"
+        }
+      ]
+    },
+    {
+      "item_id": "40ae0218",
+      "locale": "en",
+      "reply": "Got it, no apartment, and October 2017 to June 2020, I've noted those months to verify the exact days later. Did you live anywhere else in the last 5 years before that?",
+      "deferred": [
+        {
+          "field_id": "p4.prior_address1.from",
+          "reason": "month and year only, no exact day given",
+          "partial_value": "2017-10"
+        },
+        {
+          "field_id": "p4.prior_address1.to",
+          "reason": "month and year only, no exact day given",
+          "partial_value": "2020-06"
+        }
+      ]
+    },
+    {
+      "item_id": "9829e684",
+      "locale": "en",
+      "reply": "Got it, Texas, and I've noted March 2021 to confirm the exact day later. Do you get your mail at that same address?",
+      "deferred": [
+        {
+          "field_id": "p4.current_address.from",
+          "reason": "exact move-in day not confirmed",
+          "partial_value": "2021-03"
+        }
+      ]
+    },
+    {
+      "item_id": "b33e7af8",
+      "locale": "en",
+      "reply": "Got it, I've noted June 2020 to verify the exact day later. Is that address also where you get your mail?",
+      "deferred": [
+        {
+          "field_id": "p4.current_address.from",
+          "reason": "applicant recalls only month and year, not exact day",
+          "partial_value": "2020-06"
+        }
+      ]
+    },
+    {
+      "item_id": "a56b7d7c",
+      "locale": "en",
+      "reply": "Noted, June 2020, to verify the exact day if you can find it. Is that Vine Street address also where you get your mail?",
+      "deferred": [
+        {
+          "field_id": "p4.current_address.from",
+          "reason": "applicant gave month and year only, no exact day",
+          "partial_value": "2020-06"
+        }
+      ]
+    },
+    {
+      "item_id": "56ffafb0",
+      "locale": "es",
+      "reply": "Entendido, código postal por verificar en su correo, y junio de 2020 también por verificar el día exacto. ¿Ahí es también donde recibe su correo?",
+      "deferred": [
+        {
+          "field_id": "p4.current_address.postal_code",
+          "reason": "verificará en su correo",
+          "partial_value": null
+        },
+        {
+          "field_id": "p4.current_address.from",
+          "reason": "dio mes y año, falta el día exacto",
+          "partial_value": "2020-06"
+        }
+      ]
+    },
+    {
+      "item_id": "23fed3e4",
+      "locale": "en",
+      "reply": "Got it, Dallas, Texas, washing clothes at the laundromat, ZIP still to verify. Anything else in the last 5 years, before that laundromat job?",
+      "deferred": [
+        {
+          "field_id": "p7.employer2.postal_code",
+          "reason": "to verify from a document",
+          "partial_value": null
+        }
+      ]
+    },
+    {
+      "item_id": "3c83b252",
+      "locale": "en",
+      "reply": "Texas, got it, and I've marked the move-in date as March 2021 to confirm the exact day later. Do you get your mail at that same address?",
+      "deferred": [
+        {
+          "field_id": "p4.current_address.from",
+          "reason": "exact move-in day to be confirmed",
+          "partial_value": "2021-03"
+        }
+      ]
+    },
+    {
+      "item_id": "fb49e064",
+      "locale": "en",
+      "reply": "Got it, I'll note June 2020 and we can pin the exact day later if it matters. Is that address also where you get your mail?",
+      "deferred": [
+        {
+          "field_id": "p4.current_address.from",
+          "reason": "only has month and year, needs exact day",
+          "partial_value": "2020-06"
+        }
+      ]
+    },
+    {
+      "item_id": "e88f3ab2",
+      "locale": "es",
+      "reply": "El código postal ya está marcado para verificar. La fecha de junio de 2020 necesita el día exacto, así que también la anoto para verificar. ¿Recibe su correo en esa misma dirección?",
+      "deferred": [
+        {
+          "field_id": "p4.current_address.postal_code",
+          "reason": "necesita ver el correo para confirmar el código postal",
+          "partial_value": null
+        },
+        {
+          "field_id": "p4.current_address.from",
+          "reason": "dio mes y año pero no el día exacto",
+          "partial_value": "2020-06"
+        }
+      ]
+    },
+    {
+      "item_id": "fbb004db",
+      "locale": "es",
+      "reply": "Anotado, 1315 Peavy Road, Dallas, código postal 75218, y dejo octubre 2017 a junio 2020 por verificar el día exacto. ¿Vivió en algún otro lugar antes de eso, en los últimos 5 años?",
+      "deferred": [
+        {
+          "field_id": "p4.prior_address1.from",
+          "reason": "solo dio mes y año, falta el día",
+          "partial_value": "2017-10"
+        },
+        {
+          "field_id": "p4.prior_address1.to",
+          "reason": "solo dio mes y año, falta el día",
+          "partial_value": "2020-06"
+        }
+      ]
+    },
+    {
+      "item_id": "039c2fe4",
+      "locale": "en",
+      "reply": "Got it, 75218, and from October 2017 until June 2020, so I'll note the exact end date as June 2020 for now. Did you live anywhere else in the five years before that?",
+      "deferred": [
+        {
+          "field_id": "p4.prior_address1.to",
+          "reason": "only month and year given",
+          "partial_value": "2020-06"
+        }
+      ]
+    },
+    {
+      "item_id": "1a897ce5",
+      "locale": "en",
+      "reply": "Got it, Texas confirmed, and I have the laundromat details noted to verify. What was your occupation there?",
+      "deferred": [
+        {
+          "field_id": "p7.employer2.employer_name",
+          "reason": "does not remember the exact name of the laundromat",
+          "partial_value": "laundromat on Ross Avenue"
+        },
+        {
+          "field_id": "p7.employer2.from",
+          "reason": "year only, to verify exact date",
+          "partial_value": "2017"
+        },
+        {
+          "field_id": "p7.employer2.to",
+          "reason": "year only, to verify exact date",
+          "partial_value": "2018"
+        }
+      ]
+    },
+    {
+      "item_id": "35c1ab02",
+      "locale": "en",
+      "reply": "Got it, Dallas, Texas, washing and folding clothes, we'll get the ZIP later. Anything else in the last 5 years before that job?",
+      "deferred": [
+        {
+          "field_id": "p7.employer2.postal_code",
+          "reason": "to verify from a document",
+          "partial_value": null
+        }
+      ]
+    },
+    {
+      "item_id": "786a35f5",
+      "locale": "es",
+      "reply": "De acuerdo, queda pendiente esa fecha. ¿Su madre o su padre era ciudadano de EE. UU. antes de que usted cumpliera 18 años?",
+      "deferred": [
+        {
+          "field_id": "p2.lpr_date",
+          "reason": "verificar con la green card",
+          "partial_value": "2018"
+        }
+      ]
+    },
+    {
+      "item_id": "95c107c4",
+      "locale": "en",
+      "reply": "This confirms the job is current, so the end date is present. That's set, aside from the start month you're still checking. Now, before this job, did you work or study anywhere else in the last 5 years, or have a stretch without work?",
+      "deferred": [
+        {
+          "field_id": "p7.employer1.from",
+          "reason": "applicant unsure of exact month, will verify from a document",
+          "partial_value": "2018"
+        }
+      ]
+    },
+    {
+      "item_id": "a65ab378",
+      "locale": "en",
+      "reply": "No problem, I'll leave the ZIP to verify from your mail, and I've noted June 2020 for the move-in, we can pin the exact day later. Is that same address where you get your mail?",
+      "deferred": [
+        {
+          "field_id": "p4.current_address.postal_code",
+          "reason": "will check mail for ZIP code",
+          "partial_value": null
+        },
+        {
+          "field_id": "p4.current_address.from",
+          "reason": "gave month and year only, not exact day",
+          "partial_value": "2020-06"
+        }
+      ]
+    },
+    {
+      "item_id": "0a473ea9",
+      "locale": "en",
+      "reply": "Thank you. So for Part 7: self employed cleaning houses in Dallas, Texas, from 2018 to present (exact month to verify), and before that a laundromat on Ross Avenue in Dallas, Texas, as a laundry worker, from 2017 to 2018 (name and exact months to verify), nothing before that since you were in El Salvador. Does that all sound complete and correct?",
+      "deferred": [
+        {
+          "field_id": "p7.employer2.employer_name",
+          "reason": "to verify from a document",
+          "partial_value": "laundromat on Ross Avenue"
+        },
+        {
+          "field_id": "p7.employer2.from",
+          "reason": "to verify from a document",
+          "partial_value": "2017"
+        },
+        {
+          "field_id": "p7.employer2.to",
+          "reason": "to verify from a document",
+          "partial_value": "2018"
+        }
+      ]
+    },
+    {
+      "item_id": "73fca140",
+      "locale": "en",
+      "reply": "Got it, Texas noted. Do you know the ZIP code there, and what was your occupation at the laundromat?",
+      "deferred": [
+        {
+          "field_id": "p7.employer2.employer_name",
+          "reason": "to verify exact name from a document",
+          "partial_value": "laundromat on Ross Avenue"
+        },
+        {
+          "field_id": "p7.employer2.from",
+          "reason": "to verify exact date from a document",
+          "partial_value": "2017"
+        },
+        {
+          "field_id": "p7.employer2.to",
+          "reason": "to verify exact date from a document",
+          "partial_value": "2018"
+        }
+      ]
+    },
+    {
+      "item_id": "c4dfdac4",
+      "locale": "en",
+      "reply": "Got it, Dallas, Texas, washing and folding clothes; I'll note the ZIP to verify later. Anything else in the last 5 years before that job?",
+      "deferred": [
+        {
+          "field_id": "p7.employer2.postal_code",
+          "reason": "to verify from a document",
+          "partial_value": null
+        }
+      ]
+    },
+    {
+      "item_id": "440464ad",
+      "locale": "es",
+      "reply": "Entendido, seguimos y dejamos esa fecha pendiente. ¿Su madre o su padre era ciudadano de EE. UU. antes de que usted cumpliera 18 años?",
+      "deferred": [
+        {
+          "field_id": "p2.lpr_date",
+          "reason": "verificar con la green card",
+          "partial_value": "2018"
+        }
+      ]
+    },
+    {
+      "item_id": "36d5e907",
+      "locale": "en",
+      "reply": "Got it, Dallas, Texas, washing clothes at the laundromat, with the name and exact dates still to verify. Going further back, anything else in the last 5 years, or was that the earliest?",
+      "deferred": [
+        {
+          "field_id": "p7.employer2.employer_name",
+          "reason": "does not recall the name",
+          "partial_value": "laundromat on Ross Avenue"
+        },
+        {
+          "field_id": "p7.employer2.postal_code",
+          "reason": "to verify from a document",
+          "partial_value": null
+        },
+        {
+          "field_id": "p7.employer2.from",
+          "reason": "to verify exact date",
+          "partial_value": "2017"
+        },
+        {
+          "field_id": "p7.employer2.to",
+          "reason": "to verify exact date",
+          "partial_value": "2018"
+        }
+      ]
+    },
+    {
+      "item_id": "2336291f",
+      "locale": "es",
+      "reply": "Entendido, ese código postal queda pendiente de verificar. En la Parte 5: es usted viuda, y ha estado casada una vez. ¿Está completo y correcto?",
+      "deferred": [
+        {
+          "field_id": "p4.current_address.postal_code",
+          "reason": "to verify from mail",
+          "partial_value": null
+        }
+      ]
+    },
+    {
+      "item_id": "590a7f07",
+      "locale": "en",
+      "reply": "No problem, I've noted the ZIP to check from your mail, and June 2020 to verify the exact day. Is that also where you get your mail?",
+      "deferred": [
+        {
+          "field_id": "p4.current_address.postal_code",
+          "reason": "will check mail for ZIP code",
+          "partial_value": null
+        },
+        {
+          "field_id": "p4.current_address.from",
+          "reason": "only month and year given, no exact day",
+          "partial_value": "2020-06"
+        }
+      ]
+    },
+    {
+      "item_id": "bb985898",
+      "locale": "es",
+      "reply": "Anotado, 1315 Peavy Road, Dallas, código postal 75218, y las fechas de octubre 2017 a junio 2020 las dejo para confirmar el día exacto. ¿Vivió en algún otro lugar antes de eso, en los últimos 5 años?",
+      "deferred": [
+        {
+          "field_id": "p4.prior_address1.from",
+          "reason": "solo mes y año, falta el día exacto",
+          "partial_value": "2017-10"
+        },
+        {
+          "field_id": "p4.prior_address1.to",
+          "reason": "solo mes y año, falta el día exacto",
+          "partial_value": "2020-06"
+        }
+      ]
+    },
+    {
+      "item_id": "fc5c4761",
+      "locale": "en",
+      "reply": "Got it, laundry worker, and that covers your last 5 years of work: self employed cleaning houses since 2018, and before that the laundromat on Ross Avenue, name and exact dates still to verify. Does that all sound complete and correct?",
+      "deferred": [
+        {
+          "field_id": "p7.employer2.employer_name",
+          "reason": "does not recall exact name, will check",
+          "partial_value": "laundromat on Ross Avenue"
+        },
+        {
+          "field_id": "p7.employer2.from",
+          "reason": "exact month not recalled",
+          "partial_value": "2017"
+        },
+        {
+          "field_id": "p7.employer2.to",
+          "reason": "exact month not recalled",
+          "partial_value": "2018"
+        }
+      ]
+    },
+    {
+      "item_id": "60ba2096",
+      "locale": "en",
+      "reply": "Got it, ZIP 75218, and I've noted October 2017 to June 2020 to confirm the exact days later. Did you live anywhere else before that, in the last five years?",
+      "deferred": [
+        {
+          "field_id": "p4.prior_address1.from",
+          "reason": "month and year only, no exact day given",
+          "partial_value": "2017-10"
+        },
+        {
+          "field_id": "p4.prior_address1.to",
+          "reason": "month and year only, no exact day given",
+          "partial_value": "2020-06"
+        }
+      ]
+    },
+    {
+      "item_id": "5fd1976f",
+      "locale": "en",
+      "reply": "Got it, no apartment, October 2017 to June 2020, I've noted those months to verify the exact days if needed. Did you live anywhere else in the last 5 years before that?",
+      "deferred": [
+        {
+          "field_id": "p4.prior_address1.from",
+          "reason": "month and year only, no exact day given",
+          "partial_value": "2017-10"
+        },
+        {
+          "field_id": "p4.prior_address1.to",
+          "reason": "month and year only, no exact day given",
+          "partial_value": "2020-06"
+        }
+      ]
+    }
+  ]
+}

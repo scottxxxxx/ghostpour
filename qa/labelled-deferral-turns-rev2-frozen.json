@@ -1,0 +1,888 @@
+{
+ "purpose": "Hand-labelled validation set for any instrument claiming to measure whether the applicant was told a specific deferred field is not settled. Labels are one person's reading of each turn individually, not the output of any rule, and are reviewable and arguable. An instrument that cannot separate these should not produce a number.",
+ "labelled_by": "Fable (fable-auditor-55), 2026-09-06",
+ "the_question_to_ask_per_field": "Reading only this reply, would the applicant know she has to COME BACK to this specific field before the form is done? Answer per field, not per turn. Note the question is about whether she knows to return, not about whether she understands the field's internal state: a reply that hedges only the precision of a value ('confirm the exact days later') still tells her to return, and counts as told.",
+ "hazard": "Do NOT give a judge the prompt rule text. A judge handed the rule evaluates the lane against the same words the lane was given, which is reading the instruction back to itself.",
+ "second_hazard": "Judge and lane are the same model family. The lane wrote these lines believing they communicated. A judge may read them the same way and share the blind spot. The attachment cases below are the test for exactly that: conf-es-v27 t31, conf-v21 t31, conf-v22 t32.",
+ "counts": {
+  "not_told": 25,
+  "told": 16,
+  "ambiguous_excluded": 1
+ },
+ "turns": [
+  {
+   "run": "conf-es-full-1.json",
+   "turn": 36,
+   "locale": "es",
+   "reply": {
+    "es": "Anotado, 1315 Peavy Road, Dallas, Texas, código postal 75218, de octubre de 2017 a junio de 2020. ¿Vivió en algún otro lugar antes de eso, en los últimos 5 años?",
+    "en": "Noted, 1315 Peavy Road, Dallas, Texas, zip 75218, from October 2017 to June 2020. Did you live anywhere else before that, in the last 5 years?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.prior_address1.from",
+     "reason": "solo dio mes y año",
+     "partial_value": "2017-10"
+    },
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "solo dio mes y año",
+     "partial_value": "2020-06"
+    }
+   ],
+   "label": "not_told",
+   "label_note": "silent or stated as settled; the marker probe flagged it and reading confirms it"
+  },
+  {
+   "run": "conf-es-full-1.json",
+   "turn": 48,
+   "locale": "es",
+   "reply": {
+    "es": "Entendido, limpieza de casas por su cuenta, desde su domicilio actual. ¿Desde cuándo hace ese trabajo?",
+    "en": "Got it, house cleaning on your own, from your current address. Since when have you done that work?"
+   },
+   "deferred": [
+    {
+     "field_id": "p7.employer1.postal_code",
+     "reason": "misma dirección que el domicilio actual, pendiente de verificar con el correo",
+     "partial_value": null
+    }
+   ],
+   "label": "not_told",
+   "label_note": "silent or stated as settled; the marker probe flagged it and reading confirms it"
+  },
+  {
+   "run": "conf-es-full-1.json",
+   "turn": 92,
+   "locale": "es",
+   "reply": {
+    "es": "Perfecto, anotado. En la Parte 5: estado civil viuda, casada una vez. ¿Está completo y correcto?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.current_address.postal_code",
+     "reason": "verá el código postal en su correo",
+     "partial_value": null
+    }
+   ],
+   "label": "not_told",
+   "label_note": "silent or stated as settled; the marker probe flagged it and reading confirms it"
+  },
+  {
+   "run": "conf-es-v20.json",
+   "turn": 25,
+   "locale": "es",
+   "reply": {
+    "es": "Perfecto, autoriza que USCIS comparta la información con el Seguro Social. Para repasar la Parte 2: Ana Lucia Torres, también conocida como Ana Lucia Ramos, sin cambio de nombre solicitado, nacida el 8 de marzo de 1974 en El Salvador, ciudadana de El Salvador, mujer, residente permanente desde el 19 de octubre de 2017, ningún padre fue ciudadano antes de sus 18 años, sin discapacidad para el examen, número de Seguro Social terminado en 9018, con solicitud de tarjeta nueva y autorización para compartir esa información. ¿Está todo completo y correcto?"
+   },
+   "deferred": [
+    {
+     "field_id": "p2.lpr_date",
+     "reason": "already confirmed exact date from green card",
+     "partial_value": null
+    }
+   ],
+   "label": "not_told",
+   "label_note": "silent or stated as settled; the marker probe flagged it and reading confirms it",
+   "hard_case": "The deferred lpr_date is read back inside a Part 2 SUMMARY as a settled date ('residente permanente desde el 19 de octubre de 2017'). Worse than silence and a different shape from the rest."
+  },
+  {
+   "run": "conf-es-v21.json",
+   "turn": 18,
+   "locale": "es",
+   "reply": {
+    "es": "Entendido, seguimos. ¿Su madre o su padre, incluido un padre adoptivo, era ciudadano de EE. UU. antes de que usted cumpliera 18 años?"
+   },
+   "deferred": [
+    {
+     "field_id": "p2.lpr_date",
+     "reason": "el aplicante revisará la fecha exacta en su green card más adelante",
+     "partial_value": "2018"
+    }
+   ],
+   "label": "not_told",
+   "label_note": "silent or stated as settled; the marker probe flagged it and reading confirms it"
+  },
+  {
+   "run": "conf-v10.json",
+   "turn": 47,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, still self employed cleaning houses to the present. Before this, did you work or study anywhere else in the last 5 years, or have a stretch without work?"
+   },
+   "deferred": [
+    {
+     "field_id": "p7.employer1.from",
+     "reason": "applicant unsure of exact month",
+     "partial_value": "2018"
+    }
+   ],
+   "label": "not_told",
+   "label_note": "silent or stated as settled; the marker probe flagged it and reading confirms it"
+  },
+  {
+   "run": "conf-v10.json",
+   "turn": 49,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, laundry worker, washing and folding clothes. Since you were in El Salvador before that, we've covered the last 5 years of work, so let's move to your travel: in the last 5 years, have you taken any trips outside the United States, not counting day trips under 24 hours?"
+   },
+   "deferred": [
+    {
+     "field_id": "p7.employer2.employer_name",
+     "reason": "applicant does not recall the laundromat name",
+     "partial_value": "laundromat on Ross Avenue"
+    },
+    {
+     "field_id": "p7.employer2.from",
+     "reason": "applicant does not recall exact month",
+     "partial_value": "2017"
+    },
+    {
+     "field_id": "p7.employer2.to",
+     "reason": "applicant does not recall exact month",
+     "partial_value": "2018"
+    }
+   ],
+   "label": "not_told",
+   "label_note": "silent or stated as settled; the marker probe flagged it and reading confirms it"
+  },
+  {
+   "run": "conf-v17.json",
+   "turn": 51,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, Dallas, Texas for the laundromat too. Anything else in the last 5 years before that, or a stretch without work?"
+   },
+   "deferred": [
+    {
+     "field_id": "p7.employer2.employer_name",
+     "reason": "does not recall the business name",
+     "partial_value": "laundromat on Ross Avenue"
+    },
+    {
+     "field_id": "p7.employer2.from",
+     "reason": "to verify exact date",
+     "partial_value": "2017"
+    },
+    {
+     "field_id": "p7.employer2.to",
+     "reason": "to verify exact date",
+     "partial_value": "2018"
+    }
+   ],
+   "label": "not_told",
+   "label_note": "silent or stated as settled; the marker probe flagged it and reading confirms it"
+  },
+  {
+   "run": "conf-v18.json",
+   "turn": 52,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, Dallas, Texas, noted. Anything else in the last 5 years before the laundromat?"
+   },
+   "deferred": [
+    {
+     "field_id": "p7.employer2.employer_name",
+     "reason": "does not recall the exact name",
+     "partial_value": "laundromat on Ross Avenue"
+    },
+    {
+     "field_id": "p7.employer2.from",
+     "reason": "to verify exact month",
+     "partial_value": "2017"
+    },
+    {
+     "field_id": "p7.employer2.to",
+     "reason": "to verify exact month",
+     "partial_value": "2018"
+    }
+   ],
+   "label": "not_told",
+   "label_note": "silent or stated as settled; the marker probe flagged it and reading confirms it"
+  },
+  {
+   "run": "conf-v21.json",
+   "turn": 34,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, 1315 Peavy Road, Dallas, Texas, from October 2017 to June 2020. Did you live anywhere else before that, in the last five years?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.prior_address1.from",
+     "reason": "exact day not given, month and year only",
+     "partial_value": "2017-10"
+    },
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "exact day not given, month and year only",
+     "partial_value": "2020-06"
+    }
+   ],
+   "label": "not_told",
+   "label_note": "silent or stated as settled; the marker probe flagged it and reading confirms it"
+  },
+  {
+   "run": "conf-v21.json",
+   "turn": 49,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, Dallas, Texas, washing and folding clothes. Anything else in the last 5 years before that laundromat job?"
+   },
+   "deferred": [
+    {
+     "field_id": "p7.employer2.postal_code",
+     "reason": "applicant needs to check a document",
+     "partial_value": null
+    }
+   ],
+   "label": "not_told",
+   "label_note": "silent or stated as settled; the marker probe flagged it and reading confirms it"
+  },
+  {
+   "run": "conf-v22.json",
+   "turn": 35,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, 1315 Peavy Road in Dallas, ZIP 75218, from October 2017 to June 2020, that covers the last five years of your addresses. Did you live anywhere else before the Vine Street address besides that one?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.prior_address1.from",
+     "reason": "month and year only, exact day not given",
+     "partial_value": "2017-10"
+    },
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "month and year only, exact day not given",
+     "partial_value": "2020-06"
+    }
+   ],
+   "label": "not_told",
+   "label_note": "silent or stated as settled; the marker probe flagged it and reading confirms it"
+  },
+  {
+   "run": "conf-v22.json",
+   "turn": 52,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, laundromat work in Dallas, Texas, washing clothes. Going back further, was there any other work or school in the last 5 years, before the laundromat?"
+   },
+   "deferred": [
+    {
+     "field_id": "p7.employer2.postal_code",
+     "reason": "to verify from a document",
+     "partial_value": null
+    }
+   ],
+   "label": "not_told",
+   "label_note": "silent or stated as settled; the marker probe flagged it and reading confirms it"
+  },
+  {
+   "run": "conf-v24.json",
+   "turn": 32,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, June 2020 noted. Is that Vine Street address also where you get your mail?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.current_address.from",
+     "reason": "applicant unsure of exact day",
+     "partial_value": "2020-06"
+    }
+   ],
+   "label": "not_told",
+   "label_note": "silent or stated as settled; the marker probe flagged it and reading confirms it"
+  },
+  {
+   "run": "conf-v24.json",
+   "turn": 53,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, Dallas, Texas. Anything else in the last 5 years before that laundromat job?"
+   },
+   "deferred": [
+    {
+     "field_id": "p7.employer2.postal_code",
+     "reason": "applicant does not have it on hand",
+     "partial_value": null
+    }
+   ],
+   "label": "not_told",
+   "label_note": "silent or stated as settled; the marker probe flagged it and reading confirms it"
+  },
+  {
+   "run": "conf-v25.json",
+   "turn": 39,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, no apartment, October 2017 to June 2020. Did you live anywhere else before that, in the last 5 years?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.prior_address1.from",
+     "reason": "month and year given, no exact day",
+     "partial_value": "2017-10"
+    },
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "the day is not in what the applicant just said; deferring to the month and year",
+     "partial_value": "2020-06"
+    }
+   ],
+   "label": "not_told",
+   "label_note": "silent or stated as settled; the marker probe flagged it and reading confirms it"
+  },
+  {
+   "run": "conf-v25.json",
+   "turn": 49,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, self-employed cleaning houses from home, started in 2018, no business name. Before this, did you have any other work or a stretch without work in the last 5 years?"
+   },
+   "deferred": [
+    {
+     "field_id": "p7.employer1.postal_code",
+     "reason": "shares deferred home ZIP, to verify from mail",
+     "partial_value": null
+    },
+    {
+     "field_id": "p7.employer1.from",
+     "reason": "only year given",
+     "partial_value": "2018"
+    }
+   ],
+   "label": "not_told",
+   "label_note": "silent or stated as settled; the marker probe flagged it and reading confirms it"
+  },
+  {
+   "run": "conf-v25.json",
+   "turn": 51,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, washing, folding and cleaning at the laundromat in Dallas, Texas. Anything else in the last 5 years, before that laundromat job?"
+   },
+   "deferred": [
+    {
+     "field_id": "p7.employer2.employer_name",
+     "reason": "does not remember the exact name",
+     "partial_value": "laundromat on Ross Avenue"
+    },
+    {
+     "field_id": "p7.employer2.from",
+     "reason": "to verify from a document",
+     "partial_value": "2017"
+    },
+    {
+     "field_id": "p7.employer2.to",
+     "reason": "to verify from a document",
+     "partial_value": "2018"
+    },
+    {
+     "field_id": "p7.employer2.postal_code",
+     "reason": "to verify from a document",
+     "partial_value": null
+    }
+   ],
+   "label": "not_told",
+   "label_note": "silent or stated as settled; the marker probe flagged it and reading confirms it"
+  },
+  {
+   "run": "conf-v25b.json",
+   "turn": 34,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, June 2020, noted. Is that also where you get your mail?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.current_address.from",
+     "reason": "applicant unsure of exact day, will not need a document but only gave month and year",
+     "partial_value": "2020-06"
+    }
+   ],
+   "label": "not_told",
+   "label_note": "silent or stated as settled; the marker probe flagged it and reading confirms it"
+  },
+  {
+   "run": "conf-v9.json",
+   "turn": 38,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, no other addresses before that, since that was your first place after arriving from El Salvador. That completes Part 4: 4820 Vine Street, Apartment 7, Dallas, Texas, mail sent to the same address, and before that 1315 Peavy Road, Dallas, 75218, from October 2017 to June 2020. Is that all complete and correct?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.current_address.postal_code",
+     "reason": "applicant needs to check mail",
+     "partial_value": null
+    },
+    {
+     "field_id": "p4.current_address.from",
+     "reason": "applicant gave approximate month only",
+     "partial_value": "June 2020"
+    }
+   ],
+   "label": "not_told",
+   "label_note": "silent or stated as settled; the marker probe flagged it and reading confirms it",
+   "hard_case": "Worst sub-shape: a COMPLETION CLAIM ('That completes Part 4') over fields deferred in that same turn."
+  },
+  {
+   "run": "conf-v9.json",
+   "turn": 50,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, Dallas, Texas, doing washing and folding. And before that laundromat job, anything else in the last 5 years, or was there a stretch without work or school?"
+   },
+   "deferred": [
+    {
+     "field_id": "p7.employer2.employer_name",
+     "reason": "applicant does not remember the laundromat's name",
+     "partial_value": null
+    },
+    {
+     "field_id": "p7.employer2.from",
+     "reason": "applicant does not remember the exact month",
+     "partial_value": "2017"
+    },
+    {
+     "field_id": "p7.employer2.to",
+     "reason": "applicant does not remember the exact month",
+     "partial_value": "2018"
+    }
+   ],
+   "label": "not_told",
+   "label_note": "silent or stated as settled; the marker probe flagged it and reading confirms it"
+  },
+  {
+   "run": "s2-v6-full.json",
+   "turn": 32,
+   "locale": "en",
+   "reply": {
+    "en": "Great, Texas noted, that fills in your current address. Do you get your mail at that same address?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.current_address.from",
+     "reason": "exact day to be confirmed",
+     "partial_value": "March 2021"
+    }
+   ],
+   "label": "not_told",
+   "label_note": "silent or stated as settled; the marker probe flagged it and reading confirms it",
+   "hard_case": "Completion claim shape: 'that fills in your current address' while deferring current_address.from."
+  },
+  {
+   "run": "conf-es-v27.json",
+   "turn": 31,
+   "locale": "es",
+   "reply": {
+    "es": "Anotado, código postal por verificar, y desde junio de 2020. ¿Ahí también recibe su correo?",
+    "en": "Noted, zip code to verify, and since June 2020. Is that also where you receive your mail?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.current_address.postal_code",
+     "reason": "verificar con el correo",
+     "partial_value": null
+    },
+    {
+     "field_id": "p4.current_address.from",
+     "reason": "mes y año dados, falta el día exacto",
+     "partial_value": "2020-06"
+    }
+   ],
+   "label": "not_told",
+   "label_note": "ATTACHMENT CASE: a hedge is present but on a different field; this field is stated flat",
+   "hard_case": "ATTACHMENT. The hedge and the flat value share ONE SENTENCE but belong to different fields, so sentence-scoped instruments call this clean and it is not."
+  },
+  {
+   "run": "conf-v21.json",
+   "turn": 31,
+   "locale": "en",
+   "reply": {
+    "en": "No problem, I've noted the ZIP to check from your mail, and June 2020 for when you moved in. Is that current address also where you get your mail?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.current_address.postal_code",
+     "reason": "will check mail for ZIP code",
+     "partial_value": null
+    },
+    {
+     "field_id": "p4.current_address.from",
+     "reason": "gave only month and year",
+     "partial_value": "2020-06"
+    }
+   ],
+   "label": "not_told",
+   "label_note": "ATTACHMENT CASE: a hedge is present but on a different field; this field is stated flat",
+   "hard_case": "ATTACHMENT, same shape as conf-es-v27 t31."
+  },
+  {
+   "run": "conf-v22.json",
+   "turn": 32,
+   "locale": "en",
+   "reply": {
+    "en": "No problem, I've marked the ZIP to verify from your mail, and noted June 2020 for when you moved in. Is that current address also where you get your mail?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.current_address.postal_code",
+     "reason": "will check mail",
+     "partial_value": null
+    },
+    {
+     "field_id": "p4.current_address.from",
+     "reason": "approximate date given, needs confirmation",
+     "partial_value": "2020-06"
+    }
+   ],
+   "label": "not_told",
+   "label_note": "ATTACHMENT CASE: a hedge is present but on a different field; this field is stated flat",
+   "hard_case": "ATTACHMENT, same shape as conf-es-v27 t31."
+  },
+  {
+   "run": "conf-es-full-1.json",
+   "turn": 56,
+   "locale": "es",
+   "reply": {
+    "es": "El puesto se puede anotar simplemente como \"trabajadora de lavandería\", eso sirve para el formulario. ¿Le parece bien así?",
+    "en": "We can note the position simply as \"laundromat worker\", that works for the form. Does that sound right?"
+   },
+   "deferred": [
+    {
+     "field_id": "p7.employer2.occupation",
+     "reason": "no recuerda cómo describir el puesto exacto",
+     "partial_value": "trabajaba en la lavandería"
+    }
+   ],
+   "label": "ambiguous",
+   "label_note": "RECLASSIFIED 2026-09-06 after a judge disagreed with the original 'told'. Two coherent readings and no way to choose: the reply proposes a wording and asks 'does that sound right', which either leaves it awaiting her approval (told) or states it as already working for the form and asks only for assent (not told). Excluded from scoring rather than resolved, because a set that forces a call on a genuinely 50/50 case teaches an instrument to reproduce a coin flip.",
+   "hard_case": "ARGUABLE. It proposes a value for the deferred field and asks her to approve it. Labelled told because she is being asked to settle it, but a reader could call this not_told since the reply says the proposal 'works for the form'.",
+   "exclude_from_scoring": true
+  },
+  {
+   "run": "conf-es-v27.json",
+   "turn": 30,
+   "locale": "es",
+   "reply": {
+    "es": "Anotado, 4820 calle Vine, apartamento 7, Dallas, Texas. ¿Cuál es el código postal, y desde cuándo vive ahí?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.current_address.postal_code",
+     "reason": "no se proporcionó código postal",
+     "partial_value": null
+    },
+    {
+     "field_id": "p4.current_address.from",
+     "reason": "no se proporcionó fecha de mudanza",
+     "partial_value": null
+    }
+   ],
+   "label": "told",
+   "label_note": "the marker probe flagged this and reading says it is fine; it engages with the exact field",
+   "hard_case": "It asks for both deferred values outright in the same sentence. Clearly told, but it is the case a naive silence probe flags, so it belongs here."
+  },
+  {
+   "run": "conf-v15.json",
+   "turn": 32,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, 4820 Vine Street, Apartment 7, Dallas, and I've noted June 2020 to verify the exact day later. What's the ZIP code there?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.current_address.from",
+     "reason": "gave only month and year, day not stated",
+     "partial_value": "2020-06"
+    }
+   ],
+   "label": "told",
+   "label_note": "hedge attached to the value, correct behaviour"
+  },
+  {
+   "run": "conf-v15.json",
+   "turn": 38,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, October 2017 to June 2020 at Peavy Road, I've noted those months to verify the exact days later. Before that, did you live anywhere else in the last 5 years?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.prior_address1.from",
+     "reason": "month and year only, day not given",
+     "partial_value": "2017-10"
+    },
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "month and year only, day not given",
+     "partial_value": "2020-06"
+    }
+   ],
+   "label": "told",
+   "label_note": "hedge attached to the value, correct behaviour"
+  },
+  {
+   "run": "conf-v18.json",
+   "turn": 31,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, 4820 Vine Street, Apartment 7, Dallas, and I've noted June 2020 to confirm the exact day later. What's the ZIP code there?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.current_address.from",
+     "reason": "gave only month and year",
+     "partial_value": "2020-06"
+    }
+   ],
+   "label": "told",
+   "label_note": "hedge attached to the value, correct behaviour"
+  },
+  {
+   "run": "conf-v18.json",
+   "turn": 38,
+   "locale": "en",
+   "reply": {
+    "en": "That's fine, I've marked October 2017 to June 2020 to confirm the exact days later. Was that address in the United States, or somewhere else?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.prior_address1.from",
+     "reason": "exact day not known, to verify from a document",
+     "partial_value": "2017-10"
+    },
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "exact day not known, to verify from a document",
+     "partial_value": "2020-06"
+    }
+   ],
+   "label": "told",
+   "label_note": "hedge attached to the value, correct behaviour"
+  },
+  {
+   "run": "conf-v19.json",
+   "turn": 32,
+   "locale": "en",
+   "reply": {
+    "en": "No problem, I've marked June 2020 to verify the exact day later. Is that Vine Street address also where you get your mail?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.current_address.from",
+     "reason": "applicant does not remember exact day",
+     "partial_value": "2020-06"
+    }
+   ],
+   "label": "told",
+   "label_note": "hedge attached to the value, correct behaviour"
+  },
+  {
+   "run": "conf-v19.json",
+   "turn": 37,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, 1315 Peavy Road, Dallas, Texas 75218, from October 2017 to June 2020, I've noted the exact days to verify later. Did you live anywhere else in the last 5 years, before that?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.prior_address1.from",
+     "reason": "month and year given, exact day not stated",
+     "partial_value": "2017-10"
+    },
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "month and year given, exact day not stated",
+     "partial_value": "2020-06"
+    }
+   ],
+   "label": "told",
+   "label_note": "hedge attached to the value, correct behaviour",
+   "hard_case": "The hedge follows the stated range in the NEXT clause rather than inside it. Clause-scoped instruments call this a violation and it is not one."
+  },
+  {
+   "run": "conf-v20.json",
+   "turn": 33,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, I've marked June 2020 to verify the exact day. Is that address also where you get your mail?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.current_address.from",
+     "reason": "applicant does not recall exact day",
+     "partial_value": "2020-06"
+    }
+   ],
+   "label": "told",
+   "label_note": "hedge attached to the value, correct behaviour"
+  },
+  {
+   "run": "conf-v20.json",
+   "turn": 38,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, 1315 Peavy Road, Dallas, Texas, 75218, and I've noted October 2017 to June 2020 to confirm the exact days. Before that, did you live anywhere else in the last 5 years?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.prior_address1.from",
+     "reason": "only month and year given, exact day not stated",
+     "partial_value": "2017-10"
+    },
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "only month and year given, exact day not stated",
+     "partial_value": "2020-06"
+    }
+   ],
+   "label": "told",
+   "label_note": "hedge attached to the value, correct behaviour"
+  },
+  {
+   "run": "conf-v23.json",
+   "turn": 33,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, June 2020, I've noted that to verify the exact day later. Is that address also where you get your mail?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.current_address.from",
+     "reason": "applicant unsure of exact day",
+     "partial_value": "2020-06"
+    }
+   ],
+   "label": "told",
+   "label_note": "hedge attached to the value, correct behaviour"
+  },
+  {
+   "run": "conf-v23.json",
+   "turn": 38,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, 1315 Peavy Road, Dallas, Texas, October 2017 to June 2020, noted to confirm exact days later. Did you live anywhere else in the last 5 years before that?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.prior_address1.from",
+     "reason": "month and year only given",
+     "partial_value": "2017-10"
+    },
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "month and year only given",
+     "partial_value": "2020-06"
+    }
+   ],
+   "label": "told",
+   "label_note": "ADJUDICATED 2026-09-06 against a defensible disagreement, label HELD at told. The objection: it states 'October 2017 to June 2020' as if recorded and hedges only 'exact days', not the month and year, so she may not learn the FIELD is unsettled. That distinction is real but it is not the one that matters to her. The test is not whether she knows the field's internal state, it is whether she knows she has to come back to this with a document. 'Noted to confirm exact days later' tells her that. Contrast the attachment failures, where 'y desde junio de 2020' signals nothing outstanding at all and gives her no reason to return. Same reasoning holds conf-v19 t37.",
+   "hard_case": "Same shape as conf-v19 t37: range stated, then hedged in the following clause.",
+   "adjudicated": true
+  },
+  {
+   "run": "conf-v25.json",
+   "turn": 34,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, June 2020, I've marked that to verify the exact day if needed. Do you also get your mail at that same address?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.current_address.from",
+     "reason": "applicant recalls only month and year, not exact day",
+     "partial_value": "2020-06"
+    }
+   ],
+   "label": "told",
+   "label_note": "hedge attached to the value, correct behaviour"
+  },
+  {
+   "run": "conf-v25b.json",
+   "turn": 37,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, Texas, ZIP 75218, from October 2017 to June 2020, noted to confirm exact days. Did you live anywhere else before that, in the last 5 years?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.prior_address1.from",
+     "reason": "month and year given, exact day not stated",
+     "partial_value": "2017-10"
+    },
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "month and year given, exact day not stated",
+     "partial_value": "2020-06"
+    }
+   ],
+   "label": "told",
+   "label_note": "hedge attached to the value, correct behaviour"
+  },
+  {
+   "run": "conf-v9b.json",
+   "turn": 32,
+   "locale": "en",
+   "reply": {
+    "en": "Got it, 4820 Vine Street, Apartment 7, Dallas, Texas, and I've noted June 2020 to pin down the exact day later. What's the ZIP code there?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.current_address.from",
+     "reason": "gave only month and year, exact day not stated",
+     "partial_value": "2020-06"
+    }
+   ],
+   "label": "told",
+   "label_note": "hedge attached to the value, correct behaviour"
+  },
+  {
+   "run": "conf-es-full-1.json",
+   "turn": 30,
+   "locale": "es",
+   "reply": {
+    "es": "Anotado, 4820 Vine Street, apartamento 7, Dallas, Texas, y junio de 2020 lo marco para verificar el día exacto. ¿Cuál es el código postal?",
+    "en": "Got it, 4820 Vine Street, apartment 7, Dallas, Texas, and I've marked June 2020 to verify the exact day. What's the ZIP code?"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.current_address.from",
+     "reason": "solo dio mes y año, falta el día exacto",
+     "partial_value": "2020-06"
+    }
+   ],
+   "label": "told",
+   "label_note": "hedge attached to the value, correct behaviour"
+  },
+  {
+   "run": "conf-es-v27.json",
+   "turn": 54,
+   "locale": "es",
+   "reply": {
+    "es": "Anotado, salió en diciembre de 2021 y regresó en enero de 2022, para verificar el día exacto. ¿Algún otro viaje fuera de Estados Unidos en los últimos 5 años?"
+   },
+   "deferred": [
+    {
+     "field_id": "p8.trip1.date_left",
+     "reason": "no recuerda el día exacto de salida",
+     "partial_value": "2021-12"
+    },
+    {
+     "field_id": "p8.trip1.date_returned",
+     "reason": "no recuerda el día exacto de regreso",
+     "partial_value": "2022-01"
+    }
+   ],
+   "label": "told",
+   "label_note": "hedge attached to the value, correct behaviour"
+  }
+ ],
+ "hard_cases": 10,
+ "how_to_score": "Score PER FIELD, not per turn. An instrument is only interesting if it separates the three ATTACHMENT turns (hedge present, on another field) from the four clause-boundary turns (hedge present, attached, but in the next clause). A regex cannot: clause scoping fails the second group, sentence scoping fails the first. Measured at roughly 40 percent false positives on the known-good sample, which is why no count was published from it.",
+ "revision": "2, 2026-09-06: one label reclassified ambiguous and excluded, one adjudicated and held, after judge disagreements."
+}
