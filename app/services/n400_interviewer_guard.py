@@ -363,6 +363,13 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
             "n400_battery_unspoken turn_id=%s node_id=%s minted=%s spoken_chars=%d question_chars=%d",
             turn_id, battery["node_id"], ",".join(battery["minted"]),
             battery["spoken_chars"], battery["question_chars"])
+    # LAST, deliberately. Every guard above reads `reply`, so the drop must not
+    # hide it from them; only the copy that goes on the wire loses the key.
+    new_text, unusable = drop_unusable_reply(new_text)
+    if unusable is not None:
+        logger.error(
+            "n400_reply_dropped_unusable turn_id=%s locales=%s kind=%s",
+            turn_id, ",".join(unusable["locales_present"]) or "-", unusable["kind"])
     return new_text
 
 
@@ -630,6 +637,71 @@ def mark_facts_minted_on_a_non_answer(text: str) -> tuple[str, dict | None]:
 # reply out of an integer.
 
 REPLY_SHAPE_REASON = "reply arrived as a bare string; wrapped under 'en', which every locale falls back to"
+
+
+# --- an unusable reply is worse than no reply ------------------------------
+#
+# Measured by fable-auditor on the real decoder, 2026-09-11, both shapes:
+# `reply: {}` and `reply: {"fr": "Bonjour"}` THROW out of `TurnResponse` and
+# kill the whole response. `reply` is not optional the way `intent.detail` is,
+# so the synthesized `decodeIfPresent` throws on a value that is PRESENT and
+# will not decode, and no `try?` sits above it. That is `malformedResponse`,
+# which is NOT retryable, so she is dead-ended with no way forward.
+#
+# An ABSENT reply costs her nothing like that much: all six call sites in
+# their InterviewEngine are `if let reply = response.reply`, so the turn still
+# mints its facts and advances the cursor, and merely says nothing. They
+# checked all six rather than assuming. Absent is strictly better than
+# unusable and needs no change on their side.
+#
+# So: log it, count it, DROP THE KEY. We do NOT invent a reply. Whether she
+# should hear a local fallback line instead of silence is a product call about
+# what she hears, and it belongs to Scott and the n400 session that owns the
+# voice loop, not to a decode guard.
+#
+# ⚠ The locale list below MIRRORS `LocalizedText` in N400Helper. It is a real
+# coupling and it is declared here rather than left implicit: their decoder
+# accepts en, es and pt and throws on a map with none of them. The prompt
+# promises only "object mapping locale code to a string" and names no locale,
+# so nothing upstream prevents a fourth one. If they widen `LocalizedText`,
+# widen this in the same week, or we will drop replies they could have read.
+CLIENT_READABLE_REPLY_LOCALES = ("en", "es", "pt")
+REPLY_DROPPED_REASON = (
+    "the reply was present but could not be decoded by the client, and an "
+    "unusable reply kills the turn while an absent one only makes it silent")
+
+
+def usable_reply_locales(reply: object) -> list[str]:
+    """The locale keys the client can actually read AND that carry text."""
+    if not isinstance(reply, dict):
+        return []
+    return [loc for loc in CLIENT_READABLE_REPLY_LOCALES
+            if isinstance(reply.get(loc), str) and reply[loc].strip()]
+
+
+def drop_unusable_reply(text: str) -> tuple[str, dict | None]:
+    """Remove a `reply` the client would throw on, rather than send it."""
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, None
+    if not isinstance(turn, dict) or "reply" not in turn:
+        return text, None
+    reply = turn["reply"]
+    # Absent already, or nothing to protect her from.
+    if reply is None or usable_reply_locales(reply):
+        return text, None
+    if isinstance(reply, dict):
+        kind = "empty_map" if not reply else "no_readable_locale"
+        locales = sorted(str(k) for k in reply)
+    else:
+        kind = type(reply).__name__
+        locales = []
+    info = {"kind": kind, "locales_present": locales,
+            "reason": REPLY_DROPPED_REASON}
+    del turn["reply"]
+    turn["reply_dropped"] = info
+    return json.dumps(turn, ensure_ascii=False), info
 
 
 def normalize_reply_shape(text: str) -> tuple[str, dict | None]:
