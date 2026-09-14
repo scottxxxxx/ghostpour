@@ -1708,8 +1708,9 @@ async def dashboard(
 # `latency_percentiles` above is ONE sorted list over the whole window, so
 # it cannot show a trend by construction. This endpoint buckets by hour or
 # day and splits by model and call type. It reads only columns already
-# recorded on usage_log; time to first token is NOT recorded anywhere yet,
-# so nothing here approximates it.
+# recorded on usage_log. Time to first token (usage_log.ttft_ms) is recorded
+# on streaming calls only and is NULL everywhere else, so every TTFT figure
+# here is served with its coverage and nothing approximates the NULLs.
 # ---------------------------------------------------------------------------
 
 def _nearest_rank(sorted_values: list, p: int):
@@ -1745,6 +1746,25 @@ def _latency_stats(rows: list) -> dict:
     cached = sum(r["cached_tokens"] or 0 for r in ok)
     cost = sum(r["estimated_cost_usd"] or 0.0 for r in ok)
     total_ms = sum(lat)
+    # Time to first token. Non-null ONLY on streaming Anthropic calls (SS
+    # query, meeting_chat, tr_brief_analysis and the like); every N-400
+    # turn, summary, report, generation build and every other provider is
+    # NULL by construction. So the TTFT percentiles run over the rows that
+    # HAVE one and nothing else, and ttft_coverage divides that count by
+    # every success row, NULLs included, so a p50 is always read next to
+    # the share of traffic it describes. The generation figures are the
+    # same rows' (response_time_ms - ttft_ms).
+    streaming = [
+        r for r in ok
+        if r.get("ttft_ms") is not None and r["response_time_ms"] is not None
+    ]
+    ttft = sorted(r["ttft_ms"] for r in streaming)
+    stream_total = sorted(r["response_time_ms"] for r in streaming)
+    gen = sorted(r["response_time_ms"] - r["ttft_ms"] for r in streaming)
+    gen_ms = sum(gen)
+    gen_tokens = sum(r["output_tokens"] or 0 for r in streaming)
+    ttft_n = len(ttft)
+    coverage = round(ttft_n / len(ok), 4) if ok else None
     return {
         "n": n,
         "total": total,
@@ -1757,12 +1777,40 @@ def _latency_stats(rows: list) -> dict:
         "error_rate": round((total - len(ok)) / total, 4) if total else None,
         # TOTAL-time throughput: output tokens over the whole wall clock of
         # the call, including whatever the model spent before the first
-        # token. Generation throughput (tokens over the streaming phase
-        # alone) needs time to first token, which is not recorded yet.
+        # token, over EVERY success row. generation_tokens_per_second below
+        # is the streaming-phase figure and exists only where TTFT does.
         "tokens_per_second": round(out_tokens / total_ms * 1000, 2) if total_ms else None,
         "cache_hit_ratio": round(cached / in_tokens, 4) if in_tokens else None,
         "cost_per_call": round(cost / n, 6) if n else None,
+        "ttft_n": ttft_n,
+        "ttft_p50": _nearest_rank(ttft, 50),
+        "ttft_p95": _nearest_rank(ttft, 95),
+        "ttft_coverage": coverage,
+        # The same number under the name the streaming-share chart plots.
+        "streaming_share": coverage,
+        # p50 of the WHOLE response time over the streaming rows only, so
+        # the stacked view can draw first token + generation as two parts
+        # of one measured total (streaming_p50 - ttft_p50 is never negative:
+        # each row's total is at least its ttft, so the order statistics
+        # keep that order).
+        "streaming_p50": _nearest_rank(stream_total, 50),
+        # Per-row generation time, nearest rank. NOT streaming_p50 minus
+        # ttft_p50: a median of differences is not a difference of medians.
+        "generation_p50_ms": _nearest_rank(gen, 50),
+        "generation_tokens_per_second": round(gen_tokens / gen_ms * 1000, 2) if gen_ms else None,
     }
+
+
+# The KPI keys the page shows as tiles with a delta against `previous`.
+_KPI_KEYS = (
+    "n", "p50", "p95", "p99", "ttft_n", "ttft_p50", "ttft_coverage", "error_rate",
+    "tokens_per_second", "cost_per_call", "cache_hit_ratio",
+)
+
+
+def _kpis(rows: list) -> dict:
+    stats = _latency_stats(rows)
+    return {k: stats[k] for k in _KPI_KEYS}
 
 
 def _bucket_key(ts: str, bucket: str) -> str:
@@ -1826,31 +1874,50 @@ async def latency_trends(
 
     apps_filter = _apps_from_filter(app)
     app_clause = _app_sql(apps_filter)
+    # One query over TWICE the window. The rows before `cur_start` are the
+    # `previous` window (the `days` days ending where the selected window
+    # begins), from which the page draws its deltas; the split happens here
+    # rather than in a second query so both windows are the same rows under
+    # the same clause. Both ends are midnight UTC, the same convention as
+    # `date('now', ?)`, compared as ISO strings because request_timestamp
+    # is written by usage_tracker as datetime.now(timezone.utc).isoformat().
+    now = datetime.now(timezone.utc)
+    cur_start = (now - timedelta(days=days)).replace(hour=0, minute=0, second=0, microsecond=0)
+    prev_start = cur_start - timedelta(days=days)
     cursor = await db.execute(
         """SELECT request_timestamp, model, call_type, status, response_time_ms,
-                  input_tokens, output_tokens, cached_tokens, estimated_cost_usd
+                  input_tokens, output_tokens, cached_tokens, estimated_cost_usd,
+                  ttft_ms
            FROM usage_log
-           WHERE request_timestamp >= date('now', ?)""" + app_clause + """
+           WHERE request_timestamp >= ?""" + app_clause + """
            ORDER BY request_timestamp""",
-        (f"-{days} days", *apps_filter),
+        (prev_start.isoformat(), *apps_filter),
     )
-    rows = [
+    all_rows = [
         {
             "ts": r[0], "model": r[1], "call_type": r[2] or "(untyped)",
             "status": r[3], "response_time_ms": r[4], "input_tokens": r[5],
             "output_tokens": r[6], "cached_tokens": r[7], "estimated_cost_usd": r[8],
+            "ttft_ms": r[9],
         }
         for r in await cursor.fetchall()
     ]
+    cur_key = cur_start.isoformat()
+    rows = [r for r in all_rows if r["ts"] >= cur_key]
+    prev_rows = [r for r in all_rows if r["ts"] < cur_key]
 
-    by_model_src = [r for r in rows if not call_type or r["call_type"] == call_type]
-    by_ct_src = [r for r in rows if not model or r["model"] == model]
-    series_src = [r for r in by_model_src if not model or r["model"] == model]
+    def _narrow(src):
+        by_model_src = [r for r in src if not call_type or r["call_type"] == call_type]
+        by_ct_src = [r for r in src if not model or r["model"] == model]
+        series_src = [r for r in by_model_src if not model or r["model"] == model]
+        return by_model_src, by_ct_src, series_src
+
+    by_model_src, by_ct_src, series_src = _narrow(rows)
+    _, _, prev_series_src = _narrow(prev_rows)
 
     grouped: dict[str, list] = {}
     for r in series_src:
         grouped.setdefault(_bucket_key(r["ts"], bucket), []).append(r)
-    now = datetime.now(timezone.utc)
     keys = _bucket_range(bucket, days, now)
     # A row can only fall outside the generated range if the clock moved,
     # so union the observed keys rather than lose the row silently.
@@ -1864,9 +1931,38 @@ async def latency_trends(
         groups: dict[str, list] = {}
         for r in src:
             groups.setdefault(r[field], []).append(r)
-        out = [{field: k, **_latency_stats(v)} for k, v in groups.items()]
+        out = []
+        for k, v in groups.items():
+            # The small multiples: p50 and p95 per bucket for this group,
+            # aligned to the top-level `buckets` order so every mini chart
+            # shares the same x range. n rides along for the tooltip.
+            by_bucket: dict[str, list] = {}
+            for r in v:
+                by_bucket.setdefault(_bucket_key(r["ts"], bucket), []).append(r)
+            per = [_latency_stats(by_bucket.get(bk, [])) for bk in keys]
+            out.append({
+                field: k,
+                **_latency_stats(v),
+                "trend": {
+                    "n": [s["n"] for s in per],
+                    "p50": [s["p50"] for s in per],
+                    "p95": [s["p95"] for s in per],
+                },
+            })
         out.sort(key=lambda d: (-(d["total"]), d[field]))
         return out
+
+    by_model = _split(by_model_src, "model")
+    # Share of successful calls per model, the same population as the
+    # by_model table's Calls column, so the two agree to the row. Honours
+    # the call_type filter and not the model filter, like by_model, because
+    # a share visual of one model at 100% says nothing.
+    model_calls = sum(m["n"] for m in by_model)
+    models = [
+        {"model": m["model"], "n": m["n"],
+         "share": round(m["n"] / model_calls, 4) if model_calls else 0.0}
+        for m in by_model
+    ]
 
     return {
         "generated_at": now.isoformat(),
@@ -1874,10 +1970,23 @@ async def latency_trends(
         "bucket": bucket,
         "filters": {"model": model, "call_type": call_type, "app": list(apps_filter)},
         "percentile_method": "nearest-rank",
-        "ttft_recorded": False,
+        # True when at least one success row in the selected window, under
+        # the current filters, carries a ttft. False means "no streaming
+        # call in this view", which is the page's empty state for every
+        # first-token figure; nothing is ever approximated to fill it.
+        "ttft_recorded": any(
+            r["status"] == "success" and r["ttft_ms"] is not None for r in series_src
+        ),
+        "window": {"from": cur_key, "to": now.isoformat()},
+        "current": _kpis(series_src),
+        "previous": {
+            "from": prev_start.isoformat(), "to": cur_key,
+            **_kpis(prev_series_src),
+        },
+        "models": models,
         "buckets": buckets,
         "breakdown": {
-            "by_model": _split(by_model_src, "model"),
+            "by_model": by_model,
             "by_call_type": _split(by_ct_src, "call_type"),
         },
     }
