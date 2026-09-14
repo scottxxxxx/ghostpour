@@ -858,3 +858,233 @@ def test_a_same_breath_spoken_date_is_untouched_by_the_value_test():
         "APPLICANT: Mariana Torres, she was born February eleven two thousand "
         "one, she's my daughter, my own, I had her\nINTERVIEWER: summary\n")
     assert kept == ["p6.child1.date_of_birth"]
+
+
+# --- a capture-gap deferral has the opposite obligation (2026-09-13) --------
+#
+# Scott's ruling: when she volunteers a fact the lane cannot record, the lane
+# says so and writes a `deferred` entry with origin "capture_gap". An
+# ordinary deferral means come back later and do NOT re-ask; a capture gap
+# means she already answered and we MUST re-ask. Absent origin is applicant,
+# so every run file recorded before the key existed keeps its meaning.
+#
+# Two readers treat a deferral as settled and both invert for capture_gap.
+# The FALSE-POSITIVE direction is pinned first, on purpose: the first
+# version of the checkpoint refusal "kept exactly the claims that were wrong
+# and destroyed exactly the ones that were right", eight cards lost, so a
+# change that makes it refuse MORE has to prove it still permits the same.
+
+_CP_AGENDA = "q_p4_addr | Part 4: Where you have lived | p4.a, p4.b | A question?"
+
+
+def _cp(part, facts=(), deferred=()):
+    return _resp(section_checkpoint={"part": part},
+                 facts=[{"field_id": f, "value": "v"} for f in facts],
+                 deferred=list(deferred))
+
+
+def test_a_fact_still_settles_a_node_for_the_checkpoint():
+    """conf-v25b turn 30 shape: both ids filled in the same breath as the
+    claim. Nothing about origins may change this."""
+    from app.services.n400_interviewer_guard import checkpoint_contradicts_agenda
+    assert checkpoint_contradicts_agenda(_cp(4, facts=["p4.a", "p4.b"]), _CP_AGENDA) is None
+
+
+def test_an_applicant_deferral_still_settles_a_node():
+    from app.services.n400_interviewer_guard import checkpoint_contradicts_agenda
+    got = checkpoint_contradicts_agenda(
+        _cp(4, facts=["p4.a"], deferred=[{"field_id": "p4.b", "origin": "applicant"}]), _CP_AGENDA)
+    assert got is None
+
+
+def test_an_absent_origin_deferral_still_settles_a_node():
+    """Every deferral on every recorded run has no origin key. They all
+    meant applicant and they all still must."""
+    from app.services.n400_interviewer_guard import checkpoint_contradicts_agenda
+    got = checkpoint_contradicts_agenda(
+        _cp(4, facts=["p4.a"], deferred=[{"field_id": "p4.b", "partial_value": "2017-10"}]), _CP_AGENDA)
+    assert got is None
+
+
+def test_a_part_settled_only_by_applicant_deferrals_is_not_refused():
+    """The permissive fence: no fact at all, two applicant deferrals, and
+    the checkpoint is still legitimate."""
+    from app.services.n400_interviewer_guard import checkpoint_contradicts_agenda
+    got = checkpoint_contradicts_agenda(
+        _cp(4, deferred=[{"field_id": "p4.a", "origin": "applicant"},
+                         {"field_id": "p4.b"}]), _CP_AGENDA)
+    assert got is None
+
+
+def test_a_checkpoint_over_a_capture_gap_field_is_refused_and_names_the_node():
+    """The true direction. p4.b was spoken and not recorded, so the part is
+    not complete, exactly as if p4.b had never been asked."""
+    from app.services.n400_interviewer_guard import (
+        REFUSED_AGENDA_OPEN, checkpoint_contradicts_agenda)
+    got = checkpoint_contradicts_agenda(
+        _cp(4, facts=["p4.a"], deferred=[{"field_id": "p4.b", "origin": "capture_gap"}]), _CP_AGENDA)
+    assert got is not None
+    assert got["open_nodes"] == ["q_p4_addr"] and got["code"] == REFUSED_AGENDA_OPEN
+
+
+def test_a_fact_beside_a_capture_gap_deferral_settles_the_field_for_the_checkpoint():
+    """The route checks the checkpoint BEFORE guard_response_text removes
+    the resolved deferral, so this reader must see the pair and let the
+    fact win, or the same turn would be refused here and kept there."""
+    from app.services.n400_interviewer_guard import checkpoint_contradicts_agenda
+    got = checkpoint_contradicts_agenda(
+        _cp(4, facts=["p4.a", "p4.b"],
+            deferred=[{"field_id": "p4.b", "origin": "capture_gap"}]), _CP_AGENDA)
+    assert got is None
+
+
+@pytest.mark.parametrize("entry", [
+    {"field_id": "p4.a", "origin": "applicant", "partial_value": "2017-10"},
+    {"field_id": "p4.a", "partial_value": "2017-10"},
+], ids=["applicant", "absent"])
+def test_an_applicant_deferral_over_a_fact_still_wins(entry):
+    """conf-v20 turn 38 under the new key: today's behaviour, byte for
+    byte, with the applicant-direction constant."""
+    from app.services.n400_interviewer_guard import (
+        DEFERRAL_STANDS_REASON, drop_facts_that_are_also_deferred)
+    out, dropped = drop_facts_that_are_also_deferred(
+        _resp(facts=[{"field_id": "p4.a", "value": "2017-10-01"}], deferred=[entry]))
+    t = json.loads(out)
+    assert t["facts"] == []
+    assert t["deferred"] == [entry], "the deferral stands untouched"
+    assert dropped == [{"field_id": "p4.a", "value": "2017-10-01", "reason": DEFERRAL_STANDS_REASON}]
+    assert t["facts_dropped"] == dropped
+    assert "deferred_dropped" not in t
+
+
+def test_a_capture_gap_deferral_yields_to_the_fact_it_was_waiting_for():
+    """The inversion. She said her prior city at turn 12 and the lane could
+    not record it; now the fact arrives with the deferral still riding
+    along. The fact is the capture; the deferral is stale and leaves."""
+    from app.services.n400_interviewer_guard import (
+        CAPTURE_GAP_RESOLVED_REASON, drop_facts_that_are_also_deferred)
+    fact = {"field_id": "p4.prior_address1.city", "value": "Dallas",
+            "provenance": {"utterance": "Dallas"}}
+    other = {"field_id": "p4.prior_address1.state", "origin": "applicant", "reason": "later"}
+    before = json.loads(_resp(
+        intent="answer",
+        facts=[fact],
+        deferred=[{"field_id": "p4.prior_address1.city", "origin": "capture_gap",
+                   "reason": "could not record it", "partial_value": "Dallas"}, other],
+        asking={"node_id": "q_p4_prior1", "field_ids": []}))
+    out, removed = drop_facts_that_are_also_deferred(json.dumps(before))
+    t = json.loads(out)
+    assert t["facts"] == [fact], "the captured value survives"
+    assert t["deferred"] == [other], "only the resolved entry leaves"
+    assert t["deferred_dropped"] == [{"field_id": "p4.prior_address1.city",
+                                      "origin": "capture_gap",
+                                      "reason": CAPTURE_GAP_RESOLVED_REASON}]
+    assert removed == t["deferred_dropped"]
+    assert "facts_dropped" not in t, "nothing was dropped in the other direction"
+    # nothing else in the turn moved
+    for key in before:
+        if key != "deferred":
+            assert t[key] == before[key], key
+    assert set(t) == set(before) | {"deferred_dropped"}
+
+
+def test_mixed_origins_in_one_response_go_opposite_ways():
+    """Field A deferred by the applicant, field B a capture gap, facts for
+    both: A's fact is dropped and its deferral stands, B's fact is kept and
+    its deferral leaves. One response, both directions, no leakage."""
+    from app.services.n400_interviewer_guard import (
+        CAPTURE_GAP_RESOLVED_REASON, DEFERRAL_STANDS_REASON,
+        drop_facts_that_are_also_deferred)
+    out, removed = drop_facts_that_are_also_deferred(_resp(
+        facts=[{"field_id": "A", "value": "1"}, {"field_id": "B", "value": "2"}],
+        deferred=[{"field_id": "A", "origin": "applicant"},
+                  {"field_id": "B", "origin": "capture_gap"}]))
+    t = json.loads(out)
+    assert [f["field_id"] for f in t["facts"]] == ["B"]
+    assert [d["field_id"] for d in t["deferred"]] == ["A"]
+    assert t["facts_dropped"] == [{"field_id": "A", "value": "1", "reason": DEFERRAL_STANDS_REASON}]
+    assert t["deferred_dropped"] == [{"field_id": "B", "origin": "capture_gap",
+                                      "reason": CAPTURE_GAP_RESOLVED_REASON}]
+    assert len(removed) == 2
+
+
+def test_a_capture_gap_deferral_with_no_fact_yet_is_left_exactly_alone():
+    """The resolving fact has not arrived: the deferral stands and the turn
+    is untouched, byte for byte. This is the common case."""
+    from app.services.n400_interviewer_guard import drop_facts_that_are_also_deferred
+    text = _resp(facts=[{"field_id": "other", "value": "x"}],
+                 deferred=[{"field_id": "p4.a", "origin": "capture_gap"}])
+    assert drop_facts_that_are_also_deferred(text) == (text, [])
+
+
+@pytest.mark.parametrize("origin", ["captured", "Capture_Gap", "", None, 7, ["capture_gap"], {}],
+                         ids=["typo", "case", "empty", "null", "int", "list", "dict"])
+def test_an_unknown_origin_is_read_as_applicant_and_counted(origin):
+    """Anything that is not one of the two agreed strings, including a
+    non-string, goes the suppressing way AND is marked so it can be counted.
+    Null counts as unknown: the key is present, so it is not the absence the
+    contract defines, and a count we can see beats one we cannot."""
+    from app.services.n400_interviewer_guard import (
+        DEFERRAL_STANDS_REASON, checkpoint_contradicts_agenda,
+        deferral_origin, drop_facts_that_are_also_deferred,
+        mark_unknown_deferral_origins)
+    entry = {"field_id": "p4.b", "origin": origin}
+    assert deferral_origin(entry) == "unknown"
+    # reader 1: the deferral wins, applicant direction
+    out, dropped = drop_facts_that_are_also_deferred(
+        _resp(facts=[{"field_id": "p4.b", "value": "v"}], deferred=[entry]))
+    t = json.loads(out)
+    assert t["facts"] == [] and t["deferred"] == [entry]
+    assert dropped[0]["reason"] == DEFERRAL_STANDS_REASON
+    # reader 2: it settles, applicant direction
+    assert checkpoint_contradicts_agenda(_cp(4, facts=["p4.a"], deferred=[entry]), _CP_AGENDA) is None
+    # and it is countable
+    out, unknown = mark_unknown_deferral_origins(_resp(deferred=[entry]))
+    assert unknown == [{"field_id": "p4.b", "origin": origin}]
+    assert json.loads(out)["deferred_origin_unknown"] == unknown
+
+
+@pytest.mark.parametrize("entry,want", [
+    ({"field_id": "a"}, "applicant"),
+    ({"field_id": "a", "origin": "applicant"}, "applicant"),
+    ({"field_id": "a", "origin": "capture_gap"}, "capture_gap"),
+    ({"field_id": "a", "origin": "nope"}, "unknown"),
+    ("not a dict", "applicant"),
+], ids=["absent", "applicant", "capture_gap", "unknown", "non-dict"])
+def test_deferral_origin_is_the_one_reading_both_readers_share(entry, want):
+    from app.services.n400_interviewer_guard import deferral_origin
+    assert deferral_origin(entry) == want
+
+
+def test_agreed_origins_are_not_marked_unknown():
+    from app.services.n400_interviewer_guard import mark_unknown_deferral_origins
+    text = _resp(deferred=[{"field_id": "a"}, {"field_id": "b", "origin": "applicant"},
+                           {"field_id": "c", "origin": "capture_gap"}])
+    assert mark_unknown_deferral_origins(text) == (text, [])
+
+
+def test_the_orchestrator_resolves_a_capture_gap_and_counts_an_unknown_origin(caplog):
+    """End to end through guard_response_text, which is what production
+    calls: the captured fact survives the evidence floor and the pair
+    check, the capture-gap deferral is gone from the wire, the unknown
+    origin is on the wire AND in the log with the turn id and the value."""
+    import logging
+    from app.services.n400_interviewer_guard import (
+        CAPTURE_GAP_RESOLVED_REASON, guard_response_text)
+    caplog.set_level(logging.WARNING, logger="ghostpour.n400_interviewer_guard")
+    out = guard_response_text(
+        _resp(facts=[{"field_id": "p4.prior_address1.city", "value": "Dallas",
+                      "provenance": {"utterance": "it was Dallas"}}],
+              deferred=[{"field_id": "p4.prior_address1.city", "origin": "capture_gap"},
+                        {"field_id": "p4.prior_address1.zip", "origin": "captured"}]),
+        None, "t-12", user_content="it was Dallas, Texas")
+    t = json.loads(out)
+    assert [f["field_id"] for f in t["facts"]] == ["p4.prior_address1.city"]
+    assert t["deferred"] == [{"field_id": "p4.prior_address1.zip", "origin": "captured"}]
+    assert t["deferred_dropped"][0]["reason"] == CAPTURE_GAP_RESOLVED_REASON
+    assert t["deferred_origin_unknown"] == [{"field_id": "p4.prior_address1.zip", "origin": "captured"}]
+    warned = [r.getMessage() for r in caplog.records if "n400_deferred_origin_unknown" in r.getMessage()]
+    assert len(warned) == 1
+    assert "turn_id=t-12" in warned[0] and "p4.prior_address1.zip='captured'" in warned[0]
+    dropped_log = [r.getMessage() for r in caplog.records if "n400_deferral_dropped_captured" in r.getMessage()]
+    assert dropped_log and "field_id=p4.prior_address1.city" in dropped_log[0]
