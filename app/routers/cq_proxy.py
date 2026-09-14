@@ -771,6 +771,50 @@ async def unassign_origin_project(
         body, request=request)
 
 
+@router.post("/origins/{user_id}/{origin_type}/{origin_id}/delete")
+async def delete_origin(
+    request: Request,
+    user_id: str,
+    origin_type: str,
+    origin_id: str,
+    user: UserRecord = Depends(get_current_user),
+    body: dict | None = Body(default=None),
+):
+    """Proxy: deleting a meeting clears its transcript from CQ's memory
+    stream (Scott's ruling, 2026-09-07). This is the gateway half.
+
+    CQ's endpoint is NOT live yet. The route is carried ahead of it against
+    the shape CQ specified, because a route is additive at the gateway and
+    carrying one to an endpoint that does not exist is safe, while carrying
+    the wrong shape is not. Held unmerged until CQ's side lands and the
+    request-side test is re-pinned to the bytes CQ actually receives.
+
+    The body is forwarded AS SENT, as a body and never as a query (the
+    forwarder drops query on this call site, which is why the sibling
+    routes above went body-only). {"preview": true} counts and writes
+    nothing; {"delete": true} archives the meeting's patches and then
+    clears its transcript; absent or unrecognised, CQ treats as preview.
+    That absent-means-preview default is CQ's to apply. GP does not
+    rewrite, default, or normalise the body, because GP inventing a
+    default here would be GP deciding whether to delete.
+
+    CQ's 200 passes through unchanged, including on an unknown meeting and
+    on a repeat delete: CQ made it idempotent by construction and
+    deliberately does not 404. GP does not validate the response shape.
+
+    What it clears is CQ's docstring's claim, not GP's: patches archived,
+    person_appearances removed, the transcript XDEL'd last and
+    irreversibly; alignment events and the woven cache NOT touched;
+    self-typed user facts survive.
+    """
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify another user's origins")
+    return await _cq_proxy(
+        "POST",
+        f"/v1/origins/{_subj(request, user_id)}/{origin_type}/{origin_id}/delete",
+        body, request=request)
+
+
 # --- Ledger triage (2026-08-07, SS Turn 4) ---
 #
 # SS's ledger flow ends in Done, Still live, or Let it go. `complete` is
