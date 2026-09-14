@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 30
+served_version: 31
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
 thinking: disabled
-reconciled: 2026-09-11 (v30)
+reconciled: 2026-09-13 (v31)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1216,6 +1216,52 @@ ships, this rule goes into it.
 Patch text drafted by fable-auditor, who directs this lane. 118 words onto
 1,207. Inserted after the block's existing good-examples sentence, which is
 the sentence it refines.
+
+## v31: `intent` becomes an object, always
+
+Step three of three, and the only irreversible one, which is why it went
+last. Step one: the client's `LaneIntent` decodes a bare string OR an object
+(703 tests, 72 suites). Step two: GP's `intent_label()` reads either shape
+(#967). Before #967 an object went into `in NOT_AN_ANSWER_INTENTS`, a set
+membership test hashed a dict, and the turn 500'd with her answer inside it.
+Both code halves tolerated both shapes before the prompt was allowed to emit
+one: tolerate before emit.
+
+Two edits to the systemPrompt, both drafted by fable-auditor, who directs
+this lane. Edit 1 retypes the schema line: `intent` is an OBJECT, never a bare
+string, `{"type", "target", "confidence", "disambiguation"}`. Edit 2 appends
+to the taxonomy paragraph, leaving the fourteen values untouched as the values
+of `type`, and states when each optional key is present.
+
+Scott's ruling, 2026-09-12: ALWAYS an object, even when `type` is the only
+key. The alternative (object only on `correction` and `control`) makes the
+model decide the shape per turn, and on this lane an underdetermined rule
+shows up as non-determinism rather than as an error: 11 of 39 turns had a
+variant disagree with ITSELF across three reps on identical inputs. "Always
+an object" is also MECHANICALLY CHECKABLE; "object only when there is a
+target" cannot be checked without judging her utterance, which makes it a
+rule with no instrument. Cost, stated: every turn's wire changes at once,
+survivable only because both code halves already read both shapes.
+
+⚠ `target` is present when, and only when, she named a field or section.
+That is a fact about what she said, not a judgment about shape. `said`
+carries her own words verbatim so a later question can quote her, not the
+catalog. `disambiguation` appears only when she pointed at something that
+could be two or more fields and every option names a real field id.
+
+⚠ THE TEST THAT COULD NOT FAIL. `test_the_decoder_contract_is_spelled_out`
+asserted each of the fourteen intent tokens appears somewhere in the prompt
+as a quoted substring. An object-shaped schema still contains all fourteen
+as values of `type`, so that test stayed GREEN across the exact change that
+most affects the client's decoder. Tightened in the same change to assert
+the object shape and the `type` key are declared in the schema block, and
+SEEN RED against the v30 text before it was trusted green against v31.
+
+Measured on the lint, information only: prohibitions 152 to 156,
+affirmations 22 to 24, ratio 6.91 to 6.50, flagged sentences 210 to 217.
+
+2,113 chars onto 63,133. Version 30 to 31. Anchors verified unique in the
+served copy, not only in the repo file.
 
 ## What is deliberately not here
 
