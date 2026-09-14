@@ -21,6 +21,7 @@ tmpfiles sweep. That is not a place to keep something you cannot rebuild.
 | `judge.py` | The per-field LLM judge, validated at 41/41. Reads its credential from settings at call time and contains none. |
 | `ste_run.py` | The STE A/B generator as it ran on 2026-09-11: v29 served vs v29 with the DEFERRALS line swapped, called straight to the Anthropic API. |
 | `ste_judge.py` | Runs the validated judge's SYSTEM and QUESTION over `ste_run.py` output, per field, with deferral counts beside the rate. |
+| `thinking-ab-preregistration.md` | The thinking off vs on design for the interviewer lane, written 2026-09-14 BEFORE any generation. No gate: arm A is the baseline. Runs after v32. |
 | `ste_analyze.py` | The A/B report, gate first. Imports `deferral_disclosure.py`, the mechanical scorer, which lives with the auditor in `N400 App/qa/`, not here. |
 
 ## The STE harness is a RECORD, not a tool you can point at a new question
