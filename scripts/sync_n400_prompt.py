@@ -50,9 +50,51 @@ SLUG = "n400/interviewer-turn"
 ADMIN = "http://localhost:8000/webhooks/admin/config"
 HEALTH = "http://localhost:8000/health"
 
-# --- what the served copy must say, for v30 (#966) --------------------------
-BLOCK_LINE = 83                      # the DEFERRALS block, 0-indexed
-MUST_APPEAR_ONCE = "AND THE CLAUSE MUST NOT BE CONDITIONAL"
+# --- what the served copy must say, PER VERSION -----------------------------
+#
+# Each version names the ONE phrase that must appear exactly once, the phrases
+# that must all be present, and a substring that locates the block the rule
+# lives in (a substring, not a line number: v30's check indexed line 83 and a
+# reflow would have moved it silently). A sync run against a version whose
+# phrases are not listed here refuses, because verifying a new prompt against
+# strings nobody changed is a check that cannot fail.
+VERSIONS = {
+    30: {
+        "block_anchor": "DEFERRALS",
+        "once": "AND THE CLAUSE MUST NOT BE CONDITIONAL",
+        "phrases": [
+            "to firm up later IF NEEDED",
+            "we can pin the exact day later IF IT MATTERS",
+            "to verify the exact days IF NEEDED",
+            "Say the return as a fact, not a possibility",
+            "if you can find it",
+            "when you have your mail in front of you",
+            "A condition on WHETHER she has to come back is not",
+            "por verificar",
+            "EVERY DEFERRED FIELD, NAMED, NOT ONE OF THEM",
+        ],
+    },
+    31: {
+        # The schema block, where the intent line lives. #972: intent is an
+        # object, always. The v30 rule must SURVIVE the edit, so its once
+        # phrase is asserted present here too.
+        "block_anchor": '{\n  "schema_version": 1,',
+        "once": '"intent": an OBJECT, never a bare string, {"type": string',
+        "phrases": [
+            "Write `intent` as an object, always, even when `type` is the only",
+            "The bare string is the old shape and is being retired.",
+            "`intent.type` is exactly one of:",
+            '"target": omitted',
+            '"confidence": omitted',
+            '"disambiguation": omitted',
+            "AND THE CLAUSE MUST NOT BE CONDITIONAL",   # v30's rule, must survive
+            "if you can find it",                         # and its counterweight
+        ],
+    },
+}
+# Kept as names for the v30 tests and any caller that imported them.
+BLOCK_LINE = 83
+MUST_APPEAR_ONCE = VERSIONS[30]["once"]
 PHRASES = [
     "to firm up later IF NEEDED",
     "we can pin the exact day later IF IT MATTERS",
@@ -99,9 +141,17 @@ def deploy_has_landed(running: str, expected: str) -> tuple[bool, str]:
     if not running:
         return False, "the running server did not report a git_sha"
     if not (running.startswith(expected) or expected.startswith(running)):
-        return False, ("the running image is %s but the change you want is in %s; "
-                       "the deploy has not landed, and syncing now would push the "
-                       "OLD bundle and report success" % (running[:12], expected[:12]))
+        # A mismatch is refused in BOTH directions. Older means the deploy has
+        # not landed and a sync would push the old bundle. Newer means a later
+        # merge deployed on top (2026-09-14: #977 landed between the /health
+        # check and the sync); the bundle is probably right but "probably" is
+        # not the standard, so confirm the running bundle's version and re-run
+        # with the sha that is actually running.
+        return False, ("the running image is %s, not %s. If the running image is "
+                       "OLDER the deploy has not landed and syncing would push the "
+                       "old bundle; if it is NEWER, confirm the running bundle's "
+                       "version and re-run with --expect-sha %s"
+                       % (running[:12], expected[:12], running[:12]))
     return True, ""
 
 
@@ -111,31 +161,33 @@ def served() -> tuple[dict, str]:
     return body, body.get("systemPrompt", "")
 
 
-def verify(sp: str) -> bool:
-    """Read the SERVED string back by phrase. Returns whether it is right."""
-    lines = sp.split("\n")
+def verify(sp: str, version: int) -> bool:
+    """Read the SERVED string back by phrase, for one version. Returns whether
+    it is right. An unlisted version is a refusal, not a pass."""
+    spec = VERSIONS.get(version)
+    if spec is None:
+        print("  *** no phrase list for version %s; add one before syncing ***" % version)
+        return False
     ok = True
 
-    count = sp.count(MUST_APPEAR_ONCE)
+    count = sp.count(spec["once"])
     ok &= count == 1
-    print("  %-52s %s" % (MUST_APPEAR_ONCE[:52],
+    print("  %-52s %s" % (spec["once"][:52],
                           "once  OK" if count == 1 else "*** %d ***" % count))
 
-    for phrase in PHRASES:
+    for phrase in spec["phrases"]:
         present = phrase in sp
         ok &= present
         print("  %-52s %s" % (phrase[:52], "OK" if present else "*** MISSING ***"))
 
     # Present SOMEWHERE in the document is not the claim; it has to be in the
-    # block. Guarded so a shorter prompt reports the wrong section rather than
-    # raising IndexError halfway through a verification.
-    if len(lines) > BLOCK_LINE:
-        in_block = MUST_APPEAR_ONCE in lines[BLOCK_LINE]
-        detail = "OK" if in_block else "*** WRONG SECTION ***"
-    else:
-        in_block, detail = False, "*** PROMPT HAS ONLY %d LINES ***" % len(lines)
+    # block. The block is located by its own text and the once phrase must
+    # appear AFTER it, so a reflow cannot move the check onto the wrong line.
+    start = sp.find(spec["block_anchor"])
+    in_block = start != -1 and spec["once"] in sp[start:]
+    detail = "OK" if in_block else ("*** BLOCK NOT FOUND ***" if start == -1 else "*** WRONG SECTION ***")
     ok &= in_block
-    print("  %-52s %s" % ("inside the DEFERRALS block (line %d)" % BLOCK_LINE, detail))
+    print("  %-52s %s" % ("inside the block after %r" % spec["block_anchor"][:20], detail))
     return bool(ok)
 
 
@@ -165,8 +217,7 @@ def main(argv=None) -> int:
         print("\n--force: syncing anyway (%s)" % why)
 
     body, sp = served()
-    print("BEFORE  version=%s  rule_present=%d"
-          % (body.get("version"), sp.count(MUST_APPEAR_ONCE)))
+    print("BEFORE  version=%s  chars=%d" % (body.get("version"), len(sp)))
 
     status, rep = call("POST", "%s/%s/sync-from-bundle" % (ADMIN, SLUG),
                        {"keys": ["/systemPrompt"]})
@@ -177,7 +228,7 @@ def main(argv=None) -> int:
     body, sp = served()
     print("\nAFTER, read back from the running server by STRING")
     print("  version=%s  systemPrompt chars=%d" % (body.get("version"), len(sp)))
-    ok = verify(sp)
+    ok = verify(sp, int(body.get("version") or 0))
 
     print("\nRESULT:", "the served N-400 prompt carries the rule and its counterweight"
           if ok else "*** THE SERVED PROMPT IS NOT RIGHT, DO NOT CLOSE THIS OUT ***")

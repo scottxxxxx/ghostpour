@@ -15,7 +15,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 from set_n400_cap import moved, next_document  # noqa: E402
-from sync_n400_prompt import BLOCK_LINE, MUST_APPEAR_ONCE, deploy_has_landed, verify  # noqa: E402
+from sync_n400_prompt import BLOCK_LINE, MUST_APPEAR_ONCE, VERSIONS, deploy_has_landed, verify  # noqa: E402
 
 
 # --- the deploy guard: the sync must refuse to run before the deploy lands ---
@@ -38,7 +38,11 @@ def test_the_deploy_that_has_not_landed_is_refused_and_says_why():
     ok, why = deploy_has_landed("d99ab05aaa", "bc00140bbb")
     assert not ok
     assert "d99ab05" in why and "bc00140" in why
-    assert "OLD bundle" in why
+    # Both directions are named, because a NEWER running image is also a
+    # mismatch and the first wording called it "the OLD bundle" when #977
+    # deployed on top of the sha being waited for.
+    assert "OLDER" in why and "NEWER" in why
+    assert "--expect-sha d99ab05" in why
 
 
 def test_no_expected_sha_refuses_rather_than_defaulting_to_yes():
@@ -57,33 +61,35 @@ def test_an_unreachable_health_is_not_treated_as_a_match():
 # --- the served-prompt read-back -------------------------------------------
 
 def _prompt(rule_line: str, extras=(), lines_before=BLOCK_LINE):
+    """A v30-shaped prompt: filler, then the DEFERRALS block carrying the rule
+    line, then the counterweight phrases. The block is located by the word
+    DEFERRALS, so the rule must come after it to count as inside the block."""
     from sync_n400_prompt import PHRASES
-    body = ["filler"] * lines_before + [rule_line]
+    body = ["filler"] * lines_before + ["DEFERRALS " + rule_line]
     body += list(extras) if extras else [" ".join(PHRASES)]
     return "\n".join(body)
 
 
 def test_a_correct_served_prompt_verifies():
-    assert verify(_prompt("... %s ..." % MUST_APPEAR_ONCE)) is True
+    assert verify(_prompt("... %s ..." % MUST_APPEAR_ONCE), 30) is True
 
 
 def test_the_rule_missing_entirely_fails():
-    assert verify(_prompt("a deferrals block with no such rule")) is False
+    assert verify(_prompt("a deferrals block with no such rule"), 30) is False
 
 
 def test_the_rule_in_the_wrong_section_fails():
     """Present SOMEWHERE in the document is not the claim. This is the check
     that separates 'the string is in the file' from 'the rule is where the
     lane reads it', and a substring search alone cannot tell them apart."""
-    sp = _prompt("an unremarkable deferrals block")
-    sp = sp + "\n" + MUST_APPEAR_ONCE  # right string, wrong place
-    assert verify(sp) is False
+    sp = MUST_APPEAR_ONCE + "\n" + _prompt("an unremarkable deferrals block")  # right string, BEFORE the block
+    assert verify(sp, 30) is False
 
 
 def test_the_rule_twice_fails_rather_than_passing_twice_as_hard():
     """A duplicated rule means a sync appended instead of replacing."""
     sp = _prompt("%s and again %s" % (MUST_APPEAR_ONCE, MUST_APPEAR_ONCE))
-    assert verify(sp) is False
+    assert verify(sp, 30) is False
 
 
 def test_a_counterweight_phrase_missing_fails():
@@ -92,13 +98,41 @@ def test_a_counterweight_phrase_missing_fails():
     and makes the product worse, so its absence has to fail."""
     from sync_n400_prompt import PHRASES
     kept = [p for p in PHRASES if p != "if you can find it"]
-    assert verify(_prompt("... %s ..." % MUST_APPEAR_ONCE, extras=[" ".join(kept)])) is False
+    assert verify(_prompt("... %s ..." % MUST_APPEAR_ONCE, extras=[" ".join(kept)]), 30) is False
 
 
-def test_a_prompt_shorter_than_the_block_reports_rather_than_raising():
+def test_a_prompt_with_no_block_reports_rather_than_raising():
     """A verification that dies halfway leaves the operator with no verdict,
-    which reads like a tooling problem rather than a wrong prompt."""
-    assert verify(MUST_APPEAR_ONCE) is False
+    which reads like a tooling problem rather than a wrong prompt. The rule
+    alone, with no DEFERRALS block anywhere, is BLOCK NOT FOUND, not a crash."""
+    assert verify(MUST_APPEAR_ONCE, 30) is False
+
+
+# --- per-version phrase lists ------------------------------------------------
+
+def test_an_unlisted_version_refuses_rather_than_passing():
+    """Verifying a new prompt against strings nobody changed is a check that
+    cannot fail. A version with no phrase list is a refusal."""
+    assert verify("anything at all", 99) is False
+
+
+def _v31_prompt(drop=None):
+    spec = VERSIONS[31]
+    lines = ["preamble", spec["block_anchor"], "  " + spec["once"] + ","]
+    lines += [p for p in spec["phrases"] if p != drop]
+    return "\n".join(lines)
+
+
+def test_the_v31_phrases_verify_and_each_is_load_bearing():
+    assert verify(_v31_prompt(), 31) is True
+    for phrase in VERSIONS[31]["phrases"]:
+        assert verify(_v31_prompt(drop=phrase), 31) is False, phrase
+
+
+def test_v30s_rule_must_survive_into_v31():
+    """#972 edits the schema block; the #966 rule lives elsewhere and must not
+    be lost by the edit. Its phrase is in v31's list for exactly that reason."""
+    assert "AND THE CLAUSE MUST NOT BE CONDITIONAL" in VERSIONS[31]["phrases"]
 
 
 # --- the cap read-back ------------------------------------------------------
