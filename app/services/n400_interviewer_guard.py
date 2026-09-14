@@ -275,17 +275,55 @@ def drop_facts_without_current_evidence(
     return json.dumps(turn, ensure_ascii=False), dropped
 
 
-BOTH_REASON = "the same field was also deferred in this response; the deferral stands"
+# --- a deferral's origin decides which half of a pair is stale --------------
+#
+# Scott ruled (2026-09-13) that the lane emits CAPTURE GAP deferrals: when
+# the applicant volunteers a fact the lane cannot record, it says so out
+# loud AND writes a `deferred` entry holding it. That entry carries the
+# OPPOSITE obligation from an ordinary deferral. An ordinary one means she
+# must come back later and we must NOT re-ask. A capture gap means she
+# already answered and we MUST re-ask.
+#
+# Wire shape, agreed with the client: `origin` is "applicant" or
+# "capture_gap", and an ABSENT key means "applicant", so every run file and
+# label set recorded before the key existed still means what it meant.
+#
+# Two readers in this file treat a deferral as a settled outcome:
+# `drop_facts_that_are_also_deferred` below and `_ids_settled_in_this_response`
+# further down. Both are right for an applicant deferral and both invert for
+# a capture gap. They read the origin through this ONE helper so the two
+# cannot drift.
+
+DEFERRAL_ORIGIN_APPLICANT = "applicant"
+DEFERRAL_ORIGIN_CAPTURE_GAP = "capture_gap"
+DEFERRAL_ORIGIN_UNKNOWN = "unknown"
 
 
-def drop_facts_that_are_also_deferred(text: str) -> tuple[str, list[dict]]:
-    """One field is a fact or a deferral in one response, never both.
+def deferral_origin(entry: object) -> str:
+    """"applicant", "capture_gap" or "unknown", read off one `deferred` entry.
 
-    conf-v20 turn 38: facts p4.prior_address1.from = 2017-10-01 and .to =
-    2020-06-01 rode alongside deferrals for the same fields with partials
-    2017-10 and 2020-06, and the reply said "to confirm the exact days".
-    The client keeps the fact, so two invented days stood. The deferral is
-    the honest one of the pair; the fact is dropped and the drop is marked.
+    A missing key is "applicant" by contract. A key that is PRESENT with any
+    other value, a typo, a null, a number, is "unknown". Both readers treat
+    unknown as applicant, the direction that drops a fact rather than lets
+    one stand, and `mark_unknown_deferral_origins` counts it, because a
+    value we did not agree on is a signal about the lane and folding it in
+    silently would hide the count. A non-dict entry has no origin to read
+    and is "applicant" too; neither reader acts on it anyway, since both
+    need a `field_id`.
+    """
+    if not isinstance(entry, dict) or "origin" not in entry:
+        return DEFERRAL_ORIGIN_APPLICANT
+    origin = entry["origin"]
+    if origin == DEFERRAL_ORIGIN_APPLICANT or origin == DEFERRAL_ORIGIN_CAPTURE_GAP:
+        return origin
+    return DEFERRAL_ORIGIN_UNKNOWN
+
+
+def mark_unknown_deferral_origins(text: str) -> tuple[str, list[dict]]:
+    """Mark, never drop, every `deferred` entry whose origin is not agreed.
+
+    The behaviour on such an entry is unchanged (it reads as applicant);
+    this only makes it countable. Same posture as `mark_battery_shortfall`.
     """
     try:
         turn = json.loads(text)
@@ -293,22 +331,105 @@ def drop_facts_that_are_also_deferred(text: str) -> tuple[str, list[dict]]:
         return text, []
     if not isinstance(turn, dict):
         return text, []
-    deferred_ids = {d.get("field_id") for d in (turn.get("deferred") or []) if isinstance(d, dict)}
-    facts = turn.get("facts")
-    if not deferred_ids or not isinstance(facts, list):
+    unknown = [{"field_id": d.get("field_id"), "origin": d.get("origin")}
+               for d in (turn.get("deferred") or [])
+               if isinstance(d, dict) and deferral_origin(d) == DEFERRAL_ORIGIN_UNKNOWN]
+    if not unknown:
         return text, []
-    kept, dropped = [], []
+    turn["deferred_origin_unknown"] = unknown
+    return json.dumps(turn, ensure_ascii=False), unknown
+
+
+# One constant per direction. The first version shipped ONE string, "the
+# deferral stands", and it was true because only one direction existed. With
+# two, a constant that asserts an unconditional precedence would be wrong for
+# half the entries it is attached to, so each names the origin it is true of.
+DEFERRAL_STANDS_REASON = (
+    "the same field was also deferred in this response by the applicant; "
+    "the deferral stands and the fact is dropped")
+CAPTURE_GAP_RESOLVED_REASON = (
+    "the same field was captured by a fact in this same response; the "
+    "capture-gap deferral is resolved and the fact stands")
+# The NAME the applicant direction shipped under, kept bound to it so the
+# conf-v20 turn 38 test still imports. The STRING behind it has changed: a
+# client matching the old text ("...; the deferral stands") no longer
+# matches, and nothing on this side was found doing so. It is the applicant
+# direction and nothing else.
+BOTH_REASON = DEFERRAL_STANDS_REASON
+
+
+def drop_facts_that_are_also_deferred(text: str) -> tuple[str, list[dict]]:
+    """One field is a fact or a deferral in one response, never both.
+
+    Which half is stale depends on the deferral's origin.
+
+    APPLICANT (or absent origin), conf-v20 turn 38: facts
+    p4.prior_address1.from = 2017-10-01 and .to = 2020-06-01 rode alongside
+    deferrals for the same fields with partials 2017-10 and 2020-06, and the
+    reply said "to confirm the exact days". The client keeps the fact, so
+    two invented days stood. The deferral is the honest one of the pair; the
+    fact is dropped and the drop is marked in `facts_dropped`.
+
+    CAPTURE GAP: the deferral says "she answered and I could not record it",
+    so a fact for the same field in the same response is the value that
+    finally got captured and the deferral is the stale half. The fact stays,
+    the deferral entry leaves `deferred`, and the removal is marked in
+    `deferred_dropped` so it is as countable as the other direction. Leaving
+    the entry in place would tell the client to RE-ASK a field it is holding
+    the answer to, which is the capture-gap obligation applied one turn too
+    late.
+
+    A field carrying BOTH kinds of deferral goes the applicant way: the
+    fact is dropped and both entries stand, because dropping a fact costs
+    one question and letting a doubtful one stand costs a wrong value on a
+    federal form. Returns every removal, facts and deferrals, in one list;
+    the deferral removals are the ones carrying `origin`.
+    """
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, []
+    if not isinstance(turn, dict):
+        return text, []
+    deferred = turn.get("deferred")
+    facts = turn.get("facts")
+    if not isinstance(deferred, list) or not deferred or not isinstance(facts, list):
+        return text, []
+    stands: set = set()      # applicant or unknown: the deferral wins
+    captured: set = set()    # capture_gap: the fact wins
+    for d in deferred:
+        if not isinstance(d, dict):
+            continue
+        if deferral_origin(d) == DEFERRAL_ORIGIN_CAPTURE_GAP:
+            captured.add(d.get("field_id"))
+        else:
+            stands.add(d.get("field_id"))
+    captured -= stands
+    kept_facts, dropped = [], []
     for f in facts:
         fid = f.get("field_id") if isinstance(f, dict) else None
-        if fid in deferred_ids:
-            dropped.append({"field_id": fid, "value": f.get("value"), "reason": BOTH_REASON})
+        if fid in stands:
+            dropped.append({"field_id": fid, "value": f.get("value"), "reason": DEFERRAL_STANDS_REASON})
         else:
-            kept.append(f)
-    if not dropped:
+            kept_facts.append(f)
+    fact_ids = {f.get("field_id") for f in kept_facts if isinstance(f, dict)}
+    kept_deferred, resolved = [], []
+    for d in deferred:
+        fid = d.get("field_id") if isinstance(d, dict) else None
+        if fid in captured and fid in fact_ids:
+            resolved.append({"field_id": fid, "origin": DEFERRAL_ORIGIN_CAPTURE_GAP,
+                             "reason": CAPTURE_GAP_RESOLVED_REASON})
+        else:
+            kept_deferred.append(d)
+    if not dropped and not resolved:
         return text, []
-    turn["facts"] = kept
-    turn["facts_dropped"] = (turn.get("facts_dropped") or []) + dropped
-    return json.dumps(turn, ensure_ascii=False), dropped
+    if dropped:
+        turn["facts"] = kept_facts
+        turn["facts_dropped"] = (turn.get("facts_dropped") or []) + dropped
+    if resolved:
+        turn["deferred"] = kept_deferred
+        turn["deferred_dropped"] = (turn.get("deferred_dropped") or []) + resolved
+    return json.dumps(turn, ensure_ascii=False), dropped + resolved
 
 
 def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
@@ -325,9 +446,22 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
             new_text, user_content, conversation)
         for d in dropped:
             logger.warning("n400_fact_dropped_no_evidence turn_id=%s field_id=%s", turn_id, d["field_id"])
+    # Marks and does not drop, and an unknown entry reads as applicant, which
+    # the drop below never removes, so ordering is free; it sits ahead of the
+    # drop so the marker describes the wire as it arrived.
+    new_text, unknown = mark_unknown_deferral_origins(new_text)
+    if unknown:
+        logger.warning(
+            "n400_deferred_origin_unknown turn_id=%s entries=%s", turn_id,
+            ",".join("%s=%r" % (u["field_id"], u["origin"]) for u in unknown))
     new_text, both = drop_facts_that_are_also_deferred(new_text)
     for d in both:
-        logger.warning("n400_fact_dropped_also_deferred turn_id=%s field_id=%s", turn_id, d["field_id"])
+        if "origin" in d:
+            logger.warning(
+                "n400_deferral_dropped_captured turn_id=%s field_id=%s origin=%s",
+                turn_id, d["field_id"], d["origin"])
+        else:
+            logger.warning("n400_fact_dropped_also_deferred turn_id=%s field_id=%s", turn_id, d["field_id"])
     # Marks and does not drop, so ordering is free; it sits after the evidence
     # floor so `minted` names only facts that survived it.
     new_text, not_answer = mark_facts_minted_on_a_non_answer(new_text)
@@ -782,17 +916,29 @@ def agenda_parts(agenda: str | None) -> dict[str, int]:
 
 
 def _ids_settled_in_this_response(turn: dict) -> set[str]:
-    """Field ids this response itself answers or defers.
+    """Field ids this response itself answers, or defers to the applicant.
 
-    A deferral counts: "she is checking it later" is a settled outcome for
-    the node, the same way `drop_facts_that_are_also_deferred` treats the
-    deferral as the honest half of a fact/deferral pair.
+    A fact settles its id. An APPLICANT deferral (origin "applicant", or
+    absent, which means the same) settles it too: "she is checking it
+    later" is a settled outcome for the node, the same way
+    `drop_facts_that_are_also_deferred` lets that deferral stand over a
+    fact. A CAPTURE GAP deferral does NOT settle it: she answered and the
+    lane could not record it, so the field is exactly as unanswered as one
+    never asked, and a section_checkpoint claiming its part complete is
+    refused the way it would be over an empty field. An unknown origin
+    reads as applicant, through `deferral_origin`, so this reader and the
+    drop above move together.
     """
     out: set[str] = set()
-    for key in ("facts", "deferred"):
-        for item in turn.get(key) or []:
-            if isinstance(item, dict) and item.get("field_id"):
-                out.add(str(item["field_id"]))
+    for f in turn.get("facts") or []:
+        if isinstance(f, dict) and f.get("field_id"):
+            out.add(str(f["field_id"]))
+    for d in turn.get("deferred") or []:
+        if not isinstance(d, dict) or not d.get("field_id"):
+            continue
+        if deferral_origin(d) == DEFERRAL_ORIGIN_CAPTURE_GAP:
+            continue
+        out.add(str(d["field_id"]))
     return out
 
 
@@ -816,9 +962,10 @@ def checkpoint_contradicts_agenda(text: str, agenda: str | None) -> dict | None:
     exactly the claims that were wrong and destroyed exactly the ones that
     were right. Eight legitimate checkpoint cards never reached her.
 
-    So the response's own facts and deferrals are applied to the agenda
-    BEFORE the test. A node is still open only if it has a field id this
-    response does not settle.
+    So the response's own facts and applicant deferrals are applied to the
+    agenda BEFORE the test. A node is still open only if it has a field id
+    this response does not settle, and a capture-gap deferral does not
+    settle one (see `_ids_settled_in_this_response`).
     """
     try:
         turn = json.loads(text)

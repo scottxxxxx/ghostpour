@@ -79,7 +79,9 @@ def test_the_run_totals_are_three_refused_and_eight_permitted():
 def test_a_deferral_settles_a_field_just_like_a_fact():
     """"She is checking it later" closes the node for this purpose, the same
     way drop_facts_that_are_also_deferred treats the deferral as the honest
-    half of the pair."""
+    half of the pair. True of an APPLICANT deferral (this one carries no
+    origin, which reads as applicant by contract). A capture-gap deferral
+    does the opposite and has its own test in test_n400_interviewer_guard."""
     agenda = _agenda("q_p4", 4, ["p4.a", "p4.b"])
     assert checkpoint_contradicts_agenda(
         _resp(4, filled=["p4.a"], deferred=["p4.b"]), agenda) is None
