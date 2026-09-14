@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import secrets
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -1295,6 +1296,69 @@ def _app_sql(apps: tuple[str, ...], column: str = "app_id") -> str:
     return f" AND {column} IN ({', '.join('?' * len(apps))})"
 
 
+def _percentile(values: list[int], p: float) -> int | None:
+    """Nearest-rank percentile of `values`, or None when there are none.
+
+    None rather than 0 on an empty group: 0 would read as "instant" on a
+    group that was never measured, which is the exact confusion the
+    coverage figure next to it exists to prevent.
+    """
+    if not values:
+        return None
+    ordered = sorted(values)
+    rank = math.ceil(p * len(ordered)) - 1
+    return int(ordered[max(0, min(rank, len(ordered) - 1))])
+
+
+async def _ttft_percentiles_by(
+    db: aiosqlite.Connection,
+    key_cols: tuple[str, ...],
+    where_sql: str,
+    params: tuple,
+) -> dict[tuple, tuple[int | None, int | None]]:
+    """(p50, p95) of ttft_ms per group key, over rows WITH a ttft only.
+
+    SQLite has no percentile aggregate, so the values come back and the
+    ranking happens here. The caller's `where_sql` already restricts to
+    success rows; the `ttft_ms IS NOT NULL` is added HERE so a NULL can
+    never enter the percentile list. Coverage is computed separately by
+    the caller against the group's full success count, which is what
+    keeps NULL rows in the denominator and out of the percentiles.
+    """
+    select_keys = ", ".join(key_cols)
+    cursor = await db.execute(
+        f"SELECT {select_keys}, ttft_ms FROM usage_log WHERE {where_sql}"
+        " AND ttft_ms IS NOT NULL",
+        params,
+    )
+    groups: dict[tuple, list[int]] = {}
+    n = len(key_cols)
+    for r in await cursor.fetchall():
+        groups.setdefault(tuple(r[:n]), []).append(int(r[n]))
+    return {
+        k: (_percentile(v, 0.50), _percentile(v, 0.95))
+        for k, v in groups.items()
+    }
+
+
+def _ttft_fields(
+    stats: dict[tuple, tuple[int | None, int | None]],
+    key: tuple,
+    ttft_rows: int,
+    requests: int,
+) -> dict:
+    """The three dashboard keys for one group. `ttft_coverage` is the
+    share of the group's success rows that carry a ttft at all, so a
+    p50 shown next to a coverage of 0.04 is understood as four percent
+    of that traffic and not as the group's latency."""
+    p50, p95 = stats.get(key, (None, None))
+    return {
+        "ttft_p50_ms": p50,
+        "ttft_p95_ms": p95,
+        "ttft_coverage": round(ttft_rows / requests, 4) if requests else 0.0,
+    }
+
+
 @router.get("/admin/dashboard")
 async def dashboard(
     request: Request,
@@ -1363,18 +1427,30 @@ async def dashboard(
     }
 
     # --- Usage by provider ---
+    # Time to first token rides alongside the wall-clock average: p50 and
+    # p95 over the rows that carry one, plus the share of the group that
+    # does. Only the token-streaming chat path can measure it, so most
+    # groups will show a low coverage and that is the honest reading.
+    by_model_where = (
+        "request_timestamp >= date('now', ?) AND status = 'success'" + app_clause
+    )
     cursor = await db.execute(
         """SELECT provider, model,
             COUNT(*) as requests,
             COALESCE(SUM(input_tokens), 0) as input_tokens,
             COALESCE(SUM(output_tokens), 0) as output_tokens,
             COALESCE(SUM(estimated_cost_usd), 0) as cost_usd,
-            ROUND(AVG(response_time_ms), 0) as avg_latency_ms
+            ROUND(AVG(response_time_ms), 0) as avg_latency_ms,
+            SUM(CASE WHEN ttft_ms IS NOT NULL THEN 1 ELSE 0 END) as ttft_rows
            FROM usage_log
-           WHERE request_timestamp >= date('now', ?) AND status = 'success'""" + app_clause + """
+           WHERE """ + by_model_where + """
            GROUP BY provider, model
            ORDER BY requests DESC""",
         (f"-{days} days", *app_params),
+    )
+    by_model_rows = await cursor.fetchall()
+    by_model_ttft = await _ttft_percentiles_by(
+        db, ("provider", "model"), by_model_where, (f"-{days} days", *app_params),
     )
     by_model = [
         {
@@ -1385,8 +1461,9 @@ async def dashboard(
             "output_tokens": r[4],
             "cost_usd": round(r[5], 4),
             "avg_latency_ms": int(r[6]) if r[6] else 0,
+            **_ttft_fields(by_model_ttft, (r[0], r[1]), r[7], r[2]),
         }
-        for r in await cursor.fetchall()
+        for r in by_model_rows
     ]
 
     # --- Usage by call type ---
@@ -1401,17 +1478,26 @@ async def dashboard(
     # signal). Deliberately NOT excluded from the users list or the cost
     # totals: the spend is real and should stay visible, it just wears its
     # own tier there.
+    by_call_type_where = (
+        "request_timestamp >= date('now', ?) AND status = 'success'" + app_clause
+        + " AND user_id NOT IN (SELECT id FROM users WHERE tier = 'automation')"
+    )
     cursor = await db.execute(
         """SELECT COALESCE(call_type, '(untyped)') as call_type,
             COUNT(*) as requests,
             COALESCE(SUM(input_tokens), 0) + COALESCE(SUM(output_tokens), 0) as tokens,
             COALESCE(SUM(estimated_cost_usd), 0) as cost_usd,
-            ROUND(AVG(response_time_ms), 0) as avg_latency_ms
+            ROUND(AVG(response_time_ms), 0) as avg_latency_ms,
+            SUM(CASE WHEN ttft_ms IS NOT NULL THEN 1 ELSE 0 END) as ttft_rows
            FROM usage_log
-           WHERE request_timestamp >= date('now', ?) AND status = 'success'""" + app_clause + """
-           AND user_id NOT IN (SELECT id FROM users WHERE tier = 'automation')
+           WHERE """ + by_call_type_where + """
            GROUP BY call_type
            ORDER BY requests DESC""",
+        (f"-{days} days", *app_params),
+    )
+    by_call_type_rows = await cursor.fetchall()
+    by_call_type_ttft = await _ttft_percentiles_by(
+        db, ("COALESCE(call_type, '(untyped)')",), by_call_type_where,
         (f"-{days} days", *app_params),
     )
     by_call_type = [
@@ -1421,8 +1507,10 @@ async def dashboard(
             "tokens": r["tokens"],
             "cost_usd": round(r["cost_usd"], 4),
             "avg_latency_ms": int(r["avg_latency_ms"]) if r["avg_latency_ms"] else 0,
+            **_ttft_fields(
+                by_call_type_ttft, (r["call_type"],), r["ttft_rows"], r["requests"]),
         }
-        for r in await cursor.fetchall()
+        for r in by_call_type_rows
     ]
 
     # --- Usage by scenario (Tech Rehearsal scenario sub-dimension) ---

@@ -1020,6 +1020,16 @@ MIGRATIONS = [
         _TRANSCRIPT_DELETE_LOSERS_SQL + _TRANSCRIPT_UNIQUE_INDEX_SQL,
         _dedupe_transcripts_then_unique_index,
     ),
+    # Time to first token (2026-09-13). Integer milliseconds from the
+    # moment the streaming request left the process to the first content
+    # delta, stamped in the Anthropic stream adapter. NULL on every
+    # non-streaming call, on every provider whose stream is a
+    # non-streaming call in disguise, and on a stream that erred before
+    # its first token: the column says "not measurable here" rather than
+    # borrowing response_time_ms, so a coverage figure on the dashboard
+    # stays honest about how much traffic this number describes.
+    # response_time_ms is unchanged and still the whole wall clock.
+    "ALTER TABLE usage_log ADD COLUMN ttft_ms INTEGER",
 ]
 
 

@@ -172,4 +172,9 @@ class ProviderAdapter(ABC):
             "text": response.text,
             "done": True,
             "response": response,
+            # A non-streaming call wearing a stream's shape: the whole body
+            # arrives at once, so there is no first token to time. Explicit
+            # None rather than an absent key, so a reader cannot mistake
+            # "this adapter never measured" for "the key went missing".
+            "ttft_ms": None,
         }

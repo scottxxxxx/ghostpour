@@ -1,6 +1,7 @@
 import datetime as _dt
 import json
 import logging
+import time
 from collections.abc import AsyncIterator
 
 from fastapi import HTTPException
@@ -356,8 +357,11 @@ class AnthropicAdapter(ProviderAdapter):
         """Stream an Anthropic Messages API request, yielding event dicts.
 
         Yields:
-          {"type": "text", "text": "chunk", "done": False}  — for each text delta
-          {"type": "text", "text": "", "done": True, "response": ChatResponse}  — at end
+          for each text delta:
+            {"type": "text", "text": "chunk", "done": False}
+          at the end:
+            {"type": "text", "text": "", "done": True, "response": ChatResponse,
+             "ttft_ms": int | None}
         """
         body, headers = self._build_body(request)
         body["stream"] = True
@@ -378,6 +382,24 @@ class AnthropicAdapter(ProviderAdapter):
         # the assembled content is text-only, so the reconstructed body below
         # cannot be mistaken for the whole of what the model produced.
         thinking_chars = 0
+
+        # Time to first token. `sent_at` is stamped right before the SSE
+        # POST goes out (the generator below opens the connection on its
+        # first iteration, so nothing has left the process before this
+        # line). `first_token_at` is stamped on the first event that
+        # carries CONTENT: a `content_block_delta` whose delta is a
+        # `text_delta`, or an `input_json_delta` when the model answers
+        # with a tool call. Not `message_start`: that arrives before any
+        # generation, carries only the id and the input token count, and
+        # stamping there would report a TTFT the user never experienced.
+        # Not `ping`, for the same reason. Not `thinking_delta` either:
+        # thinking is real generation but nothing reaches the screen
+        # until the first text or tool-input byte, and the number Scott
+        # wants is the wait a person sees. Stays None when no content
+        # ever arrives, because 0 would say "instant" and the total
+        # would say "it was all wait", and both are fictions.
+        sent_at = time.monotonic()
+        first_token_at: float | None = None
 
         try:
             async for line in self._post_stream(self.base_url, body, headers):
@@ -415,11 +437,17 @@ class AnthropicAdapter(ProviderAdapter):
 
                     elif event_type == "content_block_delta":
                         delta = event.get("delta", {})
-                        if delta.get("type") == "text_delta":
+                        delta_type = delta.get("type")
+                        if (
+                            first_token_at is None
+                            and delta_type in ("text_delta", "input_json_delta")
+                        ):
+                            first_token_at = time.monotonic()
+                        if delta_type == "text_delta":
                             chunk = delta.get("text", "")
                             full_text += chunk
                             yield {"type": "text", "text": chunk, "done": False}
-                        elif delta.get("type") == "thinking_delta":
+                        elif delta_type == "thinking_delta":
                             thinking_chars += len(delta.get("thinking", ""))
 
                     elif event_type == "message_delta":
@@ -489,7 +517,20 @@ class AnthropicAdapter(ProviderAdapter):
             raw_response_json=self._redact_base64(self._pretty_json(reconstructed)),
         )
 
-        yield {"type": "text", "text": "", "done": True, "response": final_response}
+        # Carried on the done event, NOT on ChatResponse: the non-streaming
+        # JSON path serves `response.model_dump()` to the client, so a
+        # field on the model would put a permanent `ttft_ms: null` on
+        # every non-streaming wire body. The done event is consumed by
+        # the chat router alone.
+        ttft_ms = (
+            int((first_token_at - sent_at) * 1000)
+            if first_token_at is not None else None
+        )
+
+        yield {
+            "type": "text", "text": "", "done": True,
+            "response": final_response, "ttft_ms": ttft_ms,
+        }
 
 
 def _build_system_blocks(request: ChatRequest) -> list[dict]:
