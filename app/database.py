@@ -61,6 +61,97 @@ CREATE INDEX IF NOT EXISTS idx_usage_user_date ON usage_log(user_id, request_tim
 """
 
 
+class PyMigration:
+    """A migration step that needs Python around its SQL.
+
+    Every other entry in MIGRATIONS is a bare string, and that stays the
+    default. This exists for the one shape a string cannot express: a step
+    that must do a write, LOOK at what the write did, and then do a second
+    statement inside the same transaction. `sql` is the text that goes into
+    the migrations fingerprint, so editing it forces one sweep exactly as
+    editing a string entry does. `run(db)` does the work and is held to the
+    same contract as a string entry: idempotent, and safe on a database
+    that already has rows.
+    """
+
+    def __init__(self, sql: str, run):
+        self.sql = sql
+        self.run = run
+
+    def __str__(self) -> str:
+        return self.sql
+
+
+# v41 (2026-09-13): one transcript per (user, meeting).
+#
+# app/routers/cq_proxy.py stores an upload with INSERT OR REPLACE and a
+# fresh uuid4() as the primary key. OR REPLACE fires only on a uniqueness
+# conflict, the table's only uniqueness was that primary key, and a fresh
+# uuid never conflicts, so the REPLACE had never once fired: a repeated
+# upload of the same meeting APPENDED a second row. Two inserts against an
+# in-memory copy of the production DDL produced two rows. It never bit
+# because 0 of 265 production rows share a (user_id, meeting_id), but the
+# client's ledger replays an orphaned upload under the SAME meeting_id on
+# the strength of a comment saying GP is "idempotent per meeting_id
+# (last-write-wins)". This index is what makes that comment true; the
+# INSERT statement is already correct once it exists.
+#
+# The dedupe and the CREATE UNIQUE INDEX run back to back in ONE
+# transaction, by construction rather than by luck. A read-then-index in
+# two steps leaves a window in which a device that is offline right now
+# replays an upload between "we counted 0 duplicates" and "the index
+# exists", and the CREATE then fails on a duplicate nobody counted. The
+# DELETE takes the write lock before the CREATE runs, so nothing can land
+# between them, and a DELETE that finds nothing is a no-op that costs one
+# scan. Latest created_at wins, tie broken on the highest rowid: not a
+# guess, it is the exact semantics the index guarantees going forward,
+# applied once to the past. Deduping is logged at WARNING with the count,
+# because on prod today the expected count is zero and a non-zero number
+# is a fact somebody should see.
+_TRANSCRIPT_DUP_MEETINGS_SQL = """
+SELECT COUNT(*) FROM (
+    SELECT 1 FROM meeting_transcripts
+    GROUP BY user_id, meeting_id HAVING COUNT(*) > 1
+)
+"""
+
+# A row loses when a sibling with the same (user_id, meeting_id) is later
+# by created_at, or equal on created_at and later by rowid. Exactly one row
+# per group survives: the one with no later sibling.
+_TRANSCRIPT_DELETE_LOSERS_SQL = """
+DELETE FROM meeting_transcripts
+WHERE EXISTS (
+    SELECT 1 FROM meeting_transcripts AS o
+    WHERE o.user_id = meeting_transcripts.user_id
+      AND o.meeting_id = meeting_transcripts.meeting_id
+      AND (o.created_at > meeting_transcripts.created_at
+           OR (o.created_at = meeting_transcripts.created_at
+               AND o.rowid > meeting_transcripts.rowid))
+)
+"""
+
+# The old idx_transcripts_meeting (meeting_id only) STAYS. reports.py and
+# webhooks.py look transcripts up by meeting_id alone, and an index whose
+# leading column is user_id cannot serve that lookup.
+_TRANSCRIPT_UNIQUE_INDEX_SQL = (
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_transcripts_user_meeting "
+    "ON meeting_transcripts(user_id, meeting_id)"
+)
+
+
+async def _dedupe_transcripts_then_unique_index(db) -> None:
+    dup_meetings = (await (await db.execute(_TRANSCRIPT_DUP_MEETINGS_SQL)).fetchone())[0]
+    cur = await db.execute(_TRANSCRIPT_DELETE_LOSERS_SQL)
+    deleted = cur.rowcount
+    if deleted > 0 or dup_meetings > 0:
+        # rows_deleted is authoritative (it is what the DELETE did under the
+        # write lock); meetings is the count read just before it.
+        logging.getLogger("app.database").warning(
+            "meeting_transcripts_deduped meetings=%d rows_deleted=%d "
+            "rule=latest_created_at_then_highest_rowid", dup_meetings, deleted)
+    await db.execute(_TRANSCRIPT_UNIQUE_INDEX_SQL)
+
+
 MIGRATIONS = [
     # v1: Add metadata column to usage_log
     "ALTER TABLE usage_log ADD COLUMN metadata TEXT",
@@ -923,6 +1014,12 @@ MIGRATIONS = [
     # and the liveness alert had to infer the sweep's health from exchanges
     # that only happen when new tokens arrive. Fired falsely twice that way.
     "ALTER TABLE ad_attribution ADD COLUMN last_attempt_at TEXT",
+    # v41 (2026-09-13): one transcript per (user, meeting). See the note
+    # above _dedupe_transcripts_then_unique_index for the mechanism.
+    PyMigration(
+        _TRANSCRIPT_DELETE_LOSERS_SQL + _TRANSCRIPT_UNIQUE_INDEX_SQL,
+        _dedupe_transcripts_then_unique_index,
+    ),
 ]
 
 
@@ -983,7 +1080,8 @@ def migrations_fingerprint(migrations=None) -> str:
     """Fingerprint of the migration SET. Changes when a migration is added,
     removed or edited, which forces one full sweep and then goes fast."""
     items = MIGRATIONS if migrations is None else migrations
-    joined = "\n".join(_normalize(m) for m in items)
+    # str() is the identity on a string entry and the SQL on a PyMigration.
+    joined = "\n".join(_normalize(str(m)) for m in items)
     return hashlib.sha256(joined.encode()).hexdigest()[:32]
 
 
@@ -1014,7 +1112,10 @@ async def apply_migrations(db) -> dict:
     ran = already = failed = 0
     for sql in MIGRATIONS:
         try:
-            await db.execute(sql)
+            if isinstance(sql, PyMigration):
+                await sql.run(db)
+            else:
+                await db.execute(sql)
             ran += 1
         except Exception as e:  # noqa: BLE001 — convergence must not die here
             if _is_already_applied(e):
