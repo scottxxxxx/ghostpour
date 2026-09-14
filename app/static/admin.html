@@ -121,7 +121,17 @@
   .perf-controls { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
   .perf-controls-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .perf-scope { font-size: 12px; color: var(--text-dim); }
-  .perf-kpis { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-bottom: 16px; }
+  /* Nine tiles. auto-fit strands one on a second row at any width where
+     eight fit and nine do not (at 1440 it was Cache hit alone), so the
+     strip uses fixed arrangements that divide nine exactly: one row of
+     nine where each tile keeps 150px, three by three below that, and two
+     columns with the calls tile spanning both (1 + 8) on narrow screens. */
+  .perf-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 16px; }
+  @media (min-width: 1520px) { .perf-kpis { grid-template-columns: repeat(9, minmax(0, 1fr)); } }
+  @media (max-width: 759px) {
+    .perf-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .perf-kpis .card:first-child { grid-column: 1 / -1; }
+  }
   .perf-kpis .card .value { font-size: 22px; font-variant-numeric: normal; }
   .perf-kpis .card .value .cov { font-size: 12px; color: var(--text-dim); font-weight: 400; margin-left: 4px; }
   .perf-delta { font-size: 12px; margin-top: 4px; color: var(--text-dim); }
