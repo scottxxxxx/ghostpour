@@ -5045,6 +5045,12 @@ async def _handle_stream(
 
     async def event_stream():
         final_response = None
+        # Time to first token, measured by the adapter and carried on the
+        # done event. None until that event arrives, and None on the
+        # error and timeout rows below even when a token was seen, because
+        # those rows never receive the done event and the aggregates read
+        # success rows only.
+        ttft_ms = None
         from app.services.anthropic_or_fallback import route_stream_with_fallback
         # Tracked across the heartbeat loop so it can be cancelled on any
         # exit path (see the finally below).
@@ -5085,6 +5091,7 @@ async def _handle_stream(
                     pending = asyncio.ensure_future(agen.__anext__())
                     if event.get("done"):
                         final_response = event.get("response")
+                        ttft_ms = event.get("ttft_ms")
                     else:
                         if phase == "waiting":
                             phase = "generating"
@@ -5199,7 +5206,10 @@ async def _handle_stream(
         async for stream_db in _get_db():
             await usage_tracker.record_cost(stream_db, user.id, request_cost, tier,
                                             user=user, app_id=app_id)
-            await usage_tracker.log_usage(stream_db, user.id, body, final_response, elapsed_ms, app_id=app_id)
+            await usage_tracker.log_usage(
+                stream_db, user.id, body, final_response, elapsed_ms,
+                app_id=app_id, ttft_ms=ttft_ms,
+            )
 
             if searches_performed > 0:
                 try:

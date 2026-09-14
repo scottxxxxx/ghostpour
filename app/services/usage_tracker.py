@@ -224,7 +224,16 @@ class UsageTracker:
         status: str = "success",
         error_msg: str | None = None,
         app_id: str | None = None,
+        ttft_ms: int | None = None,
     ) -> None:
+        # `ttft_ms` is time to first token, integer milliseconds, passed
+        # ONLY by the token-streaming path in the chat router, which is the
+        # one place a first token can be observed. Every other caller
+        # leaves it None and the row stores NULL. NULL means "not
+        # measurable on this call", never "fast": a non-streaming call
+        # returns its whole body at once and has no first token to time,
+        # and approximating it from response_time_ms would put a made-up
+        # number next to the real ones with nothing to tell them apart.
         # Build metadata from usage + cost dicts + raw request/response
         metadata: dict = {}
         if response and response.usage:
@@ -315,8 +324,9 @@ class UsageTracker:
                (id, user_id, provider, model, input_tokens, output_tokens,
                 estimated_cost_usd, request_timestamp, response_time_ms,
                 status, error_message, call_type, prompt_mode,
-                image_count, session_duration_sec, cached_tokens, meeting_id, metadata, app_id, scenario, scenario_kind)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                image_count, session_duration_sec, cached_tokens, meeting_id, metadata, app_id, scenario, scenario_kind,
+                ttft_ms)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 str(uuid.uuid4()),
                 user_id,
@@ -339,6 +349,7 @@ class UsageTracker:
                 app_id,
                 _normalize_scenario(request.get_meta("scenario")),
                 _normalize_scenario_kind(request.get_meta("scenario_kind")),
+                int(ttft_ms) if ttft_ms is not None else None,
             ),
         )
         await db.commit()
