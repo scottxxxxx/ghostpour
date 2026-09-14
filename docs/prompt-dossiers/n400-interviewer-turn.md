@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 31
+served_version: 32
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
 thinking: disabled
-reconciled: 2026-09-13 (v31)
+reconciled: 2026-09-14 (v32)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1262,6 +1262,59 @@ affirmations 22 to 24, ratio 6.91 to 6.50, flagged sentences 210 to 217.
 
 2,113 chars onto 63,133. Version 30 to 31. Anchors verified unique in the
 served copy, not only in the repo file.
+
+## v32: a capture gap is a deferral that is owed TO her
+
+Scott's rule 2, ruled 2026-09-12 and confirmed WITH the origin discriminator
+2026-09-13: an unrecordable volunteered fact is ACKNOWLEDGED AND MARKED. She
+hears we will ask again, and a `deferred` entry holds it. That entry is a
+capture gap, and its obligation is the opposite of an ordinary deferral: she
+already answered, so the question is owed to her and must be asked again,
+where an `applicant` deferral means she must come back and we must NOT re-ask.
+
+Without a key naming the difference, rule 2 breaks its own promise. `deferred`
+suppresses in six readers across two codebases, and GP's
+`drop_facts_that_are_also_deferred` would DESTROY the value she gave. So the
+order was the readers first, then the prompt: GP's two readers (#971), the
+client's four (their DECISIONS 2026-09-13 and 2026-09-14), and this prompt
+last. Tolerate before emit, as with `intent` in v31.
+
+Two edits, both authored by fable-auditor-f5, who directs this lane, against
+the SERVED v31 bytes; each anchor verified to occur exactly once, in the
+served text and again in the repo file, decoded and JSON-encoded.
+
+Edit A, the schema line: `deferred` entries gain
+`"origin": "applicant" or "capture_gap"`, with one sentence saying who owes the
+field under each value, that absent or "applicant" is the ordinary deferral,
+and never any other string.
+
+Edit B REPLACES a passage of DEFERRALS rather than appending to it, and that
+is the part to read. v31 ruled this exact case the OTHER way: a passing
+mention "goes NOWHERE, not into `deferred`, not into the reply", and a
+deferral "is never for a fact the applicant stated plainly". Both were
+written against a measured defect, a deferral on a never-asked question
+CLOSING the slot, and that harm is what the origin key removes on the client.
+Left beside rule 2 they would be two sentences in one paragraph disagreeing
+about "I've had my green card since 2019", the shape that came back as 11 of
+39 unstable turns. The replacement keeps the 2019 example and re-rules it,
+states both obligations, says a capture gap never closes a slot, tells the
+lane what "said earlier, not yet recorded, ask again" in `known_facts` means,
+applies the v30 disclosure rule to both origins, and keeps verbatim the one
+clause that was never about capture. Scott was told the same hour that his
+ruling overrides a measured rule; no objection.
+
+⚠ Deliberately NOT in v32: "a bare yes or no to an either-or question is a
+clarification, never a choice" (v31 minted `spouse_usc` from "Yeah." to
+"through a spouse, or on your own?", auditor's `qa/runs/edge-q1-half.json`).
+It is a candidate line. The thinking A/B carries that exact turn as a probe
+(`qa/thinking-ab-preregistration.md`), and v32 stays two edits so the A/B
+measures one prompt change at a time.
+
+Test: `test_deferred_entries_declare_origin_and_absent_means_applicant`,
+presence first, SEEN RED against v31 before trusted green against v32.
+
+1,627 chars onto 65,251 (66,878). Version 31 to 32. Zero em or en dashes; the
+one spaced hyphen in the prompt predates this change.
 
 ## What is deliberately not here
 
