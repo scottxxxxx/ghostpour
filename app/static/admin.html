@@ -117,7 +117,46 @@
   .section { display: none; }
   .section.active { display: block; }
 
-  /* Latency bar */
+  /* Performance tab */
+  .perf-controls { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .perf-controls-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .perf-scope { font-size: 12px; color: var(--text-dim); }
+  .perf-kpis { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-bottom: 16px; }
+  .perf-kpis .card .value { font-size: 22px; font-variant-numeric: normal; }
+  .perf-kpis .card .value .cov { font-size: 12px; color: var(--text-dim); font-weight: 400; margin-left: 4px; }
+  .perf-delta { font-size: 12px; margin-top: 4px; color: var(--text-dim); }
+  .perf-delta.good { color: var(--green); }
+  .perf-delta.bad { color: var(--red); }
+  .perf-card { padding: 16px; margin-bottom: 16px; min-width: 0; }
+  .perf-card h4 { margin: 0; font-size: 13px; font-weight: 600; }
+  .perf-card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .perf-sub, .perf-caption { font-size: 12px; color: var(--text-dim); }
+  .perf-caption { margin: 8px 0 0; line-height: 1.5; }
+  .perf-toggle { font-size: 12px; color: var(--text-dim); display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .perf-toggle input:disabled ~ span { opacity: .5; }
+  .perf-empty { text-align: center; color: var(--text-dim); padding: 28px 12px; font-size: 13px; line-height: 1.5; }
+  .perf-share { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .perf-share-row { display: grid; grid-template-columns: minmax(100px, 240px) 1fr 52px 80px; gap: 10px; align-items: center; font-size: 12px; }
+  .perf-share-row .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .perf-share-bar { height: 8px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+  .perf-share-bar > i { display: block; height: 100%; background: #3987e5; border-radius: 0 2px 2px 0; }
+  .perf-multiples { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin-bottom: 12px; }
+  .perf-mini { border: 1px solid var(--border); border-radius: 8px; padding: 8px 8px 0; min-width: 0; }
+  .perf-mini .t { font-size: 12px; display: flex; justify-content: space-between; gap: 6px; }
+  .perf-mini .t b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .perf-mini .t span { color: var(--text-dim); white-space: nowrap; }
+  .perf-key { display: inline-block; width: 14px; height: 0; border-top: 2px solid; vertical-align: middle; margin: 0 4px 0 8px; }
+  .perf-table-wrap { margin-bottom: 0; overflow-x: auto; }
+  .perf-table-wrap th { cursor: pointer; white-space: nowrap; }
+  .perf-table-wrap tr.pick { cursor: pointer; }
+  .perf-table-wrap tr.sel td { background: rgba(88,166,255,0.10); }
+  .perf-secondary { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .perf-secondary .perf-card { margin-bottom: 0; }
+  .perf-loading { opacity: .55; transition: opacity .2s; }
+  @media (max-width: 480px) {
+    .perf-share-row { grid-template-columns: 1fr 52px; }
+    .perf-share-row .perf-share-bar, .perf-share-row .calls { display: none; }
+  }
 
   /* Period selector */
   .period-select {
@@ -242,7 +281,7 @@
     <div class="tab" onclick="switchTab('users')">Users</div>
     <div class="tab" onclick="switchTab('tiers')">Tiers</div>
     <div class="tab" onclick="switchTab('entitlements')">Entitlements</div>
-    <div class="tab" onclick="switchTab('latency')">Latency</div>
+    <div class="tab" data-tab="latency" onclick="switchTab('latency')">Performance</div>
     <div class="tab" onclick="switchTab('providers')">Providers</div>
     <div class="tab" onclick="switchTab('errors')">Errors</div>
     <div class="tab" onclick="switchTab('email')">Email</div>
@@ -457,48 +496,51 @@
     </div>
   </div>
 
-  <!-- Latency -->
+  <!-- Performance. The section id stays tab-latency: the tab switch, the
+       global Refresh loader and the panel isolation test all key on it. -->
   <div id="tab-latency" class="section">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-      <h3 style="margin:0">Response Time Over Time</h3>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <select id="lat-days" class="period-select" onchange="loadLatency()">
-          <option value="7" selected>7 days</option>
-          <option value="30">30 days</option>
-          <option value="90">90 days</option>
+    <div class="perf-controls">
+      <h3 style="margin:0">Performance</h3>
+      <div class="perf-controls-row">
+        <select id="lat-days" class="period-select" onchange="loadLatency()" title="Window">
+          <option value="7" selected>Last 7 days</option>
+          <option value="30">Last 30 days</option>
+          <option value="90">Last 90 days</option>
         </select>
-        <select id="lat-bucket" class="period-select" onchange="loadLatency()">
+        <select id="lat-bucket" class="period-select" onchange="loadLatency()" title="Bucket size (hourly is offered on the 7 day window only)">
           <option value="hour">By hour</option>
           <option value="day" selected>By day</option>
         </select>
         <select id="lat-model" class="period-select" onchange="loadLatency()"><option value="">All models</option></select>
-        <select id="lat-call-type" class="period-select" onchange="loadLatency()"><option value="">All call types</option></select>
+        <select id="lat-call-type" class="period-select" onchange="loadLatency()"><option value="">All query types</option></select>
+        <span class="perf-scope" id="perf-scope"></span>
       </div>
     </div>
-    <div class="cards" id="lat-cards"></div>
-    <div class="card" style="padding:16px;margin-top:16px">
-      <h4 style="margin:0 0 8px">p50 / p95 / p99 of response time, per bucket</h4>
-      <div id="latency-trend-chart"></div>
-      <p style="font-size:12px;color:var(--text-dim);margin:8px 0 0">Time to first token is not yet recorded; tokens per second is total-time throughput. Percentiles are nearest-rank over successful calls only; a bucket with no successful call is a gap.</p>
+    <div class="cards perf-kpis" id="perf-kpis"></div>
+    <div class="card perf-card">
+      <div class="perf-card-head">
+        <h4>Response time over time</h4>
+        <label class="perf-toggle"><input type="checkbox" id="perf-stacked" onchange="renderPerfMain()"><span>Stacked: first token + generation</span></label>
+      </div>
+      <div id="perf-main-chart"></div>
+      <p class="perf-caption" id="perf-caption"></p>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-top:16px">
-      <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Error rate per bucket</h4><div id="latency-error-chart"></div></div>
-      <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Tokens per second per bucket (total-time)</h4><div id="latency-tps-chart"></div></div>
+    <div class="card perf-card">
+      <div class="perf-card-head"><h4>By model</h4><span class="perf-sub" id="perf-models-note"></span></div>
+      <div id="perf-model-share" class="perf-share"></div>
+      <div id="perf-models-multiples" class="perf-multiples"></div>
+      <div class="table-wrap perf-table-wrap"><table id="perf-models-table"><thead></thead><tbody></tbody></table></div>
     </div>
-    <div class="card" style="padding:16px;margin-top:16px">
-      <h4 style="margin:0 0 8px">By model and by call type, whole window</h4>
-      <div class="table-wrap"><table id="latency-breakdown-table"><thead><tr>
-        <th onclick="sortLatencyTable('kind')" style="cursor:pointer">Split<span class="sa" data-sk="kind"></span></th>
-        <th onclick="sortLatencyTable('name')" style="cursor:pointer">Name<span class="sa" data-sk="name"></span></th>
-        <th onclick="sortLatencyTable('n')" style="cursor:pointer" title="Successful calls in the window">Calls<span class="sa" data-sk="n"></span></th>
-        <th onclick="sortLatencyTable('p50')" style="cursor:pointer">p50<span class="sa" data-sk="p50"></span></th>
-        <th onclick="sortLatencyTable('p95')" style="cursor:pointer">p95<span class="sa" data-sk="p95"></span></th>
-        <th onclick="sortLatencyTable('p99')" style="cursor:pointer">p99<span class="sa" data-sk="p99"></span></th>
-        <th onclick="sortLatencyTable('tokens_per_second')" style="cursor:pointer" title="Output tokens over total wall clock. Not generation speed: time to first token is not recorded">Tokens/s<span class="sa" data-sk="tokens_per_second"></span></th>
-        <th onclick="sortLatencyTable('cache_hit_ratio')" style="cursor:pointer" title="Cached input tokens over all input tokens">Cache hit<span class="sa" data-sk="cache_hit_ratio"></span></th>
-        <th onclick="sortLatencyTable('cost_per_call')" style="cursor:pointer">Cost/call<span class="sa" data-sk="cost_per_call"></span></th>
-        <th onclick="sortLatencyTable('error_rate')" style="cursor:pointer" title="Non-success rows over all rows">Errors<span class="sa" data-sk="error_rate"></span></th>
-      </tr></thead><tbody></tbody></table></div>
+    <div class="card perf-card">
+      <div class="perf-card-head"><h4>By query type</h4><span class="perf-sub" id="perf-cts-note"></span></div>
+      <div id="perf-cts-multiples" class="perf-multiples"></div>
+      <div class="table-wrap perf-table-wrap"><table id="perf-cts-table"><thead></thead><tbody></tbody></table></div>
+    </div>
+    <div class="perf-secondary">
+      <div class="card perf-card"><h4>Error rate</h4><div id="perf-chart-errors"></div></div>
+      <div class="card perf-card"><h4>Tokens per second</h4><div id="perf-chart-tps"></div></div>
+      <div class="card perf-card"><h4>Streaming share</h4><div id="perf-chart-streaming"></div></div>
+      <div class="card perf-card"><h4>Cost per call</h4><div id="perf-chart-cost"></div></div>
     </div>
   </div>
 
@@ -1143,7 +1185,10 @@ const _TAB_LOADERS = {
 };
 function switchTab(name) {
   _activeTab = name;
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', t.textContent.toLowerCase().includes(name.slice(0,4))));
+  // A tab whose label no longer starts with its id (Performance is
+  // 'latency') names its id in data-tab; the others still match by text.
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active',
+    t.dataset.tab ? t.dataset.tab === name : t.textContent.toLowerCase().includes(name.slice(0,4))));
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   if (name === 'models') loadRouting();
@@ -3027,35 +3072,112 @@ async function refresh() {
   }
 }
 
-// --- Latency tab: percentiles over time, by model and call type -----------
-// Scott, 2026-09-13: "there is a simple view of P99 P95 etc. I want to see
-// our responses historically and be able to spot trends." The old panel was
-// one sorted list over the whole window, so it could not show a trend at
-// all. This tab fetches /admin/latency-trends (bucketed by hour or day,
-// filtered by model and call type, scoped by the global app filter like
-// every other view) and draws it with the same ApexCharts helper the daily
-// trend and telemetry charts use. Nothing here reads dash.latency_percentiles,
-// which stays on the dashboard payload for anything else that does.
-let _latSort = { key: 'n', dir: -1 };  // most calls first, like the users table's default
-let _latState = null;
+// --- Performance tab: latency and first-token time over time, by model and
+// query type ----------------------------------------------------------------
+// Scott, 2026-09-14: "the latency graphed over time and by query type, the
+// first token time, also shown as a graph, ideally incorporated in the one
+// showing the total response time over a period of days, and other useful
+// information to give us an idea of our performance." The endpoint is
+// /admin/latency-trends (bucketed by hour or day, filtered by model and
+// call type, scoped by the global app filter like every other view, with a
+// `previous` window for the deltas). Time to first token exists ONLY on
+// streaming Anthropic calls (about 13% of rows; every N-400 turn, summary,
+// report and generation build is NULL by construction), so every
+// first-token figure on this page is printed next to its coverage and a
+// bucket without one is a gap on the chart, never a zero.
+// The tab id (tab-latency), the loader (loadLatency) and the panel name
+// ('latency') are unchanged so the tab switch, the global Refresh and the
+// isolation test keep pointing at it.
 
-// Pure: the chart series from the endpoint's buckets. Each series reads its
-// OWN key by name. tests/test_admin_latency_trends.py evaluates this in
-// node against a fixture where every key holds a different number, so a
-// swap (p95 plotted where p99 was asked for) cannot pass. error_rate is
-// scaled to a percentage with one decimal for the sparkline's axis.
-function latencySeries(buckets) {
+// One blue ramp for the three percentiles of the same measure (the light
+// step is the headline p50, the dark step recedes for p99), one distinct
+// hue for first token and everything derived from it, the reserved warning
+// colour for errors, and one for cost. Validated in dark mode against the
+// card surface with the dataviz palette validator.
+const _PERF_C = {
+  p50: '#86b6ef', p95: '#3987e5', p99: '#1c5cab',
+  ttft: '#199e70', generation: '#3987e5',
+  error: '#fab219', tps: '#3987e5', gen_tps: '#199e70', streaming: '#199e70', cost: '#9085e9',
+  grid: '#21262d', surface: '#161b22',
+};
+let _perfState = null;
+const _perfSort = { model: { key: 'n', dir: -1 }, call_type: { key: 'n', dir: -1 } };
+
+// Pure: every chart series from the endpoint's buckets, each reading its
+// OWN key by name (tests/test_admin_latency_trends.py evaluates this in
+// node against a fixture where every key holds a different number). A
+// null stays null, which ApexCharts draws as a gap: a bucket with no
+// streaming call has no first-token time, and a 0 there would draw an
+// instant first token that never happened. Ratios are scaled to percent
+// with one decimal for their axes.
+function perfSeries(buckets) {
   const b = buckets || [];
   const pick = k => b.map(x => (x[k] == null ? null : x[k]));
+  const pct = k => b.map(x => (x[k] == null ? null : Math.round(x[k] * 1000) / 10));
   return {
     categories: b.map(x => x.bucket),
     n: pick('n'),
     p50: pick('p50'),
     p95: pick('p95'),
     p99: pick('p99'),
-    error_rate: b.map(x => (x.error_rate == null ? null : Math.round(x.error_rate * 1000) / 10)),
+    ttft_p50: pick('ttft_p50'),
+    ttft_p95: pick('ttft_p95'),
+    ttft_n: pick('ttft_n'),
+    ttft_coverage: pick('ttft_coverage'),
+    streaming_share: pct('streaming_share'),
+    error_rate: pct('error_rate'),
     tokens_per_second: pick('tokens_per_second'),
+    generation_tokens_per_second: pick('generation_tokens_per_second'),
+    cost_per_call: pick('cost_per_call'),
   };
+}
+
+// Pure: the stacked view of the main chart. The lower band is first-token
+// p50; the upper band is the rest of the STREAMING calls' median response
+// (streaming_p50 minus ttft_p50), so the two bands sum to a number that was
+// measured (the streaming calls' p50) and the all-calls p50 line is drawn
+// over them. Both bands are null unless the bucket has BOTH figures: a
+// bucket without a first-token time gets no band at all, never a band of
+// total minus 0. `top` is the height the upper area is drawn at.
+function perfStackedSeries(buckets) {
+  const b = buckets || [];
+  const ttft = b.map(x => (x.ttft_p50 == null ? null : x.ttft_p50));
+  const generation = b.map(x => (
+    (x.ttft_p50 == null || x.streaming_p50 == null) ? null : x.streaming_p50 - x.ttft_p50));
+  const top = ttft.map((t, i) => ((t == null || generation[i] == null) ? null : t + generation[i]));
+  return { ttft, generation, top, total: b.map(x => (x.p50 == null ? null : x.p50)) };
+}
+
+// Pure: one KPI tile's movement against the previous window. `good` is the
+// direction read through lowerIsBetter, so a latency that rose is bad and
+// a throughput that rose is good; null (neutral) when lowerIsBetter is
+// null, when the value did not move, or when either side is missing. pct
+// is null when the previous value was 0, because there is no ratio to a
+// zero and "+Infinity%" is not a delta anyone can act on.
+function perfDelta(cur, prev, lowerIsBetter) {
+  if (cur == null || prev == null) return null;
+  const diff = cur - prev;
+  const direction = diff > 0 ? 'up' : (diff < 0 ? 'down' : 'flat');
+  const good = (lowerIsBetter == null || direction === 'flat') ? null : (lowerIsBetter ? diff < 0 : diff > 0);
+  const pct = prev === 0 ? null : Math.round(diff / Math.abs(prev) * 1000) / 10;
+  return { diff, pct, direction, good };
+}
+
+// Pure: the one line under the main chart. It states the window's
+// first-token coverage from `current` (streaming success rows over ALL
+// success rows, so the NULL rows are in the denominator) and that tokens/s
+// without a first-token time is total-time throughput.
+function perfCaption(d) {
+  const c = (d && d.current) || {};
+  const n = c.n || 0;
+  const cov = c.ttft_coverage;
+  if (!d || !d.ttft_recorded || cov == null || n === 0) {
+    return 'No streaming calls in this window, so no first-token data. Tokens/s is total-time throughput (output tokens over the whole call).';
+  }
+  const streamed = c.ttft_n == null ? Math.round(cov * n) : c.ttft_n;
+  return 'First-token time was recorded on ' + (cov * 100).toFixed(1) + '% of successful calls (' +
+    streamed.toLocaleString() + ' of ' + n.toLocaleString() + ', the streaming ones); every first-token figure ' +
+    'covers those calls only. Tokens/s without a first-token time is total-time throughput (output tokens over the whole call).';
 }
 
 // Pure: a sorted copy of the breakdown rows. Text keys compare lowercased;
@@ -3073,13 +3195,6 @@ function sortLatencyRows(rows, key, dir) {
     if (va > vb) return 1 * dir;
     return 0;
   });
-}
-// Header click: same convention as sortUserTable (same key flips, new key
-// starts ascending, arrows on the .sa spans).
-function sortLatencyTable(key) {
-  if (_latSort.key === key) _latSort.dir = -_latSort.dir;
-  else _latSort = { key, dir: 1 };
-  renderLatencyBreakdown();
 }
 
 function _latBucketLabel(key, bucket) {
@@ -3108,34 +3223,38 @@ async function loadLatency() {
   if (callType) params.set('call_type', callType);
   const app = document.getElementById('app')?.value || '';
   if (app) params.set('app', app);
+  // Refetch keeps the frame: the previous render dims instead of
+  // vanishing, so a filter change never flashes an empty page.
+  const tab = document.getElementById('tab-latency');
+  if (tab) tab.classList.add('perf-loading');
   let data;
   try {
     const resp = await fetch(`${BASE}/webhooks/admin/latency-trends?${params}`, {
       headers: {'X-Admin-Key': adminKey},
     });
     if (!resp.ok) {
-      document.getElementById('lat-cards').innerHTML =
-        `<div class="card" style="grid-column: span 4">Latency load failed (${resp.status})</div>`;
+      document.getElementById('perf-kpis').innerHTML =
+        `<div class="card" style="grid-column: 1 / -1">Performance load failed (${resp.status})</div>`;
       return;
     }
     data = await resp.json();
   } catch (e) {
-    document.getElementById('lat-cards').innerHTML =
-      `<div class="card" style="grid-column: span 4">Latency error: ${esc(e.message)}</div>`;
+    document.getElementById('perf-kpis').innerHTML =
+      `<div class="card" style="grid-column: 1 / -1">Performance error: ${esc(e.message)}</div>`;
     return;
+  } finally {
+    if (tab) tab.classList.remove('perf-loading');
   }
   // The render runs inside panel() so a ReferenceError here is contained
   // and named in the banner instead of dying inside an awaited promise
   // where refresh()'s own panel() calls could never see it.
-  panel('latency', () => renderLatencyTrends(data));
+  panel('latency', () => renderPerformance(data));
 }
 
-function renderLatencyTrends(d) {
-  _latState = d;
+function renderPerformance(d) {
+  _perfState = d;
   const buckets = d.buckets || [];
   const bd = d.breakdown || {};
-  const s = latencySeries(buckets);
-  const labels = s.categories.map(k => _latBucketLabel(k, d.bucket));
 
   // Dropdowns from the breakdown. The current pick is kept even when the
   // other filter has emptied its group, so a selection can never vanish
@@ -3147,100 +3266,374 @@ function renderLatencyTrends(d) {
   const cts = (bd.by_call_type || []).map(c => c.call_type);
   if (curCt && !cts.includes(curCt)) cts.push(curCt);
   _telPopulateOpts('lat-model', 'All models', models, curModel);
-  _telPopulateOpts('lat-call-type', 'All call types', cts, curCt);
+  _telPopulateOpts('lat-call-type', 'All query types', cts, curCt);
 
-  // Window cards. "Peak p99" names the bucket it came from, because a
-  // single bad hour is the thing this tab exists to point at.
-  const calls = buckets.reduce((a, b) => a + (b.n || 0), 0);
-  const total = buckets.reduce((a, b) => a + (b.total || 0), 0);
-  const errors = buckets.reduce((a, b) => a + (b.errors || 0), 0);
-  const withData = buckets.filter(b => b.n > 0);
-  const peak = withData.reduce((best, b) => (best == null || b.p99 > best.p99 ? b : best), null);
-  const errPct = total ? (errors / total * 100) : 0;
-  document.getElementById('lat-cards').innerHTML =
-    card('Successful calls', fmt(calls), 'accent', `${d.days}d window, ${d.bucket === 'hour' ? 'hourly' : 'daily'} buckets`) +
-    card('Error rate', errPct.toFixed(1) + '%', errPct > 5 ? 'red' : 'green', `${fmt(errors)} of ${fmt(total)} rows`) +
-    card('Peak p99', peak ? fmtMs(peak.p99) : '-', 'orange', peak ? `bucket ${_latBucketLabel(peak.bucket, d.bucket)}, ${fmt(peak.n)} calls` : 'no successful calls') +
-    card('Buckets with data', `${fmt(withData.length)} / ${fmt(buckets.length)}`, '');
-
-  const trendEl = document.getElementById('latency-trend-chart');
-  if (withData.length === 0) {
-    for (const id of ['latency-trend-chart', 'latency-error-chart', 'latency-tps-chart']) {
-      if (_telCharts[id]) { _telCharts[id].destroy(); delete _telCharts[id]; }
-      document.getElementById(id).innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:24px">No successful calls in this window</div>';
-    }
-    renderLatencyBreakdown();
-    return;
+  const scope = document.getElementById('perf-scope');
+  if (scope) {
+    const from = (d.window && d.window.from || '').slice(0, 10);
+    scope.textContent = `${from} to now UTC, ${d.bucket === 'hour' ? 'hourly' : 'daily'} buckets; deltas are against the ${d.days} days before that`;
   }
 
-  const bucketTip = i => {
-    const b = buckets[i] || {};
-    return '<div style="padding:8px 12px;font-size:12px;line-height:1.7">' +
-      '<div style="color:#8b949e;margin-bottom:2px">' + esc(b.bucket) + ' UTC</div>' +
-      '<div>p50 <b>' + fmtMs(b.p50) + '</b> / p95 <b>' + fmtMs(b.p95) + '</b> / p99 <b>' + fmtMs(b.p99) + '</b></div>' +
-      '<div>mean ' + fmtMs(b.mean) + ', max ' + fmtMs(b.max) + '</div>' +
-      '<div>' + fmt(b.n) + ' ok, ' + fmt(b.errors) + ' errors (' + _latPct(b.error_rate) + ')</div>' +
-      '<div>' + _latTps(b.tokens_per_second) + ' tok/s total-time, cache hit ' + _latPct(b.cache_hit_ratio) + ', ' + fmtCost(b.cost_per_call) + '/call</div>' +
-    '</div>';
-  };
-  const xaxis = {
-    categories: labels,
-    // 168 hourly labels overlap into a smear; two dozen ticks read as time.
-    tickAmount: labels.length > 30 ? 24 : undefined,
-    labels: {rotate: -45, rotateAlways: labels.length > 14, hideOverlappingLabels: true, style: {colors: _telForeground, fontSize: '10px'}},
-    axisBorder: {show: false}, axisTicks: {show: false}, tooltip: {enabled: false},
-  };
-  trendEl.style.overflowX = 'visible';
-  _renderChart('latency-trend-chart', {
-    chart: {type: 'line', height: 300, toolbar: {show: false}, animations: {enabled: false}},
-    series: [
-      {name: 'p50', data: s.p50},
-      {name: 'p95', data: s.p95},
-      {name: 'p99', data: s.p99},
-    ],
-    colors: ['#3fb950', '#d29922', '#f85149'],
-    stroke: {width: [2, 2, 2], curve: 'straight'},
-    markers: {size: withData.length > 60 ? 0 : 3, hover: {size: 5}},
-    dataLabels: {enabled: false},
-    legend: {position: 'top', horizontalAlign: 'left', labels: {colors: _telForeground}},
-    xaxis,
-    yaxis: {min: 0, labels: {formatter: v => fmtMs(Math.round(v || 0)), style: {colors: _telForeground}}},
-    tooltip: {shared: true, intersect: false, custom: ({dataPointIndex}) => bucketTip(dataPointIndex)},
-  });
-  const small = (id, name, data, color, fmtY) => _renderChart(id, {
-    chart: {type: 'area', height: 120, toolbar: {show: false}, animations: {enabled: false}, sparkline: {enabled: true}},
-    series: [{name, data}],
-    colors: [color],
-    stroke: {width: 2, curve: 'straight'},
-    fill: {type: 'gradient', gradient: {opacityFrom: 0.35, opacityTo: 0.02}},
-    xaxis: {categories: labels},
-    yaxis: {min: 0},
-    tooltip: {custom: ({dataPointIndex}) => bucketTip(dataPointIndex)},
-  });
-  small('latency-error-chart', 'Error rate %', s.error_rate, '#f85149');
-  small('latency-tps-chart', 'Tokens/s', s.tokens_per_second, '#58a6ff');
-  renderLatencyBreakdown();
+  renderPerfKpis(d);
+  renderPerfMain();
+  const cap = document.getElementById('perf-caption');
+  if (cap) cap.textContent = perfCaption(d);
+
+  renderPerfModelShare(d);
+  renderPerfMultiples('perf-models-multiples', 'perf-models-note', bd.by_model || [], 'model', 'models', d);
+  renderPerfTable('model');
+  renderPerfMultiples('perf-cts-multiples', 'perf-cts-note', bd.by_call_type || [], 'call_type', 'query types', d);
+  renderPerfTable('call_type');
+
+  const s = perfSeries(buckets);
+  const labels = s.categories.map(k => _latBucketLabel(k, d.bucket));
+  renderPerfSecondary(d, s, labels);
 }
 
-function renderLatencyBreakdown() {
-  const d = _latState;
-  const tbody = document.querySelector('#latency-breakdown-table tbody');
-  if (!d || !tbody) return;
-  const bd = d.breakdown || {};
-  const rows = (bd.by_model || []).map(m => ({kind: 'model', name: m.model, ...m}))
-    .concat((bd.by_call_type || []).map(c => ({kind: 'call type', name: c.call_type, ...c})));
-  const dir = _latSort.dir;
-  const sorted = sortLatencyRows(rows, _latSort.key, dir);
-  tbody.innerHTML = sorted.map(r => `<tr>
-    <td style="color:var(--text-dim)">${r.kind}</td><td class="mono">${esc(r.name)}</td><td>${fmt(r.n)}</td>
-    <td>${fmtMs(r.p50)}</td><td>${fmtMs(r.p95)}</td><td>${fmtMs(r.p99)}</td>
-    <td>${_latTps(r.tokens_per_second)}</td><td>${_latPct(r.cache_hit_ratio)}</td>
-    <td>${fmtCost(r.cost_per_call)}</td>
-    <td style="color:${(r.error_rate || 0) > 0.05 ? 'var(--red)' : 'inherit'}">${_latPct(r.error_rate)}</td>
-  </tr>`).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--text-dim)">No calls in this window</td></tr>';
-  document.querySelectorAll('#latency-breakdown-table .sa').forEach(sp => {
-    sp.textContent = sp.dataset.sk === _latSort.key ? (dir > 0 ? ' ▲' : ' ▼') : '';
+// ── KPI strip ───────────────────────────────────────────────────────────
+
+function _perfDeltaHtml(delta, fmtAbs) {
+  if (!delta) return '<div class="perf-delta">no prior window to compare</div>';
+  const arrow = delta.direction === 'up' ? '↑' : (delta.direction === 'down' ? '↓' : '=');
+  const cls = delta.good == null ? '' : (delta.good ? 'good' : 'bad');
+  const sign = delta.diff > 0 ? '+' : (delta.diff < 0 ? '-' : '');
+  const pct = delta.pct == null ? '' : ` (${sign}${Math.abs(delta.pct).toFixed(1)}%)`;
+  return `<div class="perf-delta ${cls}">${arrow} ${sign}${fmtAbs(Math.abs(delta.diff))}${pct} vs prior</div>`;
+}
+
+function _perfKpi(label, valueHtml, cls, deltaHtml, sub) {
+  return `<div class="card"><div class="label">${label}</div><div class="value ${cls || ''}">${valueHtml}</div>${deltaHtml || ''}${sub ? `<div class="sub">${sub}</div>` : ''}</div>`;
+}
+
+function renderPerfKpis(d) {
+  const el = document.getElementById('perf-kpis');
+  if (!el) return;
+  const c = d.current || {}, p = d.previous || {};
+  const ms = v => fmtMs(v == null ? null : Math.round(v));
+  const pctAbs = v => (v * 100).toFixed(1) + ' pts';
+  const tps = v => v == null ? '-' : v.toFixed(1);
+  const hasTtft = !!d.ttft_recorded && c.ttft_p50 != null;
+  const ttftValue = hasTtft
+    ? `${ms(c.ttft_p50)}<span class="cov">· ${_latPct(c.ttft_coverage)} of calls</span>`
+    : `<span style="font-size:16px;color:var(--text-dim)">none</span>`;
+  el.innerHTML =
+    _perfKpi('Successful calls', fmt(c.n), 'accent', _perfDeltaHtml(perfDelta(c.n, p.n, null), v => fmt(v)),
+      `${d.days}d window, ${d.bucket === 'hour' ? 'hourly' : 'daily'} buckets`) +
+    _perfKpi('p50 latency', ms(c.p50), '', _perfDeltaHtml(perfDelta(c.p50, p.p50, true), ms), 'median response, all calls') +
+    _perfKpi('p95 latency', ms(c.p95), '', _perfDeltaHtml(perfDelta(c.p95, p.p95, true), ms)) +
+    _perfKpi('p99 latency', ms(c.p99), '', _perfDeltaHtml(perfDelta(c.p99, p.p99, true), ms)) +
+    _perfKpi('First token p50', ttftValue, '', hasTtft ? _perfDeltaHtml(perfDelta(c.ttft_p50, p.ttft_p50, true), ms) : '',
+      hasTtft ? `${fmt(c.ttft_n)} streaming calls; the rest never stream` : 'no streaming calls in this window, so no first-token data') +
+    _perfKpi('Error rate', _latPct(c.error_rate), (c.error_rate || 0) > 0.05 ? 'red' : '',
+      _perfDeltaHtml(perfDelta(c.error_rate, p.error_rate, true), pctAbs), 'non-success rows over all rows') +
+    _perfKpi('Tokens/s', tps(c.tokens_per_second), '', _perfDeltaHtml(perfDelta(c.tokens_per_second, p.tokens_per_second, false), tps),
+      'total-time: output tokens over the whole call') +
+    _perfKpi('Cost per call', fmtCost(c.cost_per_call), '', _perfDeltaHtml(perfDelta(c.cost_per_call, p.cost_per_call, true), v => '$' + v.toFixed(4))) +
+    _perfKpi('Cache hit', _latPct(c.cache_hit_ratio), '', _perfDeltaHtml(perfDelta(c.cache_hit_ratio, p.cache_hit_ratio, false), pctAbs),
+      'cached input tokens over all input tokens');
+}
+
+// ── charts ──────────────────────────────────────────────────────────────
+
+function _perfEmpty(id, msg) {
+  if (_telCharts[id]) { _telCharts[id].destroy(); delete _telCharts[id]; }
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = `<div class="perf-empty">${msg}</div>`;
+}
+
+// _renderChart appends the chart to whatever the element already holds, so
+// an empty-state message left from the previous render is cleared first.
+function _perfChart(id, options) {
+  const el = document.getElementById(id);
+  if (el && !_telCharts[id]) el.innerHTML = '';
+  _renderChart(id, options);
+}
+
+// _renderChart's outer Object.assign lets a caller's `chart` and `tooltip`
+// REPLACE its merged defaults rather than extend them, so the toolbar and
+// the dark tooltip have to be restated here or every chart grows a zoom
+// and download toolbar.
+function _perfChartBase(height) {
+  return {type: 'line', height, toolbar: {show: false}, animations: {enabled: false},
+          background: 'transparent', foreColor: _telForeground};
+}
+function _perfTooltip(buckets) {
+  return {theme: 'dark', shared: true, intersect: false,
+          custom: ({dataPointIndex}) => _perfBucketTip(buckets[dataPointIndex])};
+}
+
+function _perfXAxis(labels, compact) {
+  return {
+    categories: labels,
+    // 168 hourly labels overlap into a smear; two dozen ticks read as time.
+    tickAmount: labels.length > 30 ? (compact ? 8 : 24) : undefined,
+    labels: {rotate: -45, rotateAlways: !compact && labels.length > 14, hideOverlappingLabels: true,
+             style: {colors: _telForeground, fontSize: '10px'}},
+    axisBorder: {show: false}, axisTicks: {show: false}, tooltip: {enabled: false},
+  };
+}
+
+// One tooltip, every value for the bucket, on every chart that shares the
+// time axis. Values lead, labels follow.
+function _perfBucketTip(b) {
+  if (!b) return '';
+  const row = (k, v) => `<div><b>${v}</b> <span style="color:#8b949e">${k}</span></div>`;
+  const ttft = b.ttft_n
+    ? row(`first token p50 / p95, ${_latPct(b.ttft_coverage)} coverage (${fmt(b.ttft_n)} of ${fmt(b.n)})`, `${fmtMs(b.ttft_p50)} / ${fmtMs(b.ttft_p95)}`) +
+      row('generation p50 per call / streaming calls p50', `${fmtMs(b.generation_p50_ms)} / ${fmtMs(b.streaming_p50)}`) +
+      row('generation tok/s (streaming calls)', _latTps(b.generation_tokens_per_second))
+    : '<div style="color:#8b949e">no streaming calls, so no first-token data</div>';
+  return '<div style="padding:8px 12px;font-size:12px;line-height:1.7">' +
+    `<div style="color:#8b949e;margin-bottom:2px">${esc(b.bucket)} UTC</div>` +
+    row('p50 / p95 / p99', `${fmtMs(b.p50)} / ${fmtMs(b.p95)} / ${fmtMs(b.p99)}`) +
+    row(`ok, ${fmt(b.errors)} errors (${_latPct(b.error_rate)})`, fmt(b.n)) +
+    ttft +
+    row('tok/s total-time', _latTps(b.tokens_per_second)) +
+    row(`per call, cache hit ${_latPct(b.cache_hit_ratio)}`, fmtCost(b.cost_per_call)) +
+    '</div>';
+}
+
+// The main chart. Time on x, milliseconds on ONE y axis, so first-token
+// p50 reads as "of the total, this much was waiting for the first token".
+// The toggle swaps the p50 view for two stacked bands (first token, then
+// the rest of the streaming median) under the all-calls p50 line.
+function renderPerfMain() {
+  const d = _perfState;
+  if (!d) return;
+  const buckets = d.buckets || [];
+  const s = perfSeries(buckets);
+  const labels = s.categories.map(k => _latBucketLabel(k, d.bucket));
+  const toggle = document.getElementById('perf-stacked');
+  const hasTtft = !!d.ttft_recorded;
+  if (toggle) {
+    toggle.disabled = !hasTtft;
+    toggle.title = hasTtft ? '' : 'No streaming calls in this window, so there is no first-token band to stack';
+  }
+  const stacked = hasTtft && !!(toggle && toggle.checked);
+  const withData = buckets.filter(b => b.n > 0);
+  if (!withData.length) {
+    const total = buckets.reduce((a, b) => a + (b.total || 0), 0);
+    _perfEmpty('perf-main-chart', total
+      ? `No successful calls in this window: ${fmt(total)} rows, all of them errors, so there is no latency to draw`
+      : 'No calls in this window under these filters');
+    return;
+  }
+  let series, colors, stroke, fill;
+  if (stacked) {
+    const st = perfStackedSeries(buckets);
+    // The upper area is drawn first and the first-token area over it, so
+    // the fills read as a stack without asking ApexCharts to stack (which
+    // would stack the total line too).
+    series = [
+      {name: 'Generation (the rest of the streaming p50)', type: 'area', data: st.top},
+      {name: 'First token p50 (streaming calls only)', type: 'area', data: st.ttft},
+      {name: 'p50, all calls', type: 'line', data: s.p50},
+    ];
+    colors = [_PERF_C.generation, _PERF_C.ttft, _PERF_C.p50];
+    stroke = {width: [1, 1, 2], curve: 'straight'};
+    fill = {type: 'solid', opacity: [0.18, 0.45, 1]};
+  } else {
+    series = [
+      {name: 'p50, median response', type: 'line', data: s.p50},
+      {name: 'p95', type: 'line', data: s.p95},
+      {name: 'p99', type: 'line', data: s.p99},
+    ];
+    colors = [_PERF_C.p50, _PERF_C.p95, _PERF_C.p99];
+    stroke = {width: [2, 2, 1.5], curve: 'straight'};
+    fill = {type: 'solid', opacity: 1};
+    if (hasTtft) {
+      series.push({name: 'First token p50 (streaming calls only)', type: 'line', data: s.ttft_p50});
+      colors.push(_PERF_C.ttft);
+      stroke.width.push(2);
+    }
+  }
+  _perfChart('perf-main-chart', {
+    chart: _perfChartBase(320),
+    series, colors, stroke, fill,
+    markers: {size: withData.length > 60 ? 0 : 3, hover: {size: 5}, strokeWidth: 2, strokeColors: _PERF_C.surface},
+    dataLabels: {enabled: false},
+    legend: {position: 'top', horizontalAlign: 'left', labels: {colors: _telForeground}},
+    grid: {borderColor: _PERF_C.grid, strokeDashArray: 0},
+    xaxis: _perfXAxis(labels, false),
+    yaxis: {min: 0, forceNiceScale: true, labels: {formatter: v => fmtMs(Math.round(v || 0)), style: {colors: _telForeground}}},
+    tooltip: _perfTooltip(buckets),
   });
+}
+
+// Share of successful calls per model, as horizontal bars (the numbers are
+// close enough that a pie would hide the order).
+function renderPerfModelShare(d) {
+  const el = document.getElementById('perf-model-share');
+  if (!el) return;
+  const models = d.models || [];
+  if (!models.length) { el.innerHTML = ''; return; }
+  const max = Math.max(...models.map(m => m.share || 0)) || 1;
+  el.innerHTML = models.slice(0, 12).map(m => `<div class="perf-share-row">
+    <span class="mono nm" title="${esc(m.model)}">${esc(m.model)}</span>
+    <div class="perf-share-bar"><i style="width:${((m.share || 0) / max * 100).toFixed(1)}%"></i></div>
+    <span style="text-align:right">${_latPct(m.share)}</span>
+    <span class="calls" style="text-align:right;color:var(--text-dim)">${fmt(m.n)} calls</span>
+  </div>`).join('');
+}
+
+function _perfMiniTip(name, key, t, i) {
+  return '<div style="padding:8px 12px;font-size:12px;line-height:1.7">' +
+    `<div style="color:#8b949e">${esc(name)}, ${esc(key)} UTC</div>` +
+    `<div><b>${fmtMs(t.p50 ? t.p50[i] : null)}</b> <span style="color:#8b949e">p50</span></div>` +
+    `<div><b>${fmtMs(t.p95 ? t.p95[i] : null)}</b> <span style="color:#8b949e">p95</span></div>` +
+    `<div><b>${fmt(t.n ? t.n[i] : null)}</b> <span style="color:#8b949e">calls</span></div>` +
+    '</div>';
+}
+
+// Small multiples: one mini line chart per group (p50 and p95 over the
+// same x range) on a SHARED y scale, so a slow model is visibly slow next
+// to its neighbours rather than autoscaled into the same shape.
+function renderPerfMultiples(containerId, noteId, rows, field, plural, d) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  Object.keys(_telCharts).filter(id => id.startsWith(containerId + '-')).forEach(id => {
+    _telCharts[id].destroy();
+    delete _telCharts[id];
+  });
+  const note = document.getElementById(noteId);
+  const keys = (d.buckets || []).map(b => b.bucket);
+  const labels = keys.map(k => _latBucketLabel(k, d.bucket));
+  const withCalls = rows.filter(r => r.n > 0);
+  const shown = withCalls.slice(0, 12);
+  if (!shown.length) {
+    el.innerHTML = `<div class="perf-empty">No successful calls in this window under these filters, so nothing to split by ${field === 'model' ? 'model' : 'query type'}</div>`;
+    if (note) note.textContent = '';
+    return;
+  }
+  const total = withCalls.reduce((a, r) => a + (r.n || 0), 0);
+  let ymax = 0;
+  shown.forEach(r => ((r.trend && r.trend.p95) || []).forEach(v => { if (v != null && v > ymax) ymax = v; }));
+  if (note) {
+    note.innerHTML = `<i class="perf-key" style="border-color:${_PERF_C.p50}"></i>p50 <i class="perf-key" style="border-color:${_PERF_C.p95}"></i>p95, shared scale` +
+      (withCalls.length > shown.length ? `; ${shown.length} of ${withCalls.length} ${plural} charted, all in the table` : '') +
+      '; click a row to filter';
+  }
+  el.innerHTML = shown.map((r, i) => `<div class="perf-mini">
+    <div class="t"><b title="${esc(r[field])}">${esc(r[field])}</b><span>${total ? (r.n / total * 100).toFixed(1) : '0.0'}% of calls</span></div>
+    <div id="${containerId}-${i}"></div>
+  </div>`).join('');
+  shown.forEach((r, i) => {
+    const t = r.trend || {};
+    _perfChart(`${containerId}-${i}`, {
+      chart: _perfChartBase(110),
+      series: [{name: 'p50', data: t.p50 || []}, {name: 'p95', data: t.p95 || []}],
+      colors: [_PERF_C.p50, _PERF_C.p95],
+      stroke: {width: [2, 1.5], curve: 'straight'},
+      markers: {size: 0, hover: {size: 4}},
+      dataLabels: {enabled: false},
+      legend: {show: false},
+      grid: {borderColor: _PERF_C.grid, strokeDashArray: 0, padding: {left: 0, right: 4, top: -8, bottom: -8}},
+      xaxis: {categories: labels, labels: {show: false}, axisBorder: {show: false}, axisTicks: {show: false}, tooltip: {enabled: false}},
+      yaxis: {min: 0, max: ymax || undefined, tickAmount: 2, labels: {formatter: v => fmtMs(Math.round(v || 0)), style: {colors: _telForeground, fontSize: '10px'}}},
+      tooltip: {theme: 'dark', shared: true, intersect: false, custom: ({dataPointIndex}) => _perfMiniTip(r[field], keys[dataPointIndex], t, dataPointIndex)},
+    });
+  });
+}
+
+// ── breakdown tables ────────────────────────────────────────────────────
+
+const _PERF_COLS = [
+  ['n', 'Calls', r => fmt(r.n), 'Successful calls in the window'],
+  ['share', 'Share', r => _latPct(r.share), 'Share of successful calls'],
+  ['p50', 'p50', r => fmtMs(r.p50), ''],
+  ['p95', 'p95', r => fmtMs(r.p95), ''],
+  ['p99', 'p99', r => fmtMs(r.p99), ''],
+  ['ttft_p50', 'First token p50', r => (r.ttft_n ? fmtMs(r.ttft_p50) : 'none'), 'Over the streaming calls only; none when nothing streamed'],
+  ['ttft_coverage', 'First-token coverage', r => _latPct(r.ttft_coverage), 'Streaming calls over all successful calls'],
+  ['tokens_per_second', 'Tokens/s', r => _latTps(r.tokens_per_second), 'Output tokens over the whole call (total-time)'],
+  ['error_rate', 'Errors', r => `<span style="color:${(r.error_rate || 0) > 0.05 ? 'var(--red)' : 'inherit'}">${_latPct(r.error_rate)}</span>`, 'Non-success rows over all rows'],
+  ['cost_per_call', 'Cost/call', r => fmtCost(r.cost_per_call), ''],
+];
+
+function sortPerfTable(which, key) {
+  const st = _perfSort[which];
+  if (st.key === key) st.dir = -st.dir;
+  else _perfSort[which] = { key, dir: key === 'name' ? 1 : -1 };
+  renderPerfTable(which);
+}
+
+// A row click filters the whole tab to that model or query type; clicking
+// the selected row again clears it. The dropdown stays the source of truth.
+function perfPick(which, name) {
+  const sel = document.getElementById(which === 'model' ? 'lat-model' : 'lat-call-type');
+  if (!sel) return;
+  if (sel.value === name) sel.value = '';
+  else {
+    if (!Array.from(sel.options).some(o => o.value === name)) {
+      const o = document.createElement('option');
+      o.value = name; o.textContent = name;
+      sel.appendChild(o);
+    }
+    sel.value = name;
+  }
+  loadLatency();
+}
+
+function renderPerfTable(which) {
+  const d = _perfState;
+  const tableId = which === 'model' ? 'perf-models-table' : 'perf-cts-table';
+  const table = document.getElementById(tableId);
+  if (!d || !table) return;
+  const src = which === 'model' ? ((d.breakdown || {}).by_model || []) : ((d.breakdown || {}).by_call_type || []);
+  const total = src.reduce((a, r) => a + (r.n || 0), 0);
+  const rows = src.map(r => ({...r, name: r[which], share: total ? r.n / total : null}));
+  const st = _perfSort[which];
+  const sorted = sortLatencyRows(rows, st.key, st.dir);
+  const cur = document.getElementById(which === 'model' ? 'lat-model' : 'lat-call-type')?.value || '';
+  const arrow = k => (st.key === k ? (st.dir > 0 ? ' ▲' : ' ▼') : '');
+  table.querySelector('thead').innerHTML = '<tr>' +
+    `<th onclick="sortPerfTable('${which}', 'name')">${which === 'model' ? 'Model' : 'Query type'}${arrow('name')}</th>` +
+    _PERF_COLS.map(([k, label, , title]) => `<th onclick="sortPerfTable('${which}', '${k}')" title="${title}">${label}${arrow(k)}</th>`).join('') +
+    '</tr>';
+  table.querySelector('tbody').innerHTML = sorted.map(r => `<tr class="pick ${r.name === cur ? 'sel' : ''}" data-name="${esc(r.name)}" onclick="perfPick('${which}', this.dataset.name)" title="Filter the tab to this ${which === 'model' ? 'model' : 'query type'}">` +
+    `<td class="mono">${esc(r.name)}</td>` +
+    _PERF_COLS.map(([, , cell]) => `<td>${cell(r)}</td>`).join('') +
+    '</tr>').join('') ||
+    `<tr><td colspan="${_PERF_COLS.length + 1}" style="text-align:center;color:var(--text-dim)">No calls in this window</td></tr>`;
+}
+
+// ── secondary row ───────────────────────────────────────────────────────
+
+function renderPerfSecondary(d, s, labels) {
+  const buckets = d.buckets || [];
+  if (!buckets.some(b => (b.total || 0) > 0)) {
+    for (const id of ['perf-chart-errors', 'perf-chart-tps', 'perf-chart-streaming', 'perf-chart-cost']) {
+      _perfEmpty(id, 'No calls in this window under these filters');
+    }
+    return;
+  }
+  const small = (id, seriesList, colors, fmtY) => _perfChart(id, {
+    chart: _perfChartBase(160),
+    series: seriesList,
+    colors,
+    stroke: {width: 2, curve: 'straight'},
+    markers: {size: 0, hover: {size: 4}},
+    dataLabels: {enabled: false},
+    legend: {show: seriesList.length > 1, position: 'top', horizontalAlign: 'left', labels: {colors: _telForeground}},
+    grid: {borderColor: _PERF_C.grid, strokeDashArray: 0},
+    xaxis: _perfXAxis(labels, true),
+    yaxis: {min: 0, forceNiceScale: true, labels: {formatter: fmtY, style: {colors: _telForeground, fontSize: '10px'}}},
+    tooltip: _perfTooltip(buckets),
+  });
+  small('perf-chart-errors', [{name: 'Error rate %', data: s.error_rate}], [_PERF_C.error], v => (v || 0).toFixed(1) + '%');
+  const tpsSeries = [{name: 'Total-time tokens/s, all calls', data: s.tokens_per_second}];
+  const tpsColors = [_PERF_C.tps];
+  if (d.ttft_recorded) {
+    tpsSeries.push({name: 'Generation tokens/s, streaming calls', data: s.generation_tokens_per_second});
+    tpsColors.push(_PERF_C.gen_tps);
+  }
+  small('perf-chart-tps', tpsSeries, tpsColors, v => (v || 0).toFixed(0));
+  if (d.ttft_recorded) {
+    small('perf-chart-streaming', [{name: 'Calls with a first-token time %', data: s.streaming_share}], [_PERF_C.streaming], v => (v || 0).toFixed(0) + '%');
+  } else {
+    _perfEmpty('perf-chart-streaming', 'No streaming calls in this window, so no first-token data');
+  }
+  small('perf-chart-cost', [{name: 'Cost per call', data: s.cost_per_call}], [_PERF_C.cost], v => '$' + (v || 0).toFixed(4));
 }
 
 function renderTiers(tiers) {
