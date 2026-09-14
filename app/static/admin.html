@@ -2134,14 +2134,32 @@ function renderUserRows() {
     // Anonymous device rows (never signed in): telemetry-only columns,
     // no account controls. Folded in so there is exactly one user list.
     if (u.anonymous) {
+      // Cell count must match the header EXACTLY, in header order, or every
+      // column after the gap renders one to the left. This row has been
+      // wrong twice: once one short (no Lifetime Cost), then three short
+      // after Docs, Photos and Transl were added to the header and this
+      // template was not touched, which put "last active" under Transl and
+      // shifted everything after it. A hand-maintained count in a comment
+      // is what went stale both times, so the count is no longer asserted
+      // here; tests/test_admin_user_table_cells.py counts the header and
+      // both row templates against each other and fails on any drift.
+      // Column order, from the header: User, Tier, Channel, Hours Billed,
+      // Meeting Time, Allocation, Resets, Files, Docs, Photos, Transl,
+      // Period Cost, Lifetime Cost, Last Active, Marketing, Language, iOS,
+      // App, Device, Events, Location, actions.
       return `<tr style="opacity:0.75">
     <td><span style="color:var(--text-dim)">anonymous</span></td>
-    <!-- Cell count must match the header exactly, or every column after the
-         gap renders one to the left. This row was one short (no Lifetime
-         Cost), which put "last active" under Lifetime Cost. Through here:
-         User, Tier, Channel, Hours, Meeting Time, Allocation, Resets,
-         Files, Period Cost, Lifetime Cost = 10. -->
-    <td>${dimc}</td><td>${chBadge(u)}</td><td>${dimc}</td><td>${dimc}</td><td>${dimc}</td><td>${dimc}</td><td>${dimc}</td><td>${dimc}</td>
+    <td>${dimc}</td>
+    <td>${chBadge(u)}</td>
+    <td>${dimc}</td>
+    <td>${dimc}</td>
+    <td>${dimc}</td>
+    <td>${dimc}</td>
+    <td>${dimc}</td>
+    <td>${dimc}</td>
+    <td>${dimc}</td>
+    <td>${dimc}</td>
+    <td>${dimc}</td>
     <td>${dimc}</td>
     <td>${timeAgo(u.last_request)}</td>
     <td>${dimc}</td>
