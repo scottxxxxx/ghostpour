@@ -1702,6 +1702,187 @@ async def dashboard(
     }
 
 
+# ---------------------------------------------------------------------------
+# Latency trends (Scott, 2026-09-13: "I want to see our responses
+# historically and be able to spot trends"). The dashboard's
+# `latency_percentiles` above is ONE sorted list over the whole window, so
+# it cannot show a trend by construction. This endpoint buckets by hour or
+# day and splits by model and call type. It reads only columns already
+# recorded on usage_log; time to first token is NOT recorded anywhere yet,
+# so nothing here approximates it.
+# ---------------------------------------------------------------------------
+
+def _nearest_rank(sorted_values: list, p: int):
+    """Nearest-rank percentile: the value at rank ceil(p/100 * n), 1-based.
+
+    On a 10-row list p50 is the 5th smallest and p99 the 10th. Chosen over
+    interpolation because every reported number is then a latency that
+    actually happened, which is the one thing a percentile of a small
+    hourly bucket should promise.
+    """
+    n = len(sorted_values)
+    if n == 0:
+        return None
+    rank = math.ceil(p / 100 * n)
+    return sorted_values[max(0, min(rank, n) - 1)]
+
+
+def _latency_stats(rows: list) -> dict:
+    """Percentiles and throughput for one group of usage_log rows.
+
+    Latency numbers (n, p50, p95, p99, mean, max) come from SUCCESS rows
+    only; an error row's response_time_ms is the time to fail, which is
+    not the number an operator means by latency. error_rate is
+    non-success rows over ALL rows in the group, so a bucket that is
+    entirely errors reports n=0 with error_rate=1.0 rather than vanishing.
+    """
+    total = len(rows)
+    ok = [r for r in rows if r["status"] == "success"]
+    lat = sorted(r["response_time_ms"] for r in ok if r["response_time_ms"] is not None)
+    n = len(lat)
+    out_tokens = sum(r["output_tokens"] or 0 for r in ok)
+    in_tokens = sum(r["input_tokens"] or 0 for r in ok)
+    cached = sum(r["cached_tokens"] or 0 for r in ok)
+    cost = sum(r["estimated_cost_usd"] or 0.0 for r in ok)
+    total_ms = sum(lat)
+    return {
+        "n": n,
+        "total": total,
+        "errors": total - len(ok),
+        "p50": _nearest_rank(lat, 50),
+        "p95": _nearest_rank(lat, 95),
+        "p99": _nearest_rank(lat, 99),
+        "mean": round(total_ms / n) if n else None,
+        "max": lat[-1] if n else None,
+        "error_rate": round((total - len(ok)) / total, 4) if total else None,
+        # TOTAL-time throughput: output tokens over the whole wall clock of
+        # the call, including whatever the model spent before the first
+        # token. Generation throughput (tokens over the streaming phase
+        # alone) needs time to first token, which is not recorded yet.
+        "tokens_per_second": round(out_tokens / total_ms * 1000, 2) if total_ms else None,
+        "cache_hit_ratio": round(cached / in_tokens, 4) if in_tokens else None,
+        "cost_per_call": round(cost / n, 6) if n else None,
+    }
+
+
+def _bucket_key(ts: str, bucket: str) -> str:
+    """Bucket start for an ISO-8601 UTC timestamp, by string prefix.
+
+    usage_log.request_timestamp is written by usage_tracker as
+    datetime.now(timezone.utc).isoformat(), so the first 13 characters are
+    always YYYY-MM-DDTHH and the first 10 YYYY-MM-DD, whatever follows.
+    """
+    if bucket == "hour":
+        return ts[:13] + ":00:00"
+    return ts[:10]
+
+
+def _bucket_range(bucket: str, days: int, now: datetime) -> list[str]:
+    """Every bucket start from the window's first to now, so a quiet hour
+    shows as a gap on the chart instead of being squeezed out of the axis.
+
+    Starts at midnight UTC `days` ago for BOTH bucket sizes, because that is
+    where the SQL window starts (`date('now', '-N days')` is a date, not a
+    timestamp); an hourly range that began at now-minus-N-days would leave
+    the rows of that first partial day with no generated bucket.
+    """
+    start = (now - timedelta(days=days)).replace(hour=0, minute=0, second=0, microsecond=0)
+    step = timedelta(hours=1) if bucket == "hour" else timedelta(days=1)
+    keys = []
+    cur = start
+    while cur <= now:
+        keys.append(_bucket_key(cur.isoformat(), bucket))
+        cur += step
+    return keys
+
+
+@router.get("/admin/latency-trends")
+async def latency_trends(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    days: int = Query(default=7, ge=1, le=90),
+    bucket: str = Query(default="day"),
+    model: str | None = Query(default=None),
+    call_type: str | None = Query(default=None),
+    app: str | None = Query(default=None),
+):
+    """Latency percentiles per time bucket, plus a per-model and per-call-type
+    breakdown over the whole window.
+
+    Scoped by the same `app` filter as the rest of the dashboard: one
+    filtered multi-app view, never a page per app. `model` and `call_type`
+    narrow the series. The breakdown honours the OTHER dimension's filter
+    (by_model respects call_type, by_call_type respects model) so each table
+    still lists every option for the dropdown it feeds while reflecting the
+    narrowing the operator already made.
+
+    `metadata` is deliberately not selected: it carries raw_request and
+    raw_response and would multiply the payload for no number on this page.
+    """
+    _verify_admin(request, x_admin_key)
+    if bucket not in ("hour", "day"):
+        raise HTTPException(status_code=400, detail="bucket must be 'hour' or 'day'")
+
+    apps_filter = _apps_from_filter(app)
+    app_clause = _app_sql(apps_filter)
+    cursor = await db.execute(
+        """SELECT request_timestamp, model, call_type, status, response_time_ms,
+                  input_tokens, output_tokens, cached_tokens, estimated_cost_usd
+           FROM usage_log
+           WHERE request_timestamp >= date('now', ?)""" + app_clause + """
+           ORDER BY request_timestamp""",
+        (f"-{days} days", *apps_filter),
+    )
+    rows = [
+        {
+            "ts": r[0], "model": r[1], "call_type": r[2] or "(untyped)",
+            "status": r[3], "response_time_ms": r[4], "input_tokens": r[5],
+            "output_tokens": r[6], "cached_tokens": r[7], "estimated_cost_usd": r[8],
+        }
+        for r in await cursor.fetchall()
+    ]
+
+    by_model_src = [r for r in rows if not call_type or r["call_type"] == call_type]
+    by_ct_src = [r for r in rows if not model or r["model"] == model]
+    series_src = [r for r in by_model_src if not model or r["model"] == model]
+
+    grouped: dict[str, list] = {}
+    for r in series_src:
+        grouped.setdefault(_bucket_key(r["ts"], bucket), []).append(r)
+    now = datetime.now(timezone.utc)
+    keys = _bucket_range(bucket, days, now)
+    # A row can only fall outside the generated range if the clock moved,
+    # so union the observed keys rather than lose the row silently.
+    for k in grouped:
+        if k not in keys:
+            keys.append(k)
+    keys.sort()
+    buckets = [{"bucket": k, **_latency_stats(grouped.get(k, []))} for k in keys]
+
+    def _split(src, field):
+        groups: dict[str, list] = {}
+        for r in src:
+            groups.setdefault(r[field], []).append(r)
+        out = [{field: k, **_latency_stats(v)} for k, v in groups.items()]
+        out.sort(key=lambda d: (-(d["total"]), d[field]))
+        return out
+
+    return {
+        "generated_at": now.isoformat(),
+        "days": days,
+        "bucket": bucket,
+        "filters": {"model": model, "call_type": call_type, "app": list(apps_filter)},
+        "percentile_method": "nearest-rank",
+        "ttft_recorded": False,
+        "buckets": buckets,
+        "breakdown": {
+            "by_model": _split(by_model_src, "model"),
+            "by_call_type": _split(by_ct_src, "call_type"),
+        },
+    }
+
+
 @router.get("/admin/errors")
 async def error_log(
     request: Request,
