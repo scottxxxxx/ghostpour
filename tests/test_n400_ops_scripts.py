@@ -38,7 +38,11 @@ def test_the_deploy_that_has_not_landed_is_refused_and_says_why():
     ok, why = deploy_has_landed("d99ab05aaa", "bc00140bbb")
     assert not ok
     assert "d99ab05" in why and "bc00140" in why
-    assert "OLD bundle" in why
+    # Both directions are named, because a NEWER running image is also a
+    # mismatch and the first wording called it "the OLD bundle" when #977
+    # deployed on top of the sha being waited for.
+    assert "OLDER" in why and "NEWER" in why
+    assert "--expect-sha d99ab05" in why
 
 
 def test_no_expected_sha_refuses_rather_than_defaulting_to_yes():
