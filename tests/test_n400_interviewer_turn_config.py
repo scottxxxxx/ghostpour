@@ -144,7 +144,12 @@ def test_intent_is_declared_as_an_object_with_a_type_key(cfg):
         assert f'"{key}": omitted' in tail, key
     # The fourteen values are the values of `type`, declared after the
     # object line rather than before it.
-    taxonomy = tail.index("`intent` is exactly one of:")
+    # The taxonomy names `intent.type`, not `intent`: two sentences that
+    # disagreed about what the field IS (a string here, an object above)
+    # were the shape that came back as 11 of 39 turns disagreeing with
+    # themselves. fable-auditor's replacement, v31.
+    taxonomy = tail.index("`intent.type` is exactly one of:")
+    assert "`intent` is exactly one of:" not in tail, "the old opening would contradict the object line"
     assert tail.index('"intent": an OBJECT') < taxonomy
     for intent in _INTENTS:
         assert f'"{intent}"' in tail[taxonomy:], intent
