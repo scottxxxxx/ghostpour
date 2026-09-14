@@ -14,6 +14,7 @@ other way.
 """
 
 import json
+import sqlite3
 import time
 from unittest.mock import AsyncMock, patch
 
@@ -143,6 +144,35 @@ def test_a_metadata_key_outside_the_allowlist_does_not_cross(client, pro_user, c
     assert "invented_by_a_future_build" not in md
     # and dropping it cost nothing else
     assert md["user_label"] == "Scott"
+
+
+def test_the_same_meeting_uploaded_twice_keeps_one_row_holding_the_later_transcript(
+        client, pro_user, cq_wire, tmp_db_path):
+    """The client's ledger replays an orphaned upload under the SAME
+    meeting_id on the strength of a comment saying GP is idempotent per
+    meeting_id, last write wins. Until v41 that comment was false: the
+    route's INSERT OR REPLACE carried a fresh uuid primary key and the only
+    index on meeting_id was not unique, so the REPLACE never fired and the
+    replay appended a second row. This drives the real route twice, the
+    second time as the recovery replay, and reads the table."""
+    first = client.post("/v1/capture-transcript", json=SS_BODY, headers=pro_user["headers"])
+    assert first.status_code == 200, first.text
+
+    replay = json.loads(json.dumps(SS_BODY))
+    replay["transcript"] = TRANSCRIPT + "Speaker 2: replayed from the ledger.\n"
+    second = client.post("/v1/capture-transcript", json=replay,
+                         headers={**pro_user["headers"], "X-CZ-Recovery": "report-404-replay"})
+    assert second.status_code == 200, second.text
+
+    con = sqlite3.connect(tmp_db_path)
+    try:
+        rows = con.execute(
+            "SELECT transcript FROM meeting_transcripts WHERE user_id = ? AND meeting_id = ?",
+            (pro_user["user_id"], SS_BODY["origin_id"])).fetchall()
+    finally:
+        con.close()
+    assert len(rows) == 1, f"the replay appended: {len(rows)} rows for one meeting"
+    assert rows[0][0] == replay["transcript"], "last write must win, not the first upload"
 
 
 # --- recording_started_at (2026-08-22) --------------------------------------
