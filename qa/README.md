@@ -19,6 +19,38 @@ tmpfiles sweep. That is not a place to keep something you cannot rebuild.
 | `ste-label-unblinding-key.json` | The key that un-blinds that pack. Was `ste-label-key-GP-ONLY.json`. |
 | `n400-deferral-ste-inputs.json` | The 42 verbatim lane requests, so a prompt A/B REGENERATES replies rather than re-judging stored ones. |
 | `judge.py` | The per-field LLM judge, validated at 41/41. Reads its credential from settings at call time and contains none. |
+| `ste_run.py` | The STE A/B generator as it ran on 2026-09-11: v29 served vs v29 with the DEFERRALS line swapped, called straight to the Anthropic API. |
+| `ste_judge.py` | Runs the validated judge's SYSTEM and QUESTION over `ste_run.py` output, per field, with deferral counts beside the rate. |
+| `ste_analyze.py` | The A/B report, gate first. Imports `deferral_disclosure.py`, the mechanical scorer, which lives with the auditor in `N400 App/qa/`, not here. |
+
+## The STE harness is a RECORD, not a tool you can point at a new question
+
+Moved in on 2026-09-14 from a GP session scratchpad on the Mac, byte-identical
+to those copies (sha256 `f315399c` run, `c4926b2c` judge, `4a8e10e7` analyze).
+⚠ **Those copies are from 2026-09-11 13:18.** The VM host `/tmp` copies ran
+later and may have been edited after; nobody has compared them. If the VM
+copies still exist, diff them against these before trusting either as "the"
+harness.
+
+Running them for anything but the STE question gives wrong answers
+without an error:
+
+- `ste_run.py` swaps systemPrompt LINE 83 and asserts it is the v29 DEFERRALS
+  block. On any later prompt the assert fires, which is the good outcome.
+- It sends `thinking` ONLY when the served config says `disabled`. Any other
+  value, including `adaptive`, is OMITTED, and on Sonnet 5 an omitted field
+  means thinking ON with no effort set. A thinking A/B built on this file
+  would silently run both arms the same way.
+- It calls `api.anthropic.com` directly, so none of its calls appear in
+  `usage_log`. Its token counts come from the API response and are exact; its
+  latency is the model call alone, without the gateway's own time.
+- It does not exercise the route's guards (stale `asking`, checkpoint refusal,
+  envelope retry). The judge reads `reply`, which is why that was acceptable
+  for STE; it has to be re-argued for any question about the object.
+- `ste_analyze.py`'s pre-registered gate is "variant A reproduces v29's gold
+  labels, 33 of 41". For any comparison where neither arm is v29 that gate is
+  meaningless and has to be re-registered BEFORE a result is seen.
+- Every path is `/tmp/...`, because it ran inside the prod container.
 
 ⚠ **The interview content is QA persona material, and that is load-bearing, not
 incidental.** It is only true because `com.weirtech.n400helper` is still absent
