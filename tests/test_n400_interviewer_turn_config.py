@@ -95,12 +95,92 @@ def test_the_conversation_and_agenda_cannot_be_omitted(cfg):
 
 def test_the_decoder_contract_is_spelled_out(cfg):
     """The client decodes these tokens. A missing one is a response the
-    client cannot parse, and the model would look correct."""
+    client cannot parse, and the model would look correct.
+
+    ⚠ This test is blind to the SHAPE of `intent`. v31 moved it from a bare
+    string to an object, and every one of the fourteen values survives as a
+    value of `type`, so this stayed green across the exact change that most
+    affects the client's decoder. The shape lives in the next test."""
     sp = cfg["systemPrompt"]
     for key in _RESPONSE_KEYS:
         assert f'"{key}"' in sp, key
     for intent in _INTENTS:
         assert f'"{intent}"' in sp, intent
+
+
+def _output_schema(cfg) -> str:
+    """The response shape block and everything after it: the JSON skeleton,
+    the intent taxonomy paragraph, and the Fact schema. Scoped to that tail
+    rather than the whole document because `intent` is also mentioned in
+    prose earlier (DEFERRALS, WHERE YOU STOP) and a whole-document check
+    would pass on a sentence ABOUT the field rather than its declaration."""
+    sp = cfg["systemPrompt"]
+    return sp[sp.index('{\n  "schema_version": 1,'):]
+
+
+def test_intent_is_declared_as_an_object_with_a_type_key(cfg):
+    """v31, Scott's ruling 2026-09-11: `intent` is an OBJECT on every turn,
+    even when `type` is the only key. Both code halves already read both
+    shapes (client LaneIntent, GP intent_label() in 95756ab); the prompt is
+    the irreversible half, and this pins what the client decodes from it.
+
+    Presence first, because an absence check is true of the old text too
+    and proves nothing on its own. Seen red against v30 on the first
+    assertion before it was trusted green against v31."""
+    tail = _output_schema(cfg)
+    # The schema line: the object, with `type` as its labelled key.
+    assert '"intent": an OBJECT, never a bare string, {"type": string' in tail
+    # The minimal worked example, so "only key" has an operational form.
+    assert ('Write `intent` as an object, always, even when `type` is the only '
+            'key you have: {"type": "answer"}') in tail
+    # The retirement, stated, so a later edit cannot quietly re-admit the
+    # string as an alternative.
+    assert "The bare string is the old shape and is being retired." in tail
+    # The optional keys are named in the schema line as OMITTED by default;
+    # the client's decoder treats each as optional, and a prompt that made
+    # one required would change the wire without changing this file's
+    # fourteen-token check.
+    for key in ("target", "confidence", "disambiguation"):
+        assert f'"{key}": omitted' in tail, key
+    # The fourteen values are the values of `type`, declared after the
+    # object line rather than before it.
+    # The taxonomy names `intent.type`, not `intent`: two sentences that
+    # disagreed about what the field IS (a string here, an object above)
+    # were the shape that came back as 11 of 39 turns disagreeing with
+    # themselves. fable-auditor's replacement, v31.
+    taxonomy = tail.index("`intent.type` is exactly one of:")
+    assert "`intent` is exactly one of:" not in tail, "the old opening would contradict the object line"
+    assert tail.index('"intent": an OBJECT') < taxonomy
+    for intent in _INTENTS:
+        assert f'"{intent}"' in tail[taxonomy:], intent
+    # Only now the absence: the old schema line must be gone, or the prompt
+    # declares both shapes and the model picks one per turn.
+    assert '"intent": string,' not in tail, (
+        "the v30 bare-string schema line is back beside the object form")
+
+
+def test_the_target_keys_the_client_decodes_are_named(cfg):
+    """The structured half: `target` carries her own words plus at most two
+    ids, and `disambiguation` carries a locale-keyed question with two or
+    more options that each name a real field id. Each key is asserted inside
+    its own paragraph, because "field_id" alone is also the Fact schema's
+    key and a whole-tail check would pass on that."""
+    tail = _output_schema(cfg)
+    target = tail[tail.index("`target` is present when, and only when"):
+                  tail.index("`confidence` is your read")]
+    for key in ("field_id", "node_id", "said"):
+        assert f'"{key}"' in target, key
+    assert "verbatim, always present when target is" in target
+    # The presence rule is a fact about her utterance, not a shape choice.
+    assert "if she pointed at something, fill it; if she did not, omit the key" in target
+    disamb = tail[tail.index("`disambiguation` is present only when"):
+                  tail.index("None of this changes the reply")]
+    for key in ("question", "options", "label", "field_id"):
+        assert f'"{key}"' in disamb, key
+    assert "two or more" in disamb
+    # The reply still does the whole job on its own; a disambiguation written
+    # only in `intent` is one she never hears.
+    assert "still has to be asked out loud in `reply`" in tail
 
 
 def test_the_never_complete_a_missing_piece_rule_carries_over(cfg):
