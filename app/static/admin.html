@@ -118,10 +118,6 @@
   .section.active { display: block; }
 
   /* Latency bar */
-  .latency-bar { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
-  .latency-bar .bar { height: 6px; border-radius: 3px; background: var(--accent); }
-  .latency-bar .label { font-size: 11px; color: var(--text-dim); min-width: 28px; }
-  .latency-bar .val { font-size: 12px; min-width: 50px; text-align: right; font-variant-numeric: tabular-nums; }
 
   /* Period selector */
   .period-select {
@@ -463,8 +459,47 @@
 
   <!-- Latency -->
   <div id="tab-latency" class="section">
-    <h3>Response Time Percentiles</h3>
-    <div class="card" style="max-width:500px;" id="latency-card"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <h3 style="margin:0">Response Time Over Time</h3>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="lat-days" class="period-select" onchange="loadLatency()">
+          <option value="7" selected>7 days</option>
+          <option value="30">30 days</option>
+          <option value="90">90 days</option>
+        </select>
+        <select id="lat-bucket" class="period-select" onchange="loadLatency()">
+          <option value="hour">By hour</option>
+          <option value="day" selected>By day</option>
+        </select>
+        <select id="lat-model" class="period-select" onchange="loadLatency()"><option value="">All models</option></select>
+        <select id="lat-call-type" class="period-select" onchange="loadLatency()"><option value="">All call types</option></select>
+      </div>
+    </div>
+    <div class="cards" id="lat-cards"></div>
+    <div class="card" style="padding:16px;margin-top:16px">
+      <h4 style="margin:0 0 8px">p50 / p95 / p99 of response time, per bucket</h4>
+      <div id="latency-trend-chart"></div>
+      <p style="font-size:12px;color:var(--text-dim);margin:8px 0 0">Time to first token is not yet recorded; tokens per second is total-time throughput. Percentiles are nearest-rank over successful calls only; a bucket with no successful call is a gap.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-top:16px">
+      <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Error rate per bucket</h4><div id="latency-error-chart"></div></div>
+      <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Tokens per second per bucket (total-time)</h4><div id="latency-tps-chart"></div></div>
+    </div>
+    <div class="card" style="padding:16px;margin-top:16px">
+      <h4 style="margin:0 0 8px">By model and by call type, whole window</h4>
+      <div class="table-wrap"><table id="latency-breakdown-table"><thead><tr>
+        <th onclick="sortLatencyTable('kind')" style="cursor:pointer">Split<span class="sa" data-sk="kind"></span></th>
+        <th onclick="sortLatencyTable('name')" style="cursor:pointer">Name<span class="sa" data-sk="name"></span></th>
+        <th onclick="sortLatencyTable('n')" style="cursor:pointer" title="Successful calls in the window">Calls<span class="sa" data-sk="n"></span></th>
+        <th onclick="sortLatencyTable('p50')" style="cursor:pointer">p50<span class="sa" data-sk="p50"></span></th>
+        <th onclick="sortLatencyTable('p95')" style="cursor:pointer">p95<span class="sa" data-sk="p95"></span></th>
+        <th onclick="sortLatencyTable('p99')" style="cursor:pointer">p99<span class="sa" data-sk="p99"></span></th>
+        <th onclick="sortLatencyTable('tokens_per_second')" style="cursor:pointer" title="Output tokens over total wall clock. Not generation speed: time to first token is not recorded">Tokens/s<span class="sa" data-sk="tokens_per_second"></span></th>
+        <th onclick="sortLatencyTable('cache_hit_ratio')" style="cursor:pointer" title="Cached input tokens over all input tokens">Cache hit<span class="sa" data-sk="cache_hit_ratio"></span></th>
+        <th onclick="sortLatencyTable('cost_per_call')" style="cursor:pointer">Cost/call<span class="sa" data-sk="cost_per_call"></span></th>
+        <th onclick="sortLatencyTable('error_rate')" style="cursor:pointer" title="Non-success rows over all rows">Errors<span class="sa" data-sk="error_rate"></span></th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
   </div>
 
   <!-- Providers -->
@@ -1104,6 +1139,7 @@ const _TAB_LOADERS = {
   alerts: () => loadAlerts(),
   telemetry: () => loadTelemetry(),
   acquisition: () => loadAcquisition(),
+  latency: () => loadLatency(),
 };
 function switchTab(name) {
   _activeTab = name;
@@ -1122,6 +1158,7 @@ function switchTab(name) {
   if (name === 'alerts') loadAlerts();
   if (name === 'telemetry') loadTelemetry();
   if (name === 'acquisition') loadAcquisition();
+  if (name === 'latency') loadLatency();
   // The Users map is built by refresh() while this tab is hidden, so
   // jsvectormap measures a 0x0 container and renders an empty SVG: no error,
   // no fallback text, just a blank panel. Re-measure once it is on screen.
@@ -2783,14 +2820,12 @@ async function refresh() {
   });
 
   panel('latency', () => {
-    // Latency percentiles
-    const lp = dash.latency_percentiles || {};
-    const maxP = Math.max(...Object.values(lp), 1);
-    document.getElementById('latency-card').innerHTML = Object.keys(lp).length
-      ? Object.entries(lp).map(([k,v]) =>
-        `<div class="latency-bar"><div class="label">${k}</div><div class="bar" style="width:${v/maxP*280}px"></div><div class="val">${fmtMs(v)}</div></div>`
-      ).join('')
-      : '<div style="padding:20px;color:var(--text-dim);text-align:center">No latency data yet</div>';
+    // The Latency tab no longer reads dash.latency_percentiles (one list
+    // over the whole window, no time axis). It loads its own bucketed
+    // series from /admin/latency-trends, see loadLatency(). When it is the
+    // active tab the tab loader at the top of refresh() already ran it, so
+    // only a refresh from another tab goes through here.
+    if (_activeTab !== 'latency') loadLatency();
   });
 
   // Allocation alerts
@@ -2990,6 +3025,222 @@ async function refresh() {
   if (_openDetailUserId) {
     showUserDetail(_openDetailUserId, _openDetailEmail);
   }
+}
+
+// --- Latency tab: percentiles over time, by model and call type -----------
+// Scott, 2026-09-13: "there is a simple view of P99 P95 etc. I want to see
+// our responses historically and be able to spot trends." The old panel was
+// one sorted list over the whole window, so it could not show a trend at
+// all. This tab fetches /admin/latency-trends (bucketed by hour or day,
+// filtered by model and call type, scoped by the global app filter like
+// every other view) and draws it with the same ApexCharts helper the daily
+// trend and telemetry charts use. Nothing here reads dash.latency_percentiles,
+// which stays on the dashboard payload for anything else that does.
+let _latSort = { key: 'n', dir: -1 };  // most calls first, like the users table's default
+let _latState = null;
+
+// Pure: the chart series from the endpoint's buckets. Each series reads its
+// OWN key by name. tests/test_admin_latency_trends.py evaluates this in
+// node against a fixture where every key holds a different number, so a
+// swap (p95 plotted where p99 was asked for) cannot pass. error_rate is
+// scaled to a percentage with one decimal for the sparkline's axis.
+function latencySeries(buckets) {
+  const b = buckets || [];
+  const pick = k => b.map(x => (x[k] == null ? null : x[k]));
+  return {
+    categories: b.map(x => x.bucket),
+    n: pick('n'),
+    p50: pick('p50'),
+    p95: pick('p95'),
+    p99: pick('p99'),
+    error_rate: b.map(x => (x.error_rate == null ? null : Math.round(x.error_rate * 1000) / 10)),
+    tokens_per_second: pick('tokens_per_second'),
+  };
+}
+
+// Pure: a sorted copy of the breakdown rows. Text keys compare lowercased;
+// a null metric sorts below every number so an empty group sits at one end
+// and never interleaves with real values.
+function _latSortVal(r, key) {
+  if (key === 'kind') return r.kind;
+  if (key === 'name') return (r.name || '').toLowerCase();
+  return r[key] == null ? -Infinity : r[key];
+}
+function sortLatencyRows(rows, key, dir) {
+  return (rows || []).slice().sort((a, b) => {
+    const va = _latSortVal(a, key), vb = _latSortVal(b, key);
+    if (va < vb) return -1 * dir;
+    if (va > vb) return 1 * dir;
+    return 0;
+  });
+}
+// Header click: same convention as sortUserTable (same key flips, new key
+// starts ascending, arrows on the .sa spans).
+function sortLatencyTable(key) {
+  if (_latSort.key === key) _latSort.dir = -_latSort.dir;
+  else _latSort = { key, dir: 1 };
+  renderLatencyBreakdown();
+}
+
+function _latBucketLabel(key, bucket) {
+  // '2026-09-13' to '09-13'; '2026-09-13T04:00:00' to '09-13 04h'.
+  if (!key) return '';
+  return bucket === 'hour' ? key.slice(5, 10) + ' ' + key.slice(11, 13) + 'h' : key.slice(5, 10);
+}
+function _latPct(v) { return v == null ? '-' : (v * 100).toFixed(1) + '%'; }
+function _latTps(v) { return v == null ? '-' : v.toFixed(1); }
+
+async function loadLatency() {
+  const daysEl = document.getElementById('lat-days');
+  const bucketEl = document.getElementById('lat-bucket');
+  if (!daysEl || !bucketEl) return;
+  const days = daysEl.value;
+  // Hourly buckets over 30 or 90 days are 720 to 2160 points of mostly
+  // one-call hours, which reads as noise, so the hour option is only
+  // offered on the 7-day window and the selector falls back to day.
+  const hourOpt = bucketEl.querySelector('option[value="hour"]');
+  if (hourOpt) hourOpt.disabled = days !== '7';
+  if (days !== '7' && bucketEl.value === 'hour') bucketEl.value = 'day';
+  const params = new URLSearchParams({days, bucket: bucketEl.value});
+  const model = document.getElementById('lat-model')?.value || '';
+  const callType = document.getElementById('lat-call-type')?.value || '';
+  if (model) params.set('model', model);
+  if (callType) params.set('call_type', callType);
+  const app = document.getElementById('app')?.value || '';
+  if (app) params.set('app', app);
+  let data;
+  try {
+    const resp = await fetch(`${BASE}/webhooks/admin/latency-trends?${params}`, {
+      headers: {'X-Admin-Key': adminKey},
+    });
+    if (!resp.ok) {
+      document.getElementById('lat-cards').innerHTML =
+        `<div class="card" style="grid-column: span 4">Latency load failed (${resp.status})</div>`;
+      return;
+    }
+    data = await resp.json();
+  } catch (e) {
+    document.getElementById('lat-cards').innerHTML =
+      `<div class="card" style="grid-column: span 4">Latency error: ${esc(e.message)}</div>`;
+    return;
+  }
+  // The render runs inside panel() so a ReferenceError here is contained
+  // and named in the banner instead of dying inside an awaited promise
+  // where refresh()'s own panel() calls could never see it.
+  panel('latency', () => renderLatencyTrends(data));
+}
+
+function renderLatencyTrends(d) {
+  _latState = d;
+  const buckets = d.buckets || [];
+  const bd = d.breakdown || {};
+  const s = latencySeries(buckets);
+  const labels = s.categories.map(k => _latBucketLabel(k, d.bucket));
+
+  // Dropdowns from the breakdown. The current pick is kept even when the
+  // other filter has emptied its group, so a selection can never vanish
+  // out from under the operator between two refreshes.
+  const curModel = document.getElementById('lat-model')?.value || '';
+  const curCt = document.getElementById('lat-call-type')?.value || '';
+  const models = (bd.by_model || []).map(m => m.model);
+  if (curModel && !models.includes(curModel)) models.push(curModel);
+  const cts = (bd.by_call_type || []).map(c => c.call_type);
+  if (curCt && !cts.includes(curCt)) cts.push(curCt);
+  _telPopulateOpts('lat-model', 'All models', models, curModel);
+  _telPopulateOpts('lat-call-type', 'All call types', cts, curCt);
+
+  // Window cards. "Peak p99" names the bucket it came from, because a
+  // single bad hour is the thing this tab exists to point at.
+  const calls = buckets.reduce((a, b) => a + (b.n || 0), 0);
+  const total = buckets.reduce((a, b) => a + (b.total || 0), 0);
+  const errors = buckets.reduce((a, b) => a + (b.errors || 0), 0);
+  const withData = buckets.filter(b => b.n > 0);
+  const peak = withData.reduce((best, b) => (best == null || b.p99 > best.p99 ? b : best), null);
+  const errPct = total ? (errors / total * 100) : 0;
+  document.getElementById('lat-cards').innerHTML =
+    card('Successful calls', fmt(calls), 'accent', `${d.days}d window, ${d.bucket === 'hour' ? 'hourly' : 'daily'} buckets`) +
+    card('Error rate', errPct.toFixed(1) + '%', errPct > 5 ? 'red' : 'green', `${fmt(errors)} of ${fmt(total)} rows`) +
+    card('Peak p99', peak ? fmtMs(peak.p99) : '-', 'orange', peak ? `bucket ${_latBucketLabel(peak.bucket, d.bucket)}, ${fmt(peak.n)} calls` : 'no successful calls') +
+    card('Buckets with data', `${fmt(withData.length)} / ${fmt(buckets.length)}`, '');
+
+  const trendEl = document.getElementById('latency-trend-chart');
+  if (withData.length === 0) {
+    for (const id of ['latency-trend-chart', 'latency-error-chart', 'latency-tps-chart']) {
+      if (_telCharts[id]) { _telCharts[id].destroy(); delete _telCharts[id]; }
+      document.getElementById(id).innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:24px">No successful calls in this window</div>';
+    }
+    renderLatencyBreakdown();
+    return;
+  }
+
+  const bucketTip = i => {
+    const b = buckets[i] || {};
+    return '<div style="padding:8px 12px;font-size:12px;line-height:1.7">' +
+      '<div style="color:#8b949e;margin-bottom:2px">' + esc(b.bucket) + ' UTC</div>' +
+      '<div>p50 <b>' + fmtMs(b.p50) + '</b> / p95 <b>' + fmtMs(b.p95) + '</b> / p99 <b>' + fmtMs(b.p99) + '</b></div>' +
+      '<div>mean ' + fmtMs(b.mean) + ', max ' + fmtMs(b.max) + '</div>' +
+      '<div>' + fmt(b.n) + ' ok, ' + fmt(b.errors) + ' errors (' + _latPct(b.error_rate) + ')</div>' +
+      '<div>' + _latTps(b.tokens_per_second) + ' tok/s total-time, cache hit ' + _latPct(b.cache_hit_ratio) + ', ' + fmtCost(b.cost_per_call) + '/call</div>' +
+    '</div>';
+  };
+  const xaxis = {
+    categories: labels,
+    // 168 hourly labels overlap into a smear; two dozen ticks read as time.
+    tickAmount: labels.length > 30 ? 24 : undefined,
+    labels: {rotate: -45, rotateAlways: labels.length > 14, hideOverlappingLabels: true, style: {colors: _telForeground, fontSize: '10px'}},
+    axisBorder: {show: false}, axisTicks: {show: false}, tooltip: {enabled: false},
+  };
+  trendEl.style.overflowX = 'visible';
+  _renderChart('latency-trend-chart', {
+    chart: {type: 'line', height: 300, toolbar: {show: false}, animations: {enabled: false}},
+    series: [
+      {name: 'p50', data: s.p50},
+      {name: 'p95', data: s.p95},
+      {name: 'p99', data: s.p99},
+    ],
+    colors: ['#3fb950', '#d29922', '#f85149'],
+    stroke: {width: [2, 2, 2], curve: 'straight'},
+    markers: {size: withData.length > 60 ? 0 : 3, hover: {size: 5}},
+    dataLabels: {enabled: false},
+    legend: {position: 'top', horizontalAlign: 'left', labels: {colors: _telForeground}},
+    xaxis,
+    yaxis: {min: 0, labels: {formatter: v => fmtMs(Math.round(v || 0)), style: {colors: _telForeground}}},
+    tooltip: {shared: true, intersect: false, custom: ({dataPointIndex}) => bucketTip(dataPointIndex)},
+  });
+  const small = (id, name, data, color, fmtY) => _renderChart(id, {
+    chart: {type: 'area', height: 120, toolbar: {show: false}, animations: {enabled: false}, sparkline: {enabled: true}},
+    series: [{name, data}],
+    colors: [color],
+    stroke: {width: 2, curve: 'straight'},
+    fill: {type: 'gradient', gradient: {opacityFrom: 0.35, opacityTo: 0.02}},
+    xaxis: {categories: labels},
+    yaxis: {min: 0},
+    tooltip: {custom: ({dataPointIndex}) => bucketTip(dataPointIndex)},
+  });
+  small('latency-error-chart', 'Error rate %', s.error_rate, '#f85149');
+  small('latency-tps-chart', 'Tokens/s', s.tokens_per_second, '#58a6ff');
+  renderLatencyBreakdown();
+}
+
+function renderLatencyBreakdown() {
+  const d = _latState;
+  const tbody = document.querySelector('#latency-breakdown-table tbody');
+  if (!d || !tbody) return;
+  const bd = d.breakdown || {};
+  const rows = (bd.by_model || []).map(m => ({kind: 'model', name: m.model, ...m}))
+    .concat((bd.by_call_type || []).map(c => ({kind: 'call type', name: c.call_type, ...c})));
+  const dir = _latSort.dir;
+  const sorted = sortLatencyRows(rows, _latSort.key, dir);
+  tbody.innerHTML = sorted.map(r => `<tr>
+    <td style="color:var(--text-dim)">${r.kind}</td><td class="mono">${esc(r.name)}</td><td>${fmt(r.n)}</td>
+    <td>${fmtMs(r.p50)}</td><td>${fmtMs(r.p95)}</td><td>${fmtMs(r.p99)}</td>
+    <td>${_latTps(r.tokens_per_second)}</td><td>${_latPct(r.cache_hit_ratio)}</td>
+    <td>${fmtCost(r.cost_per_call)}</td>
+    <td style="color:${(r.error_rate || 0) > 0.05 ? 'var(--red)' : 'inherit'}">${_latPct(r.error_rate)}</td>
+  </tr>`).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--text-dim)">No calls in this window</td></tr>';
+  document.querySelectorAll('#latency-breakdown-table .sa').forEach(sp => {
+    sp.textContent = sp.dataset.sk === _latSort.key ? (dir > 0 ? ' ▲' : ' ▼') : '';
+  });
 }
 
 function renderTiers(tiers) {
