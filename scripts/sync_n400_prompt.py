@@ -141,9 +141,17 @@ def deploy_has_landed(running: str, expected: str) -> tuple[bool, str]:
     if not running:
         return False, "the running server did not report a git_sha"
     if not (running.startswith(expected) or expected.startswith(running)):
-        return False, ("the running image is %s but the change you want is in %s; "
-                       "the deploy has not landed, and syncing now would push the "
-                       "OLD bundle and report success" % (running[:12], expected[:12]))
+        # A mismatch is refused in BOTH directions. Older means the deploy has
+        # not landed and a sync would push the old bundle. Newer means a later
+        # merge deployed on top (2026-09-14: #977 landed between the /health
+        # check and the sync); the bundle is probably right but "probably" is
+        # not the standard, so confirm the running bundle's version and re-run
+        # with the sha that is actually running.
+        return False, ("the running image is %s, not %s. If the running image is "
+                       "OLDER the deploy has not landed and syncing would push the "
+                       "old bundle; if it is NEWER, confirm the running bundle's "
+                       "version and re-run with --expect-sha %s"
+                       % (running[:12], expected[:12], running[:12]))
     return True, ""
 
 
