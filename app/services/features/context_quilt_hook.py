@@ -468,7 +468,15 @@ class ContextQuiltHook:
         # build before #481) means no header, NOT a fallback to the candidate
         # list here: SS falls back itself, and a GP fallback would make the
         # two headers indistinguishable on the wire.
+        # ⚠ PRESENT BUT EMPTY is a different claim from absent, and it is
+        # sent as an EMPTY header. CQ serves [] when candidates matched but
+        # no row reached the block (their read of src/main.py, 2026-09-15).
+        # Dropping the header there would make SS fall back to the candidate
+        # list and show exactly the patches the model never saw, which is the
+        # defect this header exists to end.
         served_ids = cq_result.get("served_patch_ids")
+        if not isinstance(served_ids, list):
+            served_ids = None
         gated = hook_result.get("gated", False)
 
         if feature_state == "enabled" and matched:
@@ -476,7 +484,7 @@ class ContextQuiltHook:
             headers["X-CQ-Entities"] = ",".join(matched[:10])
             if patch_ids:
                 headers["X-CQ-Patch-IDs"] = ",".join(patch_ids[:20])
-            if served_ids:
+            if served_ids is not None:
                 headers["X-CQ-Served-Patch-IDs"] = ",".join(served_ids[:20])
         elif gated:
             headers["X-CQ-Matched"] = str(len(matched))
@@ -485,7 +493,7 @@ class ContextQuiltHook:
                 headers["X-CQ-Entities"] = ",".join(matched[:10])
             if patch_ids:
                 headers["X-CQ-Patch-IDs"] = ",".join(patch_ids[:20])
-            if served_ids:
+            if served_ids is not None:
                 headers["X-CQ-Served-Patch-IDs"] = ",".join(served_ids[:20])
 
         return headers

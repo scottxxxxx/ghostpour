@@ -12,6 +12,14 @@ Contract (CQ doc 25, 2026-09-13):
   reads it today.
 - served_patch_ids absent (a CQ build before #481) means NO served header,
   never a GP-side fallback to the candidate list.
+- served_patch_ids PRESENT and EMPTY means an EMPTY served header. CQ serves []
+  when candidates matched and no row reached the block; a missing header there
+  would send SS back to the candidate list, the defect this header ends.
+
+Shapes read from CQ's code (contextquilt ba8caf9, src/main.py, CQ's own read
+2026-09-15), NOT captured from the live route, which needs a bearer token and
+bumps access metrics on real patches. Re-pin to real bytes when a capture is
+authorized.
 """
 from __future__ import annotations
 
@@ -114,3 +122,38 @@ def test_served_header_caps_at_twenty_like_its_sibling():
     headers = ContextQuiltHook().response_headers(
         {"cq_result": _cq_body(served_patch_ids=served, matched_patch_ids=candidates)}, "enabled")
     assert headers["X-CQ-Served-Patch-IDs"].split(",") == served[:20]
+
+
+# --- present but EMPTY: candidates matched, nothing reached the block -------
+
+def test_hook_empty_served_list_is_an_empty_header_not_a_missing_one():
+    """CQ's case 2 and the budget-cut case: matched candidates, served []."""
+    headers = ContextQuiltHook().response_headers(
+        {"cq_result": _cq_body(served_patch_ids=[])}, "enabled")
+    assert "X-CQ-Served-Patch-IDs" in headers
+    assert headers["X-CQ-Served-Patch-IDs"] == ""
+    assert headers["X-CQ-Patch-IDs"] == ",".join(MATCHED)
+
+
+@pytest.mark.parametrize("cq_wire", [_cq_body(served_patch_ids=[])], indirect=True)
+def test_route_keeps_the_empty_served_header_on_the_wire(client, pro_user, cq_wire):
+    """An empty header value has to survive the real response path, not only
+    the hook's dict, or SS sees absent and falls back to candidates."""
+    resp = _chat(client, pro_user)
+    assert "x-cq-served-patch-ids" in resp.headers
+    assert resp.headers["x-cq-served-patch-ids"] == ""
+
+
+def test_cq_fallback_served_equals_candidates_passes_through_unchanged():
+    """CQ's case 4 (grouped output, or their formatter throwing): served falls
+    back to the full candidate list on CQ's side. GP forwards what CQ says; the
+    over-claim is CQ's to fix and is not corrected here."""
+    headers = ContextQuiltHook().response_headers(
+        {"cq_result": _cq_body(served_patch_ids=list(MATCHED))}, "enabled")
+    assert headers["X-CQ-Served-Patch-IDs"] == ",".join(MATCHED)
+
+
+def test_a_non_list_served_value_is_treated_as_absent():
+    headers = ContextQuiltHook().response_headers(
+        {"cq_result": _cq_body(served_patch_ids="p-cand-3")}, "enabled")
+    assert "X-CQ-Served-Patch-IDs" not in headers
