@@ -1,5 +1,5 @@
 {
- "version": 5,
+ "version": 6,
  "tips": [
   "Touchez-moi pour démarrer une session",
   "Je transcris votre réunion en temps réel",
@@ -7,7 +7,7 @@
   "Je peux identifier qui parle",
   "Essayez de prendre une photo pour du contexte visuel",
   "Je résume votre réunion automatiquement",
-  "Je fonctionne dans vos écouteurs, invisible pour les autres",
+  "J'écoute par le micro de votre iPhone, invisible pour les autres",
   "Avant de toucher un bouton de requête, vous pouvez choisir la portion de la réunion à inclure.",
   "Vous pouvez maintenant ajouter des documents de référence à vos chats de projet et de réunion"
  ]

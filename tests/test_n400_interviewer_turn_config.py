@@ -530,6 +530,42 @@ def test_a_deferral_must_be_audible_in_the_same_reply(cfg):
     assert "still ends on exactly one question" in section
 
 
+def test_deferred_entries_declare_origin_and_absent_means_applicant(cfg):
+    """v32, Scott's rule 2 WITH the origin discriminator (DECISIONS
+    2026-09-13). A capture gap is a `deferred` entry for something she DID
+    answer and we could not record, so the question is owed to her again: the
+    opposite obligation to an ordinary deferral. GP's two readers (#971) and
+    the client's four already read `origin`; the prompt is the irreversible
+    half and goes last, tolerate before emit.
+
+    Presence first, because the absence of "goes NOWHERE" is true of text that
+    never had the rule and proves nothing alone. Seen red against v31 on the
+    first assertion before it was trusted green against v32."""
+    tail = _output_schema(cfg)
+    # The schema line declares the key and its only two values.
+    assert '"origin": "applicant" or "capture_gap"}' in tail
+    # Absent means applicant, stated, so a shipped client and GP's readers
+    # (which both default an absent key to applicant) match the prompt.
+    assert 'Omit `origin` or write "applicant" for the ordinary deferral' in tail
+    assert "Never any other string" in tail
+
+    sp = cfg["systemPrompt"]
+    assert sp.count("A PASSING MENTION OF A FACT YOU CANNOT RECORD") == 1
+    assert "A capture gap NEVER closes a slot" in sp
+    assert "said earlier, not yet recorded, ask again" in sp
+    # v30's disclosure rule covers the new origin too, not only applicant.
+    assert "a capture gap in `deferred` is named in the reply, unconditionally" in sp
+    assert sp.count("AND THE CLAUSE MUST NOT BE CONDITIONAL") == 1
+
+    # The v31 passage v32 re-rules must be GONE, or two sentences in one
+    # paragraph disagree about "I've had my green card since 2019", the shape
+    # that came back as 11 of 39 unstable turns.
+    assert "goes NOWHERE" not in sp
+    assert "It is never for a fact the applicant stated plainly" not in sp
+    # The one clause of it that was never about capture survives verbatim.
+    assert "A deferral is never for a decision about whether something should be disclosed." in sp
+
+
 def test_the_deferral_hedge_must_attach_to_every_deferred_field(cfg):
     """v29. v28 wrote this rule in the SINGULAR and every worked example
     carried one field, so a reply hedging one deferred field and stating
