@@ -12,7 +12,8 @@ Contract (CQ doc 25, 2026-09-13):
   reads it today.
 - served_patch_ids absent (a CQ build before #481) means NO served header,
   never a GP-side fallback to the candidate list.
-- served_patch_ids PRESENT and EMPTY means an EMPTY served header. CQ serves []
+- served_patch_ids PRESENT and EMPTY means the served header with the literal
+  value `none`, never an empty value, which an edge may drop. CQ serves []
   when candidates matched and no row reached the block; a missing header there
   would send SS back to the candidate list, the defect this header ends.
 
@@ -126,22 +127,22 @@ def test_served_header_caps_at_twenty_like_its_sibling():
 
 # --- present but EMPTY: candidates matched, nothing reached the block -------
 
-def test_hook_empty_served_list_is_an_empty_header_not_a_missing_one():
+def test_hook_empty_served_list_is_none_not_a_missing_header():
     """CQ's case 2 and the budget-cut case: matched candidates, served []."""
     headers = ContextQuiltHook().response_headers(
         {"cq_result": _cq_body(served_patch_ids=[])}, "enabled")
     assert "X-CQ-Served-Patch-IDs" in headers
-    assert headers["X-CQ-Served-Patch-IDs"] == ""
+    assert headers["X-CQ-Served-Patch-IDs"] == "none"
     assert headers["X-CQ-Patch-IDs"] == ",".join(MATCHED)
 
 
 @pytest.mark.parametrize("cq_wire", [_cq_body(served_patch_ids=[])], indirect=True)
 def test_route_keeps_the_empty_served_header_on_the_wire(client, pro_user, cq_wire):
-    """An empty header value has to survive the real response path, not only
-    the hook's dict, or SS sees absent and falls back to candidates."""
+    """`none` on the real response path. An EMPTY value is avoided on purpose:
+    a proxy that drops it turns "served nothing" into "field absent"."""
     resp = _chat(client, pro_user)
     assert "x-cq-served-patch-ids" in resp.headers
-    assert resp.headers["x-cq-served-patch-ids"] == ""
+    assert resp.headers["x-cq-served-patch-ids"] == "none"
 
 
 def test_cq_fallback_served_equals_candidates_passes_through_unchanged():
