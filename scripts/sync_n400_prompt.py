@@ -111,6 +111,28 @@ VERSIONS = {
             "goes NOWHERE",
         ],
     },
+    33: {
+        # DEFERRALS names Part 9: v32's capture gap measured 0 of 4 live,
+        # with the model's own raw output empty. Edit A replaced the worked
+        # example and the "nearest field id" sentence, so the old example's
+        # absence is part of the claim. v30, v31 and v32 must survive.
+        "block_anchor": "When the applicant cannot give a value",
+        "once": "The entry is the record and the reply is not",
+        "phrases": [
+            "p9.selective_service_registered",
+            "the boundary never empties `deferred`",
+            "nearest field id you can name",
+            "a capture gap is not that decision",
+            '"origin": "applicant" or "capture_gap"',     # v32's key, must survive
+            "AND THE CLAUSE MUST NOT BE CONDITIONAL",   # v30's rule, must survive
+            '"intent": an OBJECT, never a bare string',  # v31's shape, must survive
+        ],
+        "absent": [
+            "I will ask about your address when we get to that part",
+            "had my green card since 2019",
+            "goes NOWHERE",
+        ],
+    },
 }
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83

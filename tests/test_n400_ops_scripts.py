@@ -135,39 +135,69 @@ def test_v30s_rule_must_survive_into_v31():
     assert "AND THE CLAUSE MUST NOT BE CONDITIONAL" in VERSIONS[31]["phrases"]
 
 
-def _v32_bundle_prompt() -> str:
-    """The REAL repo bundle, not a synthetic string: the sync verifies the
-    served copy against this list, so the list has to pass on the bytes that
-    will be synced."""
-    root = Path(__file__).resolve().parent.parent
-    doc = json.loads((root / "config/remote/n400/interviewer-turn.json").read_text())
-    assert doc["version"] == 32, "these tests pin v32's list to v32's bundle"
-    return doc["systemPrompt"]
+def _spec_prompt(version, drop=None, extra=""):
+    """A synthetic prompt that satisfies one version's list. Used once the
+    bundle has moved past that version, so its list stays tested."""
+    spec = VERSIONS[version]
+    lines = ["preamble", spec["block_anchor"], "  " + spec["once"] + ","]
+    lines += [p for p in spec["phrases"] if p != drop]
+    return "\n".join(lines) + extra
 
 
-def test_the_v32_list_verifies_the_real_v32_bundle():
-    assert verify(_v32_bundle_prompt(), 32) is True
-
-
-def test_each_v32_phrase_is_load_bearing_on_the_real_bundle():
-    sp = _v32_bundle_prompt()
-    for phrase in [VERSIONS[32]["once"]] + VERSIONS[32]["phrases"]:
-        assert phrase in sp, phrase
-        assert verify(sp.replace(phrase, ""), 32) is False, phrase
+def test_the_v32_phrases_verify_and_each_is_load_bearing():
+    assert verify(_spec_prompt(32), 32) is True
+    for phrase in VERSIONS[32]["phrases"]:
+        assert verify(_spec_prompt(32, drop=phrase), 32) is False, phrase
 
 
 def test_v31s_rule_coming_back_fails_the_v32_read_back():
-    """Edit B REPLACED v31's passage. A served copy that still carries it has
-    two sentences disagreeing about the same case, and every presence phrase
-    would still pass, so the absence is checked explicitly."""
-    sp = _v32_bundle_prompt()
-    assert "goes NOWHERE" not in sp
-    assert verify(sp + "\n2019 goes NOWHERE, not into `deferred`", 32) is False
+    """v32's Edit B REPLACED v31's passage. A served copy that still carries
+    it has two sentences disagreeing about the same case, and every presence
+    phrase would still pass, so the absence is checked explicitly."""
+    assert verify(_spec_prompt(32, extra="\n2019 goes NOWHERE, not into `deferred`"), 32) is False
 
 
 def test_v30_and_v31_rules_must_survive_into_v32():
     assert "AND THE CLAUSE MUST NOT BE CONDITIONAL" in VERSIONS[32]["phrases"]
     assert any('"intent": an OBJECT' in p for p in VERSIONS[32]["phrases"])
+
+
+def _bundle_prompt(version: int) -> str:
+    """The REAL repo bundle, not a synthetic string: the sync verifies the
+    served copy against this list, so the list has to pass on the bytes that
+    will be synced."""
+    root = Path(__file__).resolve().parent.parent
+    doc = json.loads((root / "config/remote/n400/interviewer-turn.json").read_text())
+    assert doc["version"] == version, "these tests pin v%d's list to v%d's bundle" % (version, version)
+    return doc["systemPrompt"]
+
+
+def test_the_v33_list_verifies_the_real_v33_bundle():
+    assert verify(_bundle_prompt(33), 33) is True
+
+
+def test_each_v33_phrase_is_load_bearing_on_the_real_bundle():
+    sp = _bundle_prompt(33)
+    for phrase in [VERSIONS[33]["once"]] + VERSIONS[33]["phrases"]:
+        assert phrase in sp, phrase
+        assert verify(sp.replace(phrase, ""), 33) is False, phrase
+
+
+def test_each_retired_passage_coming_back_fails_the_v33_read_back():
+    """v33's Edit A replaced the green card example and the address line; v32
+    had already removed "goes NOWHERE". Each one reappearing must fail even
+    though every presence phrase would still pass."""
+    sp = _bundle_prompt(33)
+    for phrase in VERSIONS[33]["absent"]:
+        assert phrase not in sp, phrase
+        assert verify(sp + "\n" + phrase, 33) is False, phrase
+
+
+def test_v30_v31_and_v32_rules_must_survive_into_v33():
+    phrases = VERSIONS[33]["phrases"]
+    assert "AND THE CLAUSE MUST NOT BE CONDITIONAL" in phrases
+    assert any('"intent": an OBJECT' in p for p in phrases)
+    assert '"origin": "applicant" or "capture_gap"' in phrases
 
 
 # --- the cap read-back ------------------------------------------------------
