@@ -497,6 +497,11 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
             "n400_battery_unspoken turn_id=%s node_id=%s minted=%s spoken_chars=%d question_chars=%d",
             turn_id, battery["node_id"], ",".join(battery["minted"]),
             battery["spoken_chars"], battery["question_chars"])
+    new_text, cp_asking = drop_checkpoint_when_asking_set(new_text)
+    if cp_asking is not None:
+        logger.warning(
+            "n400_checkpoint_dropped_asking_set turn_id=%s part=%s asking=%s",
+            turn_id, cp_asking["part"], cp_asking["asking"])
     # LAST, deliberately. Every guard above reads `reply`, so the drop must not
     # hide it from them; only the copy that goes on the wire loses the key.
     new_text, unusable = drop_unusable_reply(new_text)
@@ -990,6 +995,56 @@ def checkpoint_contradicts_agenda(text: str, agenda: str | None) -> dict | None:
     return {"part": part, "open_nodes": open_nodes,
             "code": REFUSED_AGENDA_OPEN,
             "reason": CHECKPOINT_CONTRADICTION_REASON}
+
+
+REFUSED_ASKING_SET = "asking_set"
+CHECKPOINT_WITH_ASKING_REASON = (
+    "section_checkpoint on a response that already asks the next question"
+)
+
+
+def _asking_is_set(asking: object) -> bool:
+    """`asking` names a next question: a dict with a node_id, or a bare
+    non-empty string (a shape the lane has sent before and the client
+    tolerates). An empty dict or a null node_id is not a question."""
+    if isinstance(asking, dict):
+        return bool(asking.get("node_id"))
+    return isinstance(asking, str) and bool(asking.strip())
+
+
+def drop_checkpoint_when_asking_set(text: str) -> tuple[str, dict | None]:
+    """A checkpoint belongs on the turn that ASKS for confirmation, never on the
+    turn that acknowledges it and moves on.
+
+    auditor offpath2 (2026-09-15), calls 5 and 6: call 5 was a proper Part 1
+    checkpoint, asking null. She said "yes, that's right". Call 6 came back
+    with the same section_checkpoint AGAIN and asking on q_p1_full_name, so the
+    client drew a second Part 1 card with Confirm and Fix over the name
+    question, and the voice read it as a card. Walk 1 call 44 and conf-v20
+    turns 6, 7, 12, 13, 56, 57 and 77 show the same shape, so it is old.
+
+    A checkpoint proper carries asking null (the auditor's contract), so a
+    checkpoint beside a named next question is dropped and marked with a code
+    the audit can count. The reply and `asking` are left alone: the sentence
+    that moves on is right, only the card is wrong. The client backstop does
+    the same on its side; this is the floor on ours.
+    """
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, None
+    if not isinstance(turn, dict):
+        return text, None
+    cp = turn.get("section_checkpoint")
+    if not cp or not _asking_is_set(turn.get("asking")):
+        return text, None
+    asking = turn.get("asking")
+    info = {"part": cp.get("part") if isinstance(cp, dict) else None,
+            "asking": asking.get("node_id") if isinstance(asking, dict) else asking,
+            "code": REFUSED_ASKING_SET, "reason": CHECKPOINT_WITH_ASKING_REASON}
+    turn["section_checkpoint"] = None
+    turn["checkpoint_dropped"] = info
+    return json.dumps(turn, ensure_ascii=False), info
 
 
 def drop_contradicted_checkpoint(text: str, agenda: str | None) -> tuple[str, dict | None]:
