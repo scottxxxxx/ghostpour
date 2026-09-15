@@ -1,5 +1,5 @@
 {
- "version": 5,
+ "version": 6,
  "tips": [
   "Tap me to start listening",
   "I'll transcribe your conversation in real time",
@@ -7,7 +7,7 @@
   "I can identify who's speaking",
   "Try capturing a photo for visual context",
   "I'll summarize your conversation automatically",
-  "I work through your earbuds, invisible to others",
+  "I listen through the built-in mic, invisible to others",
   "Swipe down on the query button to choose context range"
  ]
 }
