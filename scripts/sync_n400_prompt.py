@@ -133,6 +133,27 @@ VERSIONS = {
             "goes NOWHERE",
         ],
     },
+    34: {
+        # The reply-shape rule: every reply opened "Got it, <her answer>"
+        # (Scott, 2026-09-15). Edit A replaced the one-line acknowledgement
+        # rule, so its absence is part of the claim. v30 to v33 must survive.
+        "block_anchor": "Keep each reply to one to three short spoken sentences",
+        "once": "A PLAIN ANSWER GETS NO ECHO",
+        "phrases": [
+            "ECHO ONLY WHAT COULD HAVE BEEN MISHEARD",
+            'never "Got it, no"',
+            "a value you do not echo is still minted",
+            "The entry is the record and the reply is not",  # v33, must survive
+            '"origin": "applicant" or "capture_gap"',     # v32's key, must survive
+            "AND THE CLAUSE MUST NOT BE CONDITIONAL",   # v30's rule, must survive
+            '"intent": an OBJECT, never a bare string',  # v31's shape, must survive
+        ],
+        "absent": [
+            "acknowledge what landed, then ask the next thing",
+            "had my green card since 2019",
+            "goes NOWHERE",
+        ],
+    },
 }
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83

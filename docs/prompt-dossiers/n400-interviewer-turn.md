@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 33
+served_version: 34
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
 thinking: disabled
-reconciled: 2026-09-15 (v33)
+reconciled: 2026-09-15 (v34)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1368,6 +1368,51 @@ the variant, the five utterances from the receipt log, three reps each. Pass is
 named p9 id, and 3 of 3 phone controls minting `p11.mobile_phone` with none.
 
 1,595 chars onto 66,878 (68,473). Version 32 to 33. Zero em or en dashes.
+
+✅ Probe PASSED 2026-09-15 (9 of 9 gap turns, 3 of 3 controls, raw output,
+unchanged after GP's guard; `qa/v33_capture_gap_probe.py`). Served and read back
+two ways; the auditor's live receipt passed 4 of 4 gap turns plus the control.
+
+## v34: a plain answer gets no echo, and the reply stops sounding like a form
+
+Scott, from his phone on 2026-09-15, six replies in a row: "Got it, Mexico. /
+Got it, Mexico. / Got it, male. / Got it, January 1st, 2021. / Got it, no." His
+words: "this sounds robotic, how would a normal person respond?"
+
+Read from the served text, not inferred: "Got it" appeared nowhere in v32 or
+v33. The rule was "Keep each reply to one to three short spoken sentences:
+acknowledge what landed, then ask the next thing", with nothing about varying
+the acknowledgement or skipping it, so the model found one form that satisfied
+it and used it every turn, including on a bare "no".
+
+⚠ The echo has a job and v34 keeps it. In a spoken app the read-back is how she
+catches a mishear, so "stop echoing" would be wrong for names, dates, numbers
+and addresses. The rule is "echo what could have been misheard, never what could
+not". A value that is not echoed is still minted, so #966's parity between the
+reply and the facts is untouched.
+
+One edit, authored by fable-auditor-f5 (who directs this lane), applied verbatim;
+anchor asserted once in the decoded and the encoded text, and confirmed unique in
+v33 before v33 served. Edit A replaces the one-line acknowledgement rule with:
+sound like the same person turn to turn; A PLAIN ANSWER GETS NO ECHO (a yes, a
+no, a sex, a marital status, an offered choice), just the next question or a
+one-word bridge that changes turn to turn; never the same opener two turns
+running, never "Got it, no"; ECHO ONLY WHAT COULD HAVE BEEN MISHEARD, spoken as
+the value inside or just before the next question; a warmer line only where it
+is earned.
+
+Sequenced AFTER v33's probe and live receipt, so the capture gap probe measured
+one change.
+
+Test: `test_a_plain_answer_gets_no_echo_and_the_opener_varies`, seen red against
+v33 before trusted green against v34. It proves the text.
+
+Pre-ship check (the auditor's): six plain answers in a row (country, country,
+sex, date, yes or no, a choice); no two consecutive replies open with the same
+word, no reply echoes the yes or no or the sex, the date is echoed once, and
+every minted fact still lands.
+
+916 chars onto 68,473 (69,389). Version 33 to 34. Zero em or en dashes.
 
 ## What is deliberately not here
 

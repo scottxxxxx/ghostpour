@@ -172,25 +172,18 @@ def _bundle_prompt(version: int) -> str:
     return doc["systemPrompt"]
 
 
-def test_the_v33_list_verifies_the_real_v33_bundle():
-    assert verify(_bundle_prompt(33), 33) is True
-
-
-def test_each_v33_phrase_is_load_bearing_on_the_real_bundle():
-    sp = _bundle_prompt(33)
-    for phrase in [VERSIONS[33]["once"]] + VERSIONS[33]["phrases"]:
-        assert phrase in sp, phrase
-        assert verify(sp.replace(phrase, ""), 33) is False, phrase
+def test_the_v33_phrases_verify_and_each_is_load_bearing():
+    assert verify(_spec_prompt(33), 33) is True
+    for phrase in VERSIONS[33]["phrases"]:
+        assert verify(_spec_prompt(33, drop=phrase), 33) is False, phrase
 
 
 def test_each_retired_passage_coming_back_fails_the_v33_read_back():
     """v33's Edit A replaced the green card example and the address line; v32
     had already removed "goes NOWHERE". Each one reappearing must fail even
     though every presence phrase would still pass."""
-    sp = _bundle_prompt(33)
     for phrase in VERSIONS[33]["absent"]:
-        assert phrase not in sp, phrase
-        assert verify(sp + "\n" + phrase, 33) is False, phrase
+        assert verify(_spec_prompt(33, extra="\n" + phrase), 33) is False, phrase
 
 
 def test_v30_v31_and_v32_rules_must_survive_into_v33():
@@ -198,6 +191,35 @@ def test_v30_v31_and_v32_rules_must_survive_into_v33():
     assert "AND THE CLAUSE MUST NOT BE CONDITIONAL" in phrases
     assert any('"intent": an OBJECT' in p for p in phrases)
     assert '"origin": "applicant" or "capture_gap"' in phrases
+
+
+def test_the_v34_list_verifies_the_real_v34_bundle():
+    assert verify(_bundle_prompt(34), 34) is True
+
+
+def test_each_v34_phrase_is_load_bearing_on_the_real_bundle():
+    sp = _bundle_prompt(34)
+    for phrase in [VERSIONS[34]["once"]] + VERSIONS[34]["phrases"]:
+        assert phrase in sp, phrase
+        assert verify(sp.replace(phrase, ""), 34) is False, phrase
+
+
+def test_each_retired_passage_coming_back_fails_the_v34_read_back():
+    """v34's Edit A replaced "acknowledge what landed, then ask the next
+    thing", the one-line rule the model satisfied with "Got it, <answer>" on
+    every turn. Its return must fail even though every presence phrase passes."""
+    sp = _bundle_prompt(34)
+    for phrase in VERSIONS[34]["absent"]:
+        assert phrase not in sp, phrase
+        assert verify(sp + "\n" + phrase, 34) is False, phrase
+
+
+def test_v30_to_v33_rules_must_survive_into_v34():
+    phrases = VERSIONS[34]["phrases"]
+    assert "AND THE CLAUSE MUST NOT BE CONDITIONAL" in phrases
+    assert any('"intent": an OBJECT' in p for p in phrases)
+    assert '"origin": "applicant" or "capture_gap"' in phrases
+    assert "The entry is the record and the reply is not" in phrases
 
 
 # --- the cap read-back ------------------------------------------------------
