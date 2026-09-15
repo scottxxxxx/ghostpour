@@ -91,6 +91,26 @@ VERSIONS = {
             "if you can find it",                         # and its counterweight
         ],
     },
+    32: {
+        # The schema block, where the `deferred` line lives. deferred.origin:
+        # a capture gap is owed TO her. Edit B REPLACED v31's "goes NOWHERE"
+        # passage, so its absence is part of the claim; v30's rule and v31's
+        # object intent must survive.
+        "block_anchor": '{\n  "schema_version": 1,',
+        "once": '"origin": "applicant" or "capture_gap"',
+        "phrases": [
+            "A PASSING MENTION OF A FACT YOU CANNOT RECORD",
+            "said earlier, not yet recorded, ask again",
+            "A capture gap NEVER closes a slot",
+            "AND THE CLAUSE MUST NOT BE CONDITIONAL",   # v30's rule, must survive
+            '"intent": an OBJECT, never a bare string',  # v31's shape, must survive
+        ],
+        # Absence is checked only beside the presence phrases above: on its own
+        # it is true of text that never had the rule.
+        "absent": [
+            "goes NOWHERE",
+        ],
+    },
 }
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
@@ -179,6 +199,12 @@ def verify(sp: str, version: int) -> bool:
         present = phrase in sp
         ok &= present
         print("  %-52s %s" % (phrase[:52], "OK" if present else "*** MISSING ***"))
+
+    for phrase in spec.get("absent", []):
+        count = sp.count(phrase)
+        ok &= count == 0
+        print("  %-52s %s" % (phrase[:52], "absent  OK" if count == 0
+                              else "*** STILL PRESENT x%d ***" % count))
 
     # Present SOMEWHERE in the document is not the claim; it has to be in the
     # block. The block is located by its own text and the once phrase must
