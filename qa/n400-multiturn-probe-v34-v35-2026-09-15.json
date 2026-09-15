@@ -1,0 +1,625 @@
+{
+ "results": [
+  {
+   "pass": true,
+   "checks": {
+    "openers_vary": true,
+    "no_male_echo": true,
+    "no_no_echo": true,
+    "date_echoed_once": true,
+    "all_six_minted": true
+   },
+   "openers": [
+    "mexico",
+    "great",
+    "thanks",
+    "january",
+    "understood",
+    "okay"
+   ],
+   "got_it": 1,
+   "date_hits": [
+    0,
+    0,
+    0,
+    1,
+    0,
+    0
+   ],
+   "replies": [
+    "Mexico, got it. And what is your country of citizenship or nationality?",
+    "Great. Are you male or female?",
+    "Thanks. What date did you become a permanent resident?",
+    "January 1st, 2021, thank you. Was your mother or father, including an adoptive parent, a U.S. citizen before your 18th birthday?",
+    "Understood. Do you have any physical, developmental, or mental impairment that keeps you from being able to show your English and civics knowledge for the test?",
+    "Okay. And what is your Social Security number?"
+   ],
+   "facts": {
+    "p2.country_of_birth": "Mexico",
+    "p2.country_of_nationality": "Mexico",
+    "p2.gender": "male",
+    "p2.lpr_date": "2021-01-01",
+    "p2.parent_citizen_before_18": "no",
+    "p2.disability_exemption": "no"
+   },
+   "probe": "v34",
+   "rep": 0,
+   "run": "probe-v34-140533-r0"
+  },
+  {
+   "pass": true,
+   "checks": {
+    "openers_vary": true,
+    "no_male_echo": true,
+    "no_no_echo": true,
+    "date_echoed_once": true,
+    "all_six_minted": true
+   },
+   "openers": [
+    "mexico",
+    "great",
+    "thanks",
+    "got",
+    "understood",
+    "okay"
+   ],
+   "got_it": 2,
+   "date_hits": [
+    0,
+    0,
+    0,
+    1,
+    0,
+    0
+   ],
+   "replies": [
+    "Mexico, got it. And what is your country of citizenship or nationality?",
+    "Great. Are you male or female?",
+    "Thanks. What date did you become a permanent resident?",
+    "Got it, January 1st, 2021. Was your mother or father, including an adoptive parent, a U.S. citizen before your 18th birthday?",
+    "Understood. Do you have a physical or developmental disability or mental impairment that keeps you from being able to show your English and civics knowledge for the test?",
+    "Okay. And what is your Social Security number?"
+   ],
+   "facts": {
+    "p2.country_of_birth": "Mexico",
+    "p2.country_of_nationality": "Mexico",
+    "p2.gender": "male",
+    "p2.lpr_date": "2021-01-01",
+    "p2.parent_citizen_before_18": "no",
+    "p2.disability_exemption": "no"
+   },
+   "probe": "v34",
+   "rep": 1,
+   "run": "probe-v34-140533-r1"
+  },
+  {
+   "pass": false,
+   "checks": {
+    "openers_vary": false,
+    "no_male_echo": true,
+    "no_no_echo": true,
+    "date_echoed_once": true,
+    "all_six_minted": true
+   },
+   "openers": [
+    "got",
+    "thanks",
+    "thanks",
+    "january",
+    "okay",
+    "okay"
+   ],
+   "got_it": 1,
+   "date_hits": [
+    0,
+    0,
+    0,
+    1,
+    0,
+    0
+   ],
+   "replies": [
+    "Got it, Mexico. And what is your country of citizenship or nationality?",
+    "Thanks. Are you male or female?",
+    "Thanks. What date did you become a permanent resident?",
+    "January 1st, 2021, noted. Was your mother or father a U.S. citizen before your 18th birthday?",
+    "Okay. Do you have a physical, developmental, or mental disability that keeps you from being able to take the English and civics test?",
+    "Okay. And what is your Social Security number?"
+   ],
+   "facts": {
+    "p2.country_of_birth": "Mexico",
+    "p2.country_of_nationality": "Mexico",
+    "p2.gender": "male",
+    "p2.lpr_date": "2021-01-01",
+    "p2.parent_citizen_before_18": "no",
+    "p2.disability_exemption": "no"
+   },
+   "probe": "v34",
+   "rep": 2,
+   "run": "probe-v34-140533-r2"
+  },
+  {
+   "pass": false,
+   "checks": {
+    "step1_asks_day_with_way_out": false,
+    "step1_defers_nothing": false,
+    "step2_mints_from_2019_01_15": false,
+    "step2_asks_moved_out_day": true,
+    "step3_defers_to": true,
+    "step3_partial_2020_01": true,
+    "step3_does_not_ask_day_again": false
+   },
+   "replies": [
+    "Got the address in Santiago, and I've noted January 2019 to January 2020 to confirm the exact days later. Before that, did you live anywhere else in the last 5 years?",
+    "Got it, the 15th, but I want to make sure which date that's for: the 15th of January 2019 when you moved in, or the 15th of January 2020 when you moved out?",
+    "No problem, I've left both exact days open to verify later. Was that address in a Chilean state or region, and was there any apartment or unit number?"
+   ],
+   "minted_step2": {},
+   "deferred": [
+    {
+     "field_id": "p4.prior_address1.from",
+     "reason": "only month and year given, exact day not stated",
+     "partial_value": "2019-01",
+     "origin": "applicant",
+     "turn": 2
+    },
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "only month and year given, exact day not stated",
+     "partial_value": "2020-01",
+     "origin": "applicant",
+     "turn": 2
+    },
+    {
+     "field_id": "p4.prior_address1.from",
+     "reason": "applicant unsure of exact day, will verify from a document",
+     "partial_value": "2019-01",
+     "origin": "applicant",
+     "turn": 4
+    },
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "applicant unsure of exact day, will verify from a document",
+     "partial_value": "2020-01",
+     "origin": "applicant",
+     "turn": 4
+    }
+   ],
+   "probe": "v35",
+   "rep": 0,
+   "run": "probe-v35-140533-r0"
+  },
+  {
+   "pass": false,
+   "checks": {
+    "step1_asks_day_with_way_out": false,
+    "step1_defers_nothing": false,
+    "step2_mints_from_2019_01_15": true,
+    "step2_asks_moved_out_day": true,
+    "step3_defers_to": false,
+    "step3_partial_2020_01": true,
+    "step3_does_not_ask_day_again": true
+   },
+   "replies": [
+    "Got the address in Santiago, Chile. What day in January 2019 did you move in there?",
+    "January 15th, 2020, noted, and I've kept the move-out date to verify. Was there an apartment or unit number, and what state is Santiago in, if applicable?",
+    "No problem, we'll leave those blank since Santiago doesn't use a state or unit here. Before that, did you live anywhere else in the last 5 years?"
+   ],
+   "minted_step2": {
+    "p4.prior_address1.from": "2019-01-15"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.prior_address1.from",
+     "reason": "only month and year given, exact day not stated",
+     "partial_value": "2019-01",
+     "origin": "applicant",
+     "turn": 2
+    },
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "only month and year given, exact day not stated",
+     "partial_value": "2020-01",
+     "origin": "applicant",
+     "turn": 2
+    },
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "to verify from a document",
+     "partial_value": "2020-01",
+     "origin": "applicant",
+     "turn": 3
+    }
+   ],
+   "probe": "v35",
+   "rep": 1,
+   "run": "probe-v35-140533-r1"
+  },
+  {
+   "pass": false,
+   "checks": {
+    "step1_asks_day_with_way_out": false,
+    "step1_defers_nothing": false,
+    "step2_mints_from_2019_01_15": true,
+    "step2_asks_moved_out_day": true,
+    "step3_defers_to": true,
+    "step3_partial_2020_01": true,
+    "step3_does_not_ask_day_again": false
+   },
+   "replies": [
+    "Got it, Santiago, Chile. I've noted January 2019 and January 2020, but I'll need the exact days, do you know what day you moved in?",
+    "Great, January 15th, 2020 it is. And what day did you move out, or should I leave that one to check later?",
+    "No problem, I'll leave that exact day open to verify. Was there an apartment or unit number, and which state or region is Santiago in?"
+   ],
+   "minted_step2": {
+    "p4.prior_address1.from": "2019-01-15"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.prior_address1.from",
+     "reason": "only month and year given, exact day needed",
+     "partial_value": "2019-01",
+     "origin": "applicant",
+     "turn": 2
+    },
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "only month and year given, exact day needed",
+     "partial_value": "2020-01",
+     "origin": "applicant",
+     "turn": 2
+    },
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "exact move-out day to verify from a document",
+     "partial_value": "2020-01",
+     "origin": "applicant",
+     "turn": 3
+    },
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "applicant not sure of exact move-out day, will verify from a document",
+     "partial_value": "2020-01",
+     "origin": "applicant",
+     "turn": 4
+    }
+   ],
+   "probe": "v35",
+   "rep": 2,
+   "run": "probe-v35-140533-r2"
+  }
+ ],
+ "calls": [
+  {
+   "version": 34,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 3.4,
+   "in": 4020,
+   "out": 171,
+   "cache_read": 0,
+   "cache_write": 22474
+  },
+  {
+   "version": 34,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 3.1,
+   "in": 4047,
+   "out": 255,
+   "cache_read": 22474,
+   "cache_write": 0
+  },
+  {
+   "version": 34,
+   "turn_id": "t_003",
+   "stop": "end_turn",
+   "secs": 3.0,
+   "in": 4049,
+   "out": 227,
+   "cache_read": 22474,
+   "cache_write": 0
+  },
+  {
+   "version": 34,
+   "turn_id": "t_004",
+   "stop": "end_turn",
+   "secs": 4.0,
+   "in": 4183,
+   "out": 278,
+   "cache_read": 22474,
+   "cache_write": 0
+  },
+  {
+   "version": 34,
+   "turn_id": "t_005",
+   "stop": "end_turn",
+   "secs": 5.1,
+   "in": 4300,
+   "out": 332,
+   "cache_read": 22474,
+   "cache_write": 0
+  },
+  {
+   "version": 34,
+   "turn_id": "t_006",
+   "stop": "end_turn",
+   "secs": 3.4,
+   "in": 4424,
+   "out": 267,
+   "cache_read": 22474,
+   "cache_write": 0
+  },
+  {
+   "version": 34,
+   "turn_id": "t_007",
+   "stop": "end_turn",
+   "secs": 2.8,
+   "in": 4422,
+   "out": 226,
+   "cache_read": 22474,
+   "cache_write": 0
+  },
+  {
+   "version": 34,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 3.2,
+   "in": 4020,
+   "out": 176,
+   "cache_read": 22474,
+   "cache_write": 0
+  },
+  {
+   "version": 34,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 3.8,
+   "in": 4052,
+   "out": 312,
+   "cache_read": 22474,
+   "cache_write": 0
+  },
+  {
+   "version": 34,
+   "turn_id": "t_003",
+   "stop": "end_turn",
+   "secs": 3.5,
+   "in": 4054,
+   "out": 227,
+   "cache_read": 22474,
+   "cache_write": 0
+  },
+  {
+   "version": 34,
+   "turn_id": "t_004",
+   "stop": "end_turn",
+   "secs": 2.5,
+   "in": 4188,
+   "out": 230,
+   "cache_read": 22474,
+   "cache_write": 0
+  },
+  {
+   "version": 34,
+   "turn_id": "t_005",
+   "stop": "end_turn",
+   "secs": 3.8,
+   "in": 4305,
+   "out": 280,
+   "cache_read": 22474,
+   "cache_write": 0
+  },
+  {
+   "version": 34,
+   "turn_id": "t_006",
+   "stop": "end_turn",
+   "secs": 4.5,
+   "in": 4429,
+   "out": 268,
+   "cache_read": 22474,
+   "cache_write": 0
+  },
+  {
+   "version": 34,
+   "turn_id": "t_007",
+   "stop": "end_turn",
+   "secs": 3.1,
+   "in": 4428,
+   "out": 226,
+   "cache_read": 22474,
+   "cache_write": 0
+  },
+  {
+   "version": 34,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 2.7,
+   "in": 4019,
+   "out": 206,
+   "cache_read": 22474,
+   "cache_write": 0
+  },
+  {
+   "version": 34,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 3.7,
+   "in": 4087,
+   "out": 308,
+   "cache_read": 22474,
+   "cache_write": 0
+  },
+  {
+   "version": 34,
+   "turn_id": "t_003",
+   "stop": "end_turn",
+   "secs": 2.5,
+   "in": 4090,
+   "out": 229,
+   "cache_read": 22474,
+   "cache_write": 0
+  },
+  {
+   "version": 34,
+   "turn_id": "t_004",
+   "stop": "end_turn",
+   "secs": 2.5,
+   "in": 4226,
+   "out": 219,
+   "cache_read": 22474,
+   "cache_write": 0
+  },
+  {
+   "version": 34,
+   "turn_id": "t_005",
+   "stop": "end_turn",
+   "secs": 3.2,
+   "in": 4343,
+   "out": 269,
+   "cache_read": 22474,
+   "cache_write": 0
+  },
+  {
+   "version": 34,
+   "turn_id": "t_006",
+   "stop": "end_turn",
+   "secs": 3.0,
+   "in": 4456,
+   "out": 260,
+   "cache_read": 22474,
+   "cache_write": 0
+  },
+  {
+   "version": 34,
+   "turn_id": "t_007",
+   "stop": "end_turn",
+   "secs": 3.0,
+   "in": 4447,
+   "out": 226,
+   "cache_read": 22474,
+   "cache_write": 0
+  },
+  {
+   "version": 35,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 4.0,
+   "in": 3945,
+   "out": 301,
+   "cache_read": 0,
+   "cache_write": 22672
+  },
+  {
+   "version": 35,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 6.9,
+   "in": 4045,
+   "out": 908,
+   "cache_read": 22672,
+   "cache_write": 0
+  },
+  {
+   "version": 35,
+   "turn_id": "t_003",
+   "stop": "end_turn",
+   "secs": 3.3,
+   "in": 4075,
+   "out": 333,
+   "cache_read": 22672,
+   "cache_write": 0
+  },
+  {
+   "version": 35,
+   "turn_id": "t_004",
+   "stop": "end_turn",
+   "secs": 4.6,
+   "in": 4221,
+   "out": 368,
+   "cache_read": 22672,
+   "cache_write": 0
+  },
+  {
+   "version": 35,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 3.4,
+   "in": 3948,
+   "out": 287,
+   "cache_read": 22672,
+   "cache_write": 0
+  },
+  {
+   "version": 35,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 6.5,
+   "in": 4041,
+   "out": 814,
+   "cache_read": 22672,
+   "cache_write": 0
+  },
+  {
+   "version": 35,
+   "turn_id": "t_003",
+   "stop": "end_turn",
+   "secs": 3.8,
+   "in": 4043,
+   "out": 345,
+   "cache_read": 22672,
+   "cache_write": 0
+  },
+  {
+   "version": 35,
+   "turn_id": "t_004",
+   "stop": "end_turn",
+   "secs": 3.9,
+   "in": 4111,
+   "out": 206,
+   "cache_read": 22672,
+   "cache_write": 0
+  },
+  {
+   "version": 35,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 3.8,
+   "in": 3947,
+   "out": 300,
+   "cache_read": 22672,
+   "cache_write": 0
+  },
+  {
+   "version": 35,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 7.0,
+   "in": 4046,
+   "out": 832,
+   "cache_read": 22672,
+   "cache_write": 0
+  },
+  {
+   "version": 35,
+   "turn_id": "t_003",
+   "stop": "end_turn",
+   "secs": 4.5,
+   "in": 4068,
+   "out": 322,
+   "cache_read": 22672,
+   "cache_write": 0
+  },
+  {
+   "version": 35,
+   "turn_id": "t_004",
+   "stop": "end_turn",
+   "secs": 4.3,
+   "in": 4117,
+   "out": 305,
+   "cache_read": 22672,
+   "cache_write": 0
+  }
+ ],
+ "cost_usd": 0.6322
+}
