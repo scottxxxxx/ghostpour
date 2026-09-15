@@ -78,6 +78,23 @@ RECALL_USE_GUARD = (
 )
 
 
+SERVED_NONE = "none"
+
+
+def _served_header_value(served_ids: list) -> str:
+    """X-CQ-Served-Patch-IDs for a PRESENT served list.
+
+    An empty list is the literal `none`, never an empty value. Some proxies
+    and edges drop a header whose value is empty, and a dropped header reads
+    on the device as "CQ did not send the field", which sends SS back to the
+    candidate list: the defect this header exists to end. GP's own route
+    keeps an empty value, but the edge between GP and the device and SS's
+    header read were never checked (CQ's point, 2026-09-15). Patch ids are
+    UUIDs, so `none` cannot collide with one.
+    """
+    return ",".join(served_ids[:20]) if served_ids else SERVED_NONE
+
+
 class ContextQuiltHook:
     def __init__(self, feature_def: FeatureDefinition | None = None):
         self._skip_modes = set(feature_def.capture_skip_modes) if feature_def else set()
@@ -460,6 +477,23 @@ class ContextQuiltHook:
         cq_result = hook_result.get("cq_result", {})
         matched = cq_result.get("matched_entities", [])
         patch_ids = cq_result.get("matched_patch_ids", [])
+        # CQ #481: the ids whose text actually reached the recall block, in
+        # scorer order. matched_patch_ids is the candidate list from a second
+        # scorer and includes rows the budget cut, so the SS teaser showed
+        # patches the model never saw. Forwarded beside X-CQ-Patch-IDs, which
+        # stays byte-identical because SS reads it today. Absent from CQ (a
+        # build before #481) means no header, NOT a fallback to the candidate
+        # list here: SS falls back itself, and a GP fallback would make the
+        # two headers indistinguishable on the wire.
+        # ⚠ PRESENT BUT EMPTY is a different claim from absent, and it is
+        # sent as the literal `none` (see _served_header_value). CQ serves [] when candidates matched but
+        # no row reached the block (their read of src/main.py, 2026-09-15).
+        # Dropping the header there would make SS fall back to the candidate
+        # list and show exactly the patches the model never saw, which is the
+        # defect this header exists to end.
+        served_ids = cq_result.get("served_patch_ids")
+        if not isinstance(served_ids, list):
+            served_ids = None
         gated = hook_result.get("gated", False)
 
         if feature_state == "enabled" and matched:
@@ -467,6 +501,8 @@ class ContextQuiltHook:
             headers["X-CQ-Entities"] = ",".join(matched[:10])
             if patch_ids:
                 headers["X-CQ-Patch-IDs"] = ",".join(patch_ids[:20])
+            if served_ids is not None:
+                headers["X-CQ-Served-Patch-IDs"] = _served_header_value(served_ids)
         elif gated:
             headers["X-CQ-Matched"] = str(len(matched))
             headers["X-CQ-Gated"] = "true"
@@ -474,6 +510,8 @@ class ContextQuiltHook:
                 headers["X-CQ-Entities"] = ",".join(matched[:10])
             if patch_ids:
                 headers["X-CQ-Patch-IDs"] = ",".join(patch_ids[:20])
+            if served_ids is not None:
+                headers["X-CQ-Served-Patch-IDs"] = _served_header_value(served_ids)
 
         return headers
 
