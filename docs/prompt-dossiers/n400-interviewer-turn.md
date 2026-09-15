@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 32
+served_version: 33
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
 thinking: disabled
-reconciled: 2026-09-14 (v32)
+reconciled: 2026-09-15 (v33)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1315,6 +1315,59 @@ presence first, SEEN RED against v31 before trusted green against v32.
 
 1,627 chars onto 65,251 (66,878). Version 31 to 32. Zero em or en dashes; the
 one spaced hyphen in the prompt predates this change.
+
+## v33: the capture gap names Part 9, and the reply is not the record
+
+v32 served and measured 0 of 4 on the live lane (auditor, 2026-09-15). In Part
+1, "I got arrested once back in 2015, it was a DUI", "I registered for
+selective service when I turned 18" (twice) and "I got a speeding ticket in
+2019, paid it" each came back with the reply saying "noted" and `deferred: []`.
+A cell number in the same position minted `p11.mobile_phone`, so volunteering
+in window was healthy; only the no-field-id case was empty.
+
+⚠ PROVED ON GP'S SIDE, not inferred from the wire: `usage_log.metadata.raw_response`
+for all ten turns shows the MODEL's own JSON with `deferred: []` and
+`stop_reason: end_turn`. No guard dropped an entry, and it was not a token
+ceiling.
+
+Four competing explanations, none confirmed by reading alone: (1) "the nearest
+field id you can name" asks for an id the lane has never been shown; (2) the
+closing "never for a decision about whether something should be disclosed"
+clause reads arrests and tickets as that decision; (3) the reply says "noted",
+which satisfies the turn while the wire stays empty; (4) Selective Service
+breaks (1) and (2), because its id `p9.selective_service_applies` is printed
+in the prompt and it is a plain fact, and it was still empty twice. The window
+change on the client made the old worked example in-window, so it no longer
+exercised the rule at all.
+
+Two edits, authored by fable-auditor-f5, applied verbatim with both anchors
+asserted once in the decoded and the encoded text. Edit A replaces the passage
+from "write the entry with the nearest field id" through the green card
+example: the entry is the record and the reply is not; Part 9 is named as the
+only fields out of view before Part 9; five real ids from the client's
+FormTemplates (`p9.arrested_ever`, `p9.selective_service_registered`,
+`p9.selective_service_date`, `p9.overdue_taxes`, `p9.registered_or_voted`);
+Selective Service and the speeding ticket as worked examples; a capture gap
+rides beside an escalation, so the attorney boundary never empties `deferred`;
+the nearest-id fallback kept for anything else. Edit B adds one clause: a
+capture gap is not a disclosure decision, it is the record that she disclosed.
+Together they address all four explanations at once, which is why a pre-ship
+probe, not this test, is the evidence.
+
+⚠ GP's `form-knowledge.json` carries only the three oath ids for Part 9. No GP
+guard gates on that file (checked: the guards key on the agenda and on facts
+minted in the same response), so the five ids need nothing added on GP.
+
+Test: `test_the_capture_gap_names_part_9_and_the_entry_is_the_record`, seen red
+against v32 before trusted green against v33. It proves the text, not the
+behaviour.
+
+Pre-ship probe, ruled by the auditor: direct API, served prompt swapped for
+the variant, the five utterances from the receipt log, three reps each. Pass is
+9 of 9 gap turns with exactly one `deferred` entry, origin "capture_gap", on the
+named p9 id, and 3 of 3 phone controls minting `p11.mobile_phone` with none.
+
+1,595 chars onto 66,878 (68,473). Version 32 to 33. Zero em or en dashes.
 
 ## What is deliberately not here
 

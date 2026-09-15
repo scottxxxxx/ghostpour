@@ -562,8 +562,44 @@ def test_deferred_entries_declare_origin_and_absent_means_applicant(cfg):
     # that came back as 11 of 39 unstable turns.
     assert "goes NOWHERE" not in sp
     assert "It is never for a fact the applicant stated plainly" not in sp
-    # The one clause of it that was never about capture survives verbatim.
-    assert "A deferral is never for a decision about whether something should be disclosed." in sp
+    # The one clause of it that was never about capture survives. v33 extends
+    # it with a clause after a semicolon, so the sentence opening is pinned.
+    assert "A deferral is never for a decision about whether something should be disclosed" in sp
+
+
+def test_the_capture_gap_names_part_9_and_the_entry_is_the_record(cfg):
+    """v33. v32's capture gap measured 0 of 4 on the live lane (auditor,
+    2026-09-15): a DUI, Selective Service twice and a speeding ticket said in
+    Part 1 each got "noted" in the reply and `deferred: []`, and GP read the
+    model's RAW output to confirm the entry was never generated. v33 names Part
+    9 as the only fields out of view before Part 9, gives real ids from the
+    client's FormTemplates, replaces the in-window green card example, and says
+    the reply is not the record.
+
+    Presence first, seen red against v32 on the first assertion before trusted
+    green against v33. A green test here says the TEXT is in the prompt, not
+    that the lane obeys it; the pre-ship probe is the evidence for that."""
+    sp = cfg["systemPrompt"]
+    assert sp.count("The entry is the record and the reply is not") == 1
+    assert "beside an empty `deferred` is a fact lost" in sp
+    assert "Never say you noted something you did not put in `deferred`" in sp
+    # Part 9 named, with the ids the lane must use.
+    assert "The fields that are never in front of you before Part 9 are Part 9's own" in sp
+    for pid in ("p9.arrested_ever", "p9.selective_service_registered",
+                "p9.selective_service_date", "p9.overdue_taxes", "p9.registered_or_voted"):
+        assert f"`{pid}`" in sp, pid
+    # Both worked examples are OUT of window before Part 9 by construction.
+    assert 'field_id "p9.selective_service_registered", origin "capture_gap"' in sp
+    assert 'field_id "p9.arrested_ever", origin "capture_gap", partial_value "speeding ticket in 2019, paid"' in sp
+    # The attorney boundary never empties deferred.
+    assert "the boundary never empties `deferred`" in sp
+    # Edit B: a capture gap is not a disclosure decision.
+    assert "a capture gap is not that decision, it is the record that she disclosed" in sp
+    # The fallback moved rather than vanished.
+    assert sp.count("the nearest field id you can name") == 1
+    # The retired example and line are gone.
+    assert "had my green card since 2019" not in sp
+    assert "I will ask about your address when we get to that part" not in sp
 
 
 def test_the_deferral_hedge_must_attach_to_every_deferred_field(cfg):
