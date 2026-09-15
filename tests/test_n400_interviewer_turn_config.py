@@ -602,6 +602,34 @@ def test_the_capture_gap_names_part_9_and_the_entry_is_the_record(cfg):
     assert "I will ask about your address when we get to that part" not in sp
 
 
+def test_a_plain_answer_gets_no_echo_and_the_opener_varies(cfg):
+    """v34. Scott, from his phone 2026-09-15: six replies in a row opened
+    "Got it, Mexico. / Got it, Mexico. / Got it, male. / Got it, January 1st,
+    2021. / Got it, no." "Got it" appeared nowhere in the served prompt; the
+    model found one form that satisfies "acknowledge what landed, then ask the
+    next thing" and repeated it. v34 keeps the echo where it has a job (a
+    spoken app mishears names, dates, numbers and addresses) and drops it where
+    it has none (a yes, a no, a sex, an offered choice).
+
+    Presence first, seen red against v33 on the first assertion before trusted
+    green against v34. A green test proves the TEXT; the pre-ship check on
+    consecutive plain answers is the evidence the lane obeys it."""
+    sp = cfg["systemPrompt"]
+    assert sp.count("A PLAIN ANSWER GETS NO ECHO") == 1
+    assert sp.count("ECHO ONLY WHAT COULD HAVE BEEN MISHEARD") == 1
+    assert "Never the same opener two turns running" in sp
+    assert 'never "Got it, no"' in sp
+    # The echo's job, stated, so a later edit cannot drop dates and numbers
+    # along with the plain answers.
+    assert "a name of a person or a place, a date, a number, an address" in sp
+    # #966's protection: an unechoed value is still minted.
+    assert "a value you do not echo is still minted" in sp
+    # The one-line rule the model was satisfying with "Got it" is gone.
+    assert "acknowledge what landed, then ask the next thing" not in sp
+    # "Got it" appears only inside the rule that forbids its worst form.
+    assert sp.count("Got it") == 1
+
+
 def test_the_deferral_hedge_must_attach_to_every_deferred_field(cfg):
     """v29. v28 wrote this rule in the SINGULAR and every worked example
     carried one field, so a reply hedging one deferred field and stating
