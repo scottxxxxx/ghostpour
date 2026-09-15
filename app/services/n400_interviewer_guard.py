@@ -1012,9 +1012,53 @@ def _asking_is_set(asking: object) -> bool:
     return isinstance(asking, str) and bool(asking.strip())
 
 
+# The client's own confirmation-ask predicate, ported verbatim from
+# N400App InterviewEngine.asksForConfirmation (2026-09-15) so GP and the client
+# decide card-versus-line on the same words. A test pins this list to the
+# Swift source wherever that repo is checked out.
+CONFIRMATION_ASKS = (
+    "complete and correct", "all correct", "is that correct", "is everything correct", "is that right",
+    "is that all right", "did i get that right", "add or change", "anything to change", "anything wrong",
+    "completo y correcto", "todo correcto", "es correcto", "está correcto", "está bien así",
+    "completo e correto", "tudo certo", "está correto", "está certo",
+)
+
+
+def asks_for_confirmation(text: str) -> bool:
+    """Whether a reply's LAST sentence asks her to confirm what was read back,
+    as opposed to asking the next question. The same rule as the client:
+    it must end in "?", and only the final sentence (split on . ! ?) counts."""
+    folded = (text or "").lower().strip()
+    if not folded.endswith("?"):
+        return False
+    parts = [p for p in re.split(r"[.!?]", folded) if p]
+    tail = parts[-1] if parts else folded
+    return any(ask in tail for ask in CONFIRMATION_ASKS)
+
+
+def _reply_texts(reply: object) -> list[str]:
+    if isinstance(reply, str):
+        return [reply]
+    if isinstance(reply, dict):
+        return [v for v in reply.values() if isinstance(v, str)]
+    return []
+
+
 def drop_checkpoint_when_asking_set(text: str) -> tuple[str, dict | None]:
     """A checkpoint belongs on the turn that ASKS for confirmation, never on the
     turn that acknowledges it and moves on.
+
+    ⚠ KEYED ON THE REPLY, NOT ON `asking` ALONE (corrected before merge, the
+    auditor, 2026-09-15). conf-v20 turn 39 is a legitimate card with `asking`
+    set: "That completes Part 4 ... Is that all complete and correct?" with
+    asking on q_p5_marital_status, and the golden expects the card. A floor
+    that read only `asking` would strip that correct card, the same inversion
+    as conf-v25b (keep the wrong claims, destroy the right ones). So the card
+    is dropped only when `asking` is set AND no locale of the reply asks for
+    confirmation in its last sentence, mirroring the client's
+    InterviewEngine rule for walk 2 call 60. The client resolves ONE locale;
+    GP has no locale here, so any locale that asks for confirmation keeps the
+    card, which errs toward keeping a correct card.
 
     auditor offpath2 (2026-09-15), calls 5 and 6: call 5 was a proper Part 1
     checkpoint, asking null. She said "yes, that's right". Call 6 came back
@@ -1037,6 +1081,8 @@ def drop_checkpoint_when_asking_set(text: str) -> tuple[str, dict | None]:
         return text, None
     cp = turn.get("section_checkpoint")
     if not cp or not _asking_is_set(turn.get("asking")):
+        return text, None
+    if any(asks_for_confirmation(t) for t in _reply_texts(turn.get("reply"))):
         return text, None
     asking = turn.get("asking")
     info = {"part": cp.get("part") if isinstance(cp, dict) else None,

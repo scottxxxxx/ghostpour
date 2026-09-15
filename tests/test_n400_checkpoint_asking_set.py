@@ -79,6 +79,69 @@ def test_no_checkpoint_means_nothing_to_drop():
     assert drop_checkpoint_when_asking_set("not json") == ("not json", None)
 
 
+# --- keyed on the reply, the client's rule (corrected before merge) --------
+
+def test_conf_v20_turn_39_keeps_its_card_although_asking_is_set():
+    """A legitimate card: the reply asks her to confirm Part 4 while `asking`
+    already names the next part. The golden expects the card, and stripping it
+    would destroy a correct claim."""
+    text = _resp(section_checkpoint={"part": 4, "awaiting_confirmation": True},
+                 asking={"node_id": "q_p5_marital_status", "field_ids": ["p5.marital_status"]},
+                 reply={"en": "That completes Part 4: 4301 Medical Parkway since March 2022. Is that all complete and correct?"})
+    out, info = drop_checkpoint_when_asking_set(text)
+    assert info is None and out == text
+
+
+def test_offpath2_call_60_drops_the_card_whose_reply_asks_the_next_question():
+    text = _resp(section_checkpoint={"part": 12, "awaiting_confirmation": True},
+                 asking={"node_id": "q_p13_preparer_gate", "field_ids": ["p13.has_preparer"]},
+                 reply={"en": "Got it, no interpreter used, that completes Part 12. "
+                              "Is someone else, like an attorney, preparing this application for you?"})
+    out, info = drop_checkpoint_when_asking_set(text)
+    assert json.loads(out)["section_checkpoint"] is None
+    assert info["part"] == 12 and info["code"] == "asking_set"
+
+
+def test_a_spanish_confirmation_ask_keeps_the_card():
+    text = _resp(section_checkpoint={"part": 8, "awaiting_confirmation": True},
+                 asking={"node_id": "q_p10_fee_reduction", "field_ids": ["p10.fee_reduction"]},
+                 reply={"es": "Confirmo la Parte 8: dos viajes a El Salvador. ¿Está todo completo y correcto?"})
+    out, info = drop_checkpoint_when_asking_set(text)
+    assert info is None and out == text
+
+
+def test_only_the_last_sentence_counts_as_the_ask():
+    """A confirmation phrase earlier in the reply, followed by the next
+    question, is a reply that moved on: the client splits on sentence ends and
+    reads the last one only."""
+    text = _resp(section_checkpoint={"part": 12, "awaiting_confirmation": True},
+                 asking={"node_id": "q_p13_preparer_gate", "field_ids": ["p13.has_preparer"]},
+                 reply={"en": "Part 12 is complete and correct? Great. Is someone preparing this application for you?"})
+    out, info = drop_checkpoint_when_asking_set(text)
+    assert info is not None
+
+
+def test_the_confirmation_list_matches_the_clients_swift_source():
+    """GP and the client must decide card versus line on the same words. The
+    Swift source lives in the N400 App repo, so this skips where that repo is
+    not checked out (CI) and runs on any machine that has both."""
+    import re
+    from pathlib import Path
+
+    import pytest
+
+    from app.services.n400_interviewer_guard import CONFIRMATION_ASKS
+
+    swift = Path("/Users/scottguida/N400 App/N400Helper/Sources/FormEngine/InterviewEngine.swift")
+    if not swift.exists():
+        pytest.skip("N400 App repo not checked out here")
+    src = swift.read_text()
+    body = src[src.index("static func asksForConfirmation"):]
+    block = body[body.index("let confirmAsks = [") : body.index("]", body.index("let confirmAsks = ["))]
+    client = tuple(re.findall(r'"([^"]+)"', block))
+    assert client == CONFIRMATION_ASKS
+
+
 def test_the_orchestrator_applies_it():
     """A guard nobody calls is decoration."""
     text = _resp(section_checkpoint=CP,
