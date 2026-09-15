@@ -135,6 +135,41 @@ def test_v30s_rule_must_survive_into_v31():
     assert "AND THE CLAUSE MUST NOT BE CONDITIONAL" in VERSIONS[31]["phrases"]
 
 
+def _v32_bundle_prompt() -> str:
+    """The REAL repo bundle, not a synthetic string: the sync verifies the
+    served copy against this list, so the list has to pass on the bytes that
+    will be synced."""
+    root = Path(__file__).resolve().parent.parent
+    doc = json.loads((root / "config/remote/n400/interviewer-turn.json").read_text())
+    assert doc["version"] == 32, "these tests pin v32's list to v32's bundle"
+    return doc["systemPrompt"]
+
+
+def test_the_v32_list_verifies_the_real_v32_bundle():
+    assert verify(_v32_bundle_prompt(), 32) is True
+
+
+def test_each_v32_phrase_is_load_bearing_on_the_real_bundle():
+    sp = _v32_bundle_prompt()
+    for phrase in [VERSIONS[32]["once"]] + VERSIONS[32]["phrases"]:
+        assert phrase in sp, phrase
+        assert verify(sp.replace(phrase, ""), 32) is False, phrase
+
+
+def test_v31s_rule_coming_back_fails_the_v32_read_back():
+    """Edit B REPLACED v31's passage. A served copy that still carries it has
+    two sentences disagreeing about the same case, and every presence phrase
+    would still pass, so the absence is checked explicitly."""
+    sp = _v32_bundle_prompt()
+    assert "goes NOWHERE" not in sp
+    assert verify(sp + "\n2019 goes NOWHERE, not into `deferred`", 32) is False
+
+
+def test_v30_and_v31_rules_must_survive_into_v32():
+    assert "AND THE CLAUSE MUST NOT BE CONDITIONAL" in VERSIONS[32]["phrases"]
+    assert any('"intent": an OBJECT' in p for p in VERSIONS[32]["phrases"])
+
+
 # --- the cap read-back ------------------------------------------------------
 
 def test_the_number_moving_on_the_server_is_the_only_success():
