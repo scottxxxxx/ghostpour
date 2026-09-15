@@ -1,0 +1,493 @@
+{
+ "prompt_version": 33,
+ "model": "claude-sonnet-5",
+ "totals": {
+  "in": 64533,
+  "out": 6603,
+  "cache_read": 310282,
+  "cache_write": 22163,
+  "calls": 15
+ },
+ "rows": [
+  {
+   "run": "v32-first-capture-gap",
+   "rep": 0,
+   "expected": "p9.arrested_ever",
+   "preregistered": true,
+   "raw_pass": true,
+   "raw": "deferred=[('p9.arrested_ever', 'capture_gap', 'arrested once in 2015, it was a DUI')]",
+   "guarded_pass": true,
+   "guarded": "deferred=[('p9.arrested_ever', 'capture_gap', 'arrested once in 2015, it was a DUI')]",
+   "stop_reason": "end_turn",
+   "ms": 5505,
+   "usage": {
+    "input_tokens": 4318,
+    "cache_creation_input_tokens": 22163,
+    "cache_read_input_tokens": 0,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 22163,
+     "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 526,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "inference_geo": "global"
+   },
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "reply": "Got it, five years on your own fits the general five year path. I'll ask about the arrest in detail when we get to that part, and that's a good question for an immigration attorney too. Now, what's your 9-digit A-Number?",
+   "text": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_002\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.eligibility_basis\",\n      \"value\": \"general_provision\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"ai_extracted\",\n        \"confidence\": 0.9,\n        \"utterance\": \"on my own, about 5 years\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p9.arrested_ever\",\n      \"reason\": \"applicant disclosed a past arrest before Part 9 was reached; not yet formally recorded\",\n      \"partial_value\": \"arrested once in 2015, it was a DUI\",\n      \"origin\": \"capture_gap\"\n    }\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": {\n    \"trigger\": \"legal_advice\",\n    \"note\": \"Applicant disclosed a 2015 DUI arrest; whether/how to report this is a question for an immigration attorney, not something this assistant can assess.\"\n  },\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p1_a_number\", \"field_ids\": [\"p1.a_number\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"Got it, five years on your own fits the general five year path. I'll ask about the arrest in detail when we get to that part, and that's a good question for an immigration attorney too. Now, what's your 9-digit A-Number?\"\n  }\n}"
+  },
+  {
+   "run": "v32-first-capture-gap",
+   "rep": 1,
+   "expected": "p9.arrested_ever",
+   "preregistered": true,
+   "raw_pass": true,
+   "raw": "deferred=[('p9.arrested_ever', 'capture_gap', 'arrested once back in 2015, it was a DUI')]",
+   "guarded_pass": true,
+   "guarded": "deferred=[('p9.arrested_ever', 'capture_gap', 'arrested once back in 2015, it was a DUI')]",
+   "stop_reason": "end_turn",
+   "ms": 5144,
+   "usage": {
+    "input_tokens": 4318,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 22163,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 513,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "inference_geo": "global"
+   },
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "reply": "Got it, five years on your own fits the general five year path. I've noted the arrest too; we'll go through it in detail later in the interview, and that's a good one to also discuss with an immigration attorney. What is your 9-digit A-Number?",
+   "text": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_002\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.eligibility_basis\",\n      \"value\": \"general_provision\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.9,\n        \"utterance\": \"on my own, about 5 years\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p9.arrested_ever\",\n      \"reason\": \"applicant disclosed an arrest before Part 9 is reached\",\n      \"partial_value\": \"arrested once back in 2015, it was a DUI\",\n      \"origin\": \"capture_gap\"\n    }\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": {\n    \"trigger\": \"legal_advice\",\n    \"note\": \"Applicant disclosed a 2015 DUI arrest; whether/how to characterize it is a question for an immigration attorney.\"\n  },\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p1_a_number\", \"field_ids\": [\"p1.a_number\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"Got it, five years on your own fits the general five year path. I've noted the arrest too; we'll go through it in detail later in the interview, and that's a good one to also discuss with an immigration attorney. What is your 9-digit A-Number?\"\n  }\n}"
+  },
+  {
+   "run": "v32-first-capture-gap",
+   "rep": 2,
+   "expected": "p9.arrested_ever",
+   "preregistered": true,
+   "raw_pass": true,
+   "raw": "deferred=[('p9.arrested_ever', 'capture_gap', 'arrested once in 2015, a DUI')]",
+   "guarded_pass": true,
+   "guarded": "deferred=[('p9.arrested_ever', 'capture_gap', 'arrested once in 2015, a DUI')]",
+   "stop_reason": "end_turn",
+   "ms": 5986,
+   "usage": {
+    "input_tokens": 4318,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 22163,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 542,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "inference_geo": "global"
+   },
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "reply": "Got it, five years on your own fits the general five-year path. I've noted the 2015 arrest and we'll cover it fully in the questions about that later; for whether it needs to be listed, that's really a question for an immigration attorney. What's your 9-digit A-Number?",
+   "text": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_002\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.eligibility_basis\",\n      \"value\": \"general_provision\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.9,\n        \"utterance\": \"on my own, about 5 years\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p9.arrested_ever\",\n      \"reason\": \"applicant disclosed an arrest before Part 9; will confirm and get details when we reach that part\",\n      \"partial_value\": \"arrested once in 2015, a DUI\",\n      \"origin\": \"capture_gap\"\n    }\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": {\"trigger\": \"legal_advice\", \"note\": \"Applicant disclosed a 2015 DUI arrest; whether/how to report it is for an immigration attorney, though the form requires disclosure of all arrests regardless of outcome.\"},\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p1_a_number\", \"field_ids\": [\"p1.a_number\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"Got it, five years on your own fits the general five-year path. I've noted the 2015 arrest and we'll cover it fully in the questions about that later; for whether it needs to be listed, that's really a question for an immigration attorney. What's your 9-digit A-Number?\"\n  }\n}"
+  },
+  {
+   "run": "v32-gap-selective",
+   "rep": 0,
+   "expected": "p9.selective_service_registered",
+   "preregistered": true,
+   "raw_pass": true,
+   "raw": "deferred=[('p9.selective_service_registered', 'capture_gap', 'registered for selective service when I turned 18')]",
+   "guarded_pass": true,
+   "guarded": "deferred=[('p9.selective_service_registered', 'capture_gap', 'registered for selective service when I turned 18')]",
+   "stop_reason": "end_turn",
+   "ms": 4955,
+   "usage": {
+    "input_tokens": 4295,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 22163,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 425,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "inference_geo": "global"
+   },
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "reply": "Five years on your own is the general five year path, so that fits. I'll ask about Selective Service again when we get to that part. Now, what is your 9-digit A-Number?",
+   "text": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_002\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.eligibility_basis\",\n      \"value\": \"general_provision\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.9,\n        \"utterance\": \"on my own, about 5 years\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p9.selective_service_registered\",\n      \"reason\": \"mentioned before Part 9 is reached; will be asked again there\",\n      \"partial_value\": \"registered for selective service when I turned 18\",\n      \"origin\": \"capture_gap\"\n    }\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p1_a_number\", \"field_ids\": [\"p1.a_number\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"Five years on your own is the general five year path, so that fits. I'll ask about Selective Service again when we get to that part. Now, what is your 9-digit A-Number?\"\n  }\n}"
+  },
+  {
+   "run": "v32-gap-selective",
+   "rep": 1,
+   "expected": "p9.selective_service_registered",
+   "preregistered": true,
+   "raw_pass": true,
+   "raw": "deferred=[('p9.selective_service_registered', 'capture_gap', 'registered for selective service when I turned 18')]",
+   "guarded_pass": true,
+   "guarded": "deferred=[('p9.selective_service_registered', 'capture_gap', 'registered for selective service when I turned 18')]",
+   "stop_reason": "end_turn",
+   "ms": 4788,
+   "usage": {
+    "input_tokens": 4295,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 22163,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 420,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "inference_geo": "global"
+   },
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "reply": "Five years on your own is the general five year path, so that fits. I'll ask about Selective Service again when we reach that part. Now, what is your 9-digit A-Number?",
+   "text": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_002\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.eligibility_basis\",\n      \"value\": \"general_provision\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.9,\n        \"utterance\": \"on my own, about 5 years\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p9.selective_service_registered\",\n      \"reason\": \"mentioned before Part 9, will be asked there\",\n      \"partial_value\": \"registered for selective service when I turned 18\",\n      \"origin\": \"capture_gap\"\n    }\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p1_a_number\", \"field_ids\": [\"p1.a_number\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"Five years on your own is the general five year path, so that fits. I'll ask about Selective Service again when we reach that part. Now, what is your 9-digit A-Number?\"\n  }\n}"
+  },
+  {
+   "run": "v32-gap-selective",
+   "rep": 2,
+   "expected": "p9.selective_service_registered",
+   "preregistered": true,
+   "raw_pass": true,
+   "raw": "deferred=[('p9.selective_service_registered', 'capture_gap', 'registered for selective service when I turned 18')]",
+   "guarded_pass": true,
+   "guarded": "deferred=[('p9.selective_service_registered', 'capture_gap', 'registered for selective service when I turned 18')]",
+   "stop_reason": "end_turn",
+   "ms": 4577,
+   "usage": {
+    "input_tokens": 4295,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 22163,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 426,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "inference_geo": "global"
+   },
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "reply": "Five years on your own is the general five year path, so that fits. I'll ask about Selective Service again when we get to that part. Now, what is your 9-digit A-Number?",
+   "text": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_002\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.eligibility_basis\",\n      \"value\": \"general_provision\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.9,\n        \"utterance\": \"on my own, about 5 years\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p9.selective_service_registered\",\n      \"reason\": \"mentioned before Part 9, will be asked again when that part is reached\",\n      \"partial_value\": \"registered for selective service when I turned 18\",\n      \"origin\": \"capture_gap\"\n    }\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p1_a_number\", \"field_ids\": [\"p1.a_number\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"Five years on your own is the general five year path, so that fits. I'll ask about Selective Service again when we get to that part. Now, what is your 9-digit A-Number?\"\n  }\n}"
+  },
+  {
+   "run": "v32-gap-ticket",
+   "rep": 0,
+   "expected": "p9.arrested_ever",
+   "preregistered": true,
+   "raw_pass": true,
+   "raw": "deferred=[('p9.arrested_ever', 'capture_gap', 'speeding ticket in 2019, paid')]",
+   "guarded_pass": true,
+   "guarded": "deferred=[('p9.arrested_ever', 'capture_gap', 'speeding ticket in 2019, paid')]",
+   "stop_reason": "end_turn",
+   "ms": 4297,
+   "usage": {
+    "input_tokens": 4303,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 22163,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 432,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "inference_geo": "global"
+   },
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "reply": "Got it, five years on your own fits the general five year path. I'll ask about that ticket when we reach that part of the form. Now, what's your 9-digit A-Number?",
+   "text": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_002\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.eligibility_basis\",\n      \"value\": \"general_provision\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.8,\n        \"utterance\": \"on my own, about 5 years\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p9.arrested_ever\",\n      \"reason\": \"applicant disclosed a speeding ticket before Part 9; will be asked in full there\",\n      \"partial_value\": \"speeding ticket in 2019, paid\",\n      \"origin\": \"capture_gap\"\n    }\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p1_a_number\", \"field_ids\": [\"p1.a_number\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"Got it, five years on your own fits the general five year path. I'll ask about that ticket when we reach that part of the form. Now, what's your 9-digit A-Number?\"\n  }\n}"
+  },
+  {
+   "run": "v32-gap-ticket",
+   "rep": 1,
+   "expected": "p9.arrested_ever",
+   "preregistered": true,
+   "raw_pass": true,
+   "raw": "deferred=[('p9.arrested_ever', 'capture_gap', 'speeding ticket in 2019, paid')]",
+   "guarded_pass": true,
+   "guarded": "deferred=[('p9.arrested_ever', 'capture_gap', 'speeding ticket in 2019, paid')]",
+   "stop_reason": "end_turn",
+   "ms": 4634,
+   "usage": {
+    "input_tokens": 4303,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 22163,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 425,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "inference_geo": "global"
+   },
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "reply": "Five years on your own fits the general five year path. I'll ask about the ticket when we get to that part of the form. Now, what is your 9-digit A-Number from your green card?",
+   "text": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_002\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.eligibility_basis\",\n      \"value\": \"general_provision\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.85,\n        \"utterance\": \"on my own, about 5 years\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p9.arrested_ever\",\n      \"reason\": \"applicant disclosed a speeding ticket before Part 9 is reached\",\n      \"partial_value\": \"speeding ticket in 2019, paid\",\n      \"origin\": \"capture_gap\"\n    }\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p1_a_number\", \"field_ids\": [\"p1.a_number\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\"en\": \"Five years on your own fits the general five year path. I'll ask about the ticket when we get to that part of the form. Now, what is your 9-digit A-Number from your green card?\"}\n}"
+  },
+  {
+   "run": "v32-gap-ticket",
+   "rep": 2,
+   "expected": "p9.arrested_ever",
+   "preregistered": true,
+   "raw_pass": true,
+   "raw": "deferred=[('p9.arrested_ever', 'capture_gap', 'speeding ticket in 2019, paid it')]",
+   "guarded_pass": true,
+   "guarded": "deferred=[('p9.arrested_ever', 'capture_gap', 'speeding ticket in 2019, paid it')]",
+   "stop_reason": "end_turn",
+   "ms": 4286,
+   "usage": {
+    "input_tokens": 4303,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 22163,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 398,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "inference_geo": "global"
+   },
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "reply": "Five years on your own green card fits the general five year path. I'll ask about the ticket when we reach that part later. Now, what is your 9-digit A-Number?",
+   "text": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_002\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.eligibility_basis\",\n      \"value\": \"general_provision\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.75, \"utterance\": \"on my own, about 5 years\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p9.arrested_ever\", \"reason\": \"mentioned before Part 9 is reached\", \"partial_value\": \"speeding ticket in 2019, paid it\", \"origin\": \"capture_gap\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p1_a_number\", \"field_ids\": [\"p1.a_number\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"Five years on your own green card fits the general five year path. I'll ask about the ticket when we reach that part later. Now, what is your 9-digit A-Number?\"\n  }\n}"
+  },
+  {
+   "run": "v32-inwindow-phone",
+   "rep": 0,
+   "expected": null,
+   "preregistered": true,
+   "raw_pass": true,
+   "raw": "facts=['p1.eligibility_basis', 'p11.mobile_phone'] deferred=0",
+   "guarded_pass": true,
+   "guarded": "facts=['p1.eligibility_basis', 'p11.mobile_phone'] deferred=0",
+   "stop_reason": "end_turn",
+   "ms": 4510,
+   "usage": {
+    "input_tokens": 4299,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 22163,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 414,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "inference_geo": "global"
+   },
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "reply": "Five years on your own is the general five year path, so that fits. I've also noted your cell number for later. Now, what is your 9 digit A-Number from your green card?",
+   "text": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_002\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.eligibility_basis\",\n      \"value\": \"general_provision\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.8, \"utterance\": \"on my own, about 5 years\"}\n    },\n    {\n      \"field_id\": \"p11.mobile_phone\",\n      \"value\": \"602 555 0142\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"my cell is 602 555 0142\"}\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p1_a_number\", \"field_ids\": [\"p1.a_number\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\"en\": \"Five years on your own is the general five year path, so that fits. I've also noted your cell number for later. Now, what is your 9 digit A-Number from your green card?\"}\n}"
+  },
+  {
+   "run": "v32-inwindow-phone",
+   "rep": 1,
+   "expected": null,
+   "preregistered": true,
+   "raw_pass": true,
+   "raw": "facts=['p1.eligibility_basis', 'p11.mobile_phone'] deferred=0",
+   "guarded_pass": true,
+   "guarded": "facts=['p1.eligibility_basis', 'p11.mobile_phone'] deferred=0",
+   "stop_reason": "end_turn",
+   "ms": 4204,
+   "usage": {
+    "input_tokens": 4299,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 22163,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 412,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "inference_geo": "global"
+   },
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "reply": "Got it, five years on your own is the general five year path, and I've saved your cell number for later. Now, what's your 9-digit A-Number from your green card?",
+   "text": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_002\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.eligibility_basis\",\n      \"value\": \"general_provision\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.85, \"utterance\": \"on my own, about 5 years\"}\n    },\n    {\n      \"field_id\": \"p11.mobile_phone\",\n      \"value\": \"6025550142\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"my cell is 602 555 0142\"}\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p1_a_number\", \"field_ids\": [\"p1.a_number\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"Got it, five years on your own is the general five year path, and I've saved your cell number for later. Now, what's your 9-digit A-Number from your green card?\"\n  }\n}"
+  },
+  {
+   "run": "v32-inwindow-phone",
+   "rep": 2,
+   "expected": null,
+   "preregistered": true,
+   "raw_pass": true,
+   "raw": "facts=['p1.eligibility_basis', 'p11.mobile_phone'] deferred=0",
+   "guarded_pass": true,
+   "guarded": "facts=['p1.eligibility_basis', 'p11.mobile_phone'] deferred=0",
+   "stop_reason": "end_turn",
+   "ms": 4211,
+   "usage": {
+    "input_tokens": 4299,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 22163,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 412,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "inference_geo": "global"
+   },
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "reply": "Five years on your own is the general five year path, so that fits. I've also saved your cell number. Now, what is your 9-digit A-Number from your green card?",
+   "text": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_002\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.eligibility_basis\",\n      \"value\": \"general_provision\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"on my own, about 5 years\"}\n    },\n    {\n      \"field_id\": \"p11.mobile_phone\",\n      \"value\": \"602 555 0142\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"my cell is 602 555 0142\"}\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p1_a_number\", \"field_ids\": [\"p1.a_number\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\"en\": \"Five years on your own is the general five year path, so that fits. I've also saved your cell number. Now, what is your 9-digit A-Number from your green card?\"}\n}"
+  },
+  {
+   "run": "v32-gap-selective-2",
+   "rep": 0,
+   "expected": "p9.selective_service_registered",
+   "preregistered": false,
+   "raw_pass": true,
+   "raw": "deferred=[('p9.selective_service_registered', 'capture_gap', 'registered for selective service when I turned 18')]",
+   "guarded_pass": true,
+   "guarded": "deferred=[('p9.selective_service_registered', 'capture_gap', 'registered for selective service when I turned 18')]",
+   "stop_reason": "end_turn",
+   "ms": 4289,
+   "usage": {
+    "input_tokens": 4296,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 22163,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 416,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "inference_geo": "global"
+   },
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "reply": "Five years on your own fits the general five-year path. I'll ask about Selective Service later in the interview. Now, what's your 9-digit A-Number from your green card?",
+   "text": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_002\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.eligibility_basis\",\n      \"value\": \"general_provision\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.85,\n        \"utterance\": \"on my own, about 5 years\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p9.selective_service_registered\",\n      \"reason\": \"mentioned before Part 9; will be asked about there\",\n      \"partial_value\": \"registered for selective service when I turned 18\",\n      \"origin\": \"capture_gap\"\n    }\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p1_a_number\", \"field_ids\": [\"p1.a_number\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\"en\": \"Five years on your own fits the general five-year path. I'll ask about Selective Service later in the interview. Now, what's your 9-digit A-Number from your green card?\"}\n}"
+  },
+  {
+   "run": "v32-gap-selective-2",
+   "rep": 1,
+   "expected": "p9.selective_service_registered",
+   "preregistered": false,
+   "raw_pass": true,
+   "raw": "deferred=[('p9.selective_service_registered', 'capture_gap', 'registered for selective service when I turned 18')]",
+   "guarded_pass": true,
+   "guarded": "deferred=[('p9.selective_service_registered', 'capture_gap', 'registered for selective service when I turned 18')]",
+   "stop_reason": "end_turn",
+   "ms": 3987,
+   "usage": {
+    "input_tokens": 4296,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 22163,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 422,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "inference_geo": "global"
+   },
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "reply": "Five years on your own fits the general five-year path. I'll ask about Selective Service again in Part 9. Now, what's your 9-digit A-Number from your green card?",
+   "text": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_002\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.eligibility_basis\",\n      \"value\": \"general_provision\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.85,\n        \"utterance\": \"on my own, about 5 years\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p9.selective_service_registered\",\n      \"reason\": \"mentioned before Part 9 is reached, will be asked properly there\",\n      \"partial_value\": \"registered for selective service when I turned 18\",\n      \"origin\": \"capture_gap\"\n    }\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p1_a_number\", \"field_ids\": [\"p1.a_number\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\"en\": \"Five years on your own fits the general five-year path. I'll ask about Selective Service again in Part 9. Now, what's your 9-digit A-Number from your green card?\"}\n}"
+  },
+  {
+   "run": "v32-gap-selective-2",
+   "rep": 2,
+   "expected": "p9.selective_service_registered",
+   "preregistered": false,
+   "raw_pass": true,
+   "raw": "deferred=[('p9.selective_service_registered', 'capture_gap', 'registered for selective service when I turned 18')]",
+   "guarded_pass": true,
+   "guarded": "deferred=[('p9.selective_service_registered', 'capture_gap', 'registered for selective service when I turned 18')]",
+   "stop_reason": "end_turn",
+   "ms": 3928,
+   "usage": {
+    "input_tokens": 4296,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 22163,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 420,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "inference_geo": "global"
+   },
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "reply": "Five years on your own is the general five year path, so that fits. I'll ask about Selective Service again in Part 9. Now, what's your 9-digit A-Number?",
+   "text": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_002\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.eligibility_basis\",\n      \"value\": \"general_provision\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.85,\n        \"utterance\": \"on my own, about 5 years\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p9.selective_service_registered\",\n      \"reason\": \"mentioned before Part 9, will be asked about there\",\n      \"partial_value\": \"registered for selective service when I turned 18\",\n      \"origin\": \"capture_gap\"\n    }\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p1_a_number\", \"field_ids\": [\"p1.a_number\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"Five years on your own is the general five year path, so that fits. I'll ask about Selective Service again in Part 9. Now, what's your 9-digit A-Number?\"\n  }\n}"
+  }
+ ]
+}
