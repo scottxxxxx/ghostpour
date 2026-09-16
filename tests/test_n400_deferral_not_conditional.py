@@ -65,9 +65,21 @@ def test_all_three_measured_failures_are_quoted_verbatim(deferrals, failure):
 
 def test_the_positive_replacement_is_given(deferrals):
     """STE and this project's own history: a prohibition without a positive
-    form leaves the model to pick a scope."""
+    form leaves the model to pick a scope.
+
+    v35b Edit D changed the EXAMPLES, not the rule. It dropped "I'll need the
+    exact day before this is finished" on purpose: that example promises the
+    day will be needed LATER, which is the exact behaviour v35 exists to
+    replace (ask the day once, now, with a way out). Keeping the assertion
+    would have pinned this file to the thing the prompt was changed to stop
+    doing. The property is unchanged and still asserted: the rule states a
+    positive form and quotes concrete examples of it."""
     assert "Say the return as a fact, not a possibility" in deferrals
-    assert "I'll need the exact day before this is finished" in deferrals
+    assert "that one stays open until you find it" in deferrals
+    assert "we'll come back to that day when you have the card" in deferrals
+    # The retired example must not come back: it and the ask-once rule
+    # contradict each other, which is what made v35's first cut probe 0 of 3.
+    assert "I'll need the exact day before this is finished" not in deferrals
 
 
 # ── the over-correction guard ─────────────────────────────────────────────

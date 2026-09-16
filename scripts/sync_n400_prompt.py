@@ -163,6 +163,42 @@ VERSIONS = {
             "goes NOWHERE",
         ],
     },
+    35: {
+        # ASK THE DAY ONCE, with a way out. Scott, build 52: "I was never
+        # prompted to provide the exact days." Shipped as five cuts (v35, v35b,
+        # v35c, v35d, v35e) after the first probed 0 of 3; each anchors on the
+        # previous cut's replacement text. v30 to v34 must survive.
+        "block_anchor": "When the applicant cannot give a value",
+        "once": "A MONTH AND A YEAR IS ASKED, NOT DEFERRED",
+        "phrases": [
+            "ONE DAY PER QUESTION",
+            "THE MOVED-OUT DAY IS THE VERY NEXT QUESTION",
+            "AND THE DAY SHE GAVE IS SAID BACK FIRST",   # v35e
+            "a day she gave and never heard back",       # v35e
+            "A promise to ASK later is not a promise to verify",
+            "as a FLOOR under you and never a move to imitate",
+            # Present TWICE (the rule and its worked example), so this is a
+            # presence check and must never become a `once`.
+            "If you don't know it offhand, we can check it later",
+            "A PLAIN ANSWER GETS NO ECHO",               # v34, must survive
+            "it never means no read-back",               # v34d, must survive
+            "The entry is the record and the reply is not",  # v33, must survive
+            '"origin": "applicant" or "capture_gap"',     # v32's key, must survive
+            "AND THE CLAUSE MUST NOT BE CONDITIONAL",   # v30's rule, must survive
+            '"intent": an OBJECT, never a bare string',  # v31's shape, must survive
+        ],
+        "absent": [
+            # v35b replaced this; it sat beside the ask-once rule and
+            # contradicted it, which is why v35's first cut probed 0 of 3.
+            "A partial date is always a deferral",
+            "VERY NEXT QUESTION: the turn after",   # v35d's passage, v35e replaced it
+            "I'll need the exact day",
+            "never demand exact days",
+            "acknowledge what landed, then ask the next thing",
+            "had my green card since 2019",
+            "goes NOWHERE",
+        ],
+    },
 }
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
