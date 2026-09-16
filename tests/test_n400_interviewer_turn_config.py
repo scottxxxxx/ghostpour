@@ -655,6 +655,54 @@ def test_a_plain_answer_gets_no_echo_and_no_opener(cfg):
     assert sp.count("Got it") == 3
 
 
+def test_the_day_is_asked_once_with_a_way_out(cfg):
+    """v35, in five cuts. Scott, build 52: "I was never prompted to provide the
+    exact days." A month and a year arrived, and the lane deferred the day
+    instead of asking for it, so a date she could have given in one breath
+    became a task she had to come back to.
+
+    The cuts, and what each probe cost. v35's first cut left "A partial date is
+    always a deferral" standing beside the new ask-once rule, two sentences
+    disagreeing about the same case, and probed 0 of 3. v35b removed it and
+    probed 0 of 3 again, on a NEW shape: both days asked in one question. v35c
+    spelled out ONE DAY PER QUESTION and got 6 of 9 in every rep, missing the
+    way out and the moved-out day. v35d attached the way out and made the
+    moved-out day the very next question, reaching 2 of 3. The one miss was
+    real: the reply asked the next day without saying back the day she had just
+    given, so the only value she had spoken was the one she could not check.
+    v35e says the day is read back first, and probed 3 of 3 on all 12 checks.
+
+    The phrases below were COUNTED against the assembled text rather than
+    copied out of the edit files. That is not fussiness: the v34 test asserted
+    a lowercase phrase from its first cut, a later cut reflowed the region into
+    sentences and capitalised it, and the assert went red on correct text."""
+    sp = cfg["systemPrompt"]
+    assert sp.count("A MONTH AND A YEAR IS ASKED, NOT DEFERRED") == 1
+    assert sp.count("ONE DAY PER QUESTION") == 1
+    # v35d: the moved-out day is asked next, before the unit or the state.
+    assert sp.count("THE MOVED-OUT DAY IS THE VERY NEXT QUESTION") == 1
+    # v35e: and the day she gave is said back before it.
+    assert sp.count("AND THE DAY SHE GAVE IS SAID BACK FIRST") == 1
+    assert sp.count("a day she gave and never heard back") == 1
+    # The way out rides IN the ask. Twice on purpose: the rule and its worked
+    # example. Counted, because a cut that dropped the example while keeping
+    # the rule would still pass a presence check.
+    assert sp.count("If you don't know it offhand, we can check it later") == 2
+    assert "A promise to ASK later is not a promise to verify" in sp
+    assert "as a FLOOR under you and never a move to imitate" in sp
+    # The contradiction that made the first cut probe 0 of 3, and the v28
+    # lines that taught the old behaviour.
+    assert "A partial date is always a deferral" not in sp
+    assert "I'll need the exact day" not in sp
+    assert "never demand exact days" not in sp
+    # v35d's passage, which v35e replaced. Its return would mean the read-back
+    # clause was dropped while the next-question rule stayed.
+    assert "VERY NEXT QUESTION: the turn after" not in sp
+    # v35 is cut FROM v34d: the reply-shape rules must ride along.
+    assert sp.count("A PLAIN ANSWER GETS NO ECHO") == 1
+    assert sp.count("it never means no read-back") == 1
+
+
 def test_the_deferral_hedge_must_attach_to_every_deferred_field(cfg):
     """v29. v28 wrote this rule in the SINGULAR and every worked example
     carried one field, so a reply hedging one deferred field and stating

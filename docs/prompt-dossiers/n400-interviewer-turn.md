@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 34
+served_version: 35
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
 thinking: disabled
-reconciled: 2026-09-15 (v34)
+reconciled: 2026-09-16 (v35)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1442,6 +1442,61 @@ times; the date led the reply rather than following an opener ("January 1st,
 2021. Was your mother or father ..."); all six facts still minted.
 
 1,548 chars onto 68,473 (70,021). Version 33 to 34. Zero em or en dashes.
+
+## v35: ask the day once, with a way out
+
+Scott, from build 52: "I was never prompted to provide the exact days." A month
+and a year arrived ("January of 2019 to January of 2020") and the lane deferred
+the day rather than asking for it, so a date she could have given in one breath
+became a task she had to come back to. The deferral was not wrong in itself; it
+was taken instead of a question that cost nothing to ask.
+
+Five cuts, all authored by fable-auditor-f5 and applied verbatim, each anchored
+on the previous cut's replacement text. What makes this entry worth reading is
+that FOUR of them were wrong, and each was wrong in a way the config test could
+not see.
+
+- **v35**: ASK THE DAY ONCE with a way out; defer only on "don't know"; never
+  defer an unasked day. Probed **0 of 3**. The text was right and it shipped
+  beside "A partial date is always a deferral", left over from v28. Two
+  sentences disagreeing about the same case, and the older one won.
+- **v35b**: removed the contradiction. Probed **0 of 3** on a NEW shape: the
+  lane asked both days in one question ("what day did you move in, and what day
+  did you move out?"), which is two questions in a spoken interview.
+- **v35c**: ONE DAY PER QUESTION, spelled out. **6 of 9 checks in every rep**.
+  It mints nothing at step 1, holds one day per question, and gets the year
+  right. It missed the way out, and never asked the moved-out day at all,
+  going to the apartment number and the state instead.
+- **v35d**: attached the way out to the ask and made the moved-out day the very
+  next question. **2 of 3**.
+- **v35e**: the day she gave is said back first. **3 of 3, all 12 checks.**
+
+⚠ v35d's single miss is the one to keep. The reply minted 2019-01-15 correctly
+and asked the moved-out day next, but never said the date back, so the one
+value she had just spoken aloud was the one value she had no chance to correct.
+The record was right and the conversation was wrong, and only a probe that
+scores the SPOKEN reply could tell. This is the same defect v34d fixed on the
+other arm, arriving from the opposite direction: v34d lost a read-back by
+removing an opener, v35d lost one by asking the next question.
+
+Test: `test_the_day_is_asked_once_with_a_way_out`. Its phrases were COUNTED
+against the assembled text rather than copied from the edit files, after the v34
+test asserted a lowercase phrase that a later cut had reflowed into
+sentence-initial position and went red on correct text.
+
+⚠ "If you don't know it offhand, we can check it later" appears TWICE on
+purpose, the rule and its worked example, so it is asserted as a count and is
+never a `once` in the sync list. A cut that dropped the example while keeping
+the rule would pass a presence check.
+
+Probe 5 (v35e, 3 reps, v35 only, 12 calls, $0.25): every rep opened step 2 with
+"January 15th, 2019." and then asked only the moved-out day with the way out;
+`from` minted 2019-01-15 every rep; the `to` deferral stood at partial 2020-01
+and no rep asked the day again. Both step-1 shapes appeared (a clarification
+with no deferral, and deferrals written while the same reply asks the day) and
+the auditor ruled both legal.
+
+2,594 chars onto 70,021 (72,615). Version 34 to 35. Zero em or en dashes.
 
 ## What is deliberately not here
 
