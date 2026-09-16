@@ -95,21 +95,43 @@ V36_TURNS_SPOUSE = ["my husband is a citizen, we've been married four years, "
                     "green card three and a half"]
 
 
+def _v36_ref() -> str:
+    """main once v36 has merged, the PR branch until then.
+
+    ⚠ THIS IS THE DEFECT THAT BROKE THE v34 ARM, fixed before it bites rather
+    than after. V34_REF pointed at a PR branch, and the moment that branch
+    merged the anchors it rebuilt from stopped existing, so every run died. A
+    ref pinned to a branch that is about to be merged and deleted is a run that
+    works until the day the thing it tests ships."""
+    for ref in ("origin/main", V36_REF):
+        try:
+            doc = git_json(ref, "config/remote/n400/interviewer-turn.json")
+        except subprocess.CalledProcessError:
+            continue
+        if doc.get("version") == 36:
+            return ref
+    raise SystemExit(
+        f"no v36 config found: neither origin/main nor {V36_REF} is version 36. "
+        "If v36 has merged and the branch is gone, fetch main; if it has not, "
+        "fetch the PR branch.")
+
+
 def configs_v36() -> dict:
-    """The v36 prompt, read whole from its PR branch. Nothing is assembled, so
-    the only things worth asserting are that the ref really is v36 and that the
-    verdict is actually gone: absence IS the version for this cut, in both
-    languages, so a ref still carrying it would probe as a pass it did not earn."""
+    """The v36 prompt, read whole. Nothing is assembled, so the only things
+    worth asserting are that the ref really is v36 and that the verdict is
+    actually gone: absence IS the version for this cut, in both languages, so a
+    ref still carrying it would probe as a pass it did not earn."""
+    ref = _v36_ref()
     names = subprocess.check_output(
-        ["git", "-C", str(ROOT), "ls-tree", "--name-only", V36_REF, "config/remote/n400/"]).decode().split()
-    out = {"n400/" + Path(n).stem: git_json(V36_REF, n) for n in names if n.endswith(".json")}
+        ["git", "-C", str(ROOT), "ls-tree", "--name-only", ref, "config/remote/n400/"]).decode().split()
+    out = {"n400/" + Path(n).stem: git_json(ref, n) for n in names if n.endswith(".json")}
     cfg = out[SLUG]
-    assert cfg["version"] == 36, f"{V36_REF} is v{cfg['version']}, not v36"
+    assert cfg["version"] == 36, f"{ref} is v{cfg['version']}, not v36"
     sp = cfg["systemPrompt"]
-    assert "NAME THE BASIS, NEVER JUDGE IT" in sp, f"{V36_REF} lacks v36's once phrase"
-    assert "that fits" not in sp, f"{V36_REF} still carries the English verdict"
-    assert "encaja" not in sp, f"{V36_REF} still carries the Spanish verdict"
-    print(f"   v36 arm: taken from {V36_REF} as is ({len(sp)} chars)")
+    assert "NAME THE BASIS, NEVER JUDGE IT" in sp, f"{ref} lacks v36's once phrase"
+    assert "that fits" not in sp, f"{ref} still carries the English verdict"
+    assert "encaja" not in sp, f"{ref} still carries the Spanish verdict"
+    print(f"   v36 arm: taken from {ref} as is ({len(sp)} chars)")
     return out
 
 
