@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 35
+served_version: 36
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
 thinking: disabled
-reconciled: 2026-09-16 (v35)
+reconciled: 2026-09-16 (v36)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1497,6 +1497,54 @@ with no deferral, and deferrals written while the same reply asks the day) and
 the auditor ruled both legal.
 
 2,594 chars onto 70,021 (72,615). Version 34 to 35. Zero em or en dashes.
+
+## v36: name the basis, never judge it
+
+Found by the auditor's LIVE RECEIPT on v34d, not by a probe and not by a test.
+Turn 2, "on my own, about six years", was answered: "Six years on your own is
+the general five year path, so that fits. Now, what is your 9-digit A-Number?"
+
+Saying the derived basis back is right, and v36 does not touch that. It is how
+she catches a wrong derivation, the same job the review card does. The harm is
+the last three words. "So that fits" presents an inference as something the form
+has checked and approved. If the derivation is wrong, the applicant has just
+been told it is fine, by the system that got it wrong, in the one moment she
+could have corrected it.
+
+⚠ The lane did not invent the phrase, and this is the part worth keeping. Our
+OWN worked example taught it: "seven years with a green card is the general five
+year path, so that fits", with "así que encaja" beside it in the Spanish, and
+the defect sentence after it said "that fits" again. Three places, two
+languages, all ours. A rule that forbade the phrase while the example kept
+modelling it would have lost, the same way v34's "acknowledge what landed"
+lost to "Got it" and v35's ask-once rule lost to "A partial date is always a
+deferral". **Check what the prompt DEMONSTRATES, not only what it instructs.**
+
+Two edits by fable-auditor-f5, applied verbatim, each anchor unique in the
+decoded and the encoded text. Edit A rewrites both worked examples to name the
+basis and stop, and adds NAME THE BASIS, NEVER JUDGE IT. Edit B rewrites the
+defect sentence so no older line keeps teaching the phrase.
+
+⚠ `MINT THAT BASIS IN THIS SAME RESPONSE` is deliberately untouched, and it is
+asserted in both the config test and the sync list. Edit A rewrites the sentence
+that CARRIES that rule, which is precisely how it would get lost by accident.
+conf-v20 is why it exists: v4's "match it to one basis and confirm it in one
+sentence" made the model treat the basis as pending the applicant's yes, so it
+minted nothing on the turn she said it and the eligibility box came back blank.
+An edit aimed at a verdict word must not reopen a blank required field.
+
+Verified independently before any file was written: assembled to 72,868 chars
+from GP's own copy, matching the auditor's number, both anchors unique, "that
+fits" 0, "encaja" 0, and v35's and v34d's rules all still present exactly once.
+The removed-phrase grep was also run across `tests/`, `scripts/` and `docs/`
+BEFORE writing, because two stale assertions were found the hard way earlier the
+same day; nothing asserts the removed text.
+
+Test: `test_the_basis_is_named_never_judged`. Absence IS the version here, so
+the verdict is asserted by count in BOTH languages: a cut that fixed only the
+English would leave the Spanish worked example still teaching it.
+
+253 chars onto 72,615 (72,868). Version 35 to 36. Zero em or en dashes.
 
 ## What is deliberately not here
 

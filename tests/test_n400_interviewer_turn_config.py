@@ -703,6 +703,45 @@ def test_the_day_is_asked_once_with_a_way_out(cfg):
     assert sp.count("it never means no read-back") == 1
 
 
+def test_the_basis_is_named_never_judged(cfg):
+    """v36. From v34d's live receipt, turn 2: "on my own, about six years" was
+    answered "Six years on your own is the general five year path, so that
+    fits."
+
+    Saying the derived basis back is RIGHT: it is how she catches a wrong
+    derivation, the same job the review card does. The harm is "so that fits",
+    which presents an inference as something the form has checked and approved.
+    If the basis is wrong, she has just been told it is fine.
+
+    The lane did not invent the phrase. Our own worked example in the
+    eligibility block taught it, in English and in Spanish ("así que encaja"),
+    and the defect sentence after it said "that fits" again. Edit A rewrote both
+    examples to name the basis and stop there; Edit B rewrote the defect
+    sentence so no older line keeps teaching it.
+
+    Absence IS the version here, so the verdict words are asserted by count in
+    both languages rather than by presence of the replacement."""
+    sp = cfg["systemPrompt"]
+    assert sp.count("NAME THE BASIS, NEVER JUDGE IT") == 1
+    assert sp.count("that's the general five year path") == 1
+    # The Spanish half carries the identical rule; a cut that fixed only the
+    # English would leave the Spanish worked example still teaching it.
+    assert sp.count("esa es la vía general de cinco años") == 1
+    assert sp.count("A reply that names a basis with an empty facts array") == 1
+    # The verdict, gone in both languages.
+    assert "that fits" not in sp
+    assert "encaja" not in sp
+    # ⚠ The rule v36 must NOT weaken. conf-v20's eligibility box came back
+    # BLANK because v4 made the basis pending the applicant's yes, so nothing
+    # was minted on the turn she said it. v36 rewrites the sentence that
+    # carries this rule, which is exactly how it would get lost.
+    assert sp.count("MINT THAT BASIS IN THIS SAME RESPONSE") == 1
+    # v36 is cut FROM v35, which is cut from v34d: all three ride along.
+    assert sp.count("AND THE DAY SHE GAVE IS SAID BACK FIRST") == 1
+    assert sp.count("A MONTH AND A YEAR IS ASKED, NOT DEFERRED") == 1
+    assert sp.count("A PLAIN ANSWER GETS NO ECHO") == 1
+
+
 def test_the_deferral_hedge_must_attach_to_every_deferred_field(cfg):
     """v29. v28 wrote this rule in the SINGULAR and every worked example
     carried one field, so a reply hedging one deferred field and stating
