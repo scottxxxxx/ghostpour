@@ -695,12 +695,47 @@ def test_the_page_wires_the_tab_and_keeps_the_panel_wrapper():
     assert '<div class="tab" data-tab="latency" onclick="switchTab(\'latency\')">Performance</div>' in src
     assert 'id="tab-latency"' in src
     for sid in ("lat-days", "lat-bucket", "lat-model", "lat-call-type", "perf-kpis", "perf-stacked",
-                "perf-main-chart", "perf-caption", "perf-model-share", "perf-models-multiples",
+                "perf-main-chart", "perf-caption", "perf-ttft-chart", "perf-ttft-note",
+                "perf-model-share", "perf-models-multiples",
                 "perf-models-table", "perf-cts-multiples", "perf-cts-table", "perf-chart-errors",
                 "perf-chart-tps", "perf-chart-streaming", "perf-chart-cost"):
         assert f'id="{sid}"' in src, f"missing #{sid}"
     # The old single-list latency block must not have come back.
     assert "latencySeries(" not in src
+
+
+# ── first token on its own chart (Scott, 2026-09-15) ──────────────────────
+#
+# On the main chart first token shared an axis sized for p99, so a 1.5s first
+# token sat flat against zero and could not be read. It now has its own chart
+# on its own scale, and the main chart's p50 view no longer draws it.
+
+@node
+def test_the_first_token_chart_reads_only_first_token_keys():
+    """Every key in FIXTURE holds a different number, so a series that read
+    total p50 instead of first-token p50 produces a different list."""
+    t = _node(f"perfTtftSeries({json.dumps(FIXTURE)})", "perfTtftSeries")
+    assert t["p50"] == [300, None, None, 250, None], "first-token p50, gaps where nothing streamed"
+    assert t["p95"] == [400, None, None, 250, None]
+    assert t["n"] == [2, 0, 0, 1, 0]
+    # Two buckets streamed; a bucket with calls but no streaming is not data.
+    assert t["withData"] == 2
+    assert _node("perfTtftSeries([])", "perfTtftSeries") == {
+        "categories": [], "p50": [], "p95": [], "n": [], "withData": 0}
+
+
+def test_first_token_moves_to_its_own_chart_and_leaves_the_main_p50_view():
+    render = _extract("renderPerformance")
+    assert "renderPerfTtft()" in render, "a chart nobody renders is decoration"
+    ttft = _extract("renderPerfTtft")
+    assert "perfTtftSeries(" in ttft and "'perf-ttft-chart'" in ttft
+    # Its own axis: the chart owns a yaxis, not a shared one from the main chart.
+    assert "yaxis:" in ttft
+    main = _extract("renderPerfMain")
+    # The p50 view no longer carries a first-token line on the p99-sized axis...
+    assert "s.ttft_p50" not in main, "first token came back onto the main chart's p50 view"
+    # ...and the stacked view still does, because there it answers a different question.
+    assert "st.ttft" in main
 
 
 def test_no_dashes_as_punctuation_in_the_new_copy():
