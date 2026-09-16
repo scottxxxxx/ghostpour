@@ -199,6 +199,46 @@ VERSIONS = {
             "goes NOWHERE",
         ],
     },
+    36: {
+        # NAME THE BASIS, NEVER JUDGE IT. From v34d's live receipt: "six years
+        # on your own is the general five year path, so that fits" reads back a
+        # DERIVED basis and then rules on it, presenting an inference as
+        # something the form has checked. The lane did not invent "that fits";
+        # our own worked example taught it, in English and in Spanish.
+        #
+        # MINT THAT BASIS IN THIS SAME RESPONSE is untouched and is in the
+        # phrase list on purpose: the blank eligibility box (conf-v20) is the
+        # defect that rule exists for, and an edit aimed at the verdict word
+        # has no business weakening the mint.
+        "block_anchor": "ELIGIBILITY",
+        "once": "NAME THE BASIS, NEVER JUDGE IT",
+        "phrases": [
+            "that's the general five year path",
+            "esa es la vía general de cinco años",   # the Spanish half, same rule
+            "A reply that names a basis with an empty facts array",
+            "MINT THAT BASIS IN THIS SAME RESPONSE",     # must SURVIVE v36
+            "AND THE DAY SHE GAVE IS SAID BACK FIRST",   # v35e, must survive
+            "A MONTH AND A YEAR IS ASKED, NOT DEFERRED",  # v35, must survive
+            "ONE DAY PER QUESTION",                      # v35c, must survive
+            "A PLAIN ANSWER GETS NO ECHO",               # v34, must survive
+            "it never means no read-back",               # v34d, must survive
+            "The entry is the record and the reply is not",  # v33, must survive
+            '"origin": "applicant" or "capture_gap"',     # v32's key, must survive
+            "AND THE CLAUSE MUST NOT BE CONDITIONAL",   # v30's rule, must survive
+            '"intent": an OBJECT, never a bare string',  # v31's shape, must survive
+        ],
+        "absent": [
+            # The verdict, in both languages. Edit A rewrote the worked example
+            # and Edit B the defect sentence, so NO older sentence is left
+            # teaching the phrase.
+            "that fits",
+            "encaja",
+            "A partial date is always a deferral",
+            "acknowledge what landed, then ask the next thing",
+            "had my green card since 2019",
+            "goes NOWHERE",
+        ],
+    },
 }
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
