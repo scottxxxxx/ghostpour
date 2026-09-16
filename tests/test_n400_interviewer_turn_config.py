@@ -742,6 +742,51 @@ def test_the_basis_is_named_never_judged(cfg):
     assert sp.count("A PLAIN ANSWER GETS NO ECHO") == 1
 
 
+def test_a_covered_window_closes_its_gate(cfg):
+    """v37. Scott, on the phone at 2:17 against v35: she said "Unemployed" for
+    the current job, gave the previous one, and the same reply that minted it
+    still asked "Before that job, anything else in the last 5 years?" though
+    2012 to 2025 already covers the window.
+
+    The cause was structural, not wording. The lane is never given today's
+    date, so it could not know where the window starts, and the rule's only
+    example said "addresses back to October 2017", which was true when it was
+    written and quietly stopped being true. v37 reads the window start from
+    APPLICANT CONTEXT and drops the fixed date.
+
+    ⚠ THE APP OWNS THE GATE, and this is the correction that cost a probe.
+    v37's first cut told the lane to MINT the next has_jobN = no in the same
+    response. That collides with the client data model: a fact outside the
+    asked node's field_ids is filed as tentative REGARDLESS of the marker,
+    never counts as answered and never satisfies a node. The probe showed the
+    lane emitting exactly that fact and the client parking it, four times. So
+    v37b only stops the lane ASKING; A5a already derives the gate from the
+    full from date on the same served turn.
+
+    The repetition is deliberate: A COVERED WINDOW CLOSES ITS GATE appears four
+    times, once beside each predecessor sentence that would otherwise keep
+    teaching the old behaviour. So it is asserted by count, not presence."""
+    sp = cfg["systemPrompt"]
+    assert sp.count("THE HISTORY WINDOW STARTS ON THE DATE IN APPLICANT CONTEXT") == 1
+    assert sp.count("A COVERED WINDOW CLOSES ITS GATE") == 4
+    # The arm E leak, addressed directly: with no window start in context the
+    # lane must never judge a window covered (build 57 and older clients).
+    assert sp.count("you never judge a window covered") == 1
+    # The stale absolute date is gone and must not return.
+    assert "October 2017" not in sp
+    # ⚠ The three general rules v37 carves exceptions INTO must survive whole.
+    # A carve-out is how a safety rule gets widened by accident.
+    assert sp.count("Answered means stated or minted, never inferred") == 1
+    assert sp.count("the agenda is the client's and is authoritative") == 1
+    # v37 is cut FROM v36, from v35, from v34d: all of them ride along.
+    assert sp.count("NAME THE BASIS, NEVER JUDGE IT") == 1
+    assert sp.count("MINT THAT BASIS IN THIS SAME RESPONSE") == 1
+    assert sp.count("A MONTH AND A YEAR IS ASKED, NOT DEFERRED") == 1
+    assert sp.count("AND THE DAY SHE GAVE IS SAID BACK FIRST") == 1
+    assert sp.count("A PLAIN ANSWER GETS NO ECHO") == 1
+    assert sp.count("it never means no read-back") == 1
+
+
 def test_the_deferral_hedge_must_attach_to_every_deferred_field(cfg):
     """v29. v28 wrote this rule in the SINGULAR and every worked example
     carried one field, so a reply hedging one deferred field and stating

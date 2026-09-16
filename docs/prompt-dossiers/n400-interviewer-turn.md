@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 36
+served_version: 37
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
 thinking: disabled
-reconciled: 2026-09-16 (v36)
+reconciled: 2026-09-16 (v37)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1545,6 +1545,68 @@ the verdict is asserted by count in BOTH languages: a cut that fixed only the
 English would leave the Spanish worked example still teaching it.
 
 253 chars onto 72,615 (72,868). Version 35 to 36. Zero em or en dashes.
+
+## v37: a covered history window closes its gate
+
+Scott, on the phone at 2:17 against v35. She said "Unemployed" for the current
+job; the lane asked the next gate; she gave Weird Tech and then "I worked there
+from January 1st, 2012 to January 1st, 2025"; and the same reply that minted
+those dates still asked "Before that job, anything else in the last 5 years?"
+Thirteen years already cover a five year window.
+
+The cause was structural rather than wording. **The lane is never given today's
+date**, so it cannot know where the window starts, and the rule's only example
+said "addresses back to October 2017 when five years is what the form asks",
+which was true when written and quietly stopped being true. Meanwhile the
+agenda still listed the gate, and two other rules pushed the lane to ask it.
+
+⚠ **THE APP OWNS THE GATE, and learning that cost a probe.** v37's first cut
+told the lane to mint the next `has_jobN = no` in the same response. That
+collides with the client data model: `shared-data-model.md:254` says the client
+files every fact outside the asked node's `field_ids` as tentative **regardless
+of the marker**, and `:190` says a tentative fact never counts as answered and
+never satisfies a node. Probe 1 showed exactly that, four times over: the lane
+emitted `p7.has_job3 = "no"` with provenance and the client parked it, while
+`deferred` was null so nothing of ours had dropped it. Two correct components
+disagreeing about the same value, which is the one shape neither side sees
+alone. v37b only stops the lane ASKING; `A5a` already derives the gate from the
+full from date on the same served turn, so a lane mint was redundant as well as
+impossible.
+
+Five edits by fable-auditor-f5, applied verbatim, each anchor unique in the
+decoded and the encoded JSON. Edit A replaces the covered-window sentence with
+a window start read from APPLICANT CONTEXT plus the gate rule. B, C, D and E
+each disarm one predecessor that would otherwise keep teaching the old
+behaviour, which is why `A COVERED WINDOW CLOSES ITS GATE` appears four times
+and is asserted by count rather than presence.
+
+⚠ Edit D's predecessor, "If a line looks inconsistent with what you know, ask
+it anyway in plain words", was **not** in the grep I ran for contradicting
+sentences: it contains none of the nine phrases I searched for. A phrase search
+cannot enumerate sentences that disagree in MEANING. The auditor found it by
+reading against the named rules, and that limit is worth remembering the next
+time a list of mine looks complete.
+
+Probe 1 (v37a, 25 calls, $0.49) returned 2 of 7 and earned its money. Arms C and
+D passed, and **D is the first receipt anywhere that v35's date rule holds on
+Part 7 job dates**: "from 2012 to 2025" produced no day-precision fact, a
+clarification asking the month and day, and deferrals for both ends. Arm E
+showed a real leak, the lane skipping the gate with no window sentence present,
+which Edit A now addresses directly ("you never judge a window covered").
+
+⚠ Arm G's failure was **my seed, not a defect**, and I reported it as a live
+production defect before checking. `p5.spouse_has_a_number` is required only
+when `p5.current_marriage_block_applies` derives yes, which needs an eligibility
+basis of `spouse_usc`; my seed set none, so Part 5 genuinely was complete and
+the checkpoint was correct. Seeding the cursor is not the same as seeding the
+preconditions the derivation needs.
+
+Test: `test_a_covered_window_closes_its_gate`. The three general rules v37
+carves exceptions into are asserted by count in both the config test and the
+sync list, so a later cut cannot widen the carve-out without turning something
+red.
+
+1,386 chars onto 72,868 (74,254). Version 36 to 37. Zero em or en dashes.
 
 ## What is deliberately not here
 

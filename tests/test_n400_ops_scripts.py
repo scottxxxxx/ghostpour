@@ -250,15 +250,12 @@ def test_v30_to_v34_rules_must_survive_into_v35():
     assert "it never means no read-back" in phrases
 
 
-def test_the_v36_list_verifies_the_real_v36_bundle():
-    assert verify(_bundle_prompt(36), 36) is True
-
-
-def test_each_v36_phrase_is_load_bearing_on_the_real_bundle():
-    sp = _bundle_prompt(36)
-    for phrase in [VERSIONS[36]["once"]] + VERSIONS[36]["phrases"]:
-        assert phrase in sp, phrase
-        assert verify(sp.replace(phrase, ""), 36) is False, phrase
+def test_the_v36_phrases_verify_and_each_is_load_bearing():
+    """SYNTHETIC now: the bundle has moved to v37, so v36's list keeps being
+    exercised rather than going quiet the moment its version shipped."""
+    assert verify(_spec_prompt(36), 36) is True
+    for phrase in VERSIONS[36]["phrases"]:
+        assert verify(_spec_prompt(36, drop=phrase), 36) is False, phrase
 
 
 def test_the_verdict_coming_back_fails_the_v36_read_back():
@@ -266,10 +263,8 @@ def test_the_verdict_coming_back_fails_the_v36_read_back():
     fits" and its Spanish twin "encaja" were taught by our own worked example
     in both languages; Edit A rewrote the example and Edit B the defect
     sentence so no older line keeps teaching it. Either returning must fail."""
-    sp = _bundle_prompt(36)
     for phrase in VERSIONS[36]["absent"]:
-        assert phrase not in sp, phrase
-        assert verify(sp + "\n" + phrase, 36) is False, phrase
+        assert verify(_spec_prompt(36, extra="\n" + phrase), 36) is False, phrase
 
 
 def test_the_mint_rule_survives_the_edit_that_targets_the_verdict():
@@ -277,9 +272,60 @@ def test_the_mint_rule_survives_the_edit_that_targets_the_verdict():
     carries MINT THAT BASIS IN THIS SAME RESPONSE, and that rule exists because
     the eligibility box came back BLANK (conf-v20): v4 made the model treat the
     basis as pending the applicant's yes, so it minted nothing on the turn she
-    said it. Removing a verdict word must not reopen that."""
+    said it. Removing a verdict word must not reopen that. v37 carries it too,
+    because v37 is cut from v36."""
     assert "MINT THAT BASIS IN THIS SAME RESPONSE" in VERSIONS[36]["phrases"]
-    assert "MINT THAT BASIS IN THIS SAME RESPONSE" in _bundle_prompt(36)
+    assert "MINT THAT BASIS IN THIS SAME RESPONSE" in VERSIONS[37]["phrases"]
+    assert "MINT THAT BASIS IN THIS SAME RESPONSE" in _bundle_prompt(37)
+
+
+def test_the_v37_list_verifies_the_real_v37_bundle():
+    assert verify(_bundle_prompt(37), 37) is True
+
+
+def test_each_v37_phrase_is_load_bearing_on_the_real_bundle():
+    sp = _bundle_prompt(37)
+    for phrase in [VERSIONS[37]["once"]] + VERSIONS[37]["phrases"]:
+        assert phrase in sp, phrase
+        assert verify(sp.replace(phrase, ""), 37) is False, phrase
+
+
+def test_the_stale_window_example_coming_back_fails_the_v37_read_back():
+    """"October 2017" was the only genuinely stale absolute date in the prompt:
+    a window example that could not stay right as time passed. v37 replaces it
+    with a window start read from APPLICANT CONTEXT, so its return means the
+    lane is judging windows against a fixed date again."""
+    sp = _bundle_prompt(37)
+    for phrase in VERSIONS[37]["absent"]:
+        assert phrase not in sp, phrase
+        assert verify(sp + "\n" + phrase, 37) is False, phrase
+
+
+def test_the_general_rules_v37_carves_into_are_still_asserted():
+    """⚠ The carve-out is the risky part. "Answered means stated or minted,
+    never inferred" and "the agenda is the client's and is authoritative" are
+    load-bearing far beyond Part 7, and an exception is how a safety rule gets
+    widened by accident. Both stay in the phrase list, so a later cut cannot
+    remove them without turning this red."""
+    phrases = VERSIONS[37]["phrases"]
+    assert "Answered means stated or minted, never inferred" in phrases
+    assert "the agenda is the client's and is authoritative" in phrases
+    sp = _bundle_prompt(37)
+    assert sp.count("Answered means stated or minted, never inferred") == 1
+    assert sp.count("the agenda is the client's and is authoritative") == 1
+
+
+def test_v30_to_v36_rules_must_survive_into_v37():
+    phrases = VERSIONS[37]["phrases"]
+    assert "AND THE CLAUSE MUST NOT BE CONDITIONAL" in phrases
+    assert any('"intent": an OBJECT' in p for p in phrases)
+    assert '"origin": "applicant" or "capture_gap"' in phrases
+    assert "The entry is the record and the reply is not" in phrases
+    assert "A PLAIN ANSWER GETS NO ECHO" in phrases
+    assert "it never means no read-back" in phrases
+    assert "A MONTH AND A YEAR IS ASKED, NOT DEFERRED" in phrases
+    assert "AND THE DAY SHE GAVE IS SAID BACK FIRST" in phrases
+    assert "NAME THE BASIS, NEVER JUDGE IT" in phrases
 
 
 def test_v30_to_v35_rules_must_survive_into_v36():

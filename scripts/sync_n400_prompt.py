@@ -239,6 +239,53 @@ VERSIONS = {
             "goes NOWHERE",
         ],
     },
+    37: {
+        # A covered history window closes its gate. From Scott's 2:17 call on
+        # v35: after "Unemployed" the lane minted the job and then still asked
+        # "Before that job, anything else in the last 5 years?" though the
+        # window was already covered. The lane is never given today's date, so
+        # it could not know where the window starts, and the old example's
+        # "October 2017" had gone stale.
+        #
+        # ⚠ The APP owns the gate. v37's first cut told the lane to MINT it,
+        # which collides with the client data model: a fact outside the asked
+        # node's field_ids is filed tentative REGARDLESS of the marker and can
+        # never satisfy a node. v37b only stops the lane ASKING.
+        "block_anchor": "MOVING THE INTERVIEW",
+        # NOT "A COVERED WINDOW CLOSES ITS GATE": that is repeated FOUR times on
+        # purpose, once per predecessor it has to beat.
+        "once": "THE HISTORY WINDOW STARTS ON THE DATE IN APPLICANT CONTEXT",
+        "phrases": [
+            "A COVERED WINDOW CLOSES ITS GATE",
+            # The arm E leak: no window start in context means no window is
+            # ever judged covered, so build 57 and older behave as before.
+            "you never judge a window covered",
+            # The three general rules v37 carves exceptions INTO must survive
+            # intact, or the carve-out has widened into a hole.
+            "Answered means stated or minted, never inferred",
+            "the agenda is the client's and is authoritative",
+            "NAME THE BASIS, NEVER JUDGE IT",             # v36, must survive
+            "MINT THAT BASIS IN THIS SAME RESPONSE",      # v36's floor
+            "A MONTH AND A YEAR IS ASKED, NOT DEFERRED",  # v35, must survive
+            "AND THE DAY SHE GAVE IS SAID BACK FIRST",    # v35e, must survive
+            "A PLAIN ANSWER GETS NO ECHO",                # v34, must survive
+            "it never means no read-back",                # v34d, must survive
+            "The entry is the record and the reply is not",  # v33, must survive
+            '"origin": "applicant" or "capture_gap"',     # v32's key, must survive
+            "AND THE CLAUSE MUST NOT BE CONDITIONAL",   # v30's rule, must survive
+            '"intent": an OBJECT, never a bare string',  # v31's shape, must survive
+        ],
+        "absent": [
+            # The stale window example that could not be right for long.
+            "October 2017",
+            "that fits",
+            "encaja",
+            "A partial date is always a deferral",
+            "acknowledge what landed, then ask the next thing",
+            "had my green card since 2019",
+            "goes NOWHERE",
+        ],
+    },
 }
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
