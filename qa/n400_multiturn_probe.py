@@ -85,6 +85,34 @@ def _edit_block(md: list[str], line: int) -> str:
     return s[4:]
 
 
+# v36 is COMMITTED IN FULL on its PR branch, so its arm reads that ref AS IS.
+# There is no edit stack to assemble, unlike every cut from v34b to v35e, which
+# is why this needs none of configs_for's ordering machinery.
+V36_REF = "origin/feat/n400-v36-name-the-basis"
+V36_TURNS_EN = ["on my own, about six years"]
+V36_TURNS_ES = ["por mi cuenta, unos seis años"]
+V36_TURNS_SPOUSE = ["my husband is a citizen, we've been married four years, "
+                    "green card three and a half"]
+
+
+def configs_v36() -> dict:
+    """The v36 prompt, read whole from its PR branch. Nothing is assembled, so
+    the only things worth asserting are that the ref really is v36 and that the
+    verdict is actually gone: absence IS the version for this cut, in both
+    languages, so a ref still carrying it would probe as a pass it did not earn."""
+    names = subprocess.check_output(
+        ["git", "-C", str(ROOT), "ls-tree", "--name-only", V36_REF, "config/remote/n400/"]).decode().split()
+    out = {"n400/" + Path(n).stem: git_json(V36_REF, n) for n in names if n.endswith(".json")}
+    cfg = out[SLUG]
+    assert cfg["version"] == 36, f"{V36_REF} is v{cfg['version']}, not v36"
+    sp = cfg["systemPrompt"]
+    assert "NAME THE BASIS, NEVER JUDGE IT" in sp, f"{V36_REF} lacks v36's once phrase"
+    assert "that fits" not in sp, f"{V36_REF} still carries the English verdict"
+    assert "encaja" not in sp, f"{V36_REF} still carries the Spanish verdict"
+    print(f"   v36 arm: taken from {V36_REF} as is ({len(sp)} chars)")
+    return out
+
+
 def configs_for(version: int, revision: str = "e") -> dict:
     """v34 from main (v34d, merged in #987). revision "b" (the default, 2026-09-15 second
     cut) applies v34b's one sentence to v34, and for 35 applies v35b's four
@@ -220,12 +248,18 @@ def make_post(configs: dict, key: str, dry: bool):
     return post
 
 
-def drive(q, run: str, cursor: str, seed: dict | None, turns: list[str], runs_dir: Path) -> dict:
+def drive(q, run: str, cursor: str, seed: dict | None, turns: list[str], runs_dir: Path,
+          locale: str = "en") -> dict:
+    """⚠ locale is a RUN-level setting in the auditor's harness, not per turn:
+    `state["locale"]` feeds every ask, every reply pick and every question_text.
+    So a Spanish rep is its OWN RUN, not a Spanish utterance inside an English
+    one. This argument was hardcoded "en" until v36 needed Spanish reps, and
+    without it those reps would have run in English and scored as passes."""
     seed_path = None
     if seed:
         seed_path = runs_dir / f"{run}.seed.json"
         seed_path.write_text(json.dumps(seed))
-    q.cmd_start(Namespace(run=run, lane="interviewer", locale="en", persona=None, context=CONTEXT,
+    q.cmd_start(Namespace(run=run, lane="interviewer", locale=locale, persona=None, context=CONTEXT,
                           volunteer=True, cursor=cursor, seed=str(seed_path) if seed_path else None))
     for utt in turns:
         q.cmd_step(Namespace(run=run, say=utt))
@@ -334,11 +368,72 @@ def score_v35(state: dict) -> dict:
             "minted_step2": minted2, "deferred": deferred_all}
 
 
+# The verdict, both languages, from the auditor's spec. Checked only BEFORE the
+# reply's final question: "good" can legitimately open a question ("good, and
+# what is your A-Number?" is not the defect v36 is about).
+VERDICT_WORDS = (r"\b(fits?|works?|qualif(?:ies|y)|enough|sounds right|good"
+                 r"|encaja|sirve|califica|suficiente|bien)\b")
+
+
+def _before_final_question(reply: str) -> str:
+    qs = [s for s in re.split(r"(?<=[.!?])\s+", reply) if "?" in s]
+    return reply[:reply.index(qs[-1])] if qs else reply
+
+
+def score_v36(state: dict, spouse: bool = False) -> dict:
+    """v36: name the basis, never judge it. One applicant turn, seeded at the
+    eligibility question.
+
+    ⚠ The year check keys on seven/eight/nine/ten, NOT on "five": the reply is
+    SUPPOSED to say "the general five year path", so a naive year-count regex
+    would flag the correct behaviour. That is the scorer-bug shape that failed
+    two correct reps in probe 3.
+
+    ⚠ The spouse rep asserts the basis is merely NOT general_provision rather
+    than naming the three-year enum, because I have not verified that enum's
+    spelling against the served prompt. Narrow and true beats precise and
+    guessed."""
+    entries = [e for e in state["transcript"] if e.get("applicant")]
+    if not entries or any(e.get("error") for e in entries):
+        return {"pass": False, "why": f"incomplete run: {len(entries)} replies",
+                "replies": [e.get("interviewer") for e in entries]}
+    e1 = entries[0]
+    reply = e1.get("interviewer") or ""
+    minted = {m.get("field_id"): m.get("value") for m in (e1.get("minted") or [])}
+    basis = minted.get("p1.eligibility_basis") or state["facts"].get("p1.eligibility_basis")
+    before = _before_final_question(reply)
+    checks = {
+        # (1) the mint must not regress to conf-v20's blank box.
+        "basis_minted_on_this_turn": bool(basis),
+        # (3) the whole point of the cut.
+        "no_verdict_word": not re.search(VERDICT_WORDS, before, re.I),
+        # (5) nothing claimed that she did not say.
+        "claims_no_military": not re.search(r"\bmilitar", reply, re.I),
+        "claims_no_other_year_count": not re.search(
+            r"\b(seven|eight|nine|ten|siete|ocho|nueve|diez)\b", reply, re.I),
+    }
+    if spouse:
+        checks["basis_is_not_the_five_year_path"] = bool(basis) and basis != "general_provision"
+    else:
+        checks["basis_is_general_provision"] = basis == "general_provision"
+        # (2) names the path.
+        checks["names_the_five_year_path"] = bool(
+            re.search(r"five[- ]year|cinco años", reply, re.I))
+        # (4) the next question is the A-Number.
+        checks["next_question_is_the_a_number"] = bool(
+            re.search(r"a-?number|número\s+a\b", reply, re.I))
+        # (5) she said nothing about a spouse in this arm.
+        checks["claims_no_spouse"] = not re.search(
+            r"\b(spouse|husband|wife|esposo|esposa|cónyuge)\b", reply, re.I)
+    return {"pass": all(checks.values()), "checks": checks, "reply": reply,
+            "minted": minted, "basis": basis}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry", action="store_true")
     ap.add_argument("--reps", type=int, default=3)
-    ap.add_argument("--only", choices=["v34", "v35"])
+    ap.add_argument("--only", choices=["v34", "v35", "v36"])
     # Which cut to test. "e" is the current one (v34d unchanged, v35e); the
     # earlier letters reproduce earlier probes exactly. The default is the
     # NEWEST, because the harness once defaulted to "b" while "d" was the live
@@ -365,26 +460,39 @@ def main() -> int:
 
     plan = []
     if args.only in (None, "v34"):
-        plan.append(("v34", 34, "q_p2_country_of_birth", None, V34_TURNS, score_v34))
+        plan.append(("v34", 34, "q_p2_country_of_birth", None, V34_TURNS, score_v34, "en"))
     if args.only in (None, "v35"):
-        plan.append(("v35", 35, "q_p4_prior_address1", {"p4.has_prior_address1": "yes"}, V35_TURNS, score_v35))
+        plan.append(("v35", 35, "q_p4_prior_address1", {"p4.has_prior_address1": "yes"},
+                     V35_TURNS, score_v35, "en"))
+    if args.only in (None, "v36"):
+        # THREE arms, because locale is a RUN-level setting in the auditor's
+        # harness: a Spanish rep is its own run, not a Spanish utterance inside
+        # an English one. Seeded at the eligibility question, one turn each.
+        plan.append(("v36-en", 36, "q_p1_eligibility_basis", None, V36_TURNS_EN, score_v36, "en"))
+        plan.append(("v36-es", 36, "q_p1_eligibility_basis", None, V36_TURNS_ES, score_v36, "es"))
+        plan.append(("v36-spouse", 36, "q_p1_eligibility_basis", None, V36_TURNS_SPOUSE,
+                     lambda s: score_v36(s, spouse=True), "en"))
 
     results = []
     stamp = time.strftime("%H%M%S")
-    for name, version, cursor, seed, turns, scorer in plan:
-        configs = configs_for(version, args.revision)
+    for name, version, cursor, seed, turns, scorer, locale in plan:
+        configs = configs_v36() if version == 36 else configs_for(version, args.revision)
         # At revision "e" the v34 arm is v34d unchanged, so it is labelled d.
         # A results file naming a "v34e" would invent a cut that never existed,
         # and these files are read months later as the record of what ran.
-        cut = "d" if (version == 34 and args.revision == "e") else args.revision
+        # v36 has no cuts at all, so it carries no letter.
+        cut = "" if version == 36 else (
+            "d" if (version == 34 and args.revision == "e") else args.revision)
         print(f"== {name}: prompt v{configs[SLUG]['version']}{cut} "
-              f"{len(configs[SLUG]['systemPrompt'])} chars, cursor {cursor}")
+              f"{len(configs[SLUG]['systemPrompt'])} chars, cursor {cursor}, locale {locale}")
         q.post = make_post(configs, key, args.dry)
-        reps = 1 if args.dry else args.reps
+        # The auditor asked for 3 en + 3 es + ONE spouse rep, so --reps must not
+        # silently triple the spouse arm.
+        reps = 1 if (args.dry or name == "v36-spouse") else args.reps
         for rep in range(reps):
             run = f"probe-{name}-{stamp}-r{rep}"
             try:
-                state = drive(q, run, cursor, seed, turns, runs_dir)
+                state = drive(q, run, cursor, seed, turns, runs_dir, locale)
             except SystemExit as e:
                 if str(e) == "dry":
                     continue
@@ -398,7 +506,7 @@ def main() -> int:
         return 0
     cost = sum(c["in"] * PRICE["in"] + c["out"] * PRICE["out"] + c["cache_read"] * PRICE["cache_read"]
                + c["cache_write"] * PRICE["cache_write"] for c in CALLS) / 1e6
-    for name in ("v34", "v35"):
+    for name in ("v34", "v35", "v36-en", "v36-es", "v36-spouse"):
         rs = [r for r in results if r["probe"] == name]
         if rs:
             print(f"{name}: {sum(r['pass'] for r in rs)} of {len(rs)} reps PASS")
