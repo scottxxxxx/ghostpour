@@ -1185,6 +1185,18 @@ def checkpoint_reads_back_nothing(text: str, known_facts: str | None) -> dict | 
 
     Returns None when KNOWN FACTS is absent or unparseable, so a malformed
     variable disables the check rather than refusing every turn.
+
+    ⚠ KNOWN FACTS IS ONE TURN STALE BY CONSTRUCTION, the same staleness the
+    agenda check above already corrects for. It arrives with the REQUEST, so
+    it cannot hold the facts minted in the response being checked. The turn
+    that answers a part's last question and reads the part back in the same
+    breath is exactly the shape we ask the lane for, and on a part whose every
+    fact arrives in that one turn (Part 11: phone, mobile and email together)
+    KNOWN FACTS shows nothing for the part, so a correct card was refused and
+    stripped while the reply still asked "is that complete and correct?"
+    (auditor offpath1, call 52, 2026-09-15). So this response's own settled
+    ids count toward their parts before the test. A capture gap does not
+    count, through `_ids_settled_in_this_response`: nothing was recorded.
     """
     parts = known_fact_parts(known_facts)
     if not parts:
@@ -1199,7 +1211,13 @@ def checkpoint_reads_back_nothing(text: str, known_facts: str | None) -> dict | 
     if not isinstance(cp, dict):
         return None
     part = cp.get("part")
-    if not isinstance(part, int) or parts.get(part):
+    if not isinstance(part, int):
+        return None
+    for fid in _ids_settled_in_this_response(turn):
+        m = re.match(r"p(\d+)\.", fid)
+        if m:
+            parts.setdefault(int(m.group(1)), set()).add(fid)
+    if parts.get(part):
         return None
     return {"part": part, "recorded_parts": sorted(parts),
             "code": REFUSED_NO_CONFIRMED_FACT,
