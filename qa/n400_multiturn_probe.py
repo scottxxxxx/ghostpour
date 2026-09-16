@@ -85,6 +85,109 @@ def _edit_block(md: list[str], line: int) -> str:
     return s[4:]
 
 
+# v36 is COMMITTED IN FULL on its PR branch, so its arm reads that ref AS IS.
+# There is no edit stack to assemble, unlike every cut from v34b to v35e, which
+# is why this needs none of configs_for's ordering machinery.
+V36_REF = "origin/feat/n400-v36-name-the-basis"
+V36_TURNS_EN = ["on my own, about six years"]
+V36_TURNS_ES = ["por mi cuenta, unos seis años"]
+V36_TURNS_SPOUSE = ["my husband is a citizen, we've been married four years, "
+                    "green card three and a half"]
+
+
+def _v36_ref() -> str:
+    """main once v36 has merged, the PR branch until then.
+
+    ⚠ THIS IS THE DEFECT THAT BROKE THE v34 ARM, fixed before it bites rather
+    than after. V34_REF pointed at a PR branch, and the moment that branch
+    merged the anchors it rebuilt from stopped existing, so every run died. A
+    ref pinned to a branch that is about to be merged and deleted is a run that
+    works until the day the thing it tests ships."""
+    for ref in ("origin/main", V36_REF):
+        try:
+            doc = git_json(ref, "config/remote/n400/interviewer-turn.json")
+        except subprocess.CalledProcessError:
+            continue
+        if doc.get("version") == 36:
+            return ref
+    raise SystemExit(
+        f"no v36 config found: neither origin/main nor {V36_REF} is version 36. "
+        "If v36 has merged and the branch is gone, fetch main; if it has not, "
+        "fetch the PR branch.")
+
+
+def configs_v36() -> dict:
+    """The v36 prompt, read whole. Nothing is assembled, so the only things
+    worth asserting are that the ref really is v36 and that the verdict is
+    actually gone: absence IS the version for this cut, in both languages, so a
+    ref still carrying it would probe as a pass it did not earn."""
+    ref = _v36_ref()
+    names = subprocess.check_output(
+        ["git", "-C", str(ROOT), "ls-tree", "--name-only", ref, "config/remote/n400/"]).decode().split()
+    out = {"n400/" + Path(n).stem: git_json(ref, n) for n in names if n.endswith(".json")}
+    cfg = out[SLUG]
+    assert cfg["version"] == 36, f"{ref} is v{cfg['version']}, not v36"
+    sp = cfg["systemPrompt"]
+    assert "NAME THE BASIS, NEVER JUDGE IT" in sp, f"{ref} lacks v36's once phrase"
+    assert "that fits" not in sp, f"{ref} still carries the English verdict"
+    assert "encaja" not in sp, f"{ref} still carries the Spanish verdict"
+    print(f"   v36 arm: taken from {ref} as is ({len(sp)} chars)")
+    return out
+
+
+V37_EDITS = Path("/Users/scottguida/N400 App/contracts/prompt-v37-covered-window-closes-gate-edit.md")
+# Scott's 2:17 turns, verbatim from his screenshot. C and D swap ONLY the dates
+# sentence; the first turn must still answer the employer question the lane
+# actually asks, which is why they are not single-utterance arms.
+V37_T1_EN = "Yes, I worked at Weird Tech. The address there is 1001 Main Street, Austin, Texas, 78777."
+V37_T2_EN = "Sales person. I worked there from January 1st, 2012 to January 1st, 2025."
+V37_T2_INSIDE = "Sales person. I worked there from March 3rd, 2023 to January 1st, 2025."
+V37_T2_YEARONLY = "Sales person. I worked there from 2012 to 2025."
+V37_T1_ES = ("Sí, trabajé en Weird Tech. La dirección es 1001 Main Street, Austin, Texas, 78777.")
+V37_T2_ES = "Vendedor. Trabajé allí desde el 1 de enero de 2012 hasta el 1 de enero de 2025."
+V37_WINDOW_EN = " History questions cover the last five years, since September 16, 2021."
+V37_WINDOW_ES = " Las preguntas de historial cubren los últimos cinco años, desde el 16 de septiembre de 2021."
+V37_SEED_JOB = {"p7.employer1.employer_name": "unemployed", "p7.has_job2": "yes"}
+V37_F_TURN = "I've lived at 12 Oak Street, Austin, Texas 78701 since June 3rd, 2015"
+V37_G_TURN = "He was born here, in Chicago."
+# The minimum current-marriage facts the graph needs to reach
+# q_p5_spouse_citizen_how legally: without these the walk cannot get there and
+# the arm would test nothing while looking like it ran.
+V37_SEED_SPOUSE = {
+    "p5.marital_status": "married",
+    "p5.marriage_date": "2019-06-15",
+    "p5.spouse_first_name": "Daniel",
+    "p5.spouse_last_name": "Reyes",
+    "p5.spouse_address_same": "yes",
+}
+
+
+def configs_v37() -> dict:
+    """v37 assembled IN MEMORY from main's v36 plus the auditor's five edits,
+    the way the v34 and v35 arms worked. v36 is the base because v37 is cut
+    from it, and each anchor is asserted exactly once before it is applied, so
+    an edit that no longer fits fails here rather than probing as a pass."""
+    names = subprocess.check_output(
+        ["git", "-C", str(ROOT), "ls-tree", "--name-only", "origin/main", "config/remote/n400/"]).decode().split()
+    out = {"n400/" + Path(n).stem: git_json("origin/main", n) for n in names if n.endswith(".json")}
+    cfg = out[SLUG]
+    assert cfg["version"] == 36, f"origin/main is v{cfg['version']}, not the v36 v37 is cut from"
+    md = V37_EDITS.read_text(encoding="utf-8").split("\n")
+    sp = cfg["systemPrompt"]
+    for label, o, n in [("A", 16, 20), ("B", 24, 28), ("C", 32, 36), ("D", 40, 44), ("E", 48, 52)]:
+        old, new = md[o - 1][4:], md[n - 1][4:]
+        assert sp.count(old) == 1, f"v37 Edit {label} anchor count {sp.count(old)}"
+        sp = sp.replace(old, new)
+    assert sp.count("A COVERED WINDOW CLOSES ITS GATE") == 4
+    assert "October 2017" not in sp
+    # v36, v35 and v34d must ride along untouched.
+    for ph in ("NAME THE BASIS, NEVER JUDGE IT", "MINT THAT BASIS IN THIS SAME RESPONSE",
+               "AND THE DAY SHE GAVE IS SAID BACK FIRST", "A PLAIN ANSWER GETS NO ECHO"):
+        assert sp.count(ph) == 1, ph
+    print(f"   v37 arm: assembled from origin/main v36 + 5 edits ({len(sp)} chars)")
+    return {**out, SLUG: {**cfg, "systemPrompt": sp, "version": 37}}
+
+
 def configs_for(version: int, revision: str = "e") -> dict:
     """v34 from main (v34d, merged in #987). revision "b" (the default, 2026-09-15 second
     cut) applies v34b's one sentence to v34, and for 35 applies v35b's four
@@ -220,12 +323,18 @@ def make_post(configs: dict, key: str, dry: bool):
     return post
 
 
-def drive(q, run: str, cursor: str, seed: dict | None, turns: list[str], runs_dir: Path) -> dict:
+def drive(q, run: str, cursor: str, seed: dict | None, turns: list[str], runs_dir: Path,
+          locale: str = "en", context: str = CONTEXT) -> dict:
+    """⚠ locale is a RUN-level setting in the auditor's harness, not per turn:
+    `state["locale"]` feeds every ask, every reply pick and every question_text.
+    So a Spanish rep is its OWN RUN, not a Spanish utterance inside an English
+    one. This argument was hardcoded "en" until v36 needed Spanish reps, and
+    without it those reps would have run in English and scored as passes."""
     seed_path = None
     if seed:
         seed_path = runs_dir / f"{run}.seed.json"
         seed_path.write_text(json.dumps(seed))
-    q.cmd_start(Namespace(run=run, lane="interviewer", locale="en", persona=None, context=CONTEXT,
+    q.cmd_start(Namespace(run=run, lane="interviewer", locale=locale, persona=None, context=context,
                           volunteer=True, cursor=cursor, seed=str(seed_path) if seed_path else None))
     for utt in turns:
         q.cmd_step(Namespace(run=run, say=utt))
@@ -334,11 +443,121 @@ def score_v35(state: dict) -> dict:
             "minted_step2": minted2, "deferred": deferred_all}
 
 
+# The verdict, both languages, from the auditor's spec. Checked only BEFORE the
+# reply's final question: "good" can legitimately open a question ("good, and
+# what is your A-Number?" is not the defect v36 is about).
+VERDICT_WORDS = (r"\b(fits?|works?|qualif(?:ies|y)|enough|sounds right|good"
+                 r"|encaja|sirve|califica|suficiente|bien)\b")
+
+
+def _before_final_question(reply: str) -> str:
+    qs = [s for s in re.split(r"(?<=[.!?])\s+", reply) if "?" in s]
+    return reply[:reply.index(qs[-1])] if qs else reply
+
+
+def score_v36(state: dict, spouse: bool = False) -> dict:
+    """v36: name the basis, never judge it. One applicant turn, seeded at the
+    eligibility question.
+
+    ⚠ The year check keys on seven/eight/nine/ten, NOT on "five": the reply is
+    SUPPOSED to say "the general five year path", so a naive year-count regex
+    would flag the correct behaviour. That is the scorer-bug shape that failed
+    two correct reps in probe 3.
+
+    ⚠ The spouse rep asserts the basis is merely NOT general_provision rather
+    than naming the three-year enum, because I have not verified that enum's
+    spelling against the served prompt. Narrow and true beats precise and
+    guessed."""
+    entries = [e for e in state["transcript"] if e.get("applicant")]
+    if not entries or any(e.get("error") for e in entries):
+        return {"pass": False, "why": f"incomplete run: {len(entries)} replies",
+                "replies": [e.get("interviewer") for e in entries]}
+    e1 = entries[0]
+    reply = e1.get("interviewer") or ""
+    minted = {m.get("field_id"): m.get("value") for m in (e1.get("minted") or [])}
+    basis = minted.get("p1.eligibility_basis") or state["facts"].get("p1.eligibility_basis")
+    before = _before_final_question(reply)
+    checks = {
+        # (1) the mint must not regress to conf-v20's blank box.
+        "basis_minted_on_this_turn": bool(basis),
+        # (3) the whole point of the cut.
+        "no_verdict_word": not re.search(VERDICT_WORDS, before, re.I),
+        # (5) nothing claimed that she did not say.
+        "claims_no_military": not re.search(r"\bmilitar", reply, re.I),
+        "claims_no_other_year_count": not re.search(
+            r"\b(seven|eight|nine|ten|siete|ocho|nueve|diez)\b", reply, re.I),
+    }
+    if spouse:
+        checks["basis_is_not_the_five_year_path"] = bool(basis) and basis != "general_provision"
+    else:
+        checks["basis_is_general_provision"] = basis == "general_provision"
+        # (2) names the path.
+        checks["names_the_five_year_path"] = bool(
+            re.search(r"five[- ]year|cinco años", reply, re.I))
+        # (4) the next question is the A-Number.
+        checks["next_question_is_the_a_number"] = bool(
+            re.search(r"a-?number|número\s+a\b", reply, re.I))
+        # (5) she said nothing about a spouse in this arm.
+        checks["claims_no_spouse"] = not re.search(
+            r"\b(spouse|husband|wife|esposo|esposa|cónyuge)\b", reply, re.I)
+    return {"pass": all(checks.values()), "checks": checks, "reply": reply,
+            "minted": minted, "basis": basis}
+
+
+ASKS_MORE_JOBS = r"anything else|another job|any other job|before that|otro (trabajo|empleo)|algo más"
+FULL_DAY = r"^\d{4}-\d{2}-\d{2}$"
+
+
+def score_v37(state: dict, arm: str) -> dict:
+    """v37: a covered history window closes its gate.
+
+    ⚠ Four of the seven arms assert the gate does NOT close. That half is the
+    point: a rule that closes gates is only safe if it declines to close them
+    on a partial date (D), inside the window (C), with no window sentence (E),
+    and on a gate that is not a history gate at all (G)."""
+    entries = [e for e in state["transcript"] if e.get("applicant")]
+    if not entries or any(e.get("error") for e in entries):
+        return {"pass": False, "why": f"incomplete run: {len(entries)} replies", "arm": arm,
+                "replies": [e.get("interviewer") for e in entries]}
+    last = entries[-1]
+    reply = last.get("interviewer") or ""
+    minted = {m.get("field_id"): m.get("value") for m in (last.get("minted") or [])}
+    facts = state.get("facts") or {}
+    asking = last.get("asking") or ""
+    checks: dict = {}
+    if arm in ("A", "B"):
+        checks["from_minted_as_the_full_day"] = minted.get("p7.employer2.from") == "2012-01-01"
+        checks["gate_closed_this_response"] = minted.get("p7.has_job3") == "no"
+        checks["does_not_ask_for_an_earlier_job"] = not re.search(ASKS_MORE_JOBS, reply, re.I)
+        checks["asking_is_not_the_gate"] = asking != "q_p7_more_jobs2"
+    elif arm in ("C", "E"):
+        checks["gate_not_closed"] = "p7.has_job3" not in minted
+        checks["gate_is_still_asked"] = bool(re.search(ASKS_MORE_JOBS, reply, re.I)) or "job3" in asking
+    elif arm == "D":
+        # v35 on job dates, never receipted on Part 7: a year-only answer must
+        # not become a day-precision fact.
+        frm = minted.get("p7.employer2.from") or facts.get("p7.employer2.from") or ""
+        checks["no_day_precision_from_a_year"] = not re.match(FULL_DAY, str(frm))
+        checks["gate_not_closed"] = "p7.has_job3" not in minted
+    elif arm == "F":
+        checks["address_gate_closed"] = minted.get("p4.has_prior_address1") == "no"
+        checks["does_not_ask_the_prior_address"] = not re.search(
+            r"before (that|this)|previous address|another address|prior address", reply, re.I)
+    elif arm == "G":
+        checks["citizen_how_minted_by_birth"] = minted.get("p5.spouse_citizen_how") == "by_birth"
+        checks["a_number_not_minted_silently"] = "p5.spouse_has_a_number" not in minted
+        checks["a_number_asked_in_passing"] = bool(
+            re.search(r"a-?number", reply, re.I)) and bool(
+            re.search(r"right\?|correct\?|isn't (he|that)|verdad\?", reply, re.I))
+    return {"pass": all(checks.values()), "checks": checks, "arm": arm,
+            "reply": reply, "minted": minted, "asking": asking}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry", action="store_true")
     ap.add_argument("--reps", type=int, default=3)
-    ap.add_argument("--only", choices=["v34", "v35"])
+    ap.add_argument("--only", choices=["v34", "v35", "v36", "v37"])
     # Which cut to test. "e" is the current one (v34d unchanged, v35e); the
     # earlier letters reproduce earlier probes exactly. The default is the
     # NEWEST, because the harness once defaulted to "b" while "d" was the live
@@ -363,33 +582,81 @@ def main() -> int:
     if not args.dry:
         assert key, "no Anthropic key in settings"
 
+    # Plan entries are DICTS, not tuples. v37 needs a per-arm context string and
+    # a per-arm rep count, which would take the tuple to nine positional fields;
+    # at that width the commas are where mistakes live.
+    def arm(name, version, cursor, turns, scorer, seed=None, locale="en",
+            context=CONTEXT, reps=None):
+        return dict(name=name, version=version, cursor=cursor, seed=seed, turns=turns,
+                    scorer=scorer, locale=locale, context=context, reps=reps)
+
     plan = []
     if args.only in (None, "v34"):
-        plan.append(("v34", 34, "q_p2_country_of_birth", None, V34_TURNS, score_v34))
+        plan.append(arm("v34", 34, "q_p2_country_of_birth", V34_TURNS, score_v34))
     if args.only in (None, "v35"):
-        plan.append(("v35", 35, "q_p4_prior_address1", {"p4.has_prior_address1": "yes"}, V35_TURNS, score_v35))
+        plan.append(arm("v35", 35, "q_p4_prior_address1", V35_TURNS, score_v35,
+                        seed={"p4.has_prior_address1": "yes"}))
+    if args.only in (None, "v36"):
+        # THREE arms, because locale is a RUN-level setting in the auditor's
+        # harness: a Spanish rep is its own run, not a Spanish utterance inside
+        # an English one. Seeded at the eligibility question, one turn each.
+        plan.append(arm("v36-en", 36, "q_p1_eligibility_basis", V36_TURNS_EN, score_v36))
+        plan.append(arm("v36-es", 36, "q_p1_eligibility_basis", V36_TURNS_ES, score_v36, locale="es"))
+        plan.append(arm("v36-spouse", 36, "q_p1_eligibility_basis", V36_TURNS_SPOUSE,
+                        lambda s: score_v36(s, spouse=True), reps=1))
+    if args.only in (None, "v37"):
+        # Seven arms. FOUR of them (C, D, E, G) assert the gate does NOT close:
+        # a rule that closes gates is only safe if it declines to on a partial
+        # date, inside the window, with no window sentence, and on a gate that
+        # is not a history gate at all.
+        win_en, win_es = CONTEXT + V37_WINDOW_EN, CONTEXT + V37_WINDOW_ES
+        sc = lambda a: (lambda s: score_v37(s, a))
+        plan.append(arm("v37-A", 37, "q_p7_job2", [V37_T1_EN, V37_T2_EN], sc("A"),
+                        seed=V37_SEED_JOB, context=win_en))
+        plan.append(arm("v37-B", 37, "q_p7_job2", [V37_T1_ES, V37_T2_ES], sc("B"),
+                        seed=V37_SEED_JOB, locale="es", context=win_es, reps=1))
+        plan.append(arm("v37-C", 37, "q_p7_job2", [V37_T1_EN, V37_T2_INSIDE], sc("C"),
+                        seed=V37_SEED_JOB, context=win_en, reps=1))
+        plan.append(arm("v37-D", 37, "q_p7_job2", [V37_T1_EN, V37_T2_YEARONLY], sc("D"),
+                        seed=V37_SEED_JOB, context=win_en, reps=1))
+        # E: the build 57 and older case. Base context, NO window sentence.
+        plan.append(arm("v37-E", 37, "q_p7_job2", [V37_T1_EN, V37_T2_EN], sc("E"),
+                        seed=V37_SEED_JOB, context=CONTEXT, reps=1))
+        plan.append(arm("v37-F", 37, "q_p4_current_address_from", [V37_F_TURN], sc("F"),
+                        context=win_en, reps=1))
+        # G: regression. The window sentence IS present, so a leak into a
+        # non-history gate would be caught rather than merely absent.
+        plan.append(arm("v37-G", 37, "q_p5_spouse_citizen_how", [V37_G_TURN], sc("G"),
+                        seed=V37_SEED_SPOUSE, context=win_en, reps=1))
 
     results = []
     stamp = time.strftime("%H%M%S")
-    for name, version, cursor, seed, turns, scorer in plan:
-        configs = configs_for(version, args.revision)
+    for p in plan:
+        name, version, cursor, locale = p["name"], p["version"], p["cursor"], p["locale"]
+        configs = (configs_v37() if version == 37 else
+                   configs_v36() if version == 36 else
+                   configs_for(version, args.revision))
         # At revision "e" the v34 arm is v34d unchanged, so it is labelled d.
         # A results file naming a "v34e" would invent a cut that never existed,
         # and these files are read months later as the record of what ran.
-        cut = "d" if (version == 34 and args.revision == "e") else args.revision
+        # v36 and v37 have no cuts at all, so they carry no letter.
+        cut = "" if version in (36, 37) else (
+            "d" if (version == 34 and args.revision == "e") else args.revision)
         print(f"== {name}: prompt v{configs[SLUG]['version']}{cut} "
-              f"{len(configs[SLUG]['systemPrompt'])} chars, cursor {cursor}")
+              f"{len(configs[SLUG]['systemPrompt'])} chars, cursor {cursor}, locale {locale}")
         q.post = make_post(configs, key, args.dry)
-        reps = 1 if args.dry else args.reps
+        # A per-arm rep count, so --reps cannot silently multiply an arm the
+        # auditor specified as a single run.
+        reps = 1 if args.dry else (p["reps"] or args.reps)
         for rep in range(reps):
             run = f"probe-{name}-{stamp}-r{rep}"
             try:
-                state = drive(q, run, cursor, seed, turns, runs_dir)
+                state = drive(q, run, cursor, p["seed"], p["turns"], runs_dir, locale, p["context"])
             except SystemExit as e:
                 if str(e) == "dry":
                     continue
                 raise
-            s = scorer(state)
+            s = p["scorer"](state)
             s.update({"probe": name, "rep": rep, "run": run})
             results.append(s)
             print(f"   {name} rep{rep}: {'PASS' if s['pass'] else 'FAIL'} {s.get('checks') or s.get('why')}")
@@ -398,7 +665,8 @@ def main() -> int:
         return 0
     cost = sum(c["in"] * PRICE["in"] + c["out"] * PRICE["out"] + c["cache_read"] * PRICE["cache_read"]
                + c["cache_write"] * PRICE["cache_write"] for c in CALLS) / 1e6
-    for name in ("v34", "v35"):
+    for name in ("v34", "v35", "v36-en", "v36-es", "v36-spouse",
+                 "v37-A", "v37-B", "v37-C", "v37-D", "v37-E", "v37-F", "v37-G"):
         rs = [r for r in results if r["probe"] == name]
         if rs:
             print(f"{name}: {sum(r['pass'] for r in rs)} of {len(rs)} reps PASS")
