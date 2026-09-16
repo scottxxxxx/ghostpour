@@ -497,6 +497,11 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
             "n400_battery_unspoken turn_id=%s node_id=%s minted=%s spoken_chars=%d question_chars=%d",
             turn_id, battery["node_id"], ",".join(battery["minted"]),
             battery["spoken_chars"], battery["question_chars"])
+    new_text, cp_asking = drop_checkpoint_when_asking_set(new_text)
+    if cp_asking is not None:
+        logger.warning(
+            "n400_checkpoint_dropped_asking_set turn_id=%s part=%s asking=%s",
+            turn_id, cp_asking["part"], cp_asking["asking"])
     # LAST, deliberately. Every guard above reads `reply`, so the drop must not
     # hide it from them; only the copy that goes on the wire loses the key.
     new_text, unusable = drop_unusable_reply(new_text)
@@ -992,6 +997,102 @@ def checkpoint_contradicts_agenda(text: str, agenda: str | None) -> dict | None:
             "reason": CHECKPOINT_CONTRADICTION_REASON}
 
 
+REFUSED_ASKING_SET = "asking_set"
+CHECKPOINT_WITH_ASKING_REASON = (
+    "section_checkpoint on a response that already asks the next question"
+)
+
+
+def _asking_is_set(asking: object) -> bool:
+    """`asking` names a next question: a dict with a node_id, or a bare
+    non-empty string (a shape the lane has sent before and the client
+    tolerates). An empty dict or a null node_id is not a question."""
+    if isinstance(asking, dict):
+        return bool(asking.get("node_id"))
+    return isinstance(asking, str) and bool(asking.strip())
+
+
+# The client's own confirmation-ask predicate, ported verbatim from
+# N400App InterviewEngine.asksForConfirmation (2026-09-15) so GP and the client
+# decide card-versus-line on the same words. A test pins this list to the
+# Swift source wherever that repo is checked out.
+CONFIRMATION_ASKS = (
+    "complete and correct", "all correct", "is that correct", "is everything correct", "is that right",
+    "is that all right", "did i get that right", "add or change", "anything to change", "anything wrong",
+    "completo y correcto", "todo correcto", "es correcto", "está correcto", "está bien así",
+    "completo e correto", "tudo certo", "está correto", "está certo",
+)
+
+
+def asks_for_confirmation(text: str) -> bool:
+    """Whether a reply's LAST sentence asks her to confirm what was read back,
+    as opposed to asking the next question. The same rule as the client:
+    it must end in "?", and only the final sentence (split on . ! ?) counts."""
+    folded = (text or "").lower().strip()
+    if not folded.endswith("?"):
+        return False
+    parts = [p for p in re.split(r"[.!?]", folded) if p]
+    tail = parts[-1] if parts else folded
+    return any(ask in tail for ask in CONFIRMATION_ASKS)
+
+
+def _reply_texts(reply: object) -> list[str]:
+    if isinstance(reply, str):
+        return [reply]
+    if isinstance(reply, dict):
+        return [v for v in reply.values() if isinstance(v, str)]
+    return []
+
+
+def drop_checkpoint_when_asking_set(text: str) -> tuple[str, dict | None]:
+    """A checkpoint belongs on the turn that ASKS for confirmation, never on the
+    turn that acknowledges it and moves on.
+
+    ⚠ KEYED ON THE REPLY, NOT ON `asking` ALONE (corrected before merge, the
+    auditor, 2026-09-15). conf-v20 turn 39 is a legitimate card with `asking`
+    set: "That completes Part 4 ... Is that all complete and correct?" with
+    asking on q_p5_marital_status, and the golden expects the card. A floor
+    that read only `asking` would strip that correct card, the same inversion
+    as conf-v25b (keep the wrong claims, destroy the right ones). So the card
+    is dropped only when `asking` is set AND no locale of the reply asks for
+    confirmation in its last sentence, mirroring the client's
+    InterviewEngine rule for walk 2 call 60. The client resolves ONE locale;
+    GP has no locale here, so any locale that asks for confirmation keeps the
+    card, which errs toward keeping a correct card.
+
+    auditor offpath2 (2026-09-15), calls 5 and 6: call 5 was a proper Part 1
+    checkpoint, asking null. She said "yes, that's right". Call 6 came back
+    with the same section_checkpoint AGAIN and asking on q_p1_full_name, so the
+    client drew a second Part 1 card with Confirm and Fix over the name
+    question, and the voice read it as a card. Walk 1 call 44 and conf-v20
+    turns 6, 7, 12, 13, 56, 57 and 77 show the same shape, so it is old.
+
+    A checkpoint proper carries asking null (the auditor's contract), so a
+    checkpoint beside a named next question is dropped and marked with a code
+    the audit can count. The reply and `asking` are left alone: the sentence
+    that moves on is right, only the card is wrong. The client backstop does
+    the same on its side; this is the floor on ours.
+    """
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, None
+    if not isinstance(turn, dict):
+        return text, None
+    cp = turn.get("section_checkpoint")
+    if not cp or not _asking_is_set(turn.get("asking")):
+        return text, None
+    if any(asks_for_confirmation(t) for t in _reply_texts(turn.get("reply"))):
+        return text, None
+    asking = turn.get("asking")
+    info = {"part": cp.get("part") if isinstance(cp, dict) else None,
+            "asking": asking.get("node_id") if isinstance(asking, dict) else asking,
+            "code": REFUSED_ASKING_SET, "reason": CHECKPOINT_WITH_ASKING_REASON}
+    turn["section_checkpoint"] = None
+    turn["checkpoint_dropped"] = info
+    return json.dumps(turn, ensure_ascii=False), info
+
+
 def drop_contradicted_checkpoint(text: str, agenda: str | None) -> tuple[str, dict | None]:
     """Last resort when a retry did not fix it: remove the claim itself."""
     info = checkpoint_contradicts_agenda(text, agenda)
@@ -1084,6 +1185,18 @@ def checkpoint_reads_back_nothing(text: str, known_facts: str | None) -> dict | 
 
     Returns None when KNOWN FACTS is absent or unparseable, so a malformed
     variable disables the check rather than refusing every turn.
+
+    ⚠ KNOWN FACTS IS ONE TURN STALE BY CONSTRUCTION, the same staleness the
+    agenda check above already corrects for. It arrives with the REQUEST, so
+    it cannot hold the facts minted in the response being checked. The turn
+    that answers a part's last question and reads the part back in the same
+    breath is exactly the shape we ask the lane for, and on a part whose every
+    fact arrives in that one turn (Part 11: phone, mobile and email together)
+    KNOWN FACTS shows nothing for the part, so a correct card was refused and
+    stripped while the reply still asked "is that complete and correct?"
+    (auditor offpath1, call 52, 2026-09-15). So this response's own settled
+    ids count toward their parts before the test. A capture gap does not
+    count, through `_ids_settled_in_this_response`: nothing was recorded.
     """
     parts = known_fact_parts(known_facts)
     if not parts:
@@ -1098,7 +1211,13 @@ def checkpoint_reads_back_nothing(text: str, known_facts: str | None) -> dict | 
     if not isinstance(cp, dict):
         return None
     part = cp.get("part")
-    if not isinstance(part, int) or parts.get(part):
+    if not isinstance(part, int):
+        return None
+    for fid in _ids_settled_in_this_response(turn):
+        m = re.match(r"p(\d+)\.", fid)
+        if m:
+            parts.setdefault(int(m.group(1)), set()).add(fid)
+    if parts.get(part):
         return None
     return {"part": part, "recorded_parts": sorted(parts),
             "code": REFUSED_NO_CONFIRMED_FACT,
