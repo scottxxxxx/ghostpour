@@ -193,25 +193,23 @@ def test_v30_v31_and_v32_rules_must_survive_into_v33():
     assert '"origin": "applicant" or "capture_gap"' in phrases
 
 
-def test_the_v34_list_verifies_the_real_v34_bundle():
-    assert verify(_bundle_prompt(34), 34) is True
-
-
-def test_each_v34_phrase_is_load_bearing_on_the_real_bundle():
-    sp = _bundle_prompt(34)
-    for phrase in [VERSIONS[34]["once"]] + VERSIONS[34]["phrases"]:
-        assert phrase in sp, phrase
-        assert verify(sp.replace(phrase, ""), 34) is False, phrase
+def test_the_v34_phrases_verify_and_each_is_load_bearing():
+    """SYNTHETIC now: the bundle has moved to v35, so v34's list is kept tested
+    the way v31, v32 and v33's are rather than deleted. A list that stops being
+    exercised the moment its version ships is a list nobody would notice
+    rotting."""
+    assert verify(_spec_prompt(34), 34) is True
+    for phrase in VERSIONS[34]["phrases"]:
+        assert verify(_spec_prompt(34, drop=phrase), 34) is False, phrase
 
 
 def test_each_retired_passage_coming_back_fails_the_v34_read_back():
     """v34's Edit A replaced "acknowledge what landed, then ask the next
     thing", the one-line rule the model satisfied with "Got it, <answer>" on
-    every turn. Its return must fail even though every presence phrase passes."""
-    sp = _bundle_prompt(34)
+    every turn; v34c then replaced v34b's vary-the-opener sentences. Any of them
+    returning must fail even though every presence phrase still passes."""
     for phrase in VERSIONS[34]["absent"]:
-        assert phrase not in sp, phrase
-        assert verify(sp + "\n" + phrase, 34) is False, phrase
+        assert verify(_spec_prompt(34, extra="\n" + phrase), 34) is False, phrase
 
 
 def test_v30_to_v33_rules_must_survive_into_v34():
@@ -220,6 +218,40 @@ def test_v30_to_v33_rules_must_survive_into_v34():
     assert any('"intent": an OBJECT' in p for p in phrases)
     assert '"origin": "applicant" or "capture_gap"' in phrases
     assert "The entry is the record and the reply is not" in phrases
+
+
+def test_the_v35_list_verifies_the_real_v35_bundle():
+    assert verify(_bundle_prompt(35), 35) is True
+
+
+def test_each_v35_phrase_is_load_bearing_on_the_real_bundle():
+    sp = _bundle_prompt(35)
+    for phrase in [VERSIONS[35]["once"]] + VERSIONS[35]["phrases"]:
+        assert phrase in sp, phrase
+        assert verify(sp.replace(phrase, ""), 35) is False, phrase
+
+
+def test_each_retired_passage_coming_back_fails_the_v35_read_back():
+    """v35b replaced "A partial date is always a deferral", which sat beside the
+    ask-once rule and contradicted it; that contradiction is why v35's first cut
+    probed 0 of 3. v35e replaced v35d's moved-out-day passage. A served copy
+    carrying either is a stale cut, not a new version."""
+    sp = _bundle_prompt(35)
+    for phrase in VERSIONS[35]["absent"]:
+        assert phrase not in sp, phrase
+        assert verify(sp + "\n" + phrase, 35) is False, phrase
+
+
+def test_v30_to_v34_rules_must_survive_into_v35():
+    phrases = VERSIONS[35]["phrases"]
+    assert "AND THE CLAUSE MUST NOT BE CONDITIONAL" in phrases
+    assert any('"intent": an OBJECT' in p for p in phrases)
+    assert '"origin": "applicant" or "capture_gap"' in phrases
+    assert "The entry is the record and the reply is not" in phrases
+    # v35 is cut FROM v34d, so the reply-shape rules ride along and a v35 sync
+    # that lost them would be a silent regression of the cut before it.
+    assert "A PLAIN ANSWER GETS NO ECHO" in phrases
+    assert "it never means no read-back" in phrases
 
 
 # --- the cap read-back ------------------------------------------------------
