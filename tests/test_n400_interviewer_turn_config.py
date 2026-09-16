@@ -602,6 +602,59 @@ def test_the_capture_gap_names_part_9_and_the_entry_is_the_record(cfg):
     assert "I will ask about your address when we get to that part" not in sp
 
 
+def test_a_plain_answer_gets_no_echo_and_no_opener(cfg):
+    """v34, in four cuts. Scott, from his phone 2026-09-15: six replies in a
+    row opened "Got it, Mexico. / Got it, Mexico. / Got it, male. / Got it,
+    January 1st, 2021. / Got it, no." "Got it" appeared nowhere in the served
+    prompt; the model found one form that satisfies "acknowledge what landed,
+    then ask the next thing" and repeated it. v34 keeps the echo where it has a
+    job (a spoken app mishears names, dates, numbers and addresses) and drops
+    it where it has none (a yes, a no, a sex, an offered choice).
+
+    The cuts are why the asserts moved. v34b told the model to vary the opener
+    and named the check ("look at the first word of your own previous line").
+    v34c gave up on varying it and removed the opener after a plain answer
+    outright. That worked and overshot: probe 3 killed the opener 3 of 3 and
+    took the date read-back with it, so a misheard LPR date had nowhere to
+    surface. v34d puts the read-back back, in front of the next question and
+    with no opener word before it.
+
+    So the vary-the-opener phrases this test used to assert PRESENT are now
+    asserted ABSENT, and "Got it" is 3 rather than 1: the no-opener list, "No
+    opener means no 'Got it'", and the ban on "Got it, no".
+
+    Presence first, seen red against v33 on the first assertion before trusted
+    green against v34. A green test proves the TEXT; probe 4 (v34d, 3 of 3,
+    zero "Got it", the date leading the reply) is the evidence the lane obeys
+    it."""
+    sp = cfg["systemPrompt"]
+    assert sp.count("A PLAIN ANSWER GETS NO ECHO") == 1
+    assert sp.count("ECHO ONLY WHAT COULD HAVE BEEN MISHEARD") == 1
+    # v34c: no opener at all after a plain answer, not a different one.
+    assert "it begins with the next question itself" in sp
+    # CASING, not presence: v34 Edit A had this lowercase inside a semicolon
+    # list, and v34b/c rewrote the region into sentences, which made it
+    # sentence-initial. The lowercase assert this test shipped with went red on
+    # v34d and read as a missing rule. Counted, so a third casing cannot slip
+    # in beside it.
+    assert sp.count('Never "Got it, no"') == 1
+    # v34d: no opener must not mean no read-back. This is the sentence that
+    # cost a cut, so it is asserted by count, not by presence.
+    assert sp.count("it never means no read-back") == 1
+    # The echo's job, stated, so a later edit cannot drop dates and numbers
+    # along with the plain answers.
+    assert "a name of a person or a place, a date, a number, an address" in sp
+    # #966's protection: an unechoed value is still minted.
+    assert "a value you do not echo is still minted" in sp
+    # The one-line rule the model was satisfying with "Got it" is gone, and so
+    # are v34b's vary-the-opener sentences that v34c replaced.
+    assert "acknowledge what landed, then ask the next thing" not in sp
+    assert "Never the same opener two turns running" not in sp
+    assert "look at the first word of your own previous line" not in sp
+    # "Got it" appears only inside the rules that forbid its forms.
+    assert sp.count("Got it") == 3
+
+
 def test_the_deferral_hedge_must_attach_to_every_deferred_field(cfg):
     """v29. v28 wrote this rule in the SINGULAR and every worked example
     carried one field, so a reply hedging one deferred field and stating

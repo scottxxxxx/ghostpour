@@ -133,6 +133,36 @@ VERSIONS = {
             "goes NOWHERE",
         ],
     },
+    34: {
+        # The reply-shape rule: every reply opened "Got it, <her answer>"
+        # (Scott, 2026-09-15). Edit A replaced the one-line acknowledgement
+        # rule, so its absence is part of the claim. v30 to v33 must survive.
+        #
+        # Shipped as four cuts (v34, v34b, v34c, v34d), each anchored on the
+        # last one's replacement text. v34b's vary-the-opener sentences were
+        # REPLACED by v34c's "no opener at all", so they are in `absent`: a
+        # served copy carrying them is a stale cut, not a new version.
+        "block_anchor": "Keep each reply to one to three short spoken sentences",
+        "once": "A PLAIN ANSWER GETS NO ECHO",
+        "phrases": [
+            "ECHO ONLY WHAT COULD HAVE BEEN MISHEARD",
+            'Never "Got it, no"',   # sentence-initial since v34b/c reflowed it
+            "it begins with the next question itself",    # v34c: no opener
+            "it never means no read-back",                # v34d: but still echo
+            "a value you do not echo is still minted",
+            "The entry is the record and the reply is not",  # v33, must survive
+            '"origin": "applicant" or "capture_gap"',     # v32's key, must survive
+            "AND THE CLAUSE MUST NOT BE CONDITIONAL",   # v30's rule, must survive
+            '"intent": an OBJECT, never a bare string',  # v31's shape, must survive
+        ],
+        "absent": [
+            "acknowledge what landed, then ask the next thing",
+            "Never the same opener two turns running",          # v34b, replaced
+            "look at the first word of your own previous line",  # v34b, replaced
+            "had my green card since 2019",
+            "goes NOWHERE",
+        ],
+    },
 }
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83

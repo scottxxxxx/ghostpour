@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 33
+served_version: 34
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
 thinking: disabled
-reconciled: 2026-09-15 (v33)
+reconciled: 2026-09-15 (v34)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1368,6 +1368,80 @@ the variant, the five utterances from the receipt log, three reps each. Pass is
 named p9 id, and 3 of 3 phone controls minting `p11.mobile_phone` with none.
 
 1,595 chars onto 66,878 (68,473). Version 32 to 33. Zero em or en dashes.
+
+✅ Probe PASSED 2026-09-15 (9 of 9 gap turns, 3 of 3 controls, raw output,
+unchanged after GP's guard; `qa/v33_capture_gap_probe.py`). Served and read back
+two ways; the auditor's live receipt passed 4 of 4 gap turns plus the control.
+
+## v34: a plain answer gets no echo, and the reply stops sounding like a form
+
+Scott, from his phone on 2026-09-15, six replies in a row: "Got it, Mexico. /
+Got it, Mexico. / Got it, male. / Got it, January 1st, 2021. / Got it, no." His
+words: "this sounds robotic, how would a normal person respond?"
+
+Read from the served text, not inferred: "Got it" appeared nowhere in v32 or
+v33. The rule was "Keep each reply to one to three short spoken sentences:
+acknowledge what landed, then ask the next thing", with nothing about varying
+the acknowledgement or skipping it, so the model found one form that satisfied
+it and used it every turn, including on a bare "no".
+
+⚠ The echo has a job and v34 keeps it. In a spoken app the read-back is how she
+catches a mishear, so "stop echoing" would be wrong for names, dates, numbers
+and addresses. The rule is "echo what could have been misheard, never what could
+not". A value that is not echoed is still minted, so #966's parity between the
+reply and the facts is untouched.
+
+Four edits, all authored by fable-auditor-f5 (who directs this lane) and applied
+verbatim; each anchor asserted exactly once in the decoded and the encoded text
+before it was applied. Cuts b, c and d each anchor on the PREVIOUS cut's
+replacement text, so the order is part of the check and a cut cannot be applied
+twice.
+
+Edit A replaces the one-line acknowledgement rule with: sound like the same
+person turn to turn; A PLAIN ANSWER GETS NO ECHO (a yes, a no, a sex, a marital
+status, an offered choice), just the next question or a one-word bridge that
+changes turn to turn; never the same opener two turns running, never "Got it,
+no"; ECHO ONLY WHAT COULD HAVE BEEN MISHEARD, spoken as the value inside or just
+before the next question; a warmer line only where it is earned.
+
+v34b made the vary rule checkable rather than aspirational: look at the first
+word of your own previous line.
+
+v34c stopped asking the model to vary the opener and removed it: after a plain
+answer the reply begins with the next question itself, not with "Thanks", "Okay"
+or "Got it".
+
+v34d is the correction to v34c, and it is the cut worth reading twice. Probe 3
+(revision c, 3 reps) killed the opener 3 of 3 and took the date read-back with
+it, so a misheard permanent resident date had no way to surface. The rule that
+removes an opener is not the rule that removes an echo, and one sentence of text
+was doing both jobs. v34d says so: a value that could have been misheard is
+STILL read back, as the value itself, in front of the next question ("January
+1st, 2021. Was your mother or father ..."); no opener means no "Got it", it
+never means no read-back.
+
+⚠ The reason this took four cuts is worth keeping. Every cut passed its config
+test the moment it was written, because a config test proves the TEXT is in the
+prompt. What the text does to the model is a separate question with a separate
+instrument, and only the probe answers it. v34c is the case: green test, correct
+text, and a regression the test could not see.
+
+Sequenced AFTER v33's probe and live receipt, so the capture gap probe measured
+one change.
+
+Test: `test_a_plain_answer_gets_no_echo_and_no_opener`, seen red against v33 on
+the first assertion before trusted green against v34. It proves the text. Its
+v34b assertions are now ABSENT assertions, because v34c replaced those
+sentences, and "Got it" is asserted 3 times, not 1: the no-opener list, "No
+opener means no 'Got it'", and the ban on "Got it, no".
+
+Probe 4 (revision d, 3 reps, the auditor's own client harness driving the real
+API through GP's guard): v34d passed 3 of 3 on every check. Openers across the
+six turns were mexico, are, what, january, do, what; "Got it" appeared zero
+times; the date led the reply rather than following an opener ("January 1st,
+2021. Was your mother or father ..."); all six facts still minted.
+
+1,548 chars onto 68,473 (70,021). Version 33 to 34. Zero em or en dashes.
 
 ## What is deliberately not here
 
