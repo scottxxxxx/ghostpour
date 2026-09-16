@@ -220,15 +220,13 @@ def test_v30_to_v33_rules_must_survive_into_v34():
     assert "The entry is the record and the reply is not" in phrases
 
 
-def test_the_v35_list_verifies_the_real_v35_bundle():
-    assert verify(_bundle_prompt(35), 35) is True
-
-
-def test_each_v35_phrase_is_load_bearing_on_the_real_bundle():
-    sp = _bundle_prompt(35)
-    for phrase in [VERSIONS[35]["once"]] + VERSIONS[35]["phrases"]:
-        assert phrase in sp, phrase
-        assert verify(sp.replace(phrase, ""), 35) is False, phrase
+def test_the_v35_phrases_verify_and_each_is_load_bearing():
+    """SYNTHETIC now: the bundle has moved to v36, so v35's list keeps being
+    exercised the way v31 to v34's are rather than going quiet the moment its
+    version shipped."""
+    assert verify(_spec_prompt(35), 35) is True
+    for phrase in VERSIONS[35]["phrases"]:
+        assert verify(_spec_prompt(35, drop=phrase), 35) is False, phrase
 
 
 def test_each_retired_passage_coming_back_fails_the_v35_read_back():
@@ -236,10 +234,8 @@ def test_each_retired_passage_coming_back_fails_the_v35_read_back():
     ask-once rule and contradicted it; that contradiction is why v35's first cut
     probed 0 of 3. v35e replaced v35d's moved-out-day passage. A served copy
     carrying either is a stale cut, not a new version."""
-    sp = _bundle_prompt(35)
     for phrase in VERSIONS[35]["absent"]:
-        assert phrase not in sp, phrase
-        assert verify(sp + "\n" + phrase, 35) is False, phrase
+        assert verify(_spec_prompt(35, extra="\n" + phrase), 35) is False, phrase
 
 
 def test_v30_to_v34_rules_must_survive_into_v35():
@@ -252,6 +248,52 @@ def test_v30_to_v34_rules_must_survive_into_v35():
     # that lost them would be a silent regression of the cut before it.
     assert "A PLAIN ANSWER GETS NO ECHO" in phrases
     assert "it never means no read-back" in phrases
+
+
+def test_the_v36_list_verifies_the_real_v36_bundle():
+    assert verify(_bundle_prompt(36), 36) is True
+
+
+def test_each_v36_phrase_is_load_bearing_on_the_real_bundle():
+    sp = _bundle_prompt(36)
+    for phrase in [VERSIONS[36]["once"]] + VERSIONS[36]["phrases"]:
+        assert phrase in sp, phrase
+        assert verify(sp.replace(phrase, ""), 36) is False, phrase
+
+
+def test_the_verdict_coming_back_fails_the_v36_read_back():
+    """v36 exists to remove one phrase, so its absence IS the version. "that
+    fits" and its Spanish twin "encaja" were taught by our own worked example
+    in both languages; Edit A rewrote the example and Edit B the defect
+    sentence so no older line keeps teaching it. Either returning must fail."""
+    sp = _bundle_prompt(36)
+    for phrase in VERSIONS[36]["absent"]:
+        assert phrase not in sp, phrase
+        assert verify(sp + "\n" + phrase, 36) is False, phrase
+
+
+def test_the_mint_rule_survives_the_edit_that_targets_the_verdict():
+    """The one that would be easy to lose. v36 rewrites the sentence that
+    carries MINT THAT BASIS IN THIS SAME RESPONSE, and that rule exists because
+    the eligibility box came back BLANK (conf-v20): v4 made the model treat the
+    basis as pending the applicant's yes, so it minted nothing on the turn she
+    said it. Removing a verdict word must not reopen that."""
+    assert "MINT THAT BASIS IN THIS SAME RESPONSE" in VERSIONS[36]["phrases"]
+    assert "MINT THAT BASIS IN THIS SAME RESPONSE" in _bundle_prompt(36)
+
+
+def test_v30_to_v35_rules_must_survive_into_v36():
+    phrases = VERSIONS[36]["phrases"]
+    assert "AND THE CLAUSE MUST NOT BE CONDITIONAL" in phrases
+    assert any('"intent": an OBJECT' in p for p in phrases)
+    assert '"origin": "applicant" or "capture_gap"' in phrases
+    assert "The entry is the record and the reply is not" in phrases
+    assert "A PLAIN ANSWER GETS NO ECHO" in phrases
+    assert "it never means no read-back" in phrases
+    # v35's three, since v36 is cut from it.
+    assert "A MONTH AND A YEAR IS ASKED, NOT DEFERRED" in phrases
+    assert "ONE DAY PER QUESTION" in phrases
+    assert "AND THE DAY SHE GAVE IS SAID BACK FIRST" in phrases
 
 
 # --- the cap read-back ------------------------------------------------------
