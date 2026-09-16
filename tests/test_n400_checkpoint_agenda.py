@@ -154,6 +154,74 @@ def test_unparseable_known_facts_disables_the_check_rather_than_refusing_everyth
             _resp(section_checkpoint={"part": 13}), kf) is None
 
 
+# --- KNOWN FACTS is one turn stale: this response's own facts count ---------
+#
+# auditor offpath1, call 52, 2026-09-15: the turn that answered Part 11's last
+# question minted daytime phone, mobile and email in ONE response and read the
+# part back. KNOWN FACTS, which arrives with the request, had nothing for Part
+# 11 yet, so a correct card was refused and stripped while the reply still
+# asked "is that complete and correct?". The agenda check already applies the
+# response's own facts; this one did not.
+
+def _fact(fid, value="x"):
+    return {"field_id": fid, "value": value, "value_type": "string",
+            "provenance": {"source": "user_stated", "confidence": 0.98, "utterance": value}}
+
+
+def test_a_part_whose_facts_arrive_in_this_response_is_allowed():
+    from app.services.n400_interviewer_guard import checkpoint_reads_back_nothing
+
+    call_52 = _resp(
+        facts=[_fact("p11.daytime_phone", "5125550142"), _fact("p11.mobile_phone", "5125550142"),
+               _fact("p11.email", "lucia.reyes@example.com")],
+        section_checkpoint={"part": 11, "section": "Part 11: How to reach you",
+                            "awaiting_confirmation": True})
+    # KNOWN holds only an UNCONFIRMED Part 11 mention, so without this
+    # response's facts Part 11 has nothing on file.
+    assert checkpoint_reads_back_nothing(call_52, KNOWN) is None
+
+
+def test_the_route_entry_point_allows_it_too():
+    """The route calls checkpoint_is_refused, not the helper; a fix only the
+    helper sees is decoration."""
+    from app.services.n400_interviewer_guard import checkpoint_is_refused
+
+    call_52 = _resp(facts=[_fact("p11.daytime_phone"), _fact("p11.email")],
+                    section_checkpoint={"part": 11})
+    assert checkpoint_is_refused(call_52, "", KNOWN) is None
+
+
+def test_a_capture_gap_in_this_response_is_not_a_recorded_fact():
+    """A capture gap is the record that she said it and NOTHING was recorded,
+    so it cannot make a part eligible to read back."""
+    from app.services.n400_interviewer_guard import checkpoint_reads_back_nothing
+
+    text = _resp(deferred=[{"field_id": "p13.has_preparer", "reason": "could not record",
+                            "partial_value": "no", "origin": "capture_gap"}],
+                 section_checkpoint={"part": 13})
+    info = checkpoint_reads_back_nothing(text, KNOWN)
+    assert info is not None and info["part"] == 13
+
+
+def test_an_applicant_deferral_in_this_response_counts_as_recorded():
+    """Matches KNOWN FACTS, where a deferred value is RECORDED: she is checking
+    it later, which is a settled outcome for the read-back."""
+    from app.services.n400_interviewer_guard import checkpoint_reads_back_nothing
+
+    text = _resp(deferred=[{"field_id": "p13.preparer_name", "reason": "checking",
+                            "partial_value": None, "origin": "applicant"}],
+                 section_checkpoint={"part": 13})
+    assert checkpoint_reads_back_nothing(text, KNOWN) is None
+
+
+def test_a_fact_for_another_part_does_not_rescue_the_claimed_part():
+    from app.services.n400_interviewer_guard import checkpoint_reads_back_nothing
+
+    text = _resp(facts=[_fact("p11.email")], section_checkpoint={"part": 13})
+    info = checkpoint_reads_back_nothing(text, KNOWN)
+    assert info is not None and info["part"] == 13
+
+
 def test_both_refusal_reasons_are_reachable_through_one_entry_point():
     from app.services.n400_interviewer_guard import checkpoint_is_refused
 
