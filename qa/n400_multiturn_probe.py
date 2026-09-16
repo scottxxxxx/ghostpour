@@ -15,7 +15,8 @@ prompt version, so each probe measures one change.
   v35 (ask the day once): the prior address block.
       PASS per rep: the first reply asks the moved-in day WITH the way out and
       defers nothing; "the 15th" mints p4.prior_address1.from = 2019-01-15 and the
-      next reply asks the moved-out day; "I'm not sure" defers
+      next reply OPENS with that date said back in full and then asks the
+      moved-out day and nothing else about the address; "I'm not sure" defers
       p4.prior_address1.to with partial 2020-01 and the reply does not ask for a
       day again.
 
@@ -51,7 +52,9 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 AUDITOR_QA = Path("/Users/scottguida/N400 App/qa")
 V35_EDITS = Path("/Users/scottguida/N400 App/contracts/partial-date-ask-once-prompt-v35-edits.md")
-V34_REF = "origin/feat/n400-v34-acknowledgement"
+# v34d merged to main in #987 (57569e40). The PR branch it used to read is
+# gone or stale; main IS the v34 arm now.
+V34_REF = "origin/main"
 SLUG = "n400/interviewer-turn"
 CONTEXT = "interpreter: no, filing for self: yes"
 PRICE = {"in": 2.0, "out": 10.0, "cache_read": 0.20, "cache_write": 2.50}  # Sonnet 5, $ per million
@@ -69,21 +72,105 @@ def git_json(ref: str, path: str) -> dict:
     return json.loads(subprocess.check_output(["git", "-C", str(ROOT), "show", f"{ref}:{path}"]))
 
 
-def configs_for(version: int) -> dict:
+V35B_EDITS = Path("/Users/scottguida/N400 App/contracts/partial-date-ask-once-prompt-v35b-edits.md")
+V34C_V35C_EDITS = Path("/Users/scottguida/N400 App/contracts/prompt-v34c-v35c-edits.md")
+V34D_V35D_EDITS = Path("/Users/scottguida/N400 App/contracts/prompt-v34d-v35d-edits.md")
+# v35e touches the v35 arm only; at revision "e" the v34 arm is v34d unchanged.
+V35E_EDIT = Path("/Users/scottguida/N400 App/contracts/prompt-v35e-edit.md")
+
+
+def _edit_block(md: list[str], line: int) -> str:
+    s = md[line - 1]
+    assert s.startswith("    "), f"edits file line {line} is not an indented block"
+    return s[4:]
+
+
+def configs_for(version: int, revision: str = "e") -> dict:
+    """v34 from main (v34d, merged in #987). revision "b" (the default, 2026-09-15 second
+    cut) applies v34b's one sentence to v34, and for 35 applies v35b's four
+    edits on top of that; v35b's Edit A anchors on the ORIGINAL sentence, so it
+    REPLACES v35 rather than building on it. revision "a" reproduces the first
+    run (v34 as branched, v35 = v34 + the first v35 edit)."""
     names = subprocess.check_output(
         ["git", "-C", str(ROOT), "ls-tree", "--name-only", V34_REF, "config/remote/n400/"]).decode().split()
     out = {"n400/" + Path(n).stem: git_json(V34_REF, n) for n in names if n.endswith(".json")}
     cfg = out[SLUG]
     assert cfg["version"] == 34 and "A PLAIN ANSWER GETS NO ECHO" in cfg["systemPrompt"], "v34 branch is not v34"
-    if version == 35:
-        md = V35_EDITS.read_text().split("\n")
-        old, new = md[17][4:], md[21][4:]
-        sp = cfg["systemPrompt"]
-        assert sp.count(old) == 1, "v35 anchor not unique in v34"
-        cfg = {**cfg, "systemPrompt": sp.replace(old, new), "version": 35}
-        assert "the day is ASKED FOR ONCE" in cfg["systemPrompt"]
-        out = {**out, SLUG: cfg}
-    return out
+    sp = cfg["systemPrompt"]
+    if revision == "a":
+        if version == 35:
+            md = V35_EDITS.read_text().split("\n")
+            old, new = md[17][4:], md[21][4:]
+            assert sp.count(old) == 1, "v35 anchor not unique in v34"
+            sp = sp.replace(old, new)
+            assert "the day is ASKED FOR ONCE" in sp
+    else:
+        mb = V35B_EDITS.read_text().split("\n")
+        mc = V34C_V35C_EDITS.read_text().split("\n")
+        # In order: v34b's sentence, then (revision c) v34c replacing it, then
+        # for the 35 arm v35b's four edits and v35c's three on top. Edits whose
+        # anchor is another edit's replacement text only exist at their stage,
+        # so the order is part of the check.
+        md_ = V34D_V35D_EDITS.read_text().split("\n")
+        me = V35E_EDIT.read_text().split("\n")
+        later = revision in ("c", "d", "e")
+        d_or_later = revision in ("d", "e")
+        # The v34 chain is applied ONLY while V34_REF still carries the pre-cut
+        # text. Once v34d lands on the branch (or on main) the base already IS
+        # the final v34 arm, and re-applying b, c and d would die on anchors
+        # that no longer exist. The v35 chain is unaffected: its anchors are in
+        # the date and deferral rules, not the reply shape.
+        v34_done = "it never means no read-back" in sp
+        if v34_done and not d_or_later:
+            raise SystemExit(
+                f"V34_REF already carries v34d, so revision {revision!r} cannot be "
+                "rebuilt from it. Use --revision d or e, or point V34_REF at the "
+                "commit that cut it.")
+        steps = []
+        if v34_done:
+            print(f"   v34 arm: taken from {V34_REF} as is (already v34d)")
+        else:
+            steps += [(mb, "v34b", 70, 74)]
+            if later:
+                steps += [(mc, "v34c", 13, 17)]
+            if d_or_later:
+                steps += [(md_, "v34d", 11, 15)]
+        if version == 35:
+            steps += [(mb, "v35b-" + n, o, w) for n, o, w in
+                      [("A", 16, 20), ("B", 24, 28), ("C", 32, 36), ("D", 40, 44)]]
+            if later:
+                steps += [(mc, "v35c-" + n, o, w) for n, o, w in
+                          [("A", 21, 25), ("B", 29, 33), ("C", 37, 41)]]
+            if d_or_later:
+                steps += [(md_, "v35d", 19, 23)]
+            if revision == "e":
+                # Anchored on the v35d replacement, so it only exists after it.
+                steps += [(me, "v35e", 10, 14)]
+        for md, name, old_line, new_line in steps:
+            old, new = _edit_block(md, old_line), _edit_block(md, new_line)
+            assert sp.count(old) == 1, f"{name} anchor count {sp.count(old)}"
+            sp = sp.replace(old, new)
+        if later:
+            assert "it begins with the next question itself" in sp
+            assert "look at the first word of your own previous line" not in sp
+        else:
+            assert "look at the first word of your own previous line" in sp
+        if d_or_later:
+            assert "it never means no read-back" in sp
+        if version == 35:
+            assert "A MONTH AND A YEAR IS ASKED, NOT DEFERRED" in sp
+            assert "A partial date is always a deferral" not in sp
+            if later:
+                assert "ONE DAY PER QUESTION" in sp
+                assert "A promise to ASK later is not a promise to verify" in sp
+                assert "as a FLOOR under you and never a move to imitate" in sp
+            if d_or_later:
+                assert "THE MOVED-OUT DAY IS THE VERY NEXT QUESTION" in sp
+            if revision == "e":
+                assert sp.count("AND THE DAY SHE GAVE IS SAID BACK FIRST") == 1
+                assert sp.count("a day she gave and never heard back") == 1
+    cfg = {**cfg, "systemPrompt": sp, "version": version}
+    return {**out, SLUG: cfg}
 
 
 def make_post(configs: dict, key: str, dry: bool):
@@ -158,11 +245,24 @@ def score_v34(state: dict) -> dict:
         return {"pass": False, "why": f"incomplete run: {len(replies)} replies, errors {[e.get('error') for e in entries if e.get('error')]}", "replies": replies}
     openers = [first_word(r) for r in replies]
     checks["openers_vary"] = all(openers[i] != openers[i + 1] for i in range(5))
+    # v34c: after a plain answer the reply has NO opener; it begins with the
+    # next question itself. Replies 1, 2, 3, 5 and 6 follow a country, a
+    # country, a sex, a no and a no; reply 4 follows the date and may carry an
+    # echo with a bridge in front of it.
+    bridges = ("thanks", "thank", "okay", "ok", "got", "great", "understood", "alright",
+               "noted", "perfect", "sure", "good", "right")
+    plain = [0, 1, 2, 4, 5]
+    checks["plain_answers_open_with_the_question"] = all(openers[i] not in bridges for i in plain)
     checks["no_male_echo"] = not re.search(r"\bmale\b", replies[2], re.I)
     no_echo = lambda r: not re.match(r"\W*(got it,?\s*)?no\b", r, re.I) and "got it, no" not in r.lower()
     checks["no_no_echo"] = no_echo(replies[4]) and no_echo(replies[5])
     date_hits = [len(re.findall(r"January (1st|1|first),? 2021", r, re.I)) for r in replies]
     checks["date_echoed_once"] = date_hits[3] == 1 and sum(date_hits) == 1
+    # v34d: no opener means no "Got it", never no read-back. After the date the
+    # reply LEADS with the value itself, then the next question (v34c killed
+    # the opener and took the read-back with it, 3 of 3).
+    checks["date_read_back_leads_the_reply"] = bool(
+        re.match(r"\W*january\s+(1st|1|first),?\s*2021", replies[3], re.I))
     facts = state["facts"]
     checks["all_six_minted"] = all(facts.get(f) not in (None, "") and not (isinstance(facts.get(f), dict) and facts[f].get("deferred")) for f in V34_FIELDS)
     got_it = sum(r.lower().count("got it") for r in replies)
@@ -176,21 +276,62 @@ def score_v35(state: dict) -> dict:
         return {"pass": False, "why": f"incomplete run: {len(entries)} replies", "replies": [e.get("interviewer") for e in entries]}
     r1, r2, r3 = (e.get("interviewer") or "" for e in entries[:3])
     way_out = lambda r: bool(re.search(r"don.t know|not sure|check (it|that) later|offhand|later", r, re.I))
-    asks_day = lambda r: bool(re.search(r"\bday\b|\bdate\b", r, re.I)) and "?" in r
+    # Only the QUESTIONS in a reply count as asking. The first scorer matched
+    # "exact day" inside statements ("I'll leave that exact day open"), which
+    # ask nothing, and failed two reps that did the right thing.
+    questions = lambda r: [q for q in re.split(r"(?<=[.!])\s+", r) if "?" in q]
+    asks_day = lambda r: any(re.search(r"\bday\b|\bdate\b", q, re.I) for q in questions(r))
+    date_fids = ("p4.prior_address1.from", "p4.prior_address1.to")
+    minted1 = {m.get("field_id") for m in (entries[0].get("minted") or [])}
     minted2 = {m.get("field_id"): m.get("value") for m in (entries[1].get("minted") or [])}
+    deferred_all = state.get("deferred") or []
+    # v35c: ONE DAY PER QUESTION. The step 1 question asks the moved-in day
+    # only; "and what day did you move out" in the same breath is two
+    # questions however it is punctuated.
+    step1_qs = questions(r1)
+    asks_moved_out = any(re.search(r"\b(out|left|leave)\b", q, re.I) for q in step1_qs)
+    day_mentions = sum(len(re.findall(r"\bday\b", q, re.I)) for q in step1_qs)
     checks = {
         "step1_asks_day_with_way_out": asks_day(r1) and way_out(r1) and bool(re.search(r"move|moved|in\b", r1, re.I)),
-        "step1_defers_nothing": not entries[0].get("deferred"),
+        # v35c ruling: a deferral on first hearing is legal ONLY when the same
+        # reply asks for that day (the entry marks the question as owed).
+        "step1_deferral_only_if_it_asked": (not entries[0].get("deferred")) or asks_day(r1),
+        "step1_asks_one_day_only": day_mentions == 1 and not asks_moved_out,
+        "step1_mints_neither_date": not (minted1 & set(date_fids)),
         "step2_mints_from_2019_01_15": minted2.get("p4.prior_address1.from") == "2019-01-15"
             or state["facts"].get("p4.prior_address1.from") == "2019-01-15",
+        # v35b: the date said back with ITS year (reps 1 and 2 of the first run
+        # said "January 15th, 2020" while minting 2019-01-15).
+        "step2_says_2019_not_2020": bool(re.search(r"\b15(th)?\b.{0,12}2019|2019.{0,12}\b15(th)?\b", r2))
+            and not re.search(r"\b15(th)?,? 2020\b", r2),
         "step2_asks_moved_out_day": asks_day(r2) and bool(re.search(r"out|left|leave", r2, re.I)),
-        "step3_defers_to": "p4.prior_address1.to" in (entries[2].get("deferred") or []),
+        # v35e: the day she gave is said back FIRST. Probe 4 rep 2 minted
+        # 2019-01-15 correctly and asked the moved-out day next, but never said
+        # the date back, so the one value she had just spoken was the one value
+        # she could not catch a mishear on. "Begins with" is literal: the reply
+        # opens with the date, no bridge word in front of it, the same shape
+        # v34d put back on the other arm.
+        "step2_reply_opens_with_the_date": bool(re.match(r"\s*January\s+15(th)?,?\s+2019\b", r2)),
+        # v35d: the moved-out day is the VERY NEXT question, before the unit,
+        # the state or anything else about that address (probe 3: all three
+        # reps went to apartment and state instead, so `to` was never asked).
+        "step2_asks_only_the_moved_out_day": asks_day(r2)
+            and bool(re.search(r"\b(out|left|leave)\b", r2, re.I))
+            and not any(re.search(r"apartment|unit|state|province|region|postal|zip", q, re.I)
+                        for q in questions(r2)),
+        # A `to` deferral STANDS after step 3, whether it was written here or
+        # at step 1 and left alone. Demanding a fresh entry on this turn was my
+        # scorer being stricter than the rule (probe 3 reps 1 and 2 failed on
+        # it while behaving correctly); the auditor confirms both entries stand
+        # until each day is answered or declined.
+        "step3_to_deferral_stands": any(d.get("field_id") == "p4.prior_address1.to" for d in deferred_all),
         "step3_partial_2020_01": any(d.get("field_id") == "p4.prior_address1.to" and str(d.get("partial_value", "")).startswith("2020-01")
-                                     for d in state.get("deferred") or []),
-        "step3_does_not_ask_day_again": not re.search(r"what day|which day|exact day", r3, re.I),
+                                     for d in deferred_all),
+        "step3_does_not_ask_day_again": not any(re.search(r"\b(what|which)\b.{0,20}\bday\b|\bexact day\b", q, re.I)
+                                                for q in questions(r3)),
     }
     return {"pass": all(checks.values()), "checks": checks, "replies": [r1, r2, r3],
-            "minted_step2": minted2, "deferred": state.get("deferred")}
+            "minted_step2": minted2, "deferred": deferred_all}
 
 
 def main() -> int:
@@ -198,6 +339,13 @@ def main() -> int:
     ap.add_argument("--dry", action="store_true")
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--only", choices=["v34", "v35"])
+    # Which cut to test. "e" is the current one (v34d unchanged, v35e); the
+    # earlier letters reproduce earlier probes exactly. The default is the
+    # NEWEST, because the harness once defaulted to "b" while "d" was the live
+    # cut and a dry run quietly assembled the previous text. The default is
+    # what a run gets when nobody is thinking about it, so it has to be the
+    # answer that cannot be silently wrong.
+    ap.add_argument("--revision", choices=["a", "b", "c", "d", "e"], default="e")
     ap.add_argument("--out", default="")
     args = ap.parse_args()
 
@@ -224,8 +372,13 @@ def main() -> int:
     results = []
     stamp = time.strftime("%H%M%S")
     for name, version, cursor, seed, turns, scorer in plan:
-        configs = configs_for(version)
-        print(f"== {name}: prompt v{configs[SLUG]['version']} {len(configs[SLUG]['systemPrompt'])} chars, cursor {cursor}")
+        configs = configs_for(version, args.revision)
+        # At revision "e" the v34 arm is v34d unchanged, so it is labelled d.
+        # A results file naming a "v34e" would invent a cut that never existed,
+        # and these files are read months later as the record of what ran.
+        cut = "d" if (version == 34 and args.revision == "e") else args.revision
+        print(f"== {name}: prompt v{configs[SLUG]['version']}{cut} "
+              f"{len(configs[SLUG]['systemPrompt'])} chars, cursor {cursor}")
         q.post = make_post(configs, key, args.dry)
         reps = 1 if args.dry else args.reps
         for rep in range(reps):
@@ -251,8 +404,8 @@ def main() -> int:
             print(f"{name}: {sum(r['pass'] for r in rs)} of {len(rs)} reps PASS")
     print(f"calls {len(CALLS)}, measured cost ${cost:.2f}, stop reasons {sorted(set(c['stop'] for c in CALLS))}")
     if args.out:
-        Path(args.out).write_text(json.dumps({"results": results, "calls": CALLS, "cost_usd": round(cost, 4)},
-                                             ensure_ascii=False, indent=1))
+        Path(args.out).write_text(json.dumps({"revision": args.revision, "results": results, "calls": CALLS,
+                                              "cost_usd": round(cost, 4)}, ensure_ascii=False, indent=1))
         print("written", args.out)
     return 0
 
