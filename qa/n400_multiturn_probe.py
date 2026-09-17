@@ -44,6 +44,7 @@ import re
 import subprocess
 import sys
 import time
+from datetime import date
 import urllib.request
 from argparse import Namespace
 from pathlib import Path
@@ -56,7 +57,14 @@ V35_EDITS = Path("/Users/scottguida/N400 App/contracts/partial-date-ask-once-pro
 # gone or stale; main IS the v34 arm now.
 V34_REF = "origin/main"
 SLUG = "n400/interviewer-turn"
-CONTEXT = "interpreter: no, filing for self: yes"
+# ⚠ THE APP'S EXACT BASE STRING, read from OpeningQuestions.swift rather than
+# paraphrased. It joins pieces with "; " (not ", ") and carries state and
+# language, which this harness omitted. Wrong separator and two missing fields,
+# on EVERY arm of every probe from v34 to v37: the lane was being graded on an
+# input production never sends. Found only because the auditor sent me to check
+# the app for a DIFFERENT string.
+CONTEXT = "state: Texas; language: English; interpreter: no; filing for self: yes"
+CONTEXT_ES = "state: Texas; language: Spanish; interpreter: no; filing for self: yes"
 PRICE = {"in": 2.0, "out": 10.0, "cache_read": 0.20, "cache_write": 2.50}  # Sonnet 5, $ per million
 
 V34_TURNS = ["I was born in Monterrey, Mexico.", "Mexico.", "Male.", "January 1st, 2021.", "No.", "No."]
@@ -145,8 +153,22 @@ V37_T2_INSIDE = "Sales person. I worked there from March 3rd, 2023 to January 1s
 V37_T2_YEARONLY = "Sales person. I worked there from 2012 to 2025."
 V37_T1_ES = ("Sí, trabajé en Weird Tech. La dirección es 1001 Main Street, Austin, Texas, 78777.")
 V37_T2_ES = "Vendedor. Trabajé allí desde el 1 de enero de 2012 hasta el 1 de enero de 2025."
-V37_WINDOW_EN = " History questions cover the last five years, since September 16, 2021."
-V37_WINDOW_ES = " Las preguntas de historial cubren los últimos cinco años, desde el 16 de septiembre de 2021."
+# ⚠ ONE piece carrying BOTH languages, appended with "; ", exactly as
+# OpeningQuestions.swift:239 builds it. There is NO locale branch: its own
+# comment says "One sentence, en and es (the wire locale picks)". So the es arm
+# gets the SAME string as the en arm, not a Spanish translation of it.
+#
+# The date is a full ISO day from DerivedFacts.historyWindowStart, today minus
+# five years, NOT the spoken "September 16, 2021" of the spec prose. Computed
+# rather than hardcoded so a run tomorrow does not quietly grade a stale window.
+def _history_window_piece(today: date | None = None) -> str:
+    d = today or date.today()
+    start = d.replace(year=d.year - 5).isoformat()
+    return ("history window: questions cover the last five years, since "
+            f"{start} (preguntas de los últimos cinco años, desde {start})")
+
+
+V37_WINDOW = _history_window_piece()
 V37_SEED_JOB = {"p7.employer1.employer_name": "unemployed", "p7.has_job2": "yes"}
 V37_F_TURN = "I've lived at 12 Oak Street, Austin, Texas 78701 since June 3rd, 2015"
 V37_G_TURN = "He was born here, in Chicago."
@@ -154,6 +176,16 @@ V37_G_TURN = "He was born here, in Chicago."
 # q_p5_spouse_citizen_how legally: without these the walk cannot get there and
 # the arm would test nothing while looking like it ran.
 V37_SEED_SPOUSE = {
+    # ⚠ THE ELIGIBILITY BASIS IS LOAD-BEARING AND I LEFT IT OUT TWICE.
+    # p5.spouse_has_a_number is required only when
+    # p5.current_marriage_block_applies derives "yes", which happens only for
+    # basis spouse_usc or spouse_employed_abroad. Without it Part 5 is genuinely
+    # COMPLETE, the checkpoint is CORRECT, and arm G "fails" having never
+    # reached the condition it exists to test. I reported that as a live
+    # production defect the first time. The auditor reproduced it both ways on
+    # live v36 and told me the spec now carries this seed; I then ran the
+    # re-probe without adding it.
+    "p1.eligibility_basis": "spouse_usc",
     "p5.marital_status": "married",
     "p5.marriage_date": "2019-06-15",
     "p5.spouse_first_name": "Daniel",
@@ -172,10 +204,27 @@ def configs_v37() -> dict:
     out = {"n400/" + Path(n).stem: git_json("origin/main", n) for n in names if n.endswith(".json")}
     cfg = out[SLUG]
     assert cfg["version"] == 36, f"origin/main is v{cfg['version']}, not the v36 v37 is cut from"
-    md = V37_EDITS.read_text(encoding="utf-8").split("\n")
+    # ⚠ PAIR BY HEADER, NEVER BY LINE NUMBER. This read (16,20),(24,28)... until
+    # the auditor revised the edit file IN PLACE and every block moved down two
+    # lines to (18,22),(26,30)... Hardcoded positions then pointed at the wrong
+    # text, and the failure mode is not always a clean assertion: if a shifted
+    # line happens to be another indented block, the arm assembles a prompt
+    # nobody wrote and grades it as v37. I caught this exact trap while
+    # verifying v37b by header and left it standing here, in the same file, in
+    # the same session. Same shape as the sync script indexing line 83.
+    lines = V37_EDITS.read_text(encoding="utf-8").split("\n")
+    edits, cur = [], None
+    for l in lines:
+        if l.startswith("## Edit"):
+            cur = (l.split()[2].rstrip(":"), [])
+            edits.append(cur)
+        elif cur is not None and l.startswith("    ") and l.strip() and len(cur[1]) < 2:
+            cur[1].append(l[4:])
+    assert len(edits) == 5, f"v37 edit file has {len(edits)} edits, expected 5"
     sp = cfg["systemPrompt"]
-    for label, o, n in [("A", 16, 20), ("B", 24, 28), ("C", 32, 36), ("D", 40, 44), ("E", 48, 52)]:
-        old, new = md[o - 1][4:], md[n - 1][4:]
+    for label, blocks in edits:
+        assert len(blocks) == 2, f"v37 Edit {label} has {len(blocks)} blocks, expected 2"
+        old, new = blocks
         assert sp.count(old) == 1, f"v37 Edit {label} anchor count {sp.count(old)}"
         sp = sp.replace(old, new)
     assert sp.count("A COVERED WINDOW CLOSES ITS GATE") == 4
@@ -659,7 +708,11 @@ def main() -> int:
         # a rule that closes gates is only safe if it declines to on a partial
         # date, inside the window, with no window sentence, and on a gate that
         # is not a history gate at all.
-        win_en, win_es = CONTEXT + V37_WINDOW_EN, CONTEXT + V37_WINDOW_ES
+        # Base + "; " + the one combined piece, the way the app joins them. The
+        # es arm differs only in its base (language: Spanish), because the
+        # window piece itself carries both languages.
+        win_en = CONTEXT + "; " + V37_WINDOW
+        win_es = CONTEXT_ES + "; " + V37_WINDOW
         sc = lambda a: (lambda s: score_v37(s, a))
         plan.append(arm("v37-A", 37, "q_p7_job2", [V37_T1_EN, V37_T2_EN], sc("A"),
                         seed=V37_SEED_JOB, context=win_en))
