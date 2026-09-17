@@ -506,6 +506,42 @@ def score_v36(state: dict, spouse: bool = False) -> dict:
 
 ASKS_MORE_JOBS = r"anything else|another job|any other job|before that|otro (trabajo|empleo)|algo más"
 FULL_DAY = r"^\d{4}-\d{2}-\d{2}$"
+SAYS_COVERED = r"covers? the (last |past )?five years|covers the window|cubre los (últimos )?cinco años|cubre los últimos 5"
+
+
+def derived_view(state: dict):
+    """(merged facts, graph) as the CLIENT would compute them after this turn.
+
+    ⚠ Derived values are NEVER written into state["facts"] and never appear in a
+    transcript entry; the harness computes them ON READ. So "the gate closed" is
+    not a thing to look for in `minted`, which is what v37's first cut assumed
+    and what cost probe 1.
+
+    ⚠ g.closed must be set from the run before asking for an agenda, or the
+    agenda is not the one the client would have computed and the check passes or
+    fails for the wrong reason."""
+    import n400_qa as q
+    g = q.Graph()
+    g.closed = set(state.get("closed") or [])
+    return q.with_derived(g, state.get("facts") or {}), g
+
+
+def gate_is_derived_not_minted(state: dict, gate: str) -> tuple[bool, bool]:
+    """(derived "no", its node is off the agenda).
+
+    The second half of the first tuple element is what proves DERIVATION: a
+    value present in the merged view and ABSENT from state["facts"] was computed
+    by the client, not minted by the lane. A value in both would mean the lane
+    minted it, which is the thing v37b stopped asking for."""
+    wd, g = derived_view(state)
+    derived = wd.get(gate) == "no" and gate not in (state.get("facts") or {})
+    # Resolve the gate's node from the graph rather than hardcoding an id: the
+    # id seen in probe 1 appeared beside a harness note about the client falling
+    # back to it, so it may not be the gate's own node.
+    node_of = {fid: nid for nid, n in g.nodes.items() for fid in n["field_ids"]}
+    nid = node_of.get(gate)
+    off_agenda = nid is not None and nid not in g.agenda(state.get("cursor") or "", wd)
+    return derived, off_agenda
 
 
 def score_v37(state: dict, arm: str) -> dict:
@@ -526,10 +562,17 @@ def score_v37(state: dict, arm: str) -> dict:
     asking = last.get("asking") or ""
     checks: dict = {}
     if arm in ("A", "B"):
+        # ⚠ REVISED after probe 1. The first cut asserted the LANE minted
+        # p7.has_job3, which the client data model makes impossible: a fact
+        # outside the asked node's field_ids is filed tentative regardless of
+        # the marker. The app owns the gate; the prompt only stops asking.
+        derived, off_agenda = gate_is_derived_not_minted(state, "p7.has_job3")
         checks["from_minted_as_the_full_day"] = minted.get("p7.employer2.from") == "2012-01-01"
-        checks["gate_closed_this_response"] = minted.get("p7.has_job3") == "no"
+        checks["says_the_window_is_covered"] = bool(re.search(SAYS_COVERED, reply, re.I))
         checks["does_not_ask_for_an_earlier_job"] = not re.search(ASKS_MORE_JOBS, reply, re.I)
         checks["asking_is_not_the_gate"] = asking != "q_p7_more_jobs2"
+        checks["gate_derived_no_not_minted"] = derived
+        checks["gate_node_off_the_agenda"] = off_agenda
     elif arm in ("C", "E"):
         checks["gate_not_closed"] = "p7.has_job3" not in minted
         checks["gate_is_still_asked"] = bool(re.search(ASKS_MORE_JOBS, reply, re.I)) or "job3" in asking
@@ -540,9 +583,16 @@ def score_v37(state: dict, arm: str) -> dict:
         checks["no_day_precision_from_a_year"] = not re.match(FULL_DAY, str(frm))
         checks["gate_not_closed"] = "p7.has_job3" not in minted
     elif arm == "F":
-        checks["address_gate_closed"] = minted.get("p4.has_prior_address1") == "no"
+        # Same revision as A and B: the client derives it, the lane stops
+        # asking. Probe 1 showed the lane emitting p4.has_prior_address1 = "no"
+        # and the client parking it as TENTATIVE, with the reply explaining
+        # itself ("Since that covers the last five years...").
+        derived, off_agenda = gate_is_derived_not_minted(state, "p4.has_prior_address1")
+        checks["says_the_window_is_covered"] = bool(re.search(SAYS_COVERED, reply, re.I))
         checks["does_not_ask_the_prior_address"] = not re.search(
             r"before (that|this)|previous address|another address|prior address", reply, re.I)
+        checks["gate_derived_no_not_minted"] = derived
+        checks["gate_node_off_the_agenda"] = off_agenda
     elif arm == "G":
         checks["citizen_how_minted_by_birth"] = minted.get("p5.spouse_citizen_how") == "by_birth"
         checks["a_number_not_minted_silently"] = "p5.spouse_has_a_number" not in minted
