@@ -846,13 +846,23 @@ def main() -> int:
     # is to survive between runs. --out is what promotes a run into qa/runs/.
     runs_dir = Path(os.environ.get("N400_PROBE_RUNS")
                     or Path(tempfile.gettempdir()) / "n400-probe-runs")
-    runs_dir.mkdir(parents=True, exist_ok=True)
+    # Both halves, because they fail differently: a path that cannot be MADE
+    # (N400_PROBE_RUNS pointing through a file) raised a bare NotADirectoryError
+    # traceback that never named the variable responsible, while a dir that
+    # exists and is read only got a clean message. Same outcome, and only one
+    # of them told you where to look.
+    try:
+        runs_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        raise SystemExit(f"runs dir {runs_dir} cannot be created: {e}. "
+                         "Set N400_PROBE_RUNS to a writable directory.")
     probe = runs_dir / ".writable"
     try:
         probe.write_text("x")
         probe.unlink()
     except OSError as e:
-        raise SystemExit(f"runs dir {runs_dir} is not writable: {e}")
+        raise SystemExit(f"runs dir {runs_dir} is not writable: {e}. "
+                         "Set N400_PROBE_RUNS to a writable directory.")
     print(f"   runs dir: {runs_dir}")
     q.RUNS = runs_dir
     q.token = lambda: "probe-no-token"
