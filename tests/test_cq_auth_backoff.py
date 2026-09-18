@@ -221,3 +221,120 @@ async def test_a_genuinely_wrong_secret_still_stops_fast(monkeypatch):
         for _ in range(50):
             await cq._get_auth_headers(APP)
     assert post.await_count == 2
+
+
+# --- the 429 arm (2026-09-18) -----------------------------------------
+#
+# CQ's token endpoint rate-limits FAILURES: 10 per 900s keyed on client_id,
+# then 429 with Retry-After (confirmed on their prod 2026-09-18). Before this,
+# a 429 fell through to the transient arm and got retried with NO back-off, the
+# one response a rate limit forbids. A 429 is a third thing: not a wrong
+# credential (so no strike, no permanent cooldown) and not an instant-retry
+# transient (so honour Retry-After).
+#
+# ⚠ In normal operation this arm is unreachable: the limiter counts only
+# failures and a success clears the bucket, and a wrong secret trips our own
+# two-strike cooldown at strike 2, long before CQ's tenth failure. Belt-and-
+# braces, built because an UNHANDLED 429 is the dangerous default, not because
+# the path is live today.
+
+
+def _rate_limited(retry_after: str | None = "30"):
+    req = httpx.Request("POST", "https://cq.example/v1/auth/token")
+    headers = {"Retry-After": retry_after} if retry_after is not None else {}
+    resp = httpx.Response(status_code=429, headers=headers, request=req)
+    err = httpx.HTTPStatusError("rate limited", request=req, response=resp)
+    r = AsyncMock()
+    r.raise_for_status = lambda: (_ for _ in ()).throw(err)
+    return AsyncMock(return_value=r)
+
+
+@pytest.mark.asyncio
+async def test_a_429_backs_off_and_does_not_spin(monkeypatch):
+    """The whole point. A rate limit must stop us asking again inside the
+    window, not become a retry the way a plain transient error would."""
+    _identity(monkeypatch)
+    post = _rate_limited("30")
+    with patch.object(cq, "_get_client", lambda: _client(post)):
+        for _ in range(10):
+            headers = await cq._get_auth_headers(APP)
+            assert "Authorization" not in headers
+    # ONE call: the first 429 armed the back-off, and the gate at the top of
+    # _get_auth_headers held every call after it. Contrast the transient arm,
+    # which POSTs all ten times.
+    assert post.await_count == 1
+    assert "cq-app" in cq._auth_failures
+
+
+@pytest.mark.asyncio
+async def test_a_429_is_not_a_strike(monkeypatch):
+    """A rate limit is not evidence the secret is wrong, so it must not count
+    toward the permanent-rejection cooldown. If it did, two 429s would look
+    like a wrong credential and cool us down for the wrong reason."""
+    _identity(monkeypatch)
+    with patch.object(cq, "_get_client", lambda: _client(_rate_limited("5"))):
+        await cq._get_auth_headers(APP)
+    assert "cq-app" not in cq._auth_strikes
+
+
+@pytest.mark.asyncio
+async def test_the_backoff_honours_retry_after_seconds(monkeypatch):
+    _identity(monkeypatch)
+    t0 = time.time()
+    with patch.object(cq, "_get_client", lambda: _client(_rate_limited("120"))):
+        await cq._get_auth_headers(APP)
+    until = cq._auth_failures["cq-app"]
+    assert 118 <= (until - t0) <= 123, f"expected ~120s back-off, got {until - t0:.1f}"
+
+
+@pytest.mark.asyncio
+async def test_a_missing_retry_after_falls_back_not_to_zero(monkeypatch):
+    """Zero would turn a 429 into an instant retry, the exact thing the header
+    exists to prevent. A header-less 429 backs off the ordinary cooldown."""
+    _identity(monkeypatch)
+    t0 = time.time()
+    with patch.object(cq, "_get_client", lambda: _client(_rate_limited(None))):
+        await cq._get_auth_headers(APP)
+    until = cq._auth_failures["cq-app"]
+    assert (until - t0) >= cq.AUTH_FAILURE_COOLDOWN_SECONDS - 1
+
+
+@pytest.mark.asyncio
+async def test_a_429_backoff_clears_on_a_later_success(monkeypatch):
+    """Unlike a wrong secret, a rate limit passes. Once the window has rolled
+    and a mint succeeds, the memo must clear so we are back to bearer auth."""
+    _identity(monkeypatch)
+    with patch.object(cq, "_get_client", lambda: _client(_rate_limited("30"))):
+        await cq._get_auth_headers(APP)
+    assert "cq-app" in cq._auth_failures
+    cq._auth_failures["cq-app"] = time.time() - 1        # window rolled
+    with patch.object(cq, "_get_client", lambda: _client(_success())):
+        headers = await cq._get_auth_headers(APP)
+    assert headers["Authorization"] == "Bearer tok"
+    assert "cq-app" not in cq._auth_failures
+
+
+def test_parse_retry_after_seconds_form():
+    now = 1000.0
+    assert cq._parse_retry_after("45", now=now) == 45.0
+
+
+def test_parse_retry_after_http_date_form():
+    from email.utils import format_datetime
+    from datetime import datetime, timezone, timedelta
+    now = time.time()
+    when = datetime.now(timezone.utc) + timedelta(seconds=90)
+    secs = cq._parse_retry_after(format_datetime(when), now=now)
+    assert 85 <= secs <= 95, f"expected ~90s from the HTTP-date, got {secs:.1f}"
+
+
+def test_parse_retry_after_clamps_and_defaults():
+    now = 1000.0
+    # Below the floor: never a busy-spin.
+    assert cq._parse_retry_after("0", now=now) == 1.0
+    # Above the window: never wait longer than the bucket that set it.
+    assert cq._parse_retry_after("99999", now=now) == cq.RATE_LIMIT_MAX_BACKOFF_SECONDS
+    # Garbage and empty both fall back, not to zero.
+    assert cq._parse_retry_after("not-a-date", now=now) == cq.AUTH_FAILURE_COOLDOWN_SECONDS
+    assert cq._parse_retry_after("", now=now) == cq.AUTH_FAILURE_COOLDOWN_SECONDS
+    assert cq._parse_retry_after(None, now=now) == cq.AUTH_FAILURE_COOLDOWN_SECONDS
