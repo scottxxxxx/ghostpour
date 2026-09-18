@@ -71,6 +71,59 @@ _tokens: dict[str, tuple[str, float]] = {}  # cq_app_id -> (token, expires_at)
 AUTH_FAILURE_COOLDOWN_SECONDS = 60.0
 _auth_failures: dict[str, float] = {}  # cq_app_id -> retry_after (epoch)
 
+# CQ's token endpoint rate-limits FAILURES: 10 per 900s keyed on client_id,
+# then 429 with Retry-After (confirmed on their prod 2026-09-18). A 429 is a
+# THIRD thing, distinct from both arms below it. It is not a wrong credential,
+# so it must not push us toward the permanent-rejection cooldown or log as one;
+# and it is not an instant-retry transient, so it must not be hammered. We back
+# off exactly as long as CQ tells us to. The read gate at _get_auth_headers
+# reuses _auth_failures for this, because "return X-App-ID until this epoch" is
+# the same behaviour whichever reason set it; only the duration and the
+# strike-accounting differ.
+#
+# ⚠ In normal operation we cannot reach a 429: the limiter counts only
+# failures and a success clears the bucket, so valid credentials never
+# accumulate, and a WRONG credential trips our own two-strike cooldown at
+# strike 2, long before CQ's tenth failure. This arm is belt-and-braces for
+# the case where those assumptions stop holding (a shared bucket, a limiter
+# reconfigured to count attempts), not a live gap. CQ said as much; we handle
+# it anyway because an unhandled 429 falls through to the transient arm and
+# gets retried with no back-off at all, which is the one response a rate limit
+# specifically forbids.
+RATE_LIMIT_MAX_BACKOFF_SECONDS = 900.0  # CQ's window; no point waiting longer
+
+
+def _parse_retry_after(value: str | None, *, now: float) -> float:
+    """Seconds to wait, from a Retry-After header. Accepts the two forms RFC
+    9110 allows (a delay in seconds, or an HTTP-date) and neither: a missing or
+    unparseable header falls back to the ordinary cooldown rather than to zero,
+    because zero would turn a 429 into an instant retry, the exact thing the
+    header exists to prevent. Clamped to [1, window]: never a busy-spin, never
+    a wait longer than the bucket that set it."""
+    fallback = AUTH_FAILURE_COOLDOWN_SECONDS
+    if not value:
+        return fallback
+    value = value.strip()
+    secs: float
+    if value.isdigit():
+        secs = float(value)
+    else:
+        try:
+            from email.utils import parsedate_to_datetime
+            when = parsedate_to_datetime(value)
+        except (TypeError, ValueError, IndexError):
+            return fallback
+        if when is None:
+            return fallback
+        # A naive date from the header is interpreted as UTC, matching how
+        # HTTP dates are defined; datetime.timestamp() then gives epoch.
+        if when.tzinfo is None:
+            from datetime import timezone as _tz
+            when = when.replace(tzinfo=_tz.utc)
+        secs = when.timestamp() - now
+    return max(1.0, min(secs, RATE_LIMIT_MAX_BACKOFF_SECONDS))
+
+
 # One rejection is not enough to stop asking, and this is a joint problem
 # rather than a hypothetical (CQ, 2026-08-07).
 #
@@ -215,7 +268,20 @@ async def _get_auth_headers(app_id: str | None = None) -> dict[str, str]:
 
     except httpx.HTTPStatusError as e:
         status = e.response.status_code
-        if status in (400, 401, 403):
+        if status == 429:
+            # Rate limited, not rejected. Back off exactly as long as CQ asks,
+            # and do NOT touch _auth_strikes: a 429 is not evidence the secret
+            # is wrong, so it must not count toward the permanent-rejection
+            # cooldown, and a later success must still start from a clean slate.
+            backoff = _parse_retry_after(e.response.headers.get("Retry-After"),
+                                         now=time.time())
+            _auth_failures[cq_app] = time.time() + backoff
+            logger.warning(
+                "cq_token_rate_limited",
+                extra={"cq_app": cq_app, "status": status, "backoff_s": round(backoff, 1),
+                       "retry_after_raw": e.response.headers.get("Retry-After")},
+            )
+        elif status in (400, 401, 403):
             # The credential itself is wrong: unknown app id, or a secret
             # that did not travel intact. Nothing changes until a human
             # changes it, so stop asking for a while.
