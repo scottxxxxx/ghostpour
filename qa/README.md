@@ -165,3 +165,27 @@ Rescored 2026-09-17, all four committed run files, zero disagreements: v36 19
 of 19, v37b 9 of 9, v37 4 of 4, v35e 9 of 9 (this last through
 `typesafe_vs_regex.py`, the v34/v35 file shape). 41 checks, about $0.00054 all
 in, so cost is never the reason to skip it.
+
+## v34a, v34b and v34c are NOT reconstructible from this repo
+
+Asked for 2026-09-17 and answered by walking the history of
+`config/remote/n400/interviewer-turn.json` on `origin/main`: across all **37**
+commits that ever touched that file, version 34 exists at **exactly one**,
+`57569e40`, and that commit already carries the v34d marker
+(`it never means no read-back`). There is no commit anywhere on main holding
+version 34 before the v34 edit chain was applied.
+
+So `--revision a`, `b` and `c` cannot be assembled: their edits anchor on text
+that the only available v34 base has already replaced. `configs_for()` says so
+loudly and names how many commits it checked, rather than dying on a stale
+assert. `d` and `e` run. **If anyone asks for a v34b diff, it does not exist any
+more.**
+
+Constrained by a second count rather than one read: versions 1 through 36 each
+landed exactly once except 27, which landed twice. 36 + 1 = 37.
+
+⚠ And the assert that used to guard this arm could not have caught a wrong ref.
+`A PLAIN ANSWER GETS NO ECHO` is present in v35 **and** v36, so a resolver
+handing back `main` sailed straight through it. Found by sabotaging the version
+filter and watching the arm pass. The discriminating check is the ABSENCE of
+v36's own `NAME THE BASIS, NEVER JUDGE IT`.

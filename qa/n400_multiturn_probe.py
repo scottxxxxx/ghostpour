@@ -40,9 +40,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
 from datetime import date
 import urllib.request
@@ -53,9 +55,19 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 AUDITOR_QA = Path("/Users/scottguida/N400 App/qa")
 V35_EDITS = Path("/Users/scottguida/N400 App/contracts/partial-date-ask-once-prompt-v35-edits.md")
-# v34d merged to main in #987 (57569e40). The PR branch it used to read is
-# gone or stale; main IS the v34 arm now.
-V34_REF = "origin/main"
+# ⚠ NOT A REF, A STARTING POINT. This was `V34_REF = "origin/main"` and it was
+# BROKEN for hours: v34d merged to main in #987, then v35 and v36 merged on top,
+# so main's interviewer-turn stopped being version 34 and `configs_for` died on
+# its own assert. The v34 and v35 arms were unrunnable and nobody noticed,
+# because the authorized work was the v37 arm, which uses configs_v37().
+#
+# A ref that names a BRANCH is a claim about that branch's contents at some
+# past moment, and it keeps being read as if it were still true. The same
+# defect ate the original V34_REF when its PR branch merged, and _v36_ref()
+# was written to dodge it. This is that fix generalized: ask history which
+# commit really carries the version you want, rather than asserting that a
+# moving name still does.
+V34_HISTORY_FROM = "origin/main"
 SLUG = "n400/interviewer-turn"
 # ⚠ THE APP'S EXACT BASE STRING, read from OpeningQuestions.swift rather than
 # paraphrased. It joins pieces with "; " (not ", ") and carries state and
@@ -122,6 +134,56 @@ def _v36_ref() -> str:
         f"no v36 config found: neither origin/main nor {V36_REF} is version 36. "
         "If v36 has merged and the branch is gone, fetch main; if it has not, "
         "fetch the PR branch.")
+
+
+_REF_CACHE: dict[tuple[int, bool], str] = {}
+# The marker for "the v34 chain has already been applied at this commit".
+V34D_MARKER = "it never means no read-back"
+
+
+def ref_carrying_version(version: int, *, pre_cut: bool = False) -> str:
+    """The newest commit on `V34_HISTORY_FROM` whose n400/interviewer-turn
+    really IS `version`, found by walking that file's history.
+
+    `pre_cut=True` additionally requires the commit to predate the v34 chain,
+    which is what revisions "a", "b" and "c" rebuild from. Without it they can
+    only be assembled from a base that already contains their own output, and
+    the anchors they replace no longer exist there.
+
+    ⭐ WHY A WALK RATHER THAN A PINNED SHA. A pinned sha would work and would be
+    one line. It would also be a number nobody can check without running the
+    same walk, and the last two times this harness named a ref by hand (the
+    original V34_REF on a PR branch, then "origin/main" after v35 merged) the
+    name went stale silently and the run died at the moment somebody needed it.
+    The walk states the PROPERTY the arm requires and fails loudly naming it.
+    """
+    key = (version, pre_cut)
+    if key in _REF_CACHE:
+        return _REF_CACHE[key]
+    path = f"config/remote/n400/{Path(SLUG).name}.json"
+    shas = subprocess.check_output(
+        ["git", "-C", str(ROOT), "log", "--format=%H", V34_HISTORY_FROM, "--", path],
+    ).decode().split()
+    if not shas:
+        raise SystemExit(
+            f"no history for {path} on {V34_HISTORY_FROM}. Fetch it first: "
+            f"git fetch origin")
+    for sha in shas:
+        try:
+            doc = git_json(sha, path)
+        except subprocess.CalledProcessError:
+            continue
+        if doc.get("version") != version:
+            continue
+        if pre_cut and V34D_MARKER in doc.get("systemPrompt", ""):
+            continue
+        _REF_CACHE[key] = sha
+        return sha
+    raise SystemExit(
+        f"no commit on {V34_HISTORY_FROM} carries interviewer-turn version "
+        f"{version}{' before the v34 chain' if pre_cut else ''}, across "
+        f"{len(shas)} commits that touched it. Either the history has been "
+        f"rewritten or that version never landed on this branch.")
 
 
 def configs_v36() -> dict:
@@ -243,11 +305,26 @@ def configs_for(version: int, revision: str = "e") -> dict:
     edits on top of that; v35b's Edit A anchors on the ORIGINAL sentence, so it
     REPLACES v35 rather than building on it. revision "a" reproduces the first
     run (v34 as branched, v35 = v34 + the first v35 edit)."""
+    # Resolved from history rather than asserted about a branch name. Revisions
+    # a, b and c rebuild the v34 chain, so they need a base from BEFORE it.
+    ref = ref_carrying_version(34, pre_cut=revision in ("a", "b", "c"))
     names = subprocess.check_output(
-        ["git", "-C", str(ROOT), "ls-tree", "--name-only", V34_REF, "config/remote/n400/"]).decode().split()
-    out = {"n400/" + Path(n).stem: git_json(V34_REF, n) for n in names if n.endswith(".json")}
+        ["git", "-C", str(ROOT), "ls-tree", "--name-only", ref, "config/remote/n400/"]).decode().split()
+    out = {"n400/" + Path(n).stem: git_json(ref, n) for n in names if n.endswith(".json")}
     cfg = out[SLUG]
-    assert cfg["version"] == 34 and "A PLAIN ANSWER GETS NO ECHO" in cfg["systemPrompt"], "v34 branch is not v34"
+    # ⚠ The version is true BY CONSTRUCTION here (the resolver selected on it),
+    # so re-asserting it would be a check that cannot fail. And the obvious
+    # marker cannot fail either: "A PLAIN ANSWER GETS NO ECHO" is still present
+    # in v35 AND v36, so a resolver that handed back main would sail straight
+    # through it. Checked, not assumed. The discriminating assertion is the
+    # ABSENCE of the thing v36 exists to add.
+    sp_ = cfg["systemPrompt"]
+    assert "A PLAIN ANSWER GETS NO ECHO" in sp_, (
+        f"{ref[:8]} is interviewer-turn v34 but does not carry the v34 base text")
+    assert "NAME THE BASIS, NEVER JUDGE IT" not in sp_, (
+        f"{ref[:8]} was resolved as the v34 base but carries v36's name-the-basis "
+        f"rule, so the resolver returned a later cut")
+    print(f"   v34 base: {ref[:8]} (resolved as the newest v34 on {V34_HISTORY_FROM})")
     sp = cfg["systemPrompt"]
     if revision == "a":
         if version == 35:
@@ -267,20 +344,22 @@ def configs_for(version: int, revision: str = "e") -> dict:
         me = V35E_EDIT.read_text().split("\n")
         later = revision in ("c", "d", "e")
         d_or_later = revision in ("d", "e")
-        # The v34 chain is applied ONLY while V34_REF still carries the pre-cut
-        # text. Once v34d lands on the branch (or on main) the base already IS
-        # the final v34 arm, and re-applying b, c and d would die on anchors
-        # that no longer exist. The v35 chain is unaffected: its anchors are in
-        # the date and deferral rules, not the reply shape.
-        v34_done = "it never means no read-back" in sp
+        # The v34 chain is applied ONLY while the resolved base still carries
+        # the pre-cut text. Once v34d has landed the base already IS the final
+        # v34 arm, and re-applying b, c and d would die on anchors that no
+        # longer exist, which is why a/b/c resolve with pre_cut=True. The v35
+        # chain is unaffected: its anchors are in the date and deferral rules,
+        # not the reply shape.
+        v34_done = V34D_MARKER in sp
         if v34_done and not d_or_later:
             raise SystemExit(
-                f"V34_REF already carries v34d, so revision {revision!r} cannot be "
-                "rebuilt from it. Use --revision d or e, or point V34_REF at the "
-                "commit that cut it.")
+                f"the resolved v34 base {ref[:8]} already carries v34d, so revision "
+                f"{revision!r} cannot be rebuilt from it. This should be unreachable: "
+                "a, b and c resolve with pre_cut=True. If you see it, the marker "
+                "moved.")
         steps = []
         if v34_done:
-            print(f"   v34 arm: taken from {V34_REF} as is (already v34d)")
+            print(f"   v34 arm: taken from {ref[:8]} as is (already v34d)")
         else:
             steps += [(mb, "v34b", 70, 74)]
             if later:
@@ -758,8 +837,33 @@ def main() -> int:
     import n400_qa as q
     from app.config import get_settings
 
-    runs_dir = Path("/private/tmp/claude-501/-Users-scottguida-cloudzap/e310dc06-602b-43e8-b44f-dc89a8b6ba0f/scratchpad/qa_runs")
-    runs_dir.mkdir(parents=True, exist_ok=True)
+    # ⚠ THIS WAS A DEAD PATH. It was hardcoded to one session's scratchpad
+    # (.../e310dc06-.../scratchpad/qa_runs), which stops existing the moment
+    # that session does. mkdir(parents=True) would have RECREATED it happily
+    # under a stale uuid, so the failure would not even have been loud: the run
+    # artifacts would just land somewhere nobody would look for them again.
+    # A per-session path is the wrong default for a directory whose whole job
+    # is to survive between runs. --out is what promotes a run into qa/runs/.
+    runs_dir = Path(os.environ.get("N400_PROBE_RUNS")
+                    or Path(tempfile.gettempdir()) / "n400-probe-runs")
+    # Both halves, because they fail differently: a path that cannot be MADE
+    # (N400_PROBE_RUNS pointing through a file) raised a bare NotADirectoryError
+    # traceback that never named the variable responsible, while a dir that
+    # exists and is read only got a clean message. Same outcome, and only one
+    # of them told you where to look.
+    try:
+        runs_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        raise SystemExit(f"runs dir {runs_dir} cannot be created: {e}. "
+                         "Set N400_PROBE_RUNS to a writable directory.")
+    probe = runs_dir / ".writable"
+    try:
+        probe.write_text("x")
+        probe.unlink()
+    except OSError as e:
+        raise SystemExit(f"runs dir {runs_dir} is not writable: {e}. "
+                         "Set N400_PROBE_RUNS to a writable directory.")
+    print(f"   runs dir: {runs_dir}")
     q.RUNS = runs_dir
     q.token = lambda: "probe-no-token"
     q.served_build = lambda: {"probe": "direct API, no health read"}
