@@ -195,6 +195,29 @@ async def lifespan(app: FastAPI):
         logging.getLogger("app.main").warning(
             "uncapped_reachable_audit failed (non-fatal): %s", _e)
 
+    # CQ is configured but the DEFAULT identity has no app id. Only a
+    # dropped env var gets here (the code default is deliberately empty,
+    # see config.py), and the runtime symptom is silence: CQ's app_id is
+    # a uuid column, so a blank or non-UUID id never reaches their
+    # verify_password or their failure counter, and our own cooldown
+    # keys on 400/401/403 so it never fires. Every default-identity call
+    # degrades to X-App-ID and nothing anywhere says why. Loud here
+    # instead, at the one moment the value is known and nothing has been
+    # sent yet.
+    #
+    # ⚠ This does NOT disable the hook. Per-app identities (apps.yml
+    # apps.<id>.cq) carry their own app_id and are unaffected by the
+    # default being unset, so refusing to register would break callers
+    # that are correctly configured to fix one that is not.
+    if settings.cq_base_url and not settings.cq_app_id:
+        logging.getLogger("app.main").error(
+            "startup_check cq_app_id_missing: CZ_CQ_APP_ID is unset while "
+            "cq_base_url is configured, so every call on the DEFAULT CQ "
+            "identity will fall back to the X-App-ID header and neither side "
+            "will report an error. Per-app identities in apps.yml are "
+            "unaffected. Set CZ_CQ_APP_ID to the UUID CQ provisioned."
+        )
+
     # Register feature hooks
     feature_hooks: dict[str, object] = {}
     if settings.cq_base_url:
