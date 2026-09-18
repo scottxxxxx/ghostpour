@@ -83,5 +83,9 @@ GhostPour integrates with Context Quilt as the first feature using the generic f
 
 **Config:**
 - `CZ_CQ_BASE_URL` — CQ endpoint (e.g., `https://cq.example.com`)
-- `CZ_CQ_APP_ID` — app identifier for CQ auth (default: `cloudzap`)
+- `CZ_CQ_APP_ID` — app identifier for CQ auth (REQUIRED when `CZ_CQ_BASE_URL`
+  is set, no default). CQ's `applications.app_id` is a uuid column, so the
+  value is the UUID CQ provisioned. Unset logs `startup_check
+  cq_app_id_missing` and every default-identity call degrades silently to
+  the `X-App-ID` header.
 - `CZ_CQ_RECALL_TIMEOUT_MS` — max wait for recall (default: 200)

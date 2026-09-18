@@ -166,7 +166,19 @@ class Settings(BaseSettings):
 
     # Context Quilt integration
     cq_base_url: str = ""              # e.g., "https://cq.example.com"
-    cq_app_id: str = "cloudzap"        # Default CQ app identity (ShoulderSurf rides this)
+    # ⚠ NO DEFAULT ON PURPOSE. This was the literal "cloudzap" until
+    # 2026-09-17, and that string asserted something that has never been
+    # true: CQ's `applications.app_id` is a uuid column, so a non-UUID
+    # client_id makes asyncpg raise INSIDE their fetch, the request takes
+    # their outer exception arm, and it never reaches verify_password or
+    # their failure counter. GP would then fall back to X-App-ID forever
+    # with nothing raised on either side: their counter never increments,
+    # and our own cooldown keys on 400/401/403 so it never fires either.
+    # Silent in both directions, and only reachable through a dropped env
+    # var, which is the case nobody tests. Empty instead, so the startup
+    # check in main.py can say so out loud. A default value is an
+    # assertion nobody reviews.
+    cq_app_id: str = ""                # Default CQ app identity (ShoulderSurf rides this)
     cq_client_secret: str = ""         # Client secret for CQ JWT auth (empty = use X-App-ID fallback)
     # Per-app CQ identity: a second CQ app (Tech Rehearsal) rides GP under its
     # own CQ app_id + secret so CQ loads the right schema. app_id is set in
