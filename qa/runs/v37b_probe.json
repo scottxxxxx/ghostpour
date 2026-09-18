@@ -1,0 +1,437 @@
+{
+ "revision": "e",
+ "results": [
+  {
+   "pass": true,
+   "checks": {
+    "from_minted_as_the_full_day": true,
+    "says_the_window_is_covered": true,
+    "does_not_ask_for_an_earlier_job": true,
+    "asking_is_not_the_gate": true,
+    "gate_derived_no_not_minted": true,
+    "gate_node_off_the_agenda": true
+   },
+   "arm": "A",
+   "reply": "That covers the five years for work. Now, in the last 5 years, have you taken any trips outside the United States? Day trips under 24 hours don't count.",
+   "minted": {
+    "p7.employer2.occupation": "Sales person",
+    "p7.employer2.from": "2012-01-01",
+    "p7.employer2.to": "2025-01-01"
+   },
+   "asking": "q_p8_trips_gate",
+   "probe": "v37-A",
+   "rep": 0,
+   "run": "probe-v37-A-200358-r0"
+  },
+  {
+   "pass": true,
+   "checks": {
+    "from_minted_as_the_full_day": true,
+    "says_the_window_is_covered": true,
+    "does_not_ask_for_an_earlier_job": true,
+    "asking_is_not_the_gate": true,
+    "gate_derived_no_not_minted": true,
+    "gate_node_off_the_agenda": true
+   },
+   "arm": "A",
+   "reply": "January 1st, 2012 to January 1st, 2025, that covers the five years. In the last 5 years, have you taken any trips outside the United States? Day trips under 24 hours do not count.",
+   "minted": {
+    "p7.employer2.occupation": "Sales person",
+    "p7.employer2.from": "2012-01-01",
+    "p7.employer2.to": "2025-01-01"
+   },
+   "asking": "q_p8_trips_gate",
+   "probe": "v37-A",
+   "rep": 1,
+   "run": "probe-v37-A-200358-r1"
+  },
+  {
+   "pass": false,
+   "checks": {
+    "from_minted_as_the_full_day": true,
+    "says_the_window_is_covered": false,
+    "does_not_ask_for_an_earlier_job": false,
+    "asking_is_not_the_gate": true,
+    "gate_derived_no_not_minted": true,
+    "gate_node_off_the_agenda": true
+   },
+   "arm": "A",
+   "reply": "January 1st, 2012 to January 1st, 2025. Anything else in the last 5 years before that job?",
+   "minted": {
+    "p7.employer2.occupation": "Sales person",
+    "p7.employer2.from": "2012-01-01",
+    "p7.employer2.to": "2025-01-01"
+   },
+   "asking": "q_p8_trips_gate",
+   "probe": "v37-A",
+   "rep": 2,
+   "run": "probe-v37-A-200358-r2"
+  },
+  {
+   "pass": true,
+   "checks": {
+    "from_minted_as_the_full_day": true,
+    "says_the_window_is_covered": true,
+    "does_not_ask_for_an_earlier_job": true,
+    "asking_is_not_the_gate": true,
+    "gate_derived_no_not_minted": true,
+    "gate_node_off_the_agenda": true
+   },
+   "arm": "B",
+   "reply": "El 1 de enero de 2012 cubre los cinco años. ¿Ha hecho viajes fuera de Estados Unidos en los últimos 5 años? Los viajes de menos de 24 horas no cuentan.",
+   "minted": {
+    "p7.employer2.occupation": "Vendedor",
+    "p7.employer2.from": "2012-01-01",
+    "p7.employer2.to": "2025-01-01"
+   },
+   "asking": "q_p8_trips_gate",
+   "probe": "v37-B",
+   "rep": 0,
+   "run": "probe-v37-B-200358-r0"
+  },
+  {
+   "pass": false,
+   "checks": {
+    "gate_not_closed": true,
+    "gate_is_still_asked": false
+   },
+   "arm": "C",
+   "reply": "March 3rd, 2023 to January 1st, 2025, that covers the five years for work. In the last 5 years, have you taken any trips outside the United States? Day trips under 24 hours don't count.",
+   "minted": {
+    "p7.employer2.occupation": "Sales person",
+    "p7.employer2.from": "2023-03-03",
+    "p7.employer2.to": "2025-01-01"
+   },
+   "asking": "q_p8_trips_gate",
+   "probe": "v37-C",
+   "rep": 0,
+   "run": "probe-v37-C-200358-r0"
+  },
+  {
+   "pass": true,
+   "checks": {
+    "no_day_precision_from_a_year": true,
+    "gate_not_closed": true
+   },
+   "arm": "D",
+   "reply": "What day in 2012 did you start? If you don't know it offhand, we can check it later.",
+   "minted": {
+    "p7.employer2.occupation": "Sales person"
+   },
+   "asking": "q_p7_more_jobs2",
+   "probe": "v37-D",
+   "rep": 0,
+   "run": "probe-v37-D-200358-r0"
+  },
+  {
+   "pass": false,
+   "checks": {
+    "gate_not_closed": true,
+    "gate_is_still_asked": false
+   },
+   "arm": "E",
+   "reply": "Weird Tech, sales person, January 1st 2012 to January 1st 2025, since that start date covers the five years, that completes Part 7. Is that complete and correct?",
+   "minted": {
+    "p7.employer2.occupation": "Sales person",
+    "p7.employer2.from": "2012-01-01",
+    "p7.employer2.to": "2025-01-01"
+   },
+   "asking": "q_p8_trips_gate",
+   "probe": "v37-E",
+   "rep": 0,
+   "run": "probe-v37-E-200358-r0"
+  },
+  {
+   "pass": true,
+   "checks": {
+    "says_the_window_is_covered": true,
+    "does_not_ask_the_prior_address": true,
+    "gate_derived_no_not_minted": true,
+    "gate_node_off_the_agenda": true
+   },
+   "arm": "F",
+   "reply": "12 Oak Street, Austin, Texas 78701, since June 3rd, 2015. Since that's more than five years ago, that covers the last five years for this section. Is that also where you get your mail?",
+   "minted": {
+    "p4.current_address.street": "12 Oak Street",
+    "p4.current_address.city": "Austin",
+    "p4.current_address.state": "TX",
+    "p4.current_address.postal_code": "78701",
+    "p4.current_address.from": "2015-06-03"
+   },
+   "asking": "q_p4_mailing_same",
+   "probe": "v37-F",
+   "rep": 0,
+   "run": "probe-v37-F-200358-r0"
+  },
+  {
+   "pass": false,
+   "checks": {
+    "citizen_how_minted_by_birth": true,
+    "a_number_not_minted_silently": true,
+    "a_number_asked_in_passing": false
+   },
+   "arm": "G",
+   "reply": "Married since June 15th, 2019 to Daniel Reyes, who was born a U.S. citizen in Chicago, same address as yours. Is that all complete and correct?",
+   "minted": {
+    "p5.spouse_citizen_how": "by_birth"
+   },
+   "asking": "q_p6_children_count",
+   "probe": "v37-G",
+   "rep": 0,
+   "run": "probe-v37-G-200358-r0"
+  }
+ ],
+ "calls": [
+  {
+   "version": 37,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 2.6,
+   "in": 3887,
+   "out": 227,
+   "cache_read": 0,
+   "cache_write": 24085
+  },
+  {
+   "version": 37,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 5.2,
+   "in": 3977,
+   "out": 694,
+   "cache_read": 24085,
+   "cache_write": 0
+  },
+  {
+   "version": 37,
+   "turn_id": "t_003",
+   "stop": "end_turn",
+   "secs": 5.8,
+   "in": 4016,
+   "out": 576,
+   "cache_read": 24085,
+   "cache_write": 0
+  },
+  {
+   "version": 37,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 2.5,
+   "in": 3887,
+   "out": 231,
+   "cache_read": 24085,
+   "cache_write": 0
+  },
+  {
+   "version": 37,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 5.6,
+   "in": 3982,
+   "out": 736,
+   "cache_read": 24085,
+   "cache_write": 0
+  },
+  {
+   "version": 37,
+   "turn_id": "t_003",
+   "stop": "end_turn",
+   "secs": 5.0,
+   "in": 4011,
+   "out": 583,
+   "cache_read": 24085,
+   "cache_write": 0
+  },
+  {
+   "version": 37,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 2.4,
+   "in": 3887,
+   "out": 205,
+   "cache_read": 24085,
+   "cache_write": 0
+  },
+  {
+   "version": 37,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 4.5,
+   "in": 3981,
+   "out": 574,
+   "cache_read": 24085,
+   "cache_write": 0
+  },
+  {
+   "version": 37,
+   "turn_id": "t_003",
+   "stop": "end_turn",
+   "secs": 4.5,
+   "in": 4027,
+   "out": 477,
+   "cache_read": 24085,
+   "cache_write": 0
+  },
+  {
+   "version": 37,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 2.9,
+   "in": 4078,
+   "out": 250,
+   "cache_read": 24085,
+   "cache_write": 0
+  },
+  {
+   "version": 37,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 5.8,
+   "in": 4186,
+   "out": 772,
+   "cache_read": 24085,
+   "cache_write": 0
+  },
+  {
+   "version": 37,
+   "turn_id": "t_003",
+   "stop": "end_turn",
+   "secs": 6.0,
+   "in": 4265,
+   "out": 610,
+   "cache_read": 24085,
+   "cache_write": 0
+  },
+  {
+   "version": 37,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 3.2,
+   "in": 3885,
+   "out": 208,
+   "cache_read": 24085,
+   "cache_write": 0
+  },
+  {
+   "version": 37,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 5.4,
+   "in": 3981,
+   "out": 681,
+   "cache_read": 24085,
+   "cache_write": 0
+  },
+  {
+   "version": 37,
+   "turn_id": "t_003",
+   "stop": "end_turn",
+   "secs": 4.3,
+   "in": 4009,
+   "out": 506,
+   "cache_read": 24085,
+   "cache_write": 0
+  },
+  {
+   "version": 37,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 2.5,
+   "in": 3884,
+   "out": 235,
+   "cache_read": 24085,
+   "cache_write": 0
+  },
+  {
+   "version": 37,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 5.2,
+   "in": 3983,
+   "out": 614,
+   "cache_read": 24085,
+   "cache_write": 0
+  },
+  {
+   "version": 37,
+   "turn_id": "t_003",
+   "stop": "end_turn",
+   "secs": 4.1,
+   "in": 4011,
+   "out": 360,
+   "cache_read": 24085,
+   "cache_write": 0
+  },
+  {
+   "version": 37,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 2.7,
+   "in": 3839,
+   "out": 227,
+   "cache_read": 24085,
+   "cache_write": 0
+  },
+  {
+   "version": 37,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 5.7,
+   "in": 3929,
+   "out": 684,
+   "cache_read": 24085,
+   "cache_write": 0
+  },
+  {
+   "version": 37,
+   "turn_id": "t_003",
+   "stop": "end_turn",
+   "secs": 4.9,
+   "in": 3958,
+   "out": 556,
+   "cache_read": 24085,
+   "cache_write": 0
+  },
+  {
+   "version": 37,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 3.2,
+   "in": 3944,
+   "out": 234,
+   "cache_read": 24085,
+   "cache_write": 0
+  },
+  {
+   "version": 37,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 6.6,
+   "in": 4047,
+   "out": 802,
+   "cache_read": 24085,
+   "cache_write": 0
+  },
+  {
+   "version": 37,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 2.2,
+   "in": 3967,
+   "out": 230,
+   "cache_read": 24085,
+   "cache_write": 0
+  },
+  {
+   "version": 37,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 3.7,
+   "in": 4010,
+   "out": 329,
+   "cache_read": 24085,
+   "cache_write": 0
+  }
+ ],
+ "cost_usd": 0.4911
+}

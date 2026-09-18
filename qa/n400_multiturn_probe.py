@@ -462,7 +462,33 @@ def score_v35(state: dict) -> dict:
         # said "January 15th, 2020" while minting 2019-01-15).
         "step2_says_2019_not_2020": bool(re.search(r"\b15(th)?\b.{0,12}2019|2019.{0,12}\b15(th)?\b", r2))
             and not re.search(r"\b15(th)?,? 2020\b", r2),
-        "step2_asks_moved_out_day": asks_day(r2) and bool(re.search(r"out|left|leave", r2, re.I)),
+        # ⚠ FALSE PASS, found by the auditor's second scorer (Jev) rescoring
+        # recorded arms, not by this harness. This was
+        # `asks_day(r2) and re.search(r"out|left|leave", r2)`, matching ANYWHERE
+        # in the reply. "January 15th, 2020, noted, and I've kept the move-out
+        # date to verify. Was there an apartment or unit number...?" credited a
+        # QUESTION THAT WAS NEVER ASKED: "move-out" supplied the "out" from a
+        # statement while asks_day matched elsewhere. Same class as step3, which
+        # I narrowed to questions-only and then left this one behind.
+        # ⭐ A false pass is worse than a false fail: it certifies behaviour that
+        # did not happen. v35e's 3 of 3 was re-scored under the corrected check
+        # and STANDS (0 flips), so the verdict was never affected; it was
+        # latent and would have bitten the next v35-arm run.
+        "step2_asks_moved_out_day": (
+            any(re.search(r"\bday\b|\bdate\b", q, re.I) for q in questions(r2))
+            and any(re.search(r"\b(out|left|leave)\b", q, re.I) for q in questions(r2))),
+        # ⚠ A CLASS NEITHER SCORER WAS LOOKING FOR. On v35b-era reps the lane
+        # said back "January 15th, 2020" while MINTING 2019-01-15: the read-back
+        # and the record disagreed by a year, on the exact turn v35e exists to
+        # get right. Every date check here compared only the MINT, so they all
+        # passed. The reply is what she hears; if it disagrees with what was
+        # filed, the read-back is worse than useless because it invites her to
+        # confirm a value that is not the one on the form.
+        "says_back_the_year_it_filed": (
+            lambda said, filed: (not said) or (not filed) or said[0] in filed)(
+                re.findall(r"January\s+15(?:th)?,?\s*(\d{4})", r2),
+                minted2.get("p4.prior_address1.from")
+                or state["facts"].get("p4.prior_address1.from") or ""),
         # v35e: the day she gave is said back FIRST. Probe 4 rep 2 minted
         # 2019-01-15 correctly and asked the moved-out day next, but never said
         # the date back, so the one value she had just spoken was the one value

@@ -1,0 +1,292 @@
+{
+ "revision": "e",
+ "results": [
+  {
+   "pass": true,
+   "checks": {
+    "basis_minted_on_this_turn": true,
+    "no_verdict_word": true,
+    "claims_no_military": true,
+    "claims_no_other_year_count": true,
+    "basis_is_general_provision": true,
+    "names_the_five_year_path": true,
+    "next_question_is_the_a_number": true,
+    "claims_no_spouse": true
+   },
+   "reply": "Six years on your own, that's the general five year path. Now, what is your 9-digit A-Number, from your green card?",
+   "minted": {
+    "p1.eligibility_basis": "general_provision"
+   },
+   "basis": "general_provision",
+   "probe": "v36-en",
+   "rep": 0,
+   "run": "probe-v36-en-141149-r0"
+  },
+  {
+   "pass": true,
+   "checks": {
+    "basis_minted_on_this_turn": true,
+    "no_verdict_word": true,
+    "claims_no_military": true,
+    "claims_no_other_year_count": true,
+    "basis_is_general_provision": true,
+    "names_the_five_year_path": true,
+    "next_question_is_the_a_number": true,
+    "claims_no_spouse": true
+   },
+   "reply": "Six years on your own, that's the general five year path. Now, what is your 9-digit A-Number from your green card?",
+   "minted": {
+    "p1.eligibility_basis": "general_provision"
+   },
+   "basis": "general_provision",
+   "probe": "v36-en",
+   "rep": 1,
+   "run": "probe-v36-en-141149-r1"
+  },
+  {
+   "pass": true,
+   "checks": {
+    "basis_minted_on_this_turn": true,
+    "no_verdict_word": true,
+    "claims_no_military": true,
+    "claims_no_other_year_count": true,
+    "basis_is_general_provision": true,
+    "names_the_five_year_path": true,
+    "next_question_is_the_a_number": true,
+    "claims_no_spouse": true
+   },
+   "reply": "Six years on your own, that's the general five year path. Now, what is your 9-digit A-Number, the one on your green card starting with A?",
+   "minted": {
+    "p1.eligibility_basis": "general_provision"
+   },
+   "basis": "general_provision",
+   "probe": "v36-en",
+   "rep": 2,
+   "run": "probe-v36-en-141149-r2"
+  },
+  {
+   "pass": true,
+   "checks": {
+    "basis_minted_on_this_turn": true,
+    "no_verdict_word": true,
+    "claims_no_military": true,
+    "claims_no_other_year_count": true,
+    "basis_is_general_provision": true,
+    "names_the_five_year_path": true,
+    "next_question_is_the_a_number": true,
+    "claims_no_spouse": true
+   },
+   "reply": "Seis años por su cuenta, esa es la vía general de cinco años. Ahora, ¿cuál es su número A de 9 dígitos?",
+   "minted": {
+    "p1.eligibility_basis": "general_provision"
+   },
+   "basis": "general_provision",
+   "probe": "v36-es",
+   "rep": 0,
+   "run": "probe-v36-es-141149-r0"
+  },
+  {
+   "pass": true,
+   "checks": {
+    "basis_minted_on_this_turn": true,
+    "no_verdict_word": true,
+    "claims_no_military": true,
+    "claims_no_other_year_count": true,
+    "basis_is_general_provision": true,
+    "names_the_five_year_path": true,
+    "next_question_is_the_a_number": true,
+    "claims_no_spouse": true
+   },
+   "reply": "Seis años por su cuenta, esa es la vía general de cinco años. ¿Cuál es su número A de 9 dígitos?",
+   "minted": {
+    "p1.eligibility_basis": "general_provision"
+   },
+   "basis": "general_provision",
+   "probe": "v36-es",
+   "rep": 1,
+   "run": "probe-v36-es-141149-r1"
+  },
+  {
+   "pass": true,
+   "checks": {
+    "basis_minted_on_this_turn": true,
+    "no_verdict_word": true,
+    "claims_no_military": true,
+    "claims_no_other_year_count": true,
+    "basis_is_general_provision": true,
+    "names_the_five_year_path": true,
+    "next_question_is_the_a_number": true,
+    "claims_no_spouse": true
+   },
+   "reply": "Seis años por su cuenta, esa es la vía general de cinco años. ¿Cuál es su número A de 9 dígitos?",
+   "minted": {
+    "p1.eligibility_basis": "general_provision"
+   },
+   "basis": "general_provision",
+   "probe": "v36-es",
+   "rep": 2,
+   "run": "probe-v36-es-141149-r2"
+  },
+  {
+   "pass": true,
+   "checks": {
+    "basis_minted_on_this_turn": true,
+    "no_verdict_word": true,
+    "claims_no_military": true,
+    "claims_no_other_year_count": true,
+    "basis_is_not_the_five_year_path": true
+   },
+   "reply": "Married to a U.S. citizen for three years or more with the green card, that's the three year spousal path. What is your 9-digit A-Number?",
+   "minted": {
+    "p1.eligibility_basis": "spouse_usc"
+   },
+   "basis": "spouse_usc",
+   "probe": "v36-spouse",
+   "rep": 0,
+   "run": "probe-v36-spouse-141149-r0"
+  }
+ ],
+ "calls": [
+  {
+   "version": 36,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 3.0,
+   "in": 4136,
+   "out": 274,
+   "cache_read": 0,
+   "cache_write": 23596
+  },
+  {
+   "version": 36,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 3.3,
+   "in": 4223,
+   "out": 260,
+   "cache_read": 23596,
+   "cache_write": 0
+  },
+  {
+   "version": 36,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 3.6,
+   "in": 4137,
+   "out": 247,
+   "cache_read": 23596,
+   "cache_write": 0
+  },
+  {
+   "version": 36,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 2.9,
+   "in": 4222,
+   "out": 259,
+   "cache_read": 23596,
+   "cache_write": 0
+  },
+  {
+   "version": 36,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 5.5,
+   "in": 4136,
+   "out": 278,
+   "cache_read": 23596,
+   "cache_write": 0
+  },
+  {
+   "version": 36,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 3.8,
+   "in": 4223,
+   "out": 266,
+   "cache_read": 23596,
+   "cache_write": 0
+  },
+  {
+   "version": 36,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 4.3,
+   "in": 4395,
+   "out": 291,
+   "cache_read": 23596,
+   "cache_write": 0
+  },
+  {
+   "version": 36,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 4.6,
+   "in": 4542,
+   "out": 377,
+   "cache_read": 23596,
+   "cache_write": 0
+  },
+  {
+   "version": 36,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 7.7,
+   "in": 4396,
+   "out": 329,
+   "cache_read": 23596,
+   "cache_write": 0
+  },
+  {
+   "version": 36,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 3.5,
+   "in": 4552,
+   "out": 326,
+   "cache_read": 23596,
+   "cache_write": 0
+  },
+  {
+   "version": 36,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 3.4,
+   "in": 4394,
+   "out": 290,
+   "cache_read": 23596,
+   "cache_write": 0
+  },
+  {
+   "version": 36,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 3.1,
+   "in": 4540,
+   "out": 326,
+   "cache_read": 23596,
+   "cache_write": 0
+  },
+  {
+   "version": 36,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 3.6,
+   "in": 4137,
+   "out": 247,
+   "cache_read": 23596,
+   "cache_write": 0
+  },
+  {
+   "version": 36,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 5.8,
+   "in": 4252,
+   "out": 346,
+   "cache_read": 23596,
+   "cache_write": 0
+  }
+ ],
+ "cost_usd": 0.2821
+}

@@ -1,0 +1,281 @@
+{
+ "revision": "e",
+ "results": [
+  {
+   "pass": true,
+   "checks": {
+    "step1_asks_day_with_way_out": true,
+    "step1_deferral_only_if_it_asked": true,
+    "step1_asks_one_day_only": true,
+    "step1_mints_neither_date": true,
+    "step2_mints_from_2019_01_15": true,
+    "step2_says_2019_not_2020": true,
+    "step2_asks_moved_out_day": true,
+    "step2_reply_opens_with_the_date": true,
+    "step2_asks_only_the_moved_out_day": true,
+    "step3_to_deferral_stands": true,
+    "step3_partial_2020_01": true,
+    "step3_does_not_ask_day_again": true
+   },
+   "replies": [
+    "335 Gonzales Road, Santiago, Chile. What day in January 2019 did you move in? If you don't know it offhand, we can check it later.",
+    "January 15th, 2019. What day in January 2020 did you move out? If you don't know, we can check it later.",
+    "That's fine, we'll leave that day open until you can check. Was there an apartment or unit number at that Santiago address, and which state is your current address in Texas?"
+   ],
+   "minted_step2": {
+    "p4.prior_address1.from": "2019-01-15"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.prior_address1.from",
+     "reason": "month and year given, exact day not stated",
+     "partial_value": "2019-01",
+     "origin": "applicant",
+     "turn": 2
+    },
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "month and year given, exact day not stated",
+     "partial_value": "2020-01",
+     "origin": "applicant",
+     "turn": 2
+    },
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "exact day not yet asked",
+     "partial_value": "2020-01",
+     "origin": "applicant",
+     "turn": 3
+    },
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "applicant unsure of exact move-out day",
+     "partial_value": "2020-01",
+     "origin": "applicant",
+     "turn": 4
+    }
+   ],
+   "probe": "v35",
+   "rep": 0,
+   "run": "probe-v35-121041-r0"
+  },
+  {
+   "pass": true,
+   "checks": {
+    "step1_asks_day_with_way_out": true,
+    "step1_deferral_only_if_it_asked": true,
+    "step1_asks_one_day_only": true,
+    "step1_mints_neither_date": true,
+    "step2_mints_from_2019_01_15": true,
+    "step2_says_2019_not_2020": true,
+    "step2_asks_moved_out_day": true,
+    "step2_reply_opens_with_the_date": true,
+    "step2_asks_only_the_moved_out_day": true,
+    "step3_to_deferral_stands": true,
+    "step3_partial_2020_01": true,
+    "step3_does_not_ask_day_again": true
+   },
+   "replies": [
+    "335 Gonzales Road, Santiago, Chile. What day in January 2019 did you move in? If you don't know offhand, we can check it later.",
+    "January 15th, 2019. What day in January 2020 did you move out? If you don't know, we can check it later.",
+    "That's fine, we'll leave the exact day open. Before that, did you live anywhere else in the last 5 years?"
+   ],
+   "minted_step2": {
+    "p4.prior_address1.from": "2019-01-15"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "applicant unsure of exact move-out day",
+     "partial_value": "2020-01",
+     "origin": "applicant",
+     "turn": 4
+    }
+   ],
+   "probe": "v35",
+   "rep": 1,
+   "run": "probe-v35-121041-r1"
+  },
+  {
+   "pass": true,
+   "checks": {
+    "step1_asks_day_with_way_out": true,
+    "step1_deferral_only_if_it_asked": true,
+    "step1_asks_one_day_only": true,
+    "step1_mints_neither_date": true,
+    "step2_mints_from_2019_01_15": true,
+    "step2_says_2019_not_2020": true,
+    "step2_asks_moved_out_day": true,
+    "step2_reply_opens_with_the_date": true,
+    "step2_asks_only_the_moved_out_day": true,
+    "step3_to_deferral_stands": true,
+    "step3_partial_2020_01": true,
+    "step3_does_not_ask_day_again": true
+   },
+   "replies": [
+    "335 Gonzales Road, Santiago, Chile. What day in January 2019 did you move in? If you don't know it offhand, we can check it later.",
+    "January 15th, 2019. What day in January 2020 did you move out? If you don't know, we can check it later.",
+    "That's fine, we'll check that date later. Was there an apartment or unit number, and what state or region is that in?"
+   ],
+   "minted_step2": {
+    "p4.prior_address1.from": "2019-01-15"
+   },
+   "deferred": [
+    {
+     "field_id": "p4.prior_address1.from",
+     "reason": "month and year given, exact day not stated",
+     "partial_value": "2019-01",
+     "origin": "applicant",
+     "turn": 2
+    },
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "month and year given, exact day not stated",
+     "partial_value": "2020-01",
+     "origin": "applicant",
+     "turn": 2
+    },
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "exact day to verify from a document",
+     "partial_value": "2020-01",
+     "origin": "applicant",
+     "turn": 3
+    },
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "applicant does not know the exact move-out day",
+     "partial_value": "2020-01",
+     "origin": "applicant",
+     "turn": 4
+    }
+   ],
+   "probe": "v35",
+   "rep": 2,
+   "run": "probe-v35-121041-r2"
+  }
+ ],
+ "calls": [
+  {
+   "version": 35,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 3.4,
+   "in": 3946,
+   "out": 291,
+   "cache_read": 0,
+   "cache_write": 23514
+  },
+  {
+   "version": 35,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 5.6,
+   "in": 4036,
+   "out": 623,
+   "cache_read": 23514,
+   "cache_write": 0
+  },
+  {
+   "version": 35,
+   "turn_id": "t_003",
+   "stop": "end_turn",
+   "secs": 4.7,
+   "in": 4059,
+   "out": 336,
+   "cache_read": 23514,
+   "cache_write": 0
+  },
+  {
+   "version": 35,
+   "turn_id": "t_004",
+   "stop": "end_turn",
+   "secs": 3.9,
+   "in": 4108,
+   "out": 275,
+   "cache_read": 23514,
+   "cache_write": 0
+  },
+  {
+   "version": 35,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 3.2,
+   "in": 3945,
+   "out": 261,
+   "cache_read": 23514,
+   "cache_write": 0
+  },
+  {
+   "version": 35,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 4.8,
+   "in": 4034,
+   "out": 601,
+   "cache_read": 23514,
+   "cache_write": 0
+  },
+  {
+   "version": 35,
+   "turn_id": "t_003",
+   "stop": "end_turn",
+   "secs": 3.0,
+   "in": 4040,
+   "out": 285,
+   "cache_read": 23514,
+   "cache_write": 0
+  },
+  {
+   "version": 35,
+   "turn_id": "t_004",
+   "stop": "end_turn",
+   "secs": 3.0,
+   "in": 4097,
+   "out": 284,
+   "cache_read": 23514,
+   "cache_write": 0
+  },
+  {
+   "version": 35,
+   "turn_id": "t_001",
+   "stop": "end_turn",
+   "secs": 2.9,
+   "in": 3946,
+   "out": 288,
+   "cache_read": 23514,
+   "cache_write": 0
+  },
+  {
+   "version": 35,
+   "turn_id": "t_002",
+   "stop": "end_turn",
+   "secs": 6.7,
+   "in": 4040,
+   "out": 735,
+   "cache_read": 23514,
+   "cache_write": 0
+  },
+  {
+   "version": 35,
+   "turn_id": "t_003",
+   "stop": "end_turn",
+   "secs": 4.8,
+   "in": 4063,
+   "out": 328,
+   "cache_read": 23514,
+   "cache_write": 0
+  },
+  {
+   "version": 35,
+   "turn_id": "t_004",
+   "stop": "end_turn",
+   "secs": 3.8,
+   "in": 4112,
+   "out": 260,
+   "cache_read": 23514,
+   "cache_write": 0
+  }
+ ],
+ "cost_usd": 0.253
+}
