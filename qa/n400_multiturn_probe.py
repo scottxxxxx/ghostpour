@@ -678,6 +678,61 @@ def score_v37(state: dict, arm: str) -> dict:
             "reply": reply, "minted": minted, "asking": asking}
 
 
+SECOND_SCORER = AUDITOR_QA / "typesafe_rescore_arms.py"
+
+
+def _second_scorer_gate(out_path: str, advisory: bool = False) -> bool:
+    """Rescore this run's reply-TEXT checks with a second, differently built
+    scorer. Returns True if the verdicts are HELD (unverified or disagreed on).
+
+    Standing rule, Scott 2026-09-17: "make it standing, run it on every arm
+    before shipping." Rule doc, questions and thresholds live with the tool at
+    N400 App/qa/JEV-SECOND-SCORER-STANDING-RULE.md. That file is the authority
+    and this function deliberately owns no copy of the questions, because two
+    copies of a rule drift and the drift is invisible from either side.
+
+    ⭐ WHY THIS IS A GATE AND NOT A README LINE. Our hand written regexes have
+    been wrong three times, and the third was a FALSE PASS:
+    step2_asks_moved_out_day required asks_day(r2) AND /out|left|leave/, and
+    the phrase "move-out date" in a STATEMENT supplied the "out" while asks_day
+    matched somewhere else entirely. It credited a question that was never
+    asked, and it had already helped certify v35e at 3 of 3, which is what
+    serves. A false pass certifies behaviour that did not happen, which is the
+    dangerous direction. A rule whose only carrier is "whoever runs the probe
+    remembers to also run the rescore" has no carrier at all.
+
+    ⚠ NOT BEING ABLE TO RUN IT IS A HOLD, NOT A SKIP. No run file, no tool on
+    disk, no TYPESAFE_API_KEY: each of those leaves the verdicts exactly as
+    unverified as a disagreement does, and an absent check reads as a pass to
+    anybody scrolling past. Cost is never the reason to skip: 32 checks, about
+    $0.0004, roughly 0.3s each.
+    """
+    if not out_path:
+        print("\n⚠ SECOND SCORER: no --out file, so there is nothing to rescore. "
+              "A run with no artifact cannot produce a trusted verdict.")
+        return not advisory
+    if not SECOND_SCORER.exists():
+        print(f"\n⚠ SECOND SCORER: {SECOND_SCORER} is not on disk.")
+        return not advisory
+
+    cmd = [sys.executable, str(SECOND_SCORER), out_path]
+    if advisory:
+        cmd.append("--advisory")
+    print(f"\n== second scorer (Jev) over {out_path} ==")
+    r = subprocess.run(cmd, cwd=str(AUDITOR_QA))
+    if r.returncode == 0:
+        print("== second scorer agrees on every reply-text check ==")
+        return False
+    if r.returncode == 2:
+        print("== second scorer DISAGREES. A disagreement is a hold that a human "
+              "rules, and the ruling gets recorded with the arm. Read the reply "
+              "text before believing either scorer: the first failure mode of "
+              "this method is a check wired to the wrong reply index. ==")
+        return not advisory
+    print(f"== second scorer could not run (exit {r.returncode}) ==")
+    return not advisory
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry", action="store_true")
@@ -691,6 +746,12 @@ def main() -> int:
     # answer that cannot be silently wrong.
     ap.add_argument("--revision", choices=["a", "b", "c", "d", "e"], default="e")
     ap.add_argument("--out", default="")
+    # ⚠ THE GATE, not a flag to reach for. Scott, 2026-09-17: "make it
+    # standing, run it on every arm before shipping." --advisory downgrades
+    # the hold to a print, and stamps every verdict line UNVERIFIED so a
+    # pasted summary carries its own caveat.
+    ap.add_argument("--advisory", action="store_true",
+                    help="rescore but do not hold on disagreement (stamps output UNVERIFIED)")
     args = ap.parse_args()
 
     sys.path.insert(0, str(AUDITOR_QA))
@@ -794,16 +855,25 @@ def main() -> int:
         return 0
     cost = sum(c["in"] * PRICE["in"] + c["out"] * PRICE["out"] + c["cache_read"] * PRICE["cache_read"]
                + c["cache_write"] * PRICE["cache_write"] for c in CALLS) / 1e6
-    for name in ("v34", "v35", "v36-en", "v36-es", "v36-spouse",
-                 "v37-A", "v37-B", "v37-C", "v37-D", "v37-E", "v37-F", "v37-G"):
-        rs = [r for r in results if r["probe"] == name]
-        if rs:
-            print(f"{name}: {sum(r['pass'] for r in rs)} of {len(rs)} reps PASS")
-    print(f"calls {len(CALLS)}, measured cost ${cost:.2f}, stop reasons {sorted(set(c['stop'] for c in CALLS))}")
     if args.out:
         Path(args.out).write_text(json.dumps({"revision": args.revision, "results": results, "calls": CALLS,
                                               "cost_usd": round(cost, 4)}, ensure_ascii=False, indent=1))
         print("written", args.out)
+
+    # The second scorer runs BEFORE the per-arm verdict lines are printed,
+    # because those lines are the thing that must not be trusted unverified.
+    held = _second_scorer_gate(args.out, advisory=args.advisory)
+    stamp_v = " [UNVERIFIED]" if held else ""
+
+    for name in ("v34", "v35", "v36-en", "v36-es", "v36-spouse",
+                 "v37-A", "v37-B", "v37-C", "v37-D", "v37-E", "v37-F", "v37-G"):
+        rs = [r for r in results if r["probe"] == name]
+        if rs:
+            print(f"{name}: {sum(r['pass'] for r in rs)} of {len(rs)} reps PASS{stamp_v}")
+    print(f"calls {len(CALLS)}, measured cost ${cost:.2f}, stop reasons {sorted(set(c['stop'] for c in CALLS))}")
+    if held:
+        print("\n⚠ HOLD: these verdicts are NOT second-scored. Nothing ships on them.")
+        return 3
     return 0
 
 

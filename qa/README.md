@@ -132,3 +132,36 @@ the content.
 
 ⚠ A fresh blind pass on NEW turns needs a new pack either way; these items are
 spent for anyone who has already labelled them.
+
+## The second scorer is a GATE on `n400_multiturn_probe.py`, not a README line
+
+Standing rule, Scott 2026-09-17: "make it standing, run it on every arm before
+shipping." No prompt version ships on a probe verdict until every arm's
+reply-TEXT checks have been rescored by a second, differently built scorer and
+the two agree. A disagreement is a HOLD that a person rules, and the ruling is
+recorded with the arm. It is not a second opinion to average with the first; it
+is a check on the instrument.
+
+The rule doc, the questions, the thresholds and the two failure modes of the
+method live with the tool, at `N400 App/qa/JEV-SECOND-SCORER-STANDING-RULE.md`.
+That file is the authority and nothing here keeps a copy of the questions,
+because two copies of a rule drift and the drift is invisible from both sides.
+
+`_second_scorer_gate()` in `n400_multiturn_probe.py` runs it before the per-arm
+verdict lines print, and returns 3 with the lines stamped `[UNVERIFIED]` if it
+holds. ⚠ Not being able to run it holds too: no `--out` file, no tool on disk,
+no `TYPESAFE_API_KEY`. An absent check reads as a pass to anybody scrolling
+past, which is the same shape as the false pass that produced this rule.
+`--advisory` downgrades a hold to a print and stamps the output.
+
+**Why a gate and not a habit:** the hand-written regex
+`step2_asks_moved_out_day` required `asks_day(r2)` AND `/out|left|leave/`, and
+the phrase "move-out date" in a STATEMENT supplied the "out" while `asks_day`
+matched elsewhere in the reply. It credited a question that was never asked,
+and it had already helped certify v35e at 3 of 3, which is what serves today. A
+rule whose only carrier is "whoever runs the probe remembers" has no carrier.
+
+Rescored 2026-09-17, all four committed run files, zero disagreements: v36 19
+of 19, v37b 9 of 9, v37 4 of 4, v35e 9 of 9 (this last through
+`typesafe_vs_regex.py`, the v34/v35 file shape). 41 checks, about $0.00054 all
+in, so cost is never the reason to skip it.
