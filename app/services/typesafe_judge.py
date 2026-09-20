@@ -79,7 +79,10 @@ def offer_reply_questions(lane_choice: bool) -> dict:
                     "The reply agrees to have the file built. Casual agreement "
                     "in any language counts (yes, go ahead, sure, do it), and "
                     "so does agreement that changes the format or asks for a "
-                    "tweak (actually make it a spreadsheet)."),
+                    "tweak (actually make it a spreadsheet). Picking one of "
+                    "the versions on offer is also acceptance, even with no "
+                    "yes in it (detailed please, the simple one, the status "
+                    "workbook, just build what I described)."),
                 "decline": (
                     "The reply turns the file down, or asks for the content "
                     "inline instead (just show me here, a table in chat is "

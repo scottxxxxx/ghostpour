@@ -1,0 +1,1292 @@
+{
+ "model_jev": "jev-1.13.0",
+ "model_haiku": "claude-haiku-4-5-20251001",
+ "floor": 0.5,
+ "rows": [
+  {
+   "id": "en_yes",
+   "reply": "yes",
+   "expected": {
+    "confirm": true,
+    "format": "docx"
+   },
+   "jev": {
+    "confirm": true,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 1.0,
+    "format": 0.99,
+    "style": 1.0,
+    "version": 0.0
+   },
+   "jev_ms": 413,
+   "jev_input_tokens": 793,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": true,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 2658,
+   "haiku_wrong": []
+  },
+  {
+   "id": "en_go_ahead",
+   "reply": "sure, go ahead",
+   "expected": {
+    "confirm": true,
+    "format": "docx"
+   },
+   "jev": {
+    "confirm": true,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 1.0,
+    "format": 0.99,
+    "style": 1.0,
+    "version": 0.0
+   },
+   "jev_ms": 346,
+   "jev_input_tokens": 796,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": true,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 1865,
+   "haiku_wrong": []
+  },
+  {
+   "id": "en_do_it",
+   "reply": "do it",
+   "expected": {
+    "confirm": true,
+    "format": "xlsx"
+   },
+   "jev": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 1.0,
+    "format": 0.99,
+    "style": 0.99,
+    "version": 0.0
+   },
+   "jev_ms": 370,
+   "jev_input_tokens": 791,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 1246,
+   "haiku_wrong": []
+  },
+  {
+   "id": "en_please",
+   "reply": "yes please, that would be great",
+   "expected": {
+    "confirm": true
+   },
+   "jev": {
+    "confirm": true,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 1.0,
+    "format": 0.99,
+    "style": 1.0,
+    "version": 0.0
+   },
+   "jev_ms": 287,
+   "jev_input_tokens": 799,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": true,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 746,
+   "haiku_wrong": []
+  },
+  {
+   "id": "en_revise_xlsx",
+   "reply": "actually make it a spreadsheet",
+   "expected": {
+    "confirm": true,
+    "format": "xlsx"
+   },
+   "jev": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 0.99,
+    "format": 1.0,
+    "style": 0.99,
+    "version": 0.0
+   },
+   "jev_ms": 268,
+   "jev_input_tokens": 797,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 798,
+   "haiku_wrong": []
+  },
+  {
+   "id": "en_revise_pdf",
+   "reply": "yes but as a PDF",
+   "expected": {
+    "confirm": true,
+    "format": "pdf"
+   },
+   "jev": {
+    "confirm": true,
+    "format": "pdf",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 0.98,
+    "format": 1.0,
+    "style": 1.0,
+    "version": 0.0
+   },
+   "jev_ms": 310,
+   "jev_input_tokens": 797,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": true,
+    "format": "pdf",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 1648,
+   "haiku_wrong": []
+  },
+  {
+   "id": "en_revise_slides",
+   "reply": "go for it, slides would be better though",
+   "expected": {
+    "confirm": true,
+    "format": "pptx"
+   },
+   "jev": {
+    "confirm": true,
+    "format": "pptx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 0.97,
+    "format": 0.99,
+    "style": 0.88,
+    "version": 0.0
+   },
+   "jev_ms": 288,
+   "jev_input_tokens": 801,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": true,
+    "format": "pptx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 824,
+   "haiku_wrong": []
+  },
+  {
+   "id": "en_no",
+   "reply": "no",
+   "expected": {
+    "confirm": false
+   },
+   "jev": {
+    "confirm": false,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 1.0,
+    "format": 1.0,
+    "style": 1.0,
+    "version": 0.0
+   },
+   "jev_ms": 296,
+   "jev_input_tokens": 793,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": false,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 1298,
+   "haiku_wrong": []
+  },
+  {
+   "id": "en_no_thanks",
+   "reply": "no thanks",
+   "expected": {
+    "confirm": false
+   },
+   "jev": {
+    "confirm": false,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 1.0,
+    "format": 1.0,
+    "style": 1.0,
+    "version": 0.0
+   },
+   "jev_ms": 415,
+   "jev_input_tokens": 794,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": false,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 1436,
+   "haiku_wrong": []
+  },
+  {
+   "id": "en_live_decline_names_files",
+   "reply": "just answer here and chat, I don't need a word document or a workbook",
+   "expected": {
+    "confirm": false
+   },
+   "jev": {
+    "confirm": false,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 1.0,
+    "format": 1.0,
+    "style": 0.38,
+    "version": 0.0
+   },
+   "jev_ms": 264,
+   "jev_input_tokens": 808,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": false,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 1066,
+   "haiku_wrong": []
+  },
+  {
+   "id": "en_inline",
+   "reply": "a table in chat is fine",
+   "expected": {
+    "confirm": false
+   },
+   "jev": {
+    "confirm": false,
+    "format": "xlsx",
+    "style": "simple",
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 1.0,
+    "format": 0.98,
+    "style": 0.52,
+    "version": 0.0
+   },
+   "jev_ms": 279,
+   "jev_input_tokens": 795,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": false,
+    "format": "xlsx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 767,
+   "haiku_wrong": []
+  },
+  {
+   "id": "en_show_here",
+   "reply": "just show me here",
+   "expected": {
+    "confirm": false
+   },
+   "jev": {
+    "confirm": false,
+    "format": "xlsx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 0.99,
+    "format": 1.0,
+    "style": 0.59,
+    "version": 0.0
+   },
+   "jev_ms": 283,
+   "jev_input_tokens": 793,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": false,
+    "format": "xlsx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 1148,
+   "haiku_wrong": []
+  },
+  {
+   "id": "en_unrelated",
+   "reply": "no, what time is the standup?",
+   "expected": {
+    "confirm": false
+   },
+   "jev": {
+    "confirm": false,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 0.69,
+    "format": 1.0,
+    "style": 1.0,
+    "version": 0.0
+   },
+   "jev_ms": 286,
+   "jev_input_tokens": 801,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": false,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 1131,
+   "haiku_wrong": []
+  },
+  {
+   "id": "en_unrelated_2",
+   "reply": "who owns the vendor contract?",
+   "expected": {
+    "confirm": false
+   },
+   "jev": {
+    "confirm": false,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 1.0,
+    "format": 1.0,
+    "style": 1.0,
+    "version": 0.0
+   },
+   "jev_ms": 765,
+   "jev_input_tokens": 798,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": false,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 902,
+   "haiku_wrong": []
+  },
+  {
+   "id": "en_ambiguous",
+   "reply": "hmm, maybe later",
+   "expected": {
+    "confirm": false
+   },
+   "jev": {
+    "confirm": false,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 0.52,
+    "format": 1.0,
+    "style": 1.0,
+    "version": 0.0
+   },
+   "jev_ms": 312,
+   "jev_input_tokens": 797,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": false,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 844,
+   "haiku_wrong": []
+  },
+  {
+   "id": "en_question_back",
+   "reply": "how long would that take?",
+   "expected": {
+    "confirm": false
+   },
+   "jev": {
+    "confirm": false,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 0.92,
+    "format": 1.0,
+    "style": 1.0,
+    "version": 0.0
+   },
+   "jev_ms": 316,
+   "jev_input_tokens": 798,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": false,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 1196,
+   "haiku_wrong": []
+  },
+  {
+   "id": "en_not_a_format_switch",
+   "reply": "no, not a spreadsheet either",
+   "expected": {
+    "confirm": false,
+    "format": "docx"
+   },
+   "jev": {
+    "confirm": false,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 0.99,
+    "format": 0.96,
+    "style": 1.0,
+    "version": 0.0
+   },
+   "jev_ms": 328,
+   "jev_input_tokens": 798,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": false,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 1122,
+   "haiku_wrong": []
+  },
+  {
+   "id": "en_style_detailed",
+   "reply": "detailed please",
+   "expected": {
+    "confirm": true,
+    "style": "detailed"
+   },
+   "jev": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": "detailed",
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 0.96,
+    "format": 1.0,
+    "style": 0.98,
+    "version": 0.0
+   },
+   "jev_ms": 315,
+   "jev_input_tokens": 793,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": "detailed",
+    "version": null
+   },
+   "haiku_ms": 815,
+   "haiku_wrong": []
+  },
+  {
+   "id": "en_style_simple",
+   "reply": "yes, the simple one",
+   "expected": {
+    "confirm": true,
+    "style": "simple"
+   },
+   "jev": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": "simple",
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 1.0,
+    "format": 1.0,
+    "style": 1.0,
+    "version": 0.0
+   },
+   "jev_ms": 308,
+   "jev_input_tokens": 794,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": "simple",
+    "version": null
+   },
+   "haiku_ms": 970,
+   "haiku_wrong": []
+  },
+  {
+   "id": "en_style_none",
+   "reply": "yes",
+   "expected": {
+    "confirm": true,
+    "style": null
+   },
+   "jev": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 1.0,
+    "format": 0.99,
+    "style": 1.0,
+    "version": 0.0
+   },
+   "jev_ms": 288,
+   "jev_input_tokens": 790,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 1580,
+   "haiku_wrong": []
+  },
+  {
+   "id": "en_lane_workbook",
+   "reply": "the status workbook",
+   "expected": {
+    "confirm": true,
+    "version": "workbook"
+   },
+   "jev": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": null,
+    "version": "workbook"
+   },
+   "jev_conf": {
+    "confirm": 1.0,
+    "format": 0.95,
+    "style": 0.48,
+    "version": 1.0
+   },
+   "jev_ms": 323,
+   "jev_input_tokens": 957,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": null,
+    "version": "workbook"
+   },
+   "haiku_ms": 1418,
+   "haiku_wrong": []
+  },
+  {
+   "id": "en_lane_gantt",
+   "reply": "yes, the gantt one",
+   "expected": {
+    "confirm": true,
+    "version": "workbook"
+   },
+   "jev": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": null,
+    "version": "workbook"
+   },
+   "jev_conf": {
+    "confirm": 0.99,
+    "format": 0.97,
+    "style": 0.31,
+    "version": 0.93
+   },
+   "jev_ms": 315,
+   "jev_input_tokens": 960,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": null,
+    "version": "workbook"
+   },
+   "haiku_ms": 781,
+   "haiku_wrong": []
+  },
+  {
+   "id": "en_lane_custom",
+   "reply": "just build what I described",
+   "expected": {
+    "confirm": true,
+    "version": "custom"
+   },
+   "jev": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": null,
+    "version": "custom"
+   },
+   "jev_conf": {
+    "confirm": 0.94,
+    "format": 1.0,
+    "style": 0.89,
+    "version": 0.79
+   },
+   "jev_ms": 426,
+   "jev_input_tokens": 959,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": null,
+    "version": "custom"
+   },
+   "haiku_ms": 808,
+   "haiku_wrong": []
+  },
+  {
+   "id": "en_lane_bare_yes",
+   "reply": "yes",
+   "expected": {
+    "confirm": true,
+    "version": null
+   },
+   "jev": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 0.99,
+    "format": 0.99,
+    "style": 1.0,
+    "version": 1.0
+   },
+   "jev_ms": 298,
+   "jev_input_tokens": 955,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 797,
+   "haiku_wrong": []
+  },
+  {
+   "id": "h_pick_detailed",
+   "reply": "the detailed version",
+   "expected": {
+    "confirm": true,
+    "style": "detailed"
+   },
+   "jev": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": "detailed",
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 0.95,
+    "format": 1.0,
+    "style": 1.0,
+    "version": 0.0
+   },
+   "jev_ms": 297,
+   "jev_input_tokens": 792,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": "detailed",
+    "version": null
+   },
+   "haiku_ms": 851,
+   "haiku_wrong": []
+  },
+  {
+   "id": "h_pick_simple",
+   "reply": "keep it simple",
+   "expected": {
+    "confirm": true,
+    "style": "simple"
+   },
+   "jev": {
+    "confirm": false,
+    "format": "xlsx",
+    "style": "simple",
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 0.43,
+    "format": 1.0,
+    "style": 0.92,
+    "version": 0.0
+   },
+   "jev_ms": 334,
+   "jev_input_tokens": 792,
+   "jev_wrong": [
+    "confirm"
+   ],
+   "haiku": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": "simple",
+    "version": null
+   },
+   "haiku_ms": 1569,
+   "haiku_wrong": []
+  },
+  {
+   "id": "h_pick_custom",
+   "reply": "custom",
+   "expected": {
+    "confirm": true,
+    "version": "custom"
+   },
+   "jev": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": "detailed",
+    "version": "custom"
+   },
+   "jev_conf": {
+    "confirm": 1.0,
+    "format": 0.97,
+    "style": 0.5,
+    "version": 1.0
+   },
+   "jev_ms": 334,
+   "jev_input_tokens": 955,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": null,
+    "version": "custom"
+   },
+   "haiku_ms": 815,
+   "haiku_wrong": []
+  },
+  {
+   "id": "h_pick_your_format",
+   "reply": "use your format",
+   "expected": {
+    "confirm": true,
+    "version": "workbook"
+   },
+   "jev": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": null,
+    "version": "workbook"
+   },
+   "jev_conf": {
+    "confirm": 0.98,
+    "format": 0.94,
+    "style": 0.8,
+    "version": 0.64
+   },
+   "jev_ms": 343,
+   "jev_input_tokens": 957,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": null,
+    "version": "workbook"
+   },
+   "haiku_ms": 1210,
+   "haiku_wrong": []
+  },
+  {
+   "id": "h_neg_neither",
+   "reply": "neither, forget it",
+   "expected": {
+    "confirm": false
+   },
+   "jev": {
+    "confirm": false,
+    "format": "xlsx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 1.0,
+    "format": 1.0,
+    "style": 1.0,
+    "version": 1.0
+   },
+   "jev_ms": 276,
+   "jev_input_tokens": 959,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": false,
+    "format": "xlsx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 1613,
+   "haiku_wrong": []
+  },
+  {
+   "id": "h_neg_which",
+   "reply": "what's the difference between them?",
+   "expected": {
+    "confirm": false
+   },
+   "jev": {
+    "confirm": false,
+    "format": "xlsx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 0.99,
+    "format": 1.0,
+    "style": 1.0,
+    "version": 1.0
+   },
+   "jev_ms": 282,
+   "jev_input_tokens": 961,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": false,
+    "format": "xlsx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 833,
+   "haiku_wrong": []
+  },
+  {
+   "id": "h_neg_detail_question",
+   "reply": "can you give me more detail on the second risk?",
+   "expected": {
+    "confirm": false
+   },
+   "jev": {
+    "confirm": false,
+    "format": "xlsx",
+    "style": "detailed",
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 0.58,
+    "format": 1.0,
+    "style": 0.53,
+    "version": 0.0
+   },
+   "jev_ms": 308,
+   "jev_input_tokens": 800,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": false,
+    "format": "xlsx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 1039,
+   "haiku_wrong": []
+  },
+  {
+   "id": "h_es_pick",
+   "reply": "la versión detallada, por favor",
+   "expected": {
+    "confirm": true,
+    "style": "detailed"
+   },
+   "jev": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": "detailed",
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 1.0,
+    "format": 1.0,
+    "style": 1.0,
+    "version": 0.0
+   },
+   "jev_ms": 326,
+   "jev_input_tokens": 797,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": "detailed",
+    "version": null
+   },
+   "haiku_ms": 777,
+   "haiku_wrong": []
+  },
+  {
+   "id": "es_si",
+   "reply": "sí, adelante",
+   "expected": {
+    "confirm": true,
+    "format": "docx"
+   },
+   "jev": {
+    "confirm": true,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 1.0,
+    "format": 1.0,
+    "style": 1.0,
+    "version": 0.0
+   },
+   "jev_ms": 371,
+   "jev_input_tokens": 795,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": true,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 744,
+   "haiku_wrong": []
+  },
+  {
+   "id": "es_claro",
+   "reply": "claro, hazlo",
+   "expected": {
+    "confirm": true
+   },
+   "jev": {
+    "confirm": true,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 1.0,
+    "format": 0.99,
+    "style": 1.0,
+    "version": 0.0
+   },
+   "jev_ms": 283,
+   "jev_input_tokens": 797,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": true,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 1162,
+   "haiku_wrong": []
+  },
+  {
+   "id": "es_revise",
+   "reply": "sí, pero mejor en una hoja de cálculo",
+   "expected": {
+    "confirm": true,
+    "format": "xlsx"
+   },
+   "jev": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 0.99,
+    "format": 1.0,
+    "style": 0.96,
+    "version": 0.0
+   },
+   "jev_ms": 355,
+   "jev_input_tokens": 801,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 1478,
+   "haiku_wrong": []
+  },
+  {
+   "id": "es_no",
+   "reply": "no gracias, solo respóndeme aquí en el chat",
+   "expected": {
+    "confirm": false
+   },
+   "jev": {
+    "confirm": false,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 1.0,
+    "format": 1.0,
+    "style": 0.72,
+    "version": 0.0
+   },
+   "jev_ms": 305,
+   "jev_input_tokens": 804,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": false,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 1284,
+   "haiku_wrong": []
+  },
+  {
+   "id": "es_unrelated",
+   "reply": "¿a qué hora es la reunión de mañana?",
+   "expected": {
+    "confirm": false
+   },
+   "jev": {
+    "confirm": false,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 1.0,
+    "format": 1.0,
+    "style": 1.0,
+    "version": 0.0
+   },
+   "jev_ms": 264,
+   "jev_input_tokens": 802,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": false,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 1054,
+   "haiku_wrong": []
+  },
+  {
+   "id": "ja_yes",
+   "reply": "はい、お願いします",
+   "expected": {
+    "confirm": true,
+    "format": "docx"
+   },
+   "jev": {
+    "confirm": true,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 1.0,
+    "format": 0.99,
+    "style": 1.0,
+    "version": 0.0
+   },
+   "jev_ms": 318,
+   "jev_input_tokens": 800,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": true,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 975,
+   "haiku_wrong": []
+  },
+  {
+   "id": "ja_no",
+   "reply": "いいえ、チャットで答えてください",
+   "expected": {
+    "confirm": false
+   },
+   "jev": {
+    "confirm": false,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 1.0,
+    "format": 1.0,
+    "style": 0.86,
+    "version": 0.0
+   },
+   "jev_ms": 400,
+   "jev_input_tokens": 808,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": false,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 855,
+   "haiku_wrong": []
+  },
+  {
+   "id": "ja_revise",
+   "reply": "はい、でもスプレッドシートでお願いします",
+   "expected": {
+    "confirm": true,
+    "format": "xlsx"
+   },
+   "jev": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 0.98,
+    "format": 1.0,
+    "style": 0.99,
+    "version": 0.0
+   },
+   "jev_ms": 332,
+   "jev_input_tokens": 811,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": true,
+    "format": "xlsx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 871,
+   "haiku_wrong": []
+  },
+  {
+   "id": "fr_yes",
+   "reply": "oui, vas-y",
+   "expected": {
+    "confirm": true
+   },
+   "jev": {
+    "confirm": true,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 1.0,
+    "format": 0.99,
+    "style": 1.0,
+    "version": 0.0
+   },
+   "jev_ms": 297,
+   "jev_input_tokens": 796,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": true,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 1417,
+   "haiku_wrong": []
+  },
+  {
+   "id": "fr_no",
+   "reply": "non merci, réponds simplement ici",
+   "expected": {
+    "confirm": false
+   },
+   "jev": {
+    "confirm": false,
+    "format": "docx",
+    "style": "simple",
+    "version": null
+   },
+   "jev_conf": {
+    "confirm": 1.0,
+    "format": 1.0,
+    "style": 0.68,
+    "version": 0.0
+   },
+   "jev_ms": 319,
+   "jev_input_tokens": 801,
+   "jev_wrong": [],
+   "haiku": {
+    "confirm": false,
+    "format": "docx",
+    "style": null,
+    "version": null
+   },
+   "haiku_ms": 1071,
+   "haiku_wrong": []
+  }
+ ]
+}
