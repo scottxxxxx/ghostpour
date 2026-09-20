@@ -414,13 +414,28 @@ def score_v38(state: dict, kind: str, raw: dict[str, str]) -> dict:
     elif kind == "B":
         cp = (obj or {}).get("section_checkpoint")
         checks["section_checkpoint_carries_a_part"] = isinstance(cp, dict) and isinstance(cp.get("part"), int)
+        checks["section_checkpoint_is_part_1"] = isinstance(cp, dict) and cp.get("part") == 1
+        # ⚠ On a read-back turn the RAW object's asking is NULL: the lane asks
+        # "is that complete and correct?", not a node, and the CLIENT moves
+        # the cursor to q_p1_full_name itself. The driver prints the client's
+        # view, so "asking=q_p1_full_name" in its log is not the model's
+        # object. My first version asserted that client-derived value against
+        # the raw text and failed a correct turn: the same layer mistake the
+        # auditor made with gate_closed_this_response. Assert what the object
+        # actually promises.
+        checks["asking_is_null_on_the_read_back"] = (obj or {}).get("asking") is None
+        minted = {m.get("field_id") for m in (entries[-1].get("minted") or [])}
+        checks["a_number_minted"] = "p1.a_number" in minted
     elif kind == "D":
         checks["facts_present_and_empty"] = obj is not None and "facts" in obj and not obj["facts"]
         checks["deferred_present_and_empty"] = obj is not None and "deferred" in obj and not obj["deferred"]
         checks["section_checkpoint_present_and_null"] = obj is not None and "section_checkpoint" in obj and obj["section_checkpoint"] is None
     reply = entries[-1].get("interviewer") or ""
+    # The RAW texts ride along in the record: the v34..v37 files kept only the
+    # scorer's reply string, which is why key order could not be measured on
+    # them after the fact. Never again.
     return {"pass": all(checks.values()), "checks": checks, "reply": reply,
-            "key_orders": orders}
+            "key_orders": orders, "raw_texts": texts}
 
 
 def configs_for(version: int, revision: str = "e") -> dict:
@@ -960,6 +975,7 @@ def main() -> int:
     ap.add_argument("--dry", action="store_true")
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--only", choices=["v34", "v35", "v36", "v37", "v38"])
+    ap.add_argument("--arm", default="", help="run only the arm with this exact name (e.g. v38-B)")
     # Which cut to test. "e" is the current one (v34d unchanged, v35e); the
     # earlier letters reproduce earlier probes exactly. The default is the
     # NEWEST, because the harness once defaulted to "b" while "d" was the live
@@ -1076,10 +1092,22 @@ def main() -> int:
         # checkpoint is correct and the reply reads the part back. D mints
         # nothing and pins that the three keys are still PRESENT (empty, empty,
         # null) and still before reply.
-        v38_seed_b = {**V37_SEED_SPOUSE, "p1.eligibility_basis": "general_provision"}
+        # ⚠ B's FIRST seed was wrong, and wrong in the rule 9 way: I built it
+        # from the auditor's arm G comment (spouse seed, basis switched) and
+        # read "Part 5 is genuinely complete" as "complete after her answer"
+        # when it meant "already complete, that node is not required off the
+        # spouse path". The lane moved to Part 6 on turn 1 and no read-back
+        # ever happened. This seed is the auditor's, read from the graph
+        # (form_definition_n400_tx.json): Part 1 is three nodes, the basis
+        # fact closes everything but the A-Number under general_provision, so
+        # it is the last open line. Three recorded turns on exactly this node
+        # produced the read-back (v34d-receipt-plain t3, conf-es-v29 t5,
+        # conf-v20 t6). Expected: mints p1.a_number, section_checkpoint
+        # {"part": 1, ..., "awaiting_confirmation": true}, asking q_p1_full_name.
+        v38_seed_b = {"p1.eligibility_basis": "general_provision"}
         plan.append(arm("v38-A", 38, "q_p1_eligibility_basis", V36_TURNS_EN,
                         lambda s: score_v38(s, "A", dict(RAW_TEXTS)), reps=3))
-        plan.append(arm("v38-B", 38, "q_p5_spouse_citizen_how", [V37_G_TURN],
+        plan.append(arm("v38-B", 38, "q_p1_a_number", ["A 204 881 367"],
                         lambda s: score_v38(s, "B", dict(RAW_TEXTS)), seed=v38_seed_b, reps=1))
         plan.append(arm("v38-C", 38, "q_p1_eligibility_basis", V36_TURNS_ES,
                         lambda s: score_v38(s, "C", dict(RAW_TEXTS)), locale="es", reps=1))
@@ -1088,6 +1116,9 @@ def main() -> int:
 
     results = []
     stamp = time.strftime("%H%M%S")
+    if args.arm:
+        plan = [p for p in plan if p["name"] == args.arm]
+        assert plan, f"no arm named {args.arm!r}"
     for p in plan:
         name, version, cursor, locale = p["name"], p["version"], p["cursor"], p["locale"]
         configs = (configs_v38() if version == 38 else
