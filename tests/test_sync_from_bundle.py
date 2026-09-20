@@ -496,3 +496,36 @@ def test_a_bundle_without_a_version_still_bumps(client):
     resp = client.post("/webhooks/admin/config/sync-test/sync-from-bundle",
                        headers=_KEY, json={"keys": ["alpha"]})
     assert resp.json()["version"] == 8
+
+
+def test_the_scripts_own_keys_land_on_the_bundle_version_exactly(client):
+    """THE KEYS THE SYNC SCRIPT ACTUALLY SENDS, not a stand-in. The first
+    version of the adopt-the-bundle fix was tested with a different key list
+    and passed; live, syncing /version as a leaf wrote 38 before the floor
+    read old + 1 from it, and v38 served as 39. Overlay 37 with the v38 text
+    already in place (the state the first sync left behind), bundle 38."""
+    bundle_path = _bundle_dir() / "sync-test.json"
+    bundle_path.write_text(json.dumps({"version": 38, "systemPrompt": "v38 text", "beta": 42}))
+    persistent_path = _persistent_dir() / "sync-test.json"
+    persistent_path.write_text(json.dumps({"version": 37, "systemPrompt": "v38 text", "beta": 42}))
+    resp = client.post("/webhooks/admin/config/sync-test/sync-from-bundle",
+                       headers=_KEY, json={"keys": ["/systemPrompt", "/version"]})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["version"] == 38, "39 is the floor reading the leaf it just wrote"
+    # And again: nothing changes, nothing moves.
+    resp = client.post("/webhooks/admin/config/sync-test/sync-from-bundle",
+                       headers=_KEY, json={"keys": ["/systemPrompt", "/version"]})
+    assert resp.json()["status"] == "no_changes"
+    assert json.loads(persistent_path.read_text())["version"] == 38
+
+
+def test_an_explicit_version_sync_repairs_an_overlay_counted_past_the_bundle(client):
+    """The repair the live state needs: overlay 39 (counted past), bundle 38,
+    /version requested. The served number becomes the bundle's, downwards."""
+    bundle_path = _bundle_dir() / "sync-test.json"
+    bundle_path.write_text(json.dumps({"version": 38, "systemPrompt": "v38 text", "beta": 42}))
+    persistent_path = _persistent_dir() / "sync-test.json"
+    persistent_path.write_text(json.dumps({"version": 39, "systemPrompt": "v38 text", "beta": 42}))
+    resp = client.post("/webhooks/admin/config/sync-test/sync-from-bundle",
+                       headers=_KEY, json={"keys": ["/systemPrompt", "/version"]})
+    assert resp.json()["version"] == 38
