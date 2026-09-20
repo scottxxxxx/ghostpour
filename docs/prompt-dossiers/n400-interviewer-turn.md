@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 36
+served_version: 38
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
 thinking: disabled
-reconciled: 2026-09-16 (v36)
+reconciled: 2026-09-20 (v38)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1545,6 +1545,54 @@ the verdict is asserted by count in BOTH languages: a cut that fixed only the
 English would leave the Spanish worked example still teaching it.
 
 253 chars onto 72,615 (72,868). Version 35 to 36. Zero em or en dashes.
+
+## v38: the three keys the stream depends on are a requirement, not a preference
+
+Scott, 2026-09-19: the app does TTS on the reply, so it should start speaking
+before the turn finishes, but it must never start a sentence and stop mid
+sentence. GP now streams the interviewer reply sentence by sentence (PR #1003)
+and releases a sentence only after the real checkpoint refusal has been run on
+the PARTIAL object, which it can only do once `facts`, `deferred` and
+`section_checkpoint` are parsed. Without them the turn buffers, and it would
+buffer on exactly the read-back turns streaming is for, because
+`checkpoint_contradicts_agenda` applies the response's own settled ids to the
+agenda before testing (the conf-v25b fix) and a pre-check without them can only
+over-refuse.
+
+The served v36 already ordered all three ahead of `reply` (positions 3, 4 and
+10 of 13, reply at 12) and already argued the order from field dependencies.
+Measured before asking for anything: 16 of 16 real responses across two models
+complied, read from the raw text with an order-preserving parser (8 Sonnet
+production turns and 8 Haiku replays of the same inputs). So this is one
+binding sentence, no moved blocks, cut from v36 as served by fable-auditor-29:
+the order is a requirement the model is TOLD, with the reason in the model's
+own terms and what a deviation COSTS (an unspoken turn, never a wrong one).
+The original argument survives word for word.
+
+v37 and v37b remain shelved as drafts. This is numbered v38 so two different
+texts never share a number in this dossier.
+
+Probed live on four arms, the scorer reading the RAW object's key order with
+an order-preserving parser (a dict that has been loaded and dumped has lost the
+only thing under test): A, the v36 arm plus order, 3 of 3; B, the read-back
+turn that buffers today, 1 of 1 on a seed read from the graph (Part 1 with
+`general_provision` leaves the A-Number as the only open line); C, Spanish,
+1 of 1; D, a turn that mints nothing, 1 of 1 with `facts` and `deferred`
+present and empty and `section_checkpoint` present and null. 14 of 14 turns
+compliant. Second scorer 12 graded, 12 agree. $0.28.
+
+⚠ Two things the probe taught. Arm B's first seed was built from a comment
+about the graph rather than the graph, and the lane moved to Part 6 with no
+read-back; the seed that worked came from `form_definition_n400_tx.json`. And
+on a read-back turn the RAW object's `asking` is NULL: the lane asks "is that
+complete and correct?", not a node, and the CLIENT moves the cursor. A check
+that asserts the client's view against the model's object fails a correct turn.
+
+Tests: `test_the_v38_list_verifies_the_real_v38_bundle`,
+`test_each_v38_phrase_is_load_bearing_on_the_real_bundle`,
+`test_the_original_reason_for_the_order_survives_v38`. v36's tests go synthetic.
+
+522 chars onto 72,868 (73,390). Version 36 to 38. Zero em or en dashes.
 
 ## What is deliberately not here
 
