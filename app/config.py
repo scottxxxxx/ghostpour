@@ -115,6 +115,15 @@ class Settings(BaseSettings):
     kimi_api_key: str = ""
     qwen_api_key: str = ""
     openrouter_api_key: str = ""  # Used by Context Quilt worker
+    # TypeSafe (Jev): typed judgments only (yes/no, pick one, score), no
+    # generation. A NEW PROCESSOR for whatever text we send it, so callers
+    # send the narrowest state a question needs and nothing else.
+    typesafe_api_key: str = ""
+    # Shadow mode runs a Jev judgment BESIDE the Haiku one it may replace
+    # and logs only whether the two verdicts agree. It never changes a
+    # turn and never waits on Jev. Off by default: turning it on sends
+    # real user replies to TypeSafe, which is Scott's call.
+    typesafe_shadow_enabled: bool = False
 
     # Admin
     admin_key: str = ""
@@ -354,6 +363,7 @@ _SECRET_MANAGER_MAPPINGS: dict[str, str] = {
     "CZ_DEEPSEEK_API_KEY": "deepseek-api-key",
     "CZ_KIMI_API_KEY": "kimi-api-key",
     "CZ_QWEN_API_KEY": "qwen-api-key",
+    "CZ_TYPESAFE_API_KEY": "typesafe-api-key",
     "CZ_CQ_CLIENT_SECRET": "cq-client-secret",
     "CZ_TR_CQ_CLIENT_SECRET": "tr-cq-client-secret",
     "CZ_SS_CQ_CLIENT_SECRET": "ss-cq-client-secret",

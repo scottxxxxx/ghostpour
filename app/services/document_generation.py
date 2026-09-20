@@ -567,12 +567,17 @@ async def interpret_offer_reply(provider_router, offer: dict, reply_text: str,
         # on the table to read the reply's choice.
         _offer_line += (" (the offer presented two versions: the project "
                         "status workbook, or a custom workbook)")
+    _reply = reply_text[:1000] if verbatim else _isolate_reply(reply_text)
+    # Shadow (off unless CZ_TYPESAFE_SHADOW_ENABLED): the Jev judgment runs
+    # beside this one on the SAME offer line and the SAME reply string, so a
+    # disagreement can only come from the judging. It never changes the
+    # verdict returned here and this function never waits on it.
+    _shadow_finish = _start_offer_reply_shadow(_offer_line, _reply, offer)
     request = ChatRequest(
         provider="anthropic",
         model=_CLASSIFIER_MODEL,
         system_prompt=_INTERPRETER_SYSTEM,
-        user_content=(f"{_offer_line}\n"
-                      f"USER REPLY: {reply_text[:1000] if verbatim else _isolate_reply(reply_text)}"),
+        user_content=f"{_offer_line}\nUSER REPLY: {_reply}",
         # same headroom as the intent classifier: a truncated verdict here
         # silently drops a user's YES (fail-open reads as a normal turn).
         max_tokens=150,
@@ -598,12 +603,35 @@ async def interpret_offer_reply(provider_router, offer: dict, reply_text: str,
         version = parsed.get("version")
         if version not in ("workbook", "custom"):
             version = None
-        return {"confirm": confirm, "format": fmt or offer["format"],
-                "style": style, "version": version}
+        verdict = {"confirm": confirm, "format": fmt or offer["format"],
+                   "style": style, "version": version}
+        if _shadow_finish is not None:
+            _shadow_finish(verdict, elapsed_ms, True)
+        return verdict
     except Exception as e:
         logger.info("offer reply interpreter failed open: %s", e)
-        return {"confirm": False, "format": offer["format"], "style": None,
-                "version": None}
+        verdict = {"confirm": False, "format": offer["format"], "style": None,
+                   "version": None}
+        if _shadow_finish is not None:
+            _shadow_finish(verdict, int((_time.monotonic() - start) * 1000), False)
+        return verdict
+
+
+def _start_offer_reply_shadow(offer_line: str, reply: str, offer: dict):
+    """The shadow's `finish`, or None when it is off, unconfigured or could
+    not start. A shadow must never be the reason a turn fails."""
+    try:
+        from app.config import get_settings
+        settings = get_settings()
+        if not settings.typesafe_shadow_enabled:
+            return None
+        from app.services.typesafe_judge import shadow_offer_reply
+        return shadow_offer_reply(
+            settings.typesafe_api_key, offer_line, reply,
+            offer["format"], bool(offer.get("lane_choice")))
+    except Exception as e:  # noqa: BLE001
+        logger.info("offer reply shadow did not start: %s", e)
+        return None
 
 
 _GIST_QUALIFIER_PREFIXES = (
