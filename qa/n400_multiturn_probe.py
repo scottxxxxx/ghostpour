@@ -237,6 +237,20 @@ V37_G_TURN = "He was born here, in Chicago."
 # The minimum current-marriage facts the graph needs to reach
 # q_p5_spouse_citizen_how legally: without these the walk cannot get there and
 # the arm would test nothing while looking like it ran.
+# v38: the three keys the stream depends on come before the reply. ONE edit
+# on v36 as served, no moved blocks. The cut is about the SHAPE of the object,
+# so its scorer reads RAW model text with an order-preserving parser: a dict
+# that has been parsed and re-serialised has lost the only thing under test.
+V38_EDIT = Path("/Users/scottguida/N400 App/contracts/prompt-v38-keys-before-reply-edit.md")
+V38_KEYS_BEFORE_REPLY = ("facts", "deferred", "section_checkpoint")
+# Raw model text per turn_id, captured in make_post BEFORE fence stripping,
+# envelope extraction and guards. Cleared before each drive() so that after a
+# rep it holds exactly that rep's turns, in order.
+RAW_TEXTS: dict[str, str] = {}
+# A turn that mints nothing: a question back instead of an answer.
+V38_D_TURN = "Sorry, what do you mean by that exactly?"
+V38_D_TURN_ES = "Perdón, ¿a qué se refiere con eso exactamente?"
+
 V37_SEED_SPOUSE = {
     # ⚠ THE ELIGIBILITY BASIS IS LOAD-BEARING AND I LEFT IT OUT TWICE.
     # p5.spouse_has_a_number is required only when
@@ -297,6 +311,131 @@ def configs_v37() -> dict:
         assert sp.count(ph) == 1, ph
     print(f"   v37 arm: assembled from origin/main v36 + 5 edits ({len(sp)} chars)")
     return {**out, SLUG: {**cfg, "systemPrompt": sp, "version": 37}}
+
+
+def configs_v38() -> dict:
+    """v38 assembled in memory from main's v36 plus the auditor's ONE edit.
+    Header-paired like v37 (never line numbers). Every string check the edit
+    file lists is asserted here against the ASSEMBLED text, not the file."""
+    names = subprocess.check_output(
+        ["git", "-C", str(ROOT), "ls-tree", "--name-only", "origin/main", "config/remote/n400/"]).decode().split()
+    out = {"n400/" + Path(n).stem: git_json("origin/main", n) for n in names if n.endswith(".json")}
+    cfg = out[SLUG]
+    assert cfg["version"] == 36, f"origin/main is v{cfg['version']}, not the v36 v38 is cut from"
+    lines = V38_EDIT.read_text(encoding="utf-8").split("\n")
+    edits, cur = [], None
+    for l in lines:
+        if l.startswith("## Edit"):
+            cur = (l.split()[2].rstrip(":"), [])
+            edits.append(cur)
+        elif cur is not None and l.startswith("    ") and l.strip() and len(cur[1]) < 2:
+            cur[1].append(l[4:])
+    assert len(edits) == 1, f"v38 edit file has {len(edits)} edits, expected 1"
+    label, (old, new) = edits[0]
+    sp = cfg["systemPrompt"]
+    assert sp.count(old) == 1, f"v38 Edit {label} anchor count {sp.count(old)}"
+    sp = sp.replace(old, new)
+    for ph in ("THE ORDER IS A REQUIREMENT, NOT A PREFERENCE",
+               "starts speaking each sentence of `reply`",
+               "the reply LAST, because each later field must follow",
+               "`asking` written after `facts` can never name a node",
+               "No prose, no markdown, no code fences.",
+               "NAME THE BASIS, NEVER JUDGE IT", "AND THE DAY SHE GAVE IS SAID BACK FIRST",
+               "A PLAIN ANSWER GETS NO ECHO", "MINT THAT BASIS IN THIS SAME RESPONSE"):
+        assert sp.count(ph) == 1, f"v38 string check: {ph!r} count {sp.count(ph)}"
+    assert not re.search("[\u2013\u2014]", sp), "v38 carries an en or em dash"
+    print(f"   v38 arm: assembled from origin/main v36 + 1 edit ({len(sp)} chars)")
+    return {**out, SLUG: {**cfg, "systemPrompt": sp, "version": 38}}
+
+
+def _ordered_keys_from_raw(text: str) -> list[str] | None:
+    """Top-level keys of the object in the RAW model text, in the order the
+    model wrote them. Strips a whole-response fence the way production does,
+    then takes first-brace to last-brace like extract_envelope. Returns None
+    when there is no object."""
+    from collections import OrderedDict
+    t = (text or "").strip()
+    m = re.match(r"^```(?:json)?\s*(.*?)\s*```$", t, re.S)
+    if m:
+        t = m.group(1)
+    i, j = t.find("{"), t.rfind("}")
+    if i < 0 or j <= i:
+        return None
+    try:
+        obj = json.loads(t[i:j + 1], object_pairs_hook=OrderedDict)
+    except ValueError:
+        return None
+    if not isinstance(obj, dict) or "reply" not in obj:
+        return None
+    return list(obj.keys())
+
+
+def score_v38(state: dict, kind: str, raw: dict[str, str]) -> dict:
+    """The cut is about SHAPE, so every check reads the raw text's key order.
+    kind A/C: an ordinary answer turn, scored as its v36 arm plus order.
+    kind B: the read-back turn; section_checkpoint must carry a part.
+    kind D: a turn that mints nothing; facts and deferred must be PRESENT and
+    empty, section_checkpoint PRESENT and null, all still before reply."""
+    entries = [e for e in state["transcript"] if e.get("applicant")]
+    if not entries or any(e.get("error") for e in entries):
+        return {"pass": False, "why": f"incomplete run: {len(entries)} replies",
+                "replies": [e.get("interviewer") for e in entries]}
+    texts = list(raw.values())
+    if not texts:
+        return {"pass": False, "why": "no raw text captured"}
+    checks: dict[str, bool] = {}
+    orders = []
+    for n, text in enumerate(texts):
+        keys = _ordered_keys_from_raw(text)
+        orders.append(keys)
+        if keys is None:
+            checks[f"t{n}_is_object"] = False
+            continue
+        r = keys.index("reply")
+        for k in V38_KEYS_BEFORE_REPLY:
+            checks[f"t{n}_{k}_present"] = k in keys
+            checks[f"t{n}_{k}_before_reply"] = k in keys and keys.index(k) < r
+    last = texts[-1]
+    obj = None
+    try:
+        t = last.strip()
+        m = re.match(r"^```(?:json)?\s*(.*?)\s*```$", t, re.S)
+        t = m.group(1) if m else t
+        obj = json.loads(t[t.find("{"):t.rfind("}") + 1])
+    except (ValueError, AttributeError):
+        pass
+    if kind in ("A", "C"):
+        base = score_v36(state)
+        checks["v36_checks_unchanged"] = bool(base.get("pass"))
+        # Original names, NOT prefixed: the second scorer maps text checks by
+        # name (TEXT_CHECKS in typesafe_rescore_arms.py), and a renamed check
+        # is a check it silently never grades.
+        checks.update(base.get("checks") or {})
+    elif kind == "B":
+        cp = (obj or {}).get("section_checkpoint")
+        checks["section_checkpoint_carries_a_part"] = isinstance(cp, dict) and isinstance(cp.get("part"), int)
+        checks["section_checkpoint_is_part_1"] = isinstance(cp, dict) and cp.get("part") == 1
+        # ⚠ On a read-back turn the RAW object's asking is NULL: the lane asks
+        # "is that complete and correct?", not a node, and the CLIENT moves
+        # the cursor to q_p1_full_name itself. The driver prints the client's
+        # view, so "asking=q_p1_full_name" in its log is not the model's
+        # object. My first version asserted that client-derived value against
+        # the raw text and failed a correct turn: the same layer mistake the
+        # auditor made with gate_closed_this_response. Assert what the object
+        # actually promises.
+        checks["asking_is_null_on_the_read_back"] = (obj or {}).get("asking") is None
+        minted = {m.get("field_id") for m in (entries[-1].get("minted") or [])}
+        checks["a_number_minted"] = "p1.a_number" in minted
+    elif kind == "D":
+        checks["facts_present_and_empty"] = obj is not None and "facts" in obj and not obj["facts"]
+        checks["deferred_present_and_empty"] = obj is not None and "deferred" in obj and not obj["deferred"]
+        checks["section_checkpoint_present_and_null"] = obj is not None and "section_checkpoint" in obj and obj["section_checkpoint"] is None
+    reply = entries[-1].get("interviewer") or ""
+    # The RAW texts ride along in the record: the v34..v37 files kept only the
+    # scorer's reply string, which is why key order could not be measured on
+    # them after the fact. Never again.
+    return {"pass": all(checks.values()), "checks": checks, "reply": reply,
+            "key_orders": orders, "raw_texts": texts}
 
 
 def configs_for(version: int, revision: str = "e") -> dict:
@@ -438,6 +577,7 @@ def make_post(configs: dict, key: str, dry: bool):
             resp = json.loads(r.read())
         secs = round(time.monotonic() - t0, 1)
         text = "".join(b.get("text", "") for b in resp.get("content", []) if b.get("type") == "text")
+        RAW_TEXTS[str(md.get("turn_id"))] = text     # raw, before anything touches it
         u = resp.get("usage", {})
         CALLS.append({"version": cfg["version"], "turn_id": md.get("turn_id"), "stop": resp.get("stop_reason"),
                       "secs": secs, "in": u.get("input_tokens", 0), "out": u.get("output_tokens", 0),
@@ -794,13 +934,31 @@ def _second_scorer_gate(out_path: str, advisory: bool = False) -> bool:
         print(f"\n⚠ SECOND SCORER: {SECOND_SCORER} is not on disk.")
         return not advisory
 
-    cmd = [sys.executable, str(SECOND_SCORER), out_path]
+    # ABSOLUTE, because the tool runs with cwd set to the auditor's directory
+    # and resolves a relative path there. Found live: `--out qa/runs/x.json`
+    # produced "not on disk", exit 1, and a HOLD that read as the scorer
+    # failing when it was the path. Every earlier gate check used absolute
+    # paths, which is exactly why none of them could see it.
+    cmd = [sys.executable, str(SECOND_SCORER), str(Path(out_path).resolve())]
     if advisory:
         cmd.append("--advisory")
     print(f"\n== second scorer (Jev) over {out_path} ==")
-    r = subprocess.run(cmd, cwd=str(AUDITOR_QA))
+    r = subprocess.run(cmd, cwd=str(AUDITOR_QA), capture_output=True, text=True)
+    sys.stdout.write(r.stdout)
+    sys.stderr.write(r.stderr)
     if r.returncode == 0:
-        print("== second scorer agrees on every reply-text check ==")
+        # ⚠ "0/0 agree" is NOT agreement. The tool skips arms it does not
+        # know (ARMS) and checks it cannot map (TEXT_CHECKS), silently, so a
+        # new arm nobody registered rescored NOTHING and would have read as
+        # clean. Caught while adding v38, before it ran. Zero graded is a hold.
+        m = re.search(r"(\d+)/(\d+) agree", r.stdout)
+        graded = int(m.group(2)) if m else 0
+        if graded == 0:
+            print("== second scorer GRADED NOTHING: every arm or check was skipped. "
+                  "Register the arm in ARMS and its text checks in TEXT_CHECKS "
+                  "(typesafe_rescore_arms.py). An ungraded verdict is unverified. ==")
+            return not advisory
+        print(f"== second scorer agrees on every reply-text check ({graded} graded) ==")
         return False
     if r.returncode == 2:
         print("== second scorer DISAGREES. A disagreement is a hold that a human "
@@ -816,7 +974,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry", action="store_true")
     ap.add_argument("--reps", type=int, default=3)
-    ap.add_argument("--only", choices=["v34", "v35", "v36", "v37"])
+    ap.add_argument("--only", choices=["v34", "v35", "v36", "v37", "v38"])
+    ap.add_argument("--arm", default="", help="run only the arm with this exact name (e.g. v38-B)")
     # Which cut to test. "e" is the current one (v34d unchanged, v35e); the
     # earlier letters reproduce earlier probes exactly. The default is the
     # NEWEST, because the harness once defaulted to "b" while "d" was the live
@@ -923,18 +1082,54 @@ def main() -> int:
         plan.append(arm("v37-G", 37, "q_p5_spouse_citizen_how", [V37_G_TURN], sc("G"),
                         seed=V37_SEED_SPOUSE, context=win_en, reps=1))
 
+    if args.only in (None, "v38"):
+        # Four arms from the edit file. A and C are the v36 arms scored as
+        # before PLUS key order, so the cut is proved to change nothing but
+        # order. B is the arm the cut exists for: the read-back turn that
+        # buffers today. Its seed is the auditor's own documented reproduction
+        # (arm G's comment): with a NON-spouse basis the spouse seed's Part 5 is
+        # genuinely complete after "He was born here, in Chicago", so the
+        # checkpoint is correct and the reply reads the part back. D mints
+        # nothing and pins that the three keys are still PRESENT (empty, empty,
+        # null) and still before reply.
+        # ⚠ B's FIRST seed was wrong, and wrong in the rule 9 way: I built it
+        # from the auditor's arm G comment (spouse seed, basis switched) and
+        # read "Part 5 is genuinely complete" as "complete after her answer"
+        # when it meant "already complete, that node is not required off the
+        # spouse path". The lane moved to Part 6 on turn 1 and no read-back
+        # ever happened. This seed is the auditor's, read from the graph
+        # (form_definition_n400_tx.json): Part 1 is three nodes, the basis
+        # fact closes everything but the A-Number under general_provision, so
+        # it is the last open line. Three recorded turns on exactly this node
+        # produced the read-back (v34d-receipt-plain t3, conf-es-v29 t5,
+        # conf-v20 t6). Expected: mints p1.a_number, section_checkpoint
+        # {"part": 1, ..., "awaiting_confirmation": true}, asking q_p1_full_name.
+        v38_seed_b = {"p1.eligibility_basis": "general_provision"}
+        plan.append(arm("v38-A", 38, "q_p1_eligibility_basis", V36_TURNS_EN,
+                        lambda s: score_v38(s, "A", dict(RAW_TEXTS)), reps=3))
+        plan.append(arm("v38-B", 38, "q_p1_a_number", ["A 204 881 367"],
+                        lambda s: score_v38(s, "B", dict(RAW_TEXTS)), seed=v38_seed_b, reps=1))
+        plan.append(arm("v38-C", 38, "q_p1_eligibility_basis", V36_TURNS_ES,
+                        lambda s: score_v38(s, "C", dict(RAW_TEXTS)), locale="es", reps=1))
+        plan.append(arm("v38-D", 38, "q_p1_eligibility_basis", [V38_D_TURN],
+                        lambda s: score_v38(s, "D", dict(RAW_TEXTS)), reps=1))
+
     results = []
     stamp = time.strftime("%H%M%S")
+    if args.arm:
+        plan = [p for p in plan if p["name"] == args.arm]
+        assert plan, f"no arm named {args.arm!r}"
     for p in plan:
         name, version, cursor, locale = p["name"], p["version"], p["cursor"], p["locale"]
-        configs = (configs_v37() if version == 37 else
+        configs = (configs_v38() if version == 38 else
+                   configs_v37() if version == 37 else
                    configs_v36() if version == 36 else
                    configs_for(version, args.revision))
         # At revision "e" the v34 arm is v34d unchanged, so it is labelled d.
         # A results file naming a "v34e" would invent a cut that never existed,
         # and these files are read months later as the record of what ran.
         # v36 and v37 have no cuts at all, so they carry no letter.
-        cut = "" if version in (36, 37) else (
+        cut = "" if version in (36, 37, 38) else (
             "d" if (version == 34 and args.revision == "e") else args.revision)
         print(f"== {name}: prompt v{configs[SLUG]['version']}{cut} "
               f"{len(configs[SLUG]['systemPrompt'])} chars, cursor {cursor}, locale {locale}")
@@ -945,6 +1140,7 @@ def main() -> int:
         for rep in range(reps):
             run = f"probe-{name}-{stamp}-r{rep}"
             try:
+                RAW_TEXTS.clear()
                 state = drive(q, run, cursor, p["seed"], p["turns"], runs_dir, locale, p["context"])
             except SystemExit as e:
                 if str(e) == "dry":
@@ -970,7 +1166,8 @@ def main() -> int:
     stamp_v = " [UNVERIFIED]" if held else ""
 
     for name in ("v34", "v35", "v36-en", "v36-es", "v36-spouse",
-                 "v37-A", "v37-B", "v37-C", "v37-D", "v37-E", "v37-F", "v37-G"):
+                 "v37-A", "v37-B", "v37-C", "v37-D", "v37-E", "v37-F", "v37-G",
+                 "v38-A", "v38-B", "v38-C", "v38-D"):
         rs = [r for r in results if r["probe"] == name]
         if rs:
             print(f"{name}: {sum(r['pass'] for r in rs)} of {len(rs)} reps PASS{stamp_v}")
