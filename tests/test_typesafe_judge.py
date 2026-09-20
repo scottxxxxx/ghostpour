@@ -15,6 +15,20 @@ import pytest
 from app.services import typesafe_judge as tj
 
 
+@pytest.fixture(autouse=True)
+def recorded(monkeypatch):
+    """Every row the code under test tries to record, and a fresh breaker.
+    No unit test here may reach a real database or carry a breaker over."""
+    rows: list[tuple[dict, str | None]] = []
+
+    async def fake_record(row, app_id):
+        rows.append((dict(row), app_id))
+
+    monkeypatch.setattr(tj, "record", fake_record)
+    monkeypatch.setattr(tj, "breaker", tj.Breaker())
+    return rows
+
+
 def _answers(confirm=("accept", 0.99), fmt=("keep", 0.99),
              style=("none", 0.99), version=None):
     out = {
@@ -110,8 +124,16 @@ async def test_the_state_is_the_offer_line_and_the_reply_and_nothing_else(monkey
 # --- the shadow ---------------------------------------------------------------
 
 async def _drain():
-    while tj._LIVE:
+    # The sleep(0) is load-bearing. A done-callback can start a NEW task (the
+    # shadow's log step starts the record), and gather over a task that has
+    # already finished returns WITHOUT yielding to the loop, so the callback
+    # that would remove it from _LIVE never runs and this spins forever.
+    for _ in range(200):
+        if not tj._LIVE:
+            break
         await asyncio.gather(*list(tj._LIVE), return_exceptions=True)
+        await asyncio.sleep(0)
+    assert not tj._LIVE, "background Jev work never finished"
     await asyncio.sleep(0)
 
 
@@ -160,8 +182,8 @@ async def test_a_jev_failure_is_logged_and_raises_nowhere(monkeypatch, caplog):
 
 # --- the shadow inside interpret_offer_reply ------------------------------------
 
-def _settings(enabled: bool, key: str = "k"):
-    return MagicMock(typesafe_shadow_enabled=enabled, typesafe_api_key=key)
+def _settings(mode: str, key: str = "k"):
+    return MagicMock(typesafe_mode=mode, typesafe_api_key=key)
 
 
 @pytest.mark.asyncio
@@ -169,7 +191,7 @@ async def test_off_by_default_no_request_leaves(monkeypatch):
     from app.services.document_generation import interpret_offer_reply
     ask = AsyncMock(return_value=_answers())
     monkeypatch.setattr(tj, "ask", ask)
-    monkeypatch.setattr("app.config.get_settings", lambda: _settings(False))
+    monkeypatch.setattr("app.config.get_settings", lambda: _settings("off"))
     router = MagicMock()
     router.route = AsyncMock(return_value=MagicMock(text='{"confirm": true, "format": null}'))
     out = await interpret_offer_reply(router, {"format": "docx", "gist": "x"}, "yes")
@@ -184,7 +206,7 @@ async def test_the_shadow_cannot_change_the_verdict(monkeypatch, caplog):
     # Jev says decline with full confidence; Haiku says yes. Haiku's verdict
     # is what the turn gets.
     monkeypatch.setattr(tj, "ask", AsyncMock(return_value=_answers(confirm=("decline", 1.0))))
-    monkeypatch.setattr("app.config.get_settings", lambda: _settings(True))
+    monkeypatch.setattr("app.config.get_settings", lambda: _settings("shadow"))
     caplog.set_level(logging.INFO, logger="ghostpour.typesafe_judge")
     router = MagicMock()
     router.route = AsyncMock(return_value=MagicMock(text='{"confirm": true, "format": null}'))
@@ -205,7 +227,7 @@ async def test_the_turn_never_waits_on_jev(monkeypatch):
         return _answers()
 
     monkeypatch.setattr(tj, "ask", hung_ask)
-    monkeypatch.setattr("app.config.get_settings", lambda: _settings(True))
+    monkeypatch.setattr("app.config.get_settings", lambda: _settings("shadow"))
     router = MagicMock()
     router.route = AsyncMock(return_value=MagicMock(text='{"confirm": true, "format": null}'))
     out = await asyncio.wait_for(
@@ -226,7 +248,7 @@ async def test_both_judges_get_the_same_isolated_reply(monkeypatch):
         return _answers()
 
     monkeypatch.setattr(tj, "ask", fake_ask)
-    monkeypatch.setattr("app.config.get_settings", lambda: _settings(True))
+    monkeypatch.setattr("app.config.get_settings", lambda: _settings("shadow"))
     router = MagicMock()
     router.route = AsyncMock(return_value=MagicMock(text='{"confirm": true, "format": null}'))
     assembled = "ATTACHED TEMPLATE: y Red/Yellow? lots of document text\nUser question: Yes"
@@ -243,7 +265,7 @@ async def test_both_judges_get_the_same_isolated_reply(monkeypatch):
 async def test_a_haiku_failure_is_marked_so_it_is_not_counted_against_jev(monkeypatch, caplog):
     from app.services.document_generation import interpret_offer_reply
     monkeypatch.setattr(tj, "ask", AsyncMock(return_value=_answers()))
-    monkeypatch.setattr("app.config.get_settings", lambda: _settings(True))
+    monkeypatch.setattr("app.config.get_settings", lambda: _settings("shadow"))
     caplog.set_level(logging.INFO, logger="ghostpour.typesafe_judge")
     router = MagicMock()
     router.route = AsyncMock(side_effect=RuntimeError("boom"))
@@ -252,3 +274,219 @@ async def test_a_haiku_failure_is_marked_so_it_is_not_counted_against_jev(monkey
     await _drain()
     (line,) = _shadow_lines(caplog)
     assert "haiku_ok=False" in line
+
+
+# --- the mode switch ---------------------------------------------------------------
+
+@pytest.mark.parametrize("mode,key,expected", [
+    ("off", "k", "off"), ("shadow", "k", "shadow"), ("primary", "k", "primary"),
+    ("PRIMARY ", "k", "primary"),
+    ("primary", "", "off"),        # no key is off, whatever the mode says
+    ("on", "k", "off"),            # a typo must not start sending user text
+    ("true", "k", "off"),
+    (None, "k", "off"),
+])
+def test_only_a_defined_mode_with_a_key_turns_it_on(monkeypatch, mode, key, expected):
+    from app.services.document_generation import _typesafe_mode
+    monkeypatch.setattr("app.config.get_settings", lambda: _settings(mode, key))
+    assert _typesafe_mode()[0] == expected
+
+
+# --- the breaker ---------------------------------------------------------------------
+
+class _Clock:
+    def __init__(self):
+        self.t = 1000.0
+
+    def __call__(self):
+        return self.t
+
+
+def test_two_failures_in_a_row_do_not_open_it_and_the_third_does():
+    b = tj.Breaker(clock=_Clock())
+    b.failure("X"); b.failure("X")
+    assert b.allow() and not b.state()["open"]
+    b.failure("X")
+    assert not b.allow() and b.state()["open"]
+    assert b.state()["opened_count_since_boot"] == 1
+
+
+def test_a_success_between_failures_resets_the_run():
+    b = tj.Breaker(clock=_Clock())
+    b.failure("X"); b.failure("X"); b.success(); b.failure("X"); b.failure("X")
+    assert b.allow()
+
+
+def test_after_the_cooldown_one_probe_is_allowed_and_a_success_closes_it():
+    clock = _Clock()
+    b = tj.Breaker(cooldown=300, clock=clock)
+    for _ in range(3):
+        b.failure("X")
+    clock.t += 299
+    assert not b.allow()
+    clock.t += 1
+    assert b.allow()
+    b.success()
+    assert b.allow() and not b.state()["open"] and b.state()["consecutive_failures"] == 0
+
+
+def test_a_failed_probe_starts_another_cooldown():
+    clock = _Clock()
+    b = tj.Breaker(cooldown=300, clock=clock)
+    for _ in range(3):
+        b.failure("X")
+    clock.t += 300
+    assert b.allow()
+    b.failure("X")
+    assert not b.allow()
+    assert b.state()["opened_count_since_boot"] == 1   # still the same outage
+    clock.t += 300
+    assert b.allow()
+
+
+# --- primary ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_primary_ok_returns_jevs_verdict(monkeypatch):
+    monkeypatch.setattr(tj, "ask", AsyncMock(return_value=_answers(fmt=("xlsx", 0.9))))
+    verdict, row = await tj.try_offer_reply("k", "OFFER: a docx file", "make it a spreadsheet", "docx", False)
+    assert verdict == {"confirm": True, "format": "xlsx", "style": None, "version": None}
+    assert row["outcome"] == "ok" and row["fell_back"] is False and row["input_tokens"] == 400
+
+
+@pytest.mark.asyncio
+async def test_an_unsure_jev_hands_over_and_is_not_a_failure(monkeypatch):
+    monkeypatch.setattr(tj, "ask", AsyncMock(return_value=_answers(confirm=("accept", 0.43))))
+    for _ in range(5):
+        verdict, row = await tj.try_offer_reply("k", "OFFER: x", "keep it simple", "xlsx", False)
+        assert verdict is None and row["outcome"] == "low_confidence" and row["fell_back"] is True
+    # Five unsure answers in a row are five answers. The breaker stays closed.
+    assert tj.breaker.allow() and tj.breaker.consecutive_failures == 0
+
+
+@pytest.mark.asyncio
+async def test_an_error_and_a_timeout_are_failures_and_are_told_apart(monkeypatch):
+    import httpx
+    monkeypatch.setattr(tj, "ask", AsyncMock(side_effect=RuntimeError("boom")))
+    verdict, row = await tj.try_offer_reply("k", "OFFER: x", "yes", "docx", False)
+    assert verdict is None and row["outcome"] == "error" and row["error_type"] == "RuntimeError"
+    monkeypatch.setattr(tj, "ask", AsyncMock(side_effect=httpx.ReadTimeout("slow")))
+    verdict, row = await tj.try_offer_reply("k", "OFFER: x", "yes", "docx", False)
+    assert verdict is None and row["outcome"] == "timeout" and row["error_type"] == "ReadTimeout"
+    assert tj.breaker.consecutive_failures == 2
+
+
+@pytest.mark.asyncio
+async def test_after_three_failures_jev_is_not_asked_at_all(monkeypatch):
+    ask = AsyncMock(side_effect=RuntimeError("down"))
+    monkeypatch.setattr(tj, "ask", ask)
+    for _ in range(3):
+        await tj.try_offer_reply("k", "OFFER: x", "yes", "docx", False)
+    assert ask.call_count == 3
+    verdict, row = await tj.try_offer_reply("k", "OFFER: x", "yes", "docx", False)
+    assert verdict is None and row["outcome"] == "breaker_open" and row["fell_back"] is True
+    assert ask.call_count == 3, "an open breaker must not call TypeSafe"
+
+
+@pytest.mark.asyncio
+async def test_primary_uses_the_short_timeout(monkeypatch):
+    seen = {}
+
+    async def fake_ask(api_key, state, questions, timeout=tj.TIMEOUT_SECONDS):
+        seen["timeout"] = timeout
+        return _answers()
+
+    monkeypatch.setattr(tj, "ask", fake_ask)
+    await tj.try_offer_reply("k", "OFFER: x", "yes", "docx", False)
+    assert seen["timeout"] == tj.PRIMARY_TIMEOUT_SECONDS < tj.TIMEOUT_SECONDS
+
+
+# --- primary inside interpret_offer_reply ------------------------------------------------
+
+def _haiku_router(text='{"confirm": false, "format": null}'):
+    router = MagicMock()
+    router.route = AsyncMock(return_value=MagicMock(text=text))
+    return router
+
+
+@pytest.mark.asyncio
+async def test_in_primary_jev_decides_and_haiku_is_never_called(monkeypatch, recorded):
+    from app.services.document_generation import interpret_offer_reply
+    monkeypatch.setattr(tj, "ask", AsyncMock(return_value=_answers()))
+    monkeypatch.setattr("app.config.get_settings", lambda: _settings("primary"))
+    router = _haiku_router()          # Haiku would say NO
+    meter = AsyncMock()
+    out = await interpret_offer_reply(router, {"format": "docx", "gist": "x"}, "yes",
+                                      on_subcall=meter, app_id="shouldersurf")
+    await _drain()
+    assert out["confirm"] is True
+    router.route.assert_not_called()
+    meter.assert_not_called()
+    assert [(r["outcome"], r["fell_back"], a) for r, a in recorded] == [("ok", False, "shouldersurf")]
+
+
+@pytest.mark.asyncio
+async def test_in_primary_a_jev_failure_falls_back_to_haiku_on_the_same_turn(monkeypatch, recorded):
+    from app.services.document_generation import interpret_offer_reply
+    monkeypatch.setattr(tj, "ask", AsyncMock(side_effect=RuntimeError("down")))
+    monkeypatch.setattr("app.config.get_settings", lambda: _settings("primary"))
+    router = _haiku_router('{"confirm": true, "format": "pdf"}')
+    out = await interpret_offer_reply(router, {"format": "docx", "gist": "x"}, "yes as a pdf",
+                                      app_id="shouldersurf")
+    await _drain()
+    assert out == {"confirm": True, "format": "pdf", "style": None, "version": None}
+    router.route.assert_awaited_once()
+    (row, app_id), = recorded
+    assert row["outcome"] == "error" and row["fell_back"] is True and app_id == "shouldersurf"
+    assert isinstance(row["fallback_ms"], int)
+
+
+@pytest.mark.asyncio
+async def test_in_primary_an_unsure_jev_lets_haiku_decide(monkeypatch, recorded):
+    from app.services.document_generation import interpret_offer_reply
+    monkeypatch.setattr(tj, "ask", AsyncMock(return_value=_answers(confirm=("accept", 0.43))))
+    monkeypatch.setattr("app.config.get_settings", lambda: _settings("primary"))
+    router = _haiku_router('{"confirm": true, "format": null, "style": "simple"}')
+    out = await interpret_offer_reply(router, {"format": "xlsx", "gist": "x"}, "keep it simple")
+    await _drain()
+    assert out["confirm"] is True and out["style"] == "simple"
+    assert recorded[0][0]["outcome"] == "low_confidence"
+
+
+@pytest.mark.asyncio
+async def test_in_primary_an_open_breaker_goes_straight_to_haiku(monkeypatch, recorded):
+    from app.services.document_generation import interpret_offer_reply
+    ask = AsyncMock(side_effect=RuntimeError("down"))
+    monkeypatch.setattr(tj, "ask", ask)
+    monkeypatch.setattr("app.config.get_settings", lambda: _settings("primary"))
+    for _ in range(4):
+        router = _haiku_router('{"confirm": true, "format": null}')
+        out = await interpret_offer_reply(router, {"format": "docx", "gist": "x"}, "yes")
+        assert out["confirm"] is True          # every turn still got its answer
+    await _drain()
+    assert ask.call_count == 3
+    assert [r["outcome"] for r, _ in recorded] == ["error", "error", "error", "breaker_open"]
+
+
+@pytest.mark.asyncio
+async def test_a_bug_in_the_primary_path_still_gives_the_turn_to_haiku(monkeypatch):
+    from app.services.document_generation import interpret_offer_reply
+    monkeypatch.setattr(tj, "try_offer_reply", AsyncMock(side_effect=KeyError("bug")))
+    monkeypatch.setattr("app.config.get_settings", lambda: _settings("primary"))
+    router = _haiku_router('{"confirm": true, "format": null}')
+    out = await interpret_offer_reply(router, {"format": "docx", "gist": "x"}, "yes")
+    assert out["confirm"] is True
+
+
+@pytest.mark.asyncio
+async def test_shadow_records_agreement_and_leaves_it_empty_when_haiku_failed(monkeypatch, recorded):
+    from app.services.document_generation import interpret_offer_reply
+    monkeypatch.setattr(tj, "ask", AsyncMock(return_value=_answers()))
+    monkeypatch.setattr("app.config.get_settings", lambda: _settings("shadow"))
+    await interpret_offer_reply(_haiku_router('{"confirm": true, "format": null}'),
+                                {"format": "docx", "gist": "x"}, "yes", app_id="a")
+    router = MagicMock()
+    router.route = AsyncMock(side_effect=RuntimeError("boom"))
+    await interpret_offer_reply(router, {"format": "docx", "gist": "x"}, "yes", app_id="a")
+    await _drain()
+    assert [(r["mode"], r["agreed"]) for r, _ in recorded] == [("shadow", True), ("shadow", None)]

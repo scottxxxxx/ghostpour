@@ -1030,6 +1030,31 @@ MIGRATIONS = [
     # stays honest about how much traffic this number describes.
     # response_time_ms is unchanged and still the whole wall clock.
     "ALTER TABLE usage_log ADD COLUMN ttft_ms INTEGER",
+    # TypeSafe (Jev) judgments (2026-09-20). One row per attempt to use Jev
+    # for a decision Haiku used to make, INCLUDING the attempts that never
+    # reached it: `outcome` is ok, low_confidence, error, timeout or
+    # breaker_open, and `fell_back` says whether Haiku made the decision in
+    # the end. Its own table and not usage_log on purpose: a Jev failure is
+    # not a failed user request (Haiku answers the turn), and usage_log's
+    # status column feeds error rates and alerts that would read it as one.
+    # No user text is stored here, only what was decided and how it went.
+    """CREATE TABLE IF NOT EXISTS typesafe_calls (
+        id TEXT PRIMARY KEY,
+        created_at TEXT NOT NULL,
+        app_id TEXT,
+        judgment TEXT NOT NULL,
+        mode TEXT NOT NULL,
+        outcome TEXT NOT NULL,
+        error_type TEXT,
+        fell_back INTEGER NOT NULL DEFAULT 0,
+        jev_ms INTEGER,
+        fallback_ms INTEGER,
+        input_tokens INTEGER,
+        cost_usd REAL,
+        confidence REAL,
+        agreed INTEGER
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_typesafe_calls_created ON typesafe_calls(created_at)",
 ]
 
 

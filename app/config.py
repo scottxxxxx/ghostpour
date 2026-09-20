@@ -119,11 +119,15 @@ class Settings(BaseSettings):
     # generation. A NEW PROCESSOR for whatever text we send it, so callers
     # send the narrowest state a question needs and nothing else.
     typesafe_api_key: str = ""
-    # Shadow mode runs a Jev judgment BESIDE the Haiku one it may replace
-    # and logs only whether the two verdicts agree. It never changes a
-    # turn and never waits on Jev. Off by default: turning it on sends
-    # real user replies to TypeSafe, which is Scott's call.
-    typesafe_shadow_enabled: bool = False
+    # off | shadow | primary.
+    #   shadow   Jev runs BESIDE the Haiku judge and only the agreement is
+    #            recorded. It never changes a turn and never waits on Jev.
+    #   primary  Jev decides. Haiku answers instead whenever Jev errors,
+    #            times out or is not confident, and after more than two Jev
+    #            failures in a row Jev is skipped entirely for a cooldown.
+    # Anything but off sends real user replies to TypeSafe, so the default
+    # is off and the switch is Scott's.
+    typesafe_mode: str = "off"
 
     # Admin
     admin_key: str = ""

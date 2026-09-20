@@ -22,10 +22,32 @@ TWO RULES THIS MODULE KEEPS
    falls to the safe direction, exactly as a parse failure does on the
    Haiku path.
 
-SHADOW. `shadow_offer_reply` runs the Jev judgment beside the Haiku one and
-logs whether the verdicts agree. It never changes what the turn does and
-the turn never waits on it: the comparison is logged from the task's own
-completion, after the response has moved on. The log line carries verdicts,
+MODES (`CZ_TYPESAFE_MODE`)
+
+shadow   `shadow_offer_reply` runs the Jev judgment beside the Haiku one and
+         records whether the verdicts agree. It never changes what the turn
+         does and the turn never waits on it.
+
+primary  `try_offer_reply` lets Jev decide. It hands the decision back to
+         Haiku (returns None) in three cases, and they are NOT the same
+         thing:
+           error / timeout   Jev did not answer. This is a FAILURE.
+           low_confidence    Jev answered and was not sure. This is Jev
+                             WORKING: a near tie is its honest answer to a
+                             hard reply, so it is never counted as a failure.
+           breaker_open      Jev was not asked at all.
+
+THE BREAKER. More than `BREAKER_THRESHOLD` failures in a row and Jev is
+skipped for `BREAKER_COOLDOWN_SECONDS`, so a TypeSafe outage costs three slow
+turns and not every turn. After the cooldown the next call is a probe: a
+success closes the breaker, a failure starts another cooldown. One success
+anywhere resets the run. It lives in process memory, which is coherent
+because prod runs ONE uvicorn worker (Dockerfile), and a restart closes it,
+which is the right default for a dependency that may have recovered.
+
+THE RECORD. Every attempt writes one `typesafe_calls` row, including the
+attempts the breaker skipped, because a dashboard that only counts the calls
+that were made cannot show an outage. Rows and log lines carry verdicts,
 confidences and timings and NO user text.
 """
 
@@ -44,7 +66,13 @@ API_URL = "https://api.typesafe.ai/v1/systemone"
 # change answers under a comparison that is supposed to hold still.
 MODEL = "jev-1.13.0"
 TIMEOUT_SECONDS = 5.0
+# On the critical path the wait is the user's. A normal call is 0.3s and the
+# slowest of 76 measured was 0.77s, so 2s is a Jev that is not coming back.
+PRIMARY_TIMEOUT_SECONDS = 2.0
 CONFIDENCE_FLOOR = 0.5
+BREAKER_THRESHOLD = 2          # opens when failures in a row EXCEED this
+BREAKER_COOLDOWN_SECONDS = 300.0
+USD_PER_INPUT_TOKEN = 0.042 / 1_000_000   # output tokens are free
 
 _FORMATS = ("xlsx", "docx", "pptx", "pdf")
 
@@ -173,11 +201,12 @@ def read_offer_reply(body: dict, offered_format: str) -> tuple[dict, dict]:
 
 
 async def judge_offer_reply(api_key: str, offer_line: str, reply: str,
-                            offered_format: str, lane_choice: bool) -> dict:
-    """The Jev verdict plus what the shadow logs about it. Raises on failure."""
+                            offered_format: str, lane_choice: bool,
+                            timeout: float = TIMEOUT_SECONDS) -> dict:
+    """The Jev verdict plus what gets recorded about it. Raises on failure."""
     start = time.monotonic()
     body = await ask(api_key, {"offer": offer_line, "user_reply": reply},
-                     offer_reply_questions(lane_choice))
+                     offer_reply_questions(lane_choice), timeout=timeout)
     verdict, confidence = read_offer_reply(body, offered_format)
     return {"verdict": verdict, "confidence": confidence,
             "ms": int((time.monotonic() - start) * 1000),
@@ -187,11 +216,138 @@ async def judge_offer_reply(api_key: str, offer_line: str, reply: str,
 # A task nobody holds a reference to can be collected mid-flight.
 _LIVE: set[asyncio.Task] = set()
 
+
+def _hold(coro) -> asyncio.Task:
+    task = asyncio.ensure_future(coro)
+    _LIVE.add(task)
+    task.add_done_callback(_LIVE.discard)
+    return task
+
+
+# --- the breaker -------------------------------------------------------------
+
+class Breaker:
+    def __init__(self, threshold: int = BREAKER_THRESHOLD,
+                 cooldown: float = BREAKER_COOLDOWN_SECONDS, clock=time.monotonic):
+        self.threshold, self.cooldown, self._clock = threshold, cooldown, clock
+        self.consecutive_failures = 0
+        self.opened_at: float | None = None
+        self.opened_count = 0
+        self.last_error: str | None = None
+
+    def allow(self) -> bool:
+        """True when Jev may be asked: closed, or open with the cooldown
+        served (that call is the probe)."""
+        if self.opened_at is None:
+            return True
+        return self._clock() - self.opened_at >= self.cooldown
+
+    def success(self) -> None:
+        self.consecutive_failures = 0
+        self.opened_at = None
+
+    def failure(self, error_type: str) -> None:
+        self.consecutive_failures += 1
+        self.last_error = error_type
+        if self.consecutive_failures > self.threshold:
+            if self.opened_at is None:
+                self.opened_count += 1
+                logger.warning(
+                    "typesafe_breaker_opened failures_in_a_row=%d last_error=%s "
+                    "cooldown_s=%d", self.consecutive_failures, error_type,
+                    int(self.cooldown))
+            # A failed probe lands here too and restarts the cooldown.
+            self.opened_at = self._clock()
+
+    def state(self) -> dict:
+        open_ = self.opened_at is not None
+        wait = max(0.0, self.cooldown - (self._clock() - self.opened_at)) if open_ else 0.0
+        return {"open": open_, "consecutive_failures": self.consecutive_failures,
+                "threshold": self.threshold, "retry_in_seconds": int(wait),
+                "opened_count_since_boot": self.opened_count,
+                "last_error": self.last_error}
+
+
+breaker = Breaker()
+
+
+# --- the record ----------------------------------------------------------------
+
+async def record(row: dict, app_id: str | None) -> None:
+    """One `typesafe_calls` row on its OWN connection, because the shadow
+    finishes after the request's connection has closed. Never raises: the
+    record of a judgment must not be able to fail the turn it describes."""
+    try:
+        import uuid
+        from datetime import datetime, timezone
+
+        import aiosqlite
+
+        from app import database
+        tokens = row.get("input_tokens")
+        async with aiosqlite.connect(database._db_path) as db:
+            await db.execute(
+                """INSERT INTO typesafe_calls
+                   (id, created_at, app_id, judgment, mode, outcome, error_type,
+                    fell_back, jev_ms, fallback_ms, input_tokens, cost_usd,
+                    confidence, agreed)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (uuid.uuid4().hex, datetime.now(timezone.utc).isoformat(), app_id,
+                 row["judgment"], row["mode"], row["outcome"], row.get("error_type"),
+                 1 if row.get("fell_back") else 0, row.get("jev_ms"),
+                 row.get("fallback_ms"), tokens,
+                 round(tokens * USD_PER_INPUT_TOKEN, 8) if tokens else None,
+                 row.get("confidence"),
+                 None if row.get("agreed") is None else (1 if row["agreed"] else 0)))
+            await db.commit()
+    except Exception as e:  # noqa: BLE001
+        logger.warning("typesafe_call_not_recorded %s: %s", type(e).__name__, e)
+
+
+def record_later(row: dict, app_id: str | None) -> None:
+    """Record without making the turn wait for the write."""
+    _hold(record(row, app_id))
+
+
+# --- primary ---------------------------------------------------------------------
+
+async def try_offer_reply(api_key: str, offer_line: str, reply: str,
+                          offered_format: str, lane_choice: bool) -> tuple[dict | None, dict]:
+    """(verdict, row). A None verdict means Haiku decides, and `row` says
+    why. The caller records the row once it knows how the fallback went."""
+    row = {"judgment": "offer_reply", "mode": "primary", "fell_back": True}
+    if not breaker.allow():
+        row["outcome"] = "breaker_open"
+        return None, row
+    start = time.monotonic()
+    try:
+        out = await judge_offer_reply(api_key, offer_line, reply, offered_format,
+                                      lane_choice, timeout=PRIMARY_TIMEOUT_SECONDS)
+    except Exception as e:  # noqa: BLE001
+        row["jev_ms"] = int((time.monotonic() - start) * 1000)
+        row["error_type"] = type(e).__name__
+        row["outcome"] = "timeout" if isinstance(e, httpx.TimeoutException) else "error"
+        breaker.failure(row["error_type"])
+        logger.warning("typesafe_offer_reply_failed outcome=%s error=%s jev_ms=%d "
+                       "failures_in_a_row=%d", row["outcome"], row["error_type"],
+                       row["jev_ms"], breaker.consecutive_failures)
+        return None, row
+    breaker.success()
+    row.update(jev_ms=out["ms"], input_tokens=out["input_tokens"],
+               confidence=out["confidence"]["confirm"])
+    if out["confidence"]["confirm"] < CONFIDENCE_FLOOR:
+        # Jev answered and was not sure whether she said yes. Haiku decides.
+        row["outcome"] = "low_confidence"
+        return None, row
+    row["outcome"], row["fell_back"] = "ok", False
+    return out["verdict"], row
+
 _FIELDS = ("confirm", "format", "style", "version")
 
 
 def shadow_offer_reply(api_key: str, offer_line: str, reply: str,
-                       offered_format: str, lane_choice: bool):
+                       offered_format: str, lane_choice: bool,
+                       app_id: str | None = None):
     """Start the Jev judgment now, and return `finish(haiku_verdict,
     haiku_ms, haiku_ok)`. Calling finish never waits: it arranges for the
     comparison to be logged when Jev answers, which may be after the turn
@@ -200,10 +356,8 @@ def shadow_offer_reply(api_key: str, offer_line: str, reply: str,
     """
     if not api_key:
         return None
-    task = asyncio.ensure_future(
+    task = _hold(
         judge_offer_reply(api_key, offer_line, reply, offered_format, lane_choice))
-    _LIVE.add(task)
-    task.add_done_callback(_LIVE.discard)
 
     def finish(haiku: dict, haiku_ms: int, haiku_ok: bool) -> None:
         def _log(t: asyncio.Task) -> None:
@@ -213,6 +367,11 @@ def shadow_offer_reply(api_key: str, offer_line: str, reply: str,
             if err is not None:
                 logger.warning("offer_reply_shadow jev_failed=%s haiku_ms=%d",
                                type(err).__name__, haiku_ms)
+                record_later({"judgment": "offer_reply", "mode": "shadow",
+                              "outcome": ("timeout" if isinstance(err, httpx.TimeoutException)
+                                          else "error"),
+                              "error_type": type(err).__name__,
+                              "fallback_ms": haiku_ms}, app_id)
                 return
             out = t.result()
             jev = out["verdict"]
@@ -226,6 +385,14 @@ def shadow_offer_reply(api_key: str, offer_line: str, reply: str,
                 not diff, ",".join(diff) or "-", haiku_ok,
                 _compact(haiku), _compact(jev), out["confidence"],
                 haiku_ms, out["ms"], out["input_tokens"])
+            record_later({"judgment": "offer_reply", "mode": "shadow",
+                          "outcome": ("ok" if out["confidence"]["confirm"] >= CONFIDENCE_FLOOR
+                                      else "low_confidence"),
+                          "jev_ms": out["ms"], "fallback_ms": haiku_ms,
+                          "input_tokens": out["input_tokens"],
+                          "confidence": out["confidence"]["confirm"],
+                          # A Haiku that failed open is no verdict to agree with.
+                          "agreed": (not diff) if haiku_ok else None}, app_id)
         task.add_done_callback(_log)
 
     return finish

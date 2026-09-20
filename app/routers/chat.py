@@ -2806,7 +2806,8 @@ async def chat(
                 _reply = await interpret_offer_reply(
                     provider_router, _offer,
                     _reply_verbatim if _reply_verbatim else body.user_content,
-                    verbatim=bool(_reply_verbatim), on_subcall=_meter)
+                    verbatim=bool(_reply_verbatim), on_subcall=_meter,
+                    app_id=app_id)
                 _style_reply = _reply.get("style")
                 # The user just answered our own question with NO.
                 #
