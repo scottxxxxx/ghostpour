@@ -250,15 +250,12 @@ def test_v30_to_v34_rules_must_survive_into_v35():
     assert "it never means no read-back" in phrases
 
 
-def test_the_v36_list_verifies_the_real_v36_bundle():
-    assert verify(_bundle_prompt(36), 36) is True
-
-
-def test_each_v36_phrase_is_load_bearing_on_the_real_bundle():
-    sp = _bundle_prompt(36)
-    for phrase in [VERSIONS[36]["once"]] + VERSIONS[36]["phrases"]:
-        assert phrase in sp, phrase
-        assert verify(sp.replace(phrase, ""), 36) is False, phrase
+def test_the_v36_phrases_verify_and_each_is_load_bearing():
+    """SYNTHETIC now: the bundle has moved to v38, so v36's list keeps being
+    exercised the way v31 to v35's are rather than going quiet."""
+    assert verify(_spec_prompt(36), 36) is True
+    for phrase in VERSIONS[36]["phrases"]:
+        assert verify(_spec_prompt(36, drop=phrase), 36) is False, phrase
 
 
 def test_the_verdict_coming_back_fails_the_v36_read_back():
@@ -266,10 +263,8 @@ def test_the_verdict_coming_back_fails_the_v36_read_back():
     fits" and its Spanish twin "encaja" were taught by our own worked example
     in both languages; Edit A rewrote the example and Edit B the defect
     sentence so no older line keeps teaching it. Either returning must fail."""
-    sp = _bundle_prompt(36)
     for phrase in VERSIONS[36]["absent"]:
-        assert phrase not in sp, phrase
-        assert verify(sp + "\n" + phrase, 36) is False, phrase
+        assert verify(_spec_prompt(36, extra="\n" + phrase), 36) is False, phrase
 
 
 def test_the_mint_rule_survives_the_edit_that_targets_the_verdict():
@@ -277,9 +272,51 @@ def test_the_mint_rule_survives_the_edit_that_targets_the_verdict():
     carries MINT THAT BASIS IN THIS SAME RESPONSE, and that rule exists because
     the eligibility box came back BLANK (conf-v20): v4 made the model treat the
     basis as pending the applicant's yes, so it minted nothing on the turn she
-    said it. Removing a verdict word must not reopen that."""
+    said it. Removing a verdict word must not reopen that. Checked on v38's
+    real bundle now, since v36 is cut into it."""
     assert "MINT THAT BASIS IN THIS SAME RESPONSE" in VERSIONS[36]["phrases"]
-    assert "MINT THAT BASIS IN THIS SAME RESPONSE" in _bundle_prompt(36)
+    assert "MINT THAT BASIS IN THIS SAME RESPONSE" in _bundle_prompt(38)
+
+
+def test_the_v38_list_verifies_the_real_v38_bundle():
+    assert verify(_bundle_prompt(38), 38) is True
+
+
+def test_each_v38_phrase_is_load_bearing_on_the_real_bundle():
+    sp = _bundle_prompt(38)
+    for phrase in [VERSIONS[38]["once"]] + VERSIONS[38]["phrases"]:
+        assert phrase in sp, phrase
+        assert verify(sp.replace(phrase, ""), 38) is False, phrase
+
+
+def test_the_verdict_stays_gone_in_v38():
+    sp = _bundle_prompt(38)
+    for phrase in VERSIONS[38]["absent"]:
+        assert phrase not in sp, phrase
+        assert verify(sp + "\n" + phrase, 38) is False, phrase
+
+
+def test_the_original_reason_for_the_order_survives_v38():
+    """v38 EXTENDS the sentence that argues the order from field dependencies;
+    it must not replace that argument with the streaming one. Both reasons,
+    word for word, on the real bundle."""
+    sp = _bundle_prompt(38)
+    assert sp.count("the reply LAST, because each later field must follow the earlier ones") == 1
+    assert sp.count("`asking` written after `facts` can never name a node you just minted") == 1
+    assert sp.count("THE ORDER IS A REQUIREMENT, NOT A PREFERENCE") == 1
+
+
+def test_v30_to_v36_rules_must_survive_into_v38():
+    phrases = VERSIONS[38]["phrases"]
+    for must in ("AND THE CLAUSE MUST NOT BE CONDITIONAL",
+                 '"origin": "applicant" or "capture_gap"',
+                 "The entry is the record and the reply is not",
+                 "A PLAIN ANSWER GETS NO ECHO", "it never means no read-back",
+                 "A MONTH AND A YEAR IS ASKED, NOT DEFERRED", "ONE DAY PER QUESTION",
+                 "AND THE DAY SHE GAVE IS SAID BACK FIRST",
+                 "NAME THE BASIS, NEVER JUDGE IT", "MINT THAT BASIS IN THIS SAME RESPONSE"):
+        assert must in phrases, must
+    assert any('"intent": an OBJECT' in p for p in phrases)
 
 
 def test_v30_to_v35_rules_must_survive_into_v36():

@@ -239,6 +239,48 @@ VERSIONS = {
             "goes NOWHERE",
         ],
     },
+    38: {
+        # THE ORDER IS A REQUIREMENT, NOT A PREFERENCE. GP streams the reply
+        # sentence by sentence for TTS (PR #1003) and its release check runs
+        # the real checkpoint refusal on the PARTIAL object, which it can only
+        # do once facts, deferred and section_checkpoint are parsed; without
+        # them it buffers the whole turn, on exactly the read-back turns
+        # streaming is for. The served v36 already ordered them; this makes
+        # the order something the model is TOLD rather than something it
+        # happens to do (16 of 16 real responses complied before the cut).
+        # One sentence, no moved blocks, cut from v36 by the auditor. v37 and
+        # v37b stay shelved; v38 skips the number so two texts never share one.
+        #
+        # The ORIGINAL reason for the order must survive word for word: the
+        # edit extends that sentence rather than replacing its argument.
+        "block_anchor": "the read-back is the `reply` string of an object, never prose on its own",
+        "once": "THE ORDER IS A REQUIREMENT, NOT A PREFERENCE",
+        "phrases": [
+            "`facts`, `deferred` AND `section_checkpoint` ARE ALWAYS WRITTEN BEFORE `reply`",
+            "starts speaking each sentence of `reply` the moment that sentence is complete",
+            "A reply written before them is not wrong, it simply cannot be spoken until the whole turn has arrived",
+            "the reply LAST, because each later field must follow the earlier ones",  # the original reason, must survive
+            "`asking` written after `facts` can never name a node you just minted",
+            "No prose, no markdown, no code fences.",
+            "NAME THE BASIS, NEVER JUDGE IT",             # v36, must survive
+            "MINT THAT BASIS IN THIS SAME RESPONSE",     # v36 kept it, must survive
+            "AND THE DAY SHE GAVE IS SAID BACK FIRST",   # v35e, must survive
+            "A MONTH AND A YEAR IS ASKED, NOT DEFERRED",  # v35, must survive
+            "ONE DAY PER QUESTION",                      # v35c, must survive
+            "A PLAIN ANSWER GETS NO ECHO",               # v34, must survive
+            "it never means no read-back",               # v34d, must survive
+            "The entry is the record and the reply is not",  # v33, must survive
+            '"origin": "applicant" or "capture_gap"',     # v32's key, must survive
+            "AND THE CLAUSE MUST NOT BE CONDITIONAL",   # v30's rule, must survive
+            '"intent": an OBJECT, never a bare string',  # v31's shape, must survive
+        ],
+        "absent": [
+            # v36's verdict must stay gone; a v38 sync that brought it back
+            # would be a stale cut wearing a new number.
+            "so that fits",
+            "así que encaja",
+        ],
+    },
 }
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
