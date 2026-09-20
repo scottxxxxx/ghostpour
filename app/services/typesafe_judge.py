@@ -309,6 +309,35 @@ def record_later(row: dict, app_id: str | None) -> None:
     _hold(record(row, app_id))
 
 
+# --- one guarded call, for any judgment -----------------------------------------
+
+async def guarded_ask(api_key: str, state, questions: dict, *, judgment: str,
+                      mode: str, timeout: float = PRIMARY_TIMEOUT_SECONDS) -> tuple[dict | None, dict]:
+    """(body, row) through the SAME breaker every judgment shares: TypeSafe
+    being down is one fact, so one judgment's failures spare the others the
+    wait. A None body means Jev did not answer and `row` says why."""
+    row = {"judgment": judgment, "mode": mode}
+    if not breaker.allow():
+        row["outcome"] = "breaker_open"
+        return None, row
+    start = time.monotonic()
+    try:
+        body = await ask(api_key, state, questions, timeout=timeout)
+    except Exception as e:  # noqa: BLE001
+        row["jev_ms"] = int((time.monotonic() - start) * 1000)
+        row["error_type"] = type(e).__name__
+        row["outcome"] = "timeout" if isinstance(e, httpx.TimeoutException) else "error"
+        breaker.failure(row["error_type"])
+        logger.warning("typesafe_call_failed judgment=%s outcome=%s error=%s jev_ms=%d "
+                       "failures_in_a_row=%d", judgment, row["outcome"], row["error_type"],
+                       row["jev_ms"], breaker.consecutive_failures)
+        return None, row
+    breaker.success()
+    row.update(outcome="ok", jev_ms=int((time.monotonic() - start) * 1000),
+               input_tokens=(body.get("usage") or {}).get("input_tokens"))
+    return body, row
+
+
 # --- primary ---------------------------------------------------------------------
 
 async def try_offer_reply(api_key: str, offer_line: str, reply: str,
