@@ -1,0 +1,12 @@
+{
+ "provider": "auto",
+ "model": "auto",
+ "system_prompt": "",
+ "user_content": "[warm up]",
+ "metadata": {
+  "call_type": "n400_interviewer_warmup",
+  "locale": "en",
+  "form_code": "N-400",
+  "jurisdiction": "US-TX"
+ }
+}

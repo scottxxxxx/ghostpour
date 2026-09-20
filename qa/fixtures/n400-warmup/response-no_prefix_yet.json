@@ -1,0 +1,8 @@
+{
+ "status": 200,
+ "content_type": "application/json",
+ "body": {
+  "warmed": false,
+  "reason": "no_prefix_yet"
+ }
+}

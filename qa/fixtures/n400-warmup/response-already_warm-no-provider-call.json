@@ -1,0 +1,9 @@
+{
+ "status": 200,
+ "content_type": "application/json",
+ "body": {
+  "warmed": true,
+  "outcome": "already_warm",
+  "seconds_since_last_call": 4
+ }
+}
