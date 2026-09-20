@@ -2076,8 +2076,10 @@ async def typesafe_health(
         }
 
     by_day: dict[str, list[dict]] = {}
+    by_judgment: dict[str, list[dict]] = {}
     for r in rows:
         by_day.setdefault(r["ts"][:10], []).append(r)
+        by_judgment.setdefault(r["judgment"], []).append(r)
 
     # The Haiku judge's own latency over the same window, from usage_log, so
     # "faster than Haiku" is read off a second source and not off the rows
@@ -2106,6 +2108,9 @@ async def typesafe_health(
         "summary": _summary(rows),
         "haiku_judge": {"calls": len(haiku_ms), "p50_ms": _percentile(haiku_ms, 0.50),
                         "p95_ms": _percentile(haiku_ms, 0.95)},
+        # One row per thing Jev is asked to judge. They share a breaker and
+        # fail together, but they are slow and wrong independently.
+        "by_judgment": [{"judgment": j, **_summary(v)} for j, v in sorted(by_judgment.items())],
         "by_day": [{"date": d, **_summary(v)} for d, v in sorted(by_day.items())],
         "recent_failures": [
             {"ts": r["ts"], "judgment": r["judgment"], "mode": r["mode"],
