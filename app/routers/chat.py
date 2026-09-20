@@ -3793,7 +3793,7 @@ async def chat(
     # closure so the generation transport (Phase A) can drive the same
     # pipeline behind SSE heartbeats. The JSON path awaits it directly —
     # identical behavior, one indentation level down.
-    async def _run_turn_tail(db=db) -> JSONResponse:
+    async def _run_turn_tail(db=db, on_text_delta=None) -> JSONResponse:
         # `db` is a PARAMETER (defaulting to the request-scoped connection):
         # the SSE transport runs this closure while the response streams —
         # AFTER dependency teardown closes the request's connection — so it
@@ -3870,11 +3870,34 @@ async def chat(
             body = body.model_copy(update={"metadata": _bmeta})
         # 6. Route to provider
         start = time.monotonic()
+        _ttft_ms = None
         try:
             from app.services.anthropic_or_fallback import route_with_fallback
-            response = await route_with_fallback(
-                provider_router, body, db, request.app.state.settings,
-            )
+            if on_text_delta is None:
+                response = await route_with_fallback(
+                    provider_router, body, db, request.app.state.settings,
+                )
+            else:
+                # The sentence-stream transport (n400) attaches a delta
+                # consumer. Same provider, same fallback rule, same
+                # ChatResponse at the end (the done event carries it, text
+                # assembled), so everything below this point, the envelope
+                # retry, both refusals and every guard, runs on the streamed
+                # turn exactly as it runs on a non-streamed one. That is the
+                # whole reason the hook lives HERE and not in a second tail.
+                from app.services.anthropic_or_fallback import route_stream_with_fallback
+                response = None
+                async for _ev in route_stream_with_fallback(
+                        provider_router, body, db, request.app.state.settings):
+                    if _ev.get("done"):
+                        response = _ev.get("response")
+                        _ttft_ms = _ev.get("ttft_ms")
+                    elif _ev.get("text"):
+                        await on_text_delta(_ev["text"])
+                if response is None:
+                    raise HTTPException(status_code=502, detail={
+                        "code": "provider_error",
+                        "message": "the stream ended without a response"})
         except HTTPException as _route_exc:
             elapsed_ms = int((time.monotonic() - start) * 1000)
             await usage_tracker.log_usage(
@@ -4208,7 +4231,8 @@ async def chat(
                                         app_id=app_id)
 
         # 9. Log usage
-        await usage_tracker.log_usage(db, user.id, body, response, elapsed_ms, app_id=app_id)
+        await usage_tracker.log_usage(db, user.id, body, response, elapsed_ms, app_id=app_id,
+                                      ttft_ms=_ttft_ms)
 
         # 9.1. Search-usage tracking: count search invocations Anthropic
         # actually performed (mirrored into usage["web_search_requests"] by
@@ -4730,7 +4754,7 @@ async def chat(
                 request.headers.get("User-Agent"),
                 version_gate.user_agent_app_name(_registry, _apps, _app)))
 
-    async def _run_turn_tracked(db=db) -> JSONResponse:
+    async def _run_turn_tracked(db=db, on_text_delta=None) -> JSONResponse:
         """`_run_turn_tail` plus the terminal turn record.
 
         One wrapper rather than a record at each call site: the tail is
@@ -4743,10 +4767,10 @@ async def chat(
         and replaying it beats re-running a turn that will fail the same way.
         """
         if not _turn_id:
-            return await _run_turn_tail(db=db)
+            return await _run_turn_tail(db=db, on_text_delta=on_text_delta)
         from app.services import chat_turns as _ct
         try:
-            _resp = await _run_turn_tail(db=db)
+            _resp = await _run_turn_tail(db=db, on_text_delta=on_text_delta)
         except HTTPException as _e:
             _d = _e.detail if isinstance(_e.detail, dict) else {"message": str(_e.detail)}
             # Store a terminal failure ONLY when the turn actually cost
@@ -4813,6 +4837,19 @@ async def chat(
         return _resp
 
     _pf("preflight_end")
+
+    # THE N-400 INTERVIEWER LANE STREAMS SENTENCES, NOT TOKENS, and only on
+    # its own transport. The generic stream gate above still refuses this
+    # lane (its wall is unchanged and its reason still holds): that path
+    # returns before _run_turn_tail. This one RUNS the tail, with a delta
+    # consumer attached, so every guard fires on the streamed turn and only
+    # complete sentences leave early. It sits here, after _run_turn_tracked
+    # is defined, because that closure is what it hands the transport. See
+    # app/services/n400_sentence_stream.py.
+    if body.stream and call_type == "n400_interviewer_turn":
+        return await _handle_n400_sentence_stream(
+            body, request, run_tail=_run_turn_tracked)
+
     _chat_sse = bool(not _gen_sse and is_project_chat and body.stream
                      and _chat_sse_build_ok())
 
@@ -4991,6 +5028,138 @@ async def chat(
                                                 "message": "generation failed"})
 
     return StreamingResponse(_generation_events(), media_type="text/event-stream")
+
+
+async def _handle_n400_sentence_stream(body, request, *, run_tail) -> StreamingResponse:
+    """SSE for the interviewer lane: complete sentences early, the guarded
+    envelope last, through the same tail the JSON path uses.
+
+    Events, in order:
+      sentence  {index, locale, text}      each released sentence (never the last)
+      progress  {type, elapsed_seconds}     heartbeat while nothing is ready
+      envelope  {<the JSON path's body>, stream: {sentences_released,
+                 held_sentence, spoken_prefix_stale, buffered}}
+      error     {type, code, message, http_status?, sentences_released}
+
+    `envelope` carries EXACTLY the body the non-streaming path serves, so the
+    client applies `text` as it does today (auditor ruling 2: the envelope is
+    the record; sentences are speech and screen). `held_sentence` is the last
+    sentence, never sent as a sentence event, spoken by the client once the
+    envelope is applied (ruling 1). `spoken_prefix_stale` is true only if a
+    retry in the tail replaced a reply after sentences were released; the
+    client then stops and re-speaks from the envelope (ruling 3). `buffered`
+    names why a turn streamed nothing (the reasons in n400_sentence_stream).
+
+    The TASK owns its db connection, as the generation transport does: a
+    client disconnect cancels the generator, but the turn runs to completion
+    and writes its rows, because it has already cost money.
+    """
+    import asyncio
+    import json as _json
+    from app.services.n400_sentence_stream import ReleaseController
+
+    def _sse(event: str, data: dict) -> str:
+        return f"event: {event}\ndata: {_json.dumps(data, ensure_ascii=False)}\n\n"
+
+    md = body.metadata or {}
+    rc = ReleaseController(
+        locale=str(md.get("locale") or body.locale or "en"),
+        agenda=md.get("agenda"), known_facts=md.get("known_facts"),
+        turn_id=str(md.get("turn_id") or ""),
+    )
+    queue: asyncio.Queue = asyncio.Queue()
+
+    async def _on_delta(text: str) -> None:
+        for ev in rc.feed(text):
+            await queue.put(ev)
+
+    async def _events():
+        _t0 = time.monotonic()
+        import aiosqlite as _aiosqlite
+        _db_path = request.app.state.settings.database_url.replace("sqlite+aiosqlite:///", "")
+        _sse_db = await _aiosqlite.connect(_db_path)
+        _sse_db.row_factory = _aiosqlite.Row
+
+        async def _tail_owning_db():
+            try:
+                return await run_tail(db=_sse_db, on_text_delta=_on_delta)
+            finally:
+                await _sse_db.close()
+
+        _task = asyncio.create_task(_tail_owning_db())
+        released = 0
+        try:
+            while True:
+                get = asyncio.create_task(queue.get())
+                done, _ = await asyncio.wait({get, _task}, timeout=_PROGRESS_TICK_SECONDS,
+                                             return_when=asyncio.FIRST_COMPLETED)
+                if get in done:
+                    ev = get.result()
+                    released += 1
+                    yield _sse("sentence", ev)
+                    continue
+                get.cancel()
+                if _task in done:
+                    break
+                if time.monotonic() - _t0 > _CHAT_STREAM_WALL_CLOCK_SECONDS:
+                    _task.cancel()
+                    yield _sse("error", {"type": "error", "code": "stream_timeout",
+                                         "message": "the turn exceeded the stream ceiling",
+                                         "sentences_released": released})
+                    return
+                yield _sse("progress", {"type": "progress",
+                                        "elapsed_seconds": int(time.monotonic() - _t0)})
+            # Drain what the tail released in its last moments.
+            while not queue.empty():
+                released += 1
+                yield _sse("sentence", queue.get_nowait())
+            _resp = _task.result()
+            body_out = _json.loads(bytes(_resp.body))
+            res = rc.close()
+            stale = _spoken_prefix_stale(body_out.get("text"), rc.locale, res.released)
+            body_out["stream"] = {
+                "sentences_released": released,
+                "held_sentence": (None if stale or res.held is None else
+                                  {"index": released, "locale": rc.locale, "text": res.held}),
+                "spoken_prefix_stale": stale,
+                "buffered": res.buffered_reason,
+            }
+            if stale:
+                logger.warning("n400_stream_spoken_prefix_stale turn_id=%s released=%d",
+                               rc.turn_id, released)
+            yield _sse("envelope", body_out)
+        except HTTPException as e:
+            _detail = e.detail if isinstance(e.detail, dict) else {"message": str(e.detail)}
+            yield _sse("error", {"type": "error", "http_status": e.status_code,
+                                 "code": _detail.get("code", "provider_error"),
+                                 "message": _detail.get("message", "the turn failed"),
+                                 "sentences_released": released})
+        except Exception:
+            logger.exception("n400 sentence stream: turn failed")
+            yield _sse("error", {"type": "error", "code": "provider_error",
+                                 "message": "the turn failed",
+                                 "sentences_released": released})
+
+    return StreamingResponse(_events(), media_type="text/event-stream")
+
+
+def _spoken_prefix_stale(text: str | None, locale: str, released: list[str]) -> bool:
+    """True when sentences were released and the final reply does not begin
+    with them, which can only mean a retry in the tail replaced the reply."""
+    if not released:
+        return False
+    import json as _json
+    try:
+        obj = _json.loads(text or "")
+    except (TypeError, ValueError):
+        return True
+    reply = obj.get("reply") if isinstance(obj, dict) else None
+    if isinstance(reply, dict):
+        reply = reply.get(locale)
+    if not isinstance(reply, str):
+        return True
+    norm = lambda t: " ".join(t.split())
+    return not norm(reply).startswith(norm(" ".join(released)))
 
 
 async def _handle_stream(
