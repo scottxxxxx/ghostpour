@@ -639,6 +639,13 @@ async def sync_config_from_bundle(
     changes: list[dict] = []
     any_change = False
     missing_entries: list[str] = []
+    # Captured BEFORE any leaf writes. The floor below is old + 1, and when
+    # /version is itself a requested leaf the write lands first, so a floor
+    # read afterwards is (bundle + 1): that served v38 as 39 on the repair
+    # run (2026-09-20), one worse than the 37 it was repairing.
+    _version_before = persistent.get("version") or 0
+    _version_requested = any(
+        (e if e.startswith("/") else f"/{e}") == "/version" for e in body.keys)
     for entry in body.keys:
         pointer = entry if entry.startswith("/") else f"/{entry}"
         try:
@@ -677,10 +684,19 @@ async def sync_config_from_bundle(
         # unlisted version). Adopt the bundle's version when it is ahead;
         # keep the +1 as the floor so a dashboard-edited overlay that is
         # already past the bundle still moves and clients still refetch.
-        _bumped = (persistent.get("version") or 0) + 1
+        _bumped = _version_before + 1
         _bundle_v = bundle.get("version") if isinstance(bundle, dict) else None
-        persistent["version"] = (max(_bumped, int(_bundle_v))
-                                 if isinstance(_bundle_v, int) else _bumped)
+        if isinstance(_bundle_v, int) and _version_requested:
+            # An explicit /version sync is the operator saying "the served
+            # number IS the bundle's". Exactly that, even downwards: it is
+            # the only way to repair an overlay counted past the bundle, and
+            # the text a device cached under the higher number is the same
+            # text, so nothing it holds goes stale.
+            persistent["version"] = _bundle_v
+        elif isinstance(_bundle_v, int):
+            persistent["version"] = max(_bumped, _bundle_v)
+        else:
+            persistent["version"] = _bumped
         persistent_path.write_text(
             json.dumps(persistent, indent=2, ensure_ascii=False) + "\n"
         )
