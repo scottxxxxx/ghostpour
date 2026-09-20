@@ -94,7 +94,10 @@ def test_sync_creates_persistent_when_missing(client):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["status"] == "synced"
-    assert body["version"] == 1  # bootstrapped from 0 → 1
+    # The bundle is version 5, so the served document says 5: a document
+    # bootstrapped from the bundle names the bundle it came from. (Was 1, a
+    # bare +1 from 0, until v38 served under the shelved cut's number.)
+    assert body["version"] == 5
 
     persisted = json.loads(persistent_path.read_text())
     assert persisted["alpha"] == "from_bundle"
@@ -125,8 +128,9 @@ def test_sync_preserves_unrequested_persistent_keys(client):
     # beta and dashboard_only stayed at the persistent values
     assert persisted["beta"] == 999
     assert persisted["dashboard_only"] == "important_value"
-    # version bumped
-    assert persisted["version"] == 4
+    # version moved, and to the BUNDLE's number (5), not merely +1 (4): the
+    # served number names the bundle it was synced from.
+    assert persisted["version"] == 5
 
 
 def test_sync_reports_per_key_changes(client):
@@ -446,3 +450,49 @@ def test_sync_hot_reloads_remote_configs(client):
     pub = client.get("/v1/config/sync-test", headers={"X-Config-Version": "0"})
     assert pub.status_code == 200
     assert pub.json()["alpha"] == "from_bundle"
+
+
+# --- the served version names the bundle it came from (2026-09-20) ----------
+#
+# The bump was a bare +1 and matched the bundle only because every cut had
+# incremented by one. v38 skipped 37 on purpose (the shelved v37 drafts still
+# exist), and the sync served v38's text under version 37, the number of the
+# cut it was written to avoid. The sync script's read-back caught it by
+# refusing an unlisted version. Rule now: adopt the bundle's version when it
+# is ahead; keep +1 as the floor so an overlay already past the bundle still
+# moves and clients still refetch.
+
+
+def test_a_skipped_bundle_version_is_adopted_not_counted(client):
+    """The v38 case: overlay 36, bundle 38, sync one leaf. Served must say 38."""
+    bundle_path = _bundle_dir() / "sync-test.json"
+    bundle_path.write_text(json.dumps({"version": 38, "alpha": "v38 text", "beta": 42}))
+    persistent_path = _persistent_dir() / "sync-test.json"
+    persistent_path.write_text(json.dumps({"version": 36, "alpha": "v36 text", "beta": 42}))
+    resp = client.post("/webhooks/admin/config/sync-test/sync-from-bundle",
+                       headers=_KEY, json={"keys": ["alpha"]})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["version"] == 38, "37 would name the shelved cut"
+    assert json.loads(persistent_path.read_text())["version"] == 38
+
+
+def test_an_overlay_already_past_the_bundle_still_moves_by_one(client):
+    """A dashboard-edited overlay at 40 synced from a bundle at 38 must not go
+    BACKWARDS to 38 (clients would not refetch) and must still change: 41."""
+    bundle_path = _bundle_dir() / "sync-test.json"
+    bundle_path.write_text(json.dumps({"version": 38, "alpha": "bundle text", "beta": 42}))
+    persistent_path = _persistent_dir() / "sync-test.json"
+    persistent_path.write_text(json.dumps({"version": 40, "alpha": "edited", "beta": 42}))
+    resp = client.post("/webhooks/admin/config/sync-test/sync-from-bundle",
+                       headers=_KEY, json={"keys": ["alpha"]})
+    assert resp.json()["version"] == 41
+
+
+def test_a_bundle_without_a_version_still_bumps(client):
+    bundle_path = _bundle_dir() / "sync-test.json"
+    bundle_path.write_text(json.dumps({"alpha": "no version here", "beta": 42}))
+    persistent_path = _persistent_dir() / "sync-test.json"
+    persistent_path.write_text(json.dumps({"version": 7, "alpha": "old", "beta": 42}))
+    resp = client.post("/webhooks/admin/config/sync-test/sync-from-bundle",
+                       headers=_KEY, json={"keys": ["alpha"]})
+    assert resp.json()["version"] == 8

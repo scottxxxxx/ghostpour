@@ -668,7 +668,19 @@ async def sync_config_from_bundle(
         )
 
     if any_change:
-        persistent["version"] = (persistent.get("version") or 0) + 1
+        # THE SERVED NUMBER MUST NAME THE BUNDLE IT CAME FROM. This was a
+        # bare +1, and it matched the bundle's version only because every
+        # cut so far had incremented by one. v38 skipped 37 on purpose (the
+        # shelved v37 drafts still exist) and the sync served v38's text
+        # under version 37, the number of the cut it was written to avoid
+        # (2026-09-20, caught by the sync script's read-back refusing the
+        # unlisted version). Adopt the bundle's version when it is ahead;
+        # keep the +1 as the floor so a dashboard-edited overlay that is
+        # already past the bundle still moves and clients still refetch.
+        _bumped = (persistent.get("version") or 0) + 1
+        _bundle_v = bundle.get("version") if isinstance(bundle, dict) else None
+        persistent["version"] = (max(_bumped, int(_bundle_v))
+                                 if isinstance(_bundle_v, int) else _bumped)
         persistent_path.write_text(
             json.dumps(persistent, indent=2, ensure_ascii=False) + "\n"
         )

@@ -416,7 +416,10 @@ def main(argv=None) -> int:
     print("BEFORE  version=%s  chars=%d" % (body.get("version"), len(sp)))
 
     status, rep = call("POST", "%s/%s/sync-from-bundle" % (ADMIN, SLUG),
-                       {"keys": ["/systemPrompt"]})
+                       # /version too, so the served number names the bundle it
+                       # came from rather than counting writes. Without it v38
+                       # served as "37", the shelved cut's number (2026-09-20).
+                       {"keys": ["/systemPrompt", "/version"]})
     print("SYNC    HTTP %s  version=%s" % (status, rep.get("version")))
     for c in rep.get("changes", []):
         print("    %-20s %s" % (c.get("key"), c.get("status")))
