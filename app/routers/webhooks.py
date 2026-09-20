@@ -1610,26 +1610,14 @@ async def dashboard(
             idx = int(len(latencies) * p / 100)
             percentiles[f"p{p}"] = latencies[min(idx, len(latencies) - 1)]
 
-    # Allocation alerts: users above 80%
-    cursor = await db.execute(
-        """SELECT u.id, u.email, u.tier, u.monthly_used_usd, u.monthly_cost_limit_usd
-           FROM users u
-           WHERE u.is_active = 1
-             AND u.monthly_cost_limit_usd > 0
-             AND u.monthly_used_usd >= u.monthly_cost_limit_usd * 0.8
-           ORDER BY (u.monthly_used_usd / u.monthly_cost_limit_usd) DESC"""
-    )
-    allocation_alerts = [
-        {
-            "user_id": r["id"],
-            "email": r["email"],
-            "tier": r["tier"],
-            "monthly_used_usd": round(float(r["monthly_used_usd"] or 0), 4),
-            "monthly_limit_usd": round(float(r["monthly_cost_limit_usd"] or 0), 4),
-            "percent_used": round(float(r["monthly_used_usd"] or 0) / float(r["monthly_cost_limit_usd"]) * 100, 1) if r["monthly_cost_limit_usd"] else 0,
-        }
-        for r in await cursor.fetchall()
-    ]
+    # Allocation alerts: users whose REAL spend this period is above 80%.
+    # Not the meter: a downgrade sets the meter to the cap on purpose, so a
+    # meter-read alert fired on every lapsed trial (a "$2 overage" for a user
+    # whose real spend was $0.17, 2026-09-20). Same shape as the stalled
+    # alert that could not tell its two causes apart: fix the signal, not
+    # the threshold. See allocation_reset.real_spend_alerts.
+    from app.services.allocation_reset import real_spend_alerts
+    allocation_alerts = await real_spend_alerts(db, datetime.now(timezone.utc))
 
     # Trial stats
     cursor = await db.execute(

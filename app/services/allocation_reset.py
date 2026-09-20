@@ -63,6 +63,79 @@ def roll_forward_past(
         n += 1
 
 
+def period_start(allocation_resets_at: datetime | None, now: datetime) -> datetime:
+    """When the user's CURRENT allocation period began.
+
+    Periods are one calendar month ending at `allocation_resets_at`. If that
+    reset is stale (in the past, the lazy reset has not run yet), the current
+    period began AT the missed reset. If it is unset, fall back to the start
+    of the calendar month, which is what "monthly" means with no anchor.
+    """
+    if allocation_resets_at is None:
+        return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if allocation_resets_at <= now:
+        return allocation_resets_at
+    start = allocation_resets_at - relativedelta(months=1)
+    # An anchor more than a month out (prod had one on 2026-09-20; the test
+    # fixture uses 2099) would put the start in the future and count NOTHING,
+    # silently blinding the alert for that user. A monthly allowance is at
+    # most a month wide, so fall back to the trailing month.
+    if start > now:
+        return now - relativedelta(months=1)
+    return start
+
+
+async def real_spend_alerts(db, now: datetime, threshold: float = 0.8) -> list[dict]:
+    """Users whose REAL spend this period is at or above `threshold` of their
+    cap, from usage_log, not from the meter.
+
+    ⚠ WHY NOT THE METER. Downgrade-to-free deliberately SETS monthly_used_usd
+    to the free cap (apple_webhooks._downgrade_to_free and /sync-subscription)
+    so a lapsed trial cannot double dip on a fresh free allowance. An alert
+    that reads the meter therefore fires on every lapsed trial, showing a $2
+    overage for a user whose real spend was $0.17 (d197d592, 2026-09-20). The
+    meter is right for GATING and wrong for ALERTING, because it cannot tell
+    "spent to the cap" from "set to the cap". This reads what was actually
+    spent, over the user's own period, and reports both numbers so the page
+    can show the gap rather than hide it.
+    """
+    cursor = await db.execute(
+        """SELECT id, email, tier, monthly_used_usd, monthly_cost_limit_usd,
+                  allocation_resets_at
+           FROM users
+           WHERE is_active = 1 AND monthly_cost_limit_usd > 0"""
+    )
+    users = await cursor.fetchall()
+    out: list[dict] = []
+    for u in users:
+        limit = float(u["monthly_cost_limit_usd"] or 0)
+        start = period_start(parse_iso(u["allocation_resets_at"]), now)
+        # request_timestamp and this ISO string share the same shape
+        # (YYYY-MM-DDTHH:MM:SS...+00:00), so the string compare is a time
+        # compare. A datetime() on one side and not the other is the trap.
+        cursor = await db.execute(
+            """SELECT COALESCE(SUM(estimated_cost_usd), 0) FROM usage_log
+               WHERE user_id = ? AND request_timestamp >= ?""",
+            (u["id"], start.isoformat()),
+        )
+        spend = float((await cursor.fetchone())[0] or 0)
+        if spend >= limit * threshold:
+            out.append({
+                "user_id": u["id"],
+                "email": u["email"],
+                "tier": u["tier"],
+                # The alert's number IS the real spend now. Kept under the
+                # key the dashboard already reads, with the meter beside it.
+                "monthly_used_usd": round(spend, 4),
+                "meter_usd": round(float(u["monthly_used_usd"] or 0), 4),
+                "monthly_limit_usd": round(limit, 4),
+                "percent_used": round(spend / limit * 100, 1),
+                "period_start": start.isoformat(),
+            })
+    out.sort(key=lambda a: a["percent_used"], reverse=True)
+    return out
+
+
 def parse_iso(s: str | None) -> datetime | None:
     """Parse an ISO-8601 timestamp string into an aware UTC datetime.
     Returns None if input is None or unparseable."""
