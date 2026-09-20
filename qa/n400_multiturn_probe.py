@@ -919,7 +919,12 @@ def _second_scorer_gate(out_path: str, advisory: bool = False) -> bool:
         print(f"\n⚠ SECOND SCORER: {SECOND_SCORER} is not on disk.")
         return not advisory
 
-    cmd = [sys.executable, str(SECOND_SCORER), out_path]
+    # ABSOLUTE, because the tool runs with cwd set to the auditor's directory
+    # and resolves a relative path there. Found live: `--out qa/runs/x.json`
+    # produced "not on disk", exit 1, and a HOLD that read as the scorer
+    # failing when it was the path. Every earlier gate check used absolute
+    # paths, which is exactly why none of them could see it.
+    cmd = [sys.executable, str(SECOND_SCORER), str(Path(out_path).resolve())]
     if advisory:
         cmd.append("--advisory")
     print(f"\n== second scorer (Jev) over {out_path} ==")
