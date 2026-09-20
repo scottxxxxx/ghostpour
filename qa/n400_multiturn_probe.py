@@ -407,7 +407,10 @@ def score_v38(state: dict, kind: str, raw: dict[str, str]) -> dict:
     if kind in ("A", "C"):
         base = score_v36(state)
         checks["v36_checks_unchanged"] = bool(base.get("pass"))
-        checks.update({f"v36_{k}": v for k, v in (base.get("checks") or {}).items()})
+        # Original names, NOT prefixed: the second scorer maps text checks by
+        # name (TEXT_CHECKS in typesafe_rescore_arms.py), and a renamed check
+        # is a check it silently never grades.
+        checks.update(base.get("checks") or {})
     elif kind == "B":
         cp = (obj or {}).get("section_checkpoint")
         checks["section_checkpoint_carries_a_part"] = isinstance(cp, dict) and isinstance(cp.get("part"), int)
@@ -920,9 +923,22 @@ def _second_scorer_gate(out_path: str, advisory: bool = False) -> bool:
     if advisory:
         cmd.append("--advisory")
     print(f"\n== second scorer (Jev) over {out_path} ==")
-    r = subprocess.run(cmd, cwd=str(AUDITOR_QA))
+    r = subprocess.run(cmd, cwd=str(AUDITOR_QA), capture_output=True, text=True)
+    sys.stdout.write(r.stdout)
+    sys.stderr.write(r.stderr)
     if r.returncode == 0:
-        print("== second scorer agrees on every reply-text check ==")
+        # ⚠ "0/0 agree" is NOT agreement. The tool skips arms it does not
+        # know (ARMS) and checks it cannot map (TEXT_CHECKS), silently, so a
+        # new arm nobody registered rescored NOTHING and would have read as
+        # clean. Caught while adding v38, before it ran. Zero graded is a hold.
+        m = re.search(r"(\d+)/(\d+) agree", r.stdout)
+        graded = int(m.group(2)) if m else 0
+        if graded == 0:
+            print("== second scorer GRADED NOTHING: every arm or check was skipped. "
+                  "Register the arm in ARMS and its text checks in TEXT_CHECKS "
+                  "(typesafe_rescore_arms.py). An ungraded verdict is unverified. ==")
+            return not advisory
+        print(f"== second scorer agrees on every reply-text check ({graded} graded) ==")
         return False
     if r.returncode == 2:
         print("== second scorer DISAGREES. A disagreement is a hold that a human "
