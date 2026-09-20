@@ -1,0 +1,5 @@
+{
+ "status": 200,
+ "content_type": "text/event-stream; charset=utf-8",
+ "note": "An oath node is on the agenda, so the whole turn is buffered."
+}
