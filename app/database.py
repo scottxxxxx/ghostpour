@@ -1030,6 +1030,24 @@ MIGRATIONS = [
     # stays honest about how much traffic this number describes.
     # response_time_ms is unchanged and still the whole wall clock.
     "ALTER TABLE usage_log ADD COLUMN ttft_ms INTEGER",
+    # The provider-facing PREFIX of the last real turn on a lane that can be
+    # warmed (2026-09-20, the N-400 interviewer). A warm up has to send the
+    # byte identical system prompt, model and thinking setting a real turn
+    # sends, and the chat route rewrites the system prompt in a dozen
+    # conditional places after assembly, so the only honest source is a real
+    # turn's final request. Kept in a table because Anthropic's cache
+    # outlives our restarts: without this a deploy forgets what to warm
+    # while the thing to warm is still there. No user text: the system
+    # prompt has no variables in it.
+    """CREATE TABLE IF NOT EXISTS warm_prefixes (
+        lane_key TEXT PRIMARY KEY,
+        provider TEXT NOT NULL,
+        model TEXT NOT NULL,
+        system_prompt TEXT NOT NULL,
+        thinking TEXT,
+        prefix_sha TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )""",
 ]
 
 

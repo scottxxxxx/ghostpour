@@ -199,7 +199,7 @@ class AnthropicAdapter(ProviderAdapter):
 
         system_block = _build_system_blocks(request)
 
-        max_tokens = request.max_tokens or 4096
+        max_tokens = 0 if request.prewarm else (request.max_tokens or 4096)
         thinking = anthropic_thinking_block(
             request.reasoning, request.model,
             disabled=(request.thinking == "disabled"),

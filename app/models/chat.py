@@ -63,6 +63,13 @@ class ChatRequest(BaseModel):
     # never survives. When True the anthropic adapter arms the execution
     # sandbox + document skills and collects generated artifacts.
     generation: bool = False
+    # Server-set ONLY (n400 warm up): the chat route forces this False on
+    # every client body. When True the anthropic adapter sends max_tokens 0,
+    # which runs prefill, writes the cache at the system breakpoint and
+    # returns at once with no output billed. It exists as a flag because the
+    # adapter reads `max_tokens or 4096`, so a plain 0 would silently become
+    # a 4,096 token generation, the opposite of a warm up.
+    prewarm: bool = False
     max_tokens: int | None = None
     temperature: float | None = None  # GP-controlled; None => provider default
     stream: bool = False

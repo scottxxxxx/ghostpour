@@ -1514,6 +1514,23 @@ async def chat(
     # nested event_stream() closure too.
     app_id = getattr(request.state, "app_id", "unknown")
 
+    # `prewarm` is server set only: a client sent value never survives.
+    if body.prewarm:
+        body = body.model_copy(update={"prewarm": False})
+
+    # THE INTERVIEWER WARM UP IS NOT A TURN, so it leaves here, ahead of
+    # turn idempotency, prompt assembly, the rate limiter, the budget gate,
+    # the guards and the dossier, and touches none of them. It must not be
+    # rate limited in particular: fired when the Talk screen opens, it would
+    # otherwise be the request that makes her first real turn a 429. Its own
+    # per user throttle and everything else about it: app/services/n400_warmup.
+    if body.get_meta("call_type") == "n400_interviewer_warmup":
+        from app.services import n400_warmup
+        return JSONResponse(await n400_warmup.warm(
+            db=db, provider_router=provider_router, usage_tracker=usage_tracker,
+            pricing=pricing, user_id=user.id, app_id=app_id,
+            locale=body.get_meta("locale") or body.locale))
+
     # Stamp the middleware-minted X-Request-ID into the request meta bag so
     # log_usage lands it in usage_log metadata — partner harnesses quote this
     # response header verbatim when reporting runs, and until now it matched
@@ -3868,6 +3885,11 @@ async def chat(
             _bmeta = dict(body.metadata or {})
             _bmeta["search_enabled"] = False
             body = body.model_copy(update={"metadata": _bmeta})
+        # The warm up replays whatever a real interviewer turn ACTUALLY
+        # sends, so it is recorded here, where the request is final.
+        if body.get_meta("call_type") == "n400_interviewer_turn":
+            from app.services import n400_warmup
+            await n400_warmup.remember(db, app_id, body)
         # 6. Route to provider
         start = time.monotonic()
         _ttft_ms = None
