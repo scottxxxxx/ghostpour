@@ -1,8 +1,13 @@
 """Remote config endpoints for iOS app config sync.
 
 The iOS app calls GET /v1/config/{name} with an X-Config-Version header.
-If the local version matches, we return 200 with {"changed": false}.
-Otherwise, we return the full JSON payload with {"changed": true}.
+If the local version is current, we return 200 with
+{"changed": false, "version": N}. Otherwise we return the DOCUMENT ITSELF,
+with no `changed` key on it: a client tells the two apart by whether
+`changed` is present, and reads the version from the X-Config-Version header
+or the document's own `version`. (This said {"changed": true} until
+2026-09-21; the code never sent it, and quoting this docstring to a client
+team cost a correction.)
 
 Note: We avoid HTTP 304 because Nginx Proxy Manager mangles bare 304
 responses (no cached body to serve) into 404s for downstream clients.
