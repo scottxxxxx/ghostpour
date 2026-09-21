@@ -5595,6 +5595,7 @@ _CONFIG_PURPOSE = {
     "tiers": "Tier rows, plan-card copy, feature definitions, per-tier image sizing, gating",
     "entitlements": "The feature/tier state matrix (disabled | teaser | enabled)",
     "idle-tips": "Orb tips before a session starts",
+    "companion": "Where the iPhone's Set up on my Mac button sends people: website DMG or Mac App Store. A destination, never a feature switch",
     "feature-highlights": "Feature highlight list",
     "canned-report": "Budget-blocked report placeholder copy",
     "report-strings": "Meeting report section labels",
