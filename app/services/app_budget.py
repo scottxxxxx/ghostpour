@@ -285,14 +285,29 @@ def month_reset_iso() -> str:
     return datetime(year, month, 1, tzinfo=timezone.utc).isoformat()
 
 
+# Runs on EVERY turn of an app with a flat budget, so it has to be answerable
+# from an index alone. It was not. Measured on prod 2026-09-21: the N-400 QA
+# account had 3,710 usage_log rows that month at about 63 KB of metadata each,
+# the only usable index was (user_id, request_timestamp), and the plan was
+# `SEARCH usage_log USING INDEX idx_usage_user_date`, NOT covering, so every
+# one of those rows was fetched from the table to read app_id and the cost.
+# Warm that is milliseconds. After a few idle minutes on the VM's disk it was
+# about SEVEN SECONDS before the request reached the provider (journal:
+# assembled 02:25:01.7, stream open 02:25:09.9; usage_log ttft_ms 1,240), and
+# it was blamed first on Anthropic's queue and then on a cold prompt cache
+# before anyone measured it. `idx_usage_user_app_date_cost` covers this exact
+# statement; tests/test_app_budget_query_plan.py plans THIS constant, so an
+# edit here that stops using the index fails there.
+MONTH_SPEND_SQL = (
+    "SELECT COALESCE(SUM(estimated_cost_usd), 0) FROM usage_log "
+    "WHERE user_id = ? AND app_id = ? AND request_timestamp >= ?"
+)
+
+
 async def app_month_spend_usd(db: aiosqlite.Connection, user_id: str,
                               app_id: str) -> float:
     """This user's realized spend in THIS app this UTC month."""
-    cur = await db.execute(
-        "SELECT COALESCE(SUM(estimated_cost_usd), 0) FROM usage_log "
-        "WHERE user_id = ? AND app_id = ? AND request_timestamp >= ?",
-        (user_id, app_id, _month_start_iso()),
-    )
+    cur = await db.execute(MONTH_SPEND_SQL, (user_id, app_id, _month_start_iso()))
     row = await cur.fetchone()
     return float(row[0] or 0.0) if row else 0.0
 
