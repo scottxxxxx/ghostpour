@@ -1,0 +1,6 @@
+{
+ "status": 429,
+ "content_type": "application/json",
+ "retry_after_header": null,
+ "note": "A refusal BEFORE the stream starts is a plain JSON HTTP error, never an SSE error event."
+}

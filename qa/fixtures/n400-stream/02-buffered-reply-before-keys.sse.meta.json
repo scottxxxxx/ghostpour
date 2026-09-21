@@ -1,0 +1,5 @@
+{
+ "status": 200,
+ "content_type": "text/event-stream; charset=utf-8",
+ "note": "The model wrote reply before facts/deferred/section_checkpoint. Nothing streams; one envelope, held_sentence null, buffered names the reason."
+}
