@@ -533,6 +533,37 @@ class AnthropicAdapter(ProviderAdapter):
         }
 
 
+# Lanes whose system prompt is cached for ONE HOUR instead of five minutes.
+#
+# Measured on prod 2026-09-20 (first live stream test, journal 22:33Z): the
+# N-400 interviewer's first turn waited 9.7s for Anthropic to OPEN the stream
+# where every later turn opened in about 1.3s. The system prompt is 73,390
+# chars, about 24k tokens, with no variables in it, and the default cache
+# lives five minutes, so the first turn after any gap longer than that
+# reprocesses all of it. That is the "one slow turn per session" this lane
+# has shown every day, and it is the first thing a new applicant meets. It
+# had been written off as Anthropic queue tail; one per session is what a
+# five minute cache predicts.
+#
+# The cache is keyed on the prefix and shared by every user of our key, so
+# with an hour of life and any traffic at all almost nobody meets a cold
+# turn. A one hour write bills 2x base input against 1.25x, reads are
+# unchanged, and every read renews the hour for free. An interview is dozens
+# of reads on one write, so the dearer write is noise.
+#
+# Code pinned on purpose rather than a served dial: it changes what we pay
+# per write, and a lane belongs here only when its system prompt is large,
+# byte stable, and met cold by a person who is waiting.
+_ONE_HOUR_CACHE_CALL_TYPES = frozenset({"n400_interviewer_turn"})
+
+
+def _system_cache_control(request: ChatRequest) -> dict:
+    call_type = request.get_meta("call_type") if request.metadata else None
+    if call_type in _ONE_HOUR_CACHE_CALL_TYPES:
+        return {"type": "ephemeral", "ttl": "1h"}
+    return {"type": "ephemeral"}
+
+
 def _build_system_blocks(request: ChatRequest) -> list[dict]:
     """Build the Anthropic `system` field as one or more cache_control blocks.
 
@@ -569,10 +600,13 @@ def _build_system_blocks(request: ChatRequest) -> list[dict]:
             suffix = request.system_prompt[idx + len(recall):]
             blocks: list[dict] = []
             if prefix:
+                # The recall block below stays on five minutes. Anthropic
+                # requires a longer lived entry to come BEFORE a shorter one,
+                # and the prefix always precedes recall, so the order holds.
                 blocks.append({
                     "type": "text",
                     "text": prefix,
-                    "cache_control": {"type": "ephemeral"},
+                    "cache_control": _system_cache_control(request),
                 })
             # A breakpoint after recall is only worth paying for when
             # something follows it that is worth caching. Recall is per-turn
@@ -595,5 +629,5 @@ def _build_system_blocks(request: ChatRequest) -> list[dict]:
     return [{
         "type": "text",
         "text": request.system_prompt,
-        "cache_control": {"type": "ephemeral"},
+        "cache_control": _system_cache_control(request),
     }]
