@@ -1055,6 +1055,13 @@ MIGRATIONS = [
         agreed INTEGER
     )""",
     "CREATE INDEX IF NOT EXISTS idx_typesafe_calls_created ON typesafe_calls(created_at)",
+    # The flat app budget sums this user's spend in this app this month on
+    # EVERY turn (app_budget.MONTH_SPEND_SQL). Without a covering index that
+    # fetched every one of the user's rows from a table whose rows carry ~63 KB
+    # of metadata: about seven seconds on a cold disk for the N-400 QA account
+    # (3,710 rows), measured 2026-09-21. All four columns the statement touches,
+    # in the order it filters, so the table is never read.
+    "CREATE INDEX IF NOT EXISTS idx_usage_user_app_date_cost ON usage_log(user_id, app_id, request_timestamp, estimated_cost_usd)",
 ]
 
 

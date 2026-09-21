@@ -2359,6 +2359,11 @@ async def _chat_impl(
                 },
             })
 
+    # Quota and the flat app budget are the database reads of pre-flight.
+    # Marked so a slow turn says whether the time went HERE: on 2026-09-21
+    # about seven seconds did, and nothing recorded it.
+    _pf("after_budget_gates")
+
     # 5.7. Search gate. Four outcomes:
     #
     #   - Non-Anthropic provider with search_enabled=true → silently
@@ -4900,21 +4905,6 @@ async def _chat_impl(
 
     _pf("preflight_end")
 
-    # THE N-400 INTERVIEWER LANE STREAMS SENTENCES, NOT TOKENS, and only on
-    # its own transport. The generic stream gate above still refuses this
-    # lane (its wall is unchanged and its reason still holds): that path
-    # returns before _run_turn_tail. This one RUNS the tail, with a delta
-    # consumer attached, so every guard fires on the streamed turn and only
-    # complete sentences leave early. It sits here, after _run_turn_tracked
-    # is defined, because that closure is what it hands the transport. See
-    # app/services/n400_sentence_stream.py.
-    if body.stream and call_type == "n400_interviewer_turn":
-        return await _handle_n400_sentence_stream(
-            body, request, run_tail=_run_turn_tracked)
-
-    _chat_sse = bool(not _gen_sse and is_project_chat and body.stream
-                     and _chat_sse_build_ok())
-
     # One line per turn carrying the whole breakdown, because a phase timing
     # split across several log lines cannot be read as a total and nobody
     # reconstructs it. Emitted for EVERY turn, not only slow ones: a
@@ -4937,6 +4927,25 @@ async def _chat_impl(
     except Exception:
         # An instrument must never break the turn it is watching.
         logger.exception("chat_preflight_probe_failed")
+
+    # Emitted BEFORE the n400 stream branch below. It used to sit after it,
+    # so that branch returned first and a streamed interviewer turn logged no
+    # pre-flight timing at all, which is how seven seconds of it went
+    # unattributed for an evening.
+    # THE N-400 INTERVIEWER LANE STREAMS SENTENCES, NOT TOKENS, and only on
+    # its own transport. The generic stream gate above still refuses this
+    # lane (its wall is unchanged and its reason still holds): that path
+    # returns before _run_turn_tail. This one RUNS the tail, with a delta
+    # consumer attached, so every guard fires on the streamed turn and only
+    # complete sentences leave early. It sits here, after _run_turn_tracked
+    # is defined, because that closure is what it hands the transport. See
+    # app/services/n400_sentence_stream.py.
+    if body.stream and call_type == "n400_interviewer_turn":
+        return await _handle_n400_sentence_stream(
+            body, request, run_tail=_run_turn_tracked)
+
+    _chat_sse = bool(not _gen_sse and is_project_chat and body.stream
+                     and _chat_sse_build_ok())
 
     if not (_gen_sse or _chat_sse):
         return await _run_turn_tracked()
