@@ -115,6 +115,19 @@ class Settings(BaseSettings):
     kimi_api_key: str = ""
     qwen_api_key: str = ""
     openrouter_api_key: str = ""  # Used by Context Quilt worker
+    # TypeSafe (Jev): typed judgments only (yes/no, pick one, score), no
+    # generation. A NEW PROCESSOR for whatever text we send it, so callers
+    # send the narrowest state a question needs and nothing else.
+    typesafe_api_key: str = ""
+    # off | shadow | primary.
+    #   shadow   Jev runs BESIDE the Haiku judge and only the agreement is
+    #            recorded. It never changes a turn and never waits on Jev.
+    #   primary  Jev decides. Haiku answers instead whenever Jev errors,
+    #            times out or is not confident, and after more than two Jev
+    #            failures in a row Jev is skipped entirely for a cooldown.
+    # Anything but off sends real user replies to TypeSafe, so the default
+    # is off and the switch is Scott's.
+    typesafe_mode: str = "off"
 
     # Admin
     admin_key: str = ""
@@ -354,6 +367,7 @@ _SECRET_MANAGER_MAPPINGS: dict[str, str] = {
     "CZ_DEEPSEEK_API_KEY": "deepseek-api-key",
     "CZ_KIMI_API_KEY": "kimi-api-key",
     "CZ_QWEN_API_KEY": "qwen-api-key",
+    "CZ_TYPESAFE_API_KEY": "typesafe-api-key",
     "CZ_CQ_CLIENT_SECRET": "cq-client-secret",
     "CZ_TR_CQ_CLIENT_SECRET": "tr-cq-client-secret",
     "CZ_SS_CQ_CLIENT_SECRET": "ss-cq-client-secret",
