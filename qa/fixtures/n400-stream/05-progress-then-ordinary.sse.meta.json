@@ -1,0 +1,5 @@
+{
+ "status": 200,
+ "content_type": "text/event-stream; charset=utf-8",
+ "note": "Progress frames before the first sentence. The tick was shortened from 5s to 0.1s to capture them, so elapsed_seconds reads 0 here; in production it is 5, 10, 15..."
+}

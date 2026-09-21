@@ -1,0 +1,5 @@
+{
+ "status": 200,
+ "content_type": "text/event-stream; charset=utf-8",
+ "note": "Two sentences released, then the provider died. One error event, no envelope, sentences_released = 2. HTTP status is still 200: the failure is IN the stream."
+}

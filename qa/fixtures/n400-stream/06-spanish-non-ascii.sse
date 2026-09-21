@@ -1,0 +1,9 @@
+event: sentence
+data: {"index": 0, "locale": "es", "text": "Seis años por su cuenta, anotado."}
+
+event: sentence
+data: {"index": 1, "locale": "es", "text": "Ese es el camino general de cinco años."}
+
+event: envelope
+data: {"text": "{\"schema_version\": 1, \"turn_id\": \"t-stream-1\", \"intent\": \"answer\", \"facts\": [], \"deferred\": [], \"clarification\": null, \"conflict\": null, \"escalation\": null, \"complete\": true, \"asking\": null, \"section_checkpoint\": null, \"interview_over\": false, \"reply\": {\"es\": \"Seis años por su cuenta, anotado. Ese es el camino general de cinco años. Ahora, ¿cuál es su número A?\"}, \"asking_dropped\": {\"node_id\": \"q_nowhere_on_the_agenda\", \"field_ids\": [], \"reason\": \"this node is not on the agenda\"}, \"facts_dropped\": [{\"field_id\": \"p1.eligibility_basis\", \"utterance\": \"\", \"reason\": \"provenance.utterance is not in what the applicant just said\"}]}", "input_tokens": 100, "output_tokens": 50, "model": "claude-sonnet-5", "provider": "anthropic", "ai_tier": "standard", "usage": {"input_tokens": 100, "output_tokens": 50}, "stop_reason": null, "cost": {"total_cost": 0.001, "input_cost": 0.0005, "output_cost": 0.0005}, "cleaned_transcript": null, "recall": null, "output_language": "es", "stream": {"sentences_released": 2, "held_sentence": {"index": 2, "locale": "es", "text": "Ahora, ¿cuál es su número A?"}, "spoken_prefix_stale": false, "buffered": null}}
+
