@@ -96,8 +96,9 @@ def test_it_reaches_a_device_over_the_existing_config_wire(client):
     # answer carries `changed`. I told ShoulderSurf otherwise from the
     # docstring, this test caught it, and they were corrected.
     assert "changed" not in body
-    assert body["channel"] == "web"
-    assert body["webURL"] == "https://shouldersurf.com/desktop" and body["appStoreURL"] is None
+    # Whatever the document says today, not the launch values: this test must
+    # still pass on the day the bundle is edited to point at the App Store.
+    assert body == _doc()
     assert r.headers["X-Config-Version"] == str(_doc()["version"])
 
     same = client.get("/v1/config/companion", headers={"X-Config-Version": str(_doc()["version"])})
