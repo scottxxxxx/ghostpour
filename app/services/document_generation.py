@@ -553,7 +553,8 @@ _INTERPRETER_SYSTEM = (
 
 
 async def interpret_offer_reply(provider_router, offer: dict, reply_text: str,
-                                verbatim: bool = False, on_subcall=None) -> dict:
+                                verbatim: bool = False, on_subcall=None,
+                                app_id: str | None = None) -> dict:
     """Judge a chat reply against a live offer (handoff Part 1 v2).
     Fail-open: any failure is a non-confirm — the turn proceeds as normal
     chat and the user can simply ask again."""
@@ -567,12 +568,39 @@ async def interpret_offer_reply(provider_router, offer: dict, reply_text: str,
         # on the table to read the reply's choice.
         _offer_line += (" (the offer presented two versions: the project "
                         "status workbook, or a custom workbook)")
+    _reply = reply_text[:1000] if verbatim else _isolate_reply(reply_text)
+    # TypeSafe (CZ_TYPESAFE_MODE). Both judges get the SAME offer line and
+    # the SAME reply string, so a difference can only come from the judging.
+    #   primary: Jev decides and this returns here. On an error, a timeout,
+    #            an unsure Jev or an open breaker it falls through to the
+    #            Haiku call below, which is the path every turn took before.
+    #   shadow:  Jev runs beside Haiku, never changes the verdict and is
+    #            never waited on.
+    _mode, _ts_key = _typesafe_mode()
+    _jev_row = None
+    _shadow_finish = None
+    if _mode == "primary":
+        from app.services import typesafe_judge
+        try:
+            _jev_verdict, _jev_row = await typesafe_judge.try_offer_reply(
+                _ts_key, _offer_line, _reply, offer["format"],
+                bool(offer.get("lane_choice")))
+        except Exception as e:  # noqa: BLE001
+            # try_offer_reply catches its own failures. This is for a bug in
+            # it: a bug in the fast path must not cost the user their turn.
+            logger.warning("typesafe primary raised, Haiku decides: %s", e)
+            _jev_verdict = None
+        if _jev_verdict is not None:
+            typesafe_judge.record_later(_jev_row, app_id)
+            return _jev_verdict
+    elif _mode == "shadow":
+        _shadow_finish = _start_offer_reply_shadow(_ts_key, _offer_line, _reply,
+                                                   offer, app_id)
     request = ChatRequest(
         provider="anthropic",
         model=_CLASSIFIER_MODEL,
         system_prompt=_INTERPRETER_SYSTEM,
-        user_content=(f"{_offer_line}\n"
-                      f"USER REPLY: {reply_text[:1000] if verbatim else _isolate_reply(reply_text)}"),
+        user_content=f"{_offer_line}\nUSER REPLY: {_reply}",
         # same headroom as the intent classifier: a truncated verdict here
         # silently drops a user's YES (fail-open reads as a normal turn).
         max_tokens=150,
@@ -598,12 +626,60 @@ async def interpret_offer_reply(provider_router, offer: dict, reply_text: str,
         version = parsed.get("version")
         if version not in ("workbook", "custom"):
             version = None
-        return {"confirm": confirm, "format": fmt or offer["format"],
-                "style": style, "version": version}
+        verdict = {"confirm": confirm, "format": fmt or offer["format"],
+                   "style": style, "version": version}
+        if _shadow_finish is not None:
+            _shadow_finish(verdict, elapsed_ms, True)
+        _record_jev_fallback(_jev_row, elapsed_ms, app_id)
+        return verdict
     except Exception as e:
         logger.info("offer reply interpreter failed open: %s", e)
-        return {"confirm": False, "format": offer["format"], "style": None,
-                "version": None}
+        verdict = {"confirm": False, "format": offer["format"], "style": None,
+                   "version": None}
+        _failed_ms = int((_time.monotonic() - start) * 1000)
+        if _shadow_finish is not None:
+            _shadow_finish(verdict, _failed_ms, False)
+        _record_jev_fallback(_jev_row, _failed_ms, app_id)
+        return verdict
+
+
+def _typesafe_mode() -> tuple[str, str]:
+    """(mode, key). No key is off, and so is a mode nobody defined: a typo
+    in an env var must not be able to start sending user text anywhere."""
+    try:
+        from app.config import get_settings
+        settings = get_settings()
+        mode = (settings.typesafe_mode or "off").strip().lower()
+        key = settings.typesafe_api_key or ""
+        return (mode if (key and mode in ("shadow", "primary")) else "off"), key
+    except Exception:  # noqa: BLE001
+        return "off", ""
+
+
+def _record_jev_fallback(row: dict | None, fallback_ms: int, app_id) -> None:
+    """The primary path handed this turn to Haiku. Record why, and what the
+    hand-off cost, now that the Haiku time is known."""
+    if row is None:
+        return
+    try:
+        from app.services.typesafe_judge import record_later
+        row["fallback_ms"] = fallback_ms
+        record_later(row, app_id)
+    except Exception as e:  # noqa: BLE001
+        logger.info("typesafe fallback row not recorded: %s", e)
+
+
+def _start_offer_reply_shadow(api_key: str, offer_line: str, reply: str,
+                              offer: dict, app_id):
+    """The shadow's `finish`, or None when it could not start. A shadow
+    must never be the reason a turn fails."""
+    try:
+        from app.services.typesafe_judge import shadow_offer_reply
+        return shadow_offer_reply(api_key, offer_line, reply, offer["format"],
+                                  bool(offer.get("lane_choice")), app_id)
+    except Exception as e:  # noqa: BLE001
+        logger.info("offer reply shadow did not start: %s", e)
+        return None
 
 
 _GIST_QUALIFIER_PREFIXES = (

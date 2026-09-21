@@ -1503,6 +1503,53 @@ async def chat(
     user: UserRecord = Depends(get_current_user),
     db: aiosqlite.Connection = Depends(get_db),
 ):
+    """The route. Everything it does is `_chat_impl`; this exists to release
+    a registered turn id on every way out of the handler that did NOT run
+    the turn.
+
+    Found 2026-09-20 building the N-400 stream client: a send refused by the
+    rate limiter came back 429, and the SAME turn_id sent again read
+    `turn_in_progress` with nothing running. The idempotency block registers
+    the id FIRST, on purpose (a record must exist before any SSE frame), and
+    every gate after it (tier, rate limit, budget, validation, a canned
+    response) leaves without a finish or an abandon. chat_turns has a 240s
+    leak valve for exactly this, and its reasoning stands: a rule that needs
+    every future early return to remember a cleanup is a rule that fails. So
+    this is ONE place, outside all of them, and the valve stays as the net
+    under it.
+
+    What is released: an exception out of the handler, and a plain response
+    returned without the turn having finished. What is NOT: a
+    StreamingResponse, because its turn is still running in a task that
+    owns the id, and releasing it would let a resend start a second upstream
+    call, which is the double bill turn ids exist to stop. A turn that
+    finished or stored a billed failure has already left the in-flight map,
+    so releasing it again is a no-op and never un-stores anything.
+    """
+    _tid = (body.turn_id or "").strip() or None
+    try:
+        resp = await _chat_impl(body, request, user, db)
+    except BaseException:
+        if _tid:
+            from app.services import chat_turns as _ct
+            _ct.abandon(user.id, _tid)
+        raise
+    if _tid and not isinstance(resp, StreamingResponse):
+        from app.services import chat_turns as _ct
+        # A replay or a `turn_in_progress` answer for an id that is running
+        # elsewhere must not release THAT turn: those return before `begin`
+        # and are marked by the handler.
+        if not getattr(request.state, "turn_id_not_ours", False):
+            _ct.abandon(user.id, _tid)
+    return resp
+
+
+async def _chat_impl(
+    body: ChatRequest,
+    request: Request,
+    user: UserRecord,
+    db: aiosqlite.Connection,
+):
     """Proxy an LLM request through GhostPour with auth, tier, and rate enforcement."""
     tier_config = request.app.state.tier_config
     provider_router = request.app.state.provider_router
@@ -1586,6 +1633,9 @@ async def chat(
             # long silent socket that started all of this.
             logger.info("chat_turn already in flight turn_id=%s elapsed=%ss",
                         _turn_id, _running["elapsed_seconds"])
+            # The id belongs to the request that is still running it. The
+            # route wrapper must not release it on this request's way out.
+            request.state.turn_id_not_ours = True
             return JSONResponse(status_code=200,
                                 content={"type": "turn_in_progress", **_running})
         _chat_turns.begin(user.id, _turn_id)
@@ -2806,7 +2856,8 @@ async def chat(
                 _reply = await interpret_offer_reply(
                     provider_router, _offer,
                     _reply_verbatim if _reply_verbatim else body.user_content,
-                    verbatim=bool(_reply_verbatim), on_subcall=_meter)
+                    verbatim=bool(_reply_verbatim), on_subcall=_meter,
+                    app_id=app_id)
                 _style_reply = _reply.get("style")
                 # The user just answered our own question with NO.
                 #
@@ -3953,7 +4004,8 @@ async def chat(
                 logger.warning("n400_envelope_extracted turn_id=%s", body.get_meta("turn_id"))
                 response.text = mark_extracted(_embedded)
             elif not is_envelope(response.text):
-                _turn_id = body.get_meta("turn_id")
+                # Log label only. `_turn_id` is the dedupe key one scope out.
+                _label_turn_id = body.get_meta("turn_id")
                 await usage_tracker.log_usage(
                     db, user.id, body, response,
                     int((time.monotonic() - start) * 1000),
@@ -3966,11 +4018,11 @@ async def chat(
                 )
                 _retry_text = _strip_json_code_fence(_retry.text or "") if _retry else ""
                 if is_envelope(_retry_text):
-                    logger.warning("n400_envelope_retried turn_id=%s", _turn_id)
+                    logger.warning("n400_envelope_retried turn_id=%s", _label_turn_id)
                     response = _retry
                     response.text = mark_retried(_retry_text)
                 else:
-                    logger.warning("n400_envelope_prose turn_id=%s", _turn_id)
+                    logger.warning("n400_envelope_prose turn_id=%s", _label_turn_id)
                     if _retry:
                         await usage_tracker.log_usage(
                             db, user.id, _retry_body, _retry,

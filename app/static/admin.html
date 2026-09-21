@@ -134,6 +134,12 @@
   }
   .perf-kpis .card .value { font-size: 22px; font-variant-numeric: normal; }
   .perf-kpis .card .value .cov { font-size: 12px; color: var(--text-dim); font-weight: 400; margin-left: 4px; }
+  .jev-kpis { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); margin-bottom: 8px; }
+  .jev-kpis .card .value { font-size: 20px; }
+  .jev-pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; margin-left: 6px; border: 1px solid currentColor; }
+  .jev-pill.ok { color: var(--green); }
+  .jev-pill.bad { color: var(--red); }
+  .jev-pill.dim { color: var(--text-dim); }
   .perf-delta { font-size: 12px; margin-top: 4px; color: var(--text-dim); }
   .perf-delta.good { color: var(--green); }
   .perf-delta.bad { color: var(--red); }
@@ -549,6 +555,17 @@
       <div class="perf-card-head"><h4>By query type</h4><span class="perf-sub" id="perf-cts-note"></span></div>
       <div id="perf-cts-multiples" class="perf-multiples"></div>
       <div class="table-wrap perf-table-wrap"><table id="perf-cts-table"><thead></thead><tbody></tbody></table></div>
+    </div>
+    <!-- TypeSafe (Jev) judge. Same window and same app filter as the rest of
+         the tab. Mode and breaker are process state, not per app, and the
+         status line says so. -->
+    <div class="card perf-card" id="jev-card">
+      <div class="perf-card-head"><h4>Jev judge (TypeSafe)</h4><span class="perf-sub" id="jev-status"></span></div>
+      <div class="cards jev-kpis" id="jev-kpis"></div>
+      <p class="perf-caption" id="jev-caption"></p>
+      <div class="table-wrap perf-table-wrap"><table id="jev-days-table"><thead></thead><tbody></tbody></table></div>
+      <h4 style="margin-top:14px">Recent failures and skipped calls</h4>
+      <div class="table-wrap perf-table-wrap"><table id="jev-failures-table"><thead></thead><tbody></tbody></table></div>
     </div>
     <div class="perf-secondary">
       <div class="card perf-card"><h4>Error rate</h4><div id="perf-chart-errors"></div></div>
@@ -3263,6 +3280,89 @@ async function loadLatency() {
   // and named in the banner instead of dying inside an awaited promise
   // where refresh()'s own panel() calls could never see it.
   panel('latency', () => renderPerformance(data));
+  loadJevHealth();
+}
+
+// --- Jev judge (TypeSafe): is it on, is the breaker open, how often does it
+// fail, how often did Haiku have to decide instead, and is it actually faster
+// than the Haiku judge it replaces. Own fetch and own panel() so a failure
+// here can never blank the Performance charts above it.
+async function loadJevHealth() {
+  const params = new URLSearchParams({days: document.getElementById('lat-days')?.value || '7'});
+  const app = document.getElementById('app')?.value || '';
+  if (app) params.set('app', app);
+  const status = document.getElementById('jev-status');
+  let d;
+  try {
+    const resp = await fetch(`${BASE}/webhooks/admin/typesafe-health?${params}`, {
+      headers: {'X-Admin-Key': adminKey},
+    });
+    if (!resp.ok) { if (status) status.textContent = `load failed (${resp.status})`; return; }
+    d = await resp.json();
+  } catch (e) {
+    if (status) status.textContent = `error: ${e.message}`;
+    return;
+  }
+  panel('jev', () => renderJevHealth(d));
+}
+
+function renderJevHealth(d) {
+  const p = d.process || {}, b = p.breaker || {}, s = d.summary || {}, h = d.haiku_judge || {};
+  const pct = (n, of) => (of ? (100 * n / of).toFixed(1) + '%' : '-');
+  const status = document.getElementById('jev-status');
+  if (status) {
+    const modePill = p.mode === 'off'
+      ? '<span class="jev-pill dim">OFF</span>'
+      : `<span class="jev-pill ok">${esc((p.mode || '').toUpperCase())}</span>`;
+    const breakerPill = b.open
+      ? `<span class="jev-pill bad">BREAKER OPEN, Haiku is deciding, retry in ${b.retry_in_seconds}s</span>`
+      : '<span class="jev-pill ok">breaker closed</span>';
+    const key = p.key_configured ? '' : '<span class="jev-pill bad">no API key</span>';
+    status.innerHTML = `${esc(p.model || '')}${modePill}${breakerPill}${key}`
+      + ` <span title="Mode and breaker belong to the server process, so they are the same under every app filter">`
+      + `failures in a row ${b.consecutive_failures ?? 0} of ${b.threshold ?? '-'} allowed, opened ${b.opened_count_since_boot ?? 0}x since boot</span>`;
+  }
+  const tile = (label, value, sub, cls) =>
+    `<div class="card"><div class="label">${label}</div><div class="value">${value}</div>`
+    + `<div class="perf-delta ${cls || ''}">${sub || ''}</div></div>`;
+  const failBad = s.failure_rate != null && s.failure_rate > 0.02;
+  const kp = document.getElementById('jev-kpis');
+  if (kp) kp.innerHTML = [
+    tile('Attempts', (s.attempts ?? 0).toLocaleString(), `${(s.asked ?? 0).toLocaleString()} reached Jev`),
+    tile('Failure rate', s.failure_rate == null ? '-' : (100 * s.failure_rate).toFixed(1) + '%',
+         `${s.failed ?? 0} errors or timeouts`, failBad ? 'bad' : 'good'),
+    tile('Haiku decided', pct(s.fell_back ?? 0, s.attempts), `${s.fell_back ?? 0} fallbacks`),
+    tile('Jev p50', fmtMs(s.jev_p50_ms), `p95 ${fmtMs(s.jev_p95_ms)}`),
+    tile('Haiku judge p50', fmtMs(h.p50_ms), `${h.calls ?? 0} calls, from the usage log`),
+    tile('Shadow agreement', pct(s.shadow_agreed ?? 0, s.shadow_compared), `${s.shadow_agreed ?? 0} of ${s.shadow_compared ?? 0} compared`),
+    tile('Jev cost', '$' + (s.cost_usd ?? 0).toFixed(4), 'input tokens only, output is free'),
+  ].join('');
+  const o = s.outcomes || {};
+  const cap = document.getElementById('jev-caption');
+  if (cap) cap.textContent = s.attempts
+    ? `Outcomes: ${o.ok || 0} decided by Jev, ${o.low_confidence || 0} Jev was not sure (Haiku decided, not a failure), `
+      + `${o.error || 0} errors, ${o.timeout || 0} timeouts, ${o.breaker_open || 0} skipped while the breaker was open. `
+      + `Failure rate is over the calls that reached Jev, so an open breaker cannot hide an outage by making no calls.`
+    : 'No Jev judgments in this window' + (p.mode === 'off' ? ' (the mode is off).' : '.');
+  const days = document.querySelector('#jev-days-table');
+  if (days) {
+    days.querySelector('thead').innerHTML = '<tr><th>Day (UTC)</th><th>Attempts</th><th>Reached Jev</th><th>Failed</th><th>Failure rate</th><th>Haiku decided</th><th>Skipped (breaker)</th><th>Jev p50</th><th>Jev p95</th><th>Agreed</th></tr>';
+    days.querySelector('tbody').innerHTML = (d.by_day || []).slice().reverse().map(r =>
+      `<tr><td>${esc(r.date)}</td><td>${r.attempts}</td><td>${r.asked}</td><td>${r.failed}</td>`
+      + `<td>${r.failure_rate == null ? '-' : (100 * r.failure_rate).toFixed(1) + '%'}</td>`
+      + `<td>${r.fell_back}</td><td>${(r.outcomes || {}).breaker_open || 0}</td>`
+      + `<td>${fmtMs(r.jev_p50_ms)}</td><td>${fmtMs(r.jev_p95_ms)}</td>`
+      + `<td>${r.shadow_compared ? r.shadow_agreed + ' of ' + r.shadow_compared : '-'}</td></tr>`
+    ).join('') || '<tr><td colspan="10" class="perf-empty">Nothing recorded yet.</td></tr>';
+  }
+  const fails = document.querySelector('#jev-failures-table');
+  if (fails) {
+    fails.querySelector('thead').innerHTML = '<tr><th>When (UTC)</th><th>Judgment</th><th>Mode</th><th>Outcome</th><th>Error</th><th>Waited</th></tr>';
+    fails.querySelector('tbody').innerHTML = (d.recent_failures || []).map(r =>
+      `<tr><td>${esc((r.ts || '').slice(0, 19).replace('T', ' '))}</td><td>${esc(r.judgment)}</td><td>${esc(r.mode)}</td>`
+      + `<td>${esc(r.outcome)}</td><td>${esc(r.error_type || '-')}</td><td>${fmtMs(r.jev_ms)}</td></tr>`
+    ).join('') || '<tr><td colspan="6" class="perf-empty">No failures in this window.</td></tr>';
+  }
 }
 
 function renderPerformance(d) {

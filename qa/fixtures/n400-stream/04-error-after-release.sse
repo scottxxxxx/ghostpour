@@ -1,0 +1,9 @@
+event: sentence
+data: {"index": 0, "locale": "en", "text": "Six years on your own, noted."}
+
+event: sentence
+data: {"index": 1, "locale": "en", "text": "That's the general five year path."}
+
+event: error
+data: {"type": "error", "code": "provider_error", "message": "the turn failed", "sentences_released": 2}
+

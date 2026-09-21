@@ -2008,6 +2008,112 @@ async def latency_trends(
     }
 
 
+
+@router.get("/admin/typesafe-health")
+async def typesafe_health(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    days: int = Query(default=7, ge=1, le=90),
+    app: str | None = Query(default=None),
+):
+    """How the TypeSafe (Jev) judge is doing: is it on, is the breaker open,
+    how often it fails, how often Haiku had to decide instead, and how fast
+    it is next to the Haiku judge it replaces.
+
+    Scoped by the dashboard's shared `app` filter. The breaker and the mode
+    are process state and NOT per app, and the payload says so rather than
+    letting a filtered view imply otherwise.
+
+    Two denominators, kept apart on purpose. `attempts` counts every time
+    the judge was wanted, including the ones the breaker skipped. `asked`
+    counts only the calls that reached TypeSafe, and the failure rate is
+    over THAT: a breaker that is open makes no calls, so a failure rate over
+    attempts would fall toward zero during exactly the outage it should show.
+    """
+    _verify_admin(request, x_admin_key)
+    from app.services import typesafe_judge
+    from app.services.document_generation import _typesafe_mode
+
+    apps_filter = _apps_from_filter(app)
+    app_clause = _app_sql(apps_filter)
+    now = datetime.now(timezone.utc)
+    start = (now - timedelta(days=days)).replace(hour=0, minute=0, second=0, microsecond=0)
+    cursor = await db.execute(
+        """SELECT created_at, judgment, mode, outcome, error_type, fell_back,
+                  jev_ms, fallback_ms, input_tokens, cost_usd, confidence, agreed
+           FROM typesafe_calls
+           WHERE created_at >= ?""" + app_clause + """
+           ORDER BY created_at""",
+        (start.isoformat(), *apps_filter),
+    )
+    rows = [dict(zip(("ts", "judgment", "mode", "outcome", "error_type", "fell_back",
+                      "jev_ms", "fallback_ms", "input_tokens", "cost_usd",
+                      "confidence", "agreed"), r))
+            for r in await cursor.fetchall()]
+
+    def _summary(src: list[dict]) -> dict:
+        asked = [r for r in src if r["outcome"] != "breaker_open"]
+        failed = [r for r in asked if r["outcome"] in ("error", "timeout")]
+        answered = [r["jev_ms"] for r in asked
+                    if r["outcome"] in ("ok", "low_confidence") and r["jev_ms"] is not None]
+        compared = [r for r in src if r["agreed"] is not None]
+        outcomes: dict[str, int] = {}
+        for r in src:
+            outcomes[r["outcome"]] = outcomes.get(r["outcome"], 0) + 1
+        return {
+            "attempts": len(src),
+            "asked": len(asked),
+            "failed": len(failed),
+            "failure_rate": round(len(failed) / len(asked), 4) if asked else None,
+            "fell_back": sum(1 for r in src if r["fell_back"]),
+            "outcomes": outcomes,
+            "jev_p50_ms": _percentile(answered, 0.50),
+            "jev_p95_ms": _percentile(answered, 0.95),
+            "shadow_compared": len(compared),
+            "shadow_agreed": sum(1 for r in compared if r["agreed"]),
+            "cost_usd": round(sum(r["cost_usd"] or 0 for r in src), 6),
+        }
+
+    by_day: dict[str, list[dict]] = {}
+    for r in rows:
+        by_day.setdefault(r["ts"][:10], []).append(r)
+
+    # The Haiku judge's own latency over the same window, from usage_log, so
+    # "faster than Haiku" is read off a second source and not off the rows
+    # this feature wrote about itself.
+    cursor = await db.execute(
+        """SELECT response_time_ms FROM usage_log
+           WHERE request_timestamp >= ? AND prompt_mode = 'GenerationOfferReply'
+             AND status = 'success' AND response_time_ms IS NOT NULL""" + app_clause,
+        (start.isoformat(), *apps_filter),
+    )
+    haiku_ms = [r[0] for r in await cursor.fetchall()]
+
+    mode, key = _typesafe_mode()
+    return {
+        "days": days,
+        "window": {"from": start.isoformat(), "to": now.isoformat()},
+        "apps": list(apps_filter),
+        # Process state, the same for every app filter.
+        "process": {
+            "mode": mode,
+            "key_configured": bool(key),
+            "model": typesafe_judge.MODEL,
+            "confidence_floor": typesafe_judge.CONFIDENCE_FLOOR,
+            "breaker": typesafe_judge.breaker.state(),
+        },
+        "summary": _summary(rows),
+        "haiku_judge": {"calls": len(haiku_ms), "p50_ms": _percentile(haiku_ms, 0.50),
+                        "p95_ms": _percentile(haiku_ms, 0.95)},
+        "by_day": [{"date": d, **_summary(v)} for d, v in sorted(by_day.items())],
+        "recent_failures": [
+            {"ts": r["ts"], "judgment": r["judgment"], "mode": r["mode"],
+             "outcome": r["outcome"], "error_type": r["error_type"], "jev_ms": r["jev_ms"]}
+            for r in rows if r["outcome"] in ("error", "timeout", "breaker_open")
+        ][-15:][::-1],
+    }
+
 @router.get("/admin/errors")
 async def error_log(
     request: Request,
