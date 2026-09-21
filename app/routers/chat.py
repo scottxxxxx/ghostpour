@@ -4525,6 +4525,16 @@ async def _chat_impl(
                 response.text, _agenda, body.get_meta("turn_id"),
                 user_content=body.get_meta("user_input") or _n400_utterance,
                 conversation=body.get_meta("conversation"))
+            # After the deterministic guards, so it judges only the facts
+            # that survived them. Marks, never drops, and every failure
+            # leaves the text as it was. See n400_evidence_support.
+            from app.services.document_generation import _typesafe_mode
+            from app.services.n400_evidence_support import mark_unsupported_enum_facts
+            _ts_mode, _ts_key = _typesafe_mode()
+            response.text = await mark_unsupported_enum_facts(
+                response.text, _agenda,
+                body.get_meta("user_input") or _n400_utterance,
+                body.get_meta("turn_id"), app_id, _ts_mode, _ts_key)
 
         # Surface the cleaned transcript (if cleanup ran for this analysis call)
         # so iOS can persist it to MeetingRecord.cleanedTranscript. Absent when

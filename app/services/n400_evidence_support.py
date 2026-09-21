@@ -1,0 +1,174 @@
+"""Do her words SUPPORT the value, not merely contain the quote.
+
+The evidence floor (`drop_facts_without_current_evidence`) checks that a
+fact's cited words are IN what she said. It cannot check that they establish
+the value. Haiku replay, production turn t_008, 2026-09-19: asked "how long
+have you had your green card, and did you get it through a U.S. citizen
+spouse or on your own?", she said "Well, I've had it for 5 years and a lawyer
+helped me get it." The model minted `p1.eligibility_basis =
+general_provision` citing "I've had it for 5 years". The quote is real and
+sits in the utterance, so the floor passed it. She had answered half of a
+two part question and never said which path. Sonnet asked her instead.
+
+WHY NO RULE CATCHES IT. The node WAS the standing node and she WAS answering
+it, so nothing about agenda position separates this from a good mint. And an
+enum value is a token (`general_provision`) that can never appear in her
+words, so "value inside the cited words", which carries names and numbers,
+has nothing to match. Whether words establish an option is a judgment, and
+it is asked of TypeSafe (Jev) as one: a `choice`, with a confidence floor.
+
+SCOPE, deliberately narrow:
+  * only facts whose value is one of the options the agenda declares for a
+    node that lists the field, and
+  * only when that value does NOT literally appear in the cited words (a
+    "yes" quoted for a yes/no fact is already carried by the floor).
+  Dates, names and numbers are never sent: Jev's own notes say it is weak at
+  date comparison, and the floor's substring test already covers them.
+
+IT MARKS, IT NEVER DROPS. `facts_unsupported` is added beside the facts and
+the facts stay. Dropping would silently undo a mint the reply has already
+acknowledged out loud, on the word of a model that is sometimes wrong, and
+the first version of any guard here marks and is counted before it is
+trusted to drop (`mark_values_outside_declared_options` went the same way).
+The marker is what lets the client put the field on the review card.
+
+FAIL OPEN. No key, mode off, an open breaker, an error, a timeout, a parse
+problem or an unsure Jev all leave the response byte for byte as it was,
+which is today's behaviour.
+
+NARROWEST STATE: the question, what she just said, the cited words, the
+value and the options. Never the case, the known facts or the conversation.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+
+from app.services import typesafe_judge
+from app.services.n400_interviewer_guard import (
+    _norm, agenda_field_ids, agenda_options, agenda_questions,
+)
+
+logger = logging.getLogger("ghostpour.n400_evidence_support")
+
+JUDGMENT = "n400_evidence_support"
+UNSUPPORTED_REASON = "her words do not establish this option"
+# A turn mints a handful of facts. This bounds the request if one ever does not.
+MAX_FACTS_PER_TURN = 8
+
+
+def enum_facts_to_check(turn: dict, agenda: str | None, user_content: str | None) -> list[dict]:
+    """The minted facts worth a judgment, each with what Jev needs to make it."""
+    facts = turn.get("facts")
+    if not isinstance(facts, list) or not facts:
+        return []
+    options = agenda_options(agenda)
+    if not options:
+        return []
+    fields = agenda_field_ids(agenda)
+    questions = agenda_questions(agenda)
+    out = []
+    for f in facts:
+        if not isinstance(f, dict) or not isinstance(f.get("value"), str):
+            continue
+        value = f["value"].strip().lower()
+        node = next((n for n, opts in options.items()
+                     if f.get("field_id") in fields.get(n, set()) and value in opts), None)
+        if node is None:
+            continue
+        cited = ((f.get("provenance") or {}).get("utterance")) or ""
+        if _norm(value) and _norm(value) in _norm(cited):
+            continue
+        out.append({"field_id": f.get("field_id"), "question": questions.get(node, ""),
+                    "applicant_said": user_content or "", "cited_words": cited,
+                    "recorded_answer": f["value"], "options": sorted(options[node])})
+    return out[:MAX_FACTS_PER_TURN]
+
+
+def support_questions(n: int) -> dict:
+    """One choice per fact, all in one request. They run in parallel and
+    cannot see each other, so each names its own slice of the state."""
+    qs = {}
+    for i in range(n):
+        f = f"`facts[{i}]"
+        qs[f"f{i}"] = {
+            "type": "choice",
+            "instructions": (
+                f"An interviewer filling in a form asked {f}.question`. The applicant "
+                f"answered {f}.applicant_said`. The system recorded the answer "
+                f"{f}.recorded_answer`, chosen from {f}.options`, and quoted "
+                f"{f}.cited_words` as its evidence. Do the applicant's own words "
+                "establish that recorded answer?"),
+            "criteria": {
+                "supports": (
+                    "Her words state the recorded answer or directly imply it, so that "
+                    "none of the other options could be what she meant."),
+                "insufficient": (
+                    "Her words are about the question but do not settle which option "
+                    "applies: she answered only part of a question with several parts, "
+                    "or what she said fits more than one option, or the recorded answer "
+                    "is a guess from something she said about a different matter."),
+                "contradicts": "Her words point to a different option than the recorded one.",
+                "unrelated": "Her words do not address this question at all.",
+            },
+        }
+    return qs
+
+
+def read_support(body: dict, checked: list[dict]) -> list[dict]:
+    """The facts Jev is CONFIDENT are not established. An unsure answer marks
+    nothing: a near tie is not evidence against a mint."""
+    answers = (body or {}).get("answers") or {}
+    out = []
+    for i, c in enumerate(checked):
+        a = answers.get(f"f{i}") or {}
+        verdict, conf = a.get("choice"), float(a.get("confidence") or 0.0)
+        if verdict in ("insufficient", "contradicts", "unrelated") \
+                and conf >= typesafe_judge.CONFIDENCE_FLOOR:
+            out.append({"field_id": c["field_id"], "value": c["recorded_answer"],
+                        "verdict": verdict, "confidence": round(conf, 3),
+                        "reason": UNSUPPORTED_REASON})
+    return out
+
+
+async def _judge(api_key: str, checked: list[dict], mode: str, app_id, turn_id) -> list[dict]:
+    body, row = await typesafe_judge.guarded_ask(
+        api_key, {"facts": checked}, support_questions(len(checked)),
+        judgment=JUDGMENT, mode=mode)
+    unsupported = read_support(body, checked) if body is not None else []
+    typesafe_judge.record_later(row, app_id)
+    for u in unsupported:
+        logger.warning("n400_fact_unsupported turn_id=%s field_id=%s value=%s verdict=%s "
+                       "confidence=%s mode=%s", turn_id, u["field_id"], u["value"],
+                       u["verdict"], u["confidence"], mode)
+    return unsupported
+
+
+async def mark_unsupported_enum_facts(text: str, agenda: str | None, user_content: str | None,
+                                      turn_id: str | None, app_id: str | None,
+                                      mode: str, api_key: str) -> str:
+    """The response text, with `facts_unsupported` added in primary mode when
+    Jev is confident a minted option is not established. Every other path
+    returns `text` byte for byte. Never raises."""
+    try:
+        if mode not in ("shadow", "primary") or not api_key:
+            return text
+        turn = json.loads(text)
+        if not isinstance(turn, dict):
+            return text
+        checked = enum_facts_to_check(turn, agenda, user_content)
+        if not checked:
+            return text
+        if mode == "shadow":
+            # Counted, never applied, never waited on.
+            typesafe_judge._hold(_judge(api_key, checked, mode, app_id, turn_id))
+            return text
+        unsupported = await _judge(api_key, checked, mode, app_id, turn_id)
+        if not unsupported:
+            return text
+        turn["facts_unsupported"] = unsupported
+        return json.dumps(turn, ensure_ascii=False)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("n400 evidence support check failed open: %s: %s", type(e).__name__, e)
+        return text
