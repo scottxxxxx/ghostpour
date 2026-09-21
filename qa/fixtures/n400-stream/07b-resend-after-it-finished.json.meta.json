@@ -1,0 +1,5 @@
+{
+ "status": 200,
+ "content_type": "application/json",
+ "note": "The SAME request again after the turn FINISHED, stream still true. Plain JSON, not a stream: the stored body plus replayed=true, and NO `stream` object."
+}

@@ -1,0 +1,5 @@
+{
+ "status": 200,
+ "content_type": "application/json",
+ "note": "The same id right after the 429, with the limiter cleared."
+}

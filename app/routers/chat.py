@@ -4003,7 +4003,8 @@ async def _chat_impl(
                 logger.warning("n400_envelope_extracted turn_id=%s", body.get_meta("turn_id"))
                 response.text = mark_extracted(_embedded)
             elif not is_envelope(response.text):
-                _turn_id = body.get_meta("turn_id")
+                # Log label only. `_turn_id` is the dedupe key one scope out.
+                _label_turn_id = body.get_meta("turn_id")
                 await usage_tracker.log_usage(
                     db, user.id, body, response,
                     int((time.monotonic() - start) * 1000),
@@ -4016,11 +4017,11 @@ async def _chat_impl(
                 )
                 _retry_text = _strip_json_code_fence(_retry.text or "") if _retry else ""
                 if is_envelope(_retry_text):
-                    logger.warning("n400_envelope_retried turn_id=%s", _turn_id)
+                    logger.warning("n400_envelope_retried turn_id=%s", _label_turn_id)
                     response = _retry
                     response.text = mark_retried(_retry_text)
                 else:
-                    logger.warning("n400_envelope_prose turn_id=%s", _turn_id)
+                    logger.warning("n400_envelope_prose turn_id=%s", _label_turn_id)
                     if _retry:
                         await usage_tracker.log_usage(
                             db, user.id, _retry_body, _retry,

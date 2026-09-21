@@ -1,0 +1,1 @@
+{"detail":{"code":"rate_limited","message":"Rate limit exceeded. Try again in 60 seconds.","details":{"retry_after":60}}}
