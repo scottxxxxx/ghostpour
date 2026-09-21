@@ -26,7 +26,14 @@ def recorded(monkeypatch):
 
     monkeypatch.setattr(tj, "record", fake_record)
     monkeypatch.setattr(tj, "breaker", tj.Breaker())
-    return rows
+    # `_LIVE` is module state and a task in it belongs to the event loop of
+    # the test that made it. One left behind is gathered by a LATER test on a
+    # different loop ("The future belongs to a different loop"), which is how
+    # a route test here broke fourteen unrelated tests on CI's Python 3.12
+    # while the same order passed on a local 3.14. Production has one loop.
+    tj._LIVE.clear()
+    yield rows
+    tj._LIVE.clear()
 
 
 def _answers(confirm=("accept", 0.99), fmt=("keep", 0.99),
