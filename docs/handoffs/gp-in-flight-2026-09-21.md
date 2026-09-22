@@ -198,3 +198,11 @@ Owed / not started:
 Lesson with a receipt: a CONFLICTING PR gets no `pull_request` run at all
 and GitHub says nothing; #1021 sat four hours. `gh pr view --json mergeable`
 first. Handoff sections now land on main directly.
+
+**Later on 2026-09-22 (same session, after Scott allowed the prod read):**
+prod = `8c63bc2`. #1022 (the whale check off the request path + covering
+index; the 6.2 s before every streamed N-400 envelope, auditor doc sections
+17 and 18) and #1023 (Jev panel: marks per turn, per-judgment latency
+multiples) are LIVE, each verified from outside. Zero PRs open. The server
+half of the auditor's cold-turn proof is DONE. Still not started: the
+Jev-question iteration. Comp codes 2026-10-01.
