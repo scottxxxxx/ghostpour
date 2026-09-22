@@ -23,6 +23,9 @@ tmpfiles sweep. That is not a place to keep something you cannot rebuild.
 | `ste_judge.py` | Runs the validated judge's SYSTEM and QUESTION over `ste_run.py` output, per field, with deferral counts beside the rate. |
 | `thinking-ab-preregistration.md` | The thinking off vs on design for the interviewer lane, written 2026-09-14 BEFORE any generation. No gate: arm A is the baseline. Runs after v32. |
 | `ste_analyze.py` | The A/B report, gate first. Imports `deferral_disclosure.py`, the mechanical scorer, which lives with the auditor in `N400 App/qa/`, not here. |
+| `labelled-option-mints.json` | The auditor's 22 REAL turns (fable-auditor, 2026-09-21) where the lane minted a choice-field value: utterance, field, value, one of three marks (supported 12, unsupported 5, earlier_turn 5) and one line of why. Copied verbatim from `N400 App/qa/`. Three utterances are truncated or paraphrased against the wire; the eval reports which. |
+| `jev_labelled_option_mints_eval.py` | Runs those 22 through the PRODUCTION evidence-support scope (`enum_facts_to_check`) built from each turn's own wire record in the auditor's `qa/runs`, then Jev. Reports scope skips by reason. First run 2026-09-22: 16 reach Jev, unsupported caught 1/4, good left alone 6/7, earlier_turn flagged 5/5. |
+| `runs/jev-labelled-option-mints-2026-09-22.json` | That first run, row per case with Jev's choice and confidence. |
 
 ## The STE harness is a RECORD, not a tool you can point at a new question
 
