@@ -48,13 +48,32 @@ hypothesis; measure before shipping. My own probe (`scratchpad` is gone,
 numbers are in memory) showed a fully cold 24k prefill streams its first token
 in 1.58 s.
 
+## 2b. IN FLIGHT AT EXIT (finish this first, next session)
+
+Scott ruled at ~21:50Z: **close #1016** (DONE, closed with reason) and **trim
+the companion `_comment`** (PR #1019, in CI at exit, a background job merges
+it on green; it may already be on main). Merging does NOT change what prod
+serves. To finish:
+
+1. Confirm #1019 merged and prod reports its sha (`/health`).
+2. Sync the two leaves on prod, from the deployed bundle:
+   `POST /webhooks/admin/config/companion/sync-from-bundle` with
+   `{"keys": ["/_comment", "/version"]}` (X-Admin-Key, run inside the
+   container; the same endpoint the n400 prompt sync uses, see
+   `scripts/sync_n400_prompt.py` for the call shape).
+3. Verify from OUTSIDE: `curl https://api.ghostpour.com/v1/config/companion`
+   serves `version` 2 and the comment starts "Destination for the Set up on
+   my Mac button". At exit prod still served version 1 with the old comment.
+4. Tell the ShoulderSurf session to re-pull the snapshot (their
+   `scripts/refresh-remote-configs.sh`) before their next release.
+
 ## 3. Open decisions, Scott's
 
-1. **Close #1016 (warm up)?** Premise is gone. Recommend close. The N-400
+1. ~~Close #1016~~ DONE 2026-09-21, closed by Scott's ruling. The N-400
    client (build 73+) fires it at launch and Talk open; prod answers 400, the
    client swallows it. Only 2 such 400s seen in 24 h, which is fewer than
    expected; the auditor should check their device log.
-2. **Trim the public `_comment` on `companion.json`?** The route needs no auth
+2. ~~Trim the public `_comment`~~ RULED yes, see 2b for the unfinished sync. The route needs no auth
    and SS bakes the document into the app bundle each release. The comment
    spells out App Review reasoning. Recommend trimming to one neutral line:
    dashboard edit, version 2, tell SS to re-pull. Must land before SS's next
