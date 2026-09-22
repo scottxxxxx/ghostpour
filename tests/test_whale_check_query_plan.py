@@ -78,6 +78,9 @@ async def test_log_usage_returns_before_the_whale_check_runs(client, monkeypatch
     async def slow_check(db, user_id):
         seen["user_id"] = user_id
         seen["db_is_open"] = db is not None
+        # aiosqlite's connection is a Thread; non-daemon it outlives a closed
+        # loop and hangs the interpreter at exit (CI, 2026-09-22, twice).
+        seen["daemon"] = getattr(db, "daemon", None)
         started.set()
         await asyncio.sleep(0.4)
         finished.set()
@@ -97,4 +100,23 @@ async def test_log_usage_returns_before_the_whale_check_runs(client, monkeypatch
     assert not finished.is_set(), "the check finished inside log_usage: it was awaited inline"
     await asyncio.wait_for(started.wait(), 2)
     await asyncio.wait_for(finished.wait(), 2)
-    assert seen == {"user_id": "whale-user", "db_is_open": True}
+    assert seen == {"user_id": "whale-user", "db_is_open": True, "daemon": True}
+
+
+@pytest.mark.asyncio
+async def test_drain_waits_then_cancels_what_is_still_running(monkeypatch):
+    async def stuck(db, user_id):
+        await asyncio.sleep(30)
+    monkeypatch.setattr(cost_alerts, "check_whale", stuck)
+    t = cost_alerts.check_whale_later("u")
+    await asyncio.sleep(0)
+    assert not t.done()
+    assert await cost_alerts.drain(timeout=0.2) == 1
+    assert t.done() and t.cancelled()
+    assert await cost_alerts.drain(timeout=0.2) == 0
+
+
+def test_the_app_drains_the_checks_at_shutdown():
+    src = open("app/main.py").read()
+    y = src.index("yield", src.index("async def lifespan("))
+    assert "await cost_alerts.drain()" in src[y:], "shutdown must drain the whale checks"

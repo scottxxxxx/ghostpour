@@ -62,11 +62,37 @@ def check_whale_later(user_id: str) -> asyncio.Task:
 async def _check_whale_own_connection(user_id: str) -> None:
     try:
         from app import database
-        async with aiosqlite.connect(database._db_path) as db:
+        conn = aiosqlite.connect(database._db_path)
+        # aiosqlite's connection IS a thread, started on the first await.
+        # The pinned 0.20 leaves it non-daemon, so a background check whose
+        # event loop closed mid-connect left a thread that kept the
+        # interpreter alive: CI printed "4445 passed" and then hung for fifty
+        # minutes, twice, on 2026-09-22 (locally 0.22 exits, which is the
+        # off-the-pin venv lying). Daemon before start, and drained at
+        # shutdown, so nothing best-effort can outlive the process.
+        conn.daemon = True
+        async with conn as db:
             db.row_factory = aiosqlite.Row
             await check_whale(db, user_id)
     except Exception:
         logger.exception("cost_alerts: whale check could not open its connection (non-fatal)")
+
+
+async def drain(timeout: float = 5.0) -> int:
+    """Wait for the checks still in flight, then cancel the rest. Called at
+    app shutdown so a restart never races a half-open connection. Returns
+    how many were still running when it was called."""
+    live = [t for t in _LIVE if not t.done()]
+    if not live:
+        return 0
+    try:
+        await asyncio.wait_for(asyncio.gather(*live, return_exceptions=True), timeout)
+    except asyncio.TimeoutError:
+        for t in live:
+            if not t.done():
+                t.cancel()
+        await asyncio.gather(*live, return_exceptions=True)
+    return len(live)
 
 
 async def check_whale(db: aiosqlite.Connection, user_id: str) -> None:
