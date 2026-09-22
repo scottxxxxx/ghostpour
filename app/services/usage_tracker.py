@@ -355,10 +355,13 @@ class UsageTracker:
         await db.commit()
 
         # Whale alert: every cost path funnels through this insert, so
-        # this is the one chokepoint. Best-effort by contract.
+        # this is the one chokepoint. Best-effort by contract, and AFTER
+        # the request: awaited here it sat between the model's last token
+        # and the streamed envelope, six seconds cold on the N-400 QA
+        # account (2026-09-22, see cost_alerts).
         if estimated_cost:
-            from app.services.cost_alerts import check_whale
-            await check_whale(db, user_id)
+            from app.services.cost_alerts import check_whale_later
+            check_whale_later(user_id)
 
     async def record_and_log(
         self,

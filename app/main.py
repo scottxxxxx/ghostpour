@@ -475,6 +475,11 @@ async def lifespan(app: FastAPI):
         except (asyncio.CancelledError, Exception):
             pass
 
+    # Whale checks scheduled after their requests (cost_alerts.check_whale_later)
+    # are given a moment to finish, then cancelled, so a restart cannot leave
+    # one mid-connect.
+    from app.services import cost_alerts
+    await cost_alerts.drain()
     await app.state.provider_router.close()
     await pricing.stop()
 
