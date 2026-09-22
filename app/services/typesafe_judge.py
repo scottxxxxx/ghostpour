@@ -290,15 +290,16 @@ async def record(row: dict, app_id: str | None) -> None:
                 """INSERT INTO typesafe_calls
                    (id, created_at, app_id, judgment, mode, outcome, error_type,
                     fell_back, jev_ms, fallback_ms, input_tokens, cost_usd,
-                    confidence, agreed)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    confidence, agreed, facts_checked, facts_marked)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (uuid.uuid4().hex, datetime.now(timezone.utc).isoformat(), app_id,
                  row["judgment"], row["mode"], row["outcome"], row.get("error_type"),
                  1 if row.get("fell_back") else 0, row.get("jev_ms"),
                  row.get("fallback_ms"), tokens,
                  round(tokens * USD_PER_INPUT_TOKEN, 8) if tokens else None,
                  row.get("confidence"),
-                 None if row.get("agreed") is None else (1 if row["agreed"] else 0)))
+                 None if row.get("agreed") is None else (1 if row["agreed"] else 0),
+                 row.get("facts_checked"), row.get("facts_marked")))
             await db.commit()
     except Exception as e:  # noqa: BLE001
         logger.warning("typesafe_call_not_recorded %s: %s", type(e).__name__, e)

@@ -187,6 +187,12 @@ async def _judge(api_key: str, checked: list[dict], mode: str, app_id, turn_id) 
         api_key, {"facts": checked}, support_questions(len(checked)),
         judgment=JUDGMENT, mode=mode)
     unsupported = read_support(body, checked) if body is not None else []
+    # What the dashboard's "marks per turn" is made of: one row per turn,
+    # how many facts were asked about, how many came back marked. Marked is
+    # None when Jev did not answer, so a failed call is not a turn with zero
+    # marks.
+    row["facts_checked"] = len(checked)
+    row["facts_marked"] = len(unsupported) if body is not None else None
     typesafe_judge.record_later(row, app_id)
     for u in unsupported:
         logger.warning("n400_fact_unsupported turn_id=%s field_id=%s value=%s verdict=%s "
