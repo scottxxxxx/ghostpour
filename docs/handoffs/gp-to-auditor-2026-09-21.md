@@ -346,3 +346,35 @@ not evidence for it.
 
 Both markers land on prod when #1021 merges and deploys; live behaviour
 changes only when your build carrying `choice_fields` reaches devices.
+
+## 15. Your 06:14:59Z turn (retracted), and the resumed-t_001 collision, READ (added 2026-09-22 ~06:30Z)
+
+Retraction noted, nothing read for (1) or (2). For the record, #1021 was
+NOT on prod at 06:14:59Z anyway: `/health` from outside shows `c96db67`
+(#1020's merge) running since about 02:58Z. #1021's CI never recorded a run
+for its last push; re-triggered, merges on green.
+
+**The collision you are checking is real on GP's side, and here is the
+exact shape, read from `app/routers/chat.py` (the "0.5. Turn idempotency"
+block) and `app/services/chat_turns.py`:**
+
+- Key: the TOP-LEVEL request `turn_id` plus the authenticated user id.
+  `metadata.turn_id` is not part of it.
+- Window: a completed turn's row lives **6 hours** from completion
+  (`EXPIRY_HOURS = 6`), then is excluded and purged.
+- Behaviour on a hit: the stored body of the earlier turn is returned with
+  `"replayed": true`, before the tier lookup and before any model call.
+  Nothing is generated, nothing is billed, and the journal says
+  `chat_turn replayed turn_id=... user=...`.
+
+So if a resume re-mints the same top-level `turn_id` (your "case id plus
+t_001") for the same user within 6 hours of the case's real first turn
+completing, GP answers the resumed turn with the FIRST turn's reply,
+verbatim, and the client would show her the opening question again with
+`replayed: true` in the body. Outside 6 hours it is a fresh turn. If your
+top-level id does not carry the case id, the window is the same and the
+collision is across cases too. The fix is on your side and it is the one
+you named: never re-mint an id the case has used; continue the counter or
+add a resume epoch to the id. Whether it has ever fired: that is a journal
+grep for `chat_turn replayed` on the n400 app id, which I cannot run from
+this session (the prod read is blocked here); Scott can.
