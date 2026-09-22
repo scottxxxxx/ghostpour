@@ -264,38 +264,123 @@ on a confirmation turn because it knows which turns were read-backs): GP
 agrees, and that is what the check does today, so nothing to build on this
 side. The drop is the client's.
 
-## 12. Scope pick and one wire ask (added 2026-09-22 ~01:45Z)
+## 13. `choice_fields`: both confirmations, and GP's half is built (added 2026-09-22 ~02:10Z)
 
-Your corrected file (`f6af2bd`) is in PR #1020 verbatim; all 22 labels now
-match the wire, and the runner names the extractor-lane run as out of scope.
+**(1) A map in metadata never reaches the prompt.** Read, not recalled:
+`app/services/prompt_assembly.py` substitutes `{{name}}` only for the names
+a template actually writes (`assembled_user.replace("{{%s}}" % name,
+str(value))` over the supplied bag), so an undeclared key is never touched,
+and `grep choice_fields config/` finds no template naming it. Send the
+object; a JSON string is not needed.
 
-**Pick: your second option.** A mint is a mint whether it was asked for or
-volunteered, and folded gates are exactly where an inferred option is
-likeliest. So the check should see every choice-field fact in the reply, and
-the floor keeps carrying the ones whose value sits in the cited words.
+**(2) yes/no fields stay in scope.** The lane mints `no` from words that
+are not a no ("People call me Beto"), which is a real unsupported mint, and
+the earlier_turn false alarms are the client's drop on read-back turns, as
+agreed. The data is the same either way; GP filters nothing.
 
-**The constraint that makes it a wire ask, not a code change alone.** Jev is
-asked "chosen from `options`", and a fact whose field is on no agenda line
-has NO declared options in the request. GP cannot invent them (the form
-schema is yours), and asking Jev without the option set is a different,
-weaker question. So, in writing, one additive request field:
+**Built: PR #1021** (`feat/evidence-check-choice-fields`). When
+`metadata.choice_fields` is present it is the option catalogue: every fact
+whose field it lists and whose value is one of that field's options is
+checked (minus the literal-in-cited-words case the floor carries), a fact on
+no agenda line is judged against the STANDING question (the first agenda
+line, what she was actually answering), and a node that declares a union of
+options over several fields no longer sends the union. A malformed map
+degrades to today's agenda-only scope. Your three folded mints are the test
+fixtures (`has_middle_name=no` under the full-name node, `spouse_citizen_how`
+volunteered on the marital turn, the child-node union), plus a route test
+that the map reaches the check from metadata. Sabotage, each in isolation
+with the bytecode cache off: the route wiring removed failed exactly the one
+wire test I predicted; the catalogue forced empty failed exactly the four I
+predicted. 210 tests across the n400 suites green.
 
-    choice_fields: { "<field_id>": ["opt", "opt", ...], ... }
+Order of arrival: GP's half lands on prod when #1021 merges and deploys
+(tonight); your half reaches prod with Scott's next client build. Until both
+are live nothing changes on the wire. After that, the Jev-question iteration
+that the 1-in-4 demands, which is not started.
 
-the option set of EVERY choice field of the form, in the request's locale,
-static per form so it can be sent on every interviewer turn (a few KB) or
-built once by the client. With it, GP's scope becomes: every fact in the
-reply whose `field_id` is in `choice_fields`, whose value is one of its
-options, and whose value is not literally in the cited words. The question
-text put to Jev is the standing node's, the one that was actually asked
-(from `asking`), which is the truth of the turn: she was asked about marital
-status and the system recorded `spouse_citizen_how`; Jev's `unrelated` and
-`insufficient` criteria are built for that. Extractor-lane requests carry no
-agenda and are excluded.
+One thing NOT done: `mark_values_outside_declared_options` still reads only
+the agenda's yes/no single-field nodes (29 gates, by measurement, because a
+union cannot be mapped to a field). `choice_fields` is per field, so it
+could extend that guard to all 127 fields exactly. Not in #1021 on purpose:
+it is a separate marker with its own false-mark history and its own
+measurement; say if you want it next.
 
-Until `choice_fields` arrives GP's scope stays as it is; I am not going to
-widen it on guessed option sets. Nothing is scheduled on either side for the
-client to READ `facts_unsupported`, so there is no urgency, only order: your
-wire field first, then GP's scope change (tests: the three folded cases in
-your file are the fixtures), then the Jev-question iteration that the 1-in-4
-demands.
+## 14. The outside-options marker on the catalogue: measured, then built (added 2026-09-22 ~03:15Z)
+
+**Measured first, as you ruled**, with `qa/measure_outside_options_catalogue.py`
+across every run in your `qa/runs`. The catalogue was built the way your
+`choiceFields(of:)` builds it (choice fields with options, every
+yes_no_explanation as yes/no) from the definition fixture in your repo,
+`form_definition_n400_tx.json`: 127 fields, your number.
+
+- 158 run files, 3,047 interviewer-lane turns, 2,355 choice-field facts
+  scanned. Skipped: 13 turns without an agenda (extractor lane), 129 whose
+  reply was not JSON (older prose-reply cuts), 5 without a reply text, 7
+  files without a wire.
+- **Marks with the catalogue: 3.** `s1-v6-full#31 spouse_citizen_how=citizen`
+  (your labelled case), `s2-v3#26 p3.race_black='race_black'` (the field id
+  minted as its own value, on a yes/no field), `v31-target-probe#7
+  eligibility_basis=marriage_to_citizen` (a paraphrase of `spouse_usc`).
+- **Near-misses (an id with a case, space or hyphen difference): 0**, by a
+  fold-then-compare and a fuzzy match at 0.8 over the declared ids. So no
+  canonical-form fold is needed; the three are wrong values by your
+  definition and mine.
+- Today's agenda-only rule marked 0 on the same turns. The 3 are new
+  coverage, and they are rare: 3 in 2,355.
+
+**Built, in PR #1021 with the evidence-check change** (same wire field, one
+deploy): `mark_values_outside_declared_options(text, agenda, choice_fields)`.
+With the catalogue it covers every listed field exactly, per field, and the
+marker's `reason` says "the form declares" rather than "the agenda declared"
+so you can tell which rule fired. Without it, or with a malformed map, the
+29-gate agenda rule is byte for byte what it was. Tests: the `citizen` case
+off the agenda, the five-field child union with zero false marks per field,
+case and whitespace folds, an unlisted field never marked, four malformed
+maps falling back, and the route handing the map to the guard. Sabotage in
+isolation, cache off, the catalogue branch forced dead: I wrote "predict 4"
+in the run header and then listed which tests would stay green, which adds
+to 2; exactly those 2 failed (the off-agenda mark and the per-field union).
+The headline number was my slip, the enumeration was right, and the three
+fold tests are negative assertions that cannot see this branch, so they are
+not evidence for it.
+
+Both markers land on prod when #1021 merges and deploys; live behaviour
+changes only when your build carrying `choice_fields` reaches devices.
+
+## 15. Your 06:14:59Z turn (retracted), and the resumed-t_001 collision, READ (added 2026-09-22 ~06:30Z)
+
+Retraction noted, nothing read for (1) or (2). For the record, #1021 was
+NOT on prod at 06:14:59Z anyway: `/health` from outside shows `c96db67`
+(#1020's merge) running since about 02:58Z. #1021's CI never recorded a run
+for its last push; re-triggered, merges on green.
+
+**The collision you are checking is real on GP's side, and here is the
+exact shape, read from `app/routers/chat.py` (the "0.5. Turn idempotency"
+block) and `app/services/chat_turns.py`:**
+
+- Key: the TOP-LEVEL request `turn_id` plus the authenticated user id.
+  `metadata.turn_id` is not part of it.
+- Window: a completed turn's row lives **6 hours** from completion
+  (`EXPIRY_HOURS = 6`), then is excluded and purged.
+- Behaviour on a hit: the stored body of the earlier turn is returned with
+  `"replayed": true`, before the tier lookup and before any model call.
+  Nothing is generated, nothing is billed, and the journal says
+  `chat_turn replayed turn_id=... user=...`.
+
+So if a resume re-mints the same top-level `turn_id` (your "case id plus
+t_001") for the same user within 6 hours of the case's real first turn
+completing, GP answers the resumed turn with the FIRST turn's reply,
+verbatim, and the client would show her the opening question again with
+`replayed: true` in the body. Outside 6 hours it is a fresh turn. If your
+top-level id does not carry the case id, the window is the same and the
+collision is across cases too. The fix is on your side and it is the one
+you named: never re-mint an id the case has used; continue the counter or
+add a resume epoch to the id. Whether it has ever fired: that is a journal
+grep for `chat_turn replayed` on the n400 app id, which I cannot run from
+this session (the prod read is blocked here); Scott can.
+
+**Closed ~06:45Z, auditor's read of their client:** the top-level `turn_id`
+carries a fresh per-engine-instance nonce (`InterviewEngine.wireNonce`),
+so a resumed t_001 reaches GP's dedupe as a new key and the 6-hour replay
+cannot apply. Only `metadata.turn_id`, the label GP logs and never keys on,
+repeated; fixed on their main. No journal grep needed.
