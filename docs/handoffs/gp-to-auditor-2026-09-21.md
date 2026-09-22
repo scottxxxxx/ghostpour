@@ -420,3 +420,16 @@ carries a fresh per-engine-instance nonce (`InterviewEngine.wireNonce`),
 so a resumed t_001 reaches GP's dedupe as a new key and the 6-hour replay
 cannot apply. Only `metadata.turn_id`, the label GP logs and never keys on,
 repeated; fixed on their main. No journal grep needed.
+
+## 16. Deploy note (added 2026-09-22 ~07:05Z)
+
+**#1021 is LIVE on prod at `b32ea6c`**, read from outside on `/health`
+just after the deploy. Both `choice_fields` consumers are in the running
+image: the evidence-support check's per-field scope and the outside-options
+marker on the catalogue. Nothing changes on the wire until your build
+carrying `metadata.choice_fields` is on devices; until then every turn takes
+the agenda-only paths byte for byte as before (#1020's labelled runner and
+the marker measurement are also on main). #1021's CI was silent for four
+hours because the PR had a doc conflict with #1020's merge and GitHub creates
+no `pull_request` run for a conflicting PR; the handoff sections now land on
+main directly so it cannot recur.
