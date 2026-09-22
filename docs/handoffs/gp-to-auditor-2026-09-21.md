@@ -378,3 +378,9 @@ you named: never re-mint an id the case has used; continue the counter or
 add a resume epoch to the id. Whether it has ever fired: that is a journal
 grep for `chat_turn replayed` on the n400 app id, which I cannot run from
 this session (the prod read is blocked here); Scott can.
+
+**Closed ~06:45Z, auditor's read of their client:** the top-level `turn_id`
+carries a fresh per-engine-instance nonce (`InterviewEngine.wireNonce`),
+so a resumed t_001 reaches GP's dedupe as a new key and the 6-hour replay
+cannot apply. Only `metadata.turn_id`, the label GP logs and never keys on,
+repeated; fixed on their main. No journal grep needed.
