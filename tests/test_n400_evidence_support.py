@@ -302,3 +302,122 @@ def test_with_the_mode_off_the_route_is_untouched(client, free_user, monkeypatch
                         json=chat_request(system_prompt="", user_content=SAID, metadata=_metadata()))
     assert "facts_unsupported" not in json.loads(r.json()["text"])
     ask.assert_not_called()
+
+
+# --- the client's per-field catalogue: folded gates and volunteered values -----------------------
+#
+# Fixtures are the three real mints in qa/labelled-option-mints.json that the
+# agenda-only scope could not see (auditor, 2026-09-22): the agenda is what to
+# ASK next, folded, so a node's gate and a value volunteered for a later node
+# are on no line.
+
+FULL_NAME_AGENDA = (
+    "q_p1_full_name | Part 2: About you | p1.first_name,p2.middle_name,p1.last_name | "
+    "Give me your name exactly as it is printed on your green card.\n"
+    "q_p2_gender | Part 2: About you | p2.gender | Are you male or female? | options: male, female\n"
+)
+MARITAL_AGENDA = (
+    "q_p5_marital_status | Part 5: Your marital history | p5.marital_status | "
+    "What is your current marital status? | options: single, married, divorced, widowed\n"
+)
+CHILD_UNION_AGENDA = (
+    "q_p6_child1 | Part 6: Your children | p6.child1.name,p6.child1.dob,p6.child1.residence,p6.child1.relationship | "
+    "Tell me about your oldest child. | options: resides_with_me, not_with_me, biological, stepchild, adopted\n"
+)
+CATALOGUE = {
+    "p2.has_middle_name": ["yes", "no"],
+    "p2.gender": ["male", "female"],
+    "p5.marital_status": ["single", "married", "divorced", "widowed"],
+    "p5.spouse_citizen_how": ["by_birth", "other"],
+    "p6.child1.residence": ["resides_with_me", "not_with_me"],
+    "p6.child1.relationship": ["biological", "stepchild", "adopted"],
+    "p1.eligibility_basis": ["general_provision", "spouse_usc", "vawa", "other"],
+}
+NAME_SAID = "Ana Lucia Torres, Ana Lucia is the first name, Torres is the last"
+MARITAL_SAID = "I'm married. My husband is Daniel Cho, he's a U.S. citizen, and we got married in 2019."
+
+
+def test_a_folded_gate_on_no_agenda_line_is_checked_against_the_standing_question():
+    turn = json.loads(_turn(_fact("p2.has_middle_name", "no", "Ana Lucia is the first name, Torres is the last")))
+    (c,) = es.enum_facts_to_check(turn, FULL_NAME_AGENDA, NAME_SAID, CATALOGUE)
+    assert c["field_id"] == "p2.has_middle_name" and c["options"] == ["no", "yes"]
+    assert c["question"] == "Give me your name exactly as it is printed on your green card."
+    assert c["applicant_said"] == NAME_SAID
+
+
+def test_a_value_volunteered_for_a_later_node_is_checked_and_one_outside_its_options_is_not():
+    volunteered = _fact("p5.spouse_citizen_how", "by_birth", "he's a U.S. citizen")
+    turn = json.loads(_turn(_fact("p5.marital_status", "married", "I'm married"), volunteered))
+    got = es.enum_facts_to_check(turn, MARITAL_AGENDA, MARITAL_SAID, CATALOGUE)
+    assert [c["field_id"] for c in got] == ["p5.spouse_citizen_how"]
+    assert got[0]["options"] == ["by_birth", "other"]
+    assert got[0]["question"].startswith("What is your current marital status?")
+    # The real s1-v6-full#31 mint was `citizen`, which is no option at all:
+    # that is the outside-options guard's case, never a question for Jev.
+    turn = json.loads(_turn(_fact("p5.spouse_citizen_how", "citizen", "he's a U.S. citizen")))
+    assert es.enum_facts_to_check(turn, MARITAL_AGENDA, MARITAL_SAID, CATALOGUE) == []
+
+
+def test_without_the_catalogue_the_same_folded_mints_are_invisible():
+    turn = json.loads(_turn(_fact("p2.has_middle_name", "no", "Ana Lucia is the first name")))
+    assert es.enum_facts_to_check(turn, FULL_NAME_AGENDA, NAME_SAID) == []
+    turn = json.loads(_turn(_fact("p5.spouse_citizen_how", "by_birth", "he's a U.S. citizen")))
+    assert es.enum_facts_to_check(turn, MARITAL_AGENDA, MARITAL_SAID, None) == []
+
+
+def test_the_catalogue_names_options_per_field_where_the_agenda_line_carries_a_union():
+    turn = json.loads(_turn(_fact("p6.child1.residence", "resides_with_me", "she's my daughter, my own daughter")))
+    said = "February eleven two thousand one, she's my daughter, my own daughter"
+    (with_union,) = es.enum_facts_to_check(turn, CHILD_UNION_AGENDA, said)
+    assert with_union["options"] == ["adopted", "biological", "not_with_me", "resides_with_me", "stepchild"]
+    (per_field,) = es.enum_facts_to_check(turn, CHILD_UNION_AGENDA, said, CATALOGUE)
+    assert per_field["options"] == ["not_with_me", "resides_with_me"]
+    assert per_field["question"] == "Tell me about your oldest child."
+
+
+def test_a_field_the_catalogue_does_not_list_is_not_a_choice_field():
+    turn = json.loads(_turn(_fact("p1.a_number", "204881367", "A 204 881 367")))
+    assert es.enum_facts_to_check(turn, AGENDA, "A 204 881 367", CATALOGUE) == []
+    # ...and the literal-in-cited-words rule still carries a quoted yes.
+    turn = json.loads(_turn(_fact("p2.has_middle_name", "no", "no middle name")))
+    assert es.enum_facts_to_check(turn, FULL_NAME_AGENDA, "no middle name", CATALOGUE) == []
+
+
+@pytest.mark.parametrize("bad", ["not a map", {"p2.has_middle_name": "yes,no"}, {"p2.has_middle_name": []},
+                                 {"p2.has_middle_name": [1, 2]}, {3: ["yes", "no"]}])
+def test_a_malformed_catalogue_falls_back_to_the_agenda_scope(bad):
+    assert es.choice_catalogue(bad) == {}
+    (c,) = es.enum_facts_to_check(json.loads(T008), AGENDA, SAID, bad)
+    assert c["field_id"] == "p1.eligibility_basis" and c["options"] == ["general_provision", "other", "spouse_usc", "vawa"]
+    turn = json.loads(_turn(_fact("p2.has_middle_name", "no", "Ana Lucia is the first name")))
+    assert es.enum_facts_to_check(turn, FULL_NAME_AGENDA, NAME_SAID, bad) == []
+
+
+def test_the_catalogue_reaches_the_check_from_request_metadata(client, free_user, monkeypatch):
+    """A folded gate, an agenda that does not list it, and the catalogue in
+    metadata: the marker must reach the wire. Without the wiring the check
+    sees no options for the field and marks nothing."""
+    from unittest.mock import patch
+    from app.models.chat import ChatResponse
+    from tests.conftest import chat_request
+    from tests.test_n400_sentence_stream_route import _metadata
+    monkeypatch.setattr("app.services.document_generation._typesafe_mode", lambda: ("primary", "k"))
+    ask = AsyncMock(return_value=_body(("insufficient", 0.83)))
+    monkeypatch.setattr(tj, "ask", ask)
+    env = _route_envelope()
+    env["facts"] = [{"field_id": "p2.has_middle_name", "value": "no", "source": "applicant",
+                     "provenance": {"utterance": "Ana Lucia is the first name, Torres is the last"}}]
+    text = json.dumps(env, ensure_ascii=False)
+    hdr = {**free_user["headers"], "X-App-ID": "n400"}
+
+    async def fake(provider_router, request, db, settings):
+        return ChatResponse(text=text, input_tokens=100, output_tokens=50, model="claude-sonnet-5",
+                            provider="anthropic", usage={"input_tokens": 100, "output_tokens": 50})
+    md = {**_metadata(), "agenda": FULL_NAME_AGENDA, "choice_fields": {"p2.has_middle_name": ["yes", "no"]}}
+    with patch("app.services.anthropic_or_fallback.route_with_fallback", fake):
+        r = client.post("/v1/chat", headers=hdr, json=chat_request(
+            system_prompt="", user_content=NAME_SAID, metadata=md))
+    got = json.loads(r.json()["text"])
+    assert [u["field_id"] for u in got.get("facts_unsupported", [])] == ["p2.has_middle_name"]
+    sent = ask.call_args.args[1]["facts"][0] if ask.call_args.args[1:] else ask.call_args.kwargs["state"]["facts"][0]
+    assert sent["options"] == ["no", "yes"]

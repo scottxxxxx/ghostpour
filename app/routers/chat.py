@@ -4539,7 +4539,11 @@ async def _chat_impl(
             response.text = await mark_unsupported_enum_facts(
                 response.text, _agenda,
                 body.get_meta("user_input") or _n400_utterance,
-                body.get_meta("turn_id"), app_id, _ts_mode, _ts_key)
+                body.get_meta("turn_id"), app_id, _ts_mode, _ts_key,
+                # The client's per-field option catalogue (2026-09-22). A
+                # dict in metadata never reaches the prompt: prompt_assembly
+                # substitutes only the {{names}} a template writes.
+                choice_fields=body.get_meta("choice_fields"))
 
         # Surface the cleaned transcript (if cleanup ran for this analysis call)
         # so iOS can persist it to MeetingRecord.cleanedTranscript. Absent when
