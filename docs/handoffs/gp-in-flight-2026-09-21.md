@@ -153,3 +153,48 @@ greenlights.
 - The auto mode classifier denied: prod usage_log reads (now solved by the
   script), `gcloud secrets create`, `gh pr merge` (until Scott said "do it
   all"), and editing `~/.claude/settings.json` (self modification).
+
+## Addendum, session cloudzap-81, 2026-09-22 00:20Z to ~07:10Z
+
+**Prod = `b32ea6c` (code), main tip is docs on top of it.** Read from
+outside on `/health` after each deploy.
+
+Shipped tonight, in order:
+1. **Section 2b DONE**: #1019 merged `787a4c0`, companion `_comment` trimmed
+   and `version` 2 synced on prod from inside the container, verified from
+   OUTSIDE (served == bundle), ShoulderSurf re-pulled (their `de5fefc`).
+   Note: a docs-only push to main does NOT trigger Build & Deploy.
+2. **Auditor loop closed**: they reached this session at
+   `uds:/tmp/cc-socks/80599.sock`; the file channel is
+   `docs/handoffs/gp-to-auditor-<date>.md`, written FIRST, sent second.
+   Sections 10 to 16 of the 09-21 auditor doc hold everything: both owed
+   items closed (self-employed ZIP derived on the client; compound names,
+   the lane asks), the cold-turn proof (client half 0.23 s; SERVER HALF
+   STILL OWED, the journal read was blocked in this session), the labelled
+   option mints, `choice_fields`, the marker measurement, the retracted
+   06:14Z turn, the turn-id collision closed by their nonce.
+3. **#1020** `c96db67`: the auditor's 22 real labelled option mints through
+   the PRODUCTION evidence check. **The check catches 1 unsupported mint in
+   4 on real turns**; the synthetic eval overstated it. Runner
+   `qa/jev_labelled_option_mints_eval.py`.
+4. **#1021** `b32ea6c`: both `choice_fields` consumers (evidence-check
+   per-field scope; outside-options marker on the catalogue, measured
+   first across 3,047 turns: 3 marks, all true outsiders). INERT until the
+   client build carrying `metadata.choice_fields` (their `4b55b11`) reaches
+   devices.
+5. Scott's rulings tonight: "whatever the auditor is asking for, approve
+   it" (memory `feedback_auditor_asks_preapproved_2026_09_21`).
+
+Owed / not started:
+- **Jev-question iteration** for the evidence check (the 1-in-4). Fixtures:
+  `qa/labelled-option-mints.json`; the auditor's note: two of the three
+  marker hits are the lane INVENTING an id when unsure of an option.
+- **Server half of the auditor's cold-turn proof** (turn `26655b63-t_001`,
+  2026-09-22T00:29:47Z): a prod journal read Scott has to allow or run.
+- The eval runner should pass `metadata.choice_fields` from the wire once a
+  run carries it.
+- Comp codes die 2026-10-01 (Scott, by hand).
+
+Lesson with a receipt: a CONFLICTING PR gets no `pull_request` run at all
+and GitHub says nothing; #1021 sat four hours. `gh pr view --json mergeable`
+first. Handoff sections now land on main directly.
