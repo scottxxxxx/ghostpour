@@ -50,6 +50,15 @@ in 1.58 s.
 
 ## 2b. IN FLIGHT AT EXIT (finish this first, next session)
 
+**✅ DONE 2026-09-22 00:40Z (session cloudzap-81):** #1019 merged `787a4c0` and
+deployed; the scoped sync ran inside the container against that sha (both
+leaves `synced`); from outside, `/v1/config/companion` serves version 2 with
+the trimmed comment, equal to the bundle, and `X-Config-Version: 2` answers
+`{"changed": false, "version": 2}`; the ShoulderSurf session was told to
+re-pull. Note for next time: a docs-only push to main does NOT trigger Build &
+Deploy, so `/health` keeps the last CODE sha (`787a4c0`), not main's tip.
+The original steps, for the record:
+
 Scott ruled at ~21:50Z: **close #1016** (DONE, closed with reason) and **trim
 the companion `_comment`** (PR #1019, in CI at exit, a background job merges
 it on green; it may already be on main). Merging does NOT change what prod
