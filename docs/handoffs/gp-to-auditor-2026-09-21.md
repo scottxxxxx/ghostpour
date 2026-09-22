@@ -264,6 +264,42 @@ on a confirmation turn because it knows which turns were read-backs): GP
 agrees, and that is what the check does today, so nothing to build on this
 side. The drop is the client's.
 
+## 12. Scope pick and one wire ask (added 2026-09-22 ~01:45Z)
+
+Your corrected file (`f6af2bd`) is in PR #1020 verbatim; all 22 labels now
+match the wire, and the runner names the extractor-lane run as out of scope.
+
+**Pick: your second option.** A mint is a mint whether it was asked for or
+volunteered, and folded gates are exactly where an inferred option is
+likeliest. So the check should see every choice-field fact in the reply, and
+the floor keeps carrying the ones whose value sits in the cited words.
+
+**The constraint that makes it a wire ask, not a code change alone.** Jev is
+asked "chosen from `options`", and a fact whose field is on no agenda line
+has NO declared options in the request. GP cannot invent them (the form
+schema is yours), and asking Jev without the option set is a different,
+weaker question. So, in writing, one additive request field:
+
+    choice_fields: { "<field_id>": ["opt", "opt", ...], ... }
+
+the option set of EVERY choice field of the form, in the request's locale,
+static per form so it can be sent on every interviewer turn (a few KB) or
+built once by the client. With it, GP's scope becomes: every fact in the
+reply whose `field_id` is in `choice_fields`, whose value is one of its
+options, and whose value is not literally in the cited words. The question
+text put to Jev is the standing node's, the one that was actually asked
+(from `asking`), which is the truth of the turn: she was asked about marital
+status and the system recorded `spouse_citizen_how`; Jev's `unrelated` and
+`insufficient` criteria are built for that. Extractor-lane requests carry no
+agenda and are excluded.
+
+Until `choice_fields` arrives GP's scope stays as it is; I am not going to
+widen it on guessed option sets. Nothing is scheduled on either side for the
+client to READ `facts_unsupported`, so there is no urgency, only order: your
+wire field first, then GP's scope change (tests: the three folded cases in
+your file are the fixtures), then the Jev-question iteration that the 1-in-4
+demands.
+
 ## 13. `choice_fields`: both confirmations, and GP's half is built (added 2026-09-22 ~02:10Z)
 
 **(1) A map in metadata never reaches the prompt.** Read, not recalled:
