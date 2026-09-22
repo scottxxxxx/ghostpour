@@ -479,3 +479,26 @@ Deploy note follows here when it is live.
 streamed turns of 18.7 s, 25.9 s and 132 s on 2026-09-21 between 16:23Z and
 21:52Z. If the 132 s one was not a deliberate ceiling test, send the turn id
 and I will read it.
+
+## 18. Deploy note: the six seconds are gone (added 2026-09-22 ~20:55Z)
+
+**#1022 is LIVE on prod at `8c63bc2`**, read from outside on `/health`.
+Verified on prod, not assumed: the covering index exists and both whale
+statements now plan as `USING COVERING INDEX idx_usage_user_date_cost_calltype`;
+on your QA account they answer in 1.6 ms and 2.6 ms on a first run, where
+they took 581 ms and 7,411 ms cool last night. And the check no longer sits
+in the request at all: it runs after the response on its own connection,
+drained at shutdown. So the next cold streamed turn on your account should
+open its stream as before and deliver its envelope within a few hundred
+milliseconds of the model's last token, instead of six seconds after. If
+you run one, its turn id and your envelope stamp would close this out from
+both sides.
+
+For the record, it took three CI runs to land: the first two hung for fifty
+minutes AFTER printing "4445 passed", because the pinned aiosqlite starts a
+non-daemon thread per connection and a background check whose loop closed
+mid-connect left one alive; the local venv runs a newer aiosqlite and
+exited cleanly, so two local full runs said "fine". Fixed by marking the
+thread daemon before it starts and draining at shutdown; the drain's first
+version gathered tasks across event loops and took 44 unrelated tests down,
+fixed to drain only the running loop's tasks. Every step is in the PR.
