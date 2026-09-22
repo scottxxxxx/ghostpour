@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "_comment": "Where the iPhone app's 'Set up on my Mac' button sends people. A DESTINATION, never a feature switch: whether Mac Companion exists at all is compiled into the build App Review sees, and nothing here may turn it on or off. channel is 'web' or 'appStore'; clients read it as a plain string and send anything they do not recognise to webURL, so a new value can never strand a shipped build. appStoreURL is null until the Mac App Store listing exists, then exactly https://apps.apple.com/app/id<digits> (no country segment, no slug). Flip day is a dashboard edit with a version bump, NOT a deploy: a changed value in this bundle does not reach production (see OWNERSHIP.md).",
+  "version": 2,
+  "_comment": "Destination for the Set up on my Mac button. channel is web or appStore; a client that does not recognise the value uses webURL.",
   "channel": "web",
   "webURL": "https://shouldersurf.com/desktop",
   "appStoreURL": null
