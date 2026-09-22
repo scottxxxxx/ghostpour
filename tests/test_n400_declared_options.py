@@ -97,3 +97,67 @@ def test_no_agenda_and_no_options_are_both_silent():
         _, off = mark_values_outside_declared_options(
             _facts(("p1.a", "anything at all")), agenda)
         assert off == []
+
+
+# --- the client's per-field catalogue (metadata.choice_fields, 2026-09-22) ---------------------
+#
+# Per FIELD, so the union that forced the 29-gate rule above has nothing to
+# map. Measured across the auditor's 3,047 interviewer turns before it
+# shipped: 3 marks, all values outside the ids, 0 near-misses, and the
+# agenda-only rule marked 0 on the same turns (qa/measure_outside_options_catalogue.py).
+
+CATALOGUE = {
+    "p1.eligibility_basis": ["general_provision", "spouse_usc", "vawa", "other"],
+    "p5.spouse_citizen_how": ["by_birth", "other"],
+    "p6.child1.residence": ["resides_with_me", "not_with_me"],
+    "p6.child1.relationship": ["biological", "stepchild"],
+    "p8.took_trips": ["yes", "no"],
+}
+MARITAL_NODE = ("q_p5_marital_status | Part 5: Marital | p5.marital_status | "
+                "What is your marital status? | options: single, married, divorced, widowed")
+
+
+def test_with_the_catalogue_a_value_outside_the_fields_ids_is_marked_even_off_the_agenda():
+    # The real s1-v6-full#31 mint: volunteered on the marital turn, no agenda line for it.
+    out, off = mark_values_outside_declared_options(
+        _facts(("p5.marital_status", "married"), ("p5.spouse_citizen_how", "citizen")), MARITAL_NODE, CATALOGUE)
+    assert [(o["field_id"], o["value"], o["declared"]) for o in off] == [
+        ("p5.spouse_citizen_how", "citizen", ["by_birth", "other"])]
+    assert off[0]["reason"] == "value is not one of the options the form declares for this field"
+    assert json.loads(out)["values_outside_declared_options"] == off
+    # Without the catalogue the same turn is invisible: the marital node is not a yes/no gate.
+    assert mark_values_outside_declared_options(
+        _facts(("p5.marital_status", "married"), ("p5.spouse_citizen_how", "citizen")), MARITAL_NODE)[1] == []
+
+
+def test_with_the_catalogue_a_union_node_is_checked_per_field_with_no_false_marks():
+    # The five-field union that produced 17 false marks under the agenda rule.
+    text = _facts(("p6.child1.child_name", "Mariana"), ("p6.child1.date_of_birth", "2001-02-11"),
+                  ("p6.child1.residence", "resides_with_me"), ("p6.child1.relationship", "biological"))
+    assert mark_values_outside_declared_options(text, UNION_NODE, CATALOGUE)[1] == []
+    _, off = mark_values_outside_declared_options(
+        _facts(("p6.child1.residence", "biological")), UNION_NODE, CATALOGUE)
+    assert [(o["field_id"], o["value"]) for o in off] == [("p6.child1.residence", "biological")]
+
+
+@pytest.mark.parametrize("value", ["yes", "No", " by_birth "])
+def test_case_and_whitespace_are_folded_against_the_catalogue(value):
+    field = "p8.took_trips" if value.strip().lower() in ("yes", "no") else "p5.spouse_citizen_how"
+    assert mark_values_outside_declared_options(_facts((field, value)), None, CATALOGUE)[1] == []
+
+
+def test_a_field_the_catalogue_does_not_list_is_never_marked():
+    assert mark_values_outside_declared_options(
+        _facts(("p1.a_number", "A204881367"), ("p5.marital_status", "sí")), MARITAL_NODE, CATALOGUE)[1] == []
+
+
+@pytest.mark.parametrize("bad", ["yes,no", {"p8.took_trips": "yes,no"}, {"p8.took_trips": []}, {7: ["yes", "no"]}])
+def test_a_malformed_catalogue_falls_back_to_the_agenda_gate_rule(bad):
+    _, off = mark_values_outside_declared_options(_facts(("p8.took_trips", "sí")), BOOL_NODE, bad)
+    assert [o["reason"] for o in off] == ["value is not one of the options the agenda declared for this node"]
+
+
+def test_the_route_hands_the_catalogue_to_the_guard():
+    src = open("app/routers/chat.py").read()
+    call = src.index("response.text = guard_response_text(")
+    assert 'choice_fields=body.get_meta("choice_fields")' in src[call:call + 400]

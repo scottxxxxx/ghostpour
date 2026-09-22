@@ -434,7 +434,8 @@ def drop_facts_that_are_also_deferred(text: str) -> tuple[str, list[dict]]:
 
 def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
                         user_content: str | None = None,
-                        conversation: str | None = None) -> str:
+                        conversation: str | None = None,
+                        choice_fields=None) -> str:
     new_text, info = drop_stale_asking(text, agenda)
     if info is not None:
         logger.warning(
@@ -486,7 +487,7 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
         logger.warning(
             "n400_interview_over_cleared turn_id=%s open_nodes=%s",
             turn_id, ",".join(over["open_nodes"]))
-    new_text, off_options = mark_values_outside_declared_options(new_text, agenda)
+    new_text, off_options = mark_values_outside_declared_options(new_text, agenda, choice_fields)
     for o in off_options:
         logger.error(
             "n400_value_outside_declared_options turn_id=%s field_id=%s value=%r declared=%s",
@@ -1509,6 +1510,7 @@ def mark_closing_while_open(text: str, info: dict, retried: bool,
 # declaration and cannot drift from it.
 
 OPTION_SHAPE_REASON = "value is not one of the options the agenda declared for this node"
+CATALOGUE_SHAPE_REASON = "value is not one of the options the form declares for this field"
 
 
 def agenda_options(agenda: str | None) -> dict[str, set[str]]:
@@ -1527,8 +1529,35 @@ def agenda_options(agenda: str | None) -> dict[str, set[str]]:
     return out
 
 
-def mark_values_outside_declared_options(text: str, agenda: str | None) -> tuple[str, list[dict]]:
-    """Mark, never rewrite, a minted value outside the declared option set."""
+def catalogue_field_options(choice_fields) -> dict[str, set[str]]:
+    """field_id -> option ids from the client's `metadata.choice_fields`
+    (every choice field of the form, 2026-09-22). Per FIELD, which is what
+    the agenda's per-node segments could never say. Anything that is not a
+    non-empty list of strings under a string key is skipped, not guessed."""
+    out: dict[str, set[str]] = {}
+    if not isinstance(choice_fields, dict):
+        return out
+    for fid, opts in choice_fields.items():
+        if not isinstance(fid, str) or not isinstance(opts, list):
+            continue
+        clean = {o.strip().lower() for o in opts if isinstance(o, str) and o.strip()}
+        if clean:
+            out[fid] = clean
+    return out
+
+
+def mark_values_outside_declared_options(text: str, agenda: str | None,
+                                         choice_fields=None) -> tuple[str, list[dict]]:
+    """Mark, never rewrite, a minted value outside the declared option set.
+
+    With the client's per-field catalogue the check covers every choice
+    field exactly (measured across the auditor's runs before it shipped,
+    2026-09-22, see docs/handoffs/gp-to-auditor-2026-09-21.md section 14).
+    Without it, the agenda-only rule below: 29 yes/no gates, nothing else.
+    """
+    field_opts: dict[str, set[str]] = catalogue_field_options(choice_fields)
+    if field_opts:
+        return _mark_outside(text, field_opts, CATALOGUE_SHAPE_REASON)
     declared = agenda_options(agenda)
     if not declared:
         return text, []
@@ -1566,6 +1595,10 @@ def mark_values_outside_declared_options(text: str, agenda: str | None) -> tuple
         field_opts[next(iter(fids))] = opts
     if not field_opts:
         return text, []
+    return _mark_outside(text, field_opts, OPTION_SHAPE_REASON)
+
+
+def _mark_outside(text: str, field_opts: dict[str, set[str]], reason: str) -> tuple[str, list[dict]]:
     try:
         turn = json.loads(text)
     except (TypeError, ValueError):
@@ -1583,7 +1616,7 @@ def mark_values_outside_declared_options(text: str, agenda: str | None) -> tuple
         if isinstance(value, str) and value.strip().lower() in opts:
             continue
         off.append({"field_id": f.get("field_id"), "value": value,
-                    "declared": sorted(opts), "reason": OPTION_SHAPE_REASON})
+                    "declared": sorted(opts), "reason": reason})
     if not off:
         return text, []
     turn["values_outside_declared_options"] = off
