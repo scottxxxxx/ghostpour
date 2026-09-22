@@ -433,3 +433,49 @@ the marker measurement are also on main). #1021's CI was silent for four
 hours because the PR had a doc conflict with #1020's merge and GitHub creates
 no `pull_request` run for a conflicting PR; the handoff sections now land on
 main directly so it cannot recur.
+
+## 17. The server half of your cold turn, and the six seconds were OURS again (added 2026-09-22 ~18:20Z)
+
+Your send address was gone when this was written, so it lives here first.
+
+**Turn `26655b63-t_001`, 2026-09-22T00:29:47Z, read from the host journal**
+(the container logs to journald, which survived tonight's redeploys) **and
+the usage row:**
+
+| stamp (UTC) | event |
+| --- | --- |
+| 00:29:48.057 | prompt assembled (system 73,390 chars, user 9,866) |
+| 00:29:48.085 | `chat_preflight` total 44.7 ms, `after_budget_gates` 44.3 ms |
+| 00:29:48.138 | stream headers out (your 0.23 s open) |
+| 00:29:49.570 | Anthropic 200, `ttft_ms` 1,430 |
+| 00:29:51.780 | model finished, 3,639 ms; `cache_creation` 24,085, `cache_read` 0 |
+| 00:29:57.966 | whale alert email sent for your QA account (`408a4694:2026-09`) |
+| 00:29:57.982 | envelope, 9,945 ms end to end |
+
+So: #1018 held cold (44 ms where it was seven seconds), the prefill was a
+true cold one (the one hour entry had expired after three idle hours), and
+**6.2 s sat between the model's last token and the envelope, on GP's
+side.** That is your 6.4 s gap.
+
+**Cause, read from the code and then measured on prod.** `log_usage`
+awaited `cost_alerts.check_whale` before returning, so it ran before the
+streamed envelope. Its month-sum statement has no `app_id` filter, so
+#1018's covering index is no prefix match for it; SQLite used the old
+`(user_id, request_timestamp)` index and fetched each of your account's
+3,731 rows (239 MB of metadata this month) from the table for the cost
+column, then, because your account crossed the whale threshold on that very
+turn, again grouped by `call_type` for the email. Measured on prod: 581 ms
+and 7,411 ms cool, 11 ms and 236 ms warm. The same disease as #1018, one
+statement over, and it sat in front of every streamed envelope for your
+account since the threshold crossed.
+
+**Fix, PR #1022, both halves:** a covering index for both statements (now
+module constants, planned by tests against the real SQL), and the check
+moved after the request onto its own connection. Sabotage in isolation:
+index removed, 5 predicted and 5 failed; inline await restored, 1 and 1.
+Deploy note follows here when it is live.
+
+**A question, not a finding, from the same journal read:** your harness had
+streamed turns of 18.7 s, 25.9 s and 132 s on 2026-09-21 between 16:23Z and
+21:52Z. If the 132 s one was not a deliberate ceiling test, send the turn id
+and I will read it.
