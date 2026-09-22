@@ -1055,6 +1055,11 @@ MIGRATIONS = [
         agreed INTEGER
     )""",
     "CREATE INDEX IF NOT EXISTS idx_typesafe_calls_created ON typesafe_calls(created_at)",
+    # How many facts a judgment was asked about and how many it marked, so the
+    # dashboard can say "marks per turn" (Scott, 2026-09-22). Written by the
+    # N-400 evidence check; NULL for judgments that have no facts to count.
+    "ALTER TABLE typesafe_calls ADD COLUMN facts_checked INTEGER",
+    "ALTER TABLE typesafe_calls ADD COLUMN facts_marked INTEGER",
     # The flat app budget sums this user's spend in this app this month on
     # EVERY turn (app_budget.MONTH_SPEND_SQL). Without a covering index that
     # fetched every one of the user's rows from a table whose rows carry ~63 KB

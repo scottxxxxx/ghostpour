@@ -120,3 +120,84 @@ def test_the_dashboard_panel_calls_this_endpoint_with_the_shared_app_filter():
     assert "getElementById('app')" in fn, "the panel must use the SHARED app filter"
     assert "loadJevHealth();" in html[html.index("async function loadLatency()"):
                                       html.index("async function loadJevHealth()")]
+
+
+# --- marks per turn and the per-judgment trend (Scott, 2026-09-22) -------------------------
+
+@pytest.fixture
+def with_marks(seeded):
+    # Four N-400 evidence turns Jev answered: 3 facts / 1 marked, 2 / 0,
+    # 1 / 1, 2 / 2. And one it did not answer: checked 2, marked None.
+    for checked, marked in ((3, 1), (2, 0), (1, 1), (2, 2)):
+        _rec({"judgment": "n400_evidence_support", "outcome": "ok", "jev_ms": 300,
+              "input_tokens": 800, "facts_checked": checked, "facts_marked": marked}, "n400")
+    _rec({"judgment": "n400_evidence_support", "outcome": "timeout", "fell_back": False,
+          "jev_ms": 10000, "error_type": "ReadTimeout", "facts_checked": 2, "facts_marked": None}, "n400")
+    return seeded
+
+
+def test_the_recorder_writes_the_fact_counts(with_marks, tmp_db_path):
+    conn = sqlite3.connect(tmp_db_path)
+    rows = conn.execute("select facts_checked, facts_marked from typesafe_calls "
+                        "where judgment='n400_evidence_support' order by facts_checked, facts_marked").fetchall()
+    assert rows == [(1, 1), (2, None), (2, 0), (2, 2), (3, 1)]
+    assert conn.execute("select facts_checked from typesafe_calls where judgment='offer_reply'").fetchall() == [(None,)] * 11
+
+
+def test_marks_per_turn_is_over_the_turns_jev_answered(with_marks):
+    d = with_marks.get(URL, params={"app": "n400"}, headers=ADMIN).json()
+    m = d["summary"]["marks"]
+    assert m == {"turns_judged": 4, "turns_with_a_mark": 3, "mark_rate_per_turn": 0.75,
+                 "facts_checked": 8, "facts_marked": 4, "mark_rate_per_fact": 0.5}
+    (j,) = [r for r in d["by_judgment"] if r["judgment"] == "n400_evidence_support"]
+    assert j["marks"]["turns_judged"] == 4, "the timed-out turn is not a turn with zero marks"
+
+
+def test_a_judgment_with_no_facts_has_no_mark_rate(with_marks):
+    d = with_marks.get(URL, params={"app": "shouldersurf"}, headers=ADMIN).json()
+    assert d["summary"]["marks"] == {"turns_judged": 0, "turns_with_a_mark": 0, "mark_rate_per_turn": None,
+                                     "facts_checked": 0, "facts_marked": 0, "mark_rate_per_fact": None}
+
+
+def test_each_judgment_carries_a_trend_aligned_to_the_buckets(with_marks):
+    d = with_marks.get(URL, params={"days": 3, "bucket": "hour"}, headers=ADMIN).json()
+    assert d["bucket"] == "hour"
+    keys = [b["bucket"] for b in d["buckets"]]
+    assert len(keys) >= 3 * 24 and all(len(k) == 19 for k in keys)
+    for j in d["by_judgment"]:
+        t = j["trend"]
+        assert set(t) == {"n", "p50", "p95", "failed", "turns_with_a_mark"}
+        assert all(len(t[k]) == len(keys) for k in t)
+        assert sum(t["n"]) == j["asked"] - j["failed"], "the trend's n is the answered calls, like the models' charts"
+    (ev,) = [r for r in d["by_judgment"] if r["judgment"] == "n400_evidence_support"]
+    assert sum(ev["trend"]["n"]) == 4 and sum(ev["trend"]["failed"]) == 1 and sum(ev["trend"]["turns_with_a_mark"]) == 3
+    assert ev["n"] == 5
+    assert with_marks.get(URL, params={"bucket": "week"}, headers=ADMIN).status_code == 400
+
+
+def test_the_evidence_check_records_what_it_asked_and_what_it_marked(monkeypatch):
+    from unittest.mock import AsyncMock
+    from app.services import n400_evidence_support as es
+    checked = [{"field_id": f, "question": "q", "applicant_said": "s", "cited_words": "c",
+                "recorded_answer": "v", "options": ["v", "w"]} for f in ("a", "b", "c")]
+    body = {"answers": {"f0": {"choice": "insufficient", "confidence": 0.9},
+                        "f1": {"choice": "supports", "confidence": 0.9},
+                        "f2": {"choice": "contradicts", "confidence": 0.2}}}   # under the floor
+    monkeypatch.setattr(tj, "guarded_ask", AsyncMock(return_value=(body, {"judgment": "x", "mode": "primary", "outcome": "ok"})))
+    seen = []
+    monkeypatch.setattr(tj, "record_later", lambda row, app_id: seen.append(row))
+    asyncio.run(es._judge("k", checked, "primary", "n400", "t_1"))
+    assert seen[0]["facts_checked"] == 3 and seen[0]["facts_marked"] == 1
+    monkeypatch.setattr(tj, "guarded_ask", AsyncMock(return_value=(None, {"judgment": "x", "mode": "primary", "outcome": "timeout"})))
+    asyncio.run(es._judge("k", checked, "primary", "n400", "t_2"))
+    assert seen[1]["facts_checked"] == 3 and seen[1]["facts_marked"] is None
+
+
+def test_the_panel_draws_marks_and_the_same_multiples_as_the_models():
+    html = open("app/static/admin.html").read()
+    fn = html[html.index("function renderJevHealth("):html.index("function renderJevHealth(") + 9000]
+    assert "mark_rate_per_turn" in fn and "Marks per turn" in fn
+    assert "renderPerfMultiples('jev-multiples'" in fn, "the judgment charts must be the models' renderer, not a second one"
+    load = html[html.index("async function loadJevHealth()"):html.index("function renderJevHealth(")]
+    assert "params.set('bucket'" in load and "lat-bucket" in load
+    assert 'id="jev-multiples"' in html
