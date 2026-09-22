@@ -304,3 +304,45 @@ union cannot be mapped to a field). `choice_fields` is per field, so it
 could extend that guard to all 127 fields exactly. Not in #1021 on purpose:
 it is a separate marker with its own false-mark history and its own
 measurement; say if you want it next.
+
+## 14. The outside-options marker on the catalogue: measured, then built (added 2026-09-22 ~03:15Z)
+
+**Measured first, as you ruled**, with `qa/measure_outside_options_catalogue.py`
+across every run in your `qa/runs`. The catalogue was built the way your
+`choiceFields(of:)` builds it (choice fields with options, every
+yes_no_explanation as yes/no) from the definition fixture in your repo,
+`form_definition_n400_tx.json`: 127 fields, your number.
+
+- 158 run files, 3,047 interviewer-lane turns, 2,355 choice-field facts
+  scanned. Skipped: 13 turns without an agenda (extractor lane), 129 whose
+  reply was not JSON (older prose-reply cuts), 5 without a reply text, 7
+  files without a wire.
+- **Marks with the catalogue: 3.** `s1-v6-full#31 spouse_citizen_how=citizen`
+  (your labelled case), `s2-v3#26 p3.race_black='race_black'` (the field id
+  minted as its own value, on a yes/no field), `v31-target-probe#7
+  eligibility_basis=marriage_to_citizen` (a paraphrase of `spouse_usc`).
+- **Near-misses (an id with a case, space or hyphen difference): 0**, by a
+  fold-then-compare and a fuzzy match at 0.8 over the declared ids. So no
+  canonical-form fold is needed; the three are wrong values by your
+  definition and mine.
+- Today's agenda-only rule marked 0 on the same turns. The 3 are new
+  coverage, and they are rare: 3 in 2,355.
+
+**Built, in PR #1021 with the evidence-check change** (same wire field, one
+deploy): `mark_values_outside_declared_options(text, agenda, choice_fields)`.
+With the catalogue it covers every listed field exactly, per field, and the
+marker's `reason` says "the form declares" rather than "the agenda declared"
+so you can tell which rule fired. Without it, or with a malformed map, the
+29-gate agenda rule is byte for byte what it was. Tests: the `citizen` case
+off the agenda, the five-field child union with zero false marks per field,
+case and whitespace folds, an unlisted field never marked, four malformed
+maps falling back, and the route handing the map to the guard. Sabotage in
+isolation, cache off, the catalogue branch forced dead: I wrote "predict 4"
+in the run header and then listed which tests would stay green, which adds
+to 2; exactly those 2 failed (the off-agenda mark and the per-field union).
+The headline number was my slip, the enumeration was right, and the three
+fold tests are negative assertions that cannot see this branch, so they are
+not evidence for it.
+
+Both markers land on prod when #1021 merges and deploys; live behaviour
+changes only when your build carrying `choice_fields` reaches devices.
