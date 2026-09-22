@@ -2016,6 +2016,7 @@ async def typesafe_health(
     x_admin_key: str = Header(...),
     days: int = Query(default=7, ge=1, le=90),
     app: str | None = Query(default=None),
+    bucket: str = Query(default="day"),
 ):
     """How the TypeSafe (Jev) judge is doing: is it on, is the breaker open,
     how often it fails, how often Haiku had to decide instead, and how fast
@@ -2035,13 +2036,16 @@ async def typesafe_health(
     from app.services import typesafe_judge
     from app.services.document_generation import _typesafe_mode
 
+    if bucket not in ("hour", "day"):
+        raise HTTPException(status_code=400, detail="bucket must be 'hour' or 'day'")
     apps_filter = _apps_from_filter(app)
     app_clause = _app_sql(apps_filter)
     now = datetime.now(timezone.utc)
     start = (now - timedelta(days=days)).replace(hour=0, minute=0, second=0, microsecond=0)
     cursor = await db.execute(
         """SELECT created_at, judgment, mode, outcome, error_type, fell_back,
-                  jev_ms, fallback_ms, input_tokens, cost_usd, confidence, agreed
+                  jev_ms, fallback_ms, input_tokens, cost_usd, confidence, agreed,
+                  facts_checked, facts_marked
            FROM typesafe_calls
            WHERE created_at >= ?""" + app_clause + """
            ORDER BY created_at""",
@@ -2049,7 +2053,7 @@ async def typesafe_health(
     )
     rows = [dict(zip(("ts", "judgment", "mode", "outcome", "error_type", "fell_back",
                       "jev_ms", "fallback_ms", "input_tokens", "cost_usd",
-                      "confidence", "agreed"), r))
+                      "confidence", "agreed", "facts_checked", "facts_marked"), r))
             for r in await cursor.fetchall()]
 
     def _summary(src: list[dict]) -> dict:
@@ -2061,7 +2065,21 @@ async def typesafe_health(
         outcomes: dict[str, int] = {}
         for r in src:
             outcomes[r["outcome"]] = outcomes.get(r["outcome"], 0) + 1
+        # Marks per turn: over the turns Jev ANSWERED about facts (a failed
+        # call has facts_marked None and is not a turn with zero marks).
+        judged = [r for r in src if r["facts_marked"] is not None]
+        turns_with_a_mark = sum(1 for r in judged if r["facts_marked"] > 0)
+        facts_checked = sum(r["facts_checked"] or 0 for r in judged)
+        facts_marked = sum(r["facts_marked"] for r in judged)
         return {
+            "marks": {
+                "turns_judged": len(judged),
+                "turns_with_a_mark": turns_with_a_mark,
+                "mark_rate_per_turn": round(turns_with_a_mark / len(judged), 4) if judged else None,
+                "facts_checked": facts_checked,
+                "facts_marked": facts_marked,
+                "mark_rate_per_fact": round(facts_marked / facts_checked, 4) if facts_checked else None,
+            },
             "attempts": len(src),
             "asked": len(asked),
             "failed": len(failed),
@@ -2081,6 +2099,28 @@ async def typesafe_health(
         by_day.setdefault(r["ts"][:10], []).append(r)
         by_judgment.setdefault(r["judgment"], []).append(r)
 
+    # The same per-bucket p50/p95 the Performance tab draws for every other
+    # model (`latency-trends`), so the panel's small multiples are the same
+    # chart and the same scale rules: one series per judgment, aligned to
+    # `buckets`, a quiet bucket a gap rather than a squeeze.
+    keys = _bucket_range(bucket, days, now)
+
+    def _trend(src: list[dict]) -> dict:
+        by_bucket: dict[str, list[dict]] = {}
+        for r in src:
+            by_bucket.setdefault(_bucket_key(r["ts"], bucket), []).append(r)
+        n, p50, p95, failed, marked = [], [], [], [], []
+        for k in keys:
+            b = by_bucket.get(k, [])
+            answered = [r["jev_ms"] for r in b
+                        if r["outcome"] in ("ok", "low_confidence") and r["jev_ms"] is not None]
+            n.append(len(answered))
+            p50.append(_percentile(answered, 0.50))
+            p95.append(_percentile(answered, 0.95))
+            failed.append(sum(1 for r in b if r["outcome"] in ("error", "timeout")))
+            marked.append(sum(1 for r in b if (r["facts_marked"] or 0) > 0))
+        return {"n": n, "p50": p50, "p95": p95, "failed": failed, "turns_with_a_mark": marked}
+
     # The Haiku judge's own latency over the same window, from usage_log, so
     # "faster than Haiku" is read off a second source and not off the rows
     # this feature wrote about itself.
@@ -2095,6 +2135,8 @@ async def typesafe_health(
     mode, key = _typesafe_mode()
     return {
         "days": days,
+        "bucket": bucket,
+        "buckets": [{"bucket": k} for k in keys],
         "window": {"from": start.isoformat(), "to": now.isoformat()},
         "apps": list(apps_filter),
         # Process state, the same for every app filter.
@@ -2110,7 +2152,8 @@ async def typesafe_health(
                         "p95_ms": _percentile(haiku_ms, 0.95)},
         # One row per thing Jev is asked to judge. They share a breaker and
         # fail together, but they are slow and wrong independently.
-        "by_judgment": [{"judgment": j, **_summary(v)} for j, v in sorted(by_judgment.items())],
+        "by_judgment": [{"judgment": j, **_summary(v), "n": len(v), "trend": _trend(v)}
+                        for j, v in sorted(by_judgment.items())],
         "by_day": [{"date": d, **_summary(v)} for d, v in sorted(by_day.items())],
         "recent_failures": [
             {"ts": r["ts"], "judgment": r["judgment"], "mode": r["mode"],
