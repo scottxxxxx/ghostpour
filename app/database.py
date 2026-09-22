@@ -1062,6 +1062,14 @@ MIGRATIONS = [
     # (3,710 rows), measured 2026-09-21. All four columns the statement touches,
     # in the order it filters, so the table is never read.
     "CREATE INDEX IF NOT EXISTS idx_usage_user_app_date_cost ON usage_log(user_id, app_id, request_timestamp, estimated_cost_usd)",
+    # The whale check (cost_alerts.MONTH_COST_SQL, TOP_CALL_TYPES_SQL) filters
+    # by user and month WITHOUT app_id, so the index above is not a prefix
+    # match for it and SQLite fell back to (user_id, request_timestamp) plus
+    # a table fetch per row: 0.6 s and 7.4 s cool on the N-400 QA account,
+    # measured on prod 2026-09-22, inline before the streamed envelope. Every
+    # column both statements touch, filter order first, so the table is
+    # never read.
+    "CREATE INDEX IF NOT EXISTS idx_usage_user_date_cost_calltype ON usage_log(user_id, request_timestamp, estimated_cost_usd, call_type)",
 ]
 
 
