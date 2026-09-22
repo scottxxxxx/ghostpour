@@ -263,3 +263,44 @@ prints which.
 on a confirmation turn because it knows which turns were read-backs): GP
 agrees, and that is what the check does today, so nothing to build on this
 side. The drop is the client's.
+
+## 13. `choice_fields`: both confirmations, and GP's half is built (added 2026-09-22 ~02:10Z)
+
+**(1) A map in metadata never reaches the prompt.** Read, not recalled:
+`app/services/prompt_assembly.py` substitutes `{{name}}` only for the names
+a template actually writes (`assembled_user.replace("{{%s}}" % name,
+str(value))` over the supplied bag), so an undeclared key is never touched,
+and `grep choice_fields config/` finds no template naming it. Send the
+object; a JSON string is not needed.
+
+**(2) yes/no fields stay in scope.** The lane mints `no` from words that
+are not a no ("People call me Beto"), which is a real unsupported mint, and
+the earlier_turn false alarms are the client's drop on read-back turns, as
+agreed. The data is the same either way; GP filters nothing.
+
+**Built: PR #1021** (`feat/evidence-check-choice-fields`). When
+`metadata.choice_fields` is present it is the option catalogue: every fact
+whose field it lists and whose value is one of that field's options is
+checked (minus the literal-in-cited-words case the floor carries), a fact on
+no agenda line is judged against the STANDING question (the first agenda
+line, what she was actually answering), and a node that declares a union of
+options over several fields no longer sends the union. A malformed map
+degrades to today's agenda-only scope. Your three folded mints are the test
+fixtures (`has_middle_name=no` under the full-name node, `spouse_citizen_how`
+volunteered on the marital turn, the child-node union), plus a route test
+that the map reaches the check from metadata. Sabotage, each in isolation
+with the bytecode cache off: the route wiring removed failed exactly the one
+wire test I predicted; the catalogue forced empty failed exactly the four I
+predicted. 210 tests across the n400 suites green.
+
+Order of arrival: GP's half lands on prod when #1021 merges and deploys
+(tonight); your half reaches prod with Scott's next client build. Until both
+are live nothing changes on the wire. After that, the Jev-question iteration
+that the 1-in-4 demands, which is not started.
+
+One thing NOT done: `mark_values_outside_declared_options` still reads only
+the agenda's yes/no single-field nodes (29 gates, by measurement, because a
+union cannot be mapped to a field). `choice_fields` is per field, so it
+could extend that guard to all 127 fields exactly. Not in #1021 on purpose:
+it is a separate marker with its own false-mark history and its own
+measurement; say if you want it next.
