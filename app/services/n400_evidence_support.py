@@ -18,8 +18,16 @@ has nothing to match. Whether words establish an option is a judgment, and
 it is asked of TypeSafe (Jev) as one: a `choice`, with a confidence floor.
 
 SCOPE, deliberately narrow:
-  * only facts whose value is one of the options the agenda declares for a
-    node that lists the field, and
+  * only facts whose value is one of the declared options for the field.
+    The client's `metadata.choice_fields` (field_id -> option ids, every
+    choice field of the form, 2026-09-22) is the catalogue when it is sent;
+    it names the options PER FIELD, so a folded gate (has_middle_name under
+    the full-name node) or a value volunteered for a node the agenda has not
+    reached yet is checked like any other, and a node that declares a UNION
+    of options over several fields no longer sends the union. Without it the
+    catalogue is the agenda's own `options:` segments, which only see fields
+    on a listed line: the auditor's labelled set (qa/labelled-option-mints)
+    had three real mints that scope could not see. And
   * only when that value does NOT literally appear in the cited words (a
     "yes" quoted for a yes/no fact is already carried by the floor).
   Dates, names and numbers are never sent: Jev's own notes say it is weak at
@@ -58,31 +66,73 @@ UNSUPPORTED_REASON = "her words do not establish this option"
 MAX_FACTS_PER_TURN = 8
 
 
-def enum_facts_to_check(turn: dict, agenda: str | None, user_content: str | None) -> list[dict]:
+def choice_catalogue(choice_fields) -> dict[str, list[str]]:
+    """field_id -> its declared option ids, from the client's per-field map.
+
+    Lower-cased like the agenda's options. Anything that is not a non-empty
+    list of strings under a string key is skipped, never guessed, so a
+    malformed map degrades to the agenda-only scope rather than to a wrong
+    question.
+    """
+    out: dict[str, list[str]] = {}
+    if not isinstance(choice_fields, dict):
+        return out
+    for fid, opts in choice_fields.items():
+        if not isinstance(fid, str) or not isinstance(opts, list):
+            continue
+        clean = sorted({o.strip().lower() for o in opts if isinstance(o, str) and o.strip()})
+        if clean:
+            out[fid] = clean
+    return out
+
+
+def enum_facts_to_check(turn: dict, agenda: str | None, user_content: str | None,
+                        choice_fields=None) -> list[dict]:
     """The minted facts worth a judgment, each with what Jev needs to make it."""
     facts = turn.get("facts")
     if not isinstance(facts, list) or not facts:
         return []
+    catalogue = choice_catalogue(choice_fields)
     options = agenda_options(agenda)
-    if not options:
+    if not options and not catalogue:
         return []
     fields = agenda_field_ids(agenda)
     questions = agenda_questions(agenda)
+    # The first agenda line is the standing node, the question she was
+    # actually answering. A fact minted for a field on no line (a folded
+    # gate, a volunteered value) is judged against THAT question: she was
+    # asked about her marital status and the system recorded how her spouse
+    # became a citizen, and Jev's `unrelated` and `insufficient` are built
+    # for exactly that reading.
+    standing_question = next(iter(questions.values()), "")
     out = []
     for f in facts:
         if not isinstance(f, dict) or not isinstance(f.get("value"), str):
             continue
+        fid = f.get("field_id")
         value = f["value"].strip().lower()
-        node = next((n for n, opts in options.items()
-                     if f.get("field_id") in fields.get(n, set()) and value in opts), None)
-        if node is None:
-            continue
+        node = next((n for n, ids in fields.items() if fid in ids), None)
+        if catalogue:
+            declared = catalogue.get(fid) if isinstance(fid, str) else None
+            if not declared or value not in declared:
+                # Not a choice field, or a value outside its options: the
+                # latter is `mark_values_outside_declared_options`' business.
+                continue
+            opts = declared
+            question = questions.get(node, "") if node is not None else standing_question
+        else:
+            node = next((n for n, opts in options.items()
+                         if fid in fields.get(n, set()) and value in opts), None)
+            if node is None:
+                continue
+            opts = sorted(options[node])
+            question = questions.get(node, "")
         cited = ((f.get("provenance") or {}).get("utterance")) or ""
         if _norm(value) and _norm(value) in _norm(cited):
             continue
-        out.append({"field_id": f.get("field_id"), "question": questions.get(node, ""),
+        out.append({"field_id": fid, "question": question,
                     "applicant_said": user_content or "", "cited_words": cited,
-                    "recorded_answer": f["value"], "options": sorted(options[node])})
+                    "recorded_answer": f["value"], "options": list(opts)})
     return out[:MAX_FACTS_PER_TURN]
 
 
@@ -147,7 +197,7 @@ async def _judge(api_key: str, checked: list[dict], mode: str, app_id, turn_id) 
 
 async def mark_unsupported_enum_facts(text: str, agenda: str | None, user_content: str | None,
                                       turn_id: str | None, app_id: str | None,
-                                      mode: str, api_key: str) -> str:
+                                      mode: str, api_key: str, choice_fields=None) -> str:
     """The response text, with `facts_unsupported` added in primary mode when
     Jev is confident a minted option is not established. Every other path
     returns `text` byte for byte. Never raises."""
@@ -157,7 +207,7 @@ async def mark_unsupported_enum_facts(text: str, agenda: str | None, user_conten
         turn = json.loads(text)
         if not isinstance(turn, dict):
             return text
-        checked = enum_facts_to_check(turn, agenda, user_content)
+        checked = enum_facts_to_check(turn, agenda, user_content, choice_fields)
         if not checked:
             return text
         if mode == "shadow":

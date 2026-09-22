@@ -4529,7 +4529,8 @@ async def _chat_impl(
             response.text = guard_response_text(
                 response.text, _agenda, body.get_meta("turn_id"),
                 user_content=body.get_meta("user_input") or _n400_utterance,
-                conversation=body.get_meta("conversation"))
+                conversation=body.get_meta("conversation"),
+                choice_fields=body.get_meta("choice_fields"))
             # After the deterministic guards, so it judges only the facts
             # that survived them. Marks, never drops, and every failure
             # leaves the text as it was. See n400_evidence_support.
@@ -4539,7 +4540,11 @@ async def _chat_impl(
             response.text = await mark_unsupported_enum_facts(
                 response.text, _agenda,
                 body.get_meta("user_input") or _n400_utterance,
-                body.get_meta("turn_id"), app_id, _ts_mode, _ts_key)
+                body.get_meta("turn_id"), app_id, _ts_mode, _ts_key,
+                # The client's per-field option catalogue (2026-09-22). A
+                # dict in metadata never reaches the prompt: prompt_assembly
+                # substitutes only the {{names}} a template writes.
+                choice_fields=body.get_meta("choice_fields"))
 
         # Surface the cleaned transcript (if cleanup ran for this analysis call)
         # so iOS can persist it to MeetingRecord.cleanedTranscript. Absent when
