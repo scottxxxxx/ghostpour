@@ -82,7 +82,21 @@ async def drain(timeout: float = 5.0) -> int:
     """Wait for the checks still in flight, then cancel the rest. Called at
     app shutdown so a restart never races a half-open connection. Returns
     how many were still running when it was called."""
-    live = [t for t in _LIVE if not t.done()]
+    # Only the running loop's tasks can be awaited here. The registry is
+    # module-wide and, under a test runner, outlives many loops: a task from
+    # a closed loop is dead (dropped), one from another live loop is not
+    # ours to wait on (left alone). Gathering across loops raises
+    # "The future belongs to a different loop", which took 44 unrelated
+    # tests down with it in CI on 2026-09-22.
+    loop = asyncio.get_running_loop()
+    live = []
+    for t in list(_LIVE):
+        if t.done():
+            _LIVE.discard(t)
+        elif t.get_loop() is loop:
+            live.append(t)
+        elif t.get_loop().is_closed():
+            _LIVE.discard(t)
     if not live:
         return 0
     try:

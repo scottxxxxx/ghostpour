@@ -120,3 +120,28 @@ def test_the_app_drains_the_checks_at_shutdown():
     src = open("app/main.py").read()
     y = src.index("yield", src.index("async def lifespan("))
     assert "await cost_alerts.drain()" in src[y:], "shutdown must drain the whale checks"
+
+
+def test_drain_ignores_tasks_that_belong_to_other_loops(monkeypatch):
+    """The registry outlives event loops (a test runner makes many). A task
+    from a closed loop is dropped, one from another live loop is left alone,
+    and neither is gathered: gathering across loops raises."""
+    async def stuck(db, user_id):
+        await asyncio.sleep(30)
+    monkeypatch.setattr(cost_alerts, "check_whale", stuck)
+
+    async def schedule():
+        return cost_alerts.check_whale_later("other")
+    dead_loop = asyncio.new_event_loop()
+    t_dead = dead_loop.run_until_complete(schedule())
+    dead_loop.close()                       # its task can never run again
+    assert t_dead in cost_alerts._LIVE
+
+    async def drain_here():
+        mine = cost_alerts.check_whale_later("mine")
+        await asyncio.sleep(0)
+        n = await cost_alerts.drain(timeout=0.2)
+        return mine, n
+    mine, n = asyncio.run(drain_here())
+    assert n == 1 and mine.cancelled()
+    assert t_dead not in cost_alerts._LIVE, "a task on a closed loop is dropped, not gathered"
