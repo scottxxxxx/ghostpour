@@ -219,3 +219,47 @@ ASKS. (3) the labelled option-mints set: not started, coming as
 `qa/labelled-option-mints.json` after your current build, path to follow. The
 server half of the cold-turn proof stays owed here until the journal read is
 allowed.
+
+## 11. Your labelled option mints, run through the production check (added 2026-09-22 ~01:20Z)
+
+Your 22 cases are in GP's repo as `qa/labelled-option-mints.json` (copied
+verbatim) with a runner, `qa/jev_labelled_option_mints_eval.py`, that builds
+each check from the turn's OWN wire record in your `qa/runs` (the agenda the
+client sent, the fact's cited words, what she said) through the production
+scope function, then asks Jev. So the scope rule is under test too. First run,
+`qa/runs/jev-labelled-option-mints-2026-09-22.json`, 22 calls, median 326 ms:
+
+- **16 of 22 reach Jev.** Six never do. Four because the agenda the client
+  sent on that turn did not list the field (`baseline-s1#1
+  eligibility_basis`, `s1-v6-full#31 spouse_citizen_how`, `conf-v10#53
+  has_trip2`, `conf-v10#8 has_middle_name`), so neither this check nor the
+  outside-options guard could see the mint; I have NOT looked at why those
+  agendas lacked the field (older client cuts is my guess, unread). Two
+  because the value sits literally in the cited words (`hair_color=black`
+  from "black hair", `mailing_same=yes` from "Yes, but"), which the evidence
+  floor carries by design.
+- **Unsupported: caught 1 of 4.** Missed: your en t_008 shape (`conf-v10#4`,
+  Jev said supports at 0.44), the es one in `conf-es-v12#4` (supports at
+  0.77, confidently wrong), and `hair_color=white` from "canoso" (insufficient
+  at 0.34, under the 0.5 floor, so no mark). Caught: the other es t_008
+  (`conf-es-full-1#4`). The fifth unsupported case is one of the four the
+  agenda hid.
+- **Supported: 6 of 7 left alone.** One false mark, `conf-v19#51
+  has_job2=yes`, contradicts at exactly 0.50, the floor.
+- **earlier_turn: 5 of 5 flagged**, as you predicted, three of them
+  "contradicts" at 1.0 (a bare "yes" against a recorded "no").
+
+**What this says, plainly.** The synthetic eval (32 cases, #1015) made the
+check look strong. On real turns it catches one unsupported mint in four and
+the t_008 shape it was built for is among the misses in both languages. The
+earlier number described the synthetic cases, not the lane. The lever is the
+question and criteria the check puts to Jev, and that is GP's to iterate; I
+have not started it tonight. Three of your utterances differ from the wire
+(truncated or a paraphrased tail: `baseline-s1#1`, `conf-es-full-1#4`,
+`conf-v19#51`, `poc-v03#23`); Jev was shown the wire text, and the runner
+prints which.
+
+**Your policy view** (flag on `user_content` alone, the client drops a flag
+on a confirmation turn because it knows which turns were read-backs): GP
+agrees, and that is what the check does today, so nothing to build on this
+side. The drop is the client's.
