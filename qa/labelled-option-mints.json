@@ -1,7 +1,7 @@
 {
  "purpose": "Hand-labelled cases for GhostPour's evidence support check (qa/jev_evidence_support_eval.py, PR #1015): turns where the interviewer minted an OPTION value (a choice field) and whether the applicant's words on THAT turn established it. Labels are one person's reading of each turn, arguable and reviewable; an instrument that cannot separate these should not produce a number.",
  "labelled_by": "fable-auditor, 2026-09-21",
- "source": "Every choice-field fact in the lane's replies across qa/runs (1,029 facts, 563 distinct field+utterance pairs), deduplicated; the cases below are the ones where the question is interesting, plus plain positives as controls. Trivial 'no' answers to yes/no gates were left out.",
+ "source": "Every choice-field fact in the lane's replies across qa/runs (1,029 facts, 563 distinct field+utterance pairs), deduplicated; the cases below are the ones where the question is interesting, plus plain positives as controls. Trivial 'no' answers to yes/no gates were left out. Utterances are the wire's user_content verbatim (corrected 2026-09-21 after GP diffed them). field_on_agenda says whether the client's agenda on that turn listed the field: a folded gate (has_middle_name, has_trip2 while a later gate stands) or a volunteered value is minted OFF the agenda by design, which is where a check scoped to the agenda cannot see.",
  "marks": {
   "supported": "The words on this turn establish the option. facts_unsupported must NOT carry it.",
   "unsupported": "The words on this turn do not establish the option (or name a different one). facts_unsupported SHOULD carry it.",
@@ -21,7 +21,8 @@
    "field": "p1.eligibility_basis",
    "value": "general_provision",
    "mark": "unsupported",
-   "why": "Five years with the card does not rule out the three year spouse path; nothing here says on her own or through a spouse. The lane itself asked exactly that as its next question in the device run of 2026-09-20, which is the app admitting it was not established."
+   "why": "Five years with the card does not rule out the three year spouse path; nothing here says on her own or through a spouse. The lane itself asked exactly that as its next question in the device run of 2026-09-20, which is the app admitting it was not established.",
+   "field_on_agenda": true
   },
   {
    "run": "conf-es-v20.json",
@@ -31,17 +32,19 @@
    "field": "p1.eligibility_basis",
    "value": "general_provision",
    "mark": "unsupported",
-   "why": "Same case in Spanish: 'cinco años' alone; she even opens with 'no sé'."
+   "why": "Same case in Spanish: 'cinco años' alone; she even opens with 'no sé'.",
+   "field_on_agenda": true
   },
   {
    "run": "conf-es-v12.json",
    "turn": 4,
    "locale": "es",
-   "utterance": "sí tengo la green card y el pasaporte aquí en la bolsa, las direcciones y los trabajos me los sé",
+   "utterance": "sí tengo la green card y el pasaporte aquí en la bolsa, las direcciones y los trabajos me los sé de memoria, y lo otro, perdón, no sé, mi hija me dijo que ya puedo aplicar, tengo la green card cinco años",
    "field": "p1.eligibility_basis",
    "value": "general_provision",
    "mark": "unsupported",
-   "why": "She answered the documents question. Nothing about years or a spouse at all."
+   "why": "She answered the documents question. Nothing about years or a spouse at all.",
+   "field_on_agenda": true
   },
   {
    "run": "edge-q1-0.json",
@@ -51,17 +54,19 @@
    "field": "p1.eligibility_basis",
    "value": "general_provision",
    "mark": "supported",
-   "why": "'On my own' plus five years is the general provision in her words."
+   "why": "'On my own' plus five years is the general provision in her words.",
+   "field_on_agenda": true
   },
   {
    "run": "baseline-s1.json",
    "turn": 1,
    "locale": "en",
-   "utterance": "My husband is a U.S. citizen and we've been married a little over three years, and I've had my green card three years",
+   "utterance": "My husband is a U.S. citizen and we've been married a little over three years, and I've had my green card since 2019.",
    "field": "p1.eligibility_basis",
    "value": "spouse_of_us_citizen_3_years",
    "mark": "supported",
-   "why": "Every element of the spouse path is in the sentence."
+   "why": "Every element of the spouse path is in the sentence.",
+   "field_on_agenda": false
   },
   {
    "run": "s1-v6-full.json",
@@ -71,7 +76,8 @@
    "field": "p5.spouse_citizen_how",
    "value": "citizen",
    "mark": "unsupported",
-   "why": "'He's a U.S. citizen' says that he is one, not HOW (by birth or naturalized). 'citizen' is not a way of becoming one; the option set does not fit the words."
+   "why": "'He's a U.S. citizen' says that he is one, not HOW (by birth or naturalized). 'citizen' is not a way of becoming one; the option set does not fit the words.",
+   "field_on_agenda": false
   },
   {
    "run": "v36-baseline-G.json",
@@ -81,7 +87,8 @@
    "field": "p5.spouse_citizen_how",
    "value": "by_birth",
    "mark": "supported",
-   "why": "Born in the United States is by birth."
+   "why": "Born in the United States is by birth.",
+   "field_on_agenda": true
   },
   {
    "run": "poc-v02.json",
@@ -91,7 +98,8 @@
    "field": "p3.hair_color",
    "value": "white",
    "mark": "unsupported",
-   "why": "'Canoso' is gray. The lane picked white; gray is an option. A wrong option minted from words that name a different one."
+   "why": "'Canoso' is gray. The lane picked white; gray is an option. A wrong option minted from words that name a different one.",
+   "field_on_agenda": true
   },
   {
    "run": "conf-v20.json",
@@ -101,7 +109,8 @@
    "field": "p3.hair_color",
    "value": "black",
    "mark": "supported",
-   "why": "She names black twice and qualifies the gray herself."
+   "why": "She names black twice and qualifies the gray herself.",
+   "field_on_agenda": true
   },
   {
    "run": "conf-v11.json",
@@ -111,7 +120,8 @@
    "field": "p6.child1.residence",
    "value": "resides_with_me",
    "mark": "earlier_turn",
-   "why": "Nothing in these words says where the child lives. The previous turn (t42) said 'she lives with me'. True on the case, not established by THIS utterance; a check that compares against this turn's words should flag it, and the flag is a false alarm for her."
+   "why": "Nothing in these words says where the child lives. The previous turn (t42) said 'she lives with me'. True on the case, not established by THIS utterance; a check that compares against this turn's words should flag it, and the flag is a false alarm for her.",
+   "field_on_agenda": true
   },
   {
    "run": "conf-v11.json",
@@ -121,7 +131,8 @@
    "field": "p6.child1.relationship",
    "value": "biological",
    "mark": "supported",
-   "why": "'My own daughter' is biological in plain speech."
+   "why": "'My own daughter' is biological in plain speech.",
+   "field_on_agenda": true
   },
   {
    "run": "conf-es-full-1.json",
@@ -131,7 +142,8 @@
    "field": "p6.child1.relationship",
    "value": "biological",
    "mark": "supported",
-   "why": "'De sangre' is biological."
+   "why": "'De sangre' is biological.",
+   "field_on_agenda": true
   },
   {
    "run": "conf-v10.json",
@@ -141,7 +153,8 @@
    "field": "p8.has_trip2",
    "value": "yes",
    "mark": "supported",
-   "why": "'Those two' concedes a second trip exists; the no answers a third."
+   "why": "'Those two' concedes a second trip exists; the no answers a third.",
+   "field_on_agenda": false
   },
   {
    "run": "s2-v6-full.json",
@@ -151,7 +164,8 @@
    "field": "p8.has_trip2",
    "value": "no",
    "mark": "earlier_turn",
-   "why": "A bare yes to a read-back. The value comes from what was read back (t56 'Just that one'), not from these words. Flagging it would be technically right and useless to her."
+   "why": "A bare yes to a read-back. The value comes from what was read back (t56 'Just that one'), not from these words. Flagging it would be technically right and useless to her.",
+   "field_on_agenda": true
   },
   {
    "run": "conf-v9.json",
@@ -161,7 +175,8 @@
    "field": "p8.has_trip3",
    "value": "no",
    "mark": "earlier_turn",
-   "why": "A bare yes minted NO: only the question it answered ('is that all?') makes it right. Same shape as above; whether the check should fire depends on whether it can see the question."
+   "why": "A bare yes minted NO: only the question it answered ('is that all?') makes it right. Same shape as above; whether the check should fire depends on whether it can see the question.",
+   "field_on_agenda": true
   },
   {
    "run": "poc-v09.json",
@@ -171,7 +186,8 @@
    "field": "p2.gender",
    "value": "female",
    "mark": "earlier_turn",
-   "why": "She said 'I'm a woman' at t4; this yes confirms a read-back."
+   "why": "She said 'I'm a woman' at t4; this yes confirms a read-back.",
+   "field_on_agenda": true
   },
   {
    "run": "s2-v6-full.json",
@@ -181,27 +197,30 @@
    "field": "p12.has_interpreter",
    "value": "no",
    "mark": "earlier_turn",
-   "why": "A yes minted NO; right only against the question ('doing this yourself?'). Not established by the words."
+   "why": "A yes minted NO; right only against the question ('doing this yourself?'). Not established by the words.",
+   "field_on_agenda": true
   },
   {
    "run": "conf-v19.json",
    "turn": 51,
    "locale": "en",
-   "utterance": "no, just the houses. before that I worked in a laundromat but that was twenty seventeen to twenty eighteen",
+   "utterance": "no, just the houses. before that I worked in a laundromat but that was twenty seventeen to twenty eighteen, that's a long time ago",
    "field": "p7.has_job2",
    "value": "yes",
    "mark": "supported",
-   "why": "She names a second job in the same breath as the no; the job is established by her words even though her yes/no was no. (Whether it falls inside the five year window is the CLIENT's call, never the lane's, per the 2026-09-18 ruling.)"
+   "why": "She names a second job in the same breath as the no; the job is established by her words even though her yes/no was no. (Whether it falls inside the five year window is the CLIENT's call, never the lane's, per the 2026-09-18 ruling.)",
+   "field_on_agenda": true
   },
   {
    "run": "poc-v03.json",
    "turn": 23,
    "locale": "en",
-   "utterance": "Yes, but it has to be addressed care of my sister, Blessing Adeyemi, since the house isn't in my name",
+   "utterance": "Yes, but it has to be addressed care of my sister, Blessing Adeyemi, since the house isn't in my name. Is that going to cause a problem?",
    "field": "p4.mailing_same",
    "value": "yes",
    "mark": "supported",
-   "why": "Yes with a care-of note is still yes; the note belongs in the mailing address, not in this value."
+   "why": "Yes with a care-of note is still yes; the note belongs in the mailing address, not in this value.",
+   "field_on_agenda": true
   },
   {
    "run": "conf-v10.json",
@@ -211,7 +230,8 @@
    "field": "p2.has_middle_name",
    "value": "no",
    "mark": "supported",
-   "why": "Stated outright."
+   "why": "Stated outright.",
+   "field_on_agenda": false
   },
   {
    "run": "reg9-spouse.json",
@@ -221,7 +241,8 @@
    "field": "p5.spouse_has_a_number",
    "value": "no",
    "mark": "supported",
-   "why": "Stated outright."
+   "why": "Stated outright.",
+   "field_on_agenda": true
   },
   {
    "run": "conf-es-full-1.json",
@@ -231,7 +252,8 @@
    "field": "p5.marital_status",
    "value": "widowed",
    "mark": "supported",
-   "why": "'Falleció' is widowed."
+   "why": "'Falleció' is widowed.",
+   "field_on_agenda": true
   }
  ]
 }

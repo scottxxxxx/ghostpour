@@ -74,10 +74,13 @@ def scope_reason(fact: dict | None, agenda: str | None, c: dict) -> str:
     from app.services.n400_interviewer_guard import _norm, agenda_field_ids, agenda_options
     if fact is None:
         return "fact not in the reply"
+    if not agenda:
+        return "the request carries no agenda at all (an extractor-lane run; out of scope for an agenda-scoped check)"
     options, fields = agenda_options(agenda), agenda_field_ids(agenda)
     nodes = [n for n, ids in fields.items() if c["field"] in ids]
     if not nodes:
-        return "no agenda line lists the field"
+        return ("no agenda line lists the field: a folded gate or a volunteered value from a later node, "
+                "which the client folds BY DESIGN (auditor, 2026-09-22); invisible to every GP guard today")
     declared = {o for n in nodes for o in options.get(n, set())}
     if not declared:
         return "the agenda line declares no options"
