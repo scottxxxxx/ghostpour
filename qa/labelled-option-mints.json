@@ -1,0 +1,237 @@
+{
+ "purpose": "Hand-labelled cases for GhostPour's evidence support check (qa/jev_evidence_support_eval.py, PR #1015): turns where the interviewer minted an OPTION value (a choice field) and whether the applicant's words on THAT turn established it. Labels are one person's reading of each turn, arguable and reviewable; an instrument that cannot separate these should not produce a number.",
+ "labelled_by": "fable-auditor, 2026-09-21",
+ "source": "Every choice-field fact in the lane's replies across qa/runs (1,029 facts, 563 distinct field+utterance pairs), deduplicated; the cases below are the ones where the question is interesting, plus plain positives as controls. Trivial 'no' answers to yes/no gates were left out.",
+ "marks": {
+  "supported": "The words on this turn establish the option. facts_unsupported must NOT carry it.",
+  "unsupported": "The words on this turn do not establish the option (or name a different one). facts_unsupported SHOULD carry it.",
+  "earlier_turn": "True on the case and NOT established by this turn's words: a bare yes to a read-back, or a value carried from an earlier turn. A check that sees only user_content will flag it; the flag is correct by the evidence rule and a false alarm for the applicant. Decide as a policy whether the check may read the question or the prior turn; these cases are what that decision is about."
+ },
+ "counts": {
+  "unsupported": 5,
+  "supported": 12,
+  "earlier_turn": 5
+ },
+ "cases": [
+  {
+   "run": "conf-v10.json",
+   "turn": 4,
+   "locale": "en",
+   "utterance": "I don't know, my daughter said I can apply now, I have the green card five years",
+   "field": "p1.eligibility_basis",
+   "value": "general_provision",
+   "mark": "unsupported",
+   "why": "Five years with the card does not rule out the three year spouse path; nothing here says on her own or through a spouse. The lane itself asked exactly that as its next question in the device run of 2026-09-20, which is the app admitting it was not established."
+  },
+  {
+   "run": "conf-es-v20.json",
+   "turn": 4,
+   "locale": "es",
+   "utterance": "no sé, mi hija me dijo que ya puedo aplicar, ya tengo la green card cinco años",
+   "field": "p1.eligibility_basis",
+   "value": "general_provision",
+   "mark": "unsupported",
+   "why": "Same case in Spanish: 'cinco años' alone; she even opens with 'no sé'."
+  },
+  {
+   "run": "conf-es-v12.json",
+   "turn": 4,
+   "locale": "es",
+   "utterance": "sí tengo la green card y el pasaporte aquí en la bolsa, las direcciones y los trabajos me los sé",
+   "field": "p1.eligibility_basis",
+   "value": "general_provision",
+   "mark": "unsupported",
+   "why": "She answered the documents question. Nothing about years or a spouse at all."
+  },
+  {
+   "run": "edge-q1-0.json",
+   "turn": 3,
+   "locale": "en",
+   "utterance": "on my own, about 5 years",
+   "field": "p1.eligibility_basis",
+   "value": "general_provision",
+   "mark": "supported",
+   "why": "'On my own' plus five years is the general provision in her words."
+  },
+  {
+   "run": "baseline-s1.json",
+   "turn": 1,
+   "locale": "en",
+   "utterance": "My husband is a U.S. citizen and we've been married a little over three years, and I've had my green card three years",
+   "field": "p1.eligibility_basis",
+   "value": "spouse_of_us_citizen_3_years",
+   "mark": "supported",
+   "why": "Every element of the spouse path is in the sentence."
+  },
+  {
+   "run": "s1-v6-full.json",
+   "turn": 31,
+   "locale": "en",
+   "utterance": "I'm married. My husband is Daniel Cho, he's a U.S. citizen, and we got married on May 20, 2023.",
+   "field": "p5.spouse_citizen_how",
+   "value": "citizen",
+   "mark": "unsupported",
+   "why": "'He's a U.S. citizen' says that he is one, not HOW (by birth or naturalized). 'citizen' is not a way of becoming one; the option set does not fit the words."
+  },
+  {
+   "run": "v36-baseline-G.json",
+   "turn": 2,
+   "locale": "en",
+   "utterance": "He was born here, in Chicago.",
+   "field": "p5.spouse_citizen_how",
+   "value": "by_birth",
+   "mark": "supported",
+   "why": "Born in the United States is by birth."
+  },
+  {
+   "run": "poc-v02.json",
+   "turn": 19,
+   "locale": "es",
+   "utterance": "Los ojos cafes, como los de toda mi familia, y el cabello pues ya lo tengo canoso pero antes era negro",
+   "field": "p3.hair_color",
+   "value": "white",
+   "mark": "unsupported",
+   "why": "'Canoso' is gray. The lane picked white; gray is an option. A wrong option minted from words that name a different one."
+  },
+  {
+   "run": "conf-v20.json",
+   "turn": 29,
+   "locale": "en",
+   "utterance": "brown eyes and black hair well some gray now but black",
+   "field": "p3.hair_color",
+   "value": "black",
+   "mark": "supported",
+   "why": "She names black twice and qualifies the gray herself."
+  },
+  {
+   "run": "conf-v11.json",
+   "turn": 43,
+   "locale": "en",
+   "utterance": "February eleven two thousand one, she's my daughter, my own daughter, Mariana Torres",
+   "field": "p6.child1.residence",
+   "value": "resides_with_me",
+   "mark": "earlier_turn",
+   "why": "Nothing in these words says where the child lives. The previous turn (t42) said 'she lives with me'. True on the case, not established by THIS utterance; a check that compares against this turn's words should flag it, and the flag is a false alarm for her."
+  },
+  {
+   "run": "conf-v11.json",
+   "turn": 43,
+   "locale": "en",
+   "utterance": "February eleven two thousand one, she's my daughter, my own daughter, Mariana Torres",
+   "field": "p6.child1.relationship",
+   "value": "biological",
+   "mark": "supported",
+   "why": "'My own daughter' is biological in plain speech."
+  },
+  {
+   "run": "conf-es-full-1.json",
+   "turn": 44,
+   "locale": "es",
+   "utterance": "es mi hija de sangre, lo otro no sé qué decirle, ella ya es grande y vive conmigo",
+   "field": "p6.child1.relationship",
+   "value": "biological",
+   "mark": "supported",
+   "why": "'De sangre' is biological."
+  },
+  {
+   "run": "conf-v10.json",
+   "turn": 53,
+   "locale": "en",
+   "utterance": "no, just those two",
+   "field": "p8.has_trip2",
+   "value": "yes",
+   "mark": "supported",
+   "why": "'Those two' concedes a second trip exists; the no answers a third."
+  },
+  {
+   "run": "s2-v6-full.json",
+   "turn": 57,
+   "locale": "en",
+   "utterance": "Yes, that's right.",
+   "field": "p8.has_trip2",
+   "value": "no",
+   "mark": "earlier_turn",
+   "why": "A bare yes to a read-back. The value comes from what was read back (t56 'Just that one'), not from these words. Flagging it would be technically right and useless to her."
+  },
+  {
+   "run": "conf-v9.json",
+   "turn": 58,
+   "locale": "en",
+   "utterance": "yes",
+   "field": "p8.has_trip3",
+   "value": "no",
+   "mark": "earlier_turn",
+   "why": "A bare yes minted NO: only the question it answered ('is that all?') makes it right. Same shape as above; whether the check should fire depends on whether it can see the question."
+  },
+  {
+   "run": "poc-v09.json",
+   "turn": 9,
+   "locale": "en",
+   "utterance": "Yes.",
+   "field": "p2.gender",
+   "value": "female",
+   "mark": "earlier_turn",
+   "why": "She said 'I'm a woman' at t4; this yes confirms a read-back."
+  },
+  {
+   "run": "s2-v6-full.json",
+   "turn": 63,
+   "locale": "en",
+   "utterance": "Yes.",
+   "field": "p12.has_interpreter",
+   "value": "no",
+   "mark": "earlier_turn",
+   "why": "A yes minted NO; right only against the question ('doing this yourself?'). Not established by the words."
+  },
+  {
+   "run": "conf-v19.json",
+   "turn": 51,
+   "locale": "en",
+   "utterance": "no, just the houses. before that I worked in a laundromat but that was twenty seventeen to twenty eighteen",
+   "field": "p7.has_job2",
+   "value": "yes",
+   "mark": "supported",
+   "why": "She names a second job in the same breath as the no; the job is established by her words even though her yes/no was no. (Whether it falls inside the five year window is the CLIENT's call, never the lane's, per the 2026-09-18 ruling.)"
+  },
+  {
+   "run": "poc-v03.json",
+   "turn": 23,
+   "locale": "en",
+   "utterance": "Yes, but it has to be addressed care of my sister, Blessing Adeyemi, since the house isn't in my name",
+   "field": "p4.mailing_same",
+   "value": "yes",
+   "mark": "supported",
+   "why": "Yes with a care-of note is still yes; the note belongs in the mailing address, not in this value."
+  },
+  {
+   "run": "conf-v10.json",
+   "turn": 8,
+   "locale": "en",
+   "utterance": "Ana Lucia Torres, Ana Lucia is the first name, Torres is the last, I don't have a middle",
+   "field": "p2.has_middle_name",
+   "value": "no",
+   "mark": "supported",
+   "why": "Stated outright."
+  },
+  {
+   "run": "reg9-spouse.json",
+   "turn": 6,
+   "locale": "en",
+   "utterance": "That's right, he doesn't have an A-Number. He's never needed one.",
+   "field": "p5.spouse_has_a_number",
+   "value": "no",
+   "mark": "supported",
+   "why": "Stated outright."
+  },
+  {
+   "run": "conf-es-full-1.json",
+   "turn": 39,
+   "locale": "es",
+   "utterance": "mi esposo falleció",
+   "field": "p5.marital_status",
+   "value": "widowed",
+   "mark": "supported",
+   "why": "'Falleció' is widowed."
+  }
+ ]
+}
