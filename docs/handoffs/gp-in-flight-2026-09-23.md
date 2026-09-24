@@ -1,5 +1,11 @@
 # GhostPour, in flight at exit, 2026-09-23
 
+> ⚠ **SUPERSEDED by `gp-in-flight-2026-09-24.md`.** This doc grew across two
+> days and carries corrections layered over earlier sections: section 8 reads
+> as an open blocker and section 8c says Scott already resolved it by
+> disputing. Read the 09-24 doc for current state; this one keeps the detail
+> and the receipts.
+
 Session `cloudzap-81`. The 2026-09-22 work (PRs #1019 to #1023) is in the
 addendum at the bottom of `gp-in-flight-2026-09-21.md`; this doc covers
 2026-09-23, which produced no code changes on our side. It was findings,
