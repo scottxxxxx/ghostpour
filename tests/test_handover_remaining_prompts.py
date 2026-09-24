@@ -170,11 +170,22 @@ def test_ask_still_handles_images_with_no_question(loc, word):
 def test_ask_is_its_own_field_not_a_preset_mode():
     """defaultPromptModes entries carry name, icon and colour and render as
     chips. Ask is the freeform fallback with none of those, so putting it
-    in that list would have added a sixth chip nobody asked for."""
+    in that list would add a chip nobody asked for.
+
+    This asserted `len(...) == 5` until 2026-09-24, when Scott added a
+    sixth built-in ("What's the Answer?"). The count was a PROXY for the
+    property in the sentence above, and it went stale the moment the list
+    legitimately grew, so it now asserts the property itself: every entry
+    is chip shaped, and the freeform Ask prompt is a separate string that
+    is not one of them. A count would have gone stale again on the seventh.
+    """
     doc = _pp()
-    assert isinstance(doc["defaultPromptModes"], list)
-    assert len(doc["defaultPromptModes"]) == 5
+    modes = doc["defaultPromptModes"]
+    assert isinstance(modes, list) and modes
+    for m in modes:
+        assert {"name", "icon", "colorHex"} <= set(m), f"not chip shaped: {m.get('name')!r}"
     assert isinstance(doc["freeformAskPrompt"], str)
+    assert doc["freeformAskPrompt"] not in [m.get("systemPrompt") for m in modes]
 
 
 # --- item 5: the follow-up sentence -----------------------------------
