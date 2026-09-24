@@ -144,6 +144,23 @@ async def test_two_enum_facts_are_one_request(monkeypatch):
     assert [u["field_id"] for u in out["facts_unsupported"]] == ["p2.has_other_names"]
 
 
+# Each clause below moved a measured case (qa/jev_support_variants.py): the
+# hedge and the inference took the real eligibility misses from 1 in 4 to 3
+# in 4, and dropping "a different matter" lost the synthetic kids-live-with-me
+# case 5 of 5. A rewrite that loses one must go back through both evals.
+@pytest.mark.parametrize("clause", [
+    "only part of a question with several parts",
+    "fits more than one option",
+    "worked out from a detail",
+    "a guess from something she said about a different matter",
+    "does not know or is not sure",
+    "repeats what someone else told her",
+])
+def test_insufficient_keeps_every_clause_the_evals_measured(clause):
+    for q in es.support_questions(2).values():
+        assert clause in q["criteria"]["insufficient"]["what"]
+
+
 # --- what becomes a marker ---------------------------------------------------------------
 
 @pytest.mark.asyncio

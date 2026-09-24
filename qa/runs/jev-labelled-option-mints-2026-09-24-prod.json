@@ -1,0 +1,632 @@
+{
+ "model": "jev-1.13.0",
+ "floor": 0.5,
+ "variant": "prod",
+ "reps": 3,
+ "catalogue": true,
+ "rows": [
+  {
+   "id": "conf-v10.json#4:p1.eligibility_basis",
+   "mark": "unsupported",
+   "locale": "en",
+   "field": "p1.eligibility_basis",
+   "value": "general_provision",
+   "checked": true,
+   "why_not": null,
+   "marked": false,
+   "marks": "0/3",
+   "choice": "supports",
+   "confidence": 0.46,
+   "samples": [
+    [
+     "supports",
+     0.46
+    ],
+    [
+     "supports",
+     0.51
+    ],
+    [
+     "supports",
+     0.48
+    ]
+   ],
+   "p_supports": [
+    0.6,
+    0.63,
+    0.61
+   ],
+   "ms": 357,
+   "input_tokens": 2028
+  },
+  {
+   "id": "conf-es-v20.json#4:p1.eligibility_basis",
+   "mark": "unsupported",
+   "locale": "es",
+   "field": "p1.eligibility_basis",
+   "value": "general_provision",
+   "checked": true,
+   "why_not": null,
+   "marked": true,
+   "marks": "3/3",
+   "choice": "insufficient",
+   "confidence": 0.93,
+   "samples": [
+    [
+     "insufficient",
+     0.93
+    ],
+    [
+     "insufficient",
+     0.92
+    ],
+    [
+     "insufficient",
+     0.92
+    ]
+   ],
+   "p_supports": [
+    0.04,
+    0.05,
+    0.05
+   ],
+   "ms": 243,
+   "input_tokens": 2046
+  },
+  {
+   "id": "conf-es-v12.json#4:p1.eligibility_basis",
+   "mark": "unsupported",
+   "locale": "es",
+   "field": "p1.eligibility_basis",
+   "value": "general_provision",
+   "checked": true,
+   "why_not": null,
+   "marked": false,
+   "marks": "0/3",
+   "choice": "supports",
+   "confidence": 0.65,
+   "samples": [
+    [
+     "supports",
+     0.65
+    ],
+    [
+     "supports",
+     0.71
+    ],
+    [
+     "supports",
+     0.76
+    ]
+   ],
+   "p_supports": [
+    0.74,
+    0.78,
+    0.83
+   ],
+   "ms": 241,
+   "input_tokens": 2142
+  },
+  {
+   "id": "edge-q1-0.json#3:p1.eligibility_basis",
+   "mark": "supported",
+   "locale": "en",
+   "field": "p1.eligibility_basis",
+   "value": "general_provision",
+   "checked": true,
+   "why_not": null,
+   "marked": false,
+   "marks": "0/3",
+   "choice": "supports",
+   "confidence": 0.81,
+   "samples": [
+    [
+     "supports",
+     0.81
+    ],
+    [
+     "supports",
+     0.79
+    ],
+    [
+     "supports",
+     0.82
+    ]
+   ],
+   "p_supports": [
+    0.85,
+    0.84,
+    0.86
+   ],
+   "ms": 241,
+   "input_tokens": 1995
+  },
+  {
+   "id": "baseline-s1.json#1:p1.eligibility_basis",
+   "mark": "supported",
+   "locale": "en",
+   "field": "p1.eligibility_basis",
+   "value": "spouse_of_us_citizen_3_years",
+   "checked": false,
+   "why_not": "value is OUTSIDE the field's options ['general_provision', 'spouse_usc', 'vawa', 'spouse_employed_abroad', 'military_hostilities', 'military_one_year', 'other'] (the outside-options guard's case, not this one)"
+  },
+  {
+   "id": "s1-v6-full.json#31:p5.spouse_citizen_how",
+   "mark": "unsupported",
+   "locale": "en",
+   "field": "p5.spouse_citizen_how",
+   "value": "citizen",
+   "checked": false,
+   "why_not": "value is OUTSIDE the field's options ['by_birth', 'other'] (the outside-options guard's case, not this one)"
+  },
+  {
+   "id": "v36-baseline-G.json#2:p5.spouse_citizen_how",
+   "mark": "supported",
+   "locale": "en",
+   "field": "p5.spouse_citizen_how",
+   "value": "by_birth",
+   "checked": true,
+   "why_not": null,
+   "marked": false,
+   "marks": "0/3",
+   "choice": "supports",
+   "confidence": 0.91,
+   "samples": [
+    [
+     "supports",
+     0.91
+    ],
+    [
+     "supports",
+     0.88
+    ],
+    [
+     "supports",
+     0.89
+    ]
+   ],
+   "p_supports": [
+    0.93,
+    0.92,
+    0.92
+   ],
+   "ms": 242,
+   "input_tokens": 1875
+  },
+  {
+   "id": "poc-v02.json#19:p3.hair_color",
+   "mark": "unsupported",
+   "locale": "es",
+   "field": "p3.hair_color",
+   "value": "white",
+   "checked": true,
+   "why_not": null,
+   "marked": false,
+   "marks": "0/3",
+   "choice": "insufficient",
+   "confidence": 0.4,
+   "samples": [
+    [
+     "insufficient",
+     0.4
+    ],
+    [
+     "insufficient",
+     0.33
+    ],
+    [
+     "insufficient",
+     0.35
+    ]
+   ],
+   "p_supports": [
+    0.32,
+    0.4,
+    0.36
+   ],
+   "ms": 265,
+   "input_tokens": 1968
+  },
+  {
+   "id": "conf-v20.json#29:p3.hair_color",
+   "mark": "supported",
+   "locale": "en",
+   "field": "p3.hair_color",
+   "value": "black",
+   "checked": false,
+   "why_not": "value appears literally in the cited words 'black hair well some gray now but black' (the evidence floor's case)"
+  },
+  {
+   "id": "conf-v11.json#43:p6.child1.residence",
+   "mark": "earlier_turn",
+   "locale": "en",
+   "field": "p6.child1.residence",
+   "value": "resides_with_me",
+   "checked": true,
+   "why_not": null,
+   "marked": true,
+   "marks": "2/3",
+   "choice": "insufficient",
+   "confidence": 0.53,
+   "samples": [
+    [
+     "insufficient",
+     0.53
+    ],
+    [
+     "insufficient",
+     0.51
+    ],
+    [
+     "insufficient",
+     0.48
+    ]
+   ],
+   "p_supports": [
+    0.25,
+    0.28,
+    0.28
+   ],
+   "ms": 283,
+   "input_tokens": 1956
+  },
+  {
+   "id": "conf-v11.json#43:p6.child1.relationship",
+   "mark": "supported",
+   "locale": "en",
+   "field": "p6.child1.relationship",
+   "value": "biological",
+   "checked": true,
+   "why_not": null,
+   "marked": false,
+   "marks": "0/3",
+   "choice": "supports",
+   "confidence": 0.98,
+   "samples": [
+    [
+     "supports",
+     0.98
+    ],
+    [
+     "supports",
+     0.98
+    ],
+    [
+     "supports",
+     0.98
+    ]
+   ],
+   "p_supports": [
+    0.98,
+    0.98,
+    0.99
+   ],
+   "ms": 263,
+   "input_tokens": 1959
+  },
+  {
+   "id": "conf-es-full-1.json#44:p6.child1.relationship",
+   "mark": "supported",
+   "locale": "es",
+   "field": "p6.child1.relationship",
+   "value": "biological",
+   "checked": true,
+   "why_not": null,
+   "marked": false,
+   "marks": "0/3",
+   "choice": "supports",
+   "confidence": 0.94,
+   "samples": [
+    [
+     "supports",
+     0.94
+    ],
+    [
+     "supports",
+     0.94
+    ],
+    [
+     "supports",
+     0.95
+    ]
+   ],
+   "p_supports": [
+    0.96,
+    0.96,
+    0.97
+   ],
+   "ms": 242,
+   "input_tokens": 1899
+  },
+  {
+   "id": "conf-v10.json#53:p8.has_trip2",
+   "mark": "supported",
+   "locale": "en",
+   "field": "p8.has_trip2",
+   "value": "yes",
+   "checked": false,
+   "why_not": "value appears literally in the cited words 'yes one more, El Salvador again, March twenty twenty four, two weeks' (the evidence floor's case)"
+  },
+  {
+   "id": "s2-v6-full.json#57:p8.has_trip2",
+   "mark": "earlier_turn",
+   "locale": "en",
+   "field": "p8.has_trip2",
+   "value": "no",
+   "checked": true,
+   "why_not": null,
+   "marked": true,
+   "marks": "3/3",
+   "choice": "contradicts",
+   "confidence": 0.99,
+   "samples": [
+    [
+     "contradicts",
+     0.99
+    ],
+    [
+     "contradicts",
+     0.99
+    ],
+    [
+     "contradicts",
+     0.99
+    ]
+   ],
+   "p_supports": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "ms": 286,
+   "input_tokens": 1800
+  },
+  {
+   "id": "conf-v9.json#58:p8.has_trip3",
+   "mark": "earlier_turn",
+   "locale": "en",
+   "field": "p8.has_trip3",
+   "value": "no",
+   "checked": true,
+   "why_not": null,
+   "marked": true,
+   "marks": "3/3",
+   "choice": "contradicts",
+   "confidence": 1.0,
+   "samples": [
+    [
+     "contradicts",
+     1.0
+    ],
+    [
+     "contradicts",
+     1.0
+    ],
+    [
+     "contradicts",
+     1.0
+    ]
+   ],
+   "p_supports": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "ms": 222,
+   "input_tokens": 1770
+  },
+  {
+   "id": "poc-v09.json#9:p2.gender",
+   "mark": "earlier_turn",
+   "locale": "en",
+   "field": "p2.gender",
+   "value": "female",
+   "checked": true,
+   "why_not": null,
+   "marked": true,
+   "marks": "3/3",
+   "choice": "insufficient",
+   "confidence": 0.69,
+   "samples": [
+    [
+     "insufficient",
+     0.69
+    ],
+    [
+     "insufficient",
+     0.64
+    ],
+    [
+     "insufficient",
+     0.64
+    ]
+   ],
+   "p_supports": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "ms": 249,
+   "input_tokens": 1746
+  },
+  {
+   "id": "s2-v6-full.json#63:p12.has_interpreter",
+   "mark": "earlier_turn",
+   "locale": "en",
+   "field": "p12.has_interpreter",
+   "value": "no",
+   "checked": true,
+   "why_not": null,
+   "marked": true,
+   "marks": "3/3",
+   "choice": "contradicts",
+   "confidence": 1.0,
+   "samples": [
+    [
+     "contradicts",
+     1.0
+    ],
+    [
+     "contradicts",
+     1.0
+    ],
+    [
+     "contradicts",
+     1.0
+    ]
+   ],
+   "p_supports": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "ms": 253,
+   "input_tokens": 1776
+  },
+  {
+   "id": "conf-v19.json#51:p7.has_job2",
+   "mark": "supported",
+   "locale": "en",
+   "field": "p7.has_job2",
+   "value": "yes",
+   "checked": true,
+   "why_not": null,
+   "marked": false,
+   "marks": "1/3",
+   "choice": "contradicts",
+   "confidence": 0.47,
+   "samples": [
+    [
+     "contradicts",
+     0.47
+    ],
+    [
+     "contradicts",
+     0.43
+    ],
+    [
+     "contradicts",
+     0.54
+    ]
+   ],
+   "p_supports": [
+    0.2,
+    0.24,
+    0.17
+   ],
+   "ms": 324,
+   "input_tokens": 1941
+  },
+  {
+   "id": "poc-v03.json#23:p4.mailing_same",
+   "mark": "supported",
+   "locale": "en",
+   "field": "p4.mailing_same",
+   "value": "yes",
+   "checked": false,
+   "why_not": "value appears literally in the cited words \"Yes, but it has to be addressed care of my sister, Blessing Adeyemi, since the house isn't in my name\" (the evidence floor's case)"
+  },
+  {
+   "id": "conf-v10.json#8:p2.has_middle_name",
+   "mark": "supported",
+   "locale": "en",
+   "field": "p2.has_middle_name",
+   "value": "no",
+   "checked": true,
+   "why_not": null,
+   "marked": false,
+   "marks": "0/3",
+   "choice": "supports",
+   "confidence": 0.94,
+   "samples": [
+    [
+     "supports",
+     0.94
+    ],
+    [
+     "supports",
+     0.91
+    ],
+    [
+     "supports",
+     0.95
+    ]
+   ],
+   "p_supports": [
+    0.96,
+    0.93,
+    0.96
+   ],
+   "ms": 358,
+   "input_tokens": 1998
+  },
+  {
+   "id": "reg9-spouse.json#6:p5.spouse_has_a_number",
+   "mark": "supported",
+   "locale": "en",
+   "field": "p5.spouse_has_a_number",
+   "value": "no",
+   "checked": true,
+   "why_not": null,
+   "marked": false,
+   "marks": "0/3",
+   "choice": "supports",
+   "confidence": 1.0,
+   "samples": [
+    [
+     "supports",
+     1.0
+    ],
+    [
+     "supports",
+     1.0
+    ],
+    [
+     "supports",
+     1.0
+    ]
+   ],
+   "p_supports": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "ms": 259,
+   "input_tokens": 1911
+  },
+  {
+   "id": "conf-es-full-1.json#39:p5.marital_status",
+   "mark": "supported",
+   "locale": "es",
+   "field": "p5.marital_status",
+   "value": "widowed",
+   "checked": true,
+   "why_not": null,
+   "marked": false,
+   "marks": "0/3",
+   "choice": "supports",
+   "confidence": 0.99,
+   "samples": [
+    [
+     "supports",
+     0.99
+    ],
+    [
+     "supports",
+     0.99
+    ],
+    [
+     "supports",
+     0.99
+    ]
+   ],
+   "p_supports": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "ms": 252,
+   "input_tokens": 1914
+  }
+ ]
+}
