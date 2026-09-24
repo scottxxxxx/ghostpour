@@ -148,3 +148,32 @@ changes between turns. **Write to `docs/handoffs/gp-to-auditor-<date>.md`
 FIRST and send second**; a bounced send is fine, they read the file. Sections
 10 to 18 of the 09-21 auditor doc hold everything from this session,
 including the cold-turn proof closed at section 18.
+
+## 7. Arrived at exit: SS's `capturesImage` prompt flag (answered, nothing built)
+
+SS added an optional `capturesImage: true` on `defaultPromptModes[]` in
+ProtectedPrompts (their main `8624b4a`, not in any App Store build). When set,
+the quick prompt takes a picture at run time and sends it with the question.
+They asked GP three things; answered by reading, no GP change made:
+
+1. **Do we strip an unmodelled key? No, and there is nothing to model.**
+   `config.py` loads configs with `json.loads` into plain dicts and returns
+   `JSONResponse(content=data)` untouched; the only serve-time transform is
+   slug-scoped to `tiers`. The dashboard write is `UpdateConfigRequest` with
+   `data: dict`. The only GP code reading `defaultPromptModes` is the
+   `requiresContext` 403 gate in `chat.py`, which reads two fields and
+   rewrites nothing. **Declined their request to model it explicitly**: adding
+   a schema where none exists creates the strip risk it is meant to prevent.
+2. ⚠ **The real blocker, and it is ours to know (rule 3).** We serve the
+   runtime OVERLAY, not the bundled file. `hydrate_overlay_additions()` would
+   normally pick up an additive key at startup, but its own docstring says
+   **"Lists are atomic"**, and `defaultPromptModes` is a list. So the key will
+   land in the repo, pass CI, and change nothing on prod, silently. Same shape
+   as the 2026-06-10 stale-`defaultPromptModes` incident. Serving it needs a
+   scoped `sync-from-bundle` naming the pointer, or a dashboard PUT.
+3. Which prompts get it is **Scott's product call**. Nothing is enabled.
+
+**Owed by GP when Scott picks the prompts:** run the scoped sync, then read
+the public `GET /v1/config/protected-prompts` back from OUTSIDE and give SS
+the confirmation, so they check the wire rather than our word. They re-pull
+with `refresh-remote-configs.sh` after that, never hand-editing.
