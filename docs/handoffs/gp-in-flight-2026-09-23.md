@@ -230,3 +230,30 @@ says Apple permits telling users that registering enables cross-device access
 signed-out user buy and use the app on that device, offer sign-in rather than
 require it. Whether a reviewer accepts that is unknowable from here and is
 Scott's risk call against a blocked release.
+
+### 8b. ⚠ The ungate alone has a GP-side cost, flagged before it ships
+
+SS has ungated the Settings plan cards locally (`b6abe09`, not pushed) so a
+signed-out purchase reaches StoreKit and queues verify-receipt. They confirm
+they still do NOT set `appAccountToken` when signed out, so the dormant
+fallback cannot fire for those purchases. Two consequences, read from
+`apple_webhooks.py`:
+
+1. **Our unmatched-purchase alert becomes routine.** A signed-out purchase
+   produces an Apple notification whose `originalTransactionId` matches no
+   user. `_alert_if_still_unmatched` waits `assn_unmatched_grace_seconds`
+   (tuned because verify-receipt normally claims it in seconds, live-measured
+   17s on 2026-07-27), re-checks, then opens an `assn_unmatched` incident and
+   emails alerts@weirtech.com. Today that alert means something is wrong;
+   after the ungate it fires on a NORMAL purchase and stays open until the
+   buyer signs in. ⭐ That is the shape that gets an alert ignored and then
+   trusted when it should not be ([[project_wip_stalled_alert_second_false_positive]]).
+   **If the ungate ships ahead of the identity work, GP must widen the grace
+   window or suppress the category first.** SS asked to tell us.
+2. **The buyer who never signs in has no record here at all.** No user row, no
+   tier, no otid; the queued verify-receipt never replays. They have paid
+   Apple, renewals and cancellations keep arriving unmatched, and nothing can
+   be delivered or revoked. Not a new bug, but the state the ungate makes
+   REACHABLE, and the concrete form of "a signed-out buyer owns a plan that
+   cannot do anything". **Argues for the anonymous identity landing WITH the
+   ungate rather than after it.** Scott's call.
