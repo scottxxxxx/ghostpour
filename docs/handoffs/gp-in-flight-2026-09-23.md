@@ -305,3 +305,28 @@ existing five prompts. The open item is a proposed SIXTH built-in, "What's the
 Answer?", with `capturesImage` true, appended at the END of the list. Pending
 his go; SS will send the full entry for all four language files and GP runs the
 scoped sync then reads the public body back.
+
+## 9. ✅ SHIPPED 2026-09-24: "What's the Answer?", the sixth built-in prompt
+
+Scott said go (relayed by `shouldersurf-19`). **PR #1024, merged `5a5e1c5`,
+deployed, scoped-synced, verified from OUTSIDE.** Served versions: **en 28,
+es 26, fr 28, ja 5**, six modes each, sixth carries `capturesImage: true` and
+`contextOverrides {"project": false}`, first five unchanged and clean. SS told,
+they re-pull with `refresh-remote-configs.sh`.
+
+- Appended at index 5 on purpose: `mergeNewDefaults` deletes any built-in
+  missing from the list and the Mac hotkeys map to positions, so appending
+  shifts nothing.
+- ⭐ Merging did NOT serve it. `defaultPromptModes` is a list and hydration
+  treats lists as atomic (section 7), so the four scoped
+  `sync-from-bundle` calls naming `/defaultPromptModes` and `/version` are
+  what moved it. **Four slugs, not one**: the locale variants are separate
+  configs. Script kept at `scratchpad/sync_prompts.py` shape; it refuses
+  unless `/health` reports the expected sha, because the endpoint copies from
+  the bundle in the RUNNING image.
+- ⭐ **A test asserted `len(defaultPromptModes) == 5` as a PROXY** for its own
+  docstring ("Ask is a separate field, not a chip"). A legitimate sixth made
+  the proxy wrong while the property held. Rewritten to assert the property
+  (every entry chip shaped; the freeform Ask prompt is not among them), so it
+  will not go stale on the seventh. Sabotage: dropping `icon` off the new
+  entry fails exactly that one test.
