@@ -177,3 +177,56 @@ They asked GP three things; answered by reading, no GP change made:
 the public `GET /v1/config/protected-prompts` back from OUTSIDE and give SS
 the confirmation, so they check the wire rather than our word. They re-pull
 with `refresh-remote-configs.sh` after that, never hand-editing.
+
+## 8. ⚠⚠ BLOCKER FOR SCOTT: iOS 1.18 rejected, needs a GP identity decision
+
+Arrived from `shouldersurf-19` after the close. **iOS 1.18 (1921) was rejected
+under App Store guideline 5.1.1(v)**: the app requires registration before an
+IAP that is not account based. Apple says registration must be OPTIONAL, and
+that forcing it to enable cross-device access is not acceptable. SS proposes an
+anonymous GP identity (`POST /v1/auth/device` with an install UUID, anonymous
+JWT, purchase bound via appAccountToken, merge on later Sign in with Apple).
+
+**GP's read, done, nothing built:**
+- **Nothing exists.** `auth.py` has exactly two routes, `/apple` and
+  `/refresh`. Every "anonymous" hit in our tree is telemetry (`telemetry.py`
+  device_id) or APNs registration (`devices.py`). No anonymous identity, no
+  JWT path, no App Attest.
+- `verify-receipt` requires `get_current_user`, so signed out it cannot be
+  called at all. SS's queue-and-replay is the only current path. Confirmed.
+- ⭐ **Their step 3 does not work as assumed.** verify-receipt already handles
+  the cross-account case (its comment names "anon-purchase then later sign-in
+  to a different account") but it only does
+  `UPDATE users SET original_transaction_id = NULL ... AND id != ?`. It NULLS
+  the id off the other row; **it does not move the plan**. So a restore onto a
+  fresh anonymous identity grants the new row the tier and leaves the old row
+  marked pro with no Apple linkage. Every reinstall orphans a stale paid row,
+  which compounds the abuse question rather than being separate from it.
+- ✅ Cheap part: `apple_webhooks.py` ALREADY falls back to matching on
+  `appAccountToken` ("Future: also try appAccountToken once SS sets it"), so
+  that half is built and dormant, waiting on SS to set the token.
+- **CQ is a third team here.** Memory is keyed by `subject_for(app_id, user_id)`
+  in `cq_subject.py`, a deterministic `app:user_id` string with no indirection.
+  Nothing to re-key on GP's side; a merge means moving data INSIDE CQ.
+- **No user-merge machinery exists** in GP (`merge_people` is CQ people,
+  `merge_overlay` is config). Survivor rule is new design, and CLAUDE.md rule 1
+  is literally about a merge relocating identity.
+
+**Why GP stopped there:** an anonymous free allowance and the merge survivor
+rule are money and product-promise calls, and minting anonymous user rows is
+the "ask before minting a session" category. Those are **Scott's word in his
+own session**; a relay through a peer does not stand for them. Nothing was
+designed or built, and SS was asked not to build on the relay either.
+
+**Rough shape, explicitly a guess, not a commitment:** "anonymous with NO free
+allowance, purchase binding only" is days. "Anonymous first-class users with
+full merge" is a multi-week three-team change with a data migration.
+
+**The fallback SS floated** (reply to App Review arguing the subscription IS
+account based) is not dishonest: our allowance really is a metered server-side
+budget per user. But Apple has stated a position. ⭐ The quoted rejection also
+says Apple permits telling users that registering enables cross-device access
+**provided registering is optional**, which hints at a middle path: let a
+signed-out user buy and use the app on that device, offer sign-in rather than
+require it. Whether a reviewer accepts that is unknowable from here and is
+Scott's risk call against a blocked release.
