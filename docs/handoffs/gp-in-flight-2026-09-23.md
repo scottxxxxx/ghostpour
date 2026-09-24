@@ -257,3 +257,48 @@ fallback cannot fire for those purchases. Two consequences, read from
    REACHABLE, and the concrete form of "a signed-out buyer owns a plan that
    cannot do anything". **Argues for the anonymous identity landing WITH the
    ungate rather than after it.** Scott's call.
+
+### 8c. ✅ RESOLVED 2026-09-24: Scott chose to DISPUTE, not build
+
+Do not read 8 and 8b as open work. Scott ruled in the SS session (relayed by
+`shouldersurf-19`, who confirmed he ruled there):
+
+- **He replied to App Review at 14:37 on 09-24 arguing the plan IS account
+  based** (per-account server-side allowance, Memory/Project Chat/reports
+  stored only on our servers, sign-in optional for the rest of the app,
+  deletion in app). **No new build; 1921 stands.**
+- ⭐ The reviewer used **Settings > Account**, where Upgrade appears only
+  after Sign in with Apple. SS's ungate had targeted a DIFFERENT page (AI
+  Model > plan cards) the reviewer never saw. The rejection was about a
+  screen neither team had looked at.
+- **b6abe09 is REVERTED (`ebc8ef7`), neither pushed.** So 8b is moot: our
+  `assn_unmatched` alert stays exceptional and GP has nothing to widen or
+  suppress.
+- **The anonymous identity is ON HOLD pending Apple's answer.** Scott has NOT
+  ruled on the free allowance or the merge survivor rule, and they only matter
+  if Apple rejects the argument. The findings in 8 (our restore nulls rather
+  than moves; appAccountToken dormant; CQ is a third team) stay parked for
+  that case.
+
+⚠ **Incoming, lands on GP:** SS commit `0adfb91` (local) adds a "Usage
+statistics off" switch in Settings > Privacy & About that ALSO stops
+AttributionClient. When it ships in the next weekly, `/v1/events/ping` and
+`/v1/attribution` volume will drop. **A drop is indistinguishable from an
+ingestion regression unless we know the release**, which is the
+[[project_wip_stalled_alert_second_false_positive]] shape. Worse: Apple Search
+Ads attribution has never been measured end to end
+([[project_acquisition_attribution]], "nobody has counted"), so an opt-out
+arriving first makes "nobody opted in" and "nobody arrived" indistinguishable.
+Counting before it ships is the cheap move. SS asked to name the release.
+
+**Device builds, settled from telemetry 2026-09-24, correcting BOTH sides:**
+iPhone17,2 on 1.18 build **1947** (last seen 18:04Z); iPad16,8 on 1.18 build
+**1940** (last seen 02:14Z). SS's handoff said 1947 for both; the iPad is seven
+builds behind. My earlier 1926/1923 were a snapshot, already stale when
+written. ⭐ Report device builds as "as of <time>", never as state.
+
+**capturesImage (section 7) refined:** Scott has NO plans to enable it on the
+existing five prompts. The open item is a proposed SIXTH built-in, "What's the
+Answer?", with `capturesImage` true, appended at the END of the list. Pending
+his go; SS will send the full entry for all four language files and GP runs the
+scoped sync then reads the public body back.
