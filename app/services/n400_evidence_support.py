@@ -136,6 +136,54 @@ def enum_facts_to_check(turn: dict, agenda: str | None, user_content: str | None
     return out[:MAX_FACTS_PER_TURN]
 
 
+# THE CRITERIA (2026-09-24). The first wording caught 1 unsupported mint in 4
+# on the auditor's REAL labelled turns (qa/labelled-option-mints.json), and
+# the misses shared a mechanism: asked the OPEN eligibility question ("tell me
+# why you believe you are eligible"), "I don't know, my daughter said I can
+# apply, I have the green card five years" reads as a complete answer, so the
+# verdict followed which question she had been asked rather than what she
+# said. Naming the hedge (she does not know, she repeats someone else) and the
+# inference (an option worked out from a number of years) moved it to 3 in 4
+# with every good mint still left alone, and left the 32 synthetic cases where
+# they were (qa/runs/*-2026-09-24-hedge2.json). The criteria are structured
+# (what / not_for / examples) per TypeSafe's choice guidance, and every
+# example comes from a field that is NOT in the labelled set, so the wording
+# cannot win by quoting its own grading cases. Every clause of `insufficient`
+# is load bearing: the first rewrite dropped "a guess from something she said
+# about a different matter" and the synthetic "my kids live with me" -> married
+# went from 5 of 5 marked to 0 of 5. Candidates live in
+# qa/jev_support_variants.py; one that loses a case there does not ship.
+SUPPORTS = {
+    "what": ("She says which option applies to her, in her own words or an unmistakable "
+             "equivalent, so that none of the other options could be what she meant."),
+    "not_for": ("A detail from which the option might be worked out, when she has not said "
+                "which option applies and another option is still possible: that is "
+                "insufficient."),
+    "examples": [
+        "Asked about her father's citizenship, she says 'he was naturalized in 1990' and "
+        "the recorded answer is naturalized.",
+        "Asked whether she has ever used another name, she says 'no, only this one' and the "
+        "recorded answer is no.",
+    ],
+}
+INSUFFICIENT = {
+    "what": ("Her words are about the question but do not settle which option applies. "
+             "This covers: she answered only part of a question with several parts; what "
+             "she said fits more than one option; the recorded option was worked out from a "
+             "detail (a number of years, a place, a date) rather than from her saying which "
+             "option applies; the recorded answer is a guess from something she said about a "
+             "different matter; she says she does not know or is not sure; or she only "
+             "repeats what someone else told her."),
+    "not_for": "Words that name a different option in the list: that is contradicts.",
+    "examples": [
+        "Asked how she entered the country, she says 'I'm not sure, my uncle handled "
+        "everything' and the recorded answer is with_inspection.",
+        "Asked how her mother became a citizen, she says 'she's been here thirty years' and "
+        "the recorded answer is naturalized.",
+    ],
+}
+
+
 def support_questions(n: int) -> dict:
     """One choice per fact, all in one request. They run in parallel and
     cannot see each other, so each names its own slice of the state."""
@@ -151,14 +199,8 @@ def support_questions(n: int) -> dict:
                 f"{f}.cited_words` as its evidence. Do the applicant's own words "
                 "establish that recorded answer?"),
             "criteria": {
-                "supports": (
-                    "Her words state the recorded answer or directly imply it, so that "
-                    "none of the other options could be what she meant."),
-                "insufficient": (
-                    "Her words are about the question but do not settle which option "
-                    "applies: she answered only part of a question with several parts, "
-                    "or what she said fits more than one option, or the recorded answer "
-                    "is a guess from something she said about a different matter."),
+                "supports": SUPPORTS,
+                "insufficient": INSUFFICIENT,
                 "contradicts": "Her words point to a different option than the recorded one.",
                 "unrelated": "Her words do not address this question at all.",
             },

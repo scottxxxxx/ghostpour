@@ -94,7 +94,14 @@ CASES = [
 async def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out")
+    ap.add_argument("--variant", default="prod", help="a question set in jev_support_variants.py")
     args = ap.parse_args()
+    questions = es.support_questions
+    if args.variant != "prod":
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import jev_support_variants as variants
+        questions = variants.VARIANTS[args.variant]
+    print(f"variant {args.variant}")
     key = get_settings().typesafe_api_key
     if not key:
         print("needs CZ_TYPESAFE_API_KEY in .env")
@@ -103,7 +110,7 @@ async def main() -> int:
     for cid, q, said, cited, value, options, mark in CASES:
         checked = [{"field_id": cid, "question": q, "applicant_said": said, "cited_words": cited,
                     "recorded_answer": value, "options": sorted(options)}]
-        body, row = await tj.guarded_ask(key, {"facts": checked}, es.support_questions(1),
+        body, row = await tj.guarded_ask(key, {"facts": checked}, questions(1),
                                          judgment="eval", mode="eval", timeout=10)
         a = (body or {}).get("answers", {}).get("f0", {})
         marked = bool(es.read_support(body, checked)) if body else False
@@ -128,7 +135,7 @@ async def main() -> int:
     print(f"t_008 shape: {t['choice']} @ {t['confidence']} -> {'MARKED' if t['marked'] else 'not marked'}")
     if args.out:
         Path(args.out).write_text(json.dumps({"model": tj.MODEL, "floor": tj.CONFIDENCE_FLOOR,
-                                              "rows": rows}, ensure_ascii=False, indent=1))
+                                              "variant": args.variant, "rows": rows}, ensure_ascii=False, indent=1))
         print("wrote", args.out)
     return 0
 
