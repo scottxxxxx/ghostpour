@@ -308,8 +308,10 @@ async def apple_notifications(
         # Still return 200 so Apple doesn't retry
         return {"status": "received", "action": "skipped", "reason": "transaction_info_not_decoded"}
 
-    # Find the user by originalTransactionId (stored during /v1/verify-receipt).
-    # Future: also try appAccountToken once SS sets it during purchases.
+    # Find the user by originalTransactionId (stored during /v1/verify-receipt),
+    # then by appAccountToken. SS sets the token on every signed-in purchase
+    # (`UUID(uuidString: userId)`, SubscriptionManager.purchase; this comment
+    # said "future" until SS corrected it on 2026-09-24).
     original_transaction_id = transaction_info.get("originalTransactionId")
     app_account_token = transaction_info.get("appAccountToken")
 
@@ -327,11 +329,15 @@ async def apple_notifications(
         if row:
             user = {"id": row[0], "tier": row[1], "is_trial": row[2], "monthly_used_usd": row[3]}
 
-    # Fallback: appAccountToken maps to user ID (future, once SS sets it)
-    if not user and app_account_token:
+    # Fallback: appAccountToken is the user id. Lowered, because our ids are
+    # lowercase uuid4 strings (auth.py is the only INSERT; 171 of 171 in prod
+    # on 2026-09-24) while Swift's uuidString is UPPERCASE, and which case
+    # Apple echoes back has never been observed. Lowering the PARAMETER, not
+    # the column, keeps the primary key index.
+    if not user and isinstance(app_account_token, str) and app_account_token:
         cursor = await db.execute(
             "SELECT id, tier, is_trial, monthly_used_usd FROM users WHERE id = ?",
-            (app_account_token,),
+            (app_account_token.lower(),),
         )
         row = await cursor.fetchone()
         if row:
