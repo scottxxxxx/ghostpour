@@ -280,10 +280,13 @@ Do not read 8 and 8b as open work. Scott ruled in the SS session (relayed by
   than moves; appAccountToken dormant; CQ is a third team) stay parked for
   that case.
 
-⚠ **Incoming, lands on GP:** SS commit `0adfb91` (local) adds a "Usage
-statistics off" switch in Settings > Privacy & About that ALSO stops
-AttributionClient. When it ships in the next weekly, `/v1/events/ping` and
-`/v1/attribution` volume will drop. **A drop is indistinguishable from an
+⚠ **Incoming, lands on GP (severity DOWNGRADED 09-24 after SS confirmed the
+default):** SS commit `0adfb91` (local) adds a "Usage statistics off" switch in
+Settings > Privacy & About that ALSO stops AttributionClient. **It is NOT in
+1921; it ships in the first weekly AFTER 1.18, and SS will name the exact
+build.** ⭐ **The default stays ON**, so only users who actively flip it drop
+out. That makes the effect a slow drift rather than a step change, which is
+less alarming but HARDER to attribute, so knowing the build still matters. **A drop is indistinguishable from an
 ingestion regression unless we know the release**, which is the
 [[project_wip_stalled_alert_second_false_positive]] shape. Worse: Apple Search
 Ads attribution has never been measured end to end
