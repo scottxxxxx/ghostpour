@@ -184,3 +184,62 @@ measurement names will ever get; please make it count false POSITIVES too
 - f. Checked, NOT a break: v38 never infers gender from a name (only from known
   facts or her own words), and the "first and last, then ask about a middle
   name" rule counts words, which placeholders preserve.
+
+## 9. SCOTT'S RULING, 2026-09-25: realistic surrogates, not `[[TYPE_n]]`
+
+Scott, in session, verbatim: "I do not want us to send [[SSN_1]] in our
+prompt, I want us to send 555-55-5555 instead of the clients real SSN which
+woudl have been 123-45-6789. By doing this, we should not need to chnage our
+prompts, we just let the ios app subtitute in and out the actual values, in
+the prompt and response."
+
+So the phone swaps each identifier for a SAME-SHAPED fake value and swaps it
+back in the reply. Bracket placeholders are dropped. This is his product call;
+what follows is only what it changes, for the design.
+
+**What it removes (GP read of v38, same reading as section 6):** the prompt
+works unchanged. Digit counting, the digit-only A-Number value, digit
+read-backs, "ends in" plus the last four and the two-candidate readout all run
+on a nine-digit fake exactly as on the real number. **v39 is not needed** for
+SSN, A-Number, phone and email, and neither is the NUM rule or the NUM floor:
+a bare nine-digit run gets a nine-digit fake whatever its type, so "which
+number was it" never reaches the lane. The spoken read-back is kept for free.
+
+**What the phone's design must now carry (for the client, not GP):**
+1. **Unique per original, including the last four.** Her SSN and her spouse's
+   cannot share a fake, and no two fakes in a case may share a last four,
+   because the lane echoes "ends in NNNN" and the phone must map it back.
+2. **Restore by DIGITS, not by string.** v38 makes the lane write the same
+   number as `555555555`, `555-55-5555`, `5 5 5 5 5 5 5 5 5`, "A 5 5 5..."
+   and "ends in 5555". Restoration has to match the digit sequence across any
+   separators, plus the last-four form, or a real reply ships a fake to her.
+3. **Plausible but unassignable fakes.** A lane that sees 555-55-5555 on every
+   case may say "that looks like a test number". Phones have a reserved block
+   (555-0100 to 555-0199), email has example.com; SSNs and A-Numbers have no
+   usable reserved range (SSA's advertising block 987-65-4320..4329 is ten
+   numbers and the 9xx area reads as an ITIN). Worth deciding deliberately,
+   and worth one masked replay to see whether the lane ever comments.
+4. **Names and dates of birth, if stage two stays:** the same idea works (a
+   fake name, a fake date), and it also removes most of section 8's breaks
+   (no bracket tokens to split, spell or budget). What remains: the lane still
+   cannot fix a misheard real name, and a nickname judged against a fake name
+   is judged against the wrong word, so "People call me Beto" beside a fake
+   "Roberto" could be read as consistent when her real name is not Roberto.
+
+**What it costs GP:**
+- **The leak counter breaks as built.** It would count every fake SSN as an
+  unmasked nine-digit leak. It needs to know which values are fakes. Cheapest:
+  the phone sends `metadata.surrogates`, the list of fake values it used this
+  turn (fakes are not secret), and the counter skips those. About an hour once
+  the field is named. Without it the counter only measures the baseline and is
+  meaningless after wiring.
+- **Probe:** replay the recorded runs with fakes swapped in (from the client's
+  real masker, as ruled in section 8), and check replies read the same and
+  never remark on a fake. About half a day, same as before.
+- Nothing else: no guard reads identifier values, the evidence floor compares
+  like with like, Jev's `applicant_said` is `user_content` verbatim.
+
+**Superseded:** the stage one `[[TYPE_n]]` wire form and the NUM contract item
+("the lane must never file a NUM placeholder"). Month guard, compound reading
+and the leak counter's reader stay exactly as live (`c9eb33b`): the phone
+still has to FIND a spoken identifier before it can swap it.
