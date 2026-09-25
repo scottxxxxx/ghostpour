@@ -378,6 +378,10 @@ _SECRET_MANAGER_MAPPINGS: dict[str, str] = {
     # here: they are identifiers rather than secrets, so they live in env
     # like any other config, per the note above this table.
     "CZ_APNS_PRIVATE_KEY_B64": "apns-private-key-b64",
+    # The Sign in with Apple key (account deletion revokes the Apple token,
+    # 5.1.1(v)). Unmapped until 2026-09-24, so revocation stayed dormant in
+    # prod. Key id and team id are identifiers and live in env, like APNs.
+    "CZ_SIWA_PRIVATE_KEY_B64": "siwa-private-key-b64",
 }
 
 
