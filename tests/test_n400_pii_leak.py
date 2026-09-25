@@ -38,6 +38,55 @@ def test_the_reader_matches_the_clients_vectors(vid, said, want):
     assert written(said) == want
 
 
+# Task 11, the month guard, VERBATIM (N400 App qa/N400-AGENT-TASKS-2026-09-24.md
+# at 6a423b8, plus D17 and D18 from the client review at 7d78cb7). D14 is GP's own false ten_digits from the live leak counter.
+TASK11 = [
+    ("D1", "mine is March eight nineteen seventy four", "mine is March eight nineteen seventy four"),
+    ("D2", "she was born February eleven two thousand one", "she was born February eleven two thousand one"),
+    ("D3", "we got married June twelve twenty ten", "we got married June twelve twenty ten"),
+    ("D4", "I was born on the third, March nineteen ninety", "I was born on the third, March nineteen ninety"),
+    ("D5", "January first nineteen ninety", "January first nineteen ninety"),
+    ("D6", "el ocho de marzo del setenta y cuatro", "el ocho de marzo del setenta y cuatro"),
+    ("D7", "I moved there in March twenty eighteen", "I moved there in March twenty eighteen"),
+    ("D8", "my address is twenty two ten Oak Street", "my address is 2210 Oak Street"),
+    ("D9", "in March my number was six two seven, four four, nine zero one eight",
+     "in March my number was 627449018"),
+    ("D10", "yes you may: six two seven four four nine zero one eight", "yes you may: 627449018"),
+    ("D11", "the fifth of May twenty twenty", "the fifth of May twenty twenty"),
+    ("D12", "nasci em oito de março de mil novecentos e setenta e quatro",
+     "nasci em oito de março de mil novecentos e setenta e quatro"),
+    ("D13", "March eight nineteen seventy four, six two seven four four nine zero one eight",
+     "March eight nineteen seventy four, 627449018"),
+    ("D14", "March eight nineteen seventy four, six two seven four four",
+     "March eight nineteen seventy four, 62744"),
+    # D15 and D16 were GP's two unpinned cases; the auditor ruled both
+    # intended: the guard keeps day and year apart, not the year in words.
+    ("D15", "March eight, nineteen seventy four", "March eight, 1974"),
+    ("D16", "March twenty first nineteen ninety", "March twenty first 1990"),
+    # D17 and D18, the auditor's review of the client (7d78cb7): no month
+    # abbreviations at all ("mar" is the Spanish sea), and Portuguese "março"
+    # guards only with its cedilla (folded, it is the name Marco).
+    ("D17", "vivo cerca del mar, seis dos siete cuatro cuatro nueve cero uno ocho",
+     "vivo cerca del mar, 627449018"),
+    ("D18", "mi esposo Marco, seis dos siete cuatro cuatro nueve cero uno ocho",
+     "mi esposo Marco, 627449018"),
+]
+
+
+@pytest.mark.parametrize("vid,said,want", TASK11, ids=[v[0] for v in TASK11])
+def test_a_date_is_never_rewritten_and_never_shields_an_identifier(vid, said, want):
+    assert written(said) == want
+
+
+def test_d14_is_no_longer_a_false_ten_digit_leak():
+    """The live counter logged "March eight nineteen seventy four, six two
+    seven four four" as ten_digits, the date glued to the number after it."""
+    assert leak.shapes("March eight nineteen seventy four, six two seven four four") == {}
+    # ...and D13's SSN after a date is still counted.
+    assert leak.shapes("March eight nineteen seventy four, six two seven four four nine zero one eight") \
+        == {"nine_digits": 1}
+
+
 # --- what counts as a leak ------------------------------------------------------
 
 @pytest.mark.parametrize("text,kind", [
