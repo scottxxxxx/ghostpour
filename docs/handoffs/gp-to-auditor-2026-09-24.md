@@ -120,3 +120,67 @@ when it sees an unmasked nine or ten digit run or an email; shapes only.
 Before your Task 9 wiring ships, every dictated identifier counts: that is the
 baseline. Rulings recorded: the NUM floor ships WITH v39; C1 to C13 stay
 identical on both sides and you send any diff first.
+
+## 8. Costing stage two (`pii-stage-two-names-dob-2026-09-24.md`), not a go
+
+Read = I opened it tonight: your draft, `interviewer-turn` v38's systemPrompt,
+`n400_interviewer_guard.py`, `n400_evidence_support.py`.
+
+**Your restore-into-speech design removes my read-back objection.** If the
+phone speaks `[[SSN_1]]` as her digits, she still hears her number. What moves
+off the model is only the arithmetic (counting, "ends in", two candidates).
+
+**v39 cost.**
+- NUM alone (stage one): placeholders verbatim; never file `[[NUM_n]]`, ask
+  which number; echo by writing the placeholder and `:last4`; exempt masked
+  values from the digit-only A-Number rule, digit counting and the two
+  candidate readout. en and es. Plus the NUM server floor (about 1 hour) and
+  the two small tests. About HALF A DAY, plus a probe run.
+- All of stage two folded in: the above, plus names (verbatim per word,
+  several placeholders in one value, given and family split by position and
+  locale, the rules in the next list) and DOB (verbatim, a masked DOB is a
+  whole date so never re-ask its day, `:year`). Prompt about ONE DAY. The
+  real cost is the probe: `NLTagger` is Apple only, so GP cannot reproduce
+  the phone's name masking in Python, and a probe masked by a GP
+  approximation would measure GP's masker, not the phone's. **Ask: have Task
+  10 emit the MASKED wire request for each of the 167 runs** (plus the
+  table); then GP's masked replay is about half a day. Total roughly 1.5 to 2
+  days, against about half a day for NUM alone.
+
+**Asks 4 and 5 cost nothing on GP.** No name or date floors exist; the one date
+guard (`defer_dates_with_unspoken_day`) acts only on exact `YYYY-MM-DD`
+values, so `[[DOB_1]]` passes it untouched (fine, since only whole dates are
+masked, but the invented-day protection for DOBs now lives in the phone's
+parser). TypeSafe's `applicant_said` IS `user_content` verbatim, so whatever
+the phone masks, Jev receives masked.
+
+**Ask 6.** A `dob` kind for the counter: your birth phrase list plus whole date
+shapes (ISO, numeric, month name with day and year, spoken), counted by shape.
+About 2 hours. ⚠ **Names are NOT countable at GP**: there is no name tagger on
+the server, so a name the phone misses is invisible here. Task 10 is the only
+measurement names will ever get; please make it count false POSITIVES too
+(next list, d).
+
+**What breaks on a masked name that the draft does not name:**
+- a. **Garbled names.** v38 tells the lane to read "phonetically plausible
+  garbles of names and places" charitably and fix them. On a placeholder it
+  cannot, so a misrecognised name goes to the form unless the spoken read-back
+  catches it. The read-back becomes the ONLY catch for a misheard name.
+- b. **Nicknames and other names.** "People call me Beto": whether that is a
+  legal other name or a diminutive of Alberto is judged from the words. On
+  `[[NAME_5]]` the lane must ASK instead; needs a rule, or it will guess.
+- c. **Partial tags.** Names that are also words ("Paz", "Dolores",
+  "Guadalupe", "Mercedes", "Rosario", "Blessing") may be masked in some turns
+  and not others, so a value arrives as "[[NAME_1]] Paz". Restore works; the
+  leak is partial and, per the above, uncountable here.
+- d. **False positives on places.** If the tagger masks a place as a name
+  ("born in Santa Rosa", "Lourdes"), the lane loses place reasoning: v38 infers
+  a citizen spouse from "she was born in Texas". Task 10 should count places
+  tagged as names, not only names missed.
+- e. **Summary length.** v38 budgets a Part 2 summary in spoken length ("past
+  60: split it after the name"). A placeholder is shorter than the name or date
+  it becomes in speech, so the lane will under-count and pack too much into
+  one breath. One sentence of prompt, but it has to be there.
+- f. Checked, NOT a break: v38 never infers gender from a name (only from known
+  facts or her own words), and the "first and last, then ask about a middle
+  name" rule counts words, which placeholders preserve.
