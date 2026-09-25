@@ -61,6 +61,31 @@ _TENS = {
         ["vinte", "trinta", "quarenta", "cinquenta", "sessenta", "setenta", "oitenta", "noventa"])},
 }
 
+# THE MONTH GUARD (Task 11, 2026-09-24). A day next to a year is one run, so
+# without this "March eight nineteen seventy four" became "March 81974". A run
+# right after a month name, or after a month and ONE ordinal or connector
+# word, is left in words. It ENDS at the first punctuation inside the run, so
+# a number said right after a date is still read: "March eight nineteen
+# seventy four, six two seven four four" keeps the date and gives 62744 (D14,
+# which was GP's own false ten_digits in the leak counter). "May" guards only
+# when capitalised, since "may" is a verb.
+_MONTHS = {
+    "january", "february", "march", "april", "june", "july", "august", "september",
+    "october", "november", "december",
+    "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec",
+    "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre",
+    "setiembre", "octubre", "noviembre", "diciembre",
+    "janeiro", "fevereiro", "marco", "maio", "junho", "julho", "setembro", "outubro",
+    "novembro", "dezembro",
+}
+_ORDINALS = {
+    "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth",
+    "tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth", "sixteenth",
+    "seventeenth", "eighteenth", "nineteenth", "twentieth", "thirtieth",
+    "primero", "primeiro",
+}
+_CONNECTORS = {"the", "of", "de", "del", "do", "da"}
+
 _JOINERS = {"y", "e"}
 _SEPARATORS = {",", "-"}
 MIN_DIGITS = 3
@@ -77,6 +102,24 @@ def _is_number_word(w: str) -> bool:
     return w in _UNITS or w in _TEENS or w in _TENS
 
 
+def _is_month(text: str, tok: tuple) -> bool:
+    if tok[2] == "may":
+        return text[tok[0]] == "M"
+    return tok[2] in _MONTHS
+
+
+def _after_a_month(text: str, toks: list, i: int) -> bool:
+    """Is the run starting at toks[i] right after a month, or a month and one
+    ordinal or connector word? Punctuation in between does not count."""
+    words = [t for t in toks[:i] if t[2][0].isalnum()]
+    if not words:
+        return False
+    if _is_month(text, words[-1]):
+        return True
+    return (words[-1][2] in _ORDINALS or words[-1][2] in _CONNECTORS) \
+        and len(words) > 1 and _is_month(text, words[-2])
+
+
 def written(text: str) -> str:
     """`text` with every dictated run of number words written as digits.
     Anything under the threshold is returned byte for byte."""
@@ -86,6 +129,7 @@ def written(text: str) -> str:
         if not _is_number_word(toks[i][2]):
             i += 1
             continue
+        guarded = _after_a_month(text, toks, i)
         start, digits, end = toks[i][0], [], toks[i][1]
         j = i
         while j < len(toks):
@@ -113,7 +157,10 @@ def written(text: str) -> str:
                 end, j = toks[j][1], j + 1
             else:
                 break
-            # A separator continues the run only when a number word follows it.
+            # A separator continues the run only when a number word follows it,
+            # and never a guarded one: the guard ends at the first punctuation.
+            if guarded:
+                continue
             k = j
             while k < len(toks) and toks[k][2] in _SEPARATORS:
                 k += 1
@@ -122,7 +169,7 @@ def written(text: str) -> str:
                 continue
             break
         produced = "".join(digits)
-        if len(produced) >= MIN_DIGITS:
+        if len(produced) >= MIN_DIGITS and not guarded:
             out.append(text[cursor:start])
             out.append(produced)
             cursor = end
