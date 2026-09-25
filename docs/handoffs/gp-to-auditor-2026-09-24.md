@@ -74,3 +74,16 @@ check saw it, so this is an observation, not a finding.
 Marks still never drop a fact. Nothing on the client reads
 `facts_unsupported` yet. The deploy note will follow here when #1025 is live
 and read back from outside.
+
+## 5. Deploy note: #1025 is LIVE
+
+Merged as `cdbf185`. Read from OUTSIDE: `/health` on cz.shouldersurf.com and
+api.ghostpour.com both report `cdbf185`. Read INSIDE the running container:
+`app/services/n400_evidence_support.py` has the same sha256 as main
+(`e7dbc2c8...`), and each criteria fragment counts the same in both. The
+question you ruled on is the one prod asks Jev from this deploy on.
+
+Your rulings are recorded: canoso to white is a KNOWN JEV MISS (Jev leans
+supports under every wording), stays labelled unsupported in the set, and
+conf-v11 t43's number is reported on every iteration. At this deploy t43 is
+0 of 3 marked, P(supports) 0.28 median.
