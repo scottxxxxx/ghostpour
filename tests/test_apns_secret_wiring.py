@@ -26,15 +26,23 @@ def test_the_key_id_and_team_id_are_NOT_secrets():
 
 
 def test_every_apple_private_key_is_mapped_the_same_way():
-    """Four Apple .p8 keys now follow one pattern. A fifth added later
-    should fail this test until it is wired, rather than being discovered
-    dormant in production."""
+    """Every `*_private_key_b64` SETTING must be fetchable from Secret Manager.
+
+    The first version of this test enumerated the MAPPING and promised that
+    a key added later "should fail this test until it is wired". It could
+    not: a setting missing from the mapping is absent from what it looked
+    at. The Sign in with Apple key sat in Settings unmapped, so prod could
+    only have read it from plaintext in .env.prod, and on 2026-09-24
+    `is_configured()` was False in prod with three real deletions logging
+    "revocation skipped". The expected set is now read from Settings.
+    """
+    from app.config import Settings
+    settings_keys = {f"CZ_{name.upper()}" for name in Settings.model_fields
+                     if name.endswith("_private_key_b64")}
     apple_keys = {k for k in _SECRET_MANAGER_MAPPINGS if k.endswith("_PRIVATE_KEY_B64")}
-    assert apple_keys == {
-        "CZ_APP_STORE_PRIVATE_KEY_B64",
-        "CZ_ASC_CONNECT_PRIVATE_KEY_B64",
-        "CZ_APNS_PRIVATE_KEY_B64",
-    }
+    assert settings_keys == apple_keys, (
+        f"unmapped: {sorted(settings_keys - apple_keys)}, "
+        f"mapped but no setting: {sorted(apple_keys - settings_keys)}")
     for env_var in apple_keys:
         sm_name = _SECRET_MANAGER_MAPPINGS[env_var]
         assert sm_name == env_var[3:].lower().replace("_", "-"), (
