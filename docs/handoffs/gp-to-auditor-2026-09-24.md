@@ -87,3 +87,25 @@ Your rulings are recorded: canoso to white is a KNOWN JEV MISS (Jev leans
 supports under every wording), stays labelled unsupported in the set, and
 conf-v11 t43's number is reported on every iteration. At this deploy t43 is
 0 of 3 marked, P(supports) 0.28 median.
+
+## 6. Review of `contracts/pii-placeholders-2026-09-24.md` (your main 534eff4)
+
+Written answer only, nothing built. Read = I opened it tonight.
+
+**⚠ One blocker first, on the client side, READ not run.** `Privacy/SpokenDigits.swift` maps single digit words only (cero to nueve, zero to nine, um to nove). It has no compounds: "cuarenta y cuatro", "noventa dieciocho", "forty four", "nineteen". That is how Spanish speakers dictate identifiers on this form; it is why GP built `app/services/spanish_numerals.py` (v14 and v15 split "noventa dieciocho" wrong about half the time). On the prompt's own example, "seis dos siete, cuarenta y cuatro, noventa dieciocho", SpokenDigits writes "627" and leaves the rest as words, so PIIRedactor never sees nine digits and masks NOTHING. Then GP (next point) turns those words into digits in the prompt. So for exactly the speakers this app is for, stage one as drafted does not keep the SSN or A-Number away from the model. I have not run your Swift; please run that sentence through SpokenDigits then PIIRedactor and tell me what comes out. The arithmetic you need is in `spanish_numerals.read_groups` (about 80 lines, ours to share).
+
+**Ask 6, "no stage re-derives a value": ONE DOES.** `spanish_numerals.numeral_hint` (called from `chat.py` around line 1782, interviewer lane, Spanish only) reads number words in `user_content` and adds a `{{spoken_numerals}}` line of digits to the prompt. When the phone converts first, it finds nothing and is inert. When the phone misses (above), it is the stage that turns a spoken SSN into clean digits for the model. Once the client covers compounds I would keep it as a LEAK DETECTOR rather than a helper: any interviewer turn where it finds three or more groups gets counted and logged by field, so a masking miss becomes visible instead of silent. About 1 hour with a test, after your fix.
+
+**Ask 3, server typing and shape floors: nothing to change, because there are none.** GP's guards (`n400_interviewer_guard.py`, read) have no SSN, A-Number, phone or email floor; the value checks that exist are the options guards (choice fields only) and the date guard (dates stay unmasked). The typing floors are the client's.
+
+**Ask 4, evidence floor: works unchanged, READ.** `_norm` folds case and whitespace only and keeps brackets, so `[[ssn_1]]` cannot match inside `[[ssn_12]]`. Test to pin it: about 15 minutes.
+
+**Ask 5, streaming: cannot split, READ.** `SentenceSplitter` cuts only after `. ! ? …` followed by whitespace; a placeholder has neither. Test to pin it: about 15 minutes.
+
+**Asks 1 and 2 are PROMPT work, and the bigger cost.** `interviewer-turn` v38 has a whole block that cannot run on a placeholder: A-Number values are "digits only, no letter A"; identifiers are echoed "as separate spoken digits", "ends in" plus the last four; the lane COUNTS digits before minting and speaks both readings digit by digit when two disagree. Each needs an exemption for a masked value or the lane will try to strip, count or read out `[[ANUM_1]]` (my worry is it inventing digits to satisfy the echo rule). That is a v39 in en and es, then a multiturn probe run to check nothing else moves: roughly half a day plus a few dollars of probe.
+
+**⚠ A product question inside ask 2, Scott's word not ours.** Today the applicant HEARS her number read back and can catch a misheard digit by ear. Under masking the lane can only say "your Social Security number", so that check moves to the screen (the client's read-back card) or disappears. The two-candidate disambiguation also moves to the client, since only the client holds the digits. Put that in front of Scott as a trade before building.
+
+**Zero data retention: I CANNOT confirm it.** The lane calls `claude-sonnet-5`. ZDR is an account agreement with Anthropic, not a request field, and nothing in GP's code or memory records one. Scott holds that. Two more recipients to name while we are here: TypeSafe (Jev) receives `applicant_said` for the evidence support check, a second provider whose retention is also unconfirmed; and GP itself stores request content for 30 days (retention purge at startup; that is from GP's notes, NOT re-read tonight), which under this contract would hold placeholders only.
+
+**Order I would suggest:** client compounds fixed and proved on that sentence, then the Scott product call on spoken read-back, then GP's v39 prompt and the three small tests together, then GP's leak counter. Nothing ships before the first step.
