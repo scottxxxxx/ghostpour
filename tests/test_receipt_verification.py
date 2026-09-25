@@ -411,3 +411,60 @@ def test_a_refused_notification_is_not_silent(client, monkeypatch, tmp_db_path):
     assert len(rows) == 1, rows
     assert rows[0][0] == "com.someoneelse.app"
     assert "EXPIRED" in rows[0][1]
+
+
+# --- the appAccountToken fallback ------------------------------------------
+
+def _post_subscribed_with_token(client, monkeypatch, token):
+    """A SUBSCRIBED whose originalTransactionId no user holds yet (it landed
+    before the client's verify-receipt), so the ONLY way to the user is the
+    appAccountToken the client set at purchase."""
+    from app.routers import apple_webhooks
+
+    monkeypatch.setattr(
+        apple_webhooks, "decode_notification",
+        lambda payload, bid: {
+            "notificationType": "SUBSCRIBED",
+            "subtype": "INITIAL_BUY",
+            "data": {
+                "bundleId": "com.test.app",
+                "environment": "Production",
+                "signedTransactionInfo": {
+                    "originalTransactionId": REAL_OTID,
+                    "transactionId": REAL_OTID,
+                    "productId": "com.weirtech.shouldersurf.sub.pro.monthly",
+                    "appAccountToken": token,
+                },
+            },
+        })
+    return client.post("/v1/apple-notifications",
+                       json={"signedPayload": "j.w.s"})
+
+
+def _tier_of(db_path, user_id):
+    conn = sqlite3.connect(db_path)
+    try:
+        return conn.execute("SELECT tier FROM users WHERE id = ?", (user_id,)).fetchone()[0]
+    finally:
+        conn.close()
+
+
+# Our ids are lowercase uuid4 strings (auth.py, the only INSERT INTO users;
+# 171 of 171 in prod on 2026-09-24). The client sets the token with
+# `UUID(uuidString: userId)`, and Swift's uuidString is UPPERCASE; which case
+# Apple echoes back has never been observed (one stored raw payload, no
+# token). Both must reach the user.
+@pytest.mark.parametrize("case", ["lower", "UPPER"])
+def test_the_app_account_token_reaches_the_user_in_either_case(
+        client, monkeypatch, tmp_db_path, case):
+    from tests.conftest import _insert_user
+
+    user_id = "5f0c9a52-8d7e-4b3a-9c1e-2a6b4d8e0f13"
+    _insert_user(tmp_db_path, user_id=user_id, tier="free")
+    token = user_id if case == "lower" else user_id.upper()
+
+    r = _post_subscribed_with_token(client, monkeypatch, token)
+
+    assert r.status_code == 200, r.text
+    assert r.json().get("reason") != "user_not_found", r.json()
+    assert _tier_of(tmp_db_path, user_id) == "pro"
