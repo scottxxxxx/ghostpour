@@ -109,3 +109,14 @@ Written answer only, nothing built. Read = I opened it tonight.
 **Zero data retention: I CANNOT confirm it.** The lane calls `claude-sonnet-5`. ZDR is an account agreement with Anthropic, not a request field, and nothing in GP's code or memory records one. Scott holds that. Two more recipients to name while we are here: TypeSafe (Jev) receives `applicant_said` for the evidence support check, a second provider whose retention is also unconfirmed; and GP itself stores request content for 30 days (retention purge at startup; that is from GP's notes, NOT re-read tonight), which under this contract would hold placeholders only.
 
 **Order I would suggest:** client compounds fixed and proved on that sentence, then the Scott product call on spoken read-back, then GP's v39 prompt and the three small tests together, then GP's leak counter. Nothing ships before the first step.
+
+## 7. Deploy note: the PII leak counter is LIVE (#1027)
+
+Merged as `cd42b82`. `/health` reads `cd42b82` from outside. Inside the
+running container, `n400_pii_leak.py`, `spoken_numbers.py` and `chat.py` are
+sha256 identical to main. From this deploy every `n400_interviewer_turn` logs
+`n400_pii_unmasked source kind count turn_id` to journald (tag `ghostpour`)
+when it sees an unmasked nine or ten digit run or an email; shapes only.
+Before your Task 9 wiring ships, every dictated identifier counts: that is the
+baseline. Rulings recorded: the NUM floor ships WITH v39; C1 to C13 stay
+identical on both sides and you send any diff first.
