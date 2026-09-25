@@ -1760,7 +1760,8 @@ async def _chat_impl(
                      {"user_content": body.user_content,
                       "conversation": body.get_meta("conversation"),
                       "known_facts": body.get_meta("known_facts")},
-                     (body.turn_id or "").strip() or None)
+                     (body.turn_id or "").strip() or None,
+                     body.get_meta("surrogates"))
 
     # 2.5. Server-side prompt assembly — if client sent no system_prompt but
     # has a call_type with a registered prompt config, assemble it server-side.

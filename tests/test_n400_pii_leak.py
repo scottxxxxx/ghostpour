@@ -157,9 +157,45 @@ def test_a_bug_inside_the_counter_cannot_fail_the_turn(monkeypatch):
     assert leak.report(leak.INTERVIEWER_CALL_TYPE, {"user_content": "627449018"}) == []
 
 
+# --- same-shaped fakes (Scott's ruling, 2026-09-25) -------------------------------
+
+FAKE_SSN = "555-00-5555"          # Task 14's shape: group 00 is never assigned
+
+
+@pytest.mark.parametrize("text", [
+    "my social is 555-00-5555",
+    "my social is 555 00 5555",           # the phone wrote dashes, the body spaces it
+    "my social is 555005555",
+    "cinco cinco cinco cero cero cinco cinco cinco cinco",   # the fake, dictated
+])
+def test_a_listed_fake_is_not_a_leak_in_any_spacing(text):
+    assert leak.shapes(text, [FAKE_SSN]) == {}
+
+
+def test_a_real_number_beside_a_fake_is_still_counted():
+    text = "mine is 555-00-5555 and my husband's is 627-44-9018"
+    assert leak.shapes(text, [FAKE_SSN]) == {"nine_digits": 1}
+
+
+def test_a_listed_fake_email_is_skipped_and_a_real_one_is_not():
+    text = "applicant0417@example.com, or my work one nancy.smith@example.com"
+    assert leak.shapes(text, ["Applicant0417@example.com"]) == {"email": 1}
+
+
+@pytest.mark.parametrize("bad", [None, "555-00-5555", {"ssn": "555-00-5555"}, [5550055555], [""]])
+def test_a_malformed_surrogates_field_skips_nothing(bad):
+    """Over-counting is the safe failure: a bad field must not hide a leak."""
+    assert leak.shapes("555-00-5555", bad) == {"nine_digits": 1}
+
+
+def test_without_the_list_a_masked_turn_reads_as_a_leak():
+    """Why the field exists: the counter cannot tell a fake by looking."""
+    assert leak.shapes("my social is 555-00-5555") == {"nine_digits": 1}
+
+
 # --- the route --------------------------------------------------------------------
 
-def _post_turn(client, free_user, user_content):
+def _post_turn(client, free_user, user_content, **meta):
     from unittest.mock import patch
     from app.models.chat import ChatResponse
     from tests.conftest import chat_request
@@ -174,7 +210,7 @@ def _post_turn(client, free_user, user_content):
     hdr = {**free_user["headers"], "X-App-ID": "n400"}
     with patch("app.services.anthropic_or_fallback.route_with_fallback", fake):
         return client.post("/v1/chat", headers=hdr, json=chat_request(
-            system_prompt="", user_content=user_content, metadata=_metadata()))
+            system_prompt="", user_content=user_content, metadata=_metadata(**meta)))
 
 
 def test_the_route_counts_an_unmasked_turn_and_not_a_masked_one(client, free_user, caplog):
@@ -185,5 +221,12 @@ def test_the_route_counts_an_unmasked_turn_and_not_a_masked_one(client, free_use
         assert any("source=user_content kind=nine_digits count=1" in h for h in hits), hits
         caplog.clear()
         r = _post_turn(client, free_user, "[[SSN_1]]")
+        assert r.status_code == 200, r.text
+    assert not [m for m in caplog.records if "n400_pii_unmasked" in m.getMessage()]
+
+
+def test_the_route_reads_surrogates_from_metadata(client, free_user, caplog):
+    with caplog.at_level(logging.WARNING, logger="ghostpour.n400_pii_leak"):
+        r = _post_turn(client, free_user, "my social is 555-00-5555", surrogates=[FAKE_SSN])
         assert r.status_code == 200, r.text
     assert not [m for m in caplog.records if "n400_pii_unmasked" in m.getMessage()]
