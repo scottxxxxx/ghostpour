@@ -1751,6 +1751,17 @@ async def _chat_impl(
     _n400_utterance = body.user_content
     _raw_user_content = body.user_content  # the applicant's or the user's own words, pre-assembly
 
+    # Identifiers that reached us UNMASKED on the N-400 interviewer lane
+    # (placeholder contract, 2026-09-24): a miss is invisible on the phone
+    # and only countable on this hop. Logs shapes, never values; changes
+    # nothing on the wire; never raises (app/services/n400_pii_leak.py).
+    from app.services.n400_pii_leak import report as _pii_leak_report
+    _pii_leak_report(body.get_meta("call_type"),
+                     {"user_content": body.user_content,
+                      "conversation": body.get_meta("conversation"),
+                      "known_facts": body.get_meta("known_facts")},
+                     (body.turn_id or "").strip() or None)
+
     # 2.5. Server-side prompt assembly — if client sent no system_prompt but
     # has a call_type with a registered prompt config, assemble it server-side.
     if not body.system_prompt:
