@@ -39,7 +39,7 @@ def test_the_reader_matches_the_clients_vectors(vid, said, want):
 
 
 # Task 11, the month guard, VERBATIM (N400 App qa/N400-AGENT-TASKS-2026-09-24.md
-# at 6a423b8). D14 is GP's own false ten_digits from the live leak counter.
+# at 6a423b8, plus D17 and D18 from the client review at 7d78cb7). D14 is GP's own false ten_digits from the live leak counter.
 TASK11 = [
     ("D1", "mine is March eight nineteen seventy four", "mine is March eight nineteen seventy four"),
     ("D2", "she was born February eleven two thousand one", "she was born February eleven two thousand one"),
@@ -63,6 +63,13 @@ TASK11 = [
     # intended: the guard keeps day and year apart, not the year in words.
     ("D15", "March eight, nineteen seventy four", "March eight, 1974"),
     ("D16", "March twenty first nineteen ninety", "March twenty first 1990"),
+    # D17 and D18, the auditor's review of the client (7d78cb7): no month
+    # abbreviations at all ("mar" is the Spanish sea), and Portuguese "março"
+    # guards only with its cedilla (folded, it is the name Marco).
+    ("D17", "vivo cerca del mar, seis dos siete cuatro cuatro nueve cero uno ocho",
+     "vivo cerca del mar, 627449018"),
+    ("D18", "mi esposo Marco, seis dos siete cuatro cuatro nueve cero uno ocho",
+     "mi esposo Marco, 627449018"),
 ]
 
 

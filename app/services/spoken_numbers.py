@@ -63,19 +63,22 @@ _TENS = {
 
 # THE MONTH GUARD (Task 11, 2026-09-24). A day next to a year is one run, so
 # without this "March eight nineteen seventy four" became "March 81974". A run
-# right after a month name, or after a month and ONE ordinal or connector
-# word, is left in words. It ENDS at the first punctuation inside the run, so
+# right after a month name (spelled out, never abbreviated), or after a month
+# and ONE ordinal or connector word, is left in words. It ENDS at the first punctuation inside the run, so
 # a number said right after a date is still read: "March eight nineteen
 # seventy four, six two seven four four" keeps the date and gives 62744 (D14,
 # which was GP's own false ten_digits in the leak counter). "May" guards only
 # when capitalised, since "may" is a verb.
+# No abbreviations, in any language: the recognizer spells months out, so
+# "mar" only ever arrives as the Spanish sea, and it shielded the number after
+# it (D17). Portuguese "março" is matched on its ORIGINAL spelling in
+# `_is_month`, because folded it is the name Marco (D18).
 _MONTHS = {
     "january", "february", "march", "april", "june", "july", "august", "september",
     "october", "november", "december",
-    "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec",
     "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre",
     "setiembre", "octubre", "noviembre", "diciembre",
-    "janeiro", "fevereiro", "marco", "maio", "junho", "julho", "setembro", "outubro",
+    "janeiro", "fevereiro", "maio", "junho", "julho", "setembro", "outubro",
     "novembro", "dezembro",
 }
 _ORDINALS = {
@@ -105,6 +108,8 @@ def _is_number_word(w: str) -> bool:
 def _is_month(text: str, tok: tuple) -> bool:
     if tok[2] == "may":
         return text[tok[0]] == "M"
+    if tok[2] == "marco":
+        return text[tok[0]:tok[1]].lower() == "março"
     return tok[2] in _MONTHS
 
 
