@@ -2324,9 +2324,11 @@ function renderUserRows() {
       ? '<span style="color:#4CAF50">Yes</span>'
       : '<span style="color:var(--text-dim)">No</span>';
     return `<tr>
-    <td>${u.display_name
+    <td>${u.is_anonymous
+      ? `<span style="color:var(--text-dim)">Anonymous</span>${(u.linked_devices||1) > 1 ? ` <span class="badge" title="One person, ${u.linked_devices} devices (linked by a restore or sign-in)">${u.linked_devices} devices</span>` : ''}`
+      : u.display_name
       ? `<div>${esc(u.display_name)}</div><div style="font-size:0.8em;color:var(--text-dim)">${u.email?esc(u.email):'Private relay'}</div>`
-      : (u.email?esc(u.email):'<span style="color:var(--text-dim)">Private relay</span>')}</td>
+      : (u.email?esc(u.email):'<span style="color:var(--text-dim)">Private relay</span>')}${!u.is_anonymous && (u.linked_devices||1) > 1 ? ` <span class="badge" title="One person, ${u.linked_devices} accounts (an anonymous purchase merged in)">${u.linked_devices} accounts</span>` : ''}</td>
     <td><span class="badge ${u.tier}">${tierLabel}</span>${trialBadge}${simBadge}</td>
     <td>${chBadge(u)}</td>
     <td>${hrsUsed} / ${hrsLimit} hrs</td>
@@ -2848,6 +2850,8 @@ async function refresh() {
   document.getElementById('user-cards').innerHTML =
     card('Total Users', fmt(dash.users.total), 'accent') +
     card('Active Users', fmt(dash.users.active), 'green') +
+    (dash.users.people != null ? card('People', fmt(dash.users.people), 'green') : '') +
+    (dash.users.anonymous ? card('Anonymous', `${fmt(dash.users.anonymous.people)} people · ${fmt(dash.users.anonymous.accounts)} devices · ${fmt(dash.users.anonymous.with_plan)} paid`, 'purple') : '') +
     Object.entries(dash.users.by_tier||{}).map(([t,c]) => card(t.charAt(0).toUpperCase()+t.slice(1), fmt(c), 'purple')).join('');
 
   panel('models', () => {

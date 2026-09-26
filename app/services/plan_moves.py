@@ -67,8 +67,11 @@ async def move_plan(db: aiosqlite.Connection, held_by: list[dict], to_user_id: s
            WHERE id = ?""",
         (float(src.get("monthly_used_usd") or 0), int(src.get("searches_used") or 0),
          int(src.get("generations_used") or 0), src.get("allocation_resets_at"), to_user_id))
+    from app.services.account_groups import link
     for h in paid:
         await _downgrade_to_free(db, h["id"], tier_config)
+        # Same person, another device: the dashboard groups them.
+        await link(db, h["id"], to_user_id, "restore", otid)
     if otid:
         ids = [h["id"] for h in held_by]
         ph = ",".join("?" * len(ids))

@@ -65,6 +65,8 @@ async def merge_into(db: aiosqlite.Connection, anon: dict, apple: dict) -> dict:
 
     await db.execute("UPDATE users SET is_active = 0, updated_at = ? WHERE id = ?",
                      (now, anon["id"]))
+    from app.services.account_groups import link
+    await link(db, anon["id"], apple["id"], "merge", anon.get("original_transaction_id"))
     await db.execute("UPDATE refresh_tokens SET revoked = 1 WHERE user_id = ?", (anon["id"],))
     await db.execute(
         """INSERT OR REPLACE INTO anonymous_merges

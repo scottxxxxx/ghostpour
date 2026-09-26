@@ -1420,6 +1420,24 @@ async def dashboard(
     )
     tier_breakdown = {row[0]: row[1] for row in await cursor.fetchall()}
 
+    # People, not accounts (Scott, 2026-09-26): an anonymous buyer who
+    # restores on a second device has two accounts and is one person. Active
+    # accounts that `account_links` connects count once. Anonymous accounts
+    # are shown on their own line. Users are global across apps, like the
+    # counts above; anonymous accounts exist for ShoulderSurf only.
+    from app.services.account_groups import groups as _groups
+    _gmap = await _groups(db)
+    _active = await (await db.execute(
+        "SELECT id, tier, apple_sub LIKE 'anonymous:%' AS anon FROM users WHERE is_active = 1"
+    )).fetchall()
+    people_keys = {_gmap.get(r["id"], r["id"]) for r in _active}
+    anon_rows = [r for r in _active if r["anon"]]
+    anonymous_block = {
+        "accounts": len(anon_rows),
+        "people": len({_gmap.get(r["id"], r["id"]) for r in anon_rows}),
+        "with_plan": sum(1 for r in anon_rows if (r["tier"] or "free") != "free"),
+    }
+
     # --- Usage (last N days) ---
     since = f"{days}d"
     cursor = await db.execute(
@@ -1696,6 +1714,8 @@ async def dashboard(
             "total": total_users,
             "active": active_users,
             "by_tier": tier_breakdown,
+            "people": len(people_keys),
+            "anonymous": anonymous_block,
         },
         "today": today_usage,
         "usage": usage_summary,
@@ -3188,6 +3208,12 @@ async def list_users(
     # batch query over the event log.
     user_offers: dict[str, str] = {}
     ids = [r["id"] for r in rows_fetched]
+    from app.models.user import ANONYMOUS_SUB_PREFIX
+    from app.services.account_groups import groups as _groups
+    _account_groups = await _groups(db)
+    _group_sizes: dict[str, int] = {}
+    for _k in _account_groups.values():
+        _group_sizes[_k] = _group_sizes.get(_k, 0) + 1
     if ids:
         ph = ",".join("?" * len(ids))
         for ev in await (await db.execute(
@@ -3270,10 +3296,16 @@ async def list_users(
         lifetime_input = r["lifetime_input_tokens"] or 0
         lifetime_output = r["lifetime_output_tokens"] or 0
 
+        _gkey = _account_groups.get(r["id"])
         users.append({
             "id": r["id"],
             "apple_sub": r["apple_sub"][:8] + "..." if r["apple_sub"] else None,
             "email": r["email"],
+            # An anonymous purchase account has no Apple identity; linked
+            # accounts are ONE person on several devices (Scott, 2026-09-26).
+            "is_anonymous": str(r["apple_sub"] or "").startswith(ANONYMOUS_SUB_PREFIX),
+            "account_group": _gkey,
+            "linked_devices": _group_sizes.get(_gkey, 1) if _gkey else 1,
             "display_name": r["display_name"],
             "tier": tier_name,
             "tier_display_name": tier_def.display_name if tier_def else tier_name,
