@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 38
+served_version: 39
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 2048
 thinking: disabled
-reconciled: 2026-09-20 (v38)
+reconciled: 2026-09-26 (v39)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1593,6 +1593,49 @@ Tests: `test_the_v38_list_verifies_the_real_v38_bundle`,
 `test_the_original_reason_for_the_order_survives_v38`. v36's tests go synthetic.
 
 522 chars onto 72,868 (73,390). Version 36 to 38. Zero em or en dashes.
+
+## v39: one optional review at the end, not a confirmation after every part
+
+Scott, 2026-09-26, after his build 101 run, relayed by the auditor: "after they
+give us all the information we can show it ... then just do one review if they
+want it at the very end but make it optional ... it feels like we're doing a lot
+of confirmation that makes the whole process slow down." Contract: N400 App
+`contracts/no-per-part-confirmation-2026-09-26.md`, for client build 102.
+
+What changed in the prompt:
+- A part boundary summarizes in ONE sentence that reads the values back, then
+  opens the next part in the same reply. `section_checkpoint` carries
+  `awaiting_confirmation` false and `asking` names the next part's first node.
+  It never asks whether the part is complete and correct.
+- When the agenda is empty the lane offers the review ONCE ("go through your
+  answers once more, or go straight to your form?", en and es). Choosing the
+  form sets `interview_over`; choosing the review walks the parts one per
+  response, lowest unread first, with `awaiting_confirmation` true, and her yes
+  to Part 13 sets `interview_over`.
+- `interview_over` requires an empty agenda AND her answer to the offer, not
+  every part confirmed.
+- The opener, and the "say what you are" line, now say she will see the whole
+  form before anything is final (were: nothing is filed until she reviews every
+  answer). The app keeps the finished form preview mandatory.
+- Everything the read-back rules protected is kept: values from KNOWN FACTS,
+  never categories, never an unasked answer, never a derived date; a yes
+  answers nothing else; one part per response in the review.
+
+Guard: `drop_checkpoint_when_asking_set` stripped exactly the new shape (a card
+beside a named next question). It now keeps a checkpoint with
+`awaiting_confirmation` explicitly false; a card without the field keeps the old
+rule. `clear_interview_over_while_agenda_open` needed no change: it only ever
+required an empty agenda. "Her answer to the offer" is not checkable by a guard
+(free text), so the prompt carries it; the auditor declined a marker field.
+
+Tests: `test_the_v39_list_verifies_the_real_v39_bundle`,
+`test_each_v39_phrase_is_load_bearing_on_the_real_bundle`,
+`test_the_retired_per_part_confirmation_stays_gone_in_v39`,
+`test_every_v38_phrase_rides_into_v39`. v38's tests go synthetic. The new text
+sits INSIDE the SECTION CHECKPOINTS paragraph, not a new one: tests locate the
+deferrals block by line number, and a new paragraph shifted it.
+
+73,390 chars to 72,860. Version 38 to 39. 0 em or en dashes.
 
 ## What is deliberately not here
 

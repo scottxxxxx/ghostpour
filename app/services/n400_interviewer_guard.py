@@ -1083,6 +1083,14 @@ def drop_checkpoint_when_asking_set(text: str) -> tuple[str, dict | None]:
     cp = turn.get("section_checkpoint")
     if not cp or not _asking_is_set(turn.get("asking")):
         return text, None
+    # ONE OPTIONAL REVIEW (Scott, 2026-09-26, after build 101): a part
+    # boundary no longer stops to ask. Its card arrives with
+    # awaiting_confirmation FALSE beside the next part's opening question,
+    # which is exactly the shape this floor was built to strip, so that card
+    # is kept. Only an explicit false: a card without the field is judged by
+    # the rule below, as before.
+    if isinstance(cp, dict) and cp.get("awaiting_confirmation") is False:
+        return text, None
     if any(asks_for_confirmation(t) for t in _reply_texts(turn.get("reply"))):
         return text, None
     asking = turn.get("asking")

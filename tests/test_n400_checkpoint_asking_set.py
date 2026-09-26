@@ -150,3 +150,41 @@ def test_the_orchestrator_applies_it():
     out = json.loads(guard_response_text(text, "", "t_006", "yes, that's right"))
     assert out["section_checkpoint"] is None
     assert out["checkpoint_dropped"]["code"] == "asking_set"
+
+
+# --- one optional review (Scott, 2026-09-26) ----------------------------------------------
+# A part boundary no longer asks. Its card carries awaiting_confirmation FALSE
+# and rides WITH the next part's opener, asking set: the shape above, made legal.
+
+NEXT = {"node_id": "q_p6_children", "field_ids": ["p6.child_count"]}
+
+
+def test_an_informational_card_beside_the_next_part_is_kept():
+    text = _resp(section_checkpoint={"part": 5, "section": "Part 5", "awaiting_confirmation": False},
+                 asking=NEXT,
+                 reply={"en": "Got it, that's Part 5. Part 6 is your children. How many do you have?"})
+    out, info = drop_checkpoint_when_asking_set(text)
+    assert info is None and out == text
+
+
+def test_a_card_that_still_awaits_confirmation_beside_a_question_is_still_dropped():
+    text = _resp(section_checkpoint={"part": 5, "section": "Part 5", "awaiting_confirmation": True},
+                 asking=NEXT,
+                 reply={"en": "Got it, that's Part 5. Part 6 is your children. How many do you have?"})
+    out, info = drop_checkpoint_when_asking_set(text)
+    assert json.loads(out)["section_checkpoint"] is None and info["code"] == REFUSED_ASKING_SET
+
+
+def test_a_card_without_the_field_keeps_the_old_rule():
+    text = _resp(section_checkpoint={"part": 5, "section": "Part 5"}, asking=NEXT,
+                 reply={"en": "Part 6 is your children. How many do you have?"})
+    assert json.loads(drop_checkpoint_when_asking_set(text)[0])["section_checkpoint"] is None
+
+
+def test_the_informational_card_survives_the_whole_guard_chain():
+    text = _resp(section_checkpoint={"part": 5, "section": "Part 5", "awaiting_confirmation": False},
+                 asking=NEXT,
+                 reply={"en": "Got it, that's Part 5. Part 6 is your children. How many do you have?"})
+    out = guard_response_text(text, None, "t_006")
+    out = out[0] if isinstance(out, tuple) else out
+    assert json.loads(out)["section_checkpoint"]["awaiting_confirmation"] is False

@@ -281,7 +281,37 @@ VERSIONS = {
             "así que encaja",
         ],
     },
+    39: {
+        # ONE OPTIONAL REVIEW (Scott via the auditor, 2026-09-26, after build
+        # 101): no "is that complete and correct?" after every part. A part
+        # boundary summarizes in one sentence and opens the next part in the
+        # same reply (section_checkpoint awaiting_confirmation FALSE, asking
+        # set); when the agenda is empty the lane offers the review ONCE. The
+        # opener is softened to match. Every v38 phrase must survive. The
+        # block is the SECTION CHECKPOINTS section, where the new end lives.
+        "block_anchor": "SECTION CHECKPOINTS\nA part is done when SECTION BOUNDARY is present",
+        "once": "THE END OF THE INTERVIEW: ONE OPTIONAL REVIEW",
+        "phrases": [
+            "A part boundary NEVER asks whether the part is complete and correct",
+            "Carry `section_checkpoint` with `awaiting_confirmation` false",
+            '"awaiting_confirmation": boolean, FALSE at a part boundary',
+            "they will see the whole form before anything is final",
+            "the LOWEST PART NUMBER YOU HAVE NOT READ BACK YET in this review",
+        ],
+        "absent": [
+            "so that fits",
+            "así que encaja",
+            # The per-part confirmation Scott retired must not come back in a
+            # stale cut wearing the new number.
+            "One thing per reply at a checkpoint",
+            "the FINAL READ-BACK begins",
+            "is that all complete and correct?",
+            "nothing is filed until they review",
+        ],
+    },
 }
+# v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
+VERSIONS[39]["phrases"] = VERSIONS[39]["phrases"] + VERSIONS[38]["phrases"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]
