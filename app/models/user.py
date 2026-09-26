@@ -60,6 +60,9 @@ class UserPublic(BaseModel):
 class AppleAuthRequest(BaseModel):
     identity_token: str
     full_name: str | None = None
+    # The anonymous purchase account's ACCESS token, when a signed-out buyer
+    # signs in. Refresh it first: an expired one merges nothing and says so.
+    anonymous_token: str | None = None
 
 
 class AnonymousAuthRequest(BaseModel):
@@ -79,3 +82,11 @@ class AuthResponse(BaseModel):
     token_type: str = "bearer"
     expires_in: int
     user: UserPublic
+    # /auth/apple only, what happened to an `anonymous_token` (check the echo,
+    # rule 4): "converted" (a new Apple ID took over the anonymous account),
+    # "merged" (it moved into an existing Apple account and closed), or
+    # "none". `merge_reason` says why a token merged nothing; `plan_conflict`
+    # is true when both accounts were already paid and each kept its own.
+    merge: str | None = None
+    merge_reason: str | None = None
+    plan_conflict: bool | None = None

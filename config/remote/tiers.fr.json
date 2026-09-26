@@ -101,6 +101,11 @@
             "kind": "budget_exhausted",
             "text": "Vous avez utilisé votre IA gratuite pour ce mois. Passez à Plus pour continuer.",
             "action": "open_paywall"
+          },
+          "cta_exhausted_anonymous": {
+            "kind": "budget_exhausted",
+            "text": "Vous avez utilisé la Shoulder Surf AI de ce forfait. Voyez les forfaits pour continuer.",
+            "action": "open_paywall"
           }
         },
         "search": {

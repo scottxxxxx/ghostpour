@@ -643,6 +643,11 @@ async def verify_receipt(
     # Guarded on a plausible id: with `'0'` in hand this statement would
     # have cleared the id off every OTHER user who had also been given a
     # `'0'`, turning one bad row into a widening blast radius.
+    # Read who else holds it BEFORE it detaches: a verified transaction moves
+    # the plan off them (app/services/plan_moves.py), applied below once this
+    # user's plan is written.
+    from app.services import plan_moves
+    _plan_holders = await plan_moves.holders(db, _otid, user.id)
     if _otid:
         await db.execute(
             "UPDATE users SET original_transaction_id = NULL "
@@ -746,6 +751,10 @@ async def verify_receipt(
         except Exception as e:
             logger.warning("mark_ever_subscribed (trial) failed: %s", e)
 
+        # A verified transaction held elsewhere moves here now, before the
+        # read-back, so a carried period end is what the response reports.
+        _moved = await plan_moves.move_plan(
+            db, _plan_holders, user.id, identity.verified, request.app.state.tier_config)
         # Read back the preserved allocation_resets_at for the response
         cursor = await db.execute(
             "SELECT allocation_resets_at, trial_end FROM users WHERE id = ?",
@@ -757,6 +766,7 @@ async def verify_receipt(
             "old_tier": old_tier_name,
             "new_tier": new_tier_name,
             "is_trial": True,
+            "moved_from_other_account": _moved,
             "trial_end": row["trial_end"] if row else None,
             "monthly_limit_usd": trial_limit,
             "allocation_resets_at": row["allocation_resets_at"] if row else None,
@@ -859,6 +869,8 @@ async def verify_receipt(
         logger.warning("mark_ever_subscribed (paid) failed: %s", e)
 
     # Read back preserved allocation_resets_at
+    _moved = await plan_moves.move_plan(
+        db, _plan_holders, user.id, identity.verified, request.app.state.tier_config)
     cursor = await db.execute(
         "SELECT allocation_resets_at FROM users WHERE id = ?",
         (user.id,),
@@ -871,6 +883,7 @@ async def verify_receipt(
         "old_tier": old_tier_name,
         "new_tier": new_tier_name,
         "is_trial": False,
+        "moved_from_other_account": _moved,
         "monthly_limit_usd": new_tier.monthly_cost_limit_usd,
         "allocation_resets_at": resets_at,
         "placeholder_report_count": await _placeholder_report_count(db, user.id),
@@ -1245,6 +1258,7 @@ async def usage_me(
             request.app.state.remote_configs,
             effective_tier_name,
             locale,
+            anonymous=user.is_anonymous,
         )
 
     return result
@@ -2217,6 +2231,7 @@ async def _chat_impl(
                         request.app.state.remote_configs,
                         user.effective_tier,
                         _budget_locale,
+                        anonymous=user.is_anonymous,
                     ),
                 },
             }
