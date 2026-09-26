@@ -754,7 +754,8 @@ async def verify_receipt(
         # A verified transaction held elsewhere moves here now, before the
         # read-back, so a carried period end is what the response reports.
         _moved = await plan_moves.move_plan(
-            db, _plan_holders, user.id, identity.verified, request.app.state.tier_config)
+            db, _plan_holders, user.id, identity.verified, request.app.state.tier_config,
+            otid=_otid)
         # Read back the preserved allocation_resets_at for the response
         cursor = await db.execute(
             "SELECT allocation_resets_at, trial_end FROM users WHERE id = ?",
@@ -870,7 +871,8 @@ async def verify_receipt(
 
     # Read back preserved allocation_resets_at
     _moved = await plan_moves.move_plan(
-        db, _plan_holders, user.id, identity.verified, request.app.state.tier_config)
+        db, _plan_holders, user.id, identity.verified, request.app.state.tier_config,
+            otid=_otid)
     cursor = await db.execute(
         "SELECT allocation_resets_at FROM users WHERE id = ?",
         (user.id,),
