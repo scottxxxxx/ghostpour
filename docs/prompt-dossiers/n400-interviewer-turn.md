@@ -1621,6 +1621,19 @@ What changed in the prompt:
   never categories, never an unasked answer, never a derived date; a yes
   answers nothing else; one part per response in the review.
 
+Also in v39, DEFER ONLY WHAT SHE DID NOT SAY (the deferrals block, line 83).
+Case 3b5d206f, 2026-09-25, read in `chat_turns`: at the trips gate she said
+"India, Mexico, Canada" with no exact dates; the lane said them back and put
+`p8.trip1..3.countries` in `deferred` with the dates ("trip mentioned, exact dates
+needed"). VOLUNTEER FIELDS did carry those ids (the auditor read the client), but
+an applicant deferral withholds a field from the agenda and VOLUNTEER FIELDS on
+every later turn (an earlier ruling), so no country was ever filed, and Canada
+left the deferred list with no fact. The rule: a value in her words is minted,
+never deferred, to rows 1..N in the order she named them even before the rows are
+asked; only the missing fields are deferred. GP's first read blamed the client's
+scope and was wrong: the auditor opened the client file and showed the ids were
+in scope.
+
 Guard: `drop_checkpoint_when_asking_set` stripped exactly the new shape (a card
 beside a named next question). It now keeps a checkpoint with
 `awaiting_confirmation` explicitly false; a card without the field keeps the old
