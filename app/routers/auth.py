@@ -1,3 +1,5 @@
+import hashlib
+import sqlite3
 import uuid
 from datetime import datetime, timezone
 
@@ -6,11 +8,14 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.database import get_db
 from app.models.user import (
+    ANONYMOUS_SUB_PREFIX,
+    AnonymousAuthRequest,
     AppleAuthRequest,
     AuthResponse,
     RefreshRequest,
     UserPublic,
 )
+from app.routers.telemetry import _client_ip, _ip_hash, _UUID_RE
 from app.services.jwt_service import JWTService
 
 router = APIRouter()
@@ -24,6 +29,7 @@ async def _build_auth_response(
     email: str | None,
     app_id: str | None = None,
     display_name: str | None = None,
+    is_anonymous: bool = False,
 ) -> AuthResponse:
     """Create access + refresh tokens and return AuthResponse.
 
@@ -59,7 +65,8 @@ async def _build_auth_response(
         access_token=access_token,
         refresh_token=raw_refresh,
         expires_in=jwt_service.access_expire.total_seconds(),
-        user=UserPublic(id=user_id, tier=tier, email=email, display_name=display_name),
+        user=UserPublic(id=user_id, tier=tier, email=email, display_name=display_name,
+                        is_anonymous=is_anonymous),
     )
 
 
@@ -134,6 +141,81 @@ async def apple_auth(
     )
 
 
+# Anonymous purchase accounts (2026-09-26). Apple rejected iOS 1.18 three times
+# under 5.1.1(v): buying a plan may not require registration, and the inline
+# Sign in with Apple counted as registration. A signed-out plan tap now gets a
+# silent account holding no personal data, the purchase binds to it through
+# appAccountToken, and Sign in with Apple stays optional. ShoulderSurf only:
+# it is the app Apple rejected, and no other app has been designed for this.
+ANONYMOUS_APPS = {"shouldersurf"}
+# Per client IP, per minute. The client calls this at purchase time only.
+_ANONYMOUS_RPM_PER_IP = 5
+
+
+def anonymous_sub(install_id: str) -> str:
+    """The `apple_sub` of the anonymous account for this install. Lowercased
+    first: Swift's uuidString is uppercase and must not mint a second account."""
+    return ANONYMOUS_SUB_PREFIX + hashlib.sha256(install_id.strip().lower().encode()).hexdigest()
+
+
+@router.post("/anonymous", response_model=AuthResponse)
+async def anonymous_auth(
+    body: AnonymousAuthRequest,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Tokens for this install's anonymous account, creating it on first call.
+
+    Idempotent per install id. The account has the free tier's NAME but no
+    allowance until a verified purchase binds a plan (app/services/allowance.py).
+    An account closed by a merge into an Apple account answers 410, so the
+    client offers Sign in with Apple instead of silently making a new one.
+    """
+    app_id = getattr(request.state, "app_id", None)
+    if app_id not in ANONYMOUS_APPS:
+        raise HTTPException(status_code=403, detail={
+            "code": "anonymous_not_offered",
+            "message": "Anonymous accounts are not offered for this app."})
+    if not _UUID_RE.match(body.install_id.strip()):
+        raise HTTPException(status_code=400, detail={
+            "code": "invalid_request", "message": "install_id must be a UUID"})
+
+    ip_h = _ip_hash(_client_ip(request))
+    if ip_h:
+        allowed, retry_after = request.app.state.rate_limiter.check(
+            f"anonymous:{ip_h}", _ANONYMOUS_RPM_PER_IP)
+        if not allowed:
+            raise HTTPException(status_code=429, detail={
+                "code": "rate_limited",
+                "message": f"Too many requests; retry in {retry_after}s",
+                "details": {"retry_after": retry_after}})
+
+    sub = anonymous_sub(body.install_id)
+    row = await (await db.execute(
+        "SELECT id, tier, is_active FROM users WHERE apple_sub = ?", (sub,))).fetchone()
+    if row is None:
+        now = datetime.now(timezone.utc).isoformat()
+        try:
+            await db.execute(
+                """INSERT INTO users (id, apple_sub, email, display_name, tier, created_at, updated_at)
+                   VALUES (?, ?, NULL, NULL, 'free', ?, ?)""",
+                (str(uuid.uuid4()), sub, now, now))
+            await db.commit()
+        except sqlite3.IntegrityError:
+            # A concurrent first call for the same install won the insert.
+            await db.rollback()
+        row = await (await db.execute(
+            "SELECT id, tier, is_active FROM users WHERE apple_sub = ?", (sub,))).fetchone()
+    if not row["is_active"]:
+        raise HTTPException(status_code=410, detail={
+            "code": "anonymous_account_closed",
+            "message": "This purchase moved to your Apple account. Sign in with Apple."})
+
+    return await _build_auth_response(
+        db, request.app.state.jwt_service, row["id"], row["tier"], None,
+        app_id=app_id, is_anonymous=True)
+
+
 @router.post("/refresh", response_model=AuthResponse)
 async def refresh_token(
     body: RefreshRequest,
@@ -147,7 +229,7 @@ async def refresh_token(
     now = datetime.now(timezone.utc).isoformat()
 
     cursor = await db.execute(
-        """SELECT rt.*, u.tier, u.email, u.is_active, u.display_name
+        """SELECT rt.*, u.tier, u.email, u.is_active, u.display_name, u.apple_sub
            FROM refresh_tokens rt
            JOIN users u ON rt.user_id = u.id
            WHERE rt.token_hash = ? AND rt.revoked = 0 AND rt.expires_at > ?""",
@@ -178,4 +260,5 @@ async def refresh_token(
     return await _build_auth_response(
         db, jwt_service, row["user_id"], row["tier"], row["email"],
         app_id=header_app, display_name=row["display_name"],
+        is_anonymous=str(row["apple_sub"]).startswith(ANONYMOUS_SUB_PREFIX),
     )

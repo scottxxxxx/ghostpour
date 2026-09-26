@@ -1,6 +1,14 @@
 from pydantic import BaseModel
 
 
+# An anonymous purchase account (2026-09-26, Apple's third 5.1.1(v) rejection
+# of iOS 1.18: a purchase may not require registration). It has no Apple
+# identity, so `apple_sub` carries this prefix plus the sha256 of the
+# device's install id: `users.apple_sub` is UNIQUE NOT NULL, and the hash
+# makes creation idempotent per install without storing the credential.
+ANONYMOUS_SUB_PREFIX = "anonymous:"
+
+
 class UserRecord(BaseModel):
     id: str
     apple_sub: str
@@ -27,6 +35,10 @@ class UserRecord(BaseModel):
     memory_last_cta_kind: str | None = None   # consumed + cleared by next quilt fetch
 
     @property
+    def is_anonymous(self) -> bool:
+        return self.apple_sub.startswith(ANONYMOUS_SUB_PREFIX)
+
+    @property
     def effective_tier(self) -> str:
         """Return simulated_tier if active, otherwise real tier."""
         return self.simulated_tier or self.tier
@@ -41,11 +53,20 @@ class UserPublic(BaseModel):
     # fresh phone can rehydrate the display name (2026-08-24 lost-phone
     # mandate). A later null never overwrites a stored name.
     display_name: str | None = None
+    # True for an anonymous purchase account (no Apple identity yet).
+    is_anonymous: bool = False
 
 
 class AppleAuthRequest(BaseModel):
     identity_token: str
     full_name: str | None = None
+
+
+class AnonymousAuthRequest(BaseModel):
+    # A UUID the client keeps in the Keychain. It is a CREDENTIAL: whoever
+    # holds it can mint tokens for the account and its plan. GP stores only
+    # its sha256 and never logs it.
+    install_id: str
 
 
 class RefreshRequest(BaseModel):

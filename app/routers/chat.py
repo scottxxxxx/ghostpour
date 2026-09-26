@@ -1038,11 +1038,9 @@ async def usage_me(
     effective_tier_name = user.effective_tier
     tier = tier_config.tiers.get(effective_tier_name)
 
-    # Use trial limit during active trial
-    if tier and user.is_trial and tier.trial_cost_limit_usd is not None:
-        monthly_limit = tier.trial_cost_limit_usd
-    else:
-        monthly_limit = tier.monthly_cost_limit_usd if tier else -1
+    # Trial, regular, or none for an anonymous account with no plan.
+    from app.services.allowance import effective_monthly_limit
+    monthly_limit = effective_monthly_limit(user, tier) if tier else -1
 
     # When simulating exhausted, override allocation values
     is_simulated = user.simulated_tier is not None
@@ -1099,6 +1097,11 @@ async def usage_me(
     hours_used = monthly_used / model_cost_per_hour if model_cost_per_hour > 0 else 0
     # Use hours_per_month from tier config (display value) rather than deriving from cost
     hours_limit = tier.hours_per_month if tier else -1
+    # No allowance means no hours (an anonymous account with no plan): the
+    # tier's MARKETED hours would otherwise read "5 left" while chat refuses.
+    no_allowance = monthly_limit == 0
+    if no_allowance:
+        hours_limit = 0
 
     # Credit-denominated allocation. iOS-facing UI should bind to these
     # rather than `hours.*` (which has marketing/cost drift) or
@@ -1150,12 +1153,15 @@ async def usage_me(
             # with real spend. Not the nominal-rate derivation: that
             # overpromises whenever the real usage mix runs pricier than
             # the default lane.
-            "hours_used": (round(min(1.0, monthly_used / monthly_limit)
+            # A zero allowance is 0, never -1: -1 is the UNLIMITED sentinel.
+            "hours_used": (0 if no_allowance else
+                           round(min(1.0, monthly_used / monthly_limit)
                                  * hours_limit, 2)
                            if monthly_limit > 0 and hours_limit != -1 else -1),
             "hours_total": (round(float(hours_limit), 2)
                             if monthly_limit != -1 and hours_limit != -1 else -1),
-            "hours_remaining": (round(max(0.0, 1 - monthly_used / monthly_limit)
+            "hours_remaining": (0 if no_allowance else
+                                round(max(0.0, 1 - monthly_used / monthly_limit)
                                       * hours_limit, 2)
                                 if monthly_limit > 0 and hours_limit != -1 else -1),
             "resets_at": resets_at,
@@ -1189,7 +1195,7 @@ async def usage_me(
         # `total: 0` means the tier has no search at all (Free).
         "search": {
             "used": searches_used_count,
-            "total": _search_caps.searches_per_month,
+            "total": 0 if no_allowance else _search_caps.searches_per_month,
             "soft_threshold": _search_caps.searches_soft_threshold,
             "resets_at": resets_at,
         },
@@ -2065,10 +2071,10 @@ async def _chat_impl(
         body = body.model_copy(update={"system_prompt": _localized_system})
         _output_locale = _norm_locale(_effective_locale)
 
-    # Effective allocation limit (trial or regular)
-    effective_limit = tier.monthly_cost_limit_usd
-    if user.is_trial and tier.trial_cost_limit_usd is not None:
-        effective_limit = tier.trial_cost_limit_usd
+    # Effective allocation limit (trial, regular, or none for an anonymous
+    # account with no plan): app/services/allowance.py.
+    from app.services.allowance import effective_monthly_limit
+    effective_limit = effective_monthly_limit(user, tier)
 
     # 5.6. Pre-call gates — block before any LLM tokens are spent.
     # These run after feature hooks so they see the assembled prompt
