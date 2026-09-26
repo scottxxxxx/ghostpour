@@ -275,32 +275,47 @@ def test_the_mint_rule_survives_the_edit_that_targets_the_verdict():
     said it. Removing a verdict word must not reopen that. Checked on v38's
     real bundle now, since v36 is cut into it."""
     assert "MINT THAT BASIS IN THIS SAME RESPONSE" in VERSIONS[36]["phrases"]
-    assert "MINT THAT BASIS IN THIS SAME RESPONSE" in _bundle_prompt(38)
+    assert "MINT THAT BASIS IN THIS SAME RESPONSE" in _bundle_prompt(39)
 
 
-def test_the_v38_list_verifies_the_real_v38_bundle():
-    assert verify(_bundle_prompt(38), 38) is True
+def test_the_v38_phrases_verify_and_each_is_load_bearing():
+    """SYNTHETIC now: the bundle has moved to v39, so v38's list keeps being
+    exercised the way v36's is rather than going quiet."""
+    assert verify(_spec_prompt(38), 38) is True
+    for phrase in VERSIONS[38]["phrases"]:
+        assert verify(_spec_prompt(38, drop=phrase), 38) is False, phrase
 
 
-def test_each_v38_phrase_is_load_bearing_on_the_real_bundle():
-    sp = _bundle_prompt(38)
-    for phrase in [VERSIONS[38]["once"]] + VERSIONS[38]["phrases"]:
+def test_the_v39_list_verifies_the_real_v39_bundle():
+    assert verify(_bundle_prompt(39), 39) is True
+
+
+def test_each_v39_phrase_is_load_bearing_on_the_real_bundle():
+    sp = _bundle_prompt(39)
+    for phrase in [VERSIONS[39]["once"]] + VERSIONS[39]["phrases"]:
         assert phrase in sp, phrase
-        assert verify(sp.replace(phrase, ""), 38) is False, phrase
+        assert verify(sp.replace(phrase, ""), 39) is False, phrase
 
 
-def test_the_verdict_stays_gone_in_v38():
-    sp = _bundle_prompt(38)
-    for phrase in VERSIONS[38]["absent"]:
+def test_the_retired_per_part_confirmation_stays_gone_in_v39():
+    """Scott retired the confirmation after every part (2026-09-26). A served
+    copy carrying any of its lines is a stale cut, not v39."""
+    sp = _bundle_prompt(39)
+    for phrase in VERSIONS[39]["absent"]:
         assert phrase not in sp, phrase
-        assert verify(sp + "\n" + phrase, 38) is False, phrase
+        assert verify(sp + "\n" + phrase, 39) is False, phrase
+
+
+def test_every_v38_phrase_rides_into_v39():
+    for phrase in VERSIONS[38]["phrases"]:
+        assert phrase in VERSIONS[39]["phrases"], phrase
 
 
 def test_the_original_reason_for_the_order_survives_v38():
     """v38 EXTENDS the sentence that argues the order from field dependencies;
     it must not replace that argument with the streaming one. Both reasons,
     word for word, on the real bundle."""
-    sp = _bundle_prompt(38)
+    sp = _bundle_prompt(39)
     assert sp.count("the reply LAST, because each later field must follow the earlier ones") == 1
     assert sp.count("`asking` written after `facts` can never name a node you just minted") == 1
     assert sp.count("THE ORDER IS A REQUIREMENT, NOT A PREFERENCE") == 1
