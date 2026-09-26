@@ -315,9 +315,8 @@ async def generate_report(
     # user past their effective_limit + overage tolerance, return the
     # canned/sample report verbatim and persist it with
     # report_status='placeholder_budget_blocked'. No LLM call.
-    effective_limit = tier.monthly_cost_limit_usd
-    if user.is_trial and tier.trial_cost_limit_usd is not None:
-        effective_limit = tier.trial_cost_limit_usd
+    from app.services.allowance import effective_monthly_limit
+    effective_limit = effective_monthly_limit(user, tier)
 
     if effective_limit != -1:
         from app.services.budget_gate import (
