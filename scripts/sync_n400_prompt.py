@@ -301,6 +301,10 @@ VERSIONS = {
             # gate were deferred with their missing dates, and a deferred field
             # leaves the agenda and VOLUNTEER FIELDS for good, so none was filed.
             "DEFER ONLY WHAT SHE DID NOT SAY",
+            # The first v39 cut skipped the offer on an empty agenda and closed
+            # (probe, 2026-09-26): the review is optional for her, not for the lane.
+            "THE REVIEW IS HER OPTION AND YOUR OBLIGATION",
+            "your reply ENDS ON THAT OFFER",
             "to trip1, trip2 and trip3 in the order she named them",
         ],
         "absent": [
