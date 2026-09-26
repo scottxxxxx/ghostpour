@@ -598,6 +598,35 @@ async def verify_receipt(
     _otid = identity.original_transaction_id
     _txn_id = identity.transaction_id or _otid
 
+    # A transaction a plan_conflict merge left behind never replaces this
+    # account's plan. Scott ruled the existing Apple account WINS: when a
+    # signed-out buyer signs in to an Apple account that already has its own
+    # plan, the anonymous purchase stays on the closed anonymous account.
+    # But StoreKit replays that purchase from the Apple account half a second
+    # after sign-in, and without this the replay moved it here and applied
+    # it: prod 2026-09-26 20:15:26Z, Scott's own Pro became a sandbox Plus
+    # trial. The merge recorded the transaction, so the replay is recognised
+    # and answered with the plan the account already has.
+    if _otid:
+        _conflict = await (await db.execute(
+            "SELECT 1 FROM anonymous_merges WHERE into_user_id = ? AND plan_conflict = 1 "
+            "AND original_transaction_id = ? LIMIT 1", (user.id, _otid))).fetchone()
+        if _conflict:
+            logger.info("verify-receipt: kept the existing plan for user=%s; the transaction "
+                        "belongs to a plan_conflict merge", user.id[:8])
+            _cur_tier = tier_config.tiers.get(user.tier)
+            return {
+                "status": "ok",
+                "old_tier": user.tier,
+                "new_tier": user.tier,
+                "is_trial": bool(user.is_trial),
+                "monthly_limit_usd": _cur_tier.monthly_cost_limit_usd if _cur_tier else -1,
+                "allocation_resets_at": user.allocation_resets_at,
+                "kept_existing_plan": True,
+                "moved_from_other_account": False,
+                "placeholder_report_count": await _placeholder_report_count(db, user.id),
+            }
+
     # Detect free trial: prefer explicit flag from client, fall back to inference
     if body.is_trial is not None:
         is_trial = body.is_trial
