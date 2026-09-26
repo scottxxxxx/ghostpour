@@ -87,6 +87,12 @@ async def apple_auth(
 
     apple_sub = claims["sub"]
     email = claims.get("email")
+
+    # A signed-out buyer signing in: the anonymous account it came from.
+    anon, merge_reason = None, None
+    if body.anonymous_token:
+        anon, merge_reason = await _anonymous_from_token(db, jwt_service, body.anonymous_token)
+    merge, plan_conflict = "none", None
     # Apple sends full_name only on first sign-in; iOS app forwards it
     display_name = body.full_name
 
@@ -124,6 +130,23 @@ async def apple_auth(
                 params,
             )
             await db.commit()
+        if anon is not None:
+            # An existing Apple account: it wins (Scott, 2026-09-26).
+            from app.services.anonymous_merge import merge_into
+            result = await merge_into(db, anon, dict(row))
+            merge, plan_conflict = "merged", result["plan_conflict"]
+            tier = (await (await db.execute(
+                "SELECT tier FROM users WHERE id = ?", (user_id,))).fetchone())["tier"]
+    elif anon is not None:
+        # A new Apple ID: the anonymous account becomes it, in place. Its id,
+        # plan and history stay put, and nothing else has to move.
+        user_id, tier = anon["id"], anon["tier"]
+        now_c = datetime.now(timezone.utc).isoformat()
+        await db.execute(
+            "UPDATE users SET apple_sub = ?, email = ?, display_name = ?, updated_at = ? WHERE id = ?",
+            (apple_sub, email, display_name, now_c, user_id))
+        await db.commit()
+        merge = "converted"
     else:
         user_id = str(uuid.uuid4())
         tier = "free"
@@ -134,11 +157,34 @@ async def apple_auth(
         )
         await db.commit()
 
-    return await _build_auth_response(
+    resp = await _build_auth_response(
         db, jwt_service, user_id, tier, email,
         app_id=getattr(request.state, "app_id", None),
         display_name=display_name,
     )
+    resp.merge, resp.merge_reason, resp.plan_conflict = merge, merge_reason, plan_conflict
+    return resp
+
+
+async def _anonymous_from_token(db, jwt_service, token: str) -> tuple[dict | None, str | None]:
+    """(the anonymous account row, None) or (None, why it cannot merge)."""
+    import jwt as pyjwt
+    try:
+        payload = jwt_service.verify_access_token(token)
+    except pyjwt.ExpiredSignatureError:
+        return None, "anonymous_token_expired"
+    except pyjwt.InvalidTokenError:
+        return None, "anonymous_token_invalid"
+    if payload.get("type") != "access":
+        return None, "anonymous_token_invalid"
+    row = await (await db.execute("SELECT * FROM users WHERE id = ?", (payload.get("sub"),))).fetchone()
+    if row is None:
+        return None, "anonymous_token_invalid"
+    if not str(row["apple_sub"]).startswith(ANONYMOUS_SUB_PREFIX):
+        return None, "not_anonymous"
+    if not row["is_active"]:
+        return None, "anonymous_account_closed"
+    return dict(row), None
 
 
 # Anonymous purchase accounts (2026-09-26). Apple rejected iOS 1.18 three times

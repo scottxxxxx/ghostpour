@@ -101,6 +101,11 @@
             "kind": "budget_exhausted",
             "text": "Has agotado tu IA gratuita de este mes. Actualiza a Plus para continuar.",
             "action": "open_paywall"
+          },
+          "cta_exhausted_anonymous": {
+            "kind": "budget_exhausted",
+            "text": "Ya usaste la Shoulder Surf AI de este plan. Ve los planes para seguir.",
+            "action": "open_paywall"
           }
         },
         "search": {

@@ -101,6 +101,11 @@
             "kind": "budget_exhausted",
             "text": "今月の無料AIを使い切りました。Plusにアップグレードして続けましょう。",
             "action": "open_paywall"
+          },
+          "cta_exhausted_anonymous": {
+            "kind": "budget_exhausted",
+            "text": "このプランのShoulder Surf AIを使い切りました。続けるにはプランを確認してください。",
+            "action": "open_paywall"
           }
         },
         "search": {

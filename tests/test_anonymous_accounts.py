@@ -166,3 +166,235 @@ def test_a_paid_anonymous_account_gets_its_plan_allowance(client, tmp_db_path):
     conn.close()
     body = client.get("/v1/usage/me", headers=hdr).json()
     assert body["allocation"]["monthly_limit_usd"] != 0
+
+
+# --- D: a VERIFIED restore moves the plan, and only then --------------------------------
+
+OTID = "2000001211148772"
+PLUS = "com.weirtech.shouldersurf.sub.plus.monthly"
+
+
+def _paid_holder(db_path, used=1.23):
+    """An account (the first install) holding a Plus plan with usage."""
+    from tests.conftest import _insert_user
+    uid = f"holder-{uuid.uuid4().hex[:8]}"
+    _insert_user(db_path, user_id=uid, tier="plus", monthly_limit=-1, monthly_used=used)
+    conn = sqlite3.connect(db_path)
+    conn.execute("UPDATE users SET original_transaction_id = ?, searches_used = 7 WHERE id = ?",
+                 (OTID, uid))
+    conn.commit()
+    conn.close()
+    return uid
+
+
+def _sign(monkeypatch):
+    from app.services import receipt_verification as _rv
+    monkeypatch.setattr(_rv, "verify_signed_transaction", lambda jws, bundle_ids: {
+        "bundleId": "com.shouldersurf.ShoulderSurf", "originalTransactionId": OTID,
+        "transactionId": OTID, "environment": "Sandbox", "productId": PLUS})
+
+
+def _restore(client, hdr, signed):
+    body = {"product_id": PLUS, "transaction_id": OTID}
+    if signed:
+        body["signed_transaction"] = "j.w.s"
+    return client.post("/v1/verify-receipt", json=body, headers=hdr)
+
+
+def test_a_verified_restore_moves_the_plan_and_its_usage(client, tmp_db_path, monkeypatch):
+    holder = _paid_holder(tmp_db_path)
+    _sign(monkeypatch)
+    uid, hdr = _bearer(client)                      # a second install, a new anonymous account
+    r = _restore(client, hdr, signed=True)
+    assert r.status_code == 200, r.text
+    assert r.json()["moved_from_other_account"] is True
+    new, old = _row(tmp_db_path, uid), _row(tmp_db_path, holder)
+    assert new["tier"] == "plus" and new["original_transaction_id"] == OTID
+    # The period's usage came with it: restoring cannot mint a fresh month.
+    assert new["monthly_used_usd"] == pytest.approx(1.23) and new["searches_used"] == 7
+    assert old["tier"] == "free" and old["original_transaction_id"] is None
+
+
+def test_an_unverified_claim_downgrades_nobody(client, tmp_db_path):
+    """Receipt enforcement is off, so an unsigned claim is still accepted for
+    the requester. It must never strip someone else's plan."""
+    holder = _paid_holder(tmp_db_path)
+    uid, hdr = _bearer(client)
+    r = _restore(client, hdr, signed=False)
+    assert r.status_code == 200, r.text
+    assert r.json()["moved_from_other_account"] is False
+    assert _row(tmp_db_path, holder)["tier"] == "plus"
+
+
+# --- E: Sign in with Apple converts or merges the anonymous account ----------------------
+
+def _apple_signin(client, sub, anonymous_token=None):
+    body = {"identity_token": "mock"}
+    if anonymous_token is not None:
+        body["anonymous_token"] = anonymous_token
+    with patch(VERIFY, return_value={"sub": sub, "email": f"{sub}@privaterelay.appleid.com"}):
+        return client.post("/auth/apple", json=body, headers=SS)
+
+
+def _exec(db_path, sql, params=()):
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute(sql, params)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _q(db_path, sql, params=()):
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        return [dict(r) for r in conn.execute(sql, params)]
+    finally:
+        conn.close()
+
+
+def _paid_anonymous(client, db_path, install):
+    body = _anon(client, install).json()
+    uid = body["user"]["id"]
+    _exec(db_path, "UPDATE users SET tier='plus', original_transaction_id=?, monthly_used_usd=0.4 WHERE id=?",
+          (OTID, uid))
+    now = "2026-09-26T00:00:00+00:00"
+    _exec(db_path, "INSERT INTO device_tokens (device_token, user_id, environment, bundle_id, created_at, last_seen_at)"
+          " VALUES (?, ?, 'production', 'com.shouldersurf.ShoulderSurf', ?, ?)", (f"tok-{uid}", uid, now, now))
+    _exec(db_path, "INSERT INTO project_prefs (user_id, project_id, key, value, updated_at) VALUES (?, 'p1', 'k', 'anon', ?)",
+          (uid, now))
+    _exec(db_path, "INSERT INTO project_prefs (user_id, project_id, key, value, updated_at) VALUES (?, 'p2', 'k', 'anon-only', ?)",
+          (uid, now))
+    return uid, body["access_token"]
+
+
+def test_a_new_apple_id_converts_the_anonymous_account_in_place(client, tmp_db_path):
+    install = str(uuid.uuid4())
+    uid, token = _paid_anonymous(client, tmp_db_path, install)
+    r = _apple_signin(client, "sub-new-1", token)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["merge"] == "converted" and body["merge_reason"] is None
+    assert body["user"]["id"] == uid and body["user"]["is_anonymous"] is False
+    assert body["user"]["tier"] == "plus"
+    row = _row(tmp_db_path, uid)
+    assert row["apple_sub"] == "sub-new-1" and row["original_transaction_id"] == OTID
+    assert row["is_active"] == 1
+
+
+def test_an_existing_apple_account_wins_and_takes_the_plan_and_history(client, tmp_db_path):
+    apple_id = _apple_signin(client, "sub-existing-1").json()["user"]["id"]
+    _exec(tmp_db_path, "INSERT INTO project_prefs (user_id, project_id, key, value, updated_at) VALUES (?, 'p1', 'k', 'apple', 'x')",
+          (apple_id,))
+    install = str(uuid.uuid4())
+    anon_id, token = _paid_anonymous(client, tmp_db_path, install)
+
+    r = _apple_signin(client, "sub-existing-1", token)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["merge"] == "merged" and body["plan_conflict"] is False
+    assert body["user"]["id"] == apple_id and body["user"]["tier"] == "plus"
+
+    apple, anon = _row(tmp_db_path, apple_id), _row(tmp_db_path, anon_id)
+    assert apple["tier"] == "plus" and apple["original_transaction_id"] == OTID
+    assert apple["monthly_used_usd"] == pytest.approx(0.4)
+    assert anon["is_active"] == 0 and anon["tier"] == "free" and anon["original_transaction_id"] is None
+    # History moved; the colliding pref is the Apple account's, and the
+    # anonymous one stayed behind on the closed account, not deleted.
+    assert _q(tmp_db_path, "SELECT user_id FROM device_tokens WHERE device_token = ?",
+              (f"tok-{anon_id}",))[0]["user_id"] == apple_id
+    prefs = {(p["project_id"], p["user_id"]): p["value"]
+             for p in _q(tmp_db_path, "SELECT * FROM project_prefs")}
+    assert prefs[("p1", apple_id)] == "apple" and prefs[("p1", anon_id)] == "anon"
+    assert prefs[("p2", apple_id)] == "anon-only"
+    rec = _q(tmp_db_path, "SELECT * FROM anonymous_merges WHERE anonymous_user_id = ?", (anon_id,))[0]
+    assert rec["into_user_id"] == apple_id and rec["plan_moved"] == 1 and rec["cq_merged_at"] is None
+    # The closed account cannot be reopened from its install, and its sessions are dead.
+    assert _anon(client, install).status_code == 410
+    assert _q(tmp_db_path, "SELECT COUNT(*) n FROM refresh_tokens WHERE user_id = ? AND revoked = 0",
+              (anon_id,))[0]["n"] == 0
+
+
+def test_when_both_are_paid_the_apple_account_keeps_its_own_plan(client, tmp_db_path):
+    apple_id = _apple_signin(client, "sub-existing-2").json()["user"]["id"]
+    _exec(tmp_db_path, "UPDATE users SET tier='pro', original_transaction_id='2000009999999999' WHERE id=?", (apple_id,))
+    anon_id, token = _paid_anonymous(client, tmp_db_path, str(uuid.uuid4()))
+    body = _apple_signin(client, "sub-existing-2", token).json()
+    assert body["merge"] == "merged" and body["plan_conflict"] is True
+    assert _row(tmp_db_path, apple_id)["tier"] == "pro"
+    assert _row(tmp_db_path, apple_id)["original_transaction_id"] == "2000009999999999"
+    # The anonymous purchase stays on the closed row, so its notifications
+    # can never change the Apple account's tier.
+    assert _row(tmp_db_path, anon_id)["original_transaction_id"] == OTID
+
+
+def test_an_expired_token_merges_nothing_and_says_why(client, tmp_db_path):
+    import jwt as pyjwt
+    from datetime import datetime, timedelta, timezone
+    anon_id, _ = _paid_anonymous(client, tmp_db_path, str(uuid.uuid4()))
+    js = client.app.state.jwt_service
+    expired = pyjwt.encode({"sub": anon_id, "type": "access",
+                            "exp": datetime.now(timezone.utc) - timedelta(hours=1)},
+                           js.secret, algorithm=js.algorithm)
+    body = _apple_signin(client, "sub-new-3", expired).json()
+    assert body["merge"] == "none" and body["merge_reason"] == "anonymous_token_expired"
+    assert body["user"]["id"] != anon_id
+    assert _row(tmp_db_path, anon_id)["is_active"] == 1
+
+
+def test_an_apple_accounts_token_is_not_anonymous(client):
+    other = _apple_signin(client, "sub-other-4").json()["access_token"]
+    body = _apple_signin(client, "sub-new-4", other).json()
+    assert body["merge"] == "none" and body["merge_reason"] == "not_anonymous"
+
+
+def test_a_plain_sign_in_reports_no_merge(client):
+    body = _apple_signin(client, "sub-plain-5").json()
+    assert body["merge"] == "none" and body["merge_reason"] is None
+
+
+# --- F: an anonymous account can be deleted -------------------------------------------
+
+def test_an_anonymous_account_can_delete_itself(client, tmp_db_path):
+    """5.1.1(v) covers every account the app creates, including this one.
+    There is no Apple code, so revocation is skipped by design."""
+    uid, hdr = _bearer(client)
+    r = client.post("/v1/account/delete", headers=hdr, json={})
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "deleted"
+    assert not _q(tmp_db_path, "SELECT id FROM users WHERE id = ? AND is_active = 1", (uid,))
+
+
+
+# --- the anonymous CTA (copy Scott approved via Social, 2026-09-26) ---------------------
+
+ANON_CTA = {
+    "en": "You've used the Shoulder Surf AI on this plan. See plans to keep going.",
+    "es": "Ya usaste la Shoulder Surf AI de este plan. Ve los planes para seguir.",
+    "fr": "Vous avez utilisé la Shoulder Surf AI de ce forfait. Voyez les forfaits pour continuer.",
+    "ja": "このプランのShoulder Surf AIを使い切りました。続けるにはプランを確認してください。",
+}
+
+
+@pytest.mark.parametrize("lang", sorted(ANON_CTA))
+def test_an_anonymous_account_is_never_told_it_used_free_ai(client, lang):
+    from tests.conftest import chat_request
+    _, hdr = _bearer(client)
+    hdr = {**hdr, "Accept-Language": lang}
+
+    async def nope(*a, **k):
+        raise AssertionError("no model call")
+    with patch("app.services.anthropic_or_fallback.route_with_fallback", nope):
+        chat = client.post("/v1/chat", headers=hdr, json=chat_request(user_content="hi")).json()
+    usage = client.get("/v1/usage/me", headers=hdr).json()
+    for cta in (chat["feature_state"]["cta"], usage["budget_exhausted_cta"]):
+        assert cta["text"] == ANON_CTA[lang]
+        assert cta["action"] == "open_paywall" and cta["kind"] == "budget_exhausted"
+
+
+def test_a_signed_in_free_account_keeps_the_free_line(client, free_user):
+    from app.services.budget_cta import get_budget_exhausted_cta
+    cfg = client.app.state.remote_configs
+    assert "free AI" in get_budget_exhausted_cta(cfg, "free", None)["text"]
+    assert get_budget_exhausted_cta(cfg, "free", None, anonymous=True)["text"] == ANON_CTA["en"]

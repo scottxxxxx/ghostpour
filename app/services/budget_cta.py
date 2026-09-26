@@ -47,6 +47,7 @@ def get_budget_exhausted_cta(
     remote_configs: dict[str, dict],
     tier: str,
     locale: str | None = None,
+    anonymous: bool = False,
 ) -> dict:
     """Resolve the budget-exhausted CTA for a tier/locale.
 
@@ -54,13 +55,21 @@ def get_budget_exhausted_cta(
     cached config. Always returns something — never None — so blocked
     `/v1/chat` and `/v1/capture-transcript` responses always carry a
     renderable CTA even when config is missing.
+
+    An anonymous purchase account (2026-09-26) gets `cta_exhausted_anonymous`
+    when the config ships one: the free line ("You've used your free AI")
+    is false for someone who never had free AI. Scott approved the copy
+    through Social; it reads true both after a lapsed plan and after a used
+    month. Without that key, the anonymous account falls back to the usual one.
     """
     tiers_cfg = _resolve_tiers(remote_configs, locale)
     if tiers_cfg:
         tier_block = tiers_cfg.get("tiers", {}).get(tier, {})
         budget_block = tier_block.get("feature_definitions", {}).get("budget")
         if isinstance(budget_block, dict):
-            cta = budget_block.get("cta_exhausted")
+            cta = budget_block.get("cta_exhausted_anonymous") if anonymous else None
+            if not isinstance(cta, dict):
+                cta = budget_block.get("cta_exhausted")
             if isinstance(cta, dict):
                 return dict(cta)
     return dict(_FALLBACK_CTA)

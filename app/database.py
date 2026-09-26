@@ -1075,6 +1075,20 @@ MIGRATIONS = [
     # column both statements touch, filter order first, so the table is
     # never read.
     "CREATE INDEX IF NOT EXISTS idx_usage_user_date_cost_calltype ON usage_log(user_id, request_timestamp, estimated_cost_usd, call_type)",
+    # An anonymous purchase account merged into an existing Apple account at
+    # Sign in with Apple (2026-09-26). The receipt of what moved, and the
+    # record Scott asked for so ContextQuilt's Memory can be merged LATER: no
+    # CQ call is made at merge time for iOS 1.18.
+    """CREATE TABLE IF NOT EXISTS anonymous_merges (
+        anonymous_user_id TEXT PRIMARY KEY,
+        into_user_id TEXT NOT NULL,
+        merged_at TEXT NOT NULL,
+        plan_moved INTEGER NOT NULL,
+        plan_conflict INTEGER NOT NULL,
+        original_transaction_id TEXT,
+        moved_json TEXT NOT NULL,       -- {table: rows moved}; rows that would collide stay behind
+        cq_merged_at TEXT               -- NULL until a Memory merge runs
+    )""",
 ]
 
 
