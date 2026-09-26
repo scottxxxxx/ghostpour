@@ -468,3 +468,31 @@ def test_an_unlinked_anonymous_account_is_its_own_person(client):
     rows = {u["id"]: u for u in client.get("/webhooks/admin/users", headers=ADMIN).json()["users"]}
     assert rows[uid]["is_anonymous"] is True and rows[uid]["linked_devices"] == 1
     assert rows[uid]["account_group"] is None
+
+
+def test_the_replay_after_a_conflict_merge_never_replaces_the_apple_accounts_plan(
+        client, tmp_db_path, monkeypatch):
+    """Prod, 2026-09-26 20:15Z: Scott signed in with his Pro Apple ID from an
+    anonymous account holding a sandbox Plus. The merge kept his Pro
+    (plan_conflict), then StoreKit replayed the Plus from his Apple account
+    half a second later, and that replay moved it onto him: Pro became a Plus
+    trial. The replay must answer with the plan he already has."""
+    signin = _apple_signin(client, "sub-conflict-replay").json()
+    apple_id = signin["user"]["id"]
+    _exec(tmp_db_path, "UPDATE users SET tier='pro', original_transaction_id=NULL WHERE id=?", (apple_id,))
+    anon_id, token = _paid_anonymous(client, tmp_db_path, str(uuid.uuid4()))
+    merged = _apple_signin(client, "sub-conflict-replay", token).json()
+    assert merged["merge"] == "merged" and merged["plan_conflict"] is True
+
+    _sign(monkeypatch)
+    hdr = {**SS, "Authorization": f"Bearer {merged['access_token']}"}
+    r = _restore(client, hdr, signed=True)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["new_tier"] == "pro" and body["kept_existing_plan"] is True
+    assert body["moved_from_other_account"] is False
+    apple = _row(tmp_db_path, apple_id)
+    assert apple["tier"] == "pro" and apple["is_trial"] == 0
+    assert apple["original_transaction_id"] is None
+    # The anonymous purchase stays where the conflict rule put it.
+    assert _row(tmp_db_path, anon_id)["original_transaction_id"] == OTID
