@@ -423,3 +423,48 @@ def test_a_signed_in_free_account_keeps_the_free_line(client, free_user):
     cfg = client.app.state.remote_configs
     assert "free AI" in get_budget_exhausted_cta(cfg, "free", None)["text"]
     assert get_budget_exhausted_cta(cfg, "free", None, anonymous=True)["text"] == ANON_CTA["en"]
+
+
+# --- one person, several devices (Scott, 2026-09-26) ------------------------------------
+
+ADMIN = {"X-Admin-Key": "test-admin-key"}
+
+
+def test_a_restore_links_the_two_devices_as_one_person(client, tmp_db_path, monkeypatch):
+    """ "Show them, but track it is the same account on two devices." """
+    first_id, first_hdr = _bearer(client)                 # device 1, anonymous
+    _exec(tmp_db_path, "UPDATE users SET tier='plus', original_transaction_id=? WHERE id=?",
+          (OTID, first_id))
+    _sign(monkeypatch)
+    second_id, second_hdr = _bearer(client)               # device 2 restores
+    assert _restore(client, second_hdr, signed=True).json()["moved_from_other_account"] is True
+
+    links = _q(tmp_db_path, "SELECT from_user_id, to_user_id, reason FROM account_links")
+    assert links == [{"from_user_id": first_id, "to_user_id": second_id, "reason": "restore"}]
+
+    rows = {u["id"]: u for u in client.get("/webhooks/admin/users", headers=ADMIN).json()["users"]}
+    for uid in (first_id, second_id):
+        assert rows[uid]["is_anonymous"] is True and rows[uid]["linked_devices"] == 2
+    # The group is keyed by the account that holds the plan now.
+    assert rows[first_id]["account_group"] == rows[second_id]["account_group"] == second_id
+
+    users = client.get("/webhooks/admin/dashboard", headers=ADMIN).json()["users"]
+    assert users["anonymous"] == {"accounts": 2, "people": 1, "with_plan": 1}
+    assert users["people"] == users["active"] - 1
+
+
+def test_a_merge_links_the_anonymous_account_to_the_apple_account(client, tmp_db_path):
+    apple_id = _apple_signin(client, "sub-link-1").json()["user"]["id"]
+    anon_id, token = _paid_anonymous(client, tmp_db_path, str(uuid.uuid4()))
+    assert _apple_signin(client, "sub-link-1", token).json()["merge"] == "merged"
+    assert _q(tmp_db_path, "SELECT from_user_id, to_user_id, reason FROM account_links") == [
+        {"from_user_id": anon_id, "to_user_id": apple_id, "reason": "merge"}]
+    rows = {u["id"]: u for u in client.get("/webhooks/admin/users", headers=ADMIN).json()["users"]}
+    assert rows[apple_id]["linked_devices"] == 2 and rows[apple_id]["is_anonymous"] is False
+
+
+def test_an_unlinked_anonymous_account_is_its_own_person(client):
+    uid, _ = _bearer(client)
+    rows = {u["id"]: u for u in client.get("/webhooks/admin/users", headers=ADMIN).json()["users"]}
+    assert rows[uid]["is_anonymous"] is True and rows[uid]["linked_devices"] == 1
+    assert rows[uid]["account_group"] is None

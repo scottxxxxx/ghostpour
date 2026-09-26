@@ -1089,6 +1089,20 @@ MIGRATIONS = [
         moved_json TEXT NOT NULL,       -- {table: rows moved}; rows that would collide stay behind
         cq_merged_at TEXT               -- NULL until a Memory merge runs
     )""",
+    # Accounts that are ONE PERSON (Scott, 2026-09-26: "show them, but track
+    # it is the same account on two devices"). A verified restore that moves
+    # a plan links the account it left to the one it reached; a merge links
+    # the anonymous account to the Apple account. The dashboard groups by
+    # these links, so a buyer on two devices counts once.
+    """CREATE TABLE IF NOT EXISTS account_links (
+        from_user_id TEXT NOT NULL,
+        to_user_id TEXT NOT NULL,
+        reason TEXT NOT NULL,           -- restore|merge
+        original_transaction_id TEXT,
+        linked_at TEXT NOT NULL,
+        PRIMARY KEY (from_user_id, to_user_id)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_account_links_to ON account_links(to_user_id)",
 ]
 
 
