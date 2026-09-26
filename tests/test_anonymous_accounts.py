@@ -215,6 +215,31 @@ def test_a_verified_restore_moves_the_plan_and_its_usage(client, tmp_db_path, mo
     assert old["tier"] == "free" and old["original_transaction_id"] is None
 
 
+def test_a_moved_plan_takes_its_subscription_records_and_counts_once(client, tmp_db_path, monkeypatch):
+    """The first real sandbox restore (2026-09-26) left the per-subscriber
+    status row on the account the plan had left, and two "subscribed" events
+    for one purchase, one per account: every restore would have counted as a
+    new subscriber on the dashboard."""
+    holder = _paid_holder(tmp_db_path)
+    now = "2026-09-26T19:51:35+00:00"
+    _exec(tmp_db_path, "INSERT INTO subscription_status (original_transaction_id, user_id, environment, "
+          "status, checked_at, source) VALUES (?, ?, 'Sandbox', 1, ?, 'assn')", (OTID, holder, now))
+    _exec(tmp_db_path, "INSERT INTO subscription_events (id, user_id, event_type, to_tier, original_transaction_id, "
+          "source, effective_at, recorded_at) VALUES ('evt-assn-1', ?, 'subscribed', 'plus', ?, 'assn', ?, ?)",
+          (holder, OTID, now, now))
+    _sign(monkeypatch)
+    uid, hdr = _bearer(client)
+    assert _restore(client, hdr, signed=True).json()["moved_from_other_account"] is True
+
+    status = _q(tmp_db_path, "SELECT user_id FROM subscription_status WHERE original_transaction_id = ?", (OTID,))
+    assert [r["user_id"] for r in status] == [uid]
+    events = _q(tmp_db_path, "SELECT user_id, event_type, subtype FROM subscription_events "
+                "WHERE original_transaction_id = ? ORDER BY recorded_at", (OTID,))
+    assert {e["user_id"] for e in events} == {uid}
+    assert [e["event_type"] for e in events].count("subscribed") == 1
+    assert {"event_type": "reconciled", "subtype": "moved", "user_id": uid} in events
+
+
 def test_an_unverified_claim_downgrades_nobody(client, tmp_db_path):
     """Receipt enforcement is off, so an unsigned claim is still accepted for
     the requester. It must never strip someone else's plan."""
