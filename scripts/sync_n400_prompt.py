@@ -297,6 +297,15 @@ VERSIONS = {
             '"awaiting_confirmation": boolean, FALSE at a part boundary',
             "they will see the whole form before anything is final",
             "the LOWEST PART NUMBER YOU HAVE NOT READ BACK YET in this review",
+            # Case 3b5d206f (2026-09-25): three countries named at the trips
+            # gate were deferred with their missing dates, and a deferred field
+            # leaves the agenda and VOLUNTEER FIELDS for good, so none was filed.
+            "DEFER ONLY WHAT SHE DID NOT SAY",
+            # The first v39 cut skipped the offer on an empty agenda and closed
+            # (probe, 2026-09-26): the review is optional for her, not for the lane.
+            "THE REVIEW IS HER OPTION AND YOUR OBLIGATION",
+            "your reply ENDS ON THAT OFFER",
+            "to trip1, trip2 and trip3 in the order she named them",
         ],
         "absent": [
             "so that fits",

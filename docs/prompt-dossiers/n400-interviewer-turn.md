@@ -1621,6 +1621,36 @@ What changed in the prompt:
   never categories, never an unasked answer, never a derived date; a yes
   answers nothing else; one part per response in the review.
 
+Also in v39, DEFER ONLY WHAT SHE DID NOT SAY (the deferrals block, line 83).
+Case 3b5d206f, 2026-09-25, read in `chat_turns`: at the trips gate she said
+"India, Mexico, Canada" with no exact dates; the lane said them back and put
+`p8.trip1..3.countries` in `deferred` with the dates ("trip mentioned, exact dates
+needed"). VOLUNTEER FIELDS did carry those ids (the auditor read the client), but
+an applicant deferral withholds a field from the agenda and VOLUNTEER FIELDS on
+every later turn (an earlier ruling), so no country was ever filed, and Canada
+left the deferred list with no fact. The rule: a value in her words is minted,
+never deferred, to rows 1..N in the order she named them even before the rows are
+asked; only the missing fields are deferred. GP's first read blamed the client's
+scope and was wrong: the auditor opened the client file and showed the ids were
+in scope.
+
+Probe, before the sync (`qa/n400_v39_probe.py`, the auditor's client harness,
+v38 = main before #1036, v39 = this tree, 2026-09-26):
+- Gate ("Yes. India for six months, Mexico one Christmas, and Canada last
+  summer." at q_p8_trips_gate): v38 0 of 5 (defers all three countries,
+  the 3b5d206f shape exactly); v39 5 of 5 (mints India, Mexico, Canada to
+  trips 1 to 3, defers only the six dates). The harness commits trip 1 and
+  holds trips 2 and 3 as tentative until their rows open: a client rule.
+- Turns from the fee question to `interview_over` (a full case minus Parts 10
+  and 11): v38 17, 17, 18, 17 (14 or 15 of them confirmations); v39 5 and 4
+  (no confirmations). The FIRST v39 cut never made the review offer: on an
+  empty agenda it said "That's everything, you'll see the whole form in the app"
+  and closed. The only rule keyed to "[agenda empty]" said a reply must end on
+  a question when the agenda is NOT empty, which reads as permission to close
+  when it is. Fixed with "THE REVIEW IS HER OPTION AND YOUR OBLIGATION" and "your
+  reply ENDS ON THAT OFFER"; both reps then made the offer. Scoring lesson: the
+  first gate scorer read only committed facts and called v39 a fail.
+
 Guard: `drop_checkpoint_when_asking_set` stripped exactly the new shape (a card
 beside a named next question). It now keeps a checkpoint with
 `awaiting_confirmation` explicitly false; a card without the field keeps the old
