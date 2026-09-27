@@ -282,3 +282,32 @@ def test_a_sandbox_subscription_apple_cannot_see_is_not_reported_missing(client,
     r = client.post("/webhooks/admin/subscriptions/refresh-status", headers=ADMIN)
     assert r.json()["missing_at_apple"] == []
     assert r.json()["sandbox_skipped"] == 1
+
+
+# --- who the row belongs to (Scott, 2026-09-27) ----------------------------------
+
+def test_an_anonymous_buyer_is_labelled_and_linked_devices_count_once(client, tmp_db_path, monkeypatch):
+    """An anonymous buyer has no email, so the Subscribers table used to show
+    a bare id. The row now says it is anonymous, and a restore that linked a
+    second device shows as one person on two devices; an Apple buyer beside
+    it stays unlabelled and unlinked."""
+    anon_otid, apple_otid = ("otid-" + uuid.uuid4().hex[:6] for _ in range(2))
+    anon = _seed_user(tmp_db_path, anon_otid)
+    apple = _seed_user(tmp_db_path, apple_otid)
+    ipad = "truth-" + uuid.uuid4().hex[:8]
+    _insert_user(tmp_db_path, ipad, tier="free")
+    conn = sqlite3.connect(tmp_db_path)
+    for u in (anon, ipad):  # one anonymous identity per install
+        conn.execute("UPDATE users SET apple_sub=?, email=NULL WHERE id=?",
+                     ("anonymous:" + uuid.uuid4().hex, u))
+    conn.execute("UPDATE users SET apple_sub=? WHERE id=?", ("001234.abc", apple))
+    conn.execute("""INSERT INTO account_links (from_user_id, to_user_id, reason, linked_at)
+                    VALUES (?, ?, 'restore', '2026-09-27T00:00:00Z')""", (ipad, anon))
+    conn.commit(); conn.close()
+    _post(client, monkeypatch, _notification("SUBSCRIBED", "INITIAL_BUY", anon_otid))
+    _post(client, monkeypatch, _notification("SUBSCRIBED", "INITIAL_BUY", apple_otid))
+    rows = {s["original_transaction_id"]: s for s in _truth(client)["subscribers"]}
+    assert rows[anon_otid]["is_anonymous"] is True
+    assert rows[anon_otid]["linked_devices"] == 2
+    assert rows[apple_otid]["is_anonymous"] is False
+    assert rows[apple_otid]["linked_devices"] == 1

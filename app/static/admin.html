@@ -1459,7 +1459,9 @@ function _renderSubscriberTruth(t) {
   const rows = (t.subscribers || []);
   tb.innerHTML = rows.length ? rows.map(r => `
     <tr>
-      <td>${r.email || (r.user_id || '').slice(0, 8)}</td>
+      <td>${r.is_anonymous
+        ? `<span style="color:var(--text-dim)">Anonymous</span> <span style="color:var(--text-dim);font-size:11px">${(r.user_id || '').slice(0, 8)}</span>`
+        : esc(r.email || (r.user_id || '').slice(0, 8))}${(r.linked_devices || 1) > 1 ? ` <span class="badge" title="One person, ${r.linked_devices} ${r.is_anonymous ? 'devices' : 'accounts'} (linked by a restore or sign-in)">${r.linked_devices} ${r.is_anonymous ? 'devices' : 'accounts'}</span>` : ''}</td>
       <td>${r.tier || ''}</td>
       <td>${stateLabel[r.state] || r.state}</td>
       <td>${r.auto_renew === 1 ? 'on' : r.auto_renew === 0 ? '<span style="color:#ff7b72">off</span>' : '?'}</td>
