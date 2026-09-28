@@ -4,7 +4,7 @@ config_slug: n400/interviewer-turn
 served_version: 39
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
-max_tokens: 2048
+max_tokens: 6144
 thinking: disabled
 reconciled: 2026-09-26 (v39)
 ---
