@@ -1,5 +1,5 @@
 {
-  "version": 40,
+  "version": 41,
   "server_only": true,
   "models": [
     {
@@ -45,9 +45,9 @@
           "label": "Auto Summary",
           "models": {
             "free": "anthropic/claude-haiku-4-5-20251001",
-            "plus": "anthropic/claude-sonnet-4-6",
-            "pro": "anthropic/claude-sonnet-4-6",
-            "automation": "anthropic/claude-sonnet-4-6"
+            "plus": "anthropic/claude-sonnet-5",
+            "pro": "anthropic/claude-sonnet-5",
+            "automation": "anthropic/claude-sonnet-5"
           }
         },
         "analysis": {
@@ -55,8 +55,8 @@
           "models": {
             "free": "anthropic/claude-haiku-4-5-20251001",
             "plus": "anthropic/claude-haiku-4-5-20251001",
-            "pro": "anthropic/claude-sonnet-4-6",
-            "automation": "anthropic/claude-sonnet-4-6"
+            "pro": "anthropic/claude-sonnet-5",
+            "automation": "anthropic/claude-sonnet-5"
           }
         },
         "report": {
@@ -64,8 +64,8 @@
           "models": {
             "free": "anthropic/claude-haiku-4-5-20251001",
             "plus": "anthropic/claude-haiku-4-5-20251001",
-            "pro": "anthropic/claude-sonnet-4-6",
-            "automation": "anthropic/claude-sonnet-4-6"
+            "pro": "anthropic/claude-sonnet-5",
+            "automation": "anthropic/claude-sonnet-5"
           }
         },
         "query": {
@@ -89,37 +89,37 @@
         "meeting_chat": {
           "label": "Meeting Chat",
           "models": {
-            "free": "anthropic/claude-sonnet-4-6",
-            "plus": "anthropic/claude-sonnet-4-6",
-            "pro": "anthropic/claude-sonnet-4-6",
-            "automation": "anthropic/claude-sonnet-4-6"
+            "free": "anthropic/claude-sonnet-5",
+            "plus": "anthropic/claude-sonnet-5",
+            "pro": "anthropic/claude-sonnet-5",
+            "automation": "anthropic/claude-sonnet-5"
           }
         },
         "meeting_chat_follow_up": {
           "label": "Meeting Chat (Follow-up)",
           "models": {
-            "free": "anthropic/claude-sonnet-4-6",
-            "plus": "anthropic/claude-sonnet-4-6",
-            "pro": "anthropic/claude-sonnet-4-6",
-            "automation": "anthropic/claude-sonnet-4-6"
+            "free": "anthropic/claude-sonnet-5",
+            "plus": "anthropic/claude-sonnet-5",
+            "pro": "anthropic/claude-sonnet-5",
+            "automation": "anthropic/claude-sonnet-5"
           }
         },
         "project_chat": {
           "label": "Project Chat",
           "models": {
-            "free": "anthropic/claude-sonnet-4-6",
-            "plus": "anthropic/claude-sonnet-4-6",
-            "pro": "anthropic/claude-sonnet-4-6",
-            "automation": "anthropic/claude-sonnet-4-6"
+            "free": "anthropic/claude-sonnet-5",
+            "plus": "anthropic/claude-sonnet-5",
+            "pro": "anthropic/claude-sonnet-5",
+            "automation": "anthropic/claude-sonnet-5"
           }
         },
         "project_chat_follow_up": {
           "label": "Project Chat (Follow-up)",
           "models": {
-            "free": "anthropic/claude-sonnet-4-6",
-            "plus": "anthropic/claude-sonnet-4-6",
-            "pro": "anthropic/claude-sonnet-4-6",
-            "automation": "anthropic/claude-sonnet-4-6"
+            "free": "anthropic/claude-sonnet-5",
+            "plus": "anthropic/claude-sonnet-5",
+            "pro": "anthropic/claude-sonnet-5",
+            "automation": "anthropic/claude-sonnet-5"
           }
         },
         "artifact_generation": {

@@ -221,8 +221,11 @@ def test_locales_agree_on_top_level_fields():
     en = _load("config/remote/llm-providers.json")
     es = _load("config/remote/llm-providers.es.json")
     ja = _load("config/remote/llm-providers.ja.json")
+    # fr was missing from every agreement check until 2026-09-28: a sabotage
+    # added a level to the French file alone and only the level test noticed.
+    fr = _load("config/remote/llm-providers.fr.json")
     en_top = {k: v for k, v in en.items() if k != "providers"}
-    for variant_name, variant in (("es", es), ("ja", ja)):
+    for variant_name, variant in (("es", es), ("ja", ja), ("fr", fr)):
         v_top = {k: v for k, v in variant.items() if k != "providers"}
         assert en_top == v_top, (
             f"{variant_name} top-level fields drift from en: "
@@ -237,6 +240,9 @@ def test_locales_agree_on_provider_level_fields():
     en = _load("config/remote/llm-providers.json")
     es = _load("config/remote/llm-providers.es.json")
     ja = _load("config/remote/llm-providers.ja.json")
+    # fr was missing from every agreement check until 2026-09-28: a sabotage
+    # added a level to the French file alone and only the level test noticed.
+    fr = _load("config/remote/llm-providers.fr.json")
 
     def _providers_by_id(data: dict) -> dict[str, dict]:
         return {
@@ -246,7 +252,7 @@ def test_locales_agree_on_provider_level_fields():
         }
 
     en_idx = _providers_by_id(en)
-    for variant_name, variant in (("es", es), ("ja", ja)):
+    for variant_name, variant in (("es", es), ("ja", ja), ("fr", fr)):
         v_idx = _providers_by_id(variant)
         assert set(en_idx) == set(v_idx), (
             f"{variant_name} has different provider set than en: "
@@ -273,6 +279,9 @@ def test_locales_agree_on_per_model_fields():
     en = _load("config/remote/llm-providers.json")
     es = _load("config/remote/llm-providers.es.json")
     ja = _load("config/remote/llm-providers.ja.json")
+    # fr was missing from every agreement check until 2026-09-28: a sabotage
+    # added a level to the French file alone and only the level test noticed.
+    fr = _load("config/remote/llm-providers.fr.json")
 
     def _models_by_id(data: dict) -> dict[str, dict]:
         out: dict[str, dict] = {}
@@ -282,7 +291,7 @@ def test_locales_agree_on_per_model_fields():
         return out
 
     en_idx = _models_by_id(en)
-    for variant_name, variant in (("es", es), ("ja", ja)):
+    for variant_name, variant in (("es", es), ("ja", ja), ("fr", fr)):
         v_idx = _models_by_id(variant)
         assert set(en_idx) == set(v_idx), (
             f"{variant_name} has different model set than en"
@@ -359,3 +368,36 @@ def test_provider_level_defaults_are_required_numerics(path):
             assert isinstance(v, (int, float)) and not isinstance(v, bool), (
                 f"{path}: provider {p['id']} {field} must be a number, "
                 f"got {v!r} — null/missing bricks the client-side decode")
+
+
+# --- v23: what live probes proved (2026-09-28) ---------------------------------
+#
+# Each new BYOK model was sent every reasoning level it lists, shaped the way
+# the SS app's LLMService sends it. Three siblings' level lists would have been
+# wrong copied over: these providers return 400 for the levels below, so a
+# user who picked one would get an error on every send.
+_LEVELS_REJECTED_LIVE = {
+    "gpt-6-astra": "none",        # 400: reasoning_effort does not support 'none'
+    "gemini-3.8-flash": "minimal",  # 400: Thinking level MINIMAL is not supported
+    "gemini-3.7-flash": "minimal",
+    "grok-4.7": "none",           # 400: does not support reasoning_effort value none
+}
+# Moonshot returns 404 for these; kimi-k2.5 was Kimi's DEFAULT.
+_MODELS_GONE_LIVE = {"kimi-k2.5", "kimi-k2-0905-preview"}
+
+
+@pytest.mark.parametrize("path", PROVIDER_FILES)
+def test_no_model_lists_a_level_its_provider_rejects(path):
+    models = {m["id"]: m for p in _load(path)["providers"] for m in p["models"]}
+    for mid, level in _LEVELS_REJECTED_LIVE.items():
+        assert mid in models, mid
+        assert level not in models[mid]["reasoningLevels"], (mid, level)
+
+
+@pytest.mark.parametrize("path", PROVIDER_FILES)
+def test_no_retired_model_is_offered_and_kimi_defaults_to_a_live_one(path):
+    providers = {p["id"]: p for p in _load(path)["providers"]}
+    offered = {m["id"] for p in providers.values() for m in p["models"]}
+    assert not (offered & _MODELS_GONE_LIVE), offered & _MODELS_GONE_LIVE
+    kimi_default = [m["id"] for m in providers["kimi"]["models"] if m.get("isDefault")]
+    assert kimi_default == ["kimi-k3"], kimi_default

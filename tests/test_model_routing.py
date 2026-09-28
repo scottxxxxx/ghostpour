@@ -335,7 +335,8 @@ def test_shoulder_surf_auto_summary_dials_sonnet_for_paid_tiers_in_the_shipped_f
     garbled on the wire and Haiku declared the WHOLE 2400-word transcript
     unusable, twice, while Sonnet 4.6 wrote a correct report from the same
     text. Plus and Pro summaries move to Sonnet 4.6 (automation mirrors Pro,
-    per test_automation_tier); Free stays on Haiku.
+    per test_automation_tier); Free stays on Haiku. 2026-09-28: the Sonnet
+    row moved to Sonnet 5 with the rest of SS (Scott); still Sonnet, not Haiku.
     Read from the shipped file through the real resolver, not a fixture,
     so a dial that parses and does not resolve fails here."""
     import json
@@ -352,9 +353,9 @@ def test_shoulder_surf_auto_summary_dials_sonnet_for_paid_tiers_in_the_shipped_f
             return "summary" if k == "call_type" else None
 
     fb = SimpleNamespace(default_model="anthropic/fallback")
-    assert _resolve_model_routing(req, _B(), fb, "plus") == "anthropic/claude-sonnet-4-6"
-    assert _resolve_model_routing(req, _B(), fb, "pro") == "anthropic/claude-sonnet-4-6"
-    assert _resolve_model_routing(req, _B(), fb, "automation") == "anthropic/claude-sonnet-4-6"
+    assert _resolve_model_routing(req, _B(), fb, "plus") == "anthropic/claude-sonnet-5"
+    assert _resolve_model_routing(req, _B(), fb, "pro") == "anthropic/claude-sonnet-5"
+    assert _resolve_model_routing(req, _B(), fb, "automation") == "anthropic/claude-sonnet-5"
     assert _resolve_model_routing(req, _B(), fb, "free") == "anthropic/claude-haiku-4-5-20251001"
 
 
@@ -375,6 +376,23 @@ def test_ss_queries_route_to_sonnet_5_on_every_tier():
             body = ChatRequest(provider="auto", model="auto", system_prompt="s",
                                user_content="u", call_type=call_type)
             assert _resolve_model_routing(request, body, _TIER, tier) == "anthropic/claude-sonnet-5", (call_type, tier)
-    chats = routing["apps"]["shouldersurf"]["call_types"]
-    assert chats["summary"]["models"]["pro"] == "anthropic/claude-sonnet-4-6"
-    assert chats["meeting_chat"]["models"]["pro"] == "anthropic/claude-sonnet-4-6"
+
+
+def test_no_shoulder_surf_route_is_left_on_sonnet_4_6():
+    """Scott, 2026-09-28: every SS route on Sonnet 4.6 moves to Sonnet 5 with
+    default reasoning (queries first, then the rest the same day, with more
+    testing of summary, chat and report owed later). Haiku rows stay Haiku."""
+    import json
+    from pathlib import Path
+
+    routing = json.loads((Path(__file__).resolve().parent.parent
+                          / "config/remote/model-routing.json").read_text())
+    rows = routing["apps"]["shouldersurf"]["call_types"]
+    left = [(c, t) for c, v in rows.items() for t, m in v["models"].items()
+            if m == "anthropic/claude-sonnet-4-6"]
+    # File generation stays on 4.6: it won a measured bench against Sonnet 5
+    # on substance (2026-08-15, test_artifact_generation_dial). Held for
+    # Scott's call rather than switched by a sweep.
+    assert left == [("artifact_generation", "pro"), ("artifact_generation", "automation")], left
+    assert rows["summary"]["models"]["pro"] == "anthropic/claude-sonnet-5"
+    assert rows["analysis"]["models"]["free"] == "anthropic/claude-haiku-4-5-20251001"
