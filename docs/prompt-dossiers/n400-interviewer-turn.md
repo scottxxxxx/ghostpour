@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 39
+served_version: 40
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-09-26 (v39)
+reconciled: 2026-09-27 (v40)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1666,6 +1666,43 @@ sits INSIDE the SECTION CHECKPOINTS paragraph, not a new one: tests locate the
 deferrals block by line number, and a new paragraph shifted it.
 
 73,390 chars to 72,860. Version 38 to 39. 0 em or en dashes.
+
+## v40: spectrum round 1, twelve findings from five personas
+
+The auditor ran five personas end to end on v39 (2026-09-27, contract `N400 App/contracts/spectrum-round1-lane-findings-2026-09-27.md`). Before any wording, each item was read against its cited run and turn, classifying where the loss happened: the model, GP's guard, or the client. That changed the scope.
+
+Not in the prompt, because a prompt cannot reach them:
+- 3b (Rosa's son José): the model DID file `p6.child3.child_name`; the evidence floor dropped it because "José Delgado" was put together across two of her turns and the carry-forward branch needs the value inside the cited words. A guard item, raised with the auditor, not built.
+- Client: 4 (a deferral laid over the filed "Retirada" was not applied), the SSN reaching the lane as "on file" so it cannot be swept, Rosa's own last name not offered at t8, Amina's unemployment row asking for city and ZIP, and 3a (the street was not an offered field at t22; in replay the model files it every time).
+
+In the prompt, every edit extends an existing line (the tests locate blocks by line number), and every v39 phrase survives:
+- Sweep the open deferrals ONCE before the review offer, in its own reply. The trigger is the reply whose answer closes the LAST agenda line, not the first "[agenda empty]" request: by then she has already answered the offer (the first probe cut used the wrong turn and measured nothing).
+- A vague date gets ONE follow-up that says where to look, before any deferral. This reverses v39's "one move, never both" for vague dates only, and it needed the multi-trip sentence in DEFERRALS to carve the same exception: that sentence told the lane to defer the dates at the gate, and cut 2 went 0 of 3 on it.
+- Names: two surnames are one family name for every person; family-first order puts the family name last; a surname she did not say is never filed. v39's "three words is first, middle, last" is retired.
+- A relative, work, asylum or lottery green card is `general_provision`.
+- A named earlier job answers the gate that was asked YES and the next gate no; a job she still has ends "present", also while its dates are being asked; a retired or unemployed stretch has no employer or workplace.
+- Checklist: a volunteered date is minted or deferred, read back only what is filed, corrections re-file, and the sweep and the offer never share a reply.
+
+Probe (`qa/n400_v40_probe.py`, the recorded requests through `assemble_prompt` and `guard_response_text`, claude-sonnet-5 called directly, v39 from origin/main against the tree, 3 reps each). Cut 3 is what ships:
+
+| item | v39 | v40 |
+|---|---|---|
+| 1 sweep (Rosa es, Minh, Jorge, Amina) | 0/12 | 11/12 |
+| 2 vague date pressed once | 0/3 | 3/3 |
+| 5 no invented surname | 2/3 | 3/3 |
+| 6 two surnames | 0/3 | 3/3 |
+| 7 relative green card | 0/3 | 3/3 |
+| 8 named job answers the gate yes | 0/3 | 3/3 |
+| 9 current job ends present | 0/3 | 3/3 |
+| 10 volunteered date | 1/3 | 3/3 |
+| 11 family-first order | 0/3 | 3/3 |
+| 12 retired, unemployed | 1/3, 0/3 | 3/3, 3/3 |
+
+The one sweep miss asked the sweep and the offer in one question (Amina rep 2). Items 3a, 3b and 4 are not claims about the prompt (see above). Item 5's original defect did not reproduce on v39 either, so its row shows no movement the prompt caused.
+
+A new shape on the wire: the sweep reply re-sends the existing deferrals (Jorge 15 of 15, Rosa 8 of 8), each with the partial the client already holds, because the v28 rule pairs a named item with an entry. No value changes; the client should treat an identical re-sent deferral as a no-op, and the auditor was asked to confirm it does.
+
+Proved at: GP's assembly, the model and GP's guard. Not proved: the client filing, and the live wire; the auditor reruns all five personas once v40 is served.
 
 ## What is deliberately not here
 

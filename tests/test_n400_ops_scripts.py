@@ -275,7 +275,7 @@ def test_the_mint_rule_survives_the_edit_that_targets_the_verdict():
     said it. Removing a verdict word must not reopen that. Checked on v38's
     real bundle now, since v36 is cut into it."""
     assert "MINT THAT BASIS IN THIS SAME RESPONSE" in VERSIONS[36]["phrases"]
-    assert "MINT THAT BASIS IN THIS SAME RESPONSE" in _bundle_prompt(39)
+    assert "MINT THAT BASIS IN THIS SAME RESPONSE" in _bundle_prompt(40)
 
 
 def test_the_v38_phrases_verify_and_each_is_load_bearing():
@@ -286,24 +286,22 @@ def test_the_v38_phrases_verify_and_each_is_load_bearing():
         assert verify(_spec_prompt(38, drop=phrase), 38) is False, phrase
 
 
-def test_the_v39_list_verifies_the_real_v39_bundle():
-    assert verify(_bundle_prompt(39), 39) is True
+def test_the_v39_phrases_verify_and_each_is_load_bearing():
+    """SYNTHETIC now: the bundle has moved to v40, so v39's list keeps being
+    exercised the way v38's is rather than going quiet."""
+    assert verify(_spec_prompt(39), 39) is True
+    for phrase in VERSIONS[39]["phrases"]:
+        assert verify(_spec_prompt(39, drop=phrase), 39) is False, phrase
 
 
-def test_each_v39_phrase_is_load_bearing_on_the_real_bundle():
-    sp = _bundle_prompt(39)
-    for phrase in [VERSIONS[39]["once"]] + VERSIONS[39]["phrases"]:
-        assert phrase in sp, phrase
-        assert verify(sp.replace(phrase, ""), 39) is False, phrase
-
-
-def test_the_retired_per_part_confirmation_stays_gone_in_v39():
+def test_the_retired_per_part_confirmation_stays_gone_in_v40():
     """Scott retired the confirmation after every part (2026-09-26). A served
-    copy carrying any of its lines is a stale cut, not v39."""
-    sp = _bundle_prompt(39)
+    copy carrying any of its lines is a stale cut, and v40 inherits the list."""
+    sp = _bundle_prompt(40)
     for phrase in VERSIONS[39]["absent"]:
+        assert phrase in VERSIONS[40]["absent"], phrase
         assert phrase not in sp, phrase
-        assert verify(sp + "\n" + phrase, 39) is False, phrase
+        assert verify(sp + "\n" + phrase, 40) is False, phrase
 
 
 def test_every_v38_phrase_rides_into_v39():
@@ -315,7 +313,7 @@ def test_the_original_reason_for_the_order_survives_v38():
     """v38 EXTENDS the sentence that argues the order from field dependencies;
     it must not replace that argument with the streaming one. Both reasons,
     word for word, on the real bundle."""
-    sp = _bundle_prompt(39)
+    sp = _bundle_prompt(40)
     assert sp.count("the reply LAST, because each later field must follow the earlier ones") == 1
     assert sp.count("`asking` written after `facts` can never name a node you just minted") == 1
     assert sp.count("THE ORDER IS A REQUIREMENT, NOT A PREFERENCE") == 1
@@ -409,3 +407,33 @@ def test_the_keys_sent_are_the_ones_the_operator_asked_for():
     from sync_n400_prompt import sync_keys
     assert sync_keys(None) == ["/systemPrompt", "/version"]
     assert sync_keys(6144) == ["/systemPrompt", "/version", "/maxTokens"]
+
+
+# --- v40: spectrum round 1 (the auditor, 2026-09-27) ---------------------------
+
+def test_the_v40_list_verifies_the_real_v40_bundle():
+    assert verify(_bundle_prompt(40), 40) is True
+
+
+def test_each_v40_phrase_is_load_bearing_on_the_real_bundle():
+    sp = _bundle_prompt(40)
+    for phrase in [VERSIONS[40]["once"]] + VERSIONS[40]["phrases"]:
+        assert phrase in sp, phrase
+        assert verify(sp.replace(phrase, ""), 40) is False, phrase
+
+
+def test_v39s_name_rule_and_offer_trigger_coming_back_fail_v40():
+    """v39 split "Ernesto Delgado Ruiz" into a middle and a last name
+    (spectrum-rosa-r1 t30) and made the offer the moment the agenda emptied,
+    so eight deferrals were never asked again (rosa t71). A served copy with
+    either sentence is a stale cut."""
+    sp = _bundle_prompt(40)
+    for phrase in ("If the answer has three words, that is first, middle and last.",
+                   "the reply that finds the agenda empty MAKES the offer"):
+        assert phrase not in sp, phrase
+        assert verify(sp + "\n" + phrase, 40) is False, phrase
+
+
+def test_every_v39_phrase_rides_into_v40():
+    for phrase in VERSIONS[39]["phrases"]:
+        assert phrase in VERSIONS[40]["phrases"], phrase
