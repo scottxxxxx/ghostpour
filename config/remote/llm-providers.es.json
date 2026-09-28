@@ -1,5 +1,5 @@
 {
- "version": 23,
+ "version": 24,
  "defaultPromptReserveTokens": 8000,
  "providers": [
   {
@@ -661,14 +661,48 @@
      }
     },
     {
+     "id": "claude-sonnet-5-5",
+     "displayName": "Claude Sonnet 5.5",
+     "description": "El Sonnet mas reciente de Anthropic; razonamiento y programacion solidos y rapidos con razonamiento adaptativo. Contexto de 1M.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 2.0,
+     "outputCostPerMillion": 10.0,
+     "litellmKey": "claude-sonnet-5-5",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "maxOutputTokens": 64000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": true,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le tout dernier Sonnet d'Anthropic ; raisonnement et codage solides et rapides, réflexion adaptative. Contexte de 1M."
+      }
+     }
+    },
+    {
      "id": "claude-sonnet-5",
      "displayName": "Claude Sonnet 5",
      "description": "Mejor combinación de velocidad e inteligencia; calidad de codificación y agente cercana a Opus, pensamiento adaptativo, contexto 1M.",
      "isDefault": false,
      "supportsVision": true,
      "contextWindow": 1000000,
-     "inputCostPerMillion": 3.0,
-     "outputCostPerMillion": 15.0,
+     "inputCostPerMillion": 2.0,
+     "outputCostPerMillion": 10.0,
      "litellmKey": "claude-sonnet-5",
      "supportsReasoning": true,
      "reasoningLevels": [
@@ -939,8 +973,8 @@
      "isDefault": false,
      "supportsVision": true,
      "contextWindow": 1048576,
-     "inputCostPerMillion": 1.5,
-     "outputCostPerMillion": 7.5,
+     "inputCostPerMillion": 0.75,
+     "outputCostPerMillion": 3.75,
      "litellmKey": "gemini-3.6-flash",
      "supportsReasoning": true,
      "reasoningLevels": [
@@ -1522,6 +1556,304 @@
      }
     },
     {
+     "id": "anthropic/claude-sonnet-5.5",
+     "displayName": "Claude Sonnet 5.5 (OR)",
+     "description": "El Sonnet mas reciente de Anthropic, rapido y solido en razonamiento y programacion a traves de OpenRouter.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 2.0,
+     "outputCostPerMillion": 10.0,
+     "litellmKey": "openrouter/anthropic/claude-sonnet-5.5",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "maxOutputTokens": 64000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": true,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le tout dernier Sonnet d'Anthropic, rapide et solide en raisonnement et en codage via OpenRouter."
+      }
+     }
+    },
+    {
+     "id": "anthropic/claude-opus-5.5",
+     "displayName": "Claude Opus 5.5 (OR)",
+     "description": "El Opus mas reciente de Anthropic para trabajo agentico y empresarial de primer nivel a traves de OpenRouter.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 4.0,
+     "outputCostPerMillion": 20.0,
+     "litellmKey": "openrouter/anthropic/claude-opus-5.5",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "maxOutputTokens": 64000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": true,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le tout dernier Opus d'Anthropic pour le travail agentique et d'entreprise haut de gamme via OpenRouter."
+      }
+     }
+    },
+    {
+     "id": "anthropic/claude-sonnet-5",
+     "displayName": "Claude Sonnet 5 (OR)",
+     "description": "Claude Sonnet 5, la mejor combinacion de velocidad e inteligencia a traves de OpenRouter.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 2.0,
+     "outputCostPerMillion": 10.0,
+     "litellmKey": "openrouter/anthropic/claude-sonnet-5",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "maxOutputTokens": 64000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": true,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Claude Sonnet 5, le meilleur équilibre entre vitesse et intelligence via OpenRouter."
+      }
+     }
+    },
+    {
+     "id": "openai/gpt-6-sol",
+     "displayName": "GPT-6 Sol (OR)",
+     "description": "El GPT-6 versatil de OpenAI a precio intermedio a traves de OpenRouter.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 922000,
+     "inputCostPerMillion": 2.0,
+     "outputCostPerMillion": 10.0,
+     "litellmKey": "openrouter/openai/gpt-6-sol",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "maxOutputTokens": 128000,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 10,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le GPT-6 polyvalent d'OpenAI à prix intermédiaire via OpenRouter."
+      }
+     }
+    },
+    {
+     "id": "openai/gpt-6-luna",
+     "displayName": "GPT-6 Luna (OR)",
+     "description": "GPT-6 pequeno, rapido y muy economico a traves de OpenRouter.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 922000,
+     "inputCostPerMillion": 0.1,
+     "outputCostPerMillion": 0.5,
+     "litellmKey": "openrouter/openai/gpt-6-luna",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "maxOutputTokens": 128000,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 10,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "GPT-6 petit, rapide et très économique via OpenRouter."
+      }
+     }
+    },
+    {
+     "id": "google/gemini-3.8-flash",
+     "displayName": "Gemini 3.8 Flash (OR)",
+     "description": "El modelo rapido mas reciente de Google a traves de OpenRouter.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1048576,
+     "inputCostPerMillion": 0.75,
+     "outputCostPerMillion": 3.75,
+     "litellmKey": "openrouter/google/gemini-3.8-flash",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "minimal",
+      "low",
+      "medium",
+      "high"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 16,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le plus récent modèle rapide de Google via OpenRouter."
+      }
+     }
+    },
+    {
+     "id": "x-ai/grok-4.7",
+     "displayName": "Grok 4.7 (OR)",
+     "description": "El Grok mas reciente de xAI, razonamiento con conocimiento en tiempo real a traves de OpenRouter.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 500000,
+     "inputCostPerMillion": 2.0,
+     "outputCostPerMillion": 6.0,
+     "litellmKey": "openrouter/x-ai/grok-4.7",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "maxOutputTokens": 32768,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 4,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le Grok le plus récent de xAI, raisonnement avec connaissances en temps réel via OpenRouter."
+      }
+     }
+    },
+    {
+     "id": "deepseek/deepseek-v4.1-flash",
+     "displayName": "DeepSeek V4.1 Flash (OR)",
+     "description": "El Flash mas reciente de DeepSeek, chat de texto economico con razonamiento de modo dual a traves de OpenRouter.",
+     "isDefault": false,
+     "supportsVision": false,
+     "contextWindow": 1048576,
+     "inputCostPerMillion": 0.3,
+     "outputCostPerMillion": 1.2,
+     "litellmKey": "openrouter/deepseek/deepseek-v4.1-flash",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "disabled",
+      "enabled"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 0,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "toggle",
+     "localizations": {
+      "fr": {
+       "description": "Le tout dernier Flash de DeepSeek, chat texte économique avec raisonnement bimode via OpenRouter."
+      }
+     }
+    },
+    {
+     "id": "moonshotai/kimi-k3",
+     "displayName": "Kimi K3 (OR)",
+     "description": "El modelo insignia mas reciente de Moonshot, razonamiento multimodal a traves de OpenRouter.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1048576,
+     "inputCostPerMillion": 3.0,
+     "outputCostPerMillion": 15.0,
+     "litellmKey": "openrouter/moonshotai/kimi-k3",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "disabled",
+      "enabled"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 1.0,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "toggle",
+     "localizations": {
+      "fr": {
+       "description": "Le tout dernier vaisseau amiral de Moonshot, raisonnement multimodal via OpenRouter."
+      }
+     }
+    },
+    {
      "id": "anthropic/claude-haiku-4.5",
      "displayName": "Claude Haiku 4.5 (OR)",
      "description": "Nivel rapido de Claude con vision. Ideal para resumenes rapidos y extraccion.",
@@ -1805,8 +2137,8 @@
      "isDefault": false,
      "supportsVision": false,
      "contextWindow": 1048576,
-     "inputCostPerMillion": 0.14,
-     "outputCostPerMillion": 0.28,
+     "inputCostPerMillion": 0.0592,
+     "outputCostPerMillion": 0.1184,
      "litellmKey": "openrouter/deepseek/deepseek-v4-flash",
      "supportsReasoning": true,
      "reasoningLevels": [
@@ -1836,8 +2168,8 @@
      "isDefault": false,
      "supportsVision": false,
      "contextWindow": 1048576,
-     "inputCostPerMillion": 1.74,
-     "outputCostPerMillion": 3.48,
+     "inputCostPerMillion": 0.783,
+     "outputCostPerMillion": 1.566,
      "litellmKey": "openrouter/deepseek/deepseek-v4-pro",
      "supportsReasoning": true,
      "reasoningLevels": [
@@ -1893,8 +2225,8 @@
      "isDefault": false,
      "supportsVision": true,
      "contextWindow": 1048576,
-     "inputCostPerMillion": 0.15,
-     "outputCostPerMillion": 0.6,
+     "inputCostPerMillion": 0.1875,
+     "outputCostPerMillion": 0.6525,
      "litellmKey": "openrouter/meta-llama/llama-4-maverick",
      "supportsReasoning": false,
      "reasoningLevels": null,
@@ -1979,8 +2311,8 @@
      "isDefault": false,
      "supportsVision": true,
      "contextWindow": 262144,
-     "inputCostPerMillion": 0.2,
-     "outputCostPerMillion": 0.88,
+     "inputCostPerMillion": 0.21,
+     "outputCostPerMillion": 1.9,
      "litellmKey": "openrouter/qwen/qwen3-vl-235b-a22b-instruct",
      "supportsReasoning": true,
      "reasoningLevels": null,
