@@ -59,6 +59,22 @@ CASES = [   # (item, run, wire index = transcript turn - 1), read by the fork 20
     ("15-no-inference", "spectrum-rosa-r3.json", 39),
     ("16-register", "spectrum-rosa-r3.json", 36),
     ("8-five-years-addr-live", "spectrum-priya-r5.json", 5),   # round 4, live on v41
+    # round 4 batch (the auditor, 2026-09-28): wire index = transcript turn - 1
+    ("r4-ssn-readback", "spectrum-minh-r4.json", 16),
+    ("r4-correction-no", "spectrum-minh-r4.json", 17),
+    ("r4-family-first-explained", "spectrum-minh-r4.json", 7),
+    ("r4-all-children", "spectrum-rosa-r4.json", 41),
+    ("r4-child-surname-later", "spectrum-jorge-r4.json", 22),
+    ("r4-offense-filed", "spectrum-jorge-r4.json", 39),   # t40: first mention, where it was deferred
+    ("r4-gate-off-by-one", "spectrum-jorge-r4.json", 20),
+    ("r4-probation-never", "spectrum-jorge-r4.json", 44),
+    ("r4-last-fall", "spectrum-jorge-r4.json", 14),
+    ("r4-fetching-card", "spectrum-rosa-r4.json", 14),
+    ("r4-part5-opener", "spectrum-rosa-r4.json", 25),
+    ("r4-twice-complete", "spectrum-rosa-r4.json", 45),   # t46: the turn she said "twice"
+    ("r4-inference", "spectrum-rosa-r4.json", 35),
+    ("r4-since-wording", "spectrum-amina-r4.json", 24),
+    ("r4-group-gender", "spectrum-amina-r4.json", 8),
 ]
 
 

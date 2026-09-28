@@ -1714,6 +1714,14 @@ def mark_values_outside_declared_options(text: str, agenda: str | None,
     return _mark_outside(text, field_opts, OPTION_SHAPE_REASON)
 
 
+# Fields whose question only applies conditionally, where a confirmed-empty
+# value ("", the lane's stated-none shape) is the RIGHT answer and "no" is a
+# harmful one. p9.probation_completed (jorge-r4 t45, 2026-09-28): "no" on the
+# printed N-400 reads as "on probation and did NOT complete it" for a man who
+# was never on probation. "" is not an off-option value for these.
+CONFIRMED_EMPTY_ALLOWED = frozenset({"p9.probation_completed"})
+
+
 def _mark_outside(text: str, field_opts: dict[str, set[str]], reason: str) -> tuple[str, list[dict]]:
     try:
         turn = json.loads(text)
@@ -1730,6 +1738,8 @@ def _mark_outside(text: str, field_opts: dict[str, set[str]], reason: str) -> tu
             continue
         value = f.get("value")
         if isinstance(value, str) and value.strip().lower() in opts:
+            continue
+        if value == "" and f.get("field_id") in CONFIRMED_EMPTY_ALLOWED:
             continue
         off.append({"field_id": f.get("field_id"), "value": value,
                     "declared": sorted(opts), "reason": reason})

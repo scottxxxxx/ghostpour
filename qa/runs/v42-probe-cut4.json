@@ -1,0 +1,3847 @@
+[
+ {
+  "case": "r4-inference",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 35,
+  "turn": 36,
+  "user_content": "Lucía, mi hija. Ella está aquí conmigo.",
+  "rep": 0,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 433,
+  "secs": 5.5,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_036\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.7, \"utterance\": \"Lucía, mi hija\"}\n    },\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"Ella está aquí conmigo\"}\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_child_name\", \"field_ids\": [\"p6.child2.child_name\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía, vive con usted. ¿Cuál es su apellido, y cuándo nació?\",\n    \"en\": \"Lucía, lives with you. What is her last name, and when was she born?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_036",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.7,
+      "utterance": "Lucía, mi hija"
+     }
+    },
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "Ella está aquí conmigo"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, vive con usted. ¿Cuál es su apellido, y cuándo nació?",
+    "en": "Lucía, lives with you. What is her last name, and when was she born?"
+   },
+   "asking_dropped": {
+    "node_id": "q_p6_child2_child_name",
+    "field_ids": [
+     "p6.child2.child_name"
+    ],
+    "reason": "every field of this node was filled by a fact in this response"
+   }
+  }
+ },
+ {
+  "case": "r4-inference",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 35,
+  "turn": 36,
+  "user_content": "Lucía, mi hija. Ella está aquí conmigo.",
+  "rep": 1,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 551,
+  "secs": 6.0,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_036\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía Delgado\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.8, \"utterance\": \"Lucía, mi hija. Ella está aquí conmigo.\"}\n    },\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.85, \"utterance\": \"Ella está aquí conmigo.\"}\n    },\n    {\n      \"field_id\": \"p6.child2.relationship\",\n      \"value\": \"biological\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Lucía, mi hija.\"}\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_date_of_birth\", \"field_ids\": [\"p6.child2.date_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía Delgado, vive con usted, es su hija biológica. ¿Cuándo nació ella?\",\n    \"en\": \"Lucía Delgado, lives with you, biological daughter. When was she born?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_036",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía Delgado",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.8,
+      "utterance": "Lucía, mi hija. Ella está aquí conmigo."
+     }
+    },
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.85,
+      "utterance": "Ella está aquí conmigo."
+     }
+    },
+    {
+     "field_id": "p6.child2.relationship",
+     "value": "biological",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Lucía, mi hija."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_date_of_birth",
+    "field_ids": [
+     "p6.child2.date_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía Delgado, vive con usted, es su hija biológica. ¿Cuándo nació ella?",
+    "en": "Lucía Delgado, lives with you, biological daughter. When was she born?"
+   }
+  }
+ },
+ {
+  "case": "r4-inference",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 35,
+  "turn": 36,
+  "user_content": "Lucía, mi hija. Ella está aquí conmigo.",
+  "rep": 2,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 475,
+  "secs": 5.6,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_036\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.7, \"utterance\": \"Lucía, mi hija\"}\n    },\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.85, \"utterance\": \"Ella está aquí conmigo\"}\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": {\n    \"field_id\": \"p6.child2.child_name\",\n    \"question\": {\"es\": \"¿Cuál es el apellido de Lucía?\", \"en\": \"And what is Lucía's last name?\"}\n  },\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_child_name\", \"field_ids\": [\"p6.child2.child_name\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"¿Cuál es el apellido de Lucía?\",\n    \"en\": \"And what is Lucía's last name?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_036",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.7,
+      "utterance": "Lucía, mi hija"
+     }
+    },
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.85,
+      "utterance": "Ella está aquí conmigo"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": {
+    "field_id": "p6.child2.child_name",
+    "question": {
+     "es": "¿Cuál es el apellido de Lucía?",
+     "en": "And what is Lucía's last name?"
+    }
+   },
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "¿Cuál es el apellido de Lucía?",
+    "en": "And what is Lucía's last name?"
+   },
+   "asking_dropped": {
+    "node_id": "q_p6_child2_child_name",
+    "field_ids": [
+     "p6.child2.child_name"
+    ],
+    "reason": "every field of this node was filled by a fact in this response"
+   }
+  }
+ },
+ {
+  "case": "r4-inference",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 35,
+  "turn": 36,
+  "user_content": "Lucía, mi hija. Ella está aquí conmigo.",
+  "rep": 3,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 360,
+  "secs": 4.9,
+  "raw": "{\"schema_version\":1,\"turn_id\":\"t_036\",\"intent\":{\"type\":\"volunteered_extra\"},\"facts\":[{\"field_id\":\"p6.child2.child_name\",\"value\":\"Lucía\",\"value_type\":\"string\",\"provenance\":{\"source\":\"user_stated\",\"confidence\":0.9,\"utterance\":\"Lucía, mi hija\"}},{\"field_id\":\"p6.child2.residence\",\"value\":\"resides_with_me\",\"value_type\":\"string\",\"provenance\":{\"source\":\"user_stated\",\"confidence\":0.85,\"utterance\":\"Ella está aquí conmigo\"}}],\"deferred\":[],\"clarification\":null,\"conflict\":null,\"escalation\":null,\"complete\":false,\"asking\":{\"node_id\":\"q_p6_child2_date_of_birth\",\"field_ids\":[\"p6.child2.date_of_birth\"]},\"section_checkpoint\":null,\"interview_over\":false,\"reply\":{\"es\":\"Lucía, vive con usted. ¿Cuál es su apellido y cuándo nació?\",\"en\":\"Lucía, lives with you. What is her last name and when was she born?\"}}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_036",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Lucía, mi hija"
+     }
+    },
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.85,
+      "utterance": "Ella está aquí conmigo"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_date_of_birth",
+    "field_ids": [
+     "p6.child2.date_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, vive con usted. ¿Cuál es su apellido y cuándo nació?",
+    "en": "Lucía, lives with you. What is her last name and when was she born?"
+   }
+  }
+ },
+ {
+  "case": "r4-inference",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 35,
+  "turn": 36,
+  "user_content": "Lucía, mi hija. Ella está aquí conmigo.",
+  "rep": 4,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 446,
+  "secs": 4.7,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_036\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía Delgado\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"ai_extracted\",\n        \"confidence\": 0.75,\n        \"utterance\": \"Lucía, mi hija. Ella está aquí conmigo.\"\n      }\n    },\n    {\n      \"field_id\": \"p6.child2.relationship\",\n      \"value\": \"biological\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"ai_extracted\",\n        \"confidence\": 0.7,\n        \"utterance\": \"Lucía, mi hija. Ella está aquí conmigo.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_date_of_birth\", \"field_ids\": [\"p6.child2.date_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía Delgado. ¿Cuándo nació ella?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_036",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía Delgado",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.75,
+      "utterance": "Lucía, mi hija. Ella está aquí conmigo."
+     }
+    },
+    {
+     "field_id": "p6.child2.relationship",
+     "value": "biological",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Lucía, mi hija. Ella está aquí conmigo."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_date_of_birth",
+    "field_ids": [
+     "p6.child2.date_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía Delgado. ¿Cuándo nació ella?"
+   }
+  }
+ },
+ {
+  "case": "r4-inference",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 35,
+  "turn": 36,
+  "user_content": "Lucía, mi hija. Ella está aquí conmigo.",
+  "rep": 5,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 408,
+  "secs": 4.6,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_036\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.7, \"utterance\": \"Lucía, mi hija\"}\n    },\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.85, \"utterance\": \"Ella está aquí conmigo\"}\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_child_name\", \"field_ids\": [\"p6.child2.child_name\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía, y vive con usted. ¿Cuál es su apellido, y cuándo nació?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_036",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.7,
+      "utterance": "Lucía, mi hija"
+     }
+    },
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.85,
+      "utterance": "Ella está aquí conmigo"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, y vive con usted. ¿Cuál es su apellido, y cuándo nació?"
+   },
+   "asking_dropped": {
+    "node_id": "q_p6_child2_child_name",
+    "field_ids": [
+     "p6.child2.child_name"
+    ],
+    "reason": "every field of this node was filled by a fact in this response"
+   }
+  }
+ },
+ {
+  "case": "r4-inference",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 35,
+  "turn": 36,
+  "user_content": "Lucía, mi hija. Ella está aquí conmigo.",
+  "rep": 0,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 469,
+  "secs": 4.2,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_036\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía Delgado\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"ai_extracted\",\n        \"confidence\": 0.7,\n        \"utterance\": \"Lucía, mi hija. Ella está aquí conmigo.\"\n      }\n    },\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.9,\n        \"utterance\": \"Ella está aquí conmigo.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_date_of_birth\", \"field_ids\": [\"p6.child2.date_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía Delgado, vive con usted. ¿Cuándo nació ella?\",\n    \"en\": \"Lucía Delgado, lives with you. When was she born?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_036",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía Delgado",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Lucía, mi hija. Ella está aquí conmigo."
+     }
+    },
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Ella está aquí conmigo."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_date_of_birth",
+    "field_ids": [
+     "p6.child2.date_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía Delgado, vive con usted. ¿Cuándo nació ella?",
+    "en": "Lucía Delgado, lives with you. When was she born?"
+   }
+  }
+ },
+ {
+  "case": "r4-inference",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 35,
+  "turn": 36,
+  "user_content": "Lucía, mi hija. Ella está aquí conmigo.",
+  "rep": 1,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 507,
+  "secs": 4.9,
+  "raw": "El apellido \"Delgado\" ya lo tenemos para todos sus hijos, así que se aplica a Lucía también.\n\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_036\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía Delgado\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"ai_extracted\",\n        \"confidence\": 0.8,\n        \"utterance\": \"Lucía, mi hija. Ella está aquí conmigo.\"\n      }\n    },\n    {\n      \"field_id\": \"p6.child2.relationship\",\n      \"value\": \"biological\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"ai_extracted\",\n        \"confidence\": 0.7,\n        \"utterance\": \"Lucía, mi hija. Ella está aquí conmigo.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_date_of_birth\", \"field_ids\": [\"p6.child2.date_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"¿Lucía vive con usted? ¿Y cuándo nació?\",\n    \"en\": \"Does Lucía live with you? And when was she born?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_036",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía Delgado",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.8,
+      "utterance": "Lucía, mi hija. Ella está aquí conmigo."
+     }
+    },
+    {
+     "field_id": "p6.child2.relationship",
+     "value": "biological",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Lucía, mi hija. Ella está aquí conmigo."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_date_of_birth",
+    "field_ids": [
+     "p6.child2.date_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "¿Lucía vive con usted? ¿Y cuándo nació?",
+    "en": "Does Lucía live with you? And when was she born?"
+   }
+  }
+ },
+ {
+  "case": "r4-inference",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 35,
+  "turn": 36,
+  "user_content": "Lucía, mi hija. Ella está aquí conmigo.",
+  "rep": 2,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 478,
+  "secs": 4.5,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_036\",\n  \"intent\": {\"type\": \"volunteered_extra\", \"confidence\": 0.9},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía Delgado\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"ai_extracted\",\n        \"confidence\": 0.75,\n        \"utterance\": \"Lucía, mi hija. Ella está aquí conmigo.\"\n      }\n    },\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"ai_extracted\",\n        \"confidence\": 0.85,\n        \"utterance\": \"Ella está aquí conmigo.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_date_of_birth\", \"field_ids\": [\"p6.child2.date_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía Delgado, vive con usted. ¿Cuándo nació?\",\n    \"en\": \"Lucía Delgado, lives with you. When was she born?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_036",
+   "intent": {
+    "type": "volunteered_extra",
+    "confidence": 0.9
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía Delgado",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.75,
+      "utterance": "Lucía, mi hija. Ella está aquí conmigo."
+     }
+    },
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "Ella está aquí conmigo."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_date_of_birth",
+    "field_ids": [
+     "p6.child2.date_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía Delgado, vive con usted. ¿Cuándo nació?",
+    "en": "Lucía Delgado, lives with you. When was she born?"
+   }
+  }
+ },
+ {
+  "case": "r4-inference",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 35,
+  "turn": 36,
+  "user_content": "Lucía, mi hija. Ella está aquí conmigo.",
+  "rep": 3,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 467,
+  "secs": 4.3,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_036\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía Delgado\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"ai_extracted\",\n        \"confidence\": 0.7,\n        \"utterance\": \"Lucía, mi hija. Ella está aquí conmigo.\"\n      }\n    },\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.85,\n        \"utterance\": \"Ella está aquí conmigo.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_date_of_birth\", \"field_ids\": [\"p6.child2.date_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía Delgado, vive con usted. ¿Cuándo nació?\",\n    \"en\": \"Lucía Delgado, lives with you. When was she born?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_036",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía Delgado",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Lucía, mi hija. Ella está aquí conmigo."
+     }
+    },
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.85,
+      "utterance": "Ella está aquí conmigo."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_date_of_birth",
+    "field_ids": [
+     "p6.child2.date_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía Delgado, vive con usted. ¿Cuándo nació?",
+    "en": "Lucía Delgado, lives with you. When was she born?"
+   }
+  }
+ },
+ {
+  "case": "r4-inference",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 35,
+  "turn": 36,
+  "user_content": "Lucía, mi hija. Ella está aquí conmigo.",
+  "rep": 4,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 462,
+  "secs": 4.4,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_036\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía Delgado\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"ai_extracted\",\n        \"confidence\": 0.75,\n        \"utterance\": \"Lucía, mi hija. Ella está aquí conmigo.\"\n      }\n    },\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.85,\n        \"utterance\": \"Ella está aquí conmigo.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_date_of_birth\", \"field_ids\": [\"p6.child2.date_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía, y vive con usted. ¿Cuándo nació?\",\n    \"en\": \"Lucía, and she lives with you. When was she born?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_036",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía Delgado",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.75,
+      "utterance": "Lucía, mi hija. Ella está aquí conmigo."
+     }
+    },
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.85,
+      "utterance": "Ella está aquí conmigo."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_date_of_birth",
+    "field_ids": [
+     "p6.child2.date_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, y vive con usted. ¿Cuándo nació?",
+    "en": "Lucía, and she lives with you. When was she born?"
+   }
+  }
+ },
+ {
+  "case": "r4-inference",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 35,
+  "turn": 36,
+  "user_content": "Lucía, mi hija. Ella está aquí conmigo.",
+  "rep": 5,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 586,
+  "secs": 5.2,
+  "raw": "El apellido \"Delgado\" ya se estableció para los hijos, y ella dijo que Lucía vive con ella, lo cual responde la residencia.\n\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_036\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía Delgado\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"Lucía, mi hija. Ella está aquí conmigo.\"}\n    },\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Ella está aquí conmigo.\"}\n    },\n    {\n      \"field_id\": \"p6.child2.relationship\",\n      \"value\": \"biological\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.8, \"utterance\": \"Lucía, mi hija.\"}\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_date_of_birth\", \"field_ids\": [\"p6.child2.date_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía Delgado, vive con usted. ¿Cuándo nació?\",\n    \"en\": \"Lucía Delgado, lives with you. When was she born?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_036",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía Delgado",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "Lucía, mi hija. Ella está aquí conmigo."
+     }
+    },
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Ella está aquí conmigo."
+     }
+    },
+    {
+     "field_id": "p6.child2.relationship",
+     "value": "biological",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.8,
+      "utterance": "Lucía, mi hija."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_date_of_birth",
+    "field_ids": [
+     "p6.child2.date_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía Delgado, vive con usted. ¿Cuándo nació?",
+    "en": "Lucía Delgado, lives with you. When was she born?"
+   }
+  }
+ },
+ {
+  "case": "r4-offense-filed",
+  "run": "spectrum-jorge-r4.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Nah, never. Well I got a speeding ticket once. And I pay my child support, always.",
+  "rep": 0,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 453,
+  "secs": 5.2,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p9.child_support\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"I pay my child support, always\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p9.arrested_ever\", \"reason\": \"disclosed a speeding ticket, not yet detailed\", \"partial_value\": \"speeding ticket, once\", \"origin\": \"capture_gap\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p9_immigration\", \"field_ids\": [\"p9.false_information\", \"p9.lied_to_officials\", \"p9.removal_proceedings\", \"p9.removed_deported\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"Got it on the speeding ticket, we'll get the details in a moment, and no issue on child support. Have you ever given U.S. officials false or misleading information, lied to enter the country or get an immigration benefit, been in removal or deportation proceedings, or been deported?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.child_support",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "I pay my child support, always"
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p9.arrested_ever",
+     "reason": "disclosed a speeding ticket, not yet detailed",
+     "partial_value": "speeding ticket, once",
+     "origin": "capture_gap"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p9_immigration",
+    "field_ids": [
+     "p9.false_information",
+     "p9.lied_to_officials",
+     "p9.removal_proceedings",
+     "p9.removed_deported"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Got it on the speeding ticket, we'll get the details in a moment, and no issue on child support. Have you ever given U.S. officials false or misleading information, lied to enter the country or get an immigration benefit, been in removal or deportation proceedings, or been deported?"
+   }
+  }
+ },
+ {
+  "case": "r4-offense-filed",
+  "run": "spectrum-jorge-r4.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Nah, never. Well I got a speeding ticket once. And I pay my child support, always.",
+  "rep": 1,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 1019,
+  "secs": 8.2,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\"field_id\": \"p9.prostitution\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.drugs\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.polygamy\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.marriage_fraud\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.smuggling\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.illegal_gambling\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.child_support\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"And I pay my child support, always.\"}},\n    {\"field_id\": \"p9.benefit_misrepresentation\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.arrested_ever\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Well I got a speeding ticket once.\"}}\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p9.arrest1.offense\", \"reason\": \"she disclosed a speeding ticket but the row details were not yet asked\", \"partial_value\": \"speeding ticket\", \"origin\": \"capture_gap\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p9_crimes\", \"field_ids\": [\"p9.arrest1.offense\", \"p9.arrest1.date_of_offense\", \"p9.arrest1.place\", \"p9.arrest1.outcome\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"Got it, no to the rest, and thanks for mentioning the ticket and the child support. Since a speeding ticket counts as being cited, tell me about it: when and where did it happen, and what was the outcome?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.prostitution",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.drugs",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.polygamy",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.marriage_fraud",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.smuggling",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.illegal_gambling",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.child_support",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "And I pay my child support, always."
+     }
+    },
+    {
+     "field_id": "p9.benefit_misrepresentation",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.arrested_ever",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Well I got a speeding ticket once."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p9.arrest1.offense",
+     "reason": "she disclosed a speeding ticket but the row details were not yet asked",
+     "partial_value": "speeding ticket",
+     "origin": "capture_gap"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p9_crimes",
+    "field_ids": [
+     "p9.arrest1.offense",
+     "p9.arrest1.date_of_offense",
+     "p9.arrest1.place",
+     "p9.arrest1.outcome"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Got it, no to the rest, and thanks for mentioning the ticket and the child support. Since a speeding ticket counts as being cited, tell me about it: when and where did it happen, and what was the outcome?"
+   }
+  }
+ },
+ {
+  "case": "r4-offense-filed",
+  "run": "spectrum-jorge-r4.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Nah, never. Well I got a speeding ticket once. And I pay my child support, always.",
+  "rep": 2,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 1127,
+  "secs": 8.7,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p9.crime_not_arrested\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.prostitution\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.drugs\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.polygamy\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.marriage_fraud\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.smuggling\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.illegal_gambling\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.child_support\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"And I pay my child support, always.\"}\n    },\n    {\n      \"field_id\": \"p9.benefit_misrepresentation\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.arrested_ever\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Well I got a speeding ticket once.\"}\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p9_immigration\", \"field_ids\": [\"p9.false_information\", \"p9.lied_to_officials\", \"p9.removal_proceedings\", \"p9.removed_deported\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"Got it, the speeding ticket counts, so I'll note that one. Have you ever given U.S. officials false or misleading information, lied to enter the country or get an immigration benefit, been in removal or deportation proceedings, or been removed or deported? If none apply, just say no.\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.crime_not_arrested",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.prostitution",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.drugs",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.polygamy",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.marriage_fraud",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.smuggling",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.illegal_gambling",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.child_support",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "And I pay my child support, always."
+     }
+    },
+    {
+     "field_id": "p9.benefit_misrepresentation",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.arrested_ever",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Well I got a speeding ticket once."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p9_immigration",
+    "field_ids": [
+     "p9.false_information",
+     "p9.lied_to_officials",
+     "p9.removal_proceedings",
+     "p9.removed_deported"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Got it, the speeding ticket counts, so I'll note that one. Have you ever given U.S. officials false or misleading information, lied to enter the country or get an immigration benefit, been in removal or deportation proceedings, or been removed or deported? If none apply, just say no."
+   }
+  }
+ },
+ {
+  "case": "r4-offense-filed",
+  "run": "spectrum-jorge-r4.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Nah, never. Well I got a speeding ticket once. And I pay my child support, always.",
+  "rep": 3,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 1071,
+  "secs": 8.1,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\"field_id\": \"p9.crime_not_arrested\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.prostitution\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.drugs\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.polygamy\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.marriage_fraud\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.smuggling\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.illegal_gambling\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.child_support\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"And I pay my child support, always.\"}},\n    {\"field_id\": \"p9.benefit_misrepresentation\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.arrested_ever\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Well I got a speeding ticket once.\"}}\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p9.arrest1.offense\", \"reason\": \"disclosed a speeding ticket, details not yet gathered\", \"partial_value\": \"speeding ticket\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p9_crimes_followup\", \"field_ids\": [\"p9.arrest1.offense\", \"p9.arrest1.date_of_offense\", \"p9.arrest1.place\", \"p9.arrest1.outcome\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\"en\": \"Got it on the child support, and thanks for mentioning the ticket. For that speeding ticket, roughly when and where did it happen, and how was it resolved?\"}\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.crime_not_arrested",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.prostitution",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.drugs",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.polygamy",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.marriage_fraud",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.smuggling",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.illegal_gambling",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.child_support",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "And I pay my child support, always."
+     }
+    },
+    {
+     "field_id": "p9.benefit_misrepresentation",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.arrested_ever",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Well I got a speeding ticket once."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p9.arrest1.offense",
+     "reason": "disclosed a speeding ticket, details not yet gathered",
+     "partial_value": "speeding ticket",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Got it on the child support, and thanks for mentioning the ticket. For that speeding ticket, roughly when and where did it happen, and how was it resolved?"
+   },
+   "asking_dropped": {
+    "node_id": "q_p9_crimes_followup",
+    "field_ids": [],
+    "reason": "this node is not on the agenda"
+   }
+  }
+ },
+ {
+  "case": "r4-offense-filed",
+  "run": "spectrum-jorge-r4.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Nah, never. Well I got a speeding ticket once. And I pay my child support, always.",
+  "rep": 4,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 1072,
+  "secs": 8.2,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\"field_id\": \"p9.crime_not_arrested\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never\"}},\n    {\"field_id\": \"p9.prostitution\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"Nah, never\"}},\n    {\"field_id\": \"p9.drugs\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"Nah, never\"}},\n    {\"field_id\": \"p9.polygamy\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"Nah, never\"}},\n    {\"field_id\": \"p9.marriage_fraud\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"Nah, never\"}},\n    {\"field_id\": \"p9.smuggling\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"Nah, never\"}},\n    {\"field_id\": \"p9.illegal_gambling\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"Nah, never\"}},\n    {\"field_id\": \"p9.benefit_misrepresentation\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"Nah, never\"}},\n    {\"field_id\": \"p9.child_support\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"I pay my child support, always\"}},\n    {\"field_id\": \"p9.arrested_ever\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"I got a speeding ticket once\"}}\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p9.arrest1.offense\", \"reason\": \"disclosed a speeding ticket, details not yet taken\", \"partial_value\": \"speeding ticket\", \"origin\": \"capture_gap\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p9_crimes\", \"field_ids\": [\"p9.arrest1.offense\", \"p9.arrest1.date_of_offense\", \"p9.arrest1.place\", \"p9.arrest1.outcome\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\"en\": \"Got it, no to the rest, and you always pay your child support. For the speeding ticket, what state or city was it in, and roughly when?\"}\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.crime_not_arrested",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never"
+     }
+    },
+    {
+     "field_id": "p9.prostitution",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "Nah, never"
+     }
+    },
+    {
+     "field_id": "p9.drugs",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "Nah, never"
+     }
+    },
+    {
+     "field_id": "p9.polygamy",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "Nah, never"
+     }
+    },
+    {
+     "field_id": "p9.marriage_fraud",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "Nah, never"
+     }
+    },
+    {
+     "field_id": "p9.smuggling",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "Nah, never"
+     }
+    },
+    {
+     "field_id": "p9.illegal_gambling",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "Nah, never"
+     }
+    },
+    {
+     "field_id": "p9.benefit_misrepresentation",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "Nah, never"
+     }
+    },
+    {
+     "field_id": "p9.child_support",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "I pay my child support, always"
+     }
+    },
+    {
+     "field_id": "p9.arrested_ever",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "I got a speeding ticket once"
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p9.arrest1.offense",
+     "reason": "disclosed a speeding ticket, details not yet taken",
+     "partial_value": "speeding ticket",
+     "origin": "capture_gap"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Got it, no to the rest, and you always pay your child support. For the speeding ticket, what state or city was it in, and roughly when?"
+   },
+   "asking_dropped": {
+    "node_id": "q_p9_crimes",
+    "field_ids": [
+     "p9.arrested_ever",
+     "p9.benefit_misrepresentation",
+     "p9.child_support",
+     "p9.crime_not_arrested",
+     "p9.drugs",
+     "p9.illegal_gambling",
+     "p9.marriage_fraud",
+     "p9.polygamy",
+     "p9.prostitution",
+     "p9.smuggling"
+    ],
+    "reason": "every field of this node was filled by a fact in this response"
+   }
+  }
+ },
+ {
+  "case": "r4-offense-filed",
+  "run": "spectrum-jorge-r4.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Nah, never. Well I got a speeding ticket once. And I pay my child support, always.",
+  "rep": 5,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 1094,
+  "secs": 8.7,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\"field_id\": \"p9.crime_not_arrested\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.prostitution\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.drugs\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.polygamy\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.marriage_fraud\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.smuggling\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.illegal_gambling\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.benefit_misrepresentation\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.child_support\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"And I pay my child support, always.\"}},\n    {\"field_id\": \"p9.arrested_ever\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Well I got a speeding ticket once.\"}}\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p9.arrest1.offense\", \"reason\": \"disclosed a speeding ticket, details not yet taken\", \"partial_value\": \"speeding ticket\", \"origin\": \"capture_gap\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p9_crimes\", \"field_ids\": [\"p9.arrest1.offense\", \"p9.arrest1.date_of_offense\", \"p9.arrest1.place\", \"p9.arrest1.outcome\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\"en\": \"Got it, a speeding ticket counts as an arrest question, so I'll note that one, and no to the rest, including child support. What state or city was the speeding ticket in, and how was it resolved?\"}\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.crime_not_arrested",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.prostitution",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.drugs",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.polygamy",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.marriage_fraud",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.smuggling",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.illegal_gambling",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.benefit_misrepresentation",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.child_support",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "And I pay my child support, always."
+     }
+    },
+    {
+     "field_id": "p9.arrested_ever",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Well I got a speeding ticket once."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p9.arrest1.offense",
+     "reason": "disclosed a speeding ticket, details not yet taken",
+     "partial_value": "speeding ticket",
+     "origin": "capture_gap"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Got it, a speeding ticket counts as an arrest question, so I'll note that one, and no to the rest, including child support. What state or city was the speeding ticket in, and how was it resolved?"
+   },
+   "asking_dropped": {
+    "node_id": "q_p9_crimes",
+    "field_ids": [
+     "p9.arrested_ever",
+     "p9.benefit_misrepresentation",
+     "p9.child_support",
+     "p9.crime_not_arrested",
+     "p9.drugs",
+     "p9.illegal_gambling",
+     "p9.marriage_fraud",
+     "p9.polygamy",
+     "p9.prostitution",
+     "p9.smuggling"
+    ],
+    "reason": "every field of this node was filled by a fact in this response"
+   }
+  }
+ },
+ {
+  "case": "r4-offense-filed",
+  "run": "spectrum-jorge-r4.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Nah, never. Well I got a speeding ticket once. And I pay my child support, always.",
+  "rep": 0,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 1196,
+  "secs": 8.3,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p9.arrested_ever\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Well I got a speeding ticket once.\"}\n    },\n    {\n      \"field_id\": \"p9.crime_not_arrested\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.6, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.prostitution\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.6, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.drugs\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.6, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.polygamy\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.6, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.marriage_fraud\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.6, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.smuggling\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.6, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.illegal_gambling\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.6, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.child_support\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.85, \"utterance\": \"And I pay my child support, always.\"}\n    },\n    {\n      \"field_id\": \"p9.benefit_misrepresentation\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.6, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.arrest1.offense\",\n      \"value\": \"speeding ticket\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.85, \"utterance\": \"Well I got a speeding ticket once.\"}\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p9_crimes\", \"field_ids\": [\"p9.arrest1.date_of_offense\", \"p9.arrest1.place\", \"p9.arrest1.outcome\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"Got it, a speeding ticket, and child support paid up. What was the date and place of that speeding ticket, and how was it resolved?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.arrested_ever",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Well I got a speeding ticket once."
+     }
+    },
+    {
+     "field_id": "p9.crime_not_arrested",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.6,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.prostitution",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.6,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.drugs",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.6,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.polygamy",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.6,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.marriage_fraud",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.6,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.smuggling",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.6,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.illegal_gambling",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.6,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.child_support",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.85,
+      "utterance": "And I pay my child support, always."
+     }
+    },
+    {
+     "field_id": "p9.benefit_misrepresentation",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.6,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.arrest1.offense",
+     "value": "speeding ticket",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.85,
+      "utterance": "Well I got a speeding ticket once."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Got it, a speeding ticket, and child support paid up. What was the date and place of that speeding ticket, and how was it resolved?"
+   },
+   "asking_dropped": {
+    "node_id": "q_p9_crimes",
+    "field_ids": [
+     "p9.arrested_ever",
+     "p9.benefit_misrepresentation",
+     "p9.child_support",
+     "p9.crime_not_arrested",
+     "p9.drugs",
+     "p9.illegal_gambling",
+     "p9.marriage_fraud",
+     "p9.polygamy",
+     "p9.prostitution",
+     "p9.smuggling"
+    ],
+    "reason": "every field of this node was filled by a fact in this response"
+   }
+  }
+ },
+ {
+  "case": "r4-offense-filed",
+  "run": "spectrum-jorge-r4.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Nah, never. Well I got a speeding ticket once. And I pay my child support, always.",
+  "rep": 1,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 1263,
+  "secs": 8.8,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\"field_id\": \"p9.arrested_ever\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Well I got a speeding ticket once.\"}},\n    {\"field_id\": \"p9.crime_not_arrested\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.6, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.prostitution\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.6, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.drugs\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.6, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.polygamy\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.6, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.marriage_fraud\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.6, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.smuggling\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.6, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.illegal_gambling\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.6, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.child_support\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"And I pay my child support, always.\"}},\n    {\"field_id\": \"p9.benefit_misrepresentation\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.6, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.arrest1.offense\", \"value\": \"speeding\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.85, \"utterance\": \"I got a speeding ticket once\"}}\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p9.arrest1.date_of_offense\", \"reason\": \"exact date of the speeding ticket not given\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p9.arrest1.place\", \"reason\": \"location of the speeding ticket not given\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p9.arrest1.outcome\", \"reason\": \"outcome of the speeding ticket not given\", \"partial_value\": null, \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p9_crimes\", \"field_ids\": [\"p9.arrest1.date_of_offense\", \"p9.arrest1.place\", \"p9.arrest1.outcome\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"Got it, the speeding ticket and that you always pay child support. What was the approximate date and city for that ticket, and how was it resolved?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p9.arrested_ever",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Well I got a speeding ticket once."
+     }
+    },
+    {
+     "field_id": "p9.crime_not_arrested",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.6,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.prostitution",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.6,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.drugs",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.6,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.polygamy",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.6,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.marriage_fraud",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.6,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.smuggling",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.6,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.illegal_gambling",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.6,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.child_support",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "And I pay my child support, always."
+     }
+    },
+    {
+     "field_id": "p9.benefit_misrepresentation",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.6,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.arrest1.offense",
+     "value": "speeding",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.85,
+      "utterance": "I got a speeding ticket once"
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p9.arrest1.date_of_offense",
+     "reason": "exact date of the speeding ticket not given",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p9.arrest1.place",
+     "reason": "location of the speeding ticket not given",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p9.arrest1.outcome",
+     "reason": "outcome of the speeding ticket not given",
+     "partial_value": null,
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Got it, the speeding ticket and that you always pay child support. What was the approximate date and city for that ticket, and how was it resolved?"
+   },
+   "asking_dropped": {
+    "node_id": "q_p9_crimes",
+    "field_ids": [
+     "p9.arrested_ever",
+     "p9.benefit_misrepresentation",
+     "p9.child_support",
+     "p9.crime_not_arrested",
+     "p9.drugs",
+     "p9.illegal_gambling",
+     "p9.marriage_fraud",
+     "p9.polygamy",
+     "p9.prostitution",
+     "p9.smuggling"
+    ],
+    "reason": "every field of this node was filled by a fact in this response"
+   }
+  }
+ },
+ {
+  "case": "r4-offense-filed",
+  "run": "spectrum-jorge-r4.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Nah, never. Well I got a speeding ticket once. And I pay my child support, always.",
+  "rep": 2,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 1076,
+  "secs": 7.7,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\"field_id\": \"p9.arrested_ever\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Well I got a speeding ticket once.\"}},\n    {\"field_id\": \"p9.crime_not_arrested\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.prostitution\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.drugs\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.polygamy\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.marriage_fraud\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.smuggling\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.illegal_gambling\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.child_support\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"And I pay my child support, always.\"}},\n    {\"field_id\": \"p9.benefit_misrepresentation\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never.\"}},\n    {\"field_id\": \"p9.arrest1.offense\", \"value\": \"speeding ticket\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.85, \"utterance\": \"I got a speeding ticket once.\"}}\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p9_crimes\", \"field_ids\": [\"p9.arrest1.date_of_offense\", \"p9.arrest1.place\", \"p9.arrest1.outcome\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\"en\": \"Got it, a speeding ticket, and child support paid up. Do you remember about when and where that ticket happened, and how it was resolved?\"}\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.arrested_ever",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Well I got a speeding ticket once."
+     }
+    },
+    {
+     "field_id": "p9.crime_not_arrested",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.prostitution",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.drugs",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.polygamy",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.marriage_fraud",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.smuggling",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.illegal_gambling",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.child_support",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "And I pay my child support, always."
+     }
+    },
+    {
+     "field_id": "p9.benefit_misrepresentation",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.arrest1.offense",
+     "value": "speeding ticket",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.85,
+      "utterance": "I got a speeding ticket once."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Got it, a speeding ticket, and child support paid up. Do you remember about when and where that ticket happened, and how it was resolved?"
+   },
+   "asking_dropped": {
+    "node_id": "q_p9_crimes",
+    "field_ids": [
+     "p9.arrested_ever",
+     "p9.benefit_misrepresentation",
+     "p9.child_support",
+     "p9.crime_not_arrested",
+     "p9.drugs",
+     "p9.illegal_gambling",
+     "p9.marriage_fraud",
+     "p9.polygamy",
+     "p9.prostitution",
+     "p9.smuggling"
+    ],
+    "reason": "every field of this node was filled by a fact in this response"
+   }
+  }
+ },
+ {
+  "case": "r4-offense-filed",
+  "run": "spectrum-jorge-r4.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Nah, never. Well I got a speeding ticket once. And I pay my child support, always.",
+  "rep": 3,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 1278,
+  "secs": 9.2,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\"field_id\": \"p9.arrested_ever\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Well I got a speeding ticket once\"}},\n    {\"field_id\": \"p9.crime_not_arrested\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never\"}},\n    {\"field_id\": \"p9.prostitution\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never\"}},\n    {\"field_id\": \"p9.drugs\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never\"}},\n    {\"field_id\": \"p9.polygamy\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never\"}},\n    {\"field_id\": \"p9.marriage_fraud\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never\"}},\n    {\"field_id\": \"p9.smuggling\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never\"}},\n    {\"field_id\": \"p9.illegal_gambling\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never\"}},\n    {\"field_id\": \"p9.child_support\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"And I pay my child support, always\"}},\n    {\"field_id\": \"p9.benefit_misrepresentation\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never\"}},\n    {\"field_id\": \"p9.arrest1.offense\", \"value\": \"speeding ticket\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.85, \"utterance\": \"Well I got a speeding ticket once\"}}\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p9.arrest1.date_of_offense\", \"reason\": \"exact date not given\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p9.arrest1.place\", \"reason\": \"place not given\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p9.arrest1.outcome\", \"reason\": \"outcome not given\", \"partial_value\": null, \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p9_immigration\", \"field_ids\": [\"p9.false_information\", \"p9.lied_to_officials\", \"p9.removal_proceedings\", \"p9.removed_deported\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\"en\": \"Got the speeding ticket noted, and no on child support being an issue since you keep current. What was the date and place of that ticket, if you remember? Also, have you ever given U.S. officials false information, lied to enter the country or get a benefit, or been in removal or deportation proceedings?\"}\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.arrested_ever",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Well I got a speeding ticket once"
+     }
+    },
+    {
+     "field_id": "p9.crime_not_arrested",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never"
+     }
+    },
+    {
+     "field_id": "p9.prostitution",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never"
+     }
+    },
+    {
+     "field_id": "p9.drugs",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never"
+     }
+    },
+    {
+     "field_id": "p9.polygamy",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never"
+     }
+    },
+    {
+     "field_id": "p9.marriage_fraud",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never"
+     }
+    },
+    {
+     "field_id": "p9.smuggling",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never"
+     }
+    },
+    {
+     "field_id": "p9.illegal_gambling",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never"
+     }
+    },
+    {
+     "field_id": "p9.child_support",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "And I pay my child support, always"
+     }
+    },
+    {
+     "field_id": "p9.benefit_misrepresentation",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never"
+     }
+    },
+    {
+     "field_id": "p9.arrest1.offense",
+     "value": "speeding ticket",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.85,
+      "utterance": "Well I got a speeding ticket once"
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p9.arrest1.date_of_offense",
+     "reason": "exact date not given",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p9.arrest1.place",
+     "reason": "place not given",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p9.arrest1.outcome",
+     "reason": "outcome not given",
+     "partial_value": null,
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p9_immigration",
+    "field_ids": [
+     "p9.false_information",
+     "p9.lied_to_officials",
+     "p9.removal_proceedings",
+     "p9.removed_deported"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Got the speeding ticket noted, and no on child support being an issue since you keep current. What was the date and place of that ticket, if you remember? Also, have you ever given U.S. officials false information, lied to enter the country or get a benefit, or been in removal or deportation proceedings?"
+   }
+  }
+ },
+ {
+  "case": "r4-offense-filed",
+  "run": "spectrum-jorge-r4.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Nah, never. Well I got a speeding ticket once. And I pay my child support, always.",
+  "rep": 4,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 1382,
+  "secs": 9.3,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p9.arrested_ever\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Well I got a speeding ticket once.\"}\n    },\n    {\n      \"field_id\": \"p9.crime_not_arrested\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.prostitution\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.drugs\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.polygamy\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.marriage_fraud\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.smuggling\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.illegal_gambling\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.child_support\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"And I pay my child support, always.\"}\n    },\n    {\n      \"field_id\": \"p9.benefit_misrepresentation\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.arrest1.offense\",\n      \"value\": \"speeding ticket\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Well I got a speeding ticket once.\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p9.arrest1.date_of_offense\", \"reason\": \"exact date not given\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p9.arrest1.place\", \"reason\": \"place not given\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p9.arrest1.outcome\", \"reason\": \"outcome not given\", \"partial_value\": null, \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p9_immigration\", \"field_ids\": [\"p9.false_information\", \"p9.lied_to_officials\", \"p9.removal_proceedings\", \"p9.removed_deported\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"Got it, a speeding ticket, and child support always paid. When did that ticket happen, and where? Also, have you ever given false information to immigration officials, lied to enter the country, been in removal or deportation proceedings, or been deported?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.arrested_ever",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Well I got a speeding ticket once."
+     }
+    },
+    {
+     "field_id": "p9.crime_not_arrested",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.prostitution",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.drugs",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.polygamy",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.marriage_fraud",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.smuggling",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.illegal_gambling",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.child_support",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "And I pay my child support, always."
+     }
+    },
+    {
+     "field_id": "p9.benefit_misrepresentation",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.arrest1.offense",
+     "value": "speeding ticket",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Well I got a speeding ticket once."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p9.arrest1.date_of_offense",
+     "reason": "exact date not given",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p9.arrest1.place",
+     "reason": "place not given",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p9.arrest1.outcome",
+     "reason": "outcome not given",
+     "partial_value": null,
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p9_immigration",
+    "field_ids": [
+     "p9.false_information",
+     "p9.lied_to_officials",
+     "p9.removal_proceedings",
+     "p9.removed_deported"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Got it, a speeding ticket, and child support always paid. When did that ticket happen, and where? Also, have you ever given false information to immigration officials, lied to enter the country, been in removal or deportation proceedings, or been deported?"
+   }
+  }
+ },
+ {
+  "case": "r4-offense-filed",
+  "run": "spectrum-jorge-r4.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Nah, never. Well I got a speeding ticket once. And I pay my child support, always.",
+  "rep": 5,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 1196,
+  "secs": 8.1,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p9.arrested_ever\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Well I got a speeding ticket once.\"}\n    },\n    {\n      \"field_id\": \"p9.crime_not_arrested\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.prostitution\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.drugs\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.polygamy\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.marriage_fraud\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.smuggling\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.illegal_gambling\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.child_support\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"And I pay my child support, always.\"}\n    },\n    {\n      \"field_id\": \"p9.benefit_misrepresentation\",\n      \"value\": \"no\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Nah, never.\"}\n    },\n    {\n      \"field_id\": \"p9.arrest1.offense\",\n      \"value\": \"speeding ticket\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Well I got a speeding ticket once.\"}\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p9_crimes\", \"field_ids\": [\"p9.arrest1.date_of_offense\", \"p9.arrest1.place\", \"p9.arrest1.outcome\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"Got it, a speeding ticket, and child support always paid. What was the date and place of the speeding ticket, and how was it resolved?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.arrested_ever",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Well I got a speeding ticket once."
+     }
+    },
+    {
+     "field_id": "p9.crime_not_arrested",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.prostitution",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.drugs",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.polygamy",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.marriage_fraud",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.smuggling",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.illegal_gambling",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.child_support",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "And I pay my child support, always."
+     }
+    },
+    {
+     "field_id": "p9.benefit_misrepresentation",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Nah, never."
+     }
+    },
+    {
+     "field_id": "p9.arrest1.offense",
+     "value": "speeding ticket",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Well I got a speeding ticket once."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Got it, a speeding ticket, and child support always paid. What was the date and place of the speeding ticket, and how was it resolved?"
+   },
+   "asking_dropped": {
+    "node_id": "q_p9_crimes",
+    "field_ids": [
+     "p9.arrested_ever",
+     "p9.benefit_misrepresentation",
+     "p9.child_support",
+     "p9.crime_not_arrested",
+     "p9.drugs",
+     "p9.illegal_gambling",
+     "p9.marriage_fraud",
+     "p9.polygamy",
+     "p9.prostitution",
+     "p9.smuggling"
+    ],
+    "reason": "every field of this node was filled by a fact in this response"
+   }
+  }
+ },
+ {
+  "case": "r4-twice-complete",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 45,
+  "turn": 46,
+  "user_content": "Hi, I'm her daughter, Lucía. She went to Guadalajara twice, I have the dates here. The first trip she left December 15, 2022 and came back January 20, 2023. The second one was July 1 to July 20, 2024.",
+  "rep": 0,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 945,
+  "secs": 9.0,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_046\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\"field_id\": \"p8.trip1.date_left\", \"value\": \"2022-12-15\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The first trip she left December 15, 2022\"}},\n    {\"field_id\": \"p8.trip1.date_returned\", \"value\": \"2023-01-20\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"came back January 20, 2023\"}},\n    {\"field_id\": \"p8.trip2.countries\", \"value\": \"Mexico\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.9, \"utterance\": \"She went to Guadalajara twice\"}},\n    {\"field_id\": \"p8.has_trip2\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.9, \"utterance\": \"She went to Guadalajara twice\"}},\n    {\"field_id\": \"p8.trip2.date_left\", \"value\": \"2024-07-01\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The second one was July 1 to July 20, 2024\"}},\n    {\"field_id\": \"p8.trip2.date_returned\", \"value\": \"2024-07-20\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"to July 20, 2024\"}}\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p8_more_trips1\", \"field_ids\": [\"p8.has_trip3\"]},\n  \"section_checkpoint\": {\n    \"part\": 8,\n    \"section\": \"Part 8: Trips outside the U.S.\",\n    \"awaiting_confirmation\": false\n  },\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Diciembre 15 de 2022 a enero 20 de 2023, y julio 1 a julio 20 de 2024, dos viajes a Guadalajara. Con eso completa la Parte 8. La Parte 10 es la tarifa de la solicitud: USCIS la reduce para ingresos familiares más bajos, ¿quiere pedir eso?\",\n    \"en\": \"December 15, 2022 to January 20, 2023, and July 1 to July 20, 2024, two trips to Guadalajara. That completes Part 8. Part 10 is the filing fee: USCIS lowers it for lower household incomes, would you like to ask for that?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_046",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p8.trip1.date_left",
+     "value": "2022-12-15",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The first trip she left December 15, 2022"
+     }
+    },
+    {
+     "field_id": "p8.trip1.date_returned",
+     "value": "2023-01-20",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "came back January 20, 2023"
+     }
+    },
+    {
+     "field_id": "p8.trip2.countries",
+     "value": "Mexico",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.9,
+      "utterance": "She went to Guadalajara twice"
+     }
+    },
+    {
+     "field_id": "p8.has_trip2",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.9,
+      "utterance": "She went to Guadalajara twice"
+     }
+    },
+    {
+     "field_id": "p8.trip2.date_left",
+     "value": "2024-07-01",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The second one was July 1 to July 20, 2024"
+     }
+    },
+    {
+     "field_id": "p8.trip2.date_returned",
+     "value": "2024-07-20",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "to July 20, 2024"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 8,
+    "section": "Part 8: Trips outside the U.S.",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "es": "Diciembre 15 de 2022 a enero 20 de 2023, y julio 1 a julio 20 de 2024, dos viajes a Guadalajara. Con eso completa la Parte 8. La Parte 10 es la tarifa de la solicitud: USCIS la reduce para ingresos familiares más bajos, ¿quiere pedir eso?",
+    "en": "December 15, 2022 to January 20, 2023, and July 1 to July 20, 2024, two trips to Guadalajara. That completes Part 8. Part 10 is the filing fee: USCIS lowers it for lower household incomes, would you like to ask for that?"
+   },
+   "asking_dropped": {
+    "node_id": "q_p8_more_trips1",
+    "field_ids": [
+     "p8.has_trip2"
+    ],
+    "reason": "every field of this node was filled by a fact in this response"
+   }
+  }
+ },
+ {
+  "case": "r4-twice-complete",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 45,
+  "turn": 46,
+  "user_content": "Hi, I'm her daughter, Lucía. She went to Guadalajara twice, I have the dates here. The first trip she left December 15, 2022 and came back January 20, 2023. The second one was July 1 to July 20, 2024.",
+  "rep": 1,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 1009,
+  "secs": 9.4,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_046\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p8.trip1.date_left\",\n      \"value\": \"2022-12-15\",\n      \"value_type\": \"date\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The first trip she left December 15, 2022\"}\n    },\n    {\n      \"field_id\": \"p8.trip1.date_returned\",\n      \"value\": \"2023-01-20\",\n      \"value_type\": \"date\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"came back January 20, 2023\"}\n    },\n    {\n      \"field_id\": \"p8.has_trip2\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"She went to Guadalajara twice\"}\n    },\n    {\n      \"field_id\": \"p8.trip2.countries\",\n      \"value\": \"Mexico\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.9, \"utterance\": \"She went to Guadalajara twice\"}\n    },\n    {\n      \"field_id\": \"p8.trip2.date_left\",\n      \"value\": \"2024-07-01\",\n      \"value_type\": \"date\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The second one was July 1 to July 20, 2024\"}\n    },\n    {\n      \"field_id\": \"p8.trip2.date_returned\",\n      \"value\": \"2024-07-20\",\n      \"value_type\": \"date\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The second one was July 1 to July 20, 2024\"}\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p10_fee_reduction\", \"field_ids\": [\"p10.fee_reduction_requested\"]},\n  \"section_checkpoint\": {\n    \"part\": 8,\n    \"section\": \"Part 8: Trips outside the U.S.\",\n    \"awaiting_confirmation\": false\n  },\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Gracias, Lucía. Diciembre 15 de 2022 a enero 20 de 2023, y julio 1 a julio 20 de 2024: esa es la Parte 8, dos viajes a México. USCIS reduce la tarifa para los ingresos familiares más bajos. ¿Quiere pedir eso?\",\n    \"en\": \"Thank you, Lucía. December 15, 2022 to January 20, 2023, and July 1 to July 20, 2024: that's Part 8, two trips to Mexico. USCIS lowers the filing fee for lower household incomes. Would she like to ask for that?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_046",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p8.trip1.date_left",
+     "value": "2022-12-15",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The first trip she left December 15, 2022"
+     }
+    },
+    {
+     "field_id": "p8.trip1.date_returned",
+     "value": "2023-01-20",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "came back January 20, 2023"
+     }
+    },
+    {
+     "field_id": "p8.has_trip2",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "She went to Guadalajara twice"
+     }
+    },
+    {
+     "field_id": "p8.trip2.countries",
+     "value": "Mexico",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.9,
+      "utterance": "She went to Guadalajara twice"
+     }
+    },
+    {
+     "field_id": "p8.trip2.date_left",
+     "value": "2024-07-01",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The second one was July 1 to July 20, 2024"
+     }
+    },
+    {
+     "field_id": "p8.trip2.date_returned",
+     "value": "2024-07-20",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The second one was July 1 to July 20, 2024"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p10_fee_reduction",
+    "field_ids": [
+     "p10.fee_reduction_requested"
+    ]
+   },
+   "section_checkpoint": {
+    "part": 8,
+    "section": "Part 8: Trips outside the U.S.",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "es": "Gracias, Lucía. Diciembre 15 de 2022 a enero 20 de 2023, y julio 1 a julio 20 de 2024: esa es la Parte 8, dos viajes a México. USCIS reduce la tarifa para los ingresos familiares más bajos. ¿Quiere pedir eso?",
+    "en": "Thank you, Lucía. December 15, 2022 to January 20, 2023, and July 1 to July 20, 2024: that's Part 8, two trips to Mexico. USCIS lowers the filing fee for lower household incomes. Would she like to ask for that?"
+   }
+  }
+ },
+ {
+  "case": "r4-twice-complete",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 45,
+  "turn": 46,
+  "user_content": "Hi, I'm her daughter, Lucía. She went to Guadalajara twice, I have the dates here. The first trip she left December 15, 2022 and came back January 20, 2023. The second one was July 1 to July 20, 2024.",
+  "rep": 2,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 1045,
+  "secs": 10.2,
+  "raw": "Lucía provided complete dates for two trips. Trip1's country was already recorded as Mexico; now I have exact dates for it plus a second trip. I need to mint both trip1 dates and trip2 (country + dates), then ask if there are more trips.\n\nSince we now have two complete trips, the standing node is p8.has_trip2, but that's answered implicitly by the existence of trip2 — actually I should ask about trip3.\n\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_046\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p8.trip1.date_left\",\n      \"value\": \"2022-12-15\",\n      \"value_type\": \"date\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The first trip she left December 15, 2022\"}\n    },\n    {\n      \"field_id\": \"p8.trip1.date_returned\",\n      \"value\": \"2023-01-20\",\n      \"value_type\": \"date\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"came back January 20, 2023\"}\n    },\n    {\n      \"field_id\": \"p8.has_trip2\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.9, \"utterance\": \"She went to Guadalajara twice\"}\n    },\n    {\n      \"field_id\": \"p8.trip2.countries\",\n      \"value\": \"Mexico\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.9, \"utterance\": \"She went to Guadalajara twice\"}\n    },\n    {\n      \"field_id\": \"p8.trip2.date_left\",\n      \"value\": \"2024-07-01\",\n      \"value_type\": \"date\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The second one was July 1 to July 20, 2024\"}\n    },\n    {\n      \"field_id\": \"p8.trip2.date_returned\",\n      \"value\": \"2024-07-20\",\n      \"value_type\": \"date\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The second one was July 1 to July 20, 2024\"}\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p8_more_trips1\", \"field_ids\": [\"p8.has_trip3\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Diciembre 15 de 2022 a enero 20 de 2023, y julio 1 a julio 20 de 2024, ambos a Guadalajara. ¿Algún otro viaje fuera de Estados Unidos en los últimos 5 años?\",\n    \"en\": \"December 15, 2022 to January 20, 2023, and July 1 to July 20, 2024, both to Guadalajara. Any other trips outside the United States in the last 5 years?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_046",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p8.trip1.date_left",
+     "value": "2022-12-15",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The first trip she left December 15, 2022"
+     }
+    },
+    {
+     "field_id": "p8.trip1.date_returned",
+     "value": "2023-01-20",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "came back January 20, 2023"
+     }
+    },
+    {
+     "field_id": "p8.has_trip2",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.9,
+      "utterance": "She went to Guadalajara twice"
+     }
+    },
+    {
+     "field_id": "p8.trip2.countries",
+     "value": "Mexico",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.9,
+      "utterance": "She went to Guadalajara twice"
+     }
+    },
+    {
+     "field_id": "p8.trip2.date_left",
+     "value": "2024-07-01",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The second one was July 1 to July 20, 2024"
+     }
+    },
+    {
+     "field_id": "p8.trip2.date_returned",
+     "value": "2024-07-20",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The second one was July 1 to July 20, 2024"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Diciembre 15 de 2022 a enero 20 de 2023, y julio 1 a julio 20 de 2024, ambos a Guadalajara. ¿Algún otro viaje fuera de Estados Unidos en los últimos 5 años?",
+    "en": "December 15, 2022 to January 20, 2023, and July 1 to July 20, 2024, both to Guadalajara. Any other trips outside the United States in the last 5 years?"
+   },
+   "asking_dropped": {
+    "node_id": "q_p8_more_trips1",
+    "field_ids": [
+     "p8.has_trip2"
+    ],
+    "reason": "every field of this node was filled by a fact in this response"
+   }
+  }
+ },
+ {
+  "case": "r4-twice-complete",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 45,
+  "turn": 46,
+  "user_content": "Hi, I'm her daughter, Lucía. She went to Guadalajara twice, I have the dates here. The first trip she left December 15, 2022 and came back January 20, 2023. The second one was July 1 to July 20, 2024.",
+  "rep": 3,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 1437,
+  "secs": 14.5,
+  "raw": "Lucía is now speaking for her mother and giving both trips with full dates. This is two trips to Mexico: trip1 with complete dates, and a new trip2 with complete dates too. I should mint all of these, close the trip list (since she said \"twice\" that's both trips), and move on to the Part 8 summary and Part 10.\n\nTrip1 dates replace the deferred entries. Trip2 is new: countries \"Guadalajara\" — but the form wants country, not city, and Guadalajara is a city in Mexico, so I should record Mexico as the country for trip2, matching trip1's format. Since she said \"twice\" that answers p8.has_trip2 as yes, and then I need to ask about a third trip, or since no third was mentioned, mint has_trip3 as no since she's describing this as complete (\"she went twice\").\n\nActually wait — the standing node is q_p8_more_trips1 asking about has_trip2. She's answering that with a yes (trip2 exists) by describing it. So has_trip2 = yes, and trip2 fields are filled. Then I still need to ask about trip3 (has_trip3) since that's next on the agenda after this... but agenda only shows up through q_p8_more_trips1. Since she said \"twice\" total, that closes the list: has_trip3 = no.\n\nThen Part 8 summary and open Part 10.\n\n```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_046\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\"field_id\": \"p8.trip1.date_left\", \"value\": \"2022-12-15\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The first trip she left December 15, 2022\"}},\n    {\"field_id\": \"p8.trip1.date_returned\", \"value\": \"2023-01-20\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"came back January 20, 2023\"}},\n    {\"field_id\": \"p8.has_trip2\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"She went to Guadalajara twice\"}},\n    {\"field_id\": \"p8.trip2.countries\", \"value\": \"Mexico\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"The second one was July 1 to July 20, 2024\"}},\n    {\"field_id\": \"p8.trip2.date_left\", \"value\": \"2024-07-01\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The second one was July 1 to July 20, 2024\"}},\n    {\"field_id\": \"p8.trip2.date_returned\", \"value\": \"2024-07-20\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The second one was July 1 to July 20, 2024\"}},\n    {\"field_id\": \"p8.has_trip3\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.8, \"utterance\": \"She went to Guadalajara twice\"}}\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p10_fee_reduction\", \"field_ids\": [\"p10.fee_reduction_requested\"]},\n  \"section_checkpoint\": {\"part\": 8, \"section\": \"Trips outside the U.S.\", \"awaiting_confirmation\": false},\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Gracias, Lucía. Quedan anotados los dos viajes a México con sus fechas completas. Esa es la Parte 8. La Parte 10 es sobre la tarifa: USCIS reduce la tarifa para los ingresos familiares más bajos, ¿quiere pedir eso?\",\n    \"en\": \"Thank you, Lucía. Both trips to Mexico are recorded with full dates. That's Part 8. Part 10 is about the fee: USCIS lowers the fee for lower household incomes, would you like to ask for that?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_046",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p8.trip1.date_left",
+     "value": "2022-12-15",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The first trip she left December 15, 2022"
+     }
+    },
+    {
+     "field_id": "p8.trip1.date_returned",
+     "value": "2023-01-20",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "came back January 20, 2023"
+     }
+    },
+    {
+     "field_id": "p8.has_trip2",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "She went to Guadalajara twice"
+     }
+    },
+    {
+     "field_id": "p8.trip2.countries",
+     "value": "Mexico",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "The second one was July 1 to July 20, 2024"
+     }
+    },
+    {
+     "field_id": "p8.trip2.date_left",
+     "value": "2024-07-01",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The second one was July 1 to July 20, 2024"
+     }
+    },
+    {
+     "field_id": "p8.trip2.date_returned",
+     "value": "2024-07-20",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The second one was July 1 to July 20, 2024"
+     }
+    },
+    {
+     "field_id": "p8.has_trip3",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.8,
+      "utterance": "She went to Guadalajara twice"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p10_fee_reduction",
+    "field_ids": [
+     "p10.fee_reduction_requested"
+    ]
+   },
+   "section_checkpoint": {
+    "part": 8,
+    "section": "Trips outside the U.S.",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "es": "Gracias, Lucía. Quedan anotados los dos viajes a México con sus fechas completas. Esa es la Parte 8. La Parte 10 es sobre la tarifa: USCIS reduce la tarifa para los ingresos familiares más bajos, ¿quiere pedir eso?",
+    "en": "Thank you, Lucía. Both trips to Mexico are recorded with full dates. That's Part 8. Part 10 is about the fee: USCIS lowers the fee for lower household incomes, would you like to ask for that?"
+   }
+  }
+ },
+ {
+  "case": "r4-twice-complete",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 45,
+  "turn": 46,
+  "user_content": "Hi, I'm her daughter, Lucía. She went to Guadalajara twice, I have the dates here. The first trip she left December 15, 2022 and came back January 20, 2023. The second one was July 1 to July 20, 2024.",
+  "rep": 4,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 866,
+  "secs": 8.4,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_046\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\"field_id\": \"p8.trip1.date_left\", \"value\": \"2022-12-15\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The first trip she left December 15, 2022\"}},\n    {\"field_id\": \"p8.trip1.date_returned\", \"value\": \"2023-01-20\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"came back January 20, 2023\"}},\n    {\"field_id\": \"p8.has_trip2\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"She went to Guadalajara twice\"}},\n    {\"field_id\": \"p8.trip2.countries\", \"value\": \"Mexico\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"The second one was July 1 to July 20, 2024\"}},\n    {\"field_id\": \"p8.trip2.date_left\", \"value\": \"2024-07-01\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The second one was July 1\"}},\n    {\"field_id\": \"p8.trip2.date_returned\", \"value\": \"2024-07-20\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"to July 20, 2024\"}}\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p10_fee_reduction\", \"field_ids\": [\"p10.fee_reduction_requested\"]},\n  \"section_checkpoint\": {\"part\": 8, \"section\": \"Part 8: Trips outside the U.S.\", \"awaiting_confirmation\": false},\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Perfecto, quedan las dos fechas de Guadalajara anotadas. Esa es la Parte 8. USCIS reduce la tarifa para los ingresos familiares más bajos, ¿quiere pedir eso?\",\n    \"en\": \"Perfect, both Guadalajara trip dates are noted. That's Part 8. USCIS lowers the filing fee for lower household incomes, would you like to ask for that?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_046",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p8.trip1.date_left",
+     "value": "2022-12-15",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The first trip she left December 15, 2022"
+     }
+    },
+    {
+     "field_id": "p8.trip1.date_returned",
+     "value": "2023-01-20",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "came back January 20, 2023"
+     }
+    },
+    {
+     "field_id": "p8.has_trip2",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "She went to Guadalajara twice"
+     }
+    },
+    {
+     "field_id": "p8.trip2.countries",
+     "value": "Mexico",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "The second one was July 1 to July 20, 2024"
+     }
+    },
+    {
+     "field_id": "p8.trip2.date_left",
+     "value": "2024-07-01",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The second one was July 1"
+     }
+    },
+    {
+     "field_id": "p8.trip2.date_returned",
+     "value": "2024-07-20",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "to July 20, 2024"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p10_fee_reduction",
+    "field_ids": [
+     "p10.fee_reduction_requested"
+    ]
+   },
+   "section_checkpoint": {
+    "part": 8,
+    "section": "Part 8: Trips outside the U.S.",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "es": "Perfecto, quedan las dos fechas de Guadalajara anotadas. Esa es la Parte 8. USCIS reduce la tarifa para los ingresos familiares más bajos, ¿quiere pedir eso?",
+    "en": "Perfect, both Guadalajara trip dates are noted. That's Part 8. USCIS lowers the filing fee for lower household incomes, would you like to ask for that?"
+   }
+  }
+ },
+ {
+  "case": "r4-twice-complete",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 45,
+  "turn": 46,
+  "user_content": "Hi, I'm her daughter, Lucía. She went to Guadalajara twice, I have the dates here. The first trip she left December 15, 2022 and came back January 20, 2023. The second one was July 1 to July 20, 2024.",
+  "rep": 5,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 912,
+  "secs": 8.6,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_046\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\"field_id\": \"p8.trip1.date_left\", \"value\": \"2022-12-15\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The first trip she left December 15, 2022\"}},\n    {\"field_id\": \"p8.trip1.date_returned\", \"value\": \"2023-01-20\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"came back January 20, 2023\"}},\n    {\"field_id\": \"p8.has_trip2\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"She went to Guadalajara twice\"}},\n    {\"field_id\": \"p8.trip2.countries\", \"value\": \"Mexico\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"She went to Guadalajara twice\"}},\n    {\"field_id\": \"p8.trip2.date_left\", \"value\": \"2024-07-01\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The second one was July 1 to July 20, 2024\"}},\n    {\"field_id\": \"p8.trip2.date_returned\", \"value\": \"2024-07-20\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The second one was July 1 to July 20, 2024\"}}\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p8_more_trips1\", \"field_ids\": [\"p8.has_trip3\"]},\n  \"section_checkpoint\": {\"part\": 8, \"section\": \"Trips outside the U.S.\", \"awaiting_confirmation\": false},\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Diciembre 15 de 2022 a enero 20 de 2023, y julio 1 a julio 20 de 2024, ambos a Guadalajara. Esa es la Parte 8. ¿Algún otro viaje fuera de Estados Unidos, o pasamos a la tarifa de USCIS?\",\n    \"en\": \"December 15, 2022 to January 20, 2023, and July 1 to July 20, 2024, both to Guadalajara. That's Part 8. Any other trips outside the U.S., or shall we move to the USCIS fee?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_046",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p8.trip1.date_left",
+     "value": "2022-12-15",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The first trip she left December 15, 2022"
+     }
+    },
+    {
+     "field_id": "p8.trip1.date_returned",
+     "value": "2023-01-20",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "came back January 20, 2023"
+     }
+    },
+    {
+     "field_id": "p8.has_trip2",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "She went to Guadalajara twice"
+     }
+    },
+    {
+     "field_id": "p8.trip2.countries",
+     "value": "Mexico",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "She went to Guadalajara twice"
+     }
+    },
+    {
+     "field_id": "p8.trip2.date_left",
+     "value": "2024-07-01",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The second one was July 1 to July 20, 2024"
+     }
+    },
+    {
+     "field_id": "p8.trip2.date_returned",
+     "value": "2024-07-20",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The second one was July 1 to July 20, 2024"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 8,
+    "section": "Trips outside the U.S.",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "es": "Diciembre 15 de 2022 a enero 20 de 2023, y julio 1 a julio 20 de 2024, ambos a Guadalajara. Esa es la Parte 8. ¿Algún otro viaje fuera de Estados Unidos, o pasamos a la tarifa de USCIS?",
+    "en": "December 15, 2022 to January 20, 2023, and July 1 to July 20, 2024, both to Guadalajara. That's Part 8. Any other trips outside the U.S., or shall we move to the USCIS fee?"
+   },
+   "asking_dropped": {
+    "node_id": "q_p8_more_trips1",
+    "field_ids": [
+     "p8.has_trip2"
+    ],
+    "reason": "every field of this node was filled by a fact in this response"
+   }
+  }
+ },
+ {
+  "case": "r4-twice-complete",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 45,
+  "turn": 46,
+  "user_content": "Hi, I'm her daughter, Lucía. She went to Guadalajara twice, I have the dates here. The first trip she left December 15, 2022 and came back January 20, 2023. The second one was July 1 to July 20, 2024.",
+  "rep": 0,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 1168,
+  "secs": 9.4,
+  "raw": "Lucía is giving us two complete trips with full dates. This resolves trip1 (dates) and trip2 (a new row, Mexico, with dates), and answers whether there are more trips beyond those two implicitly by \"twice\" — but I should still ask if there's any other trip beyond these two, per the has_trip gate rule (mint has_trip3 no since she said \"twice\" and gave both).\n\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_046\",\n  \"intent\": {\"type\": \"answer\", \"confidence\": 0.95},\n  \"facts\": [\n    {\"field_id\": \"p8.trip1.date_left\", \"value\": \"2022-12-15\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The first trip she left December 15, 2022\"}},\n    {\"field_id\": \"p8.trip1.date_returned\", \"value\": \"2023-01-20\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"came back January 20, 2023\"}},\n    {\"field_id\": \"p8.trip2.countries\", \"value\": \"Mexico\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.9, \"utterance\": \"She went to Guadalajara twice\"}},\n    {\"field_id\": \"p8.has_trip2\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.9, \"utterance\": \"She went to Guadalajara twice\"}},\n    {\"field_id\": \"p8.trip2.date_left\", \"value\": \"2024-07-01\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The second one was July 1 to July 20, 2024\"}},\n    {\"field_id\": \"p8.trip2.date_returned\", \"value\": \"2024-07-20\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"to July 20, 2024\"}},\n    {\"field_id\": \"p8.has_trip3\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"She went to Guadalajara twice\"}}\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p10_fee_reduction\", \"field_ids\": [\"p10.fee_reduction_requested\"]},\n  \"section_checkpoint\": {\"part\": 8, \"section\": \"Trips outside the U.S.\", \"awaiting_confirmation\": false},\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Gracias, Lucía. Esa es la Parte 8: dos viajes a Guadalajara, del 15 de diciembre de 2022 al 20 de enero de 2023, y del 1 al 20 de julio de 2024. USCIS reduce la tarifa de solicitud para ingresos familiares más bajos, señora Delgado, ¿quiere pedir eso?\",\n    \"en\": \"Thank you, Lucía. That's Part 8: two trips to Guadalajara, December 15, 2022 to January 20, 2023, and July 1 to July 20, 2024. USCIS lowers the filing fee for lower household incomes, Mrs. Delgado, would you like to ask for that?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_046",
+   "intent": {
+    "type": "answer",
+    "confidence": 0.95
+   },
+   "facts": [
+    {
+     "field_id": "p8.trip1.date_left",
+     "value": "2022-12-15",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The first trip she left December 15, 2022"
+     }
+    },
+    {
+     "field_id": "p8.trip1.date_returned",
+     "value": "2023-01-20",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "came back January 20, 2023"
+     }
+    },
+    {
+     "field_id": "p8.trip2.countries",
+     "value": "Mexico",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.9,
+      "utterance": "She went to Guadalajara twice"
+     }
+    },
+    {
+     "field_id": "p8.has_trip2",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.9,
+      "utterance": "She went to Guadalajara twice"
+     }
+    },
+    {
+     "field_id": "p8.trip2.date_left",
+     "value": "2024-07-01",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The second one was July 1 to July 20, 2024"
+     }
+    },
+    {
+     "field_id": "p8.trip2.date_returned",
+     "value": "2024-07-20",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "to July 20, 2024"
+     }
+    },
+    {
+     "field_id": "p8.has_trip3",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "She went to Guadalajara twice"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p10_fee_reduction",
+    "field_ids": [
+     "p10.fee_reduction_requested"
+    ]
+   },
+   "section_checkpoint": {
+    "part": 8,
+    "section": "Trips outside the U.S.",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "es": "Gracias, Lucía. Esa es la Parte 8: dos viajes a Guadalajara, del 15 de diciembre de 2022 al 20 de enero de 2023, y del 1 al 20 de julio de 2024. USCIS reduce la tarifa de solicitud para ingresos familiares más bajos, señora Delgado, ¿quiere pedir eso?",
+    "en": "Thank you, Lucía. That's Part 8: two trips to Guadalajara, December 15, 2022 to January 20, 2023, and July 1 to July 20, 2024. USCIS lowers the filing fee for lower household incomes, Mrs. Delgado, would you like to ask for that?"
+   }
+  }
+ },
+ {
+  "case": "r4-twice-complete",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 45,
+  "turn": 46,
+  "user_content": "Hi, I'm her daughter, Lucía. She went to Guadalajara twice, I have the dates here. The first trip she left December 15, 2022 and came back January 20, 2023. The second one was July 1 to July 20, 2024.",
+  "rep": 1,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 1086,
+  "secs": 7.6,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_046\",\n  \"intent\": {\"type\": \"answer\", \"confidence\": 0.95},\n  \"facts\": [\n    {\"field_id\": \"p8.trip1.countries\", \"value\": \"Mexico\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"She went to Guadalajara twice\"}},\n    {\"field_id\": \"p8.trip1.date_left\", \"value\": \"2022-12-15\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The first trip she left December 15, 2022\"}},\n    {\"field_id\": \"p8.trip1.date_returned\", \"value\": \"2023-01-20\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"came back January 20, 2023\"}},\n    {\"field_id\": \"p8.has_trip2\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"She went to Guadalajara twice\"}},\n    {\"field_id\": \"p8.trip2.countries\", \"value\": \"Mexico\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"The second one was July 1 to July 20, 2024\"}},\n    {\"field_id\": \"p8.trip2.date_left\", \"value\": \"2024-07-01\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The second one was July 1 to July 20, 2024\"}},\n    {\"field_id\": \"p8.trip2.date_returned\", \"value\": \"2024-07-20\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The second one was July 1 to July 20, 2024\"}},\n    {\"field_id\": \"p8.has_trip3\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"She went to Guadalajara twice\"}}\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p10_fee_reduction\", \"field_ids\": [\"p10.fee_reduction_requested\"]},\n  \"section_checkpoint\": {\"part\": 8, \"section\": \"Trips outside the U.S.\", \"awaiting_confirmation\": false},\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Diciembre 15 de 2022 a enero 20 de 2023, y julio 1 a julio 20 de 2024 a Guadalajara. Con eso queda la Parte 8. USCIS reduce la tarifa para los ingresos familiares más bajos: ¿quiere pedir eso?\",\n    \"en\": \"December 15, 2022 to January 20, 2023, and July 1 to July 20, 2024, to Guadalajara. That completes Part 8. USCIS lowers the filing fee for lower household incomes: would you like to ask for that?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_046",
+   "intent": {
+    "type": "answer",
+    "confidence": 0.95
+   },
+   "facts": [
+    {
+     "field_id": "p8.trip1.countries",
+     "value": "Mexico",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "She went to Guadalajara twice"
+     }
+    },
+    {
+     "field_id": "p8.trip1.date_left",
+     "value": "2022-12-15",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The first trip she left December 15, 2022"
+     }
+    },
+    {
+     "field_id": "p8.trip1.date_returned",
+     "value": "2023-01-20",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "came back January 20, 2023"
+     }
+    },
+    {
+     "field_id": "p8.has_trip2",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "She went to Guadalajara twice"
+     }
+    },
+    {
+     "field_id": "p8.trip2.countries",
+     "value": "Mexico",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "The second one was July 1 to July 20, 2024"
+     }
+    },
+    {
+     "field_id": "p8.trip2.date_left",
+     "value": "2024-07-01",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The second one was July 1 to July 20, 2024"
+     }
+    },
+    {
+     "field_id": "p8.trip2.date_returned",
+     "value": "2024-07-20",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The second one was July 1 to July 20, 2024"
+     }
+    },
+    {
+     "field_id": "p8.has_trip3",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "She went to Guadalajara twice"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p10_fee_reduction",
+    "field_ids": [
+     "p10.fee_reduction_requested"
+    ]
+   },
+   "section_checkpoint": {
+    "part": 8,
+    "section": "Trips outside the U.S.",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "es": "Diciembre 15 de 2022 a enero 20 de 2023, y julio 1 a julio 20 de 2024 a Guadalajara. Con eso queda la Parte 8. USCIS reduce la tarifa para los ingresos familiares más bajos: ¿quiere pedir eso?",
+    "en": "December 15, 2022 to January 20, 2023, and July 1 to July 20, 2024, to Guadalajara. That completes Part 8. USCIS lowers the filing fee for lower household incomes: would you like to ask for that?"
+   }
+  }
+ },
+ {
+  "case": "r4-twice-complete",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 45,
+  "turn": 46,
+  "user_content": "Hi, I'm her daughter, Lucía. She went to Guadalajara twice, I have the dates here. The first trip she left December 15, 2022 and came back January 20, 2023. The second one was July 1 to July 20, 2024.",
+  "rep": 2,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 912,
+  "secs": 7.3,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_046\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\"field_id\": \"p8.trip1.date_left\", \"value\": \"2022-12-15\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The first trip she left December 15, 2022\"}},\n    {\"field_id\": \"p8.trip1.date_returned\", \"value\": \"2023-01-20\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"came back January 20, 2023\"}},\n    {\"field_id\": \"p8.has_trip2\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"She went to Guadalajara twice\"}},\n    {\"field_id\": \"p8.trip2.countries\", \"value\": \"Mexico\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"She went to Guadalajara twice\"}},\n    {\"field_id\": \"p8.trip2.date_left\", \"value\": \"2024-07-01\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The second one was July 1 to July 20, 2024\"}},\n    {\"field_id\": \"p8.trip2.date_returned\", \"value\": \"2024-07-20\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"July 1 to July 20, 2024\"}}\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p8_more_trips1\", \"field_ids\": [\"p8.has_trip3\"]},\n  \"section_checkpoint\": {\"part\": 8, \"section\": \"Trips outside the U.S.\", \"awaiting_confirmation\": false},\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Quince de diciembre de 2022 a veinte de enero de 2023, y del uno al veinte de julio de 2024, ambos a Guadalajara: con eso queda la Parte 8. USCIS reduce la tarifa de solicitud para ingresos familiares más bajos. ¿Quiere pedir eso?\",\n    \"en\": \"December 15, 2022 to January 20, 2023, and July 1 to July 20, 2024, both to Guadalajara: that completes Part 8. USCIS lowers the filing fee for lower household incomes. Would you like to ask for that?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_046",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p8.trip1.date_left",
+     "value": "2022-12-15",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The first trip she left December 15, 2022"
+     }
+    },
+    {
+     "field_id": "p8.trip1.date_returned",
+     "value": "2023-01-20",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "came back January 20, 2023"
+     }
+    },
+    {
+     "field_id": "p8.has_trip2",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "She went to Guadalajara twice"
+     }
+    },
+    {
+     "field_id": "p8.trip2.countries",
+     "value": "Mexico",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "She went to Guadalajara twice"
+     }
+    },
+    {
+     "field_id": "p8.trip2.date_left",
+     "value": "2024-07-01",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The second one was July 1 to July 20, 2024"
+     }
+    },
+    {
+     "field_id": "p8.trip2.date_returned",
+     "value": "2024-07-20",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "July 1 to July 20, 2024"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 8,
+    "section": "Trips outside the U.S.",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "es": "Quince de diciembre de 2022 a veinte de enero de 2023, y del uno al veinte de julio de 2024, ambos a Guadalajara: con eso queda la Parte 8. USCIS reduce la tarifa de solicitud para ingresos familiares más bajos. ¿Quiere pedir eso?",
+    "en": "December 15, 2022 to January 20, 2023, and July 1 to July 20, 2024, both to Guadalajara: that completes Part 8. USCIS lowers the filing fee for lower household incomes. Would you like to ask for that?"
+   },
+   "asking_dropped": {
+    "node_id": "q_p8_more_trips1",
+    "field_ids": [
+     "p8.has_trip2"
+    ],
+    "reason": "every field of this node was filled by a fact in this response"
+   }
+  }
+ },
+ {
+  "case": "r4-twice-complete",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 45,
+  "turn": 46,
+  "user_content": "Hi, I'm her daughter, Lucía. She went to Guadalajara twice, I have the dates here. The first trip she left December 15, 2022 and came back January 20, 2023. The second one was July 1 to July 20, 2024.",
+  "rep": 3,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 1108,
+  "secs": 8.8,
+  "raw": "Lucía has given both trips with full dates, so trip1 gets filled in completely and trip2 is a new row with its own dates. That closes the trips list (two trips, both accounted for), so has_trip2 is yes and has_trip3 is no, minted together since she said \"twice.\"\n\nPart 8 is done, so I summarize it and move into Part 10 in the same breath, ending on the fee reduction question.\n\n```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_046\",\n  \"intent\": {\"type\": \"volunteered_extra\", \"confidence\": 0.9},\n  \"facts\": [\n    {\"field_id\": \"p8.trip1.date_left\", \"value\": \"2022-12-15\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The first trip she left December 15, 2022\"}},\n    {\"field_id\": \"p8.trip1.date_returned\", \"value\": \"2023-01-20\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"came back January 20, 2023\"}},\n    {\"field_id\": \"p8.has_trip2\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"She went to Guadalajara twice\"}},\n    {\"field_id\": \"p8.trip2.countries\", \"value\": \"Mexico\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"She went to Guadalajara twice\"}},\n    {\"field_id\": \"p8.trip2.date_left\", \"value\": \"2024-07-01\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The second one was July 1 to July 20, 2024\"}},\n    {\"field_id\": \"p8.trip2.date_returned\", \"value\": \"2024-07-20\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"to July 20, 2024\"}},\n    {\"field_id\": \"p8.has_trip3\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.85, \"utterance\": \"She went to Guadalajara twice\"}}\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p10_fee_reduction\", \"field_ids\": [\"p10.fee_reduction_requested\"]},\n  \"section_checkpoint\": {\"part\": 8, \"section\": \"Trips outside the U.S.\", \"awaiting_confirmation\": false},\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Gracias, Lucía. Con eso quedan sus dos viajes a Guadalajara con fechas completas, eso cierra la Parte 8. USCIS reduce la tarifa para los ingresos familiares más bajos. ¿Quiere pedir eso?\",\n    \"en\": \"Thank you, Lucía. That gives us both Guadalajara trips with full dates, which closes Part 8. USCIS lowers the filing fee for lower household incomes; would you like to ask for that?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_046",
+   "intent": {
+    "type": "volunteered_extra",
+    "confidence": 0.9
+   },
+   "facts": [
+    {
+     "field_id": "p8.trip1.date_left",
+     "value": "2022-12-15",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The first trip she left December 15, 2022"
+     }
+    },
+    {
+     "field_id": "p8.trip1.date_returned",
+     "value": "2023-01-20",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "came back January 20, 2023"
+     }
+    },
+    {
+     "field_id": "p8.has_trip2",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "She went to Guadalajara twice"
+     }
+    },
+    {
+     "field_id": "p8.trip2.countries",
+     "value": "Mexico",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "She went to Guadalajara twice"
+     }
+    },
+    {
+     "field_id": "p8.trip2.date_left",
+     "value": "2024-07-01",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The second one was July 1 to July 20, 2024"
+     }
+    },
+    {
+     "field_id": "p8.trip2.date_returned",
+     "value": "2024-07-20",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "to July 20, 2024"
+     }
+    },
+    {
+     "field_id": "p8.has_trip3",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.85,
+      "utterance": "She went to Guadalajara twice"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p10_fee_reduction",
+    "field_ids": [
+     "p10.fee_reduction_requested"
+    ]
+   },
+   "section_checkpoint": {
+    "part": 8,
+    "section": "Trips outside the U.S.",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "es": "Gracias, Lucía. Con eso quedan sus dos viajes a Guadalajara con fechas completas, eso cierra la Parte 8. USCIS reduce la tarifa para los ingresos familiares más bajos. ¿Quiere pedir eso?",
+    "en": "Thank you, Lucía. That gives us both Guadalajara trips with full dates, which closes Part 8. USCIS lowers the filing fee for lower household incomes; would you like to ask for that?"
+   }
+  }
+ },
+ {
+  "case": "r4-twice-complete",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 45,
+  "turn": 46,
+  "user_content": "Hi, I'm her daughter, Lucía. She went to Guadalajara twice, I have the dates here. The first trip she left December 15, 2022 and came back January 20, 2023. The second one was July 1 to July 20, 2024.",
+  "rep": 4,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 999,
+  "secs": 6.9,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_046\",\n  \"intent\": {\"type\": \"answer\", \"confidence\": 0.95},\n  \"facts\": [\n    {\"field_id\": \"p8.trip1.countries\", \"value\": \"Mexico\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"She went to Guadalajara twice\"}},\n    {\"field_id\": \"p8.trip1.date_left\", \"value\": \"2022-12-15\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The first trip she left December 15, 2022\"}},\n    {\"field_id\": \"p8.trip1.date_returned\", \"value\": \"2023-01-20\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"came back January 20, 2023\"}},\n    {\"field_id\": \"p8.has_trip2\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"The second one was July 1 to July 20, 2024\"}},\n    {\"field_id\": \"p8.trip2.countries\", \"value\": \"Mexico\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"She went to Guadalajara twice\"}},\n    {\"field_id\": \"p8.trip2.date_left\", \"value\": \"2024-07-01\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The second one was July 1 to July 20, 2024\"}},\n    {\"field_id\": \"p8.trip2.date_returned\", \"value\": \"2024-07-20\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The second one was July 1 to July 20, 2024\"}}\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p8_more_trips1\", \"field_ids\": [\"p8.has_trip3\"]},\n  \"section_checkpoint\": {\"part\": 8, \"section\": \"Trips outside the U.S.\", \"awaiting_confirmation\": false},\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Gracias, Lucía. Diciembre 15 de 2022 a enero 20 de 2023, y julio 1 a julio 20 de 2024, ambos a México. Esa es la Parte 8. ¿Algún otro viaje fuera de Estados Unidos en los últimos 5 años?\",\n    \"en\": \"Thank you, Lucía. December 15, 2022 to January 20, 2023, and July 1 to July 20, 2024, both to Mexico. That's Part 8. Any other trips outside the United States in the last 5 years?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_046",
+   "intent": {
+    "type": "answer",
+    "confidence": 0.95
+   },
+   "facts": [
+    {
+     "field_id": "p8.trip1.countries",
+     "value": "Mexico",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "She went to Guadalajara twice"
+     }
+    },
+    {
+     "field_id": "p8.trip1.date_left",
+     "value": "2022-12-15",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The first trip she left December 15, 2022"
+     }
+    },
+    {
+     "field_id": "p8.trip1.date_returned",
+     "value": "2023-01-20",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "came back January 20, 2023"
+     }
+    },
+    {
+     "field_id": "p8.has_trip2",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "The second one was July 1 to July 20, 2024"
+     }
+    },
+    {
+     "field_id": "p8.trip2.countries",
+     "value": "Mexico",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "She went to Guadalajara twice"
+     }
+    },
+    {
+     "field_id": "p8.trip2.date_left",
+     "value": "2024-07-01",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The second one was July 1 to July 20, 2024"
+     }
+    },
+    {
+     "field_id": "p8.trip2.date_returned",
+     "value": "2024-07-20",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The second one was July 1 to July 20, 2024"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 8,
+    "section": "Trips outside the U.S.",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "es": "Gracias, Lucía. Diciembre 15 de 2022 a enero 20 de 2023, y julio 1 a julio 20 de 2024, ambos a México. Esa es la Parte 8. ¿Algún otro viaje fuera de Estados Unidos en los últimos 5 años?",
+    "en": "Thank you, Lucía. December 15, 2022 to January 20, 2023, and July 1 to July 20, 2024, both to Mexico. That's Part 8. Any other trips outside the United States in the last 5 years?"
+   },
+   "asking_dropped": {
+    "node_id": "q_p8_more_trips1",
+    "field_ids": [
+     "p8.has_trip2"
+    ],
+    "reason": "every field of this node was filled by a fact in this response"
+   }
+  }
+ },
+ {
+  "case": "r4-twice-complete",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 45,
+  "turn": 46,
+  "user_content": "Hi, I'm her daughter, Lucía. She went to Guadalajara twice, I have the dates here. The first trip she left December 15, 2022 and came back January 20, 2023. The second one was July 1 to July 20, 2024.",
+  "rep": 5,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 1165,
+  "secs": 9.0,
+  "raw": "This turn gives us complete data for both trips: trip1 dates (which were deferred) and a whole new trip2. Both are to Guadalajara/Mexico. The has_trip2 gate should be \"yes\" since she's naming a second trip, and then we should also ask about a third (has_trip3) since she said \"twice\" - that closes the list.\n\nTrip1: countries already \"Mexico\" on file, now we have dates. Trip2: countries Mexico, dates given. Since she said \"twice\", has_trip3 should be no.\n\n```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_046\",\n  \"intent\": {\"type\": \"volunteered_extra\", \"confidence\": 0.9},\n  \"facts\": [\n    {\"field_id\": \"p8.trip1.date_left\", \"value\": \"2022-12-15\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The first trip she left December 15, 2022\"}},\n    {\"field_id\": \"p8.trip1.date_returned\", \"value\": \"2023-01-20\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"came back January 20, 2023\"}},\n    {\"field_id\": \"p8.has_trip2\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.9, \"utterance\": \"She went to Guadalajara twice\"}},\n    {\"field_id\": \"p8.trip2.countries\", \"value\": \"Mexico\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.9, \"utterance\": \"She went to Guadalajara twice\"}},\n    {\"field_id\": \"p8.trip2.date_left\", \"value\": \"2024-07-01\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The second one was July 1 to July 20, 2024\"}},\n    {\"field_id\": \"p8.trip2.date_returned\", \"value\": \"2024-07-20\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"The second one was July 1 to July 20, 2024\"}},\n    {\"field_id\": \"p8.has_trip3\", \"value\": \"no\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"She went to Guadalajara twice\"}}\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p10_fee_reduction\", \"field_ids\": [\"p10.fee_reduction_requested\"]},\n  \"section_checkpoint\": {\"part\": 8, \"section\": \"Trips outside the U.S.\", \"awaiting_confirmation\": false},\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Gracias, Lucía. Quedan anotados los dos viajes a Guadalajara con sus fechas completas, y con eso termina la Parte 8. USCIS reduce la tarifa de solicitud para los ingresos familiares más bajos, ¿quiere pedir eso?\",\n    \"en\": \"Thank you, Lucía. Both trips to Guadalajara are noted with full dates, and that completes Part 8. USCIS lowers the filing fee for lower household incomes, would you like to ask for that?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_046",
+   "intent": {
+    "type": "volunteered_extra",
+    "confidence": 0.9
+   },
+   "facts": [
+    {
+     "field_id": "p8.trip1.date_left",
+     "value": "2022-12-15",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The first trip she left December 15, 2022"
+     }
+    },
+    {
+     "field_id": "p8.trip1.date_returned",
+     "value": "2023-01-20",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "came back January 20, 2023"
+     }
+    },
+    {
+     "field_id": "p8.has_trip2",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.9,
+      "utterance": "She went to Guadalajara twice"
+     }
+    },
+    {
+     "field_id": "p8.trip2.countries",
+     "value": "Mexico",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.9,
+      "utterance": "She went to Guadalajara twice"
+     }
+    },
+    {
+     "field_id": "p8.trip2.date_left",
+     "value": "2024-07-01",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The second one was July 1 to July 20, 2024"
+     }
+    },
+    {
+     "field_id": "p8.trip2.date_returned",
+     "value": "2024-07-20",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "The second one was July 1 to July 20, 2024"
+     }
+    },
+    {
+     "field_id": "p8.has_trip3",
+     "value": "no",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "She went to Guadalajara twice"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p10_fee_reduction",
+    "field_ids": [
+     "p10.fee_reduction_requested"
+    ]
+   },
+   "section_checkpoint": {
+    "part": 8,
+    "section": "Trips outside the U.S.",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "es": "Gracias, Lucía. Quedan anotados los dos viajes a Guadalajara con sus fechas completas, y con eso termina la Parte 8. USCIS reduce la tarifa de solicitud para los ingresos familiares más bajos, ¿quiere pedir eso?",
+    "en": "Thank you, Lucía. Both trips to Guadalajara are noted with full dates, and that completes Part 8. USCIS lowers the filing fee for lower household incomes, would you like to ask for that?"
+   }
+  }
+ }
+]

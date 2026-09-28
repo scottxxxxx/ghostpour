@@ -87,3 +87,21 @@ def test_the_stream_releases_the_corrected_sentence_not_the_misspoken_one():
     final = json.loads(guard_response_text(text, None, "t17"))["reply"]["en"]
     assert " ".join(final.split()).startswith(" ".join(released)), (
         "the tail and the stream must agree, or what she heard is not the reply")
+
+
+# --- a probation she never had is confirmed empty, never "no" (jorge-r4 t45) ---
+
+def test_confirmed_empty_is_not_an_off_option_value_for_probation_only():
+    """"no" on p9.probation_completed prints as a probation she did NOT
+    complete. The lane's stated-none shape ("") is the right answer when she
+    never had one, so the options marker must not call it invalid there, and
+    must still call "" invalid on an ordinary yes/no gate."""
+    from app.services.n400_interviewer_guard import mark_values_outside_declared_options
+    agenda = ("q_p9_crimes_probation_completed | Part 9: Your record | p9.probation_completed | "
+              "If you received a suspended sentence, were placed on probation, or were paroled, "
+              "have you completed it? | options: yes, no\n")
+    ok = json.dumps({"facts": [{"field_id": "p9.probation_completed", "value": ""}]})
+    assert mark_values_outside_declared_options(ok, agenda)[1] == []
+    gate = agenda.replace("p9.probation_completed", "p9.has_trip3")
+    bad = json.dumps({"facts": [{"field_id": "p9.has_trip3", "value": ""}]})
+    assert [o["field_id"] for o in mark_values_outside_declared_options(bad, gate)[1]] == ["p9.has_trip3"]

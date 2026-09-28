@@ -378,6 +378,33 @@ VERSIONS = {
             "A RETIRED OR UNEMPLOYED STRETCH HAS NO EMPLOYER AND NO WORKPLACE",
         ],
     },
+    42: {
+        # Round 4 on v41 (the auditor, 2026-09-28): five years covered closes
+        # the ADDRESS list (live repro priya-r5 t6), grouping pairs, a
+        # correction's "No." answers nothing else, a named offense is filed at
+        # first mention, the closing gate is the one after the last row, a
+        # probation she never had is the empty string (never "no"), a count
+        # with the list closes it, Part 5 opens with marital status alone, and
+        # smaller wording items. The SSN read-back guard ships in code.
+        "block_anchor": "SECTION CHECKPOINTS\nA part is done when SECTION BOUNDARY is present",
+        "once": "belongs to the correction and answers nothing else",
+        "phrases": [
+            "The same for addresses: the address question asks for every address in the last five years",
+            "The same for these pairs, each one natural sentence",
+            "re-file the whole name.",
+            "is self-employed on that row, and no workplace ZIP is asked for it",
+            "that is a WAIT: say you will wait",
+            "in Vietnamese order the family name comes FIRST",
+            "a question never opens with a reason built from another answer",
+            "an offense she names is FILED the turn she names it",
+            "the gate that closes a list is the one after the LAST row on file",
+            "leaves p9.probation_completed as the empty string, never \"no\"",
+            "mint the next gate \"no\" in THAT response",
+            "open Part 5 with the marital status alone",
+            "a sweep names exactly what is open",
+        ],
+        "absent": [],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -390,6 +417,9 @@ VERSIONS[40]["absent"] = VERSIONS[39]["absent"] + VERSIONS[40]["absent"]
 VERSIONS[41]["phrases"] = [p for p in VERSIONS[40]["phrases"]
                            if p != "A RETIRED OR UNEMPLOYED STRETCH HAS NO EMPLOYER AND NO WORKPLACE"] + VERSIONS[41]["phrases"]
 VERSIONS[41]["absent"] = VERSIONS[40]["absent"] + VERSIONS[41]["absent"]
+# v42 carries every v41 phrase.
+VERSIONS[42]["phrases"] = VERSIONS[41]["phrases"] + VERSIONS[42]["phrases"]
+VERSIONS[42]["absent"] = VERSIONS[41]["absent"] + VERSIONS[42]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]

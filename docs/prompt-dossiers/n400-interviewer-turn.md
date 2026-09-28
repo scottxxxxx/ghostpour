@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 41
+served_version: 42
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-09-28 (v41)
+reconciled: 2026-09-28 (v42)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1728,6 +1728,36 @@ Probe (`qa/n400_v41_probe.py`, v40 served against the tree, recorded requests th
 | 15 no fact from an implication | 0/6 | 1/12 |
 
 ⚠ EDITS INTERACT AT A DISTANCE. Cut 3's text scored 6/6 on grouping and 6/6 on inference, measured again as a control on the recreated text (84,608 chars, checked in the file before running). The final text differs from it only in the sweep sentence (collect from Part 1 onward; the quoted "Eso es todo" removed, because quoting it primed the Spanish offer) and drops those two to 2/12 and 1/12, while taking both sweeps from 0/3 and 1/3 to 9/9. A third candidate (cut 3 plus the collect sentence, quote kept) gave sweep 5/6 and 2/6, grouping 6/6, inference 4/6. The sweep was chosen because a skipped sweep leaves the form incomplete; grouping and inference are no worse than v40. The first control run silently tested the wrong text (an assertion stopped the script before it wrote); the character count caught it.
+
+## v42: round 4 on v41, a read-back guard, and probation left blank
+
+The auditor's round 4 on v41 (2026-09-28, live runs `spectrum-*-r4`, `priya-r5`). Final v41 live scores: Priya 100, Minh 100, Amina 100, Jorge 99.4, Rosa 99.2; the sweep, surnames, idle words and oath repeat held live.
+
+In CODE (ships in the image, not the config):
+- `correct_identifier_readback`: minh-r4 t17 filed p2.ssn 627184402 and SAID "9 2 7 1 8 4 4 0 2"; he then corrected a correct value. A digit run within two digits of an SSN, A-Number, USCIS account or phone filed in the same response is spoken as filed, layout kept. It is the one guard that rewrites spoken text, so it runs per sentence before stream release (facts parse before reply) AND first in the tail on the same raw facts; tests prove what she hears is the prefix of the final reply. Logs carry field and digit count, never digits.
+- `CONFIRMED_EMPTY_ALLOWED` = {p9.probation_completed}: "" (the lane's stated-none shape) is not an off-option value there, because "no" prints as a probation she did not complete (jorge-r4 t45). Every other yes/no gate still marks "".
+
+In the PROMPT: five years covered closes the ADDRESS list (priya-r5 t6, the jobs sentence applied to addresses); grouping pairs (gender with DOB, parent citizen with disability, SSN with new card, ethnicity with race, the four appearance facts, armed forces with spouse employer; Part 9 one group per turn); a correction's "No." answers nothing else; no reason clause built from another answer; time words as said; "all of them" files every row; an offense is filed at FIRST mention (jorge-r4 t40 deferred "speeding ticket", and the applicant-deferral rule then kept it deferred for good); the closing gate is the one after the last row; a probation she never had is "", never "no"; a count with the list mints the next gate "no"; Part 5 opens with marital status alone; the sweep names exactly what is open; a child's surname given later re-files the name; app work she calls self-employed; fetching a card is a wait; family-first order explained the right way round.
+
+Probe (`qa/n400_v42_probe.py`, v41 served against the tree; 3 reps, 6-rep reruns where noted):
+
+| item | v41 | v42 |
+|---|---|---|
+| five years, address (live case) | 2/3 | 3/3 |
+| correction "No." answers nothing else | 0/3 | 2/3 |
+| all of them files every child | 0/3 | 3/3 |
+| child surname given later | 0/3 | 3/3 |
+| offense filed at first mention (6 reps) | 0/6 | 6/6 |
+| closing gate after the last row | 2/3 | 3/3 |
+| probation never had, not "no" | 1/3 | 3/3 |
+| fetching the card is a wait | 0/3 | 3/3 |
+| Part 5 opener | 2/3 | 3/3 |
+| group Part 2 facts (6 reps) | 0/6 | 6/6 |
+| round 3 inference (6 reps) | 1/6 | 6/6 |
+| round 4 inference, "Ella está aquí conmigo" (6 reps) | 0/6 | 3/6 |
+| "twice" mints has_trip3 no | 0/3 | 0/3 (4/6 on cut 4) |
+
+NOT fixed: the trip count gate (the conversation closes Part 8 without asking in 2/3, but has_trip3 "no" is not minted, so the client agenda keeps it open); proposed to the auditor that the client close it. Round 4's inference case is half. Item 2 of round 3 (the floor) and the floor proposal are still unanswered.
 
 ## What is deliberately not here
 
