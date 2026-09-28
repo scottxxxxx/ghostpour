@@ -312,26 +312,60 @@ def drop_facts_without_current_evidence(
         return text, []
     said = _norm(user_content or "")
     earlier = _applicant_said(conversation)
-    kept, dropped = [], []
+    kept, dropped, pending = [], [], []
     for f in turn["facts"]:
         utt = ((f.get("provenance") or {}).get("utterance") if isinstance(f, dict) else None) or ""
         cited = _norm(utt)
         value = _norm(str(f.get("value")) if isinstance(f, dict) else "")
-        carried = bool(
-            cited and value
-            and any(cited in line for line in earlier)
-            and value in cited
-        )
-        if utt and (cited in said or carried):
+        cited_line = next((line for line in earlier if cited and cited in line), None)
+        carried = bool(cited and value and cited_line is not None and value in cited)
+        if utt and (cited in said or carried or _name_words_said(f, cited_line, said)):
             kept.append(f)
-        else:
-            dropped.append({"field_id": f.get("field_id") if isinstance(f, dict) else None,
-                            "utterance": utt, "reason": EVIDENCE_DROP_REASON})
+            continue
+        entry = {"field_id": f.get("field_id") if isinstance(f, dict) else None,
+                 "utterance": utt, "reason": EVIDENCE_DROP_REASON}
+        if cited_line is not None and value and value not in cited:
+            # 2026-09-28, agreed with the auditor: a CHOICE value cited from an
+            # earlier line of hers ("she's with her mom, I pay child support")
+            # can never be literal ("not_with_me", "yes"), so it waits for the
+            # Jev support check (n400_evidence_support.restore_supported_carried_facts),
+            # which restores it only when her words support that option. conf-v18
+            # ("she's my daughter, my own, I had her" for supported = yes) is
+            # what the check exists to keep OUT. If the check does not run, the
+            # fact stays dropped: today's behaviour.
+            entry["pending_support"] = True
+            pending.append(dict(f, _cited_line=cited_line))
+        dropped.append(entry)
     if not dropped:
         return text, []
     turn["facts"] = kept
     turn["facts_dropped"] = dropped
+    if pending:
+        turn["facts_pending_support"] = pending
     return json.dumps(turn, ensure_ascii=False), dropped
+
+
+# A person's name put together across two turns ("José" at t41, "Delgado" at
+# t42, round 1) is literal in neither line. For NAME fields only, every word of
+# the value must appear in the cited applicant line or in what she just said.
+# Not employer_name: a business name is not assembled from two answers.
+_PERSON_NAME_FIELD = re.compile(r"(?:^|\.)(?:child\d+\.child_name|(?:spouse_)?(?:first|middle|last)_name|"
+                                r"other_name\d+_(?:first|middle|last)_name|spouse_(?:first|middle|last)_name)$")
+
+
+def _fold(s: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFKD", (s or "").lower())
+                   if not unicodedata.combining(c))
+
+
+def _name_words_said(f, cited_line: str | None, said: str) -> bool:
+    if not isinstance(f, dict) or not _PERSON_NAME_FIELD.search(str(f.get("field_id") or "")):
+        return False
+    words = re.findall(r"\w+", _fold(str(f.get("value") or "")))
+    if not words:
+        return False
+    source = set(re.findall(r"\w+", _fold((cited_line or "") + " " + (said or ""))))
+    return all(w in source for w in words)
 
 
 # --- a deferral's origin decides which half of a pair is stale --------------
@@ -593,6 +627,77 @@ def correct_identifier_readbacks(text: str) -> tuple[str, list[dict]]:
     return json.dumps(turn, ensure_ascii=False), all_changes
 
 
+# --- an identifier with the wrong number of digits is not filed (priya-r7 t3) -
+#
+# She said 200011112222 and the lane filed p2.uscis_account_number
+# 20001111222, eleven digits for a twelve-digit box, and never read it back,
+# so the read-back guard never saw it and nobody heard it. The client's own
+# digit-count floor refuses it, silently to her. Dropped here with a stated
+# reason, so facts_dropped says why and the field stays owed.
+IDENTIFIER_DIGIT_COUNTS = {
+    "p2.ssn": {9}, "p2.uscis_account_number": {12},
+    "p1.a_number": {7, 8, 9}, "p5.spouse_a_number": {7, 8, 9},
+}
+WRONG_DIGIT_COUNT_REASON = "identifier has the wrong number of digits for its box"
+
+
+def drop_identifiers_with_wrong_digit_count(text: str) -> tuple[str, list[dict]]:
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, []
+    if not isinstance(turn, dict) or not isinstance(turn.get("facts"), list):
+        return text, []
+    kept, dropped = [], []
+    for f in turn["facts"]:
+        want = IDENTIFIER_DIGIT_COUNTS.get(f.get("field_id")) if isinstance(f, dict) else None
+        digits = re.sub(r"\D", "", str(f.get("value") or "")) if want else ""
+        if want and f.get("value") != "" and len(digits) not in want:
+            dropped.append({"field_id": f["field_id"], "digits": len(digits),
+                            "expected": sorted(want), "reason": WRONG_DIGIT_COUNT_REASON})
+        else:
+            kept.append(f)
+    if not dropped:
+        return text, []
+    turn["facts"] = kept
+    turn["facts_dropped"] = (turn.get("facts_dropped") or []) + dropped
+    return json.dumps(turn, ensure_ascii=False), dropped
+
+
+# --- a probation she never had is filed as not applicable (jorge-r6 t49) ------
+#
+# "Never had any of that, just the ticket." The reply said "no probation or
+# parole to complete" and filed nothing, so the client kept the required field
+# owed and it was asked three times before "" arrived. When the standing
+# question IS the probation one and her words say she never had it, the
+# confirmed-empty "" is filed. Never when she speaks of finishing or completing
+# ("I never finished it" answers the question the other way).
+_NEVER_HAD = re.compile(r"\b(?:never|none of (?:that|those|it)|no probation|nunca|ninguna?|nada de eso)\b", re.I)
+_SPEAKS_OF_COMPLETING = re.compile(r"finish|complet|termin|cumpl|still on|todav", re.I)
+
+
+def file_probation_never_had(text: str, agenda: str | None, user_content: str | None) -> tuple[str, dict | None]:
+    first = (agenda or "").splitlines()[0] if agenda else ""
+    parts = [p.strip() for p in first.split("|")]
+    if len(parts) < 3 or parts[2] != "p9.probation_completed" or not user_content:
+        return text, None
+    if not _NEVER_HAD.search(user_content) or _SPEAKS_OF_COMPLETING.search(user_content):
+        return text, None
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, None
+    if not isinstance(turn, dict) or not isinstance(turn.get("facts"), list):
+        return text, None
+    if any(isinstance(f, dict) and f.get("field_id") == "p9.probation_completed" for f in turn["facts"]):
+        return text, None
+    m = _NEVER_HAD.search(user_content)
+    turn["facts"].append({"field_id": "p9.probation_completed", "value": "", "value_type": "string",
+                          "provenance": {"source": "user_stated", "confidence": 0.9,
+                                         "utterance": user_content[m.start():m.end()]}})
+    return json.dumps(turn, ensure_ascii=False), {"field_id": "p9.probation_completed"}
+
+
 def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
                         user_content: str | None = None,
                         conversation: str | None = None,
@@ -609,6 +714,13 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
             "n400_asking_dropped turn_id=%s node_id=%s field_ids=%s question_still_spoken=%s",
             turn_id, info["node_id"], ",".join(info["field_ids"]), info.get("question_still_spoken"),
         )
+    new_text, wrong_count = drop_identifiers_with_wrong_digit_count(new_text)
+    for w in wrong_count:
+        logger.warning("n400_identifier_wrong_digit_count turn_id=%s field_id=%s digits=%d expected=%s",
+                       turn_id, w["field_id"], w["digits"], w["expected"])
+    new_text, probation = file_probation_never_had(new_text, agenda, user_content)
+    if probation is not None:
+        logger.warning("n400_probation_never_had_filed turn_id=%s", turn_id)
     # Before the evidence floor, which then checks the minted gate's citation
     # (her count words, in THIS utterance) like any other fact.
     new_text, closed = close_trips_on_stated_count(new_text, user_content)
