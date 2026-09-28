@@ -133,3 +133,28 @@ it has cost something.
    the second is worth another team's afternoon. Neither near miss reached
    a user; the cost was two hours of somebody else's day, caught within the
    hour each time, and the rule is not worth more than that.
+
+## Spending on paid model APIs (Scott, 2026-09-28)
+
+Any test, probe, replay, A/B, eval or harness run that calls a paid model
+API (Anthropic, OpenAI, Google, TypeSafe/Jev, or any other) is capped at
+**$5 per test** without asking. That covers prompt probes, model
+comparisons, persona rounds through prod GP, and anything else that spends
+tokens to find something out.
+
+If there is a valid reason to spend more, stop BEFORE running it and give
+Scott three things, then wait for his decision:
+
+1. **The estimate:** calls x (input tokens x input price + output tokens x
+   output price), with the prices and the token counts it assumes, and the
+   total.
+2. **Why it needs that much:** what the result will decide, and why a
+   smaller run cannot decide it.
+3. **The cheaper alternative:** fewer reps, fewer cases, sequential calls
+   so the prompt cache is reused, or a cheaper model where the model is not
+   what is under test.
+
+Keep a running total across a session; several small runs add up. The
+receipt: on 2026-09-27 and 2026-09-28, about 2,300 prompt-probe calls (about
+$55 to $75) plus 1,985 persona-harness turns through GP ($23.03 by GP's
+usage_log) triggered two $40 Anthropic charges nobody had approved.
