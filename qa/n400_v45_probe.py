@@ -1,11 +1,15 @@
 """v45 probe, from LIVE v44 requests (round 7, 2026-09-28); a case may override request metadata (the pace clause the client will send), plus older regressions: the auditor's spectrum round 3 findings (2026-09-28), one case per
 item, replayed from the recorded requests in `N400 App/qa/runs/`.
 
-    .venv/bin/python qa/n400_v45_probe.py [--reps 3] [--out qa/runs/v41-probe.json]
+    .venv/bin/python qa/n400_v45_probe.py --dry          # the estimate, nothing sent
+    .venv/bin/python qa/n400_v45_probe.py                # half-price batch, $5 cap
+    .venv/bin/python qa/n400_v45_probe.py --sync         # now, full price, sequential
+
+Spending goes through qa/probe_runner.py (Scott's $5 rule, 2026-09-28).
 
 Each case sends the recorded turn's metadata and utterance through GP's own
 assemble_prompt and guard_response_text (the serving path, minus the network),
-calling the model directly the way qa/n400_v39_probe.py does, once with the
+calling the model through qa/probe_runner.py, once with the
 SERVED config (origin/main, v39) and once with the working tree (v40). Every
 raw and guarded output is saved, because a pass/fail predicate is a claim
 about the text and has to be checkable by reading it.
@@ -16,12 +20,9 @@ client's filing of what GP returns, and anything the live wire adds.
 from __future__ import annotations
 
 import argparse
-import concurrent.futures as cf
 import json
 import subprocess
 import sys
-import time
-import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -32,6 +33,7 @@ from app.services.n400_envelope import extract_envelope, is_envelope  # noqa: E4
 from app.services.n400_interviewer_guard import guard_response_text  # noqa: E402
 from app.services.prompt_assembly import assemble_prompt  # noqa: E402
 from app.services.spanish_numerals import numeral_variables  # noqa: E402
+from qa import probe_runner  # noqa: E402
 
 SLUG = "n400/interviewer-turn"
 RUNS = Path("/Users/scottguida/N400 App/qa/runs")
@@ -74,42 +76,28 @@ def tree_config() -> dict:
     return json.loads((ROOT / "config/remote/n400/interviewer-turn.json").read_text())
 
 
-def call(cfg: dict, md: dict, utt: str, key: str) -> dict:
+def payload(cfg: dict, md: dict, utt: str) -> dict:
     variables = {**md, **numeral_variables(md["call_type"], md.get("locale"), utt)}
     assembled = assemble_prompt(md["call_type"], utt, {SLUG: cfg},
                                 jurisdiction=md.get("jurisdiction"), variables=variables)
-    payload = {
+    return {
         "model": cfg["recommendedModel"], "max_tokens": assembled.get("max_tokens") or cfg["maxTokens"],
         "thinking": {"type": "disabled"},
         "system": [{"type": "text", "text": assembled["system_prompt"], "cache_control": {"type": "ephemeral"}}],
         "messages": [{"role": "user", "content": assembled["user_content"]}],
     }
-    req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=json.dumps(payload).encode(),
-                                 headers={"content-type": "application/json", "x-api-key": key,
-                                          "anthropic-version": "2023-06-01"}, method="POST")
-    t0 = time.monotonic()
-    for attempt in range(4):
-        try:
-            with urllib.request.urlopen(req, timeout=240) as r:
-                resp = json.loads(r.read())
-            break
-        except urllib.error.HTTPError as exc:
-            if exc.code not in (429, 529) or attempt == 3:
-                raise
-            time.sleep(10 * (attempt + 1))
-    text = "".join(b.get("text", "") for b in resp.get("content", []) if b.get("type") == "text")
+
+
+def guarded(text: str, md: dict, utt: str):
     obj_text = text if is_envelope(text) else (extract_envelope(text) or text)
-    guarded = guard_response_text(obj_text, md.get("agenda"), md.get("turn_id"),
-                                  user_content=utt, conversation=md.get("conversation"),
-                                  choice_fields=md.get("choice_fields"), locale=md.get("locale"),
-                                  known_facts=md.get("known_facts"))
+    out = guard_response_text(obj_text, md.get("agenda"), md.get("turn_id"),
+                              user_content=utt, conversation=md.get("conversation"),
+                              choice_fields=md.get("choice_fields"), locale=md.get("locale"),
+                              known_facts=md.get("known_facts"))
     try:
-        env = json.loads(guarded)
+        return json.loads(out)
     except ValueError:
-        env = None
-    u = resp.get("usage", {})
-    return {"version": cfg["version"], "stop": resp.get("stop_reason"), "out": u.get("output_tokens"),
-            "secs": round(time.monotonic() - t0, 1), "raw": text, "guarded": env}
+        return None
 
 
 def main(argv=None) -> int:
@@ -117,40 +105,48 @@ def main(argv=None) -> int:
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--only", default="", help="comma-separated case-name prefixes")
     ap.add_argument("--out", default=str(ROOT / "qa/runs/v45-probe.json"))
+    probe_runner.add_args(ap)
     args = ap.parse_args(argv)
     key = get_settings().anthropic_api_key
     configs = [served_config(), tree_config()]
-    assert configs[0]["version"] == 44 and configs[1]["version"] == 45, [c["version"] for c in configs]
+    print("served (origin/main) v%s, working tree v%s" % (configs[0]["version"], configs[1]["version"]))
+    if configs[0]["version"] == configs[1]["version"]:
+        configs = configs[1:]  # nothing to compare, and half the spend
     only = [p for p in args.only.split(",") if p]
     cases = [c for c in CASES if not only or any(c[0].startswith(p) for p in only)]
-    jobs = []
-    for case in cases:
-        name, run, idx = case[:3]
-        e = json.loads((RUNS / run).read_text())["wire"][idx]
-        if len(case) > 3:
-            md = dict(e["request"])
-            md["applicant_context"] = (md.get("applicant_context") or "") + case[3]
-            e = dict(e, request=md)
-        for cfg in configs:
+    jobs, requests = {}, []
+    # Grouped by config so a --sync run reads one cached system prompt per config.
+    for cfg in configs:
+        for case in cases:
+            name, run, idx = case[:3]
+            e = json.loads((RUNS / run).read_text())["wire"][idx]
+            if len(case) > 3:
+                md = dict(e["request"])
+                md["applicant_context"] = (md.get("applicant_context") or "") + case[3]
+                e = dict(e, request=md)
             for rep in range(args.reps):
-                jobs.append((name, run, idx, e, cfg, rep))
+                cid = f"c{len(requests):04d}"
+                jobs[cid] = (name, run, idx, e, cfg, rep)
+                requests.append((cid, payload(cfg, e["request"], e["user_content"])))
+    got = probe_runner.run(requests, args, key, "qa/n400_v45_probe.py")
+    if got is None:
+        return 0
     results = []
-    with cf.ThreadPoolExecutor(max_workers=8) as pool:
-        futs = {pool.submit(call, cfg, e["request"], e["user_content"], key): (name, run, idx, e, rep)
-                for name, run, idx, e, cfg, rep in jobs}
-        for fut in cf.as_completed(futs):
-            name, run, idx, e, rep = futs[fut]
-            try:
-                res = fut.result()
-            except Exception as exc:  # recorded, never silently skipped
-                res = {"error": repr(exc)}
-            results.append({"case": name, "run": run, "wire_index": idx, "turn": e["turn"],
-                            "user_content": e["user_content"], "rep": rep, **res})
-            print(f"{name:22s} v{res.get('version', '?')} rep{rep} stop={res.get('stop')} out={res.get('out')}",
-                  flush=True)
-    results.sort(key=lambda r: (r["case"], r.get("version", 0), r["rep"]))
+    for cid, (name, run, idx, e, cfg, rep) in jobs.items():
+        r = got.get(cid, {"error": "no result"})
+        row = {"case": name, "run": run, "wire_index": idx, "turn": e["turn"],
+               "user_content": e["user_content"], "rep": rep, "version": cfg["version"]}
+        if "message" in r:
+            msg = r["message"]
+            text = probe_runner.text_of(msg)
+            row.update(stop=msg.get("stop_reason"), out=msg.get("usage", {}).get("output_tokens"),
+                       secs=r.get("secs"), raw=text, guarded=guarded(text, e["request"], e["user_content"]))
+        else:
+            row["error"] = r["error"]  # recorded, never silently skipped
+        results.append(row)
+    results.sort(key=lambda r: (r["case"], r["version"], r["rep"]))
     Path(args.out).write_text(json.dumps(results, ensure_ascii=False, indent=1))
-    print("saved", args.out, len(results), "calls")
+    print("saved", args.out, len(results), "calls, errors", sum("error" in r for r in results))
     return 0
 
 
