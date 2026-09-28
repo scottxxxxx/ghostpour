@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 42
+served_version: 43
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-09-28 (v42)
+reconciled: 2026-09-28 (v43)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1758,6 +1758,18 @@ Probe (`qa/n400_v42_probe.py`, v41 served against the tree; 3 reps, 6-rep reruns
 | "twice" mints has_trip3 no | 0/3 | 0/3 (4/6 on cut 4) |
 
 NOT fixed: the trip count gate (the conversation closes Part 8 without asking in 2/3, but has_trip3 "no" is not minted, so the client agenda keeps it open); proposed to the auditor that the client close it. Round 4's inference case is half. Item 2 of round 3 (the floor) and the floor proposal are still unanswered.
+
+## v43: round 5 on v42, probed from live v42 requests
+
+The auditor's round 5 (2026-09-28). Final v42 live scores: Priya 100, Amina 100, Minh 100, Rosa 99.2, Jorge 93.8 (a lost address row; four client gaps fixed on their side).
+
+CODE: `close_trips_on_stated_count` (a count she states, "twice", with trip N filed in the same response, mints has_trip(N+1) "no" citing her count words; not "once"/"una vez", which are conjunctions too; the client will not derive coverage, Scott's rule, and agreed GP may from HER words); `drop_stale_asking` marks `question_still_spoken` when the reply still ends on a question about the node this response filled.
+
+PROMPT: grouping scoped to the next short-fact lines whatever they are (live, she gives DOB, country and citizenship in one breath and v42 then asked gender alone: its pairs only paired gender with filed facts); a gate question names its row; an address in passing is a row; app work's ZIP is filed confirmed-empty (the agenda lists it, and a rule saying "never ask" alone made the model ask); VOLUNTEER FIELDS are never questions; the sweep says the day for a partial month; once five years are covered the next words open the next part; stated names filed; her own full surname re-files; no proposed or borrowed surnames; trip dates follow the country; off-topic turns file nothing; dates in hand are asked for; no "Since" openers.
+
+⚠ METHOD. v42's grouping replayed 6/6 and failed live: the probe replayed round 3 requests, where she had answered only her date of birth, so the rule's example fit. v43 probes from LIVE v42 requests. And most round 5 live defects do NOT reproduce on v42 in 3 replays (jobs re-ask, trip swap, her surname, stated names all 3/3 on v42): they are intermittent, so 3 reps cannot show a fix for them, and a 3/3 on those rows is weak evidence.
+
+Final regression, v42 vs v43, 3 reps on the shipped text: grouping 0 to 3, no proposed surname 0 to 2, address in passing 0 to 1, Rosa sweep 2 to 3, Minh sweep wording 2 to 3, armed forces 2 to 3, DoorDash ZIP 1 to 2; "Since" opener 2 to 1, off-topic 3 to 2, Jorge sweep 3 to 2 (within this probe's noise); round 3 and 4 regressions all 3/3. 6-rep reruns: Jorge sweep 2/6 to 4/6, Minh sweep day 4/6 to 6/6, DoorDash 5/6 to 5/6.
 
 ## What is deliberately not here
 

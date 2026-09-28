@@ -105,3 +105,50 @@ def test_confirmed_empty_is_not_an_off_option_value_for_probation_only():
     gate = agenda.replace("p9.probation_completed", "p9.has_trip3")
     bad = json.dumps({"facts": [{"field_id": "p9.has_trip3", "value": ""}]})
     assert [o["field_id"] for o in mark_values_outside_declared_options(bad, gate)[1]] == ["p9.has_trip3"]
+
+
+# --- a stated trip count closes the list (rosa-r4 t46) ---------------------
+
+from app.services.n400_interviewer_guard import close_trips_on_stated_count, drop_stale_asking
+
+TWICE = "Hi, I'm her daughter, Lucía. She went to Guadalajara twice, I have the dates here."
+
+
+def _trips(*fields):
+    return json.dumps({"facts": [{"field_id": f, "value": "x", "provenance": {"utterance": "Guadalajara"}}
+                                 for f in fields], "reply": {"es": "Listo."}})
+
+
+def test_her_count_with_the_last_row_filed_mints_the_next_gate_no():
+    out, info = close_trips_on_stated_count(_trips("p8.trip1.countries", "p8.trip2.countries"), TWICE)
+    gate = [f for f in json.loads(out)["facts"] if f["field_id"] == "p8.has_trip3"]
+    assert gate and gate[0]["value"] == "no" and gate[0]["provenance"]["utterance"] == "twice"
+    assert info == {"field_id": "p8.has_trip3", "count": 2}
+
+
+@pytest.mark.parametrize("facts,said", [
+    (("p8.trip1.countries",), TWICE),                        # the counted rows are not all filed
+    (("p8.trip1.countries", "p8.trip2.countries"), "She went to Guadalajara, I have the dates here."),  # no count
+    (("p8.trip1.countries",), "Once I got back I started at Lotus Nails."),  # "once" is a conjunction
+])
+def test_no_count_of_hers_means_no_gate(facts, said):
+    out, info = close_trips_on_stated_count(_trips(*facts), said)
+    assert info is None and not any(f["field_id"].startswith("p8.has_trip") for f in json.loads(out)["facts"])
+
+
+# --- the asking drop says whether a settled question was still spoken (priya-r6 t8)
+
+AGENDA_JOBS = "q_p7_more_jobs1 | Part 7: Your work | p7.has_job2 | Anything before that? | options: yes, no\n"
+
+
+@pytest.mark.parametrize("reply,spoken", [
+    ("That covers five years. Did you work anywhere else before Arcwell?", True),
+    ("That covers five years. Part 8 is your trips.", False),
+])
+def test_the_drop_marks_a_question_still_spoken_about_the_filled_node(reply, spoken):
+    t = json.dumps({"facts": [{"field_id": "p7.has_job2", "value": "yes"}],
+                    "asking": {"node_id": "q_p7_more_jobs1", "field_ids": ["p7.has_job2"]},
+                    "reply": {"en": reply}})
+    out, info = drop_stale_asking(t, AGENDA_JOBS)
+    assert info["question_still_spoken"] is spoken
+    assert json.loads(out)["asking_dropped"]["question_still_spoken"] is spoken

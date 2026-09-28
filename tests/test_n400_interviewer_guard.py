@@ -44,8 +44,11 @@ def test_the_spanish_defect_shape_is_dropped_and_marked():
     out, info = drop_stale_asking(_turn("q_p1_eligibility_basis", [_fact("p1.eligibility_basis")]), AGENDA)
     t = json.loads(out)
     assert t["asking"] is None
+    # question_still_spoken (2026-09-28): this reply ends on a question about
+    # the node the same response filled, which is the shape it marks.
     assert t["asking_dropped"] == {"node_id": "q_p1_eligibility_basis",
-                                   "field_ids": ["p1.eligibility_basis"], "reason": DROP_REASON}
+                                   "field_ids": ["p1.eligibility_basis"], "reason": DROP_REASON,
+                                   "question_still_spoken": True}
     assert info is not None
 
 
