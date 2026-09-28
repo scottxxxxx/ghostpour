@@ -270,3 +270,86 @@ async def mark_unsupported_enum_facts(text: str, agenda: str | None, user_conten
     except Exception as e:  # noqa: BLE001
         logger.warning("n400 evidence support check failed open: %s: %s", type(e).__name__, e)
         return text
+
+
+# --- restoring a carried-forward choice fact her words support --------------
+#
+# Agreed with the auditor 2026-09-28 (N400 App contracts/gp-reply-floor-
+# proposal-2026-09-28.md). The evidence floor drops a choice fact cited from an
+# EARLIER applicant line, because an option id ("not_with_me", "yes") can never
+# be literal in her words, and then the reply reads it back as filed (jorge-r3
+# t25: "living with her mother, supported by you", nothing filed). The floor now
+# sets those aside as `facts_pending_support`, and this puts one back only when
+# Jev says her cited words SUPPORT that option, confidently. conf-v18 turn 47
+# ("she's my daughter, my own, I had her" minting supported = yes) is the case
+# it exists to keep out, and is an acceptance test.
+#
+# Fails CLOSED: off or shadow mode, no key, a failed call, an unsure verdict,
+# a field with no known options, or a field this response also deferred all
+# leave the fact dropped, which is exactly the behaviour before this existed.
+RESTORED_REASON = "her earlier words support this option (Jev)"
+
+
+async def restore_supported_carried_facts(text: str, agenda: str | None, turn_id: str | None,
+                                          app_id: str | None, mode: str, api_key: str,
+                                          choice_fields=None) -> str:
+    """Remove `facts_pending_support` from the response, restoring each pending
+    fact Jev confidently says her words support. Never raises; never leaves the
+    pending key on the wire."""
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text
+    if not isinstance(turn, dict) or "facts_pending_support" not in turn:
+        return text
+    pending = turn.pop("facts_pending_support") or []
+    try:
+        if mode != "primary" or not api_key or not pending:
+            return json.dumps(turn, ensure_ascii=False)
+        catalogue = choice_catalogue(choice_fields)
+        options, fields, questions = agenda_options(agenda), agenda_field_ids(agenda), agenda_questions(agenda)
+        standing = next(iter(questions.values()), "")
+        deferred = {d.get("field_id") for d in turn.get("deferred") or [] if isinstance(d, dict)}
+        candidates, checked = [], []
+        for f in pending[:MAX_FACTS_PER_TURN]:
+            fid, value = f.get("field_id"), str(f.get("value") or "").strip().lower()
+            node = next((n for n, ids in fields.items() if fid in ids), None)
+            opts = catalogue.get(fid) if catalogue else (sorted(options[node]) if node in options else None)
+            if not opts or value not in opts or fid in deferred:
+                continue
+            candidates.append(f)
+            checked.append({"field_id": fid, "question": questions.get(node, standing) if node else standing,
+                            "applicant_said": f.get("_cited_line") or "",
+                            "cited_words": (f.get("provenance") or {}).get("utterance") or "",
+                            "recorded_answer": f.get("value"), "options": list(opts)})
+        if not checked:
+            return json.dumps(turn, ensure_ascii=False)
+        body, row = await typesafe_judge.guarded_ask(
+            api_key, {"facts": checked}, support_questions(len(checked)),
+            judgment=JUDGMENT + "_restore", mode=mode)
+        answers = (body or {}).get("answers") or {}
+        restored = []
+        for i, f in enumerate(candidates):
+            a = answers.get(f"f{i}") or {}
+            if a.get("choice") == "supports" and float(a.get("confidence") or 0.0) >= typesafe_judge.CONFIDENCE_FLOOR:
+                clean = {k: v for k, v in f.items() if k != "_cited_line"}
+                turn.setdefault("facts", []).append(clean)
+                restored.append({"field_id": f.get("field_id"), "value": f.get("value"),
+                                 "confidence": round(float(a["confidence"]), 3), "reason": RESTORED_REASON})
+        row["facts_checked"] = len(checked)
+        row["facts_marked"] = len(restored) if body is not None else None
+        typesafe_judge.record_later(row, app_id)
+        if restored:
+            back = {r["field_id"] for r in restored}
+            turn["facts_dropped"] = [d for d in turn.get("facts_dropped") or []
+                                     if not (d.get("pending_support") and d.get("field_id") in back)]
+            if not turn["facts_dropped"]:
+                turn.pop("facts_dropped")
+            turn["facts_restored_by_support"] = restored
+            for r in restored:
+                logger.warning("n400_fact_restored_by_support turn_id=%s field_id=%s confidence=%s",
+                               turn_id, r["field_id"], r["confidence"])
+        return json.dumps(turn, ensure_ascii=False)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("n400 carried-fact restore failed closed: %s: %s", type(e).__name__, e)
+        return json.dumps(turn, ensure_ascii=False)

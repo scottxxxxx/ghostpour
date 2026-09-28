@@ -312,26 +312,60 @@ def drop_facts_without_current_evidence(
         return text, []
     said = _norm(user_content or "")
     earlier = _applicant_said(conversation)
-    kept, dropped = [], []
+    kept, dropped, pending = [], [], []
     for f in turn["facts"]:
         utt = ((f.get("provenance") or {}).get("utterance") if isinstance(f, dict) else None) or ""
         cited = _norm(utt)
         value = _norm(str(f.get("value")) if isinstance(f, dict) else "")
-        carried = bool(
-            cited and value
-            and any(cited in line for line in earlier)
-            and value in cited
-        )
-        if utt and (cited in said or carried):
+        cited_line = next((line for line in earlier if cited and cited in line), None)
+        carried = bool(cited and value and cited_line is not None and value in cited)
+        if utt and (cited in said or carried or _name_words_said(f, cited_line, said)):
             kept.append(f)
-        else:
-            dropped.append({"field_id": f.get("field_id") if isinstance(f, dict) else None,
-                            "utterance": utt, "reason": EVIDENCE_DROP_REASON})
+            continue
+        entry = {"field_id": f.get("field_id") if isinstance(f, dict) else None,
+                 "utterance": utt, "reason": EVIDENCE_DROP_REASON}
+        if cited_line is not None and value and value not in cited:
+            # 2026-09-28, agreed with the auditor: a CHOICE value cited from an
+            # earlier line of hers ("she's with her mom, I pay child support")
+            # can never be literal ("not_with_me", "yes"), so it waits for the
+            # Jev support check (n400_evidence_support.restore_supported_carried_facts),
+            # which restores it only when her words support that option. conf-v18
+            # ("she's my daughter, my own, I had her" for supported = yes) is
+            # what the check exists to keep OUT. If the check does not run, the
+            # fact stays dropped: today's behaviour.
+            entry["pending_support"] = True
+            pending.append(dict(f, _cited_line=cited_line))
+        dropped.append(entry)
     if not dropped:
         return text, []
     turn["facts"] = kept
     turn["facts_dropped"] = dropped
+    if pending:
+        turn["facts_pending_support"] = pending
     return json.dumps(turn, ensure_ascii=False), dropped
+
+
+# A person's name put together across two turns ("José" at t41, "Delgado" at
+# t42, round 1) is literal in neither line. For NAME fields only, every word of
+# the value must appear in the cited applicant line or in what she just said.
+# Not employer_name: a business name is not assembled from two answers.
+_PERSON_NAME_FIELD = re.compile(r"(?:^|\.)(?:child\d+\.child_name|(?:spouse_)?(?:first|middle|last)_name|"
+                                r"other_name\d+_(?:first|middle|last)_name|spouse_(?:first|middle|last)_name)$")
+
+
+def _fold(s: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFKD", (s or "").lower())
+                   if not unicodedata.combining(c))
+
+
+def _name_words_said(f, cited_line: str | None, said: str) -> bool:
+    if not isinstance(f, dict) or not _PERSON_NAME_FIELD.search(str(f.get("field_id") or "")):
+        return False
+    words = re.findall(r"\w+", _fold(str(f.get("value") or "")))
+    if not words:
+        return False
+    source = set(re.findall(r"\w+", _fold((cited_line or "") + " " + (said or ""))))
+    return all(w in source for w in words)
 
 
 # --- a deferral's origin decides which half of a pair is stale --------------

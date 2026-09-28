@@ -4609,6 +4609,13 @@ async def _chat_impl(
                 # dict in metadata never reaches the prompt: prompt_assembly
                 # substitutes only the {{names}} a template writes.
                 choice_fields=body.get_meta("choice_fields"))
+            # After the unsupported check, so a restored fact is not judged
+            # twice. Always strips facts_pending_support from the wire; fails
+            # closed to "dropped". See restore_supported_carried_facts.
+            from app.services.n400_evidence_support import restore_supported_carried_facts
+            response.text = await restore_supported_carried_facts(
+                response.text, _agenda, body.get_meta("turn_id"), app_id, _ts_mode, _ts_key,
+                choice_fields=body.get_meta("choice_fields"))
 
         # Surface the cleaned transcript (if cleanup ran for this analysis call)
         # so iOS can persist it to MeetingRecord.cleanedTranscript. Absent when
