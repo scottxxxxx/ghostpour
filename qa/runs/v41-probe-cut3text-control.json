@@ -1,0 +1,1302 @@
+[
+ {
+  "case": "10-group-part2",
+  "run": "spectrum-amina-r3.json",
+  "wire_index": 8,
+  "turn": 9,
+  "user_content": "September 9, 1979.",
+  "rep": 0,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 298,
+  "secs": 3.3,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_009\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.date_of_birth\",\n      \"value\": \"1979-09-09\",\n      \"value_type\": \"date\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.98,\n        \"utterance\": \"September 9, 1979.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p2_country_of_birth\", \"field_ids\": [\"p2.country_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"September 9th, 1979. What is your country of birth?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_009",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p1.date_of_birth",
+     "value": "1979-09-09",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.98,
+      "utterance": "September 9, 1979."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p2_country_of_birth",
+    "field_ids": [
+     "p2.country_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "September 9th, 1979. What is your country of birth?"
+   }
+  }
+ },
+ {
+  "case": "10-group-part2",
+  "run": "spectrum-amina-r3.json",
+  "wire_index": 8,
+  "turn": 9,
+  "user_content": "September 9, 1979.",
+  "rep": 1,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 298,
+  "secs": 3.4,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_009\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.date_of_birth\",\n      \"value\": \"1979-09-09\",\n      \"value_type\": \"date\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.98,\n        \"utterance\": \"September 9, 1979.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p2_country_of_birth\", \"field_ids\": [\"p2.country_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"September 9th, 1979. What is your country of birth?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_009",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p1.date_of_birth",
+     "value": "1979-09-09",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.98,
+      "utterance": "September 9, 1979."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p2_country_of_birth",
+    "field_ids": [
+     "p2.country_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "September 9th, 1979. What is your country of birth?"
+   }
+  }
+ },
+ {
+  "case": "10-group-part2",
+  "run": "spectrum-amina-r3.json",
+  "wire_index": 8,
+  "turn": 9,
+  "user_content": "September 9, 1979.",
+  "rep": 2,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 235,
+  "secs": 3.0,
+  "raw": "{\"schema_version\":1,\"turn_id\":\"t_009\",\"intent\":{\"type\":\"answer\"},\"facts\":[{\"field_id\":\"p1.date_of_birth\",\"value\":\"1979-09-09\",\"value_type\":\"date\",\"provenance\":{\"source\":\"user_stated\",\"confidence\":0.98,\"utterance\":\"September 9, 1979\"}}],\"deferred\":[],\"clarification\":null,\"conflict\":null,\"escalation\":null,\"complete\":true,\"asking\":{\"node_id\":\"q_p2_country_of_birth\",\"field_ids\":[\"p2.country_of_birth\"]},\"section_checkpoint\":null,\"interview_over\":false,\"reply\":{\"en\":\"September 9th, 1979. What is your country of birth?\"}}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_009",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p1.date_of_birth",
+     "value": "1979-09-09",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.98,
+      "utterance": "September 9, 1979"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p2_country_of_birth",
+    "field_ids": [
+     "p2.country_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "September 9th, 1979. What is your country of birth?"
+   }
+  }
+ },
+ {
+  "case": "10-group-part2",
+  "run": "spectrum-amina-r3.json",
+  "wire_index": 8,
+  "turn": 9,
+  "user_content": "September 9, 1979.",
+  "rep": 3,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 298,
+  "secs": 3.2,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_009\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.date_of_birth\",\n      \"value\": \"1979-09-09\",\n      \"value_type\": \"date\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.98,\n        \"utterance\": \"September 9, 1979.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p2_country_of_birth\", \"field_ids\": [\"p2.country_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"September 9th, 1979. What is your country of birth?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_009",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p1.date_of_birth",
+     "value": "1979-09-09",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.98,
+      "utterance": "September 9, 1979."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p2_country_of_birth",
+    "field_ids": [
+     "p2.country_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "September 9th, 1979. What is your country of birth?"
+   }
+  }
+ },
+ {
+  "case": "10-group-part2",
+  "run": "spectrum-amina-r3.json",
+  "wire_index": 8,
+  "turn": 9,
+  "user_content": "September 9, 1979.",
+  "rep": 4,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 242,
+  "secs": 3.3,
+  "raw": "{\"schema_version\":1,\"turn_id\":\"t_009\",\"intent\":{\"type\":\"answer\",\"confidence\":0.97},\"facts\":[{\"field_id\":\"p1.date_of_birth\",\"value\":\"1979-09-09\",\"value_type\":\"date\",\"provenance\":{\"source\":\"user_stated\",\"confidence\":0.97,\"utterance\":\"September 9, 1979.\"}}],\"deferred\":[],\"clarification\":null,\"conflict\":null,\"escalation\":null,\"complete\":true,\"asking\":{\"node_id\":\"q_p2_country_of_birth\",\"field_ids\":[\"p2.country_of_birth\"]},\"section_checkpoint\":null,\"interview_over\":false,\"reply\":{\"en\":\"September 9th, 1979. What is your country of birth?\"}}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_009",
+   "intent": {
+    "type": "answer",
+    "confidence": 0.97
+   },
+   "facts": [
+    {
+     "field_id": "p1.date_of_birth",
+     "value": "1979-09-09",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.97,
+      "utterance": "September 9, 1979."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p2_country_of_birth",
+    "field_ids": [
+     "p2.country_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "September 9th, 1979. What is your country of birth?"
+   }
+  }
+ },
+ {
+  "case": "10-group-part2",
+  "run": "spectrum-amina-r3.json",
+  "wire_index": 8,
+  "turn": 9,
+  "user_content": "September 9, 1979.",
+  "rep": 5,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 298,
+  "secs": 3.4,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_009\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.date_of_birth\",\n      \"value\": \"1979-09-09\",\n      \"value_type\": \"date\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.98,\n        \"utterance\": \"September 9, 1979.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p2_country_of_birth\", \"field_ids\": [\"p2.country_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"September 9th, 1979. What is your country of birth?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_009",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p1.date_of_birth",
+     "value": "1979-09-09",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.98,
+      "utterance": "September 9, 1979."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p2_country_of_birth",
+    "field_ids": [
+     "p2.country_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "September 9th, 1979. What is your country of birth?"
+   }
+  }
+ },
+ {
+  "case": "10-group-part2",
+  "run": "spectrum-amina-r3.json",
+  "wire_index": 8,
+  "turn": 9,
+  "user_content": "September 9, 1979.",
+  "rep": 0,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 331,
+  "secs": 5.1,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_009\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.date_of_birth\",\n      \"value\": \"1979-09-09\",\n      \"value_type\": \"date\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.98,\n        \"utterance\": \"September 9, 1979.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p2_country_of_birth\", \"field_ids\": [\"p2.country_of_birth\", \"p2.country_of_nationality\", \"p2.gender\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"September 9th, 1979. What country were you born in, what is your citizenship, and are you male or female?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_009",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p1.date_of_birth",
+     "value": "1979-09-09",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.98,
+      "utterance": "September 9, 1979."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p2_country_of_birth",
+    "field_ids": [
+     "p2.country_of_birth",
+     "p2.country_of_nationality",
+     "p2.gender"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "September 9th, 1979. What country were you born in, what is your citizenship, and are you male or female?"
+   }
+  }
+ },
+ {
+  "case": "10-group-part2",
+  "run": "spectrum-amina-r3.json",
+  "wire_index": 8,
+  "turn": 9,
+  "user_content": "September 9, 1979.",
+  "rep": 1,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 332,
+  "secs": 5.2,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_009\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.date_of_birth\",\n      \"value\": \"1979-09-09\",\n      \"value_type\": \"date\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.98,\n        \"utterance\": \"September 9, 1979.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p2_country_of_birth\", \"field_ids\": [\"p2.country_of_birth\", \"p2.country_of_nationality\", \"p2.gender\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"September 9, 1979. What country were you born in, what is your country of citizenship, and are you male or female?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_009",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p1.date_of_birth",
+     "value": "1979-09-09",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.98,
+      "utterance": "September 9, 1979."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p2_country_of_birth",
+    "field_ids": [
+     "p2.country_of_birth",
+     "p2.country_of_nationality",
+     "p2.gender"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "September 9, 1979. What country were you born in, what is your country of citizenship, and are you male or female?"
+   }
+  }
+ },
+ {
+  "case": "10-group-part2",
+  "run": "spectrum-amina-r3.json",
+  "wire_index": 8,
+  "turn": 9,
+  "user_content": "September 9, 1979.",
+  "rep": 2,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 280,
+  "secs": 5.5,
+  "raw": "{\"schema_version\": 1, \"turn_id\": \"t_009\", \"intent\": {\"type\": \"answer\"}, \"facts\": [{\"field_id\": \"p1.date_of_birth\", \"value\": \"1979-09-09\", \"value_type\": \"date\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.98, \"utterance\": \"September 9, 1979.\"}}], \"deferred\": [], \"clarification\": null, \"conflict\": null, \"escalation\": null, \"complete\": true, \"asking\": {\"node_id\": \"q_p2_country_of_birth\", \"field_ids\": [\"p2.country_of_birth\", \"p2.country_of_nationality\", \"p2.gender\"]}, \"section_checkpoint\": null, \"interview_over\": false, \"reply\": {\"en\": \"September 9th, 1979. What is your country of birth, your country of citizenship, and are you male or female?\"}}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_009",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p1.date_of_birth",
+     "value": "1979-09-09",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.98,
+      "utterance": "September 9, 1979."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p2_country_of_birth",
+    "field_ids": [
+     "p2.country_of_birth",
+     "p2.country_of_nationality",
+     "p2.gender"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "September 9th, 1979. What is your country of birth, your country of citizenship, and are you male or female?"
+   }
+  }
+ },
+ {
+  "case": "10-group-part2",
+  "run": "spectrum-amina-r3.json",
+  "wire_index": 8,
+  "turn": 9,
+  "user_content": "September 9, 1979.",
+  "rep": 3,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 331,
+  "secs": 5.5,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_009\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.date_of_birth\",\n      \"value\": \"1979-09-09\",\n      \"value_type\": \"date\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.98,\n        \"utterance\": \"September 9, 1979.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p2_country_of_birth\", \"field_ids\": [\"p2.country_of_birth\", \"p2.country_of_nationality\", \"p2.gender\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"September 9th, 1979. What country were you born in, what is your citizenship, and are you male or female?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_009",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p1.date_of_birth",
+     "value": "1979-09-09",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.98,
+      "utterance": "September 9, 1979."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p2_country_of_birth",
+    "field_ids": [
+     "p2.country_of_birth",
+     "p2.country_of_nationality",
+     "p2.gender"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "September 9th, 1979. What country were you born in, what is your citizenship, and are you male or female?"
+   }
+  }
+ },
+ {
+  "case": "10-group-part2",
+  "run": "spectrum-amina-r3.json",
+  "wire_index": 8,
+  "turn": 9,
+  "user_content": "September 9, 1979.",
+  "rep": 4,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 332,
+  "secs": 5.6,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_009\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.date_of_birth\",\n      \"value\": \"1979-09-09\",\n      \"value_type\": \"date\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.98,\n        \"utterance\": \"September 9, 1979.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p2_country_of_birth\", \"field_ids\": [\"p2.country_of_birth\", \"p2.country_of_nationality\", \"p2.gender\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"September 9th, 1979. What is your country of birth, your country of citizenship, and are you male or female?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_009",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p1.date_of_birth",
+     "value": "1979-09-09",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.98,
+      "utterance": "September 9, 1979."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p2_country_of_birth",
+    "field_ids": [
+     "p2.country_of_birth",
+     "p2.country_of_nationality",
+     "p2.gender"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "September 9th, 1979. What is your country of birth, your country of citizenship, and are you male or female?"
+   }
+  }
+ },
+ {
+  "case": "10-group-part2",
+  "run": "spectrum-amina-r3.json",
+  "wire_index": 8,
+  "turn": 9,
+  "user_content": "September 9, 1979.",
+  "rep": 5,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 323,
+  "secs": 5.5,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_009\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.date_of_birth\",\n      \"value\": \"1979-09-09\",\n      \"value_type\": \"date\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.98,\n        \"utterance\": \"September 9, 1979.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p2_country_of_birth\", \"field_ids\": [\"p2.country_of_birth\", \"p2.country_of_nationality\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"September 9th, 1979. What is your country of birth, and your country of citizenship or nationality?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_009",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p1.date_of_birth",
+     "value": "1979-09-09",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.98,
+      "utterance": "September 9, 1979."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p2_country_of_birth",
+    "field_ids": [
+     "p2.country_of_birth",
+     "p2.country_of_nationality"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "September 9th, 1979. What is your country of birth, and your country of citizenship or nationality?"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 0,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 562,
+  "secs": 5.8,
+  "raw": "She gave a first name only (\"Lucía\"), a year (1977), and said she lives with her. No last name and no day/month were given, so I record what's there and ask for the rest.\n\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.6, \"utterance\": \"Lucía.\"}\n    },\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Es la que está aquí conmigo.\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"solo dio el año, falta el día y el mes\", \"partial_value\": \"1977\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_child_name\", \"field_ids\": [\"p6.child2.child_name\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"¿Cuál es el apellido de Lucía, y ella es su hija biológica, hijastra o adoptada?\",\n    \"en\": \"What is Lucía's last name, and is she your biological daughter, stepdaughter, or adopted?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.6,
+      "utterance": "Lucía."
+     }
+    },
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Es la que está aquí conmigo."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "solo dio el año, falta el día y el mes",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "¿Cuál es el apellido de Lucía, y ella es su hija biológica, hijastra o adoptada?",
+    "en": "What is Lucía's last name, and is she your biological daughter, stepdaughter, or adopted?"
+   },
+   "asking_dropped": {
+    "node_id": "q_p6_child2_child_name",
+    "field_ids": [
+     "p6.child2.child_name"
+    ],
+    "reason": "every field of this node was filled by a fact in this response"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 1,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 640,
+  "secs": 6.3,
+  "raw": "She gave a first name (Lucía), a birth year (1977, no day/month), and mentioned she lives with her — that's residence, answered. Last name still missing, and relationship not yet stated.\n\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"ai_extracted\",\n        \"confidence\": 0.9,\n        \"utterance\": \"Es la que está aquí conmigo.\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"reason\": \"solo dio el nombre de pila, falta el apellido\",\n      \"partial_value\": \"Lucía\",\n      \"origin\": \"applicant\"\n    },\n    {\n      \"field_id\": \"p6.child2.date_of_birth\",\n      \"reason\": \"solo dio el año, faltan día y mes\",\n      \"partial_value\": \"1977\",\n      \"origin\": \"applicant\"\n    }\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_relationship\", \"field_ids\": [\"p6.child2.relationship\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Anoto Lucía, con el apellido pendiente, nacida en 1977 con el día y mes pendientes, y que vive con usted. ¿Lucía es su hija biológica, hijastra o adoptada?\",\n    \"en\": \"I've noted Lucía, with the last name still pending, born in 1977 with the day and month pending, living with you. Is Lucía your biological daughter, stepdaughter, or adopted?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.9,
+      "utterance": "Es la que está aquí conmigo."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.child_name",
+     "reason": "solo dio el nombre de pila, falta el apellido",
+     "partial_value": "Lucía",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "solo dio el año, faltan día y mes",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_relationship",
+    "field_ids": [
+     "p6.child2.relationship"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Anoto Lucía, con el apellido pendiente, nacida en 1977 con el día y mes pendientes, y que vive con usted. ¿Lucía es su hija biológica, hijastra o adoptada?",
+    "en": "I've noted Lucía, with the last name still pending, born in 1977 with the day and month pending, living with you. Is Lucía your biological daughter, stepdaughter, or adopted?"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 2,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 473,
+  "secs": 5.0,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.9, \"utterance\": \"Es la que está aquí conmigo.\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p6.child2.child_name\", \"reason\": \"solo dio el nombre de pila, falta el apellido\", \"partial_value\": \"Lucía\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"solo dio el año\", \"partial_value\": \"1977\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_relationship\", \"field_ids\": [\"p6.child2.relationship\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía, nacida en 1977, y vive con usted, anotado; el apellido y el día exacto quedan pendientes. ¿Es su hija biológica, hijastra o adoptada?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.9,
+      "utterance": "Es la que está aquí conmigo."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.child_name",
+     "reason": "solo dio el nombre de pila, falta el apellido",
+     "partial_value": "Lucía",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "solo dio el año",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_relationship",
+    "field_ids": [
+     "p6.child2.relationship"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, nacida en 1977, y vive con usted, anotado; el apellido y el día exacto quedan pendientes. ¿Es su hija biológica, hijastra o adoptada?"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 3,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 565,
+  "secs": 5.6,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"ai_extracted\",\n        \"confidence\": 0.9,\n        \"utterance\": \"Es la que está aquí conmigo.\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"reason\": \"sólo dio el nombre de pila, falta el apellido\",\n      \"partial_value\": \"Lucía\",\n      \"origin\": \"applicant\"\n    },\n    {\n      \"field_id\": \"p6.child2.date_of_birth\",\n      \"reason\": \"sólo dio el año de nacimiento\",\n      \"partial_value\": \"1977\",\n      \"origin\": \"applicant\"\n    }\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_relationship\", \"field_ids\": [\"p6.child2.relationship\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Anoto Lucía, nacida en 1977, viviendo con usted; el apellido y el día exacto quedan pendientes. ¿Es su hija biológica, hijastra o adoptada?\",\n    \"en\": \"I'll note Lucía, born in 1977, living with you; the last name and exact day are still pending. Is she your biological, step, or adopted daughter?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.9,
+      "utterance": "Es la que está aquí conmigo."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.child_name",
+     "reason": "sólo dio el nombre de pila, falta el apellido",
+     "partial_value": "Lucía",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "sólo dio el año de nacimiento",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_relationship",
+    "field_ids": [
+     "p6.child2.relationship"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Anoto Lucía, nacida en 1977, viviendo con usted; el apellido y el día exacto quedan pendientes. ¿Es su hija biológica, hijastra o adoptada?",
+    "en": "I'll note Lucía, born in 1977, living with you; the last name and exact day are still pending. Is she your biological, step, or adopted daughter?"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 4,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 673,
+  "secs": 6.1,
+  "raw": "El apellido de Lucía también hace falta. Con \"1977\" anoto el año, con el día y el mes pendientes, y \"vive con usted\" para su domicilio. ¿Es hija biológica, hijastra o adoptada?\n\n```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.95,\n        \"utterance\": \"Es la que está aquí conmigo.\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"reason\": \"solo dio el nombre de pila, falta el apellido\",\n      \"partial_value\": \"Lucía\",\n      \"origin\": \"applicant\"\n    },\n    {\n      \"field_id\": \"p6.child2.date_of_birth\",\n      \"reason\": \"solo el año, día y mes pendientes\",\n      \"partial_value\": \"1977\",\n      \"origin\": \"applicant\"\n    }\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_relationship\", \"field_ids\": [\"p6.child2.relationship\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"El apellido de Lucía también hace falta. Con \\\"1977\\\" anoto el año, con el día y el mes pendientes, y \\\"vive con usted\\\" para su domicilio. ¿Es hija biológica, hijastra o adoptada?\",\n    \"en\": \"I'll also need Lucía's last name. I've noted 1977 for the year, with the day and month pending, and \\\"lives with you\\\" for her residence. Is she your biological daughter, stepdaughter, or adopted?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Es la que está aquí conmigo."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.child_name",
+     "reason": "solo dio el nombre de pila, falta el apellido",
+     "partial_value": "Lucía",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "solo el año, día y mes pendientes",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_relationship",
+    "field_ids": [
+     "p6.child2.relationship"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "El apellido de Lucía también hace falta. Con \"1977\" anoto el año, con el día y el mes pendientes, y \"vive con usted\" para su domicilio. ¿Es hija biológica, hijastra o adoptada?",
+    "en": "I'll also need Lucía's last name. I've noted 1977 for the year, with the day and month pending, and \"lives with you\" for her residence. Is she your biological daughter, stepdaughter, or adopted?"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 5,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 515,
+  "secs": 5.0,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.6, \"utterance\": \"Lucía.\"}\n    },\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Es la que está aquí conmigo.\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"solo dio el año\", \"partial_value\": \"1977\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_relationship\", \"field_ids\": [\"p6.child2.relationship\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Con el año 1977 quedo, y el día pendiente. ¿Lucía es su hija biológica, hijastra o adoptada?\",\n    \"en\": \"I'll note the year 1977, with the day still pending. Is Lucía your biological, step, or adopted daughter?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.6,
+      "utterance": "Lucía."
+     }
+    },
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Es la que está aquí conmigo."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "solo dio el año",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_relationship",
+    "field_ids": [
+     "p6.child2.relationship"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Con el año 1977 quedo, y el día pendiente. ¿Lucía es su hija biológica, hijastra o adoptada?",
+    "en": "I'll note the year 1977, with the day still pending. Is Lucía your biological, step, or adopted daughter?"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 0,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 500,
+  "secs": 6.8,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.7,\n        \"utterance\": \"Lucía.\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p6.child2.date_of_birth\",\n      \"reason\": \"sabe el año de nacimiento pero no el día ni el mes\",\n      \"partial_value\": \"1977\",\n      \"origin\": \"applicant\"\n    }\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_residence\", \"field_ids\": [\"p6.child2.residence\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía, nacida en 1977, con el día y el mes pendientes. Sobre vivir con usted, eso ya me lo dijo, así que dígame: ¿es hija biológica, hijastra o adoptada?\",\n    \"en\": \"Lucía, born in 1977, with the day and month still pending. You already told me she lives with you, so tell me: is she your biological daughter, stepdaughter, or adopted?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.7,
+      "utterance": "Lucía."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "sabe el año de nacimiento pero no el día ni el mes",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_residence",
+    "field_ids": [
+     "p6.child2.residence"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, nacida en 1977, con el día y el mes pendientes. Sobre vivir con usted, eso ya me lo dijo, así que dígame: ¿es hija biológica, hijastra o adoptada?",
+    "en": "Lucía, born in 1977, with the day and month still pending. You already told me she lives with you, so tell me: is she your biological daughter, stepdaughter, or adopted?"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 1,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 424,
+  "secs": 6.7,
+  "raw": "{\"schema_version\": 1, \"turn_id\": \"t_040\", \"intent\": {\"type\": \"partial_answer\"}, \"facts\": [{\"field_id\": \"p6.child2.child_name\", \"value\": \"Lucía\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.7, \"utterance\": \"Lucía\"}}], \"deferred\": [{\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"sabe el año de nacimiento, falta día y mes\", \"partial_value\": \"1977\", \"origin\": \"applicant\"}], \"clarification\": null, \"conflict\": null, \"escalation\": null, \"complete\": false, \"asking\": {\"node_id\": \"q_p6_child2_residence\", \"field_ids\": [\"p6.child2.residence\"]}, \"section_checkpoint\": null, \"interview_over\": false, \"reply\": {\"es\": \"Lucía, nacida en 1977, con el día y el mes pendientes. Ella dijo que está aquí con usted ahora mismo, pero, ¿vive con usted, no vive con usted, o se desconoce su paradero?\", \"en\": \"Lucía, born in 1977, with the day and month still pending. She said she's here with you right now, but does she live with you, not live with you, or is her whereabouts unknown?\"}}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.7,
+      "utterance": "Lucía"
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "sabe el año de nacimiento, falta día y mes",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_residence",
+    "field_ids": [
+     "p6.child2.residence"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, nacida en 1977, con el día y el mes pendientes. Ella dijo que está aquí con usted ahora mismo, pero, ¿vive con usted, no vive con usted, o se desconoce su paradero?",
+    "en": "Lucía, born in 1977, with the day and month still pending. She said she's here with you right now, but does she live with you, not live with you, or is her whereabouts unknown?"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 2,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 373,
+  "secs": 6.0,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [],\n  \"deferred\": [\n    {\"field_id\": \"p6.child2.child_name\", \"reason\": \"no surname given yet\", \"partial_value\": \"Lucía\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"day and month not given\", \"partial_value\": \"1977\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_child_name\", \"field_ids\": [\"p6.child2.child_name\", \"p6.child2.date_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Anoto Lucía, nacida en 1977, con el apellido y el día pendientes. Eso de que está aquí con usted lo pregunto en un momento. ¿Cuál es su apellido?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [],
+   "deferred": [
+    {
+     "field_id": "p6.child2.child_name",
+     "reason": "no surname given yet",
+     "partial_value": "Lucía",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "day and month not given",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_child_name",
+    "field_ids": [
+     "p6.child2.child_name",
+     "p6.child2.date_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Anoto Lucía, nacida en 1977, con el apellido y el día pendientes. Eso de que está aquí con usted lo pregunto en un momento. ¿Cuál es su apellido?"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 3,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 459,
+  "secs": 6.7,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.7, \"utterance\": \"Lucía.\"}\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p6.child2.date_of_birth\",\n      \"reason\": \"solo dio el año de nacimiento\",\n      \"partial_value\": \"1977\",\n      \"origin\": \"applicant\"\n    }\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_residence\", \"field_ids\": [\"p6.child2.residence\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía, nacida en 1977, con el día y el mes pendientes. Ya me dijo que vive con usted, ¿es su hija biológica, hijastra o adoptada?\",\n    \"en\": \"Lucía, born in 1977, with the day and month still pending. You already said she lives with you, is she your biological, step, or adopted daughter?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.7,
+      "utterance": "Lucía."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "solo dio el año de nacimiento",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_residence",
+    "field_ids": [
+     "p6.child2.residence"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, nacida en 1977, con el día y el mes pendientes. Ya me dijo que vive con usted, ¿es su hija biológica, hijastra o adoptada?",
+    "en": "Lucía, born in 1977, with the day and month still pending. You already said she lives with you, is she your biological, step, or adopted daughter?"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 4,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 447,
+  "secs": 6.8,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.7, \"utterance\": \"Lucía\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"solo dio el año, falta el día y el mes\", \"partial_value\": \"1977\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p6.child2.child_name\", \"reason\": \"falta el apellido\", \"partial_value\": \"Lucía\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_residence\", \"field_ids\": [\"p6.child2.residence\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía, nacida en 1977, con el día pendiente, y el apellido también pendiente. Ya que está con usted, ¿vive con usted, o solo la está visitando?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "solo dio el año, falta el día y el mes",
+     "partial_value": "1977",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.child_name",
+     "reason": "falta el apellido",
+     "partial_value": "Lucía",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_residence",
+    "field_ids": [
+     "p6.child2.residence"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, nacida en 1977, con el día pendiente, y el apellido también pendiente. Ya que está con usted, ¿vive con usted, o solo la está visitando?"
+   },
+   "facts_dropped": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "reason": "the same field was also deferred in this response by the applicant; the deferral stands and the fact is dropped"
+    }
+   ]
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 5,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 438,
+  "secs": 6.4,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.7,\n        \"utterance\": \"Lucía. Ella nació en el setenta y siete.\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p6.child2.date_of_birth\",\n      \"reason\": \"sabe el año, falta el mes y el día\",\n      \"partial_value\": \"1977\",\n      \"origin\": \"applicant\"\n    }\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_residence\", \"field_ids\": [\"p6.child2.residence\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía, nacida en 1977, con el mes y el día pendientes. Todavía necesito su apellido. ¿Ella vive con usted, no vive con usted, o se desconoce su paradero?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.7,
+      "utterance": "Lucía. Ella nació en el setenta y siete."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "sabe el año, falta el mes y el día",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_residence",
+    "field_ids": [
+     "p6.child2.residence"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, nacida en 1977, con el mes y el día pendientes. Todavía necesito su apellido. ¿Ella vive con usted, no vive con usted, o se desconoce su paradero?"
+   }
+  }
+ }
+]

@@ -1704,6 +1704,31 @@ A new shape on the wire: the sweep reply re-sends the existing deferrals (Jorge 
 
 Proved at: GP's assembly, the model and GP's guard. Not proved: the client filing, and the live wire; the auditor reruns all five personas once v40 is served.
 
+## v41: spectrum round 3, the sweep for real and twelve smaller fixes
+
+The auditor's round 3 on v40 (2026-09-28, contract `N400 App/contracts/spectrum-round3-lane-findings-2026-09-28.md`). Each of the 17 items was read against its run turn first. Not in the prompt: item 2 (the model filed the child's residence and support, the evidence floor dropped them as carried-forward, and the reply still read them back: the same limit as round 1's José, auditor proposal pending), items 8 (Amina, Rosa: the client agenda still listed the gate) and 11 (spouse_times_married never on any agenda), item 12 (no card-scan offer until the app is known to scan), item 17 (the two 502s were GP's own deploy restart, 07:10:40 to 07:11:06 UTC).
+
+In the prompt: the sweep collects every deferred line from Part 1 onward and keeps the last part's summary free of deferrals; every job she names is a row; a city is never a ZIP; the Part 9 recap says what she answered; a refinement re-files; a missing surname is asked next, once, by name, and a sibling's given name is no one's surname; five years covered closes the list, including the client's "every earlier job" question; Scott's two rulings (the idle stretch's place filed only if volunteered, so its old heading is retired; Part 9 one group per turn); quick Part 2 facts grouped; a repeat of the oath is its fixed short form; an answer after a "¿cómo?" is an answer; no fact from an implication.
+
+Probe (`qa/n400_v41_probe.py`, v40 served against the tree, recorded requests through assembly and guard). What ships (final text, 3 reps plus 6-rep reruns of the unstable items):
+
+| item | v40 | v41 |
+|---|---|---|
+| 1 sweep, Rosa (es) | 3/15 | 9/9 |
+| 1 sweep, Jorge (all parts) | 3/15 | 9/9 |
+| 3 job in passing | 1/3 | 3/3 |
+| 5 Part 9 recap | 4/6 | 6/6 |
+| 6 refinement re-files | 0/3 | 3/3 |
+| 7 surname, Amina | 1/3 | 3/3 |
+| 7 surname asked, Rosa | 5/6 | 5/6 |
+| 8 five years, jobs | 1/6 | 6/6 |
+| 13 short oath repeat | 0/3 | 3/3 |
+| 14 answer after cómo | 0/3 | 3/3 |
+| 10 group Part 2 facts | 0/6 | 2/12 |
+| 15 no fact from an implication | 0/6 | 1/12 |
+
+⚠ EDITS INTERACT AT A DISTANCE. Cut 3's text scored 6/6 on grouping and 6/6 on inference, measured again as a control on the recreated text (84,608 chars, checked in the file before running). The final text differs from it only in the sweep sentence (collect from Part 1 onward; the quoted "Eso es todo" removed, because quoting it primed the Spanish offer) and drops those two to 2/12 and 1/12, while taking both sweeps from 0/3 and 1/3 to 9/9. A third candidate (cut 3 plus the collect sentence, quote kept) gave sweep 5/6 and 2/6, grouping 6/6, inference 4/6. The sweep was chosen because a skipped sweep leaves the form incomplete; grouping and inference are no worse than v40. The first control run silently tested the wrong text (an assertion stopped the script before it wrote); the character count caught it.
+
 ## What is deliberately not here
 
 - No few-shots: two real utterances are not a corpus (same as v3).
