@@ -77,3 +77,42 @@ def test_a_name_put_together_across_two_turns_is_kept():
                                "provenance": {"utterance": "José. Nació en 1980"}}]})
     out, dropped = drop_facts_without_current_evidence(t, "Delgado. Vive en Guadalajara.", conv)
     assert dropped == [] and json.loads(out)["facts"][0]["value"] == "José Delgado"
+
+
+# --- identifier digit count (priya-r7 t3) and probation never had (jorge-r6 t49)
+
+from app.services.n400_interviewer_guard import (  # noqa: E402
+    drop_identifiers_with_wrong_digit_count, file_probation_never_had,
+)
+
+
+def test_an_identifier_one_digit_short_is_dropped_with_a_reason():
+    t = json.dumps({"facts": [{"field_id": "p2.uscis_account_number", "value": "20001111222"},
+                              {"field_id": "p2.ssn", "value": "627184402"}]})
+    out, dropped = drop_identifiers_with_wrong_digit_count(t)
+    assert [f["field_id"] for f in json.loads(out)["facts"]] == ["p2.ssn"]
+    assert dropped == [{"field_id": "p2.uscis_account_number", "digits": 11, "expected": [12],
+                        "reason": "identifier has the wrong number of digits for its box"}]
+
+
+PROB = ("q_p9_crimes_probation_completed | Part 9: Your record | p9.probation_completed | "
+        "If you received a suspended sentence, were placed on probation, or were paroled, have you completed it? | options: yes, no\n")
+
+
+@pytest.mark.parametrize("said,filed", [
+    ("Never had any of that, just the ticket.", True),
+    ("Nunca, nada de eso.", True),
+    ("I never finished it, I'm still on it.", False),   # answers the question the other way
+    ("Yes, I completed it in 2019.", False),
+])
+def test_probation_never_had_files_not_applicable_only_on_her_never(said, filed):
+    t = json.dumps({"facts": [], "reply": {"en": "Understood."}})
+    out, info = file_probation_never_had(t, PROB, said)
+    got = [f for f in json.loads(out)["facts"] if f["field_id"] == "p9.probation_completed"]
+    assert bool(got) is filed and (not got or got[0]["value"] == "")
+
+
+def test_probation_is_left_alone_when_it_is_not_the_standing_question():
+    t = json.dumps({"facts": [], "reply": {"en": "ok"}})
+    other = PROB.replace("q_p9_crimes_probation_completed", "q_p9_other").replace("p9.probation_completed", "p9.has_arrest2")
+    assert file_probation_never_had(t, other, "Never had any of that.")[1] is None
