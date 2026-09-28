@@ -15,7 +15,12 @@ not touch it: the FULL object still goes through the tail, once, at the end.
 What is released early is only complete sentences of `reply`, and only
 under a rule built from reading what each guard actually reads:
 
-  * No guard rewrites the spoken text. drop_unusable_reply fires only when
+  * One guard rewrites the spoken text, and only in the way that cannot
+    diverge: correct_identifier_readback (2026-09-28, minh-r4 t17) fixes a
+    misspoken SSN, A-Number or phone to the value filed in the SAME response.
+    facts is parsed before reply, so each sentence is corrected before it is
+    released, and the tail runs the same function first, on the same facts.
+    Otherwise no guard rewrites the spoken text. drop_unusable_reply fires only when
     no locale carries text (we release only from a locale that does);
     normalize_reply_shape changes the wrapper, not the words; the rest
     rewrite asking, facts, deferred, section_checkpoint, interview_over.
@@ -588,7 +593,7 @@ class ReleaseController:
                         if not self._admit(sev[1]):
                             self._buffer("oath_modification")
                             return out
-                        self._pending = sev[1]
+                        self._pending = self._correct(sev[1])
             elif kind == "reply_end":
                 for sev in self.splitter.close():
                     if sev[0] == "sentence":
@@ -599,7 +604,7 @@ class ReleaseController:
                             # A tail without terminator after a complete
                             # sentence: the tail is the last one.
                             self._release_pending(out)
-                        self._pending = sev[1]
+                        self._pending = self._correct(sev[1])
             if self.buffered_reason:
                 break
         return out
@@ -620,6 +625,18 @@ class ReleaseController:
         self.released.append(self._pending)
         self._pending = None
         out.append(ev)
+
+    def _correct(self, sentence: str) -> str:
+        """An identifier read back must be the identifier filed (minh-r4 t17).
+        facts is parsed before reply (rule 1), so this is the same function
+        on the same facts the tail runs first, and what she hears is exactly
+        the prefix of the final reply."""
+        from app.services.n400_interviewer_guard import correct_identifier_readback
+        fixed, changes = correct_identifier_readback(sentence, self.parser.values.get("facts"))
+        for c in changes:
+            logger.warning("n400_stream_identifier_readback_corrected turn_id=%s field_id=%s digits_differing=%d",
+                           self.turn_id, c["field_id"], c["digits_differing"])
+        return fixed
 
     def _admit(self, sentence: str) -> bool:
         """The real oath check, on this one sentence."""

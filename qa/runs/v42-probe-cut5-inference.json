@@ -1,0 +1,1466 @@
+[
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 0,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 590,
+  "secs": 6.1,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.7,\n        \"utterance\": \"Lucía. Ella nació en el setenta y siete.\"\n      }\n    },\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"ai_extracted\",\n        \"confidence\": 0.75,\n        \"utterance\": \"Es la que está aquí conmigo.\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p6.child2.date_of_birth\",\n      \"reason\": \"sabe el año pero no el día ni el mes\",\n      \"partial_value\": \"1977\",\n      \"origin\": \"applicant\"\n    },\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"reason\": \"falta el apellido\",\n      \"partial_value\": \"Lucía\",\n      \"origin\": \"applicant\"\n    }\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_relationship\", \"field_ids\": [\"p6.child2.relationship\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía, nacida en 1977, con el día pendiente, y vive con usted. ¿Es su hija biológica, hijastra o adoptada?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.75,
+      "utterance": "Es la que está aquí conmigo."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "sabe el año pero no el día ni el mes",
+     "partial_value": "1977",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.child_name",
+     "reason": "falta el apellido",
+     "partial_value": "Lucía",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_relationship",
+    "field_ids": [
+     "p6.child2.relationship"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, nacida en 1977, con el día pendiente, y vive con usted. ¿Es su hija biológica, hijastra o adoptada?"
+   },
+   "facts_dropped": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "reason": "the same field was also deferred in this response by the applicant; the deferral stands and the fact is dropped"
+    }
+   ]
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 1,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 456,
+  "secs": 5.2,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.7, \"utterance\": \"Lucía. Ella nació en el setenta y siete.\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"solo dio el año, falta día y mes\", \"partial_value\": \"1977\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_child_name\", \"field_ids\": [\"p6.child2.child_name\", \"p6.child2.residence\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía, anotado, con 1977 pendiente de confirmar el día y el mes. ¿Cuál es su apellido, y ella vive con usted?\",\n    \"en\": \"Lucía, noted, with 1977 pending confirmation of the day and month. What is her last name, and does she live with you?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.7,
+      "utterance": "Lucía. Ella nació en el setenta y siete."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "solo dio el año, falta día y mes",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, anotado, con 1977 pendiente de confirmar el día y el mes. ¿Cuál es su apellido, y ella vive con usted?",
+    "en": "Lucía, noted, with 1977 pending confirmation of the day and month. What is her last name, and does she live with you?"
+   },
+   "asking_dropped": {
+    "node_id": "q_p6_child2_child_name",
+    "field_ids": [
+     "p6.child2.child_name"
+    ],
+    "reason": "every field of this node was filled by a fact in this response"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 2,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 611,
+  "secs": 6.6,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.7, \"utterance\": \"Lucía.\"}\n    },\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.8, \"utterance\": \"Es la que está aquí conmigo.\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"solo recuerda el año\", \"partial_value\": \"1977\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p6.child2.child_name\", \"reason\": \"apellido no dado aún\", \"partial_value\": \"Lucía\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_relationship\", \"field_ids\": [\"p6.child2.relationship\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía, nacida en 1977, con el día pendiente, y vive con usted, anotado. También necesitaré su apellido más adelante. ¿Es su hija biológica, hijastra o adoptada?\",\n    \"en\": \"Lucía, born in 1977, day pending, and living with you, noted. I'll also need her last name later. Is she your biological, step, or adopted daughter?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.8,
+      "utterance": "Es la que está aquí conmigo."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "solo recuerda el año",
+     "partial_value": "1977",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.child_name",
+     "reason": "apellido no dado aún",
+     "partial_value": "Lucía",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_relationship",
+    "field_ids": [
+     "p6.child2.relationship"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, nacida en 1977, con el día pendiente, y vive con usted, anotado. También necesitaré su apellido más adelante. ¿Es su hija biológica, hijastra o adoptada?",
+    "en": "Lucía, born in 1977, day pending, and living with you, noted. I'll also need her last name later. Is she your biological, step, or adopted daughter?"
+   },
+   "facts_dropped": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "reason": "the same field was also deferred in this response by the applicant; the deferral stands and the fact is dropped"
+    }
+   ]
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 3,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 638,
+  "secs": 6.2,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.7, \"utterance\": \"Lucía. Ella nació en el setenta y siete.\"}\n    },\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.75, \"utterance\": \"Es la que está aquí conmigo.\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"sabe el año de nacimiento pero no el día ni el mes\", \"partial_value\": \"1977\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p6.child2.child_name\", \"reason\": \"falta su apellido\", \"partial_value\": \"Lucía\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_relationship\", \"field_ids\": [\"p6.child2.relationship\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía, nacida en 1977, con el día pendiente, y vive con usted, anotado. Todavía necesito su apellido. ¿Lucía es su hija biológica, hijastra o adoptada?\",\n    \"en\": \"Lucía, born in 1977, with the day pending, and living with you, noted. I still need her last name. Is Lucía your biological daughter, stepdaughter, or adopted?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.75,
+      "utterance": "Es la que está aquí conmigo."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "sabe el año de nacimiento pero no el día ni el mes",
+     "partial_value": "1977",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.child_name",
+     "reason": "falta su apellido",
+     "partial_value": "Lucía",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_relationship",
+    "field_ids": [
+     "p6.child2.relationship"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, nacida en 1977, con el día pendiente, y vive con usted, anotado. Todavía necesito su apellido. ¿Lucía es su hija biológica, hijastra o adoptada?",
+    "en": "Lucía, born in 1977, with the day pending, and living with you, noted. I still need her last name. Is Lucía your biological daughter, stepdaughter, or adopted?"
+   },
+   "facts_dropped": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "reason": "the same field was also deferred in this response by the applicant; the deferral stands and the fact is dropped"
+    }
+   ]
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 4,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 593,
+  "secs": 6.0,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.7,\n        \"utterance\": \"Lucía.\"\n      }\n    },\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"ai_extracted\",\n        \"confidence\": 0.8,\n        \"utterance\": \"Es la que está aquí conmigo.\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p6.child2.date_of_birth\",\n      \"reason\": \"sabe el año pero no el día ni el mes exacto\",\n      \"partial_value\": \"1977\",\n      \"origin\": \"applicant\"\n    },\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"reason\": \"falta el apellido de Lucía\",\n      \"partial_value\": \"Lucía\",\n      \"origin\": \"applicant\"\n    }\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_relationship\", \"field_ids\": [\"p6.child2.relationship\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía, nacida en 1977, con el día y el apellido pendientes, y vive con usted, anotado. ¿Es su hija biológica, hijastra o adoptada?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.8,
+      "utterance": "Es la que está aquí conmigo."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "sabe el año pero no el día ni el mes exacto",
+     "partial_value": "1977",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.child_name",
+     "reason": "falta el apellido de Lucía",
+     "partial_value": "Lucía",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_relationship",
+    "field_ids": [
+     "p6.child2.relationship"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, nacida en 1977, con el día y el apellido pendientes, y vive con usted, anotado. ¿Es su hija biológica, hijastra o adoptada?"
+   },
+   "facts_dropped": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "reason": "the same field was also deferred in this response by the applicant; the deferral stands and the fact is dropped"
+    }
+   ]
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 5,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 461,
+  "secs": 5.3,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.7, \"utterance\": \"Lucía. Ella nació en el setenta y siete.\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"solo dio el año, falta el día y el mes\", \"partial_value\": \"1977\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_child_name\", \"field_ids\": [\"p6.child2.child_name\", \"p6.child2.residence\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"¿Cuál es el apellido de Lucía? Y ella vive con usted, ¿verdad, es hijo biológico, hijastro o adoptado?\",\n    \"en\": \"What is Lucía's last name? And she lives with you, right, and is she your biological daughter, stepdaughter, or adopted?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.7,
+      "utterance": "Lucía. Ella nació en el setenta y siete."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "solo dio el año, falta el día y el mes",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "¿Cuál es el apellido de Lucía? Y ella vive con usted, ¿verdad, es hijo biológico, hijastro o adoptado?",
+    "en": "What is Lucía's last name? And she lives with you, right, and is she your biological daughter, stepdaughter, or adopted?"
+   },
+   "asking_dropped": {
+    "node_id": "q_p6_child2_child_name",
+    "field_ids": [
+     "p6.child2.child_name"
+    ],
+    "reason": "every field of this node was filled by a fact in this response"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 0,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 531,
+  "secs": 5.1,
+  "raw": "El apellido de Lucía es lo que sigue pendiente. Y \"está aquí conmigo\" ahora mismo, ¿quiere decir que Lucía vive con usted?\n\nLet me structure this properly.\n\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.date_of_birth\",\n      \"value\": \"1977\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.7, \"utterance\": \"Ella nació en el setenta y siete\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p6.child2.child_name\", \"reason\": \"falta el apellido, solo dio el nombre\", \"partial_value\": \"Lucía\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"solo dio el año, falta día y mes\", \"partial_value\": \"1977\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_residence\", \"field_ids\": [\"p6.child2.residence\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"El apellido de Lucía es lo que sigue pendiente. Y cuando dice que está aquí con usted, ¿quiere decir que Lucía vive con usted?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [],
+   "deferred": [
+    {
+     "field_id": "p6.child2.child_name",
+     "reason": "falta el apellido, solo dio el nombre",
+     "partial_value": "Lucía",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "solo dio el año, falta día y mes",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_residence",
+    "field_ids": [
+     "p6.child2.residence"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "El apellido de Lucía es lo que sigue pendiente. Y cuando dice que está aquí con usted, ¿quiere decir que Lucía vive con usted?"
+   },
+   "facts_dropped": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "value": "1977",
+     "reason": "the same field was also deferred in this response by the applicant; the deferral stands and the fact is dropped"
+    }
+   ]
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 1,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 459,
+  "secs": 4.4,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Lucía.\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"only year given, exact day and month to confirm\", \"partial_value\": \"1977\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_residence\", \"field_ids\": [\"p6.child2.residence\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"El apellido de Lucía se necesita también, y anoto 1977 con el día y mes pendientes. ¿Ella vive con usted, no vive con usted, o se desconoce su paradero?\",\n    \"en\": \"I'll also need Lucía's last name, and I'm noting 1977 with the day and month pending. Does she live with you, not live with you, or is her whereabouts unknown?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Lucía."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "only year given, exact day and month to confirm",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_residence",
+    "field_ids": [
+     "p6.child2.residence"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "El apellido de Lucía se necesita también, y anoto 1977 con el día y mes pendientes. ¿Ella vive con usted, no vive con usted, o se desconoce su paradero?",
+    "en": "I'll also need Lucía's last name, and I'm noting 1977 with the day and month pending. Does she live with you, not live with you, or is her whereabouts unknown?"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 2,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 469,
+  "secs": 4.3,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.6, \"utterance\": \"Lucía.\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"solo dio el año de nacimiento\", \"partial_value\": \"1977\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_date_of_birth\", \"field_ids\": [\"p6.child2.date_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía, anotado, y 1977 como año, con el día y el mes pendientes. ¿Y su apellido? Y una cosa aparte: si está aquí con usted ahora, dígame, ¿Lucía vive con usted?\",\n    \"en\": \"Lucía, noted, with 1977 as the year and the day and month pending. And her last name? Also, separately: does Lucía live with you?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.6,
+      "utterance": "Lucía."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "solo dio el año de nacimiento",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_date_of_birth",
+    "field_ids": [
+     "p6.child2.date_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, anotado, y 1977 como año, con el día y el mes pendientes. ¿Y su apellido? Y una cosa aparte: si está aquí con usted ahora, dígame, ¿Lucía vive con usted?",
+    "en": "Lucía, noted, with 1977 as the year and the day and month pending. And her last name? Also, separately: does Lucía live with you?"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 3,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 476,
+  "secs": 4.5,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.8, \"utterance\": \"Lucía.\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"solo dio el año, falta día y mes\", \"partial_value\": \"1977\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_residence\", \"field_ids\": [\"p6.child2.residence\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"El apellido de Lucía se necesitará también. Con 1977 anoto el año, y el día y mes quedan pendientes. Ella, ¿vive con usted, no vive con usted, o se desconoce su paradero?\",\n    \"en\": \"I'll also need Lucía's last name. I've noted 1977 for the year, with the day and month still pending. Does she live with you, not live with you, or is her whereabouts unknown?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.8,
+      "utterance": "Lucía."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "solo dio el año, falta día y mes",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_residence",
+    "field_ids": [
+     "p6.child2.residence"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "El apellido de Lucía se necesitará también. Con 1977 anoto el año, y el día y mes quedan pendientes. Ella, ¿vive con usted, no vive con usted, o se desconoce su paradero?",
+    "en": "I'll also need Lucía's last name. I've noted 1977 for the year, with the day and month still pending. Does she live with you, not live with you, or is her whereabouts unknown?"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 4,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 466,
+  "secs": 4.5,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.7, \"utterance\": \"Lucía. Ella nació en el setenta y siete.\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"solo dio el año\", \"partial_value\": \"1977\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_date_of_birth\", \"field_ids\": [\"p6.child2.date_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía, anotado, y 1977 de año. ¿Recuerda el día y el mes en que nació? Si no, lo dejamos pendiente y su apellido también me hace falta.\",\n    \"en\": \"Lucía, noted, and 1977 for the year. Do you remember the day and month she was born? If not, we'll leave it pending, and I still need her last name.\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.7,
+      "utterance": "Lucía. Ella nació en el setenta y siete."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "solo dio el año",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_date_of_birth",
+    "field_ids": [
+     "p6.child2.date_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, anotado, y 1977 de año. ¿Recuerda el día y el mes en que nació? Si no, lo dejamos pendiente y su apellido también me hace falta.",
+    "en": "Lucía, noted, and 1977 for the year. Do you remember the day and month she was born? If not, we'll leave it pending, and I still need her last name."
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 5,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 406,
+  "secs": 3.8,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.7, \"utterance\": \"Lucía. Ella nació en el setenta y siete.\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"solo dio el año\", \"partial_value\": \"1977\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_date_of_birth\", \"field_ids\": [\"p6.child2.date_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía, anotado. ¿Y su apellido? Y sobre lo de vivir aquí con usted, ¿eso quiere decir que Lucía vive con usted?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.7,
+      "utterance": "Lucía. Ella nació en el setenta y siete."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "solo dio el año",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_date_of_birth",
+    "field_ids": [
+     "p6.child2.date_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, anotado. ¿Y su apellido? Y sobre lo de vivir aquí con usted, ¿eso quiere decir que Lucía vive con usted?"
+   }
+  }
+ },
+ {
+  "case": "r4-inference",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 35,
+  "turn": 36,
+  "user_content": "Lucía, mi hija. Ella está aquí conmigo.",
+  "rep": 0,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 507,
+  "secs": 4.6,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_036\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\"field_id\": \"p6.child2.child_name\", \"value\": \"Lucía Delgado\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.8, \"utterance\": \"Lucía, mi hija. Ella está aquí conmigo.\"}},\n    {\"field_id\": \"p6.child2.residence\", \"value\": \"resides_with_me\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"Ella está aquí conmigo.\"}},\n    {\"field_id\": \"p6.child2.relationship\", \"value\": \"biological\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Lucía, mi hija.\"}}\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_date_of_birth\", \"field_ids\": [\"p6.child2.date_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía Delgado, vive con usted. ¿Cuándo nació?\",\n    \"en\": \"Lucía Delgado, lives with you. When was she born?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_036",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía Delgado",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.8,
+      "utterance": "Lucía, mi hija. Ella está aquí conmigo."
+     }
+    },
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "Ella está aquí conmigo."
+     }
+    },
+    {
+     "field_id": "p6.child2.relationship",
+     "value": "biological",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Lucía, mi hija."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_date_of_birth",
+    "field_ids": [
+     "p6.child2.date_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía Delgado, vive con usted. ¿Cuándo nació?",
+    "en": "Lucía Delgado, lives with you. When was she born?"
+   }
+  }
+ },
+ {
+  "case": "r4-inference",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 35,
+  "turn": 36,
+  "user_content": "Lucía, mi hija. Ella está aquí conmigo.",
+  "rep": 1,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 436,
+  "secs": 4.2,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_036\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía Delgado\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.75, \"utterance\": \"Lucía, mi hija\"}\n    },\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.85, \"utterance\": \"Ella está aquí conmigo\"}\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_date_of_birth\", \"field_ids\": [\"p6.child2.date_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía Delgado, vive con usted. ¿Cuándo nació ella?\",\n    \"en\": \"Lucía Delgado, lives with you. When was she born?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_036",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía Delgado",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.75,
+      "utterance": "Lucía, mi hija"
+     }
+    },
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.85,
+      "utterance": "Ella está aquí conmigo"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_date_of_birth",
+    "field_ids": [
+     "p6.child2.date_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía Delgado, vive con usted. ¿Cuándo nació ella?",
+    "en": "Lucía Delgado, lives with you. When was she born?"
+   }
+  }
+ },
+ {
+  "case": "r4-inference",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 35,
+  "turn": 36,
+  "user_content": "Lucía, mi hija. Ella está aquí conmigo.",
+  "rep": 2,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 535,
+  "secs": 4.9,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_036\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía Delgado\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.75, \"utterance\": \"Lucía, mi hija. Ella está aquí conmigo.\"}\n    },\n    {\n      \"field_id\": \"p6.child2.relationship\",\n      \"value\": \"biological\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Lucía, mi hija.\"}\n    },\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.85, \"utterance\": \"Ella está aquí conmigo.\"}\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_date_of_birth\", \"field_ids\": [\"p6.child2.date_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía Delgado, vive con usted. ¿Cuándo nació?\",\n    \"en\": \"Lucía Delgado, lives with you. When was she born?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_036",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía Delgado",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.75,
+      "utterance": "Lucía, mi hija. Ella está aquí conmigo."
+     }
+    },
+    {
+     "field_id": "p6.child2.relationship",
+     "value": "biological",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Lucía, mi hija."
+     }
+    },
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.85,
+      "utterance": "Ella está aquí conmigo."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_date_of_birth",
+    "field_ids": [
+     "p6.child2.date_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía Delgado, vive con usted. ¿Cuándo nació?",
+    "en": "Lucía Delgado, lives with you. When was she born?"
+   }
+  }
+ },
+ {
+  "case": "r4-inference",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 35,
+  "turn": 36,
+  "user_content": "Lucía, mi hija. Ella está aquí conmigo.",
+  "rep": 3,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 537,
+  "secs": 4.8,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_036\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía Delgado\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Lucía, mi hija. Ella está aquí conmigo.\"}\n    },\n    {\n      \"field_id\": \"p6.child2.relationship\",\n      \"value\": \"biological\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.75, \"utterance\": \"Lucía, mi hija.\"}\n    },\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.85, \"utterance\": \"Ella está aquí conmigo.\"}\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_date_of_birth\", \"field_ids\": [\"p6.child2.date_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía Delgado, vive con usted. ¿Cuándo nació ella?\",\n    \"en\": \"Lucía Delgado, lives with you. When was she born?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_036",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía Delgado",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Lucía, mi hija. Ella está aquí conmigo."
+     }
+    },
+    {
+     "field_id": "p6.child2.relationship",
+     "value": "biological",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.75,
+      "utterance": "Lucía, mi hija."
+     }
+    },
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.85,
+      "utterance": "Ella está aquí conmigo."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_date_of_birth",
+    "field_ids": [
+     "p6.child2.date_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía Delgado, vive con usted. ¿Cuándo nació ella?",
+    "en": "Lucía Delgado, lives with you. When was she born?"
+   }
+  }
+ },
+ {
+  "case": "r4-inference",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 35,
+  "turn": 36,
+  "user_content": "Lucía, mi hija. Ella está aquí conmigo.",
+  "rep": 4,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 461,
+  "secs": 4.5,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_036\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía Delgado\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"ai_extracted\",\n        \"confidence\": 0.75,\n        \"utterance\": \"Lucía, mi hija. Ella está aquí conmigo.\"\n      }\n    },\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.85,\n        \"utterance\": \"Ella está aquí conmigo.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_date_of_birth\", \"field_ids\": [\"p6.child2.date_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía, que vive con usted. ¿Cuándo nació?\",\n    \"en\": \"Lucía, who lives with you. When was she born?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_036",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía Delgado",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.75,
+      "utterance": "Lucía, mi hija. Ella está aquí conmigo."
+     }
+    },
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.85,
+      "utterance": "Ella está aquí conmigo."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_date_of_birth",
+    "field_ids": [
+     "p6.child2.date_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, que vive con usted. ¿Cuándo nació?",
+    "en": "Lucía, who lives with you. When was she born?"
+   }
+  }
+ },
+ {
+  "case": "r4-inference",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 35,
+  "turn": 36,
+  "user_content": "Lucía, mi hija. Ella está aquí conmigo.",
+  "rep": 5,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 530,
+  "secs": 4.7,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_036\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía Delgado\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.75, \"utterance\": \"Lucía, mi hija. Ella está aquí conmigo.\"}\n    },\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.85, \"utterance\": \"Ella está aquí conmigo.\"}\n    },\n    {\n      \"field_id\": \"p6.child2.relationship\",\n      \"value\": \"biological\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Lucía, mi hija.\"}\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_date_of_birth\", \"field_ids\": [\"p6.child2.date_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía Delgado, vive con usted. ¿Cuándo nació?\",\n    \"en\": \"Lucía Delgado, lives with you. When was she born?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_036",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía Delgado",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.75,
+      "utterance": "Lucía, mi hija. Ella está aquí conmigo."
+     }
+    },
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.85,
+      "utterance": "Ella está aquí conmigo."
+     }
+    },
+    {
+     "field_id": "p6.child2.relationship",
+     "value": "biological",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Lucía, mi hija."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_date_of_birth",
+    "field_ids": [
+     "p6.child2.date_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía Delgado, vive con usted. ¿Cuándo nació?",
+    "en": "Lucía Delgado, lives with you. When was she born?"
+   }
+  }
+ },
+ {
+  "case": "r4-inference",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 35,
+  "turn": 36,
+  "user_content": "Lucía, mi hija. Ella está aquí conmigo.",
+  "rep": 0,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 499,
+  "secs": 6.1,
+  "raw": "\"Ella está aquí conmigo\" tells me where Lucía is right now, not her surname yet — I need to ask that plainly, per the naming rules. Also, this is another child, so I should ask her last name and date of birth, and note that \"está aquí conmigo\" is likely her residence but I should confirm it as residence explicitly rather than infer support/residence from this phrase used mid-interview (she's literally in the room). I'll ask for the last name and date of birth next, and keep residence question for the next turn since I should not stack too much.\n\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_036\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.9,\n        \"utterance\": \"Lucía, mi hija\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_child_name\", \"field_ids\": [\"p6.child2.child_name\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"¿Cuál es el apellido de Lucía, y cuándo nació?\",\n    \"en\": \"What is Lucía's last name, and when was she born?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_036",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Lucía, mi hija"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "¿Cuál es el apellido de Lucía, y cuándo nació?",
+    "en": "What is Lucía's last name, and when was she born?"
+   },
+   "asking_dropped": {
+    "node_id": "q_p6_child2_child_name",
+    "field_ids": [
+     "p6.child2.child_name"
+    ],
+    "reason": "every field of this node was filled by a fact in this response"
+   }
+  }
+ },
+ {
+  "case": "r4-inference",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 35,
+  "turn": 36,
+  "user_content": "Lucía, mi hija. Ella está aquí conmigo.",
+  "rep": 1,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 572,
+  "secs": 7.2,
+  "raw": "Lucía is the given name, and \"ella está aquí conmigo\" tells me where she lives, not her surname yet, so I need that before filing residence.\n\nThe last name is her father's, so I'll mint Delgado only when she confirms it in the surname question, not now. She said Lucía is here with her, which plainly answers the residence field, so I'll take that as `resides_with_me` and ask for the surname and date of birth.\n\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_036\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.7, \"utterance\": \"Lucía, mi hija\"}\n    },\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.9, \"utterance\": \"Ella está aquí conmigo\"}\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_date_of_birth\", \"field_ids\": [\"p6.child2.date_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía, vive con usted. ¿Cuál es su apellido, y cuándo nació?\",\n    \"en\": \"Lucía, lives with you. What is her last name, and when was she born?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_036",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.7,
+      "utterance": "Lucía, mi hija"
+     }
+    },
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.9,
+      "utterance": "Ella está aquí conmigo"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_date_of_birth",
+    "field_ids": [
+     "p6.child2.date_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, vive con usted. ¿Cuál es su apellido, y cuándo nació?",
+    "en": "Lucía, lives with you. What is her last name, and when was she born?"
+   }
+  }
+ },
+ {
+  "case": "r4-inference",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 35,
+  "turn": 36,
+  "user_content": "Lucía, mi hija. Ella está aquí conmigo.",
+  "rep": 2,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 474,
+  "secs": 5.0,
+  "raw": "\"Ella está aquí conmigo\" tells me where Lucía is right now, not necessarily her residence for the form, so I should confirm residence separately rather than assume. I need her last name too, since only \"Lucía\" was given. I'll ask both together while keeping the birth date for the next turn.\n\n```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_036\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.7,\n        \"utterance\": \"Lucía, mi hija\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_child_name\", \"field_ids\": [\"p6.child2.child_name\", \"p6.child2.residence\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"¿Cuál es el apellido de Lucía, y ella vive con usted, no vive con usted, o se desconoce su paradero?\",\n    \"en\": \"What is Lucía's last name, and does she live with you, not live with you, or is her whereabouts unknown?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_036",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.7,
+      "utterance": "Lucía, mi hija"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "¿Cuál es el apellido de Lucía, y ella vive con usted, no vive con usted, o se desconoce su paradero?",
+    "en": "What is Lucía's last name, and does she live with you, not live with you, or is her whereabouts unknown?"
+   },
+   "asking_dropped": {
+    "node_id": "q_p6_child2_child_name",
+    "field_ids": [
+     "p6.child2.child_name"
+    ],
+    "reason": "every field of this node was filled by a fact in this response"
+   }
+  }
+ },
+ {
+  "case": "r4-inference",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 35,
+  "turn": 36,
+  "user_content": "Lucía, mi hija. Ella está aquí conmigo.",
+  "rep": 3,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 683,
+  "secs": 7.4,
+  "raw": "\"Está aquí conmigo\" tells where Lucía is right now, not her surname or whether she lives with the applicant, so I need to ask the residence question plainly rather than assume it.\n\nShe gave a first name \"Lucía\" and said \"mi hija\" (relationship = biological), but no last name yet — following the naming rule, I ask for the surname next, and hold off minting relationship since I should confirm the shape/gather it naturally, but the instructions say record what's given. Let me mint child_name as \"Lucía\" only (first name), and relationship as biological since \"mi hija\" plainly states that. I still need last name, date of birth, residence, and support.\n\n```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_036\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.7,\n        \"utterance\": \"Lucía, mi hija\"\n      }\n    },\n    {\n      \"field_id\": \"p6.child2.relationship\",\n      \"value\": \"biological\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.9,\n        \"utterance\": \"mi hija\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_child_name\", \"field_ids\": [\"p6.child2.child_name\", \"p6.child2.date_of_birth\", \"p6.child2.residence\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"¿Cuál es el apellido de Lucía, y cuándo nació? Y ¿Lucía vive con usted?\",\n    \"en\": \"What is Lucía's last name, and when was she born? And does Lucía live with you?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_036",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.7,
+      "utterance": "Lucía, mi hija"
+     }
+    },
+    {
+     "field_id": "p6.child2.relationship",
+     "value": "biological",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "mi hija"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "¿Cuál es el apellido de Lucía, y cuándo nació? Y ¿Lucía vive con usted?",
+    "en": "What is Lucía's last name, and when was she born? And does Lucía live with you?"
+   },
+   "asking_dropped": {
+    "node_id": "q_p6_child2_child_name",
+    "field_ids": [
+     "p6.child2.child_name"
+    ],
+    "reason": "every field of this node was filled by a fact in this response"
+   }
+  }
+ },
+ {
+  "case": "r4-inference",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 35,
+  "turn": 36,
+  "user_content": "Lucía, mi hija. Ella está aquí conmigo.",
+  "rep": 4,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 368,
+  "secs": 4.2,
+  "raw": "{\"schema_version\": 1, \"turn_id\": \"t_036\", \"intent\": {\"type\": \"volunteered_extra\"}, \"facts\": [{\"field_id\": \"p6.child2.child_name\", \"value\": \"Lucía\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Lucía, mi hija\"}}, {\"field_id\": \"p6.child2.residence\", \"value\": \"resides_with_me\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.75, \"utterance\": \"Ella está aquí conmigo\"}}], \"deferred\": [], \"clarification\": null, \"conflict\": null, \"escalation\": null, \"complete\": false, \"asking\": {\"node_id\": \"q_p6_child2_child_name\", \"field_ids\": [\"p6.child2.date_of_birth\"]}, \"section_checkpoint\": null, \"interview_over\": false, \"reply\": {\"es\": \"Lucía. ¿Cuál es su apellido, y cuándo nació?\", \"en\": \"Lucía. What is her last name, and when was she born?\"}}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_036",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Lucía, mi hija"
+     }
+    },
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.75,
+      "utterance": "Ella está aquí conmigo"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía. ¿Cuál es su apellido, y cuándo nació?",
+    "en": "Lucía. What is her last name, and when was she born?"
+   },
+   "asking_dropped": {
+    "node_id": "q_p6_child2_child_name",
+    "field_ids": [
+     "p6.child2.child_name"
+    ],
+    "reason": "every field of this node was filled by a fact in this response"
+   }
+  }
+ },
+ {
+  "case": "r4-inference",
+  "run": "spectrum-rosa-r4.json",
+  "wire_index": 35,
+  "turn": 36,
+  "user_content": "Lucía, mi hija. Ella está aquí conmigo.",
+  "rep": 5,
+  "version": 42,
+  "stop": "end_turn",
+  "out": 490,
+  "secs": 4.9,
+  "raw": "\"Ella está aquí conmigo\" tells us where Lucía is right now, which is her residence, not a surname yet. I need to ask for the last name separately, and I shouldn't assume it's Delgado just because her siblings are.\n\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_036\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Lucía, mi hija\"}\n    },\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Ella está aquí conmigo\"}\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_child_name\", \"field_ids\": [\"p6.child2.child_name\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"¿Cuál es el apellido de Lucía, y cuándo nació?\",\n    \"en\": \"What is Lucía's last name, and when was she born?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_036",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Lucía, mi hija"
+     }
+    },
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Ella está aquí conmigo"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "¿Cuál es el apellido de Lucía, y cuándo nació?",
+    "en": "What is Lucía's last name, and when was she born?"
+   },
+   "asking_dropped": {
+    "node_id": "q_p6_child2_child_name",
+    "field_ids": [
+     "p6.child2.child_name"
+    ],
+    "reason": "every field of this node was filled by a fact in this response"
+   }
+  }
+ }
+]
