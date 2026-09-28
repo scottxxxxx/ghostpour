@@ -896,3 +896,25 @@ def test_the_call_type_is_registered_or_nothing_reads_this_file():
     assert _CALL_TYPE_TO_CONFIG.get("n400_interviewer_turn") == "n400/interviewer-turn"
     # And the extractor lane is still mapped: cutover is the client's, later.
     assert _CALL_TYPE_TO_CONFIG.get("n400_interview_turn") == "n400/interview-turn"
+
+
+def test_a_complete_answer_fits_the_reply_budget(cfg):
+    """2026-09-27, qa/runs/spectrum-priya-r1.json turns 12-14: seven trips in
+    one message, 21-22 facts at about 93 output tokens each, and three turns
+    in a row stopped at finish_reason max_tokens with output_tokens 2048, so
+    the cut-off JSON filed nothing. 6144 holds that answer (about 2,500)
+    with room for a Part 4 answer carrying several prior addresses. Checked
+    through the assembler so the number reaches the request."""
+    from app.services.prompt_assembly import assemble_prompt
+
+    assert cfg["maxTokens"] >= 6144
+    out = assemble_prompt(
+        "n400_interviewer_turn", "[start of interview]",
+        {"n400/interviewer-turn": cfg},
+        variables={
+            "form_code": "N-400", "jurisdiction": "US-TX", "locale": "en",
+            "turn_id": "t_001", "conversation": "[start of interview]",
+            "known_facts": "nothing yet", "agenda": "q | Part 1 | f | Q?",
+        },
+    )
+    assert out["max_tokens"] >= 6144

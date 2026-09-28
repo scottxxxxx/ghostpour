@@ -426,6 +426,30 @@ def verify(sp: str, version: int) -> bool:
     return bool(ok)
 
 
+def max_tokens_ok(body: dict, expected: int | None) -> bool:
+    """The served maxTokens, read back, against the value this run synced.
+
+    A value change (2026-09-27, 2048 -> 6144 for the seven-trip truncation)
+    has no phrase to read back, so the check is the number itself. None means
+    this run did not sync maxTokens and there is nothing to check."""
+    if expected is None:
+        return True
+    got = body.get("maxTokens")
+    ok = got == expected
+    print("  %-52s %s" % ("maxTokens == %d" % expected,
+                          "OK" if ok else "*** SERVED %r ***" % (got,)))
+    return ok
+
+
+def sync_keys(max_tokens: int | None) -> list[str]:
+    """Exactly the keys the sync sends. /version always rides along, so the
+    served number names the bundle it came from rather than counting writes."""
+    keys = ["/systemPrompt", "/version"]
+    if max_tokens is not None:
+        keys.append("/maxTokens")
+    return keys
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--expect-sha", default="",
@@ -434,6 +458,9 @@ def main(argv=None) -> int:
     ap.add_argument("--force", action="store_true",
                     help="sync even if the running image is not --expect-sha. "
                          "Only for re-syncing text already in the running image.")
+    ap.add_argument("--max-tokens", type=int, default=None,
+                    help="also sync /maxTokens from the bundle and refuse unless "
+                         "the served value reads back as exactly this number.")
     args = ap.parse_args(argv)
 
     running = ""
@@ -452,13 +479,13 @@ def main(argv=None) -> int:
         print("\n--force: syncing anyway (%s)" % why)
 
     body, sp = served()
-    print("BEFORE  version=%s  chars=%d" % (body.get("version"), len(sp)))
+    print("BEFORE  version=%s  chars=%d  maxTokens=%s" % (body.get("version"), len(sp), body.get("maxTokens")))
 
     status, rep = call("POST", "%s/%s/sync-from-bundle" % (ADMIN, SLUG),
                        # /version too, so the served number names the bundle it
                        # came from rather than counting writes. Without it v38
                        # served as "37", the shelved cut's number (2026-09-20).
-                       {"keys": ["/systemPrompt", "/version"]})
+                       {"keys": sync_keys(args.max_tokens)})
     print("SYNC    HTTP %s  version=%s" % (status, rep.get("version")))
     for c in rep.get("changes", []):
         print("    %-20s %s" % (c.get("key"), c.get("status")))
@@ -467,6 +494,7 @@ def main(argv=None) -> int:
     print("\nAFTER, read back from the running server by STRING")
     print("  version=%s  systemPrompt chars=%d" % (body.get("version"), len(sp)))
     ok = verify(sp, int(body.get("version") or 0))
+    ok = max_tokens_ok(body, args.max_tokens) and ok
 
     print("\nRESULT:", "the served N-400 prompt carries the rule and its counterweight"
           if ok else "*** THE SERVED PROMPT IS NOT RIGHT, DO NOT CLOSE THIS OUT ***")

@@ -393,3 +393,19 @@ def test_the_source_document_is_not_mutated():
     snapshot = json.loads(json.dumps(before))
     next_document(before, 500.0, "note")
     assert before == snapshot
+
+
+# --- a value sync (2026-09-27, maxTokens 2048 -> 6144) ------------------------
+
+def test_the_max_tokens_read_back_passes_only_on_the_exact_number():
+    from sync_n400_prompt import max_tokens_ok
+    assert max_tokens_ok({"maxTokens": 6144}, 6144)
+    assert not max_tokens_ok({"maxTokens": 2048}, 6144), "the old value still serving"
+    assert not max_tokens_ok({}, 6144), "absent is not a pass"
+    assert max_tokens_ok({"maxTokens": 2048}, None), "a prompt-only sync checks nothing here"
+
+
+def test_the_keys_sent_are_the_ones_the_operator_asked_for():
+    from sync_n400_prompt import sync_keys
+    assert sync_keys(None) == ["/systemPrompt", "/version"]
+    assert sync_keys(6144) == ["/systemPrompt", "/version", "/maxTokens"]
