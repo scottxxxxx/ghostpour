@@ -185,6 +185,63 @@ def drop_stale_asking(text: str, agenda: str | None) -> tuple[str, dict | None]:
     return json.dumps(turn, ensure_ascii=False), info
 
 
+# --- replace a spoken question about a node this response settled (round 7 B) -
+#
+# priya-r8 t3: India filed from "born in Chennai, India", and the reply still
+# ended "What is your country of birth?" ("I told you that already"). The
+# drop already knows the question is about a settled node; agreed with the
+# auditor, GP now REPLACES that trailing question with the next agenda line's
+# own question and points asking at it. Safe with streaming: the last
+# sentence is always HELD (n400_sentence_stream rule 4), so the settled
+# question is never spoken first.
+_TRAILING_QUESTION = re.compile(r"(?s)^(?P<head>.*?[.!…]\s+|)(?P<q>[^.!?…]*\?[\"'”’)»]*)\s*$")
+
+
+def _agenda_lines(agenda: str | None) -> list[tuple[str, set[str], str]]:
+    out = []
+    for line in (agenda or "").splitlines():
+        parts = [p.strip() for p in line.split("|")]
+        if len(parts) >= 4 and parts[0]:
+            out.append((parts[0], {f.strip() for f in parts[2].split(",") if f.strip()}, parts[3]))
+    return out
+
+
+def replace_settled_question(text: str, agenda: str | None, locale: str | None) -> tuple[str, dict | None]:
+    """When asking was dropped as settled and the reply still ends on that
+    question, speak the next open agenda line's question instead."""
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, None
+    info = turn.get("asking_dropped") if isinstance(turn, dict) else None
+    if not isinstance(info, dict) or not info.get("question_still_spoken") or info.get("reason") != DROP_REASON:
+        return text, None
+    filled = {f.get("field_id") for f in turn.get("facts") or [] if isinstance(f, dict)}
+    if not set(info.get("field_ids") or []) <= filled:
+        # The floor dropped (or set aside) a fact that settled the node, so it
+        # is open again and its question is the right one to ask.
+        return text, None
+    nxt = next(((n, ids, q) for n, ids, q in _agenda_lines(agenda)
+                if n != info.get("node_id") and not ids <= filled and q), None)
+    if nxt is None:
+        return text, None
+    reply = turn.get("reply")
+    key = locale if isinstance(reply, dict) and locale in reply else (
+        next(iter(reply), None) if isinstance(reply, dict) and len(reply) == 1 else None)
+    spoken = reply.get(key) if isinstance(reply, dict) and key else (reply if isinstance(reply, str) else None)
+    m = _TRAILING_QUESTION.match(spoken or "")
+    if not m or not m.group("q").strip():
+        return text, None
+    new = (m.group("head") + nxt[2]).strip()
+    if isinstance(reply, dict):
+        reply[key] = new
+    else:
+        turn["reply"] = new
+    turn["asking"] = {"node_id": nxt[0], "field_ids": sorted(nxt[1])}
+    info["question_replaced_with"] = nxt[0]
+    return json.dumps(turn, ensure_ascii=False), {"node_id": nxt[0], "replaced_node": info.get("node_id")}
+
+
 def _reply_ends_on_question(reply) -> bool:
     texts = list(reply.values()) if isinstance(reply, dict) else [reply]
     return any(isinstance(t, str) and t.rstrip().rstrip("\"'”’)»").endswith("?") for t in texts)
@@ -318,7 +375,10 @@ def drop_facts_without_current_evidence(
         cited = _norm(utt)
         value = _norm(str(f.get("value")) if isinstance(f, dict) else "")
         cited_line = next((line for line in earlier if cited and cited in line), None)
-        carried = bool(cited and value and cited_line is not None and value in cited)
+        carried = bool(cited and value and cited_line is not None and (
+            value in cited
+            or _date_said(value, cited)
+            or _state_paired(f, value, cited, earlier + [said])))
         if utt and (cited in said or carried or _name_words_said(f, cited_line, said)):
             kept.append(f)
             continue
@@ -343,6 +403,70 @@ def drop_facts_without_current_evidence(
     if pending:
         turn["facts_pending_support"] = pending
     return json.dumps(turn, ensure_ascii=False), dropped
+
+
+# A date filed normalized ("2025-05-09") from words that say it another way
+# ("May 9th to May 14th, 2025", jorge-r7 t35) is the SAME date, and the literal
+# test compares strings. Agreed with the auditor: it passes when her cited words
+# carry the year, the month (by name or number) and, for a full date, the day.
+_MONTHS = {1: ("january", "jan", "enero"), 2: ("february", "feb", "febrero"), 3: ("march", "mar", "marzo"),
+           4: ("april", "apr", "abril"), 5: ("may", "mayo"), 6: ("june", "jun", "junio"),
+           7: ("july", "jul", "julio"), 8: ("august", "aug", "agosto"),
+           9: ("september", "sept", "sep", "septiembre", "setiembre"), 10: ("october", "oct", "octubre"),
+           11: ("november", "nov", "noviembre"), 12: ("december", "dec", "diciembre")}
+
+
+def _date_said(value: str, cited: str) -> bool:
+    m = re.fullmatch(r"(\d{4})-(\d{2})(?:-(\d{2}))?", value or "")
+    if not m:
+        return False
+    words = _fold(cited)
+    year, month, day = m.group(1), int(m.group(2)), m.group(3)
+    if not re.search(rf"\b{year}\b", words):
+        return False
+    names = _MONTHS.get(month, ())
+    if not any(re.search(rf"\b{n}\b", words) for n in names) and not re.search(rf"\b0?{month}[/.-]", words):
+        return False
+    if day is None:
+        return True
+    return bool(re.search(rf"\b0?{int(day)}(?:st|nd|rd|th)?\b", words))
+
+
+# A state from a city is NOT completed from context (standing rule: San Antonio
+# is also in Florida and New Mexico). Agreed with the auditor as the one
+# exception that stays inside the rule: a state IS her words when one of HER
+# lines names the same city WITH that state ("San Antonio, Texas"), and the
+# fact cites that city ("All San Antonio", jorge-r7 t21).
+_US_STATES = {"AL": "alabama", "AK": "alaska", "AZ": "arizona", "AR": "arkansas", "CA": "california",
+              "CO": "colorado", "CT": "connecticut", "DE": "delaware", "FL": "florida", "GA": "georgia",
+              "HI": "hawaii", "ID": "idaho", "IL": "illinois", "IN": "indiana", "IA": "iowa", "KS": "kansas",
+              "KY": "kentucky", "LA": "louisiana", "ME": "maine", "MD": "maryland", "MA": "massachusetts",
+              "MI": "michigan", "MN": "minnesota", "MS": "mississippi", "MO": "missouri", "MT": "montana",
+              "NE": "nebraska", "NV": "nevada", "NH": "new hampshire", "NJ": "new jersey", "NM": "new mexico",
+              "NY": "new york", "NC": "north carolina", "ND": "north dakota", "OH": "ohio", "OK": "oklahoma",
+              "OR": "oregon", "PA": "pennsylvania", "RI": "rhode island", "SC": "south carolina",
+              "SD": "south dakota", "TN": "tennessee", "TX": "texas", "UT": "utah", "VT": "vermont",
+              "VA": "virginia", "WA": "washington", "WV": "west virginia", "WI": "wisconsin", "WY": "wyoming",
+              "DC": "district of columbia"}
+_NOT_A_CITY_WORD = {"all", "too", "also", "the", "it", "its", "in", "and", "same", "there", "here", "yeah",
+                    "yes", "was", "is", "that", "one", "both", "todo", "todos", "tambien", "en", "el", "la"}
+
+
+def _state_paired(f, value: str, cited: str, lines: list[str]) -> bool:
+    if not isinstance(f, dict) or not str(f.get("field_id") or "").endswith(".state"):
+        return False
+    name = _US_STATES.get((value or "").strip().upper())
+    if not name:
+        return False
+    city = [w for w in re.findall(r"[a-z]+", _fold(cited)) if len(w) > 2 and w not in _NOT_A_CITY_WORD]
+    if not city:
+        return False
+    for line in lines:
+        folded = _fold(line or "")
+        if all(re.search(rf"\b{w}\b", folded) for w in city) and (
+                re.search(rf"\b{name}\b", folded) or re.search(rf"\b{value.strip().lower()}\b", folded)):
+            return True
+    return False
 
 
 # A person's name put together across two turns ("José" at t41, "Delgado" at
@@ -698,10 +822,70 @@ def file_probation_never_had(text: str, agenda: str | None, user_content: str | 
     return json.dumps(turn, ensure_ascii=False), {"field_id": "p9.probation_completed"}
 
 
+# --- occupation is the work; an idle current row is not overwritten (round 7 D)
+#
+# jorge-r7 t28: p7.employer2.occupation filed "Self-employed", which names who
+# employs him, not the work ("Delivery driver"). rosa-r7 t65: her CURRENT row,
+# on file as "Retired", was overwritten with "Costurera, jubilada" from a job
+# that ended in 2015, and v45's prompt line did not hold it (2/3 still did).
+# Both are mechanical, so they are guards.
+_SELF_EMPLOYED = re.compile(r"^\s*(?:self[- ]employed|por cuenta propia|aut[oó]nom[oa]|independiente)\s*[,;:/-]?\s*", re.I)
+_IDLE_OCCUPATION = re.compile(r"\b(?:retired|unemployed|jubilad[oa]|retirad[oa]|desemplead[oa]|homemaker|ama de casa|student|estudiante)\b", re.I)
+_OCCUPATION_FIELD = re.compile(r"^p7\.employer\d+\.occupation$")
+
+
+def fix_occupations(text: str, known_facts: str | None) -> tuple[str, list[dict]]:
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, []
+    if not isinstance(turn, dict) or not isinstance(turn.get("facts"), list):
+        return text, []
+    known = {}
+    for line in (known_facts or "").splitlines():
+        k, _, v = line.partition(":")
+        if _OCCUPATION_FIELD.match(k.strip()):
+            known[k.strip()] = v.strip()
+    kept, changes = [], []
+    for f in turn["facts"]:
+        fid = f.get("field_id") if isinstance(f, dict) else None
+        if not (isinstance(fid, str) and _OCCUPATION_FIELD.match(fid) and isinstance(f.get("value"), str)):
+            kept.append(f)
+            continue
+        on_file = known.get(fid, "")
+        # Purely an idle word is fine ("Jubilada" for "Retired"); anything with a
+        # job word in it ("Costurera, jubilada", rosa-r7 t65's exact value) is an
+        # old job overwriting the current idle row.
+        leftover = re.sub(r"[\s,;:/.-]+", "", _IDLE_OCCUPATION.sub("", f["value"]))
+        if on_file and _IDLE_OCCUPATION.search(on_file) and not on_file.lower().startswith("deferred") \
+                and leftover:
+            changes.append({"field_id": fid, "action": "dropped",
+                            "reason": "a job word never overwrites a current idle row on file"})
+            continue
+        m = _SELF_EMPLOYED.match(f["value"])
+        if m:
+            rest = f["value"][m.end():].strip()
+            if not rest:
+                changes.append({"field_id": fid, "action": "dropped",
+                                "reason": "self-employed is who employs her, not the work"})
+                continue
+            f = dict(f, value=rest[:1].upper() + rest[1:])
+            changes.append({"field_id": fid, "action": "rewritten", "reason": "the work, without self-employed"})
+        kept.append(f)
+    if not changes:
+        return text, []
+    turn["facts"] = kept
+    dropped = [{"field_id": c["field_id"], "reason": c["reason"]} for c in changes if c["action"] == "dropped"]
+    if dropped:
+        turn["facts_dropped"] = (turn.get("facts_dropped") or []) + dropped
+    return json.dumps(turn, ensure_ascii=False), changes
+
+
 def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
                         user_content: str | None = None,
                         conversation: str | None = None,
-                        choice_fields=None) -> str:
+                        choice_fields=None, locale: str | None = None,
+                        known_facts: str | None = None) -> str:
     # FIRST, on the model's own facts: the stream corrected each released
     # sentence against these same facts, before any guard below drops one.
     text, readbacks = correct_identifier_readbacks(text)
@@ -718,6 +902,9 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
     for w in wrong_count:
         logger.warning("n400_identifier_wrong_digit_count turn_id=%s field_id=%s digits=%d expected=%s",
                        turn_id, w["field_id"], w["digits"], w["expected"])
+    new_text, occupations = fix_occupations(new_text, known_facts)
+    for c in occupations:
+        logger.warning("n400_occupation_fixed turn_id=%s field_id=%s action=%s", turn_id, c["field_id"], c["action"])
     new_text, probation = file_probation_never_had(new_text, agenda, user_content)
     if probation is not None:
         logger.warning("n400_probation_never_had_filed turn_id=%s", turn_id)
@@ -732,6 +919,13 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
             new_text, user_content, conversation)
         for d in dropped:
             logger.warning("n400_fact_dropped_no_evidence turn_id=%s field_id=%s", turn_id, d["field_id"])
+    # AFTER the evidence floor, so "settled" means a fact that SURVIVED it: a
+    # fact the floor dropped (or set aside for Jev) leaves its node open, and
+    # its question must still be asked.
+    new_text, replaced = replace_settled_question(new_text, agenda, locale)
+    if replaced is not None:
+        logger.warning("n400_settled_question_replaced turn_id=%s replaced=%s with=%s",
+                       turn_id, replaced["replaced_node"], replaced["node_id"])
     # Marks and does not drop, and an unknown entry reads as applicant, which
     # the drop below never removes, so ordering is free; it sits ahead of the
     # drop so the marker describes the wire as it arrived.

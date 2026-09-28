@@ -116,3 +116,91 @@ def test_probation_is_left_alone_when_it_is_not_the_standing_question():
     t = json.dumps({"facts": [], "reply": {"en": "ok"}})
     other = PROB.replace("q_p9_crimes_probation_completed", "q_p9_other").replace("p9.probation_completed", "p9.has_arrest2")
     assert file_probation_never_had(t, other, "Never had any of that.")[1] is None
+
+
+# --- v45: a settled trailing question is replaced (round 7 B) ----------------
+
+from app.services.n400_interviewer_guard import _date_said, _state_paired, guard_response_text  # noqa: E402
+
+AG = ("q_p2_country_of_birth | Part 2: About you | p2.country_of_birth | What is your country of birth?\n"
+      "q_p2_nationality | Part 2: About you | p2.country_of_nationality | What is your country of citizenship or nationality?\n")
+
+
+def _settled(cite, said, reply="Got it. What is your country of birth?", locale="en"):
+    t = json.dumps({"facts": [{"field_id": "p2.country_of_birth", "value": "India", "provenance": {"utterance": cite}}],
+                    "asking": {"node_id": "q_p2_country_of_birth", "field_ids": ["p2.country_of_birth"]},
+                    "reply": {locale: reply}})
+    return json.loads(guard_response_text(t, AG, "t3", user_content=said, locale=locale))
+
+
+def test_a_question_about_a_node_this_response_settled_is_replaced_with_the_next():
+    o = _settled("Chennai, India", "I was born in Chennai, India.")
+    assert o["reply"]["en"] == "Got it. What is your country of citizenship or nationality?"
+    assert o["asking"] == {"node_id": "q_p2_nationality", "field_ids": ["p2.country_of_nationality"]}
+    assert o["asking_dropped"]["question_replaced_with"] == "q_p2_nationality"
+
+
+def test_when_the_floor_drops_the_settling_fact_the_question_stays():
+    o = _settled("born in Chennai, India", "I was born February 2 in Chennai, India.")
+    assert o["reply"]["en"] == "Got it. What is your country of birth?"
+
+
+def test_the_interview_locale_is_the_one_replaced():
+    ag_es = AG.replace("What is your country of citizenship or nationality?", "¿De qué país es ciudadana?")
+    t = json.dumps({"facts": [{"field_id": "p2.country_of_birth", "value": "Mexico", "provenance": {"utterance": "México"}}],
+                    "asking": {"node_id": "q_p2_country_of_birth", "field_ids": ["p2.country_of_birth"]},
+                    "reply": {"es": "Anotado, México. ¿En qué país nació?", "en": "Noted, Mexico. What country were you born in?"}})
+    o = json.loads(guard_response_text(t, ag_es, "t3", user_content="Nací en México.", locale="es"))
+    assert o["reply"]["es"] == "Anotado, México. ¿De qué país es ciudadana?"
+    assert o["reply"]["en"] == "Noted, Mexico. What country were you born in?", "only the interview locale is spoken"
+
+
+# --- v45: the floor's date equivalence and same-city state (round 7 C) -------
+
+@pytest.mark.parametrize("value,said,ok", [
+    ("2025-05-09", "May 9th to May 14th, 2025", True),
+    ("2025-05-14", "May 9th to May 14th, 2025", True),
+    ("2025-05-19", "May 9th to May 14th, 2025", False),   # a day she did not say
+    ("2024-05-09", "May 9th to May 14th, 2025", False),   # a year she did not say
+    ("2023-12", "salí en diciembre de 2023", True),
+])
+def test_a_normalized_date_is_her_words_when_month_day_and_year_are(value, said, ok):
+    assert _date_said(value, said) is ok
+
+
+LINES = ["yeah so right now i'm on rigsby, 4410 rigsby, san antonio, texas 78222", "all san antonio"]
+
+
+@pytest.mark.parametrize("value,cited,ok", [
+    ("TX", "All San Antonio", True),    # her own line paired San Antonio with Texas
+    ("FL", "All San Antonio", False),   # a state she never said
+    ("TX", "All Houston", False),       # a city she never paired with it
+])
+def test_a_state_is_her_words_only_when_she_paired_that_city_with_it(value, cited, ok):
+    assert _state_paired({"field_id": "p4.prior_address1.state"}, value, cited, LINES) is ok
+
+
+# --- v45: occupations (round 7 D) -------------------------------------------
+
+from app.services.n400_interviewer_guard import fix_occupations  # noqa: E402
+
+
+@pytest.mark.parametrize("value,expect", [
+    ("Self-employed", None),                              # who employs him, not the work
+    ("Self-employed, delivery driver", "Delivery driver"),
+    ("Delivery driver", "Delivery driver"),
+])
+def test_occupation_is_the_work_never_self_employed(value, expect):
+    t = json.dumps({"facts": [{"field_id": "p7.employer2.occupation", "value": value}]})
+    got = {f["field_id"]: f["value"] for f in json.loads(fix_occupations(t, "")[0])["facts"]}
+    assert got.get("p7.employer2.occupation") == expect
+
+
+def test_a_current_idle_row_on_file_is_not_overwritten_by_a_job_word():
+    known = "p7.employer1.occupation: Retired\np7.employer1.to: present\n"
+    for value in ("Costurera, jubilada", "Costurera"):   # rosa-r7 t65's exact value, and a plain job word
+        t = json.dumps({"facts": [{"field_id": "p7.employer1.occupation", "value": value}]})
+        out = json.loads(fix_occupations(t, known)[0])
+        assert out["facts"] == [] and out["facts_dropped"][0]["field_id"] == "p7.employer1.occupation", value
+    same = json.dumps({"facts": [{"field_id": "p7.employer1.occupation", "value": "Jubilada"}]})
+    assert json.loads(fix_occupations(same, known)[0])["facts"], "the idle word itself re-files fine"

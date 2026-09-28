@@ -1,0 +1,1208 @@
+[
+ {
+  "case": "v7-occupation-not-self",
+  "run": "spectrum-jorge-r7.json",
+  "wire_index": 27,
+  "turn": 28,
+  "user_content": "Framing for Alamo Builders, and I do DoorDash on weekends, and before that I was at the Amazon warehouse for like three years",
+  "rep": 0,
+  "version": 44,
+  "stop": "end_turn",
+  "out": 1471,
+  "secs": 12.2,
+  "raw": "Looking at what he said: three jobs at once. Alamo Builders (framing, current), DoorDash (self-employed, weekends, current), and Amazon warehouse before that (about three years). I need occupation, city/state/zip for Alamo, mark DoorDash as self-employed with no workplace ZIP needed, and get Amazon's dates.\n\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_028\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\"field_id\": \"p7.employer1.employer_name\", \"value\": \"Alamo Builders\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Framing for Alamo Builders\"}},\n    {\"field_id\": \"p7.employer1.occupation\", \"value\": \"Framing\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Framing for Alamo Builders\"}},\n    {\"field_id\": \"p7.employer1.to\", \"value\": \"present\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"Framing for Alamo Builders, and I do DoorDash on weekends\"}},\n    {\"field_id\": \"p7.employer2.employer_name\", \"value\": \"Self-employed (DoorDash)\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"I do DoorDash on weekends\"}},\n    {\"field_id\": \"p7.employer2.occupation\", \"value\": \"Delivery driver\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.8, \"utterance\": \"I do DoorDash on weekends\"}},\n    {\"field_id\": \"p7.employer2.to\", \"value\": \"present\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.8, \"utterance\": \"I do DoorDash on weekends\"}},\n    {\"field_id\": \"p7.employer2.postal_code\", \"value\": \"\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.9, \"utterance\": \"I do DoorDash on weekends\"}},\n    {\"field_id\": \"p7.has_job2\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.9, \"utterance\": \"and before that I was at the Amazon warehouse for like three years\"}},\n    {\"field_id\": \"p7.employer3.employer_name\", \"value\": \"Amazon\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"before that I was at the Amazon warehouse for like three years\"}}\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p7.employer1.city\", \"reason\": \"not yet given\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p7.employer1.state\", \"reason\": \"not yet given\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p7.employer1.postal_code\", \"reason\": \"not yet given\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p7.employer1.from\", \"reason\": \"not yet given\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p7.employer3.from\", \"reason\": \"vague, about three years, needs exact dates\", \"partial_value\": \"three years\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p7.employer3.to\", \"reason\": \"vague, about three years, needs exact dates\", \"partial_value\": \"three years\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p7_job1\", \"field_ids\": [\"p7.employer1.city\", \"p7.employer1.state\", \"p7.employer1.postal_code\", \"p7.employer1.from\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"Alamo Builders, framing, and DoorDash on weekends, self-employed, both current, plus Amazon before that, got it. What city and state is Alamo Builders in, and when did you start there?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_028",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p7.employer1.employer_name",
+     "value": "Alamo Builders",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Framing for Alamo Builders"
+     }
+    },
+    {
+     "field_id": "p7.employer1.occupation",
+     "value": "Framing",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Framing for Alamo Builders"
+     }
+    },
+    {
+     "field_id": "p7.employer1.to",
+     "value": "present",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "Framing for Alamo Builders, and I do DoorDash on weekends"
+     }
+    },
+    {
+     "field_id": "p7.employer2.employer_name",
+     "value": "Self-employed (DoorDash)",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "I do DoorDash on weekends"
+     }
+    },
+    {
+     "field_id": "p7.employer2.occupation",
+     "value": "Delivery driver",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.8,
+      "utterance": "I do DoorDash on weekends"
+     }
+    },
+    {
+     "field_id": "p7.employer2.to",
+     "value": "present",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.8,
+      "utterance": "I do DoorDash on weekends"
+     }
+    },
+    {
+     "field_id": "p7.employer2.postal_code",
+     "value": "",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.9,
+      "utterance": "I do DoorDash on weekends"
+     }
+    },
+    {
+     "field_id": "p7.has_job2",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.9,
+      "utterance": "and before that I was at the Amazon warehouse for like three years"
+     }
+    },
+    {
+     "field_id": "p7.employer3.employer_name",
+     "value": "Amazon",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "before that I was at the Amazon warehouse for like three years"
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p7.employer1.city",
+     "reason": "not yet given",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p7.employer1.state",
+     "reason": "not yet given",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p7.employer1.postal_code",
+     "reason": "not yet given",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p7.employer1.from",
+     "reason": "not yet given",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p7.employer3.from",
+     "reason": "vague, about three years, needs exact dates",
+     "partial_value": "three years",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p7.employer3.to",
+     "reason": "vague, about three years, needs exact dates",
+     "partial_value": "three years",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p7_job1",
+    "field_ids": [
+     "p7.employer1.city",
+     "p7.employer1.state",
+     "p7.employer1.postal_code",
+     "p7.employer1.from"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Alamo Builders, framing, and DoorDash on weekends, self-employed, both current, plus Amazon before that, got it. What city and state is Alamo Builders in, and when did you start there?"
+   }
+  }
+ },
+ {
+  "case": "v7-occupation-not-self",
+  "run": "spectrum-jorge-r7.json",
+  "wire_index": 27,
+  "turn": 28,
+  "user_content": "Framing for Alamo Builders, and I do DoorDash on weekends, and before that I was at the Amazon warehouse for like three years",
+  "rep": 1,
+  "version": 44,
+  "stop": "end_turn",
+  "out": 1128,
+  "secs": 9.6,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_028\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\"field_id\": \"p7.employer1.employer_name\", \"value\": \"Alamo Builders\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Framing for Alamo Builders\"}},\n    {\"field_id\": \"p7.employer1.occupation\", \"value\": \"Framing\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Framing for Alamo Builders\"}},\n    {\"field_id\": \"p7.employer1.to\", \"value\": \"present\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.8, \"utterance\": \"Framing for Alamo Builders\"}},\n    {\"field_id\": \"p7.employer2.employer_name\", \"value\": \"DoorDash, self-employed\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"I do DoorDash on weekends\"}},\n    {\"field_id\": \"p7.employer2.occupation\", \"value\": \"Delivery driver\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.75, \"utterance\": \"I do DoorDash on weekends\"}},\n    {\"field_id\": \"p7.employer2.to\", \"value\": \"present\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.75, \"utterance\": \"I do DoorDash on weekends\"}},\n    {\"field_id\": \"p7.employer3.employer_name\", \"value\": \"Amazon warehouse\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"before that I was at the Amazon warehouse for like three years\"}},\n    {\"field_id\": \"p7.has_job2\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.9, \"utterance\": \"and before that I was at the Amazon warehouse for like three years\"}}\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p7.employer1.from\", \"reason\": \"start date at Alamo Builders not yet given\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p7.employer3.from\", \"reason\": \"Amazon warehouse start date, said about three years\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p7.employer3.to\", \"reason\": \"Amazon warehouse end date not yet given\", \"partial_value\": null, \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p7_job1\", \"field_ids\": [\"p7.employer1.city\", \"p7.employer1.state\", \"p7.employer1.postal_code\", \"p7.employer1.from\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\"en\": \"Got it, Alamo Builders for framing, DoorDash on weekends, and Amazon warehouse before that for about three years. What city and state is Alamo Builders in, and when did you start there?\"}\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_028",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p7.employer1.employer_name",
+     "value": "Alamo Builders",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Framing for Alamo Builders"
+     }
+    },
+    {
+     "field_id": "p7.employer1.occupation",
+     "value": "Framing",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Framing for Alamo Builders"
+     }
+    },
+    {
+     "field_id": "p7.employer1.to",
+     "value": "present",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.8,
+      "utterance": "Framing for Alamo Builders"
+     }
+    },
+    {
+     "field_id": "p7.employer2.employer_name",
+     "value": "DoorDash, self-employed",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "I do DoorDash on weekends"
+     }
+    },
+    {
+     "field_id": "p7.employer2.occupation",
+     "value": "Delivery driver",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.75,
+      "utterance": "I do DoorDash on weekends"
+     }
+    },
+    {
+     "field_id": "p7.employer2.to",
+     "value": "present",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.75,
+      "utterance": "I do DoorDash on weekends"
+     }
+    },
+    {
+     "field_id": "p7.employer3.employer_name",
+     "value": "Amazon warehouse",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "before that I was at the Amazon warehouse for like three years"
+     }
+    },
+    {
+     "field_id": "p7.has_job2",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.9,
+      "utterance": "and before that I was at the Amazon warehouse for like three years"
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p7.employer1.from",
+     "reason": "start date at Alamo Builders not yet given",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p7.employer3.from",
+     "reason": "Amazon warehouse start date, said about three years",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p7.employer3.to",
+     "reason": "Amazon warehouse end date not yet given",
+     "partial_value": null,
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p7_job1",
+    "field_ids": [
+     "p7.employer1.city",
+     "p7.employer1.state",
+     "p7.employer1.postal_code",
+     "p7.employer1.from"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Got it, Alamo Builders for framing, DoorDash on weekends, and Amazon warehouse before that for about three years. What city and state is Alamo Builders in, and when did you start there?"
+   }
+  }
+ },
+ {
+  "case": "v7-occupation-not-self",
+  "run": "spectrum-jorge-r7.json",
+  "wire_index": 27,
+  "turn": 28,
+  "user_content": "Framing for Alamo Builders, and I do DoorDash on weekends, and before that I was at the Amazon warehouse for like three years",
+  "rep": 2,
+  "version": 44,
+  "stop": "end_turn",
+  "out": 1200,
+  "secs": 10.3,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_028\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\"field_id\": \"p7.employer1.employer_name\", \"value\": \"Alamo Builders\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Framing for Alamo Builders\"}},\n    {\"field_id\": \"p7.employer1.occupation\", \"value\": \"Framing\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Framing for Alamo Builders\"}},\n    {\"field_id\": \"p7.employer1.to\", \"value\": \"present\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Framing for Alamo Builders, and I do DoorDash on weekends\"}},\n    {\"field_id\": \"p7.employer2.employer_name\", \"value\": \"DoorDash\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"I do DoorDash on weekends\"}},\n    {\"field_id\": \"p7.employer2.occupation\", \"value\": \"Self-employed, DoorDash driver\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.85, \"utterance\": \"I do DoorDash on weekends\"}},\n    {\"field_id\": \"p7.employer2.to\", \"value\": \"present\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"I do DoorDash on weekends\"}},\n    {\"field_id\": \"p7.has_job2\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.9, \"utterance\": \"and before that I was at the Amazon warehouse for like three years\"}},\n    {\"field_id\": \"p7.employer3.employer_name\", \"value\": \"Amazon\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"before that I was at the Amazon warehouse for like three years\"}}\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p7.employer1.from\", \"reason\": \"exact start date to verify\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p7.employer2.from\", \"reason\": \"exact start date to verify\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p7.employer3.from\", \"reason\": \"exact dates to verify\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p7.employer3.to\", \"reason\": \"exact dates to verify\", \"partial_value\": \"about three years at Amazon before current jobs\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p7_job1\", \"field_ids\": [\"p7.employer1.city\", \"p7.employer1.state\", \"p7.employer1.postal_code\", \"p7.employer3.city\", \"p7.employer3.state\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"Alamo Builders, framing, and DoorDash on weekends, both ongoing, plus Amazon warehouse before that for about three years, noted. What city and state is Alamo Builders in, and the same for the Amazon warehouse?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_028",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p7.employer1.employer_name",
+     "value": "Alamo Builders",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Framing for Alamo Builders"
+     }
+    },
+    {
+     "field_id": "p7.employer1.occupation",
+     "value": "Framing",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Framing for Alamo Builders"
+     }
+    },
+    {
+     "field_id": "p7.employer1.to",
+     "value": "present",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Framing for Alamo Builders, and I do DoorDash on weekends"
+     }
+    },
+    {
+     "field_id": "p7.employer2.employer_name",
+     "value": "DoorDash",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "I do DoorDash on weekends"
+     }
+    },
+    {
+     "field_id": "p7.employer2.occupation",
+     "value": "DoorDash driver",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.85,
+      "utterance": "I do DoorDash on weekends"
+     }
+    },
+    {
+     "field_id": "p7.employer2.to",
+     "value": "present",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "I do DoorDash on weekends"
+     }
+    },
+    {
+     "field_id": "p7.has_job2",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.9,
+      "utterance": "and before that I was at the Amazon warehouse for like three years"
+     }
+    },
+    {
+     "field_id": "p7.employer3.employer_name",
+     "value": "Amazon",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "before that I was at the Amazon warehouse for like three years"
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p7.employer1.from",
+     "reason": "exact start date to verify",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p7.employer2.from",
+     "reason": "exact start date to verify",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p7.employer3.from",
+     "reason": "exact dates to verify",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p7.employer3.to",
+     "reason": "exact dates to verify",
+     "partial_value": "about three years at Amazon before current jobs",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p7_job1",
+    "field_ids": [
+     "p7.employer1.city",
+     "p7.employer1.state",
+     "p7.employer1.postal_code",
+     "p7.employer3.city",
+     "p7.employer3.state"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Alamo Builders, framing, and DoorDash on weekends, both ongoing, plus Amazon warehouse before that for about three years, noted. What city and state is Alamo Builders in, and the same for the Amazon warehouse?"
+   }
+  }
+ },
+ {
+  "case": "v7-occupation-not-self",
+  "run": "spectrum-jorge-r7.json",
+  "wire_index": 27,
+  "turn": 28,
+  "user_content": "Framing for Alamo Builders, and I do DoorDash on weekends, and before that I was at the Amazon warehouse for like three years",
+  "rep": 0,
+  "version": 45,
+  "stop": "end_turn",
+  "out": 1207,
+  "secs": 9.6,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_028\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\"field_id\": \"p7.employer1.employer_name\", \"value\": \"Alamo Builders\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Framing for Alamo Builders\"}},\n    {\"field_id\": \"p7.employer1.occupation\", \"value\": \"Framing\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Framing for Alamo Builders\"}},\n    {\"field_id\": \"p7.employer1.to\", \"value\": \"present\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.8, \"utterance\": \"Framing for Alamo Builders, and I do DoorDash on weekends\"}},\n    {\"field_id\": \"p7.employer2.employer_name\", \"value\": \"DoorDash\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"I do DoorDash on weekends\"}},\n    {\"field_id\": \"p7.employer2.occupation\", \"value\": \"Self-employed\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"I do DoorDash on weekends\"}},\n    {\"field_id\": \"p7.employer2.to\", \"value\": \"present\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.75, \"utterance\": \"I do DoorDash on weekends\"}},\n    {\"field_id\": \"p7.has_job2\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"before that I was at the Amazon warehouse for like three years\"}},\n    {\"field_id\": \"p7.employer3.employer_name\", \"value\": \"Amazon\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"before that I was at the Amazon warehouse for like three years\"}}\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p7.employer1.from\", \"reason\": \"start date for framing job not yet given\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p7.employer2.from\", \"reason\": \"start date for DoorDash not yet given\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p7.employer3.from\", \"reason\": \"Amazon job dates not yet given, said about three years\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p7.employer3.to\", \"reason\": \"Amazon job end date not yet given\", \"partial_value\": null, \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p7_job1\", \"field_ids\": [\"p7.employer1.city\", \"p7.employer1.state\", \"p7.employer1.postal_code\", \"p7.employer1.from\", \"p7.employer2.from\", \"p7.employer3.from\", \"p7.employer3.to\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"Alamo Builders framing, DoorDash on weekends, and Amazon warehouse before that, all noted. What city and state is Alamo Builders in, and when did you start there?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_028",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p7.employer1.employer_name",
+     "value": "Alamo Builders",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Framing for Alamo Builders"
+     }
+    },
+    {
+     "field_id": "p7.employer1.occupation",
+     "value": "Framing",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Framing for Alamo Builders"
+     }
+    },
+    {
+     "field_id": "p7.employer1.to",
+     "value": "present",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.8,
+      "utterance": "Framing for Alamo Builders, and I do DoorDash on weekends"
+     }
+    },
+    {
+     "field_id": "p7.employer2.employer_name",
+     "value": "DoorDash",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "I do DoorDash on weekends"
+     }
+    },
+    {
+     "field_id": "p7.employer2.to",
+     "value": "present",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.75,
+      "utterance": "I do DoorDash on weekends"
+     }
+    },
+    {
+     "field_id": "p7.has_job2",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "before that I was at the Amazon warehouse for like three years"
+     }
+    },
+    {
+     "field_id": "p7.employer3.employer_name",
+     "value": "Amazon",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "before that I was at the Amazon warehouse for like three years"
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p7.employer1.from",
+     "reason": "start date for framing job not yet given",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p7.employer2.from",
+     "reason": "start date for DoorDash not yet given",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p7.employer3.from",
+     "reason": "Amazon job dates not yet given, said about three years",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p7.employer3.to",
+     "reason": "Amazon job end date not yet given",
+     "partial_value": null,
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p7_job1",
+    "field_ids": [
+     "p7.employer1.city",
+     "p7.employer1.state",
+     "p7.employer1.postal_code",
+     "p7.employer1.from",
+     "p7.employer2.from",
+     "p7.employer3.from",
+     "p7.employer3.to"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Alamo Builders framing, DoorDash on weekends, and Amazon warehouse before that, all noted. What city and state is Alamo Builders in, and when did you start there?"
+   },
+   "facts_dropped": [
+    {
+     "field_id": "p7.employer2.occupation",
+     "reason": "self-employed is who employs her, not the work"
+    }
+   ]
+  }
+ },
+ {
+  "case": "v7-occupation-not-self",
+  "run": "spectrum-jorge-r7.json",
+  "wire_index": 27,
+  "turn": 28,
+  "user_content": "Framing for Alamo Builders, and I do DoorDash on weekends, and before that I was at the Amazon warehouse for like three years",
+  "rep": 1,
+  "version": 45,
+  "stop": "end_turn",
+  "out": 1223,
+  "secs": 9.5,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_028\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\"field_id\": \"p7.employer1.employer_name\", \"value\": \"Alamo Builders\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Framing for Alamo Builders\"}},\n    {\"field_id\": \"p7.employer1.occupation\", \"value\": \"Framing\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Framing for Alamo Builders\"}},\n    {\"field_id\": \"p7.employer1.to\", \"value\": \"present\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.8, \"utterance\": \"Framing for Alamo Builders\"}},\n    {\"field_id\": \"p7.has_job2\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.9, \"utterance\": \"and I do DoorDash on weekends\"}},\n    {\"field_id\": \"p7.employer2.employer_name\", \"value\": \"DoorDash\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"I do DoorDash on weekends\"}},\n    {\"field_id\": \"p7.employer2.occupation\", \"value\": \"Self-employed\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"I do DoorDash on weekends\"}},\n    {\"field_id\": \"p7.employer2.to\", \"value\": \"present\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.75, \"utterance\": \"I do DoorDash on weekends\"}},\n    {\"field_id\": \"p7.has_job3\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.9, \"utterance\": \"before that I was at the Amazon warehouse for like three years\"}},\n    {\"field_id\": \"p7.employer3.employer_name\", \"value\": \"Amazon\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"before that I was at the Amazon warehouse for like three years\"}}\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p7.employer1.city\", \"reason\": \"not yet asked\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p7.employer1.from\", \"reason\": \"start date not yet given\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p7.employer3.from\", \"reason\": \"dates not yet given\", \"partial_value\": \"about three years\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p7.employer3.to\", \"reason\": \"dates not yet given\", \"partial_value\": \"about three years\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p7_job1\", \"field_ids\": [\"p7.employer1.city\", \"p7.employer1.state\", \"p7.employer1.postal_code\", \"p7.employer1.from\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"Alamo Builders framing, DoorDash weekends, and Amazon warehouse before that, all noted. What city and state is Alamo Builders in, and when did you start there?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_028",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p7.employer1.employer_name",
+     "value": "Alamo Builders",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Framing for Alamo Builders"
+     }
+    },
+    {
+     "field_id": "p7.employer1.occupation",
+     "value": "Framing",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Framing for Alamo Builders"
+     }
+    },
+    {
+     "field_id": "p7.employer1.to",
+     "value": "present",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.8,
+      "utterance": "Framing for Alamo Builders"
+     }
+    },
+    {
+     "field_id": "p7.has_job2",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.9,
+      "utterance": "and I do DoorDash on weekends"
+     }
+    },
+    {
+     "field_id": "p7.employer2.employer_name",
+     "value": "DoorDash",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "I do DoorDash on weekends"
+     }
+    },
+    {
+     "field_id": "p7.employer2.to",
+     "value": "present",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.75,
+      "utterance": "I do DoorDash on weekends"
+     }
+    },
+    {
+     "field_id": "p7.has_job3",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.9,
+      "utterance": "before that I was at the Amazon warehouse for like three years"
+     }
+    },
+    {
+     "field_id": "p7.employer3.employer_name",
+     "value": "Amazon",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "before that I was at the Amazon warehouse for like three years"
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p7.employer1.city",
+     "reason": "not yet asked",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p7.employer1.from",
+     "reason": "start date not yet given",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p7.employer3.from",
+     "reason": "dates not yet given",
+     "partial_value": "about three years",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p7.employer3.to",
+     "reason": "dates not yet given",
+     "partial_value": "about three years",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p7_job1",
+    "field_ids": [
+     "p7.employer1.city",
+     "p7.employer1.state",
+     "p7.employer1.postal_code",
+     "p7.employer1.from"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Alamo Builders framing, DoorDash weekends, and Amazon warehouse before that, all noted. What city and state is Alamo Builders in, and when did you start there?"
+   },
+   "facts_dropped": [
+    {
+     "field_id": "p7.employer2.occupation",
+     "reason": "self-employed is who employs her, not the work"
+    }
+   ]
+  }
+ },
+ {
+  "case": "v7-occupation-not-self",
+  "run": "spectrum-jorge-r7.json",
+  "wire_index": 27,
+  "turn": 28,
+  "user_content": "Framing for Alamo Builders, and I do DoorDash on weekends, and before that I was at the Amazon warehouse for like three years",
+  "rep": 2,
+  "version": 45,
+  "stop": "end_turn",
+  "out": 1097,
+  "secs": 8.9,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_028\",\n  \"intent\": {\"type\": \"volunteered_extra\"},\n  \"facts\": [\n    {\"field_id\": \"p7.employer1.employer_name\", \"value\": \"Alamo Builders\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Framing for Alamo Builders\"}},\n    {\"field_id\": \"p7.employer1.occupation\", \"value\": \"Framing\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Framing for Alamo Builders\"}},\n    {\"field_id\": \"p7.employer1.to\", \"value\": \"present\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"Framing for Alamo Builders, and I do DoorDash on weekends\"}},\n    {\"field_id\": \"p7.employer2.employer_name\", \"value\": \"DoorDash, self-employed\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"I do DoorDash on weekends\"}},\n    {\"field_id\": \"p7.employer2.occupation\", \"value\": \"Delivery driver\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.6, \"utterance\": \"I do DoorDash on weekends\"}},\n    {\"field_id\": \"p7.employer2.to\", \"value\": \"present\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.7, \"utterance\": \"I do DoorDash on weekends\"}},\n    {\"field_id\": \"p7.has_job2\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.9, \"utterance\": \"and I do DoorDash on weekends, and before that I was at the Amazon warehouse for like three years\"}},\n    {\"field_id\": \"p7.employer3.employer_name\", \"value\": \"Amazon warehouse\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.85, \"utterance\": \"before that I was at the Amazon warehouse for like three years\"}}\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p7.employer1.from\", \"reason\": \"start date at Alamo Builders not yet given\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p7.employer3.from\", \"reason\": \"Amazon warehouse dates not yet given, only duration mentioned\", \"partial_value\": \"about three years\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p7_job1\", \"field_ids\": [\"p7.employer1.city\", \"p7.employer1.state\", \"p7.employer1.postal_code\", \"p7.employer1.from\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"Alamo Builders, DoorDash, and Amazon before that, all noted. What city and state is Alamo Builders in, and when did you start there?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_028",
+   "intent": {
+    "type": "volunteered_extra"
+   },
+   "facts": [
+    {
+     "field_id": "p7.employer1.employer_name",
+     "value": "Alamo Builders",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Framing for Alamo Builders"
+     }
+    },
+    {
+     "field_id": "p7.employer1.occupation",
+     "value": "Framing",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Framing for Alamo Builders"
+     }
+    },
+    {
+     "field_id": "p7.employer1.to",
+     "value": "present",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "Framing for Alamo Builders, and I do DoorDash on weekends"
+     }
+    },
+    {
+     "field_id": "p7.employer2.employer_name",
+     "value": "DoorDash, self-employed",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "I do DoorDash on weekends"
+     }
+    },
+    {
+     "field_id": "p7.employer2.occupation",
+     "value": "Delivery driver",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.6,
+      "utterance": "I do DoorDash on weekends"
+     }
+    },
+    {
+     "field_id": "p7.employer2.to",
+     "value": "present",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.7,
+      "utterance": "I do DoorDash on weekends"
+     }
+    },
+    {
+     "field_id": "p7.has_job2",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.9,
+      "utterance": "and I do DoorDash on weekends, and before that I was at the Amazon warehouse for like three years"
+     }
+    },
+    {
+     "field_id": "p7.employer3.employer_name",
+     "value": "Amazon warehouse",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.85,
+      "utterance": "before that I was at the Amazon warehouse for like three years"
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p7.employer1.from",
+     "reason": "start date at Alamo Builders not yet given",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p7.employer3.from",
+     "reason": "Amazon warehouse dates not yet given, only duration mentioned",
+     "partial_value": "about three years",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p7_job1",
+    "field_ids": [
+     "p7.employer1.city",
+     "p7.employer1.state",
+     "p7.employer1.postal_code",
+     "p7.employer1.from"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Alamo Builders, DoorDash, and Amazon before that, all noted. What city and state is Alamo Builders in, and when did you start there?"
+   }
+  }
+ },
+ {
+  "case": "v7-retired-row-kept",
+  "run": "spectrum-rosa-r7.json",
+  "wire_index": 64,
+  "turn": 65,
+  "user_content": "Desde el dos mil quince. Era costurera.",
+  "rep": 0,
+  "version": 44,
+  "stop": "end_turn",
+  "out": 549,
+  "secs": 7.0,
+  "raw": "El \"dos mil quince\" y \"quince\" being separate numeral hits, this is clearly \"dos mil quince\" (2015) as one year word, not digits 2 and 15. So retirement start is 2015.\n\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_065\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p7.employer1.from\",\n      \"value\": \"2015\",\n      \"value_type\": \"date\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.7,\n        \"utterance\": \"Desde el dos mil quince. Era costurera.\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p7.employer1.from\",\n      \"reason\": \"solo dio el año de inicio de la jubilación, no el mes ni el día\",\n      \"partial_value\": \"2015\",\n      \"origin\": \"applicant\"\n    }\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p7_more_jobs1\", \"field_ids\": [\"p7.has_job2\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Anotado 2015, pendiente el mes exacto. Antes de esto, ¿trabajó o estudió en algún otro lugar en los últimos 5 años, o tuvo un período sin trabajo?\",\n    \"en\": \"Noted 2015, exact month pending. Before this, did you work or study anywhere else in the last 5 years, or have a period without work?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_065",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [],
+   "deferred": [
+    {
+     "field_id": "p7.employer1.from",
+     "reason": "solo dio el año de inicio de la jubilación, no el mes ni el día",
+     "partial_value": "2015",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p7_more_jobs1",
+    "field_ids": [
+     "p7.has_job2"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Anotado 2015, pendiente el mes exacto. Antes de esto, ¿trabajó o estudió en algún otro lugar en los últimos 5 años, o tuvo un período sin trabajo?",
+    "en": "Noted 2015, exact month pending. Before this, did you work or study anywhere else in the last 5 years, or have a period without work?"
+   },
+   "facts_dropped": [
+    {
+     "field_id": "p7.employer1.from",
+     "value": "2015",
+     "reason": "the same field was also deferred in this response by the applicant; the deferral stands and the fact is dropped"
+    }
+   ]
+  }
+ },
+ {
+  "case": "v7-retired-row-kept",
+  "run": "spectrum-rosa-r7.json",
+  "wire_index": 64,
+  "turn": 65,
+  "user_content": "Desde el dos mil quince. Era costurera.",
+  "rep": 1,
+  "version": 44,
+  "stop": "end_turn",
+  "out": 560,
+  "secs": 7.4,
+  "raw": "El nombre \"dos mil quince\" es un año, 2015, sin mes. p7.employer1.from no puede llevar ese año como fecha completa; lo correcto es preguntar el mes.\n\nTambién agrega su ocupación anterior, \"costurera\", que puedo registrar junto con el dato de jubilada.\n\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_065\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p7.employer1.occupation\",\n      \"value\": \"Retired, formerly costurera\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.7,\n        \"utterance\": \"Era costurera\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p7.employer1.from\",\n      \"reason\": \"sabe el año de jubilación pero no el mes\",\n      \"partial_value\": \"2015\",\n      \"origin\": \"applicant\"\n    }\n  ],\n  \"clarification\": {\n    \"field_id\": \"p7.employer1.from\",\n    \"question\": {\"es\": \"¿En qué mes de 2015 se jubiló?\", \"en\": \"What month in 2015 did you retire?\"}\n  },\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p7_job1\", \"field_ids\": [\"p7.employer1.from\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"¿En qué mes de 2015 se jubiló?\",\n    \"en\": \"What month in 2015 did you retire?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_065",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [],
+   "deferred": [
+    {
+     "field_id": "p7.employer1.from",
+     "reason": "sabe el año de jubilación pero no el mes",
+     "partial_value": "2015",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": {
+    "field_id": "p7.employer1.from",
+    "question": {
+     "es": "¿En qué mes de 2015 se jubiló?",
+     "en": "What month in 2015 did you retire?"
+    }
+   },
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p7_job1",
+    "field_ids": [
+     "p7.employer1.from"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "¿En qué mes de 2015 se jubiló?",
+    "en": "What month in 2015 did you retire?"
+   },
+   "facts_dropped": [
+    {
+     "field_id": "p7.employer1.occupation",
+     "reason": "a job word never overwrites a current idle row on file"
+    }
+   ]
+  }
+ },
+ {
+  "case": "v7-retired-row-kept",
+  "run": "spectrum-rosa-r7.json",
+  "wire_index": 64,
+  "turn": 65,
+  "user_content": "Desde el dos mil quince. Era costurera.",
+  "rep": 2,
+  "version": 44,
+  "stop": "end_turn",
+  "out": 472,
+  "secs": 6.3,
+  "raw": "Here's the JSON response:\n\n```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_065\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p7.employer1.occupation\",\n      \"value\": \"Costurera\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.9,\n        \"utterance\": \"Era costurera\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p7.employer1.from\",\n      \"reason\": \"sabe el año pero no el mes ni el día en que se jubiló\",\n      \"partial_value\": \"2015\",\n      \"origin\": \"applicant\"\n    }\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p7_more_jobs1\", \"field_ids\": [\"p7.has_job2\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Anotado 2015, pendiente el mes y día exactos. Antes de esto, ¿trabajó o estudió en algún otro lugar en los últimos 5 años?\",\n    \"en\": \"Noted 2015, pending the exact month and day. Before this, did you work or study anywhere else in the last 5 years?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_065",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [],
+   "deferred": [
+    {
+     "field_id": "p7.employer1.from",
+     "reason": "sabe el año pero no el mes ni el día en que se jubiló",
+     "partial_value": "2015",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p7_more_jobs1",
+    "field_ids": [
+     "p7.has_job2"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Anotado 2015, pendiente el mes y día exactos. Antes de esto, ¿trabajó o estudió en algún otro lugar en los últimos 5 años?",
+    "en": "Noted 2015, pending the exact month and day. Before this, did you work or study anywhere else in the last 5 years?"
+   },
+   "facts_dropped": [
+    {
+     "field_id": "p7.employer1.occupation",
+     "reason": "a job word never overwrites a current idle row on file"
+    }
+   ]
+  }
+ },
+ {
+  "case": "v7-retired-row-kept",
+  "run": "spectrum-rosa-r7.json",
+  "wire_index": 64,
+  "turn": 65,
+  "user_content": "Desde el dos mil quince. Era costurera.",
+  "rep": 0,
+  "version": 45,
+  "stop": "end_turn",
+  "out": 448,
+  "secs": 5.2,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_065\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p7.employer1.from\",\n      \"value\": \"2015\",\n      \"value_type\": \"date\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.7, \"utterance\": \"Desde el dos mil quince. Era costurera.\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p7.employer1.from\", \"reason\": \"exact month and day not given\", \"partial_value\": \"2015\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p7_more_jobs1\", \"field_ids\": [\"p7.has_job2\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Anotado 2015, pendiente el mes exacto. ¿Trabajó o estudió en algún otro lugar antes de esto, en los últimos 5 años, o tuvo un período sin trabajo?\",\n    \"en\": \"Noted 2015, pending the exact month. Did you work or study anywhere else before this, in the last 5 years, or have a period without work?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_065",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [],
+   "deferred": [
+    {
+     "field_id": "p7.employer1.from",
+     "reason": "exact month and day not given",
+     "partial_value": "2015",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p7_more_jobs1",
+    "field_ids": [
+     "p7.has_job2"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Anotado 2015, pendiente el mes exacto. ¿Trabajó o estudió en algún otro lugar antes de esto, en los últimos 5 años, o tuvo un período sin trabajo?",
+    "en": "Noted 2015, pending the exact month. Did you work or study anywhere else before this, in the last 5 years, or have a period without work?"
+   },
+   "facts_dropped": [
+    {
+     "field_id": "p7.employer1.from",
+     "value": "2015",
+     "reason": "the same field was also deferred in this response by the applicant; the deferral stands and the fact is dropped"
+    }
+   ]
+  }
+ },
+ {
+  "case": "v7-retired-row-kept",
+  "run": "spectrum-rosa-r7.json",
+  "wire_index": 64,
+  "turn": 65,
+  "user_content": "Desde el dos mil quince. Era costurera.",
+  "rep": 1,
+  "version": 45,
+  "stop": "end_turn",
+  "out": 443,
+  "secs": 5.2,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_065\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p7.employer1.from\",\n      \"value\": \"2015-01-01\",\n      \"value_type\": \"date\",\n      \"provenance\": {\n        \"source\": \"ai_extracted\",\n        \"confidence\": 0.5,\n        \"utterance\": \"Desde el dos mil quince.\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p7.employer1.from\", \"reason\": \"solo dio el año, falta el mes exacto\", \"partial_value\": \"2015\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p7_more_jobs1\", \"field_ids\": [\"p7.has_job2\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Anotado 2015, pendiente el mes exacto. Antes de eso, ¿trabajó o estudió en algún otro lugar en los últimos 5 años?\",\n    \"en\": \"Noted 2015, pending the exact month. Before that, did you work or study anywhere else in the last 5 years?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_065",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [],
+   "deferred": [
+    {
+     "field_id": "p7.employer1.from",
+     "reason": "solo dio el año, falta el mes exacto",
+     "partial_value": "2015",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p7_more_jobs1",
+    "field_ids": [
+     "p7.has_job2"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Anotado 2015, pendiente el mes exacto. Antes de eso, ¿trabajó o estudió en algún otro lugar en los últimos 5 años?",
+    "en": "Noted 2015, pending the exact month. Before that, did you work or study anywhere else in the last 5 years?"
+   },
+   "facts_dropped": [
+    {
+     "field_id": "p7.employer1.from",
+     "value": "2015-01-01",
+     "reason": "the same field was also deferred in this response by the applicant; the deferral stands and the fact is dropped"
+    }
+   ]
+  }
+ },
+ {
+  "case": "v7-retired-row-kept",
+  "run": "spectrum-rosa-r7.json",
+  "wire_index": 64,
+  "turn": 65,
+  "user_content": "Desde el dos mil quince. Era costurera.",
+  "rep": 2,
+  "version": 45,
+  "stop": "end_turn",
+  "out": 560,
+  "secs": 6.0,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_065\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p7.employer1.from\",\n      \"value\": \"2015\",\n      \"value_type\": \"date\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.7, \"utterance\": \"Desde el dos mil quince\"}\n    },\n    {\n      \"field_id\": \"p7.employer1.occupation\",\n      \"value\": \"Costurera, jubilada\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Era costurera\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p7.employer1.from\", \"reason\": \"solo dio el año, falta el mes exacto\", \"partial_value\": \"2015\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p7_more_jobs1\", \"field_ids\": [\"p7.has_job2\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Anotado, jubilada desde 2015, antes costurera. Eso cubre los últimos cinco años de trabajo. ¿Trabajó o estudió en algún otro lugar antes de eso, o tuvo un período sin trabajo?\",\n    \"en\": \"Noted, retired since 2015, previously a seamstress. That covers the last five years of work. Did you work or study anywhere else before that, or have a period without work?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_065",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [],
+   "deferred": [
+    {
+     "field_id": "p7.employer1.from",
+     "reason": "solo dio el año, falta el mes exacto",
+     "partial_value": "2015",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p7_more_jobs1",
+    "field_ids": [
+     "p7.has_job2"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Anotado, jubilada desde 2015, antes costurera. Eso cubre los últimos cinco años de trabajo. ¿Trabajó o estudió en algún otro lugar antes de eso, o tuvo un período sin trabajo?",
+    "en": "Noted, retired since 2015, previously a seamstress. That covers the last five years of work. Did you work or study anywhere else before that, or have a period without work?"
+   },
+   "facts_dropped": [
+    {
+     "field_id": "p7.employer1.occupation",
+     "reason": "a job word never overwrites a current idle row on file"
+    },
+    {
+     "field_id": "p7.employer1.from",
+     "value": "2015",
+     "reason": "the same field was also deferred in this response by the applicant; the deferral stands and the fact is dropped"
+    }
+   ]
+  }
+ }
+]

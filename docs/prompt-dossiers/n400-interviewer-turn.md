@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 44
+served_version: 45
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-09-28 (v44)
+reconciled: 2026-09-28 (v45)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1783,6 +1783,19 @@ CODE, which is most of v44:
 PROMPT: grouping adapts to the speaker; the sweep lists Parts 2, 4 and 7 before Part 9; every filed identifier is read back and phones in groups; no middle-name question after "no middle name"; children's names alike; recaps name every supported child; no day or other-job question before the window.
 
 Probe (`qa/n400_v44_probe.py`, live v43 requests, 3 reps): phone groups 1/3 to 3/3, retired stretch 1/3 to 2/3, Rosa sweep 2/3 to 3/3, address in passing 2/3 to 3/3; every filed identifier read back 0/3 to 0/3 and paragraph grouping at amina-r6 t10 0/3 to 0/3 (NOT moved by the prompt). The pattern since v41: the fixes that hold are code.
+
+## v45: round 7 on v44, the pace line, and more guards
+
+The auditor's round 7 on v44 (2026-09-28): Priya 100, Amina 100, Minh 99.2, Jorge 98.8, Rosa 98.4; turn counts UP for one-fact speakers; question_still_spoken 9 (was 11). facts_restored_by_support was 0 because Jev TIMED OUT from prod between 14:48 and 17:24 UTC (23 ReadTimeouts at the 2.0 s limit, breaker opened 17:24:36); timed afterwards at about 200 ms. The floor failed closed and was not exercised.
+
+CODE:
+- `replace_settled_question`: a trailing question about a node this response settled is replaced with the next agenda line's own question and asking points at it; it runs AFTER the evidence floor, so "settled" means a fact that survived (the first cut ran before it and would have skipped a question whose fact the floor then dropped). Only the interview locale is rewritten. Safe with streaming: the last sentence is always held.
+- The floor accepts a normalized date whose year, month and day are in her cited words (jorge-r7 t35), and a US state when one of her own lines paired that same city with it (the standing rule against completing a state from context stays; San Antonio is also in FL and NM).
+- `fix_occupations`: "Self-employed" is never the occupation (dropped, or stripped to the work), and a current row on file as an idle word is never overwritten by a value carrying a job word ("Costurera, jubilada" over "Retired", rosa-r7 t65, which v45's prompt line did NOT hold: 2/3 still overwrote in replay).
+
+PROMPT: the client's pace clause in APPLICANT CONTEXT (contract: "pace: one fact per turn" / "pace: full paragraphs", measured over her last four answering turns, sent from her third, held until the opposite condition) decides grouping mechanically; round 7's lane items.
+
+Probe (`qa/n400_v45_probe.py`, live v44 requests, pace injected): the settled-question, state and floor cases hold; the pace cases do not discriminate in replay (the standing line was already one fact; with paragraphs the pace clause and the no-pace control both grouped 2/3), so round 8 with the client sending the clause is the real test. Occupation and retired-row were fixed by the guards, not the prompt.
 
 ## What is deliberately not here
 
