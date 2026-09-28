@@ -173,9 +173,68 @@ def drop_stale_asking(text: str, agenda: str | None) -> tuple[str, dict | None]:
     if not node_ids <= filled:
         return text, None
     info = {"node_id": node_id, "field_ids": sorted(node_ids), "reason": DROP_REASON}
+    # The model named THIS node as the one it was asking, and this same
+    # response filled it. If the reply still ends on a question, that
+    # question is about a settled node, while the client falls back to the
+    # next agenda node that was never spoken (priya-r6 t8, 2026-09-28): what
+    # she hears and where the client stands disagree for a turn. Marked so it
+    # can be counted; the words themselves are the prompt's to fix.
+    info["question_still_spoken"] = _reply_ends_on_question(turn.get("reply"))
     turn["asking"] = None
     turn["asking_dropped"] = info
     return json.dumps(turn, ensure_ascii=False), info
+
+
+def _reply_ends_on_question(reply) -> bool:
+    texts = list(reply.values()) if isinstance(reply, dict) else [reply]
+    return any(isinstance(t, str) and t.rstrip().rstrip("\"'”’)»").endswith("?") for t in texts)
+
+
+# --- a stated trip count closes the list (rosa-r4 t46, 2026-09-28) ----------
+#
+# "She went to Guadalajara twice" plus both trips filed, and the lane never
+# minted p8.has_trip3 "no", so the client's agenda kept asking. A prompt line
+# minted it 0 of 3. The client will not derive it (Scott: the lane never
+# judges coverage), and agreed GP may when HER words state the count: this
+# fires only on a count she said, never on the lane's own "Part 8 is done".
+_TRIP_COUNT_WORDS = {
+    # Not "once" or "una vez": both are everyday conjunctions ("once I got
+    # back", "una vez que"), and a trip row filed in the same turn would
+    # close the list on a word that was never a count.
+    "one time": 1, "un solo viaje": 1, "one trip": 1, "only one trip": 1,
+    "twice": 2, "two times": 2, "dos veces": 2, "two trips": 2, "dos viajes": 2,
+    "three times": 3, "tres veces": 3, "three trips": 3, "tres viajes": 3,
+    "four times": 4, "cuatro veces": 4, "four trips": 4, "cuatro viajes": 4,
+}
+_TRIP_ROW = re.compile(r"^p8\.trip(\d+)\.")
+
+
+def close_trips_on_stated_count(text: str, user_content: str | None) -> tuple[str, dict | None]:
+    """When her words state a trip count N and this response files trip N
+    (the last row), mint p8.has_trip(N+1) "no" citing her count words."""
+    if not user_content:
+        return text, None
+    said = unicodedata.normalize("NFKC", user_content).lower()
+    hits = [(w, n) for w, n in _TRIP_COUNT_WORDS.items() if re.search(rf"\b{re.escape(w)}\b", said)]
+    if len({n for _, n in hits}) != 1:
+        return text, None   # no count, or two different counts: not ours to decide
+    word, count = max(hits, key=lambda h: len(h[0]))
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, None
+    if not isinstance(turn, dict) or not isinstance(turn.get("facts"), list):
+        return text, None
+    rows = {int(m.group(1)) for f in turn["facts"] if isinstance(f, dict)
+            for m in [_TRIP_ROW.match(str(f.get("field_id") or ""))] if m}
+    gate = f"p8.has_trip{count + 1}"
+    if count not in rows or any(isinstance(f, dict) and f.get("field_id") == gate for f in turn["facts"]):
+        return text, None
+    start = said.find(word)
+    turn["facts"].append({"field_id": gate, "value": "no", "value_type": "string",
+                          "provenance": {"source": "user_stated", "confidence": 0.9,
+                                         "utterance": user_content[start:start + len(word)]}})
+    return json.dumps(turn, ensure_ascii=False), {"field_id": gate, "count": count}
 
 
 # --- the evidence floor, server side --------------------------------------
@@ -547,9 +606,15 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
     new_text, info = drop_stale_asking(text, agenda)
     if info is not None:
         logger.warning(
-            "n400_asking_dropped turn_id=%s node_id=%s field_ids=%s",
-            turn_id, info["node_id"], ",".join(info["field_ids"]),
+            "n400_asking_dropped turn_id=%s node_id=%s field_ids=%s question_still_spoken=%s",
+            turn_id, info["node_id"], ",".join(info["field_ids"]), info.get("question_still_spoken"),
         )
+    # Before the evidence floor, which then checks the minted gate's citation
+    # (her count words, in THIS utterance) like any other fact.
+    new_text, closed = close_trips_on_stated_count(new_text, user_content)
+    if closed is not None:
+        logger.warning("n400_trips_closed_on_stated_count turn_id=%s field_id=%s count=%d",
+                       turn_id, closed["field_id"], closed["count"])
     if user_content is not None:
         new_text, dropped = drop_facts_without_current_evidence(
             new_text, user_content, conversation)
