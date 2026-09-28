@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 40
+served_version: 41
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-09-27 (v40)
+reconciled: 2026-09-28 (v41)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
