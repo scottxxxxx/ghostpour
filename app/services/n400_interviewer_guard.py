@@ -432,10 +432,118 @@ def drop_facts_that_are_also_deferred(text: str) -> tuple[str, list[dict]]:
     return json.dumps(turn, ensure_ascii=False), dropped + resolved
 
 
+# --- an identifier read back must be the identifier filed -------------------
+#
+# spectrum-minh-r4 t17 (2026-09-28): he said "627... 18... 4402", the lane
+# filed p2.ssn = 627184402, and the reply said "9 2 7 1 8 4 4 0 2". The card
+# was right and the sentence was wrong, so he "corrected" a correct value.
+# A read-back exists so she can catch OUR mistake; a misspoken one invents a
+# mistake instead. The filed value wins (Scott's sentence-vs-card ruling).
+#
+# ⚠ This is the one guard that rewrites SPOKEN text, which the sentence
+# stream's design assumed none did. So the same function runs in two places
+# on the same input: per sentence before release (n400_sentence_stream), and
+# here at the top of the tail, on the model's OWN facts before any other
+# guard drops one, so both see identical facts and what she heard is exactly
+# the prefix of the final reply.
+IDENTIFIER_FIELDS = (
+    "p2.ssn", "p1.a_number", "p2.uscis_account_number", "p5.spouse_a_number",
+    "p11.daytime_phone", "p11.mobile_phone",
+)
+# Digits joined by at most two separator characters: "9 2 7 1 8 4 4 0 2",
+# "627-18-4402", "(214) 555-0177", "A 2 1 4 4 4 3 2 1 0".
+_DIGIT_RUN = re.compile(r"\d(?:[\s\-.,()]{0,2}\d)+")
+# A run shorter than this is a date part, a street number or a count.
+_MIN_IDENTIFIER_DIGITS = 7
+# How many digits may differ for a run to count as a misspoken read-back of
+# a filed identifier rather than some other number that happens to share a
+# length. Minh's was one digit.
+_MAX_MISSPOKEN_DIGITS = 2
+
+
+def _identifier_digits(facts) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for f in facts or []:
+        if isinstance(f, dict) and f.get("field_id") in IDENTIFIER_FIELDS:
+            digits = re.sub(r"\D", "", str(f.get("value") or ""))
+            if len(digits) >= _MIN_IDENTIFIER_DIGITS:
+                out[f["field_id"]] = digits
+    return out
+
+
+def correct_identifier_readback(spoken: str, facts) -> tuple[str, list[dict]]:
+    """Rewrite any digit run in `spoken` that is a near miss of an identifier
+    filed in the same response, digit for digit, keeping the spoken layout.
+
+    Pure: the stream calls it per sentence and the tail on the whole reply,
+    and a run never spans a sentence break, so both give the same text. A
+    run equal to a filed value, of a different length, or more than
+    _MAX_MISSPOKEN_DIGITS away from every filed value is left alone.
+    """
+    filed = _identifier_digits(facts)
+    if not filed or not isinstance(spoken, str):
+        return spoken, []
+    changes: list[dict] = []
+
+    def fix(m: re.Match) -> str:
+        run = m.group(0)
+        digits = re.sub(r"\D", "", run)
+        if len(digits) < _MIN_IDENTIFIER_DIGITS or digits in filed.values():
+            return run
+        best = None
+        for field_id, value in filed.items():
+            if len(value) != len(digits):
+                continue
+            distance = sum(a != b for a, b in zip(value, digits))
+            if distance <= _MAX_MISSPOKEN_DIGITS and (best is None or distance < best[1]):
+                best = (field_id, distance, value)
+        if best is None:
+            return run
+        it = iter(best[2])
+        fixed = "".join(next(it) if ch.isdigit() else ch for ch in run)
+        # Shapes only: these are SSNs and A-Numbers, and they never go to a log.
+        changes.append({"field_id": best[0], "digits_differing": best[1]})
+        return fixed
+
+    return _DIGIT_RUN.sub(fix, spoken), changes
+
+
+def correct_identifier_readbacks(text: str) -> tuple[str, list[dict]]:
+    """The tail's half: every locale of `reply`, against the response's own
+    facts. Anything that is not the lane's object passes through untouched."""
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, []
+    if not isinstance(turn, dict):
+        return text, []
+    reply, facts = turn.get("reply"), turn.get("facts")
+    all_changes: list[dict] = []
+    if isinstance(reply, dict):
+        for locale, spoken in list(reply.items()):
+            fixed, changes = correct_identifier_readback(spoken, facts)
+            if changes:
+                reply[locale] = fixed
+                all_changes += changes
+    elif isinstance(reply, str):
+        fixed, all_changes = correct_identifier_readback(reply, facts)
+        if all_changes:
+            turn["reply"] = fixed
+    if not all_changes:
+        return text, []
+    return json.dumps(turn, ensure_ascii=False), all_changes
+
+
 def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
                         user_content: str | None = None,
                         conversation: str | None = None,
                         choice_fields=None) -> str:
+    # FIRST, on the model's own facts: the stream corrected each released
+    # sentence against these same facts, before any guard below drops one.
+    text, readbacks = correct_identifier_readbacks(text)
+    for c in readbacks:
+        logger.warning("n400_identifier_readback_corrected turn_id=%s field_id=%s digits_differing=%d",
+                       turn_id, c["field_id"], c["digits_differing"])
     new_text, info = drop_stale_asking(text, agenda)
     if info is not None:
         logger.warning(
