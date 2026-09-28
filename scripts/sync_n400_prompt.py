@@ -405,6 +405,29 @@ VERSIONS = {
         ],
         "absent": [],
     },
+    43: {
+        # Round 5 on v42 (the auditor, 2026-09-28), probed from LIVE v42
+        # requests. Grouping scoped to the next short-fact lines; a gate
+        # question names its row; an address in passing is a row; app work's
+        # ZIP is confirmed empty; volunteer fields are never questions; the
+        # sweep says the day; five years covered opens the next part; stated
+        # names filed; no proposed surnames; no "Since" openers. Code: the
+        # stated trip count closes the list, question_still_spoken.
+        "block_anchor": "SECTION CHECKPOINTS\nA part is done when SECTION BOUNDARY is present",
+        "once": "VOLUNTEER FIELDS IS FOR FILING WHAT SHE VOLUNTEERS, NEVER A LIST OF QUESTIONS",
+        "phrases": [
+            "GROUP THE NEXT TWO OR THREE SHORT-FACT LINES ON THE AGENDA",
+            "A GATE QUESTION NAMES THE ROW IT FOLLOWS",
+            "has NO workplace address to complete",
+            "is missing its DAY, so say",
+            "ONCE YOU HAVE SAID IT COVERS FIVE YEARS, OF JOBS OR OF ADDRESSES",
+            "a name she STATES is FILED, never re-deferred",
+            "never propose a surname she did not say",
+            "trip dates go to the row whose COUNTRY they belong to",
+            "a question never begins \"Since\" followed by her earlier answer",
+        ],
+        "absent": [],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -420,6 +443,9 @@ VERSIONS[41]["absent"] = VERSIONS[40]["absent"] + VERSIONS[41]["absent"]
 # v42 carries every v41 phrase.
 VERSIONS[42]["phrases"] = VERSIONS[41]["phrases"] + VERSIONS[42]["phrases"]
 VERSIONS[42]["absent"] = VERSIONS[41]["absent"] + VERSIONS[42]["absent"]
+# v43 carries every v42 phrase.
+VERSIONS[43]["phrases"] = VERSIONS[42]["phrases"] + VERSIONS[43]["phrases"]
+VERSIONS[43]["absent"] = VERSIONS[42]["absent"] + VERSIONS[43]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]
