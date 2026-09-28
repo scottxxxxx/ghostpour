@@ -221,8 +221,11 @@ def test_locales_agree_on_top_level_fields():
     en = _load("config/remote/llm-providers.json")
     es = _load("config/remote/llm-providers.es.json")
     ja = _load("config/remote/llm-providers.ja.json")
+    # fr was missing from every agreement check until 2026-09-28: a sabotage
+    # added a level to the French file alone and only the level test noticed.
+    fr = _load("config/remote/llm-providers.fr.json")
     en_top = {k: v for k, v in en.items() if k != "providers"}
-    for variant_name, variant in (("es", es), ("ja", ja)):
+    for variant_name, variant in (("es", es), ("ja", ja), ("fr", fr)):
         v_top = {k: v for k, v in variant.items() if k != "providers"}
         assert en_top == v_top, (
             f"{variant_name} top-level fields drift from en: "
@@ -237,6 +240,9 @@ def test_locales_agree_on_provider_level_fields():
     en = _load("config/remote/llm-providers.json")
     es = _load("config/remote/llm-providers.es.json")
     ja = _load("config/remote/llm-providers.ja.json")
+    # fr was missing from every agreement check until 2026-09-28: a sabotage
+    # added a level to the French file alone and only the level test noticed.
+    fr = _load("config/remote/llm-providers.fr.json")
 
     def _providers_by_id(data: dict) -> dict[str, dict]:
         return {
@@ -246,7 +252,7 @@ def test_locales_agree_on_provider_level_fields():
         }
 
     en_idx = _providers_by_id(en)
-    for variant_name, variant in (("es", es), ("ja", ja)):
+    for variant_name, variant in (("es", es), ("ja", ja), ("fr", fr)):
         v_idx = _providers_by_id(variant)
         assert set(en_idx) == set(v_idx), (
             f"{variant_name} has different provider set than en: "
@@ -273,6 +279,9 @@ def test_locales_agree_on_per_model_fields():
     en = _load("config/remote/llm-providers.json")
     es = _load("config/remote/llm-providers.es.json")
     ja = _load("config/remote/llm-providers.ja.json")
+    # fr was missing from every agreement check until 2026-09-28: a sabotage
+    # added a level to the French file alone and only the level test noticed.
+    fr = _load("config/remote/llm-providers.fr.json")
 
     def _models_by_id(data: dict) -> dict[str, dict]:
         out: dict[str, dict] = {}
@@ -282,7 +291,7 @@ def test_locales_agree_on_per_model_fields():
         return out
 
     en_idx = _models_by_id(en)
-    for variant_name, variant in (("es", es), ("ja", ja)):
+    for variant_name, variant in (("es", es), ("ja", ja), ("fr", fr)):
         v_idx = _models_by_id(variant)
         assert set(en_idx) == set(v_idx), (
             f"{variant_name} has different model set than en"
