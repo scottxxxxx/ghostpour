@@ -1,5 +1,5 @@
 {
- "version": 22,
+ "version": 23,
  "defaultPromptReserveTokens": 8000,
  "providers": [
   {
@@ -98,6 +98,107 @@
    "maxTokensDefault": 1024,
    "temperatureDefault": 0.7,
    "models": [
+    {
+     "id": "gpt-6-astra",
+     "displayName": "GPT-6 Astra",
+     "description": "OpenAI's most capable GPT-6 model; for the hardest problems, at a premium price. 922K context.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 922000,
+     "inputCostPerMillion": 10.0,
+     "outputCostPerMillion": 50.0,
+     "litellmKey": "gpt-6-astra",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "maxOutputTokens": 128000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 10,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le modèle GPT-6 le plus performant d'OpenAI ; pour les problèmes les plus difficiles, à un prix premium. Contexte de 922K."
+      }
+     }
+    },
+    {
+     "id": "gpt-6-sol",
+     "displayName": "GPT-6 Sol",
+     "description": "OpenAI's GPT-6 all-rounder; strong reasoning and coding at a mid-range price. 922K context.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 922000,
+     "inputCostPerMillion": 2.0,
+     "outputCostPerMillion": 10.0,
+     "litellmKey": "gpt-6-sol",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "maxOutputTokens": 128000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 10,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le GPT-6 polyvalent d'OpenAI ; raisonnement et codage solides à prix intermédiaire. Contexte de 922K."
+      }
+     }
+    },
+    {
+     "id": "gpt-6-luna",
+     "displayName": "GPT-6 Luna",
+     "description": "Small, fast GPT-6; very economical for lighter tasks. 922K context.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 922000,
+     "inputCostPerMillion": 0.1,
+     "outputCostPerMillion": 0.5,
+     "litellmKey": "gpt-6-luna",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "maxOutputTokens": 128000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 10,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "GPT-6 petit et rapide ; très économique pour les tâches légères. Contexte de 922K."
+      }
+     }
+    },
     {
      "id": "gpt-5.5",
      "displayName": "GPT-5.5",
@@ -356,6 +457,40 @@
    "temperatureDefault": 0.7,
    "models": [
     {
+     "id": "claude-fable-5-1",
+     "displayName": "Claude Fable 5.1",
+     "description": "Anthropic's most powerful model, the newest Fable; for the hardest reasoning and agentic work. 1M context.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 10.0,
+     "outputCostPerMillion": 50.0,
+     "litellmKey": "claude-fable-5-1",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "maxOutputTokens": 64000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": true,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le modèle le plus puissant d'Anthropic, le Fable le plus récent ; pour le raisonnement et le travail agentique les plus exigeants. Contexte de 1M."
+      }
+     }
+    },
+    {
      "id": "claude-fable-5",
      "displayName": "Claude Fable 5",
      "description": "Anthropic's most powerful model; new tier above Opus for the hardest reasoning and agentic work. 1M context.",
@@ -386,6 +521,40 @@
      "localizations": {
       "fr": {
        "description": "Le modèle le plus puissant d'Anthropic ; un nouveau palier au-dessus d'Opus pour le raisonnement et le travail agentique les plus exigeants. Contexte de 1M."
+      }
+     }
+    },
+    {
+     "id": "claude-opus-5-5",
+     "displayName": "Claude Opus 5.5",
+     "description": "Anthropic's newest Opus; top-tier coding, agentic and enterprise work with adaptive thinking. 1M context.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 4.0,
+     "outputCostPerMillion": 20.0,
+     "litellmKey": "claude-opus-5-5",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "maxOutputTokens": 64000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": true,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le tout dernier Opus d'Anthropic ; codage, travail agentique et d'entreprise haut de gamme, réflexion adaptative. Contexte de 1M."
       }
      }
     },
@@ -700,6 +869,70 @@
      }
     },
     {
+     "id": "gemini-3.8-flash",
+     "displayName": "Gemini 3.8 Flash",
+     "description": "Google's newest fast model. 1M context.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1048576,
+     "inputCostPerMillion": 0.75,
+     "outputCostPerMillion": 3.75,
+     "litellmKey": "gemini-3.8-flash",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 16,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le plus récent modèle rapide de Google. Contexte de 1M."
+      }
+     }
+    },
+    {
+     "id": "gemini-3.7-flash",
+     "displayName": "Gemini 3.7 Flash",
+     "description": "Google's fast model, one step behind 3.8 Flash. 1M context.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1048576,
+     "inputCostPerMillion": 0.75,
+     "outputCostPerMillion": 3.75,
+     "litellmKey": "gemini-3.7-flash",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 16,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le modèle rapide de Google, un cran derrière 3.8 Flash. Contexte de 1M."
+      }
+     }
+    },
+    {
      "id": "gemini-3.6-flash",
      "displayName": "Gemini 3.6 Flash",
      "description": "Google's newest fast model; improved quality and lower output cost than 3.5 Flash. 1M context.",
@@ -783,6 +1016,39 @@
    "maxTokensDefault": 1024,
    "temperatureDefault": 0.7,
    "models": [
+    {
+     "id": "grok-4.7",
+     "displayName": "Grok 4.7",
+     "description": "xAI's newest Grok; reasoning with real-time knowledge integration. 500K context.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 500000,
+     "inputCostPerMillion": 2.0,
+     "outputCostPerMillion": 6.0,
+     "litellmKey": "xai/grok-4.7",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "maxOutputTokens": 32768,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 4,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le Grok le plus récent de xAI ; raisonnement avec intégration de connaissances en temps réel. Contexte de 500K."
+      }
+     }
+    },
     {
      "id": "grok-4.3",
      "displayName": "Grok 4.3",
@@ -916,15 +1182,15 @@
    "temperatureDefault": 0.6,
    "models": [
     {
-     "id": "kimi-k2.5",
-     "displayName": "Kimi K2.5",
-     "description": "Flagship multimodal agentic model; 1T MoE, vision + video, strong tool use.",
+     "id": "kimi-k3",
+     "displayName": "Kimi K3",
+     "description": "Moonshot's newest flagship; multimodal reasoning with a 1M context.",
      "isDefault": true,
      "supportsVision": true,
-     "contextWindow": 262144,
-     "inputCostPerMillion": 0.6,
-     "outputCostPerMillion": 2.5,
-     "litellmKey": "moonshot/kimi-k2.5",
+     "contextWindow": 1048576,
+     "inputCostPerMillion": 3.0,
+     "outputCostPerMillion": 15.0,
+     "litellmKey": "moonshot/kimi-k3",
      "supportsReasoning": true,
      "reasoningLevels": [
       "default",
@@ -932,7 +1198,7 @@
       "enabled"
      ],
      "maxOutputTokens": 8192,
-     "temperatureDefault": 0.6,
+     "temperatureDefault": 1.0,
      "maxImagesPerRequest": 5,
      "streamingSupported": true,
      "toolUseSupported": true,
@@ -942,7 +1208,7 @@
      "reasoningFamily": "toggle",
      "localizations": {
       "fr": {
-       "description": "Modèle agentique multimodal phare ; MoE de 1T, vision + vidéo, solide usage d'outils."
+       "description": "Le tout dernier vaisseau amiral de Moonshot ; raisonnement multimodal avec un contexte de 1M."
       }
      }
     },
@@ -995,6 +1261,70 @@
    "maxTokensDefault": 1024,
    "temperatureDefault": 0.7,
    "models": [
+    {
+     "id": "qwen3.8-max",
+     "displayName": "Qwen3.8 Max",
+     "description": "Qwen's newest frontier model for agents, reasoning and coding. Thinks by default.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 991808,
+     "inputCostPerMillion": 2.0,
+     "outputCostPerMillion": 6.0,
+     "litellmKey": "dashscope/qwen3.8-max",
+     "minAppBuild": 534,
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "disabled",
+      "enabled"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "toggle",
+     "localizations": {
+      "fr": {
+       "description": "Le tout dernier modèle frontière de Qwen pour les agents, le raisonnement et le codage. Réfléchit par défaut."
+      }
+     }
+    },
+    {
+     "id": "qwen3.8-flash",
+     "displayName": "Qwen3.8 Flash",
+     "description": "Fast, low-cost Qwen3.8 for everyday tasks.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 991808,
+     "inputCostPerMillion": 0.15,
+     "outputCostPerMillion": 0.47,
+     "litellmKey": "dashscope/qwen3.8-flash",
+     "minAppBuild": 534,
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "disabled",
+      "enabled"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "toggle",
+     "localizations": {
+      "fr": {
+       "description": "Qwen3.8 rapide et économique pour les tâches courantes."
+      }
+     }
+    },
     {
      "id": "qwen3.7-max",
      "displayName": "Qwen3.7 Max",

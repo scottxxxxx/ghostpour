@@ -21,6 +21,15 @@ providers:
     extra_headers: {}
     env_key: "openai_api_key"
     models:
+      - id: "gpt-6-astra"
+        supports_vision: true
+        max_tokens_default: 4096
+      - id: "gpt-6-sol"
+        supports_vision: true
+        max_tokens_default: 4096
+      - id: "gpt-6-luna"
+        supports_vision: true
+        max_tokens_default: 4096
       - id: "gpt-5.5"
         supports_vision: true
         max_tokens_default: 4096
@@ -50,7 +59,13 @@ providers:
       anthropic-version: "2023-06-01"
     env_key: "anthropic_api_key"
     models:
+      - id: "claude-fable-5-1"
+        supports_vision: true
+        max_tokens_default: 4096
       - id: "claude-fable-5"
+        supports_vision: true
+        max_tokens_default: 4096
+      - id: "claude-opus-5-5"
         supports_vision: true
         max_tokens_default: 4096
       - id: "claude-opus-5"
@@ -81,6 +96,12 @@ providers:
     extra_headers: {}
     env_key: "google_api_key"
     models:
+      - id: "gemini-3.8-flash"
+        supports_vision: true
+        max_tokens_default: 4096
+      - id: "gemini-3.7-flash"
+        supports_vision: true
+        max_tokens_default: 4096
       - id: "gemini-3.1-pro-preview"
         supports_vision: true
         max_tokens_default: 4096
@@ -100,6 +121,9 @@ providers:
     extra_headers: {}
     env_key: "xai_api_key"
     models:
+      - id: "grok-4.7"
+        supports_vision: true
+        max_tokens_default: 4096
       - id: "grok-4"
         supports_vision: true
         max_tokens_default: 4096
@@ -132,10 +156,10 @@ providers:
     extra_headers: {}
     env_key: "kimi_api_key"
     models:
-      - id: "kimi-k2.5"
+      - id: "kimi-k3"
         supports_vision: true
         max_tokens_default: 4096
-      - id: "kimi-k2-0905-preview"
+      - id: "kimi-k2.6"
         supports_vision: true
         max_tokens_default: 4096
 
@@ -148,6 +172,12 @@ providers:
     extra_headers: {}
     env_key: "qwen_api_key"
     models:
+      - id: "qwen3.8-max"
+        supports_vision: true
+        max_tokens_default: 4096
+      - id: "qwen3.8-flash"
+        supports_vision: true
+        max_tokens_default: 4096
       - id: "qwen3.5-plus"
         supports_vision: true
         max_tokens_default: 4096
