@@ -350,6 +350,34 @@ VERSIONS = {
             "the reply that finds the agenda empty MAKES the offer",
         ],
     },
+    41: {
+        # Spectrum round 3 (the auditor, 2026-09-28, contract
+        # spectrum-round3-lane-findings-2026-09-28.md) on v40. The sweep reads
+        # every deferred line from every part; every named job is a row; a city
+        # is never a ZIP; the Part 9 recap says what she answered; refinements
+        # re-file; a missing surname is asked next, once; five years covered
+        # closes the list; Scott's two rulings (the idle place filed only if
+        # volunteered; Part 9 one group per turn). The idle heading is REWORDED
+        # by that ruling, so it leaves the list and its old form is pinned absent.
+        "block_anchor": "SECTION CHECKPOINTS\nA part is done when SECTION BOUNDARY is present",
+        "once": "THE SWEEP READS EVERY LINE OF KNOWN FACTS MARKED",
+        "phrases": [
+            "EVERY JOB SHE NAMES IS A ROW",
+            "A RETIRED OR UNEMPLOYED STRETCH HAS NO EMPLOYER:",
+            "are filed only when she volunteers them (Scott, 2026-09-28)",
+            "the surname is asked in the NEXT question, once, by name",
+            "FIVE YEARS COVERED CLOSES THE LIST",
+            "A CITY IS NEVER A ZIP",
+            "A REFINEMENT IS A CORRECTION TOO",
+            "the repeat is its SHORT form",
+            "while Part 9 stays one group per turn",
+            "the answer wins: take it, intent answer",
+            "no to the record questions and yes to the oath",
+        ],
+        "absent": [
+            "A RETIRED OR UNEMPLOYED STRETCH HAS NO EMPLOYER AND NO WORKPLACE",
+        ],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -358,6 +386,10 @@ VERSIONS[39]["phrases"] = VERSIONS[39]["phrases"] + VERSIONS[38]["phrases"]
 # copied, so a v39 rule cannot fall out of v40's read-back by an edit to one list.
 VERSIONS[40]["phrases"] = VERSIONS[39]["phrases"] + VERSIONS[40]["phrases"]
 VERSIONS[40]["absent"] = VERSIONS[39]["absent"] + VERSIONS[40]["absent"]
+# v41 carries every v40 phrase except the idle heading Scott's ruling reworded.
+VERSIONS[41]["phrases"] = [p for p in VERSIONS[40]["phrases"]
+                           if p != "A RETIRED OR UNEMPLOYED STRETCH HAS NO EMPLOYER AND NO WORKPLACE"] + VERSIONS[41]["phrases"]
+VERSIONS[41]["absent"] = VERSIONS[40]["absent"] + VERSIONS[41]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]

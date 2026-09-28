@@ -275,7 +275,7 @@ def test_the_mint_rule_survives_the_edit_that_targets_the_verdict():
     said it. Removing a verdict word must not reopen that. Checked on v38's
     real bundle now, since v36 is cut into it."""
     assert "MINT THAT BASIS IN THIS SAME RESPONSE" in VERSIONS[36]["phrases"]
-    assert "MINT THAT BASIS IN THIS SAME RESPONSE" in _bundle_prompt(40)
+    assert "MINT THAT BASIS IN THIS SAME RESPONSE" in _bundle_prompt(41)
 
 
 def test_the_v38_phrases_verify_and_each_is_load_bearing():
@@ -297,11 +297,11 @@ def test_the_v39_phrases_verify_and_each_is_load_bearing():
 def test_the_retired_per_part_confirmation_stays_gone_in_v40():
     """Scott retired the confirmation after every part (2026-09-26). A served
     copy carrying any of its lines is a stale cut, and v40 inherits the list."""
-    sp = _bundle_prompt(40)
+    sp = _bundle_prompt(41)
     for phrase in VERSIONS[39]["absent"]:
         assert phrase in VERSIONS[40]["absent"], phrase
         assert phrase not in sp, phrase
-        assert verify(sp + "\n" + phrase, 40) is False, phrase
+        assert verify(sp + "\n" + phrase, 41) is False, phrase
 
 
 def test_every_v38_phrase_rides_into_v39():
@@ -313,7 +313,7 @@ def test_the_original_reason_for_the_order_survives_v38():
     """v38 EXTENDS the sentence that argues the order from field dependencies;
     it must not replace that argument with the streaming one. Both reasons,
     word for word, on the real bundle."""
-    sp = _bundle_prompt(40)
+    sp = _bundle_prompt(41)
     assert sp.count("the reply LAST, because each later field must follow the earlier ones") == 1
     assert sp.count("`asking` written after `facts` can never name a node you just minted") == 1
     assert sp.count("THE ORDER IS A REQUIREMENT, NOT A PREFERENCE") == 1
@@ -411,15 +411,11 @@ def test_the_keys_sent_are_the_ones_the_operator_asked_for():
 
 # --- v40: spectrum round 1 (the auditor, 2026-09-27) ---------------------------
 
-def test_the_v40_list_verifies_the_real_v40_bundle():
-    assert verify(_bundle_prompt(40), 40) is True
-
-
-def test_each_v40_phrase_is_load_bearing_on_the_real_bundle():
-    sp = _bundle_prompt(40)
-    for phrase in [VERSIONS[40]["once"]] + VERSIONS[40]["phrases"]:
-        assert phrase in sp, phrase
-        assert verify(sp.replace(phrase, ""), 40) is False, phrase
+def test_the_v40_phrases_verify_and_each_is_load_bearing():
+    """SYNTHETIC now: the bundle has moved to v41."""
+    assert verify(_spec_prompt(40), 40) is True
+    for phrase in VERSIONS[40]["phrases"]:
+        assert verify(_spec_prompt(40, drop=phrase), 40) is False, phrase
 
 
 def test_v39s_name_rule_and_offer_trigger_coming_back_fail_v40():
@@ -427,13 +423,43 @@ def test_v39s_name_rule_and_offer_trigger_coming_back_fail_v40():
     (spectrum-rosa-r1 t30) and made the offer the moment the agenda emptied,
     so eight deferrals were never asked again (rosa t71). A served copy with
     either sentence is a stale cut."""
-    sp = _bundle_prompt(40)
+    sp = _bundle_prompt(41)
     for phrase in ("If the answer has three words, that is first, middle and last.",
                    "the reply that finds the agenda empty MAKES the offer"):
         assert phrase not in sp, phrase
-        assert verify(sp + "\n" + phrase, 40) is False, phrase
+        assert verify(sp + "\n" + phrase, 41) is False, phrase
 
 
 def test_every_v39_phrase_rides_into_v40():
     for phrase in VERSIONS[39]["phrases"]:
         assert phrase in VERSIONS[40]["phrases"], phrase
+
+
+# --- v41: spectrum round 3 (the auditor, 2026-09-28) ---------------------------
+
+def test_the_v41_list_verifies_the_real_v41_bundle():
+    assert verify(_bundle_prompt(41), 41) is True
+
+
+def test_each_v41_phrase_is_load_bearing_on_the_real_bundle():
+    sp = _bundle_prompt(41)
+    for phrase in [VERSIONS[41]["once"]] + VERSIONS[41]["phrases"]:
+        assert phrase in sp, phrase
+        assert verify(sp.replace(phrase, ""), 41) is False, phrase
+
+
+def test_the_idle_heading_scott_reworded_stays_gone_in_v41():
+    """Scott, 2026-09-28: an idle stretch's place is filed when she volunteers
+    it, so "NO WORKPLACE" is no longer the rule. A served copy carrying the old
+    heading is a stale cut."""
+    old = "A RETIRED OR UNEMPLOYED STRETCH HAS NO EMPLOYER AND NO WORKPLACE"
+    sp = _bundle_prompt(41)
+    assert old not in sp
+    assert verify(sp + "\n" + old, 41) is False
+
+
+def test_every_v40_phrase_but_the_reworded_one_rides_into_v41():
+    for phrase in VERSIONS[40]["phrases"]:
+        if phrase == "A RETIRED OR UNEMPLOYED STRETCH HAS NO EMPLOYER AND NO WORKPLACE":
+            continue
+        assert phrase in VERSIONS[41]["phrases"], phrase

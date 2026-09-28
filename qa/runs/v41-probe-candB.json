@@ -1,0 +1,4172 @@
+[
+ {
+  "case": "1-sweep-jorge",
+  "run": "spectrum-jorge-r3.json",
+  "wire_index": 52,
+  "turn": 53,
+  "user_content": "Yup, yes to all.",
+  "rep": 0,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 874,
+  "secs": 7.8,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_053\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\"field_id\": \"p9.support_constitution\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.understand_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_full_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_bear_arms\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_noncombatant\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_national_importance\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}}\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p9.arrest1.date_of_offense\", \"reason\": \"exact day of speeding ticket to verify from a document\", \"partial_value\": \"2022\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p9.selective_service_date\", \"reason\": \"exact registration date to verify from document\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p9.selective_service_number\", \"reason\": \"number to verify from document\", \"partial_value\": null, \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": null,\n  \"section_checkpoint\": {\"part\": 9, \"section\": \"Your record\", \"awaiting_confirmation\": false},\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"That's Part 9, except the exact speeding ticket date and your Selective Service date and number, which you're checking. Before we finish, would you like to go through your answers once more before you see your form, or go straight to it?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_053",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.support_constitution",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.understand_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_full_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_bear_arms",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_noncombatant",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_national_importance",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p9.arrest1.date_of_offense",
+     "reason": "exact day of speeding ticket to verify from a document",
+     "partial_value": "2022",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p9.selective_service_date",
+     "reason": "exact registration date to verify from document",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p9.selective_service_number",
+     "reason": "number to verify from document",
+     "partial_value": null,
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 9,
+    "section": "Your record",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "en": "That's Part 9, except the exact speeding ticket date and your Selective Service date and number, which you're checking. Before we finish, would you like to go through your answers once more before you see your form, or go straight to it?"
+   },
+   "battery_unspoken": {
+    "node_id": "q_p9_oath",
+    "minted": [
+     "p9.support_constitution",
+     "p9.understand_oath",
+     "p9.willing_bear_arms",
+     "p9.willing_full_oath",
+     "p9.willing_national_importance",
+     "p9.willing_noncombatant"
+    ],
+    "question_chars": 465,
+    "spoken_chars": 237,
+    "reason": "the spoken question was far shorter than the line these fields came from"
+   }
+  }
+ },
+ {
+  "case": "1-sweep-jorge",
+  "run": "spectrum-jorge-r3.json",
+  "wire_index": 52,
+  "turn": 53,
+  "user_content": "Yup, yes to all.",
+  "rep": 1,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 897,
+  "secs": 8.0,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_053\",\n  \"intent\": {\"type\": \"answer\", \"confidence\": 0.97},\n  \"facts\": [\n    {\"field_id\": \"p9.support_constitution\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.understand_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_full_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_bear_arms\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_noncombatant\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_national_importance\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}}\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p9.arrest1.date_of_offense\", \"reason\": \"exact day not known, to verify from a document\", \"partial_value\": \"2022\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p9.selective_service_date\", \"reason\": \"date not known, to verify from a document\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p9.selective_service_number\", \"reason\": \"number not known, to verify from a document\", \"partial_value\": null, \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": null,\n  \"section_checkpoint\": {\"part\": 9, \"section\": \"Your record\", \"awaiting_confirmation\": false},\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"That's Part 9: one speeding ticket in 2022, Selective Service registered, and yes to the full oath. A few things were left to check earlier: the exact day of that ticket, and your Selective Service date and number. Do you have any of those handy now?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_053",
+   "intent": {
+    "type": "answer",
+    "confidence": 0.97
+   },
+   "facts": [
+    {
+     "field_id": "p9.support_constitution",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.understand_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_full_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_bear_arms",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_noncombatant",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_national_importance",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p9.arrest1.date_of_offense",
+     "reason": "exact day not known, to verify from a document",
+     "partial_value": "2022",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p9.selective_service_date",
+     "reason": "date not known, to verify from a document",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p9.selective_service_number",
+     "reason": "number not known, to verify from a document",
+     "partial_value": null,
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 9,
+    "section": "Your record",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "en": "That's Part 9: one speeding ticket in 2022, Selective Service registered, and yes to the full oath. A few things were left to check earlier: the exact day of that ticket, and your Selective Service date and number. Do you have any of those handy now?"
+   },
+   "battery_unspoken": {
+    "node_id": "q_p9_oath",
+    "minted": [
+     "p9.support_constitution",
+     "p9.understand_oath",
+     "p9.willing_bear_arms",
+     "p9.willing_full_oath",
+     "p9.willing_national_importance",
+     "p9.willing_noncombatant"
+    ],
+    "question_chars": 465,
+    "spoken_chars": 250,
+    "reason": "the spoken question was far shorter than the line these fields came from"
+   }
+  }
+ },
+ {
+  "case": "1-sweep-jorge",
+  "run": "spectrum-jorge-r3.json",
+  "wire_index": 52,
+  "turn": 53,
+  "user_content": "Yup, yes to all.",
+  "rep": 2,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 867,
+  "secs": 7.6,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_053\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\"field_id\": \"p9.support_constitution\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.understand_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_full_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_bear_arms\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_noncombatant\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_national_importance\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}}\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p9.arrest1.date_of_offense\", \"reason\": \"exact day of speeding ticket to verify from a document\", \"partial_value\": \"2022\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p9.selective_service_date\", \"reason\": \"exact registration date to verify from a document\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p9.selective_service_number\", \"reason\": \"Selective Service number to verify from a document\", \"partial_value\": null, \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": null,\n  \"section_checkpoint\": {\"part\": 9, \"section\": \"Your record\", \"awaiting_confirmation\": false},\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"That's Part 9, your record, except the speeding ticket's exact date and your Selective Service date and number, which stay open to verify. Before we finish, do you have any of those three now?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_053",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.support_constitution",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.understand_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_full_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_bear_arms",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_noncombatant",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_national_importance",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p9.arrest1.date_of_offense",
+     "reason": "exact day of speeding ticket to verify from a document",
+     "partial_value": "2022",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p9.selective_service_date",
+     "reason": "exact registration date to verify from a document",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p9.selective_service_number",
+     "reason": "Selective Service number to verify from a document",
+     "partial_value": null,
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 9,
+    "section": "Your record",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "en": "That's Part 9, your record, except the speeding ticket's exact date and your Selective Service date and number, which stay open to verify. Before we finish, do you have any of those three now?"
+   },
+   "battery_unspoken": {
+    "node_id": "q_p9_oath",
+    "minted": [
+     "p9.support_constitution",
+     "p9.understand_oath",
+     "p9.willing_bear_arms",
+     "p9.willing_full_oath",
+     "p9.willing_national_importance",
+     "p9.willing_noncombatant"
+    ],
+    "question_chars": 465,
+    "spoken_chars": 192,
+    "reason": "the spoken question was far shorter than the line these fields came from"
+   }
+  }
+ },
+ {
+  "case": "1-sweep-jorge",
+  "run": "spectrum-jorge-r3.json",
+  "wire_index": 52,
+  "turn": 53,
+  "user_content": "Yup, yes to all.",
+  "rep": 3,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 878,
+  "secs": 7.9,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_053\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\"field_id\": \"p9.support_constitution\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.understand_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_full_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_bear_arms\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_noncombatant\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_national_importance\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}}\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p9.arrest1.date_of_offense\", \"reason\": \"exact day not known, will verify\", \"partial_value\": \"2022\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p9.selective_service_date\", \"reason\": \"date not recalled, will verify from paperwork\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p9.selective_service_number\", \"reason\": \"number not on hand, will verify from paperwork\", \"partial_value\": null, \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": null,\n  \"section_checkpoint\": {\"part\": 9, \"section\": \"Your record\", \"awaiting_confirmation\": false},\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"That's Part 9, except the speeding ticket date and your Selective Service date and number, which you're checking. A few things were left to check: those dates and number, and the speeding ticket's exact day. Do you have any of those now?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_053",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.support_constitution",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.understand_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_full_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_bear_arms",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_noncombatant",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_national_importance",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p9.arrest1.date_of_offense",
+     "reason": "exact day not known, will verify",
+     "partial_value": "2022",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p9.selective_service_date",
+     "reason": "date not recalled, will verify from paperwork",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p9.selective_service_number",
+     "reason": "number not on hand, will verify from paperwork",
+     "partial_value": null,
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 9,
+    "section": "Your record",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "en": "That's Part 9, except the speeding ticket date and your Selective Service date and number, which you're checking. A few things were left to check: those dates and number, and the speeding ticket's exact day. Do you have any of those now?"
+   },
+   "battery_unspoken": {
+    "node_id": "q_p9_oath",
+    "minted": [
+     "p9.support_constitution",
+     "p9.understand_oath",
+     "p9.willing_bear_arms",
+     "p9.willing_full_oath",
+     "p9.willing_national_importance",
+     "p9.willing_noncombatant"
+    ],
+    "question_chars": 465,
+    "spoken_chars": 237,
+    "reason": "the spoken question was far shorter than the line these fields came from"
+   }
+  }
+ },
+ {
+  "case": "1-sweep-jorge",
+  "run": "spectrum-jorge-r3.json",
+  "wire_index": 52,
+  "turn": 53,
+  "user_content": "Yup, yes to all.",
+  "rep": 4,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 869,
+  "secs": 7.6,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_053\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\"field_id\": \"p9.support_constitution\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.understand_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_full_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_bear_arms\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_noncombatant\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_national_importance\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}}\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p9.arrest1.date_of_offense\", \"reason\": \"applicant does not recall exact day\", \"partial_value\": \"2022\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p9.selective_service_date\", \"reason\": \"applicant will check green card paperwork\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p9.selective_service_number\", \"reason\": \"applicant will check paperwork\", \"partial_value\": null, \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": null,\n  \"section_checkpoint\": {\"part\": 9, \"section\": \"Your record\", \"awaiting_confirmation\": false},\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"That's Part 9 done, with the speeding ticket, Selective Service date, and Selective Service number still to verify. Would you like to go through your answers once more before you see your form, or go straight to it?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_053",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.support_constitution",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.understand_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_full_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_bear_arms",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_noncombatant",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_national_importance",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p9.arrest1.date_of_offense",
+     "reason": "applicant does not recall exact day",
+     "partial_value": "2022",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p9.selective_service_date",
+     "reason": "applicant will check green card paperwork",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p9.selective_service_number",
+     "reason": "applicant will check paperwork",
+     "partial_value": null,
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 9,
+    "section": "Your record",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "en": "That's Part 9 done, with the speeding ticket, Selective Service date, and Selective Service number still to verify. Would you like to go through your answers once more before you see your form, or go straight to it?"
+   },
+   "battery_unspoken": {
+    "node_id": "q_p9_oath",
+    "minted": [
+     "p9.support_constitution",
+     "p9.understand_oath",
+     "p9.willing_bear_arms",
+     "p9.willing_full_oath",
+     "p9.willing_national_importance",
+     "p9.willing_noncombatant"
+    ],
+    "question_chars": 465,
+    "spoken_chars": 215,
+    "reason": "the spoken question was far shorter than the line these fields came from"
+   }
+  }
+ },
+ {
+  "case": "1-sweep-jorge",
+  "run": "spectrum-jorge-r3.json",
+  "wire_index": 52,
+  "turn": 53,
+  "user_content": "Yup, yes to all.",
+  "rep": 5,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 876,
+  "secs": 7.8,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_053\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\"field_id\": \"p9.support_constitution\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.understand_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_full_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_bear_arms\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_noncombatant\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_national_importance\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}}\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p9.arrest1.date_of_offense\", \"reason\": \"applicant recalls only the year\", \"partial_value\": \"2022\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p9.selective_service_date\", \"reason\": \"applicant does not remember exact date\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p9.selective_service_number\", \"reason\": \"applicant does not have the number on hand\", \"partial_value\": null, \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": null,\n  \"section_checkpoint\": {\"part\": 9, \"section\": \"Your record\", \"awaiting_confirmation\": false},\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"That's Part 9 done, except your speeding ticket date and Selective Service details, which are still to check. A few things were left to check: the exact date of your speeding ticket and your Selective Service registration date and number. Do you have any of those now?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_053",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.support_constitution",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.understand_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_full_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_bear_arms",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_noncombatant",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_national_importance",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p9.arrest1.date_of_offense",
+     "reason": "applicant recalls only the year",
+     "partial_value": "2022",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p9.selective_service_date",
+     "reason": "applicant does not remember exact date",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p9.selective_service_number",
+     "reason": "applicant does not have the number on hand",
+     "partial_value": null,
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 9,
+    "section": "Your record",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "en": "That's Part 9 done, except your speeding ticket date and Selective Service details, which are still to check. A few things were left to check: the exact date of your speeding ticket and your Selective Service registration date and number. Do you have any of those now?"
+   }
+  }
+ },
+ {
+  "case": "1-sweep-jorge",
+  "run": "spectrum-jorge-r3.json",
+  "wire_index": 52,
+  "turn": 53,
+  "user_content": "Yup, yes to all.",
+  "rep": 0,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 897,
+  "secs": 7.3,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_053\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\"field_id\": \"p9.support_constitution\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.understand_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_full_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_bear_arms\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_noncombatant\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_national_importance\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}}\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p9.arrest1.date_of_offense\", \"reason\": \"applicant recalls year only, will verify exact day\", \"partial_value\": \"2022\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p9.selective_service_date\", \"reason\": \"applicant does not recall, will check green card paperwork\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p9.selective_service_number\", \"reason\": \"applicant does not have the number on hand\", \"partial_value\": null, \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": null,\n  \"section_checkpoint\": {\"part\": 9, \"section\": \"Part 9: Your record\", \"awaiting_confirmation\": false},\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"That's Part 9, your record and the oath, all recorded, except the speeding ticket's exact date and your Selective Service date and number, which you're checking. Before we finish, do you have any of those now, or the date you moved into your current address?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_053",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.support_constitution",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.understand_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_full_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_bear_arms",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_noncombatant",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_national_importance",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p9.arrest1.date_of_offense",
+     "reason": "applicant recalls year only, will verify exact day",
+     "partial_value": "2022",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p9.selective_service_date",
+     "reason": "applicant does not recall, will check green card paperwork",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p9.selective_service_number",
+     "reason": "applicant does not have the number on hand",
+     "partial_value": null,
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 9,
+    "section": "Part 9: Your record",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "en": "That's Part 9, your record and the oath, all recorded, except the speeding ticket's exact date and your Selective Service date and number, which you're checking. Before we finish, do you have any of those now, or the date you moved into your current address?"
+   }
+  }
+ },
+ {
+  "case": "1-sweep-jorge",
+  "run": "spectrum-jorge-r3.json",
+  "wire_index": 52,
+  "turn": 53,
+  "user_content": "Yup, yes to all.",
+  "rep": 1,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 780,
+  "secs": 6.5,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_053\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p9.support_constitution\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}\n    },\n    {\n      \"field_id\": \"p9.understand_oath\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}\n    },\n    {\n      \"field_id\": \"p9.willing_full_oath\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}\n    },\n    {\n      \"field_id\": \"p9.willing_bear_arms\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}\n    },\n    {\n      \"field_id\": \"p9.willing_noncombatant\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}\n    },\n    {\n      \"field_id\": \"p9.willing_national_importance\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": null,\n  \"section_checkpoint\": {\n    \"part\": 9,\n    \"section\": \"Part 9: Your record\",\n    \"awaiting_confirmation\": false\n  },\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"That's Part 9 done, except your Selective Service date and number, and your exact speeding ticket date, which you're still checking. Before we finish, would you like to go through your answers once more before you see your form, or go straight to it?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_053",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.support_constitution",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.understand_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_full_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_bear_arms",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_noncombatant",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_national_importance",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 9,
+    "section": "Part 9: Your record",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "en": "That's Part 9 done, except your Selective Service date and number, and your exact speeding ticket date, which you're still checking. Before we finish, would you like to go through your answers once more before you see your form, or go straight to it?"
+   },
+   "battery_unspoken": {
+    "node_id": "q_p9_oath",
+    "minted": [
+     "p9.support_constitution",
+     "p9.understand_oath",
+     "p9.willing_bear_arms",
+     "p9.willing_full_oath",
+     "p9.willing_national_importance",
+     "p9.willing_noncombatant"
+    ],
+    "question_chars": 465,
+    "spoken_chars": 250,
+    "reason": "the spoken question was far shorter than the line these fields came from"
+   }
+  }
+ },
+ {
+  "case": "1-sweep-jorge",
+  "run": "spectrum-jorge-r3.json",
+  "wire_index": 52,
+  "turn": 53,
+  "user_content": "Yup, yes to all.",
+  "rep": 2,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 751,
+  "secs": 6.0,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_053\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\"field_id\": \"p9.support_constitution\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.understand_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_full_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_bear_arms\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_noncombatant\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_national_importance\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}}\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": null,\n  \"section_checkpoint\": {\n    \"part\": 9,\n    \"section\": \"Part 9: Your record\",\n    \"awaiting_confirmation\": false\n  },\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"That's Part 9. Before we finish, a few things were left to check: your current address move-in date, both prior address date ranges, your job start and end dates at Alamo Builders, Amazon and DoorDash, the exact date of your speeding ticket, and your Selective Service registration date and number. Do you have any of those now?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_053",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.support_constitution",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.understand_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_full_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_bear_arms",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_noncombatant",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_national_importance",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 9,
+    "section": "Part 9: Your record",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "en": "That's Part 9. Before we finish, a few things were left to check: your current address move-in date, both prior address date ranges, your job start and end dates at Alamo Builders, Amazon and DoorDash, the exact date of your speeding ticket, and your Selective Service registration date and number. Do you have any of those now?"
+   }
+  }
+ },
+ {
+  "case": "1-sweep-jorge",
+  "run": "spectrum-jorge-r3.json",
+  "wire_index": 52,
+  "turn": 53,
+  "user_content": "Yup, yes to all.",
+  "rep": 3,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 1441,
+  "secs": 11.0,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_053\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\"field_id\": \"p9.support_constitution\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.understand_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_full_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_bear_arms\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_noncombatant\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_national_importance\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}}\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p4.current_address.from\", \"reason\": \"verify exact move-in date from document\", \"partial_value\": \"2024-09\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p4.prior_address1.from\", \"reason\": \"verify exact move-in date from document\", \"partial_value\": \"2022-03\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p4.prior_address1.to\", \"reason\": \"verify exact move-out date from document\", \"partial_value\": \"2024-08\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p4.prior_address2.from\", \"reason\": \"verify exact move-in date from document\", \"partial_value\": \"2020-07\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p4.prior_address2.to\", \"reason\": \"verify exact move-out date from document\", \"partial_value\": \"2022-03\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p7.employer1.from\", \"reason\": \"verify exact start date from document\", \"partial_value\": \"2023-06\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p7.employer2.from\", \"reason\": \"verify exact start date from document\", \"partial_value\": \"2020-08\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p7.employer2.to\", \"reason\": \"verify exact end date from document\", \"partial_value\": \"2023-05\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p7.employer3.from\", \"reason\": \"verify exact start date from document\", \"partial_value\": \"2021\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p9.arrest1.date_of_offense\", \"reason\": \"verify exact date from document\", \"partial_value\": \"2022\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p9.selective_service_date\", \"reason\": \"verify registration date from Selective Service documentation\", \"partial_value\": null, \"origin\": \"applicant\"},\n    {\"field_id\": \"p9.selective_service_number\", \"reason\": \"verify Selective Service number from documentation\", \"partial_value\": null, \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": null,\n  \"section_checkpoint\": {\"part\": 9, \"section\": \"Part 9: Your record\", \"awaiting_confirmation\": false},\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"That's Part 9 done, yes to the oath and no across the record questions, except a 2022 speeding ticket, your Selective Service registration date and number, all still to check. Before we finish, a few things were left open: your move-in dates for your current and prior addresses, your job start and end dates, the speeding ticket's exact date, and your Selective Service date and number. Do you have any of those handy now?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_053",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.support_constitution",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.understand_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_full_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_bear_arms",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_noncombatant",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_national_importance",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p4.current_address.from",
+     "reason": "verify exact move-in date from document",
+     "partial_value": "2024-09",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p4.prior_address1.from",
+     "reason": "verify exact move-in date from document",
+     "partial_value": "2022-03",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p4.prior_address1.to",
+     "reason": "verify exact move-out date from document",
+     "partial_value": "2024-08",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p4.prior_address2.from",
+     "reason": "verify exact move-in date from document",
+     "partial_value": "2020-07",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p4.prior_address2.to",
+     "reason": "verify exact move-out date from document",
+     "partial_value": "2022-03",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p7.employer1.from",
+     "reason": "verify exact start date from document",
+     "partial_value": "2023-06",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p7.employer2.from",
+     "reason": "verify exact start date from document",
+     "partial_value": "2020-08",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p7.employer2.to",
+     "reason": "verify exact end date from document",
+     "partial_value": "2023-05",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p7.employer3.from",
+     "reason": "verify exact start date from document",
+     "partial_value": "2021",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p9.arrest1.date_of_offense",
+     "reason": "verify exact date from document",
+     "partial_value": "2022",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p9.selective_service_date",
+     "reason": "verify registration date from Selective Service documentation",
+     "partial_value": null,
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p9.selective_service_number",
+     "reason": "verify Selective Service number from documentation",
+     "partial_value": null,
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 9,
+    "section": "Part 9: Your record",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "en": "That's Part 9 done, yes to the oath and no across the record questions, except a 2022 speeding ticket, your Selective Service registration date and number, all still to check. Before we finish, a few things were left open: your move-in dates for your current and prior addresses, your job start and end dates, the speeding ticket's exact date, and your Selective Service date and number. Do you have any of those handy now?"
+   }
+  }
+ },
+ {
+  "case": "1-sweep-jorge",
+  "run": "spectrum-jorge-r3.json",
+  "wire_index": 52,
+  "turn": 53,
+  "user_content": "Yup, yes to all.",
+  "rep": 4,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 773,
+  "secs": 6.9,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_053\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\"field_id\": \"p9.support_constitution\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.understand_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_full_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_bear_arms\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_noncombatant\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_national_importance\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}}\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": null,\n  \"section_checkpoint\": {\n    \"part\": 9,\n    \"section\": \"Part 9: Your record\",\n    \"awaiting_confirmation\": false\n  },\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"That's Part 9: no to the record and background questions except the speeding ticket you mentioned, yes to Selective Service registration, and yes to all the oath promises. A few things were left to check: the exact day of your speeding ticket, your Selective Service registration date and number, and the move-in and move-out dates for your addresses, jobs, and Selective Service details. Do you have any of those now?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_053",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.support_constitution",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.understand_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_full_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_bear_arms",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_noncombatant",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_national_importance",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 9,
+    "section": "Part 9: Your record",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "en": "That's Part 9: no to the record and background questions except the speeding ticket you mentioned, yes to Selective Service registration, and yes to all the oath promises. A few things were left to check: the exact day of your speeding ticket, your Selective Service registration date and number, and the move-in and move-out dates for your addresses, jobs, and Selective Service details. Do you have any of those now?"
+   }
+  }
+ },
+ {
+  "case": "1-sweep-jorge",
+  "run": "spectrum-jorge-r3.json",
+  "wire_index": 52,
+  "turn": 53,
+  "user_content": "Yup, yes to all.",
+  "rep": 5,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 705,
+  "secs": 5.9,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_053\",\n  \"intent\": {\"type\": \"answer\", \"confidence\": 0.97},\n  \"facts\": [\n    {\"field_id\": \"p9.support_constitution\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.understand_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_full_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_bear_arms\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_noncombatant\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}},\n    {\"field_id\": \"p9.willing_national_importance\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Yup, yes to all.\"}}\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": null,\n  \"section_checkpoint\": {\"part\": 9, \"section\": \"Part 9: Your record\", \"awaiting_confirmation\": false},\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"That's Part 9, except your Selective Service date, number, and the exact day of that 2022 ticket, which you're checking. Before we finish, do you have any of those now?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_053",
+   "intent": {
+    "type": "answer",
+    "confidence": 0.97
+   },
+   "facts": [
+    {
+     "field_id": "p9.support_constitution",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.understand_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_full_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_bear_arms",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_noncombatant",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    },
+    {
+     "field_id": "p9.willing_national_importance",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Yup, yes to all."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 9,
+    "section": "Part 9: Your record",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "en": "That's Part 9, except your Selective Service date, number, and the exact day of that 2022 ticket, which you're checking. Before we finish, do you have any of those now?"
+   },
+   "battery_unspoken": {
+    "node_id": "q_p9_oath",
+    "minted": [
+     "p9.support_constitution",
+     "p9.understand_oath",
+     "p9.willing_bear_arms",
+     "p9.willing_full_oath",
+     "p9.willing_national_importance",
+     "p9.willing_noncombatant"
+    ],
+    "question_chars": 465,
+    "spoken_chars": 168,
+    "reason": "the spoken question was far shorter than the line these fields came from"
+   }
+  }
+ },
+ {
+  "case": "1-sweep-rosa",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 66,
+  "turn": 67,
+  "user_content": "¿Portar armas? ¿A mi edad? Bueno... si la ley lo pide, sí. Sí a todo.",
+  "rep": 0,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 789,
+  "secs": 7.2,
+  "raw": "{\"schema_version\": 1, \"turn_id\": \"t_067\", \"intent\": {\"type\": \"answer\"}, \"facts\": [{\"field_id\": \"p9.support_constitution\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}}, {\"field_id\": \"p9.understand_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}}, {\"field_id\": \"p9.willing_full_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}}, {\"field_id\": \"p9.willing_bear_arms\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"si la ley lo pide, sí\"}}, {\"field_id\": \"p9.willing_noncombatant\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}}, {\"field_id\": \"p9.willing_national_importance\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}}], \"deferred\": [], \"clarification\": null, \"conflict\": null, \"escalation\": null, \"complete\": true, \"asking\": null, \"section_checkpoint\": {\"part\": 9, \"section\": \"Part 9: Your record\", \"awaiting_confirmation\": false}, \"interview_over\": false, \"reply\": {\"es\": \"Anotado, sí a todo. Eso completa la Parte 9. Antes de terminar, quedaron varias cosas por revisar: su fecha de residencia, su dirección actual, las fechas de nacimiento y nombres completos de sus cuatro hijos, y cuándo comenzó su empleo. ¿Tiene alguno de esos datos ahora?\", \"en\": \"Noted, yes to all. That completes Part 9. Before we finish, a few things were left to check: your residency date, your current address move-in date, your four children's full names and birth dates, and when your job started. Do you have any of those now?\"}}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_067",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.support_constitution",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.understand_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_full_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_bear_arms",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "si la ley lo pide, sí"
+     }
+    },
+    {
+     "field_id": "p9.willing_noncombatant",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_national_importance",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 9,
+    "section": "Part 9: Your record",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "es": "Anotado, sí a todo. Eso completa la Parte 9. Antes de terminar, quedaron varias cosas por revisar: su fecha de residencia, su dirección actual, las fechas de nacimiento y nombres completos de sus cuatro hijos, y cuándo comenzó su empleo. ¿Tiene alguno de esos datos ahora?",
+    "en": "Noted, yes to all. That completes Part 9. Before we finish, a few things were left to check: your residency date, your current address move-in date, your four children's full names and birth dates, and when your job started. Do you have any of those now?"
+   }
+  }
+ },
+ {
+  "case": "1-sweep-rosa",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 66,
+  "turn": 67,
+  "user_content": "¿Portar armas? ¿A mi edad? Bueno... si la ley lo pide, sí. Sí a todo.",
+  "rep": 1,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 799,
+  "secs": 7.0,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_067\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\"field_id\": \"p9.support_constitution\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}},\n    {\"field_id\": \"p9.understand_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}},\n    {\"field_id\": \"p9.willing_full_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}},\n    {\"field_id\": \"p9.willing_bear_arms\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"si la ley lo pide, sí\"}},\n    {\"field_id\": \"p9.willing_noncombatant\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}},\n    {\"field_id\": \"p9.willing_national_importance\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}}\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": null,\n  \"section_checkpoint\": {\"part\": 9, \"section\": \"Part 9: Your record\", \"awaiting_confirmation\": false},\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Anotado, sí a todo, incluida la disposición a portar armas si la ley lo requiere. Eso completa la Parte 9. Ya terminamos todo. ¿Quiere repasar sus respuestas una vez más antes de ver su formulario, o pasar directamente a él?\",\n    \"en\": \"Noted, yes to all, including willingness to bear arms if the law requires it. That completes Part 9. We've now finished everything. Would you like to go through your answers once more before you see your form, or go straight to it?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_067",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.support_constitution",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.understand_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_full_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_bear_arms",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "si la ley lo pide, sí"
+     }
+    },
+    {
+     "field_id": "p9.willing_noncombatant",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_national_importance",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 9,
+    "section": "Part 9: Your record",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "es": "Anotado, sí a todo, incluida la disposición a portar armas si la ley lo requiere. Eso completa la Parte 9. Ya terminamos todo. ¿Quiere repasar sus respuestas una vez más antes de ver su formulario, o pasar directamente a él?",
+    "en": "Noted, yes to all, including willingness to bear arms if the law requires it. That completes Part 9. We've now finished everything. Would you like to go through your answers once more before you see your form, or go straight to it?"
+   },
+   "battery_unspoken": {
+    "node_id": "q_p9_oath",
+    "minted": [
+     "p9.support_constitution",
+     "p9.understand_oath",
+     "p9.willing_bear_arms",
+     "p9.willing_full_oath",
+     "p9.willing_national_importance",
+     "p9.willing_noncombatant"
+    ],
+    "question_chars": 445,
+    "spoken_chars": 231,
+    "reason": "the spoken question was far shorter than the line these fields came from"
+   }
+  }
+ },
+ {
+  "case": "1-sweep-rosa",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 66,
+  "turn": 67,
+  "user_content": "¿Portar armas? ¿A mi edad? Bueno... si la ley lo pide, sí. Sí a todo.",
+  "rep": 2,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 748,
+  "secs": 6.7,
+  "raw": "{\"schema_version\": 1, \"turn_id\": \"t_067\", \"intent\": {\"type\": \"answer\", \"confidence\": 0.9}, \"facts\": [{\"field_id\": \"p9.support_constitution\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo\"}}, {\"field_id\": \"p9.understand_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo\"}}, {\"field_id\": \"p9.willing_full_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo\"}}, {\"field_id\": \"p9.willing_bear_arms\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"si la ley lo pide, sí\"}}, {\"field_id\": \"p9.willing_noncombatant\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo\"}}, {\"field_id\": \"p9.willing_national_importance\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo\"}}], \"deferred\": [], \"clarification\": null, \"conflict\": null, \"escalation\": null, \"complete\": true, \"asking\": null, \"section_checkpoint\": {\"part\": 9, \"section\": \"Part 9: Your record\", \"awaiting_confirmation\": false}, \"interview_over\": false, \"reply\": {\"es\": \"Anotado, sí a las seis promesas del Juramento, incluyendo portar armas si la ley lo exige. Eso es todo. ¿Quiere repasar sus respuestas una vez más antes de ver su formulario, o pasar directamente a él?\", \"en\": \"Noted, yes to all six oath promises, including bearing arms if the law requires it. That's everything. Would you like to go through your answers once more before you see your form, or go straight to it?\"}}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_067",
+   "intent": {
+    "type": "answer",
+    "confidence": 0.9
+   },
+   "facts": [
+    {
+     "field_id": "p9.support_constitution",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo"
+     }
+    },
+    {
+     "field_id": "p9.understand_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo"
+     }
+    },
+    {
+     "field_id": "p9.willing_full_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo"
+     }
+    },
+    {
+     "field_id": "p9.willing_bear_arms",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "si la ley lo pide, sí"
+     }
+    },
+    {
+     "field_id": "p9.willing_noncombatant",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo"
+     }
+    },
+    {
+     "field_id": "p9.willing_national_importance",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 9,
+    "section": "Part 9: Your record",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "es": "Anotado, sí a las seis promesas del Juramento, incluyendo portar armas si la ley lo exige. Eso es todo. ¿Quiere repasar sus respuestas una vez más antes de ver su formulario, o pasar directamente a él?",
+    "en": "Noted, yes to all six oath promises, including bearing arms if the law requires it. That's everything. Would you like to go through your answers once more before you see your form, or go straight to it?"
+   },
+   "battery_unspoken": {
+    "node_id": "q_p9_oath",
+    "minted": [
+     "p9.support_constitution",
+     "p9.understand_oath",
+     "p9.willing_bear_arms",
+     "p9.willing_full_oath",
+     "p9.willing_national_importance",
+     "p9.willing_noncombatant"
+    ],
+    "question_chars": 445,
+    "spoken_chars": 202,
+    "reason": "the spoken question was far shorter than the line these fields came from"
+   }
+  }
+ },
+ {
+  "case": "1-sweep-rosa",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 66,
+  "turn": 67,
+  "user_content": "¿Portar armas? ¿A mi edad? Bueno... si la ley lo pide, sí. Sí a todo.",
+  "rep": 3,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 729,
+  "secs": 6.3,
+  "raw": "{\"schema_version\": 1, \"turn_id\": \"t_067\", \"intent\": {\"type\": \"answer\"}, \"facts\": [{\"field_id\": \"p9.support_constitution\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Sí a todo.\"}}, {\"field_id\": \"p9.understand_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Sí a todo.\"}}, {\"field_id\": \"p9.willing_full_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Sí a todo.\"}}, {\"field_id\": \"p9.willing_bear_arms\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"¿Portar armas? ¿A mi edad? Bueno... si la ley lo pide, sí.\"}}, {\"field_id\": \"p9.willing_noncombatant\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}}, {\"field_id\": \"p9.willing_national_importance\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}}], \"deferred\": [], \"clarification\": null, \"conflict\": null, \"escalation\": null, \"complete\": true, \"asking\": null, \"section_checkpoint\": {\"part\": 9, \"section\": \"Part 9: Your record\", \"awaiting_confirmation\": false}, \"interview_over\": false, \"reply\": {\"es\": \"Anotado, sí a todas las promesas del juramento. Eso es todo. ¿Quiere repasar sus respuestas una vez más antes de ver su formulario, o pasar directamente a él?\", \"en\": \"Noted, yes to all the oath promises. That's everything. Would you like to go through your answers once more before you see your form, or go straight to it?\"}}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_067",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.support_constitution",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.understand_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_full_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_bear_arms",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "¿Portar armas? ¿A mi edad? Bueno... si la ley lo pide, sí."
+     }
+    },
+    {
+     "field_id": "p9.willing_noncombatant",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_national_importance",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 9,
+    "section": "Part 9: Your record",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "es": "Anotado, sí a todas las promesas del juramento. Eso es todo. ¿Quiere repasar sus respuestas una vez más antes de ver su formulario, o pasar directamente a él?",
+    "en": "Noted, yes to all the oath promises. That's everything. Would you like to go through your answers once more before you see your form, or go straight to it?"
+   },
+   "battery_unspoken": {
+    "node_id": "q_p9_oath",
+    "minted": [
+     "p9.support_constitution",
+     "p9.understand_oath",
+     "p9.willing_bear_arms",
+     "p9.willing_full_oath",
+     "p9.willing_national_importance",
+     "p9.willing_noncombatant"
+    ],
+    "question_chars": 445,
+    "spoken_chars": 158,
+    "reason": "the spoken question was far shorter than the line these fields came from"
+   }
+  }
+ },
+ {
+  "case": "1-sweep-rosa",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 66,
+  "turn": 67,
+  "user_content": "¿Portar armas? ¿A mi edad? Bueno... si la ley lo pide, sí. Sí a todo.",
+  "rep": 4,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 1292,
+  "secs": 10.4,
+  "raw": "{\"schema_version\": 1, \"turn_id\": \"t_067\", \"intent\": {\"type\": \"answer\"}, \"facts\": [{\"field_id\": \"p9.support_constitution\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}}, {\"field_id\": \"p9.understand_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}}, {\"field_id\": \"p9.willing_full_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}}, {\"field_id\": \"p9.willing_bear_arms\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"si la ley lo pide, sí\"}}, {\"field_id\": \"p9.willing_noncombatant\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.85, \"utterance\": \"Sí a todo.\"}}, {\"field_id\": \"p9.willing_national_importance\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.85, \"utterance\": \"Sí a todo.\"}}], \"deferred\": [{\"field_id\": \"p2.lpr_date\", \"reason\": \"to verify from a document\", \"partial_value\": \"2011\", \"origin\": \"applicant\"}, {\"field_id\": \"p4.current_address.from\", \"reason\": \"to verify from a document\", \"partial_value\": \"2014-06\", \"origin\": \"applicant\"}, {\"field_id\": \"p6.child1.date_of_birth\", \"reason\": \"to verify from a document\", \"partial_value\": \"1974\", \"origin\": \"applicant\"}, {\"field_id\": \"p6.child1.child_name\", \"reason\": \"to verify from a document\", \"partial_value\": \"Miguel\", \"origin\": \"applicant\"}, {\"field_id\": \"p6.child2.child_name\", \"reason\": \"to verify from a document\", \"partial_value\": \"Lucía\", \"origin\": \"applicant\"}, {\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"to verify from a document\", \"partial_value\": \"1977\", \"origin\": \"applicant\"}, {\"field_id\": \"p6.child3.child_name\", \"reason\": \"to verify from a document\", \"partial_value\": \"José\", \"origin\": \"applicant\"}, {\"field_id\": \"p6.child3.date_of_birth\", \"reason\": \"to verify from a document\", \"partial_value\": \"1980\", \"origin\": \"applicant\"}, {\"field_id\": \"p6.child4.child_name\", \"reason\": \"to verify from a document\", \"partial_value\": \"Carmen\", \"origin\": \"applicant\"}, {\"field_id\": \"p6.child4.date_of_birth\", \"reason\": \"to verify from a document\", \"partial_value\": \"1986\", \"origin\": \"applicant\"}, {\"field_id\": \"p7.employer1.from\", \"reason\": \"to verify from a document\", \"partial_value\": \"2015\", \"origin\": \"applicant\"}], \"clarification\": null, \"conflict\": null, \"escalation\": null, \"complete\": true, \"asking\": null, \"section_checkpoint\": {\"part\": 9, \"section\": \"Part 9: Your record\", \"awaiting_confirmation\": false}, \"interview_over\": false, \"reply\": {\"es\": \"Anotado, sí a todo el juramento. Eso es todo. Antes de terminar, quedaron algunas cosas por revisar: su fecha de residencia, la fecha en que se mudó a su domicilio actual, los nombres y fechas de nacimiento de sus hijos, y la fecha en que comenzó su último trabajo. ¿Tiene alguno de esos datos a la mano ahora?\"}}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_067",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.support_constitution",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.understand_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_full_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_bear_arms",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "si la ley lo pide, sí"
+     }
+    },
+    {
+     "field_id": "p9.willing_noncombatant",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.85,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_national_importance",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.85,
+      "utterance": "Sí a todo."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p2.lpr_date",
+     "reason": "to verify from a document",
+     "partial_value": "2011",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p4.current_address.from",
+     "reason": "to verify from a document",
+     "partial_value": "2014-06",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child1.date_of_birth",
+     "reason": "to verify from a document",
+     "partial_value": "1974",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child1.child_name",
+     "reason": "to verify from a document",
+     "partial_value": "Miguel",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.child_name",
+     "reason": "to verify from a document",
+     "partial_value": "Lucía",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "to verify from a document",
+     "partial_value": "1977",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child3.child_name",
+     "reason": "to verify from a document",
+     "partial_value": "José",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child3.date_of_birth",
+     "reason": "to verify from a document",
+     "partial_value": "1980",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child4.child_name",
+     "reason": "to verify from a document",
+     "partial_value": "Carmen",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child4.date_of_birth",
+     "reason": "to verify from a document",
+     "partial_value": "1986",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p7.employer1.from",
+     "reason": "to verify from a document",
+     "partial_value": "2015",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 9,
+    "section": "Part 9: Your record",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "es": "Anotado, sí a todo el juramento. Eso es todo. Antes de terminar, quedaron algunas cosas por revisar: su fecha de residencia, la fecha en que se mudó a su domicilio actual, los nombres y fechas de nacimiento de sus hijos, y la fecha en que comenzó su último trabajo. ¿Tiene alguno de esos datos a la mano ahora?"
+   }
+  }
+ },
+ {
+  "case": "1-sweep-rosa",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 66,
+  "turn": 67,
+  "user_content": "¿Portar armas? ¿A mi edad? Bueno... si la ley lo pide, sí. Sí a todo.",
+  "rep": 5,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 1292,
+  "secs": 9.9,
+  "raw": "{\"schema_version\": 1, \"turn_id\": \"t_067\", \"intent\": {\"type\": \"answer\", \"confidence\": 0.9}, \"facts\": [{\"field_id\": \"p9.support_constitution\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}}, {\"field_id\": \"p9.understand_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}}, {\"field_id\": \"p9.willing_full_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}}, {\"field_id\": \"p9.willing_bear_arms\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"si la ley lo pide, sí\"}}, {\"field_id\": \"p9.willing_noncombatant\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}}, {\"field_id\": \"p9.willing_national_importance\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}}], \"deferred\": [{\"field_id\": \"p2.lpr_date\", \"reason\": \"to verify from document\", \"partial_value\": \"2011\", \"origin\": \"applicant\"}, {\"field_id\": \"p4.current_address.from\", \"reason\": \"to verify from document\", \"partial_value\": \"2014-06\", \"origin\": \"applicant\"}, {\"field_id\": \"p6.child1.date_of_birth\", \"reason\": \"to verify from document\", \"partial_value\": \"1974\", \"origin\": \"applicant\"}, {\"field_id\": \"p6.child1.child_name\", \"reason\": \"to verify from document\", \"partial_value\": \"Miguel\", \"origin\": \"applicant\"}, {\"field_id\": \"p6.child2.child_name\", \"reason\": \"to verify from document\", \"partial_value\": \"Lucía\", \"origin\": \"applicant\"}, {\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"to verify from document\", \"partial_value\": \"1977\", \"origin\": \"applicant\"}, {\"field_id\": \"p6.child3.child_name\", \"reason\": \"to verify from document\", \"partial_value\": \"José\", \"origin\": \"applicant\"}, {\"field_id\": \"p6.child3.date_of_birth\", \"reason\": \"to verify from document\", \"partial_value\": \"1980\", \"origin\": \"applicant\"}, {\"field_id\": \"p6.child4.child_name\", \"reason\": \"to verify from document\", \"partial_value\": \"Carmen\", \"origin\": \"applicant\"}, {\"field_id\": \"p6.child4.date_of_birth\", \"reason\": \"to verify from document\", \"partial_value\": \"1986\", \"origin\": \"applicant\"}, {\"field_id\": \"p7.employer1.from\", \"reason\": \"to verify from document\", \"partial_value\": \"2015\", \"origin\": \"applicant\"}], \"clarification\": null, \"conflict\": null, \"escalation\": null, \"complete\": true, \"asking\": null, \"section_checkpoint\": {\"part\": 9, \"section\": \"Part 9: Your record\", \"awaiting_confirmation\": false}, \"interview_over\": false, \"reply\": {\"es\": \"Anotado, sí a todo. Eso completa la Parte 9. Antes de terminar, quedaron algunas cosas por revisar: la fecha en que obtuvo la residencia, cuándo se mudó a su dirección actual, los nombres y fechas de nacimiento de sus cuatro hijos, y el año en que empezó su último trabajo. ¿Tiene alguno de esos datos ahora?\"}}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_067",
+   "intent": {
+    "type": "answer",
+    "confidence": 0.9
+   },
+   "facts": [
+    {
+     "field_id": "p9.support_constitution",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.understand_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_full_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_bear_arms",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "si la ley lo pide, sí"
+     }
+    },
+    {
+     "field_id": "p9.willing_noncombatant",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_national_importance",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p2.lpr_date",
+     "reason": "to verify from document",
+     "partial_value": "2011",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p4.current_address.from",
+     "reason": "to verify from document",
+     "partial_value": "2014-06",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child1.date_of_birth",
+     "reason": "to verify from document",
+     "partial_value": "1974",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child1.child_name",
+     "reason": "to verify from document",
+     "partial_value": "Miguel",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.child_name",
+     "reason": "to verify from document",
+     "partial_value": "Lucía",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "to verify from document",
+     "partial_value": "1977",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child3.child_name",
+     "reason": "to verify from document",
+     "partial_value": "José",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child3.date_of_birth",
+     "reason": "to verify from document",
+     "partial_value": "1980",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child4.child_name",
+     "reason": "to verify from document",
+     "partial_value": "Carmen",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child4.date_of_birth",
+     "reason": "to verify from document",
+     "partial_value": "1986",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p7.employer1.from",
+     "reason": "to verify from document",
+     "partial_value": "2015",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 9,
+    "section": "Part 9: Your record",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "es": "Anotado, sí a todo. Eso completa la Parte 9. Antes de terminar, quedaron algunas cosas por revisar: la fecha en que obtuvo la residencia, cuándo se mudó a su dirección actual, los nombres y fechas de nacimiento de sus cuatro hijos, y el año en que empezó su último trabajo. ¿Tiene alguno de esos datos ahora?"
+   }
+  }
+ },
+ {
+  "case": "1-sweep-rosa",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 66,
+  "turn": 67,
+  "user_content": "¿Portar armas? ¿A mi edad? Bueno... si la ley lo pide, sí. Sí a todo.",
+  "rep": 0,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 809,
+  "secs": 9.5,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_067\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\"field_id\": \"p9.support_constitution\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Sí a todo.\"}},\n    {\"field_id\": \"p9.understand_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Sí a todo.\"}},\n    {\"field_id\": \"p9.willing_full_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Sí a todo.\"}},\n    {\"field_id\": \"p9.willing_bear_arms\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"si la ley lo pide, sí\"}},\n    {\"field_id\": \"p9.willing_noncombatant\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}},\n    {\"field_id\": \"p9.willing_national_importance\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}}\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": null,\n  \"section_checkpoint\": {\"part\": 9, \"section\": \"Part 9: Your record\", \"awaiting_confirmation\": false},\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Anotado, sí a todo. Eso es Parte 9: sin antecedentes ni afiliaciones, y dispuesta a prestar el juramento completo. Antes de terminar, quedaron algunas cosas por revisar: la fecha en que obtuvo la residencia, cuándo se mudó a su dirección actual, cuándo empezó a trabajar antes de retirarse, y los nombres y fechas de nacimiento de sus cuatro hijos. ¿Tiene alguno de esos datos a la mano ahora?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_067",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.support_constitution",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.understand_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_full_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_bear_arms",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "si la ley lo pide, sí"
+     }
+    },
+    {
+     "field_id": "p9.willing_noncombatant",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_national_importance",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 9,
+    "section": "Part 9: Your record",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "es": "Anotado, sí a todo. Eso es Parte 9: sin antecedentes ni afiliaciones, y dispuesta a prestar el juramento completo. Antes de terminar, quedaron algunas cosas por revisar: la fecha en que obtuvo la residencia, cuándo se mudó a su dirección actual, cuándo empezó a trabajar antes de retirarse, y los nombres y fechas de nacimiento de sus cuatro hijos. ¿Tiene alguno de esos datos a la mano ahora?"
+   }
+  }
+ },
+ {
+  "case": "1-sweep-rosa",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 66,
+  "turn": 67,
+  "user_content": "¿Portar armas? ¿A mi edad? Bueno... si la ley lo pide, sí. Sí a todo.",
+  "rep": 1,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 767,
+  "secs": 9.0,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_067\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\"field_id\": \"p9.support_constitution\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Sí a todo.\"}},\n    {\"field_id\": \"p9.understand_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Sí a todo.\"}},\n    {\"field_id\": \"p9.willing_full_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Sí a todo.\"}},\n    {\"field_id\": \"p9.willing_bear_arms\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"si la ley lo pide, sí\"}},\n    {\"field_id\": \"p9.willing_noncombatant\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}},\n    {\"field_id\": \"p9.willing_national_importance\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}}\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": null,\n  \"section_checkpoint\": {\"part\": 9, \"section\": \"Part 9: Your record\", \"awaiting_confirmation\": false},\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Anotado, sí a todo. Eso completa la Parte 9. Antes de terminar, quedan unas cosas por revisar: cuándo obtuvo la residencia, cuándo se mudó a su domicilio actual, los nombres y fechas de nacimiento de sus cuatro hijos, y cuándo comenzó como costurera. ¿Tiene alguno de esos datos a mano ahora?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_067",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.support_constitution",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.understand_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_full_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_bear_arms",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "si la ley lo pide, sí"
+     }
+    },
+    {
+     "field_id": "p9.willing_noncombatant",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_national_importance",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 9,
+    "section": "Part 9: Your record",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "es": "Anotado, sí a todo. Eso completa la Parte 9. Antes de terminar, quedan unas cosas por revisar: cuándo obtuvo la residencia, cuándo se mudó a su domicilio actual, los nombres y fechas de nacimiento de sus cuatro hijos, y cuándo comenzó como costurera. ¿Tiene alguno de esos datos a mano ahora?"
+   }
+  }
+ },
+ {
+  "case": "1-sweep-rosa",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 66,
+  "turn": 67,
+  "user_content": "¿Portar armas? ¿A mi edad? Bueno... si la ley lo pide, sí. Sí a todo.",
+  "rep": 2,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 778,
+  "secs": 8.6,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_067\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\"field_id\": \"p9.support_constitution\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Sí a todo\"}},\n    {\"field_id\": \"p9.understand_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Sí a todo\"}},\n    {\"field_id\": \"p9.willing_full_oath\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Sí a todo\"}},\n    {\"field_id\": \"p9.willing_bear_arms\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"si la ley lo pide, sí\"}},\n    {\"field_id\": \"p9.willing_noncombatant\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo\"}},\n    {\"field_id\": \"p9.willing_national_importance\", \"value\": \"yes\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo\"}}\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": null,\n  \"section_checkpoint\": {\"part\": 9, \"section\": \"Part 9: Your record\", \"awaiting_confirmation\": false},\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Anotado, sí a todo. Eso completa la Parte 9. Antes de terminar, quedaron algunas cosas por revisar: la fecha en que obtuvo su residencia, cuándo se mudó a su domicilio actual, cuándo empezó a trabajar donde está retirada, y los nombres y fechas de nacimiento de sus cuatro hijos. ¿Tiene alguno de esos datos a la mano ahora?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_067",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.support_constitution",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Sí a todo"
+     }
+    },
+    {
+     "field_id": "p9.understand_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Sí a todo"
+     }
+    },
+    {
+     "field_id": "p9.willing_full_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Sí a todo"
+     }
+    },
+    {
+     "field_id": "p9.willing_bear_arms",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "si la ley lo pide, sí"
+     }
+    },
+    {
+     "field_id": "p9.willing_noncombatant",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo"
+     }
+    },
+    {
+     "field_id": "p9.willing_national_importance",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 9,
+    "section": "Part 9: Your record",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "es": "Anotado, sí a todo. Eso completa la Parte 9. Antes de terminar, quedaron algunas cosas por revisar: la fecha en que obtuvo su residencia, cuándo se mudó a su domicilio actual, cuándo empezó a trabajar donde está retirada, y los nombres y fechas de nacimiento de sus cuatro hijos. ¿Tiene alguno de esos datos a la mano ahora?"
+   }
+  }
+ },
+ {
+  "case": "1-sweep-rosa",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 66,
+  "turn": 67,
+  "user_content": "¿Portar armas? ¿A mi edad? Bueno... si la ley lo pide, sí. Sí a todo.",
+  "rep": 3,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 866,
+  "secs": 8.8,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_067\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p9.support_constitution\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Sí a todo.\"}\n    },\n    {\n      \"field_id\": \"p9.understand_oath\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Sí a todo.\"}\n    },\n    {\n      \"field_id\": \"p9.willing_full_oath\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Sí a todo.\"}\n    },\n    {\n      \"field_id\": \"p9.willing_bear_arms\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"si la ley lo pide, sí\"}\n    },\n    {\n      \"field_id\": \"p9.willing_noncombatant\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}\n    },\n    {\n      \"field_id\": \"p9.willing_national_importance\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": null,\n  \"section_checkpoint\": {\n    \"part\": 9,\n    \"section\": \"Part 9: Your record\",\n    \"awaiting_confirmation\": false\n  },\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Anotado, sí a todo, incluyendo portar armas si la ley lo exige. Eso completa la Parte 9. Antes de terminar, quedaron algunas cosas por revisar: su fecha de residencia permanente, la fecha en que se mudó a su domicilio actual, las fechas de nacimiento y nombres completos de sus cuatro hijos, y la fecha en que empezó su último trabajo. ¿Tiene alguno de esos datos a la mano ahora?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_067",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.support_constitution",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.understand_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_full_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_bear_arms",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "si la ley lo pide, sí"
+     }
+    },
+    {
+     "field_id": "p9.willing_noncombatant",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_national_importance",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 9,
+    "section": "Part 9: Your record",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "es": "Anotado, sí a todo, incluyendo portar armas si la ley lo exige. Eso completa la Parte 9. Antes de terminar, quedaron algunas cosas por revisar: su fecha de residencia permanente, la fecha en que se mudó a su domicilio actual, las fechas de nacimiento y nombres completos de sus cuatro hijos, y la fecha en que empezó su último trabajo. ¿Tiene alguno de esos datos a la mano ahora?"
+   }
+  }
+ },
+ {
+  "case": "1-sweep-rosa",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 66,
+  "turn": 67,
+  "user_content": "¿Portar armas? ¿A mi edad? Bueno... si la ley lo pide, sí. Sí a todo.",
+  "rep": 4,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 757,
+  "secs": 8.2,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_067\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p9.support_constitution\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Sí a todo.\"}\n    },\n    {\n      \"field_id\": \"p9.understand_oath\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Sí a todo.\"}\n    },\n    {\n      \"field_id\": \"p9.willing_full_oath\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Sí a todo.\"}\n    },\n    {\n      \"field_id\": \"p9.willing_bear_arms\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"si la ley lo pide, sí\"}\n    },\n    {\n      \"field_id\": \"p9.willing_noncombatant\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}\n    },\n    {\n      \"field_id\": \"p9.willing_national_importance\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": null,\n  \"section_checkpoint\": {\n    \"part\": 9,\n    \"section\": \"Part 9: Your record\",\n    \"awaiting_confirmation\": false\n  },\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Anotado, sí a todo. Eso es todo. ¿Quiere repasar sus respuestas una vez más antes de ver su formulario, o pasar directamente a él?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_067",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.support_constitution",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.understand_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_full_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_bear_arms",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "si la ley lo pide, sí"
+     }
+    },
+    {
+     "field_id": "p9.willing_noncombatant",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_national_importance",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 9,
+    "section": "Part 9: Your record",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "es": "Anotado, sí a todo. Eso es todo. ¿Quiere repasar sus respuestas una vez más antes de ver su formulario, o pasar directamente a él?"
+   },
+   "battery_unspoken": {
+    "node_id": "q_p9_oath",
+    "minted": [
+     "p9.support_constitution",
+     "p9.understand_oath",
+     "p9.willing_bear_arms",
+     "p9.willing_full_oath",
+     "p9.willing_national_importance",
+     "p9.willing_noncombatant"
+    ],
+    "question_chars": 445,
+    "spoken_chars": 130,
+    "reason": "the spoken question was far shorter than the line these fields came from"
+   }
+  }
+ },
+ {
+  "case": "1-sweep-rosa",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 66,
+  "turn": 67,
+  "user_content": "¿Portar armas? ¿A mi edad? Bueno... si la ley lo pide, sí. Sí a todo.",
+  "rep": 5,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 831,
+  "secs": 8.5,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_067\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p9.support_constitution\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Sí a todo.\"}\n    },\n    {\n      \"field_id\": \"p9.understand_oath\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Sí a todo.\"}\n    },\n    {\n      \"field_id\": \"p9.willing_full_oath\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Sí a todo.\"}\n    },\n    {\n      \"field_id\": \"p9.willing_bear_arms\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"si la ley lo pide, sí\"}\n    },\n    {\n      \"field_id\": \"p9.willing_noncombatant\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}\n    },\n    {\n      \"field_id\": \"p9.willing_national_importance\",\n      \"value\": \"yes\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Sí a todo.\"}\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": null,\n  \"section_checkpoint\": {\n    \"part\": 9,\n    \"section\": \"Part 9: Your record\",\n    \"awaiting_confirmation\": false\n  },\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Sí a todo, anotado. Eso es todo. Antes de terminar, quedaron unas cosas por revisar: la fecha en que recibió su residencia, cuándo se mudó a su dirección actual, los nombres y fechas de nacimiento de sus cuatro hijos, y desde cuándo trabajó por su cuenta. ¿Tiene alguno de esos datos ahora?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_067",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p9.support_constitution",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.understand_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_full_oath",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_bear_arms",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "si la ley lo pide, sí"
+     }
+    },
+    {
+     "field_id": "p9.willing_noncombatant",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    },
+    {
+     "field_id": "p9.willing_national_importance",
+     "value": "yes",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Sí a todo."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": {
+    "part": 9,
+    "section": "Part 9: Your record",
+    "awaiting_confirmation": false
+   },
+   "interview_over": false,
+   "reply": {
+    "es": "Sí a todo, anotado. Eso es todo. Antes de terminar, quedaron unas cosas por revisar: la fecha en que recibió su residencia, cuándo se mudó a su dirección actual, los nombres y fechas de nacimiento de sus cuatro hijos, y desde cuándo trabajó por su cuenta. ¿Tiene alguno de esos datos ahora?"
+   }
+  }
+ },
+ {
+  "case": "10-group-part2",
+  "run": "spectrum-amina-r3.json",
+  "wire_index": 8,
+  "turn": 9,
+  "user_content": "September 9, 1979.",
+  "rep": 0,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 298,
+  "secs": 3.1,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_009\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.date_of_birth\",\n      \"value\": \"1979-09-09\",\n      \"value_type\": \"date\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.98,\n        \"utterance\": \"September 9, 1979.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p2_country_of_birth\", \"field_ids\": [\"p2.country_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"September 9th, 1979. What is your country of birth?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_009",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p1.date_of_birth",
+     "value": "1979-09-09",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.98,
+      "utterance": "September 9, 1979."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p2_country_of_birth",
+    "field_ids": [
+     "p2.country_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "September 9th, 1979. What is your country of birth?"
+   }
+  }
+ },
+ {
+  "case": "10-group-part2",
+  "run": "spectrum-amina-r3.json",
+  "wire_index": 8,
+  "turn": 9,
+  "user_content": "September 9, 1979.",
+  "rep": 1,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 298,
+  "secs": 2.9,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_009\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.date_of_birth\",\n      \"value\": \"1979-09-09\",\n      \"value_type\": \"date\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.98,\n        \"utterance\": \"September 9, 1979.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p2_country_of_birth\", \"field_ids\": [\"p2.country_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"September 9th, 1979. What is your country of birth?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_009",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p1.date_of_birth",
+     "value": "1979-09-09",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.98,
+      "utterance": "September 9, 1979."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p2_country_of_birth",
+    "field_ids": [
+     "p2.country_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "September 9th, 1979. What is your country of birth?"
+   }
+  }
+ },
+ {
+  "case": "10-group-part2",
+  "run": "spectrum-amina-r3.json",
+  "wire_index": 8,
+  "turn": 9,
+  "user_content": "September 9, 1979.",
+  "rep": 2,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 242,
+  "secs": 2.8,
+  "raw": "{\"schema_version\":1,\"turn_id\":\"t_009\",\"intent\":{\"type\":\"answer\",\"confidence\":0.97},\"facts\":[{\"field_id\":\"p1.date_of_birth\",\"value\":\"1979-09-09\",\"value_type\":\"date\",\"provenance\":{\"source\":\"user_stated\",\"confidence\":0.97,\"utterance\":\"September 9, 1979.\"}}],\"deferred\":[],\"clarification\":null,\"conflict\":null,\"escalation\":null,\"complete\":true,\"asking\":{\"node_id\":\"q_p2_country_of_birth\",\"field_ids\":[\"p2.country_of_birth\"]},\"section_checkpoint\":null,\"interview_over\":false,\"reply\":{\"en\":\"September 9th, 1979. What is your country of birth?\"}}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_009",
+   "intent": {
+    "type": "answer",
+    "confidence": 0.97
+   },
+   "facts": [
+    {
+     "field_id": "p1.date_of_birth",
+     "value": "1979-09-09",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.97,
+      "utterance": "September 9, 1979."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p2_country_of_birth",
+    "field_ids": [
+     "p2.country_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "September 9th, 1979. What is your country of birth?"
+   }
+  }
+ },
+ {
+  "case": "10-group-part2",
+  "run": "spectrum-amina-r3.json",
+  "wire_index": 8,
+  "turn": 9,
+  "user_content": "September 9, 1979.",
+  "rep": 3,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 242,
+  "secs": 2.9,
+  "raw": "{\"schema_version\":1,\"turn_id\":\"t_009\",\"intent\":{\"type\":\"answer\",\"confidence\":0.97},\"facts\":[{\"field_id\":\"p1.date_of_birth\",\"value\":\"1979-09-09\",\"value_type\":\"date\",\"provenance\":{\"source\":\"user_stated\",\"confidence\":0.97,\"utterance\":\"September 9, 1979\"}}],\"deferred\":[],\"clarification\":null,\"conflict\":null,\"escalation\":null,\"complete\":true,\"asking\":{\"node_id\":\"q_p2_country_of_birth\",\"field_ids\":[\"p2.country_of_birth\"]},\"section_checkpoint\":null,\"interview_over\":false,\"reply\":{\"en\":\"September 9th, 1979. What is your country of birth?\"}}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_009",
+   "intent": {
+    "type": "answer",
+    "confidence": 0.97
+   },
+   "facts": [
+    {
+     "field_id": "p1.date_of_birth",
+     "value": "1979-09-09",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.97,
+      "utterance": "September 9, 1979"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p2_country_of_birth",
+    "field_ids": [
+     "p2.country_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "September 9th, 1979. What is your country of birth?"
+   }
+  }
+ },
+ {
+  "case": "10-group-part2",
+  "run": "spectrum-amina-r3.json",
+  "wire_index": 8,
+  "turn": 9,
+  "user_content": "September 9, 1979.",
+  "rep": 4,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 242,
+  "secs": 2.9,
+  "raw": "{\"schema_version\":1,\"turn_id\":\"t_009\",\"intent\":{\"type\":\"answer\",\"confidence\":0.97},\"facts\":[{\"field_id\":\"p1.date_of_birth\",\"value\":\"1979-09-09\",\"value_type\":\"date\",\"provenance\":{\"source\":\"user_stated\",\"confidence\":0.97,\"utterance\":\"September 9, 1979\"}}],\"deferred\":[],\"clarification\":null,\"conflict\":null,\"escalation\":null,\"complete\":true,\"asking\":{\"node_id\":\"q_p2_country_of_birth\",\"field_ids\":[\"p2.country_of_birth\"]},\"section_checkpoint\":null,\"interview_over\":false,\"reply\":{\"en\":\"September 9th, 1979. What is your country of birth?\"}}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_009",
+   "intent": {
+    "type": "answer",
+    "confidence": 0.97
+   },
+   "facts": [
+    {
+     "field_id": "p1.date_of_birth",
+     "value": "1979-09-09",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.97,
+      "utterance": "September 9, 1979"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p2_country_of_birth",
+    "field_ids": [
+     "p2.country_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "September 9th, 1979. What is your country of birth?"
+   }
+  }
+ },
+ {
+  "case": "10-group-part2",
+  "run": "spectrum-amina-r3.json",
+  "wire_index": 8,
+  "turn": 9,
+  "user_content": "September 9, 1979.",
+  "rep": 5,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 303,
+  "secs": 2.9,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_009\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.date_of_birth\",\n      \"value\": \"1979-09-09\",\n      \"value_type\": \"date\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.98,\n        \"utterance\": \"September 9, 1979.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p2_country_of_birth\", \"field_ids\": [\"p2.country_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"September 9th, 1979. What is your country of birth?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_009",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p1.date_of_birth",
+     "value": "1979-09-09",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.98,
+      "utterance": "September 9, 1979."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p2_country_of_birth",
+    "field_ids": [
+     "p2.country_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "September 9th, 1979. What is your country of birth?"
+   }
+  }
+ },
+ {
+  "case": "10-group-part2",
+  "run": "spectrum-amina-r3.json",
+  "wire_index": 8,
+  "turn": 9,
+  "user_content": "September 9, 1979.",
+  "rep": 0,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 333,
+  "secs": 5.0,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_009\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.date_of_birth\",\n      \"value\": \"1979-09-09\",\n      \"value_type\": \"date\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.98,\n        \"utterance\": \"September 9, 1979.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p2_country_of_birth\", \"field_ids\": [\"p2.country_of_birth\", \"p2.country_of_nationality\", \"p2.gender\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"September 9th, 1979. What country were you born in, what is your country of citizenship, and are you male or female?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_009",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p1.date_of_birth",
+     "value": "1979-09-09",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.98,
+      "utterance": "September 9, 1979."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p2_country_of_birth",
+    "field_ids": [
+     "p2.country_of_birth",
+     "p2.country_of_nationality",
+     "p2.gender"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "September 9th, 1979. What country were you born in, what is your country of citizenship, and are you male or female?"
+   }
+  }
+ },
+ {
+  "case": "10-group-part2",
+  "run": "spectrum-amina-r3.json",
+  "wire_index": 8,
+  "turn": 9,
+  "user_content": "September 9, 1979.",
+  "rep": 1,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 333,
+  "secs": 5.4,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_009\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.date_of_birth\",\n      \"value\": \"1979-09-09\",\n      \"value_type\": \"date\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.98,\n        \"utterance\": \"September 9, 1979.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p2_country_of_birth\", \"field_ids\": [\"p2.country_of_birth\", \"p2.country_of_nationality\", \"p2.gender\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"September 9th, 1979. What country were you born in, what is your country of citizenship, and are you male or female?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_009",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p1.date_of_birth",
+     "value": "1979-09-09",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.98,
+      "utterance": "September 9, 1979."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p2_country_of_birth",
+    "field_ids": [
+     "p2.country_of_birth",
+     "p2.country_of_nationality",
+     "p2.gender"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "September 9th, 1979. What country were you born in, what is your country of citizenship, and are you male or female?"
+   }
+  }
+ },
+ {
+  "case": "10-group-part2",
+  "run": "spectrum-amina-r3.json",
+  "wire_index": 8,
+  "turn": 9,
+  "user_content": "September 9, 1979.",
+  "rep": 2,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 331,
+  "secs": 5.0,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_009\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.date_of_birth\",\n      \"value\": \"1979-09-09\",\n      \"value_type\": \"date\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.98,\n        \"utterance\": \"September 9, 1979.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p2_country_of_birth\", \"field_ids\": [\"p2.country_of_birth\", \"p2.country_of_nationality\", \"p2.gender\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"September 9th, 1979. What country were you born in, what is your citizenship, and are you male or female?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_009",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p1.date_of_birth",
+     "value": "1979-09-09",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.98,
+      "utterance": "September 9, 1979."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p2_country_of_birth",
+    "field_ids": [
+     "p2.country_of_birth",
+     "p2.country_of_nationality",
+     "p2.gender"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "September 9th, 1979. What country were you born in, what is your citizenship, and are you male or female?"
+   }
+  }
+ },
+ {
+  "case": "10-group-part2",
+  "run": "spectrum-amina-r3.json",
+  "wire_index": 8,
+  "turn": 9,
+  "user_content": "September 9, 1979.",
+  "rep": 3,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 335,
+  "secs": 5.9,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_009\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.date_of_birth\",\n      \"value\": \"1979-09-09\",\n      \"value_type\": \"date\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.98,\n        \"utterance\": \"September 9, 1979.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p2_country_of_birth\", \"field_ids\": [\"p2.country_of_birth\", \"p2.country_of_nationality\", \"p2.gender\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"September 9th, 1979. What country were you born in, what is your citizenship or nationality, and are you male or female?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_009",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p1.date_of_birth",
+     "value": "1979-09-09",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.98,
+      "utterance": "September 9, 1979."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p2_country_of_birth",
+    "field_ids": [
+     "p2.country_of_birth",
+     "p2.country_of_nationality",
+     "p2.gender"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "September 9th, 1979. What country were you born in, what is your citizenship or nationality, and are you male or female?"
+   }
+  }
+ },
+ {
+  "case": "10-group-part2",
+  "run": "spectrum-amina-r3.json",
+  "wire_index": 8,
+  "turn": 9,
+  "user_content": "September 9, 1979.",
+  "rep": 4,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 335,
+  "secs": 5.6,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_009\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.date_of_birth\",\n      \"value\": \"1979-09-09\",\n      \"value_type\": \"date\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.98,\n        \"utterance\": \"September 9, 1979.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p2_country_of_birth\", \"field_ids\": [\"p2.country_of_birth\", \"p2.country_of_nationality\", \"p2.gender\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"September 9th, 1979. What country were you born in, what is your citizenship or nationality, and are you male or female?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_009",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p1.date_of_birth",
+     "value": "1979-09-09",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.98,
+      "utterance": "September 9, 1979."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p2_country_of_birth",
+    "field_ids": [
+     "p2.country_of_birth",
+     "p2.country_of_nationality",
+     "p2.gender"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "September 9th, 1979. What country were you born in, what is your citizenship or nationality, and are you male or female?"
+   }
+  }
+ },
+ {
+  "case": "10-group-part2",
+  "run": "spectrum-amina-r3.json",
+  "wire_index": 8,
+  "turn": 9,
+  "user_content": "September 9, 1979.",
+  "rep": 5,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 332,
+  "secs": 5.1,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_009\",\n  \"intent\": {\"type\": \"answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p1.date_of_birth\",\n      \"value\": \"1979-09-09\",\n      \"value_type\": \"date\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.98,\n        \"utterance\": \"September 9, 1979.\"\n      }\n    }\n  ],\n  \"deferred\": [],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": true,\n  \"asking\": {\"node_id\": \"q_p2_country_of_birth\", \"field_ids\": [\"p2.country_of_birth\", \"p2.country_of_nationality\", \"p2.gender\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"en\": \"September 9th, 1979. What is your country of birth, your country of citizenship, and are you male or female?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_009",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p1.date_of_birth",
+     "value": "1979-09-09",
+     "value_type": "date",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.98,
+      "utterance": "September 9, 1979."
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": {
+    "node_id": "q_p2_country_of_birth",
+    "field_ids": [
+     "p2.country_of_birth",
+     "p2.country_of_nationality",
+     "p2.gender"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "September 9th, 1979. What is your country of birth, your country of citizenship, and are you male or female?"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 0,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 645,
+  "secs": 6.1,
+  "raw": "She gave a first name only (Lucía, missing surname - only a deferral or capture gap, not a fact), a year only (1977, no month/day - defer), and \"está aquí conmigo\" which answers residence directly.\n\nLet me build this: child2.child_name deferred (partial \"Lucía\"), child2.date_of_birth deferred (partial \"1977\"), child2.residence = resides_with_me (fact).\n\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Es la que está aquí conmigo\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p6.child2.child_name\", \"reason\": \"falta el apellido\", \"partial_value\": \"Lucía\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"solo dio el año\", \"partial_value\": \"1977\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_relationship\", \"field_ids\": [\"p6.child2.relationship\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía, nacida en 1977, con el apellido y la fecha exacta pendientes, y vive con usted, anotado. ¿Es su hija biológica, hijastra o adoptada?\",\n    \"en\": \"Lucía, born in 1977, with the last name and exact date still pending, and living with you, noted. Is she your biological daughter, stepdaughter, or adopted?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Es la que está aquí conmigo"
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.child_name",
+     "reason": "falta el apellido",
+     "partial_value": "Lucía",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "solo dio el año",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_relationship",
+    "field_ids": [
+     "p6.child2.relationship"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, nacida en 1977, con el apellido y la fecha exacta pendientes, y vive con usted, anotado. ¿Es su hija biológica, hijastra o adoptada?",
+    "en": "Lucía, born in 1977, with the last name and exact date still pending, and living with you, noted. Is she your biological daughter, stepdaughter, or adopted?"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 1,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 569,
+  "secs": 5.8,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.6, \"utterance\": \"Lucía. Ella nació en el setenta y siete.\"}\n    },\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.9, \"utterance\": \"Es la que está aquí conmigo.\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"no recuerda el día ni el mes exacto de 1977\", \"partial_value\": \"1977\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_relationship\", \"field_ids\": [\"p6.child2.relationship\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía, nacida en 1977, con el día pendiente de verificar, y vive con usted, anotado. ¿Es su hija biológica, hijastra o adoptada?\",\n    \"en\": \"Lucía, born in 1977, with the day still to verify, and she lives with you, noted. Is she your biological daughter, stepdaughter, or adopted?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.6,
+      "utterance": "Lucía. Ella nació en el setenta y siete."
+     }
+    },
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "Es la que está aquí conmigo."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "no recuerda el día ni el mes exacto de 1977",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_relationship",
+    "field_ids": [
+     "p6.child2.relationship"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, nacida en 1977, con el día pendiente de verificar, y vive con usted, anotado. ¿Es su hija biológica, hijastra o adoptada?",
+    "en": "Lucía, born in 1977, with the day still to verify, and she lives with you, noted. Is she your biological daughter, stepdaughter, or adopted?"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 2,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 400,
+  "secs": 4.8,
+  "raw": "{\"schema_version\": 1, \"turn_id\": \"t_040\", \"intent\": {\"type\": \"partial_answer\"}, \"facts\": [{\"field_id\": \"p6.child2.residence\", \"value\": \"resides_with_me\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.9, \"utterance\": \"Es la que está aquí conmigo\"}}], \"deferred\": [{\"field_id\": \"p6.child2.child_name\", \"reason\": \"no dio el apellido\", \"partial_value\": \"Lucía\", \"origin\": \"applicant\"}, {\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"solo dio el año\", \"partial_value\": \"1977\", \"origin\": \"applicant\"}], \"clarification\": null, \"conflict\": null, \"escalation\": null, \"complete\": false, \"asking\": {\"node_id\": \"q_p6_child2_child_name\", \"field_ids\": [\"p6.child2.child_name\"]}, \"section_checkpoint\": null, \"interview_over\": false, \"reply\": {\"es\": \"¿Cuál es el apellido de Lucía, y en qué mes nació de 1977?\", \"en\": \"What is Lucía's last name, and what month in 1977 was she born?\"}}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.9,
+      "utterance": "Es la que está aquí conmigo"
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.child_name",
+     "reason": "no dio el apellido",
+     "partial_value": "Lucía",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "solo dio el año",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_child_name",
+    "field_ids": [
+     "p6.child2.child_name"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "¿Cuál es el apellido de Lucía, y en qué mes nació de 1977?",
+    "en": "What is Lucía's last name, and what month in 1977 was she born?"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 3,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 510,
+  "secs": 4.7,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"ai_extracted\",\n        \"confidence\": 0.9,\n        \"utterance\": \"Es la que está aquí conmigo.\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"reason\": \"solo dio el primer nombre, falta el apellido\",\n      \"partial_value\": \"Lucía\",\n      \"origin\": \"applicant\"\n    },\n    {\n      \"field_id\": \"p6.child2.date_of_birth\",\n      \"reason\": \"solo dio el año de nacimiento\",\n      \"partial_value\": \"1977\",\n      \"origin\": \"applicant\"\n    }\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_child_name\", \"field_ids\": [\"p6.child2.child_name\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía, nacida en 1977, vive con usted, anotado. ¿Cuál es su apellido?\",\n    \"en\": \"Lucía, born in 1977, lives with you, noted. What is her last name?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.9,
+      "utterance": "Es la que está aquí conmigo."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.child_name",
+     "reason": "solo dio el primer nombre, falta el apellido",
+     "partial_value": "Lucía",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "solo dio el año de nacimiento",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_child_name",
+    "field_ids": [
+     "p6.child2.child_name"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, nacida en 1977, vive con usted, anotado. ¿Cuál es su apellido?",
+    "en": "Lucía, born in 1977, lives with you, noted. What is her last name?"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 4,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 591,
+  "secs": 5.5,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"ai_extracted\",\n        \"confidence\": 0.9,\n        \"utterance\": \"Es la que está aquí conmigo.\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"reason\": \"solo dio el primer nombre, falta el apellido\",\n      \"partial_value\": \"Lucía\",\n      \"origin\": \"applicant\"\n    },\n    {\n      \"field_id\": \"p6.child2.date_of_birth\",\n      \"reason\": \"solo dio el año de nacimiento\",\n      \"partial_value\": \"1977\",\n      \"origin\": \"applicant\"\n    }\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_relationship\", \"field_ids\": [\"p6.child2.child_name\", \"p6.child2.relationship\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Anoto 1977 y que vive con usted; el apellido de Lucía y el día de nacimiento quedan pendientes. ¿Cuál es su apellido, y es su hija biológica, hijastra o adoptada?\",\n    \"en\": \"I'll note 1977 and that she lives with you; Lucía's last name and exact birth date stay pending. What is her last name, and is she your biological, step, or adopted daughter?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.9,
+      "utterance": "Es la que está aquí conmigo."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.child_name",
+     "reason": "solo dio el primer nombre, falta el apellido",
+     "partial_value": "Lucía",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "solo dio el año de nacimiento",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_relationship",
+    "field_ids": [
+     "p6.child2.child_name",
+     "p6.child2.relationship"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Anoto 1977 y que vive con usted; el apellido de Lucía y el día de nacimiento quedan pendientes. ¿Cuál es su apellido, y es su hija biológica, hijastra o adoptada?",
+    "en": "I'll note 1977 and that she lives with you; Lucía's last name and exact birth date stay pending. What is her last name, and is she your biological, step, or adopted daughter?"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 5,
+  "version": 40,
+  "stop": "end_turn",
+  "out": 677,
+  "secs": 7.2,
+  "raw": "She gave a first name (Lucía, surname missing), a year (1977, month/day missing), and said she lives with her (\"está aquí conmigo\" → resides_with_me). Surname is not given, so I defer the full name field with partial \"Lucía\"; date of birth deferred with partial 1977; residence minted as resides_with_me.\n\nI should ask for the surname and the missing date, but per one-question-per-reply and battery rules, I'll ask for the surname next (most pressing gap), and note the DOB deferral in speech.\n\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.residence\",\n      \"value\": \"resides_with_me\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.95, \"utterance\": \"Es la que está aquí conmigo.\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p6.child2.child_name\", \"reason\": \"no dio el apellido\", \"partial_value\": \"Lucía\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"solo dio el año\", \"partial_value\": \"1977\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_relationship\", \"field_ids\": [\"p6.child2.relationship\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Anoto el nombre de Lucía y 1977, pendientes el apellido y la fecha exacta. Vive con usted, ¿es su hija biológica, hijastra o adoptada?\",\n    \"en\": \"I've noted Lucía and 1977, with the surname and exact date still pending. She lives with you, is she your biological, step, or adopted daughter?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "Es la que está aquí conmigo."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.child_name",
+     "reason": "no dio el apellido",
+     "partial_value": "Lucía",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "solo dio el año",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_relationship",
+    "field_ids": [
+     "p6.child2.relationship"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Anoto el nombre de Lucía y 1977, pendientes el apellido y la fecha exacta. Vive con usted, ¿es su hija biológica, hijastra o adoptada?",
+    "en": "I've noted Lucía and 1977, with the surname and exact date still pending. She lives with you, is she your biological, step, or adopted daughter?"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 0,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 494,
+  "secs": 5.4,
+  "raw": "{\"schema_version\": 1, \"turn_id\": \"t_040\", \"intent\": {\"type\": \"partial_answer\"}, \"facts\": [{\"field_id\": \"p6.child2.child_name\", \"value\": \"Lucía\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.7, \"utterance\": \"Lucía\"}}, {\"field_id\": \"p6.child2.residence\", \"value\": \"resides_with_me\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.85, \"utterance\": \"Es la que está aquí conmigo\"}}], \"deferred\": [{\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"solo recuerda el año de nacimiento\", \"partial_value\": \"1977\", \"origin\": \"applicant\"}, {\"field_id\": \"p6.child2.child_name\", \"reason\": \"falta el apellido\", \"partial_value\": \"Lucía\", \"origin\": \"applicant\"}], \"clarification\": null, \"conflict\": null, \"escalation\": null, \"complete\": false, \"asking\": {\"node_id\": \"q_p6_child2_relationship\", \"field_ids\": [\"p6.child2.relationship\"]}, \"section_checkpoint\": null, \"interview_over\": false, \"reply\": {\"es\": \"Lucía, nacida en 1977, vive con usted, anotado, aunque el año queda pendiente de confirmar el día y el apellido. ¿Ella es su hija biológica, hijastra o adoptada?\"}}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "Es la que está aquí conmigo"
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "solo recuerda el año de nacimiento",
+     "partial_value": "1977",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.child_name",
+     "reason": "falta el apellido",
+     "partial_value": "Lucía",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_relationship",
+    "field_ids": [
+     "p6.child2.relationship"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, nacida en 1977, vive con usted, anotado, aunque el año queda pendiente de confirmar el día y el apellido. ¿Ella es su hija biológica, hijastra o adoptada?"
+   },
+   "facts_dropped": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "reason": "the same field was also deferred in this response by the applicant; the deferral stands and the fact is dropped"
+    }
+   ]
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 1,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 452,
+  "secs": 4.5,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.7, \"utterance\": \"Lucía.\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"sólo dio el año, falta el día y el mes\", \"partial_value\": \"1977\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p6.child2.child_name\", \"reason\": \"falta el apellido\", \"partial_value\": \"Lucía\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_residence\", \"field_ids\": [\"p6.child2.residence\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía, anotado, con el apellido y el día de nacimiento de 1977 pendientes. ¿Ella vive con usted, no vive con usted, o se desconoce su paradero?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "sólo dio el año, falta el día y el mes",
+     "partial_value": "1977",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.child_name",
+     "reason": "falta el apellido",
+     "partial_value": "Lucía",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_residence",
+    "field_ids": [
+     "p6.child2.residence"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, anotado, con el apellido y el día de nacimiento de 1977 pendientes. ¿Ella vive con usted, no vive con usted, o se desconoce su paradero?"
+   },
+   "facts_dropped": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "reason": "the same field was also deferred in this response by the applicant; the deferral stands and the fact is dropped"
+    }
+   ]
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 2,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 458,
+  "secs": 4.7,
+  "raw": "{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.7, \"utterance\": \"Lucía. Ella nació en el setenta y siete.\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"year given, month and day not yet known\", \"partial_value\": \"1977\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p6.child2.residence\", \"reason\": \"capture gap: mentioned in passing, not yet asked\", \"partial_value\": \"está aquí conmigo\", \"origin\": \"capture_gap\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_date_of_birth\", \"field_ids\": [\"p6.child2.date_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía, anotado, con 1977 de año. ¿Recuerda el mes y el día en que nació?\"\n  }\n}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.7,
+      "utterance": "Lucía. Ella nació en el setenta y siete."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "year given, month and day not yet known",
+     "partial_value": "1977",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.residence",
+     "reason": "capture gap: mentioned in passing, not yet asked",
+     "partial_value": "está aquí conmigo",
+     "origin": "capture_gap"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_date_of_birth",
+    "field_ids": [
+     "p6.child2.date_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, anotado, con 1977 de año. ¿Recuerda el mes y el día en que nació?"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 3,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 468,
+  "secs": 5.0,
+  "raw": "{\"schema_version\": 1, \"turn_id\": \"t_040\", \"intent\": {\"type\": \"partial_answer\"}, \"facts\": [{\"field_id\": \"p6.child2.child_name\", \"value\": \"Lucía\", \"value_type\": \"string\", \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.7, \"utterance\": \"Lucía.\"}}, {\"field_id\": \"p6.child2.residence\", \"value\": \"resides_with_me\", \"value_type\": \"string\", \"provenance\": {\"source\": \"ai_extracted\", \"confidence\": 0.8, \"utterance\": \"Es la que está aquí conmigo.\"}}], \"deferred\": [{\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"solo mencionó el año\", \"partial_value\": \"1977\", \"origin\": \"applicant\"}, {\"field_id\": \"p6.child2.child_name\", \"reason\": \"falta el apellido\", \"partial_value\": \"Lucía\", \"origin\": \"applicant\"}], \"clarification\": null, \"conflict\": null, \"escalation\": null, \"complete\": false, \"asking\": {\"node_id\": \"q_p6_child2_date_of_birth\", \"field_ids\": [\"p6.child2.date_of_birth\"]}, \"section_checkpoint\": null, \"interview_over\": false, \"reply\": {\"es\": \"Lucía, anotado que vive con usted. ¿Y el apellido de Lucía, y en qué mes y día del 77 nació?\"}}",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.residence",
+     "value": "resides_with_me",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.8,
+      "utterance": "Es la que está aquí conmigo."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "solo mencionó el año",
+     "partial_value": "1977",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.child_name",
+     "reason": "falta el apellido",
+     "partial_value": "Lucía",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_date_of_birth",
+    "field_ids": [
+     "p6.child2.date_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, anotado que vive con usted. ¿Y el apellido de Lucía, y en qué mes y día del 77 nació?"
+   },
+   "facts_dropped": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "reason": "the same field was also deferred in this response by the applicant; the deferral stands and the fact is dropped"
+    }
+   ]
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 4,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 451,
+  "secs": 5.2,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\"source\": \"user_stated\", \"confidence\": 0.6, \"utterance\": \"Lucía. Ella nació en el setenta y siete.\"}\n    }\n  ],\n  \"deferred\": [\n    {\"field_id\": \"p6.child2.date_of_birth\", \"reason\": \"solo dio el año\", \"partial_value\": \"1977\", \"origin\": \"applicant\"},\n    {\"field_id\": \"p6.child2.residence\", \"reason\": \"dijo que está aquí con ella pero no confirmó si vive con ella\", \"partial_value\": \"aquí conmigo\", \"origin\": \"applicant\"}\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_child_name\", \"field_ids\": [\"p6.child2.child_name\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"¿El apellido de Lucía? Y para confirmar, ¿ella vive con usted?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.6,
+      "utterance": "Lucía. Ella nació en el setenta y siete."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "solo dio el año",
+     "partial_value": "1977",
+     "origin": "applicant"
+    },
+    {
+     "field_id": "p6.child2.residence",
+     "reason": "dijo que está aquí con ella pero no confirmó si vive con ella",
+     "partial_value": "aquí conmigo",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "¿El apellido de Lucía? Y para confirmar, ¿ella vive con usted?"
+   },
+   "asking_dropped": {
+    "node_id": "q_p6_child2_child_name",
+    "field_ids": [
+     "p6.child2.child_name"
+    ],
+    "reason": "every field of this node was filled by a fact in this response"
+   }
+  }
+ },
+ {
+  "case": "15-no-inference",
+  "run": "spectrum-rosa-r3.json",
+  "wire_index": 39,
+  "turn": 40,
+  "user_content": "Lucía. Ella nació en el setenta y siete. Es la que está aquí conmigo.",
+  "rep": 5,
+  "version": 41,
+  "stop": "end_turn",
+  "out": 428,
+  "secs": 4.8,
+  "raw": "```json\n{\n  \"schema_version\": 1,\n  \"turn_id\": \"t_040\",\n  \"intent\": {\"type\": \"partial_answer\"},\n  \"facts\": [\n    {\n      \"field_id\": \"p6.child2.child_name\",\n      \"value\": \"Lucía\",\n      \"value_type\": \"string\",\n      \"provenance\": {\n        \"source\": \"user_stated\",\n        \"confidence\": 0.7,\n        \"utterance\": \"Lucía. Ella nació en el setenta y siete.\"\n      }\n    }\n  ],\n  \"deferred\": [\n    {\n      \"field_id\": \"p6.child2.date_of_birth\",\n      \"reason\": \"solo dio el año de nacimiento\",\n      \"partial_value\": \"1977\",\n      \"origin\": \"applicant\"\n    }\n  ],\n  \"clarification\": null,\n  \"conflict\": null,\n  \"escalation\": null,\n  \"complete\": false,\n  \"asking\": {\"node_id\": \"q_p6_child2_date_of_birth\", \"field_ids\": [\"p6.child2.date_of_birth\"]},\n  \"section_checkpoint\": null,\n  \"interview_over\": false,\n  \"reply\": {\n    \"es\": \"Lucía, anotado, y con 1977 pendiente el mes y el día. ¿El apellido de Lucía es también Delgado, o es distinto?\"\n  }\n}\n```",
+  "guarded": {
+   "schema_version": 1,
+   "turn_id": "t_040",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [
+    {
+     "field_id": "p6.child2.child_name",
+     "value": "Lucía",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.7,
+      "utterance": "Lucía. Ella nació en el setenta y siete."
+     }
+    }
+   ],
+   "deferred": [
+    {
+     "field_id": "p6.child2.date_of_birth",
+     "reason": "solo dio el año de nacimiento",
+     "partial_value": "1977",
+     "origin": "applicant"
+    }
+   ],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p6_child2_date_of_birth",
+    "field_ids": [
+     "p6.child2.date_of_birth"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Lucía, anotado, y con 1977 pendiente el mes y el día. ¿El apellido de Lucía es también Delgado, o es distinto?"
+   }
+  }
+ }
+]
