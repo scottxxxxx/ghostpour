@@ -356,3 +356,25 @@ def test_shoulder_surf_auto_summary_dials_sonnet_for_paid_tiers_in_the_shipped_f
     assert _resolve_model_routing(req, _B(), fb, "pro") == "anthropic/claude-sonnet-4-6"
     assert _resolve_model_routing(req, _B(), fb, "automation") == "anthropic/claude-sonnet-4-6"
     assert _resolve_model_routing(req, _B(), fb, "free") == "anthropic/claude-haiku-4-5-20251001"
+
+
+def test_ss_queries_route_to_sonnet_5_on_every_tier():
+    """Scott, 2026-09-28: in-meeting queries move from Sonnet 4.6 to Sonnet 5
+    (A/B on a real capture: about half the total time, about 15% cheaper, and
+    4.6 dropped a route from the screen in 3 of 3 answers). Read from the REAL
+    bundle, so a later edit that puts 4.6 back is caught here. Summary and the
+    chat surfaces are deliberately unchanged until each gets its own look."""
+    import json
+    from pathlib import Path
+
+    routing = json.loads((Path(__file__).resolve().parent.parent
+                          / "config/remote/model-routing.json").read_text())
+    request = _mk_request(remote_configs={"model-routing": routing})
+    for call_type in ("query", "query_follow_up"):
+        for tier in ("free", "plus", "pro", "automation"):
+            body = ChatRequest(provider="auto", model="auto", system_prompt="s",
+                               user_content="u", call_type=call_type)
+            assert _resolve_model_routing(request, body, _TIER, tier) == "anthropic/claude-sonnet-5", (call_type, tier)
+    chats = routing["apps"]["shouldersurf"]["call_types"]
+    assert chats["summary"]["models"]["pro"] == "anthropic/claude-sonnet-4-6"
+    assert chats["meeting_chat"]["models"]["pro"] == "anthropic/claude-sonnet-4-6"

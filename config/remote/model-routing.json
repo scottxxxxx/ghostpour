@@ -1,5 +1,5 @@
 {
-  "version": 39,
+  "version": 40,
   "server_only": true,
   "models": [
     {
@@ -71,19 +71,19 @@
         "query": {
           "label": "Interactive Query",
           "models": {
-            "free": "anthropic/claude-sonnet-4-6",
-            "plus": "anthropic/claude-sonnet-4-6",
-            "pro": "anthropic/claude-sonnet-4-6",
-            "automation": "anthropic/claude-sonnet-4-6"
+            "free": "anthropic/claude-sonnet-5",
+            "plus": "anthropic/claude-sonnet-5",
+            "pro": "anthropic/claude-sonnet-5",
+            "automation": "anthropic/claude-sonnet-5"
           }
         },
         "query_follow_up": {
           "label": "Interactive Query (Follow-up)",
           "models": {
-            "free": "anthropic/claude-sonnet-4-6",
-            "plus": "anthropic/claude-sonnet-4-6",
-            "pro": "anthropic/claude-sonnet-4-6",
-            "automation": "anthropic/claude-sonnet-4-6"
+            "free": "anthropic/claude-sonnet-5",
+            "plus": "anthropic/claude-sonnet-5",
+            "pro": "anthropic/claude-sonnet-5",
+            "automation": "anthropic/claude-sonnet-5"
           }
         },
         "meeting_chat": {
