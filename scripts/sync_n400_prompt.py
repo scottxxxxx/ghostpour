@@ -318,9 +318,46 @@ VERSIONS = {
             "nothing is filed until they review",
         ],
     },
+    40: {
+        # Spectrum round 1 (the auditor, 2026-09-27, contract
+        # spectrum-round1-lane-findings-2026-09-27.md): five personas end to
+        # end on v39. Sweep the open deferrals once before the review offer;
+        # press once for a vague date; names (two surnames for everyone,
+        # family-first order, never an unsaid surname); a named earlier job is
+        # a yes, a current job ends present, an idle stretch has no employer;
+        # a relative, work or asylum green card is general_provision; the
+        # checklist adds volunteered dates, read-back only what is filed, and
+        # corrections re-file. Every v39 phrase must survive.
+        "block_anchor": "SECTION CHECKPOINTS\nA part is done when SECTION BOUNDARY is present",
+        "once": "BEFORE THE OFFER, SWEEP WHAT WAS LEFT, ONCE",
+        "phrases": [
+            "the reply that finds the agenda empty and the sweep done MAKES the offer",
+            "TWO SURNAMES ARE ONE FAMILY NAME, FOR EVERY PERSON ON THE FORM",
+            "A FAMILY-FIRST NAME (Vietnamese, Chinese, Korean or Hungarian order)",
+            "NEVER FILE A SURNAME SHE DID NOT SAY",
+            "IS THE GENERAL FIVE-YEAR PATH: mint `general_provision`",
+            "A VAGUE DATE IS DIFFERENT FROM A PARTIAL ONE",
+            "A JOB SHE NAMES IS A JOB",
+            'A JOB SHE STILL HAS ENDS "present"',
+            "A RETIRED OR UNEMPLOYED STRETCH HAS NO EMPLOYER AND NO WORKPLACE",
+            "is minted, or deferred with its partial (2020-05), in that same response, never dropped",
+            "a correction re-files",
+        ],
+        "absent": [
+            # v39's name rule, which split "Ernesto Delgado Ruiz" into a middle
+            # and a last name, and v39's offer trigger, which skipped the sweep.
+            "If the answer has three words, that is first, middle and last.",
+            "the reply that finds the agenda empty MAKES the offer",
+        ],
+    },
 }
+
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
 VERSIONS[39]["phrases"] = VERSIONS[39]["phrases"] + VERSIONS[38]["phrases"]
+# v40 carries every v39 phrase and every v39 retirement, extended rather than
+# copied, so a v39 rule cannot fall out of v40's read-back by an edit to one list.
+VERSIONS[40]["phrases"] = VERSIONS[39]["phrases"] + VERSIONS[40]["phrases"]
+VERSIONS[40]["absent"] = VERSIONS[39]["absent"] + VERSIONS[40]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]
