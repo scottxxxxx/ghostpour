@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 43
+served_version: 44
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-09-28 (v43)
+reconciled: 2026-09-28 (v44)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1770,6 +1770,19 @@ PROMPT: grouping scoped to the next short-fact lines whatever they are (live, sh
 ⚠ METHOD. v42's grouping replayed 6/6 and failed live: the probe replayed round 3 requests, where she had answered only her date of birth, so the rule's example fit. v43 probes from LIVE v42 requests. And most round 5 live defects do NOT reproduce on v42 in 3 replays (jobs re-ask, trip swap, her surname, stated names all 3/3 on v42): they are intermittent, so 3 reps cannot show a fix for them, and a 3/3 on those rows is weak evidence.
 
 Final regression, v42 vs v43, 3 reps on the shipped text: grouping 0 to 3, no proposed surname 0 to 2, address in passing 0 to 1, Rosa sweep 2 to 3, Minh sweep wording 2 to 3, armed forces 2 to 3, DoorDash ZIP 1 to 2; "Since" opener 2 to 1, off-topic 3 to 2, Jorge sweep 3 to 2 (within this probe's noise); round 3 and 4 regressions all 3/3. 6-rep reruns: Jorge sweep 2/6 to 4/6, Minh sweep day 4/6 to 6/6, DoorDash 5/6 to 5/6.
+
+## v44: round 6 on v43, the floor, and guards over prompt lines
+
+The auditor's round 6 on v43 (2026-09-28): Rosa 100, Minh 100, Amina 100, Jorge 99.4, Priya 98.6; v43 fixed the big ones live. question_still_spoken fired 11 times (the baseline).
+
+CODE, which is most of v44:
+- The evidence floor, agreed with the auditor (contracts/gp-reply-floor-proposal-2026-09-28.md): a choice fact cited from an EARLIER applicant line is set aside and restored only when Jev confidently says her words support that option (`restore_supported_carried_facts`, fails closed). Person-name words may span her cited line and what she just said (round 1's José). Live acceptance on the recorded turns (`qa/n400_floor_acceptance.py`, real Jev): jorge-r3 t25 residence 0.98 and supported 1.0 restored, relationship correctly not ("a little girl" is not "biological"); jorge-r5 t21 has_prior_address2 0.92 restored; conf-v18 t47 kept out. The auditor's fourth case (rosa-r4 t36, "Ella está aquí conmigo") is current-turn evidence the floor never sets aside, and Jev reads it as SUPPORTING resides_with_me: that one is not a floor matter.
+- An identifier with the wrong digit count is dropped with a reason (priya-r7 t3, a 12-digit USCIS account filed with 11).
+- A probation she never had files not-applicable when that is the standing question (jorge-r6 t49, asked three times).
+
+PROMPT: grouping adapts to the speaker; the sweep lists Parts 2, 4 and 7 before Part 9; every filed identifier is read back and phones in groups; no middle-name question after "no middle name"; children's names alike; recaps name every supported child; no day or other-job question before the window.
+
+Probe (`qa/n400_v44_probe.py`, live v43 requests, 3 reps): phone groups 1/3 to 3/3, retired stretch 1/3 to 2/3, Rosa sweep 2/3 to 3/3, address in passing 2/3 to 3/3; every filed identifier read back 0/3 to 0/3 and paragraph grouping at amina-r6 t10 0/3 to 0/3 (NOT moved by the prompt). The pattern since v41: the fixes that hold are code.
 
 ## What is deliberately not here
 

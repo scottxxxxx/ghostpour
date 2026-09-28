@@ -428,6 +428,23 @@ VERSIONS = {
         ],
         "absent": [],
     },
+    44: {
+        # Round 6 on v43 (the auditor, 2026-09-28). Most of v44 is CODE (the
+        # floor restore, the digit count, probation never had); these are the
+        # prompt lines: grouping adapts to the speaker, the sweep lists Parts
+        # 2, 4 and 7 before Part 9, every filed identifier is read back,
+        # phones in groups, children's names alike, recaps name every child.
+        "block_anchor": "SECTION CHECKPOINTS\nA part is done when SECTION BOUNDARY is present",
+        "once": "a long Part 9 never crowds them out",
+        "phrases": [
+            "once she has answered only the first half of a grouped question twice, she is a one-fact speaker",
+            "EVERY identifier you file is read back in that same reply",
+            "a phone is read in its groups",
+            "after \"no middle name\" in her answer the middle name is never asked",
+            "a recap names every child she supports, as filed",
+        ],
+        "absent": [],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -446,6 +463,9 @@ VERSIONS[42]["absent"] = VERSIONS[41]["absent"] + VERSIONS[42]["absent"]
 # v43 carries every v42 phrase.
 VERSIONS[43]["phrases"] = VERSIONS[42]["phrases"] + VERSIONS[43]["phrases"]
 VERSIONS[43]["absent"] = VERSIONS[42]["absent"] + VERSIONS[43]["absent"]
+# v44 carries every v43 phrase.
+VERSIONS[44]["phrases"] = VERSIONS[43]["phrases"] + VERSIONS[44]["phrases"]
+VERSIONS[44]["absent"] = VERSIONS[43]["absent"] + VERSIONS[44]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]
