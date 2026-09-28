@@ -445,6 +445,23 @@ VERSIONS = {
         ],
         "absent": [],
     },
+    45: {
+        # Round 7 on v44 (the auditor, 2026-09-28): the client's pace clause
+        # in APPLICANT CONTEXT decides grouping mechanically, plus lane items.
+        # The rest of v45 is code (the settled question replaced, the floor's
+        # date equivalence and same-city state).
+        "block_anchor": "SECTION CHECKPOINTS\nA part is done when SECTION BOUNDARY is present",
+        "once": "a job that ended before the five-year window never replaces her CURRENT idle row",
+        "phrases": [
+            "APPLICANT CONTEXT'S PACE CLAUSE DECIDES THIS, MECHANICALLY",
+            "\"pace: one fact per turn\" means ONE question per turn",
+            "\"pace: full paragraphs\" means you group the next two or three short-fact lines EVERY time",
+            "a nickname is not an other name",
+            "someone never married has no times-married answer, never 0",
+            "a part is never closed while one of its agenda lines is still open",
+        ],
+        "absent": [],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -466,6 +483,9 @@ VERSIONS[43]["absent"] = VERSIONS[42]["absent"] + VERSIONS[43]["absent"]
 # v44 carries every v43 phrase.
 VERSIONS[44]["phrases"] = VERSIONS[43]["phrases"] + VERSIONS[44]["phrases"]
 VERSIONS[44]["absent"] = VERSIONS[43]["absent"] + VERSIONS[44]["absent"]
+# v45 carries every v44 phrase.
+VERSIONS[45]["phrases"] = VERSIONS[44]["phrases"] + VERSIONS[45]["phrases"]
+VERSIONS[45]["absent"] = VERSIONS[44]["absent"] + VERSIONS[45]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]

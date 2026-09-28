@@ -95,8 +95,12 @@ def test_a_bare_string_asking_is_not_touched_here():
 
 
 def test_the_route_helper_returns_the_rewritten_text():
-    out = guard_response_text(_turn("q_p1_eligibility_basis", [_fact("p1.eligibility_basis")]), AGENDA, "t_004")
-    assert json.loads(out)["asking"] is None
+    """v45 (2026-09-28, the auditor's round 7 item B): the reply still asks about
+    the node this response settled, so GP replaces that question with the next
+    agenda line's and points asking at it, instead of leaving asking None."""
+    out = json.loads(guard_response_text(_turn("q_p1_eligibility_basis", [_fact("p1.eligibility_basis")]), AGENDA, "t_004"))
+    assert out["asking"]["node_id"] == "q_p1_a_number"
+    assert out["asking_dropped"]["question_replaced_with"] == "q_p1_a_number"
 
 
 def test_the_route_calls_the_guard_for_this_call_type_only():
@@ -818,15 +822,21 @@ def test_the_lane_cannot_authorise_itself_from_an_interviewer_line():
     assert kept == []
 
 
-def test_a_normalised_value_carried_forward_is_still_dropped():
-    """The value must appear in the words cited for it, so a date rendered
-    1977-10-05 from "5 October 1977" fails. Conservative, and identical to
-    the behaviour before this change, so it cannot regress anything."""
+def test_a_normalised_date_carried_forward_is_kept_when_her_words_say_that_date():
+    """v45 (agreed with the auditor 2026-09-28, round 7 item C): a date filed
+    1977-10-05 from "5 October 1977" is the SAME date; the literal test used to
+    drop it because it compared strings. It is kept when her cited words carry
+    the year, the month and the day, and a day she did not say still drops."""
     kept = _floor(
         [{"field_id": "p1.date_of_birth", "value": "1977-10-05",
           "provenance": {"utterance": "I born 5 October 1977"}}],
         "no middle name", "APPLICANT: I born 5 October 1977\n")
-    assert kept == []
+    assert kept == ["p1.date_of_birth"]
+    wrong_day = _floor(
+        [{"field_id": "p1.date_of_birth", "value": "1977-10-15",
+          "provenance": {"utterance": "I born 5 October 1977"}}],
+        "no middle name", "APPLICANT: I born 5 October 1977\n")
+    assert wrong_day == []
 
 
 def test_carry_forward_needs_the_conversation_to_be_supplied():

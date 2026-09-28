@@ -4594,7 +4594,9 @@ async def _chat_impl(
                 response.text, _agenda, body.get_meta("turn_id"),
                 user_content=body.get_meta("user_input") or _n400_utterance,
                 conversation=body.get_meta("conversation"),
-                choice_fields=body.get_meta("choice_fields"))
+                choice_fields=body.get_meta("choice_fields"),
+                locale=body.get_meta("locale"),
+                known_facts=body.get_meta("known_facts"))
             # After the deterministic guards, so it judges only the facts
             # that survived them. Marks, never drops, and every failure
             # leaves the text as it was. See n400_evidence_support.
