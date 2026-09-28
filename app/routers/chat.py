@@ -149,6 +149,7 @@ from app.dependencies import get_current_user
 from app.models.chat import ChatRequest, ChatResponse
 from app.models.user import UserRecord
 from app.services import context_quilt as cq
+from app.services import key_scope
 from app.services import receipt_verification
 from app.services.allocation_reset import compute_next_reset, lazy_reset_if_due
 from app.services.locale_injection import output_language_subtag
@@ -4258,7 +4259,7 @@ async def _chat_impl(
             generated_payload = await collect_generated_files(
                 db,
                 raw_response_json=response.raw_response_json,
-                api_key=request.app.state.settings.anthropic_api_key,
+                api_key=key_scope.anthropic_key(request.app.state.settings),
                 remote_configs=request.app.state.remote_configs,
                 user_id=user.id,
                 app_id=app_id,
