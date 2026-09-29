@@ -61,3 +61,35 @@ def test_every_routed_claude_model_can_fail_over_to_openrouter():
     assert "claude-sonnet-5" in routed  # the list is real, not empty
     missing = sorted(m for m in routed if translate_to_or_model_id(m) is None)
     assert not missing, f"no OpenRouter fallback for {missing}; add them to _OR_MODEL_TRANSLATION"
+
+
+def test_the_fallback_actually_reaches_openrouter_through_the_real_router(monkeypatch):
+    """The mapping alone was not enough: the router's allowlist refused every
+    Claude-on-OpenRouter id with a 400, so the fallback had never worked. This
+    drives the REAL router: Anthropic fails the way the cap failed (the
+    adapter raises a 502), and the answer must come back from OpenRouter."""
+    import asyncio
+    from types import SimpleNamespace
+    from fastapi import HTTPException
+    from app.models.chat import ChatRequest, ChatResponse
+    from app.services.anthropic_or_fallback import route_with_fallback
+    from app.services.provider_router import ProviderRouter
+    from app.services.providers.anthropic import AnthropicAdapter
+    from app.services.providers.openai_compat import OpenAICompatAdapter
+
+    async def capped(self, request):
+        raise HTTPException(status_code=502, detail={"code": "provider_error",
+                            "message": "anthropic: You have reached your specified API usage limits."})
+    seen = []
+
+    async def openrouter(self, request):
+        seen.append(request.model)
+        return ChatResponse(text="from openrouter", input_tokens=1, output_tokens=1,
+                            model=request.model, provider="openrouter", usage={})
+    monkeypatch.setattr(AnthropicAdapter, "send_request", capped)
+    monkeypatch.setattr(OpenAICompatAdapter, "send_request", openrouter)
+    router = ProviderRouter(str(ROOT / "config/providers.yml"),
+                            SimpleNamespace(anthropic_api_key="a", openrouter_api_key="o"))
+    req = ChatRequest(provider="anthropic", model="claude-sonnet-5", system_prompt="s", user_content="u")
+    out = asyncio.run(route_with_fallback(router, req, None, SimpleNamespace(alert_email_from="x@y")))
+    assert out.text == "from openrouter" and seen == ["anthropic/claude-sonnet-5"]

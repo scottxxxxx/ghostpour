@@ -63,6 +63,11 @@ _OR_MODEL_TRANSLATION: dict[str, str] = {
 }
 
 
+def fallback_targets() -> frozenset[str]:
+    """The OpenRouter ids the fallback may route to (server-chosen)."""
+    return frozenset(_OR_MODEL_TRANSLATION.values())
+
+
 def translate_to_or_model_id(anthropic_model: str) -> str | None:
     """Look up the OR-compatible model id for a native Anthropic id.
     Returns None when we don't have a mapping — caller should NOT
