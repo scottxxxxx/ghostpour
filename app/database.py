@@ -1103,6 +1103,61 @@ MIGRATIONS = [
         PRIMARY KEY (from_user_id, to_user_id)
     )""",
     "CREATE INDEX IF NOT EXISTS idx_account_links_to ON account_links(to_user_id)",
+    # Shoulder Surf Companion (Mac + Windows) telemetry (2026-09-29, agreed
+    # with SS). Its OWN tables, never telemetry_events or telemetry_devices:
+    # those feed the iPhone's new-installs trend and distinct_devices, and a
+    # companion ping there would count as an iPhone install and an iPhone
+    # active device. Companions carry no account (user_id NULL); only the
+    # phone's own companion_linked row names a user.
+    """CREATE TABLE IF NOT EXISTS companion_events (
+        id TEXT PRIMARY KEY,
+        event_type TEXT NOT NULL,       -- companion_start|companion_linked|companion_session_start|companion_session_stop
+        device_id TEXT NOT NULL,        -- the companion's install id, or the PHONE's on the phone's companion_linked
+        user_id TEXT,                   -- only on the phone's companion_linked
+        app_id TEXT,
+        platform TEXT,                  -- mac|windows (the sender's platform; ios on the phone's row)
+        arch TEXT,
+        first_run INTEGER,
+        app_version TEXT,
+        app_build TEXT,
+        os_version TEXT,
+        app_locale TEXT,
+        meeting_id TEXT,
+        duration_seconds INTEGER,
+        companion_device_id TEXT,       -- phone's companion_linked: which companion it linked
+        companion_platform TEXT,
+        companion_version TEXT,
+        ip_hash TEXT,
+        country TEXT,
+        received_at TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_companion_events_type ON companion_events(event_type, received_at)",
+    "CREATE INDEX IF NOT EXISTS idx_companion_events_device ON companion_events(device_id)",
+    "CREATE INDEX IF NOT EXISTS idx_companion_events_user ON companion_events(user_id) WHERE user_id IS NOT NULL",
+    # One row per companion install, kept after the raw events purge so
+    # install counts and versions in use survive it. Anonymous, like
+    # telemetry_devices.
+    """CREATE TABLE IF NOT EXISTS companion_installs (
+        device_id TEXT PRIMARY KEY,
+        platform TEXT,
+        arch TEXT,
+        first_seen_at TEXT NOT NULL,
+        last_seen_at TEXT NOT NULL,
+        last_version TEXT,
+        last_build TEXT
+    )""",
+    # Website downloads through GET /v1/companion/download/{platform}.
+    """CREATE TABLE IF NOT EXISTS companion_downloads (
+        id TEXT PRIMARY KEY,
+        platform TEXT NOT NULL,
+        arch TEXT,
+        ip_hash TEXT,
+        country TEXT,
+        ua_family TEXT,
+        referrer_host TEXT,
+        received_at TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_companion_downloads_at ON companion_downloads(received_at)",
 ]
 
 

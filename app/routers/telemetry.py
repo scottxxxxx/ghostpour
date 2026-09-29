@@ -36,7 +36,7 @@ from typing import Literal
 
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.database import get_db
 
@@ -45,7 +45,22 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 _EVENT_TYPES = ("app_start", "meeting_start", "meeting_stop",
-                "onboarding_completed", "config_decode_failed")
+                "onboarding_completed", "config_decode_failed",
+                "companion_start", "companion_linked",
+                "companion_session_start", "companion_session_stop")
+
+# Shoulder Surf Companion (Mac + Windows), 2026-09-29, agreed with SS. These
+# land in companion_events, never telemetry_events: the iPhone's
+# new-installs trend and distinct_devices read that table.
+_COMPANION_TYPES = frozenset({"companion_start", "companion_linked",
+                              "companion_session_start", "companion_session_stop"})
+_COMPANION_PLATFORMS = frozenset({"mac", "windows"})
+
+# Unknown keys used to vanish silently (Pydantic's default), a 204 on a field
+# nobody stored: the to_name shape. They are still accepted, because an old
+# client sending a key we never modelled must not lose its event, but each
+# new (event, app, keys) combination is logged once per process.
+_UNKNOWN_KEYS_SEEN: set[tuple] = set()
 
 # UUID v4-ish shape; iOS identifierForVendor is a UUID. Loose enough to
 # accept any uppercased/lowercased UUID without being strict about version.
@@ -101,8 +116,13 @@ class ConfigDecodeFailurePayload(BaseModel):
 
 
 class PingEvent(BaseModel):
+    # Allow, then REPORT: see _UNKNOWN_KEYS_SEEN.
+    model_config = ConfigDict(extra="allow")
+
     event_type: Literal["app_start", "meeting_start", "meeting_stop",
-                        "onboarding_completed", "config_decode_failed"]
+                        "onboarding_completed", "config_decode_failed",
+                        "companion_start", "companion_linked",
+                        "companion_session_start", "companion_session_stop"]
     device_id: str = Field(..., min_length=1, max_length=128)
     user_id: str | None = Field(default=None, max_length=64)
     meeting_id: str | None = Field(default=None, max_length=64)
@@ -131,6 +151,32 @@ class PingEvent(BaseModel):
     distribution: str | None = Field(default=None, max_length=16)
     # Present only on event_type=='config_decode_failed'.
     config_decode: ConfigDecodeFailurePayload | None = None
+    # Companion events (2026-09-29). The companion sends platform (mac|
+    # windows), arch and first_run (true on an install's first launch). The
+    # PHONE sends its own companion_linked with its device_id and user_id plus
+    # companion_device_id / companion_platform / companion_version.
+    platform: str | None = Field(default=None, max_length=16)
+    arch: str | None = Field(default=None, max_length=16)
+    first_run: bool | None = None
+    companion_device_id: str | None = Field(default=None, max_length=128)
+    companion_platform: str | None = Field(default=None, max_length=16)
+    companion_version: str | None = Field(default=None, max_length=32)
+
+    @model_validator(mode="after")
+    def _companion_shape(self):
+        if self.event_type not in _COMPANION_TYPES:
+            return self
+        if self.companion_device_id is not None:
+            # The phone's companion_linked.
+            if self.event_type != "companion_linked":
+                raise ValueError("companion_device_id is only valid on companion_linked")
+            if not _UUID_RE.match(self.companion_device_id):
+                raise ValueError("companion_device_id must be a UUID")
+            if self.companion_platform not in _COMPANION_PLATFORMS:
+                raise ValueError("companion_platform must be mac or windows")
+        elif self.platform not in _COMPANION_PLATFORMS:
+            raise ValueError("platform must be mac or windows on a companion event")
+        return self
 
     @model_validator(mode="after")
     def _require_config_decode_payload(self):
@@ -210,6 +256,18 @@ async def ping(
                     "details": {"retry_after": retry_after},
                 },
             )
+
+    if body.model_extra:
+        key = (body.event_type, getattr(request.state, "app_id", "unknown"),
+               tuple(sorted(body.model_extra)))
+        if key not in _UNKNOWN_KEYS_SEEN:
+            _UNKNOWN_KEYS_SEEN.add(key)
+            logger.warning("ping_unknown_fields event=%s app=%s keys=%s (accepted, NOT stored)",
+                           key[0], key[1], ",".join(key[2]))
+
+    if body.event_type in _COMPANION_TYPES:
+        await _store_companion_event(db, body, request, ip, ip_h)
+        return Response(status_code=204)
 
     # Durable device first-seen, feeding the dashboard's new-installs
     # trend. Raw telemetry purges at 30 days; this row never does, so a
@@ -362,3 +420,47 @@ async def ping(
     )
     await db.commit()
     return Response(status_code=204)
+
+
+async def _store_companion_event(db: aiosqlite.Connection, body: PingEvent,
+                                 request: Request, ip: str, ip_h: str) -> None:
+    """One companion_events row; the companion's own events also refresh
+    its companion_installs row (the phone's companion_linked does not: its
+    device_id is the phone's)."""
+    from app.services import geoip
+    now_iso = datetime.now(timezone.utc).isoformat()
+    country = (geoip.lookup(ip) or {}).get("country")
+    phone_side = body.companion_device_id is not None
+    await db.execute(
+        """INSERT INTO companion_events
+           (id, event_type, device_id, user_id, app_id, platform, arch,
+            first_run, app_version, app_build, os_version, app_locale,
+            meeting_id, duration_seconds, companion_device_id,
+            companion_platform, companion_version, ip_hash, country,
+            received_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (str(uuid.uuid4()), body.event_type, body.device_id, body.user_id,
+         getattr(request.state, "app_id", "unknown"),
+         body.platform or ("ios" if phone_side else None), body.arch,
+         None if body.first_run is None else int(body.first_run),
+         body.app_version, body.app_build, body.os_version, body.app_locale,
+         body.meeting_id, body.duration_seconds, body.companion_device_id,
+         body.companion_platform, body.companion_version, ip_h, country,
+         now_iso),
+    )
+    if not phone_side:
+        await db.execute(
+            """INSERT INTO companion_installs
+               (device_id, platform, arch, first_seen_at, last_seen_at,
+                last_version, last_build)
+               VALUES (?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(device_id) DO UPDATE SET
+                 last_seen_at = excluded.last_seen_at,
+                 platform = excluded.platform,
+                 arch = COALESCE(excluded.arch, companion_installs.arch),
+                 last_version = COALESCE(excluded.last_version, companion_installs.last_version),
+                 last_build = COALESCE(excluded.last_build, companion_installs.last_build)""",
+            (body.device_id, body.platform, body.arch, now_iso, now_iso,
+             body.app_version, body.app_build),
+        )
+    await db.commit()

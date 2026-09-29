@@ -51,6 +51,9 @@ APP_SCOPED_TABLES = [
     # Diagnostic only (poisoned-config-cache detection), but it is keyed to
     # a person and carries their build, so it goes with the rest.
     "config_stalls",
+    # The phone's companion_linked row names the user (2026-09-29); the
+    # companions' own rows carry no user and are untouched by this delete.
+    "companion_events",
     "generated_files",
     "generations",
     # Meeting shares (2026-08-21): the user's own meeting content, hosted

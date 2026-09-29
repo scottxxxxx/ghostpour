@@ -172,6 +172,11 @@ NO_LOCALE_NEEDED = {
         "two URLs. No prose. A localized copy would be a second place for the "
         "App Store flip to be forgotten."
     ),
+    "companion-downloads": (
+        "Server-only: the file URLs behind GET /v1/companion/download. The "
+        "redirect is followed by a browser and serves a binary, so there is "
+        "no prose to translate and no client ever decodes this doc."
+    ),
     "verify-receipt": (
         "Server-side enforcement switch for Apple receipt verification. One "
         "boolean, no prose, never reaches a user. The 400 it gates carries a "

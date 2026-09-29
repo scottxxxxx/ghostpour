@@ -75,6 +75,11 @@ SWEEPS: tuple[Sweep, ...] = (
           "Raw events. Aggregates live in telemetry_daily_rollups and are "
           "kept indefinitely.",
           before=_ABSORB_TELEMETRY_DEVICES),
+    Sweep("companion_events", "received_at", 180,
+          "Companion launches, links and sessions. Install counts and "
+          "versions in use live in companion_installs, which is kept."),
+    Sweep("companion_downloads", "received_at", 180,
+          "Website download hits for the companions."),
 )
 
 

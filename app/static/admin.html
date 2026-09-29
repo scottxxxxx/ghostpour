@@ -879,6 +879,20 @@
       <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Auth choice</h4><div id="onb-chart-auth"></div></div>
       <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Where abandoners dropped</h4><div id="onb-chart-dropoff"></div></div>
     </div>
+    <h3 style="margin:28px 0 8px">Shoulder Surf Companion (Mac + Windows)</h3>
+    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Website downloads through <code>/v1/companion/download</code>, and the companions' own launches, phone links and recording sessions. Installs are first launches. Stored apart from iPhone telemetry, so nothing here is counted above. Raw rows kept 180 days; installs kept forever.</p>
+    <div class="table-wrap"><table id="comp-platforms"><thead><tr>
+      <th>Platform</th><th>Downloads</th><th>Installs</th><th>Active installs</th><th>Launches</th><th>Linked accounts</th><th>Sessions</th><th>Minutes</th><th>Installs, all time</th>
+    </tr></thead><tbody></tbody></table></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px;margin-top:12px">
+      <div class="card" style="padding:12px 14px"><h4 style="margin:0 0 8px">Downloads and installs per day</h4><div id="comp-chart-daily"></div></div>
+      <div class="card" style="padding:12px 14px">
+        <h4 style="margin:0 0 8px">Versions in use <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">(installs seen in the window, by latest build)</span></h4>
+        <div class="table-wrap" style="max-height:330px;overflow-y:auto"><table id="comp-versions"><thead><tr>
+          <th>Platform</th><th>Version</th><th>Build</th><th>Installs</th><th>Last seen</th>
+        </tr></thead><tbody></tbody></table></div>
+      </div>
+    </div>
   </div>
 
   <!-- Subscriptions -->
@@ -1540,6 +1554,7 @@ async function loadTelemetry() {
     const d = await resp.json();
     _renderTelemetry(d, {version, os, device, model});
     _loadOnboarding(days, app);
+    _loadCompanion(days);
     _loadActivity(days);
   } catch (e) {
     document.getElementById('tel-kpis').innerHTML =
@@ -1608,6 +1623,46 @@ function _renderActivity(d) {
      data: third(merge(s.distinct_devices, s.distinct_users), s.active_users_7d)}));
   _renderChart('tel-chart-new', mixedOpts(
     merge(s.new_devices, s.new_accounts), 'New devices', 'New accounts'));
+}
+
+async function _loadCompanion(days) {
+  // Additive like onboarding: its own tables, its own fetch, never blocks
+  // the main telemetry render.
+  try {
+    const resp = await fetch(`${BASE}/webhooks/admin/telemetry/companion?days=${Math.min(days, 180)}`, {
+      headers: {'X-Admin-Key': adminKey},
+    });
+    if (!resp.ok) return;
+    _renderCompanion(await resp.json());
+  } catch (e) { /* non-fatal */ }
+}
+
+function _renderCompanion(d) {
+  const name = (p) => p === 'mac' ? 'Mac' : (p === 'windows' ? 'Windows' : esc(p));
+  const all = d.installs_all_time || {};
+  document.querySelector('#comp-platforms tbody').innerHTML = (d.by_platform || []).map(r => `
+    <tr><td>${name(r.platform)}</td><td>${r.downloads}</td><td>${r.installs}</td><td>${r.active_installs}</td>
+    <td>${r.launches}</td><td>${r.linked_accounts}</td><td>${r.sessions}</td><td>${r.session_minutes}</td>
+    <td>${all[r.platform] || 0}</td></tr>`).join('');
+  document.querySelector('#comp-versions tbody').innerHTML = (d.versions || []).length
+    ? d.versions.map(v => `<tr><td>${name(v.platform)}</td><td>${esc(v.version)}</td><td>${esc(v.build)}</td><td>${v.installs}</td><td>${esc((v.last_seen || '').slice(0, 10))}</td></tr>`).join('')
+    : '<tr><td colspan="5" style="color:var(--text-dim)">No companion installs in this window yet.</td></tr>';
+  const days = [...new Set((d.daily || []).map(x => x.day))].sort();
+  const pick = (plat, key) => days.map(day => ((d.daily || []).find(x => x.day === day && x.platform === plat) || {})[key] || 0);
+  _renderChart('comp-chart-daily', {
+    series: [
+      {name: 'Mac downloads', data: pick('mac', 'downloads')},
+      {name: 'Windows downloads', data: pick('windows', 'downloads')},
+      {name: 'Mac installs', data: pick('mac', 'installs')},
+      {name: 'Windows installs', data: pick('windows', 'installs')},
+    ],
+    chart: {type: 'bar', height: 280, stacked: false},
+    xaxis: {categories: days},
+    colors: ['#58a6ff', '#d29922', '#3fb950', '#bc8cff'],
+    dataLabels: {enabled: false},
+    legend: {position: 'bottom'},
+    noData: {text: 'No companion downloads or installs yet.'},
+  });
 }
 
 async function _loadOnboarding(days, app) {

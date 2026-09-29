@@ -191,6 +191,10 @@ def test_the_windows_are_unchanged():
         "plan_snapshots": 365,
         "email_events": 90,
         "telemetry_events": 30,
+        # Companion telemetry (2026-09-29): 180 days is my proposal, put to
+        # Scott in the PR; installs are kept in companion_installs.
+        "companion_events": 180,
+        "companion_downloads": 180,
     }
 
 
