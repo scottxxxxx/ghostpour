@@ -154,6 +154,14 @@ Scott three things, then wait for his decision:
    so the prompt cache is reused, or a cheaper model where the model is not
    what is under test.
 
+Probes send through `qa/probe_runner.py`, never their own HTTP loop. It
+prints the estimate first (`--dry` stops there), refuses over the cap unless
+`--max-spend` is raised for a run Scott approved at that number, sends as a
+half-price Message Batch by default (`--sync` for sequential, full-price,
+cache-reusing calls when the answer is needed now), and logs estimate and
+actual to `qa/runs/spend-ledger.jsonl` with the day's total. Default to 3
+reps.
+
 Keep a running total across a session; several small runs add up. The
 receipt: on 2026-09-27 and 2026-09-28, about 2,300 prompt-probe calls (about
 $55 to $75) plus 1,985 persona-harness turns through GP ($23.03 by GP's
