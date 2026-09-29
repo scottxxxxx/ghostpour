@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 46
+served_version: 47
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-09-28 (v46)
+reconciled: 2026-09-29 (v47)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1804,6 +1804,16 @@ Scott's build-108 device run (2026-09-28, via the auditor): after he answered on
 PROMPT: the A-Number is asked plainly ("Now, your A-Number?"); where it is on the card (the USCIS Number, 9 digits, sometimes with an A) is a gloss said only when she asks or hesitates.
 
 Probe (`qa/n400_v46_probe.py`, 3 reps, $0.36 on the test key; every reply read, since the regex also matched "green card" as a date word): minh-r7 t3 (the live shape) v45 glossed 1/3 fully and 1/3 partly, v46 0/3 at 14 to 18 words (v45 20 to 31); rosa-r6 t4, who asked where it is, keeps the gloss 3/3 on v46 at 25 to 26 words (v45 32 to 33); jorge-r7 t2 glossed on neither. Not replayed: Scott's own build-108 turn (no request on file).
+
+## v47: Part 9 one question at a time
+
+Scott, 2026-09-29, via the N400 client (`contracts/p9-one-by-one-2026-09-29.md`): the agenda lists Part 9's form items (about 49 to 51) and never the nine group nodes; the first item's ask carries the part's lead-in; the phone files her clear no to the first Part 9 question and a yes to a plain promise itself.
+
+PROMPT: Part 9 is one item per turn in every pace; a no files that item only, never the items after it, and "no to all" said to one question is a no to that question; never say "group" about Part 9; the first line's lead-in is read once with its question and never again; items the phone filed are not asked again. Retired: "Part 9 stays one group per turn" (both copies), the battery rule and its 75-word cap (the first question with its lead-in is capped at 55), the oath repeat as "Yes to all?", the summary "group by group". Kept: never mint what she did not hear, a not-understood yes is void, the oath modification facts.
+
+CODE: nothing on GP keys on the group node ids (three `q_p9_oath` mentions are comments; the checkpoint and closing guards read the part number from each line's "Part 9: ..." text, which the item lines keep). `mark_battery_shortfall` stays: it only marks, and a one-item line gives it nothing to catch.
+
+Probe (`qa/n400_v47_probe.py`, 3 reps, $0.97 on the test key; agendas rebuilt from the client branch's own item nodes on the no path): the Part 9 opening reads the lead-in verbatim 3/3 on v47 in en and es (v46 paraphrased it and dropped "Just say yes or no to each" 3/3 and 3/3); a question about the second item after the phone filed the first, and "no to all" said to one item, were right on both versions (no neighbour minted); the OLD group agenda on v47 still files all four answers she stated. The item agenda does most of the work: v46 already asked one item at a time on it.
 
 ## What is deliberately not here
 

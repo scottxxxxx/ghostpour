@@ -476,6 +476,30 @@ VERSIONS = {
         ],
         "absent": ["Ask for the A-Number as the number usually shown on the Green Card"],
     },
+    47: {
+        # Scott, 2026-09-29, via the N400 client (contracts/p9-one-by-one-
+        # 2026-09-29.md): Part 9 is one form item per turn; the first line's
+        # lead-in is read once; items the phone filed are never asked again.
+        "block_anchor": "SECTION CHECKPOINTS\nA part is done when SECTION BOUNDARY is present",
+        "once": "a job that ended before the five-year window never replaces her CURRENT idle row",
+        "phrases": [
+            "PART 9 IS ONE QUESTION AT A TIME (Scott, 2026-09-29)",
+            "a no files THAT item only, never the items after it",
+            "Never say \"group\" about Part 9",
+            "THE FIRST PART 9 LINE'S LEAD-IN IS PART OF ITS QUESTION",
+            "never ask it again and never read the lead-in again",
+            "Part 9 is ONE ITEM PER TURN in every pace",
+            "while Part 9 is one item per turn",
+            "In Part 9 a yes or a no answers the one question asked",
+        ],
+        "absent": [
+            "Part 9 stays one group per turn",
+            "A battery on the agenda (arrests, affiliations, armed groups) is fine to ask as one question",
+            "Yes to all?",
+            "a Part 9 battery 75",
+            "group by group",
+        ],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -503,6 +527,11 @@ VERSIONS[45]["absent"] = VERSIONS[44]["absent"] + VERSIONS[45]["absent"]
 # v46 carries every v45 phrase.
 VERSIONS[46]["phrases"] = VERSIONS[45]["phrases"] + VERSIONS[46]["phrases"]
 VERSIONS[46]["absent"] = VERSIONS[45]["absent"] + VERSIONS[46]["absent"]
+# v47 carries every v46 phrase except the Part 9 group line Scott's
+# 2026-09-29 ruling retired.
+VERSIONS[47]["phrases"] = [p for p in VERSIONS[46]["phrases"]
+                           if p != "while Part 9 stays one group per turn"] + VERSIONS[47]["phrases"]
+VERSIONS[47]["absent"] = VERSIONS[46]["absent"] + VERSIONS[47]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]
