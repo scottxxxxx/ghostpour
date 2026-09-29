@@ -55,6 +55,9 @@ _EVENT_TYPES = ("app_start", "meeting_start", "meeting_stop",
 _COMPANION_TYPES = frozenset({"companion_start", "companion_linked",
                               "companion_session_start", "companion_session_stop"})
 _COMPANION_PLATFORMS = frozenset({"mac", "windows"})
+# One CPU vocabulary across platforms, matching the download redirect's
+# ?arch= (SS, 2026-09-29: the Mac reports x86_64, Windows x64).
+_ARCH_ALIASES = {"x86_64": "x64", "amd64": "x64", "x64": "x64", "aarch64": "arm64", "arm64": "arm64"}
 
 # Unknown keys used to vanish silently (Pydantic's default), a 204 on a field
 # nobody stored: the to_name shape. They are still accepted, because an old
@@ -431,6 +434,7 @@ async def _store_companion_event(db: aiosqlite.Connection, body: PingEvent,
     now_iso = datetime.now(timezone.utc).isoformat()
     country = (geoip.lookup(ip) or {}).get("country")
     phone_side = body.companion_device_id is not None
+    arch = _ARCH_ALIASES.get((body.arch or "").lower(), body.arch)
     await db.execute(
         """INSERT INTO companion_events
            (id, event_type, device_id, user_id, app_id, platform, arch,
@@ -441,7 +445,7 @@ async def _store_companion_event(db: aiosqlite.Connection, body: PingEvent,
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (str(uuid.uuid4()), body.event_type, body.device_id, body.user_id,
          getattr(request.state, "app_id", "unknown"),
-         body.platform or ("ios" if phone_side else None), body.arch,
+         body.platform or ("ios" if phone_side else None), arch,
          None if body.first_run is None else int(body.first_run),
          body.app_version, body.app_build, body.os_version, body.app_locale,
          body.meeting_id, body.duration_seconds, body.companion_device_id,
@@ -460,7 +464,7 @@ async def _store_companion_event(db: aiosqlite.Connection, body: PingEvent,
                  arch = COALESCE(excluded.arch, companion_installs.arch),
                  last_version = COALESCE(excluded.last_version, companion_installs.last_version),
                  last_build = COALESCE(excluded.last_build, companion_installs.last_build)""",
-            (body.device_id, body.platform, body.arch, now_iso, now_iso,
+            (body.device_id, body.platform, arch, now_iso, now_iso,
              body.app_version, body.app_build),
         )
     await db.commit()

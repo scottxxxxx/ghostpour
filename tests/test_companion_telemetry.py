@@ -158,3 +158,18 @@ def test_the_admin_view_splits_by_platform_and_leaves_iphone_out(client, tmp_db_
     assert rows["windows"] == {"platform": "windows", "downloads": 0, "installs": 1, "active_installs": 1,
                                "launches": 1, "linked_accounts": 0, "sessions": 1, "session_minutes": 10}
     assert r.json()["installs_all_time"] == {"mac": 1, "windows": 1}
+
+
+def test_one_cpu_vocabulary_whatever_the_platform_reports(client, tmp_db_path):
+    mac = _u()
+    client.post("/v1/events/ping", json=_start(device_id=mac, arch="x86_64"))
+    assert _rows(tmp_db_path, "SELECT arch FROM companion_events WHERE device_id = ?", mac) == [("x64",)]
+    assert _rows(tmp_db_path, "SELECT arch FROM companion_installs WHERE device_id = ?", mac) == [("x64",)]
+
+
+def test_build_is_a_string_and_meeting_id_is_not_a_uuid_check(client, tmp_db_path):
+    """SS asked (2026-09-29). An integer build is a 422 under Pydantic v2,
+    so the answer given them is: send strings."""
+    assert client.post("/v1/events/ping", json=_start(app_build=2055)).status_code == 422
+    body = _start(event_type="companion_session_start", first_run=None, meeting_id="not-a-uuid-but-fine")
+    assert client.post("/v1/events/ping", json=body).status_code == 204
