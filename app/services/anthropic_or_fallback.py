@@ -37,6 +37,7 @@ from fastapi import HTTPException
 
 from app.config import Settings
 from app.models.chat import ChatRequest, ChatResponse
+from app.services import key_scope
 
 logger = logging.getLogger("ghostpour.anthropic_or_fallback")
 
@@ -132,7 +133,10 @@ async def route_with_fallback(
     """Non-streaming wrapper around `provider_router.route()`. Use this
     in code paths that explicitly want the fallback behavior on
     Anthropic-direct calls."""
-    if request.provider != "anthropic":
+    if request.provider != "anthropic" or key_scope.using_test_key():
+        # A harness request never falls back: OpenRouter is production's
+        # account, so a fallback would move test spend past the test key's
+        # cap (key_scope) instead of stopping at it.
         return await provider_router.route(request)
     if request.generation:
         # Generation turns never fall back: OR can't arm the sandbox, so a
@@ -176,7 +180,8 @@ async def route_stream_with_fallback(
 
     Implementation: peek the first event, if the upstream raises before
     yielding anything, fall back. Otherwise pass through."""
-    if request.provider != "anthropic" or request.generation:
+    if request.provider != "anthropic" or request.generation or key_scope.using_test_key():
+        # Harness requests never fall back (see route_with_fallback).
         # Generation is never streamed today, but keep the no-fallback rule
         # symmetric with route_with_fallback if that ever changes.
         async for event in provider_router.route_stream(request):

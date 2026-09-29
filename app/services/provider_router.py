@@ -10,6 +10,7 @@ from app.services.providers.base import ProviderAdapter
 from app.services.providers.gemini import GeminiAdapter
 from app.services.providers.generic import GenericAdapter
 from app.services.providers.openai_compat import OpenAICompatAdapter
+from app.services import key_scope
 
 logger = logging.getLogger("ghostpour.provider_router")
 
@@ -28,8 +29,12 @@ class ProviderRouter:
         self._adapters: dict[str, ProviderAdapter] = {}
 
     def _get_adapter(self, provider: str) -> ProviderAdapter:
-        if provider in self._adapters:
-            return self._adapters[provider]
+        # A harness request on Anthropic spends on the test key, through its
+        # own cached adapter (key_scope).
+        test = provider == "anthropic" and key_scope.using_test_key()
+        cache_key = "anthropic@test" if test else provider
+        if cache_key in self._adapters:
+            return self._adapters[cache_key]
 
         cfg = self._config.get(provider)
         if not cfg:
@@ -41,7 +46,8 @@ class ProviderRouter:
                 },
             )
 
-        api_key = getattr(self._settings, cfg["env_key"], "")
+        api_key = (key_scope.anthropic_key(self._settings) if test
+                   else getattr(self._settings, cfg["env_key"], ""))
         if not api_key:
             raise HTTPException(
                 status_code=502,
@@ -87,7 +93,7 @@ class ProviderRouter:
                 extra_headers=cfg.get("extra_headers"),
             )
 
-        self._adapters[provider] = adapter
+        self._adapters[cache_key] = adapter
         return adapter
 
     def validate_model(self, provider: str, model: str) -> None:

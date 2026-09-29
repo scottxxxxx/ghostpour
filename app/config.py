@@ -109,6 +109,9 @@ class Settings(BaseSettings):
     # Provider API Keys
     openai_api_key: str = ""
     anthropic_api_key: str = ""
+    # The automation tier (test harnesses) spends on this key instead, so test
+    # rounds bill their own capped workspace (app/services/key_scope.py).
+    anthropic_test_api_key: str = ""
     google_api_key: str = ""
     xai_api_key: str = ""
     deepseek_api_key: str = ""
@@ -358,6 +361,7 @@ class Settings(BaseSettings):
 # aren't secrets, they're configuration that's safe in env.
 _SECRET_MANAGER_MAPPINGS: dict[str, str] = {
     "CZ_JWT_SECRET": "jwt-secret",
+    "CZ_ANTHROPIC_TEST_API_KEY": "anthropic-test-api-key",
     "CZ_ADMIN_KEY": "admin-key",
     "CZ_ANTHROPIC_API_KEY": "anthropic-api-key",
     "CZ_OPENAI_API_KEY": "openai-api-key",
