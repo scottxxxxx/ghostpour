@@ -78,7 +78,7 @@ def _http(method: str, url: str, key: str, body: dict | None = None, timeout: in
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 return r.read()
         except urllib.error.HTTPError as exc:
-            if exc.code not in (429, 529) or attempt == 3:
+            if exc.code not in (429, 500, 502, 503, 529) or attempt == 3:
                 raise
             time.sleep(10 * (attempt + 1))
     raise AssertionError("unreachable")
