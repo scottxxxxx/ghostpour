@@ -467,7 +467,9 @@ VERSIONS = {
         # is asked plainly; where it is on the card is a gloss only when she
         # asks or hesitates.
         "block_anchor": "SECTION CHECKPOINTS\nA part is done when SECTION BOUNDARY is present",
-        "once": "WHERE IT IS ON THE CARD IS A GLOSS, SAID ONLY WHEN SHE ASKS OR HESITATES",
+        # The A-Number line sits BEFORE the block, so the in-block check keeps
+        # v45's anchor phrase and the new rule is carried as a phrase.
+        "once": "a job that ended before the five-year window never replaces her CURRENT idle row",
         "phrases": [
             "Ask for the A-Number plainly (\"Now, your A-Number?\")",
             "WHERE IT IS ON THE CARD IS A GLOSS, SAID ONLY WHEN SHE ASKS OR HESITATES",

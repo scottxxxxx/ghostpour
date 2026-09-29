@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 45
+served_version: 46
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-09-28 (v45)
+reconciled: 2026-09-28 (v46)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1796,6 +1796,14 @@ CODE:
 PROMPT: the client's pace clause in APPLICANT CONTEXT (contract: "pace: one fact per turn" / "pace: full paragraphs", measured over her last four answering turns, sent from her third, held until the opposite condition) decides grouping mechanically; round 7's lane items.
 
 Probe (`qa/n400_v45_probe.py`, live v44 requests, pace injected): the settled-question, state and floor cases hold; the pace cases do not discriminate in replay (the standing line was already one fact; with paragraphs the pace clause and the no-pace control both grouped 2/3), so round 8 with the client sending the clause is the real test. Occupation and retired-row were fixed by the guards, not the prompt.
+
+## v46: the A-Number is asked plainly
+
+Scott's build-108 device run (2026-09-28, via the auditor): after he answered only the eligibility question, the A-Number line ran about 19 seconds, because v45 told the model to ask for it "as the number usually shown on the Green Card as USCIS Number" on every ask. Part of the length was the app's own card offer, which is the client's.
+
+PROMPT: the A-Number is asked plainly ("Now, your A-Number?"); where it is on the card (the USCIS Number, 9 digits, sometimes with an A) is a gloss said only when she asks or hesitates.
+
+Probe (`qa/n400_v46_probe.py`, 3 reps, $0.36 on the test key; every reply read, since the regex also matched "green card" as a date word): minh-r7 t3 (the live shape) v45 glossed 1/3 fully and 1/3 partly, v46 0/3 at 14 to 18 words (v45 20 to 31); rosa-r6 t4, who asked where it is, keeps the gloss 3/3 on v46 at 25 to 26 words (v45 32 to 33); jorge-r7 t2 glossed on neither. Not replayed: Scott's own build-108 turn (no request on file).
 
 ## What is deliberately not here
 
