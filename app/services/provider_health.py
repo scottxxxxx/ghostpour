@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from dataclasses import dataclass, asdict, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -313,6 +314,9 @@ async def _alert(
         logger.warning("provider_health: alert dispatch failed: %s", e)
 
 
+_BUDGET_TEXT = re.compile(r"usage limit|credit balance|spend limit|billing", re.I)
+
+
 def _alert_decision(result: ProbeResult) -> tuple[str, str] | None:
     """Decide whether a ProbeResult should fire an incident, and which
     category. Returns (category, subject) or None.
@@ -329,6 +333,13 @@ def _alert_decision(result: ProbeResult) -> tuple[str, str] | None:
 
     if code == 402:
         return ("provider_budget_exhausted", f"{result.provider}_budget_402")
+
+    # Anthropic reports a hit spend cap as a 400 invalid_request_error ("You
+    # have reached your specified API usage limits"), not a 402. On
+    # 2026-09-29 this check saw exactly that at 20:37:52Z, classed it as
+    # "other 4xx, no alert", and production was down with nobody told.
+    if code == 400 and _BUDGET_TEXT.search(result.detail or ""):
+        return ("provider_budget_exhausted", f"{result.provider}_usage_limit")
 
     # OpenRouter low-balance path: status 200 but unhealthy because
     # remaining dropped below threshold.
