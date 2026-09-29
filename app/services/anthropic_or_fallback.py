@@ -103,6 +103,15 @@ async def _alert_on_fallback(
     per 30 minutes, not once per request."""
     try:
         from app.services.alerting import report_incident
+        if db is None:
+            # Callers outside a request (titles, cleanup, classifiers) have no
+            # connection; the alert must not be lost for that.
+            import aiosqlite
+            path = settings.database_url.replace("sqlite+aiosqlite:///", "")
+            async with aiosqlite.connect(path) as own:
+                own.row_factory = aiosqlite.Row
+                return await _alert_on_fallback(own, settings, original_model=original_model,
+                                                or_model=or_model, failure=failure)
         await report_incident(
             db,
             category="anthropic_fallback_to_or",
@@ -143,12 +152,17 @@ async def _or_request(request: ChatRequest, or_model: str) -> ChatRequest:
 async def route_with_fallback(
     provider_router,
     request: ChatRequest,
-    db,
-    settings: Settings,
+    db=None,
+    settings: Settings | None = None,
 ) -> ChatResponse:
-    """Non-streaming wrapper around `provider_router.route()`. Use this
-    in code paths that explicitly want the fallback behavior on
-    Anthropic-direct calls."""
+    """Non-streaming wrapper around `provider_router.route()`. EVERY model
+    call goes through this or its streaming twin (Scott, 2026-09-29: "if we
+    cannot reach anthropic or do not have tokens, we should fall back to
+    open router"); tests/test_spend_cap_outage.py fails on a direct call.
+    `db` and `settings` are optional for callers outside a request."""
+    if settings is None:
+        from app.config import get_settings
+        settings = get_settings()
     if request.provider != "anthropic" or key_scope.using_test_key():
         # A harness request never falls back: OpenRouter is production's
         # account, so a fallback would move test spend past the test key's
@@ -186,16 +200,19 @@ async def route_with_fallback(
 async def route_stream_with_fallback(
     provider_router,
     request: ChatRequest,
-    db,
-    settings: Settings,
+    db=None,
+    settings: Settings | None = None,
 ) -> AsyncIterator[dict]:
     """Streaming wrapper around `provider_router.route_stream()`. The
     fallback only kicks in on the INITIAL connection error (before any
-    SSE event has flowed). Once we've sent the first event downstream,
+    SSE event has flowed). `db` and `settings` are optional. Once we've sent the first event downstream,
     we're committed — a mid-stream failure surfaces as a stream error.
 
     Implementation: peek the first event, if the upstream raises before
     yielding anything, fall back. Otherwise pass through."""
+    if settings is None:
+        from app.config import get_settings
+        settings = get_settings()
     if request.provider != "anthropic" or request.generation or key_scope.using_test_key():
         # Harness requests never fall back (see route_with_fallback).
         # Generation is never streamed today, but keep the no-fallback rule

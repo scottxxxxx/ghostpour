@@ -36,6 +36,7 @@ from typing import Awaitable, Callable, Optional
 
 from app.models.chat import ChatRequest, ChatResponse
 from app.services.provider_router import ProviderRouter
+from app.services.anthropic_or_fallback import route_with_fallback as _route_fb
 
 # Callback invoked once per successful cleanup attempt so the caller can meter
 # the sub-call (cost + usage_log row). Receives the ChatRequest we built, the
@@ -140,10 +141,10 @@ async def _attempt(
     try:
         if timeout is not None:
             response = await asyncio.wait_for(
-                provider_router.route(request), timeout=timeout,
+                _route_fb(provider_router, request), timeout=timeout,
             )
         else:
-            response = await provider_router.route(request)
+            response = await _route_fb(provider_router, request)
     except asyncio.TimeoutError:
         logger.warning(
             "Transcript cleanup timed out meeting=%s provider=%s model=%s timeout=%.1fs",

@@ -135,7 +135,8 @@ async def maybe_extract_native_action(
     )
     start = _time.monotonic()
     try:
-        response = await asyncio.wait_for(provider_router.route(request), timeout=12.0)
+        from app.services.anthropic_or_fallback import route_with_fallback as _route_fb
+        response = await asyncio.wait_for(_route_fb(provider_router, request), timeout=12.0)
         elapsed_ms = int((_time.monotonic() - start) * 1000)
         if on_subcall is not None:
             await on_subcall(request, response, elapsed_ms)
