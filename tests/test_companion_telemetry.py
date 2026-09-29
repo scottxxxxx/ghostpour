@@ -173,3 +173,15 @@ def test_build_is_a_string_and_meeting_id_is_not_a_uuid_check(client, tmp_db_pat
     assert client.post("/v1/events/ping", json=_start(app_build=2055)).status_code == 422
     body = _start(event_type="companion_session_start", first_run=None, meeting_id="not-a-uuid-but-fine")
     assert client.post("/v1/events/ping", json=body).status_code == 204
+
+
+def test_an_install_counts_from_its_first_event_even_without_first_run(client, tmp_db_path):
+    """SS marks first_run reported on the first ATTEMPT, so a first launch
+    that never reached us never says first_run again. The install must still
+    count, from the first event GP does see."""
+    dev = _u()
+    client.post("/v1/events/ping", json=_start(device_id=dev, first_run=False))
+    r = client.get("/webhooks/admin/telemetry/companion?days=7", headers={"X-Admin-Key": "test-admin-key"})
+    rows = {x["platform"]: x for x in r.json()["by_platform"]}
+    assert rows["mac"]["installs"] == 1
+    assert [d for d in r.json()["daily"] if d["platform"] == "mac"][0]["installs"] == 1

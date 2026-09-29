@@ -3940,7 +3940,6 @@ async def telemetry_companion(
         "WHERE received_at >= datetime('now', ?) GROUP BY platform", since)}
     ev = {r["platform"]: r for r in await _all(
         """SELECT platform,
-                  SUM(CASE WHEN event_type='companion_start' AND first_run=1 THEN 1 ELSE 0 END) AS installs,
                   COUNT(DISTINCT CASE WHEN event_type='companion_start' THEN device_id END) AS active,
                   SUM(CASE WHEN event_type='companion_start' THEN 1 ELSE 0 END) AS launches,
                   SUM(CASE WHEN event_type='companion_session_stop' THEN 1 ELSE 0 END) AS sessions,
@@ -3949,6 +3948,13 @@ async def telemetry_companion(
            FROM companion_events
            WHERE received_at >= datetime('now', ?) AND platform IN ('mac', 'windows')
            GROUP BY platform""", since)}
+    # An install is the first event GP ever saw from a device_id, whatever
+    # its type, not a first_run flag: a first launch with no network (or a
+    # 5xx) marks itself reported and never says first_run again (SS,
+    # 2026-09-29), so the flag undercounts.
+    new_installs = {r["platform"]: r["n"] for r in await _all(
+        "SELECT platform, COUNT(*) AS n FROM companion_installs "
+        "WHERE first_seen_at >= datetime('now', ?) GROUP BY platform", since)}
     linked = {r["platform"]: r["n"] for r in await _all(
         """SELECT companion_platform AS platform, COUNT(DISTINCT user_id) AS n
            FROM companion_events
@@ -3960,7 +3966,7 @@ async def telemetry_companion(
         e = ev.get(plat) or {}
         by_platform.append({
             "platform": plat, "downloads": downloads.get(plat, 0),
-            "installs": int(e.get("installs") or 0), "active_installs": int(e.get("active") or 0),
+            "installs": new_installs.get(plat, 0), "active_installs": int(e.get("active") or 0),
             "launches": int(e.get("launches") or 0), "linked_accounts": linked.get(plat, 0),
             "sessions": int(e.get("sessions") or 0), "session_minutes": int(e.get("minutes") or 0),
         })
@@ -3975,9 +3981,8 @@ async def telemetry_companion(
              SELECT substr(received_at, 1, 10) AS day, platform, 1 AS downloads, 0 AS installs
                FROM companion_downloads WHERE received_at >= datetime('now', ?)
              UNION ALL
-             SELECT substr(received_at, 1, 10), platform, 0, 1
-               FROM companion_events
-              WHERE event_type='companion_start' AND first_run=1 AND received_at >= datetime('now', ?)
+             SELECT substr(first_seen_at, 1, 10), platform, 0, 1
+               FROM companion_installs WHERE first_seen_at >= datetime('now', ?)
            ) GROUP BY day, platform ORDER BY day""", since, since)
     all_time = {r["platform"]: r["n"] for r in await _all(
         "SELECT platform, COUNT(*) AS n FROM companion_installs GROUP BY platform")}
