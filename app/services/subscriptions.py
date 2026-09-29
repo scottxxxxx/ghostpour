@@ -341,6 +341,13 @@ def classify_status(row: dict) -> str:
     # sent, not a trial the user chose. Promo (2) and win-back (4) likewise.
     is_offer = otype in (2, 3, 4)
     is_trial = not is_offer and (disc == "FREE_TRIAL" or otype == 1)
+    # Apple status 3 is the BILLING RETRY period: the renewal charge failed
+    # and Apple is still retrying it (up to 60 days), which is why
+    # auto-renew still reads on. It is not "lapsed", and the account has no
+    # paid access while it lasts (Scott, 2026-09-29: a Plus row with a
+    # lapsed trial and auto-renew on read as someone getting Plus free).
+    if status == 3:
+        return "billing_retry"
     if not active:
         if is_offer and price == 0:
             return "offer_lapsed"
@@ -362,7 +369,7 @@ async def subscription_truth(db: aiosqlite.Connection) -> dict:
     reported a non-zero charge (Scott, 2026-09-10: "we should not recognize
     MRR since we have never received money")."""
     rows = [dict(r) for r in await (await db.execute(
-        """SELECT s.*, u.email, u.apple_sub FROM subscription_status s
+        """SELECT s.*, u.email, u.apple_sub, u.tier AS current_tier FROM subscription_status s
            LEFT JOIN users u ON u.id = s.user_id
           ORDER BY s.expires_at DESC""")).fetchall()]
     # Anonymous buyers have no email, so the row used to read as a bare id;
@@ -386,6 +393,9 @@ async def subscription_truth(db: aiosqlite.Connection) -> dict:
                 mrr += TIER_PRICE_USD.get(r.get("tier") or "", 0)
         subscribers.append({
             "email": r.get("email"), "user_id": r.get("user_id"), "tier": r.get("tier"),
+            # The PLAN is what Apple's subscription is for; the account's tier
+            # in GP right now can differ (a failed trial is back on free).
+            "current_tier": r.get("current_tier"),
             "is_anonymous": str(r.get("apple_sub") or "").startswith(ANONYMOUS_SUB_PREFIX),
             "linked_devices": group_size.get(group_of.get(r.get("user_id")), 1),
             "environment": r.get("environment"), "state": state,
@@ -411,6 +421,7 @@ async def subscription_truth(db: aiosqlite.Connection) -> dict:
         "trialing_cancelled": counts.get("trial_cancelled", 0),
         "on_offer": counts.get("on_offer", 0) + counts.get("offer_cancelled", 0),
         "trials_lapsed": counts.get("trial_lapsed", 0),
+        "billing_retry": counts.get("billing_retry", 0),
         "lapsed_other": counts.get("lapsed", 0) + counts.get("offer_lapsed", 0),
         "received_to_date": received,
         "by_state": counts,

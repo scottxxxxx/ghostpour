@@ -900,7 +900,7 @@
         <button class="btn" style="margin-left:auto" onclick="refreshSubsFromApple()">Refresh from Apple</button>
       </div>
       <div class="table-wrap"><table id="sub-truth-table"><thead><tr>
-        <th>User</th><th>Tier</th><th>State</th><th>Auto-renew</th><th>Offer</th><th>This period</th><th>Period ends</th><th>Env</th><th>Paid ever</th>
+        <th>User</th><th title="What the Apple subscription is for">Plan</th><th title="The account's tier in GhostPour right now">Tier now</th><th>State</th><th>Auto-renew</th><th>Offer</th><th>This period</th><th>Period ends</th><th>Env</th><th>Paid ever</th>
       </tr></thead><tbody></tbody></table></div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px;margin-top:16px">
@@ -1346,6 +1346,7 @@ function _renderSubscriptions(rep, events) {
     {label: 'Run-rate if all converted', value: runRate,
      hint: `${tierStr}; list price, trials and offers included. Not revenue`},
     {label: 'Trials lapsed', value: (t.trials_lapsed || 0).toLocaleString(), hint: 'cancelled or expired without a charge'},
+    {label: 'Payment failed', value: (t.billing_retry || 0).toLocaleString(), hint: 'Apple still retrying the charge; no paid access meanwhile'},
     {label: 'Ever subscribed', value: (s.ever_subscribed || 0).toLocaleString(), hint: 'feeds offer-code eligibility'},
   ].map(c => `
     <div class="card">
@@ -1446,6 +1447,7 @@ function _renderSubscriberTruth(t) {
     trialing: 'Trial, auto-renew ON', trial_cancelled: 'Trial, CANCELLED',
     on_offer: 'Offer code', offer_cancelled: 'Offer code, cancelled',
     trial_lapsed: 'Trial lapsed', offer_lapsed: 'Offer lapsed', lapsed: 'Lapsed',
+    billing_retry: 'Payment failed, Apple retrying',
     active_unpriced: 'Active, price unknown',
   };
   const offerLabel = (r) => {
@@ -1462,15 +1464,18 @@ function _renderSubscriberTruth(t) {
       <td>${r.is_anonymous
         ? `<span style="color:var(--text-dim)">Anonymous</span> <span style="color:var(--text-dim);font-size:11px">${(r.user_id || '').slice(0, 8)}</span>`
         : esc(r.email || (r.user_id || '').slice(0, 8))}${(r.linked_devices || 1) > 1 ? ` <span class="badge" title="One person, ${r.linked_devices} ${r.is_anonymous ? 'devices' : 'accounts'} (linked by a restore or sign-in)">${r.linked_devices} ${r.is_anonymous ? 'devices' : 'accounts'}</span>` : ''}</td>
-      <td>${r.tier || ''}</td>
-      <td>${stateLabel[r.state] || r.state}</td>
-      <td>${r.auto_renew === 1 ? 'on' : r.auto_renew === 0 ? '<span style="color:#ff7b72">off</span>' : '?'}</td>
+      <td>${esc(r.tier || '')}</td>
+      <td>${r.current_tier && r.current_tier !== r.tier
+        ? `<span style="color:#d29922" title="Not on the plan's tier: no paid access">${esc(r.current_tier)}</span>`
+        : esc(r.current_tier || '')}</td>
+      <td>${stateLabel[r.state] || esc(r.state)}</td>
+      <td>${r.auto_renew === 1 ? (r.state === 'billing_retry' ? 'on <span style="color:var(--text-dim)">(retrying)</span>' : 'on') : r.auto_renew === 0 ? '<span style="color:#ff7b72">off</span>' : '?'}</td>
       <td>${offerLabel(r)}</td>
       <td>${r.price_paid == null ? '?' : (r.price_paid > 0 ? `${r.currency || ''} ${r.price_paid}` : 'free')}</td>
       <td>${(r.expires_at || '').slice(0, 10)}</td>
       <td>${r.environment || ''}</td>
       <td>${r.paid_ever ? 'yes' : 'no'}</td>
-    </tr>`).join('') : '<tr><td colspan="9" style="color:var(--text-dim)">Nothing pulled from Apple yet. Press Refresh from Apple.</td></tr>';
+    </tr>`).join('') : '<tr><td colspan="10" style="color:var(--text-dim)">Nothing pulled from Apple yet. Press Refresh from Apple.</td></tr>';
   const chk = document.getElementById('sub-truth-checked');
   if (chk) chk.textContent = t.last_checked_at ? `last checked ${t.last_checked_at.slice(0, 16).replace('T', ' ')}Z` : '';
 }
