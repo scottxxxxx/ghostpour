@@ -172,6 +172,11 @@ NO_LOCALE_NEEDED = {
         "two URLs. No prose. A localized copy would be a second place for the "
         "App Store flip to be forgotten."
     ),
+    "operator-alerts": (
+        "Server-only: which GP users' devices get critical-incident pushes and "
+        "for which categories. User ids and category tokens, no prose, never "
+        "served to a client."
+    ),
     "verify-receipt": (
         "Server-side enforcement switch for Apple receipt verification. One "
         "boolean, no prose, never reaches a user. The 400 it gates carries a "
