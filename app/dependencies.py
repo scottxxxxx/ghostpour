@@ -7,6 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.database import get_db
 from app.models.user import UserRecord
+from app.services import key_scope
 
 # auto_error=False so a MISSING or non-Bearer Authorization header is a 401
 # like every other auth failure below, not FastAPI's default 403.
@@ -53,6 +54,7 @@ async def get_current_user(
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")
 
+    key_scope.mark(user.tier)
     return user
 
 
@@ -94,6 +96,7 @@ async def get_current_user_optional(
     if not user.is_active:
         return None
 
+    key_scope.mark(user.tier)
     return user
 
 
