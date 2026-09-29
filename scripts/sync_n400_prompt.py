@@ -462,6 +462,18 @@ VERSIONS = {
         ],
         "absent": [],
     },
+    46: {
+        # Scott's build-108 run (via the auditor, 2026-09-28): the A-Number
+        # is asked plainly; where it is on the card is a gloss only when she
+        # asks or hesitates.
+        "block_anchor": "SECTION CHECKPOINTS\nA part is done when SECTION BOUNDARY is present",
+        "once": "WHERE IT IS ON THE CARD IS A GLOSS, SAID ONLY WHEN SHE ASKS OR HESITATES",
+        "phrases": [
+            "Ask for the A-Number plainly (\"Now, your A-Number?\")",
+            "WHERE IT IS ON THE CARD IS A GLOSS, SAID ONLY WHEN SHE ASKS OR HESITATES",
+        ],
+        "absent": ["Ask for the A-Number as the number usually shown on the Green Card"],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -486,6 +498,9 @@ VERSIONS[44]["absent"] = VERSIONS[43]["absent"] + VERSIONS[44]["absent"]
 # v45 carries every v44 phrase.
 VERSIONS[45]["phrases"] = VERSIONS[44]["phrases"] + VERSIONS[45]["phrases"]
 VERSIONS[45]["absent"] = VERSIONS[44]["absent"] + VERSIONS[45]["absent"]
+# v46 carries every v45 phrase.
+VERSIONS[46]["phrases"] = VERSIONS[45]["phrases"] + VERSIONS[46]["phrases"]
+VERSIONS[46]["absent"] = VERSIONS[45]["absent"] + VERSIONS[46]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]
