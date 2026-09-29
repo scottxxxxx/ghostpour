@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 47
+served_version: 48
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-09-29 (v47)
+reconciled: 2026-09-29 (v48)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1844,3 +1844,12 @@ Acceptance is the auditor's two scenarios (Scott's reference conversation,
 then a difficult applicant) run live against the deployed container, graded
 per transcript on outcome. Failures come back as transcript excerpts with
 the intent wanted, never as prompt wording.
+
+## v48: the oriented clause, no greeting
+
+The client's orientation-line contract (2026-09-29): build 111 shows its own first-run orientation (an assistant not a person, she sees the whole form first, "I'm not sure" is fine, how answering works), then sends `oriented: the app already greeted her and explained answering several things at once, so do not greet or explain, open with the first question` in APPLICANT CONTEXT on every request of that case, before the pace clause.
+
+PROMPT: with the clause, the opening is the question alone (at most "Let's start." / "Empecemos."), no greeting and no how-to; the opening set, order and strike rule unchanged; "is this a person?" later still gets "an assistant, not a person". Without it, the three-thing opening is unchanged. The Spanish fixed-forms line needed its own exception: with only the general rule, v48 still greeted 2/3 in Spanish.
+
+Probe (`qa/n400_v48_probe.py`, 3 reps, $0.49 + $0.17 on the test key): with the clause, English opened with the question 6/6 at 24 words (v47 greeted 6/6 at 49 to 59), including with the pace clause after it; Spanish 3/3 after the added line (the general rule alone was 1/3, and v47 was 1/3 and 3/3 across two runs, so it was never reliable); the no-clause control still greets 3/3; "is this a real person?" still gets "an assistant, not a person" 3/3.
+
