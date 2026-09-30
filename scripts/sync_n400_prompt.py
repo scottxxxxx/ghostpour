@@ -535,6 +535,29 @@ VERSIONS = {
             "and were never asked aloud, so the review is the only place she hears them",
         ],
     },
+    50: {
+        # The client's printed-question-wording contract (2026-09-30): every
+        # Part 9 question and every printed yes/no or choice question read as
+        # given; grouping narrows to plain boxes.
+        "block_anchor": "SECTION CHECKPOINTS\nA part is done when SECTION BOUNDARY is present",
+        "once": "a job that ended before the five-year window never replaces her CURRENT idle row",
+        "phrases": [
+            "EVERY PART 9 QUESTION (every q_p9_ line), and EVERY PRINTED YES/NO OR CHOICE QUESTION",
+            "never add a word the form does not print",
+            "a yes to possessing a drug ALONE is not a yes to 17.b",
+            "the repeat is the printed question again without the lead-in",
+            "GROUP THE NEXT TWO OR THREE SHORT-FACT BOX LINES ON THE AGENDA",
+            "is never merged into a group: it is its own turn, read as given, whatever the pace",
+            "The same for boxes that sit together: height with weight",
+            "while every printed question (each Part 9 item, the Sex box, the Part 2 yes/no questions) is its own turn",
+        ],
+        "absent": [
+            "Are you male or female, and was either of your parents",
+            "gender with date of birth and country of birth",
+            "at most half the words (\"Have you ever claimed",
+            "The same for these pairs, each one natural sentence",
+        ],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -573,6 +596,12 @@ VERSIONS[48]["absent"] = VERSIONS[47]["absent"] + VERSIONS[48]["absent"]
 # v49 carries every v48 phrase.
 VERSIONS[49]["phrases"] = VERSIONS[48]["phrases"] + VERSIONS[49]["phrases"]
 VERSIONS[49]["absent"] = VERSIONS[48]["absent"] + VERSIONS[49]["absent"]
+# v50 carries every v49 phrase except the four lines the printed-question
+# contract (2026-09-30) rewrote: pair grouping, short repeats, the Part 9 turn.
+_V50_RETIRED = {"the repeat is its SHORT form", "The same for these pairs, each one natural sentence",
+                "GROUP THE NEXT TWO OR THREE SHORT-FACT LINES ON THE AGENDA", "while Part 9 is one item per turn"}
+VERSIONS[50]["phrases"] = [p for p in VERSIONS[49]["phrases"] if p not in _V50_RETIRED] + VERSIONS[50]["phrases"]
+VERSIONS[50]["absent"] = VERSIONS[49]["absent"] + VERSIONS[50]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]

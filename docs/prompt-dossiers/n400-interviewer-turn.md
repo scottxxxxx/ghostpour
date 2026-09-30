@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 49
+served_version: 50
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-09-30 (v49)
+reconciled: 2026-09-30 (v50)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1860,4 +1860,12 @@ Scott, 2026-09-30, via the client's `contracts/form-wording-2026-09-30.md`: anyt
 PROMPT: those questions are read AS GIVEN (a short acknowledgement may precede; no rewording, shortening, softening or dropping) and are exempt from the word caps; the before-we-begin "own words" rule excepts the interpreter question; the fee question's yes now means household income at or under 400% of the Federal Poverty Guidelines (a wish is not an answer, not knowing is dont_know), and the old "USCIS lowers the filing fee" wording and "never recite the threshold" rule are retired; a box A to F named at q_p1_eligibility_other corrects p1.eligibility_basis; the interpreter question takes NO view on who counts (whether the app itself does is an open legal question Scott is taking to an attorney; asked, the lane says it can't give legal advice and stays neutral); Parts 12 and 13 are no longer "never asked aloud" in the review rule.
 
 Not probed: Scott ruled no paid test calls through 2026-09-30. Verified structurally (the phrase read-back, the retired lines absent, the 414 N-400 tests); behaviour on live turns is unmeasured until testing resumes.
+
+## v50: every printed question read as given
+
+Scott, 2026-09-30, via the client's `contracts/printed-question-wording-2026-09-30.md`: every Part 9 question and every printed yes/no or choice question in Parts 2, 3, 4, 5, 6 and 10 is now the 01/20/25 form's printed wording in en/es/pt (the app rewrote the asks; ids unchanged). Some old Part 9 asks had the wrong scope (17.b added "possessed" and dropped "dispensed", "controlled substances" and the jurisdiction clause; 7.c dropped "incited, called for, assisted, otherwise"; 8.a had "in any country"; 15.b asked about being investigated).
+
+PROMPT: FORM WORDING IS READ AS GIVEN extends to all of them: never merged, shortened, softened, or given a scope word the form lacks; printed qualifiers kept; a label box read with its printed options in order; a repeat drops only the lead-in. The options-list rule, "talk like a person" and the grouping rules now except printed questions. **Grouping narrows to plain boxes** (dates, numbers, places, height, weight): the Sex box, parent citizen, disability, the SSA card, ethnicity and race, and the spouse's armed forces service no longer ride in groups (the old example "Are you male or female, and was either of your parents a U.S. citizen before you turned 18?" is pinned absent). Four meanings to file by: 17.b possession alone is not a yes; 15.b no longer asks about an investigation; spouse citizen how (a date is other plus the date, by birth is by_birth); the SSA consent is consent to exactly what was read.
+
+Not probed: no paid test calls through 2026-09-30. Structural checks only.
 
