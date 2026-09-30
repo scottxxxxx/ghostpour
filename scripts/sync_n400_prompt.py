@@ -523,12 +523,16 @@ VERSIONS = {
             "Is your household income less than or equal to 400% of the Federal Poverty Guidelines?",
             "Its yes and no are about HER INCOME, not her wishes",
             "EXCEPT the interpreter question, which is read AS GIVEN",
-            "An app speaking her language is not an interpreter",
+            "with no view on who counts as an interpreter",
+            "say you can't give legal advice",
+            "were asked before we begin, or at their gates when not answered there",
             "that is a CORRECTION of p1.eligibility_basis to that box's option id",
         ],
         "absent": [
             "USCIS lowers the filing fee for lower household incomes",
             "never with the income threshold recited at them",
+            "An app speaking her language is not an interpreter",
+            "and were never asked aloud, so the review is the only place she hears them",
         ],
     },
 }

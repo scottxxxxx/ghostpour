@@ -523,9 +523,15 @@ def test_every_v48_phrase_rides_into_v49():
 
 def test_the_old_fee_wording_stays_gone_in_v49():
     """The fee question changed MEANING (2026-09-30): a wish became a fact
-    about her income. A served copy still asking the wish is a stale cut."""
+    about her income. A served copy still asking the wish is a stale cut.
+    The interpreter ruling ("an app is not an interpreter") was pulled
+    before shipping: whether the app counts is Scott's question for an
+    attorney, and the prompt must not decide it."""
     sp = _bundle_prompt(49)
-    for retired in VERSIONS[49]["absent"][-2:]:
+    for retired in ("USCIS lowers the filing fee for lower household incomes",
+                    "never with the income threshold recited at them",
+                    "An app speaking her language is not an interpreter",
+                    "and were never asked aloud, so the review is the only place she hears them"):
         assert retired not in sp, retired
         assert verify(sp + "\n" + retired, 49) is False, retired
 
@@ -547,7 +553,7 @@ def test_the_part_9_group_rules_stay_gone_in_v47():
     """Scott, 2026-09-29: Part 9 one question at a time. A served copy that
     still reads Part 9 as groups is a stale cut."""
     sp = _bundle_prompt(49)
-    for retired in VERSIONS[49]["absent"][-7:-2]:
+    for retired in VERSIONS[47]["absent"][-5:]:
         assert retired not in sp, retired
         assert verify(sp + "\n" + retired, 49) is False, retired
 
