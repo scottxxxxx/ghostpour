@@ -513,6 +513,24 @@ VERSIONS = {
         ],
         "absent": [],
     },
+    49: {
+        # The client's form-wording contract (2026-09-30): questions the
+        # N-400 or its Instructions word are read as given.
+        "block_anchor": "SECTION CHECKPOINTS\nA part is done when SECTION BOUNDARY is present",
+        "once": "a job that ended before the five-year window never replaces her CURRENT idle row",
+        "phrases": [
+            "FORM WORDING IS READ AS GIVEN (Scott, 2026-09-30)",
+            "Is your household income less than or equal to 400% of the Federal Poverty Guidelines?",
+            "Its yes and no are about HER INCOME, not her wishes",
+            "EXCEPT the interpreter question, which is read AS GIVEN",
+            "An app speaking her language is not an interpreter",
+            "that is a CORRECTION of p1.eligibility_basis to that box's option id",
+        ],
+        "absent": [
+            "USCIS lowers the filing fee for lower household incomes",
+            "never with the income threshold recited at them",
+        ],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -548,6 +566,9 @@ VERSIONS[47]["absent"] = VERSIONS[46]["absent"] + VERSIONS[47]["absent"]
 # v48 carries every v47 phrase.
 VERSIONS[48]["phrases"] = VERSIONS[47]["phrases"] + VERSIONS[48]["phrases"]
 VERSIONS[48]["absent"] = VERSIONS[47]["absent"] + VERSIONS[48]["absent"]
+# v49 carries every v48 phrase.
+VERSIONS[49]["phrases"] = VERSIONS[48]["phrases"] + VERSIONS[49]["phrases"]
+VERSIONS[49]["absent"] = VERSIONS[48]["absent"] + VERSIONS[49]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]
