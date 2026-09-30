@@ -115,6 +115,15 @@ KNOWN_CATEGORIES: dict[str, dict] = {
             "credit_balance_too_low). Time to top up that provider."
         ),
     },
+    "automation_hourly_cap": {
+        "label": "Test account paused: over 100 calls in an hour",
+        "description": (
+            "An automation (test) account passed 100 model calls in a rolling "
+            "hour and was switched off (is_active = 0). It stays off until "
+            "Scott clears it; the incident details carry the SQL to do so. "
+            "Scott, 2026-09-29, after the spend-cap outage."
+        ),
+    },
     "anthropic_fallback_to_or": {
         "label": "Anthropic call fell back to OpenRouter",
         "description": (
