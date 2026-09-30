@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 48
+served_version: 49
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-09-29 (v48)
+reconciled: 2026-09-30 (v49)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1852,4 +1852,12 @@ The client's orientation-line contract (2026-09-29): build 111 shows its own fir
 PROMPT: with the clause, the opening is the question alone (at most "Let's start." / "Empecemos."), no greeting and no how-to; the opening set, order and strike rule unchanged; "is this a person?" later still gets "an assistant, not a person". Without it, the three-thing opening is unchanged. The Spanish fixed-forms line needed its own exception: with only the general rule, v48 still greeted 2/3 in Spanish.
 
 Probe (`qa/n400_v48_probe.py`, 3 reps, $0.49 + $0.17 on the test key): with the clause, English opened with the question 6/6 at 24 words (v47 greeted 6/6 at 49 to 59), including with the pace clause after it; Spanish 3/3 after the added line (the general rule alone was 1/3, and v47 was 1/3 and 3/3 across two runs, so it was never reliable); the no-clause control still greets 3/3; "is this a real person?" still gets "an assistant, not a person" 3/3.
+
+## v49: form wording read as given
+
+Scott, 2026-09-30, via the client's `contracts/form-wording-2026-09-30.md`: anything the N-400 or its Instructions word as a question or a condition is asked in USCIS's words. The client changed three asks (01/20/25 edition, en/es/pt): the Part 10 fee question, the interpreter question (before we begin, present tense; the Part 12 gate, past tense), and the seven Reason for Filing boxes (the Part 1 clarification and q_p1_eligibility_other). No node, field or option id moved.
+
+PROMPT: those questions are read AS GIVEN (a short acknowledgement may precede; no rewording, shortening, softening or dropping) and are exempt from the word caps; the before-we-begin "own words" rule excepts the interpreter question; the fee question's yes now means household income at or under 400% of the Federal Poverty Guidelines (a wish is not an answer, not knowing is dont_know), and the old "USCIS lowers the filing fee" wording and "never recite the threshold" rule are retired; a box A to F named at q_p1_eligibility_other corrects p1.eligibility_basis; the interpreter question takes NO view on who counts (whether the app itself does is an open legal question Scott is taking to an attorney; asked, the lane says it can't give legal advice and stays neutral); Parts 12 and 13 are no longer "never asked aloud" in the review rule.
+
+Not probed: Scott ruled no paid test calls through 2026-09-30. Verified structurally (the phrase read-back, the retired lines absent, the 414 N-400 tests); behaviour on live turns is unmeasured until testing resumes.
 
