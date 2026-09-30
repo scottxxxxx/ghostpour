@@ -61,7 +61,13 @@ com.shouldersurf.ShoulderSurf:
         # update prompt and gets diagnosed from the wrong end.
         # Bump on every TestFlight or App Store release that goes out
         # to users. Soft-banner pipeline verified end-to-end 2026-06-06.
-        version: "1.17"
+        # 1.18 build 1989, moved 2026-09-30 on Scott's word: live on the App
+        # Store in all four storefronts 14:57Z (Social, iTunes lookup). Put
+        # live first through the admin overlay (no restart, deploys held);
+        # this file catches up. CLEAR THE OVERLAY once this deploys or it
+        # pins 1.18 over every later bump:
+        #   DELETE /webhooks/admin/app-version/override/com.shouldersurf.ShoulderSurf
+        version: "1.18"
         # CFBundleVersion (numeric string). Clients only consult this
         # when their marketing version equals `version` above:
         #   - TestFlight installs whose build number is < this show the
@@ -69,7 +75,7 @@ com.shouldersurf.ShoulderSurf:
         #   - App Store installs ignore it entirely.
         # Bump alongside `version` on every release. The bump pair from
         # SS will always come as "version + build", e.g. "1.13 build 450".
-        build: "1659"
+        build: "1989"
         # Tap target for the upgrade prompt. Swapped from the TestFlight
         # invite to the App Store link 2026-09-08, per the standing rule
         # in [[feedback_app_version_bump_sequence]]: "when the app reaches
@@ -122,8 +128,11 @@ com.shouldersurf.ShoulderSurf:
           # earlier build was being told 1.0 was current and saw NO update
           # prompt at all. The cost of leaving this stale is a MISSING
           # toast, not a false one.
-          version: "1.17"
-          build: "1659"
+          # MOVED to 1.18/1989 on 2026-09-30 (Scott), the day it went live.
+          # TestFlight above deliberately NOT moved: Scott has not put the
+          # latest build in TestFlight.
+          version: "1.18"
+          build: "1989"
           # Real App Store link (apple_id from ASC). Dead until approval,
           # but unreachable until then too: only appstore-distribution
           # clients read this block and none exist pre-approval.
