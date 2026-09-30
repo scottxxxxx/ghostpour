@@ -500,6 +500,19 @@ VERSIONS = {
             "group by group",
         ],
     },
+    48: {
+        # The client's orientation-line contract (2026-09-29): with the
+        # oriented clause the opening is the question alone, in every locale.
+        "block_anchor": "SECTION CHECKPOINTS\nA part is done when SECTION BOUNDARY is present",
+        "once": "a job that ended before the five-year window never replaces her CURRENT idle row",
+        "phrases": [
+            "WHEN APPLICANT CONTEXT CARRIES THE ORIENTED CLAUSE",
+            "the opening is THE QUESTION ALONE",
+            "\"is this a person?\" asked later still gets \"an assistant, not a person\"",
+            "the Spanish opening says NONE of the preamble either",
+        ],
+        "absent": [],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -532,6 +545,9 @@ VERSIONS[46]["absent"] = VERSIONS[45]["absent"] + VERSIONS[46]["absent"]
 VERSIONS[47]["phrases"] = [p for p in VERSIONS[46]["phrases"]
                            if p != "while Part 9 stays one group per turn"] + VERSIONS[47]["phrases"]
 VERSIONS[47]["absent"] = VERSIONS[46]["absent"] + VERSIONS[47]["absent"]
+# v48 carries every v47 phrase.
+VERSIONS[48]["phrases"] = VERSIONS[47]["phrases"] + VERSIONS[48]["phrases"]
+VERSIONS[48]["absent"] = VERSIONS[47]["absent"] + VERSIONS[48]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]
