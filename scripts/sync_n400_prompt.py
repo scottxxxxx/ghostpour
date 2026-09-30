@@ -544,7 +544,8 @@ VERSIONS = {
         "phrases": [
             "EVERY PART 9 QUESTION (every q_p9_ line), and EVERY PRINTED YES/NO OR CHOICE QUESTION",
             "never add a word the form does not print",
-            "a yes to possessing a drug ALONE is not a yes to 17.b",
+            "Whether something she did falls under a printed question is a legal judgment you never make",
+            "ask her to answer yes or no to the question as read, and never decide it for her",
             "the repeat is the printed question again without the lead-in",
             "GROUP THE NEXT TWO OR THREE SHORT-FACT BOX LINES ON THE AGENDA",
             "is never merged into a group: it is its own turn, read as given, whatever the pace",
@@ -556,6 +557,7 @@ VERSIONS = {
             "gender with date of birth and country of birth",
             "at most half the words (\"Have you ever claimed",
             "The same for these pairs, each one natural sentence",
+            "a yes to possessing a drug ALONE is not a yes to 17.b",
         ],
     },
 }

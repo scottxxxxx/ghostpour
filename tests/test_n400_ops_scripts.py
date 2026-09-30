@@ -533,9 +533,11 @@ def test_every_v49_phrase_rides_into_v50_but_the_four_rewritten():
 def test_printed_questions_are_never_merged_in_v50():
     """The printed-question contract (2026-09-30): the old grouping example
     merged the Sex box with the parent citizen question. A served copy
-    carrying it is a stale cut."""
+    carrying it is a stale cut. So is the 17.b possession ruling, pulled
+    before shipping: whether an act falls under a printed question is a legal
+    judgment the lane must not make."""
     sp = _bundle_prompt(50)
-    for retired in VERSIONS[50]["absent"][-4:]:
+    for retired in VERSIONS[50]["absent"][-5:]:
         assert retired not in sp, retired
         assert verify(sp + "\n" + retired, 50) is False, retired
 
