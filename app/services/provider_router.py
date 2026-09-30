@@ -98,6 +98,15 @@ class ProviderRouter:
 
     def validate_model(self, provider: str, model: str) -> None:
         """Check that the requested model exists in the provider config."""
+        # The Anthropic-to-OpenRouter fallback picks its model server-side
+        # from its own map. The allowlist exists to bound what a CLIENT may
+        # request, and none of these ids were on it, so every fallback to
+        # Claude on OpenRouter was refused here with a 400 and the fallback
+        # had never worked (found in the 2026-09-29 spend-cap outage).
+        if provider == "openrouter":
+            from app.services.anthropic_or_fallback import fallback_targets
+            if model in fallback_targets():
+                return
         cfg = self._config.get(provider, {})
         models = cfg.get("models", [])
 

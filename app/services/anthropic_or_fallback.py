@@ -49,7 +49,23 @@ _OR_MODEL_TRANSLATION: dict[str, str] = {
     "claude-haiku-4-5-20251001": "anthropic/claude-haiku-4.5",
     "claude-sonnet-4-6": "anthropic/claude-sonnet-4.6",
     "claude-opus-4-7": "anthropic/claude-opus-4.7",
+    # 2026-09-29: every SS route moved to Sonnet 5 on 09-28 (#1041, #1044)
+    # with no entry here, so the fallback was silently OFF for all of them.
+    # The org spend cap then returned a 400 for every call and nothing
+    # failed over. A test now holds every Anthropic model in model-routing
+    # to an entry here.
+    "claude-sonnet-5": "anthropic/claude-sonnet-5",
+    "claude-sonnet-5-5": "anthropic/claude-sonnet-5.5",
+    "claude-opus-5": "anthropic/claude-opus-5",
+    "claude-opus-5-5": "anthropic/claude-opus-5.5",
+    "claude-opus-4-8": "anthropic/claude-opus-4.8",
+    "claude-fable-5-1": "anthropic/claude-fable-5.1",
 }
+
+
+def fallback_targets() -> frozenset[str]:
+    """The OpenRouter ids the fallback may route to (server-chosen)."""
+    return frozenset(_OR_MODEL_TRANSLATION.values())
 
 
 def translate_to_or_model_id(anthropic_model: str) -> str | None:
