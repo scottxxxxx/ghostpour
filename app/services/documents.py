@@ -112,6 +112,24 @@ _MAX_XML_PART_BYTES = 30 * 1024 * 1024  # zip-bomb guard per slide part
 # at attach time; the numbers below are the fallback when config is absent.
 
 
+# Live budget (Scott 2026-10-01, "build it, and turn it on"). An in-meeting
+# query waits on its first word while the model reads every page, and a PDF
+# rides as an image of each page plus its text. Two reference PDFs measured
+# about 82k tokens and 4.3 s to the first word on a cache write. Over this
+# budget a PDF on a live call type goes as extracted text instead, which is
+# several times smaller and keeps the words. The decision depends only on
+# the document (its page count), never on the transcript, so the same files
+# downgrade the same way on every tap and the prompt cache still holds.
+# Typed chat outside a meeting (meeting_chat, project_chat) keeps the native
+# path. In code, not client-config: the app decodes that file, and these
+# numbers are server policy it has no use for.
+_LIVE_CALL_TYPES = frozenset({"query", "query_follow_up"})
+_LIVE_MAX_TOKENS = 100_000
+# Rough, and to be calibrated against cache_creation_input_tokens on the
+# first live taps: a page image is about 1,500 tokens plus its text.
+_TOKENS_PER_PDF_PAGE = 2_000
+
+
 def load_documents_config(remote_configs: dict) -> dict:
     """The `documents` key from client-config, merged over defaults.
     Server enforcement reads the default-locale file only — the feature
@@ -363,6 +381,9 @@ async def process_documents(
 
     keep: list[DocumentAttachment] = []
     extracted: list[str] = []
+    live = body.get_meta("call_type") in _LIVE_CALL_TYPES
+    live_budget = _LIVE_MAX_TOKENS
+    over_live_budget = 0
     for doc, raw in zip(docs, decoded):
         accepted = doc.media_type in cfg["accepted_types"]
         # v1 passthrough is PDF-only: PPTX has no native document block, so
@@ -389,6 +410,17 @@ async def process_documents(
                     logger.info("documents: '%s' has %d pages (cap %d) — extracting",
                                 doc.name, pages, max_pages)
                     rides = False
+                if rides and live and pages is not None:
+                    estimate = pages * _TOKENS_PER_PDF_PAGE
+                    if estimate > live_budget:
+                        logger.info(
+                            "documents: '%s' about %d tokens (%d pages) over the "
+                            "live budget, %d left: extracting",
+                            doc.name, estimate, pages, live_budget)
+                        rides = False
+                        over_live_budget += 1
+                    else:
+                        live_budget -= estimate
         if rides:
             keep.append(doc)
             raw_budget -= len(raw)
@@ -424,14 +456,27 @@ async def process_documents(
             extracted.append(_frame(doc.name, text))
 
     user_content = body.user_content
+    reference_text = body.reference_text
     if extracted:
         blocks = "\n\n".join(extracted)
-        user_content = f"{_FRAMING_PREAMBLE}\n\n{blocks}\n\n{user_content}"
+        framed = f"{_FRAMING_PREAMBLE}\n\n{blocks}"
+        if body.provider == "anthropic":
+            # Its own part, which the Anthropic adapter caches, rather than
+            # glued to the front of user_content, which carries the
+            # transcript and is never cached: there an extracted document
+            # was billed in full on every tap. Ahead of any client reference
+            # text, the more stable of the two. A fallback to OpenRouter
+            # folds reference_text back into user_content.
+            reference_text = framed + (f"\n\n{reference_text}" if reference_text else "")
+        else:
+            user_content = f"{framed}\n\n{user_content}"
 
     total_bytes = sum(len(r) for r in decoded)
     meta = dict(body.metadata or {})
     meta["document_count"] = len(docs)
     meta["document_bytes"] = total_bytes
+    meta["document_extracted"] = len(extracted)
+    meta["document_over_live_budget"] = over_live_budget
     logger.info(
         "documents: %d file(s) %d bytes — passthrough=%d extracted=%d "
         "(tier=%s managed=%s provider=%s enabled=%s)",
@@ -441,6 +486,7 @@ async def process_documents(
     return body.model_copy(update={
         "documents": keep or None,
         "user_content": user_content,
+        "reference_text": reference_text,
         "metadata": meta,
     })
 

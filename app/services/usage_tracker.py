@@ -257,6 +257,11 @@ class UsageTracker:
             metadata["documents"] = {
                 "count": request.get_meta("document_count"),
                 "raw_bytes": request.get_meta("document_bytes"),
+                # How many went as extracted text, and how many of those
+                # because a live call was over its budget: a downgrade the
+                # user cannot see has to be countable here.
+                "extracted": request.get_meta("document_extracted"),
+                "over_live_budget": request.get_meta("document_over_live_budget"),
             }
         # Meeting translations (2026-08-24): the allowlist lesson below
         # applies — name the keys or lose the dimension.
