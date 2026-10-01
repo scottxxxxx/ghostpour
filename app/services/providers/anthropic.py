@@ -157,6 +157,7 @@ class AnthropicAdapter(ProviderAdapter):
     def _build_body(self, request: ChatRequest) -> tuple[dict, dict]:
         """Build Anthropic request body and headers. Shared by stream and non-stream."""
         content_parts: list[dict] = []
+        system_block, recall_part = _layout_for_references(request)
         if request.documents:
             # Documents passthrough (#359): app/services/documents.py has
             # already gated these to PDF on the managed Pro path; render
@@ -177,7 +178,9 @@ class AnthropicAdapter(ProviderAdapter):
             # session (launch contract: resend, no server-side file store). A
             # cache breakpoint after the documents means repeat sends bill the
             # document tokens at cache-read rates instead of full input price.
-            # Uses breakpoint 3 of 4 (system prefix + recall hold the first two).
+            # Uses breakpoint 3 of 4 (system prefix + recall hold the first two;
+            # with references riding, recall moves below them, see
+            # _layout_for_references).
             content_parts[-1]["cache_control"] = {"type": "ephemeral"}
         if request.reference_text:
             ref_part: dict = {"type": "text", "text": request.reference_text}
@@ -189,6 +192,10 @@ class AnthropicAdapter(ProviderAdapter):
                 # which the sandbox loop re-reads every internal round.
                 ref_part["cache_control"] = {"type": "ephemeral"}
             content_parts.append(ref_part)
+        if recall_part:
+            # After every cached reference block, never before one: see
+            # _layout_for_references.
+            content_parts.append(recall_part)
         if request.images:
             for img_b64 in request.images[:5]:
                 content_parts.append({
@@ -196,8 +203,6 @@ class AnthropicAdapter(ProviderAdapter):
                     "source": {"type": "base64", "media_type": "image/jpeg", "data": img_b64},
                 })
         content_parts.append({"type": "text", "text": request.user_content})
-
-        system_block = _build_system_blocks(request)
 
         max_tokens = request.max_tokens or 4096
         thinking = anthropic_thinking_block(
@@ -562,6 +567,49 @@ def _system_cache_control(request: ChatRequest) -> dict:
     if call_type in _ONE_HOUR_CACHE_CALL_TYPES:
         return {"type": "ephemeral", "ttl": "1h"}
     return {"type": "ephemeral"}
+
+
+_RECALL_LABEL = "[CONTEXT FROM PREVIOUS MEETINGS]\n"
+
+
+def _layout_for_references(request: ChatRequest) -> tuple[list[dict], dict | None]:
+    """Where the CQ recall goes when documents or reference text ride along.
+
+    Anthropic's cache matches a PREFIX in the order system, then messages.
+    The recall changes from turn to turn and lives inside the system prompt,
+    so on a request that also carries documents every recall change threw
+    away the cache entry for the documents behind it, though the documents
+    had not changed. Measured on Scott's own Help Me Respond taps
+    (2026-10-01, a project with two reference PDFs, about 82k tokens): 10 of
+    23 taps rewrote the documents at about $0.21 each instead of reading
+    them at about $0.02, and the one with a timing showed 4.3 s to the first
+    word against 1.5 s for a tap with no documents. Each rewrite still read
+    exactly the system prefix before the recall, which is where it broke.
+
+    So when references ride, the recall is cut out of the system prompt
+    (leaving one byte-stable block that caches) and handed back as a user
+    text part to place AFTER the cached references. RECALL_USE_GUARD stays
+    in the system prompt: it is static, and the context it describes is
+    still below it. Every other request keeps _build_system_blocks exactly.
+    """
+    if not (request.documents or request.reference_text):
+        return _build_system_blocks(request), None
+    recall = request.get_meta("cq_recall_block") if request.metadata else None
+    idx = request.system_prompt.find(recall) if recall else -1
+    if idx < 0:
+        return _build_system_blocks(request), None
+    head = request.system_prompt[:idx]
+    # The hook's no-placeholder path labels the block itself; the label
+    # travels with the block rather than dangling at the end of the system.
+    if head.endswith(_RECALL_LABEL):
+        head = head[:-len(_RECALL_LABEL)]
+    system_text = head + request.system_prompt[idx + len(recall):]
+    system = [{
+        "type": "text",
+        "text": system_text,
+        "cache_control": _system_cache_control(request),
+    }]
+    return system, {"type": "text", "text": f"{_RECALL_LABEL}{recall}"}
 
 
 def _build_system_blocks(request: ChatRequest) -> list[dict]:
