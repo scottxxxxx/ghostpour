@@ -74,6 +74,12 @@ def _body(docs, provider="anthropic", question="Update this deck") -> ChatReques
     )
 
 
+def _inlined(out: ChatRequest) -> str:
+    """Where extracted document text lands: its own cached reference part on
+    Anthropic (the adapter caches reference_text), user_content elsewhere."""
+    return out.reference_text if out.provider == "anthropic" else out.user_content
+
+
 def _configs(enabled=True, **over) -> dict:
     documents = {"enabled": enabled, **over}
     return {"client-config": {"documents": documents}}
@@ -143,9 +149,9 @@ async def test_pptx_always_extracts_even_on_pro_path():
         body, remote_configs=_configs(), tier_name="pro", managed_routing=True
     )
     assert out.documents is None
-    assert '--- Attached: "deck.pptx" ---' in out.user_content
-    assert "Go Live: 07/15" in out.user_content
-    assert "Ticket #74647" in out.user_content
+    assert '--- Attached: "deck.pptx" ---' in _inlined(out)
+    assert "Go Live: 07/15" in _inlined(out)
+    assert "Ticket #74647" in _inlined(out)
     assert out.user_content.rstrip().endswith("Update this deck")
 
 
@@ -165,8 +171,8 @@ async def test_pdf_downgrades_to_extraction(tier_name, managed, provider, enable
         tier_name=tier_name, managed_routing=managed,
     )
     assert out.documents is None
-    assert '--- Attached: "report.pdf" ---' in out.user_content
-    assert "Hello ABM" in out.user_content  # PDF text layer actually extracted
+    assert '--- Attached: "report.pdf" ---' in _inlined(out)
+    assert "Hello ABM" in _inlined(out)  # PDF text layer actually extracted
 
 
 @pytest.mark.asyncio
@@ -179,7 +185,7 @@ async def test_format_pulled_from_config_downgrades_quietly():
         tier_name="pro", managed_routing=True,
     )
     assert out.documents is None
-    assert "Go Live: 07/15" in out.user_content
+    assert "Go Live: 07/15" in _inlined(out)
 
 
 # --- hard errors (attach-time preventable) ---
@@ -242,7 +248,7 @@ async def test_allowed_users_get_passthrough_while_dark():
         user_identity={"someone-else@x.com"},
     )
     assert out2.documents is None
-    assert "Hello ABM" in out2.user_content
+    assert "Hello ABM" in _inlined(out2)
 
     # listed but user-pinned model: mechanics still win — extraction
     out3 = await process_documents(
@@ -277,8 +283,8 @@ async def test_oversized_passthrough_downgrades_to_extraction():
     )
     assert out.documents and len(out.documents) == 1
     assert out.documents[0].name == "first.pdf"
-    assert '--- Attached: "second.pdf" ---' in out.user_content
-    assert "Hello ABM" in out.user_content  # extracted, not dropped
+    assert '--- Attached: "second.pdf" ---' in _inlined(out)
+    assert "Hello ABM" in _inlined(out)  # extracted, not dropped
 
 
 @pytest.mark.asyncio
@@ -290,7 +296,7 @@ async def test_pdf_over_page_cap_downgrades():
         body, remote_configs=cfgs, tier_name="pro", managed_routing=True
     )
     assert out.documents is None
-    assert "Hello ABM" in out.user_content  # extraction path, request succeeded
+    assert "Hello ABM" in _inlined(out)  # extraction path, request succeeded
 
 
 def test_passthrough_limits_served_in_bundled_config():
@@ -337,8 +343,8 @@ async def test_stray_docx_extracts_properly_before_config_flip():
         body, remote_configs=_configs(), tier_name="pro", managed_routing=True
     )
     assert out.documents is None  # not accepted → extraction path
-    assert "Quarterly summary" in out.user_content
-    assert "Budget: on track" in out.user_content  # table cell text survives
+    assert "Quarterly summary" in _inlined(out)
+    assert "Budget: on track" in _inlined(out)  # table cell text survives
 
 
 @pytest.mark.asyncio
@@ -388,7 +394,7 @@ async def test_scanned_pdf_extraction_succeeds_with_marker():
         body, remote_configs=_configs(), tier_name="plus", managed_routing=True
     )
     assert out.documents is None
-    assert "no extractable text" in out.user_content  # marker, not an error
+    assert "no extractable text" in _inlined(out)  # marker, not an error
     assert out.user_content.rstrip().endswith("Update this deck")
 
 
@@ -479,7 +485,7 @@ async def test_page_count_timeout_downgrades_to_extraction(monkeypatch):
     )
     # passthrough-eligible, but the unvettable PDF downgrades to extraction
     assert out.documents is None
-    assert "Hello ABM" in out.user_content
+    assert "Hello ABM" in _inlined(out)
 
 
 @pytest.mark.asyncio
@@ -539,10 +545,10 @@ async def test_xlsx_extracts_as_structured_sheets():
     out = await process_documents(body, remote_configs=_configs(),
                                   tier_name="pro", managed_routing=True)
     assert out.documents is None                       # extraction lane, never passthrough
-    assert "=== Sheet: Tasks ===" in out.user_content
-    assert "Fix 401,Chirag,Blocked" in out.user_content
-    assert "=== Sheet: Budget ===" in out.user_content
-    assert "Proxy,1200" in out.user_content
+    assert "=== Sheet: Tasks ===" in _inlined(out)
+    assert "Fix 401,Chirag,Blocked" in _inlined(out)
+    assert "=== Sheet: Budget ===" in _inlined(out)
+    assert "Proxy,1200" in _inlined(out)
 
 
 @pytest.mark.asyncio
@@ -642,10 +648,10 @@ async def test_a_long_sheet_with_no_stored_dimension_does_not_500():
             _body([_doc(buf.getvalue(), XLSX_MIME, "big.xlsx")]),
             remote_configs=_configs(), tier_name="pro", managed_routing=True)
 
-    assert "=== Sheet: Big ===" in out.user_content
-    assert "more rows omitted" in out.user_content
+    assert "=== Sheet: Big ===" in _inlined(out)
+    assert "more rows omitted" in _inlined(out)
     # No count rather than a wrong one when the sheet will not say.
-    assert "None" not in out.user_content
+    assert "None" not in _inlined(out)
 
 
 @pytest.mark.asyncio
@@ -663,7 +669,7 @@ async def test_an_extractor_crash_costs_the_attachment_not_the_turn():
             _body([_doc(b"anything", XLSX_MIME, "broken.xlsx")]),
             remote_configs=_configs(), tier_name="pro", managed_routing=True)
 
-    assert "could not be read" in out.user_content
+    assert "could not be read" in _inlined(out)
     assert "Update this deck" in out.user_content, (
         "the user's actual question was lost along with the attachment")
 
