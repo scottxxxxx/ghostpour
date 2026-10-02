@@ -1103,6 +1103,18 @@ MIGRATIONS = [
         PRIMARY KEY (from_user_id, to_user_id)
     )""",
     "CREATE INDEX IF NOT EXISTS idx_account_links_to ON account_links(to_user_id)",
+    # Async meeting reports (2026-10-01, SS contract): one row per
+    # (meeting, user) while a job runs or after it fails. Success deletes it,
+    # so no row means "nothing pending, read meeting_reports".
+    """CREATE TABLE IF NOT EXISTS report_jobs (
+        meeting_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        status TEXT NOT NULL,           -- running|failed
+        error_json TEXT,
+        started_at TEXT NOT NULL,
+        completed_at TEXT,
+        PRIMARY KEY (meeting_id, user_id)
+    )""",
 ]
 
 
