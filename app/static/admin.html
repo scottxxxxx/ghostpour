@@ -4236,9 +4236,9 @@ function showQueryDetail(index) {
     card('Status', q.status, q.status === 'success' ? 'green' : 'red');
 
   document.getElementById('query-detail-request').textContent =
-    q.raw_request || '(not stored — only available for queries made after this feature was deployed)';
+    q.raw_request || '(not stored: removed after 30 days, or made before requests were recorded)';
   document.getElementById('query-detail-response').textContent =
-    q.raw_response || '(not stored — only available for queries made after this feature was deployed)';
+    q.raw_response || '(not stored: removed after 30 days, or made before requests were recorded)';
 }
 
 async function simulateTier(tierName, exhausted) {
