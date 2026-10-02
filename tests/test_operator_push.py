@@ -81,3 +81,13 @@ def test_a_repeat_of_an_open_incident_does_not_push_again(world, client, tmp_db_
             await db.close()
     _run(go())
     assert len(world) == 1
+
+
+def test_the_bundled_categories_include_the_test_account_latch():
+    # 09-30 handoff: the automation latch (#1060) switches a test account off
+    # until Scott clears it, so it has to reach his phone, not only email.
+    import json as _json
+    cats = _json.load(open("config/remote/operator-alerts.json"))["push_categories"]
+    assert set(cats) == {"provider_budget_exhausted", "provider_auth_failed",
+                         "anthropic_fallback_to_or", "cq_unreachable",
+                         "config_decode_loop", "automation_hourly_cap"}
