@@ -1,0 +1,7 @@
+{
+ "version": 1,
+ "server_only": true,
+ "_comment": "Critical incidents pushed to the operator's iPhone through the SS app (Scott, 2026-09-29, after the spend-cap outage). push_user_ids are GP user ids whose registered devices receive the push; push_categories are alerting categories. Email alerts are unaffected.",
+ "push_user_ids": ["fa4d903c-24c0-45d5-9fdb-b5496e32501b"],
+ "push_categories": ["provider_budget_exhausted", "provider_auth_failed", "anthropic_fallback_to_or", "cq_unreachable", "config_decode_loop", "automation_hourly_cap"]
+}

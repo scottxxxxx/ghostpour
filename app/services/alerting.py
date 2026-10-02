@@ -520,6 +520,17 @@ async def report_incident(
     )
     await db.commit()
 
+    # The operator's phone, independent of the email recipients: an outage
+    # the only person who can fix it never hears about is the 2026-09-29 one.
+    try:
+        from app.config import get_settings
+        from app.services.operator_push import push_incident
+        await push_incident(db, category=category,
+                            label=KNOWN_CATEGORIES.get(category, {}).get("label", category),
+                            subject=subject, settings=get_settings())
+    except Exception:  # noqa: BLE001
+        logger.exception("alerting: operator push failed (email path continues)")
+
     if not recipients:
         return IncidentReport(
             incident_id=incident_id,
