@@ -28,6 +28,20 @@ logger = logging.getLogger(__name__)
 # the other way round.
 TRANSCRIPT_RETENTION_DAYS = 30
 
+# The exact provider request and reply ride every usage_log row
+# (metadata.raw_request / raw_response, usage_tracker.py). The request holds
+# the transcript as sent, so without a trim the 30 day transcript rule above
+# did not hold: the same text lived forever inside usage_log (Scott,
+# 2026-10-02, who ruled the trim). After this window both keys are removed
+# from the row; the row itself (tokens, cost, timing) stays, because billing
+# and the dashboards count it. Accounts listed below keep theirs
+# indefinitely, for debugging: Scott's own (scott@weirtech.com), at his
+# request. Opaque ids only, this repo is public.
+RAW_REQUEST_RETENTION_DAYS = TRANSCRIPT_RETENTION_DAYS
+KEEP_RAW_REQUESTS_FOR: tuple[str, ...] = (
+    "fa4d903c-24c0-45d5-9fdb-b5496e32501b",
+)
+
 # How often the sweep runs once the app is up. These windows are days
 # long and do not need a tight loop; hourly matches the existing
 # generated_files sweep so there is one cadence to reason about, and it
@@ -98,6 +112,11 @@ async def purge_expired(db: aiosqlite.Connection) -> dict[str, int]:
         except Exception as e:  # noqa: BLE001 — one table must not sink the rest
             logger.warning("retention sweep failed for %s: %s", s.table, e)
             deleted[s.table] = 0
+    try:
+        deleted["usage_log.raw_request"] = await strip_old_raw_requests(db)
+    except Exception as e:  # noqa: BLE001, same rule as the sweeps above
+        logger.warning("retention: raw_request strip failed: %s", e)
+        deleted["usage_log.raw_request"] = 0
     await db.commit()
     dropped = {t: n for t, n in deleted.items() if n}
     if dropped:
@@ -128,3 +147,26 @@ async def purge_expired_transcripts(
             deleted, retention_days,
         )
     return deleted
+
+
+async def strip_old_raw_requests(
+    db: aiosqlite.Connection,
+    *,
+    retention_days: int = RAW_REQUEST_RETENTION_DAYS,
+    keep_for: tuple[str, ...] = KEEP_RAW_REQUESTS_FOR,
+) -> int:
+    """Remove raw_request and raw_response from usage_log rows past the
+    window, except for `keep_for` accounts. Returns rows changed. The
+    cutoff is formatted like request_timestamp (ISO with a T), so the
+    comparison is exact rather than off by the T against a space."""
+    placeholders = ",".join("?" for _ in keep_for) or "''"
+    cursor = await db.execute(
+        f"""UPDATE usage_log
+               SET metadata = json_remove(metadata, '$.raw_request', '$.raw_response')
+             WHERE request_timestamp < strftime('%Y-%m-%dT%H:%M:%S', 'now', ?)
+               AND (json_extract(metadata, '$.raw_request') IS NOT NULL
+                    OR json_extract(metadata, '$.raw_response') IS NOT NULL)
+               AND user_id NOT IN ({placeholders})""",
+        (f"-{int(retention_days)} days", *keep_for),
+    )
+    return cursor.rowcount or 0
