@@ -21,6 +21,7 @@
     }
   },
   "post_session": {
+    "report_async": true,
     "report_min_seconds": 300,
     "allow_request_below_minimum": true,
     "request_min_seconds": 30,

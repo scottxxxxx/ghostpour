@@ -78,6 +78,7 @@
     "_tier_note": "2026-08-21 tier matrix: documents Plus and Pro now (Free at 5/mo, 10 MB waits on the per-tier document dial); file generation every tier, Free capped 5/mo by the generation dial."
   },
   "post_session": {
+    "report_async": true,
     "report_min_seconds": 300,
     "allow_request_below_minimum": true,
     "request_min_seconds": 30,

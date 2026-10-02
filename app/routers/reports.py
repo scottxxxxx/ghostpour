@@ -14,7 +14,8 @@ from datetime import datetime, timezone
 
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -68,7 +69,25 @@ class ReportRequest(BaseModel):
     # Drives whether a server-side cleanup pass runs before report generation;
     # see app.services.transcript_cleanup. Absent for legacy clients.
     transcript_source: str | None = None
+    # Async generation (SS + GP, 2026-10-01). `"async": true` answers 202 and
+    # GP finishes the report server side whatever the client does; the client
+    # polls GET. A 93 minute meeting lost its report because the iPad was
+    # suspended with the POST in flight (client timeout 90 s, iOS lease about
+    # 18 s after backgrounding). Absent or false keeps the synchronous 200,
+    # so frozen builds are untouched. `async` is a Python keyword, hence the
+    # alias.
+    async_: bool = Field(False, alias="async")
 
+    model_config = ConfigDict(populate_by_name=True)
+
+
+# Output ceiling for the report call. 4096 cut reports off: Scott's 04:59Z
+# report on 2026-10-01 stopped at exactly 4096 with finish_reason
+# max_tokens, and truncated JSON is a report_parse_error with nothing
+# cached. A ceiling is not a target, the model stops when the JSON is done.
+# 8192 keeps a worst case (about 70 tokens/s on Sonnet 4.6, no thinking)
+# inside the 180 s provider HTTP timeout.
+_REPORT_MAX_TOKENS = 8192
 
 # Server-controlled per-tier report model. Clients do not pick.
 # Pro gets Advanced AI (Sonnet) per the tier promise; everyone else
@@ -212,6 +231,23 @@ async def generate_report(
             },
         )
 
+    if body.async_:
+        return await _start_async(meeting_id, body, request, user, tier, meeting_data)
+
+    payload = await _generate(meeting_id, body, request, user, tier, db, meeting_data)
+    # A synchronous success supersedes any failed async attempt before it.
+    await _clear_job(db, user.id, meeting_id)
+    return payload
+
+
+async def _generate(meeting_id, body, request, user, tier, db, meeting_data):
+    """Everything after the cheap checks: cleanup, prompt, gates, the model
+    call, render and cache. Shared by the synchronous route and the async
+    job, so the two cannot drift. Raises HTTPException exactly as before."""
+    provider_router = request.app.state.provider_router
+    pricing = request.app.state.pricing
+    usage_tracker = request.app.state.usage_tracker
+
     # 1.5. Transcript cleanup. When iOS signals the transcript came from a
     # known cleanable source (today: "ocr_captions") and the feature flag is
     # on, run an LLM cleanup pass over the raw transcript before report
@@ -341,7 +377,7 @@ async def generate_report(
                 provider=report_provider,
                 model=report_model,
                 input_tokens=prompt_tokens,
-                max_output_tokens=4096,
+                max_output_tokens=_REPORT_MAX_TOKENS,
             )
             if estimated_cost is not None:
                 would_exceed = would_exceed_budget(
@@ -368,7 +404,7 @@ async def generate_report(
         model=report_model,
         system_prompt=system_prompt,
         user_content=user_message,
-        max_tokens=4096,
+        max_tokens=_REPORT_MAX_TOKENS,
         # request-id correlation (#380 extended): partners quote the
         # X-Request-ID header; the chat route stamps it, this route didn't —
         # TR's determinism-fixture ids couldn't match their own rows.
@@ -674,6 +710,106 @@ async def _build_canned_report_response(
     }
 
 
+# --- async generation ---------------------------------------------------------
+#
+# In memory on purpose, like generation_turns: a GP restart kills the job with
+# the process, and a report_jobs row still saying `running` with no entry here
+# is exactly that case, answered as lost_to_restart so the client can POST
+# again. Keyed (user_id, meeting_id) -> started_at.
+_RUNNING: dict[tuple[str, str], str] = {}
+POLL_AFTER_SECONDS = 5
+EXPECTED_SECONDS = 90
+LOST_TO_RESTART = {"code": "lost_to_restart",
+                   "message": "GhostPour restarted while this report was being generated."}
+
+
+def _generating(started_at: str) -> JSONResponse:
+    return JSONResponse(status_code=202, content={
+        "status": "generating", "started_at": started_at,
+        "poll_after_seconds": POLL_AFTER_SECONDS, "expected_seconds": EXPECTED_SECONDS,
+    })
+
+
+async def _clear_job(db, user_id: str, meeting_id: str) -> None:
+    await db.execute("DELETE FROM report_jobs WHERE user_id = ? AND meeting_id = ?",
+                     (user_id, meeting_id))
+    await db.commit()
+
+
+async def _start_async(meeting_id, body, request, user, tier, meeting_data):
+    key = (user.id, meeting_id)
+    if key in _RUNNING:
+        # Idempotent: the same job, never a second model call.
+        return _generating(_RUNNING[key])
+    started_at = datetime.now(timezone.utc).isoformat()
+    _RUNNING[key] = started_at
+    from app.database import _db_path
+    async with aiosqlite.connect(_db_path) as jdb:
+        await jdb.execute(
+            """INSERT OR REPLACE INTO report_jobs
+               (meeting_id, user_id, status, error_json, started_at, completed_at)
+               VALUES (?, ?, 'running', NULL, ?, NULL)""",
+            (meeting_id, user.id, started_at))
+        await jdb.commit()
+    import asyncio
+    # A task, not a BackgroundTask: it must not depend on the request's
+    # lifetime, and the request's own db connection closes with it.
+    task = asyncio.create_task(_run_job(meeting_id, body, request, user, tier, meeting_data))
+    _JOB_TASKS.add(task)
+    task.add_done_callback(_JOB_TASKS.discard)
+    return _generating(started_at)
+
+
+_JOB_TASKS: set = set()  # strong refs, so a running job is never collected
+
+
+async def _run_job(meeting_id, body, request, user, tier, meeting_data):
+    from app.database import _db_path
+    error = None
+    try:
+        async with aiosqlite.connect(_db_path) as jdb:
+            jdb.row_factory = aiosqlite.Row
+            try:
+                await _generate(meeting_id, body, request, user, tier, jdb, meeting_data)
+            except HTTPException as e:
+                d = e.detail if isinstance(e.detail, dict) else {"message": str(e.detail)}
+                error = {"code": d.get("code", "report_failed"),
+                         "message": d.get("message", "Report generation failed.")}
+            except Exception as e:  # noqa: BLE001, a job must always end in a state
+                logger.exception("async report failed meeting=%s", meeting_id)
+                error = {"code": "report_failed", "message": f"Report generation failed: {e}"}
+            if error is None:
+                await _clear_job(jdb, user.id, meeting_id)
+            else:
+                await jdb.execute(
+                    """UPDATE report_jobs SET status = 'failed', error_json = ?, completed_at = ?
+                       WHERE user_id = ? AND meeting_id = ?""",
+                    (json.dumps(error), datetime.now(timezone.utc).isoformat(),
+                     user.id, meeting_id))
+                await jdb.commit()
+            logger.info("async report %s meeting=%s user=%s code=%s",
+                        "failed" if error else "done", meeting_id, user.id,
+                        (error or {}).get("code"))
+    finally:
+        _RUNNING.pop((user.id, meeting_id), None)
+
+
+async def _job_state(db, user_id: str, meeting_id: str):
+    """(status, started_at, error) for the latest job, or None. A `running`
+    row this process is not running is lost_to_restart."""
+    if (user_id, meeting_id) in _RUNNING:
+        return ("running", _RUNNING[(user_id, meeting_id)], None)
+    cur = await db.execute(
+        "SELECT status, started_at, error_json FROM report_jobs WHERE user_id = ? AND meeting_id = ?",
+        (user_id, meeting_id))
+    row = await cur.fetchone()
+    if not row:
+        return None
+    if row["status"] == "running":
+        return ("failed", row["started_at"], LOST_TO_RESTART)
+    return (row["status"], row["started_at"], json.loads(row["error_json"] or "{}"))
+
+
 @router.get("/meetings/{meeting_id}/report")
 async def get_cached_report(
     meeting_id: str,
@@ -687,11 +823,24 @@ async def get_cached_report(
     generated, paid for, and cached even if the HTTP response didn't
     make it back to the client.
     """
+    # Async jobs first: a job in flight beats a cached report (a regenerate
+    # must not serve the old report as if it were new), and a failed job is
+    # terminal and says so instead of a bare 404.
+    job = await _job_state(db, user.id, meeting_id)
     cursor = await db.execute(
         "SELECT * FROM meeting_reports WHERE meeting_id = ? AND user_id = ?",
         (meeting_id, user.id),
     )
     row = await cursor.fetchone()
+    if job and job[0] == "running":
+        return _generating(job[1])
+    if job and job[0] == "failed":
+        return JSONResponse(status_code=422, content={
+            "status": "failed", "started_at": job[1], **job[2],
+            # An older report for this meeting is still cached; the client
+            # may keep showing it.
+            "previous_report_available": bool(row),
+        })
     if not row:
         raise HTTPException(status_code=404, detail={
             "code": "report_not_found",

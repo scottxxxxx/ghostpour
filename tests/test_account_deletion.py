@@ -85,6 +85,10 @@ def _seed_ss_owned(db_path: str, user_id: str) -> None:
         "INSERT INTO project_prefs (user_id, project_id, key, value, "
         "updated_at) VALUES (?,?,?,?,?)",
         (user_id, "p-1", "gantt_style", "detailed", _NOW))
+    conn.execute(
+        "INSERT INTO report_jobs (meeting_id, user_id, status, error_json, "
+        "started_at) VALUES (?,?,?,?,?)",
+        (f"m-{user_id}", user_id, "failed", '{"code": "report_parse_error"}', _NOW))
     conn.commit()
     conn.close()
 

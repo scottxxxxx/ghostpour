@@ -77,6 +77,7 @@ APP_OWNED_TABLES = {
     "shouldersurf": [
         "meeting_reports",
         "meeting_transcripts",
+        "report_jobs",
         "project_prefs",
     ],
 }
