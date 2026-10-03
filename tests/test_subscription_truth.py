@@ -50,6 +50,9 @@ def test_apple_price_is_milliunits_and_missing_stays_missing():
     ({"status": 1, "auto_renew_status": 1, "price_paid": 0, "offer_type": 3}, "on_offer"),
     ({"status": 2, "auto_renew_status": 0, "price_paid": 0, "offer_discount_type": "FREE_TRIAL"}, "trial_lapsed"),
     ({"status": 2, "price_paid": 0, "offer_type": 3}, "offer_lapsed"),
+    # Prod 2026-09-29 (jsww6scskz): trial ended, the charge failed, Apple is
+    # retrying, so auto-renew still reads on. Not lapsed, and not paying.
+    ({"status": 3, "auto_renew_status": 1, "price_paid": 0, "offer_discount_type": "FREE_TRIAL"}, "billing_retry"),
     ({"status": 1, "auto_renew_status": 1, "price_paid": None}, "active_unpriced"),
     # Prod 2026-09-10: Apple attaches a FREE_TRIAL discount to a redeemed
     # offer code (offerType 3). It is an offer, not a trial; Scott sent it.
@@ -311,3 +314,24 @@ def test_an_anonymous_buyer_is_labelled_and_linked_devices_count_once(client, tm
     assert rows[anon_otid]["linked_devices"] == 2
     assert rows[apple_otid]["is_anonymous"] is False
     assert rows[apple_otid]["linked_devices"] == 1
+
+
+# --- a failed trial charge (Scott, 2026-09-29) ---------------------------------------
+
+def test_a_failed_trial_charge_reads_as_payment_failed_on_free_not_plus(client, tmp_db_path, monkeypatch):
+    """Prod jsww6scskz: Plus trial ended, the charge failed, Apple is in its
+    billing retry (status 3) with auto-renew still on, and GP's reconcile
+    put the account back on free. The row read "plus / Trial lapsed / on",
+    which looks like Plus for free. It must say the plan AND the tier now,
+    and that Apple is retrying a failed payment."""
+    otid = "otid-" + uuid.uuid4().hex[:6]
+    uid = _seed_user(tmp_db_path, otid)
+    _post(client, monkeypatch, _notification("SUBSCRIBED", "INITIAL_BUY", otid))
+    conn = sqlite3.connect(tmp_db_path)
+    conn.execute("UPDATE subscription_status SET status=3, auto_renew_status=1 WHERE original_transaction_id=?", (otid,))
+    conn.execute("UPDATE users SET tier='free' WHERE id=?", (uid,))
+    conn.commit(); conn.close()
+    t = _truth(client)
+    row = {s["original_transaction_id"]: s for s in t["subscribers"]}[otid]
+    assert (row["tier"], row["current_tier"], row["state"], row["auto_renew"]) == ("plus", "free", "billing_retry", 1)
+    assert t["billing_retry"] == 1 and t["trials_lapsed"] == 0 and t["paying_now"] == 0
