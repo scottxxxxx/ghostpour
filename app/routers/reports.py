@@ -425,7 +425,8 @@ async def _generate(meeting_id, body, request, user, tier, db, meeting_data):
     import time
     start = time.monotonic()
     try:
-        response = await provider_router.route(chat_request)
+        from app.services.anthropic_or_fallback import route_with_fallback as _route_fb
+        response = await _route_fb(provider_router, chat_request, db)
     except HTTPException:
         raise
     except Exception as e:

@@ -21,6 +21,7 @@ import aiosqlite
 import httpx
 
 from app.services import generated_files as staging
+from app.services.anthropic_or_fallback import route_with_fallback as _route_fb
 
 logger = logging.getLogger("ghostpour.document_generation")
 
@@ -483,7 +484,7 @@ async def classify_generation_intent(provider_router, user_content: str,
     )
     start = _time.monotonic()
     try:
-        response = await asyncio.wait_for(provider_router.route(request), timeout=10.0)
+        response = await asyncio.wait_for(_route_fb(provider_router, request), timeout=10.0)
         elapsed_ms = int((_time.monotonic() - start) * 1000)
         if on_subcall is not None:
             await on_subcall(request, response, elapsed_ms)
@@ -610,7 +611,7 @@ async def interpret_offer_reply(provider_router, offer: dict, reply_text: str,
     )
     start = _time.monotonic()
     try:
-        response = await asyncio.wait_for(provider_router.route(request), timeout=10.0)
+        response = await asyncio.wait_for(_route_fb(provider_router, request), timeout=10.0)
         elapsed_ms = int((_time.monotonic() - start) * 1000)
         if on_subcall is not None:
             await on_subcall(request, response, elapsed_ms)
