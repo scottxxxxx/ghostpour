@@ -38,6 +38,7 @@ import json
 import logging
 import re
 import time
+from app.services.anthropic_or_fallback import route_with_fallback as _route_fb
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +141,7 @@ async def suggest_title(provider_router, summary_text: str,
     start = time.monotonic()
     try:
         response = await asyncio.wait_for(
-            provider_router.route(request), timeout=10.0)
+            _route_fb(provider_router, request), timeout=10.0)
         if on_subcall is not None:
             await on_subcall(request, response,
                              int((time.monotonic() - start) * 1000))

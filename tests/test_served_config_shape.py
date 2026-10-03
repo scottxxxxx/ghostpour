@@ -177,6 +177,11 @@ NO_LOCALE_NEEDED = {
         "for which categories. User ids and category tokens, no prose, never "
         "served to a client."
     ),
+    "companion-downloads": (
+        "Server-only: the file URLs behind GET /v1/companion/download. The "
+        "redirect is followed by a browser and serves a binary, so there is "
+        "no prose to translate and no client ever decodes this doc."
+    ),
     "verify-receipt": (
         "Server-side enforcement switch for Apple receipt verification. One "
         "boolean, no prose, never reaches a user. The 400 it gates carries a "

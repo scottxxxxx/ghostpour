@@ -31,6 +31,7 @@ from app.routers import (
     reports,
     resend_webhooks,
     telemetry,
+    companion,
     unsubscribe,
     webhooks,
 )
@@ -527,6 +528,7 @@ app.include_router(features.router, prefix="/v1", tags=["features"])
 app.include_router(preferences.router, prefix="/v1", tags=["preferences"])
 app.include_router(unsubscribe.router, tags=["unsubscribe"])
 app.include_router(telemetry.router, prefix="/v1", tags=["telemetry"])
+app.include_router(companion.router, prefix="/v1", tags=["companion"])
 app.include_router(promo.router, prefix="/v1", tags=["promo"])
 app.include_router(acquisition.router, prefix="/v1", tags=["acquisition"])
 app.include_router(app_version.router, prefix="/v1", tags=["app-version"])

@@ -93,3 +93,19 @@ def test_the_fallback_actually_reaches_openrouter_through_the_real_router(monkey
     req = ChatRequest(provider="anthropic", model="claude-sonnet-5", system_prompt="s", user_content="u")
     out = asyncio.run(route_with_fallback(router, req, None, SimpleNamespace(alert_email_from="x@y")))
     assert out.text == "from openrouter" and seen == ["anthropic/claude-sonnet-5"]
+
+
+def test_no_model_call_skips_the_fallback():
+    """Scott, 2026-09-29: if we cannot reach Anthropic or have no tokens,
+    fall back to OpenRouter, EVERYWHERE. Eight call sites went straight to
+    the router and would have failed on the cap even with the fallback
+    fixed. A new direct call fails here instead of in an outage."""
+    import re
+    direct = []
+    for f in (ROOT / "app").rglob("*.py"):
+        if f.name == "anthropic_or_fallback.py":
+            continue
+        for n, line in enumerate(f.read_text().splitlines(), 1):
+            if re.search(r"provider_router\.route(_stream)?\(", line):
+                direct.append(f"{f.relative_to(ROOT)}:{n}")
+    assert not direct, f"direct model calls without the OpenRouter fallback: {direct}"

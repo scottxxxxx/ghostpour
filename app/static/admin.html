@@ -879,6 +879,20 @@
       <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Auth choice</h4><div id="onb-chart-auth"></div></div>
       <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Where abandoners dropped</h4><div id="onb-chart-dropoff"></div></div>
     </div>
+    <h3 style="margin:28px 0 8px">Shoulder Surf Companion (Mac + Windows)</h3>
+    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Website downloads through <code>/v1/companion/download</code>, and the companions' own launches, phone links and recording sessions. An install is the first event GP ever received from a companion, so a first launch that never reached us still counts from its next event. Stored apart from iPhone telemetry, so nothing here is counted above. Raw rows kept 180 days; installs kept forever.</p>
+    <div class="table-wrap"><table id="comp-platforms"><thead><tr>
+      <th>Platform</th><th>Downloads</th><th>Installs</th><th>Active installs</th><th>Launches</th><th>Linked accounts</th><th>Sessions</th><th>Minutes</th><th>Installs, all time</th>
+    </tr></thead><tbody></tbody></table></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px;margin-top:12px">
+      <div class="card" style="padding:12px 14px"><h4 style="margin:0 0 8px">Downloads and installs per day</h4><div id="comp-chart-daily"></div></div>
+      <div class="card" style="padding:12px 14px">
+        <h4 style="margin:0 0 8px">Versions in use <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">(installs seen in the window, by latest build)</span></h4>
+        <div class="table-wrap" style="max-height:330px;overflow-y:auto"><table id="comp-versions"><thead><tr>
+          <th>Platform</th><th>Version</th><th>Build</th><th>Installs</th><th>Last seen</th>
+        </tr></thead><tbody></tbody></table></div>
+      </div>
+    </div>
   </div>
 
   <!-- Subscriptions -->
@@ -900,7 +914,7 @@
         <button class="btn" style="margin-left:auto" onclick="refreshSubsFromApple()">Refresh from Apple</button>
       </div>
       <div class="table-wrap"><table id="sub-truth-table"><thead><tr>
-        <th>User</th><th>Tier</th><th>State</th><th>Auto-renew</th><th>Offer</th><th>This period</th><th>Period ends</th><th>Env</th><th>Paid ever</th>
+        <th>User</th><th title="What the Apple subscription is for">Plan</th><th title="The account's tier in GhostPour right now">Tier now</th><th>State</th><th>Auto-renew</th><th>Offer</th><th>This period</th><th>Period ends</th><th>Env</th><th>Paid ever</th>
       </tr></thead><tbody></tbody></table></div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px;margin-top:16px">
@@ -1346,6 +1360,7 @@ function _renderSubscriptions(rep, events) {
     {label: 'Run-rate if all converted', value: runRate,
      hint: `${tierStr}; list price, trials and offers included. Not revenue`},
     {label: 'Trials lapsed', value: (t.trials_lapsed || 0).toLocaleString(), hint: 'cancelled or expired without a charge'},
+    {label: 'Payment failed', value: (t.billing_retry || 0).toLocaleString(), hint: 'Apple still retrying the charge; no paid access meanwhile'},
     {label: 'Ever subscribed', value: (s.ever_subscribed || 0).toLocaleString(), hint: 'feeds offer-code eligibility'},
   ].map(c => `
     <div class="card">
@@ -1446,6 +1461,7 @@ function _renderSubscriberTruth(t) {
     trialing: 'Trial, auto-renew ON', trial_cancelled: 'Trial, CANCELLED',
     on_offer: 'Offer code', offer_cancelled: 'Offer code, cancelled',
     trial_lapsed: 'Trial lapsed', offer_lapsed: 'Offer lapsed', lapsed: 'Lapsed',
+    billing_retry: 'Payment failed, Apple retrying',
     active_unpriced: 'Active, price unknown',
   };
   const offerLabel = (r) => {
@@ -1462,15 +1478,18 @@ function _renderSubscriberTruth(t) {
       <td>${r.is_anonymous
         ? `<span style="color:var(--text-dim)">Anonymous</span> <span style="color:var(--text-dim);font-size:11px">${(r.user_id || '').slice(0, 8)}</span>`
         : esc(r.email || (r.user_id || '').slice(0, 8))}${(r.linked_devices || 1) > 1 ? ` <span class="badge" title="One person, ${r.linked_devices} ${r.is_anonymous ? 'devices' : 'accounts'} (linked by a restore or sign-in)">${r.linked_devices} ${r.is_anonymous ? 'devices' : 'accounts'}</span>` : ''}</td>
-      <td>${r.tier || ''}</td>
-      <td>${stateLabel[r.state] || r.state}</td>
-      <td>${r.auto_renew === 1 ? 'on' : r.auto_renew === 0 ? '<span style="color:#ff7b72">off</span>' : '?'}</td>
+      <td>${esc(r.tier || '')}</td>
+      <td>${r.current_tier && r.current_tier !== r.tier
+        ? `<span style="color:#d29922" title="Not on the plan's tier: no paid access">${esc(r.current_tier)}</span>`
+        : esc(r.current_tier || '')}</td>
+      <td>${stateLabel[r.state] || esc(r.state)}</td>
+      <td>${r.auto_renew === 1 ? (r.state === 'billing_retry' ? 'on <span style="color:var(--text-dim)">(retrying)</span>' : 'on') : r.auto_renew === 0 ? '<span style="color:#ff7b72">off</span>' : '?'}</td>
       <td>${offerLabel(r)}</td>
       <td>${r.price_paid == null ? '?' : (r.price_paid > 0 ? `${r.currency || ''} ${r.price_paid}` : 'free')}</td>
       <td>${(r.expires_at || '').slice(0, 10)}</td>
       <td>${r.environment || ''}</td>
       <td>${r.paid_ever ? 'yes' : 'no'}</td>
-    </tr>`).join('') : '<tr><td colspan="9" style="color:var(--text-dim)">Nothing pulled from Apple yet. Press Refresh from Apple.</td></tr>';
+    </tr>`).join('') : '<tr><td colspan="10" style="color:var(--text-dim)">Nothing pulled from Apple yet. Press Refresh from Apple.</td></tr>';
   const chk = document.getElementById('sub-truth-checked');
   if (chk) chk.textContent = t.last_checked_at ? `last checked ${t.last_checked_at.slice(0, 16).replace('T', ' ')}Z` : '';
 }
@@ -1540,6 +1559,7 @@ async function loadTelemetry() {
     const d = await resp.json();
     _renderTelemetry(d, {version, os, device, model});
     _loadOnboarding(days, app);
+    _loadCompanion(days);
     _loadActivity(days);
   } catch (e) {
     document.getElementById('tel-kpis').innerHTML =
@@ -1608,6 +1628,46 @@ function _renderActivity(d) {
      data: third(merge(s.distinct_devices, s.distinct_users), s.active_users_7d)}));
   _renderChart('tel-chart-new', mixedOpts(
     merge(s.new_devices, s.new_accounts), 'New devices', 'New accounts'));
+}
+
+async function _loadCompanion(days) {
+  // Additive like onboarding: its own tables, its own fetch, never blocks
+  // the main telemetry render.
+  try {
+    const resp = await fetch(`${BASE}/webhooks/admin/telemetry/companion?days=${Math.min(days, 180)}`, {
+      headers: {'X-Admin-Key': adminKey},
+    });
+    if (!resp.ok) return;
+    _renderCompanion(await resp.json());
+  } catch (e) { /* non-fatal */ }
+}
+
+function _renderCompanion(d) {
+  const name = (p) => p === 'mac' ? 'Mac' : (p === 'windows' ? 'Windows' : esc(p));
+  const all = d.installs_all_time || {};
+  document.querySelector('#comp-platforms tbody').innerHTML = (d.by_platform || []).map(r => `
+    <tr><td>${name(r.platform)}</td><td>${r.downloads}</td><td>${r.installs}</td><td>${r.active_installs}</td>
+    <td>${r.launches}</td><td>${r.linked_accounts}</td><td>${r.sessions}</td><td>${r.session_minutes}</td>
+    <td>${all[r.platform] || 0}</td></tr>`).join('');
+  document.querySelector('#comp-versions tbody').innerHTML = (d.versions || []).length
+    ? d.versions.map(v => `<tr><td>${name(v.platform)}</td><td>${esc(v.version)}</td><td>${esc(v.build)}</td><td>${v.installs}</td><td>${esc((v.last_seen || '').slice(0, 10))}</td></tr>`).join('')
+    : '<tr><td colspan="5" style="color:var(--text-dim)">No companion installs in this window yet.</td></tr>';
+  const days = [...new Set((d.daily || []).map(x => x.day))].sort();
+  const pick = (plat, key) => days.map(day => ((d.daily || []).find(x => x.day === day && x.platform === plat) || {})[key] || 0);
+  _renderChart('comp-chart-daily', {
+    series: [
+      {name: 'Mac downloads', data: pick('mac', 'downloads')},
+      {name: 'Windows downloads', data: pick('windows', 'downloads')},
+      {name: 'Mac installs', data: pick('mac', 'installs')},
+      {name: 'Windows installs', data: pick('windows', 'installs')},
+    ],
+    chart: {type: 'bar', height: 280, stacked: false},
+    xaxis: {categories: days},
+    colors: ['#58a6ff', '#d29922', '#3fb950', '#bc8cff'],
+    dataLabels: {enabled: false},
+    legend: {position: 'bottom'},
+    noData: {text: 'No companion downloads or installs yet.'},
+  });
 }
 
 async function _loadOnboarding(days, app) {

@@ -252,7 +252,8 @@ async def translate_group(app_state, db: aiosqlite.Connection, user, segments: l
     response = None
     for attempt in (1, 2):
         try:
-            response = await app_state.provider_router.route(chat_request)
+            from app.services.anthropic_or_fallback import route_with_fallback as _route_fb
+            response = await _route_fb(app_state.provider_router, chat_request, db)
         except Exception as e:  # noqa: BLE001
             logger.error("translation LLM call failed: %s", e)
             raise TranslationFailed("provider_error")
