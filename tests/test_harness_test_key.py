@@ -52,10 +52,10 @@ def keys_used(monkeypatch):
 
 def _app(app_env, mock_pricing, test_key: str):
     os.environ["CZ_ANTHROPIC_API_KEY"] = PROD
-    if test_key:
-        os.environ["CZ_ANTHROPIC_TEST_API_KEY"] = test_key
-    else:
-        os.environ.pop("CZ_ANTHROPIC_TEST_API_KEY", None)
+    # Set, never popped: a popped env var falls through to a local .env that
+    # may carry a real key, and the "no test key" case then passes on the
+    # developer's machine for the wrong reason (it failed that way 2026-09-29).
+    os.environ["CZ_ANTHROPIC_TEST_API_KEY"] = test_key
     from app.config import get_settings
     get_settings.cache_clear()
     from app.main import app

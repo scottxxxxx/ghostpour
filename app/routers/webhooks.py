@@ -3916,6 +3916,80 @@ async def telemetry_rich(
     }
 
 
+@router.get("/admin/telemetry/companion")
+async def telemetry_companion(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    days: int = Query(default=30, ge=1, le=180),
+):
+    """Shoulder Surf Companion (Mac + Windows), split by platform: website
+    downloads, installs (first launch), active installs, linked accounts,
+    sessions and minutes, versions in use, and a daily trend. Reads the
+    companion tables only; iPhone telemetry is never mixed in. Companion
+    rows are all Shoulder Surf, so there is no app filter."""
+    _verify_admin(request, x_admin_key)
+    since = f"-{days} days"
+
+    async def _all(sql: str, *args) -> list[dict]:
+        cur = await db.execute(sql, args)
+        return [dict(r) for r in await cur.fetchall()]
+
+    downloads = {r["platform"]: r["n"] for r in await _all(
+        "SELECT platform, COUNT(*) AS n FROM companion_downloads "
+        "WHERE received_at >= datetime('now', ?) GROUP BY platform", since)}
+    ev = {r["platform"]: r for r in await _all(
+        """SELECT platform,
+                  COUNT(DISTINCT CASE WHEN event_type='companion_start' THEN device_id END) AS active,
+                  SUM(CASE WHEN event_type='companion_start' THEN 1 ELSE 0 END) AS launches,
+                  SUM(CASE WHEN event_type='companion_session_stop' THEN 1 ELSE 0 END) AS sessions,
+                  ROUND(SUM(CASE WHEN event_type='companion_session_stop'
+                                 THEN COALESCE(duration_seconds, 0) ELSE 0 END) / 60.0) AS minutes
+           FROM companion_events
+           WHERE received_at >= datetime('now', ?) AND platform IN ('mac', 'windows')
+           GROUP BY platform""", since)}
+    # An install is the first event GP ever saw from a device_id, whatever
+    # its type, not a first_run flag: a first launch with no network (or a
+    # 5xx) marks itself reported and never says first_run again (SS,
+    # 2026-09-29), so the flag undercounts.
+    new_installs = {r["platform"]: r["n"] for r in await _all(
+        "SELECT platform, COUNT(*) AS n FROM companion_installs "
+        "WHERE first_seen_at >= datetime('now', ?) GROUP BY platform", since)}
+    linked = {r["platform"]: r["n"] for r in await _all(
+        """SELECT companion_platform AS platform, COUNT(DISTINCT user_id) AS n
+           FROM companion_events
+           WHERE event_type='companion_linked' AND companion_device_id IS NOT NULL
+             AND user_id IS NOT NULL AND received_at >= datetime('now', ?)
+           GROUP BY companion_platform""", since)}
+    by_platform = []
+    for plat in ("mac", "windows"):
+        e = ev.get(plat) or {}
+        by_platform.append({
+            "platform": plat, "downloads": downloads.get(plat, 0),
+            "installs": new_installs.get(plat, 0), "active_installs": int(e.get("active") or 0),
+            "launches": int(e.get("launches") or 0), "linked_accounts": linked.get(plat, 0),
+            "sessions": int(e.get("sessions") or 0), "session_minutes": int(e.get("minutes") or 0),
+        })
+    versions = await _all(
+        """SELECT platform, last_version AS version, last_build AS build, COUNT(*) AS installs,
+                  MAX(last_seen_at) AS last_seen
+           FROM companion_installs WHERE last_seen_at >= datetime('now', ?)
+           GROUP BY platform, last_version, last_build
+           ORDER BY platform, CAST(last_build AS INTEGER) DESC""", since)
+    daily = await _all(
+        """SELECT day, platform, SUM(downloads) AS downloads, SUM(installs) AS installs FROM (
+             SELECT substr(received_at, 1, 10) AS day, platform, 1 AS downloads, 0 AS installs
+               FROM companion_downloads WHERE received_at >= datetime('now', ?)
+             UNION ALL
+             SELECT substr(first_seen_at, 1, 10), platform, 0, 1
+               FROM companion_installs WHERE first_seen_at >= datetime('now', ?)
+           ) GROUP BY day, platform ORDER BY day""", since, since)
+    all_time = {r["platform"]: r["n"] for r in await _all(
+        "SELECT platform, COUNT(*) AS n FROM companion_installs GROUP BY platform")}
+    return {"days": days, "by_platform": by_platform, "versions": versions, "daily": daily,
+            "installs_all_time": all_time}
+
+
 @router.get("/admin/telemetry/onboarding")
 async def telemetry_onboarding(
     request: Request,
