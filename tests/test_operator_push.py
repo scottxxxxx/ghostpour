@@ -90,4 +90,4 @@ def test_the_bundled_categories_include_the_test_account_latch():
     cats = _json.load(open("config/remote/operator-alerts.json"))["push_categories"]
     assert set(cats) == {"provider_budget_exhausted", "provider_auth_failed",
                          "anthropic_fallback_to_or", "cq_unreachable",
-                         "config_decode_loop", "automation_hourly_cap"}
+                         "config_decode_loop", "automation_hourly_cap", "new_user"}

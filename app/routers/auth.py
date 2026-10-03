@@ -156,6 +156,9 @@ async def apple_auth(
             (user_id, apple_sub, email, display_name, tier, now, now),
         )
         await db.commit()
+        from app.services import new_user_push
+        new_user_push.schedule(user_id, "apple", getattr(request.state, "app_id", None),
+                               request.app.state.settings)
 
     resp = await _build_auth_response(
         db, jwt_service, user_id, tier, email,
@@ -241,12 +244,15 @@ async def anonymous_auth(
         "SELECT id, tier, is_active FROM users WHERE apple_sub = ?", (sub,))).fetchone()
     if row is None:
         now = datetime.now(timezone.utc).isoformat()
+        new_id = str(uuid.uuid4())
         try:
             await db.execute(
                 """INSERT INTO users (id, apple_sub, email, display_name, tier, created_at, updated_at)
                    VALUES (?, ?, NULL, NULL, 'free', ?, ?)""",
-                (str(uuid.uuid4()), sub, now, now))
+                (new_id, sub, now, now))
             await db.commit()
+            from app.services import new_user_push
+            new_user_push.schedule(new_id, "anonymous", app_id, request.app.state.settings)
         except sqlite3.IntegrityError:
             # A concurrent first call for the same install won the insert.
             await db.rollback()

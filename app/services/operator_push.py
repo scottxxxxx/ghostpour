@@ -45,7 +45,7 @@ def payload_for(category: str, label: str, subject: str) -> dict:
 
 
 async def push_incident(db: aiosqlite.Connection, *, category: str, label: str,
-                        subject: str, settings) -> dict:
+                        subject: str, settings, collapse_key: str | None = None) -> dict:
     """Push one new incident to the operator's phones. Returns the outcome."""
     out: dict = {"sent": 0, "skipped": None, "results": []}
     try:
@@ -69,7 +69,7 @@ async def push_incident(db: aiosqlite.Connection, *, category: str, label: str,
                 try:
                     r = await apns.send_to_token(client, db, row=row, settings=settings, payload=payload,
                                                  expiration=int(time.time()) + 6 * 3600,
-                                                 collapse_id=f"op-{category}-{subject}")
+                                                 collapse_id=f"op-{category}-{collapse_key or subject}")
                 except Exception as e:  # noqa: BLE001
                     r = f"exception_{type(e).__name__}"
                 out["results"].append(r)
