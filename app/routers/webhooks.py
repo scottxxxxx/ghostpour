@@ -2198,7 +2198,8 @@ async def usage_by_place(
     aware like every other one: the global filter narrows it, and an app that
     starts filling the columns shows up with no new surface.
 
-    `cases` counts distinct case_id; a call without one is still spend and
+    `cases` counts distinct (user, case_id), because N-400's 8-hex case ids
+    collide across users at scale; a call without one is still spend and
     still a user, it just cannot be counted as an interview."""
     _verify_admin(request, x_admin_key)
     apps_filter = _apps_from_filter(app)
@@ -2210,7 +2211,7 @@ async def usage_by_place(
         cur = await db.execute(
             f"""SELECT l.app_id, {sel},
                    COALESCE(SUM(l.estimated_cost_usd), 0) AS spend,
-                   COUNT(DISTINCT l.case_id) AS cases,
+                   COUNT(DISTINCT l.user_id || ':' || l.case_id) AS cases,
                    COUNT(DISTINCT l.user_id) AS users,
                    COUNT(DISTINCT CASE WHEN u.apple_sub LIKE 'anonymous:%'
                                        THEN l.user_id END) AS anonymous_users,

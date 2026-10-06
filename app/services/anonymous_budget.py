@@ -104,11 +104,11 @@ def caps(remote_configs: dict | None, apps_registry: dict,
 
 
 def case_id(value) -> str | None:
-    """The request's metadata.case_id as stored in usage_log (lowercased
-    UUID), or None when absent or malformed, so the gate and the meter agree
+    """The request's metadata.case_id as stored in usage_log (a lowercased
+    UUID or 8 hex characters), or None when absent or malformed, so the gate and the meter agree
     on which bucket a call belongs to."""
-    from app.services.usage_tracker import _UUID_RE
-    return value.lower() if isinstance(value, str) and _UUID_RE.match(value) else None
+    from app.services.usage_tracker import normalize_case_id
+    return normalize_case_id(value)
 
 
 def _day_start_iso(now: datetime | None = None) -> str:
