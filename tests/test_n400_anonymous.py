@@ -334,12 +334,13 @@ def test_n400_calls_store_state_case_form_and_ip_place(client, tmp_db_path):
     case = str(uuid.uuid4()).upper()
     with _served(client), patch("app.services.geoip.lookup",
                                 return_value={"country": "US", "region": "Texas", "city": "Austin"}):
-        r = _chat(client, h, jurisdiction="US-CA", case_id=case, form_state="CA",
-                  form_city="  Fresno ", geo_city="Spoofed")
+        r = _chat(client, h, jurisdiction="US-CA", case_id=case, city="  Fresno ",
+                  geo_city="Spoofed")
     assert r.status_code == 200, r.text
     row = _last_row(tmp_db_path, "pl")
     assert row["jurisdiction"] == "US-CA" and row["case_id"] == case.lower()
-    assert (row["form_state"], row["form_city"]) == ("CA", "Fresno")
+    # metadata.city is the applicant's city; there is no form state column
+    assert row["form_city"] == "Fresno" and "form_state" not in row
     # the IP's place, never the client's word for it
     assert (row["geo_country"], row["geo_region"], row["geo_city"]) == ("US", "Texas", "Austin")
 
@@ -372,13 +373,13 @@ def test_the_place_panel_groups_by_each_source_and_obeys_the_app_filter(client, 
     case = str(uuid.uuid4())
     with _served(client), patch("app.services.geoip.lookup",
                                 return_value={"country": "US", "region": "Texas", "city": "Austin"}):
-        _chat(client, h, jurisdiction="US-TX", case_id=case, form_state="TX", form_city="Austin")
+        _chat(client, h, jurisdiction="US-TX", case_id=case, city="Austin")
         _chat(client, h, jurisdiction="US-TX", case_id=case)
     key = {"X-Admin-Key": client.app.state.settings.admin_key}
     d = client.get("/webhooks/admin/usage-by-place?days=7", headers=key).json()
     tx = [x for x in d["by_jurisdiction"] if x["jurisdiction"] == "US-TX"][0]
     assert (tx["app_id"], tx["calls"], tx["cases"], tx["users"]) == ("n400", 2, 1, 1)
-    assert d["by_form_address"][0]["form_city"] == "Austin"
+    assert (d["by_city"][0]["jurisdiction"], d["by_city"][0]["form_city"]) == ("US-TX", "Austin")
     assert d["by_ip_location"][0]["geo_region"] == "Texas"
     only_ss = client.get("/webhooks/admin/usage-by-place?days=7&app=shouldersurf", headers=key).json()
     assert only_ss["by_jurisdiction"] == []

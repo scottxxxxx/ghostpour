@@ -1176,13 +1176,14 @@ MIGRATIONS = [
     # the state the user picked ("US-CA", or "US-unknown"); `case_id` a random
     # per-application UUID from the client, so "per interview" stops being a
     # time-gap guess; geo_* come from the request IP (app/services/geoip.py,
-    # the same lookup telemetry uses); form_* from the form's Part 4 address.
+    # the same lookup telemetry uses); form_city is the applicant's city the
+    # client sends as metadata.city (onboarding or Part 4). No form state:
+    # the state is jurisdiction.
     "ALTER TABLE usage_log ADD COLUMN jurisdiction TEXT",
     "ALTER TABLE usage_log ADD COLUMN case_id TEXT",
     "ALTER TABLE usage_log ADD COLUMN geo_country TEXT",
     "ALTER TABLE usage_log ADD COLUMN geo_region TEXT",
     "ALTER TABLE usage_log ADD COLUMN geo_city TEXT",
-    "ALTER TABLE usage_log ADD COLUMN form_state TEXT",
     "ALTER TABLE usage_log ADD COLUMN form_city TEXT",
     "CREATE INDEX IF NOT EXISTS idx_usage_jurisdiction ON usage_log(jurisdiction) WHERE jurisdiction IS NOT NULL",
     "CREATE INDEX IF NOT EXISTS idx_usage_case ON usage_log(case_id) WHERE case_id IS NOT NULL",

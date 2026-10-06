@@ -2192,7 +2192,8 @@ async def usage_by_place(
 ):
     """Spend, cases and users by place (Scott, 2026-10-05). Three views of one
     question because there are three sources: the state the user picked
-    (`jurisdiction`), the form's Part 4 address (`form_*`), and the request
+    (`jurisdiction`), the applicant's city the client sends (`form_city`,
+    from onboarding or Part 4, under that state), and the request
     IP (`geo_*`). Only N-400 fills these columns today, but the panel is app
     aware like every other one: the global filter narrows it, and an app that
     starts filling the columns shows up with no new surface.
@@ -2225,8 +2226,7 @@ async def usage_by_place(
     return {
         "days": days,
         "by_jurisdiction": await group(["jurisdiction"], "l.jurisdiction IS NOT NULL"),
-        "by_form_address": await group(["form_state", "form_city"],
-                                       "(l.form_state IS NOT NULL OR l.form_city IS NOT NULL)"),
+        "by_city": await group(["jurisdiction", "form_city"], "l.form_city IS NOT NULL"),
         "by_ip_location": await group(["geo_country", "geo_region", "geo_city"],
                                       "l.geo_country IS NOT NULL"),
     }

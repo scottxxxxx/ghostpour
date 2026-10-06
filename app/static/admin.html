@@ -347,7 +347,7 @@
     <div class="card" id="latency-by-model-chart" style="padding:16px;max-width:560px"></div>
 
     <h3>Usage by Place</h3>
-    <p style="font-size:12px;color:var(--text-dim);margin:0 0 8px">Spend, cases (distinct case ids) and users by where the call came from. Three sources: the state picked in the app, the form's Part 4 address, and the request IP. N-400 only today; the app filter applies. IP geolocation by DB-IP (db-ip.com), CC BY 4.0.</p>
+    <p style="font-size:12px;color:var(--text-dim);margin:0 0 8px">Spend, cases (distinct case ids) and users by where the call came from. Three sources: the state picked in the app, the applicant's city the app sends, and the request IP. N-400 only today; the app filter applies. IP geolocation by DB-IP (db-ip.com), CC BY 4.0.</p>
     <div class="card" style="padding:16px;max-width:720px">
       <div id="place-map-toggle" style="margin-bottom:6px"></div>
       <div id="place-map" style="height:250px"></div>
@@ -356,7 +356,7 @@
       <th>App</th><th>State picked</th><th>Spend</th><th>Cases</th><th>Users</th><th>Anonymous</th><th>Calls</th>
     </tr></thead><tbody></tbody></table></div>
     <div class="table-wrap"><table id="place-form"><thead><tr>
-      <th>App</th><th>Form state</th><th>Form city</th><th>Spend</th><th>Cases</th><th>Users</th><th>Anonymous</th><th>Calls</th>
+      <th>App</th><th>State picked</th><th>Applicant city</th><th>Spend</th><th>Cases</th><th>Users</th><th>Anonymous</th><th>Calls</th>
     </tr></thead><tbody></tbody></table></div>
     <div class="table-wrap"><table id="place-ip"><thead><tr>
       <th>App</th><th>IP country</th><th>IP region</th><th>IP city</th><th>Spend</th><th>Cases</th><th>Users</th><th>Anonymous</th><th>Calls</th>
@@ -3209,7 +3209,7 @@ async function loadUsageByPlace(days, app) {
     if (body) body.innerHTML = rows.map(x => `<tr><td>${esc(x.app_id)}</td>${cells(x)}${nums(x)}</tr>`).join('') || empty(n);
   };
   fill('place-jurisdiction', d.by_jurisdiction || [], x => `<td>${dim(x.jurisdiction)}</td>`, 7);
-  fill('place-form', d.by_form_address || [], x => `<td>${dim(x.form_state)}</td><td>${dim(x.form_city)}</td>`, 8);
+  fill('place-form', d.by_city || [], x => `<td>${dim(x.jurisdiction)}</td><td>${dim(x.form_city)}</td>`, 8);
   fill('place-ip', d.by_ip_location || [], x => `<td>${dim(x.geo_country)}</td><td>${dim(x.geo_region)}</td><td>${dim(x.geo_city)}</td>`, 9);
   // The state picked at onboarding feeds the same US map the telemetry tab uses.
   const byState = {};
