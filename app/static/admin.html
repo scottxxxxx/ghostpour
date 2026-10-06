@@ -3194,7 +3194,6 @@ async function refresh() {
 // the user picked, the form's address, and the request IP. App aware through
 // the global filter; only N-400 fills these columns today. ------------------
 async function loadUsageByPlace(days, app) {
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const dim = v => v ? esc(v) : '<span style="color:var(--text-dim)">not sent</span>';
   let d;
   try {
