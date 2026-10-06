@@ -394,11 +394,18 @@ async def test_the_same_spend_does_not_stop_shouldersurf(
 _REACH = "com.shouldersurf.ShoulderSurf,com.weirtech.techrehearsal"
 _REACH_N400 = _REACH + ",com.weirtech.n400helper"
 
+# 2026-10-05: n400 is in ANONYMOUS_APPS, so it is reachable WITHOUT a bundle
+# id, and the healthy state is no longer "uncapped and unreachable" but
+# "flat cap -1 with the anonymous caps running". The served doc below is that
+# state; `{}` (no doc) now correctly reads as the anonymous door with no cap.
+_ANON = {"anonymous": {"per_install_lifetime_usd": 2, "daily_all_installs_usd": 50}}
+_SHIPPING = {"n400/budget": {"version": 1, "monthly_cost_limit_usd": -1, **_ANON}}
+
 
 def test_uncapped_but_unreachable_is_the_healthy_state():
     """Today: N-400 has no ceiling and no real user can sign in. Fine."""
     assert app_budget.audit_uncapped_reachable_apps(
-        {}, load_apps(), _REACH) == []
+        _SHIPPING, load_apps(), _REACH) == []
 
 
 def test_uncapped_and_reachable_is_reported():
@@ -430,8 +437,8 @@ def test_apps_without_a_flat_budget_are_not_reported():
 
 def test_no_allowlist_reports_nothing():
     """An empty CZ_APPLE_BUNDLE_ID means nothing can authenticate at all."""
-    assert app_budget.audit_uncapped_reachable_apps({}, load_apps(), "") == []
-    assert app_budget.audit_uncapped_reachable_apps({}, load_apps(), None) == []
+    assert app_budget.audit_uncapped_reachable_apps(_SHIPPING, load_apps(), "") == []
+    assert app_budget.audit_uncapped_reachable_apps(_SHIPPING, load_apps(), None) == []
 
 
 @pytest.mark.asyncio
@@ -447,7 +454,10 @@ async def test_the_shipped_uncapped_lane_does_not_stop_anything(
     """
     _seed_spend(tmp_db_path, free_user["user_id"], "n400", 9999.0)
     rc = dict(client.app.state.remote_configs)
-    rc.pop("n400/budget", None)
+    # No flat cap in the doc, so the apps.yml floor (-1) applies; the
+    # anonymous caps stay, because without them the open anonymous door is
+    # (correctly) refused.
+    rc["n400/budget"] = {"version": 1, **_ANON}
     prev = client.app.state.remote_configs
     client.app.state.remote_configs = rc
     try:
@@ -489,7 +499,7 @@ async def test_the_safe_state_raises_nothing(tmp_db_path):
     async with aiosqlite.connect(tmp_db_path) as db:
         db.row_factory = aiosqlite.Row
         assert await app_budget.report_uncapped_reachable(
-            db, {}, load_apps(), _REACH) == []
+            db, _SHIPPING, load_apps(), _REACH) == []
         rows = await (await db.execute(
             "SELECT * FROM alert_incidents")).fetchall()
     assert rows == []
@@ -514,7 +524,7 @@ def test_refusal_stays_off_while_the_app_is_unreachable():
     bundle id is absent, so nothing may be refused. If this ever fails, the
     guard has taken the dev lane down for the reason it was built to avoid."""
     assert app_budget.refuse_uncapped_reachable(
-        {}, load_apps(), "n400", _REACH) is None
+        _SHIPPING, load_apps(), "n400", _REACH) is None
 
 
 def test_refusal_stays_off_when_a_cap_exists():
@@ -574,8 +584,7 @@ async def test_the_route_still_serves_the_uncapped_unreachable_lane(
     settings = get_settings()
     monkeypatch.setattr(settings, "apple_bundle_id", _REACH, raising=False)
     prev = client.app.state.remote_configs
-    client.app.state.remote_configs = {**prev, "n400/budget":
-                                       {"version": 1, "monthly_cost_limit_usd": -1}}
+    client.app.state.remote_configs = {**prev, **_SHIPPING}
     try:
         r = client.post("/v1/chat", json=_chat_body(),
                         headers={**free_user["headers"], "X-App-ID": "n400"})

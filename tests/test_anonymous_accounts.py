@@ -72,8 +72,8 @@ def test_a_non_uuid_install_id_is_refused(client, bad):
     assert r.status_code == 400 and r.json()["detail"]["code"] == "invalid_request"
 
 
-@pytest.mark.parametrize("headers", [{}, {"X-App-ID": "techrehearsal"}, {"X-App-ID": "n400"}])
-def test_only_shouldersurf_is_offered_anonymous_accounts(client, headers):
+@pytest.mark.parametrize("headers", [{}, {"X-App-ID": "techrehearsal"}])
+def test_only_shouldersurf_and_n400_are_offered_anonymous_accounts(client, headers):
     r = _anon(client, headers=headers)
     assert r.status_code == 403 and r.json()["detail"]["code"] == "anonymous_not_offered"
 
