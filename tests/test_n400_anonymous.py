@@ -89,7 +89,8 @@ def _state(r):
 def test_the_shipped_doc_carries_both_dials():
     import json
     doc = json.load(open("config/remote/n400/budget.json"))
-    assert doc["anonymous"]["per_install_lifetime_usd"] == 2
+    assert doc["anonymous"]["per_application_usd"] == 2
+    assert doc["anonymous"]["per_install_lifetime_usd"] == 10
     assert doc["anonymous"]["daily_all_installs_usd"] == 50
 
 
