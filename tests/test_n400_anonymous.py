@@ -138,7 +138,7 @@ def test_signed_in_spend_does_not_count_toward_the_daily_ceiling(client, tmp_db_
     h = _anon_user(tmp_db_path, "anon-d")
     with _served(client):
         r = _chat(client, h)
-    assert _state(r).get("budget_exhausted") is not True
+    assert _state(r).get("budget_exhausted") is not True and r.json()["text"]
 
 
 def test_yesterdays_anonymous_spend_does_not_count_today(client, tmp_db_path):
@@ -149,7 +149,8 @@ def test_yesterdays_anonymous_spend_does_not_count_today(client, tmp_db_path):
     conn.commit(); conn.close()
     h = _anon_user(tmp_db_path, "anon-y2")
     with _served(client):
-        assert _state(_chat(client, h)).get("budget_exhausted") is not True
+        r = _chat(client, h)
+    assert _state(r).get("budget_exhausted") is not True and r.json()["text"]
 
 
 def test_no_anonymous_cap_means_no_allowance_fail_closed(client, tmp_db_path):
