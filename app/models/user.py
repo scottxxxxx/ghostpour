@@ -8,6 +8,12 @@ from pydantic import BaseModel
 # makes creation idempotent per install without storing the credential.
 ANONYMOUS_SUB_PREFIX = "anonymous:"
 
+# Apps whose clients may mint an anonymous account at POST /auth/anonymous.
+# Here rather than in the auth router so the spend audit (app_budget) can
+# read it: membership makes an app REACHABLE by anyone, with no Apple
+# identity and no bundle id check, which is exactly what that audit guards.
+ANONYMOUS_APPS = frozenset({"shouldersurf"})
+
 
 class UserRecord(BaseModel):
     id: str

@@ -54,6 +54,11 @@ async def get_current_user(
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")
 
+    # The token's app claim against X-App-ID (2026-10-05). Refused only where
+    # a strict app is involved; see app/services/app_claim.py.
+    from app.services.app_claim import enforce as _enforce_app_claim
+    _enforce_app_claim(payload, getattr(request.state, "app_id", None))
+
     key_scope.mark(user.tier)
     return user
 
@@ -94,6 +99,11 @@ async def get_current_user_optional(
     user = user_from_row(row)
 
     if not user.is_active:
+        return None
+
+    # A token refused for the app it is calling reads as signed out here.
+    from app.services.app_claim import refuse_reason as _app_claim_refusal
+    if _app_claim_refusal(payload.get("app"), getattr(request.state, "app_id", None)):
         return None
 
     key_scope.mark(user.tier)

@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import uuid
 from datetime import datetime, timezone
 
@@ -12,6 +13,50 @@ from app.models.user import UserRecord
 from app.services.allocation_reset import lazy_reset_if_due
 
 logger = logging.getLogger("ghostpour.usage_tracker")
+
+
+_N400_PLACE_APPS = frozenset({"n400"})
+_JURISDICTION_RE = re.compile(r"^US-(?:[A-Z]{2}|unknown)$")
+_UUID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+
+
+def _short_text(value: object, limit: int) -> str | None:
+    if not isinstance(value, str):
+        return None
+    v = " ".join(value.split())
+    return v[:limit] if v else None
+
+
+def n400_place_columns(request: ChatRequest, app_id: str | None) -> tuple:
+    """(jurisdiction, case_id, geo_country, geo_region, geo_city, form_city)
+    for an N-400 call, all None for every other app.
+
+    The client contract (auditor, 2026-10-05): metadata.jurisdiction
+    ("US-XX" or "US-unknown"), metadata.case_id (a random UUID per
+    application) and metadata.city (the applicant's city from onboarding or
+    Part 4, omitted when unknown), stored as form_city. There is no form
+    state: the state is jurisdiction.
+
+    Client values are validated rather than trusted: a jurisdiction that is
+    not "US-XX" or "US-unknown" and a case id that is not a UUID store NULL,
+    because a dashboard grouped by a free text column fills with typos. The
+    geo_* values are not the client's: the chat router stamps them from the
+    request IP after discarding anything the client sent under those keys.
+    """
+    if app_id not in _N400_PLACE_APPS:
+        return (None,) * 6
+    jur = request.get_meta("jurisdiction")
+    jur = jur if isinstance(jur, str) and _JURISDICTION_RE.match(jur) else None
+    case = request.get_meta("case_id")
+    case = case.lower() if isinstance(case, str) and _UUID_RE.match(case) else None
+    return (
+        jur, case,
+        _short_text(request.get_meta("geo_country"), 8),
+        _short_text(request.get_meta("geo_region"), 80),
+        _short_text(request.get_meta("geo_city"), 80),
+        _short_text(request.get_meta("city"), 80),
+    )
 
 
 def _normalize_scenario(value: object) -> str | None:
@@ -330,8 +375,10 @@ class UsageTracker:
                 estimated_cost_usd, request_timestamp, response_time_ms,
                 status, error_message, call_type, prompt_mode,
                 image_count, session_duration_sec, cached_tokens, meeting_id, metadata, app_id, scenario, scenario_kind,
-                ttft_ms)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                ttft_ms, jurisdiction, case_id, geo_country, geo_region, geo_city,
+                form_city)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                       ?, ?, ?, ?, ?, ?)""",
             (
                 str(uuid.uuid4()),
                 user_id,
@@ -355,6 +402,7 @@ class UsageTracker:
                 _normalize_scenario(request.get_meta("scenario")),
                 _normalize_scenario_kind(request.get_meta("scenario_kind")),
                 int(ttft_ms) if ttft_ms is not None else None,
+                *n400_place_columns(request, app_id),
             ),
         )
         await db.commit()

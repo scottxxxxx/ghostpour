@@ -124,6 +124,15 @@ KNOWN_CATEGORIES: dict[str, dict] = {
             "Scott, 2026-09-29, after the spend-cap outage."
         ),
     },
+    "anonymous_daily_cap": {
+        "label": "Anonymous accounts hit the app's daily spend ceiling",
+        "description": (
+            "Every anonymous account in this app together reached the daily "
+            "ceiling (daily_all_installs_usd in the app's budget doc), so "
+            "anonymous calls are refused until the next UTC day. One incident "
+            "per app per day. Raise the dial if the traffic is real."
+        ),
+    },
     "anthropic_fallback_to_or": {
         "label": "Anthropic call fell back to OpenRouter",
         "description": (

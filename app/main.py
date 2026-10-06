@@ -186,11 +186,13 @@ async def lifespan(app: FastAPI):
                 app.state.remote_configs, _load_apps_for_audit(),
                 settings.apple_bundle_id):
             logging.getLogger("app.main").error(
-                "UNCAPPED_AND_REACHABLE app=%s bundle_id=%s own_account_meter=%s "
-                "— this app has NO spend ceiling and its bundle id now passes "
-                "the audience check, so every signup has an unlimited "
-                "allowance. Set a per-user cap or remove the bundle id.",
-                _v["app_id"], _v["bundle_id"], _v["own_account_meter"],
+                "UNCAPPED_AND_REACHABLE app=%s bundle_id=%s reachable_via=%s "
+                "own_account_meter=%s: this app has NO spend ceiling and can be "
+                "reached (bundle id passes the audience check, or it is in "
+                "ANONYMOUS_APPS with no anonymous cap), so every signup has an "
+                "unlimited allowance. Set a cap or close the door.",
+                _v["app_id"], _v["bundle_id"], _v.get("reachable_via"),
+                _v["own_account_meter"],
             )
     except Exception as _e:  # noqa: BLE001 — an audit must never block boot
         logging.getLogger("app.main").warning(

@@ -1170,6 +1170,28 @@ MIGRATIONS = [
         received_at TEXT NOT NULL
     )""",
     "CREATE INDEX IF NOT EXISTS idx_companion_downloads_at ON companion_downloads(received_at)",
+    # N-400 by place and by case (Scott, 2026-10-05: sell in every state,
+    # measure per state later, and track state AND city from both sources).
+    # Filled on n400 calls only (usage_tracker.log_usage). `jurisdiction` is
+    # the state the user picked ("US-CA", or "US-unknown"); `case_id` a random
+    # per-application UUID from the client, so "per interview" stops being a
+    # time-gap guess; geo_* come from the request IP (app/services/geoip.py,
+    # the same lookup telemetry uses); form_city is the applicant's city the
+    # client sends as metadata.city (onboarding or Part 4). No form state:
+    # the state is jurisdiction.
+    "ALTER TABLE usage_log ADD COLUMN jurisdiction TEXT",
+    "ALTER TABLE usage_log ADD COLUMN case_id TEXT",
+    "ALTER TABLE usage_log ADD COLUMN geo_country TEXT",
+    "ALTER TABLE usage_log ADD COLUMN geo_region TEXT",
+    "ALTER TABLE usage_log ADD COLUMN geo_city TEXT",
+    "ALTER TABLE usage_log ADD COLUMN form_city TEXT",
+    "CREATE INDEX IF NOT EXISTS idx_usage_jurisdiction ON usage_log(jurisdiction) WHERE jurisdiction IS NOT NULL",
+    "CREATE INDEX IF NOT EXISTS idx_usage_case ON usage_log(case_id) WHERE case_id IS NOT NULL",
+    # The anonymous daily ceiling (anonymous_budget.DAILY_SPEND_SQL) sums one
+    # app's spend since midnight on EVERY anonymous turn. Every usage_log
+    # column it touches, filter order first, so the table (rows of ~63 KB of
+    # metadata) is never read; the lesson of idx_usage_user_app_date_cost.
+    "CREATE INDEX IF NOT EXISTS idx_usage_app_date_user_cost ON usage_log(app_id, request_timestamp, user_id, estimated_cost_usd)",
 ]
 
 

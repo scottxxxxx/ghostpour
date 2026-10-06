@@ -2182,6 +2182,56 @@ async def typesafe_health(
         ][-15:][::-1],
     }
 
+@router.get("/admin/usage-by-place")
+async def usage_by_place(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    days: int = Query(default=30, ge=1, le=365),
+    app: str | None = Query(default=None),
+):
+    """Spend, cases and users by place (Scott, 2026-10-05). Three views of one
+    question because there are three sources: the state the user picked
+    (`jurisdiction`), the applicant's city the client sends (`form_city`,
+    from onboarding or Part 4, under that state), and the request
+    IP (`geo_*`). Only N-400 fills these columns today, but the panel is app
+    aware like every other one: the global filter narrows it, and an app that
+    starts filling the columns shows up with no new surface.
+
+    `cases` counts distinct case_id; a call without one is still spend and
+    still a user, it just cannot be counted as an interview."""
+    _verify_admin(request, x_admin_key)
+    apps_filter = _apps_from_filter(app)
+    app_clause = _app_sql(apps_filter, "l.app_id")
+    since = (f"-{days} days",)
+
+    async def group(cols: list[str], where: str) -> list[dict]:
+        sel = ", ".join(f"l.{c}" for c in cols)
+        cur = await db.execute(
+            f"""SELECT l.app_id, {sel},
+                   COALESCE(SUM(l.estimated_cost_usd), 0) AS spend,
+                   COUNT(DISTINCT l.case_id) AS cases,
+                   COUNT(DISTINCT l.user_id) AS users,
+                   COUNT(DISTINCT CASE WHEN u.apple_sub LIKE 'anonymous:%'
+                                       THEN l.user_id END) AS anonymous_users,
+                   COUNT(*) AS calls
+                FROM usage_log l LEFT JOIN users u ON u.id = l.user_id
+               WHERE l.request_timestamp >= date('now', ?) AND {where}{app_clause}
+               GROUP BY l.app_id, {sel}
+               ORDER BY spend DESC
+               LIMIT 200""",
+            (*since, *apps_filter))
+        return [dict(r) for r in await cur.fetchall()]
+
+    return {
+        "days": days,
+        "by_jurisdiction": await group(["jurisdiction"], "l.jurisdiction IS NOT NULL"),
+        "by_city": await group(["jurisdiction", "form_city"], "l.form_city IS NOT NULL"),
+        "by_ip_location": await group(["geo_country", "geo_region", "geo_city"],
+                                      "l.geo_country IS NOT NULL"),
+    }
+
+
 @router.get("/admin/errors")
 async def error_log(
     request: Request,
