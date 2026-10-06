@@ -1,5 +1,5 @@
 {
-  "version": 16,
+  "version": 17,
   "defaultPromptReserveTokens": 8000,
   "models": {
     "foundation-models": {
@@ -814,6 +814,35 @@
         "disabled",
         "enabled"
       ]
+    },
+    "private-cloud-compute": {
+      "provider": "Apple",
+      "description": "Modèle cloud gratuit d'Apple (Private Cloud Compute). Plus grand que le modèle sur l'appareil, données privées. Nécessite Internet ; limite quotidienne fixée par Apple. Fenêtre de contexte de 32K. Nécessite iOS 27 et Apple Intelligence.",
+      "inputCostPerMillion": null,
+      "outputCostPerMillion": null,
+      "contextWindow": "32K",
+      "weights": "Closed",
+      "supportsImages": false,
+      "requiredParams": "instructions, prompt",
+      "promptPlacement": "System",
+      "contextSlots": {
+        "transcriptBuffer": "yes",
+        "rollingSummary": "yes",
+        "deltaSummaryMode": true,
+        "fullTranscriptSummary": false,
+        "projectContext": true,
+        "projectFiles": false,
+        "followUpContext": true
+      },
+      "contextQuilt": {
+        "commProfile": "yes",
+        "factExtraction": "yes",
+        "companyIntel": "limited",
+        "meetingGuidance": "yes"
+      },
+      "splitModelSummary": false,
+      "estimatedAvailableTokens": 31744,
+      "supportsReasoning": false
     }
   },
   "minPromptReserveTokens": 4096
