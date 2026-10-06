@@ -1,5 +1,5 @@
 {
- "version": 24,
+ "version": 25,
  "defaultPromptReserveTokens": 8000,
  "providers": [
   {
@@ -77,6 +77,38 @@
      "localizations": {
       "fr": {
        "description": "Modèle gratuit sur l'appareil. Privé, fonctionne hors ligne. Nécessite un iPhone 15 Pro ou plus récent avec Apple Intelligence activé."
+      }
+     }
+    },
+    {
+     "id": "private-cloud-compute",
+     "displayName": "Apple Cloud",
+     "description": "Gratis. Private Cloud Compute de Apple: más grande y capaz que el modelo en el dispositivo, y sus datos se mantienen privados. Necesita internet, con un límite diario fijado por Apple. Requiere iOS 27 y Apple Intelligence.",
+     "isDefault": false,
+     "minAppBuild": 2126,
+     "supportsVision": false,
+     "contextWindow": 32768,
+     "inputCostPerMillion": 0,
+     "outputCostPerMillion": 0,
+     "supportsReasoning": false,
+     "reasoningLevels": null,
+     "maxOutputTokens": 4096,
+     "temperatureDefault": 0.7,
+     "maxImagesPerRequest": 0,
+     "streamingSupported": false,
+     "toolUseSupported": false,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "localizations": {
+      "es": {
+       "description": "Gratis. Private Cloud Compute de Apple: más grande y capaz que el modelo en el dispositivo, y sus datos se mantienen privados. Necesita internet, con un límite diario fijado por Apple. Requiere iOS 27 y Apple Intelligence."
+      },
+      "fr": {
+       "description": "Gratuit. Private Cloud Compute d'Apple : plus grand et plus performant que le modèle sur l'appareil, et vos données restent privées. Nécessite Internet, avec une limite quotidienne fixée par Apple. Nécessite iOS 27 et Apple Intelligence."
+      },
+      "ja": {
+       "description": "無料。AppleのPrivate Cloud Compute：デバイス上のモデルより大きく高性能で、データはプライベートに保たれます。インターネット接続が必要で、Appleが定める1日の上限があります。iOS 27とApple Intelligenceが必要です。"
       }
      }
     }

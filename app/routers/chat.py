@@ -1932,10 +1932,17 @@ async def _chat_impl(
             },
         )
 
+    # 4.4 Scott's on-device N-400 test: only his phone reaches the lane, and
+    # the latch below is raised for the run. Off unless n400/budget says so.
+    from app.services import n400_device_test
+    n400_device_test.enforce(request.app.state.remote_configs, app_id,
+                             request.headers.get("User-Agent"))
+
     # 4.5 Test accounts latch off past 100 model calls in an hour, until
     # Scott clears them (2026-09-29). No-op for every real tier.
     from app.services import automation_cap
-    await automation_cap.enforce(db, user)
+    await automation_cap.enforce(
+        db, user, cap=n400_device_test.hourly_cap(request.app.state.remote_configs, app_id))
 
     # 5. Monthly allocation + overage check
     monthly_used, overage_balance = await usage_tracker.check_quota(db, user, tier)

@@ -31,9 +31,10 @@ HOURLY_CAP = 100
 CAPPED_TIERS = frozenset({"automation"})
 
 
-async def enforce(db: aiosqlite.Connection, user) -> None:
-    """Raise 403 and latch the account off once it has made HOURLY_CAP calls
-    in the last hour. A no-op for every other tier."""
+async def enforce(db: aiosqlite.Connection, user, cap: int | None = None) -> None:
+    """Raise 403 and latch the account off once it has made `cap` (default
+    HOURLY_CAP) calls in the last hour. A no-op for every other tier."""
+    cap = cap or HOURLY_CAP
     if getattr(user, "tier", None) not in CAPPED_TIERS:
         return
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
@@ -41,14 +42,14 @@ async def enforce(db: aiosqlite.Connection, user) -> None:
         "SELECT COUNT(*) FROM usage_log WHERE user_id = ? AND request_timestamp >= ?",
         (user.id, cutoff))).fetchone()
     used = row[0] if row else 0
-    if used < HOURLY_CAP:
+    if used < cap:
         return
     await db.execute(
         "UPDATE users SET is_active = 0, updated_at = ? WHERE id = ?",
         (datetime.now(timezone.utc).isoformat(), user.id))
     await db.commit()
     logger.warning("automation_hourly_cap latched user=%s calls_last_hour=%d cap=%d",
-                   user.id, used, HOURLY_CAP)
+                   user.id, used, cap)
     try:
         from app.config import get_settings
         from app.services.alerting import report_incident
