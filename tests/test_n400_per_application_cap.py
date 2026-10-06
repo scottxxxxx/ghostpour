@@ -39,10 +39,11 @@ def test_a_used_application_is_refused_and_a_second_application_is_served(client
 
 
 def test_the_case_id_is_matched_case_insensitively(client, tmp_db_path):
+    hexy = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"  # letters, so .upper() changes it
     h = _anon_user(tmp_db_path, "pa-2")
-    _spend_case(tmp_db_path, "pa-2", 2.0, A)
+    _spend_case(tmp_db_path, "pa-2", 2.0, hexy)
     with _served(client, DOC):
-        r = _chat(client, h, case_id=A.upper())
+        r = _chat(client, h, case_id=hexy.upper())
     assert _state(r)["code"] == "n400_application_allowance_used"
 
 
