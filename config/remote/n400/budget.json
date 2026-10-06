@@ -30,6 +30,19 @@
 
   "monthly_cost_limit_usd": -1,
 
+  "_device_test_comment": [
+    "Scott's on-device test, 2026-10-05 (app/services/n400_device_test.py).",
+    "only_device: true refuses every N-400 call whose User-Agent is not the",
+    "phone app (harness, simulator tests), and raises the test account's",
+    "hourly latch to hourly_cap for the run. Ships OFF; turned on and off",
+    "with a scoped PUT to /webhooks/admin/config/n400/budget around the run."
+  ],
+  "device_test": {
+    "only_device": false,
+    "user_agent_app_name": "N-400 Helper",
+    "hourly_cap": 400
+  },
+
   "exhausted": {
     "kind": "budget_exhausted",
     "text": {
