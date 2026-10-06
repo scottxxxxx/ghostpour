@@ -12,7 +12,9 @@ ANONYMOUS_SUB_PREFIX = "anonymous:"
 # Here rather than in the auth router so the spend audit (app_budget) can
 # read it: membership makes an app REACHABLE by anyone, with no Apple
 # identity and no bundle id check, which is exactly what that audit guards.
-ANONYMOUS_APPS = frozenset({"shouldersurf"})
+# n400 joined 2026-10-05 (Scott, option 2), only after its caps, the audit's
+# anonymous door, the token app claim and the push exclusion were live.
+ANONYMOUS_APPS = frozenset({"shouldersurf", "n400"})
 
 
 class UserRecord(BaseModel):
