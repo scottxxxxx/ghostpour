@@ -15,6 +15,7 @@ from __future__ import annotations
 _DISPLAY_NAMES: dict[str, str] = {
     "cloudzap/auto": "SS AI",
     "onDevice/foundation-models": "Apple Foundation Models",
+    "onDevice/private-cloud-compute": "Apple Private Cloud Compute",
 }
 
 
