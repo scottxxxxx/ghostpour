@@ -18,8 +18,13 @@ class JWTService:
         self.access_expire = timedelta(minutes=access_expire_minutes)
         self.refresh_expire = timedelta(days=refresh_expire_days)
 
-    def create_access_token(self, user_id: str) -> str:
-        """Create a JWT. Tier is NOT encoded — always read from DB."""
+    def create_access_token(self, user_id: str, app_id: str | None = None) -> str:
+        """Create a JWT. Tier is NOT encoded — always read from DB.
+
+        `app` names the app the token was minted for (2026-10-05). Before it
+        existed X-App-ID was honor system: any token could call any app, so
+        a ShoulderSurf token could spend on N-400's uncapped lane by sending
+        a different header. app/dependencies.py enforces it."""
         now = datetime.now(timezone.utc)
         payload = {
             "sub": user_id,
@@ -27,6 +32,8 @@ class JWTService:
             "exp": now + self.access_expire,
             "type": "access",
         }
+        if app_id:
+            payload["app"] = app_id
         return pyjwt.encode(payload, self.secret, algorithm=self.algorithm)
 
     def create_refresh_token(self) -> tuple[str, str, datetime]:

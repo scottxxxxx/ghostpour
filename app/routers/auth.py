@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.database import get_db
 from app.models.user import (
+    ANONYMOUS_APPS,
     ANONYMOUS_SUB_PREFIX,
     AnonymousAuthRequest,
     AppleAuthRequest,
@@ -30,6 +31,7 @@ async def _build_auth_response(
     app_id: str | None = None,
     display_name: str | None = None,
     is_anonymous: bool = False,
+    claim_app: str | None | object = ...,
 ) -> AuthResponse:
     """Create access + refresh tokens and return AuthResponse.
 
@@ -40,12 +42,18 @@ async def _build_auth_response(
     and an account membership belong to. A missing/unknown header leaves
     the session unattributed, which the purge treats as deletable by any
     app rather than surviving a delete.
+
+    The access token's `app` claim is `claim_app` when the caller passes one
+    (refresh decides it from the stored session, see refresh_token), else the
+    same scoped app the session row gets.
     """
-    access_token = jwt_service.create_access_token(user_id)
+    from app.services.app_claim import mint_claim
+    scoped_app = app_id if app_id and app_id != "unknown" else None
+    access_token = jwt_service.create_access_token(
+        user_id, mint_claim(scoped_app) if claim_app is ... else claim_app)
     raw_refresh, refresh_hash, refresh_expires = jwt_service.create_refresh_token()
 
     now = datetime.now(timezone.utc).isoformat()
-    scoped_app = app_id if app_id and app_id != "unknown" else None
     await db.execute(
         """INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, created_at, app_id)
            VALUES (?, ?, ?, ?, ?, ?)""",
@@ -196,15 +204,26 @@ async def _anonymous_from_token(db, jwt_service, token: str) -> tuple[dict | Non
 # silent account holding no personal data, the purchase binds to it through
 # appAccountToken, and Sign in with Apple stays optional. ShoulderSurf only:
 # it is the app Apple rejected, and no other app has been designed for this.
-ANONYMOUS_APPS = {"shouldersurf"}
+# ANONYMOUS_APPS lives in app/models/user.py, beside the prefix.
 # Per client IP, per minute. The client calls this at purchase time only.
 _ANONYMOUS_RPM_PER_IP = 5
+# Anonymous mints in these apps send no new-account push to Scott's phones.
+NO_NEW_USER_PUSH_APPS = frozenset({"n400"})
 
 
-def anonymous_sub(install_id: str) -> str:
+def anonymous_sub(install_id: str, app_id: str = "shouldersurf") -> str:
     """The `apple_sub` of the anonymous account for this install. Lowercased
-    first: Swift's uuidString is uppercase and must not mint a second account."""
-    return ANONYMOUS_SUB_PREFIX + hashlib.sha256(install_id.strip().lower().encode()).hexdigest()
+    first: Swift's uuidString is uppercase and must not mint a second account.
+
+    Namespaced by app for every app after ShoulderSurf (2026-10-05, N-400),
+    so the same install id sent to two apps names two accounts: an N-400 mint
+    can never return a ShoulderSurf account holding a paid plan, and a
+    ShoulderSurf merge (which closes the anonymous row) can never close an
+    N-400 one. ShoulderSurf keeps the un-namespaced form its existing
+    accounts were minted under."""
+    norm = install_id.strip().lower()
+    key = norm if app_id == "shouldersurf" else f"{app_id}:{norm}"
+    return ANONYMOUS_SUB_PREFIX + hashlib.sha256(key.encode()).hexdigest()
 
 
 @router.post("/anonymous", response_model=AuthResponse)
@@ -239,7 +258,7 @@ async def anonymous_auth(
                 "message": f"Too many requests; retry in {retry_after}s",
                 "details": {"retry_after": retry_after}})
 
-    sub = anonymous_sub(body.install_id)
+    sub = anonymous_sub(body.install_id, app_id)
     row = await (await db.execute(
         "SELECT id, tier, is_active FROM users WHERE apple_sub = ?", (sub,))).fetchone()
     if row is None:
@@ -251,8 +270,12 @@ async def anonymous_auth(
                    VALUES (?, ?, NULL, NULL, 'free', ?, ?)""",
                 (new_id, sub, now, now))
             await db.commit()
-            from app.services import new_user_push
-            new_user_push.schedule(new_id, "anonymous", app_id, request.app.state.settings)
+            # N-400 installs are not pushed (2026-10-05): every install mints
+            # one, so a push per mint is a push per download, or per scripted
+            # mint. They stay countable in users and usage_log.
+            if app_id not in NO_NEW_USER_PUSH_APPS:
+                from app.services import new_user_push
+                new_user_push.schedule(new_id, "anonymous", app_id, request.app.state.settings)
         except sqlite3.IntegrityError:
             # A concurrent first call for the same install won the insert.
             await db.rollback()
@@ -305,12 +328,21 @@ async def refresh_token(
     # Prefer the live header, but inherit the rotated-out session's app_id
     # when the client sends no usable one, so a long-lived session keeps
     # its app attribution instead of decaying to unattributed on refresh.
-    header_app = getattr(request.state, "app_id", None)
-    if not header_app or header_app == "unknown":
-        header_app = row["app_id"]
+    # The token's app claim follows the STORED session wherever a strict app
+    # is involved, so a header cannot move a session into N-400
+    # (app/services/app_claim.py).
+    from app.services.app_claim import known, refresh_scope
+    _header = known(getattr(request.state, "app_id", None))
+    _member = False
+    if _header and not row["app_id"]:
+        _member = await (await db.execute(
+            "SELECT 1 FROM user_apps WHERE user_id = ? AND app_id = ?",
+            (row["user_id"], _header))).fetchone() is not None
+    session_app, claim = refresh_scope(row["app_id"], _header, _member)
 
     return await _build_auth_response(
         db, jwt_service, row["user_id"], row["tier"], row["email"],
-        app_id=header_app, display_name=row["display_name"],
+        app_id=session_app, display_name=row["display_name"],
         is_anonymous=str(row["apple_sub"]).startswith(ANONYMOUS_SUB_PREFIX),
+        claim_app=claim,
     )

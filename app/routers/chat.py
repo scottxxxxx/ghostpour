@@ -1624,6 +1624,20 @@ async def _chat_impl(
             body.metadata = {}
         body.metadata["request_id"] = _rid
 
+    # N-400 place from the request IP (Scott, 2026-10-05: state and city from
+    # the connection AND from the form). Stamped here, overwriting anything
+    # the client sent under these keys, and persisted by log_usage. Country,
+    # region and city only; the raw IP is never stored.
+    if app_id == "n400":
+        from app.routers.telemetry import _client_ip
+        from app.services import geoip
+        if body.metadata is None:
+            body.metadata = {}
+        _geo = geoip.lookup(_client_ip(request)) or {}
+        body.metadata["geo_country"] = _geo.get("country")
+        body.metadata["geo_region"] = _geo.get("region")
+        body.metadata["geo_city"] = _geo.get("city")
+
     # PRE-FLIGHT STOPWATCH. Everything between here and the first SSE byte is
     # silence on the user's phone.
     #
@@ -2123,9 +2137,18 @@ async def _chat_impl(
         _output_locale = _norm_locale(_effective_locale)
 
     # Effective allocation limit (trial, regular, or none for an anonymous
-    # account with no plan): app/services/allowance.py.
+    # account with no plan): app/services/allowance.py. An app that gives
+    # anonymous accounts their own capped allowance (N-400, 2026-10-05) is
+    # the one exception, and only because gate 5.6c below runs instead.
+    from app.routers.config import load_apps as _load_apps_anon
+    from app.services import anonymous_budget
     from app.services.allowance import effective_monthly_limit
-    effective_limit = effective_monthly_limit(user, tier)
+    _anon_caps = (
+        anonymous_budget.caps(request.app.state.remote_configs, _load_apps_anon(), app_id)
+        if user.is_anonymous else None
+    )
+    effective_limit = effective_monthly_limit(
+        user, tier, anonymous_capped=_anon_caps is not None)
 
     # 5.6. Pre-call gates — block before any LLM tokens are spent.
     # These run after feature hooks so they see the assembled prompt
@@ -2370,9 +2393,10 @@ async def _chat_impl(
             if _uncapped:
                 logger.error(
                     "app_budget_refused_uncapped_reachable app=%s bundle_id=%s "
-                    "user=%s — refusing to serve a call with no spend ceiling "
-                    "while this app's bundle id passes the audience check",
-                    _uncapped["app_id"], _uncapped["bundle_id"], user.id,
+                    "reachable_via=%s user=%s: refusing to serve a call with no "
+                    "spend ceiling while this app can be reached",
+                    _uncapped["app_id"], _uncapped["bundle_id"],
+                    _uncapped.get("reachable_via"), user.id,
                 )
                 # Idempotent per (category, subject) while the incident is
                 # open, so boot, the config write and this path raise ONE
@@ -2426,6 +2450,50 @@ async def _chat_impl(
                     "resets_at": app_budget.month_reset_iso(),
                     "cta": app_budget.exhausted_copy(
                         request.app.state.remote_configs, load_apps(), app_id),
+                },
+            })
+
+    # 5.6c. Anonymous allowance (N-400, Scott 2026-10-05): a lifetime cap per
+    # install and a daily ceiling over every anonymous account in the app.
+    # Same lean 200 envelope as the flat stop above, with `code` saying WHICH
+    # limit, because the client words them differently: the install one means
+    # this install has used its allowance, the daily one means try tomorrow.
+    if _anon_caps is not None:
+        _anon_estimate = None
+        if pricing.is_loaded:
+            _anon_estimate = estimate_call_cost_usd(
+                pricing,
+                provider=body.provider,
+                model=body.model,
+                input_tokens=estimated_input_tokens,
+                max_output_tokens=body.max_tokens,
+            )
+        _anon_code, _anon_info = await anonymous_budget.check(
+            db, user.id, app_id, _anon_estimate, _anon_caps)
+        if _anon_code:
+            logger.info(
+                "anonymous_budget_block app=%s user=%s code=%s spent=%.4f cap=%.2f "
+                "daily_spent=%s daily=%s",
+                app_id, user.id, _anon_code, _anon_info["spent"],
+                _anon_info["per_install"], _anon_info["daily_spent"], _anon_info["daily"],
+            )
+            if _anon_code == anonymous_budget.CODE_DAILY:
+                await anonymous_budget.report_daily_cap(
+                    db, app_id, _anon_info, from_addr=get_settings().alert_email_from)
+            return JSONResponse(status_code=200, content={
+                "text": "",
+                "model": body.model,
+                "provider": body.provider,
+                "ai_tier": _tier_to_ai_tier_lazy(user.effective_tier),
+                "feature_state": {
+                    "feature": "chat",
+                    "app": app_id,
+                    "budget_exhausted": True,
+                    "code": _anon_code,
+                    "resets_at": (anonymous_budget.next_day_iso()
+                                  if _anon_code == anonymous_budget.CODE_DAILY else None),
+                    "cta": anonymous_budget.refusal_copy(
+                        request.app.state.remote_configs, load_apps(), app_id, _anon_code),
                 },
             })
 

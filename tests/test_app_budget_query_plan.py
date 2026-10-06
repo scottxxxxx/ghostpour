@@ -40,6 +40,11 @@ def test_the_old_index_alone_was_not_enough(client, tmp_db_path):
     # finds the rows by index and then FETCHES EACH ONE.
     conn = sqlite3.connect(tmp_db_path)
     conn.execute(f"DROP INDEX {INDEX}")
+    # The anonymous daily ceiling's index (2026-10-05) also covers this
+    # statement's columns, so with it present SQLite falls back to IT and the
+    # old shape cannot be reproduced. Dropped too: this test is about the
+    # (user_id, request_timestamp) index alone.
+    conn.execute("DROP INDEX idx_usage_app_date_user_cost")
     conn.commit(); conn.close()
     plan = _plan(tmp_db_path, app_budget.MONTH_SPEND_SQL)
     assert "COVERING" not in plan and "idx_usage_user_date" in plan, plan

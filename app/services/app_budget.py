@@ -151,9 +151,10 @@ def audit_uncapped_reachable_apps(
 
     Returns one entry per violating app. Empty is the healthy state.
     """
+    from app.models.user import ANONYMOUS_APPS
+    from app.services import anonymous_budget
+
     allowed = {b.strip() for b in (apple_bundle_id or "").split(",") if b.strip()}
-    if not allowed:
-        return []
 
     found: list[dict] = []
     # The registry nests apps under an `apps` key; iterating the top level
@@ -163,16 +164,32 @@ def audit_uncapped_reachable_apps(
         if not isinstance(entry, dict):
             continue
         bundle_id = entry.get("bundle_id")
-        if not bundle_id or bundle_id not in allowed:
+        # TWO doors, not one (2026-10-05). The bundle id door: a real Apple
+        # identity passes the audience check. The anonymous door: membership
+        # in ANONYMOUS_APPS lets anyone mint an account with one call and no
+        # Apple identity at all. Until this was added the audit watched only
+        # the first, so opening the second would have served a -1 cap to
+        # strangers while this function reported the healthy state.
+        via_bundle = bool(bundle_id) and bundle_id in allowed
+        via_anonymous = app_id in ANONYMOUS_APPS
+        if not via_bundle and not via_anonymous:
             continue
         cfg = budget_config(apps_registry, app_id)
         if not cfg.get("enabled") or cfg.get("shape") != SHAPE_FLAT:
             continue
         if flat_cap_usd(remote_configs, apps_registry, app_id) is not None:
             continue
+        # With no flat ceiling the anonymous door is still safe when the
+        # app's own anonymous caps run (anonymous_budget). The bundle door has
+        # no such fallback: a signed-in user is not anonymous and is metered
+        # by the flat cap alone.
+        if not via_bundle and anonymous_budget.caps(
+                remote_configs, apps_registry, app_id) is not None:
+            continue
         found.append({
             "app_id": app_id,
             "bundle_id": bundle_id,
+            "reachable_via": "bundle_id" if via_bundle else "anonymous",
             "own_account_meter": bool(cfg.get("own_account_meter")),
         })
     return found
@@ -206,10 +223,10 @@ async def report_uncapped_reachable(
         from app.services.alerting import report_incident
         for v in found:
             logger.error(
-                "UNCAPPED_AND_REACHABLE app=%s bundle_id=%s own_account_meter=%s "
-                "— no spend ceiling and its bundle id passes the audience "
-                "check, so every signup has an unlimited allowance",
-                v["app_id"], v["bundle_id"], v["own_account_meter"],
+                "UNCAPPED_AND_REACHABLE app=%s bundle_id=%s reachable_via=%s "
+                "own_account_meter=%s: no spend ceiling and the app can be "
+                "reached, so every signup has an unlimited allowance",
+                v["app_id"], v["bundle_id"], v.get("reachable_via"), v["own_account_meter"],
             )
             await report_incident(
                 db,

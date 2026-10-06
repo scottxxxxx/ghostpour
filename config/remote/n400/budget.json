@@ -30,6 +30,41 @@
 
   "monthly_cost_limit_usd": -1,
 
+  "_anonymous_comment": [
+    "Anonymous N-400 installs (Scott, 2026-10-05): the interview is free and",
+    "the user pays at print, so an anonymous install gets a real allowance.",
+    "per_install_lifetime_usd is what ONE install may ever spend (lifetime,",
+    "because one install is one application). daily_all_installs_usd bounds",
+    "every anonymous account together per UTC day ($50, the auditor's default,",
+    "Scott may change it). A missing or -1 per_install value means anonymous",
+    "accounts get NOTHING, and the audit refuses the app if it is in",
+    "ANONYMOUS_APPS. See app/services/anonymous_budget.py.",
+    "A full interview measured about $1.10 to $1.60 (2026-10-05, 90 to 130",
+    "turns at $0.0121 per turn)."
+  ],
+  "anonymous": {
+    "per_install_lifetime_usd": 2,
+    "daily_all_installs_usd": 50,
+    "install_allowance_used": {
+      "kind": "install_allowance_used",
+      "text": {
+        "en": "This app has used its free interview allowance. Your answers are saved.",
+        "es": "Esta aplicación ya usó su asignación gratuita de entrevistas. Sus respuestas están guardadas.",
+        "pt": "Este aplicativo já usou sua cota gratuita de entrevistas. Suas respostas estão salvas."
+      },
+      "action": null
+    },
+    "daily_capacity_reached": {
+      "kind": "daily_capacity_reached",
+      "text": {
+        "en": "The interview is very busy today. Your answers are saved. Please try again tomorrow.",
+        "es": "La entrevista está muy ocupada hoy. Sus respuestas están guardadas. Inténtelo de nuevo mañana.",
+        "pt": "A entrevista está muito ocupada hoje. Suas respostas estão salvas. Tente novamente amanhã."
+      },
+      "action": null
+    }
+  },
+
   "exhausted": {
     "kind": "budget_exhausted",
     "text": {
