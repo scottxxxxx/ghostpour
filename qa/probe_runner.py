@@ -60,6 +60,8 @@ def add_args(ap: argparse.ArgumentParser) -> None:
     ap.add_argument("--max-spend", type=float, default=DEFAULT_CAP,
                     help="refuse when the estimate is over this; raise it only for a run Scott approved")
     ap.add_argument("--resume", default="", help="fetch the results of an earlier batch id instead of sending")
+    ap.add_argument("--stream", action="store_true",
+                    help="sync, streamed: also records time to the first text token (implies --sync)")
 
 
 def usd(x: float) -> str:
@@ -149,13 +151,45 @@ def _ledger(script: str, n: int, mode: str, est: float, act: float, batch_id: st
     return _today_total()
 
 
-def _run_sync(requests, key):
+def _stream_one(p: dict, key: str) -> tuple[dict, float | None]:
+    """One streamed call. Returns a message shaped like the non-streamed one
+    (text content + merged usage) and seconds to the first text token, which
+    is what a user watching a streamed answer waits for."""
+    req = urllib.request.Request(f"{API}/messages", data=json.dumps({**p, "stream": True}).encode(),
+                                 headers=_headers(key), method="POST")
+    t0, ttft, text, usage, msg = time.monotonic(), None, [], {}, {}
+    with urllib.request.urlopen(req, timeout=240) as r:
+        for raw in r:
+            line = raw.decode().strip()
+            if not line.startswith("data:"):
+                continue
+            ev = json.loads(line[5:])
+            if ev["type"] == "message_start":
+                msg = ev["message"]
+                usage.update(msg.get("usage") or {})
+            elif ev["type"] == "content_block_delta" and ev["delta"].get("type") == "text_delta":
+                if ttft is None:
+                    ttft = time.monotonic() - t0
+                text.append(ev["delta"]["text"])
+            elif ev["type"] == "message_delta":
+                usage.update(ev.get("usage") or {})
+    msg["content"] = [{"type": "text", "text": "".join(text)}]
+    msg["usage"] = usage
+    return msg, ttft
+
+
+def _run_sync(requests, key, stream=False):
     out = {}
     for i, (cid, p) in enumerate(requests, 1):
         t0 = time.monotonic()
         try:
-            msg = json.loads(_http("POST", f"{API}/messages", key, p))
-            out[cid] = {"message": msg, "secs": round(time.monotonic() - t0, 1)}
+            if stream:
+                msg, ttft = _stream_one(p, key)
+                out[cid] = {"message": msg, "secs": round(time.monotonic() - t0, 2),
+                            "ttft": round(ttft, 2) if ttft is not None else None}
+            else:
+                msg = json.loads(_http("POST", f"{API}/messages", key, p))
+                out[cid] = {"message": msg, "secs": round(time.monotonic() - t0, 1)}
         except Exception as exc:  # recorded, never silently skipped
             out[cid] = {"error": repr(exc)}
         print(f"  {i}/{len(requests)} {cid}", flush=True)
@@ -194,7 +228,7 @@ def _collect_batch(batch_id: str, key: str, poll: int = 30) -> dict:
 def run(requests: list[tuple[str, dict]], args: argparse.Namespace, key: str, script: str) -> dict | None:
     """Estimate, gate, send, and account. Returns {custom_id: {"message"|"error", ...}},
     or None for a dry run or a refusal. custom_id must match [A-Za-z0-9_-]{1,64}."""
-    batch = not args.sync
+    batch = not (args.sync or getattr(args, "stream", False))
     if args.resume:
         results = _collect_batch(args.resume, key)
         batch, batch_id = True, args.resume
@@ -217,7 +251,7 @@ def run(requests: list[tuple[str, dict]], args: argparse.Namespace, key: str, sc
             results = _collect_batch(batch_id, key)
         else:
             batch_id = None
-            results = _run_sync(requests, key)
+            results = _run_sync(requests, key, stream=getattr(args, "stream", False))
     models = dict(requests)
     act = sum(actual(models[cid]["model"], r["message"].get("usage", {}), batch)
               for cid, r in results.items() if "message" in r and cid in models)
