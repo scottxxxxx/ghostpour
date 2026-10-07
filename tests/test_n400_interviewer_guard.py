@@ -1101,3 +1101,109 @@ def test_the_orchestrator_resolves_a_capture_gap_and_counts_an_unknown_origin(ca
     assert "turn_id=t-12" in warned[0] and "p4.prior_address1.zip='captured'" in warned[0]
     dropped_log = [r.getMessage() for r in caplog.records if "n400_deferral_dropped_captured" in r.getMessage()]
     assert dropped_log and "field_id=p4.prior_address1.city" in dropped_log[0]
+
+
+# --- build 130, case 09a8d9e9 t_042: a month nobody spoke -------------------
+
+def test_a_bare_year_never_defers_with_an_invented_month():
+    """She answered "2019?" and the fact was 2019-01-01. The day guard moved
+    it to a deferral, but the partial kept 2019-01: January was invented too.
+    The partial holds only what she said."""
+    from app.services.n400_interviewer_guard import defer_dates_with_unspoken_day
+
+    out, moved = defer_dates_with_unspoken_day(
+        _resp(facts=[{"field_id": "p2.lpr_date", "value": "2019-01-01"}]), "2019?")
+    turn = json.loads(out)
+    assert turn["facts"] == []
+    assert turn["deferred"][0]["partial_value"] == "2019"
+    assert moved[0]["partial_value"] == "2019"
+
+
+def test_a_month_she_named_or_one_on_file_still_rides_in_the_partial():
+    """The counterweight: a spoken month, and a month KNOWN FACTS already
+    holds for the field, are hers and stay."""
+    from app.services.n400_interviewer_guard import defer_dates_with_unspoken_day
+
+    out, _ = defer_dates_with_unspoken_day(
+        _resp(facts=[{"field_id": "p2.lpr_date", "value": "2019-03-01"}]), "March 2019")
+    assert json.loads(out)["deferred"][0]["partial_value"] == "2019-03"
+
+    known = "p2.lpr_date: deferred, to verify (partial 2019-03)"
+    out, _ = defer_dates_with_unspoken_day(
+        _resp(facts=[{"field_id": "p2.lpr_date", "value": "2019-03-01"}]), "it was 2019", known)
+    assert json.loads(out)["deferred"][0]["partial_value"] == "2019-03"
+
+
+def test_a_year_she_never_said_is_not_a_partial_either():
+    from app.services.n400_interviewer_guard import defer_dates_with_unspoken_day
+
+    out, _ = defer_dates_with_unspoken_day(
+        _resp(facts=[{"field_id": "p2.lpr_date", "value": "2019-01-01"}]), "I don't remember")
+    assert json.loads(out)["deferred"][0]["partial_value"] is None
+
+
+def test_the_real_t042_shape_through_the_whole_guard_chain():
+    """The evidence floor passes the fact, because "2019" IS in what she
+    said; the day guard is what catches it, and it must not keep January."""
+    from app.services.n400_interviewer_guard import guard_response_text
+
+    out = guard_response_text(
+        _resp(facts=[{"field_id": "p2.lpr_date", "value": "2019-01-01",
+                      "provenance": {"utterance": "2019"}}]),
+        None, "t_042", "2019?")
+    turn = json.loads(out)
+    assert turn["facts"] == []
+    assert turn["deferred"][0]["partial_value"] == "2019"
+
+
+# --- build 130, case 09a8d9e9 16:29:39Z: a stray deferral of a filed value ---
+
+_B130_KNOWN = (
+    "p8.trip2.date_left: 2022-03-03\n"
+    "p8.trip2.date_returned: 2022-03-05\n"
+    "p4.prior_address1.from: deferred, to verify from a document, partial 2016-08\n"
+)
+_B130_AGENDA = "p4_prior1_dates | Part 4: addresses | p4.prior_address1.from,p4.prior_address1.to | When did you live there?"
+
+
+def test_a_deferral_of_a_filed_trip_date_on_an_address_answer_is_dropped():
+    """The real shape: the trip date was filed at 16:22, and an answer about
+    the Elm Street days came back deferring it. The client read that as her
+    withdrawing the date and deleted it."""
+    from app.services.n400_interviewer_guard import drop_deferrals_of_filed_values
+
+    text = _resp(deferred=[
+        {"field_id": "p8.trip2.date_left", "partial_value": None,
+         "reason": "already have exact dates on file"},
+        {"field_id": "p4.prior_address1.from", "partial_value": "2016-08", "reason": "day"},
+    ])
+    out, dropped = drop_deferrals_of_filed_values(text, _B130_KNOWN, _B130_AGENDA, "It was the 15th of both")
+    turn = json.loads(out)
+    assert [d["field_id"] for d in turn["deferred"]] == ["p4.prior_address1.from"]
+    assert [d["field_id"] for d in dropped] == ["p8.trip2.date_left"]
+
+
+def test_a_deferral_she_did_touch_survives():
+    """The counterweight: the field belongs to the node she is answering, or
+    her words name the filed value. Either one is hers to withdraw."""
+    from app.services.n400_interviewer_guard import drop_deferrals_of_filed_values
+
+    entry = {"field_id": "p8.trip2.date_left", "partial_value": None, "reason": "unsure"}
+    standing = "p8_trip2 | Part 8: trips | p8.trip2.date_left,p8.trip2.date_returned | When did you leave?"
+    out, dropped = drop_deferrals_of_filed_values(_resp(deferred=[entry]), _B130_KNOWN, standing, "I'm not sure")
+    assert dropped == [] and json.loads(out)["deferred"] == [entry]
+
+    out, dropped = drop_deferrals_of_filed_values(
+        _resp(deferred=[entry]), _B130_KNOWN, _B130_AGENDA, "wait, 2022-03-03 might be wrong")
+    assert dropped == []
+
+
+def test_the_stray_deferral_is_dropped_through_the_whole_guard_chain():
+    from app.services.n400_interviewer_guard import guard_response_text
+
+    out = guard_response_text(
+        _resp(deferred=[{"field_id": "p8.trip2.date_left", "partial_value": None,
+                         "reason": "already have exact dates on file"}]),
+        _B130_AGENDA, "t-b130", "It was the 15th of both", known_facts=_B130_KNOWN)
+    turn = json.loads(out)
+    assert all(d.get("field_id") != "p8.trip2.date_left" for d in turn["deferred"])
