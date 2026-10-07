@@ -1,6 +1,8 @@
+import asyncio
 import json
 import logging
 import re
+import sqlite3
 import uuid
 from datetime import datetime, timezone
 
@@ -13,6 +15,38 @@ from app.models.user import UserRecord
 from app.services.allocation_reset import lazy_reset_if_due
 
 logger = logging.getLogger("ghostpour.usage_tracker")
+
+
+# Bookkeeping writes after a model call (2026-10-07). The model has already
+# answered and been billed when these run, so a locked database must never
+# turn a good answer into a 500. That happened at 03:13:48Z: the hourly
+# retention sweep held the write lock past SQLite's 5s busy timeout and
+# Scott's N-400 turn was lost after Anthropic returned 200. Retry briefly;
+# if the lock outlasts that, log the unrecorded cost loudly and let the turn
+# through. An unrecorded row is spend a cap cannot see, so the log line
+# carries the dollars to make the gap countable.
+_LOCK_RETRY_DELAYS = (0.5, 1.0, 2.0)
+
+
+async def _write_with_lock_retry(db: aiosqlite.Connection, sql: str, params: tuple,
+                                 *, what: str, user_id: str, cost: float | None) -> bool:
+    """Execute and commit one bookkeeping write. True when it landed."""
+    for attempt, delay in enumerate((0.0, *_LOCK_RETRY_DELAYS)):
+        if delay:
+            await asyncio.sleep(delay)
+        try:
+            await db.execute(sql, params)
+            await db.commit()
+            return True
+        except sqlite3.OperationalError as e:
+            if "locked" not in str(e) and "busy" not in str(e):
+                raise
+            logger.warning("usage_bookkeeping_locked what=%s user=%s attempt=%d",
+                           what, user_id, attempt + 1)
+    logger.error("usage_bookkeeping_failed what=%s user=%s cost_usd=%s: the database "
+                 "stayed locked; the turn was served and this spend is NOT recorded",
+                 what, user_id, cost)
+    return False
 
 
 _N400_PLACE_APPS = frozenset({"n400"})
@@ -265,11 +299,9 @@ class UsageTracker:
             )
             return
 
-        await db.execute(
-            "UPDATE users SET monthly_used_usd = monthly_used_usd + ? WHERE id = ?",
-            (cost, user_id),
-        )
-        await db.commit()
+        await _write_with_lock_retry(
+            db, "UPDATE users SET monthly_used_usd = monthly_used_usd + ? WHERE id = ?",
+            (cost, user_id), what="record_cost", user_id=user_id, cost=cost)
 
     async def log_usage(
         self,
@@ -381,7 +413,8 @@ class UsageTracker:
             if cached_tokens is not None:
                 cached_tokens = int(cached_tokens)
 
-        await db.execute(
+        if not await _write_with_lock_retry(
+            db,
             """INSERT INTO usage_log
                (id, user_id, provider, model, input_tokens, output_tokens,
                 estimated_cost_usd, request_timestamp, response_time_ms,
@@ -416,8 +449,9 @@ class UsageTracker:
                 int(ttft_ms) if ttft_ms is not None else None,
                 *n400_place_columns(request, app_id),
             ),
-        )
-        await db.commit()
+            what="log_usage", user_id=user_id, cost=estimated_cost,
+        ):
+            return
 
         # Whale alert: every cost path funnels through this insert, so
         # this is the one chokepoint. Best-effort by contract, and AFTER
