@@ -535,6 +535,19 @@ VERSIONS = {
             "and were never asked aloud, so the review is the only place she hears them",
         ],
     },
+    50: {
+        # Scott's comparison run 3 (2026-10-07): a prior address filed from
+        # 2019-03-03 to 2019-03-02. The guard refuses it in code
+        # (n400_interviewer_guard.date_inversions); this line asks first.
+        "block_anchor": "HOW TO TALK\nTalk like a person doing intake",
+        "once": "A ROW NEVER ENDS BEFORE IT STARTS",
+        "phrases": [
+            "would make an address or a job end before it starts, against the other date in KNOWN FACTS or in this same answer, do not file it",
+            "Tell her plainly which two dates conflict",
+            "and ask which one is right",
+        ],
+        "absent": [],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -573,6 +586,9 @@ VERSIONS[48]["absent"] = VERSIONS[47]["absent"] + VERSIONS[48]["absent"]
 # v49 carries every v48 phrase.
 VERSIONS[49]["phrases"] = VERSIONS[48]["phrases"] + VERSIONS[49]["phrases"]
 VERSIONS[49]["absent"] = VERSIONS[48]["absent"] + VERSIONS[49]["absent"]
+# v50 carries every v49 phrase, and v49's once line as a phrase (v50 checks a new once).
+VERSIONS[50]["phrases"] = VERSIONS[49]["phrases"] + [VERSIONS[49]["once"]] + VERSIONS[50]["phrases"]
+VERSIONS[50]["absent"] = VERSIONS[49]["absent"] + VERSIONS[50]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]
