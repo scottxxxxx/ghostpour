@@ -531,6 +531,18 @@ def test_the_row_order_rule_is_in_v50_exactly_once():
     assert verify(sp.replace("A ROW NEVER ENDS BEFORE IT STARTS", ""), 50) is False
 
 
+def test_the_spelling_rule_is_served_in_v50():
+    """Run 3, 2026-10-07 02:59:38Z: "I'm married to Wenceslao YARBOROUGH
+    D-A-V-I-D" filed spouse_middle_name = David. Spelled letters are the
+    spelling of the name just said, and a mismatch is asked, never filed."""
+    sp = _bundle_prompt(50)
+    for phrase in ("LETTERS SPELLED AFTER A NAME ARE ITS SPELLING",
+                   "those letters spell the name she just said, never another name and never a middle name",
+                   "When they spell something else, file neither; say both and ask which one is right."):
+        assert sp.count(phrase) == 1, phrase
+        assert verify(sp.replace(phrase, ""), 50) is False, phrase
+
+
 def test_every_v48_phrase_rides_into_v49():
     for phrase in VERSIONS[48]["phrases"]:
         assert phrase in VERSIONS[49]["phrases"], phrase

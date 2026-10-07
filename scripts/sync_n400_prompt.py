@@ -545,6 +545,12 @@ VERSIONS = {
             "would make an address or a job end before it starts, against the other date in KNOWN FACTS or in this same answer, do not file it",
             "Tell her plainly which two dates conflict",
             "and ask which one is right",
+            # Run 3, 02:59:38Z: "I'm married to Wenceslao YARBOROUGH D-A-V-I-D"
+            # filed spouse_middle_name = David. Masked names and unmasked
+            # spellings disagree, so the mismatch case is the one that matters.
+            "LETTERS SPELLED AFTER A NAME ARE ITS SPELLING",
+            "those letters spell the name she just said, never another name and never a middle name",
+            "When they spell something else, file neither; say both and ask which one is right.",
         ],
         "absent": [],
     },
