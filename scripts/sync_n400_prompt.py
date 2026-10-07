@@ -570,6 +570,24 @@ VERSIONS = {
         ],
         "absent": [],
     },
+    52: {
+        # Scott's run on build 130 (case 09a8d9e9, 2026-10-07 16:05 to 16:33Z),
+        # four defects from the phone's turnlog via the auditor.
+        "block_anchor": "HOW TO TALK\nTalk like a person doing intake",
+        "once": "A YEAR IS ONLY A YEAR",
+        "phrases": [
+            "Never say or file a month or a day she did not speak",
+            "defer the field with the year alone as `partial_value`",
+            "A FILED VALUE STAYS FILED",
+            "is never cleared, emptied, deferred again or asked again unless WHAT THE APPLICANT JUST SAID corrects it",
+            "A response carries a fact or a deferral only for a field her current words touch",
+            "A UNIT AND A ZIP ARE TWO NUMBERS",
+            "never join numbers she said apart",
+            "A START ON FILE COUNTS WHETHER IT IS FILED OR A DEFERRED PARTIAL",
+            "A gate KNOWN FACTS already holds is answered and is never asked, whatever its value.",
+        ],
+        "absent": [],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -614,6 +632,9 @@ VERSIONS[50]["absent"] = VERSIONS[49]["absent"] + VERSIONS[50]["absent"]
 # v51 carries every v50 phrase, and v50's once line as a phrase (v51 checks a new once).
 VERSIONS[51]["phrases"] = VERSIONS[50]["phrases"] + [VERSIONS[50]["once"]] + VERSIONS[51]["phrases"]
 VERSIONS[51]["absent"] = VERSIONS[50]["absent"] + VERSIONS[51]["absent"]
+# v52 carries every v51 phrase, and v51's once line as a phrase (v52 checks a new once).
+VERSIONS[52]["phrases"] = VERSIONS[51]["phrases"] + [VERSIONS[51]["once"]] + VERSIONS[52]["phrases"]
+VERSIONS[52]["absent"] = VERSIONS[51]["absent"] + VERSIONS[52]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]

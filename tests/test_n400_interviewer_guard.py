@@ -1101,3 +1101,56 @@ def test_the_orchestrator_resolves_a_capture_gap_and_counts_an_unknown_origin(ca
     assert "turn_id=t-12" in warned[0] and "p4.prior_address1.zip='captured'" in warned[0]
     dropped_log = [r.getMessage() for r in caplog.records if "n400_deferral_dropped_captured" in r.getMessage()]
     assert dropped_log and "field_id=p4.prior_address1.city" in dropped_log[0]
+
+
+# --- build 130, case 09a8d9e9 t_042: a month nobody spoke -------------------
+
+def test_a_bare_year_never_defers_with_an_invented_month():
+    """She answered "2019?" and the fact was 2019-01-01. The day guard moved
+    it to a deferral, but the partial kept 2019-01: January was invented too.
+    The partial holds only what she said."""
+    from app.services.n400_interviewer_guard import defer_dates_with_unspoken_day
+
+    out, moved = defer_dates_with_unspoken_day(
+        _resp(facts=[{"field_id": "p2.lpr_date", "value": "2019-01-01"}]), "2019?")
+    turn = json.loads(out)
+    assert turn["facts"] == []
+    assert turn["deferred"][0]["partial_value"] == "2019"
+    assert moved[0]["partial_value"] == "2019"
+
+
+def test_a_month_she_named_or_one_on_file_still_rides_in_the_partial():
+    """The counterweight: a spoken month, and a month KNOWN FACTS already
+    holds for the field, are hers and stay."""
+    from app.services.n400_interviewer_guard import defer_dates_with_unspoken_day
+
+    out, _ = defer_dates_with_unspoken_day(
+        _resp(facts=[{"field_id": "p2.lpr_date", "value": "2019-03-01"}]), "March 2019")
+    assert json.loads(out)["deferred"][0]["partial_value"] == "2019-03"
+
+    known = "p2.lpr_date: deferred, to verify (partial 2019-03)"
+    out, _ = defer_dates_with_unspoken_day(
+        _resp(facts=[{"field_id": "p2.lpr_date", "value": "2019-03-01"}]), "it was 2019", known)
+    assert json.loads(out)["deferred"][0]["partial_value"] == "2019-03"
+
+
+def test_a_year_she_never_said_is_not_a_partial_either():
+    from app.services.n400_interviewer_guard import defer_dates_with_unspoken_day
+
+    out, _ = defer_dates_with_unspoken_day(
+        _resp(facts=[{"field_id": "p2.lpr_date", "value": "2019-01-01"}]), "I don't remember")
+    assert json.loads(out)["deferred"][0]["partial_value"] is None
+
+
+def test_the_real_t042_shape_through_the_whole_guard_chain():
+    """The evidence floor passes the fact, because "2019" IS in what she
+    said; the day guard is what catches it, and it must not keep January."""
+    from app.services.n400_interviewer_guard import guard_response_text
+
+    out = guard_response_text(
+        _resp(facts=[{"field_id": "p2.lpr_date", "value": "2019-01-01",
+                      "provenance": {"utterance": "2019"}}]),
+        None, "t_042", "2019?")
+    turn = json.loads(out)
+    assert turn["facts"] == []
+    assert turn["deferred"][0]["partial_value"] == "2019"

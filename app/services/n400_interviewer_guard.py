@@ -950,7 +950,7 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
             "n400_minted_on_non_answer turn_id=%s intent=%s minted=%s",
             turn_id, not_answer["intent"], ",".join(not_answer["minted"]))
     if user_content is not None:
-        new_text, days = defer_dates_with_unspoken_day(new_text, user_content)
+        new_text, days = defer_dates_with_unspoken_day(new_text, user_content, known_facts)
         for d in days:
             logger.warning(
                 "n400_date_day_unspoken turn_id=%s field_id=%s claimed=%s deferred_as=%s",
@@ -1111,13 +1111,43 @@ def _day_was_spoken(day: int, said: str) -> bool:
     return any(v == day and k in phrase for k, v in _DAY_PHRASES.items())
 
 
-def defer_dates_with_unspoken_day(text: str, user_content: str | None) -> tuple[str, list[dict]]:
+def _known_line(known_facts: str | None, field_id) -> str:
+    """The KNOWN FACTS line for one field, or "" when it is not there."""
+    if not known_facts or not isinstance(field_id, str):
+        return ""
+    for line in known_facts.splitlines():
+        if line.strip().startswith(field_id + ":"):
+            return line
+    return ""
+
+
+def _spoken_partial(year: str, month: int, said: str, known_line: str) -> str | None:
+    """The part of a date she actually gave: YYYY-MM, YYYY, or nothing."""
+    words = _fold(said)
+    year_ok = bool(re.search(rf"\b{year}\b", words)) or year in known_line
+    if not year_ok:
+        return None
+    named = any(re.search(rf"\b{n}\b", words) for n in _MONTHS.get(month, ()))
+    if named or f"{year}-{month:02d}" in known_line:
+        return f"{year}-{month:02d}"
+    return year
+
+
+def defer_dates_with_unspoken_day(text: str, user_content: str | None,
+                                  known_facts: str | None = None) -> tuple[str, list[dict]]:
     """Turn a day-precision date the applicant never spoke into a deferral.
 
     Only touches facts whose value is exactly YYYY-MM-DD. A fact whose day
     appears in the current utterance is left alone, in any of the forms a
     person actually says it. Everything else in the response passes through
     untouched, and a field that is already deferred is not deferred twice.
+
+    The partial keeps only what she gave. Scott's build 130 run (case
+    09a8d9e9, t_042): she answered "2019?" and the fact was 2019-01-01, so
+    the old partial 2019-01 kept a January nobody said. A month survives
+    only when her words name it or KNOWN FACTS already holds it for that
+    field; otherwise the partial is the year, and the year only on the same
+    terms.
     """
     try:
         turn = json.loads(text)
@@ -1136,12 +1166,12 @@ def defer_dates_with_unspoken_day(text: str, user_content: str | None) -> tuple[
             kept.append(f)
             continue
         fid = f.get("field_id")
+        partial = _spoken_partial(m.group(1), int(m.group(2)), said, _known_line(known_facts, fid))
         moved.append({"field_id": fid, "value": f.get("value"),
-                      "partial_value": f"{m.group(1)}-{m.group(2)}",
-                      "reason": INVENTED_DAY_REASON})
+                      "partial_value": partial, "reason": INVENTED_DAY_REASON})
         if fid not in already:
             turn.setdefault("deferred", []).append(
-                {"field_id": fid, "partial_value": f"{m.group(1)}-{m.group(2)}",
+                {"field_id": fid, "partial_value": partial,
                  "reason": INVENTED_DAY_REASON})
     if not moved:
         return text, []

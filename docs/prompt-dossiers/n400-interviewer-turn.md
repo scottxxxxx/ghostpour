@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 51
+served_version: 52
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-10-07 (v51)
+reconciled: 2026-10-07 (v52)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1884,3 +1884,16 @@ The auditor, 2026-10-07, from Scott's live run on build 128 (case 88761ff1). Two
 PROMPT: A FOLLOW-UP KEEPS THE PART OPEN (the follow-up is the only question, `asking` names its node, no summary and no next part until it is answered or she does not know); the BEFORE YOU WRITE check names a follow-up plus the next part's question as two. A PIECE ALREADY ON FILE IS NEVER ASKED (an address question asks only the missing pieces and may read back what is on file).
 
 Not probed (no paid calls). Verified structurally: the phrase read-back on the real bundle, each new phrase load-bearing, sabotage of the on-file phrase turned exactly the three predicted tests red.
+
+## v52: a year is only a year, a filed value stays filed, a unit and a ZIP are two numbers, a start on file counts
+
+The auditor, 2026-10-07, from Scott's run on build 130 against v51 (case 09a8d9e9, 16:05 to 16:33Z), sourced from the phone's turnlog. v51's on-file city rule worked on its first live turn (turn 19: "in Austin, Texas, what's your street address, any apartment, and the ZIP?"), and nothing in the run contradicted the follow-up rule.
+
+1. t_042: asked for the exact LPR date she answered "2019?" and the lane said "January 1st, 2019, noted". GP's journald shows `n400_date_day_unspoken turn_id=t_042 field_id=p2.lpr_date`, so the day guard DID fire, and the evidence floor had passed the fact because "2019" is in what she said (span in utterance is not span supports value, the known gap). The guard's partial kept the invented month (2019-01). CODE: `defer_dates_with_unspoken_day` now keeps a month only when her words name it or KNOWN FACTS holds it for that field, otherwise the year, otherwise null. The spoken reply is not rewritten by any guard; the prompt line carries that half.
+2. 16:29:39Z: p8.trip2.date_left (2022-03-03, said at 16:22) was cleared on an answer about address days. GP's journald shows no guard event for that turn, and no GP guard writes a null value (they drop facts or, once, append the probation fact), so the clearing arrived from the model or arose on the client; whether as a null fact or a deferral was not read by GP.
+3. "4100, Sam Bass Road, apartment 12, 78664." read back as "apartment 1278664", then the ZIP asked again.
+4. Turn 35 asked "before UT Dallas, anything else in the last 5 years?" with UT Dallas from 2015-08 (a partial) on file. The client now derives later gates in a covered chain to "no" in known_facts; `replace_settled_question` already replaces a question for a settled node in code once that lands.
+
+PROMPT: A YEAR IS ONLY A YEAR; A FILED VALUE STAYS FILED; A UNIT AND A ZIP ARE TWO NUMBERS; A START ON FILE COUNTS WHETHER IT IS FILED OR A DEFERRED PARTIAL, plus "a gate KNOWN FACTS already holds is never asked".
+
+Not probed (no paid calls). Verified structurally: phrase read-back on the real bundle, each rule load-bearing, sabotage below.
