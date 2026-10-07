@@ -29,9 +29,14 @@ RUN3_KNOWN = (
 
 
 def _turn(*facts, reply="March 3rd, 2019, noted."):
+    # Every fact carries the words it came from, as the lane's facts do. Without
+    # a provenance utterance the evidence guard drops the fact on its own, and a
+    # test of THIS guard would pass on that guard's work (found by sabotage).
     return json.dumps({
         "schema_version": 1, "turn_id": "t_039", "intent": {"type": "answer"},
-        "facts": [{"field_id": f, "value": v, "value_type": "string"} for f, v in facts],
+        "facts": [{"field_id": f, "value": v, "value_type": "string",
+                   "provenance": {"source": "ai_extracted", "confidence": 0.9,
+                                  "utterance": "March 3rd, 2019"}} for f, v in facts],
         "deferred": [], "clarification": None, "conflict": None, "escalation": None,
         "complete": False, "asking": None, "section_checkpoint": None,
         "interview_over": False, "reply": {"en": reply},
