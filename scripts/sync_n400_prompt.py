@@ -554,6 +554,22 @@ VERSIONS = {
         ],
         "absent": [],
     },
+    51: {
+        # Scott's live run on build 128 (case 88761ff1, 2026-10-07 ~15:32Z):
+        # a pending green card day follow-up AND the next part's question in
+        # one reply, so the card and the voice disagreed. And ~15:38Z: Part 4
+        # asked for the city onboarding already had.
+        "block_anchor": "HOW TO TALK\nTalk like a person doing intake",
+        "once": "A FOLLOW-UP KEEPS THE PART OPEN",
+        "phrases": [
+            "that follow-up is the ONLY question in this reply, with `asking` naming the node it belongs to",
+            "no part summary and no next part's question, even when SECTION BOUNDARY is present",
+            "(a pending follow-up and the next part's first question are two)",
+            "A PIECE ALREADY ON FILE IS NEVER ASKED",
+            "the address question asks only for the pieces still missing and may read back what is on file",
+        ],
+        "absent": [],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -595,6 +611,9 @@ VERSIONS[49]["absent"] = VERSIONS[48]["absent"] + VERSIONS[49]["absent"]
 # v50 carries every v49 phrase, and v49's once line as a phrase (v50 checks a new once).
 VERSIONS[50]["phrases"] = VERSIONS[49]["phrases"] + [VERSIONS[49]["once"]] + VERSIONS[50]["phrases"]
 VERSIONS[50]["absent"] = VERSIONS[49]["absent"] + VERSIONS[50]["absent"]
+# v51 carries every v50 phrase, and v50's once line as a phrase (v51 checks a new once).
+VERSIONS[51]["phrases"] = VERSIONS[50]["phrases"] + [VERSIONS[50]["once"]] + VERSIONS[51]["phrases"]
+VERSIONS[51]["absent"] = VERSIONS[50]["absent"] + VERSIONS[51]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]
