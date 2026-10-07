@@ -926,6 +926,12 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
     if replaced is not None:
         logger.warning("n400_settled_question_replaced turn_id=%s replaced=%s with=%s",
                        turn_id, replaced["replaced_node"], replaced["node_id"])
+    # Ahead of the origin marker and the fact/deferral drop, so a stray
+    # deferral of a filed value never reaches either.
+    new_text, stray = drop_deferrals_of_filed_values(new_text, known_facts, agenda, user_content)
+    for d in stray:
+        logger.warning("n400_filed_value_deferral_dropped turn_id=%s field_id=%s",
+                       turn_id, d["field_id"])
     # Marks and does not drop, and an unknown entry reads as applicant, which
     # the drop below never removes, so ordering is free; it sits ahead of the
     # drop so the marker describes the wire as it arrived.
@@ -2283,3 +2289,70 @@ def mark_date_inversion(text: str, inversions: list[dict], retried: bool,
         "inversions": inversions, "retried": retried, "resolved": resolved,
     }
     return json.dumps(turn, ensure_ascii=False)
+
+
+# --- a deferral never withdraws a value her words did not touch ------------
+#
+# Scott's build 130 run (case 09a8d9e9, 16:29:39Z): on an answer about the
+# Elm Street days ("It was the 15th of both") the lane deferred
+# p8.trip2.date_left, partial null, reason "already have exact dates on
+# file". The trip date had been filed at 16:22 from her own words. The
+# client reads a late deferral of a filed field as her withdrawing it (the
+# September "Retirada" rule), so the date was deleted, and later she was
+# told she had never given it. The client now ignores such a deferral unless
+# it is for the node she is answering or her words name the value; this is
+# the same test on GP's side, so neither end depends on the other.
+
+FILED_DEFERRAL_REASON = (
+    "deferred a field KNOWN FACTS holds filed, on an answer that does not touch it"
+)
+
+
+def _filed_values(known_facts: str | None) -> dict[str, str]:
+    """field id -> value, for fields KNOWN FACTS holds as filed: not
+    deferred, not a mention, not blank."""
+    out: dict[str, str] = {}
+    for line in (known_facts or "").splitlines():
+        m = _FIELD_LINE.match(line)
+        if not m:
+            continue
+        value = m.group(3).strip()
+        if not value or value.lower().startswith("deferred") or MENTION_TAG in value:
+            continue
+        out[m.group(1)] = value
+    return out
+
+
+def drop_deferrals_of_filed_values(text: str, known_facts: str | None, agenda: str | None,
+                                   user_content: str | None) -> tuple[str, list[dict]]:
+    """Drop every deferral for a filed field unless the field belongs to the
+    standing node (what she is answering) or her words name its value."""
+    filed = _filed_values(known_facts)
+    if not filed:
+        return text, []
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, []
+    if not isinstance(turn, dict) or not isinstance(turn.get("deferred"), list):
+        return text, []
+    lines = _agenda_lines(agenda)
+    standing = lines[0][1] if lines else set()
+    said = _norm(user_content or "")
+    kept, dropped = [], []
+    for d in turn["deferred"]:
+        fid = d.get("field_id") if isinstance(d, dict) else None
+        if fid not in filed or fid in standing:
+            kept.append(d)
+            continue
+        value = _norm(filed[fid])
+        if value and (value in said or _date_said(value, said)):
+            kept.append(d)
+            continue
+        dropped.append({"field_id": fid, "filed_value": filed[fid],
+                        "reason": FILED_DEFERRAL_REASON})
+    if not dropped:
+        return text, []
+    turn["deferred"] = kept
+    turn["deferrals_dropped"] = (turn.get("deferrals_dropped") or []) + dropped
+    return json.dumps(turn, ensure_ascii=False), dropped

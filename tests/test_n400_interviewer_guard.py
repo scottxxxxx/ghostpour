@@ -1154,3 +1154,56 @@ def test_the_real_t042_shape_through_the_whole_guard_chain():
     turn = json.loads(out)
     assert turn["facts"] == []
     assert turn["deferred"][0]["partial_value"] == "2019"
+
+
+# --- build 130, case 09a8d9e9 16:29:39Z: a stray deferral of a filed value ---
+
+_B130_KNOWN = (
+    "p8.trip2.date_left: 2022-03-03\n"
+    "p8.trip2.date_returned: 2022-03-05\n"
+    "p4.prior_address1.from: deferred, to verify from a document, partial 2016-08\n"
+)
+_B130_AGENDA = "p4_prior1_dates | Part 4: addresses | p4.prior_address1.from,p4.prior_address1.to | When did you live there?"
+
+
+def test_a_deferral_of_a_filed_trip_date_on_an_address_answer_is_dropped():
+    """The real shape: the trip date was filed at 16:22, and an answer about
+    the Elm Street days came back deferring it. The client read that as her
+    withdrawing the date and deleted it."""
+    from app.services.n400_interviewer_guard import drop_deferrals_of_filed_values
+
+    text = _resp(deferred=[
+        {"field_id": "p8.trip2.date_left", "partial_value": None,
+         "reason": "already have exact dates on file"},
+        {"field_id": "p4.prior_address1.from", "partial_value": "2016-08", "reason": "day"},
+    ])
+    out, dropped = drop_deferrals_of_filed_values(text, _B130_KNOWN, _B130_AGENDA, "It was the 15th of both")
+    turn = json.loads(out)
+    assert [d["field_id"] for d in turn["deferred"]] == ["p4.prior_address1.from"]
+    assert [d["field_id"] for d in dropped] == ["p8.trip2.date_left"]
+
+
+def test_a_deferral_she_did_touch_survives():
+    """The counterweight: the field belongs to the node she is answering, or
+    her words name the filed value. Either one is hers to withdraw."""
+    from app.services.n400_interviewer_guard import drop_deferrals_of_filed_values
+
+    entry = {"field_id": "p8.trip2.date_left", "partial_value": None, "reason": "unsure"}
+    standing = "p8_trip2 | Part 8: trips | p8.trip2.date_left,p8.trip2.date_returned | When did you leave?"
+    out, dropped = drop_deferrals_of_filed_values(_resp(deferred=[entry]), _B130_KNOWN, standing, "I'm not sure")
+    assert dropped == [] and json.loads(out)["deferred"] == [entry]
+
+    out, dropped = drop_deferrals_of_filed_values(
+        _resp(deferred=[entry]), _B130_KNOWN, _B130_AGENDA, "wait, 2022-03-03 might be wrong")
+    assert dropped == []
+
+
+def test_the_stray_deferral_is_dropped_through_the_whole_guard_chain():
+    from app.services.n400_interviewer_guard import guard_response_text
+
+    out = guard_response_text(
+        _resp(deferred=[{"field_id": "p8.trip2.date_left", "partial_value": None,
+                         "reason": "already have exact dates on file"}]),
+        _B130_AGENDA, "t-b130", "It was the 15th of both", known_facts=_B130_KNOWN)
+    turn = json.loads(out)
+    assert all(d.get("field_id") != "p8.trip2.date_left" for d in turn["deferred"])
