@@ -4673,6 +4673,51 @@ async def _chat_impl(
                     response.text = mark_closing_while_open(
                         response.text, _closing, retried=True, resolved=False)
 
+            # A row that ends before it starts (run 3, 2026-10-07: a prior
+            # address filed from 2019-03-03 to 2019-03-02, overwriting the
+            # partial 2016-08 she had given). Refused and retried once with
+            # the conflicting pair named; if the retry still inverts, the
+            # inverted dates are dropped, never filed.
+            from app.services.n400_interviewer_guard import (
+                date_inversion_reminder, date_inversions, drop_inverted_dates,
+                mark_date_inversion,
+            )
+            _inverted = date_inversions(response.text, _known)
+            if _inverted:
+                _d_turn = body.get_meta("turn_id")
+                logger.warning(
+                    "n400_date_inversion turn_id=%s fields=%s",
+                    _d_turn, ",".join(i["field_id"] for i in _inverted))
+                await usage_tracker.log_usage(
+                    db, user.id, body, response,
+                    int((time.monotonic() - start) * 1000),
+                    status="date_inversion_retry", app_id=app_id,
+                )
+                _d_body = body.model_copy(update={
+                    "user_content": (body.user_content or "") + date_inversion_reminder(_inverted)})
+                _d_retry = await route_with_fallback(
+                    provider_router, _d_body, db, request.app.state.settings,
+                )
+                _d_text = _strip_json_code_fence(_d_retry.text or "") if _d_retry else ""
+                if _d_text and not date_inversions(_d_text, _known):
+                    logger.warning("n400_date_inversion_retried turn_id=%s", _d_turn)
+                    response = _d_retry
+                    response.text = mark_date_inversion(
+                        _d_text, _inverted, retried=True, resolved=True)
+                else:
+                    logger.error(
+                        "n400_date_inversion_UNRESOLVED turn_id=%s fields=%s",
+                        _d_turn, ",".join(i["field_id"] for i in _inverted))
+                    if _d_retry:
+                        await usage_tracker.log_usage(
+                            db, user.id, _d_body, _d_retry,
+                            int((time.monotonic() - start) * 1000),
+                            status="date_inversion_retry_failed", app_id=app_id,
+                        )
+                    response.text = mark_date_inversion(
+                        drop_inverted_dates(response.text, _inverted), _inverted,
+                        retried=True, resolved=False)
+
             response.text = guard_response_text(
                 response.text, _agenda, body.get_meta("turn_id"),
                 user_content=body.get_meta("user_input") or _n400_utterance,

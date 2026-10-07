@@ -2118,3 +2118,138 @@ def _mark_outside(text: str, field_opts: dict[str, set[str]], reason: str) -> tu
         return text, []
     turn["values_outside_declared_options"] = off
     return json.dumps(turn, ensure_ascii=False), off
+
+
+# --- a row that ends before it starts -----------------------------------------
+#
+# Scott's comparison run 3, 2026-10-07 03:19:01Z. KNOWN FACTS held
+# p4.prior_address1.to = 2019-03-02 (she moved out the day before her current
+# address began) and .from deferred with a partial 2016-08. Asked for the
+# move-in day, she said "March 3rd, 2019" (most likely her CURRENT move-in),
+# and the lane filed p4.prior_address1.from = 2019-03-03. The prior address
+# now ended before it started, and the earlier 2016-08 was overwritten. The
+# lane had named this exact mismatch four minutes earlier and still filed it.
+#
+# A row with a .from and a .to (addresses in Part 4, employers and schools in
+# Part 7) must never be filed inverted. The pair is the minted value plus its
+# other side, taken from the same envelope when both are minted, else from
+# KNOWN FACTS. Partials are read in her favor: an inversion counts only when
+# it is CERTAIN, the earliest possible start after the latest possible end.
+# "present", deferred and unreadable values never count.
+
+_DATED_ROW_FIELD = re.compile(r"^(p\d+\.[A-Za-z0-9_]+)\.(from|to)$")
+_ISO_PREFIX = re.compile(r"^\s*(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?(?![\d-])")
+
+DATE_INVERSION_REASON = (
+    "the date would make this address or job end before it starts, against "
+    "the other date on file or in this same answer"
+)
+
+
+def _date_span(value) -> tuple[str, str] | None:
+    """(earliest, latest) ISO dates a value can mean, or None when it cannot
+    be read as a date: "present", deferred notes, and anything else."""
+    if not isinstance(value, str):
+        return None
+    m = _ISO_PREFIX.match(value)
+    if not m:
+        return None
+    y, mo, d = m.group(1), m.group(2), m.group(3)
+    if d:
+        return f"{y}-{mo}-{d}", f"{y}-{mo}-{d}"
+    if mo:
+        import calendar
+        if not 1 <= int(mo) <= 12:
+            return None
+        last = calendar.monthrange(int(y), int(mo))[1]
+        return f"{y}-{mo}-01", f"{y}-{mo}-{last:02d}"
+    return f"{y}-01-01", f"{y}-12-31"
+
+
+def _known_dated_values(known_facts: str | None) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for line in (known_facts or "").splitlines():
+        m = _FIELD_LINE.match(line)
+        if m and _DATED_ROW_FIELD.match(m.group(1)):
+            out[m.group(1)] = m.group(3).strip()
+    return out
+
+
+def _certainly_inverted(start, end) -> bool:
+    s, e = _date_span(start), _date_span(end)
+    return bool(s and e and s[0] > e[1])
+
+
+def date_inversions(text: str, known_facts: str | None) -> list[dict]:
+    """Every minted .from/.to that would file its row inverted, with the
+    other side it conflicts with and where that came from."""
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return []
+    if not isinstance(turn, dict) or not isinstance(turn.get("facts"), list):
+        return []
+    minted: dict[str, object] = {}
+    for f in turn["facts"]:
+        if isinstance(f, dict) and isinstance(f.get("field_id"), str) \
+                and _DATED_ROW_FIELD.match(f["field_id"]):
+            minted[f["field_id"]] = f.get("value")
+    if not minted:
+        return []
+    known = _known_dated_values(known_facts)
+    out: list[dict] = []
+    for fid, value in minted.items():
+        row, side = _DATED_ROW_FIELD.match(fid).groups()
+        other_id = f"{row}.{'to' if side == 'from' else 'from'}"
+        if other_id in minted:
+            other, source = minted[other_id], "this_answer"
+        elif other_id in known:
+            other, source = known[other_id], "on_file"
+        else:
+            continue
+        start, end = (value, other) if side == "from" else (other, value)
+        if _certainly_inverted(start, end):
+            out.append({"field_id": fid, "value": value, "other_field_id": other_id,
+                        "other_value": other, "other_source": source,
+                        "reason": DATE_INVERSION_REASON})
+    return out
+
+
+def date_inversion_reminder(inversions: list[dict]) -> str:
+    pairs = "; ".join(
+        f"{i['field_id']} = {i['value']} against {i['other_field_id']} = {i['other_value']}"
+        for i in inversions)
+    return (
+        "\n\nSTOP. Your last response filed a date that makes an address or job "
+        f"end before it starts ({pairs}). Do not file either date. Tell her "
+        "plainly which two dates conflict, and ask her which one is right. "
+        "Reply with the JSON object only."
+    )
+
+
+def drop_inverted_dates(text: str, inversions: list[dict]) -> str:
+    """Remove every fact that would file a row inverted. Never files it."""
+    ids = {i["field_id"] for i in inversions}
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text
+    if not isinstance(turn, dict) or not isinstance(turn.get("facts"), list):
+        return text
+    turn["facts"] = [f for f in turn["facts"]
+                     if not (isinstance(f, dict) and f.get("field_id") in ids)]
+    return json.dumps(turn, ensure_ascii=False)
+
+
+def mark_date_inversion(text: str, inversions: list[dict], retried: bool,
+                        resolved: bool) -> str:
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text
+    if not isinstance(turn, dict):
+        return text
+    turn["date_inversion_refused"] = {
+        "inversions": inversions, "retried": retried, "resolved": resolved,
+    }
+    return json.dumps(turn, ensure_ascii=False)

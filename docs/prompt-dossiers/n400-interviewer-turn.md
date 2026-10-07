@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 49
+served_version: 50
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-09-30 (v49)
+reconciled: 2026-10-07 (v50)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1861,3 +1861,15 @@ PROMPT: those questions are read AS GIVEN (a short acknowledgement may precede; 
 
 Not probed: Scott ruled no paid test calls through 2026-09-30. Verified structurally (the phrase read-back, the retired lines absent, the 414 N-400 tests); behaviour on live turns is unmeasured until testing resumes.
 
+## v50: a row never ends before it starts, and spelled letters spell the name just said
+
+The auditor, 2026-10-07, from Scott's comparison run 3 (build 126). Two real turns:
+
+- 03:19:01Z: KNOWN FACTS held p4.prior_address1.to = 2019-03-02 and .from deferred with a partial 2016-08. She said "March 3rd, 2019" and the lane filed p4.prior_address1.from = 2019-03-03, so the row ended before it started and the 2016-08 was overwritten. The lane had named that exact mismatch four minutes earlier.
+- 02:59:38Z: "I'm married to Wenceslao YARBOROUGH D-A-V-I-D." The lane filed spouse_middle_name = David. With masked names and unmasked spellings the two will disagree, so the mismatch case is the one the rule must cover.
+
+PROMPT: A ROW NEVER ENDS BEFORE IT STARTS (a date that would invert an address or job against KNOWN FACTS or the same answer is not filed; say which two dates conflict and ask which is right). LETTERS SPELLED AFTER A NAME ARE ITS SPELLING (never another name, never a middle name; a match is filed with that spelling, a mismatch files neither and asks).
+
+CODE (the guard, `n400_interviewer_guard.date_inversions`): refuses a minted .from/.to that inverts its row, the other side from the same envelope first, else KNOWN FACTS; partials read in her favor (earliest start after latest end), and "present", deferred and unreadable values never count. One retry with the conflicting pair named; if it still inverts, the dates are dropped, never filed (`n400_date_inversion_UNRESOLVED`). There is no guard for the spelling line, by the auditor's choice.
+
+Not probed (no paid calls). Verified structurally: the phrase read-back on the real bundle, each new phrase load-bearing, and the guard through the real /v1/chat route with sabotage.
