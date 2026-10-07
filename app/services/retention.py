@@ -16,6 +16,8 @@ the five here drifted into the same defect one at a time.
 
 from __future__ import annotations
 
+import asyncio
+
 import logging
 from dataclasses import dataclass
 
@@ -114,6 +116,10 @@ async def purge_expired(db: aiosqlite.Connection) -> dict[str, int]:
                 f" WHERE {s.column} < datetime('now', '-{int(s.days)} days')"
             )
             deleted[s.table] = cursor.rowcount or 0
+            # Commit per table, so no single write transaction spans the
+            # whole sweep (2026-10-07: it held the lock past the 5s busy
+            # timeout and a chat turn 500'd after its model call).
+            await db.commit()
         except Exception as e:  # noqa: BLE001 — one table must not sink the rest
             logger.warning("retention sweep failed for %s: %s", s.table, e)
             deleted[s.table] = 0
@@ -159,19 +165,36 @@ async def strip_old_raw_requests(
     *,
     retention_days: int = RAW_REQUEST_RETENTION_DAYS,
     keep_for: tuple[str, ...] = KEEP_RAW_REQUESTS_FOR,
+    batch_size: int = 50,
 ) -> int:
     """Remove raw_request and raw_response from usage_log rows past the
     window, except for `keep_for` accounts. Returns rows changed. The
     cutoff is formatted like request_timestamp (ISO with a T), so the
     comparison is exact rather than off by the T against a space."""
     placeholders = ",".join("?" for _ in keep_for) or "''"
-    cursor = await db.execute(
-        f"""UPDATE usage_log
-               SET metadata = json_remove(metadata, '$.raw_request', '$.raw_response')
-             WHERE request_timestamp < strftime('%Y-%m-%dT%H:%M:%S', 'now', ?)
-               AND (json_extract(metadata, '$.raw_request') IS NOT NULL
-                    OR json_extract(metadata, '$.raw_response') IS NOT NULL)
-               AND user_id NOT IN ({placeholders})""",
-        (f"-{int(retention_days)} days", *keep_for),
-    )
-    return cursor.rowcount or 0
+    # In batches, each its own short transaction (2026-10-07). As one UPDATE
+    # it held the write lock for the whole scan (378 rows took past 03:13:58Z
+    # and a chat turn's usage write timed out behind it). The SELECT is a
+    # read, which WAL lets run beside writers; only the small UPDATE locks.
+    total = 0
+    while True:
+        cursor = await db.execute(
+            f"""SELECT id FROM usage_log
+                 WHERE request_timestamp < strftime('%Y-%m-%dT%H:%M:%S', 'now', ?)
+                   AND (json_extract(metadata, '$.raw_request') IS NOT NULL
+                        OR json_extract(metadata, '$.raw_response') IS NOT NULL)
+                   AND user_id NOT IN ({placeholders})
+                 LIMIT ?""",
+            (f"-{int(retention_days)} days", *keep_for, batch_size),
+        )
+        ids = [r[0] for r in await cursor.fetchall()]
+        if not ids:
+            return total
+        marks = ",".join("?" for _ in ids)
+        cursor = await db.execute(
+            f"""UPDATE usage_log
+                   SET metadata = json_remove(metadata, '$.raw_request', '$.raw_response')
+                 WHERE id IN ({marks})""", ids)
+        await db.commit()
+        total += cursor.rowcount or 0
+        await asyncio.sleep(0)

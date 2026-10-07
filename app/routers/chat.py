@@ -2476,12 +2476,14 @@ async def _chat_impl(
                 max_output_tokens=body.max_tokens,
             )
         _anon_code, _anon_info = await anonymous_budget.check(
-            db, user.id, app_id, _anon_estimate, _anon_caps)
+            db, user.id, app_id, _anon_estimate, _anon_caps,
+            anonymous_budget.case_id(body.get_meta("case_id")))
         if _anon_code:
             logger.info(
-                "anonymous_budget_block app=%s user=%s code=%s spent=%.4f cap=%.2f "
-                "daily_spent=%s daily=%s",
-                app_id, user.id, _anon_code, _anon_info["spent"],
+                "anonymous_budget_block app=%s user=%s code=%s case=%s application_spent=%s "
+                "per_application=%s spent=%.4f per_install=%.2f daily_spent=%s daily=%s",
+                app_id, user.id, _anon_code, _anon_info["case_id"], _anon_info["application_spent"],
+                _anon_info["per_application"], _anon_info["spent"],
                 _anon_info["per_install"], _anon_info["daily_spent"], _anon_info["daily"],
             )
             if _anon_code == anonymous_budget.CODE_DAILY:

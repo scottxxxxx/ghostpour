@@ -33,8 +33,11 @@
   "_anonymous_comment": [
     "Anonymous N-400 installs (Scott, 2026-10-05): the interview is free and",
     "the user pays at print, so an anonymous install gets a real allowance.",
-    "per_install_lifetime_usd is what ONE install may ever spend (lifetime,",
-    "because one install is one application). daily_all_installs_usd bounds",
+    "per_application_usd is what ONE application (metadata.case_id) may",
+    "spend (Scott, 2026-10-06: one phone may file several applications).",
+    "per_install_lifetime_usd is the install's lifetime BACKSTOP, because the",
+    "client picks its own case_id and a fresh one per call would dodge the",
+    "per-application cap. daily_all_installs_usd bounds",
     "every anonymous account together per UTC day ($50, the auditor's default,",
     "Scott may change it). A missing or -1 per_install value means anonymous",
     "accounts get NOTHING, and the audit refuses the app if it is in",
@@ -43,8 +46,18 @@
     "turns at $0.0121 per turn)."
   ],
   "anonymous": {
-    "per_install_lifetime_usd": 2,
+    "per_application_usd": 2,
+    "per_install_lifetime_usd": 10,
     "daily_all_installs_usd": 50,
+    "application_allowance_used": {
+      "kind": "application_allowance_used",
+      "text": {
+        "en": "This application has used its free interview allowance. Your answers are saved.",
+        "es": "Esta solicitud ya usó su asignación gratuita de entrevista. Sus respuestas están guardadas.",
+        "pt": "Este pedido já usou sua cota gratuita de entrevista. Suas respostas estão salvas."
+      },
+      "action": null
+    },
     "install_allowance_used": {
       "kind": "install_allowance_used",
       "text": {
