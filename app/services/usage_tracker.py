@@ -19,6 +19,18 @@ _N400_PLACE_APPS = frozenset({"n400"})
 _JURISDICTION_RE = re.compile(r"^US-(?:[A-Z]{2}|unknown)$")
 _UUID_RE = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+# N-400's own case ids are 8 hex characters ("cbc80157", minted by the
+# client's InterviewEngine.newCase and woven through its files and purchase
+# ledger), so they are accepted beside a UUID (2026-10-06). Eight hex chars
+# collide ACROSS users at scale, so anything keyed on a case must also key
+# on user_id: the per-application cap and the dashboard's case count do.
+_CASE_ID_RE = re.compile(_UUID_RE.pattern + r"|^[0-9a-fA-F]{8}$")
+
+
+def normalize_case_id(value: object) -> str | None:
+    """metadata.case_id as stored: a UUID or 8 hex characters, lowercased,
+    else None."""
+    return value.lower() if isinstance(value, str) and _CASE_ID_RE.match(value) else None
 
 
 def _short_text(value: object, limit: int) -> str | None:
@@ -49,7 +61,7 @@ def n400_place_columns(request: ChatRequest, app_id: str | None) -> tuple:
     jur = request.get_meta("jurisdiction")
     jur = jur if isinstance(jur, str) and _JURISDICTION_RE.match(jur) else None
     case = request.get_meta("case_id")
-    case = case.lower() if isinstance(case, str) and _UUID_RE.match(case) else None
+    case = normalize_case_id(case)
     return (
         jur, case,
         _short_text(request.get_meta("geo_country"), 8),
