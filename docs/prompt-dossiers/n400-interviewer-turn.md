@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 50
+served_version: 51
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-10-07 (v50)
+reconciled: 2026-10-07 (v51)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1873,3 +1873,14 @@ PROMPT: A ROW NEVER ENDS BEFORE IT STARTS (a date that would invert an address o
 CODE (the guard, `n400_interviewer_guard.date_inversions`): refuses a minted .from/.to that inverts its row, the other side from the same envelope first, else KNOWN FACTS; partials read in her favor (earliest start after latest end), and "present", deferred and unreadable values never count. One retry with the conflicting pair named; if it still inverts, the dates are dropped, never filed (`n400_date_inversion_UNRESOLVED`). There is no guard for the spelling line, by the auditor's choice.
 
 Not probed (no paid calls). Verified structurally: the phrase read-back on the real bundle, each new phrase load-bearing, and the guard through the real /v1/chat route with sabotage.
+
+## v51: a follow-up is the only question in its reply, and a piece on file is never asked
+
+The auditor, 2026-10-07, from Scott's live run on build 128 (case 88761ff1). Two real turns:
+
+- ~15:32Z: after the Part 1 compound answer the reply read Part 1 back, asked "What month and day in 2019 did you get your green card, if you know it offhand?" and then "Have you used any other names since birth?" in the same breath. The phone's card followed `asking` (the next part) while the voice asked both, and Scott could not answer it cleanly. Neither v50 line nor the #1076 guard was involved: the turn logged plain success, no date_inversion status. The collision was older: the checkpoint rule says to open the next part IN THE SAME REPLY, and nothing said a pending follow-up keeps the part open.
+- ~15:38Z: "Part 4 is where you've lived: what is your current street address and city?" with Austin, Texas on file from onboarding. Whether the city rode in this turn's KNOWN FACTS or APPLICANT CONTEXT was not read by GP (see below).
+
+PROMPT: A FOLLOW-UP KEEPS THE PART OPEN (the follow-up is the only question, `asking` names its node, no summary and no next part until it is answered or she does not know); the BEFORE YOU WRITE check names a follow-up plus the next part's question as two. A PIECE ALREADY ON FILE IS NEVER ASKED (an address question asks only the missing pieces and may read back what is on file).
+
+Not probed (no paid calls). Verified structurally: the phrase read-back on the real bundle, each new phrase load-bearing, sabotage of the on-file phrase turned exactly the three predicted tests red.
