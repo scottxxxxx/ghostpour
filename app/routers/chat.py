@@ -1624,19 +1624,14 @@ async def _chat_impl(
             body.metadata = {}
         body.metadata["request_id"] = _rid
 
-    # N-400 place from the request IP (Scott, 2026-10-05: state and city from
-    # the connection AND from the form). Stamped here, overwriting anything
-    # the client sent under these keys, and persisted by log_usage. Country,
-    # region and city only; the raw IP is never stored.
-    if app_id == "n400":
-        from app.routers.telemetry import _client_ip
-        from app.services import geoip
-        if body.metadata is None:
-            body.metadata = {}
-        _geo = geoip.lookup(_client_ip(request)) or {}
-        body.metadata["geo_country"] = _geo.get("country")
-        body.metadata["geo_region"] = _geo.get("region")
-        body.metadata["geo_city"] = _geo.get("city")
+    # N-400 keeps NO place from the request IP (Scott, 2026-10-08: "no we do
+    # not keep ip based data", reversing the 2026-10-05 ruling for the
+    # privacy policy). No lookup runs, and anything the client sent under
+    # these keys is discarded, so the geo_* columns stay NULL for n400. The
+    # form's own city (metadata.city -> form_city) and jurisdiction stay.
+    if app_id == "n400" and body.metadata:
+        for _k in ("geo_country", "geo_region", "geo_city"):
+            body.metadata.pop(_k, None)
 
     # PRE-FLIGHT STOPWATCH. Everything between here and the first SSE byte is
     # silence on the user's phone.
