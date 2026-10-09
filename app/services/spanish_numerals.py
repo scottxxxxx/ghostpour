@@ -99,7 +99,8 @@ def numeral_variables(call_type: str | None, locale: str | None, user_content: s
     numbers is not the defect, and an unrelated lane must never receive a
     placeholder it does not declare.
     """
-    if call_type != INTERVIEWER_CALL_TYPE or not (locale or "").lower().startswith("es"):
+    from app.services.interviewer_lanes import INTERVIEWER_CALL_TYPES
+    if call_type not in INTERVIEWER_CALL_TYPES or not (locale or "").lower().startswith("es"):
         return {}
     hint = numeral_hint(user_content or "")
     return {VARIABLE: hint} if hint else {}

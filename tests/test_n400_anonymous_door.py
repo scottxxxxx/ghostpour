@@ -17,6 +17,9 @@ from tests.conftest import chat_request
 
 N400 = {"X-App-ID": "n400"}
 SHIPPED = json.load(open("config/remote/n400/budget.json"))
+# i765 shares the anonymous door (2026-10-09); its own door is audited in
+# tests/test_i765_registration.py, and here it only has to be capped.
+SHIPPED_I765 = json.load(open("config/remote/i765/budget.json"))
 
 
 def _mint(client, install=None):
@@ -57,11 +60,12 @@ def test_the_first_turn_through_the_door_is_served(client):
 def test_the_shipped_config_passes_the_audit_with_the_door_open():
     from app.routers.config import load_apps
     assert app_budget.audit_uncapped_reachable_apps(
-        {"n400/budget": SHIPPED}, load_apps(), "") == []
+        {"n400/budget": SHIPPED, "i765/budget": SHIPPED_I765}, load_apps(), "") == []
 
 
 def test_the_door_without_its_cap_is_refused():
     from app.routers.config import load_apps
     doc = {k: v for k, v in SHIPPED.items() if k != "anonymous"}
-    found = app_budget.audit_uncapped_reachable_apps({"n400/budget": doc}, load_apps(), "")
+    found = app_budget.audit_uncapped_reachable_apps(
+        {"n400/budget": doc, "i765/budget": SHIPPED_I765}, load_apps(), "")
     assert [(v["app_id"], v["reachable_via"]) for v in found] == [("n400", "anonymous")]

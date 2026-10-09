@@ -208,7 +208,7 @@ async def _anonymous_from_token(db, jwt_service, token: str) -> tuple[dict | Non
 # Per client IP, per minute. The client calls this at purchase time only.
 _ANONYMOUS_RPM_PER_IP = 5
 # Anonymous mints in these apps send no new-account push to Scott's phones.
-NO_NEW_USER_PUSH_APPS = frozenset({"n400"})
+NO_NEW_USER_PUSH_APPS = frozenset({"n400", "i765"})
 
 
 def anonymous_sub(install_id: str, app_id: str = "shouldersurf") -> str:

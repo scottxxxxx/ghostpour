@@ -1,0 +1,210 @@
+{
+  "version": 1,
+  "schema_version": 1,
+  "form": "I-765",
+  "_comment_namespace": [
+    "I-765 Helper's policy matrix (2026-10-09), asked for by the I-765 lead as",
+    "the N-400 outcomes per state carried over, so it starts byte-for-byte as",
+    "n400/policy-matrix.json with `form` swapped to I-765 and the two N-400",
+    "specific rows reworded below. Served by GET /v1/i765/policy, which reads",
+    "ONLY this namespace (no flat fallback, no n400 fallback): a mistyped app",
+    "id must never be handed another form's rules. Scott owns the legal review",
+    "of these rows exactly as he owns N-400's."
+  ],
+  "legal_review": {
+    "status": "PENDING",
+    "owner": "Scott",
+    "reviewed_at": null,
+    "_comment": [
+      "Scott owns the formal legal review; every row is an ENGINEERING DEFAULT",
+      "carried over from N-400 until he replaces this block with a reviewer and",
+      "a date. `basis` says what each default rests on. tests/test_i765_policy.py",
+      "fails if status flips to REVIEWED while any NEEDS_LEGAL row is permissive."
+    ]
+  },
+  "capabilities": [
+    {
+      "capability": "transcribe",
+      "basis": "PUBLISHED",
+      "basis_note": "Rendering speech to text is mechanical and carries no legal conclusion. Transcription happens on device; GP only ever receives text.",
+      "matrix": [
+        {
+          "state": "*",
+          "form": "I-765",
+          "outcome": "ALLOW"
+        }
+      ]
+    },
+    {
+      "capability": "translate",
+      "basis": "PUBLISHED",
+      "basis_note": "Language access is not legal advice. NOTE FOR I-765: the RESTRICT case you described (a locale we do not serve) cannot be expressed on this matrix, because the axes are State x Form and the constraint is per LOCALE. See the ask relayed 2026-09-01.",
+      "matrix": [
+        {
+          "state": "*",
+          "form": "I-765",
+          "outcome": "ALLOW"
+        }
+      ]
+    },
+    {
+      "capability": "normalize",
+      "basis": "PUBLISHED",
+      "basis_note": "Reformatting an answer the applicant already gave (a spoken date into YYYY-MM-DD) changes form, not substance.",
+      "matrix": [
+        {
+          "state": "*",
+          "form": "I-765",
+          "outcome": "ALLOW"
+        }
+      ]
+    },
+    {
+      "capability": "populate_field",
+      "basis": "PUBLISHED",
+      "basis_note": "Writing down what the applicant states is scrivener assistance. USCIS Form I-765 instructions provide for a preparer who fills the form at the applicant's direction (Part 5), and the form carries a preparer certification for exactly that role. TX is the launch jurisdiction, as for N-400; every other state is RESTRICT until reviewed.",
+      "matrix": [
+        {
+          "state": "TX",
+          "form": "I-765",
+          "outcome": "ALLOW"
+        },
+        {
+          "state": "*",
+          "form": "I-765",
+          "outcome": "RESTRICT"
+        }
+      ]
+    },
+    {
+      "capability": "explain_question_literal",
+      "basis": "PUBLISHED",
+      "basis_note": "Reading back what USCIS itself publishes about a question, in plainer words, states a public source rather than applying it to the applicant's facts. USCIS publishes the I-765 instructions and the Policy Manual openly.",
+      "matrix": [
+        {
+          "state": "*",
+          "form": "I-765",
+          "outcome": "ALLOW"
+        }
+      ]
+    },
+    {
+      "capability": "recommend_answer",
+      "basis": "NEEDS_LEGAL",
+      "basis_note": "THE LINE ITEM MOST WORTH SCOTT'S REVIEWER'S TIME. Suggesting what an applicant should put on a federal form applies law to their facts, which is the classic boundary of unauthorized practice. Held at ESCALATE rather than BLOCK so the applicant is routed to counsel instead of hitting a wall, but a reviewer may well say BLOCK. Do not relax to ALLOW without a written opinion.",
+      "matrix": [
+        {
+          "state": "*",
+          "form": "I-765",
+          "outcome": "ESCALATE"
+        }
+      ],
+      "reason_code": "recommend_answer_is_legal_advice",
+      "halt_branch_nodes": []
+    },
+    {
+      "capability": "interpret_legally",
+      "basis": "PUBLISHED",
+      "basis_note": "8 CFR 292.1 lists who may represent someone before USCIS: attorneys and DOJ-accredited representatives. This product is neither, and USCIS publishes that same warning to applicants directly (uscis.gov/avoid-scams). Fail closed everywhere.",
+      "matrix": [
+        {
+          "state": "*",
+          "form": "I-765",
+          "outcome": "BLOCK"
+        }
+      ],
+      "reason_code": "interpretation_requires_counsel"
+    },
+    {
+      "capability": "determine_eligibility",
+      "basis": "PUBLISHED",
+      "basis_note": "Whether someone may work, and under WHICH eligibility category (the (a) and (c) codes in Item 27), is USCIS's determination, and advising on it is representation under 8 CFR 292.1. The lane records the category the applicant states and never picks one. BLOCK everywhere, including TX.",
+      "matrix": [
+        {
+          "state": "*",
+          "form": "I-765",
+          "outcome": "BLOCK"
+        }
+      ],
+      "reason_code": "eligibility_and_category_are_uscis_determinations"
+    },
+    {
+      "capability": "assess_moral_character_impact",
+      "basis": "NEEDS_LEGAL",
+      "basis_note": "I-765 has no good moral character part. The capability is KEPT, with the N-400 outcomes, because the shared client decodes one capability set and because the research's section 7 risk triggers (arrests, prior denials, work without authorization, a lapsed status) are the same judgment: stop and refer, never weigh. No halt nodes until the I-765 agenda names them.",
+      "matrix": [
+        {
+          "state": "TX",
+          "form": "I-765",
+          "outcome": "ESCALATE"
+        },
+        {
+          "state": "*",
+          "form": "I-765",
+          "outcome": "BLOCK"
+        }
+      ],
+      "reason_code": "risk_trigger_disclosure",
+      "halt_branch_nodes": []
+    },
+    {
+      "capability": "escalate_to_attorney",
+      "basis": "PUBLISHED",
+      "basis_note": "Handing someone to a licensed attorney is the one capability that is always safe, and USCIS publishes the referral surface we point at (uscis.gov/legal-help). ALLOW everywhere so a fail-closed BLOCK elsewhere always has somewhere to send the applicant.",
+      "matrix": [
+        {
+          "state": "*",
+          "form": "I-765",
+          "outcome": "ALLOW"
+        }
+      ]
+    }
+  ],
+  "outcome_copy": {
+    "_comment": [
+      "Default copy per outcome, overridable per capability later. en is",
+      "authored; es and pt are FIRST DRAFTS and are flagged to I-765 as",
+      "needing a native read before beta. GP serves the strings so the",
+      "client never hardcodes a refusal it cannot update."
+    ],
+    "RESTRICT": {
+      "message": {
+        "en": "This part of the app is set up for Texas right now. You can keep going, and everything you have entered is saved.",
+        "es": "Esta parte de la aplicación está disponible para Texas por ahora. Puede continuar, y todo lo que ha ingresado queda guardado.",
+        "pt": "Esta parte do aplicativo está disponível para o Texas por enquanto. Você pode continuar, e tudo o que já preencheu está salvo."
+      }
+    },
+    "ESCALATE": {
+      "message": {
+        "en": "A licensed immigration attorney is the right person for this question. Your answers stay saved while you talk to one.",
+        "es": "Un abogado de inmigración con licencia es la persona indicada para esta pregunta. Sus respuestas quedan guardadas mientras habla con uno.",
+        "pt": "Um advogado de imigração licenciado é a pessoa certa para esta pergunta. Suas respostas ficam salvas enquanto você fala com um."
+      },
+      "cta": {
+        "type": "find_attorney",
+        "label": {
+          "en": "Find an immigration attorney",
+          "es": "Buscar un abogado de inmigración",
+          "pt": "Encontrar um advogado de imigração"
+        },
+        "url": "https://www.uscis.gov/legal-help"
+      }
+    },
+    "BLOCK": {
+      "message": {
+        "en": "This one takes a licensed immigration attorney. We fill in what you tell us and we can read you what USCIS publishes, and this question needs more than that.",
+        "es": "Esta pregunta requiere un abogado de inmigración con licencia. Nosotros escribimos lo que usted nos dice y podemos leerle lo que USCIS publica, y esta pregunta necesita más que eso.",
+        "pt": "Esta pergunta exige um advogado de imigração licenciado. Nós preenchemos o que você nos diz e podemos ler o que o USCIS publica, e esta pergunta precisa de mais do que isso."
+      },
+      "cta": {
+        "type": "find_attorney",
+        "label": {
+          "en": "Find an immigration attorney",
+          "es": "Buscar un abogado de inmigración",
+          "pt": "Encontrar um advogado de imigração"
+        },
+        "url": "https://www.uscis.gov/legal-help"
+      }
+    }
+  }
+}

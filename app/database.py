@@ -1250,6 +1250,18 @@ MIGRATIONS = [
                '[{"variant_id": "card", "weight": 100, "render": "html", "html_url": "https://cz.shouldersurf.com/v1/promo/assets/n400-i765-complete.html", "content_locales": {"es": {"html_url": "https://cz.shouldersurf.com/v1/promo/assets/n400-i765-complete.html?lang=es"}, "pt": {"html_url": "https://cz.shouldersurf.com/v1/promo/assets/n400-i765-complete.html?lang=pt"}}}]',
                strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now'),
                strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now'))""",
+    # The mirror: the N-400 Helper card inside I-765 Helper (the I-765 lead's
+    # ask, 2026-10-09). Same mechanism, same draft-until-ready rule; this one
+    # flips active once N-400 Helper has an App Store id.
+    """INSERT OR IGNORE INTO promo_campaigns
+         (id, name, status, app_id, priority, targeting, frequency, placements,
+          variants, created_at, updated_at)
+       VALUES ('i765_n400_crosspromo', 'N-400 Helper card after the I-765 is complete',
+               'draft', 'i765', 10, '{}', '{"max_impressions": 3}',
+               '[{"placement": "i765_complete", "priority": 10}]',
+               '[{"variant_id": "card", "weight": 100, "render": "html", "html_url": "https://cz.shouldersurf.com/v1/promo/assets/i765-n400-complete.html", "content_locales": {"es": {"html_url": "https://cz.shouldersurf.com/v1/promo/assets/i765-n400-complete.html?lang=es"}, "pt": {"html_url": "https://cz.shouldersurf.com/v1/promo/assets/i765-n400-complete.html?lang=pt"}}}]',
+               strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now'),
+               strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now'))""",
 ]
 
 

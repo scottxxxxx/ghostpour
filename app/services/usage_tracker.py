@@ -49,7 +49,11 @@ async def _write_with_lock_retry(db: aiosqlite.Connection, sql: str, params: tup
     return False
 
 
-_N400_PLACE_APPS = frozenset({"n400"})
+# The immigration form apps: a turn carries a jurisdiction and a case id,
+# and the request IP is stamped to a place (Scott, 2026-10-05). i765 joined
+# 2026-10-09 with the same columns, so one dashboard panel reads both.
+PLACE_APPS = frozenset({"n400", "i765"})
+_N400_PLACE_APPS = PLACE_APPS
 _JURISDICTION_RE = re.compile(r"^US-(?:[A-Z]{2}|unknown)$")
 _UUID_RE = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")

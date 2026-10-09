@@ -559,7 +559,7 @@ class AnthropicAdapter(ProviderAdapter):
 # Code pinned on purpose rather than a served dial: it changes what we pay
 # per write, and a lane belongs here only when its system prompt is large,
 # byte stable, and met cold by a person who is waiting.
-_ONE_HOUR_CACHE_CALL_TYPES = frozenset({"n400_interviewer_turn"})
+from app.services.interviewer_lanes import INTERVIEWER_CALL_TYPES as _ONE_HOUR_CACHE_CALL_TYPES
 
 
 def _system_cache_control(request: ChatRequest) -> dict:

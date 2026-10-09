@@ -51,21 +51,25 @@ REASON_NO_MATCHING_ROW = "no_row_for_jurisdiction"
 REASON_INVALID_OUTCOME = "outcome_not_recognized"
 
 
-def policy_slug() -> str:
+def policy_slug(app_id: str = _APP_ID) -> str:
     """The config slug this engine reads, e.g. `n400/policy-matrix`.
 
-    Built from N-400's REGISTERED directory rather than from a request
+    Built from the app's REGISTERED directory rather than from a request
     header. `resolve_app_dir` fails open to ShoulderSurf by design, which is
     right for serving config and wrong for reading a compliance matrix: a
     caller with a mistyped X-App-ID must not be handed some other app's
-    policy. If n400 is somehow not in apps.yml we use the literal `n400`,
+    policy. If the app is somehow not in apps.yml we use its literal id,
     which resolves to nothing, which fails closed.
+
+    `app_id` is a parameter since 2026-10-09, when I-765 Helper asked for
+    the same engine over its own matrix (`i765/policy-matrix`). The router
+    passes it explicitly per route; nothing here reads a header.
     """
-    entry = (load_apps().get("apps") or {}).get(_APP_ID) or {}
-    return f"{entry.get('dir') or _APP_ID}/{SLUG_NAME}"
+    entry = (load_apps().get("apps") or {}).get(app_id) or {}
+    return f"{entry.get('dir') or app_id}/{SLUG_NAME}"
 
 
-def policy_document(remote_configs: dict | None) -> dict | None:
+def policy_document(remote_configs: dict | None, app_id: str = _APP_ID) -> dict | None:
     """The served matrix document, or None when it is absent or unusable.
 
     NO FLAT FALLBACK, deliberately. `candidate_slugs` would try the bare
@@ -74,7 +78,7 @@ def policy_document(remote_configs: dict | None) -> dict | None:
     `policy-matrix.json` ever appears for some other app, N-400 must 404
     rather than quietly enforce someone else's jurisdiction rules.
     """
-    doc = (remote_configs or {}).get(policy_slug())
+    doc = (remote_configs or {}).get(policy_slug(app_id))
     if not isinstance(doc, dict):
         return None
     if not isinstance(doc.get("capabilities"), list):
@@ -150,14 +154,14 @@ def _denial(capability: str, state: str, form: str, reason_code: str,
 
 
 def evaluate(remote_configs: dict | None, capability: str,
-             state: str, form: str = "N-400") -> dict:
+             state: str, form: str = "N-400", app_id: str = _APP_ID) -> dict:
     """One PolicyDecision for one capability. Never raises, never returns None.
 
     Callers attach this to a turn as `policy_decision`. One decision per
     capability per turn: this function answers about a single capability, so
     a turn touching two of them gets two calls and two log lines.
     """
-    doc = policy_document(remote_configs)
+    doc = policy_document(remote_configs, app_id)
     if doc is None:
         return _denial(capability, state, form, REASON_DOCUMENT_MISSING)
 
@@ -204,7 +208,7 @@ def evaluate(remote_configs: dict | None, capability: str,
 
 
 def effective_matrix(remote_configs: dict | None, state: str,
-                     form: str = "N-400") -> dict:
+                     form: str = "N-400", app_id: str = _APP_ID) -> dict:
     """Every capability's outcome for one jurisdiction, for the state picker.
 
     Built by running `evaluate` per capability rather than by reading rows
@@ -212,14 +216,14 @@ def effective_matrix(remote_configs: dict | None, state: str,
     cannot drift apart. A capability the document does not name is not listed
     here at all; asking for it still BLOCKs.
     """
-    doc = policy_document(remote_configs)
+    doc = policy_document(remote_configs, app_id)
     capabilities = []
     if doc is not None:
         for rule in doc.get("capabilities") or []:
             if not isinstance(rule, dict) or not rule.get("capability"):
                 continue
             name = rule["capability"]
-            decision = evaluate(remote_configs, name, state, form)
+            decision = evaluate(remote_configs, name, state, form, app_id)
             capabilities.append({
                 "capability": name,
                 "outcome": decision["outcome"],

@@ -193,7 +193,8 @@ def test_the_audit_accepts_an_anonymous_app_whose_anonymous_cap_runs():
 
 def test_the_anonymous_cap_does_not_excuse_the_bundle_door():
     found = app_budget.audit_uncapped_reachable_apps(
-        {"n400/budget": {"monthly_cost_limit_usd": -1, "anonymous": ANON_DOC}},
+        {"n400/budget": {"monthly_cost_limit_usd": -1, "anonymous": ANON_DOC},
+         "i765/budget": {"monthly_cost_limit_usd": -1, "anonymous": ANON_DOC}},
         _apps(), "com.weirtech.n400helper")
     assert [(v["app_id"], v["reachable_via"]) for v in found] == [("n400", "bundle_id")]
 
