@@ -848,6 +848,18 @@
       </div>
     </div>
     <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Anonymous lifecycle events from iOS — app starts, meeting starts/stops, AI model used, device model, and OS version. Raw events are retained 30 days. Apply filters above to slice every chart.</p>
+    <div class="card" style="padding:12px 14px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <h4 style="margin:0">Meetings in progress <span id="live-meetings-count" style="font-weight:400;color:var(--text-dim);font-size:0.8em"></span></h4>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span id="live-meetings-asof" style="font-size:11px;color:var(--text-dim)"></span>
+          <label style="font-size:12px;color:var(--text-dim)"><input type="checkbox" id="live-meetings-auto" checked> Auto-refresh (15s)</label>
+          <button class="refresh-btn" onclick="loadLiveMeetings()">Refresh</button>
+        </div>
+      </div>
+      <p style="color:var(--text-dim);margin:6px 0 8px;font-size:12px">A start with no stop yet, in the last 6 hours. <b>live</b> = heard from inside the last 3 min (heartbeat) or 20 min (AutoSummary or a question, older builds); <b>paused</b> = the phone says so; <b>early</b> = too young for any signal; <b>quiet</b> = nothing heard, so paused, suspended or dead. Running time is GP's clock from the start ping; the phone's own clock shows in parentheses when it sent one.</p>
+      <div id="live-meetings-body"></div>
+    </div>
     <div class="cards" id="tel-kpis"></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));grid-auto-flow:dense;gap:12px;margin-top:12px">
       <div class="card" style="padding:12px 14px;grid-column:span 2">
@@ -1249,6 +1261,7 @@ const _TAB_LOADERS = {
 };
 function switchTab(name) {
   _activeTab = name;
+  if (name !== 'telemetry') clearInterval(_liveMeetingsTimer);
   // A tab whose label no longer starts with its id (Performance is
   // 'latency') names its id in data-tab; the others still match by text.
   document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active',
@@ -1547,7 +1560,54 @@ function downloadSubsCsv(ev) {
     });
 }
 
+// Meetings in progress: GET /admin/meetings/live, refreshed every 15 s while
+// the Telemetry tab is on screen (switchTab clears the timer).
+let _liveMeetingsTimer = null;
+async function loadLiveMeetings() {
+  clearInterval(_liveMeetingsTimer);
+  if (_activeTab !== 'telemetry') return;
+  const body = document.getElementById('live-meetings-body');
+  let d;
+  try {
+    const r = await fetch(`${BASE}/webhooks/admin/meetings/live`, {headers: {'X-Admin-Key': adminKey}});
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    d = await r.json();
+  } catch (e) {
+    body.innerHTML = `<div style="color:var(--red);font-size:12px">Could not load: ${e.message}</div>`;
+    return;
+  }
+  const fmt = (s) => s == null ? '—' : (s >= 3600 ? `${Math.floor(s / 3600)}h ${Math.floor(s % 3600 / 60)}m` : s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`);
+  const ago = (iso) => iso ? fmt(Math.max(0, Math.round((new Date(d.now) - new Date(iso)) / 1000))) + ' ago' : 'never';
+  const color = {live: 'var(--green)', paused: 'var(--orange)', early: 'var(--text-dim)', quiet: 'var(--red)'};
+  const s = d.summary;
+  document.getElementById('live-meetings-count').textContent =
+    `${s.in_progress} now · ${s.live} live · ${s.paused} paused · ${s.early} early · ${s.quiet} quiet` +
+    (s.unfinished_beyond_window_7d ? ` · ${s.unfinished_beyond_window_7d} older starts with no stop (7d, not shown)` : '') +
+    (s.recovered_stops_24h ? ` · ${s.recovered_stops_24h} recovered stops (24h)` : '');
+  document.getElementById('live-meetings-asof').textContent = `as of ${new Date(d.now).toLocaleTimeString()}`;
+  if (!d.meetings.length) {
+    body.innerHTML = '<div style="color:var(--text-dim);font-size:12px">No meeting in progress.</div>';
+  } else {
+    body.innerHTML = `<table style="font-size:12px"><thead><tr>
+      <th>State</th><th>Who</th><th>Device</th><th>Build</th><th>Started</th><th>Running</th><th>Last heard</th><th>Meeting</th></tr></thead><tbody>` +
+      d.meetings.map(m => `<tr>
+        <td><span style="color:${color[m.state] || 'inherit'};font-weight:600">${m.state}</span></td>
+        <td>${m.email ? esc(m.email) : '<span style="color:var(--text-dim)">anonymous</span>'}</td>
+        <td>${esc(m.device_model || '—')}</td>
+        <td>${esc(m.app_version || '?')}${m.app_build ? ' (' + esc(m.app_build) + ')' : ''}${m.signal !== 'heartbeat' && !m.build_heartbeats && m.running_seconds > 120 ? ' <span style="color:var(--text-dim)" title="This build has never sent a heartbeat, so no heartbeat means nothing here">no heartbeat on this build</span>' : ''}</td>
+        <td>${new Date(m.started_at).toLocaleTimeString()}</td>
+        <td><b>${fmt(m.running_seconds)}</b>${m.phone_seconds != null ? ` <span style="color:var(--text-dim)">(${fmt(m.phone_seconds)} on the phone)</span>` : ''}</td>
+        <td>${m.last_heard_at ? `${ago(m.last_heard_at)} <span style="color:var(--text-dim)">${esc(m.last_heard_kind || '')}</span>` : '<span style="color:var(--text-dim)">nothing yet</span>'}</td>
+        <td style="font-family:monospace;color:var(--text-dim)">${esc((m.meeting_id || '').slice(0, 8))}${m.resumed_from_meeting_id ? ' <span title="resumed through crash recovery from ' + esc(m.resumed_from_meeting_id) + '">(resumed)</span>' : ''}</td>
+      </tr>`).join('') + '</tbody></table>';
+  }
+  if (document.getElementById('live-meetings-auto').checked) {
+    _liveMeetingsTimer = setInterval(loadLiveMeetings, 15000);
+  }
+}
+
 async function loadTelemetry() {
+  loadLiveMeetings();
   // Timeframe comes from the single global selector in the header.
   const days = Math.min(90, parseInt(document.getElementById('period').value, 10) || 30);
   const version = document.getElementById('tel-version')?.value || '';

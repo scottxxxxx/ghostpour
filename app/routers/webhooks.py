@@ -3480,6 +3480,174 @@ async def list_users(
 # --- Telemetry summary (anonymous lifecycle pings) ---
 
 
+@router.get("/admin/meetings/live")
+async def meetings_live(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    window_hours: int = Query(default=6, ge=1, le=48),
+    quiet_minutes: int = Query(default=3, ge=1, le=60),
+    summary_minutes: int = Query(default=10, ge=1, le=120),
+    app: str | None = Query(default=None),
+):
+    """Meetings in progress right now, and how long each has run (Scott,
+    2026-10-09). A meeting is in progress when its meeting_start has no
+    meeting_stop. What else GP hears decides how sure that is:
+
+    - a meeting_heartbeat row (once a minute while recording, builds that
+      send it): `live` when the last beat is inside quiet_minutes, `paused`
+      when the beat says so, else `quiet` (paused, suspended or dead; SS
+      saw iOS suspend a paused phone-mic meeting, so silence is not death);
+    - no heartbeat (older builds): the AutoSummary and live-query rows in
+      usage_log carry the meeting_id about every summary_minutes, so a row
+      inside 2x that is `live`, a meeting younger than that is `early` (no
+      signal is expected yet), and anything else is `quiet`.
+
+    One in four starts never gets a stop (118 of 469 in the 30 days to
+    2026-10-09; some are crash-recovered meetings that restarted under a new
+    id and name the old one in resumed_from_meeting_id, which hides the
+    orphan half here). So a start older than window_hours is never shown as
+    running: it is counted in summary.unfinished_beyond_window instead. The
+    longest real meeting in 90 days was 4.9 h, so the default window covers
+    every meeting that has ever happened. running_seconds is GP's clock from
+    the start ping; phone_seconds is the phone's own clock from its last
+    heartbeat or summary row, when it sent one.
+    """
+    _verify_admin(request, x_admin_key)
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+    window_start = (now - timedelta(hours=window_hours)).isoformat()
+    app_clause = "AND s.app_id = ?" if app else ""
+    app_params: tuple = (app,) if app else ()
+
+    starts = await (await db.execute(
+        f"""SELECT s.meeting_id, s.device_id, s.user_id, s.app_id, s.app_version,
+                   s.app_build, s.device_model, s.model_id, s.received_at,
+                   s.resumed_from_meeting_id, u.email,
+                   (SELECT r.meeting_id FROM telemetry_events r
+                     WHERE r.event_type = 'meeting_start'
+                       AND r.resumed_from_meeting_id = s.meeting_id LIMIT 1) AS resumed_into,
+                   h.received_at AS hb_last_at, h.duration_seconds AS hb_seconds,
+                   h.paused AS hb_paused, h.beats AS hb_beats,
+                   (SELECT COUNT(*) FROM meeting_heartbeats d
+                     WHERE d.device_id = s.device_id) AS device_heartbeats
+              FROM telemetry_events s
+              LEFT JOIN users u ON u.id = s.user_id
+              LEFT JOIN meeting_heartbeats h ON h.meeting_id = s.meeting_id
+             WHERE s.event_type = 'meeting_start'
+               AND s.received_at >= ?
+               AND s.meeting_id IS NOT NULL
+               {app_clause}
+               AND NOT EXISTS (SELECT 1 FROM telemetry_events e
+                                WHERE e.event_type = 'meeting_stop'
+                                  AND e.meeting_id = s.meeting_id)
+             ORDER BY s.received_at ASC""",
+        (window_start, *app_params),
+    )).fetchall()
+
+    def _age(iso: str | None) -> int | None:
+        if not iso:
+            return None
+        try:
+            return max(0, int((now - datetime.fromisoformat(iso)).total_seconds()))
+        except ValueError:
+            return None
+
+    meetings = []
+    counts = {"live": 0, "paused": 0, "quiet": 0, "early": 0, "resumed": 0}
+    for s in starts:
+        if s["resumed_into"]:
+            # The orphan half of a crash-recovered meeting: its time lives
+            # on under the new id, so it is not a second meeting in progress.
+            counts["resumed"] += 1
+            continue
+        running = _age(s["received_at"]) or 0
+        heard = await (await db.execute(
+            """SELECT request_timestamp, call_type, prompt_mode, session_duration_sec
+                 FROM usage_log
+                WHERE meeting_id = ? AND request_timestamp >= ?
+                ORDER BY request_timestamp DESC LIMIT 1""",
+            (s["meeting_id"], s["received_at"]),
+        )).fetchone()
+        if s["hb_last_at"]:
+            signal, last_heard = "heartbeat", s["hb_last_at"]
+            phone_seconds = s["hb_seconds"]
+            silence = _age(last_heard) or 0
+            if s["hb_paused"]:
+                state = "paused"
+            elif silence <= quiet_minutes * 60:
+                state = "live"
+            else:
+                state = "quiet"
+            last_kind = f"heartbeat x{s['hb_beats']}"
+        elif heard:
+            signal, last_heard = "usage", heard["request_timestamp"]
+            phone_seconds = heard["session_duration_sec"]
+            silence = _age(last_heard) or 0
+            state = "live" if silence <= 2 * summary_minutes * 60 else "quiet"
+            last_kind = heard["prompt_mode"] or heard["call_type"]
+        else:
+            signal, last_heard, phone_seconds, last_kind = "none", None, None, None
+            state = "early" if running < 2 * summary_minutes * 60 else "quiet"
+        counts[state] += 1
+        meetings.append({
+            "meeting_id": s["meeting_id"],
+            "app_id": s["app_id"],
+            "email": s["email"],
+            "user_id": s["user_id"],
+            "device_id": s["device_id"],
+            "device_model": s["device_model"],
+            "app_version": s["app_version"],
+            "app_build": s["app_build"],
+            "model_id": s["model_id"],
+            "started_at": s["received_at"],
+            "running_seconds": running,
+            "phone_seconds": phone_seconds,
+            "state": state,
+            "signal": signal,
+            "last_heard_at": last_heard,
+            "last_heard_kind": last_kind,
+            # A build that has never sent a heartbeat from this device is an
+            # older build, so "no heartbeat" means nothing about the meeting.
+            "build_heartbeats": bool(s["device_heartbeats"]),
+            "resumed_from_meeting_id": s["resumed_from_meeting_id"],
+        })
+
+    beyond = await (await db.execute(
+        f"""SELECT COUNT(*) FROM telemetry_events s
+             WHERE s.event_type = 'meeting_start' AND s.meeting_id IS NOT NULL
+               AND s.received_at < ? AND s.received_at >= ?
+               {app_clause}
+               AND NOT EXISTS (SELECT 1 FROM telemetry_events e
+                                WHERE e.event_type = 'meeting_stop'
+                                  AND e.meeting_id = s.meeting_id)
+               AND NOT EXISTS (SELECT 1 FROM telemetry_events r
+                                WHERE r.event_type = 'meeting_start'
+                                  AND r.resumed_from_meeting_id = s.meeting_id)""",
+        (window_start, (now - timedelta(days=7)).isoformat(), *app_params),
+    )).fetchone()
+    recovered = await (await db.execute(
+        f"""SELECT COUNT(*) FROM telemetry_events s
+             WHERE s.event_type = 'meeting_stop' AND s.stop_reason = 'recovered'
+               AND s.received_at >= ? {app_clause}""",
+        ((now - timedelta(hours=24)).isoformat(), *app_params),
+    )).fetchone()
+
+    return {
+        "now": now_iso,
+        "window_hours": window_hours,
+        "quiet_minutes": quiet_minutes,
+        "summary_minutes": summary_minutes,
+        "meetings": meetings,
+        "summary": {
+            **counts,
+            "in_progress": len(meetings),
+            "unfinished_beyond_window_7d": int(beyond[0] or 0) if beyond else 0,
+            "recovered_stops_24h": int(recovered[0] or 0) if recovered else 0,
+        },
+    }
+
+
 @router.get("/admin/telemetry/summary")
 async def telemetry_summary(
     request: Request,
