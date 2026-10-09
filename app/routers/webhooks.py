@@ -5061,7 +5061,13 @@ _PAYWALL_PLANS = {"plus", "pro"}
 # time: a silently dark campaign is indistinguishable from a flat result.
 # `launch` and `feature_locked` are built; the other three are reserved
 # names they will build when a campaign needs one.
-_PLACEMENTS = {"launch", "feature_locked", "post_meeting", "paywall", "settings"}
+#
+# `n400_complete` belongs to N-400 Helper, not SS (Scott, 2026-10-09): the
+# moment the applicant's N-400 is built complete, where the I-765 Helper
+# card shows. The N-400 client (build 154) requires this exact string echoed
+# back on resolve and stays dark otherwise.
+_PLACEMENTS = {"launch", "feature_locked", "post_meeting", "paywall", "settings",
+               "n400_complete"}
 # Per-app allowlist of campaign-authorable deeplink targets. The client
 # allowlists the same routes; GP only authors what it will accept. SS provided
 # (2026-06-26): shouldersurf://record only — meeting/<uuid> and project/<uuid>
@@ -5220,6 +5226,11 @@ def _validate_campaign(body: CampaignBody) -> None:
                     raise HTTPException(status_code=400, detail="content_locales title must be a non-empty string")
                 if "body" in o and o["body"] is not None and not isinstance(o["body"], str):
                     raise HTTPException(status_code=400, detail="content_locales body must be a string")
+                # An html variant localizes by swapping the page; resolve
+                # serves this url verbatim, and the clients only render https.
+                if "html_url" in o and not (isinstance(o["html_url"], str)
+                                            and o["html_url"].startswith("https://")):
+                    raise HTTPException(status_code=400, detail="content_locales html_url must be an https url")
         _cta_sources = [(v.get("native") or {}).get("ctas") or []]
         for o in (locs or {}).values():
             _cta_sources.append(o.get("ctas") or [])

@@ -193,7 +193,7 @@ def test_a_client_that_asks_for_no_moment_gets_no_echo(client, make):
 
 
 @pytest.mark.parametrize("name", ["launch", "feature_locked", "post_meeting",
-                                  "paywall", "settings"])
+                                  "paywall", "settings", "n400_complete"])
 def test_every_reserved_placement_authors(client, name):
     r = client.post("/webhooks/admin/campaigns", headers=ADMIN,
                     json=_campaign(f"c_{name}", [{"placement": name}]))

@@ -297,11 +297,18 @@ def _localize_variant(variant: dict, locale_tag: str | None) -> dict:
     authoring-side content_locales map from the wire. Overrides are PARTIAL:
     only the native fields a locale provides are replaced (title / body /
     ctas / media — ctas wholesale, so labels and actions stay paired).
-    Unknown locale or no override -> the authored default, unchanged."""
+    Unknown locale or no override -> the authored default, unchanged.
+
+    An html variant localizes by `html_url` (2026-10-09, the I-765 card in
+    N-400 Helper): the override swaps the page, so the language follows the
+    app's Accept-Language, which the client sends as its EFFECTIVE language,
+    instead of the device locale the webview would guess from."""
     served = {k: v for k, v in variant.items() if k != "content_locales"}
     override = (variant.get("content_locales") or {}).get(locale_tag or "")
     if not isinstance(override, dict):
         return served
+    if isinstance(override.get("html_url"), str) and override["html_url"]:
+        served["html_url"] = override["html_url"]
     native = dict(served.get("native") or {})
     for k in ("title", "body", "ctas", "media"):
         if k in override:

@@ -683,7 +683,7 @@
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:16px">
         <label class="cf"><span>ID (slug)</span><input id="cf-id" placeholder="tr_crosspromo_2026_07"></label>
         <label class="cf"><span>Name</span><input id="cf-name" placeholder="Cross-promote Tech Rehearsal"></label>
-        <label class="cf"><span>App</span><select id="cf-app"><option value="shouldersurf">ShoulderSurf</option><option value="techrehearsal">Tech Rehearsal</option></select></label>
+        <label class="cf"><span>App</span><select id="cf-app"><option value="shouldersurf">ShoulderSurf</option><option value="techrehearsal">Tech Rehearsal</option><option value="n400">N-400 Helper</option><option value="i765">I-765 Helper</option></select></label>
         <label class="cf"><span>Status</span><select id="cf-status"><option value="draft">draft</option><option value="active">active</option><option value="paused">paused</option><option value="archived">archived</option></select></label>
         <label class="cf"><span>Priority</span><input id="cf-priority" type="number" value="0"></label>
         <label class="cf"><span>Mutual-exclusion group</span><input id="cf-mxg" placeholder="(optional)"></label>
@@ -5968,7 +5968,8 @@ function newCampaign() {
   _setCf('cf-name', '');
   // Default to whatever app the global filter is on, else ShoulderSurf.
   const filterApp = document.getElementById('app')?.value;
-  document.getElementById('cf-app').value = (filterApp === 'shouldersurf' || filterApp === 'techrehearsal') ? filterApp : 'shouldersurf';
+  const CAMPAIGN_APPS = ['shouldersurf', 'techrehearsal', 'n400', 'i765'];  // the cf-app options
+  document.getElementById('cf-app').value = CAMPAIGN_APPS.includes(filterApp) ? filterApp : 'shouldersurf';
   document.getElementById('cf-status').value = 'draft';
   _setCf('cf-priority', '0');
   _setCf('cf-mxg', '');

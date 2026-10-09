@@ -1235,6 +1235,21 @@ MIGRATIONS = [
     # The live view pairs each start with its stop by meeting_id; until now
     # that pairing was only ever done in aggregate (GROUP BY user_id).
     "CREATE INDEX IF NOT EXISTS idx_telemetry_meeting ON telemetry_events(meeting_id) WHERE meeting_id IS NOT NULL",
+    # The I-765 Helper card inside N-400 Helper (Scott, 2026-10-09). The
+    # campaign IS the "I-765 is ready" flag: it ships as a draft so the N-400
+    # client's resolve on completion answers {} and nothing shows, and Scott
+    # flips it to active from the Campaigns tab once I-765 has an App Store
+    # id (the creative carries a placeholder id until then). INSERT OR IGNORE
+    # so a dashboard edit is never overwritten by a boot; one row, one app.
+    """INSERT OR IGNORE INTO promo_campaigns
+         (id, name, status, app_id, priority, targeting, frequency, placements,
+          variants, created_at, updated_at)
+       VALUES ('n400_i765_crosspromo', 'I-765 Helper card after the N-400 is complete',
+               'draft', 'n400', 10, '{}', '{"max_impressions": 3}',
+               '[{"placement": "n400_complete", "priority": 10}]',
+               '[{"variant_id": "card", "weight": 100, "render": "html", "html_url": "https://cz.shouldersurf.com/v1/promo/assets/n400-i765-complete.html", "content_locales": {"es": {"html_url": "https://cz.shouldersurf.com/v1/promo/assets/n400-i765-complete.html?lang=es"}, "pt": {"html_url": "https://cz.shouldersurf.com/v1/promo/assets/n400-i765-complete.html?lang=pt"}}}]',
+               strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now'),
+               strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now'))""",
 ]
 
 
