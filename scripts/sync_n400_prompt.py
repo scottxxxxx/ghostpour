@@ -588,6 +588,25 @@ VERSIONS = {
         ],
         "absent": [],
     },
+    53: {
+        # Scott's device runs, builds 146/147 (2026-10-08), the auditor's
+        # redundant-asks audit: cases 2cb53ac8, 472832fe, 32a5de34.
+        "block_anchor": "HOW TO TALK\nTalk like a person doing intake",
+        "once": "THE GREEN CARD DATE IS ON HER CARD",
+        "phrases": [
+            "p2.lpr_date is printed on the green card as Resident Since",
+            "Defer only after she says she doesn't know or will check.",
+            "that same reply asks for the day once, as its only question, and the deferral with partial 2020-05 is written only beside that ask",
+            "never deferred without the ask",
+            "that text is not what you ask. Ask only for the ids listed, by name",
+            "Never ask for a full name while KNOWN FACTS holds the first and last name.",
+            "Never ask which part of a two-word name is the family name unless she gave it in family-first order or said so herself.",
+            "the other part is her first name: file it and do not ask",
+        ],
+        # The v52 clause that let a volunteered month and year be deferred
+        # without the day ever being asked.
+        "absent": ["is minted, or deferred with its partial (2020-05), in that same response"],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -635,6 +654,12 @@ VERSIONS[51]["absent"] = VERSIONS[50]["absent"] + VERSIONS[51]["absent"]
 # v52 carries every v51 phrase, and v51's once line as a phrase (v52 checks a new once).
 VERSIONS[52]["phrases"] = VERSIONS[51]["phrases"] + [VERSIONS[51]["once"]] + VERSIONS[52]["phrases"]
 VERSIONS[52]["absent"] = VERSIONS[51]["absent"] + VERSIONS[52]["absent"]
+# v53 carries every v52 phrase but the volunteered-date clause it rewrote (the
+# auditor, 2026-10-08), and v52's once line as a phrase.
+VERSIONS[53]["phrases"] = [p for p in VERSIONS[52]["phrases"]
+                           if p != "is minted, or deferred with its partial (2020-05), in that same response, never dropped"] \
+    + [VERSIONS[52]["once"]] + VERSIONS[53]["phrases"]
+VERSIONS[53]["absent"] = VERSIONS[52]["absent"] + VERSIONS[53]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]
