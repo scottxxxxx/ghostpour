@@ -151,6 +151,13 @@ async def delete_user_data(
     """
     counts: dict[str, int] = {}
 
+    # FIRST, while usage_log still holds it: an anonymous allowance app's spend
+    # survives the delete as one number per install (Scott, 2026-10-08), or a
+    # delete would reset the caps. In this transaction, so a failed purge
+    # rolls the carry back with it.
+    from app.services.anonymous_budget import carry_spend_before_delete
+    counts["spend_carried_apps"] = len(await carry_spend_before_delete(db, user_id, app_id))
+
     counts["generated_files_disk"] = await _unlink_staged_files(
         db, user_id, app_id)
     counts["meeting_shares_disk"] = await _unlink_staged_files(
