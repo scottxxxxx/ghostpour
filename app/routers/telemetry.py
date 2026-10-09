@@ -123,6 +123,7 @@ class PingEvent(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     event_type: Literal["app_start", "meeting_start", "meeting_stop",
+                        "meeting_heartbeat",
                         "onboarding_completed", "config_decode_failed",
                         "companion_start", "companion_linked",
                         "companion_session_start", "companion_session_stop"]
@@ -138,6 +139,19 @@ class PingEvent(BaseModel):
     app_build: str | None = Field(default=None, max_length=16)
     os_version: str | None = Field(default=None, max_length=32)
     duration_seconds: int | None = Field(default=None, ge=0, le=86400 * 7)
+    # Meetings in progress (agreed with SS, 2026-10-09). A meeting_heartbeat
+    # rides the client's existing 60 s recording timer with duration_seconds
+    # on the same clock as meeting_stop; `paused` is true while the user has
+    # the phone mic paused (the engine stops, and iOS may suspend the app, so
+    # a silent heartbeat is "paused, suspended or dead", never just dead).
+    paused: bool | None = None
+    # On meeting_stop: "recovered" marks a stop the user never pressed, sent
+    # on next launch for a meeting the app died in, with the duration of its
+    # last heartbeat. Absent or "user" is an ordinary stop.
+    stop_reason: Literal["user", "recovered"] | None = None
+    # On meeting_start: crash recovery mints a NEW meeting_id and this names
+    # the one it continues, so the two halves read as one meeting.
+    resumed_from_meeting_id: str | None = Field(default=None, max_length=64)
     # Raw Apple sysctl `hw.machine` code (e.g. "iPhone17,3"). Server maps
     # to a marketing name at query time via app/services/device_models.py
     # so iOS doesn't need to ship a translation table.
@@ -272,6 +286,30 @@ async def ping(
         await _store_companion_event(db, body, request, ip, ip_h)
         return Response(status_code=204)
 
+    # A heartbeat is one UPSERT per meeting, not an event row: a four-hour
+    # meeting would otherwise add 240 rows to a table whose KPIs are COUNT(*).
+    # Read by /webhooks/admin/meetings/live. A beat without a meeting_id has
+    # nothing to attach to and is dropped with a 204 (never a client error).
+    if body.event_type == "meeting_heartbeat":
+        if body.meeting_id:
+            now_iso = datetime.now(timezone.utc).isoformat()
+            await db.execute(
+                """INSERT INTO meeting_heartbeats
+                       (meeting_id, device_id, app_id, first_at, last_at,
+                        duration_seconds, paused, beats)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+                   ON CONFLICT(meeting_id) DO UPDATE SET
+                       last_at = excluded.last_at,
+                       duration_seconds = excluded.duration_seconds,
+                       paused = excluded.paused,
+                       beats = beats + 1""",
+                (body.meeting_id, body.device_id,
+                 getattr(request.state, "app_id", "unknown"), now_iso, now_iso,
+                 body.duration_seconds, 1 if body.paused else 0),
+            )
+            await db.commit()
+        return Response(status_code=204)
+
     # Durable device first-seen, feeding the dashboard's new-installs
     # trend. Raw telemetry purges at 30 days; this row never does, so a
     # device quiet for a month doesn't count as "new" again. Runs before
@@ -397,8 +435,8 @@ async def ping(
            (id, event_type, device_id, user_id, meeting_id, model_id,
             app_version, app_build, os_version, duration_seconds, ip_hash,
             received_at, device_model, app_locale, app_id, country, region,
-            city, distribution)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            city, distribution, stop_reason, resumed_from_meeting_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             str(uuid.uuid4()),
             body.event_type,
@@ -419,6 +457,8 @@ async def ping(
             geo.get("region"),
             geo.get("city"),
             body.distribution,
+            body.stop_reason if body.event_type == "meeting_stop" else None,
+            body.resumed_from_meeting_id if body.event_type == "meeting_start" else None,
         ),
     )
     await db.commit()

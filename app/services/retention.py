@@ -91,6 +91,9 @@ SWEEPS: tuple[Sweep, ...] = (
           "Raw events. Aggregates live in telemetry_daily_rollups and are "
           "kept indefinitely.",
           before=_ABSORB_TELEMETRY_DEVICES),
+    Sweep("meeting_heartbeats", "last_at", 30,
+          "One row per meeting, the last heartbeat it sent. Same standing "
+          "as the raw events it belongs with."),
     Sweep("companion_events", "received_at", 180,
           "Companion launches, links and sessions. Install counts and "
           "versions in use live in companion_installs, which is kept."),

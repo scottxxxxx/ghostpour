@@ -1209,6 +1209,32 @@ MIGRATIONS = [
     # column it touches, filter order first, so the table (rows of ~63 KB of
     # metadata) is never read; the lesson of idx_usage_user_app_date_cost.
     "CREATE INDEX IF NOT EXISTS idx_usage_app_date_user_cost ON usage_log(app_id, request_timestamp, user_id, estimated_cost_usd)",
+    # Meetings in progress (Scott, 2026-10-09). A meeting_stop the user never
+    # pressed is marked by the client ("recovered": sent on next launch for a
+    # meeting the app died in, with the duration of its last heartbeat), so
+    # the drop-off count can tell a lost meeting from a late one. A meeting
+    # resumed through crash recovery mints a NEW meeting_id and names the one
+    # it continues, so the two halves can be read as one meeting.
+    "ALTER TABLE telemetry_events ADD COLUMN stop_reason TEXT",
+    "ALTER TABLE telemetry_events ADD COLUMN resumed_from_meeting_id TEXT",
+    # One row per meeting, upserted by every meeting_heartbeat ping (once a
+    # minute while recording), never one row per beat: a four-hour meeting
+    # would otherwise add 240 rows to a table whose every KPI is COUNT(*).
+    # duration_seconds is the phone's clock, the same one meeting_stop sends.
+    """CREATE TABLE IF NOT EXISTS meeting_heartbeats (
+        meeting_id TEXT PRIMARY KEY,
+        device_id TEXT NOT NULL,
+        app_id TEXT,
+        first_at TEXT NOT NULL,
+        last_at TEXT NOT NULL,
+        duration_seconds INTEGER,
+        paused INTEGER NOT NULL DEFAULT 0,
+        beats INTEGER NOT NULL DEFAULT 0
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_meeting_heartbeats_last ON meeting_heartbeats(last_at)",
+    # The live view pairs each start with its stop by meeting_id; until now
+    # that pairing was only ever done in aggregate (GROUP BY user_id).
+    "CREATE INDEX IF NOT EXISTS idx_telemetry_meeting ON telemetry_events(meeting_id) WHERE meeting_id IS NOT NULL",
 ]
 
 
