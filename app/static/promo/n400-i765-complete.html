@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>I-765 Helper</title>
+<!--
+  GP promo creative, render=html variant, app_id=n400, placement=n400_complete.
+  Served as the campaign variant's html_url. N-400 Helper (build 154 and up)
+  loads this in a non-persistent WKWebView once the applicant's N-400 is built
+  complete, cancels every link navigation, reads promo_cta_id off the href,
+  sends the click event, then opens the href outside the app. So every link
+  here is an https URL that works outside a webview, and every CTA href
+  carries ?promo_cta_id=<id> (the N-400 client reads the query param, unlike
+  SS which reads data-cta-id; both ride here so either reader attributes).
+
+  The App Store id is a PLACEHOLDER (id0000000000) until I-765 Helper has a
+  listing. Replace it with a live edit through the dashboard's creative
+  upload, no deploy needed; the campaign stays draft until then.
+
+  Copy is in English, Spanish and Brazilian Portuguese, the three languages
+  N-400 Helper ships in. GP picks the language: the campaign's
+  content_locales swap html_url to ?lang=es or ?lang=pt from the app's
+  Accept-Language (its effective language), and the page honors that param
+  first, the device's language list second, English last. Self-contained: no
+  fonts, images, scripts or network calls beyond this file, and NO dialogs
+  (alert/confirm), which would block the webview bridge.
+-->
+<style>
+  :root {
+    --accent: #1F4E8C;          /* N-400 Helper blue */
+    --accent-press: #183D6E;
+    --bg: #F3F5F9;
+    --card: #FFFFFF;
+    --text: #141A24;
+    --muted: #5A6778;
+    --hairline: rgba(0,0,0,.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --accent: #6FA3E8;
+      --accent-press: #5A8FD4;
+      --bg: #0D1117;
+      --card: #161C26;
+      --text: #ECF0F6;
+      --muted: #9AA8BC;
+      --hairline: rgba(255,255,255,.10);
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    padding: env(safe-area-inset-top) 20px env(safe-area-inset-bottom);
+    -webkit-font-smoothing: antialiased;
+  }
+  .card {
+    width: 100%; max-width: 420px;
+    background: var(--card);
+    border: 1px solid var(--hairline);
+    border-radius: 22px;
+    padding: 28px 24px 24px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.12);
+    text-align: center;
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600; letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    border-radius: 999px; padding: 6px 12px; margin-bottom: 18px;
+  }
+  .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  .glyph {
+    width: 64px; height: 64px; margin: 0 auto 18px;
+    border-radius: 18px;
+    background: linear-gradient(145deg, var(--accent), var(--accent-press));
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 22px; font-weight: 700; letter-spacing: -.02em;
+  }
+  h1 { font-size: 22px; line-height: 1.25; margin: 0 0 8px; letter-spacing: -.01em; }
+  p.sub { font-size: 15px; color: var(--muted); margin: 0 0 22px; }
+  .cta {
+    display: block; width: 100%;
+    background: var(--accent); color: #fff;
+    font-size: 16px; font-weight: 600; text-decoration: none;
+    padding: 15px 18px; border-radius: 14px;
+    transition: background .15s ease, transform .05s ease;
+  }
+  .cta:active { background: var(--accent-press); transform: scale(.99); }
+  .fineprint { font-size: 12px; color: var(--muted); margin: 14px 0 0; }
+  [lang-copy] { display: none; }
+  [lang-copy].on { display: block; }
+  .cta[lang-copy].on { display: block; }
+</style>
+</head>
+<body>
+  <main class="card" role="dialog" aria-label="I-765 Helper">
+    <span class="badge"><span class="dot"></span>
+      <span lang-copy="en" class="on">From the makers of N-400 Helper</span>
+      <span lang-copy="es">De los creadores de N-400 Helper</span>
+      <span lang-copy="pt">Dos criadores do N-400 Helper</span>
+    </span>
+    <div class="glyph" aria-hidden="true">I-765</div>
+
+    <div lang-copy="en" class="on">
+      <h1>Your N-400 is done. Know someone who needs a work permit?</h1>
+      <p class="sub">I-765 Helper walks through the Employment Authorization application the same way you just did this one: one question at a time, in plain language, with your answers checked as you go.</p>
+    </div>
+    <div lang-copy="es">
+      <h1>Tu N-400 está listo. ¿Conoces a alguien que necesite un permiso de trabajo?</h1>
+      <p class="sub">I-765 Helper te guía por la solicitud de Autorización de Empleo igual que acabas de hacer con esta: una pregunta a la vez, en lenguaje sencillo, revisando tus respuestas sobre la marcha.</p>
+    </div>
+    <div lang-copy="pt">
+      <h1>Seu N-400 está pronto. Conhece alguém que precise de uma autorização de trabalho?</h1>
+      <p class="sub">O I-765 Helper conduz o pedido de Autorização de Emprego do mesmo jeito que você acabou de fazer este: uma pergunta por vez, em linguagem simples, conferindo suas respostas pelo caminho.</p>
+    </div>
+
+    <!--
+      The primary CTA. The N-400 client cancels the navigation, reads
+      promo_cta_id=get_i765 off this href, sends promo click with that
+      cta_id, then opens the href outside the app (the App Store). The App
+      Store ignores query params it does not know. PLACEHOLDER store id.
+    -->
+    <a class="cta on" lang-copy="en"
+       href="https://apps.apple.com/app/id0000000000?promo_cta_id=get_i765"
+       data-cta-id="get_i765">Get I-765 Helper</a>
+    <a class="cta" lang-copy="es"
+       href="https://apps.apple.com/app/id0000000000?promo_cta_id=get_i765"
+       data-cta-id="get_i765">Descargar I-765 Helper</a>
+    <a class="cta" lang-copy="pt"
+       href="https://apps.apple.com/app/id0000000000?promo_cta_id=get_i765"
+       data-cta-id="get_i765">Baixar o I-765 Helper</a>
+
+    <p class="fineprint">
+      <span lang-copy="en" class="on">Free to start. Nothing about your N-400 is shared.</span>
+      <span lang-copy="es">Gratis para empezar. No se comparte nada de tu N-400.</span>
+      <span lang-copy="pt">Grátis para começar. Nada do seu N-400 é compartilhado.</span>
+    </p>
+  </main>
+  <script>
+    // Pick the copy: ?lang= from GP first (the app's own language), then the
+    // device's language list; English stays on when nothing matches. Spans
+    // and blocks for the other two languages start hidden, so a script
+    // failure leaves a complete English card.
+    (function () {
+      var m = /[?&]lang=(es|pt|en)\b/.exec(location.search || "");
+      var langs = m ? [m[1]] :
+        (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || "en"];
+      var pick = "en";
+      for (var i = 0; i < langs.length; i++) {
+        var p = String(langs[i] || "").toLowerCase().split("-")[0];
+        if (p === "es" || p === "pt") { pick = p; break; }
+        if (p === "en") { break; }
+      }
+      if (pick === "en") { return; }
+      document.documentElement.lang = pick;
+      var nodes = document.querySelectorAll("[lang-copy]");
+      for (var j = 0; j < nodes.length; j++) {
+        var n = nodes[j];
+        if (n.getAttribute("lang-copy") === pick) { n.classList.add("on"); } else { n.classList.remove("on"); }
+      }
+    })();
+  </script>
+</body>
+</html>
