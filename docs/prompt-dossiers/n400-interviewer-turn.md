@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 52
+served_version: 53
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-10-07 (v52)
+reconciled: 2026-10-09 (v53)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1897,3 +1897,15 @@ The auditor, 2026-10-07, from Scott's run on build 130 against v51 (case 09a8d9e
 PROMPT: A YEAR IS ONLY A YEAR; A FILED VALUE STAYS FILED; A UNIT AND A ZIP ARE TWO NUMBERS; A START ON FILE COUNTS WHETHER IT IS FILED OR A DEFERRED PARTIAL, plus "a gate KNOWN FACTS already holds is never asked".
 
 Not probed (no paid calls). Verified structurally: phrase read-back on the real bundle, each rule load-bearing, sabotage below.
+
+## v53: the green card date is on her card, a partial node asks only its empty ids, a two-word name is not a puzzle
+
+The auditor, 2026-10-08, from Scott's device runs on builds 146/147 (redundant-asks audit in the N-400 app repo, qa/compare/redundant-asks-2026-10-08.md; cases 2cb53ac8, 472832fe, 32a5de34).
+
+- A. "since June of 2015" in a Part 1 answer: p2.lpr_date deferred with partial 2015-06 in a reply that asked something else; the day was never asked across three more mentions. v52 contradicted itself: the date rules say a month and year is ASKED, while the HOW TO TALK clause said a volunteered month and year "is minted, or deferred with its partial (2020-05)". PROMPT: that clause rewritten (the ask goes out with no deferral; the field stays owed until she gives the day or says she does not know, and only then is it deferred), and THE GREEN CARD DATE IS ON HER CARD (ask once for the Resident Since date, pointing to the card, with the way out; defer only after she says she does not know or will check). The old clause is now in `absent`.
+- B. "My full name is John Jones" filed first and last; the Part 2 agenda line listed only p2.middle_name but carried the node's whole-name question, and the lane asked for the full legal name. PROMPT: a partial line's question text is not what you ask; ask the listed ids by name; never a full name while KNOWN FACTS holds first and last. The app is also swapping in the middle-name question.
+- C. "Which of those two is your family name?" three times on a two-word name. Partly the client's masker (a follow-up went out unmasked). PROMPT: never ask which part of a two-word name is the family name unless she gave family-first order or said so; once she names the family part, the other is the first name, filed.
+
+Held for Scott, not applied: steering "got the green card through a spouse" with 11 years of residence away from the Spouse of U.S. Citizen basis.
+
+Tested with NO API tokens (Scott, 2026-10-09): two blind Claude subagents each read one full prompt (v52, v53) and played the lane on 8 rendered turns (5 defect shapes, 3 counterweights). This is a simulation by a different model reading carefully, not a measurement of the served model. It did NOT reproduce A or B on v52 (the v52 lane asked the day and asked only the middle name), so it cannot show the fix for those; it did reproduce C2 (v52 asked "your first name is Fairbanks, right?", v53 filed it). On v53 every green card date shape asked the Resident Since date from the card, and the counterweights held (a full date minted, family-first Tran Minh filed as Minh Tran, "I'll check later" deferred).

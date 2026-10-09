@@ -275,7 +275,7 @@ def test_the_mint_rule_survives_the_edit_that_targets_the_verdict():
     said it. Removing a verdict word must not reopen that. Checked on v38's
     real bundle now, since v36 is cut into it."""
     assert "MINT THAT BASIS IN THIS SAME RESPONSE" in VERSIONS[36]["phrases"]
-    assert "MINT THAT BASIS IN THIS SAME RESPONSE" in _bundle_prompt(52)
+    assert "MINT THAT BASIS IN THIS SAME RESPONSE" in _bundle_prompt(53)
 
 
 def test_the_v38_phrases_verify_and_each_is_load_bearing():
@@ -297,11 +297,11 @@ def test_the_v39_phrases_verify_and_each_is_load_bearing():
 def test_the_retired_per_part_confirmation_stays_gone_in_v40():
     """Scott retired the confirmation after every part (2026-09-26). A served
     copy carrying any of its lines is a stale cut, and v40 inherits the list."""
-    sp = _bundle_prompt(52)
+    sp = _bundle_prompt(53)
     for phrase in VERSIONS[39]["absent"]:
         assert phrase in VERSIONS[40]["absent"], phrase
         assert phrase not in sp, phrase
-        assert verify(sp + "\n" + phrase, 52) is False, phrase
+        assert verify(sp + "\n" + phrase, 53) is False, phrase
 
 
 def test_every_v38_phrase_rides_into_v39():
@@ -313,7 +313,7 @@ def test_the_original_reason_for_the_order_survives_v38():
     """v38 EXTENDS the sentence that argues the order from field dependencies;
     it must not replace that argument with the streaming one. Both reasons,
     word for word, on the real bundle."""
-    sp = _bundle_prompt(52)
+    sp = _bundle_prompt(53)
     assert sp.count("the reply LAST, because each later field must follow the earlier ones") == 1
     assert sp.count("`asking` written after `facts` can never name a node you just minted") == 1
     assert sp.count("THE ORDER IS A REQUIREMENT, NOT A PREFERENCE") == 1
@@ -423,11 +423,11 @@ def test_v39s_name_rule_and_offer_trigger_coming_back_fail_v40():
     (spectrum-rosa-r1 t30) and made the offer the moment the agenda emptied,
     so eight deferrals were never asked again (rosa t71). A served copy with
     either sentence is a stale cut."""
-    sp = _bundle_prompt(52)
+    sp = _bundle_prompt(53)
     for phrase in ("If the answer has three words, that is first, middle and last.",
                    "the reply that finds the agenda empty MAKES the offer"):
         assert phrase not in sp, phrase
-        assert verify(sp + "\n" + phrase, 52) is False, phrase
+        assert verify(sp + "\n" + phrase, 53) is False, phrase
 
 
 def test_every_v39_phrase_rides_into_v40():
@@ -449,7 +449,7 @@ def test_the_idle_heading_scott_reworded_stays_gone_in_v41():
     it, so "NO WORKPLACE" is no longer the rule. A served copy carrying the old
     heading is a stale cut."""
     old = "A RETIRED OR UNEMPLOYED STRETCH HAS NO EMPLOYER AND NO WORKPLACE"
-    sp = _bundle_prompt(52)
+    sp = _bundle_prompt(53)
     assert old not in sp
     assert verify(sp + "\n" + old, 45) is False
 
@@ -505,21 +505,63 @@ def test_every_v43_phrase_rides_into_v44():
 
 # --- v45: round 7 (the auditor, 2026-09-28) ------------------------------------
 
-def test_the_v52_list_verifies_the_real_v52_bundle():
-    assert verify(_bundle_prompt(52), 52) is True
+def test_the_v53_list_verifies_the_real_v53_bundle():
+    assert verify(_bundle_prompt(53), 53) is True
 
 
-def test_each_v52_phrase_is_load_bearing_on_the_real_bundle():
-    sp = _bundle_prompt(52)
-    for phrase in [VERSIONS[52]["once"]] + VERSIONS[52]["phrases"]:
+def test_each_v53_phrase_is_load_bearing_on_the_real_bundle():
+    sp = _bundle_prompt(53)
+    for phrase in [VERSIONS[53]["once"]] + VERSIONS[53]["phrases"]:
         assert phrase in sp, phrase
-        assert verify(sp.replace(phrase, ""), 52) is False, phrase
+        assert verify(sp.replace(phrase, ""), 53) is False, phrase
 
 
-def test_the_v50_and_v51_lists_still_verify_the_v52_bundle():
-    """v51 and v52 only add, so the older read-backs must pass on v52's bytes too."""
-    assert verify(_bundle_prompt(52), 50) is True
-    assert verify(_bundle_prompt(52), 51) is True
+def test_the_older_lists_fail_v53_only_on_the_clause_it_rewrote():
+    """v53 rewrote one v52-era clause; every older list must pass on v53's
+    bytes once that clause is put back, so nothing else was lost."""
+    old = "is minted, or deferred with its partial (2020-05), in that same response, never dropped"
+    sp = _bundle_prompt(53) + "\n" + old
+    for v in (50, 51, 52):
+        assert verify(sp, v) is True, v
+
+
+def test_every_v52_phrase_but_the_rewritten_clause_rides_into_v53():
+    old = "is minted, or deferred with its partial (2020-05), in that same response, never dropped"
+    for phrase in VERSIONS[52]["phrases"] + [VERSIONS[52]["once"]]:
+        assert phrase == old or phrase in VERSIONS[53]["phrases"], phrase
+
+
+@pytest.mark.parametrize("defect,phrases", [
+    # A. 2cb53ac8 t_004: "since June of 2015" deferred, the day never asked.
+    ("green card day never asked", [
+        "THE GREEN CARD DATE IS ON HER CARD",
+        "p2.lpr_date is printed on the green card as Resident Since",
+        "Defer only after she says she doesn't know or will check.",
+        "that same reply asks for the day once, as its only question, and writes no deferral for it",
+        "and only then is it deferred with its partial (2020-05)"]),
+    # B. 2cb53ac8 m_011: the whole-name question with first and last on file.
+    ("full name asked again", [
+        "that text is not what you ask. Ask only for the ids listed, by name",
+        "Never ask for a full name while KNOWN FACTS holds the first and last name."]),
+    # C. 472832fe m_009/m_013: "which is your family name" three times.
+    ("family name ping-pong", [
+        "Never ask which part of a two-word name is the family name unless she gave it in family-first order or said so herself.",
+        "the other part is her first name: file it and do not ask"]),
+])
+def test_each_build_147_defect_has_a_served_rule(defect, phrases):
+    sp = _bundle_prompt(53)
+    for phrase in phrases:
+        assert sp.count(phrase) == 1, (defect, phrase)
+        assert verify(sp.replace(phrase, ""), 53) is False, (defect, phrase)
+
+
+def test_the_v52_clause_that_deferred_without_asking_is_gone_in_v53():
+    """The HOW TO TALK clause the lane followed in 2cb53ac8 t_004. A served
+    copy that still carries it is a stale cut."""
+    sp = _bundle_prompt(53)
+    old = "is minted, or deferred with its partial (2020-05), in that same response"
+    assert old not in sp
+    assert verify(sp + "\n" + old, 53) is False
 
 
 def test_every_v51_phrase_and_its_once_line_ride_into_v52():
@@ -545,10 +587,10 @@ def test_every_v51_phrase_and_its_once_line_ride_into_v52():
 def test_each_build_130_defect_has_a_served_rule(defect, phrases):
     """Scott's build 130 run, case 09a8d9e9, 2026-10-07. Each rule is in the
     real bundle exactly once, and the read-back fails without it."""
-    sp = _bundle_prompt(52)
+    sp = _bundle_prompt(53)
     for phrase in phrases:
         assert sp.count(phrase) == 1, (defect, phrase)
-        assert verify(sp.replace(phrase, ""), 52) is False, (defect, phrase)
+        assert verify(sp.replace(phrase, ""), 53) is False, (defect, phrase)
 
 
 def test_every_v50_phrase_and_its_once_line_ride_into_v51():
@@ -560,23 +602,23 @@ def test_the_follow_up_rule_is_in_v51_exactly_once():
     """Build 128, case 88761ff1, 2026-10-07 ~15:32Z: "What month and day in
     2019 did you get your green card, if you know it offhand? Have you used any
     other names since birth?" The card showed the second, the voice asked both."""
-    sp = _bundle_prompt(52)
+    sp = _bundle_prompt(53)
     assert sp.count("A FOLLOW-UP KEEPS THE PART OPEN") == 1
     for phrase in ("that follow-up is the ONLY question in this reply, with `asking` naming the node it belongs to",
                    "no part summary and no next part's question, even when SECTION BOUNDARY is present",
                    "(a pending follow-up and the next part's first question are two)"):
         assert sp.count(phrase) == 1, phrase
-        assert verify(sp.replace(phrase, ""), 52) is False, phrase
+        assert verify(sp.replace(phrase, ""), 53) is False, phrase
 
 
 def test_the_on_file_address_rule_is_served_in_v51():
     """Same run, ~15:38Z: "what is your current street address and city?" with
     Austin, Texas on file from onboarding."""
-    sp = _bundle_prompt(52)
+    sp = _bundle_prompt(53)
     for phrase in ("A PIECE ALREADY ON FILE IS NEVER ASKED",
                    "the address question asks only for the pieces still missing and may read back what is on file"):
         assert sp.count(phrase) == 1, phrase
-        assert verify(sp.replace(phrase, ""), 52) is False, phrase
+        assert verify(sp.replace(phrase, ""), 53) is False, phrase
 
 
 def test_every_v49_phrase_and_its_once_line_ride_into_v50():
@@ -589,21 +631,21 @@ def test_every_v49_phrase_and_its_once_line_ride_into_v50():
 def test_the_row_order_rule_is_in_v50_exactly_once():
     """Run 3, 2026-10-07: a prior address filed from 2019-03-03 to
     2019-03-02. The rule tells the lane to ask instead of filing."""
-    sp = _bundle_prompt(52)
+    sp = _bundle_prompt(53)
     assert sp.count("A ROW NEVER ENDS BEFORE IT STARTS") == 1
-    assert verify(sp.replace("A ROW NEVER ENDS BEFORE IT STARTS", ""), 52) is False
+    assert verify(sp.replace("A ROW NEVER ENDS BEFORE IT STARTS", ""), 53) is False
 
 
 def test_the_spelling_rule_is_served_in_v50():
     """Run 3, 2026-10-07 02:59:38Z: "I'm married to Wenceslao YARBOROUGH
     D-A-V-I-D" filed spouse_middle_name = David. Spelled letters are the
     spelling of the name just said, and a mismatch is asked, never filed."""
-    sp = _bundle_prompt(52)
+    sp = _bundle_prompt(53)
     for phrase in ("LETTERS SPELLED AFTER A NAME ARE ITS SPELLING",
                    "those letters spell the name she just said, never another name and never a middle name",
                    "When they spell something else, file neither; say both and ask which one is right."):
         assert sp.count(phrase) == 1, phrase
-        assert verify(sp.replace(phrase, ""), 52) is False, phrase
+        assert verify(sp.replace(phrase, ""), 53) is False, phrase
 
 
 def test_every_v48_phrase_rides_into_v49():
@@ -617,13 +659,13 @@ def test_the_old_fee_wording_stays_gone_in_v49():
     The interpreter ruling ("an app is not an interpreter") was pulled
     before shipping: whether the app counts is Scott's question for an
     attorney, and the prompt must not decide it."""
-    sp = _bundle_prompt(52)
+    sp = _bundle_prompt(53)
     for retired in ("USCIS lowers the filing fee for lower household incomes",
                     "never with the income threshold recited at them",
                     "An app speaking her language is not an interpreter",
                     "and were never asked aloud, so the review is the only place she hears them"):
         assert retired not in sp, retired
-        assert verify(sp + "\n" + retired, 52) is False, retired
+        assert verify(sp + "\n" + retired, 53) is False, retired
 
 
 def test_every_v47_phrase_rides_into_v48():
@@ -642,10 +684,10 @@ def test_every_v46_phrase_rides_into_v47_but_the_group_line():
 def test_the_part_9_group_rules_stay_gone_in_v47():
     """Scott, 2026-09-29: Part 9 one question at a time. A served copy that
     still reads Part 9 as groups is a stale cut."""
-    sp = _bundle_prompt(52)
+    sp = _bundle_prompt(53)
     for retired in VERSIONS[47]["absent"][-5:]:
         assert retired not in sp, retired
-        assert verify(sp + "\n" + retired, 52) is False, retired
+        assert verify(sp + "\n" + retired, 53) is False, retired
 
 
 def test_every_v45_phrase_rides_into_v46():
@@ -657,11 +699,11 @@ def test_the_always_on_a_number_gloss_stays_gone_in_v46():
     """Scott's build-108 run: v45 told the model to describe the A-Number's
     place on the card on every ask, a 19-second line. A served copy carrying
     that sentence is a stale cut."""
-    sp = _bundle_prompt(52)
+    sp = _bundle_prompt(53)
     retired = "Ask for the A-Number as the number usually shown on the Green Card"
     assert retired in VERSIONS[50]["absent"]
     assert retired not in sp
-    assert verify(sp + "\n" + retired, 52) is False
+    assert verify(sp + "\n" + retired, 53) is False
 
 
 def test_every_v44_phrase_rides_into_v45():
