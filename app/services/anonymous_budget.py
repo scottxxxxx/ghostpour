@@ -70,6 +70,64 @@ DAILY_SPEND_SQL = (
 )
 
 
+# Apps whose anonymous accounts get an allowance, so their spend is carried
+# through a delete. ShoulderSurf's anonymous accounts get none, so nothing of
+# theirs is kept after a delete.
+CARRY_APPS = frozenset({"n400"})
+
+# The spend a deleted account of this install already used, added to the
+# live sums below. users.apple_sub is UNIQUE and indexed; the carry table is
+# read by its primary key.
+CARRIED_SQL = (
+    "SELECT c.lifetime_usd FROM anonymous_spend_carry c "
+    "JOIN users u ON u.apple_sub = c.sub_hash "
+    "WHERE u.id = ? AND c.app_id = ?"
+)
+CARRIED_TODAY_SQL = (
+    "SELECT COALESCE(SUM(day_usd), 0) FROM anonymous_spend_carry "
+    "WHERE app_id = ? AND day = ?"
+)
+
+
+async def carry_spend_before_delete(db: aiosqlite.Connection, user_id: str,
+                                    app_id: str | None) -> list[str]:
+    """Before a delete purges usage_log, add this anonymous account's spend in
+    each carried app to its carry row. Returns the apps carried. Does not
+    commit: it runs inside the delete's own transaction."""
+    row = await (await db.execute(
+        "SELECT apple_sub FROM users WHERE id = ?", (user_id,))).fetchone()
+    sub = row[0] if row else None
+    if not sub or not str(sub).startswith(ANONYMOUS_SUB_PREFIX):
+        return []
+    apps = [a for a in CARRY_APPS if app_id is None or a == app_id]
+    now = datetime.now(timezone.utc)
+    day, day_start = now.date().isoformat(), _day_start_iso(now)
+    carried = []
+    for app in apps:
+        total = await (await db.execute(LIFETIME_SPEND_SQL, (user_id, app))).fetchone()
+        today = await (await db.execute(
+            "SELECT COALESCE(SUM(estimated_cost_usd), 0) FROM usage_log "
+            "WHERE user_id = ? AND app_id = ? AND request_timestamp >= ?",
+            (user_id, app, day_start))).fetchone()
+        total, today = float(total[0] or 0.0), float(today[0] or 0.0)
+        if total <= 0:
+            continue
+        await db.execute(
+            """INSERT INTO anonymous_spend_carry
+                   (sub_hash, app_id, lifetime_usd, day, day_usd, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?)
+               ON CONFLICT(sub_hash, app_id) DO UPDATE SET
+                   lifetime_usd = lifetime_usd + excluded.lifetime_usd,
+                   day_usd = CASE WHEN day = excluded.day
+                                  THEN day_usd + excluded.day_usd
+                                  ELSE excluded.day_usd END,
+                   day = excluded.day,
+                   updated_at = excluded.updated_at""",
+            (sub, app, total, day, today, now.isoformat()))
+        carried.append(app)
+    return carried
+
+
 def _doc(remote_configs: dict | None, apps_registry: dict, app_id: str | None) -> dict:
     from app.services.app_budget import budget_config
     slug = budget_config(apps_registry, app_id).get("config_slug")
@@ -136,7 +194,7 @@ async def check(db: aiosqlite.Connection, user_id: str, app_id: str,
     same rule as the flat app budget.
     """
     est = estimate_usd or 0.0
-    info = {"app_id": app_id, "case_id": case, "estimate": estimate_usd,
+    info = {"app_id": app_id, "case_id": case, "estimate": estimate_usd, "carried": None,
             "per_application": caps_.get("per_application"), "application_spent": None,
             "per_install": caps_["per_install"], "daily": caps_.get("daily"),
             "daily_spent": None}
@@ -149,6 +207,10 @@ async def check(db: aiosqlite.Connection, user_id: str, app_id: str,
             return CODE_APPLICATION, info
     row = await (await db.execute(LIFETIME_SPEND_SQL, (user_id, app_id))).fetchone()
     spent = float(row[0] or 0.0) if row else 0.0
+    # What this install spent before a "Delete all my data" (Scott, 2026-10-08).
+    row = await (await db.execute(CARRIED_SQL, (user_id, app_id))).fetchone()
+    info["carried"] = carried = float(row[0] or 0.0) if row else 0.0
+    spent += carried
     info["spent"] = spent
     if spent >= caps_["per_install"] or spent + est > caps_["per_install"]:
         return CODE_INSTALL, info
@@ -156,7 +218,10 @@ async def check(db: aiosqlite.Connection, user_id: str, app_id: str,
     if daily is not None:
         row = await (await db.execute(
             DAILY_SPEND_SQL, (app_id, _day_start_iso(), ANONYMOUS_SUB_PREFIX))).fetchone()
-        info["daily_spent"] = day = float(row[0] or 0.0) if row else 0.0
+        day = float(row[0] or 0.0) if row else 0.0
+        row = await (await db.execute(
+            CARRIED_TODAY_SQL, (app_id, _day_start_iso()[:10]))).fetchone()
+        info["daily_spent"] = day = day + (float(row[0] or 0.0) if row else 0.0)
         if day >= daily or day + est > daily:
             return CODE_DAILY, info
     return None, info

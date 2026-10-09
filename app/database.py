@@ -1094,6 +1094,23 @@ MIGRATIONS = [
     # a plan links the account it left to the one it reached; a merge links
     # the anonymous account to the Apple account. The dashboard groups by
     # these links, so a buyer on two devices counts once.
+    # Anonymous allowance spend that outlives "Delete all my data" (Scott,
+    # 2026-10-08: "Caps survive"). The caps are sums over usage_log, and a
+    # delete removes those rows, so without this a delete handed the same
+    # install a fresh allowance. Keyed on the account's apple_sub, which for an
+    # anonymous account is already a one-way hash of the app and install id
+    # (auth.anonymous_sub); no user_id, no content, no case id. Written only
+    # at delete (account_deletion), read by anonymous_budget.check.
+    """CREATE TABLE IF NOT EXISTS anonymous_spend_carry (
+        sub_hash TEXT NOT NULL,
+        app_id TEXT NOT NULL,
+        lifetime_usd REAL NOT NULL DEFAULT 0,
+        day TEXT,                       -- UTC date of day_usd, YYYY-MM-DD
+        day_usd REAL NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (sub_hash, app_id)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_spend_carry_app_day ON anonymous_spend_carry(app_id, day)",
     """CREATE TABLE IF NOT EXISTS account_links (
         from_user_id TEXT NOT NULL,
         to_user_id TEXT NOT NULL,
