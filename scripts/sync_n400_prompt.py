@@ -607,6 +607,20 @@ VERSIONS = {
         # without the day ever being asked.
         "absent": ["is minted, or deferred with its partial (2020-05), in that same response"],
     },
+    54: {
+        # Scott's build 149 run (case 28f9bb5e t_008, 2026-10-09): parents
+        # answered at t_007, and the lane still asked the canned pair
+        # sentence the prompt itself prescribed.
+        "block_anchor": "HOW TO TALK\nTalk like a person doing intake",
+        "once": "A PAIR NEVER CARRIES AN ANSWERED HALF",
+        "phrases": [
+            "the next question groups the next short lines STILL ON THE AGENDA",
+            "never gender alone while its partner is still open",
+            "when one half of any pair below is in KNOWN FACTS or missing from the agenda, ask only the other half",
+        ],
+        # The unconditional canned sentence the lane copied.
+        "absent": ['the next question is "Are you male or female, and was either of your parents a U.S. citizen before you turned 18?", never gender alone;'],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -660,6 +674,9 @@ VERSIONS[53]["phrases"] = [p for p in VERSIONS[52]["phrases"]
                            if p != "is minted, or deferred with its partial (2020-05), in that same response, never dropped"] \
     + [VERSIONS[52]["once"]] + VERSIONS[53]["phrases"]
 VERSIONS[53]["absent"] = VERSIONS[52]["absent"] + VERSIONS[53]["absent"]
+# v54 carries every v53 phrase, and v53's once line as a phrase.
+VERSIONS[54]["phrases"] = VERSIONS[53]["phrases"] + [VERSIONS[53]["once"]] + VERSIONS[54]["phrases"]
+VERSIONS[54]["absent"] = VERSIONS[53]["absent"] + VERSIONS[54]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]

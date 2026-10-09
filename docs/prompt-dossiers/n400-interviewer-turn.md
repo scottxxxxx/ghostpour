@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 53
+served_version: 54
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-10-09 (v53)
+reconciled: 2026-10-09 (v54)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1909,3 +1909,10 @@ The auditor, 2026-10-08, from Scott's device runs on builds 146/147 (redundant-a
 Held for Scott, not applied: steering "got the green card through a spouse" with 11 years of residence away from the Spouse of U.S. Citizen basis.
 
 Tested with NO API tokens (Scott, 2026-10-09): two blind Claude subagents each read one full prompt (v52, v53) and played the lane on 8 rendered turns (5 defect shapes, 3 counterweights). This is a simulation by a different model reading carefully, not a measurement of the served model. It did NOT reproduce A or B on v52 (the v52 lane asked the day and asked only the middle name), so it cannot show the fix for those; it did reproduce C2 (v52 asked "your first name is Fairbanks, right?", v53 filed it). On v53 every green card date shape asked the Resident Since date from the card, and the counterweights held (a full date minted, family-first Tran Minh filed as Minh Tran, "I'll check later" deferred).
+
+
+## v54: a pair never carries an answered half
+
+The auditor, 2026-10-09, from Scott's first v53 run (build 149, case 28f9bb5e). v53's A and B both worked live ("What day in June 2015 did you become a permanent resident?", "Do you have a legal middle name, John?"). New: at t_007 "My parents are not US citizens" filed p2.parent_citizen_before_18 = no; at t_008 ("Italy.") the reply asked "Are you male or female, and was either of your parents a U.S. citizen before your 18th birthday?" with the parents node off the agenda and the fact in KNOWN FACTS. Cause, read in the bundle: the grouping paragraph prescribed that exact sentence unconditionally ("the next question is \"Are you male or female, and was either of your parents...\", never gender alone"), which outranked the general answered-node rule.
+
+PROMPT: the grouped question takes the next short lines STILL ON THE AGENDA, never gender alone only while its partner is open, and A PAIR NEVER CARRIES AN ANSWERED HALF (any listed pair with one half in KNOWN FACTS or off the agenda asks only the other half). The canned unconditional sentence is in `absent`.
