@@ -596,8 +596,8 @@ VERSIONS = {
         "phrases": [
             "p2.lpr_date is printed on the green card as Resident Since",
             "Defer only after she says she doesn't know or will check.",
-            "that same reply asks for the day once, as its only question, and the deferral with partial 2020-05 is written only beside that ask",
-            "never deferred without the ask",
+            "that same reply asks for the day once, as its only question, and writes no deferral for it",
+            "and only then is it deferred with its partial (2020-05)",
             "that text is not what you ask. Ask only for the ids listed, by name",
             "Never ask for a full name while KNOWN FACTS holds the first and last name.",
             "Never ask which part of a two-word name is the family name unless she gave it in family-first order or said so herself.",

@@ -537,8 +537,8 @@ def test_every_v52_phrase_but_the_rewritten_clause_rides_into_v53():
         "THE GREEN CARD DATE IS ON HER CARD",
         "p2.lpr_date is printed on the green card as Resident Since",
         "Defer only after she says she doesn't know or will check.",
-        "that same reply asks for the day once, as its only question, and the deferral with partial 2020-05 is written only beside that ask",
-        "never deferred without the ask"]),
+        "that same reply asks for the day once, as its only question, and writes no deferral for it",
+        "and only then is it deferred with its partial (2020-05)"]),
     # B. 2cb53ac8 m_011: the whole-name question with first and last on file.
     ("full name asked again", [
         "that text is not what you ask. Ask only for the ids listed, by name",
