@@ -425,6 +425,20 @@ async def ping(
 
     # Derive coarse geo from the raw IP, then it's discarded (only the hash and
     # the derived country/region/city persist; never the raw IP, no lat/long).
+    # A meeting_stop is idempotent on meeting_id (SS, 2026-10-09): the client
+    # queues stops and retries until a 2xx lands, so a 204 that is lost on
+    # the way back makes the same stop arrive twice. Every reader sums or
+    # counts stop rows, so the second copy would double that meeting's time.
+    # The first one wins; the repeat is still a 204, or the client retries
+    # it forever.
+    if body.event_type == "meeting_stop" and body.meeting_id:
+        dup = await (await db.execute(
+            "SELECT 1 FROM telemetry_events WHERE event_type = 'meeting_stop' "
+            "AND meeting_id = ? LIMIT 1", (body.meeting_id,))).fetchone()
+        if dup:
+            await db.commit()
+            return Response(status_code=204)
+
     # City collection approved 2026-07-08 (#318 §9) — targeting on it is
     # guarded by the min-audience floor at campaign authoring and resolve.
     from app.services import geoip

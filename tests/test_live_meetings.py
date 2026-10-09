@@ -119,6 +119,23 @@ def test_stop_reason_and_resumed_from_are_stored_on_their_own_events(client, tmp
                               "AND event_type = 'meeting_stop'", first["meeting_id"]) == [("recovered",)]
 
 
+def test_a_repeated_stop_keeps_the_first_and_still_answers_204(client, tmp_db_path):
+    """SS's outbox retries a stop until a 2xx lands, so a lost 204 makes the
+    same stop arrive twice; every reader sums stop rows."""
+    start = _start(client, tmp_db_path)
+    for secs, reason in ((600, "user"), (600, "user"), (660, "recovered")):
+        _ping(client, event_type="meeting_stop", meeting_id=start["meeting_id"],
+              device_id=start["device_id"], duration_seconds=secs, stop_reason=reason)
+    assert _rows(tmp_db_path, "SELECT duration_seconds, stop_reason FROM telemetry_events "
+                              "WHERE meeting_id = ? AND event_type = 'meeting_stop'",
+                 start["meeting_id"]) == [(600, "user")]
+    # A stop with no meeting_id has nothing to dedupe on and is kept as before.
+    for _ in range(2):
+        _ping(client, event_type="meeting_stop", duration_seconds=5)
+    assert _rows(tmp_db_path, "SELECT COUNT(*) FROM telemetry_events WHERE event_type = "
+                              "'meeting_stop' AND meeting_id IS NULL") == [(2,)]
+
+
 def test_an_unknown_stop_reason_is_refused(client):
     r = client.post("/v1/events/ping", headers=SS, json={
         "event_type": "meeting_stop", "device_id": _u(), "meeting_id": _u(), "stop_reason": "magic"})
