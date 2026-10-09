@@ -24,25 +24,38 @@ from tests.conftest import _insert_user, chat_request
 SECRET = "test-secret-key-that-is-long-enough-for-hs256-validation"
 I765 = {"X-App-ID": "i765"}
 CALL = "i765_interviewer_turn"
-AGENDA = ("q_p1_category | Part 1: Reason for applying | p1.eligibility_category | "
-          "What is your eligibility category? | options: c09, c03b, a12, c19\n"
-          "q_p2_a_number | Part 2: About you | p2.a_number | What is your A-Number?\n")
+# The brief's section 4.1 lines (ids, titles and options are the catalog's;
+# the ask text is shortened here, the client sends the full text).
+AGENDA = ("q_p1_reason | Part 1: Why you are applying | p1.reason | Is this your first work permit, "
+          "a replacement, or a renewal? | options: initial, replacement, renewal\n"
+          "q_p2_eligibility_category | Part 2: About you | p2.eligibility_category | Which eligibility "
+          "category is on your paperwork? | options: c9, c3a, c3b, c3c, a12, c19, a17, a18, a3, a5, c26, other\n"
+          "q_p2_full_name | Part 2: About you | p2.given_name,p2.middle_name,p2.family_name | What is your full legal name?\n")
+BOUNDARY = ("the standing question is the last in Part 1 Why you are applying; when it is answered, "
+            "summarize Part 1 in one sentence and open Part 2 About you in the same reply, without asking for confirmation")
 
+# The served N-400 fact shape (value_type + provenance.utterance) with `intent`
+# as the plain string the I-765 client decodes.
 ENVELOPE = {
-    "schema_version": 1, "turn_id": "t-i765-1", "intent": {"type": "answer"},
-    "facts": [{"field_id": "p1.eligibility_category", "value": "c09",
-               "source": "applicant", "evidence": "my green card application is pending"}],
+    "schema_version": 1, "turn_id": "t-i765-1", "intent": "answer",
+    "facts": [{"field_id": "p1.reason", "value": "initial", "value_type": "string",
+               "provenance": {"source": "user_stated", "confidence": 0.96,
+                              "utterance": "my first work permit"}}],
     "deferred": [], "clarification": None, "conflict": None, "escalation": None,
-    "complete": True, "asking": {"node_id": "q_p2_a_number", "field_ids": ["p2.a_number"]},
-    "section_checkpoint": None, "interview_over": False,
-    "reply": {"en": "A pending green card application, noted. What is your A-Number?"},
+    "complete": True,
+    "asking": {"node_id": "q_p2_eligibility_category", "field_ids": ["p2.eligibility_category"]},
+    "section_checkpoint": {"part": 1, "section": "Part 1: Why you are applying", "awaiting_confirmation": False},
+    "interview_over": False,
+    "reply": {"en": "A first permit. Now the one thing that decides the rest of the form: which eligibility category is on your paperwork?"},
 }
 
 
 def _metadata(**over):
     md = {"call_type": CALL, "form_code": "I-765", "jurisdiction": "US-TX", "locale": "en",
-          "turn_id": "t-i765-1", "conversation": "INTERVIEWER: What is your eligibility category?",
-          "known_facts": "nothing yet", "agenda": AGENDA}
+          "turn_id": "t-i765-1",
+          "conversation": "INTERVIEWER: Is this your first work permit, a replacement, or a renewal?\nAPPLICANT: my first work permit",
+          "known_facts": "p2.mailing_address.state: TX", "agenda": AGENDA, "section_boundary": BOUNDARY,
+          "applicant_context": "state: Texas; language: English; interpreter: no; filing for self: yes"}
     md.update(over)
     return md
 
@@ -56,7 +69,7 @@ def _headers(db, user_id="i765-lane-user"):
     return {"Authorization": f"Bearer {svc.create_access_token(user_id, 'i765')}", **I765}
 
 
-def _turn(client, headers, text="my green card application is pending", **over):
+def _turn(client, headers, text="my first work permit", **over):
     body = chat_request(system_prompt="", user_content=text, metadata=_metadata(**over))
     return client.post("/v1/chat", json=body, headers=headers)
 
@@ -88,10 +101,25 @@ def test_the_config_has_the_n400_wire_shape_and_an_i765_brief():
     assert i765["server_only"] is True and i765["version"] == 1
     sp = i765["systemPrompt"]
     assert "Form I-765" in sp and "N-400" not in sp
-    assert "never pick a category" in sp and "escalation" in sp
+    # The brief's rules the client depends on (gp-lane-brief-i765.md, 2026-10-09).
+    assert "q_p1_reason" in sp and "q_p2_eligibility_category" in sp, "reason first, category second"
+    assert "c9, c3a, c3b, c3c, a12, c19, a17, a18, a3, a5, c26, other" in sp, "the catalog's category ids"
+    assert "p2.eligibility_category = other" in sp and "escalation null" in sp, "the lead's ruling on other"
+    assert "never pick a category" in sp
+    assert '"risk_trigger" or "legal_question" or "user_request"' in sp, "the I-765 trigger set"
+    assert "legal_advice" not in sp, "the N-400 trigger name never reaches this lane"
+    assert '"intent": string' in sp and "never an object" in sp, "the I-765 client decodes a plain string"
+    assert '"utterance": string, a verbatim span' in sp and '"value_type"' in sp, "the served N-400 fact shape"
+    assert '"origin": "applicant" or "capture_gap"' in sp
+    assert "[agenda empty]" in sp and "awaiting_confirmation" in sp
+    # Phrases only the N-400 rules carry. ("five year" and "oath" appear in
+    # this prompt's own sentence saying the form has none of those, so they
+    # are not usable as guards.)
+    for gone in ("Part 9", "thirteen", "Selective Service", "legal review", "legal_advice", "p9."):
+        assert gone not in sp, f"an N-400 rule carried over: {gone}"
     for key in ('"schema_version"', '"intent"', '"facts"', '"asking"', '"section_checkpoint"', '"interview_over"', '"reply"'):
         assert key in sp, key
-    assert sp.index('"asking"') < sp.index('"reply"'), "decisions before the spoken line, as n400"
+    assert sp.index('"facts"') < sp.index('"asking"') < sp.index('"reply"'), "decisions before the spoken line, as n400"
     assert chr(0x2014) not in sp and chr(0x2013) not in sp, "no dashes in anything the model copies"
 
 
@@ -131,13 +159,16 @@ def test_a_turn_is_assembled_from_the_i765_brief_and_answered_as_the_object(clie
     r = _turn(client, h)
     assert r.status_code == 200, r.text
     obj = json.loads(r.json()["text"])
-    assert obj["reply"]["en"].startswith("A pending green card")
-    assert obj["asking"]["node_id"] == "q_p2_a_number"
+    assert obj["reply"]["en"].startswith("A first permit")
+    assert obj["asking"]["node_id"] == "q_p2_eligibility_category"
+    assert obj["intent"] == "answer" and obj["facts"][0]["provenance"]["utterance"] == "my first work permit"
+    assert obj["section_checkpoint"] == {"part": 1, "section": "Part 1: Why you are applying", "awaiting_confirmation": False}
     assert mock_provider.call_count == 1, "an object needs no retry"
     sent = mock_provider.call_args.args[0] if mock_provider.call_args.args else mock_provider.call_args.kwargs["request"]
     assert "Form I-765" in sent.system_prompt and "N-400" not in sent.system_prompt
     assert sent.max_tokens == 6144
-    assert "AGENDA" in sent.user_content and "q_p1_category" in sent.user_content
+    assert "AGENDA" in sent.user_content and "q_p1_reason" in sent.user_content
+    assert "SECTION BOUNDARY" in sent.user_content and "summarize Part 1" in sent.user_content
 
 
 def test_a_missing_required_variable_is_refused_not_assembled_as_another_lane(client, tmp_db_path):
@@ -152,7 +183,7 @@ def test_a_missing_required_variable_is_refused_not_assembled_as_another_lane(cl
 
 def test_prose_is_retried_once_and_a_preamble_is_extracted(client, tmp_db_path, mock_provider):
     h = _headers(tmp_db_path)
-    mock_provider.return_value = _canned("Sure, your category is pending adjustment. What is your A-Number?")
+    mock_provider.return_value = _canned("Sure, a first permit. Which eligibility category is on your paperwork?")
     r = _turn(client, h)
     assert r.status_code == 200
     assert mock_provider.call_count == 2, "exactly one retry, as on the N-400 lane"
@@ -172,7 +203,7 @@ def test_a_stream_request_takes_the_sentence_stream_not_the_generic_one(client, 
             yield {"type": "text", "text": text[i:i + 9]}
         yield {"type": "text", "text": "", "done": True, "ttft_ms": 210, "response": _canned(text)}
 
-    body = chat_request(system_prompt="", user_content="my green card application is pending",
+    body = chat_request(system_prompt="", user_content="my first work permit",
                         stream=True, metadata=_metadata())
     with patch("app.services.anthropic_or_fallback.route_stream_with_fallback", gen):
         with client.stream("POST", "/v1/chat", json=body, headers=h) as r:

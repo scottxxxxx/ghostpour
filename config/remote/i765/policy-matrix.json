@@ -131,7 +131,7 @@
     {
       "capability": "assess_moral_character_impact",
       "basis": "NEEDS_LEGAL",
-      "basis_note": "I-765 has no good moral character part. The capability is KEPT, with the N-400 outcomes, because the shared client decodes one capability set and because the research's section 7 risk triggers (arrests, prior denials, work without authorization, a lapsed status) are the same judgment: stop and refer, never weigh. No halt nodes until the I-765 agenda names them.",
+      "basis_note": "I-765 has no good moral character part. The capability is KEPT, with the N-400 outcomes, because the shared client decodes one capability set and because the research's section 7 risk triggers (arrests, prior denials, work without authorization, a lapsed status) are the same judgment: stop and refer, never weigh. No halt nodes until the I-765 agenda names them. halt_branch_nodes is EMPTY in v1 on purpose (the I-765 lead's brief, section 6): the catalog has no arrest, crime or proceedings question for a Yes to halt behind, and the category node must stay askable because the client's own policy trigger on `other` is what ends the interview.",
       "matrix": [
         {
           "state": "TX",
