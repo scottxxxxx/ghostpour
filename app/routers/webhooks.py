@@ -3527,7 +3527,7 @@ async def meetings_live(
                    (SELECT r.meeting_id FROM telemetry_events r
                      WHERE r.event_type = 'meeting_start'
                        AND r.resumed_from_meeting_id = s.meeting_id LIMIT 1) AS resumed_into,
-                   h.last_at AS hb_last_at, h.duration_seconds AS hb_seconds,
+                   h.received_at AS hb_last_at, h.duration_seconds AS hb_seconds,
                    h.paused AS hb_paused, h.beats AS hb_beats,
                    (SELECT COUNT(*) FROM meeting_heartbeats d
                      WHERE d.device_id = s.device_id) AS device_heartbeats

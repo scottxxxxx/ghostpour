@@ -91,7 +91,7 @@ SWEEPS: tuple[Sweep, ...] = (
           "Raw events. Aggregates live in telemetry_daily_rollups and are "
           "kept indefinitely.",
           before=_ABSORB_TELEMETRY_DEVICES),
-    Sweep("meeting_heartbeats", "last_at", 30,
+    Sweep("meeting_heartbeats", "received_at", 30,
           "One row per meeting, the last heartbeat it sent. Same standing "
           "as the raw events it belongs with."),
     Sweep("companion_events", "received_at", 180,

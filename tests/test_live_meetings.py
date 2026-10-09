@@ -65,7 +65,7 @@ def _beat(client, db, start, minutes_ago=0.0, **over):
     _ping(client, event_type="meeting_heartbeat", meeting_id=start["meeting_id"],
           device_id=start["device_id"], **over)
     if minutes_ago:
-        _sql(db, "UPDATE meeting_heartbeats SET last_at = ? WHERE meeting_id = ?",
+        _sql(db, "UPDATE meeting_heartbeats SET received_at = ? WHERE meeting_id = ?",
              _iso(minutes_ago), start["meeting_id"])
 
 

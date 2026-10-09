@@ -1226,12 +1226,12 @@ MIGRATIONS = [
         device_id TEXT NOT NULL,
         app_id TEXT,
         first_at TEXT NOT NULL,
-        last_at TEXT NOT NULL,
+        received_at TEXT NOT NULL,
         duration_seconds INTEGER,
         paused INTEGER NOT NULL DEFAULT 0,
         beats INTEGER NOT NULL DEFAULT 0
     )""",
-    "CREATE INDEX IF NOT EXISTS idx_meeting_heartbeats_last ON meeting_heartbeats(last_at)",
+    "CREATE INDEX IF NOT EXISTS idx_meeting_heartbeats_received ON meeting_heartbeats(received_at)",
     # The live view pairs each start with its stop by meeting_id; until now
     # that pairing was only ever done in aggregate (GROUP BY user_id).
     "CREATE INDEX IF NOT EXISTS idx_telemetry_meeting ON telemetry_events(meeting_id) WHERE meeting_id IS NOT NULL",

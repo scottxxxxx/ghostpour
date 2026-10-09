@@ -295,11 +295,11 @@ async def ping(
             now_iso = datetime.now(timezone.utc).isoformat()
             await db.execute(
                 """INSERT INTO meeting_heartbeats
-                       (meeting_id, device_id, app_id, first_at, last_at,
+                       (meeting_id, device_id, app_id, first_at, received_at,
                         duration_seconds, paused, beats)
                    VALUES (?, ?, ?, ?, ?, ?, ?, 1)
                    ON CONFLICT(meeting_id) DO UPDATE SET
-                       last_at = excluded.last_at,
+                       received_at = excluded.received_at,
                        duration_seconds = excluded.duration_seconds,
                        paused = excluded.paused,
                        beats = beats + 1""",
