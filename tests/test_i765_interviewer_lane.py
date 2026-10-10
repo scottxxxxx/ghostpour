@@ -34,10 +34,10 @@ AGENDA = ("q_p1_reason | Part 1: Why you are applying | p1.reason | Is this your
 BOUNDARY = ("the standing question is the last in Part 1 Why you are applying; when it is answered, "
             "summarize Part 1 in one sentence and open Part 2 About you in the same reply, without asking for confirmation")
 
-# The served N-400 fact shape (value_type + provenance.utterance) with `intent`
-# as the plain string the I-765 client decodes.
+# The served N-400 shape: `intent` as the object (the I-765 client decodes both
+# shapes, the lead confirmed 2026-10-09), value_type + provenance.utterance on facts.
 ENVELOPE = {
-    "schema_version": 1, "turn_id": "t-i765-1", "intent": "answer",
+    "schema_version": 1, "turn_id": "t-i765-1", "intent": {"type": "answer"},
     "facts": [{"field_id": "p1.reason", "value": "initial", "value_type": "string",
                "provenance": {"source": "user_stated", "confidence": 0.96,
                               "utterance": "my first work permit"}}],
@@ -108,7 +108,8 @@ def test_the_config_has_the_n400_wire_shape_and_an_i765_brief():
     assert "never pick a category" in sp
     assert '"risk_trigger" or "legal_question" or "user_request"' in sp, "the I-765 trigger set"
     assert "legal_advice" not in sp, "the N-400 trigger name never reaches this lane"
-    assert '"intent": string' in sp and "never an object" in sp, "the I-765 client decodes a plain string"
+    assert '"intent": an OBJECT, never a bare string' in sp, "parity with n400 v54; the I-765 decoder accepts both"
+    assert "`target` is present when" in sp and "`disambiguation` is present only" in sp
     assert '"utterance": string, a verbatim span' in sp and '"value_type"' in sp, "the served N-400 fact shape"
     assert '"origin": "applicant" or "capture_gap"' in sp
     assert "[agenda empty]" in sp and "awaiting_confirmation" in sp
@@ -161,7 +162,7 @@ def test_a_turn_is_assembled_from_the_i765_brief_and_answered_as_the_object(clie
     obj = json.loads(r.json()["text"])
     assert obj["reply"]["en"].startswith("A first permit")
     assert obj["asking"]["node_id"] == "q_p2_eligibility_category"
-    assert obj["intent"] == "answer" and obj["facts"][0]["provenance"]["utterance"] == "my first work permit"
+    assert obj["intent"] == {"type": "answer"} and obj["facts"][0]["provenance"]["utterance"] == "my first work permit"
     assert obj["section_checkpoint"] == {"part": 1, "section": "Part 1: Why you are applying", "awaiting_confirmation": False}
     assert mock_provider.call_count == 1, "an object needs no retry"
     sent = mock_provider.call_args.args[0] if mock_provider.call_args.args else mock_provider.call_args.kwargs["request"]
