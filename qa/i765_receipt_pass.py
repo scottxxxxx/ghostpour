@@ -54,6 +54,7 @@ L = {
  "es_reads_en": "q_p3_reads_english | Part 3: How to reach you | p3.reads_english | La Parte 3 es su declaración y cómo USCIS puede comunicarse con usted. ¿Puede leer y entender inglés, y leyó y entendió usted mismo cada pregunta de esta solicitud? Si alguien le está interpretando, diga que no, y pondremos al intérprete en el formulario. | options: yes, no",
  "es_interp_lang": "q_p3_interpreter_language | Part 3: How to reach you | p3.interpreter_language | ¿En qué idioma le interpretó esa persona las preguntas?",
  "es_contact": "q_p3_contact | Part 3: How to reach you | p3.daytime_phone,p3.mobile_phone,p3.email | ¿Cómo puede USCIS comunicarse con usted? Un teléfono de día, un celular si es distinto, y su correo electrónico.",
+ "es_p4_name": "q_p4_interpreter_name | Part 4: Your interpreter | p4.interpreter.given_name,p4.interpreter.family_name | La Parte 4 es sobre su intérprete, que también firma el formulario impreso. ¿Cuál es el nombre y el apellido de la persona que le interpretó?",
 }
 
 CTX_EN = "state: Texas; language: English; interpreter: no; filing for self: yes"
@@ -152,11 +153,11 @@ RECEIPTS = [
        conversation=conv("INTERVIEWER: La Parte 3 es su declaración y cómo USCIS puede comunicarse con usted. ¿Puede leer y entender inglés, y leyó y entendió usted mismo cada pregunta de esta solicitud? Si alguien le está interpretando, diga que no.", "APPLICANT: No, mi hija me está ayudando con el inglés."),
        said="No, mi hija me está ayudando con el inglés.", ctx=CTX_ES,
        expect="p3.reads_english no only (no interpreter name); asking q_p3_interpreter_language; reply says the form then asks for the interpreter in Part 4 and asks the language; nothing about signing; es plus en"),
-  dict(id="r7.10b-es-interpreter-language", locale="es", agenda=agenda("es_interp_lang", "es_contact"),
+  dict(id="r7.10b-es-interpreter-language", locale="es", agenda=agenda("es_interp_lang", "es_contact", "es_p4_name"),
        known=KF_43 + "\np2.has_sevis_number: no\np3.reads_english: no",
        conversation=conv("INTERVIEWER: Entonces el formulario pide los datos de la persona que le interpreta, en la Parte 4. ¿En qué idioma le interpretó esa persona las preguntas?", "APPLICANT: Español."),
        said="Español.", ctx=CTX_ES,
-       expect="p3.interpreter_language 'Spanish' (the English name); asking q_p3_contact (the next agenda line); no mention of signing; es plus en"),
+       expect="p3.interpreter_language 'Spanish' (the English name); asking q_p3_contact (the next agenda line; Part 4's first line is on the agenda too, so it is NOT skipped to); no mention of signing; es plus en"),
 ]
 
 
