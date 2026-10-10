@@ -151,6 +151,7 @@ from app.models.user import UserRecord
 from app.services import context_quilt as cq
 from app.services import key_scope
 from app.services import receipt_verification
+from app.services.interviewer_lanes import INTERVIEWER_CALL_TYPES
 from app.services.allocation_reset import compute_next_reset, lazy_reset_if_due
 from app.services.locale_injection import output_language_subtag
 from app.services.entitlements import entitlement_state, resolved_features
@@ -1628,7 +1629,8 @@ async def _chat_impl(
     # the connection AND from the form). Stamped here, overwriting anything
     # the client sent under these keys, and persisted by log_usage. Country,
     # region and city only; the raw IP is never stored.
-    if app_id == "n400":
+    from app.services.usage_tracker import PLACE_APPS
+    if app_id in PLACE_APPS:
         from app.routers.telemetry import _client_ip
         from app.services import geoip
         if body.metadata is None:
@@ -2498,7 +2500,7 @@ async def _chat_impl(
                     "feature": "chat",
                     "app": app_id,
                     "budget_exhausted": True,
-                    "code": _anon_code,
+                    "code": anonymous_budget.wire_code(app_id, _anon_code),
                     "resets_at": (anonymous_budget.next_day_iso()
                                   if _anon_code == anonymous_budget.CODE_DAILY else None),
                     "cta": anonymous_budget.refusal_copy(
@@ -3893,7 +3895,7 @@ async def _chat_impl(
         # gain. Measured 2026-09-06: 0 of the last 500 interviewer turns set
         # stream, so this changes no live behaviour and closes the door
         # before somebody reasonably opens it for latency.
-        and call_type != "n400_interviewer_turn"
+        and call_type not in INTERVIEWER_CALL_TYPES
     )
 
     if should_stream:
@@ -4144,7 +4146,7 @@ async def _chat_impl(
         # attempt; mark a successful retry in the object; log a prose
         # retry and return it as it came. See app/services/n400_envelope.py.
         if (response and response.text
-                and body.get_meta("call_type") == "n400_interviewer_turn"):
+                and body.get_meta("call_type") in INTERVIEWER_CALL_TYPES):
             from app.services.n400_envelope import (
                 ENVELOPE_REMINDER, extract_envelope, is_envelope,
                 mark_extracted, mark_retried,
@@ -5146,7 +5148,7 @@ async def _chat_impl(
     # complete sentences leave early. It sits here, after _run_turn_tracked
     # is defined, because that closure is what it hands the transport. See
     # app/services/n400_sentence_stream.py.
-    if body.stream and call_type == "n400_interviewer_turn":
+    if body.stream and call_type in INTERVIEWER_CALL_TYPES:
         return await _handle_n400_sentence_stream(
             body, request, run_tail=_run_turn_tracked)
 

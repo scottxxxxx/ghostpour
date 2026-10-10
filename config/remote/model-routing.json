@@ -302,6 +302,17 @@
           }
         }
       }
+    },
+    "i765": {
+      "label": "I-765 Helper",
+      "call_types": {
+        "i765_interviewer_turn": {
+          "label": "I-765 interviewer turn",
+          "models": {
+            "default": "anthropic/claude-sonnet-5"
+          }
+        }
+      }
     }
   }
 }

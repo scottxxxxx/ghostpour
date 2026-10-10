@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "server_only": true,
+  "_comment": [
+    "I-765 Helper's monthly spend ceiling and the copy shown when it is reached.",
+    "Copied from n400/budget.json on 2026-10-09 with the app name swapped and",
+    "nothing else: same -1 ceiling (no real user can reach this app until",
+    "com.weirtech.i765helper enters CZ_APPLE_BUNDLE_ID), same anonymous caps,",
+    "same device_test block (OFF). Read n400/budget.json for why each value",
+    "is what it is; every caveat there applies here word for word.",
+    "",
+    "Per config/remote/OWNERSHIP.md, ADDING this file propagates on boot but",
+    "CHANGING a number does not: push through PUT /webhooks/admin/config/i765/budget."
+  ],
+  "monthly_cost_limit_usd": -1,
+  "_anonymous_comment": [
+    "Anonymous I-765 installs: same three caps as N-400 (Scott's N-400 values,",
+    "2026-10-05/06): $2 per application (metadata.case_id), $10 per install",
+    "lifetime, $50 across every anonymous install per UTC day. The route serves",
+    "these refusals with the i765_ prefix on `code` (anonymous_budget.wire_code)."
+  ],
+  "anonymous": {
+    "per_application_usd": 2,
+    "per_install_lifetime_usd": 10,
+    "daily_all_installs_usd": 50,
+    "application_allowance_used": {
+      "kind": "application_allowance_used",
+      "text": {
+        "en": "This application has used its free interview allowance. Your answers are saved.",
+        "es": "Esta solicitud ya usó su asignación gratuita de entrevista. Sus respuestas están guardadas.",
+        "pt": "Este pedido já usou sua cota gratuita de entrevista. Suas respostas estão salvas."
+      },
+      "action": null
+    },
+    "install_allowance_used": {
+      "kind": "install_allowance_used",
+      "text": {
+        "en": "This app has used its free interview allowance. Your answers are saved.",
+        "es": "Esta aplicación ya usó su asignación gratuita de entrevistas. Sus respuestas están guardadas.",
+        "pt": "Este aplicativo já usou sua cota gratuita de entrevistas. Suas respostas estão salvas."
+      },
+      "action": null
+    },
+    "daily_capacity_reached": {
+      "kind": "daily_capacity_reached",
+      "text": {
+        "en": "The interview is very busy today. Your answers are saved. Please try again tomorrow.",
+        "es": "La entrevista está muy ocupada hoy. Sus respuestas están guardadas. Inténtelo de nuevo mañana.",
+        "pt": "A entrevista está muito ocupada hoje. Suas respostas estão salvas. Tente novamente amanhã."
+      },
+      "action": null
+    }
+  },
+  "_device_test_comment": [
+    "Mirror of N-400's on-device test block. Nothing reads it for i765 yet",
+    "(n400_device_test.py is keyed to n400); kept so the two documents stay",
+    "the same shape for the dashboard and the audit."
+  ],
+  "device_test": {
+    "only_device": false,
+    "user_agent_app_name": "I-765 Helper",
+    "hourly_cap": 400
+  },
+  "exhausted": {
+    "kind": "budget_exhausted",
+    "text": {
+      "en": "You have used this month's questions. Your answers are saved, and your allowance renews at the start of next month.",
+      "es": "Ha usado las preguntas de este mes. Sus respuestas están guardadas, y su asignación se renueva al comenzar el próximo mes.",
+      "pt": "Você usou as perguntas deste mês. Suas respostas estão salvas, e sua cota é renovada no início do próximo mês."
+    },
+    "renews_prefix": {
+      "en": "Renews",
+      "es": "Se renueva",
+      "pt": "Renova"
+    },
+    "action": null
+  }
+}

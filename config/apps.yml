@@ -173,3 +173,30 @@ apps:
     #
     # No `cq` block: N-400 has not asked for ContextQuilt, so it stays on the
     # default identity rather than being handed one it does not use.
+  i765:
+    dir: i765
+    label: I-765 Helper
+    bundle_id: com.weirtech.i765helper
+    # Registered 2026-10-09, before any build, for the same reason n400 was:
+    # resolve_app_dir fails open, and an unregistered id would be served
+    # ShoulderSurf's config with a log line and no error. The string `i765`
+    # is the client's (I765 App/CLAUDE.md, X-App-ID: i765) and is permanent
+    # once a build ships. Sibling of n400 on the same engine, and every
+    # choice below is n400's choice for n400's reasons (read that block):
+    # no tier_overrides (the paid tier is a client-side StoreKit consumable
+    # per application), a FLAT budget because no entitlement header exists,
+    # -1 as the ceiling because no real user can reach this app until
+    # com.weirtech.i765helper enters CZ_APPLE_BUNDLE_ID, and the anonymous
+    # door's own caps ($2 per application, $10 per install, $50 a day) in
+    # the served document as the gate that actually runs.
+    #
+    # ⚠⚠ Same ordering rule as n400: a sane per-user cap goes back BEFORE
+    # the bundle id lands. audit_uncapped_reachable_apps logs it otherwise.
+    budget:
+      enabled: true
+      shape: flat
+      config_slug: i765/budget
+      monthly_cost_limit_usd: -1
+      own_account_meter: true
+    # No `cq` block: I-765 does not use ContextQuilt (its entitlements
+    # document disables both recall lanes, as n400's does).
