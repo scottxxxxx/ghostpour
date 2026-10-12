@@ -90,6 +90,39 @@ def test_the_call_type_is_mapped_to_its_own_slug_and_the_lane_set_names_both():
     assert is_interviewer_turn(CALL) and not is_interviewer_turn("n400_interview_turn")
 
 
+def test_the_es_family_name_is_a_drill_in_the_agenda_never_lists():
+    """The I-765 lead, 2026-10-12, from the client's agenda code: once the
+    given name lands in es/pt the line is `q_p2_full_name | p2.middle_name,
+    p2.family_name`, and q_p2_family_name is never a line. v1 told the lane to
+    decide by "which line was asked" with that second line described, so on
+    the family-name turn it saw two name fields and nothing that said a
+    double surname is not a middle name."""
+    sp = json.load(open("config/remote/i765/interviewer-turn.json"))["systemPrompt"]
+    assert "the client sends the name as two lines" not in sp
+    assert "which the agenda never shows as lines" in sp
+    assert '{"node_id": "q_p2_family_name", "field_ids": ["p2.family_name"]}' in sp
+    assert "never by which ids the line lists" in sp
+    assert '("Rojas Pérez" is one last name), never a middle name' in sp
+    assert "Decide by the last question the interviewer asked in THE CONVERSATION SO FAR" in sp
+
+
+def test_the_es_middle_name_is_checked_once_unless_the_given_name_has_two_words():
+    """The lead's ruling, 2026-10-12: the client's es/pt walk is given name,
+    family name, middle-name check, middle name. When the given name already
+    holds two words the check is never asked and the middle name is minted
+    as the stated none, so the line closes and the second word is never
+    filed twice."""
+    sp = json.load(open("config/remote/i765/interviewer-turn.json"))["systemPrompt"]
+    i = sp.index("In Spanish and Portuguese the name is asked in up to four questions")
+    rule = sp[i:sp.index("Other names (Items 2 to 4)", i)]
+    assert rule.index("q_p2_family_name") < rule.index("q_p2_middle_name_check") < rule.index('"q_p2_middle_name"')
+    assert '{"node_id": "q_p2_middle_name_check", "field_ids": ["p2.has_middle_name"]}' in rule
+    assert "ask ONCE whether she has a legal middle name" in rule
+    assert "EXCEPT when p2.given_name already holds two or more words" in rule
+    assert 'mint p2.middle_name as the stated none, value ""' in rule
+    assert "with her given-name words exactly as she said them as provenance" in rule
+
+
 def test_the_config_has_the_n400_wire_shape_and_an_i765_brief():
     i765 = json.load(open("config/remote/i765/interviewer-turn.json"))
     n400 = json.load(open("config/remote/n400/interviewer-turn.json"))
@@ -98,7 +131,7 @@ def test_the_config_has_the_n400_wire_shape_and_an_i765_brief():
     assert i765["userPromptTemplate"] == n400["userPromptTemplate"], "the client fills one template"
     assert i765["maxTokens"] == n400["maxTokens"] and i765["thinking"] == n400["thinking"]
     assert i765["recommendedModel"] == n400["recommendedModel"]
-    assert i765["server_only"] is True and i765["version"] == 1
+    assert i765["server_only"] is True and i765["version"] == 2
     sp = i765["systemPrompt"]
     assert "Form I-765" in sp and "N-400" not in sp
     # The brief's rules the client depends on (gp-lane-brief-i765.md, 2026-10-09).
