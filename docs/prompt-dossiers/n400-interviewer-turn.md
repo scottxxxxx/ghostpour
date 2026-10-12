@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 55
+served_version: 56
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-10-12 (v55)
+reconciled: 2026-10-12 (v56)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1932,3 +1932,16 @@ CODE: `defer_dates_with_unspoken_day` now keeps a YYYY-MM-DD fact that is hers f
 PROMPT: THE DAY AND THE MONTH MAY ARRIVE ON DIFFERENT TURNS, AND THE WHOLE DATE IS MINTED THE TURN THE LAST PIECE LANDS (either order; GP keeps a date that is hers from her last three lines, but the lane mints it on that turn, never a turn later); A DATE YOU READ BACK IN FULL IS A FACT IN THAT SAME RESPONSE, naming the late-minted start date as the defect; the checklist line extended; A YES TO THE SWEEP IS NOT "LATER" (ask for the first item named, offer waits), and an unclear answer to the sweep is a yes, never clarified with an either/or a bare "sí" cannot answer.
 
 Tested with NO API tokens (Scott, 2026-10-09): two blind Claude subagents each read one full prompt (v54, v55) on five rendered Spanish turns built from the auditor's paraphrase, before the real turns arrived: the sweep answered "Sí", the day-first date with the month two of her lines later, the month-first date, the sweep answered no, and a full date in one breath. A simulation, not the served model. v54's reader did NOT reproduce the sweep defect (it asked for the date on the bare "Sí"); the real defect needed the either/or clarifier in between, which the rendered turn did not have, so the simulation cannot show the sweep lines working. Both readers minted the day-first date and read it back; through the guard on main that response came out with no fact and a deferral, through this branch's guard the fact survives.
+
+## v56: a "No" that pushes back answers nothing
+
+The auditor, 2026-10-12, from Scott's own run on build 160 against live v55 (his invented John Jones persona, case 1b70c7af). At t_006 he answered the Resident Since ask with "1999" and the lane said "That one stays open until you can check your green card for the exact date. Have you used any other names since birth, like a maiden name?". At t_007 he said "No, I told you January 1st, 1999." and the lane filed p2.lpr_date 1999-01-01 AND p2.has_other_names = no citing "No" (confidence 0.95), then said "No other names." His "No" was pushback on the deferral; the other-names question was never answered, and the form says he used none.
+
+The prompt already had the rule, scoped to a READ-BACK: a "No." that opens a correction of your read-back belongs to the correction and answers nothing else. His "No" corrected a DEFERRAL statement, so the rule as written did not reach it. Fourth time this lane has had a rule correct for the case it was written from and silent on the one beside it.
+
+PROMPT: A "NO" THAT PUSHES BACK ON ANYTHING YOUR LAST LINE SAID IS THE SAME (a deferral, "that one stays open", a summary, any statement): when the "No" is followed by "I told you", "I said", "I already" or a restated value, it answers nothing, the trailing question is still open, and the reply files the restated value and asks that question again. Placed directly after the read-back rule it widens, which stays word for word.
+
+Not in this version, raised by the auditor: the "stays open" framing after a year-only answer to the Resident Since ask is what provoked the pushback. The deferral itself followed the rules (a year is only a year); whether the wording should change is open.
+
+Not probed (no paid calls). Subagent read: see below.
+

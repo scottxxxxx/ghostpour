@@ -644,6 +644,19 @@ VERSIONS = {
         ],
         "absent": [],
     },
+    56: {
+        # Scott's run on build 160, live v55 (2026-10-12): "No, I told you
+        # January 1st, 1999" pushed back on a deferral, and the lane filed the
+        # "No" as p2.has_other_names, a question he never answered.
+        "block_anchor": "BEFORE YOU WRITE, IN ANY LOCALE, CHECK",
+        "once": 'A "NO" THAT PUSHES BACK ON ANYTHING YOUR LAST LINE SAID IS THE SAME',
+        "phrases": [
+            'when her "No" is followed by "I told you", "I said", "I already" or a value restated',
+            'the "No" answers nothing, the trailing question is still open, and this reply files the restated value and asks that question again',
+            'filing has_other_names "no" from that "No" is the defect, live on v55',
+        ],
+        "absent": [],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -703,6 +716,9 @@ VERSIONS[54]["absent"] = VERSIONS[53]["absent"] + VERSIONS[54]["absent"]
 # v55 carries every v54 phrase, and v54's once line as a phrase.
 VERSIONS[55]["phrases"] = VERSIONS[54]["phrases"] + [VERSIONS[54]["once"]] + VERSIONS[55]["phrases"]
 VERSIONS[55]["absent"] = VERSIONS[54]["absent"] + VERSIONS[55]["absent"]
+# v56 carries every v55 phrase, and v55's once line as a phrase.
+VERSIONS[56]["phrases"] = VERSIONS[55]["phrases"] + [VERSIONS[55]["once"]] + VERSIONS[56]["phrases"]
+VERSIONS[56]["absent"] = VERSIONS[55]["absent"] + VERSIONS[56]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]
