@@ -1349,3 +1349,62 @@ def test_the_stray_deferral_is_dropped_through_the_whole_guard_chain():
         _B130_AGENDA, "t-b130", "It was the 15th of both", known_facts=_B130_KNOWN)
     turn = json.loads(out)
     assert all(d.get("field_id") != "p8.trip2.date_left" for d in turn["deferred"])
+
+
+# --- a "No" that pushes back answers nothing (v56, Scott's build 160 run) ----
+
+def _two_facts(gate_utt):
+    return json.dumps({"schema_version": 1, "turn_id": "t", "intent": {"type": "correction"},
+                       "facts": [
+                           {"field_id": "p2.lpr_date", "value": "1999-01-01", "value_type": "date",
+                            "provenance": {"source": "user_stated", "confidence": 0.95,
+                                           "utterance": "January 1st, 1999"}},
+                           {"field_id": "p2.has_other_names", "value": "no", "value_type": "string",
+                            "provenance": {"source": "user_stated", "confidence": 0.95,
+                                           "utterance": gate_utt}}],
+                       "deferred": [], "clarification": None, "conflict": None, "escalation": None,
+                       "complete": True, "asking": {"node_id": "q_p2_middle_name", "field_ids": ["p2.middle_name"]},
+                       "section_checkpoint": None, "interview_over": False,
+                       "reply": {"en": "January 1st, 1999, got it. No other names. Do you have a legal middle name?"}})
+
+
+_AGENDA_V56 = ("q_p2_other_names | Part 2: About you | p2.has_other_names | Have you used any other names?\n"
+               "q_p2_middle_name | Part 2: About you | p2.middle_name | Do you have a legal middle name?")
+
+
+@pytest.mark.parametrize("said", ["No, I told you January 1st, 1999.", "No. I said January 1st, 1999.",
+                                  "No, like I said, January 1st, 1999.",
+                                  "No, ya le dije, I told you January 1st, 1999."])
+def test_a_no_that_pushed_back_files_no_gate(said):
+    from app.services.n400_interviewer_guard import guard_response_text
+    out = json.loads(guard_response_text(_two_facts("No"), _AGENDA_V56, "t", user_content=said))
+    assert [f["field_id"] for f in out["facts"]] == ["p2.lpr_date"], said
+    assert any(d["field_id"] == "p2.has_other_names" for d in out["facts_dropped"])
+
+
+@pytest.mark.parametrize("said,utt", [("No, never. And I told you January 1st, 1999.", "No, never."),
+                                      ("No other names. I told you January 1st, 1999.", "No other names.")])
+def test_a_no_that_answers_is_kept(said, utt):
+    """Her "No" is an answer when it does not open a pushback, or when the
+    fact cites more of her words than the bare No."""
+    from app.services.n400_interviewer_guard import guard_response_text
+    out = json.loads(guard_response_text(_two_facts(utt), _AGENDA_V56, "t", user_content=said))
+    assert {f["field_id"] for f in out["facts"]} == {"p2.lpr_date", "p2.has_other_names"}, said
+
+
+def test_a_pushback_no_with_a_fuller_citation_is_kept():
+    """"No, I told you, no other names": the fact cites "no other names", hers."""
+    from app.services.n400_interviewer_guard import drop_no_that_pushed_back
+    text = _two_facts("no other names")
+    out, dropped = drop_no_that_pushed_back(text, "No, I told you, no other names, and January 1st, 1999.")
+    assert dropped == [] and out == text
+
+
+@pytest.mark.parametrize("said", ["No, never.", "No.", "No, I mean it was 2001."])
+def test_a_bare_no_citation_is_kept_when_her_line_is_not_pushback(said):
+    """The lane cites just "No" all the time for a plain no; only a pushback
+    marker after it turns that No into nothing."""
+    from app.services.n400_interviewer_guard import drop_no_that_pushed_back
+    text = _two_facts("No")
+    out, dropped = drop_no_that_pushed_back(text, said)
+    assert dropped == [] and out == text, said

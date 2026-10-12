@@ -919,6 +919,11 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
             new_text, user_content, conversation)
         for d in dropped:
             logger.warning("n400_fact_dropped_no_evidence turn_id=%s field_id=%s", turn_id, d["field_id"])
+    # After the evidence floor (which keeps "No": it IS in her line) and
+    # before the settled-question swap, so the gate this drops stays open.
+    new_text, pushed = drop_no_that_pushed_back(new_text, user_content)
+    for d in pushed:
+        logger.warning("n400_pushback_no_dropped turn_id=%s field_id=%s", turn_id, d["field_id"])
     # AFTER the evidence floor, so "settled" means a fact that SURVIVED it: a
     # fact the floor dropped (or set aside for Jev) leaves its node open, and
     # its question must still be asked.
@@ -1232,6 +1237,48 @@ def _date_carried(year: str, month: int, day: int, said: str,
                 re.search(rf"\b{year}\b", said_plain) or re.search(rf"\b{year}\b", _plain(line))):
             return back, "joined"
     return None
+
+
+# --- a "No" that pushes back answers nothing (v56, 2026-10-12) --------------
+#
+# Scott's run on build 160, live v55: "No, I told you January 1st, 1999."
+# pushed back on a deferral statement, and the lane filed p2.has_other_names
+# = no citing "No", a question he never answered. The prompt has said since
+# v42 that a No opening a correction answers nothing else, and v56 widened it;
+# a careful reader of v55 did NOT reproduce the defect, the live model did.
+# So this floor: when her line OPENS with "No" followed by a pushback marker,
+# a fact whose cited words are only that "No" is dropped. A fact citing more
+# of her words ("No other names") is hers and is kept.
+
+PUSHBACK_NO_REASON = "her No opened a pushback (I told you / I said), so it answers no question"
+_PUSHBACK_NO = re.compile(
+    r"^\s*no\b[\s,.!;:]*(?:\w+\s+){0,2}?"
+    r"(?:i told you|i said|i already|like i said|as i said|i just said|"
+    r"te dije|le dije|ya le dije|ya te dije|ya dije|como le dije|como dije)\b")
+
+
+def drop_no_that_pushed_back(text: str, user_content: str | None) -> tuple[str, list[dict]]:
+    said = " ".join(re.sub(r"[^a-z0-9 ,.!;:]", " ", _fold(user_content or "")).split())
+    if not _PUSHBACK_NO.match(said):
+        return text, []
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, []
+    if not isinstance(turn, dict) or not isinstance(turn.get("facts"), list):
+        return text, []
+    kept, dropped = [], []
+    for f in turn["facts"]:
+        utt = ((f.get("provenance") or {}).get("utterance") if isinstance(f, dict) else None) or ""
+        if re.sub(r"[^a-z]", "", _fold(utt)) == "no":
+            dropped.append({"field_id": f.get("field_id"), "utterance": utt, "reason": PUSHBACK_NO_REASON})
+        else:
+            kept.append(f)
+    if not dropped:
+        return text, []
+    turn["facts"] = kept
+    turn["facts_dropped"] = (turn.get("facts_dropped") or []) + dropped
+    return json.dumps(turn, ensure_ascii=False), dropped
 
 
 def defer_dates_with_unspoken_day(text: str, user_content: str | None,
