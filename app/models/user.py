@@ -14,7 +14,9 @@ ANONYMOUS_SUB_PREFIX = "anonymous:"
 # identity and no bundle id check, which is exactly what that audit guards.
 # n400 joined 2026-10-05 (Scott, option 2), only after its caps, the audit's
 # anonymous door, the token app claim and the push exclusion were live.
-ANONYMOUS_APPS = frozenset({"shouldersurf", "n400"})
+# i765 joined 2026-10-09 the same way n400 did: caps in its own budget
+# document, the strict token claim, the push exclusion, all in one change.
+ANONYMOUS_APPS = frozenset({"shouldersurf", "n400", "i765"})
 
 
 class UserRecord(BaseModel):

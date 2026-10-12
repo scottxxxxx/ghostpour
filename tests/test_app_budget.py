@@ -399,7 +399,12 @@ _REACH_N400 = _REACH + ",com.weirtech.n400helper"
 # "flat cap -1 with the anonymous caps running". The served doc below is that
 # state; `{}` (no doc) now correctly reads as the anonymous door with no cap.
 _ANON = {"anonymous": {"per_install_lifetime_usd": 2, "daily_all_installs_usd": 50}}
-_SHIPPING = {"n400/budget": {"version": 1, "monthly_cost_limit_usd": -1, **_ANON}}
+# 2026-10-09: i765 is in ANONYMOUS_APPS too, so every audit below needs its
+# door capped or the audit (correctly) reports i765 and the n400 assertion
+# reads as a failure about the wrong app. tests/test_i765_registration.py
+# owns the i765 half.
+_I765_OK = {"i765/budget": {"version": 1, "monthly_cost_limit_usd": -1, **_ANON}}
+_SHIPPING = {"n400/budget": {"version": 1, "monthly_cost_limit_usd": -1, **_ANON}, **_I765_OK}
 
 
 def test_uncapped_but_unreachable_is_the_healthy_state():
@@ -413,7 +418,7 @@ def test_uncapped_and_reachable_is_reported():
     unlimited allowance, because the cap is per-user and this app is off the
     shared account meter."""
     found = app_budget.audit_uncapped_reachable_apps(
-        {}, load_apps(), _REACH_N400)
+        _I765_OK, load_apps(), _REACH_N400)
     assert [v["app_id"] for v in found] == ["n400"]
     assert found[0]["bundle_id"] == "com.weirtech.n400helper"
     assert found[0]["own_account_meter"] is True
@@ -422,7 +427,7 @@ def test_uncapped_and_reachable_is_reported():
 def test_a_capped_app_is_not_reported_even_when_reachable():
     """This is the SAFE ordering: cap first, then add the bundle id. If this
     ever fails, the audit is crying wolf and will be ignored when it matters."""
-    served = {"n400/budget": {"version": 1, "monthly_cost_limit_usd": 50.0}}
+    served = {"n400/budget": {"version": 1, "monthly_cost_limit_usd": 50.0}, **_I765_OK}
     assert app_budget.audit_uncapped_reachable_apps(
         served, load_apps(), _REACH_N400) == []
 
@@ -481,7 +486,7 @@ async def test_the_audit_raises_an_incident_not_just_a_log_line(tmp_db_path):
     async with aiosqlite.connect(tmp_db_path) as db:
         db.row_factory = aiosqlite.Row
         found = await app_budget.report_uncapped_reachable(
-            db, {}, load_apps(), _REACH_N400)
+            db, _I765_OK, load_apps(), _REACH_N400)
         assert [v["app_id"] for v in found] == ["n400"]
         rows = await (await db.execute(
             "SELECT category, subject FROM alert_incidents")).fetchall()

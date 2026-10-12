@@ -28,8 +28,12 @@ def _should_stream_source():
 
 
 def test_the_interviewer_lane_is_excluded_from_streaming():
-    assert 'call_type != "n400_interviewer_turn"' in _should_stream_source(), (
+    # Since 2026-10-09 the exclusion is a SET shared with the I-765 lane; the
+    # N-400 literal must still be in it or this exclusion stops applying.
+    assert "call_type not in INTERVIEWER_CALL_TYPES" in _should_stream_source(), (
         "a streamed interviewer turn bypasses every N-400 guard")
+    from app.services.interviewer_lanes import INTERVIEWER_CALL_TYPES
+    assert "n400_interviewer_turn" in INTERVIEWER_CALL_TYPES
 
 
 def test_the_guards_run_after_the_streaming_return_so_the_exclusion_is_load_bearing():

@@ -5066,8 +5066,9 @@ _PAYWALL_PLANS = {"plus", "pro"}
 # moment the applicant's N-400 is built complete, where the I-765 Helper
 # card shows. The N-400 client (build 154) requires this exact string echoed
 # back on resolve and stays dark otherwise.
+# `i765_complete` is its mirror in I-765 Helper, where the N-400 card shows.
 _PLACEMENTS = {"launch", "feature_locked", "post_meeting", "paywall", "settings",
-               "n400_complete"}
+               "n400_complete", "i765_complete"}
 # Per-app allowlist of campaign-authorable deeplink targets. The client
 # allowlists the same routes; GP only authors what it will accept. SS provided
 # (2026-06-26): shouldersurf://record only — meeting/<uuid> and project/<uuid>

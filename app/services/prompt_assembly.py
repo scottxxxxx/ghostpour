@@ -86,6 +86,9 @@ _CALL_TYPE_TO_CONFIG = {
     # is mapped to is a file, not a lane.
     "n400_interview_turn": "n400/interview-turn",
     "n400_interviewer_turn": "n400/interviewer-turn",
+    # I-765 Helper (2026-10-09): the same contract on its own slug, so the
+    # brief and the model can move for one form without touching the other.
+    "i765_interviewer_turn": "i765/interviewer-turn",
 }
 
 
