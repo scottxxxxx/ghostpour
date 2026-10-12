@@ -956,7 +956,7 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
             "n400_minted_on_non_answer turn_id=%s intent=%s minted=%s",
             turn_id, not_answer["intent"], ",".join(not_answer["minted"]))
     if user_content is not None:
-        new_text, days = defer_dates_with_unspoken_day(new_text, user_content, known_facts)
+        new_text, days = defer_dates_with_unspoken_day(new_text, user_content, known_facts, conversation)
         for d in days:
             logger.warning(
                 "n400_date_day_unspoken turn_id=%s field_id=%s claimed=%s deferred_as=%s",
@@ -1139,14 +1139,112 @@ def _spoken_partial(year: str, month: int, said: str, known_line: str) -> str | 
     return year
 
 
+# A year said in words ("dos mil veintidós", "twenty twenty-two", "nineteen
+# eighty seven") is made of day words. Only the carry check below strips them,
+# so that a month answered as "octubre del dos mil veintiuno" still reads as a
+# month with no day of its own; the ordinary day test is untouched.
+_YEAR_IN_WORDS = re.compile(
+    r"\b(?:dos mil(?:\s+(?:y\s+)?[a-z]+)?"
+    r"|mil novecientos(?:\s+[a-z]+(?:\s+y\s+[a-z]+)?)?"
+    r"|two thousand(?:\s+(?:and\s+)?[a-z]+(?:\s+[a-z]+)?)?"
+    r"|(?:nineteen|twenty)\s+(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|oh|o)(?:\s+[a-z]+)?)\b")
+
+
+def _any_day_spoken(said: str) -> bool:
+    phrase = _YEAR_IN_WORDS.sub(" ", " ".join(_fold_tokens(said)))
+    if any(_day_was_spoken(d, phrase) for d in range(1, 32)):
+        return True
+    return any(len(t) <= 2 and 1 <= int(t) <= 31 for t in re.findall(r"\d+", said or ""))
+
+
+def _plain(s: str) -> str:
+    """Folded, punctuation to spaces, one space between tokens."""
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", _fold(s or "")).split())
+
+
+def _day_forms(day: int) -> str:
+    """A regex alternation of every way this day is said, digits and words."""
+    forms = {str(day), f"{day:02d}", f"{day}st", f"{day}nd", f"{day}rd", f"{day}th"}
+    forms |= {w for w, v in _DAY_WORDS.items() if v == day}
+    forms |= {w for w, v in _DAY_PHRASES.items() if v == day}
+    return "|".join(sorted((re.escape(f) for f in forms), key=len, reverse=True))
+
+
+def _month_forms(month: int | None = None) -> str:
+    names = _MONTHS.get(month, ()) if month else [n for ns in _MONTHS.values() for n in ns]
+    return "|".join(sorted(names, key=len, reverse=True))
+
+
+def _whole_date_in(year: str, month: int, day: int, line: str) -> bool:
+    """The date said as ONE phrase: "10 de enero de 2023", "January 10th, 2023".
+
+    One phrase, not three pieces anywhere in the line: "desde el 10 de enero
+    de 2023 al 16 de diciembre de 2022" must never vouch for 2023-12-16.
+    """
+    t, d, m = _plain(line), _day_forms(day), _month_forms(month)
+    return bool(re.search(rf"\b(?:{d}) (?:(?:de|del|of|the) )?(?:{m}) (?:(?:de|del|of) )?{year}\b", t)
+                or re.search(rf"\b(?:{m}) (?:the )?(?:{d}) (?:(?:de|del|of) )?{year}\b", t))
+
+
+def _day_without_its_month(day: int, line: str) -> bool:
+    """The day said with NO month attached to it ("al 28 de 2021"), even
+    when other dates in the same line carry theirs ("desde el 3 de marzo de
+    2019 al 28 de 2021"). A day with a month beside it ("the 15th of August")
+    belongs to that month and never lends itself to another."""
+    t, d, m = _plain(line), _day_forms(day), _month_forms()
+    for hit in re.finditer(rf"\b(?:{d})\b", t):
+        after = t[hit.end():].split()[:3]
+        after = [w for w in after if w not in ("de", "del", "of", "the")][:1]
+        before = t[:hit.start()].split()[-2:]
+        before = [w for w in before if w != "the"][-1:]
+        if not any(re.fullmatch(m, w) for w in after + before):
+            return True
+    return False
+
+
+def _date_carried(year: str, month: int, day: int, said: str,
+                  conversation: str | None) -> tuple[int, str] | None:
+    """(lines back, how) when a date whose day is not in what she just said
+    is still hers, from one of her last three lines. Her lines only: the
+    interviewer's own read-back never vouches for a date.
+
+    A tester's Spanish run on build 156 (2026-10-09), two shapes, each of
+    which the guard below turned into a deferral she never asked for:
+      "whole": she said the start date whole on one turn, the lane read it
+        back and minted it a turn LATE, on her "yes, I still work there".
+      "joined": she gave a move-out day with no month ("al <day> de <year>", in a
+        line whose other dates had theirs), the lane asked which month, and
+        on "de <month> de <year>" minted the whole date. The join was hers.
+    """
+    lines = _applicant_said(conversation)
+    if lines and lines[-1] == _norm(said):
+        lines = lines[:-1]
+    recent = list(enumerate(reversed(lines[-3:]), start=1))
+    for back, line in recent:
+        if _whole_date_in(year, month, day, line):
+            return back, "whole"
+    said_plain = _plain(said)
+    names_month = bool(re.search(rf"\b(?:{_month_forms(month)})\b", said_plain))
+    if not names_month or _any_day_spoken(said):
+        return None
+    for back, line in recent:
+        if _day_without_its_month(day, line) and (
+                re.search(rf"\b{year}\b", said_plain) or re.search(rf"\b{year}\b", _plain(line))):
+            return back, "joined"
+    return None
+
+
 def defer_dates_with_unspoken_day(text: str, user_content: str | None,
-                                  known_facts: str | None = None) -> tuple[str, list[dict]]:
+                                  known_facts: str | None = None,
+                                  conversation: str | None = None) -> tuple[str, list[dict]]:
     """Turn a day-precision date the applicant never spoke into a deferral.
 
     Only touches facts whose value is exactly YYYY-MM-DD. A fact whose day
     appears in the current utterance is left alone, in any of the forms a
-    person actually says it. Everything else in the response passes through
-    untouched, and a field that is already deferred is not deferred twice.
+    person actually says it, and so is one that is still hers from one of
+    her last three lines (see `_date_carried`). Everything else in the response passes
+    through untouched, and a field that is already deferred is not deferred
+    twice.
 
     The partial keeps only what she gave. Scott's build 130 run (case
     09a8d9e9, t_042): she answered "2019?" and the fact was 2019-01-01, so
@@ -1172,6 +1270,11 @@ def defer_dates_with_unspoken_day(text: str, user_content: str | None,
             kept.append(f)
             continue
         fid = f.get("field_id")
+        carried = _date_carried(m.group(1), int(m.group(2)), int(m.group(3)), said, conversation)
+        if carried is not None:
+            logger.info("n400_date_day_carried field_id=%s how=%s lines_back=%d", fid, carried[1], carried[0])
+            kept.append(f)
+            continue
         partial = _spoken_partial(m.group(1), int(m.group(2)), said, _known_line(known_facts, fid))
         moved.append({"field_id": fid, "value": f.get("value"),
                       "partial_value": partial, "reason": INVENTED_DAY_REASON})
