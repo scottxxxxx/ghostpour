@@ -621,6 +621,29 @@ VERSIONS = {
         # The unconditional canned sentence the lane copied.
         "absent": ['the next question is "Are you male or female, and was either of your parents a U.S. citizen before you turned 18?", never gender alone;'],
     },
+    55: {
+        # A tester's es run on build 156 (2026-10-09), three lane findings from
+        # the auditor: a date read back in full with no fact, the day and the
+        # month of p4.prior_address1.to given on different turns and never
+        # joined, and a "Sí" to the deferral sweep answered with "las dejamos
+        # pendientes por ahora". The guard half (a day she gave before its
+        # month) is in n400_interviewer_guard.defer_dates_with_unspoken_day.
+        "block_anchor": "DEFERRALS\nWhen the applicant cannot give a value now",
+        "once": "A DATE YOU READ BACK IN FULL IS A FACT IN THAT SAME RESPONSE",
+        "phrases": [
+            "THE DAY AND THE MONTH MAY ARRIVE ON DIFFERENT TURNS, AND THE WHOLE DATE IS MINTED THE TURN THE LAST PIECE LANDS",
+            "mint the whole date citing the month's words",
+            "GP keeps a date that is hers from one of her last three lines, but you mint it the turn the last piece lands, never a turn later.",
+            "a start date said whole and read back",
+            "even when its day and its month came on different turns",
+            'A YES TO THE SWEEP IS NOT "LATER"',
+            "the reply asks for the FIRST item the sweep named, by name, as its only question",
+            "Only her no, or her saying she does not have them, leaves them deferred.",
+            "it is never clarified with an either/or a bare \"sí\" cannot answer",
+            "ask for the first item directly.",
+        ],
+        "absent": [],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -677,6 +700,9 @@ VERSIONS[53]["absent"] = VERSIONS[52]["absent"] + VERSIONS[53]["absent"]
 # v54 carries every v53 phrase, and v53's once line as a phrase.
 VERSIONS[54]["phrases"] = VERSIONS[53]["phrases"] + [VERSIONS[53]["once"]] + VERSIONS[54]["phrases"]
 VERSIONS[54]["absent"] = VERSIONS[53]["absent"] + VERSIONS[54]["absent"]
+# v55 carries every v54 phrase, and v54's once line as a phrase.
+VERSIONS[55]["phrases"] = VERSIONS[54]["phrases"] + [VERSIONS[54]["once"]] + VERSIONS[55]["phrases"]
+VERSIONS[55]["absent"] = VERSIONS[54]["absent"] + VERSIONS[55]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]

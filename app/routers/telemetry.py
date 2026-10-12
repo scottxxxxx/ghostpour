@@ -146,9 +146,15 @@ class PingEvent(BaseModel):
     # a silent heartbeat is "paused, suspended or dead", never just dead).
     paused: bool | None = None
     # On meeting_stop: "recovered" marks a stop the user never pressed, sent
-    # on next launch for a meeting the app died in, with the duration of its
-    # last heartbeat. Absent or "user" is an ordinary stop.
-    stop_reason: Literal["user", "recovered"] | None = None
+    # on next launch for a meeting the app died in with NO warning (a crash,
+    # a watchdog kill, iOS reclaiming a suspended app), with the duration of
+    # its last heartbeat. "app_quit" (agreed with SS, 2026-10-12, Scott
+    # approved on their side) is the user swiping the app away mid-recording:
+    # iOS warns the app a few seconds ahead and it sends the stop with the
+    # elapsed duration at that moment, through the same durable queue, so it
+    # may land at the next launch. Absent or "user" is an ordinary stop (they
+    # tapped End).
+    stop_reason: Literal["user", "app_quit", "recovered"] | None = None
     # On meeting_start: crash recovery mints a NEW meeting_id and this names
     # the one it continues, so the two halves read as one meeting.
     resumed_from_meeting_id: str | None = Field(default=None, max_length=64)

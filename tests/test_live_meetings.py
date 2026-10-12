@@ -210,6 +210,35 @@ def test_a_stopped_meeting_is_gone_and_a_recovered_stop_is_counted(client, tmp_d
     assert d["summary"]["recovered_stops_24h"] == 1
 
 
+def test_an_app_quit_stop_is_stored_ends_the_meeting_and_is_counted_apart(client, tmp_db_path):
+    """SS, 2026-10-12: a swipe-away iOS warned about is "app_quit", a death
+    with no warning is "recovered", and the dashboard counts them apart."""
+    quit_ = _start(client, tmp_db_path, minutes_ago=20)
+    quit2 = _start(client, tmp_db_path, minutes_ago=25)
+    died = _start(client, tmp_db_path, minutes_ago=30)
+    tapped = _start(client, tmp_db_path, minutes_ago=40)
+    # Two quits and one death, so the counts differ: with one of each, a
+    # reader that counted either reason twice still read (1, 1).
+    for start, secs, reason in ((quit_, 1150, "app_quit"), (quit2, 1450, "app_quit"),
+                                (died, 1700, "recovered"), (tapped, 2300, "user")):
+        r = _ping(client, event_type="meeting_stop", meeting_id=start["meeting_id"],
+                  device_id=start["device_id"], duration_seconds=secs, stop_reason=reason)
+    assert _rows(tmp_db_path, "SELECT duration_seconds, stop_reason FROM telemetry_events WHERE meeting_id = ? "
+                              "AND event_type = 'meeting_stop'", quit_["meeting_id"]) == [(1150, "app_quit")]
+    d = _live(client)
+    assert quit_["meeting_id"] not in [m["meeting_id"] for m in d["meetings"]]
+    assert (d["summary"]["app_quit_stops_24h"], d["summary"]["recovered_stops_24h"]) == (2, 1)
+
+
+def test_a_resume_after_an_app_quit_still_names_the_quit_meeting(client, tmp_db_path):
+    quit_ = _start(client, tmp_db_path, minutes_ago=20)
+    _ping(client, event_type="meeting_stop", meeting_id=quit_["meeting_id"],
+          duration_seconds=1150, stop_reason="app_quit")
+    resumed = _start(client, tmp_db_path, resumed_from_meeting_id=quit_["meeting_id"])
+    assert _rows(tmp_db_path, "SELECT resumed_from_meeting_id FROM telemetry_events WHERE meeting_id = ? "
+                              "AND event_type = 'meeting_start'", resumed["meeting_id"]) == [(quit_["meeting_id"],)]
+
+
 def test_a_start_older_than_the_window_is_counted_not_shown(client, tmp_db_path):
     old = _start(client, tmp_db_path, minutes_ago=10 * 60)
     d = _live(client)

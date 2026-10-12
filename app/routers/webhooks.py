@@ -3626,9 +3626,14 @@ async def meetings_live(
                                   AND r.resumed_from_meeting_id = s.meeting_id)""",
         (window_start, (now - timedelta(days=7)).isoformat(), *app_params),
     )).fetchone()
-    recovered = await (await db.execute(
-        f"""SELECT COUNT(*) FROM telemetry_events s
-             WHERE s.event_type = 'meeting_stop' AND s.stop_reason = 'recovered'
+    # One pass for both unpressed stops, so the two counts read the same rows
+    # over the same window: app_quit (swiped away, iOS warned) and recovered
+    # (died with no warning) are the split Scott asked for.
+    unpressed = await (await db.execute(
+        f"""SELECT SUM(s.stop_reason = 'recovered'), SUM(s.stop_reason = 'app_quit')
+              FROM telemetry_events s
+             WHERE s.event_type = 'meeting_stop'
+               AND s.stop_reason IN ('recovered', 'app_quit')
                AND s.received_at >= ? {app_clause}""",
         ((now - timedelta(hours=24)).isoformat(), *app_params),
     )).fetchone()
@@ -3643,7 +3648,8 @@ async def meetings_live(
             **counts,
             "in_progress": len(meetings),
             "unfinished_beyond_window_7d": int(beyond[0] or 0) if beyond else 0,
-            "recovered_stops_24h": int(recovered[0] or 0) if recovered else 0,
+            "recovered_stops_24h": int(unpressed[0] or 0) if unpressed else 0,
+            "app_quit_stops_24h": int(unpressed[1] or 0) if unpressed else 0,
         },
     }
 
