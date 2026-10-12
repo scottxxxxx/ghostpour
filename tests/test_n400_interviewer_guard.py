@@ -750,6 +750,148 @@ def test_a_day_still_deferred_when_only_a_month_was_spoken(day):
     assert len(moved) == 1
 
 
+# --- a date that is hers from an earlier line (build 156, 2026-10-09) -------
+#
+# A tester's Spanish run, two shapes, both turned into deferrals by the day
+# guard. The dates and words below are SYNTHETIC with the real structure;
+# the real turns are tester data and stay out of the repo.
+#
+# JOINED (p4.prior_address1.to): one line gave both prior-address dates, the
+# start whole and the end as a day and a year with no month; the lane asked
+# the month, a bare "sí" came back, then the month WITH the year, and the
+# lane minted the whole date citing that last line.
+#
+# WHOLE (p7.employer1.from): she said the start date whole, the lane read it
+# back and asked the end, and minted the start a turn LATE on her "yes, I
+# still work there".
+
+_JOINED = (
+    "INTERVIEWER: ¿Y su dirección anterior?\n"
+    "APPLICANT: Viví en la calle Uno desde el 3 de marzo de 2019 al 28 de 2021.\n"
+    "INTERVIEWER: ¿En qué mes del 2021 se mudó, el 28 de qué mes?\n"
+    "APPLICANT: Sí\n"
+    "INTERVIEWER: Ese sí no me dice el mes. ¿El 28 de qué mes del 2021?\n"
+    "APPLICANT: De octubre de 2021.\n"
+)
+
+_WHOLE = (
+    "INTERVIEWER: ¿Cuándo empezó en la panadería?\n"
+    "APPLICANT: Empecé el 4 de febrero de 2024. al 9 de noviembre 3.\n"
+    "INTERVIEWER: Empezó el 4 de febrero de 2024. ¿Hasta qué fecha trabajó ahí, o sigue ahí?\n"
+    "APPLICANT: Sí, sigo trabajando allí.\n"
+)
+
+
+def _carry(said, conversation, value, field="p4.prior_address1.to"):
+    from app.services.n400_interviewer_guard import defer_dates_with_unspoken_day
+    out, moved = defer_dates_with_unspoken_day(
+        _resp(facts=[{"field_id": field, "value": value}]), said, None, conversation)
+    return json.loads(out), moved
+
+
+@pytest.mark.parametrize("said", ["De octubre de 2021.", "octubre", "en octubre del 2021",
+                                  "octubre del dos mil veintiuno"])
+def test_a_day_without_its_month_joins_the_month_she_gives_later(said):
+    conv = _JOINED.replace("APPLICANT: De octubre de 2021.", "APPLICANT: " + said)
+    turn, moved = _carry(said, conv, "2021-10-28")
+    assert moved == [], said
+    assert turn["facts"][0]["value"] == "2021-10-28" and turn.get("deferred") == []
+
+
+def test_a_day_with_its_own_month_never_lends_itself_to_another_date():
+    """The copy risk: the 3 in "el 3 de marzo" is March's, not October's."""
+    turn, moved = _carry("De octubre de 2021.", _JOINED, "2021-10-03")
+    assert len(moved) == 1 and turn["facts"] == []
+
+
+def test_the_joined_day_must_be_in_her_line_not_the_interviewers():
+    conv = _JOINED.replace("al 28 de 2021", "hasta el 2021")
+    turn, moved = _carry("De octubre de 2021.", conv, "2021-10-28")
+    assert len(moved) == 1 and turn["facts"] == []
+
+
+def test_this_line_must_name_the_facts_month_for_a_join():
+    for said in ("De noviembre de 2021.", "Sí", "el 2021"):
+        conv = _JOINED.replace("APPLICANT: De octubre de 2021.", "APPLICANT: " + said)
+        turn, moved = _carry(said, conv, "2021-10-28")
+        assert len(moved) == 1 and turn["facts"] == [], said
+
+
+def test_a_join_needs_the_facts_year_in_one_of_the_two_lines():
+    """A day from a 2020 line and a bare month now is not a 2021 date."""
+    conv = _JOINED.replace("al 28 de 2021", "al 28 de 2020").replace(
+        "APPLICANT: De octubre de 2021.", "APPLICANT: octubre")
+    turn, moved = _carry("octubre", conv, "2021-10-28")
+    assert len(moved) == 1 and turn["facts"] == []
+
+
+def test_a_day_in_this_line_wins_over_any_earlier_one():
+    conv = _JOINED.replace("APPLICANT: De octubre de 2021.", "APPLICANT: el 10 de octubre")
+    turn, moved = _carry("el 10 de octubre", conv, "2021-10-28")
+    assert len(moved) == 1 and turn["facts"] == []
+
+
+def test_a_date_said_whole_survives_being_minted_a_turn_late():
+    turn, moved = _carry("Sí, sigo trabajando allí.", _WHOLE, "2024-02-04", "p7.employer1.from")
+    assert moved == [] and turn["facts"][0]["value"] == "2024-02-04"
+
+
+def test_a_whole_date_is_one_phrase_never_pieces_across_two_dates():
+    """"el 4 de febrero de 2024 ... al 9 de noviembre" must not vouch for
+    2024-11-09 (day and month from one date, year from another), nor 2024-02-09."""
+    for value in ("2024-11-09", "2024-02-09"):
+        turn, moved = _carry("Sí, sigo trabajando allí.", _WHOLE, value, "p7.employer1.to")
+        assert len(moved) == 1 and turn["facts"] == [], value
+
+
+def test_the_interviewers_read_back_never_vouches_for_a_whole_date():
+    conv = _WHOLE.replace("APPLICANT: Empecé el 4 de febrero de 2024. al 9 de noviembre 3.",
+                          "APPLICANT: Empecé en febrero.")
+    turn, moved = _carry("Sí, sigo trabajando allí.", conv, "2024-02-04", "p7.employer1.from")
+    assert len(moved) == 1 and turn["facts"] == []
+
+
+def test_four_of_her_lines_back_is_too_far():
+    conv = _WHOLE + "APPLICANT: no\nAPPLICANT: sí\nAPPLICANT: bueno\n"
+    turn, moved = _carry("bueno", conv, "2024-02-04", "p7.employer1.from")
+    assert len(moved) == 1 and turn["facts"] == []
+
+
+@pytest.mark.parametrize("line,value", [
+    ("It was January 10th, 2023.", "2023-01-10"),
+    ("the 10th of January 2023", "2023-01-10"),
+    ("el treinta y uno de mayo de 2019", "2019-05-31"),
+])
+def test_a_whole_date_in_english_and_in_words(line, value):
+    conv = f"APPLICANT: {line}\nINTERVIEWER: And are you still there?\nAPPLICANT: yes\n"
+    turn, moved = _carry("yes", conv, value)
+    assert moved == [], line
+
+
+def _guarded_turn(said, conversation, field, value):
+    from app.services.n400_interviewer_guard import guard_response_text
+    text = json.dumps({"schema_version": 1, "turn_id": "t", "intent": {"type": "answer"},
+                       "facts": [{"field_id": field, "value": value, "value_type": "date",
+                                  "provenance": {"source": "user_stated", "confidence": 0.9,
+                                                 "utterance": said}}],
+                       "deferred": [], "clarification": None, "conflict": None,
+                       "escalation": None, "complete": True, "asking": None,
+                       "section_checkpoint": None, "interview_over": False,
+                       "reply": {"es": "Anotado. ¿Y el código postal?"}})
+    return json.loads(guard_response_text(
+        text, "q_p4_zip | Part 4 | p4.prior_address1.postal_code | ¿ZIP?", "t",
+        user_content=said, conversation=conversation))
+
+
+def test_both_shapes_ride_through_the_whole_guard():
+    """Through guard_response_text with the real argument names, so the
+    conversation actually reaches the day guard at the call site."""
+    out = _guarded_turn("De octubre de 2021.", _JOINED, "p4.prior_address1.to", "2021-10-28")
+    assert out["facts"][0]["value"] == "2021-10-28" and out.get("deferred") == []
+    out = _guarded_turn("Sí, sigo trabajando allí.", _WHOLE, "p7.employer1.from", "2024-02-04")
+    assert out["facts"][0]["value"] == "2024-02-04" and out.get("deferred") == []
+
+
 # --- carry-forward across a clarification (2026-09-07) ----------------------
 #
 # The evidence floor assumed her evidence is in the turn that mints it. The
