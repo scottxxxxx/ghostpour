@@ -33,7 +33,11 @@ def test_the_route_retries_exactly_once_for_this_call_type_and_meters_the_discar
     src = open("app/routers/chat.py").read()
     i = src.index("from app.services.n400_envelope import")
     block = src[i - 400:i + 2200]
-    assert 'body.get_meta("call_type") == "n400_interviewer_turn"' in block
+    # Since 2026-10-09 the lane is a SET (n400 and i765 share the contract);
+    # the n400 literal must still be a member or this backstop stops running.
+    assert 'body.get_meta("call_type") in INTERVIEWER_CALL_TYPES' in block
+    from app.services.interviewer_lanes import INTERVIEWER_CALL_TYPES
+    assert "n400_interviewer_turn" in INTERVIEWER_CALL_TYPES
     assert block.count("await route_with_fallback(") == 1, "exactly one retry"
     assert 'status="envelope_retry"' in block and 'status="envelope_retry_failed"' in block
     assert "n400_envelope_retried" in block and "n400_envelope_prose" in block

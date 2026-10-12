@@ -36,6 +36,19 @@ _DEFAULT_FORM = "N-400"
 @router.get("/n400/policy")
 async def get_n400_policy(request: Request, state: str | None = None,
                           form: str | None = None):
+    return _matrix_for(request, state, form or _DEFAULT_FORM, "n400")
+
+
+@router.get("/i765/policy")
+async def get_i765_policy(request: Request, state: str | None = None,
+                          form: str | None = None):
+    """I-765 Helper's matrix (2026-10-09). Its own path and its own document
+    (`i765/policy-matrix`), never the N-400 one: the client has one URL to
+    call, and a wrong URL answers 404 rather than another form's rules."""
+    return _matrix_for(request, state, form or "I-765", "i765")
+
+
+def _matrix_for(request: Request, state: str | None, form: str, app_id: str) -> dict:
     if not state or not state.strip():
         raise HTTPException(
             status_code=400,
@@ -58,8 +71,8 @@ async def get_n400_policy(request: Request, state: str | None = None,
         )
 
     configs = getattr(request.app.state, "remote_configs", None)
-    if policy_document(configs) is None:
-        logger.error("n400_policy_unavailable slug=%s", policy_slug())
+    if policy_document(configs, app_id) is None:
+        logger.error("%s_policy_unavailable slug=%s", app_id, policy_slug(app_id))
         raise HTTPException(
             status_code=503,
             detail={
@@ -69,4 +82,4 @@ async def get_n400_policy(request: Request, state: str | None = None,
             },
         )
 
-    return effective_matrix(configs, state, (form or _DEFAULT_FORM))
+    return effective_matrix(configs, state, form, app_id)

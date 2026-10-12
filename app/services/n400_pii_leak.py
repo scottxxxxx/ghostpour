@@ -40,6 +40,8 @@ from app.services.spoken_numbers import written
 
 logger = logging.getLogger("ghostpour.n400_pii_leak")
 
+from app.services.interviewer_lanes import INTERVIEWER_CALL_TYPES
+
 INTERVIEWER_CALL_TYPE = "n400_interviewer_turn"
 SOURCES = ("user_content", "conversation", "known_facts")
 
@@ -101,7 +103,7 @@ def report(call_type: str | None, sources: dict[str, str | None],
     """Rows of {source, kind, count}, logged one warning each. [] and no log
     when the turn is clean or is not the interviewer lane. Never raises."""
     try:
-        if call_type != INTERVIEWER_CALL_TYPE:
+        if call_type not in INTERVIEWER_CALL_TYPES:
             return []
         rows = []
         for source in SOURCES:

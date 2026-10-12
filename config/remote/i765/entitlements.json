@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "_comment": [
+    "I-765 Helper's OWN entitlement matrix, copied from n400/entitlements.json",
+    "on 2026-10-09 with no value changed. Both context_quilt AND people are",
+    "disabled, and that pair is the whole point: read the n400 file for the",
+    "mechanism (disabling one alone changes WHICH recall lane runs, not whether",
+    "GP authenticates to CQ as ShoulderSurf inside an immigration interview).",
+    "REPLACE, NOT MERGE: this file must carry every feature the flat matrix",
+    "carries, and a test pins that the feature sets match."
+  ],
+  "matrix": {
+    "context_quilt": {
+      "free": "disabled",
+      "plus": "disabled",
+      "pro": "disabled",
+      "admin": "disabled",
+      "automation": "disabled"
+    },
+    "meeting_reports": {
+      "free": "enabled",
+      "plus": "enabled",
+      "pro": "enabled",
+      "admin": "enabled",
+      "automation": "enabled"
+    },
+    "project_chat": {
+      "free": "teaser",
+      "plus": "enabled",
+      "pro": "enabled",
+      "admin": "enabled",
+      "automation": "enabled"
+    },
+    "speaker_consolidation": {
+      "free": "enabled",
+      "plus": "enabled",
+      "pro": "enabled",
+      "admin": "enabled",
+      "automation": "enabled"
+    },
+    "tag_centroids": {
+      "free": "enabled",
+      "plus": "enabled",
+      "pro": "enabled",
+      "admin": "enabled",
+      "automation": "enabled"
+    },
+    "web_search": {
+      "free": "enabled",
+      "plus": "enabled",
+      "pro": "enabled",
+      "admin": "enabled",
+      "automation": "enabled"
+    },
+    "people": {
+      "free": "disabled",
+      "plus": "disabled",
+      "pro": "disabled",
+      "admin": "disabled",
+      "automation": "disabled"
+    },
+    "share": {
+      "admin": "enabled",
+      "automation": "enabled",
+      "free": "enabled",
+      "plus": "enabled",
+      "pro": "enabled"
+    },
+    "alignment": {
+      "free": "enabled",
+      "plus": "enabled",
+      "pro": "enabled",
+      "admin": "enabled",
+      "automation": "enabled"
+    }
+  }
+}

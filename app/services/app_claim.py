@@ -26,7 +26,7 @@ from fastapi import HTTPException
 
 logger = logging.getLogger("ghostpour.app_claim")
 
-STRICT_APP_CLAIM_APPS = frozenset({"n400"})
+STRICT_APP_CLAIM_APPS = frozenset({"n400", "i765"})
 UNSCOPED = "unscoped"
 CODE = "token_app_mismatch"
 

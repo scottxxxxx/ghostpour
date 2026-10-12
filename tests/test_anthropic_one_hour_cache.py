@@ -30,7 +30,8 @@ def test_every_other_lane_keeps_five_minutes():
     for ct in (None, "chat", "report", "n400_interview_turn", "generation_intent"):
         (block,) = _build_system_blocks(_req(ct))
         assert block["cache_control"] == FIVE_MIN, ct
-    assert _ONE_HOUR_CACHE_CALL_TYPES == {"n400_interviewer_turn"}
+    # The I-765 lane joined 2026-10-09: same contract, same large cold prompt.
+    assert _ONE_HOUR_CACHE_CALL_TYPES == {"n400_interviewer_turn", "i765_interviewer_turn"}
 
 
 def test_a_request_with_no_metadata_does_not_crash():

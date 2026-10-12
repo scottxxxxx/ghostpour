@@ -1583,6 +1583,7 @@ async function loadLiveMeetings() {
   document.getElementById('live-meetings-count').textContent =
     `${s.in_progress} now · ${s.live} live · ${s.paused} paused · ${s.early} early · ${s.quiet} quiet` +
     (s.unfinished_beyond_window_7d ? ` · ${s.unfinished_beyond_window_7d} older starts with no stop (7d, not shown)` : '') +
+    (s.app_quit_stops_24h ? ` · ${s.app_quit_stops_24h} swiped away (24h)` : '') +
     (s.recovered_stops_24h ? ` · ${s.recovered_stops_24h} recovered stops (24h)` : '');
   document.getElementById('live-meetings-asof').textContent = `as of ${new Date(d.now).toLocaleTimeString()}`;
   if (!d.meetings.length) {

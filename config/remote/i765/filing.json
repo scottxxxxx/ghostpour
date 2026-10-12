@@ -1,0 +1,1236 @@
+{
+  "schema_version": 1,
+  "version": 2,
+  "as_of": "2026-10-09",
+  "app_id": "i765",
+  "form": "I-765",
+  "notes": {
+    "rule": "Every number, date and address here traces to a line in Docs/RESEARCH-I765-2026-10-09.md with its citation key, to the G-1055 PDF page named in its source, or (from version 2) to a uscis.gov page in sources read on the read_on date and quoted exactly. Where no source carries a value, the field is null and a see_url says where to look. Shape doc: Docs/FILING-CONFIG.md.",
+    "matching": "Fee rules and address entries are evaluated in list order; the first rule whose categories, reason and conditions all match wins. Rules with conditions are listed before the unconditioned rule for the same category.",
+    "replacement_key": "The category key replacement is for the replacement evidence and attorney copy. For a fee or an address the app resolves the applicant's Item 27 category first and looks up that key with reason replacement."
+  },
+  "sources": [
+    {"key": "RESEARCH", "url": "Docs/RESEARCH-I765-2026-10-09.md", "read_on": "2026-10-09", "note": "The primary-source summary every value here traces to."},
+    {"key": "PAGE", "url": "https://www.uscis.gov/i-765", "read_on": "2026-10-09", "note": "Re-read live 2026-10-09 (Last Reviewed/Updated 10/07/2026). Edition Date reads 08/21/25; the Sept. 14, 2026 court order alert says USCIS is not accepting the 09/15/26 edition; the FY 2027 alert says the new fees apply to requests postmarked on or after Oct. 16, 2026."},
+    {"key": "FORM", "url": "https://www.uscis.gov/sites/default/files/document/forms/i-765.pdf", "read_on": "2026-10-09", "note": "Edition 08/21/25."},
+    {"key": "INSTR", "url": "https://www.uscis.gov/sites/default/files/document/forms/i-765instr.pdf", "read_on": "2026-10-09", "note": "Edition 08/21/25, 25 pages."},
+    {"key": "G1055", "url": "https://www.uscis.gov/sites/default/files/document/forms/g-1055.pdf", "read_on": "2026-10-09", "note": "Edition 10/07/26. Appendix C (I-765) is pages 51 to 60. Bundled copy at I765Helper/FormReference/g-1055.pdf."},
+    {"key": "FY27", "url": "https://www.uscis.gov/newsroom/alerts/uscis-announces-fy-2027-inflation-increase-for-certain-immigration-related-fees", "read_on": "2026-10-09"},
+    {"key": "ADDR", "url": "https://www.uscis.gov/i-765-addresses", "read_on": "2026-10-09", "note": "Direct Filing Addresses for Form I-765. Read live 2026-10-09 (Last Reviewed/Updated 10/07/2026). Filing locations changed 2026-10-07; forms postmarked on or before 2026-11-09 are accepted at any prior location. Every lockbox line in addresses.entries A01 to A03 and in addresses.card_error_return is quoted from this page."},
+    {"key": "NONFAM", "url": "https://www.uscis.gov/uscis-lockbox-filing-locations-chart", "read_on": "2026-10-09", "note": "USCIS Lockbox Filing Locations Chart for Certain Non-Family-Based Forms. Read live 2026-10-09 (Last Reviewed/Updated 10/07/2026). Rows in addresses.charts.non_family_based."},
+    {"key": "FAM", "url": "https://www.uscis.gov/forms/all-forms/uscis-lockbox-filing-locations-chart-for-certain-family-based-forms", "read_on": "2026-10-09", "note": "USCIS Lockbox Filing Locations Chart for Certain Family-Based Forms. Read live 2026-10-09 (Last Reviewed/Updated 10/11/2024; its alert does not mention the 2026-10-07 change). Rows in addresses.charts.family_based."},
+    {"key": "I485ADDR", "url": "https://www.uscis.gov/forms/all-forms/direct-filing-addresses-for-form-i-485-application-to-register-permanent-residence-or-adjust-status", "read_on": "2026-10-09", "note": "Direct Filing Addresses for Form I-485. Read live 2026-10-09 (Last Reviewed/Updated 10/07/2026). Where a concurrent (c)(9) package goes (A05). Not encoded; linked."},
+    {"key": "OTHER", "url": "https://www.uscis.gov/forms/all-forms/filing-form-i-765-with-other-forms", "read_on": "2026-10-09", "note": "Filing Form I-765 with Other Forms. Read live 2026-10-09 (Last Reviewed/Updated 04/01/2024). Its table: (c)(9) may be filed with the I-485; (a)(12) and (c)(19) with the I-821; (a)(17), (a)(18) and (c)(26) with the I-129/I-539 or I-539; (a)(3), (a)(5), (c)(3)(A), (c)(3)(B) and (c)(3)(C) are listed No."},
+    {"key": "ONLINE", "url": "https://www.uscis.gov/file-online/forms-available-to-file-online", "read_on": "2026-10-09"},
+    {"key": "CHECK", "url": "https://www.uscis.gov/forms/filing-guidance/checklist-of-required-initial-evidence-for-form-i-765-for-informational-purposes-only", "read_on": "2026-10-09"},
+    {"key": "TPS", "url": "https://www.uscis.gov/humanitarian/temporary-protected-status", "read_on": "2026-10-09", "note": "Temporary Protected Status. Read live 2026-10-09 (Last Reviewed/Updated 09/09/2026). The page carries no filing address itself: it says to send the TPS package or the I-765 to the mailing address on the country specific page, that when and where to file is on the country pages, and that the I-765 may be filed online when filed concurrently with an online I-821. Per-country notices are not encoded."}
+  ],
+  "categories": {
+    "c9": {"code": "(c)(9)", "label_en": "Pending green card application (Form I-485)", "label_es": "Solicitud de residencia permanente pendiente (Formulario I-485)", "label_pt": "Pedido de green card pendente (Formulário I-485)"},
+    "c3a": {"code": "(c)(3)(A)", "label_en": "F-1 student, pre-completion OPT", "label_es": "Estudiante F-1, OPT antes de terminar los estudios", "label_pt": "Estudante F-1, OPT antes de concluir os estudos"},
+    "c3b": {"code": "(c)(3)(B)", "label_en": "F-1 student, post-completion OPT", "label_es": "Estudiante F-1, OPT después de terminar los estudios", "label_pt": "Estudante F-1, OPT após concluir os estudos"},
+    "c3c": {"code": "(c)(3)(C)", "label_en": "F-1 student, 24-month STEM OPT extension", "label_es": "Estudiante F-1, extensión STEM OPT de 24 meses", "label_pt": "Estudante F-1, extensão STEM OPT de 24 meses"},
+    "a12": {"code": "(a)(12)", "label_en": "TPS granted", "label_es": "TPS concedido", "label_pt": "TPS concedido"},
+    "c19": {"code": "(c)(19)", "label_en": "TPS application pending", "label_es": "Solicitud de TPS pendiente", "label_pt": "Pedido de TPS pendente"},
+    "a17": {"code": "(a)(17)", "label_en": "Spouse of an E-1, E-2 or E-3", "label_es": "Cónyuge de un E-1, E-2 o E-3", "label_pt": "Cônjuge de um E-1, E-2 ou E-3"},
+    "a18": {"code": "(a)(18)", "label_en": "Spouse of an L-1", "label_es": "Cónyuge de un L-1", "label_pt": "Cônjuge de um L-1"},
+    "a3": {"code": "(a)(3)", "label_en": "Refugee", "label_es": "Refugiado", "label_pt": "Refugiado"},
+    "a5": {"code": "(a)(5)", "label_en": "Asylee (asylum granted)", "label_es": "Asilado (asilo concedido)", "label_pt": "Asilado (asilo concedido)"},
+    "c26": {"code": "(c)(26)", "label_en": "H-4 spouse of an H-1B with an approved I-140", "label_es": "Cónyuge H-4 de un H-1B con un I-140 aprobado", "label_pt": "Cônjuge H-4 de um H-1B com I-140 aprovado"},
+    "replacement": {"code": null, "label_en": "Replacement of a lost, stolen or damaged card", "label_es": "Reemplazo de una tarjeta perdida, robada o dañada", "label_pt": "Substituição de um cartão perdido, roubado ou danificado"}
+  },
+  "edition": {
+    "accepted": "08/21/25",
+    "blocked": "09/15/26",
+    "older_editions_accepted": false,
+    "mixed_pages_rejected": true,
+    "omb_number": "1615-0040",
+    "omb_expires": "08/31/2027",
+    "note_en": "USCIS accepts only the 08/21/25 edition; a 09/15/26 edition exists but is not accepted while a September 14, 2026 federal court order (Presidents' Alliance v. DHS, D. Mass. 26-cv-13799) holds up the student and exchange visitor rule.",
+    "note_es": "USCIS acepta solo la edición 08/21/25; existe una edición 09/15/26, pero no se acepta mientras una orden judicial federal del 14 de septiembre de 2026 (Presidents' Alliance v. DHS, D. Mass. 26-cv-13799) mantenga suspendida la regla para estudiantes y visitantes de intercambio.",
+    "note_pt": "O USCIS aceita somente a edição 08/21/25; existe uma edição 09/15/26, mas ela não é aceita enquanto uma ordem judicial federal de 14 de setembro de 2026 (Presidents' Alliance v. DHS, D. Mass. 26-cv-13799) mantiver suspensa a regra para estudantes e visitantes de intercâmbio.",
+    "checked_on": "2026-10-09",
+    "source": {"keys": ["PAGE", "FORM", "INSTR"], "where": "RESEARCH section 1; PAGE re-read 2026-10-09: Edition Date 08/21/25, and the Sept. 14, 2026 order alert says USCIS is not accepting the 09/15/26 edition"}
+  },
+  "fees": {
+    "currency": "USD",
+    "addon_note": {
+      "law": "Pub. L. 119-21",
+      "en": "The Pub. L. 119-21 fee is paid separately from the filing fee, cannot be waived, and is owed even when the filing fee is waived or $0.",
+      "es": "La tarifa de la Ley Pública 119-21 se paga por separado de la tarifa de presentación, no se puede exonerar y se debe aunque la tarifa de presentación esté exonerada o sea $0.",
+      "pt": "A taxa da Lei Pública 119-21 é paga separadamente da taxa de apresentação, não pode ser dispensada e é devida mesmo quando a taxa de apresentação for dispensada ou for $0.",
+      "source": {"keys": ["G1055"], "where": "G-1055 p.1; RESEARCH section 4"}
+    },
+    "fee_waiver": {
+      "form": "I-912",
+      "waives_filing_fee": true,
+      "waives_addon": false,
+      "en": "Form I-912 can waive the filing fee for some applicants, never the Pub. L. 119-21 fee. A waiver request usually means filing on paper.",
+      "es": "El Formulario I-912 puede exonerar la tarifa de presentación para algunos solicitantes, nunca la tarifa de la Ley Pública 119-21. Pedir la exoneración normalmente significa presentar en papel.",
+      "pt": "O Formulário I-912 pode dispensar a taxa de apresentação para alguns requerentes, nunca a taxa da Lei Pública 119-21. Pedir a dispensa normalmente significa apresentar em papel.",
+      "source": {"keys": ["G1055"], "where": "G-1055 pp.1, 60; RESEARCH section 4"}
+    },
+    "premium_processing": {
+      "form": "I-907",
+      "categories": ["c3a", "c3b", "c3c"],
+      "fee": 1780,
+      "en": "Optional. Form I-907 premium processing for OPT and STEM OPT costs $1,780 on top of the filing fee.",
+      "es": "Opcional. El procesamiento prioritario con el Formulario I-907 para OPT y STEM OPT cuesta $1,780 además de la tarifa de presentación.",
+      "pt": "Opcional. O processamento prioritário com o Formulário I-907 para OPT e STEM OPT custa $1,780 além da taxa de apresentação.",
+      "source": {"keys": ["G1055"], "where": "G-1055 p.27 (I-907 row, OPT and STEM-OPT classifications); RESEARCH section 4"}
+    },
+    "rules": [
+      {
+        "id": "F01_replacement_uscis_or_usps_error",
+        "categories": ["c9", "c3a", "c3b", "c3c", "a12", "c19", "a17", "a18", "a3", "a5", "c26", "replacement"],
+        "reason": "replacement",
+        "conditions": {"replacement_reason": ["uscis_error", "not_received"]},
+        "filing_fee_paper": 0,
+        "filing_fee_online": 0,
+        "addon_fee": 0,
+        "addon_effective": null,
+        "fee_exempt": true,
+        "fee_exempt_reason_en": "The card had wrong information because of a USCIS error, or USCIS issued it and you never received it because of a USPS or USCIS error.",
+        "fee_exempt_reason_es": "La tarjeta tenía información incorrecta por un error de USCIS, o USCIS la emitió y usted nunca la recibió por un error de USPS o de USCIS.",
+        "fee_exempt_reason_pt": "O cartão tinha informação incorreta por erro do USCIS, ou o USCIS o emitiu e você nunca o recebeu por erro do USPS ou do USCIS.",
+        "note": "Part 1 of the form says a correction due to USCIS error needs no new I-765 and no fee; the app should point the applicant to the USCIS process for that case rather than fill a form (RESEARCH section 2, FORM Part 1).",
+        "source": {"keys": ["G1055", "FORM"], "where": "G-1055 p.52; RESEARCH section 4 'Reduced or zero filing fee'"}
+      },
+      {
+        "id": "F02_c9_i485_filed_2007_07_30_to_2024_03_31",
+        "categories": ["c9"],
+        "reason": "any",
+        "conditions": {"i485_filed_between": ["2007-07-30", "2024-03-31"], "i485_fee_paid": true, "i485_pending": true},
+        "filing_fee_paper": 0,
+        "filing_fee_online": 0,
+        "addon_fee": 0,
+        "addon_effective": null,
+        "fee_exempt": true,
+        "fee_exempt_reason_en": "You paid the Form I-485 fee when you filed it on or after July 30, 2007 and before April 1, 2024, and the I-485 is still pending.",
+        "fee_exempt_reason_es": "Usted pagó la tarifa del Formulario I-485 cuando lo presentó el 30 de julio de 2007 o después y antes del 1 de abril de 2024, y el I-485 sigue pendiente.",
+        "fee_exempt_reason_pt": "Você pagou a taxa do Formulário I-485 quando o apresentou em 30 de julho de 2007 ou depois e antes de 1 de abril de 2024, e o I-485 ainda está pendente.",
+        "note": "G-1055 says this $0 row applies to an initial, replacement or renewal EAD.",
+        "source": {"keys": ["G1055"], "where": "G-1055 p.52; RESEARCH section 4"}
+      },
+      {
+        "id": "F03_c9_i485_filed_on_or_after_2024_04_01",
+        "categories": ["c9"],
+        "reason": "any",
+        "conditions": {"i485_filed_on_or_after": "2024-04-01", "i485_fee_paid": true, "i485_pending": true},
+        "filing_fee_paper": 260,
+        "filing_fee_online": 260,
+        "addon_fee": 0,
+        "addon_effective": null,
+        "fee_exempt": false,
+        "fee_exempt_reason_en": null,
+        "fee_exempt_reason_es": null,
+        "fee_exempt_reason_pt": null,
+        "note": "Reduced fee. G-1055 states no initial, renewal or replacement limit on this row, so it applies to any reason. Confirmed 2026-10-09 against the bundled G-1055 (edition 10/07/26) p.52: the row reads only 'If you filed Form I-485 with a fee on or after April 1, 2024 and your Form I-485 is still pending.'",
+        "source": {"keys": ["G1055"], "where": "G-1055 p.52; RESEARCH section 4"}
+      },
+      {
+        "id": "F04_c9_default",
+        "categories": ["c9"],
+        "reason": "any",
+        "conditions": null,
+        "filing_fee_paper": 520,
+        "filing_fee_online": 470,
+        "addon_fee": 0,
+        "addon_effective": null,
+        "fee_exempt": false,
+        "fee_exempt_reason_en": null,
+        "fee_exempt_reason_es": null,
+        "fee_exempt_reason_pt": null,
+        "note": "Applies when neither I-485 row above matches, for example an I-485 filed without a fee.",
+        "source": {"keys": ["G1055"], "where": "G-1055 p.52 general row; RESEARCH section 4 'Default'"}
+      },
+      {
+        "id": "F05_regular_fee_categories",
+        "categories": ["c3a", "c3b", "c3c", "a17", "a18", "c26"],
+        "reason": "any",
+        "conditions": null,
+        "filing_fee_paper": 520,
+        "filing_fee_online": 470,
+        "addon_fee": 0,
+        "addon_effective": null,
+        "fee_exempt": false,
+        "fee_exempt_reason_en": null,
+        "fee_exempt_reason_es": null,
+        "fee_exempt_reason_pt": null,
+        "note": "Initial, renewal and replacement. None of these categories appears on a G-1055 exemption or add-on list.",
+        "source": {"keys": ["G1055"], "where": "G-1055 p.52 general row; RESEARCH section 4 'Default'"}
+      },
+      {
+        "id": "F06_tps_initial_postmarked_through_2026_10_15",
+        "categories": ["a12", "c19"],
+        "reason": "initial",
+        "conditions": null,
+        "filing_fee_paper": 520,
+        "filing_fee_online": 470,
+        "addon_fee": 560,
+        "addon_effective": {"postmarked_through": "2026-10-15"},
+        "fee_exempt": false,
+        "fee_exempt_reason_en": null,
+        "fee_exempt_reason_es": null,
+        "fee_exempt_reason_pt": null,
+        "note": "The Pub. L. 119-21 add-on for an initial TPS EAD. Superseded by F07 for packages postmarked on or after 2026-10-16.",
+        "source": {"keys": ["G1055", "FY27"], "where": "G-1055 p.52; RESEARCH section 4 add-on table and 'Price change on Oct. 16, 2026'"}
+      },
+      {
+        "id": "F07_tps_initial_postmarked_on_or_after_2026_10_16",
+        "categories": ["a12", "c19"],
+        "reason": "initial",
+        "conditions": null,
+        "filing_fee_paper": 520,
+        "filing_fee_online": 470,
+        "addon_fee": 570,
+        "addon_effective": {"postmarked_on_or_after": "2026-10-16"},
+        "fee_exempt": false,
+        "fee_exempt_reason_en": null,
+        "fee_exempt_reason_es": null,
+        "fee_exempt_reason_pt": null,
+        "note": "FY 2027 inflation rise. A package postmarked on or after 2026-10-16 with the old $560 is rejected.",
+        "source": {"keys": ["FY27", "PAGE"], "where": "RESEARCH section 4 'Price change on Oct. 16, 2026'"}
+      },
+      {
+        "id": "F08_tps_renewal",
+        "categories": ["a12", "c19"],
+        "reason": "renewal",
+        "conditions": null,
+        "filing_fee_paper": 520,
+        "filing_fee_online": 470,
+        "addon_fee": 280,
+        "addon_effective": null,
+        "fee_exempt": false,
+        "fee_exempt_reason_en": null,
+        "fee_exempt_reason_es": null,
+        "fee_exempt_reason_pt": null,
+        "note": "The FY27 notice lists no change to the renewal add-on.",
+        "source": {"keys": ["G1055", "FY27"], "where": "G-1055 p.53; RESEARCH section 4 add-on table"}
+      },
+      {
+        "id": "F09_tps_replacement",
+        "categories": ["a12", "c19"],
+        "reason": "replacement",
+        "conditions": null,
+        "filing_fee_paper": 520,
+        "filing_fee_online": 470,
+        "addon_fee": 0,
+        "addon_effective": null,
+        "fee_exempt": false,
+        "fee_exempt_reason_en": null,
+        "fee_exempt_reason_es": null,
+        "fee_exempt_reason_pt": null,
+        "note": "G-1055 lists the TPS add-on only for initial and renewal EADs; a replacement falls under the general row with no add-on.",
+        "source": {"keys": ["G1055"], "where": "G-1055 pp.52 to 53; RESEARCH section 4"}
+      },
+      {
+        "id": "F10_a3_initial",
+        "categories": ["a3"],
+        "reason": "initial",
+        "conditions": null,
+        "filing_fee_paper": 0,
+        "filing_fee_online": 0,
+        "addon_fee": 0,
+        "addon_effective": null,
+        "fee_exempt": true,
+        "fee_exempt_reason_en": "A refugee's first work permit has no fee.",
+        "fee_exempt_reason_es": "El primer permiso de trabajo de un refugiado no tiene tarifa.",
+        "fee_exempt_reason_pt": "O primeiro cartão de trabalho de um refugiado não tem taxa.",
+        "note": null,
+        "source": {"keys": ["G1055"], "where": "G-1055 p.55 initial exemption list; RESEARCH section 4 'Fee-exempt categories'"}
+      },
+      {
+        "id": "F11_a3_renewal",
+        "categories": ["a3"],
+        "reason": "renewal",
+        "conditions": null,
+        "filing_fee_paper": 0,
+        "filing_fee_online": 0,
+        "addon_fee": 0,
+        "addon_effective": null,
+        "fee_exempt": true,
+        "fee_exempt_reason_en": "A refugee's renewal has no fee.",
+        "fee_exempt_reason_es": "La renovación de un refugiado no tiene tarifa.",
+        "fee_exempt_reason_pt": "A renovação de um refugiado não tem taxa.",
+        "note": null,
+        "source": {"keys": ["G1055"], "where": "G-1055 p.57 renewal exemption list; RESEARCH section 4"}
+      },
+      {
+        "id": "F12_a3_replacement_unexpired_card",
+        "categories": ["a3"],
+        "reason": "replacement",
+        "conditions": {"card_unexpired": true},
+        "filing_fee_paper": 0,
+        "filing_fee_online": 0,
+        "addon_fee": 0,
+        "addon_effective": null,
+        "fee_exempt": true,
+        "fee_exempt_reason_en": "A refugee replacing a lost, stolen or damaged card that has not expired pays no fee.",
+        "fee_exempt_reason_es": "Un refugiado que reemplaza una tarjeta perdida, robada o dañada que no ha vencido no paga tarifa.",
+        "fee_exempt_reason_pt": "Um refugiado que substitui um cartão perdido, roubado ou danificado que não venceu não paga taxa.",
+        "note": null,
+        "source": {"keys": ["G1055"], "where": "G-1055 p.59 replacement exemption list; RESEARCH section 4"}
+      },
+      {
+        "id": "F13_a3_replacement_expired_card",
+        "categories": ["a3"],
+        "reason": "replacement",
+        "conditions": null,
+        "filing_fee_paper": 520,
+        "filing_fee_online": 470,
+        "addon_fee": 0,
+        "addon_effective": null,
+        "fee_exempt": false,
+        "fee_exempt_reason_en": null,
+        "fee_exempt_reason_es": null,
+        "fee_exempt_reason_pt": null,
+        "note": "The replacement exemption covers only a card that has not expired. An expired card is normally a renewal (F11).",
+        "source": {"keys": ["G1055"], "where": "G-1055 p.52 general row and p.59 wording 'but has not expired'"}
+      },
+      {
+        "id": "F14_a5_initial",
+        "categories": ["a5"],
+        "reason": "initial",
+        "conditions": null,
+        "filing_fee_paper": 0,
+        "filing_fee_online": 0,
+        "addon_fee": 0,
+        "addon_effective": null,
+        "fee_exempt": true,
+        "fee_exempt_reason_en": "An asylee's first work permit has no fee.",
+        "fee_exempt_reason_es": "El primer permiso de trabajo de un asilado no tiene tarifa.",
+        "fee_exempt_reason_pt": "O primeiro cartão de trabalho de um asilado não tem taxa.",
+        "note": null,
+        "source": {"keys": ["G1055"], "where": "G-1055 p.55 initial exemption list; RESEARCH section 4"}
+      },
+      {
+        "id": "F15_a5_renewal_not_exempt",
+        "categories": ["a5"],
+        "reason": "renewal",
+        "conditions": null,
+        "filing_fee_paper": 520,
+        "filing_fee_online": 470,
+        "addon_fee": 0,
+        "addon_effective": null,
+        "fee_exempt": false,
+        "fee_exempt_reason_en": null,
+        "fee_exempt_reason_es": null,
+        "fee_exempt_reason_pt": null,
+        "note": "(a)(5) asylee is NOT on the renewal exemption list, so an asylee renewal pays the regular fee even though the initial filing was free.",
+        "source": {"keys": ["G1055"], "where": "G-1055 p.57 renewal exemption list omits (a)(5); RESEARCH section 4 'Fee-exempt categories'"}
+      },
+      {
+        "id": "F16_a5_replacement_not_exempt",
+        "categories": ["a5"],
+        "reason": "replacement",
+        "conditions": null,
+        "filing_fee_paper": 520,
+        "filing_fee_online": 470,
+        "addon_fee": 0,
+        "addon_effective": null,
+        "fee_exempt": false,
+        "fee_exempt_reason_en": null,
+        "fee_exempt_reason_es": null,
+        "fee_exempt_reason_pt": null,
+        "note": "(a)(5) asylee is also absent from the G-1055 replacement exemption list, which starts on p.59 with (a)(3) and (a)(4) and continues on p.60 without ever naming (a)(5). The research summary did not call this out; confirmed against the bundled G-1055 (edition 10/07/26) on 2026-10-09.",
+        "source": {"keys": ["G1055"], "where": "G-1055 p.52 general row; p.59 replacement exemption list"}
+      },
+      {
+        "id": "F17_fallback_regular_fee",
+        "categories": ["c9", "c3a", "c3b", "c3c", "a12", "c19", "a17", "a18", "a3", "a5", "c26", "replacement"],
+        "reason": "any",
+        "conditions": null,
+        "filing_fee_paper": 520,
+        "filing_fee_online": 470,
+        "addon_fee": 0,
+        "addon_effective": null,
+        "fee_exempt": false,
+        "fee_exempt_reason_en": null,
+        "fee_exempt_reason_es": null,
+        "fee_exempt_reason_pt": null,
+        "note": "Catch-all so no v1 combination resolves to nothing. If this row fires for a TPS or (a)(3) case, the rules above have a gap.",
+        "source": {"keys": ["G1055"], "where": "G-1055 p.52 general row"}
+      }
+    ]
+  },
+  "addresses": {
+    "effective": "2026-10-07",
+    "grace": {
+      "old_location_accepted_if_postmarked_by": "2026-11-09",
+      "en": "USCIS changed the I-765 filing locations on October 7, 2026. A package postmarked on or before November 9, 2026 is still accepted at the old location.",
+      "es": "USCIS cambió las direcciones de envío del I-765 el 7 de octubre de 2026. Un paquete con matasellos del 9 de noviembre de 2026 o antes todavía se acepta en la dirección anterior.",
+      "pt": "O USCIS mudou os endereços de envio do I-765 em 7 de outubro de 2026. Um pacote postado com carimbo até 9 de novembro de 2026 ainda é aceito no endereço antigo.",
+      "source": {"keys": ["ADDR"], "where": "RESEARCH section 5 'Paper filing address rule'; ADDR alert read 2026-10-09: 'We will provide a 30-day grace period and accept forms postmarked on or before Nov. 9, 2026, that are sent to any prior filing location.'"}
+    },
+    "rules": {
+      "concurrent_dependent_en": "If your work permit depends on another form you are filing at the same time (for example Form I-485 or Form I-539), mail both forms together to that other form's address.",
+      "concurrent_dependent_es": "Si su permiso de trabajo depende de otro formulario que presenta al mismo tiempo (por ejemplo el Formulario I-485 o el Formulario I-539), envíe los dos formularios juntos a la dirección de ese otro formulario.",
+      "concurrent_dependent_pt": "Se o seu cartão de trabalho depender de outro formulário que você apresenta ao mesmo tempo (por exemplo o Formulário I-485 ou o Formulário I-539), envie os dois formulários juntos para o endereço desse outro formulário.",
+      "concurrent_independent_en": "If you mail another form at the same time but your work permit does not depend on it, use a separate envelope for each form.",
+      "concurrent_independent_es": "Si envía otro formulario al mismo tiempo pero su permiso de trabajo no depende de él, use un sobre separado para cada formulario.",
+      "concurrent_independent_pt": "Se enviar outro formulário ao mesmo tempo mas o seu cartão de trabalho não depender dele, use um envelope separado para cada formulário.",
+      "category_drives_address_en": "Otherwise the address depends on the eligibility category you wrote in Item 27, not on the reason for applying.",
+      "category_drives_address_es": "En los demás casos, la dirección depende de la categoría de elegibilidad que escribió en el Punto 27, no del motivo de la solicitud.",
+      "category_drives_address_pt": "Nos demais casos, o endereço depende da categoria de elegibilidade que você escreveu no Item 27, não do motivo do pedido.",
+      "source": {"keys": ["ADDR", "PAGE"], "where": "RESEARCH section 5 'Paper filing address rule'; ADDR intro paragraphs read 2026-10-09 (file both at the other form's location when eligibility depends on it; otherwise a separate envelope per form)"}
+    },
+    "charts": {
+      "non_family_based": {
+        "name": "USCIS Lockbox Filing Locations Chart for Certain Non-Family-Based Forms",
+        "url": "https://www.uscis.gov/uscis-lockbox-filing-locations-chart",
+        "keyed_by": "state_of_residence",
+        "read_on": "2026-10-09",
+        "page_last_reviewed": "10/07/2026",
+        "note": "Place names are quoted as the page prints them, including 'Marshal Islands' and the three 'Armed Forces' rows. Every state, the District of Columbia and every territory appears exactly once. The page alert says the locations changed on Oct. 7, 2026 with a grace for postmarks on or before Nov. 9, 2026.",
+        "rows": [
+          {
+            "places": ["Alabama", "Alaska", "American Samoa", "Arkansas", "Armed Forces - America", "Armed Forces - Europe", "Armed Forces - Pacific", "Colorado", "Commonwealth of the Northern Mariana Islands", "Delaware", "Florida", "Georgia", "Guam", "Hawaii", "Idaho", "Kansas", "Kentucky", "Louisiana", "Marshal Islands", "Micronesia", "Mississippi", "Montana", "Nebraska", "Nevada", "New Mexico", "New York", "North Carolina", "North Dakota", "Oklahoma", "Palau", "Puerto Rico", "South Carolina", "South Dakota", "Tennessee", "Texas", "U.S. Virgin Islands", "Utah", "Wyoming"],
+            "address": {
+              "lockbox": "USCIS Dallas Lockbox",
+              "name_line": "USCIS",
+              "attention_line": "Attn: NFB",
+              "po_box": "P.O. Box 660867",
+              "city": "Dallas",
+              "state": "TX",
+              "zip": "75266-0867",
+              "courier": {"carriers": "FedEx, UPS, and DHL deliveries", "name_line": "USCIS", "attention_line": "Attn: NFB (Box 660867)", "street_lines": ["2501 S. State Hwy. 121 Business", "Suite 400"], "city": "Lewisville", "state": "TX", "zip": "75067-8003"}
+            }
+          },
+          {
+            "places": ["Arizona", "California", "Minnesota", "New Jersey", "Oregon", "Pennsylvania", "Virginia"],
+            "address": {
+              "lockbox": "USCIS Phoenix Lockbox",
+              "name_line": "USCIS",
+              "attention_line": "Attn: NFB",
+              "po_box": "P.O. Box 21281",
+              "city": "Phoenix",
+              "state": "AZ",
+              "zip": "85036-1281",
+              "courier": {"carriers": "FedEx, UPS, and DHL deliveries", "name_line": "USCIS", "attention_line": "Attn: NFB (Box 21281)", "street_lines": ["2108 E. Elliot Rd."], "city": "Tempe", "state": "AZ", "zip": "85284-1806"}
+            }
+          },
+          {
+            "places": ["Connecticut", "District of Columbia", "Illinois", "Indiana", "Iowa", "Maine", "Maryland", "Massachusetts", "Michigan", "Missouri", "New Hampshire", "Ohio", "Rhode Island", "Vermont", "Washington", "West Virginia", "Wisconsin"],
+            "address": {
+              "lockbox": "USCIS Chicago Lockbox",
+              "name_line": "USCIS",
+              "attention_line": "Attn: NFB",
+              "po_box": "P.O. Box 805371",
+              "city": "Chicago",
+              "state": "IL",
+              "zip": "60680-5371",
+              "courier": {"carriers": "FedEx, UPS, and DHL deliveries", "name_line": "USCIS", "attention_line": "Attn: NFB (Box 805371)", "street_lines": ["131 S. Dearborn St. - 3rd Floor"], "city": "Chicago", "state": "IL", "zip": "60603-5517"}
+            }
+          }
+        ],
+        "source": {"keys": ["NONFAM"], "where": "NONFAM table, read 2026-10-09, quoted exactly"}
+      },
+      "family_based": {
+        "name": "USCIS Lockbox Filing Locations Chart for Certain Family-Based Forms",
+        "url": "https://www.uscis.gov/forms/all-forms/uscis-lockbox-filing-locations-chart-for-certain-family-based-forms",
+        "keyed_by": "state_of_residence",
+        "read_on": "2026-10-09",
+        "page_last_reviewed": "10/11/2024",
+        "note": "Every state and the District of Columbia appears exactly once. The page lists no row for American Samoa, the Armed Forces addresses, the Marshall Islands, Micronesia or Palau; an applicant living there gets the chart link, not an address. The page alert does not mention the Oct. 7, 2026 change.",
+        "rows": [
+          {
+            "places": ["Texas"],
+            "address": {
+              "lockbox": "USCIS Dallas Lockbox",
+              "name_line": "USCIS",
+              "attention_line": "Attn: AOS",
+              "po_box": "P.O. Box 650288",
+              "city": "Dallas",
+              "state": "TX",
+              "zip": "75265-0288",
+              "courier": {"carriers": "FedEx, UPS, and DHL deliveries", "name_line": "USCIS", "attention_line": "Attn: AOS (Box 650288)", "street_lines": ["2501 S. State Hwy. 121 Business", "Suite 400"], "city": "Lewisville", "state": "TX", "zip": "75067-8003"}
+            }
+          },
+          {
+            "places": ["Delaware", "Georgia", "Indiana", "Iowa", "Kansas", "Maryland", "Michigan", "Mississippi", "Missouri", "Nebraska", "New York", "North Carolina", "North Dakota", "Pennsylvania", "South Dakota", "Virginia", "West Virginia", "Wisconsin"],
+            "address": {
+              "lockbox": "USCIS Elgin Lockbox",
+              "name_line": "USCIS",
+              "attention_line": "Attn: AOS",
+              "po_box": "P.O. Box 4109",
+              "city": "Carol Stream",
+              "state": "IL",
+              "zip": "60197-4109",
+              "courier": {"carriers": "FedEx, UPS, and DHL deliveries", "name_line": "USCIS", "attention_line": "Attn: AOS (Box 4109)", "street_lines": ["2500 Westfield Drive"], "city": "Elgin", "state": "IL", "zip": "60124-7836"}
+            }
+          },
+          {
+            "places": ["Alabama", "Alaska", "Arizona", "Arkansas", "Colorado", "Hawaii", "Idaho", "Kentucky", "Louisiana", "Montana", "Nevada", "New Mexico", "Oklahoma", "Oregon", "Tennessee", "Utah", "Washington", "Wyoming"],
+            "address": {
+              "lockbox": "USCIS Phoenix Lockbox",
+              "name_line": "USCIS",
+              "attention_line": "Attn: AOS",
+              "po_box": "P.O. Box 20500",
+              "city": "Phoenix",
+              "state": "AZ",
+              "zip": "85036-0500",
+              "courier": {"carriers": "FedEx, UPS, and DHL deliveries", "name_line": "USCIS", "attention_line": "Attn: AOS (Box 20500)", "street_lines": ["2108 E. Elliot Rd."], "city": "Tempe", "state": "AZ", "zip": "85284-1806"}
+            }
+          },
+          {
+            "places": ["California", "Commonwealth of the Northern Mariana Islands", "Connecticut", "District of Columbia", "Florida", "Guam", "Illinois", "Maine", "Massachusetts", "Minnesota", "New Hampshire", "New Jersey", "Ohio", "Puerto Rico", "Rhode Island", "South Carolina", "U.S. Virgin Islands", "Vermont"],
+            "address": {
+              "lockbox": "USCIS Chicago Lockbox",
+              "name_line": "USCIS",
+              "attention_line": "Attn: AOS",
+              "po_box": "P.O. Box 805887",
+              "city": "Chicago",
+              "state": "IL",
+              "zip": "60680",
+              "courier": {"carriers": "FedEx, UPS, and DHL deliveries", "name_line": "USCIS", "attention_line": "Attn: AOS (Box 805887)", "street_lines": ["131 S. Dearborn St., 3rd Floor"], "city": "Chicago", "state": "IL", "zip": "60603-5517"}
+            }
+          }
+        ],
+        "source": {"keys": ["FAM"], "where": "FAM table, read 2026-10-09, quoted exactly. The Chicago USPS line prints a 5-digit ZIP, 60680, with no plus-4."}
+      }
+    },
+    "card_error_return": {
+      "usps_only": true,
+      "en": "If your card has wrong information because of a USCIS error, do not file a new Form I-765 or pay a fee. Submit a service request on the USCIS website or mail a letter with evidence, and return the card by USPS only (no FedEx, UPS or DHL) to the address below.",
+      "es": "Si su tarjeta tiene información incorrecta por un error de USCIS, no presente un nuevo Formulario I-765 ni pague una tarifa. Envíe una solicitud de servicio en el sitio web de USCIS o una carta con evidencia, y devuelva la tarjeta solo por USPS (no FedEx, UPS ni DHL) a la dirección de abajo.",
+      "pt": "Se o seu cartão tem informação incorreta por erro do USCIS, não apresente um novo Formulário I-765 nem pague taxa. Envie um pedido de serviço no site do USCIS ou uma carta com evidências, e devolva o cartão somente pelo USPS (não FedEx, UPS nem DHL) para o endereço abaixo.",
+      "address": {
+        "lockbox": null,
+        "name_line": "USCIS",
+        "attention_line": "Attn: I-765 Replacement Cards",
+        "facility_line": "Lee’s Summit Production Facility",
+        "po_box": null,
+        "street_lines": ["7 Product Way"],
+        "city": "Lee’s Summit",
+        "state": "MO",
+        "zip": "64002",
+        "courier": null
+      },
+      "service_request_url": "https://egov.uscis.gov/e-request/Intro.do",
+      "see_url": "https://www.uscis.gov/i-765-addresses",
+      "note": "Pairs with fee rule F01 and the Part 1 note that a USCIS-error correction needs no new I-765. The page says to pick the 'EAD Replacement due to USCIS Error' option in the service request and that processing takes about 30 days from receipt of the card.",
+      "source": {"keys": ["ADDR", "PAGE"], "where": "ADDR 'Replacement for Card Error' table, read 2026-10-09; PAGE 'Replacing a card due to our error' paragraph"}
+    },
+    "entries": [
+      {
+        "id": "A01_students_chicago",
+        "categories": ["c3a", "c3b", "c3c"],
+        "reasons": ["initial", "renewal", "replacement"],
+        "conditions": {"filed_with_i907": false},
+        "kind": "lockbox",
+        "address": {
+          "lockbox": "USCIS Chicago Lockbox",
+          "name_line": "USCIS",
+          "attention_line": "Attn: I-765 C03",
+          "po_box": "P.O. Box 805373",
+          "city": "Chicago",
+          "state": "IL",
+          "zip": "60680-5374",
+          "courier": {"carriers": "FedEx, UPS, and DHL deliveries", "name_line": "USCIS", "attention_line": "Attn: I-765 C03 (Box 805373)", "street_lines": ["131 South Dearborn - 3rd Floor"], "city": "Chicago", "state": "IL", "zip": "60603-5517"}
+        },
+        "see_url": "https://www.uscis.gov/i-765-addresses",
+        "see_url_reason": null,
+        "note": "The page row is headed 'If you are filing Form I-765 by itself.' The ZIP+4 ends in 5374 while the PO box ends in 5373; both are as printed. The I-907 boxes are A02.",
+        "source": {"keys": ["ADDR"], "where": "ADDR 'Foreign students' table, F-1 OPT row, read 2026-10-09 and quoted exactly; RESEARCH section 5"}
+      },
+      {
+        "id": "A02_students_with_i907",
+        "categories": ["c3a", "c3b", "c3c"],
+        "reasons": ["initial", "renewal", "replacement"],
+        "conditions": {"filed_with_i907": true},
+        "kind": "lockbox",
+        "address": {
+          "lockbox": "USCIS Chicago Lockbox",
+          "name_line": "USCIS",
+          "attention_line": "Attn: I-907",
+          "po_box": "P.O. Box 88782",
+          "city": "Chicago",
+          "state": "IL",
+          "zip": "60680-1782",
+          "courier": {"carriers": "FedEx, UPS, and DHL deliveries", "name_line": "USCIS", "attention_line": "Attn: I-907 (Box 88782)", "street_lines": ["131 South Dearborn, 3rd Floor"], "city": "Chicago", "state": "IL", "zip": "60603-5517"}
+        },
+        "i907_for_pending_i765": {
+          "en": "If your I-765 is already pending and you are now sending only Form I-907, do not resubmit Form I-765. Mail the I-907 to this address instead.",
+          "es": "Si su I-765 ya está pendiente y ahora envía solo el Formulario I-907, no vuelva a enviar el Formulario I-765. Envíe el I-907 a esta dirección.",
+          "pt": "Se o seu I-765 já está pendente e você agora envia somente o Formulário I-907, não reenvie o Formulário I-765. Envie o I-907 para este endereço.",
+          "address": {
+            "lockbox": "USCIS Chicago Lockbox",
+            "name_line": "USCIS",
+            "attention_line": "Attn: I-907",
+            "po_box": "P.O. Box 805501",
+            "city": "Chicago",
+            "state": "IL",
+            "zip": "60680-4116",
+            "courier": {"carriers": "FedEx, UPS, and DHL deliveries", "name_line": "USCIS", "attention_line": "Attn: I-907 (P.O. Box 805501)", "street_lines": ["131 South Dearborn, 3rd Floor"], "city": "Chicago", "state": "IL", "zip": "60603-5517"}
+          }
+        },
+        "see_url": "https://www.uscis.gov/i-765-addresses",
+        "see_url_reason": null,
+        "note": "The page has two I-907 rows under the F-1 OPT categories: 'If you are filing Form I-765 with Form I-907.' (this entry's address) and 'If you are filing Form I-907 for a pending Form I-765.' followed by 'Do not resubmit Form I-765.' (i907_for_pending_i765).",
+        "source": {"keys": ["ADDR"], "where": "ADDR 'Foreign students' table, F-1 OPT row, I-907 sub-rows, read 2026-10-09 and quoted exactly"}
+      },
+      {
+        "id": "A03_c26_by_receipt_prefix",
+        "categories": ["c26"],
+        "reasons": ["initial", "renewal", "replacement"],
+        "conditions": null,
+        "kind": "receipt_prefix",
+        "receipt_prefix_of": "the H-1B spouse's most recent Form I-797, Notice of Action, for Form I-129 (the number in Item 29)",
+        "by_receipt_prefix": [
+          {
+            "prefixes": ["EAC", "LIN", "MCT"],
+            "address": {
+              "lockbox": "USCIS Dallas Lockbox",
+              "name_line": "USCIS",
+              "attention_line": "Attn: H4",
+              "po_box": "P.O. Box 660921",
+              "city": "Dallas",
+              "state": "TX",
+              "zip": "75266-0921",
+              "courier": {"carriers": "FedEx, UPS, and DHL deliveries", "name_line": "USCIS", "attention_line": "Attn: H4 (Box 660921)", "street_lines": ["2501 S. State Hwy. 121 Business", "Suite 400"], "city": "Lewisville", "state": "TX", "zip": "75067-8003"}
+            }
+          },
+          {
+            "prefixes": ["WAC", "SRC", "IOE"],
+            "address": {
+              "lockbox": "USCIS Phoenix Lockbox",
+              "name_line": "USCIS",
+              "attention_line": "Attn: H4",
+              "po_box": "P.O. Box 20400",
+              "city": "Phoenix",
+              "state": "AZ",
+              "zip": "85036-0400",
+              "courier": {"carriers": "FedEx, UPS, and DHL deliveries", "name_line": "USCIS", "attention_line": "Attn: H4 (Box 20400)", "street_lines": ["2108 E. Elliot Rd."], "city": "Tempe", "state": "AZ", "zip": "85284-1806"}
+            }
+          }
+        ],
+        "see_url": "https://www.uscis.gov/i-765-addresses",
+        "see_url_reason": null,
+        "note": "The page states no row for a receipt prefix outside these six; such an applicant gets the link.",
+        "source": {"keys": ["ADDR"], "where": "ADDR 'Employment-based nonimmigrants' table, the two (c)(26) rows, read 2026-10-09 and quoted exactly; RESEARCH section 5"}
+      },
+      {
+        "id": "A04_non_family_chart",
+        "categories": ["a3", "a5", "a17", "a18"],
+        "reasons": ["initial", "renewal", "replacement"],
+        "conditions": null,
+        "kind": "chart",
+        "chart": {
+          "key": "non_family_based",
+          "name": "USCIS Lockbox Filing Locations Chart for Certain Non-Family-Based Forms",
+          "keyed_by": "state_of_residence",
+          "see_url": "https://www.uscis.gov/uscis-lockbox-filing-locations-chart"
+        },
+        "envelope_rule": {
+          "categories": ["a3", "a5"],
+          "en": "If you are a refugee (a)(3) or an asylee (a)(5), do not mail this Form I-765 in the same envelope as a Form I-485.",
+          "es": "Si usted es refugiado (a)(3) o asilado (a)(5), no envíe este Formulario I-765 en el mismo sobre que un Formulario I-485.",
+          "pt": "Se você é refugiado (a)(3) ou asilado (a)(5), não envie este Formulário I-765 no mesmo envelope que um Formulário I-485.",
+          "source": {"keys": ["ADDR"], "where": "ADDR (a)(3) and (a)(5) rows, read 2026-10-09: 'Do not file Form I-765 with a Form I-485 in the same envelope.'"}
+        },
+        "address": null,
+        "see_url": "https://www.uscis.gov/uscis-lockbox-filing-locations-chart",
+        "see_url_reason": null,
+        "note": "The app resolves the applicant's state in addresses.charts.non_family_based and prints that lockbox. The page rows for (a)(3), (a)(5), (a)(17) and (a)(18) all read 'Go to our USCIS Lockbox Filing Locations Chart For Certain Non-Family-Based Forms page for the filing address based on where you live.'",
+        "source": {"keys": ["ADDR", "NONFAM"], "where": "ADDR 'Asylees/refugees' and 'Employment-based nonimmigrants' tables, read 2026-10-09; RESEARCH section 5"}
+      },
+      {
+        "id": "A05_c9_filed_with_i485",
+        "categories": ["c9"],
+        "reasons": ["initial"],
+        "conditions": {"filed_with_i485": true},
+        "kind": "other_form",
+        "other_form": "I-485",
+        "address": null,
+        "see_url": "https://www.uscis.gov/forms/all-forms/direct-filing-addresses-for-form-i-485-application-to-register-permanent-residence-or-adjust-status",
+        "see_url_reason": "When the I-765 is filed together with the I-485, both go to the I-485 filing address in one envelope. The I-485 page (read 2026-10-09) picks that address by the I-485 basis: family-based goes to the family-based chart, employment-based with a pending or approved I-140 has its own per-state table on that page, and an I-485 filed concurrently with an I-140 goes to the Dallas NFB box. The app links the page rather than encode the I-485 rules.",
+        "note": null,
+        "source": {"keys": ["ADDR", "I485ADDR", "OTHER"], "where": "ADDR intro: 'file both forms at the location specified for the other application or petition'; OTHER table (c)(9) 'Yes, I-485'; RESEARCH section 5"}
+      },
+      {
+        "id": "A06_c9_employment_based_chart",
+        "categories": ["c9"],
+        "reasons": ["initial", "renewal", "replacement"],
+        "conditions": {"filed_with_i485": false, "i485_basis": "employment"},
+        "kind": "chart",
+        "chart": {
+          "key": "non_family_based",
+          "name": "USCIS Lockbox Filing Locations Chart for Certain Non-Family-Based Forms",
+          "keyed_by": "state_of_residence",
+          "see_url": "https://www.uscis.gov/uscis-lockbox-filing-locations-chart"
+        },
+        "address": null,
+        "see_url": "https://www.uscis.gov/uscis-lockbox-filing-locations-chart",
+        "see_url_reason": null,
+        "note": "Page row: '(c)(9) - Pending employment-based Form I-485' goes to the non-family-based chart. The page also says a (c)(9) filer must submit a copy of the I-485 receipt notice or other evidence that the I-485 is pending (evidence S01).",
+        "source": {"keys": ["ADDR", "NONFAM"], "where": "ADDR 'If You Have a Pending Adjustment of Status Application' table, read 2026-10-09; RESEARCH section 5"}
+      },
+      {
+        "id": "A07_c9_family_based_chart",
+        "categories": ["c9"],
+        "reasons": ["initial", "renewal", "replacement"],
+        "conditions": {"filed_with_i485": false, "i485_basis": "family"},
+        "kind": "chart",
+        "chart": {
+          "key": "family_based",
+          "name": "USCIS Lockbox Filing Locations Chart for Certain Family-Based Forms",
+          "keyed_by": "state_of_residence",
+          "see_url": "https://www.uscis.gov/forms/all-forms/uscis-lockbox-filing-locations-chart-for-certain-family-based-forms"
+        },
+        "page_condition": {
+          "i485_receipt_prefixes": ["MSC", "IOE"],
+          "or_i485_filed_with_immigration_judge": true,
+          "en": "USCIS lists the family-based chart for a pending family-based Form I-485 whose receipt number begins with MSC or IOE, or that was filed with the immigration judge. If your I-485 receipt number starts with other letters, check the USCIS page before you mail.",
+          "es": "USCIS indica la tabla de formularios de base familiar cuando el Formulario I-485 pendiente es de base familiar y su número de recibo empieza con MSC o IOE, o se presentó ante el juez de inmigración. Si el número de recibo de su I-485 empieza con otras letras, revise la página de USCIS antes de enviar.",
+          "pt": "O USCIS indica a tabela de formulários de base familiar quando o Formulário I-485 pendente é de base familiar e o número de recibo começa com MSC ou IOE, ou foi apresentado ao juiz de imigração. Se o número de recibo do seu I-485 começar com outras letras, confira a página do USCIS antes de enviar.",
+          "source": {"keys": ["ADDR"], "where": "ADDR (c)(9) family-based row, read 2026-10-09: 'Pending family-based Form I-485 ... and: Your receipt number begins with \"MSC\" or \"IOE\" OR You filed your Form I-485 with the immigration judge'"}
+        },
+        "address": null,
+        "see_url": "https://www.uscis.gov/forms/all-forms/uscis-lockbox-filing-locations-chart-for-certain-family-based-forms",
+        "see_url_reason": null,
+        "note": "The page states no row for a family-based I-485 whose receipt number begins with other letters, so page_condition is shown as a check and the interview does not match on it. An I-485 filed with the immigration judge is already the c9_in_removal_proceedings attorney stop.",
+        "source": {"keys": ["ADDR", "FAM"], "where": "ADDR 'If You Have a Pending Adjustment of Status Application' table, read 2026-10-09; RESEARCH section 5"}
+      },
+      {
+        "id": "A08_c9_other_basis",
+        "categories": ["c9"],
+        "reasons": ["initial", "renewal", "replacement"],
+        "conditions": {"filed_with_i485": false, "i485_basis": "other"},
+        "kind": "see_url",
+        "address": null,
+        "see_url": "https://www.uscis.gov/i-765-addresses",
+        "see_url_reason": "The page (read 2026-10-09) has three (c)(9) rows: family-based (A07), employment-based (A06), and an I-485 based on a VAWA I-360, T status, U status or an abused spouse or child under the Cuban Adjustment Act, which it sends to the VAWA, T or U filing locations page (https://www.uscis.gov/Certain-VAWA-T-U-Filing-Locations). That third case is the c9_vawa_t_u_based attorney stop. Any other basis is not on the page.",
+        "note": null,
+        "source": {"keys": ["ADDR"], "where": "ADDR 'If You Have a Pending Adjustment of Status Application' table, read 2026-10-09; RESEARCH section 5"}
+      },
+      {
+        "id": "A09_tps_federal_register_notice",
+        "categories": ["a12", "c19"],
+        "reasons": ["initial", "renewal", "replacement"],
+        "conditions": null,
+        "kind": "notice",
+        "notice": {
+          "en": "TPS applicants mail the I-765 to the address on the USCIS TPS page for their country, which comes from the Federal Register notice for that country. The USCIS Where to File page says to check the notice or the TPS page for the address and for whether online filing is open for your country.",
+          "es": "Los solicitantes de TPS envían el I-765 a la dirección que aparece en la página de TPS de USCIS para su país, que viene del aviso del Registro Federal para ese país. La página de direcciones de USCIS dice que consulte el aviso o la página de TPS para saber la dirección y si la presentación en línea está abierta para su país.",
+          "pt": "Os requerentes de TPS enviam o I-765 para o endereço indicado na página de TPS do USCIS para o seu país, que vem do aviso do Federal Register desse país. A página de endereços do USCIS diz para consultar o aviso ou a página de TPS para saber o endereço e se a apresentação pela internet está aberta para o seu país."
+        },
+        "address": null,
+        "see_url": "https://www.uscis.gov/humanitarian/temporary-protected-status",
+        "see_url_reason": "The address is per country and per notice. ADDR (read 2026-10-09) has a (c)(19) row that says 'Please refer to the Federal Register notice or TPS page for more information on where to file your form and to see if online filing is available for your designated country' and no (a)(12) row at all. The TPS page (read 2026-10-09) says to send the I-765 or the TPS package 'to the mailing address on your country specific page'. Neither page prints an address; the country pages are not encoded.",
+        "note": "A first EAD after an immigration judge or the BIA granted TPS needs a cover sheet reading 'DO NOT REJECT - TPS GRANTED BY IJ/BIA' (TPS page). Evidence S11 covers the order; the cover sheet is not yet an evidence item.",
+        "source": {"keys": ["ADDR", "TPS", "INSTR"], "where": "ADDR (c)(19) row and TPS 'When and Where to File' and 'TPS Granted by an Immigration Judge or the Board of Immigration Appeals' table, read 2026-10-09; RESEARCH section 5"}
+      },
+      {
+        "id": "A10_replacement_follows_category",
+        "categories": ["replacement"],
+        "reasons": ["replacement"],
+        "conditions": null,
+        "kind": "follow_category",
+        "address": null,
+        "see_url": "https://www.uscis.gov/i-765-addresses",
+        "see_url_reason": "A replacement mails to the same place as the applicant's Item 27 category. Resolve the category and look up its entry above.",
+        "note": null,
+        "source": {"keys": ["ADDR", "PAGE"], "where": "RESEARCH section 5 'the address depends on the Item 27 category'; section 2 Item 27 'drives the filing address and fee'"}
+      }
+    ]
+  },
+  "online_filing": {
+    "source": {"keys": ["ONLINE"], "where": "RESEARCH section 5 'Online filing (account-based)' and 'Upload completed PDF option'"},
+    "c9_fee_exempt_warning": {
+      "applies_when": "the resolved filing fee for a (c)(9) applicant is 0",
+      "en": "If your (c)(9) filing owes no fee, do not use the online upload option: you would be charged and not refunded. Mail it on paper instead.",
+      "es": "Si su solicitud (c)(9) no debe ninguna tarifa, no use la opción de subir el PDF en línea: le cobrarían y no le devolverían el dinero. Envíela en papel.",
+      "pt": "Se o seu pedido (c)(9) não deve nenhuma taxa, não use a opção de enviar o PDF pela internet: você seria cobrado e não receberia reembolso. Envie pelo correio em papel.",
+      "source": {"keys": ["ONLINE"], "where": "RESEARCH section 5: 'Fee-exempt (c)(9) filers must not use it: they'd be charged with no refund'"}
+    },
+    "by_category": [
+      {"category": "c9", "account_based": false, "upload_completed_pdf": true, "note": "Upload path only. Fee-exempt (c)(9) must mail on paper; see c9_fee_exempt_warning."},
+      {"category": "c3a", "account_based": true, "upload_completed_pdf": false, "note": null},
+      {"category": "c3b", "account_based": true, "upload_completed_pdf": false, "note": null},
+      {"category": "c3c", "account_based": true, "upload_completed_pdf": false, "note": null},
+      {"category": "a12", "account_based": true, "upload_completed_pdf": true, "note": "The research's ONLINE list says yes to both. The TPS page (read 2026-10-09) says 'You may also file Form I-765 online if filing concurrently with Form I-821 online', and ADDR says to check the country notice or TPS page for whether online filing is available for the designated country."},
+      {"category": "c19", "account_based": true, "upload_completed_pdf": true, "note": "Same note as a12. ADDR's (c)(19) row is the one that says to check the notice or TPS page for online availability."},
+      {"category": "a17", "account_based": false, "upload_completed_pdf": false, "note": "Not on either ONLINE list; paper only."},
+      {"category": "a18", "account_based": false, "upload_completed_pdf": false, "note": "Not on either ONLINE list; paper only."},
+      {"category": "a3", "account_based": false, "upload_completed_pdf": false, "note": "Not on either ONLINE list; paper only."},
+      {"category": "a5", "account_based": false, "upload_completed_pdf": false, "note": "Not on either ONLINE list; paper only."},
+      {"category": "c26", "account_based": false, "upload_completed_pdf": false, "note": "Not on either ONLINE list; paper only."},
+      {"category": "replacement", "account_based": null, "upload_completed_pdf": null, "note": "Follows the applicant's Item 27 category."}
+    ]
+  },
+  "evidence": {
+    "note": "common applies to every applicant subject to each item's when. specific items carry categories, reasons and an optional condition. The app filters both lists by the applicant's category, reason and known facts, and shows see_url items as a link.",
+    "common": [
+      {
+        "id": "C01_fee",
+        "when": {"fee_exempt": false},
+        "text_en": "The filing fee, plus the separate Pub. L. 119-21 fee if your category owes one. Skip this if the app shows your fee as $0.",
+        "text_es": "La tarifa de presentación, más la tarifa separada de la Ley Pública 119-21 si su categoría la debe. Omita esto si la aplicación muestra su tarifa como $0.",
+        "text_pt": "A taxa de apresentação, mais a taxa separada da Lei Pública 119-21 se a sua categoria a dever. Pule isto se o aplicativo mostrar sua taxa como $0.",
+        "source": {"keys": ["INSTR", "CHECK", "G1055"], "where": "RESEARCH section 5 'Evidence every applicant sends'; section 4 add-on note"}
+      },
+      {
+        "id": "C02_signed_form",
+        "when": null,
+        "text_en": "Your Form I-765, every page, signed by hand in ink. A typed or stamped name is rejected. A parent or guardian signs for a child under 14.",
+        "text_es": "Su Formulario I-765, todas las páginas, firmado a mano con tinta. Un nombre escrito a máquina o con sello se rechaza. El padre, la madre o el tutor firma por un menor de 14 años.",
+        "text_pt": "Seu Formulário I-765, todas as páginas, assinado à mão com caneta. Um nome digitado ou carimbado é rejeitado. O pai, a mãe ou o responsável assina por uma criança menor de 14 anos.",
+        "source": {"keys": ["INSTR"], "where": "RESEARCH section 2 Part 3 Item 7 (INSTR p.16, 20) and 'Include all pages, even blank ones' (INSTR p.17)"}
+      },
+      {
+        "id": "C03_i94_passport_or_travel_document",
+        "when": {"not_categories": ["c9"]},
+        "text_en": "A copy of your I-94, passport or travel document.",
+        "text_es": "Una copia de su I-94, pasaporte o documento de viaje.",
+        "text_pt": "Uma cópia do seu I-94, passaporte ou documento de viagem.",
+        "source": {"keys": ["INSTR", "CHECK"], "where": "RESEARCH section 5: 'I-94, passport or travel document (not required for (c)(9))'"}
+      },
+      {
+        "id": "C04_last_ead_or_photo_id",
+        "when": null,
+        "text_en": "A copy of your last work permit (EAD), front and back. If you never had one, a copy of a government photo ID.",
+        "text_es": "Una copia de su último permiso de trabajo (EAD), por delante y por detrás. Si nunca tuvo uno, una copia de una identificación con foto emitida por el gobierno.",
+        "text_pt": "Uma cópia do seu último cartão de trabalho (EAD), frente e verso. Se nunca teve um, uma cópia de um documento de identidade com foto emitido pelo governo.",
+        "source": {"keys": ["INSTR", "CHECK"], "where": "RESEARCH section 5: 'Last EAD front and back, or, if never issued one, a government photo ID'"}
+      },
+      {
+        "id": "C05_passport_photos",
+        "when": null,
+        "text_en": "Two identical color passport photos, 2 by 2 inches, with your name and A-Number written in pencil on the back.",
+        "text_es": "Dos fotos de pasaporte idénticas a color, de 2 por 2 pulgadas, con su nombre y su A-Number escritos con lápiz en el reverso.",
+        "text_pt": "Duas fotos de passaporte idênticas, coloridas, de 2 por 2 polegadas, com seu nome e seu A-Number escritos a lápis no verso.",
+        "source": {"keys": ["INSTR", "CHECK"], "where": "RESEARCH section 5: 'Two identical 2x2 color passport photos with name and A-Number in pencil on the back'"}
+      },
+      {
+        "id": "C06_g28_if_represented",
+        "when": {"represented": true},
+        "text_en": "Form G-28, only if an attorney or accredited representative represents you.",
+        "text_es": "El Formulario G-28, solo si un abogado o representante acreditado lo representa.",
+        "text_pt": "O Formulário G-28, somente se um advogado ou representante credenciado representar você.",
+        "source": {"keys": ["INSTR", "CHECK"], "where": "RESEARCH section 5: 'G-28 if represented'"}
+      },
+      {
+        "id": "C07_certified_translations",
+        "when": null,
+        "text_en": "A certified English translation of every document that is not in English.",
+        "text_es": "Una traducción certificada al inglés de cada documento que no esté en inglés.",
+        "text_pt": "Uma tradução certificada para o inglês de cada documento que não esteja em inglês.",
+        "source": {"keys": ["INSTR", "CHECK"], "where": "RESEARCH section 5: 'Certified English translations of foreign-language documents'"}
+      },
+      {
+        "id": "C08_previous_ead_for_renewal",
+        "when": {"reasons": ["renewal"]},
+        "text_en": "A copy of your previous work permit (EAD).",
+        "text_es": "Una copia de su permiso de trabajo (EAD) anterior.",
+        "text_pt": "Uma cópia do seu cartão de trabalho (EAD) anterior.",
+        "source": {"keys": ["FORM", "INSTR"], "where": "RESEARCH section 2 Part 1 Item 1.c 'attach a copy of the previous EAD'; section 5 '1.c renewals attach the previous EAD'"}
+      },
+      {
+        "id": "C09_prior_eads_if_previously_filed",
+        "when": {"previously_filed_i765": true},
+        "text_en": "Copies of every work permit (EAD) you had before, if you answered Yes to Item 12.",
+        "text_es": "Copias de todos los permisos de trabajo (EAD) que tuvo antes, si respondió Sí en el Punto 12.",
+        "text_pt": "Cópias de todos os cartões de trabalho (EAD) que teve antes, se respondeu Sim no Item 12.",
+        "source": {"keys": ["FORM"], "where": "RESEARCH section 2 Item 12 'If Yes, attach copies of prior EADs'"}
+      },
+      {
+        "id": "C10_proof_of_other_names",
+        "when": {"has_other_names": true},
+        "text_en": "Proof of any other names you listed in Items 2 to 4.",
+        "text_es": "Prueba de los otros nombres que indicó en los Puntos 2 a 4.",
+        "text_pt": "Comprovação dos outros nomes que indicou nos Itens 2 a 4.",
+        "source": {"keys": ["INSTR"], "where": "RESEARCH section 2 Items 2.a to 4.c 'submit evidence of those names' (INSTR p.18)"}
+      }
+    ],
+    "specific": [
+      {
+        "id": "S01_c9_i485_receipt_or_concurrent",
+        "categories": ["c9"],
+        "reasons": ["initial", "renewal", "replacement"],
+        "condition": null,
+        "text_en": "Your Form I-485 receipt notice, or file this I-765 together with your Form I-485.",
+        "text_es": "Su aviso de recibo del Formulario I-485, o presente este I-765 junto con su Formulario I-485.",
+        "text_pt": "Seu aviso de recebimento do Formulário I-485, ou apresente este I-765 junto com o seu Formulário I-485.",
+        "see_url": null,
+        "source": {"keys": ["INSTR", "PAGE"], "where": "RESEARCH section 5: '(c)(9): file with the I-485, or include an I-485 receipt notice'"}
+      },
+      {
+        "id": "S02_c9_niw_physician_progress",
+        "categories": ["c9"],
+        "reasons": ["renewal"],
+        "condition": {"niw_physician": true},
+        "text_en": "If your green card case is a physician national interest waiver, proof of your progress, such as your W-2 forms.",
+        "text_es": "Si su caso de residencia es una exención por interés nacional para médicos, prueba de su avance, como sus formularios W-2.",
+        "text_pt": "Se o seu caso de green card for uma isenção por interesse nacional para médicos, comprovação do seu progresso, como os seus formulários W-2.",
+        "see_url": null,
+        "source": {"keys": ["INSTR"], "where": "RESEARCH section 5: 'NIW physician renewals need proof of progress (W-2s)' (INSTR p.12)"}
+      },
+      {
+        "id": "S03_c3b_i20_signed_within_30_days",
+        "categories": ["c3b"],
+        "reasons": ["initial", "renewal", "replacement"],
+        "condition": null,
+        "text_en": "Your Form I-20 with the DSO's OPT recommendation, signed by the DSO within the last 30 days.",
+        "text_es": "Su Formulario I-20 con la recomendación de OPT del DSO, firmado por el DSO en los últimos 30 días.",
+        "text_pt": "Seu Formulário I-20 com a recomendação de OPT do DSO, assinado pelo DSO nos últimos 30 dias.",
+        "see_url": null,
+        "source": {"keys": ["INSTR", "CHECK"], "where": "RESEARCH section 5: '(c)(3)(B): ... Send the I-20 signed within 30 days' (INSTR pp.4 to 5)"}
+      },
+      {
+        "id": "S04_c3b_part6_sevis_and_prior_training",
+        "categories": ["c3b"],
+        "reasons": ["initial", "renewal", "replacement"],
+        "condition": null,
+        "text_en": "A line in Part 6 listing every SEVIS number you have had and every earlier period of CPT or OPT.",
+        "text_es": "Una línea en la Parte 6 con todos los números SEVIS que ha tenido y todos los periodos anteriores de CPT u OPT.",
+        "text_pt": "Uma linha na Parte 6 com todos os números SEVIS que já teve e todos os períodos anteriores de CPT ou OPT.",
+        "see_url": null,
+        "source": {"keys": ["INSTR"], "where": "RESEARCH section 2 'General rules': '(c)(3)(B) filers list all previous SEVIS numbers and prior CPT/OPT in Part 6' (INSTR p.4)"}
+      },
+      {
+        "id": "S05_c3c_i20_signed_within_60_days",
+        "categories": ["c3c"],
+        "reasons": ["initial", "renewal", "replacement"],
+        "condition": null,
+        "text_en": "Your Form I-20 with the STEM OPT recommendation, signed by the DSO within the last 60 days.",
+        "text_es": "Su Formulario I-20 con la recomendación de STEM OPT, firmado por el DSO en los últimos 60 días.",
+        "text_pt": "Seu Formulário I-20 com a recomendação de STEM OPT, assinado pelo DSO nos últimos 60 dias.",
+        "see_url": null,
+        "source": {"keys": ["INSTR", "CHECK"], "where": "RESEARCH section 5: '(c)(3)(C): ... the I-20 signed within 60 days' (INSTR p.5)"}
+      },
+      {
+        "id": "S06_c3c_stem_degree_proof",
+        "categories": ["c3c"],
+        "reasons": ["initial", "renewal", "replacement"],
+        "condition": null,
+        "text_en": "Proof that your degree is on the STEM designated degree program list.",
+        "text_es": "Prueba de que su título está en la lista de programas de grado STEM designados.",
+        "text_pt": "Comprovação de que o seu diploma está na lista de programas de graduação STEM designados.",
+        "see_url": null,
+        "source": {"keys": ["INSTR", "CHECK"], "where": "RESEARCH section 5: '(c)(3)(C): Send proof the degree is on the STEM list'"}
+      },
+      {
+        "id": "S07_c3c_employer_everify",
+        "categories": ["c3c"],
+        "reasons": ["initial", "renewal", "replacement"],
+        "condition": null,
+        "text_en": "Your employer's name as listed in E-Verify and its E-Verify Company ID or Client Company ID, written in Items 28.b and 28.c.",
+        "text_es": "El nombre de su empleador tal como aparece en E-Verify y su E-Verify Company ID o Client Company ID, escritos en los Puntos 28.b y 28.c.",
+        "text_pt": "O nome do seu empregador como consta no E-Verify e o E-Verify Company ID ou Client Company ID, escritos nos Itens 28.b e 28.c.",
+        "see_url": null,
+        "source": {"keys": ["INSTR", "FORM"], "where": "RESEARCH section 2 Items 28.a to 28.c; section 5 '(c)(3)(C): ... the employer's E-Verify name and ID in 28.a to 28.c'"}
+      },
+      {
+        "id": "S08_c3c_prior_degree_basis",
+        "categories": ["c3c"],
+        "reasons": ["initial", "renewal", "replacement"],
+        "condition": {"stem_opt_based_on_prior_degree": true},
+        "text_en": "If the STEM OPT is based on an earlier degree, that degree plus proof the school is accredited and SEVP certified.",
+        "text_es": "Si el STEM OPT se basa en un título anterior, ese título más prueba de que la escuela está acreditada y certificada por SEVP.",
+        "text_pt": "Se o STEM OPT se basear em um diploma anterior, esse diploma mais a comprovação de que a escola é credenciada e certificada pelo SEVP.",
+        "see_url": null,
+        "source": {"keys": ["INSTR", "CHECK"], "where": "RESEARCH section 5: 'A prior-degree basis needs that degree plus proof of accreditation and SEVP certification' (INSTR p.5)"}
+      },
+      {
+        "id": "S09_tps_i821_receipt_or_approval",
+        "categories": ["a12", "c19"],
+        "reasons": ["initial", "renewal", "replacement"],
+        "condition": null,
+        "text_en": "Your Form I-821 receipt notice or approval notice, or file this I-765 together with your Form I-821.",
+        "text_es": "Su aviso de recibo o de aprobación del Formulario I-821, o presente este I-765 junto con su Formulario I-821.",
+        "text_pt": "Seu aviso de recebimento ou de aprovação do Formulário I-821, ou apresente este I-765 junto com o seu Formulário I-821.",
+        "see_url": null,
+        "source": {"keys": ["INSTR", "CHECK"], "where": "RESEARCH section 5: '(a)(12): file with the I-821, or proof the I-821 was received or approved' (INSTR p.3). The research states this under (a)(12); 'received' is the (c)(19) pending case."}
+      },
+      {
+        "id": "S10_tps_nationality_and_identity",
+        "categories": ["a12", "c19"],
+        "reasons": ["initial", "renewal", "replacement"],
+        "condition": null,
+        "text_en": "Proof of your nationality and your identity.",
+        "text_es": "Prueba de su nacionalidad y de su identidad.",
+        "text_pt": "Comprovação da sua nacionalidade e da sua identidade.",
+        "see_url": null,
+        "source": {"keys": ["INSTR", "CHECK"], "where": "RESEARCH section 5: '(a)(12): Add nationality and identity evidence'"}
+      },
+      {
+        "id": "S11_tps_court_order_if_granted_by_court",
+        "categories": ["a12"],
+        "reasons": ["initial", "renewal", "replacement"],
+        "condition": {"tps_granted_by_court": true},
+        "text_en": "If an immigration judge or the BIA granted your TPS, a copy of that order.",
+        "text_es": "Si un juez de inmigración o la BIA le concedió el TPS, una copia de esa orden.",
+        "text_pt": "Se um juiz de imigração ou a BIA concedeu o seu TPS, uma cópia dessa ordem.",
+        "see_url": null,
+        "source": {"keys": ["INSTR", "CHECK"], "where": "RESEARCH section 5: '(a)(12): ... the IJ or BIA order if the court granted TPS'"}
+      },
+      {
+        "id": "S12_tps_reregistration_letter_and_last_document",
+        "categories": ["a12", "c19"],
+        "reasons": ["renewal"],
+        "condition": null,
+        "text_en": "A letter that says 'TPS re-registration', plus a copy of your last TPS document, front and back.",
+        "text_es": "Una carta que diga 'TPS re-registration', más una copia de su último documento de TPS, por delante y por detrás.",
+        "text_pt": "Uma carta que diga 'TPS re-registration', mais uma cópia do seu último documento de TPS, frente e verso.",
+        "see_url": null,
+        "source": {"keys": ["INSTR", "CHECK"], "where": "RESEARCH section 5: 'Re-registration adds a letter saying TPS re-registration plus the last TPS document, front and back'"}
+      },
+      {
+        "id": "S13_tps_country_notice",
+        "categories": ["a12", "c19"],
+        "reasons": ["initial", "renewal", "replacement"],
+        "condition": null,
+        "text_en": "Anything else the Federal Register notice for your country asks for.",
+        "text_es": "Cualquier otra cosa que pida el aviso del Registro Federal para su país.",
+        "text_pt": "Qualquer outra coisa que o aviso do Federal Register para o seu país exigir.",
+        "see_url": "https://www.uscis.gov/humanitarian/temporary-protected-status",
+        "source": {"keys": ["INSTR", "CHECK"], "where": "RESEARCH section 5: '(a)(12): Follow the country's Federal Register notice'"}
+      },
+      {
+        "id": "S14_c26_spouse_i797_for_i129",
+        "categories": ["c26"],
+        "reasons": ["initial", "renewal", "replacement"],
+        "condition": null,
+        "text_en": "A copy of your H-1B spouse's most recent Form I-797 notice for Form I-129. Its receipt number goes in Item 29.",
+        "text_es": "Una copia del aviso más reciente del Formulario I-797 para el Formulario I-129 de su cónyuge H-1B. Su número de recibo va en el Punto 29.",
+        "text_pt": "Uma cópia do aviso mais recente do Formulário I-797 para o Formulário I-129 do seu cônjuge H-1B. O número de recibo vai no Item 29.",
+        "see_url": null,
+        "source": {"keys": ["FORM", "INSTR"], "where": "RESEARCH section 2 Item 29: '(c)(26): receipt number of the H-1B spouse's most recent I-797 for the I-129'"}
+      },
+      {
+        "id": "S15_c26_i140_approval",
+        "categories": ["c26"],
+        "reasons": ["initial", "renewal", "replacement"],
+        "condition": null,
+        "text_en": "A copy of the Form I-140 approval notice for your H-1B spouse.",
+        "text_es": "Una copia del aviso de aprobación del Formulario I-140 de su cónyuge H-1B.",
+        "text_pt": "Uma cópia do aviso de aprovação do Formulário I-140 do seu cônjuge H-1B.",
+        "see_url": null,
+        "source": {"keys": ["INSTR"], "where": "RESEARCH section 3: '(c)(26) H-4 spouse of an H-1B with an approved I-140' (INSTR p.8). v1 covers only the approved I-140 path; the AC21 path is an attorney trigger."}
+      },
+      {
+        "id": "S16_status_proof_see_checklist",
+        "categories": ["c3a", "a17", "a18", "a3", "a5", "c26"],
+        "reasons": ["initial", "renewal", "replacement"],
+        "condition": null,
+        "text_en": "Proof of your status in this category. See the USCIS checklist for the exact documents.",
+        "text_es": "Prueba de su estatus en esta categoría. Consulte la lista de verificación de USCIS para saber los documentos exactos.",
+        "text_pt": "Comprovação do seu status nesta categoria. Consulte a lista de verificação do USCIS para saber os documentos exatos.",
+        "see_url": "https://www.uscis.gov/forms/filing-guidance/checklist-of-required-initial-evidence-for-form-i-765-for-informational-purposes-only",
+        "source": {"keys": ["CHECK"], "where": "The research carries no category-specific evidence list for (c)(3)(A), (a)(17), (a)(18), (a)(3) or (a)(5), and only the I-797 and I-140 items for (c)(26). See FILING-CONFIG.md 'What we do not know'."}
+      },
+      {
+        "id": "S17_replacement_current_card",
+        "categories": ["replacement"],
+        "reasons": ["replacement"],
+        "condition": null,
+        "text_en": "Your current work permit (EAD) if you still have it, for example if it is damaged or has wrong information.",
+        "text_es": "Su permiso de trabajo (EAD) actual si todavía lo tiene, por ejemplo si está dañado o tiene información incorrecta.",
+        "text_pt": "Seu cartão de trabalho (EAD) atual se ainda o tiver, por exemplo se estiver danificado ou com informação incorreta.",
+        "see_url": null,
+        "source": {"keys": ["FORM"], "where": "RESEARCH section 2 Part 1 Item 1.b 'Replacement of a lost, stolen, or damaged EAD, or correction NOT DUE to USCIS error'; section 5 'Last EAD front and back'"}
+      },
+      {
+        "id": "S18_replacement_police_report_if_stolen",
+        "categories": ["replacement"],
+        "reasons": ["replacement"],
+        "condition": {"card_stolen": true},
+        "text_en": "A copy of the police report, if your card was stolen and you filed one.",
+        "text_es": "Una copia del informe policial, si le robaron la tarjeta y presentó una denuncia.",
+        "text_pt": "Uma cópia do boletim de ocorrência, se o seu cartão foi roubado e você registrou um.",
+        "see_url": null,
+        "source": {"keys": [], "where": "Lead brief 2026-10-09 ('replacement the old card or the police report'). Not in the research or the checklist summary; listed under 'What we do not know' in FILING-CONFIG.md."}
+      }
+    ]
+  },
+  "attorney_triggers": {
+    "note": "action stop means the app ends the interview on the attorney screen; action warn means the app shows the explanation and continues. Keys are stable; the app logs the key, the copy is served.",
+    "source": {"keys": ["INSTR", "PAGE", "ADDR", "G1055", "CHECK"], "where": "RESEARCH section 7, plus PLAN.md 2.2 and DECISIONS.md 'v1 interview shape' for the v1 gate"},
+    "triggers": [
+      {
+        "key": "non_v1_category",
+        "action": "stop",
+        "categories": null,
+        "en": "Your eligibility category is not one this app handles. An immigration attorney can file it correctly.",
+        "es": "Su categoría de elegibilidad no es una de las que esta aplicación maneja. Un abogado de inmigración puede presentarla correctamente.",
+        "pt": "Sua categoria de elegibilidade não é uma das que este aplicativo atende. Um advogado de imigração pode apresentá-la corretamente.",
+        "source": "PLAN.md section 0 and CLAUDE.md v1 scope"
+      },
+      {
+        "key": "c9_in_removal_proceedings",
+        "action": "stop",
+        "categories": ["c9"],
+        "en": "Your green card case is before an immigration court. Those filings need proof of the proceedings and the court filing, and the rules differ, so an attorney should prepare it.",
+        "es": "Su caso de residencia está ante un tribunal de inmigración. Esas solicitudes necesitan prueba del proceso y de la presentación ante el tribunal, y las reglas son distintas, así que un abogado debe prepararla.",
+        "pt": "Seu caso de green card está em um tribunal de imigração. Esses pedidos precisam de comprovação do processo e do protocolo no tribunal, e as regras são diferentes, então um advogado deve prepará-lo.",
+        "source": "RESEARCH section 5 '(c)(9): If the I-485 is before EOIR, add proof of proceedings and the court filing'; section 7 'Safest scope: (c)(9) without proceedings'"
+      },
+      {
+        "key": "c9_vawa_t_u_based",
+        "action": "stop",
+        "categories": ["c9"],
+        "en": "Your green card case is based on VAWA, T or U status. Those filings use a safe address and their own filing location, and they are sometimes charged a fee by mistake, so an attorney should handle it.",
+        "es": "Su caso de residencia se basa en VAWA o en un estatus T o U. Esas solicitudes usan una dirección segura y su propio lugar de presentación, y a veces se les cobra una tarifa por error, así que un abogado debe encargarse.",
+        "pt": "Seu caso de green card se baseia em VAWA ou em status T ou U. Esses pedidos usam um endereço seguro e seu próprio local de apresentação, e às vezes recebem uma cobrança de taxa por engano, então um advogado deve cuidar dele.",
+        "source": "RESEARCH section 7 item 7"
+      },
+      {
+        "key": "c26_ac21_path",
+        "action": "stop",
+        "categories": ["c26"],
+        "en": "Your H-1B spouse has no approved I-140 and relies on an AC21 extension. That depends on labor certification and I-140 timing (365 and 180 day rules) that an attorney should check.",
+        "es": "Su cónyuge H-1B no tiene un I-140 aprobado y depende de una extensión AC21. Eso depende de los plazos de la certificación laboral y del I-140 (reglas de 365 y 180 días) que un abogado debe revisar.",
+        "pt": "Seu cônjuge H-1B não tem um I-140 aprovado e depende de uma extensão AC21. Isso depende dos prazos da certificação trabalhista e do I-140 (regras de 365 e 180 dias) que um advogado deve verificar.",
+        "source": "RESEARCH section 7 item 5 (INSTR p.8)"
+      },
+      {
+        "key": "c8_item30_arrest_or_conviction",
+        "action": "stop",
+        "categories": ["c8"],
+        "en": "An asylum applicant who answers Yes to the arrest or conviction question needs certified court records, and whether a conviction is an aggravated felony is a legal call. An attorney should file this.",
+        "es": "Un solicitante de asilo que responde Sí a la pregunta sobre arrestos o condenas necesita registros judiciales certificados, y decidir si una condena es un delito grave con agravantes es una cuestión legal. Un abogado debe presentar esto.",
+        "pt": "Um requerente de asilo que responde Sim à pergunta sobre prisões ou condenações precisa de registros judiciais certificados, e decidir se uma condenação é um crime grave agravado é uma questão jurídica. Um advogado deve apresentar isto.",
+        "source": "RESEARCH section 7 item 1 (INSTR p.23)"
+      },
+      {
+        "key": "c8_waiting_period_clock",
+        "action": "stop",
+        "categories": ["c8"],
+        "en": "The 150 and 180 day waiting period for an asylum work permit stops for delays you caused, an early filing is rejected, and the sources do not agree on the rule. The app does not compute these dates.",
+        "es": "El periodo de espera de 150 y 180 días para el permiso de trabajo por asilo se detiene por demoras causadas por usted, una presentación anticipada se rechaza, y las fuentes no coinciden en la regla. La aplicación no calcula estas fechas.",
+        "pt": "O período de espera de 150 e 180 dias para o cartão de trabalho por asilo para quando o atraso é causado por você, uma apresentação antecipada é rejeitada, e as fontes não concordam sobre a regra. O aplicativo não calcula essas datas.",
+        "source": "RESEARCH section 7 item 2 (INSTR p.22, PAGE, CHECK)"
+      },
+      {
+        "key": "c8_removal_proceedings_or_appeal",
+        "action": "stop",
+        "categories": ["c8"],
+        "en": "An asylum applicant in removal proceedings, or after a judge's denial, a BIA appeal or a remand, has extra rules an attorney should apply.",
+        "es": "Un solicitante de asilo en proceso de deportación, o después de una negación de un juez, una apelación ante la BIA o una devolución del caso, tiene reglas adicionales que un abogado debe aplicar.",
+        "pt": "Um requerente de asilo em processo de remoção, ou após a negação de um juiz, um recurso à BIA ou uma devolução do caso, tem regras adicionais que um advogado deve aplicar.",
+        "source": "RESEARCH section 7 item 3 (INSTR p.22)"
+      },
+      {
+        "key": "c35_c36_compelling_circumstances",
+        "action": "stop",
+        "categories": ["c35", "c36"],
+        "en": "Compelling circumstances work permits are discretionary, a felony or two misdemeanors is a bar, and renewals depend on Visa Bulletin dates. An attorney should file these.",
+        "es": "Los permisos de trabajo por circunstancias apremiantes son discrecionales, un delito grave o dos delitos menores los impiden, y las renovaciones dependen de las fechas del Boletín de Visas. Un abogado debe presentarlos.",
+        "pt": "Os cartões de trabalho por circunstâncias imperiosas são discricionários, um crime grave ou duas contravenções impedem a concessão, e as renovações dependem das datas do Boletim de Vistos. Um advogado deve apresentá-los.",
+        "source": "RESEARCH section 7 item 4 (INSTR pp.9 to 12)"
+      },
+      {
+        "key": "removal_order_cancellation_or_parole_in_expedited_removal",
+        "action": "stop",
+        "categories": ["c18", "c10", "c11"],
+        "en": "A final order of removal, a cancellation or suspension case, or parole during expedited removal or a pending credible fear screening all need an attorney.",
+        "es": "Una orden final de deportación, un caso de cancelación o suspensión, o un permiso de entrada condicional durante una deportación acelerada o una entrevista de miedo creíble pendiente, todos necesitan un abogado.",
+        "pt": "Uma ordem final de remoção, um caso de cancelamento ou suspensão, ou uma liberdade condicional durante uma remoção acelerada ou uma entrevista de medo crível pendente, todos precisam de um advogado.",
+        "source": "RESEARCH section 7 item 6 (INSTR pp.4, 13)"
+      },
+      {
+        "key": "victim_based_category",
+        "action": "stop",
+        "categories": ["c14", "c40", "a16", "c25", "a19", "a20", "c31"],
+        "en": "Deferred action, T, U and VAWA based work permits need safe address handling and their own filing locations, and they are sometimes charged a fee by mistake. An attorney should file these.",
+        "es": "Los permisos de trabajo basados en acción diferida, estatus T o U, o VAWA necesitan manejo de dirección segura y su propio lugar de presentación, y a veces se les cobra una tarifa por error. Un abogado debe presentarlos.",
+        "pt": "Os cartões de trabalho baseados em ação diferida, status T ou U, ou VAWA precisam de tratamento de endereço seguro e seu próprio local de apresentação, e às vezes recebem uma cobrança de taxa por engano. Um advogado deve apresentá-los.",
+        "source": "RESEARCH section 7 item 7 (INSTR p.18, ADDR, G1055)"
+      },
+      {
+        "key": "c33_daca",
+        "action": "stop",
+        "categories": ["c33"],
+        "en": "A DACA work permit is filed with Form I-821D and the I-765 Worksheet and is tied to ongoing litigation. An attorney or a DACA legal clinic should file it.",
+        "es": "Un permiso de trabajo de DACA se presenta con el Formulario I-821D y la hoja de trabajo del I-765, y está ligado a litigios en curso. Un abogado o una clínica legal de DACA debe presentarlo.",
+        "pt": "Um cartão de trabalho do DACA é apresentado com o Formulário I-821D e a planilha do I-765, e está ligado a litígios em andamento. Um advogado ou uma clínica jurídica do DACA deve apresentá-lo.",
+        "source": "RESEARCH section 7 item 8"
+      },
+      {
+        "key": "diplomatic_or_nato_dependent",
+        "action": "stop",
+        "categories": ["c1", "c4", "c7"],
+        "en": "Dependents of diplomats, international organization staff and NATO personnel file through the State Department or NATO channels with Form I-566, not with USCIS.",
+        "es": "Los dependientes de diplomáticos, de personal de organizaciones internacionales y de personal de la OTAN presentan a través del Departamento de Estado o de los canales de la OTAN con el Formulario I-566, no ante USCIS.",
+        "pt": "Os dependentes de diplomatas, de funcionários de organizações internacionais e de pessoal da OTAN apresentam pelo Departamento de Estado ou pelos canais da OTAN com o Formulário I-566, não ao USCIS.",
+        "source": "RESEARCH section 7 item 9 (ADDR)"
+      },
+      {
+        "key": "category_unclear",
+        "action": "stop",
+        "categories": null,
+        "en": "The app cannot tell which category fits you, and the fee and the address both follow that category. For example, a refugee or asylee with a pending green card application files as (a)(3) or (a)(5), not (c)(9). An attorney can confirm it.",
+        "es": "La aplicación no puede determinar qué categoría le corresponde, y tanto la tarifa como la dirección dependen de esa categoría. Por ejemplo, un refugiado o asilado con una solicitud de residencia pendiente presenta como (a)(3) o (a)(5), no como (c)(9). Un abogado puede confirmarlo.",
+        "pt": "O aplicativo não consegue determinar qual categoria se aplica a você, e tanto a taxa quanto o endereço dependem dessa categoria. Por exemplo, um refugiado ou asilado com um pedido de green card pendente apresenta como (a)(3) ou (a)(5), não como (c)(9). Um advogado pode confirmar.",
+        "source": "RESEARCH section 7 item 10 (INSTR pp.1 to 2, 12; PAGE)"
+      },
+      {
+        "key": "student_rule_litigation",
+        "action": "warn",
+        "categories": ["c3a", "c3b", "c3c"],
+        "en": "A federal court order is holding up a new rule for F and J students. If it lifts, the accepted form edition and the filing rules for students may change overnight. Check with your DSO before you mail.",
+        "es": "Una orden judicial federal mantiene suspendida una nueva regla para estudiantes F y J. Si se levanta, la edición aceptada del formulario y las reglas de presentación para estudiantes pueden cambiar de un día para otro. Consulte con su DSO antes de enviar.",
+        "pt": "Uma ordem judicial federal mantém suspensa uma nova regra para estudantes F e J. Se ela for retirada, a edição aceita do formulário e as regras de apresentação para estudantes podem mudar da noite para o dia. Confirme com o seu DSO antes de enviar.",
+        "source": "RESEARCH section 7 item 11 and section 1 (PAGE)"
+      }
+    ]
+  },
+  "timing": {
+    "general": {
+      "file_while_in_us": true,
+      "en": "You must be in the United States when you file.",
+      "es": "Usted debe estar en los Estados Unidos cuando presente la solicitud.",
+      "pt": "Você deve estar nos Estados Unidos quando apresentar o pedido.",
+      "source": {"keys": ["FORM"], "where": "RESEARCH section 2 Part 3: 'The form also says you must file while in the United States'"}
+    },
+    "key_dates": [
+      {"date": "2026-10-07", "what": "I-765 filing locations changed", "source": "RESEARCH section 5 (ADDR)"},
+      {"date": "2026-10-16", "what": "Initial TPS add-on fee rises from $560 to $570 for packages postmarked on or after this date", "source": "RESEARCH section 4 (FY27, PAGE)"},
+      {"date": "2026-11-09", "what": "Last postmark date accepted at the old filing locations", "source": "RESEARCH section 5 (ADDR)"}
+    ],
+    "by_category": {
+      "c9": {
+        "concurrent_filing_allowed": true,
+        "en": "You may file this I-765 together with your Form I-485, in the same envelope to the I-485 address, or later with a copy of the I-485 receipt notice.",
+        "es": "Puede presentar este I-765 junto con su Formulario I-485, en el mismo sobre a la dirección del I-485, o después con una copia del aviso de recibo del I-485.",
+        "pt": "Você pode apresentar este I-765 junto com o seu Formulário I-485, no mesmo envelope para o endereço do I-485, ou depois com uma cópia do aviso de recebimento do I-485.",
+        "source": {"keys": ["INSTR", "PAGE", "ADDR"], "where": "RESEARCH section 5 '(c)(9): file with the I-485, or include an I-485 receipt notice' and the concurrent filing rule"}
+      },
+      "c3b": {
+        "dso_recommendation_first": true,
+        "file_within_days_of_dso_recommendation": 30,
+        "window_days_before_program_end": 90,
+        "window_days_after_program_end": 60,
+        "i20_signed_within_days": 30,
+        "en": "Your DSO must enter the OPT recommendation in SEVIS first. Then file within 30 days of that recommendation, and inside the window from 90 days before to 60 days after your program end date. The I-20 you send must be signed within the last 30 days.",
+        "es": "Su DSO debe registrar primero la recomendación de OPT en SEVIS. Luego presente dentro de los 30 días de esa recomendación, y dentro del periodo que va desde 90 días antes hasta 60 días después de la fecha de fin de su programa. El I-20 que envíe debe estar firmado en los últimos 30 días.",
+        "pt": "Seu DSO deve registrar primeiro a recomendação de OPT no SEVIS. Depois apresente dentro de 30 dias dessa recomendação, e dentro da janela que vai de 90 dias antes até 60 dias depois da data de término do seu programa. O I-20 que você enviar deve estar assinado nos últimos 30 dias.",
+        "source": {"keys": ["INSTR", "CHECK"], "where": "RESEARCH section 5 '(c)(3)(B)' (INSTR pp.4 to 5)"}
+      },
+      "c3c": {
+        "file_up_to_days_before_opt_expires": 90,
+        "file_within_days_of_dso_recommendation": 60,
+        "i20_signed_within_days": 60,
+        "en": "File up to 90 days before your current OPT expires, and within 60 days of your DSO's STEM OPT recommendation. The I-20 you send must be signed within the last 60 days.",
+        "es": "Presente hasta 90 días antes de que venza su OPT actual, y dentro de los 60 días de la recomendación de STEM OPT de su DSO. El I-20 que envíe debe estar firmado en los últimos 60 días.",
+        "pt": "Apresente até 90 dias antes de o seu OPT atual vencer, e dentro de 60 dias da recomendação de STEM OPT do seu DSO. O I-20 que você enviar deve estar assinado nos últimos 60 dias.",
+        "source": {"keys": ["INSTR", "CHECK"], "where": "RESEARCH section 5 '(c)(3)(C)' (INSTR p.5)"}
+      },
+      "a12": {
+        "see_url": "https://www.uscis.gov/humanitarian/temporary-protected-status",
+        "en": "Re-registration windows come from the Federal Register notice for your country.",
+        "es": "Los periodos de reinscripción vienen del aviso del Registro Federal para su país.",
+        "pt": "Os períodos de novo registro vêm do aviso do Federal Register para o seu país.",
+        "source": {"keys": ["INSTR", "ADDR"], "where": "RESEARCH section 5 '(a)(12): Follow the country's Federal Register notice'. The research carries no window."}
+      },
+      "c19": {
+        "see_url": "https://www.uscis.gov/humanitarian/temporary-protected-status",
+        "en": "Filing windows come from the Federal Register notice for your country.",
+        "es": "Los periodos de presentación vienen del aviso del Registro Federal para su país.",
+        "pt": "Os períodos de apresentação vêm do aviso do Federal Register para o seu país.",
+        "source": {"keys": ["INSTR", "ADDR"], "where": "RESEARCH section 5. The research carries no window."}
+      }
+    }
+  }
+}

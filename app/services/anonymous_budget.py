@@ -42,6 +42,20 @@ CODE_APPLICATION = "n400_application_allowance_used"
 CODE_INSTALL = "n400_install_allowance_used"
 CODE_DAILY = "n400_daily_capacity_reached"
 
+
+def wire_code(app_id: str | None, code: str) -> str:
+    """The code as the client reads it: the app's own prefix.
+
+    The three constants above are N-400's strings and the route compares
+    against them, so they stay. I-765 Helper (2026-10-09) is the N-400
+    client with its prefix swapped, so it reads `i765_install_allowance_used`
+    and would not recognise the n400 spelling. Swapping the prefix at the
+    wire keeps every comparison and every N-400 test byte identical.
+    """
+    if app_id and app_id != "n400" and code.startswith("n400_"):
+        return f"{app_id}_{code[len('n400_'):]}"
+    return code
+
 # Covered by idx_usage_user_app_date_cost (user_id, app_id, ...): a prefix
 # match on the first two columns, so the table is never read. Planned in
 # tests/test_anonymous_budget.py.
@@ -73,7 +87,7 @@ DAILY_SPEND_SQL = (
 # Apps whose anonymous accounts get an allowance, so their spend is carried
 # through a delete. ShoulderSurf's anonymous accounts get none, so nothing of
 # theirs is kept after a delete.
-CARRY_APPS = frozenset({"n400"})
+CARRY_APPS = frozenset({"n400", "i765"})
 
 # The spend a deleted account of this install already used, added to the
 # live sums below. users.apple_sub is UNIQUE and indexed; the carry table is

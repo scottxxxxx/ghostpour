@@ -73,7 +73,9 @@ def test_a_non_uuid_install_id_is_refused(client, bad):
 
 
 @pytest.mark.parametrize("headers", [{}, {"X-App-ID": "techrehearsal"}])
-def test_only_shouldersurf_and_n400_are_offered_anonymous_accounts(client, headers):
+def test_only_the_anonymous_apps_are_offered_anonymous_accounts(client, headers):
+    """shouldersurf, n400 and (2026-10-09) i765; techrehearsal and a headerless
+    caller are refused."""
     r = _anon(client, headers=headers)
     assert r.status_code == 403 and r.json()["detail"]["code"] == "anonymous_not_offered"
 
