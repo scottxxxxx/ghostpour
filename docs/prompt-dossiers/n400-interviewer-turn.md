@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 54
+served_version: 55
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-10-09 (v54)
+reconciled: 2026-10-12 (v55)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1918,3 +1918,17 @@ The auditor, 2026-10-09, from Scott's first v53 run (build 149, case 28f9bb5e). 
 PROMPT: the grouped question takes the next short lines STILL ON THE AGENDA, never gender alone only while its partner is open, and A PAIR NEVER CARRIES AN ANSWERED HALF (any listed pair with one half in KNOWN FACTS or off the agenda asks only the other half). The canned unconditional sentence is in `absent`.
 
 Tested with NO API tokens: blind Claude subagents played the lane on v53 and on v54 (a simulation, not the served model). The turn shape: parents answer on file, "Italy." to the standing birth-country node, with and without "pace: full paragraphs". v53 did NOT reproduce the defect: both versions asked "Italy. Are you male or female?" (and with full paragraphs, gender plus the disability line), so the simulation cannot show the fix. The v53 reader named the gap itself: the prompt never said what happens when a pair's partner is already filed, which is the line v54 adds. A both-open counterweight still asked gender and parents together on v54, and an SSN on file left only the new-card question. The fix rests on the bundle reading (the only unconditional gender-plus-parents sentence in the prompt) and on Scott's next run.
+
+## v55: a date whose pieces came on different turns, and a yes to the sweep
+
+The auditor, 2026-10-12, from a tester's Spanish run on build 156 (case run 2026-10-09). The turns were read from the app's messages and case journal and relayed with Scott's approval; they are tester data, so nothing below quotes her words or her dates. Every example here and in the tests is synthetic with the real structure.
+
+1. **p7.employer1.from, a start date said whole and read back, deferred a turn later.** She gave the start date whole in one line ("Empecé el <day> de <month> de <year>", with a garbled end date after it); the lane read the start back and asked the end; on her "yes, I still work there" the lane minted the start date a turn LATE, citing that line, and the day guard deferred it (the journal holds the deferral on the later turn with GP's reason and no partial). Two causes: the lane did not mint on the turn it read the date back, and the guard had no path for a date that is hers from an earlier line.
+2. **p4.prior_address1.to, the day before the month.** One line gave both dates of the prior address, the start whole and the end as a day and a year ("al <day> de <year>"). The lane asked the month, a bare "Sí" came back, then the month with the year; the lane minted the whole date citing that last line and read it back, and the guard deferred it with partial YYYY-MM (journal). My first fix would NOT have rescued it: it required the earlier line to name no month at all, and her line named the start's months. Caught by the real turn, not by my tests, which had been written from the auditor's paraphrase.
+3. **The sweep.** Her first "Sí, verdad" to the sweep got an either/or clarifier ("¿tiene esas fechas ahora, o prefiere seguir verificándolas después?"), her "Sí." to THAT was filed as later ("Está bien, las dejamos pendientes por ahora") and the offer went out. Both yeses meant she had them.
+
+CODE: `defer_dates_with_unspoken_day` now keeps a YYYY-MM-DD fact that is hers from one of her last three APPLICANT lines, two ways (`_date_carried`): WHOLE, the date said as one phrase ("10 de enero de 2023", "January 10th, 2023", never day, month and year taken from different dates in one line); JOINED, this line names the fact's month and no day, and an earlier line has the day with NO month attached to it ("al 28 de 2021", even when other dates in that line carry theirs), with the year in one of the two. Interviewer lines never count. Logged `n400_date_day_carried` with field and how, no value. Sabotage, each predicted: a monthless test that ignores an attached month (1 of 1); pieces anywhere instead of one phrase (1 of 1); no whole-date branch (5 of 5); the year check always true (1 of 1, after a first mutation that changed more than the year check and turned 3 red); interviewer lines counted (3 where 2 were predicted: the year test's interviewer line "el 28 de qué mes del 2021" also satisfies a join once those lines count, a correct catch).
+
+PROMPT: THE DAY AND THE MONTH MAY ARRIVE ON DIFFERENT TURNS, AND THE WHOLE DATE IS MINTED THE TURN THE LAST PIECE LANDS (either order; GP keeps a date that is hers from her last three lines, but the lane mints it on that turn, never a turn later); A DATE YOU READ BACK IN FULL IS A FACT IN THAT SAME RESPONSE, naming the late-minted start date as the defect; the checklist line extended; A YES TO THE SWEEP IS NOT "LATER" (ask for the first item named, offer waits), and an unclear answer to the sweep is a yes, never clarified with an either/or a bare "sí" cannot answer.
+
+Tested with NO API tokens (Scott, 2026-10-09): two blind Claude subagents each read one full prompt (v54, v55) on five rendered Spanish turns built from the auditor's paraphrase, before the real turns arrived: the sweep answered "Sí", the day-first date with the month two of her lines later, the month-first date, the sweep answered no, and a full date in one breath. A simulation, not the served model. v54's reader did NOT reproduce the sweep defect (it asked for the date on the bare "Sí"); the real defect needed the either/or clarifier in between, which the rendered turn did not have, so the simulation cannot show the sweep lines working. Both readers minted the day-first date and read it back; through the guard on main that response came out with no fact and a deferral, through this branch's guard the fact survives.
