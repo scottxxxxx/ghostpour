@@ -884,6 +884,10 @@ MIGRATIONS = [
         attempts INTEGER NOT NULL DEFAULT 0
     )""",
     "ALTER TABLE users ADD COLUMN welcome_email_sent_at TEXT",
+    # Demo and test accounts kept out of the dashboard's counts and usage
+    # analytics without touching their entitlements (Scott, 2026-10-13: the
+    # Meeting Memory demo account for shouldersurf.com screenshots).
+    "ALTER TABLE users ADD COLUMN exclude_from_stats INTEGER NOT NULL DEFAULT 0",
     # v36: per-app account deletion (2026-08-01, TR App Review 5.1.1(v)).
     #
     # `users` is keyed on apple_sub, and Apple issues that subject per

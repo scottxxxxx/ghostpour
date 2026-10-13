@@ -48,13 +48,13 @@ async def counts(db: aiosqlite.Connection) -> dict:
     Automation (test harness) accounts are left out of all three."""
     since = _today_start_utc()
     total = (await (await db.execute(
-        "SELECT COUNT(*) FROM users WHERE is_active = 1 AND tier != 'automation'")).fetchone())[0]
+        "SELECT COUNT(*) FROM users WHERE is_active = 1 AND tier != 'automation' AND exclude_from_stats = 0")).fetchone())[0]
     new_today = (await (await db.execute(
-        "SELECT COUNT(*) FROM users WHERE created_at >= ? AND tier != 'automation'",
+        "SELECT COUNT(*) FROM users WHERE created_at >= ? AND tier != 'automation' AND exclude_from_stats = 0",
         (since,))).fetchone())[0]
     active_today = (await (await db.execute(
         """SELECT COUNT(DISTINCT l.user_id) FROM usage_log l JOIN users u ON u.id = l.user_id
-            WHERE l.request_timestamp >= ? AND u.tier != 'automation'""",
+            WHERE l.request_timestamp >= ? AND u.tier != 'automation' AND u.exclude_from_stats = 0""",
         (since,))).fetchone())[0]
     return {"total": total, "new_today": new_today, "active_today": active_today}
 
