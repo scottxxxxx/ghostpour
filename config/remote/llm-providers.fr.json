@@ -1,5 +1,5 @@
 {
- "version": 25,
+ "version": 26,
  "defaultPromptReserveTokens": 8000,
  "providers": [
   {
@@ -86,7 +86,7 @@
      "description": "Gratuit. Private Cloud Compute d'Apple : plus grand et plus performant que le modèle sur l'appareil, et vos données restent privées. Nécessite Internet, avec une limite quotidienne fixée par Apple. Nécessite iOS 27 et Apple Intelligence.",
      "isDefault": false,
      "minAppBuild": 2126,
-     "supportsVision": false,
+     "supportsVision": true,
      "contextWindow": 32768,
      "inputCostPerMillion": 0,
      "outputCostPerMillion": 0,
@@ -94,7 +94,7 @@
      "reasoningLevels": null,
      "maxOutputTokens": 4096,
      "temperatureDefault": 0.7,
-     "maxImagesPerRequest": 0,
+     "maxImagesPerRequest": 5,
      "streamingSupported": false,
      "toolUseSupported": false,
      "cacheControlSupported": false,

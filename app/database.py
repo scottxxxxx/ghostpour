@@ -1278,6 +1278,21 @@ MIGRATIONS = [
                '[{"variant_id": "card", "weight": 100, "render": "html", "html_url": "https://cz.shouldersurf.com/v1/promo/assets/n400-share.html", "content_locales": {"es": {"html_url": "https://cz.shouldersurf.com/v1/promo/assets/n400-share.es.html"}, "pt": {"html_url": "https://cz.shouldersurf.com/v1/promo/assets/n400-share.pt.html"}}}]',
                strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now'),
                strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now'))""",
+    # The "Other forms" section on N-400 Helper's Home screen (Scott via the
+    # auditor, 2026-10-13): whether it shows and what it offers come from GP.
+    # PAUSED on purpose: no answer means no section, which is what the app
+    # shows today, and Scott turns it on from the dashboard once every card
+    # links somewhere real (App Store guideline 2.1). Always on once active:
+    # no impression cap, never suppressed after a convert.
+    """INSERT OR IGNORE INTO promo_campaigns
+         (id, name, status, app_id, priority, targeting, frequency, placements,
+          variants, created_at, updated_at)
+       VALUES ('n400_home_forms', 'Other forms section on the N-400 Home screen',
+               'paused', 'n400', 10, '{}', '{"repeat_after_convert": true}',
+               '[{"placement": "n400_home_forms", "priority": 10}]',
+               '[{"variant_id": "section", "weight": 100, "render": "html", "html_url": "https://cz.shouldersurf.com/v1/promo/assets/n400-home-forms.html", "content_locales": {"es": {"html_url": "https://cz.shouldersurf.com/v1/promo/assets/n400-home-forms.es.html"}, "pt": {"html_url": "https://cz.shouldersurf.com/v1/promo/assets/n400-home-forms.pt.html"}}}]',
+               strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now'),
+               strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now'))""",
 ]
 
 
