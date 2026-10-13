@@ -31,7 +31,7 @@ _ENFORCED_PREFIXES = ("/v1/chat", "/v1/config", "/v1/quilt", "/v1/capture-transc
 def _header(scope: Scope, name: bytes) -> str | None:
     for k, v in scope.get("headers", []):
         if k == name:
-            return v.decode()
+            return v.decode("latin-1")
     return None
 
 
