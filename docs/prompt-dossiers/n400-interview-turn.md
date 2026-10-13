@@ -1,10 +1,10 @@
 ---
 call_type: n400_interview_turn
 config_slug: n400/interview-turn
-served_version: 3
+served_version: 4
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
-reconciled: 2026-09-01
+reconciled: 2026-10-13 (v4)
 ---
 
 # N-400 interview turn (n400_interview_turn)
@@ -181,6 +181,10 @@ is present so the variant point is discoverable in the editor.
 
 ## Shaping history
 
+- 2026-10-13 (v4): "If the date of birth is known, do not ask whether they
+  are 18 or over. Work it out." replaced by the interviewer-turn v57 sentence:
+  never work out an age from a date of birth (the phone masks month and day),
+  use the p1.age_over_18 fact the app sends.
 - 2026-09-01 (#852, v2): registered the call_type, so the config is read at
   all; named prompt variables with a fail-closed `requiredVariables` guard;
   added the `jurisdictions` variant axis. Also corrected this dossier's
