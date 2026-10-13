@@ -850,12 +850,22 @@
       ]
     },
     {
-      "id": "complete",
-      "product_id": "com.weirtech.shouldersurf.unlock.complete",
-      "name": "Compléter la paire",
-      "icon": "plus.circle",
+      "id": "unlock_apple_cloud_upgrade",
+      "product_id": "com.weirtech.shouldersurf.unlock.applecloud.upgrade",
+      "name": "Ajouter Apple Cloud",
+      "icon": "cloud",
       "bullets": [
-        "Ajoute le pack que vous n'avez pas encore",
+        "Ajoute le Pack Apple Cloud à votre pack Clé personnelle",
+        "Achat unique, il vous appartient"
+      ]
+    },
+    {
+      "id": "unlock_byok_upgrade",
+      "product_id": "com.weirtech.shouldersurf.unlock.byok.upgrade",
+      "name": "Ajouter votre clé",
+      "icon": "key",
+      "bullets": [
+        "Ajoute le Pack Clé personnelle à votre pack Apple Cloud",
         "Achat unique, il vous appartient"
       ]
     }

@@ -24,7 +24,8 @@ BUNDLE = "com.test.app"
 APPLE = "com.weirtech.shouldersurf.unlock.applecloud"
 BYOK = "com.weirtech.shouldersurf.unlock.byok"
 BOTH = "com.weirtech.shouldersurf.unlock.bundle"
-COMPLETE = "com.weirtech.shouldersurf.unlock.complete"
+UP_APPLE = "com.weirtech.shouldersurf.unlock.applecloud.upgrade"
+UP_BYOK = "com.weirtech.shouldersurf.unlock.byok.upgrade"
 PRO_SUB = "com.weirtech.shouldersurf.sub.pro.monthly"
 
 
@@ -108,29 +109,37 @@ def test_restore_on_another_account_moves_the_unlock(client, tmp_db_path, monkey
     assert _features(client, h1) == ("disabled", "disabled")
 
 
-# --- Scott's "complete the pair" rulings -----------------------------------------
+# --- Scott's upgrade products (replacing "complete", 2026-10-13) ------------------
 
-def test_complete_with_one_pack_grants_the_other(client, tmp_db_path, monkeypatch):
+def test_an_upgrade_grants_its_pack_to_an_owner_of_the_other(client, tmp_db_path, monkeypatch):
     _, h = _user(tmp_db_path)
     _buy(client, monkeypatch, h, APPLE)
-    r, _ = _buy(client, monkeypatch, h, COMPLETE)
+    r, _ = _buy(client, monkeypatch, h, UP_BYOK)
     assert r.json() == {"status": "granted", "unlocks": ["unlock_apple_cloud", "unlock_byok"]}
 
 
-def test_complete_with_no_pack_waits_then_grants_when_a_pack_arrives(client, tmp_db_path, monkeypatch):
+def test_an_upgrade_without_the_other_pack_waits_then_grants(client, tmp_db_path, monkeypatch):
     _, h = _user(tmp_db_path)
-    r, _ = _buy(client, monkeypatch, h, COMPLETE)
+    r, _ = _buy(client, monkeypatch, h, UP_APPLE)
     assert r.json() == {"status": "pending", "unlocks": []}
     _buy(client, monkeypatch, h, BYOK)
     assert _features(client, h) == ("enabled", "enabled")
 
 
-def test_complete_with_both_grants_nothing_and_is_flagged(client, tmp_db_path, monkeypatch):
+def test_an_upgrade_for_a_pack_already_owned_is_flagged(client, tmp_db_path, monkeypatch):
     _, h = _user(tmp_db_path)
     _buy(client, monkeypatch, h, BOTH)
-    r, txn = _buy(client, monkeypatch, h, COMPLETE)
+    r, txn = _buy(client, monkeypatch, h, UP_BYOK)
     assert r.json()["status"] == "refund_flagged"
     assert _row(tmp_db_path, "SELECT status, grants FROM purchases WHERE transaction_id=?", txn) == ("refund_flagged", "[]")
+
+
+def test_an_upgrade_never_grants_the_other_pack(client, tmp_db_path, monkeypatch):
+    """The applecloud upgrade grants Apple Cloud, never own key, even pending."""
+    _, h = _user(tmp_db_path)
+    _buy(client, monkeypatch, h, UP_APPLE)
+    _buy(client, monkeypatch, h, APPLE)
+    assert _features(client, h) == ("enabled", "disabled")
 
 
 # --- the webhook: an unlock refund never touches the subscription ------------------
@@ -262,7 +271,7 @@ def test_tiers_serves_the_pack_copy(client):
     r = client.get("/v1/tiers")
     assert r.status_code == 200
     ids = [u["id"] for u in r.json()["unlocks"]]
-    assert ids == ["unlock_apple_cloud", "unlock_byok", "bundle", "complete"]
+    assert ids == ["unlock_apple_cloud", "unlock_byok", "bundle", "unlock_apple_cloud_upgrade", "unlock_byok_upgrade"]
 
 
 # --- /v1/chat agrees with the preflight --------------------------------------------

@@ -1,13 +1,16 @@
 """One-time IAP unlocks (non-consumable), Scott 2026-10-13.
 
 Spec: SS docs/MODEL_UNLOCKS_IAP.md. Two packs, each a per-USER feature, not
-a tier: unlock_apple_cloud and unlock_byok. A bundle grants both. The
-"complete" product grants whichever pack the buyer does not own yet; App
-Store cannot enforce that prerequisite, so GP applies Scott's ruling:
+a tier: unlock_apple_cloud and unlock_byok. A bundle grants both. Two $4.99
+upgrades (Scott, 2026-10-13, replacing one "complete" product) each grant
+one pack to an account that owns the OTHER; App Store cannot enforce that
+prerequisite, so GP decides when the transaction arrives:
 
-  owns exactly one pack -> grant the other
-  owns none             -> pending; granted when a pack arrives
-  owns both             -> nothing granted; refund_flagged (operator alert)
+  owns the required pack, not the granted one -> granted
+  owns the granted pack already               -> refund_flagged (operator alert)
+  does not own the required pack              -> pending; granted when it arrives
+                                                 (it was bought on an unmerged
+                                                 account, and Apple has the money)
 
 Everything here lives in the `purchases` table and never touches users.tier,
 users.original_transaction_id (the ONE subscription slot) or the monthly
@@ -65,6 +68,19 @@ async def features_for(db: aiosqlite.Connection, user_id: str) -> dict[str, str]
     return {f: ("enabled" if f in have else "disabled") for f in UNLOCK_FEATURES}
 
 
+def _decide(spec: dict, have: set[str]) -> tuple[str, list[str]]:
+    """(status, grants) for a product spec against what the user owns now."""
+    grants = [g for g in spec.get("grants") or [] if g in UNLOCK_FEATURES]
+    required = spec.get("requires")
+    if required is None:
+        return "granted", grants
+    if all(g in have for g in grants):
+        return "refund_flagged", []
+    if required not in have:
+        return "pending", []
+    return "granted", grants
+
+
 async def _flag_refund(db, user_id: str, transaction_id: str, product_id: str) -> None:
     logger.warning("unlock_refund_flagged user=%s txn=%s product=%s", user_id, transaction_id, product_id)
     try:
@@ -73,29 +89,30 @@ async def _flag_refund(db, user_id: str, transaction_id: str, product_id: str) -
         await report_incident(
             db, category="unlock_refund_flagged", subject=transaction_id,
             details={"user_id": user_id, "transaction_id": transaction_id, "product_id": product_id,
-                     "meaning": "A 'complete' pack was bought by someone who already owns both "
-                                "unlocks. Nothing was granted; refund it in App Store Connect."},
+                     "meaning": "An upgrade was bought for a pack this account already owns. "
+                                "Nothing was granted; refund it in App Store Connect."},
             from_addr=get_settings().alert_email_from)
     except Exception as e:  # alerting must never break a purchase
         logger.warning("unlock_refund_flagged alert failed (non-fatal): %s", e)
 
 
-async def _resolve_completes(db, user_id: str) -> None:
-    """Re-decide every pending "complete" row for this user against what they
-    own now. Called after any grant, move or merge."""
+async def _resolve_pending(db, user_id: str) -> None:
+    """Re-decide every pending upgrade for this user against what they own
+    now. Called after any grant, move or merge."""
     pending = await (await db.execute(
         "SELECT transaction_id, product_id FROM purchases WHERE user_id = ? AND status = 'pending' "
         "AND revoked_at IS NULL ORDER BY recorded_at", (user_id,))).fetchall()
     for txn, pid in pending:
-        have = await owned(db, user_id)
-        missing = [f for f in UNLOCK_FEATURES if f not in have]
-        if len(missing) == 1:
+        spec = products().get(pid)
+        if spec is None:
+            continue
+        status, grants = _decide(spec, await owned(db, user_id))
+        if status == "granted":
             await db.execute("UPDATE purchases SET status = 'granted', grants = ? WHERE transaction_id = ?",
-                             (json.dumps(missing), txn))
-        elif not missing:
+                             (json.dumps(grants), txn))
+        elif status == "refund_flagged":
             await db.execute("UPDATE purchases SET status = 'refund_flagged' WHERE transaction_id = ?", (txn,))
             await _flag_refund(db, user_id, txn, pid)
-
 
 async def record(
     db: aiosqlite.Connection, *, user_id: str, transaction_id: str, product_id: str,
@@ -125,23 +142,13 @@ async def record(
                 "VALUES (?, ?, 'restore', ?, ?)",
                 (prev_user, user_id, original_transaction_id or transaction_id, _now()))
             logger.info("unlock_moved txn=%s from=%s to=%s", transaction_id, prev_user, user_id)
-            await _resolve_completes(db, user_id)
+            await _resolve_pending(db, user_id)
             await db.commit()
             status = (await (await db.execute(
                 "SELECT status FROM purchases WHERE transaction_id = ?", (transaction_id,))).fetchone())[0]
         return {"status": status, "unlocks": sorted(await owned(db, user_id))}
 
-    if spec.get("kind") == "complete":
-        have = await owned(db, user_id)
-        missing = [f for f in UNLOCK_FEATURES if f not in have]
-        if len(missing) == 1:
-            status, grants = "granted", missing
-        elif len(missing) == 2:
-            status, grants = "pending", []
-        else:
-            status, grants = "refund_flagged", []
-    else:
-        status, grants = "granted", [g for g in spec.get("grants") or [] if g in UNLOCK_FEATURES]
+    status, grants = _decide(spec, await owned(db, user_id))
 
     await db.execute(
         """INSERT INTO purchases (transaction_id, original_transaction_id, user_id, product_id, grants,
@@ -152,7 +159,7 @@ async def record(
     if status == "refund_flagged":
         await _flag_refund(db, user_id, transaction_id, product_id)
     if status == "granted":
-        await _resolve_completes(db, user_id)
+        await _resolve_pending(db, user_id)
     await db.commit()
     logger.info("unlock_recorded user=%s txn=%s product=%s status=%s", user_id, transaction_id, product_id, status)
     return {"status": status, "unlocks": sorted(await owned(db, user_id))}

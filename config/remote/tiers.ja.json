@@ -850,12 +850,22 @@
       ]
     },
     {
-      "id": "complete",
-      "product_id": "com.weirtech.shouldersurf.unlock.complete",
-      "name": "ペアを完成",
-      "icon": "plus.circle",
+      "id": "unlock_apple_cloud_upgrade",
+      "product_id": "com.weirtech.shouldersurf.unlock.applecloud.upgrade",
+      "name": "Apple Cloudを追加",
+      "icon": "cloud",
       "bullets": [
-        "まだ持っていないパックを追加",
+        "自分のキーパックにApple Cloudパックを追加",
+        "買い切り。ずっと使えます"
+      ]
+    },
+    {
+      "id": "unlock_byok_upgrade",
+      "product_id": "com.weirtech.shouldersurf.unlock.byok.upgrade",
+      "name": "自分のキーを追加",
+      "icon": "key",
+      "bullets": [
+        "Apple Cloudパックに自分のキーパックを追加",
         "買い切り。ずっと使えます"
       ]
     }

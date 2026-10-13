@@ -71,8 +71,8 @@ async def merge_into(db: aiosqlite.Connection, anon: dict, apple: dict) -> dict:
                            (apple["id"], anon["id"]))
     moved["purchases"] = cur.rowcount
     if cur.rowcount:
-        from app.services.unlocks import _resolve_completes
-        await _resolve_completes(db, apple["id"])
+        from app.services.unlocks import _resolve_pending
+        await _resolve_pending(db, apple["id"])
 
     await db.execute("UPDATE users SET is_active = 0, updated_at = ? WHERE id = ?",
                      (now, anon["id"]))
