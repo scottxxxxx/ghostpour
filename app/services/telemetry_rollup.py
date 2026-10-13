@@ -32,6 +32,16 @@ logger = logging.getLogger("ghostpour.telemetry_rollup")
 _LOOKBACK_DAYS = 35
 
 
+
+# The orphan half of a resumed meeting: a meeting_start or meeting_stop whose
+# meeting_id another start names in resumed_from_meeting_id. App starts and
+# every other event are untouched. Appended to a WHERE; binds nothing.
+NOT_RESUMED_ORPHAN = (
+    " AND NOT (event_type IN ('meeting_start','meeting_stop') AND meeting_id IN"
+    " (SELECT resumed_from_meeting_id FROM telemetry_events"
+    " WHERE resumed_from_meeting_id IS NOT NULL))"
+)
+
 async def compute_rollups(db: aiosqlite.Connection) -> int:
     """Compute (and overwrite) daily rollups for the trailing window.
 
@@ -62,11 +72,15 @@ async def _compute_day(db: aiosqlite.Connection, day: str) -> int:
         )
         written += 1
 
-    # Event counts by type
+    # Event counts by type. A meeting the user resumed into a new one is the
+    # orphan half of ONE meeting: the resumed stop already carries the whole
+    # recording, so the orphan's start and stop are left out of every meeting
+    # count and duration here (SS liveness test 3, 2026-10-13: 131 s + 143 s
+    # for one 143 s meeting).
     cursor = await db.execute(
         """SELECT event_type, COUNT(*) AS c
            FROM telemetry_events
-           WHERE received_at BETWEEN ? AND ?
+           WHERE received_at BETWEEN ? AND ?""" + NOT_RESUMED_ORPHAN + """
            GROUP BY event_type""",
         (start, end),
     )
@@ -93,7 +107,7 @@ async def _compute_day(db: aiosqlite.Connection, day: str) -> int:
            FROM telemetry_events
            WHERE received_at BETWEEN ? AND ?
              AND event_type IN ('meeting_start','meeting_stop')
-             AND model_id IS NOT NULL
+             AND model_id IS NOT NULL""" + NOT_RESUMED_ORPHAN + """
            GROUP BY model_id""",
         (start, end),
     )
@@ -106,7 +120,7 @@ async def _compute_day(db: aiosqlite.Connection, day: str) -> int:
            FROM telemetry_events
            WHERE received_at BETWEEN ? AND ?
              AND event_type = 'meeting_stop'
-             AND duration_seconds IS NOT NULL""",
+             AND duration_seconds IS NOT NULL""" + NOT_RESUMED_ORPHAN,
         (start, end),
     )
     row = await cursor.fetchone()
