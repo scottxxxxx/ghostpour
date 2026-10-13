@@ -82,6 +82,14 @@ APP_OWNED_TABLES = {
         "meeting_transcripts",
         "report_jobs",
         "project_prefs",
+        # One-time unlock purchases (2026-10-13). The purchase itself lives
+        # on at Apple like a subscription does: a fresh sign-in that restores
+        # re-posts the transaction and the unlock comes back. GP's copy of
+        # who owns it goes with the account.
+        "purchases",
+        # The free Project Chat taste counter: which conversations this
+        # person started on SS AI this month. Theirs, so it goes too.
+        "project_chat_taste",
     ],
 }
 
