@@ -1262,6 +1262,22 @@ MIGRATIONS = [
                '[{"variant_id": "card", "weight": 100, "render": "html", "html_url": "https://cz.shouldersurf.com/v1/promo/assets/i765-n400-complete.html", "content_locales": {"es": {"html_url": "https://cz.shouldersurf.com/v1/promo/assets/i765-n400-complete.html?lang=es"}, "pt": {"html_url": "https://cz.shouldersurf.com/v1/promo/assets/i765-n400-complete.html?lang=pt"}}}]',
                strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now'),
                strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now'))""",
+    # The share card on N-400 Helper's Form screen (Scott via the auditor,
+    # 2026-10-13): copy and link served as HTML so the share target can move
+    # from the website to the App Store listing, and later carry links to
+    # other apps, without a release. ACTIVE on purpose: only builds that ask
+    # for placement n400_share ever see it, and they show the built-in card
+    # when resolve returns nothing. Always on: no impression cap, and
+    # repeat_after_convert so no device is ever suppressed.
+    """INSERT OR IGNORE INTO promo_campaigns
+         (id, name, status, app_id, priority, targeting, frequency, placements,
+          variants, created_at, updated_at)
+       VALUES ('n400_share_card', 'Share N-400 Helper card on the Form screen',
+               'active', 'n400', 10, '{}', '{"repeat_after_convert": true}',
+               '[{"placement": "n400_share", "priority": 10}]',
+               '[{"variant_id": "card", "weight": 100, "render": "html", "html_url": "https://cz.shouldersurf.com/v1/promo/assets/n400-share.html", "content_locales": {"es": {"html_url": "https://cz.shouldersurf.com/v1/promo/assets/n400-share.es.html"}, "pt": {"html_url": "https://cz.shouldersurf.com/v1/promo/assets/n400-share.pt.html"}}}]',
+               strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now'),
+               strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now'))""",
 ]
 
 

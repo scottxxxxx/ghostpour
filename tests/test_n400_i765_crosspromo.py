@@ -96,7 +96,10 @@ def test_a_boot_never_overwrites_a_dashboard_edit(client, tmp_db_path):
         conn.execute(seed)
         conn.commit()
         row = conn.execute("SELECT status, name FROM promo_campaigns WHERE id = ?", (CID,)).fetchone()
-        assert conn.execute("SELECT COUNT(*) FROM promo_campaigns WHERE app_id = 'n400'").fetchone() == (1,)
+        # By id, not by app: n400 has a second campaign since 2026-10-13
+        # (the share card), and the claim here is that the seed never
+        # duplicates its own row.
+        assert conn.execute("SELECT COUNT(*) FROM promo_campaigns WHERE id = ?", (CID,)).fetchone() == (1,)
     finally:
         conn.close()
     assert row == ("active", "edited")
