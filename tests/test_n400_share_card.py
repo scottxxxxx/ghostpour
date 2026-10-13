@@ -84,3 +84,18 @@ def test_copy_per_language(client):
     assert "Know someone preparing for citizenship?" in en and "Share N-400 Helper" in en
     assert "Usted ya hizo la parte difícil" in es and "Envíele la app" in es
     assert "Compartilhar o N-400 Helper" in pt
+
+
+def test_the_dashboard_can_save_and_pause_the_live_campaign(client):
+    """#1092 seeded this campaign at boot, but its placement was not in the
+    authoring vocabulary, so the dashboard's Save answered 400 and Scott
+    could not pause or edit a live campaign. Found 2026-10-13 by the Other
+    forms section's activation test hitting the same wall."""
+    c = client.get(f"/webhooks/admin/campaign/{CID}", headers=ADMIN).json()
+    body = {k: c[k] for k in ("id", "name", "app_id", "status", "starts_at", "expires_at",
+                              "priority", "mutual_exclusion_group", "targeting", "frequency",
+                              "placements", "variants")}
+    body["status"] = "paused"
+    r = client.put(f"/webhooks/admin/campaign/{CID}", json=body, headers=ADMIN)
+    assert r.status_code == 200, r.text
+    assert _resolve(client) == {}
