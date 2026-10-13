@@ -63,6 +63,17 @@ async def merge_into(db: aiosqlite.Connection, anon: dict, apple: dict) -> dict:
             (apple["id"], anon["id"]))
         moved[table] = cur.rowcount
 
+    # One-time unlocks always follow the person, whatever happened to the
+    # plan: both accounts may own packs, and the union is never a conflict
+    # (Scott 2026-10-13). A pending "complete" is re-decided against the
+    # merged set.
+    cur = await db.execute("UPDATE purchases SET user_id = ? WHERE user_id = ?",
+                           (apple["id"], anon["id"]))
+    moved["purchases"] = cur.rowcount
+    if cur.rowcount:
+        from app.services.unlocks import _resolve_completes
+        await _resolve_completes(db, apple["id"])
+
     await db.execute("UPDATE users SET is_active = 0, updated_at = ? WHERE id = ?",
                      (now, anon["id"]))
     from app.services.account_groups import link

@@ -308,6 +308,38 @@ async def apple_notifications(
         # Still return 200 so Apple doesn't retry
         return {"status": "received", "action": "skipped", "reason": "transaction_info_not_decoded"}
 
+    # One-time unlocks (non-consumable, Scott 2026-10-13) never enter the
+    # subscription path below: that path finds users by the ONE subscription
+    # slot and downgrades on REFUND/REVOKE, so a refunded $9.99 unlock would
+    # strip a Plus/Pro subscriber to free. Here a refund revokes the unlock
+    # and nothing else, and a purchase (ONE_TIME_CHARGE) records it.
+    from app.services import unlocks as _unlocks
+    if _unlocks.is_unlock_product(product_id):
+        _u_txn = transaction_info.get("transactionId")
+        _u_otid = transaction_info.get("originalTransactionId")
+        _u_env = transaction_info.get("environment") or data.get("environment")
+        if notification_type in ("REFUND", "REVOKE"):
+            touched = await _unlocks.revoke(
+                db, transaction_id=_u_txn, original_transaction_id=_u_otid,
+                reason=notification_type.lower())
+            logger.info("Apple notification: unlock %s revoked (%s) users=%s",
+                        product_id, notification_type, touched)
+            return {"status": "received", "action": "unlock_revoked", "users": touched}
+        if notification_type == "ONE_TIME_CHARGE":
+            _u_user = await _unlocks.find_user(
+                db, transaction_id=_u_txn, original_transaction_id=_u_otid,
+                app_account_token=transaction_info.get("appAccountToken"))
+            if not _u_user:
+                logger.warning("Apple notification: unlock %s with no user (txn=%s)", product_id, _u_txn)
+                return {"status": "received", "action": "skipped", "reason": "user_not_found"}
+            res = await _unlocks.record(
+                db, user_id=_u_user, transaction_id=_u_txn, product_id=product_id,
+                original_transaction_id=_u_otid, environment=_u_env,
+                purchased_at=_ms_to_iso(transaction_info.get("purchaseDate")), source="assn")
+            return {"status": "received", "action": "unlock_" + res["status"]}
+        logger.info("Apple notification: unlock %s type=%s, no action", product_id, notification_type)
+        return {"status": "received", "action": "none", "type": notification_type}
+
     # Find the user by originalTransactionId (stored during /v1/verify-receipt),
     # then by appAccountToken. SS sets the token on every signed-in purchase
     # (`UUID(uuidString: userId)`, SubscriptionManager.purchase; this comment

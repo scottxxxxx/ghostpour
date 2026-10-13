@@ -814,5 +814,50 @@
         "requires": "Nécessite un iPhone 15 Pro ou plus récent avec Apple Intelligence activé."
       }
     }
-  }
+  },
+  "unlocks": [
+    {
+      "id": "unlock_apple_cloud",
+      "product_id": "com.weirtech.shouldersurf.unlock.applecloud",
+      "name": "Pack Apple Cloud",
+      "icon": "cloud",
+      "bullets": [
+        "Le chat de projet sur Apple Cloud, sans Shoulder Surf AI",
+        "Le Private Cloud Compute d'Apple garde vos données privées",
+        "Achat unique, il vous appartient"
+      ]
+    },
+    {
+      "id": "unlock_byok",
+      "product_id": "com.weirtech.shouldersurf.unlock.byok",
+      "name": "Pack Clé personnelle",
+      "icon": "key",
+      "bullets": [
+        "Le chat de projet avec votre propre clé d'API",
+        "Utilisez le modèle et le fournisseur que vous payez déjà",
+        "Achat unique, il vous appartient"
+      ]
+    },
+    {
+      "id": "bundle",
+      "product_id": "com.weirtech.shouldersurf.unlock.bundle",
+      "name": "Les deux packs",
+      "icon": "square.stack",
+      "bullets": [
+        "Apple Cloud et votre propre clé, tous deux débloqués",
+        "Moins cher que de les acheter séparément",
+        "Achat unique, il vous appartient"
+      ]
+    },
+    {
+      "id": "complete",
+      "product_id": "com.weirtech.shouldersurf.unlock.complete",
+      "name": "Compléter la paire",
+      "icon": "plus.circle",
+      "bullets": [
+        "Ajoute le pack que vous n'avez pas encore",
+        "Achat unique, il vous appartient"
+      ]
+    }
+  ]
 }
