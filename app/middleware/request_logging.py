@@ -147,7 +147,7 @@ class StreamingBypassMiddleware:
         app_id = "unknown"
         for hdr_name, hdr_val in scope.get("headers", []):
             if hdr_name == b"x-app-id":
-                app_id = hdr_val.decode()
+                app_id = hdr_val.decode("latin-1")
                 break
 
         if "state" not in scope:
@@ -176,11 +176,11 @@ class StreamingBypassMiddleware:
         # Build request headers (redact auth)
         req_headers = {}
         for hdr_name, hdr_val in scope.get("headers", []):
-            name = hdr_name.decode().lower()
+            name = hdr_name.decode("latin-1").lower()
             if name not in ("authorization", "x-admin-key", "cookie"):
-                req_headers[name] = hdr_val.decode()
+                req_headers[name] = hdr_val.decode("latin-1")
             elif name == "authorization":
-                val = hdr_val.decode()
+                val = hdr_val.decode("latin-1")
                 req_headers["authorization"] = val.split()[0] + " <redacted>" if " " in val else "<redacted>"
 
         replayed = False
@@ -203,7 +203,10 @@ class StreamingBypassMiddleware:
                 headers = list(message.get("headers", []))
                 headers.append((b"x-request-id", request_id.encode()))
                 message = {**message, "headers": headers}
-                response_headers = {h[0].decode(): h[1].decode() for h in headers}
+                # latin-1, never UTF-8: it is what HTTP and Starlette put on
+                # the wire, and a recalled name with an accent in X-CQ-Entities
+                # turned a UTF-8 decode here into a bare 500 (2026-10-13).
+                response_headers = {h[0].decode("latin-1"): h[1].decode("latin-1") for h in headers}
                 # Decide based on actual response content-type, not the
                 # request's `stream:true` flag — handlers may override it.
                 ct = response_headers.get("content-type", "")

@@ -168,3 +168,27 @@ async def test_x_request_id_header_added_to_response():
     start_msg = next(m for m in sent if m["type"] == "http.response.start")
     header_names = [h[0] for h in start_msg["headers"]]
     assert b"x-request-id" in header_names
+
+
+@pytest.mark.asyncio
+async def test_latin1_response_header_passes_through():
+    """2026-10-13: three /v1/chat 500s on SS's capture account. X-CQ-Entities
+    carried a recalled name with an accent; Starlette encodes header values
+    as latin-1 (b"\\xed" for i-acute), and this middleware decoded every
+    header as UTF-8, so the UnicodeDecodeError replaced the whole response
+    with a bare 500 before x-request-id was attached. Header bytes are
+    latin-1 by HTTP and by Starlette, and must reach the client unchanged."""
+    entities = "Ramírez,François".encode("latin-1")
+
+    async def handler(scope, receive, send):
+        await send({
+            "type": "http.response.start",
+            "status": 200,
+            "headers": [(b"content-type", b"application/json"), (b"x-cq-entities", entities)],
+        })
+        await send({"type": "http.response.body", "body": b'{"ok":true}', "more_body": False})
+
+    sent = await _drive(StreamingBypassMiddleware(None), _make_scope(), handler)
+    start = next(m for m in sent if m["type"] == "http.response.start")
+    assert start["status"] == 200
+    assert (b"x-cq-entities", entities) in start["headers"]

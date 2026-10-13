@@ -158,3 +158,35 @@ def test_a_non_list_served_value_is_treated_as_absent():
     headers = ContextQuiltHook().response_headers(
         {"cq_result": _cq_body(served_patch_ids="p-cand-3")}, "enabled")
     assert "X-CQ-Served-Patch-IDs" not in headers
+
+
+# --- X-CQ-Entities carries names, and names are not ASCII ------------------
+#
+# 2026-10-13, three /v1/chat 500s on SS's capture account: a recalled name
+# with an accent went out raw in X-CQ-Entities. Each name is percent-encoded
+# (SS decodes with removingPercentEncoding, falling back to the raw value),
+# and a plain ASCII name stays byte-identical for builds that predate that.
+from urllib.parse import unquote  # noqa: E402
+
+NAMES = ["Ramírez", "山田 太郎", "Bob Martinez", "Acme, Inc. 100%"]
+
+
+def _decoded(value: str) -> list[str]:
+    return [unquote(n) for n in value.split(",")]
+
+
+@pytest.mark.parametrize("cq_wire", [_cq_body(matched_entities=NAMES)], indirect=True)
+@pytest.mark.parametrize("stream", [False, True])
+def test_route_survives_non_ascii_entity_names(client, pro_user, cq_wire, stream):
+    resp = _chat(client, pro_user, stream=stream)
+    value = resp.headers["x-cq-entities"]
+    value.encode("ascii")
+    assert _decoded(value) == NAMES
+    assert value.split(",")[2] == "Bob Martinez"
+
+
+def test_gated_leg_encodes_entity_names_too():
+    headers = ContextQuiltHook().response_headers(
+        {"cq_result": _cq_body(matched_entities=NAMES), "gated": True}, "teaser")
+    headers["X-CQ-Entities"].encode("ascii")
+    assert _decoded(headers["X-CQ-Entities"]) == NAMES
