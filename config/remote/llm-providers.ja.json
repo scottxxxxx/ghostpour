@@ -1,5 +1,5 @@
 {
- "version": 25,
+ "version": 26,
  "defaultPromptReserveTokens": 8000,
  "providers": [
   {
@@ -86,7 +86,7 @@
      "description": "無料。AppleのPrivate Cloud Compute：デバイス上のモデルより大きく高性能で、データはプライベートに保たれます。インターネット接続が必要で、Appleが定める1日の上限があります。iOS 27とApple Intelligenceが必要です。",
      "isDefault": false,
      "minAppBuild": 2126,
-     "supportsVision": false,
+     "supportsVision": true,
      "contextWindow": 32768,
      "inputCostPerMillion": 0,
      "outputCostPerMillion": 0,
@@ -94,7 +94,7 @@
      "reasoningLevels": null,
      "maxOutputTokens": 4096,
      "temperatureDefault": 0.7,
-     "maxImagesPerRequest": 0,
+     "maxImagesPerRequest": 5,
      "streamingSupported": false,
      "toolUseSupported": false,
      "cacheControlSupported": false,
