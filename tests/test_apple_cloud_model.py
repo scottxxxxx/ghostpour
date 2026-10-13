@@ -21,4 +21,12 @@ def test_apple_cloud_is_gated_to_build_2126_and_not_default(name):
     assert cloud["minAppBuild"] == 2126
     assert cloud["isDefault"] is False and on_device["models"][0]["isDefault"] is True
     assert cloud["contextWindow"] == 32768 and cloud["streamingSupported"] is False
-    assert cloud["maxImagesPerRequest"] == 0 and cloud["supportsVision"] is False
+    # Vision (SS, 2026-10-13, read from code): since build 2151 the client asks
+    # Apple Cloud for its own .vision capability on iOS 27 and caps apple
+    # models at 5 images (SessionManager.swift:5346, MeetingChatSection and
+    # ProjectChatSection effectiveMaxImages). Builds 2126 to 2150 were text
+    # only and merely hide or show the photo strip on this flag, and were
+    # never distributed. On-device stays text only: 2151 turned images off.
+    assert cloud["maxImagesPerRequest"] == 5 and cloud["supportsVision"] is True
+    on_dev = on_device["models"][0]
+    assert on_dev["supportsVision"] is False and on_dev["maxImagesPerRequest"] == 0
