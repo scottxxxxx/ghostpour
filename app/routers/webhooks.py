@@ -3878,6 +3878,9 @@ async def telemetry_rich(
         clauses.append("os_version = ?")
         params.append(os_version)
     clauses.append(_not_excluded()[5:])
+    # The orphan half of a resumed meeting is not a second meeting.
+    from app.services.telemetry_rollup import NOT_RESUMED_ORPHAN
+    clauses.append(NOT_RESUMED_ORPHAN[5:])
     where = " AND ".join(clauses)
 
     async def _all(sql: str, *extra: object) -> list[dict]:
