@@ -20,7 +20,13 @@ PLACEMENT = "n400_share"
 DEV = "5b2c3d4e-5f60-4718-9a2b-3c4d5e6f7a8c"
 BASE = "https://cz.shouldersurf.com/v1/promo/assets/"
 _PROMO = Path(__file__).resolve().parent.parent / "app" / "static" / "promo"
-SHARE_HREF = "https://n400helper.com/?promo_cta_id=share_n400&amp;promo_action=share"
+# Each language links to its own share page so the Messages preview is in that
+# language (the auditor's on-device check, 2026-10-13: es shares previewed the
+# English home page).
+_SHARE_BASE = {"n400-share.html": "https://n400helper.com/app",
+               "n400-share.es.html": "https://n400helper.com/es/app",
+               "n400-share.pt.html": "https://n400helper.com/pt/app"}
+SHARE_TAIL = "?promo_cta_id=share_n400&amp;promo_action=share"
 
 
 def _resolve(client, lang="en-US", app="n400", placement=PLACEMENT, device_id=DEV) -> dict:
@@ -69,7 +75,8 @@ def test_every_page_is_served_and_carries_the_share_link(client):
         assert r.status_code == 200, name
         assert r.headers["content-type"].startswith("text/html")
         html = r.text
-        assert html.count(SHARE_HREF) == 1, name
+        assert html.count(_SHARE_BASE[name] + SHARE_TAIL) == 1, name
+        assert "n400helper.com/?" not in html, name
         assert "background: transparent" in html
         assert "prefers-color-scheme: dark" in html
         assert "<script" not in html and "@import" not in html and "fonts." not in html
