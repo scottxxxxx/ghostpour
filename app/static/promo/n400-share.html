@@ -18,6 +18,10 @@
   this URL after the client strips the promo_* params; any other link opens
   outside the app. The share target is the website until the App Store
   listing exists; change it here with a creative upload, no app release.
+  promo_share_text is the line the share sheet sends above the link; the
+  client swaps the literal {time_with_us} (percent-encoded here) for the
+  person's interview time in their language. promo_share_text_untimed is
+  the same line for a case that never counted its time (build 171 and up).
   No dashes as punctuation in the copy (Scott's rule).
 -->
 <style>
@@ -45,7 +49,7 @@
   <main class="card">
   <h1>Know someone preparing for citizenship?</h1>
   <p>Send them the app. You did the hard part; they shouldn't have to guess where their answers go either.</p>
-  <a class="btn" href="https://n400helper.com/?promo_cta_id=share_n400&amp;promo_action=share" data-cta-id="share_n400"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg><span>Share N-400 Helper</span></a>
+  <a class="btn" href="https://n400helper.com/?promo_cta_id=share_n400&amp;promo_action=share&amp;promo_share_text=Here%27s%20the%20app%20I%20used%20for%20my%20N-400.%20You%20just%20talk%20it%20through%20like%20a%20normal%20conversation%2C%20and%20it%20fills%20in%20the%20form%20from%20what%20you%20say.%20I%20answered%20the%20whole%20thing%20in%20%7Btime_with_us%7D.&amp;promo_share_text_untimed=Here%27s%20the%20app%20I%20used%20for%20my%20N-400.%20You%20just%20talk%20it%20through%20like%20a%20normal%20conversation%2C%20and%20it%20fills%20in%20the%20form%20from%20what%20you%20say." data-cta-id="share_n400"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg><span>Share N-400 Helper</span></a>
   </main>
 </body>
 </html>

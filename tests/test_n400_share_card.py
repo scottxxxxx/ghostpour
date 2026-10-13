@@ -99,3 +99,32 @@ def test_the_dashboard_can_save_and_pause_the_live_campaign(client):
     r = client.put(f"/webhooks/admin/campaign/{CID}", json=body, headers=ADMIN)
     assert r.status_code == 200, r.text
     assert _resolve(client) == {}
+
+
+# --- the share sheet's line, from GP (Scott via the auditor, 2026-10-13) -------
+#
+# Build 171 reads promo_share_text off the share href (the line sent above the
+# link) and swaps a literal {time_with_us} for the person's interview time in
+# their language; promo_share_text_untimed serves a case that never counted
+# its time. The braces must be percent-encoded or the client never sees the
+# placeholder after decoding.
+import html as _html  # noqa: E402
+from urllib.parse import parse_qs, urlsplit  # noqa: E402
+
+_PAGES = {"n400-share.html": "I answered the whole thing in",
+          "n400-share.es.html": "Respondí todo en",
+          "n400-share.pt.html": "Respondi tudo em"}
+
+
+def test_share_href_carries_timed_and_untimed_lines():
+    for name, timed_tail in _PAGES.items():
+        raw = (_PROMO / name).read_text()
+        href = _html.unescape(re.search(r'<a class="btn" href="([^"]+)"', raw).group(1))
+        assert "%7Btime_with_us%7D" in href and "{" not in href, name
+        q = parse_qs(urlsplit(href).query)
+        assert q["promo_cta_id"] == ["share_n400"] and q["promo_action"] == ["share"]
+        (timed,), (untimed,) = q["promo_share_text"], q["promo_share_text_untimed"]
+        assert timed.endswith(timed_tail + " {time_with_us}."), name
+        assert timed.startswith(untimed) and "{time_with_us}" not in untimed, name
+        for line in (timed, untimed):
+            assert "—" not in line and "–" not in line and " - " not in line
