@@ -29,6 +29,7 @@ from app.services.meeting_report import (
     gather_meeting_data,
     derive_sentiment_fields,
     format_meeting_date,
+    format_meeting_time,
     normalize_category_also,
     render_report_html,
 )
@@ -528,7 +529,7 @@ async def _build_report_response(response, body, db, user, report_model, request
 
     metadata = {
         "meeting_date": format_meeting_date(meeting_dt, locale),
-        "meeting_time": meeting_dt.strftime("%-I:%M %p") + tz_label,
+        "meeting_time": format_meeting_time(meeting_dt, locale) + tz_label,
         "meeting_duration": format_duration(body.duration_seconds),
         "project_name": body.project or "",
     }
@@ -949,7 +950,7 @@ async def render_report(
     tz_label = f" {body.timezone_abbr}" if body.timezone_abbr else ""
     metadata = {
         "meeting_date": format_meeting_date(meeting_dt, locale),
-        "meeting_time": meeting_dt.strftime("%-I:%M %p") + tz_label,
+        "meeting_time": format_meeting_time(meeting_dt, locale) + tz_label,
         "meeting_duration": format_duration(body.duration_seconds),
     }
 
