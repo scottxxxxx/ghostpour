@@ -710,6 +710,17 @@ _MONTHS = {
 }
 
 
+def format_meeting_time(dt, locale: str | None) -> str:
+    """The masthead time in the report's language. English keeps "3:00 PM";
+    es, fr and ja read a 24-hour clock ("15:00"), as their readers write it.
+    A French report showed "3:00 AM" (SS capture, 2026-10-13) because both
+    report routes formatted the time with %p whatever the locale."""
+    lang = (locale or "en").split("-")[0].lower()
+    if lang in ("es", "fr", "ja"):
+        return dt.strftime("%H:%M")
+    return dt.strftime("%-I:%M %p")
+
+
 def format_meeting_date(dt, locale: str | None) -> str:
     """The masthead date in the report's language. strftime("%B") is
     English regardless of locale (a Spanish report read "August 21, 2026"

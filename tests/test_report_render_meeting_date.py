@@ -176,3 +176,35 @@ def test_0030_at_a_positive_offset_keeps_its_local_day(render_client):
     assert "August 22, 2026" in html
     assert "August 21, 2026" not in html
     assert "12:30 AM" in html
+
+
+# --- the time, in the report's language (2026-10-13) --------------------------
+#
+# A French report on SS's capture account read "3:00 AM UTC-5": both report
+# routes formatted the time with %p whatever the locale. The zone label is the
+# client's (iOS gives "UTC-5" outside English) and passes through untouched.
+from app.services.meeting_report import format_meeting_time  # noqa: E402
+
+_START = "2026-10-12T15:07:00-05:00"
+
+
+@pytest.mark.parametrize("lang,want,never", [
+    ("fr-FR", "15:07 UTC-5", "PM"), ("es-MX", "15:07 UTC-5", "PM"),
+    ("ja-JP", "15:07 UTC-5", "PM"), ("en-US", "3:07 PM UTC-5", "15:07"),
+])
+def test_render_route_formats_the_time_per_locale(render_client, lang, want, never):
+    resp = render_client.post(
+        "/v1/reports/render", headers={"Accept-Language": lang},
+        json={"report_json": REPORT_JSON, "duration_seconds": 1800,
+              "meeting_start_iso": _START, "timezone_abbr": "UTC-5"})
+    assert resp.status_code == 200, resp.text
+    html = resp.json()["report_html"]
+    assert want in html
+    assert f"{never} UTC-5" not in html and f"{never}" + " UTC" not in html
+
+
+def test_time_formatter_unknown_locale_stays_english():
+    dt = datetime(2026, 10, 12, 9, 5, tzinfo=timezone.utc)
+    assert format_meeting_time(dt, "de") == "9:05 AM"
+    assert format_meeting_time(dt, None) == "9:05 AM"
+    assert format_meeting_time(dt, "fr") == "09:05"
