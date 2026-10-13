@@ -10,6 +10,7 @@ import asyncio
 import logging
 import re
 from typing import Any
+from urllib.parse import quote
 
 from app.config import get_settings
 from app.models.chat import ChatRequest, ChatResponse
@@ -93,6 +94,19 @@ def _served_header_value(served_ids: list) -> str:
     UUIDs, so `none` cannot collide with one.
     """
     return ",".join(served_ids[:20]) if served_ids else SERVED_NONE
+
+
+# Header bytes are latin-1 on the wire, so a recalled name like "Ramírez"
+# or "山田" cannot travel raw: the first 500'd GP's logging middleware and the
+# second fails Starlette's own encode (2026-10-13, SS's capture account).
+# Each name is percent-encoded, and the list separator and "%" with it, while
+# every other printable ASCII byte passes untouched, so a name like "Sukumar
+# Gurugubelli" reads the same on builds that predate SS's decode.
+_ENTITY_HEADER_SAFE = "".join(chr(c) for c in range(0x20, 0x7F) if chr(c) not in ",%")
+
+
+def _entities_header_value(names: list) -> str:
+    return ",".join(quote(str(n), safe=_ENTITY_HEADER_SAFE) for n in names[:10])
 
 
 class ContextQuiltHook:
@@ -498,7 +512,7 @@ class ContextQuiltHook:
 
         if feature_state == "enabled" and matched:
             headers["X-CQ-Matched"] = str(len(matched))
-            headers["X-CQ-Entities"] = ",".join(matched[:10])
+            headers["X-CQ-Entities"] = _entities_header_value(matched)
             if patch_ids:
                 headers["X-CQ-Patch-IDs"] = ",".join(patch_ids[:20])
             if served_ids is not None:
@@ -507,7 +521,7 @@ class ContextQuiltHook:
             headers["X-CQ-Matched"] = str(len(matched))
             headers["X-CQ-Gated"] = "true"
             if matched:
-                headers["X-CQ-Entities"] = ",".join(matched[:10])
+                headers["X-CQ-Entities"] = _entities_header_value(matched)
             if patch_ids:
                 headers["X-CQ-Patch-IDs"] = ",".join(patch_ids[:20])
             if served_ids is not None:
