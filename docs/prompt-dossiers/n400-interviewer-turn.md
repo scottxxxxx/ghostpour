@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 56
+served_version: 57
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-10-12 (v56)
+reconciled: 2026-10-13 (v57)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1947,3 +1947,11 @@ CODE, because the prompt line cannot be shown to work: `drop_no_that_pushed_back
 
 Tested with NO API tokens (Scott, 2026-10-09): two blind Claude subagents each read one full prompt (v55, v56) on three rendered turns: Scott's pushback after the "stays open" deferral, a plain "No, never." to the same question, and "No other names. And it was January 1st, 1999." A simulation, not the served model. v55's reader did NOT reproduce the defect: on the pushback it filed only the date and asked other names again, as v56's reader did. Both kept the plain no on the two counterweights. So the simulation cannot show the prompt line working, which is why the guard ships with it: the live model did what a careful reader did not.
 
+
+## v57: the age is the app's fact, never date math
+
+The auditor's privacy scoping, 2026-10-13. The phone masks the date of birth before it reaches GP: the real year, a fake month and day. v56 said "If the date of birth is known, never ask whether they are 18 or over. Work it out.", so the model was told to judge 18 or over from a date that is not exact, and near the boundary it can be wrong. The phone sends p1.age_over_18, computed from the real date of birth (and soon p9.selective_service_statement_applies).
+
+PROMPT: "Never ask whether they are 18 or over, and never work out an age from a date of birth: the date of birth you see is not exact. Use the p1.age_over_18 fact the app sends." It replaces the v56 sentence in place, so the surrounding rule (a fact in KNOWN FACTS is authoritative whoever derived it) is unchanged. The same sentence replaces the same instruction in interview-turn.json (v4), which is still served.
+
+Tested with NO API tokens: two blind Claude subagents, one per prompt, each read the full prompt and one rendered turn with today 2026-10-13, a masked date of birth 2008-02-10, and p1.age_over_18: no. v56's reader answered "Yes", computed from the date, called the app's fact "wrong", and noted the instructions do not say which wins: the defect, reproduced. v57's reader answered "No" from the fact and quoted the v57 sentence. Neither would ask. A simulation, not the served model.

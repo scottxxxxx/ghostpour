@@ -657,6 +657,21 @@ VERSIONS = {
         ],
         "absent": [],
     },
+    57: {
+        # The auditor's privacy scoping (2026-10-13): the phone masks the date
+        # of birth (real year, fake month and day), so "Work it out" had the
+        # model judge 18 or over from a date that is not exact. The phone
+        # sends p1.age_over_18, computed from the real date; v57 points there.
+        "block_anchor": "a fact in KNOWN FACTS is authoritative whoever derived it",
+        "once": "never work out an age from a date of birth: the date of birth you see is not exact",
+        "phrases": [
+            "Never ask whether they are 18 or over, and never work out an age",
+            "Use the p1.age_over_18 fact the app sends.",
+        ],
+        "absent": [
+            "never ask whether they are 18 or over. Work it out.",
+        ],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -719,6 +734,9 @@ VERSIONS[55]["absent"] = VERSIONS[54]["absent"] + VERSIONS[55]["absent"]
 # v56 carries every v55 phrase, and v55's once line as a phrase.
 VERSIONS[56]["phrases"] = VERSIONS[55]["phrases"] + [VERSIONS[55]["once"]] + VERSIONS[56]["phrases"]
 VERSIONS[56]["absent"] = VERSIONS[55]["absent"] + VERSIONS[56]["absent"]
+# v57 carries every v56 phrase, and v56's once line as a phrase.
+VERSIONS[57]["phrases"] = VERSIONS[56]["phrases"] + [VERSIONS[56]["once"]] + VERSIONS[57]["phrases"]
+VERSIONS[57]["absent"] = VERSIONS[56]["absent"] + VERSIONS[57]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]
