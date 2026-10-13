@@ -62,7 +62,7 @@ def test_the_dial_resolves_per_tier_from_the_served_bundle(client):
     rc = client.app.state.remote_configs
     assert recall_max_age_days(rc, "plus") == 30
     assert recall_max_age_days(rc, "pro") is None
-    assert recall_max_age_days(rc, "free") is None
+    assert recall_max_age_days(rc, "free") == 10  # Scott, 2026-10-13
     assert recall_max_age_days(rc, "no-such-tier") is None
 
 
@@ -93,11 +93,13 @@ def test_the_client_cannot_set_its_own_window(client, plus_user, cq_wire):
 
 
 def test_the_window_rides_the_teaser_leg_too(client, free_user, cq_wire):
-    """Free is a teaser/people-scoped leg with no window dial; the key must
-    be absent there as well, not leaked from another tier's resolution."""
+    """Free is the people-scoped leg. Until 2026-10-13 it had no window and
+    sent no key; Scott then gave free 10 days, knowing it windows the
+    people-scoped recall too, so the key rides this leg with free's own 10,
+    never another tier's value."""
     _chat(client, free_user)
     md = _recall_body(cq_wire)["metadata"]
-    assert "max_age_days" not in md
+    assert md["max_age_days"] == 10 and md["recall_scope"] == "people"
 
 
 # --- Served copy is templated from the same dial ---------------------------

@@ -118,3 +118,22 @@ def test_the_clamp_is_project_chat_only(client, plus_user, mock_provider):
     r = client.post("/v1/chat", json=_send(dates, prompt_mode="Summarize"), headers=plus_user["headers"])
     assert r.status_code == 200, r.text
     assert all(d.isoformat() in _seen_system(mock_provider) for d in dates)
+
+
+def test_free_project_chat_is_clamped_to_ten_days_from_the_bundle():
+    """Scott, 2026-10-13: free sees the last 10 days in Project Chat, so a
+    meeting 11 days old is dropped and one 10 days old is kept, read through
+    the same resolver the chat route uses, against the real bundle."""
+    import json
+    from datetime import date, timedelta
+    from pathlib import Path
+    from app.services.recall_window import clamp_meeting_blocks, recall_max_age_days
+    root = Path(__file__).resolve().parent.parent
+    rc = {"tiers": json.loads((root / "config/remote/tiers.json").read_text())}
+    assert recall_max_age_days(rc, "free") == 10
+    today = date(2026, 10, 13)
+    old, edge = today - timedelta(days=11), today - timedelta(days=10)
+    sp = (f"BASE\n\n## Meeting 1 of 2 - {old.isoformat()}\nold notes\n\n"
+          f"## Meeting 2 of 2 - {edge.isoformat()}\nkept notes\n")
+    out, dropped = clamp_meeting_blocks(sp, 10, today=today)
+    assert dropped == [old.isoformat()] and "kept notes" in out and "old notes" not in out

@@ -1,5 +1,5 @@
 {
-  "version": 56,
+  "version": 57,
   "tiers": {
     "free": {
       "display_name": "Gratis",
@@ -160,7 +160,7 @@
           "generations_per_month": 5
         },
         "context_quilt": {
-          "recall_max_age_days": null
+          "recall_max_age_days": 10
         }
       }
     },
