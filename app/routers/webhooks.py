@@ -116,6 +116,34 @@ async def set_tier(
     }
 
 
+class StatsExclusionRequest(BaseModel):
+    user_id: str
+    excluded: bool
+
+
+@router.post("/admin/stats-exclusion")
+async def set_stats_exclusion(
+    body: StatsExclusionRequest,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+):
+    """Keep a demo or test account out of the dashboard's counts and usage
+    analytics, or put it back (Scott, 2026-10-13). Entitlements, tier and
+    spend are untouched: the account behaves exactly as before, it is only
+    not counted. Echoes the stored row so the caller can compare."""
+    _verify_admin(request, x_admin_key)
+    cur = await db.execute(
+        "UPDATE users SET exclude_from_stats = ? WHERE id = ?",
+        (1 if body.excluded else 0, body.user_id))
+    await db.commit()
+    if cur.rowcount == 0:
+        raise HTTPException(status_code=404, detail="unknown user_id")
+    row = await (await db.execute(
+        "SELECT id, tier, exclude_from_stats FROM users WHERE id = ?", (body.user_id,))).fetchone()
+    return {"user_id": row[0], "tier": row[1], "exclude_from_stats": bool(row[2])}
+
+
 @router.post("/admin/simulate-tier")
 async def simulate_tier(
     body: SimulateTierRequest,
@@ -1311,6 +1339,16 @@ def _apps_from_filter(app: str | None) -> tuple[str, ...]:
     return tuple(out)
 
 
+# Accounts flagged exclude_from_stats (demo and test accounts, Scott
+# 2026-10-13) stay out of the dashboard's counts and usage analytics. They keep
+# their tier and every entitlement; only the numbers skip them. `col` is the
+# user id column of the table being counted; NULL user ids (device-only
+# telemetry) are kept.
+def _not_excluded(col: str = "user_id") -> str:
+    return (f" AND ({col} IS NULL OR {col} NOT IN "
+            "(SELECT id FROM users WHERE exclude_from_stats = 1))")
+
+
 def _app_sql(apps: tuple[str, ...], column: str = "app_id") -> str:
     """` AND <column> IN (?, ?)` for these apps, or '' for all of them.
 
@@ -1404,19 +1442,21 @@ async def dashboard(
     # every usage_log-derived metric below is restricted to that app_id. The
     # users/trial/allocation counts stay global (users are shared across apps).
     apps_filter = _apps_from_filter(app)
-    app_clause = _app_sql(apps_filter)
-    app_clause_l = _app_sql(apps_filter, "l.app_id")
+    # Every usage_log query below appends app_clause, so the stats exclusion
+    # rides on it (it binds no parameters).
+    app_clause = _app_sql(apps_filter) + _not_excluded()
+    app_clause_l = _app_sql(apps_filter, "l.app_id") + _not_excluded("l.user_id")
     app_params = apps_filter
 
     # --- Users ---
-    cursor = await db.execute("SELECT COUNT(*) FROM users")
+    cursor = await db.execute("SELECT COUNT(*) FROM users WHERE exclude_from_stats = 0")
     total_users = (await cursor.fetchone())[0]
 
-    cursor = await db.execute("SELECT COUNT(*) FROM users WHERE is_active = 1")
+    cursor = await db.execute("SELECT COUNT(*) FROM users WHERE is_active = 1 AND exclude_from_stats = 0")
     active_users = (await cursor.fetchone())[0]
 
     cursor = await db.execute(
-        "SELECT tier, COUNT(*) FROM users WHERE is_active = 1 GROUP BY tier"
+        "SELECT tier, COUNT(*) FROM users WHERE is_active = 1 AND exclude_from_stats = 0 GROUP BY tier"
     )
     tier_breakdown = {row[0]: row[1] for row in await cursor.fetchall()}
 
@@ -1428,7 +1468,7 @@ async def dashboard(
     from app.services.account_groups import groups as _groups
     _gmap = await _groups(db)
     _active = await (await db.execute(
-        "SELECT id, tier, apple_sub LIKE 'anonymous:%' AS anon FROM users WHERE is_active = 1"
+        "SELECT id, tier, apple_sub LIKE 'anonymous:%' AS anon FROM users WHERE is_active = 1 AND exclude_from_stats = 0"
     )).fetchall()
     people_keys = {_gmap.get(r["id"], r["id"]) for r in _active}
     anon_rows = [r for r in _active if r["anon"]]
@@ -1655,12 +1695,12 @@ async def dashboard(
 
     # Trial stats
     cursor = await db.execute(
-        "SELECT COUNT(*) FROM users WHERE is_trial = 1"
+        "SELECT COUNT(*) FROM users WHERE is_trial = 1 AND exclude_from_stats = 0"
     )
     active_trials = (await cursor.fetchone())[0]
 
     cursor = await db.execute(
-        "SELECT COUNT(*) FROM users WHERE is_trial = 0 AND tier != 'free' AND tier != 'admin'"
+        "SELECT COUNT(*) FROM users WHERE is_trial = 0 AND tier != 'free' AND tier != 'admin' AND exclude_from_stats = 0"
     )
     converted = (await cursor.fetchone())[0]
 
@@ -3125,7 +3165,7 @@ async def list_users(
             u.simulated_tier, u.simulated_exhausted,
             u.monthly_used_usd, u.monthly_cost_limit_usd, u.allocation_resets_at,
             u.searches_used, u.generations_used,
-            u.is_trial, u.trial_end,
+            u.is_trial, u.trial_end, u.exclude_from_stats,
             -- Windowed totals (last `days` days). The "window_" prefix
             -- makes the date filter visible at the call site so future
             -- editors don't confuse these with all-time aggregates.
@@ -3369,6 +3409,7 @@ async def list_users(
             # the dashboard renders an OFFER badge with the offer name.
             "subscription_offer_id": user_offers.get(r["id"]),
             "trial_end": r["trial_end"],
+            "exclude_from_stats": bool(r["exclude_from_stats"]),
             # Current month allocation
             "monthly_used_usd": round(monthly_used, 4),
             "monthly_limit_usd": round(monthly_limit, 4),
@@ -3836,6 +3877,10 @@ async def telemetry_rich(
     if os_version:
         clauses.append("os_version = ?")
         params.append(os_version)
+    clauses.append(_not_excluded()[5:])
+    # The orphan half of a resumed meeting is not a second meeting.
+    from app.services.telemetry_rollup import NOT_RESUMED_ORPHAN
+    clauses.append(NOT_RESUMED_ORPHAN[5:])
     where = " AND ".join(clauses)
 
     async def _all(sql: str, *extra: object) -> list[dict]:
