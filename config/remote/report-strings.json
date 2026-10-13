@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "strings": {
     "header_label": "Meeting Report",
     "speakers_heading": "Identified speakers",
@@ -14,6 +14,19 @@
     "open_questions_question_label": "Question",
     "open_questions_owner_label": "Owner",
     "footer_powered_by": "Meeting notes powered by",
-    "project_label": "Project"
+    "project_label": "Project",
+    "issue_identified_gap": "Gap identified",
+    "issue_identified_bug": "Bug identified",
+    "issue_identified_risk": "Risk identified",
+    "issue_identified_other": "Issue identified",
+    "issue_position_label": "Position stated",
+    "actions_none": "None identified",
+    "mood_confident": "Confident",
+    "mood_tense": "Tense",
+    "mood_concern": "Concern",
+    "mood_neutral": "Neutral",
+    "development_label": "New Development",
+    "research_notes_heading": "Research Notes",
+    "research_notes_count": "{count} queries captured during this meeting"
   }
 }

@@ -516,6 +516,25 @@ _DEFAULT_REPORT_STRINGS = {
     "open_questions_question_label": "Question",
     "open_questions_owner_label": "Owner",
     "footer_powered_by": "Meeting notes powered by",
+    # Technical-issue chrome (2026-10-13): a Spanish report on SS's capture
+    # account read "RISK IDENTIFIED" and "POSITION STATED" in English, because
+    # these were literals and the label was the English severity ENUM with
+    # "Identified" appended. One full label per enum value, so each language
+    # can inflect it (Spanish "Brecha identificada" is feminine).
+    "issue_identified_gap": "Gap identified",
+    "issue_identified_bug": "Bug identified",
+    "issue_identified_risk": "Risk identified",
+    "issue_identified_other": "Issue identified",
+    "issue_position_label": "Position stated",
+    "actions_none": "None identified",
+    # The rest of the English that the same Spanish render still showed.
+    "mood_confident": "Confident",
+    "mood_tense": "Tense",
+    "mood_concern": "Concern",
+    "mood_neutral": "Neutral",
+    "development_label": "New Development",
+    "research_notes_heading": "Research Notes",
+    "research_notes_count": "{count} queries captured during this meeting",
 }
 
 
@@ -705,6 +724,12 @@ def format_meeting_date(dt, locale: str | None) -> str:
     return dt.strftime("%B %-d, %Y")
 
 
+def _issue_label(strings: dict, severity) -> str:
+    """The localized "<severity> identified" label; an unknown or missing
+    severity gets the generic one rather than a raw enum value."""
+    return strings.get("issue_identified_" + str(severity)) or strings["issue_identified_other"]
+
+
 def render_report_html(
     report_json: dict,
     metadata: dict,
@@ -719,7 +744,10 @@ def render_report_html(
     base config and finally to hardcoded defaults.
     """
     template = _TEMPLATE_PATH.read_text()
-    strings = _resolve_report_strings(remote_configs, locale)
+    strings = dict(_resolve_report_strings(remote_configs, locale))
+    # The count sits inside the string so each language places it.
+    strings["research_notes_count"] = strings["research_notes_count"].replace(
+        "{count}", str(len(report_json.get("queries_during_meeting") or [])))
     for key, value in strings.items():
         template = template.replace(f"{{{{strings.{key}}}}}", _esc(value))
 
@@ -802,7 +830,7 @@ def render_report_html(
         )
     else:
         actions_html = (
-            '<tr><td colspan="2" style="padding:10px 0;font-size:12px;color:#888;font-style:italic;line-height:1.6;">None identified</td></tr>'
+            f'<tr><td colspan="2" style="padding:10px 0;font-size:12px;color:#888;font-style:italic;line-height:1.6;">{_esc(strings["actions_none"])}</td></tr>'
         )
     html = _replace_each(html, "actions", actions_html,
         r'<tr style="border-bottom:1px solid #f0e0d8;">.*?</tr>')
@@ -814,13 +842,13 @@ def render_report_html(
         if iss.get("position"):
             position_html = (
                 f'<div style="margin-top:10px;padding-top:10px;border-top:1px solid #fadddd;">'
-                f'<div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:#A32D2D;margin-bottom:4px;">Position stated</div>'
+                f'<div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:#A32D2D;margin-bottom:4px;">{_esc(strings["issue_position_label"])}</div>'
                 f'<div style="font-size:11px;line-height:1.6;color:#666;">{_esc(iss["position"])}</div>'
                 f'</div>'
             )
         issues_html += (
             f'<div style="border-left:3px solid #E24B4A;background:#fff5f5;padding:14px 16px;border-radius:0 4px 4px 0;margin-bottom:12px;">'
-            f'<div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:#A32D2D;margin-bottom:4px;">{_esc(iss.get("severity", "issue"))} Identified</div>'
+            f'<div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:#A32D2D;margin-bottom:4px;">{_esc(_issue_label(strings, iss.get("severity")))}</div>'
             f'<div style="font-size:13px;font-weight:700;color:#1a1a1a;margin-bottom:6px;">{_esc(iss.get("title", ""))}</div>'
             f'<div style="font-size:12px;line-height:1.7;color:#555;">{_esc(iss.get("detail", ""))}</div>'
             f'{position_html}'
@@ -832,7 +860,7 @@ def render_report_html(
     # Developments
     dev_html = "".join(
         f'<div style="border-left:3px solid #4CAF50;background:#f5fbf0;padding:14px 16px;border-radius:0 4px 4px 0;margin-bottom:12px;">'
-        f'<div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:#3B6D11;margin-bottom:4px;">New Development</div>'
+        f'<div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:#3B6D11;margin-bottom:4px;">{_esc(strings["development_label"])}</div>'
         f'<div style="font-size:13px;font-weight:700;color:#1a1a1a;margin-bottom:6px;">{_esc(d.get("title", ""))}</div>'
         f'<div style="font-size:12px;line-height:1.7;color:#555;">{_esc(d.get("detail", ""))}</div>'
         f'</div>'
@@ -845,7 +873,7 @@ def render_report_html(
     decisions_html = "".join(
         f'<div style="border:1px solid #e8e8e4;border-radius:4px;overflow:hidden;margin-bottom:10px;">'
         f'<div style="padding:14px 16px;">'
-        f'<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#3B6D11;margin-bottom:4px;">Agreed</div>'
+        f'<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#3B6D11;margin-bottom:4px;">{_esc(strings["decisions_agreed_label"])}</div>'
         f'<div style="font-size:13px;font-weight:700;color:#1a1a1a;margin-bottom:6px;">{_esc(d.get("title", ""))}</div>'
         f'<div style="font-size:12px;line-height:1.7;color:#555;">{_esc(d.get("detail", ""))}</div>'
         f'</div></div>'

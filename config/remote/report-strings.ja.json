@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "strings": {
     "header_label": "会議レポート",
     "speakers_heading": "識別された参加者",
@@ -14,6 +14,19 @@
     "open_questions_question_label": "質問",
     "open_questions_owner_label": "担当者",
     "footer_powered_by": "会議ノート提供",
-    "project_label": "プロジェクト"
+    "project_label": "プロジェクト",
+    "issue_identified_gap": "ギャップを特定",
+    "issue_identified_bug": "不具合を特定",
+    "issue_identified_risk": "リスクを特定",
+    "issue_identified_other": "課題を特定",
+    "issue_position_label": "表明された立場",
+    "actions_none": "該当なし",
+    "mood_confident": "自信",
+    "mood_tense": "緊張",
+    "mood_concern": "懸念",
+    "mood_neutral": "中立",
+    "development_label": "新たな進展",
+    "research_notes_heading": "リサーチメモ",
+    "research_notes_count": "この会議中に記録されたクエリ {count} 件"
   }
 }

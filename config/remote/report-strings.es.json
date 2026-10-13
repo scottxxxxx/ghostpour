@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "strings": {
     "header_label": "Informe de Reunión",
     "speakers_heading": "Asistentes identificados",
@@ -14,6 +14,19 @@
     "open_questions_question_label": "Pregunta",
     "open_questions_owner_label": "Responsable",
     "footer_powered_by": "Notas de reunión por",
-    "project_label": "Proyecto"
+    "project_label": "Proyecto",
+    "issue_identified_gap": "Brecha identificada",
+    "issue_identified_bug": "Error identificado",
+    "issue_identified_risk": "Riesgo identificado",
+    "issue_identified_other": "Problema identificado",
+    "issue_position_label": "Postura expresada",
+    "actions_none": "Ninguna identificada",
+    "mood_confident": "Seguro",
+    "mood_tense": "Tenso",
+    "mood_concern": "Preocupación",
+    "mood_neutral": "Neutral",
+    "development_label": "Novedad",
+    "research_notes_heading": "Notas de investigación",
+    "research_notes_count": "{count} consultas registradas en esta reunión"
   }
 }
