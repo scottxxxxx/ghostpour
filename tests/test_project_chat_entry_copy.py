@@ -53,7 +53,9 @@ def test_the_window_dial_is_explicit_on_every_tier_and_null_means_no_ceiling(loc
         assert "recall_max_age_days" in cq, (loc, tier)
         v = cq["recall_max_age_days"]
         assert v is None or (isinstance(v, int) and v >= 1), (loc, tier, v)
-    assert d["tiers"]["free"]["feature_definitions"]["context_quilt"]["recall_max_age_days"] is None
+    # Scott, 2026-10-13: free gets a 10-day window ("covers a weekly
+    # meeting"); it also windows free's people-scoped recall, by design.
+    assert d["tiers"]["free"]["feature_definitions"]["context_quilt"]["recall_max_age_days"] == 10
 
 
 def test_the_served_bundle_carries_entry_and_leaves_the_client_placeholders_alone(client):
@@ -67,4 +69,4 @@ def test_the_served_bundle_carries_entry_and_leaves_the_client_placeholders_alon
         e = body["feature_definitions"]["project_chat"]["entry"]
         assert "{window_days}" in e["context_range_windowed_label"] and "{start}" in e["context_range_label"], path
         assert "{recall_window_days}" not in r.text, path
-        assert body["tiers"]["free"]["feature_definitions"]["context_quilt"]["recall_max_age_days"] is None, path
+        assert body["tiers"]["free"]["feature_definitions"]["context_quilt"]["recall_max_age_days"] == 10, path
