@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>N-400 Helper</title>
+<!--
+  GP promo creative, render=html, app_id=n400, placement=n400_home_forms (the
+  auditor's contract, 2026-10-13). The whole "Other forms" section on N-400
+  Helper's Home screen: N-400 Helper renders it in a full-width transparent
+  web view sized to this page's height. The web view never scrolls, so the
+  card row scrolls inside its own overflow-x div, and the page brings its
+  own 20px side padding. One file per language, picked by GP from the app's
+  Accept-Language, so there is no script.
+
+  The campaign ships PAUSED: no answer means no section, which is what the
+  app shows today. Scott turns it on from the dashboard once every card
+  links somewhere real (App Store guideline 2.1). Each card is a link with
+  its own promo_cta_id; the client counts the click and opens it outside
+  the app. No dashes as punctuation in the copy (Scott's rule).
+-->
+<style>
+  :root {
+    --text: #141A24; --muted: #5A6778; --card: rgba(0,0,0,.04); --hairline: rgba(0,0,0,.08);
+    --i765: #5b4bd6; --i90: #0d63e8; --i130: #12a05e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --text: #ECF0F6; --muted: #9AA8BC; --card: rgba(255,255,255,.06); --hairline: rgba(255,255,255,.10);
+      --i765: #9a8ffb; --i90: #5e9dff; --i130: #45cf8b;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; background: transparent; }
+  body {
+    color: var(--text);
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding: 4px 0 8px;
+  }
+  .head { display: flex; align-items: baseline; justify-content: space-between; padding: 0 20px 10px; }
+  h2 { font-size: 20px; line-height: 1.25; font-weight: 700; margin: 0; }
+  .note { font-size: 13px; color: var(--muted); }
+  .row {
+    display: flex; gap: 12px; overflow-x: auto; overflow-y: hidden;
+    padding: 0 20px 4px; scroll-padding: 0 20px;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .row::-webkit-scrollbar { display: none; }
+  a.card {
+    flex: 0 0 auto; width: 150px; min-height: 104px;
+    background: var(--card); border: 1px solid var(--hairline); border-radius: 16px;
+    padding: 14px; color: var(--text); text-decoration: none;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .code { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+  .i765 .code { color: var(--i765); }
+  .i90 .code { color: var(--i90); }
+  .i130 .code { color: var(--i130); }
+  .label { font-size: 14px; line-height: 1.3; color: var(--text); margin-top: 10px; }
+</style>
+</head>
+<body>
+  <div class="head"><h2>Outros formulários</h2><span class="note">Em breve</span></div>
+  <div class="row">
+    <a class="card i765" href="https://n400helper.com/?promo_cta_id=home_i765" data-cta-id="home_i765"><span class="code">I-765</span><span class="label">Autorização de trabalho</span></a>
+    <a class="card i90" href="https://n400helper.com/?promo_cta_id=home_i90" data-cta-id="home_i90"><span class="code">I-90</span><span class="label">Substituição do green card</span></a>
+    <a class="card i130" href="https://n400helper.com/?promo_cta_id=home_i130" data-cta-id="home_i130"><span class="code">I-130</span><span class="label">Petição para um familiar</span></a>
+  </div>
+</body>
+</html>

@@ -21,32 +21,31 @@
   No dashes as punctuation in the copy (Scott's rule).
 -->
 <style>
-  :root { --accent: #1F4E8C; --accent-press: #183D6E; --text: #141A24; --muted: #5A6778; }
+  :root {
+    --ink: #0b1220; --ink2: rgba(11,18,32,.66); --edge: rgba(255,255,255,.85);
+    --btn: #0b1220; --btnText: #fff; --a: rgba(18,160,94,.14); --b: rgba(13,99,232,.12);
+  }
   @media (prefers-color-scheme: dark) {
-    :root { --accent: #6FA3E8; --accent-press: #5A8FD4; --text: #ECF0F6; --muted: #9AA8BC; }
+    :root {
+      --ink: #f4f7fc; --ink2: rgba(235,240,250,.66); --edge: rgba(255,255,255,.18);
+      --btn: #f4f7fc; --btnText: #0b1220; --a: rgba(63,208,138,.14); --b: rgba(92,157,251,.12);
+    }
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; padding: 0; background: transparent; }
-  body {
-    color: var(--text);
-    font: 16px/1.45 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    padding: 4px 0;
-  }
-  h1 { font-size: 17px; line-height: 1.3; font-weight: 600; margin: 0 0 6px; }
-  p { font-size: 15px; color: var(--muted); margin: 0 0 14px; }
-  a.cta {
-    display: block; width: 100%; text-align: center;
-    background: var(--accent); color: #fff;
-    font-size: 16px; font-weight: 600; text-decoration: none;
-    padding: 13px 16px; border-radius: 12px;
-  }
-  a.cta:active { background: var(--accent-press); }
+  body { font: 16px/1.4 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .card { padding: 18px; border-radius: 22px; background: linear-gradient(135deg, var(--a), var(--b)); border: .5px solid var(--edge); }
+  h1 { margin: 0 0 6px; font-size: 19px; font-weight: 700; letter-spacing: -.3px; color: var(--ink); }
+  p { margin: 0 0 14px; font-size: 14px; line-height: 1.4; color: var(--ink2); }
+  a.btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 18px; border-radius: 999px; background: var(--btn); color: var(--btnText); font-size: 15px; font-weight: 600; text-decoration: none; }
+  a.btn:active { opacity: .85; }
 </style>
 </head>
 <body>
+  <main class="card">
   <h1>Conhece alguém se preparando para a cidadania?</h1>
   <p>Envie o app para essa pessoa. Você já fez a parte difícil; ela também não deveria ter que adivinhar onde vão as respostas.</p>
-  <a class="cta" href="https://n400helper.com/?promo_cta_id=share_n400&amp;promo_action=share" data-cta-id="share_n400">Compartilhar o N-400 Helper</a>
+  <a class="btn" href="https://n400helper.com/?promo_cta_id=share_n400&amp;promo_action=share" data-cta-id="share_n400"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg><span>Compartilhar o N-400 Helper</span></a>
+  </main>
 </body>
 </html>
