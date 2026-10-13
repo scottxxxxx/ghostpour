@@ -170,3 +170,75 @@ class TestShippedConfigsAreCompleteAndValid:
         cfg = self._load("report-strings.ja.json")
         for key in _DEFAULT_REPORT_STRINGS:
             assert key in cfg["strings"], f"ja config missing key: {key}"
+
+
+# --- every chrome label, every locale (2026-10-13) ---------------------------
+#
+# A Spanish report on SS's capture account showed "RISK IDENTIFIED" and
+# "POSITION STATED": the issue card labels were literals in the renderer, and
+# so were the arc legend, "New Development", "Agreed", "Research Notes" and
+# the query count line. This renders a report with EVERY section populated
+# against the real bundled strings and asserts no English chrome survives.
+import re  # noqa: E402
+
+import pytest  # noqa: E402
+
+_ROOT = Path(__file__).resolve().parent.parent
+_ENGLISH_CHROME = [
+    "Identified", "identified", "Position stated", "Confident", "Tense", "Concern",
+    "New Development", "Agreed", "Research Notes", "queries captured",
+]
+
+
+def _full_report():
+    x = "ZZ"
+    return {
+        "header": {"title": x, "category": x, "summary": x, "attendees": [x]},
+        "stoplight": {"color": "orange", "label": x, "detail": x},
+        "sentiment": {"score": 50, "label": x, "detail": x, "arc_narrative": x,
+                      "arc": [{"t": 0, "mood": "tense", "label": x}], "category": "tense"},
+        "actions": [],
+        "technical_issues": [{"severity": s, "title": x, "detail": x, "position": x}
+                             for s in ("gap", "bug", "risk", "unknown")],
+        "developments": [{"title": x, "detail": x}],
+        "decisions": [{"title": x, "detail": x}],
+        "open_questions": [{"question": x, "owner": x}],
+        "queries_during_meeting": [{"query": x, "answer": x}, {"query": x, "answer": x}],
+    }
+
+
+def _bundled_configs():
+    rc = {"report-strings": json.loads((_ROOT / "config/remote/report-strings.json").read_text())}
+    for loc in ("es", "fr", "ja"):
+        rc[f"report-strings.{loc}"] = json.loads(
+            (_ROOT / f"config/remote/report-strings.{loc}.json").read_text())
+    return rc
+
+
+def _visible(html: str) -> str:
+    html = re.sub(r"<style.*?</style>|<script.*?</script>|<!--.*?-->", "", html, flags=re.S)
+    return re.sub(r"<[^>]+>", "\n", html)
+
+
+@pytest.mark.parametrize("locale", ["es", "fr", "ja"])
+def test_no_english_chrome_in_a_full_localized_report(locale):
+    html = render_report_html(_full_report(), _minimal_metadata(), _bundled_configs(), locale)
+    assert "{{" not in html and "{count}" not in html
+    text = _visible(html)
+    leaked = [w for w in _ENGLISH_CHROME if w in text]
+    assert not leaked, f"{locale} report still shows {leaked}"
+
+
+def test_issue_labels_and_count_land_in_spanish():
+    text = _visible(render_report_html(_full_report(), _minimal_metadata(), _bundled_configs(), "es"))
+    for label in ("Riesgo identificado", "Brecha identificada", "Error identificado",
+                  "Problema identificado", "Postura expresada", "Novedad", "Acordado",
+                  "2 consultas registradas en esta reunión"):
+        assert label in text, label
+
+
+def test_every_locale_carries_every_default_key():
+    for name in ("report-strings", "report-strings.es", "report-strings.fr", "report-strings.ja"):
+        strings = _bundled_configs()[name]["strings"]
+        missing = set(_DEFAULT_REPORT_STRINGS) - set(strings)
+        assert not missing, f"{name} missing {sorted(missing)}"

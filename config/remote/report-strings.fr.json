@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "strings": {
     "header_label": "Rapport de réunion",
     "speakers_heading": "Intervenants identifiés",
@@ -14,6 +14,19 @@
     "open_questions_question_label": "Question",
     "open_questions_owner_label": "Responsable",
     "footer_powered_by": "Notes de réunion propulsées par",
-    "project_label": "Projet"
+    "project_label": "Projet",
+    "issue_identified_gap": "Lacune identifiée",
+    "issue_identified_bug": "Bogue identifié",
+    "issue_identified_risk": "Risque identifié",
+    "issue_identified_other": "Problème identifié",
+    "issue_position_label": "Position exprimée",
+    "actions_none": "Aucune identifiée",
+    "mood_confident": "Confiant",
+    "mood_tense": "Tendu",
+    "mood_concern": "Inquiétude",
+    "mood_neutral": "Neutre",
+    "development_label": "Nouveau développement",
+    "research_notes_heading": "Notes de recherche",
+    "research_notes_count": "{count} requêtes enregistrées pendant cette réunion"
   }
 }

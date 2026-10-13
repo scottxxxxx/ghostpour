@@ -166,3 +166,26 @@ def test_chat_template_dash_ban_strengthened(path):
     tpl = _load(path)["systemPromptTemplate"]
     for token in tokens:
         assert token in tpl, (path, token)
+
+
+# 2026-10-13: Social found "Northgate Rollout - Go/No-Go Meeting" on screen in
+# an SS story. GP's request log: the summary prompt (Sonnet) wrote it as the
+# bold heading of an AutoSummary; the meeting-title call itself came back
+# clean. Every short dash line named only em and en dashes, so a model that
+# obeyed it fell back to a spaced hyphen. Each now bans that too, per locale.
+_SPACED_HYPHEN_KEYS = [("summaryPrompts", "full"), ("summaryPrompts", "delta"),
+                       ("summaryPrompts", "consolidation"), ("analysisPrompt",),
+                       ("analyzeSessionPrompt",), ("reanalyzeSummaryPrompt",),
+                       ("followUpInstruction",)]
+_SPACED_HYPHEN_TOKENS = ("(word - word)", "(palabra - palabra)", "(mot - mot)", "（語 - 語）")
+
+
+@pytest.mark.parametrize("path", sorted(SS_LOCALE_FILES + ["config/remote/protected-prompts.ja.json"]))
+def test_every_dash_line_also_bans_the_spaced_hyphen(path):
+    data = _load(path)
+    for keys in _SPACED_HYPHEN_KEYS:
+        text = data
+        for k in keys:
+            text = text[k]
+        assert any(t in text for t in _SPACED_HYPHEN_TOKENS), f"{path} {'/'.join(keys)}"
+        assert "—" not in text and "–" not in text
