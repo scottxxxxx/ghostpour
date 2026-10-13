@@ -263,3 +263,36 @@ def test_tiers_serves_the_pack_copy(client):
     assert r.status_code == 200
     ids = [u["id"] for u in r.json()["unlocks"]]
     assert ids == ["unlock_apple_cloud", "unlock_byok", "bundle", "complete"]
+
+
+# --- /v1/chat agrees with the preflight --------------------------------------------
+
+def _pc_send(client, headers, provider, session, model="external"):
+    return client.post("/v1/chat", headers=headers, json={
+        "provider": "anthropic", "model": "claude-haiku-4-5-20251001",
+        "system_prompt": "BASE", "user_content": "what did we decide?",
+        "metadata": {"prompt_mode": "ProjectChat", "selected_model": model,
+                     "selected_provider": provider, "session_id": session}})
+
+
+def test_chat_refuses_apple_cloud_without_the_pack(client, tmp_db_path):
+    _, h = _user(tmp_db_path)
+    r = _pc_send(client, h, "apple_cloud", "S9")
+    assert r.status_code == 402, r.text
+    assert r.json()["detail"] == {"code": "unlock_required", "unlock": "unlock_apple_cloud",
+                                  "switch_to_ssai": True}
+
+
+def test_chat_refuses_a_second_free_conversation(client, tmp_db_path):
+    import asyncio
+    import aiosqlite
+    from app.services.project_chat_policy import record_taste
+    uid, h = _user(tmp_db_path)
+
+    async def used():
+        async with aiosqlite.connect(tmp_db_path) as db:
+            await record_taste(db, uid, "S1")
+    asyncio.run(used())
+    r = _pc_send(client, h, "ssai", "S2", model="ssai")
+    assert r.status_code == 402, r.text
+    assert r.json()["detail"] == {"code": "quota_exhausted"}
