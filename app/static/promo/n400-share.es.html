@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>N-400 Helper</title>
+<!--
+  GP promo creative, render=html, app_id=n400, placement=n400_share (the
+  auditor's contract, 2026-10-13). N-400 Helper shows it INLINE on the Form
+  screen in a transparent web view sized to this page's height, so the body
+  is transparent, the page has no fixed height, and it fits 360pt wide.
+  One file per language; GP picks the file from the app's Accept-Language
+  through the campaign's content_locales, so there is no script at all.
+
+  Link convention: every link carries promo_cta_id (counted as a click). A
+  link that ALSO carries promo_action=share opens the iOS share sheet with
+  this URL after the client strips the promo_* params; any other link opens
+  outside the app. The share target is the website until the App Store
+  listing exists; change it here with a creative upload, no app release.
+  No dashes as punctuation in the copy (Scott's rule).
+-->
+<style>
+  :root { --accent: #1F4E8C; --accent-press: #183D6E; --text: #141A24; --muted: #5A6778; }
+  @media (prefers-color-scheme: dark) {
+    :root { --accent: #6FA3E8; --accent-press: #5A8FD4; --text: #ECF0F6; --muted: #9AA8BC; }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; background: transparent; }
+  body {
+    color: var(--text);
+    font: 16px/1.45 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding: 4px 0;
+  }
+  h1 { font-size: 17px; line-height: 1.3; font-weight: 600; margin: 0 0 6px; }
+  p { font-size: 15px; color: var(--muted); margin: 0 0 14px; }
+  a.cta {
+    display: block; width: 100%; text-align: center;
+    background: var(--accent); color: #fff;
+    font-size: 16px; font-weight: 600; text-decoration: none;
+    padding: 13px 16px; border-radius: 12px;
+  }
+  a.cta:active { background: var(--accent-press); }
+</style>
+</head>
+<body>
+  <h1>¿Conoce a alguien que se prepara para la ciudadanía?</h1>
+  <p>Envíele la app. Usted ya hizo la parte difícil; esa persona tampoco debería tener que adivinar dónde van sus respuestas.</p>
+  <a class="cta" href="https://n400helper.com/?promo_cta_id=share_n400&amp;promo_action=share" data-cta-id="share_n400">Compartir N-400 Helper</a>
+</body>
+</html>
