@@ -123,6 +123,29 @@ def test_the_es_middle_name_is_checked_once_unless_the_given_name_has_two_words(
     assert "with her given-name words exactly as she said them as provenance" in rule
 
 
+def test_the_c9_and_c26_gates_stop_only_on_their_stop_answer():
+    """The I-765 lead, 2026-10-12 (DECISIONS 2026-10-09, brief 2.1.1): c9 in
+    immigration court and c26 without an approved I-140 are hard stops the
+    client's trigger carries; the lane mints the gate, escalation null, says
+    the attorney line once and asks the note. An unsure gate never stops."""
+    sp = json.load(open("config/remote/i765/interviewer-turn.json"))["systemPrompt"]
+    i = sp.index("TWO CATEGORIES HAVE A GATE THAT CAN STOP THE INTERVIEW")
+    rule = sp[i:i + 2000]
+    for node, field in (("q_p2_c9_proceedings", "p2.c9_in_proceedings"),
+                        ("q_p2_c26_i140", "p2.c26_i140_approved"),
+                        ("q_p2_c9_proceedings_note", "p2.c9_proceedings_note"),
+                        ("q_p2_c26_i140_note", "p2.c26_i140_note")):
+        assert f"{node} " in rule and field in rule, node
+    assert "THE STOP ANSWER IS c9 yes OR c26 no" in rule
+    assert "mint the gate value with escalation null" in rule
+    assert "AN UNSURE GATE NEVER ENDS THE INTERVIEW" in rule
+    assert "mint the category and the gate in that same response" in rule
+    # bc85c3e, the lead's correction: a court date can be a hearing about
+    # something else, so it is never read as in-proceedings.
+    assert "A COURT DATE ALONE IS NOT A YES" in rule
+    assert '"c9, and I have a court date" mints c9 only and the gate is asked as written' in rule
+
+
 def test_the_config_has_the_n400_wire_shape_and_an_i765_brief():
     i765 = json.load(open("config/remote/i765/interviewer-turn.json"))
     n400 = json.load(open("config/remote/n400/interviewer-turn.json"))
@@ -131,7 +154,7 @@ def test_the_config_has_the_n400_wire_shape_and_an_i765_brief():
     assert i765["userPromptTemplate"] == n400["userPromptTemplate"], "the client fills one template"
     assert i765["maxTokens"] == n400["maxTokens"] and i765["thinking"] == n400["thinking"]
     assert i765["recommendedModel"] == n400["recommendedModel"]
-    assert i765["server_only"] is True and i765["version"] == 2
+    assert i765["server_only"] is True and i765["version"] == 3
     sp = i765["systemPrompt"]
     assert "Form I-765" in sp and "N-400" not in sp
     # The brief's rules the client depends on (gp-lane-brief-i765.md, 2026-10-09).
