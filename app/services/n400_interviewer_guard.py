@@ -221,8 +221,13 @@ def replace_settled_question(text: str, agenda: str | None, locale: str | None) 
         # The floor dropped (or set aside) a fact that settled the node, so it
         # is open again and its question is the right one to ask.
         return text, None
+    # A node this response filed ANY field of was just answered, even when an
+    # optional field (in_care_of) stays empty. Counting it open spoke its ask
+    # again: t_017, case bf7aed58 (2026-10-14), current address filed but for
+    # in_care_of, and she heard "what is your street address and city?" right
+    # after the read-back ("I already gave you both addresses").
     nxt = next(((n, ids, q) for n, ids, q in _agenda_lines(agenda)
-                if n != info.get("node_id") and not ids <= filled and q), None)
+                if n != info.get("node_id") and not ids & filled and q), None)
     if nxt is None:
         return text, None
     reply = turn.get("reply")
