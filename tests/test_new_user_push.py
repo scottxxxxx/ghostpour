@@ -28,16 +28,27 @@ def scheduled(monkeypatch):
     return calls
 
 
-def _apple(client, sub, anonymous_token=None):
+def _apple(client, sub, anonymous_token=None, distribution=None):
     body = {"identity_token": "mock"}
     if anonymous_token:
         body["anonymous_token"] = anonymous_token
+    headers = {**SS, **({"X-App-Distribution": distribution} if distribution else {})}
     with patch(VERIFY, return_value={"sub": sub, "email": f"{sub}@privaterelay.appleid.com"}):
-        return client.post("/auth/apple", json=body, headers=SS)
+        return client.post("/auth/apple", json=body, headers=headers)
 
 
-def _anon(client, install):
-    return client.post("/auth/anonymous", json={"install_id": install}, headers=SS)
+def _anon(client, install, distribution=None):
+    headers = {**SS, **({"X-App-Distribution": distribution} if distribution else {})}
+    return client.post("/auth/anonymous", json={"install_id": install}, headers=headers)
+
+
+def _excluded(db_path, user_id):
+    conn = sqlite3.connect(db_path)
+    try:
+        return conn.execute("SELECT exclude_from_stats FROM users WHERE id = ?",
+                            (user_id,)).fetchone()[0]
+    finally:
+        conn.close()
 
 
 def test_a_new_apple_account_pushes_once_and_a_returning_one_never(client, scheduled):
@@ -57,6 +68,33 @@ def test_converting_an_anonymous_account_to_apple_is_not_a_new_user(client, sche
     token = _anon(client, str(uuid.uuid4())).json()["access_token"]
     assert _apple(client, "apple-convert-1", anonymous_token=token).json()["merge"] == "converted"
     assert scheduled == [("anonymous", "shouldersurf")]
+
+
+# --- test builds (Scott 2026-10-14: alerts only for a new human user) ------------
+
+@pytest.mark.parametrize("distribution", ["sandbox", "xcode", " XCODE "])
+def test_a_test_build_signup_neither_pushes_nor_counts(client, scheduled, tmp_db_path, distribution):
+    apple = _apple(client, f"apple-test-{distribution.strip()}", distribution=distribution).json()
+    anon = _anon(client, str(uuid.uuid4()), distribution=distribution).json()
+    assert scheduled == []
+    assert _excluded(tmp_db_path, apple["user"]["id"]) == 1
+    assert _excluded(tmp_db_path, anon["user"]["id"]) == 1
+
+
+@pytest.mark.parametrize("distribution", ["production", None])
+def test_an_app_store_or_unmarked_signup_pushes_and_counts(client, scheduled, tmp_db_path, distribution):
+    # Absent is a real user: App Store 1.18 and 1.19 never send the header.
+    apple = _apple(client, f"apple-real-{distribution}", distribution=distribution).json()
+    anon = _anon(client, str(uuid.uuid4()), distribution=distribution).json()
+    assert scheduled == [("apple", "shouldersurf"), ("anonymous", "shouldersurf")]
+    assert _excluded(tmp_db_path, apple["user"]["id"]) == 0
+    assert _excluded(tmp_db_path, anon["user"]["id"]) == 0
+
+
+def test_is_test_build_reads_only_a_present_non_production_value():
+    assert [new_user_push.is_test_build(v) for v in
+            ("production", "Production", None, "", "  ", "sandbox", "xcode")] == \
+        [False, False, False, False, False, True, True]
 
 
 # --- counts and message -------------------------------------------------------------

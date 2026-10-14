@@ -156,17 +156,22 @@ async def apple_auth(
         await db.commit()
         merge = "converted"
     else:
+        from app.services import new_user_push
+        test_build = new_user_push.is_test_build(request.headers.get("X-App-Distribution"))
         user_id = str(uuid.uuid4())
         tier = "free"
+        # A TestFlight or Xcode install is ours, not a new person: born out
+        # of the stats and no push to Scott's phone (2026-10-14).
         await db.execute(
-            """INSERT INTO users (id, apple_sub, email, display_name, tier, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (user_id, apple_sub, email, display_name, tier, now, now),
+            """INSERT INTO users (id, apple_sub, email, display_name, tier, created_at, updated_at,
+                                  exclude_from_stats)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (user_id, apple_sub, email, display_name, tier, now, now, int(test_build)),
         )
         await db.commit()
-        from app.services import new_user_push
-        new_user_push.schedule(user_id, "apple", getattr(request.state, "app_id", None),
-                               request.app.state.settings)
+        if not test_build:
+            new_user_push.schedule(user_id, "apple", getattr(request.state, "app_id", None),
+                                   request.app.state.settings)
 
     resp = await _build_auth_response(
         db, jwt_service, user_id, tier, email,
@@ -264,17 +269,20 @@ async def anonymous_auth(
     if row is None:
         now = datetime.now(timezone.utc).isoformat()
         new_id = str(uuid.uuid4())
+        from app.services import new_user_push
+        test_build = new_user_push.is_test_build(request.headers.get("X-App-Distribution"))
         try:
             await db.execute(
-                """INSERT INTO users (id, apple_sub, email, display_name, tier, created_at, updated_at)
-                   VALUES (?, ?, NULL, NULL, 'free', ?, ?)""",
-                (new_id, sub, now, now))
+                """INSERT INTO users (id, apple_sub, email, display_name, tier, created_at, updated_at,
+                                      exclude_from_stats)
+                   VALUES (?, ?, NULL, NULL, 'free', ?, ?, ?)""",
+                (new_id, sub, now, now, int(test_build)))
             await db.commit()
             # N-400 installs are not pushed (2026-10-05): every install mints
             # one, so a push per mint is a push per download, or per scripted
-            # mint. They stay countable in users and usage_log.
-            if app_id not in NO_NEW_USER_PUSH_APPS:
-                from app.services import new_user_push
+            # mint. They stay countable in users and usage_log. TestFlight and
+            # Xcode installs are not pushed or counted (2026-10-14).
+            if app_id not in NO_NEW_USER_PUSH_APPS and not test_build:
                 new_user_push.schedule(new_id, "anonymous", app_id, request.app.state.settings)
         except sqlite3.IntegrityError:
             # A concurrent first call for the same install won the insert.
