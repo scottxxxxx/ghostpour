@@ -633,7 +633,7 @@
       "free_quota_per_month": 1,
       "cta_strings": {
         "quota_remaining": "Il vous reste {remaining} de vos {total} Chats de projet gratuits ce mois-ci. Passez à Plus pour un accès illimité.",
-        "quota_exhausted": "Vous avez utilisé vos {total} Chats de projet gratuits pour ce mois. Passez à Plus pour un accès illimité.",
+        "quota_exhausted": "Vous avez utilisé votre Chat de projet gratuit pour ce mois. Passez à Plus pour un accès illimité.",
         "unlimited": "Chat de projet par Shoulder Surf.",
         "login_required": "Connectez-vous pour utiliser le Chat de projet."
       },

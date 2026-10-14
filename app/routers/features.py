@@ -53,6 +53,19 @@ async def policy_inputs(db, user, selected_provider, session_id) -> dict:
     }
 
 
+def _fill_counts(text: str, extra: dict) -> str:
+    """Fill {total} and {remaining} before serving. SS shows cta.text exactly
+    as served and never re-templates, by contract (SS, 2026-10-14), so an
+    unfilled placeholder reaches the user verbatim. Plain replace, so any
+    other brace in the copy is left alone."""
+    from app.services.project_chat_policy import FREE_TASTE_PER_MONTH
+    text = text.replace("{total}", str(FREE_TASTE_PER_MONTH))
+    if extra:
+        remaining = max(0, FREE_TASTE_PER_MONTH - extra["taste_used"])
+        text = text.replace("{remaining}", str(remaining))
+    return text
+
+
 def _next_month_start() -> str:
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc)
@@ -127,7 +140,7 @@ async def project_chat_check(
         cta_strings = pc_config.get("cta_strings", {}) or {}
         response["cta"] = {
             "kind": result.cta_kind,
-            "text": cta_strings.get(result.cta_kind, ""),
+            "text": _fill_counts(cta_strings.get(result.cta_kind, ""), extra),
         }
         if result.cta_kind == "unlock_required":
             response["cta"]["unlock"] = result.unlock
