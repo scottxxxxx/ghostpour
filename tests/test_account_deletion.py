@@ -89,6 +89,14 @@ def _seed_ss_owned(db_path: str, user_id: str) -> None:
         "INSERT INTO report_jobs (meeting_id, user_id, status, error_json, "
         "started_at) VALUES (?,?,?,?,?)",
         (f"m-{user_id}", user_id, "failed", '{"code": "report_parse_error"}', _NOW))
+    conn.execute(
+        "INSERT INTO purchases (transaction_id, user_id, product_id, grants, status, "
+        "recorded_at) VALUES (?,?,?,?,?,?)",
+        (f"txn-{user_id}", user_id, "com.weirtech.shouldersurf.unlock.byok",
+         '["unlock_byok"]', "granted", _NOW))
+    conn.execute(
+        "INSERT INTO project_chat_taste (user_id, period, session_id, first_at) "
+        "VALUES (?,?,?,?)", (user_id, "2026-10", "s-1", _NOW))
     conn.commit()
     conn.close()
 

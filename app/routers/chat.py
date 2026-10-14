@@ -79,6 +79,7 @@ def _research_findings_block(text: str) -> str:
         "established."
     )
 
+from app.services import unlocks as unlocks_service
 from app.services import meeting_title as _meeting_title  # noqa: E402
 _title_modes = _meeting_title.TITLE_PROMPT_MODES
 
@@ -539,6 +540,27 @@ async def verify_receipt(
                 "verify-receipt: client claimed product %s but Apple signed %s "
                 "for user %s; using Apple's",
                 body.product_id, identity.product_id, user.id)
+
+    # One-time unlocks (Scott 2026-10-13) are per-user features, not tiers.
+    # They never reach the subscription code below, which writes the ONE
+    # subscription slot (users.original_transaction_id) and the allocation.
+    # A paid unlock is granted only on a transaction Apple signed for us: the
+    # client's word is never enough, whatever the subscription dial says.
+    _unlocks = unlocks_service
+    if _unlocks.is_unlock_product(_effective_product_id) or (
+            not identity.verified and _unlocks.is_unlock_product(body.product_id)):
+        if not (identity.verified and identity.product_id
+                and (identity.transaction_id or identity.original_transaction_id)):
+            raise HTTPException(status_code=400, detail={
+                "code": "signed_transaction_required",
+                "message": "An unlock needs the signed transaction (JWS)."})
+        res = await _unlocks.record(
+            db, user_id=user.id,
+            transaction_id=identity.transaction_id or identity.original_transaction_id,
+            original_transaction_id=identity.original_transaction_id,
+            product_id=identity.product_id, environment=identity.environment,
+            purchased_at=body.purchase_date, source="verify_receipt")
+        return res
 
     # Look up tier for this product
     new_tier_name = PRODUCT_TO_TIER.get(_effective_product_id)
@@ -1249,9 +1271,16 @@ async def usage_me(
         "summary_mode": tier.summary_mode if tier else "delta",
         "summary_interval_minutes": tier.summary_interval_minutes if tier else 10,
         "max_images_per_request": _img_cap,
-        "features": resolved_features(
-            request.app.state.remote_configs, user.effective_tier,
-            _app(request)),
+        # Tier features, then the per-user one-time unlocks (Scott
+        # 2026-10-13), which no tier matrix can express. SS's client reads
+        # features[name] == "enabled" (CloudZapAuthManager.swift:210).
+        "features": {
+            **resolved_features(
+                request.app.state.remote_configs, user.effective_tier,
+                _app(request)),
+            **(await unlocks_service.features_for(db, user.id)
+               if _app(request) in (None, "unknown", "shouldersurf") else {}),
+        },
     }
 
     if is_simulated:
@@ -1540,6 +1569,10 @@ async def list_tiers(request: Request):
     # re-shape: the client renders paywall.* verbatim.
     if display_config and "paywall" in display_config:
         response["paywall"] = display_config["paywall"]
+    # One-time unlock packs (Scott 2026-10-13): names, icons and bullets,
+    # localized. The price always comes from StoreKit.
+    if display_config and "unlocks" in display_config:
+        response["unlocks"] = display_config["unlocks"]
     # Plus recall window: fill `{recall_window_days}` from the dial so the
     # served copy and the enforced number can never disagree.
     from app.services.recall_window import render_recall_window_copy
@@ -1728,12 +1761,31 @@ async def _chat_impl(
 
         _pc_locale = _parse_accept_language(request.headers.get("Accept-Language"))
         _pc_config = _get_project_chat_config(request, _pc_locale)
+        # Same inputs as the preflight (features.policy_inputs), so a new
+        # build cannot be told one thing there and another here.
+        from app.routers.features import policy_inputs as _pc_inputs
+        _pc_provider = body.get_meta("selected_provider")
+        if _pc_provider not in ("ssai", "apple_cloud", "byok", "on_device"):
+            _pc_provider = None
+        _pc_session = body.get_meta("session_id")
+        _pc_extra = await _pc_inputs(db, user, _pc_provider, _pc_session)
         verdict = resolve_project_chat_verdict(
             is_logged_in=True,  # /v1/chat already requires JWT
             tier=user.effective_tier,
             gp_chat_flag=_pc_config.get("gp_chat_flag", "plus"),
             selected_model=body.get_meta("selected_model") or "ssai",
+            **_pc_extra,
         )
+        if verdict.verdict == "unlock_required":
+            raise HTTPException(status_code=402, detail={
+                "code": "unlock_required", "unlock": verdict.unlock,
+                "switch_to_ssai": verdict.switch_to_ssai})
+        if verdict.verdict == "quota_exhausted":
+            raise HTTPException(status_code=402, detail={"code": "quota_exhausted"})
+        if (verdict.verdict == "send_to_gp" and _pc_extra
+                and user.effective_tier == "free" and _pc_provider == "ssai"):
+            from app.services.project_chat_policy import record_taste
+            await record_taste(db, user.id, _pc_session)
 
         if verdict.verdict == "login_required":
             raise HTTPException(

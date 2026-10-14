@@ -30,6 +30,34 @@ router = APIRouter()
 
 class ProjectChatCheckRequest(BaseModel):
     selected_model: Literal["ssai", "external"]
+    # New builds (SS, 2026-10-13) name the actual provider and the
+    # conversation; old builds send neither and keep today's verdicts.
+    selected_provider: Literal["ssai", "apple_cloud", "byok", "on_device"] | None = None
+    session_id: str | None = None
+
+
+async def policy_inputs(db, user, selected_provider, session_id) -> dict:
+    """The per-user facts the new-build verdicts need, read once and shared by
+    the preflight and the /v1/chat re-check so the two cannot disagree."""
+    if user is None or selected_provider is None:
+        return {}
+    from app.services import unlocks
+    from app.services.project_chat_policy import taste_state
+    used, mine = await taste_state(db, user.id, session_id)
+    return {
+        "selected_provider": selected_provider,
+        "is_anonymous": (user.apple_sub or "").startswith("anonymous:"),
+        "owned_unlocks": await unlocks.owned(db, user.id),
+        "taste_used": used,
+        "taste_includes_this_session": mine,
+    }
+
+
+def _next_month_start() -> str:
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    y, m = (now.year + 1, 1) if now.month == 12 else (now.year, now.month + 1)
+    return datetime(y, m, 1, tzinfo=timezone.utc).isoformat()
 
 
 def _get_project_chat_config(request: Request, locale: str | None) -> dict:
@@ -81,11 +109,13 @@ async def project_chat_check(
     is_logged_in = user is not None
     tier = user.effective_tier if user else None
 
+    extra = await policy_inputs(db, user, body.selected_provider, body.session_id)
     result = resolve_project_chat_verdict(
         is_logged_in=is_logged_in,
         tier=tier,
         gp_chat_flag=gp_chat_flag,
         selected_model=body.selected_model,
+        **extra,
     )
 
     response: dict = {
@@ -98,6 +128,18 @@ async def project_chat_check(
         response["cta"] = {
             "kind": result.cta_kind,
             "text": cta_strings.get(result.cta_kind, ""),
+        }
+        if result.cta_kind == "unlock_required":
+            response["cta"]["unlock"] = result.unlock
+            response["cta"]["switch_to_ssai"] = result.switch_to_ssai
+
+    # The free taste's meter, new builds on SS AI only.
+    if extra and tier == "free" and body.selected_provider == "ssai" and not extra["is_anonymous"]:
+        from app.services.project_chat_policy import FREE_TASTE_PER_MONTH
+        response["quota"] = {
+            "used": extra["taste_used"], "limit": FREE_TASTE_PER_MONTH,
+            "this_conversation_counted": extra["taste_includes_this_session"],
+            "resets_at": _next_month_start(),
         }
 
     headers = {"X-Locale-Resolved": locale or "en"} if locale else {}

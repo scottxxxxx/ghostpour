@@ -1225,6 +1225,37 @@ MIGRATIONS = [
     # minute while recording), never one row per beat: a four-hour meeting
     # would otherwise add 240 rows to a table whose every KPI is COUNT(*).
     # duration_seconds is the phone's clock, the same one meeting_stop sends.
+    # One-time IAP unlocks (non-consumable), Scott 2026-10-13. Kept apart
+    # from users.original_transaction_id on purpose: that column is the ONE
+    # subscription slot, and an unlock's transaction written there would
+    # break renewal matching. One row per Apple transaction; `grants` is the
+    # JSON list of features this row turns on (for the "complete" pack, the
+    # pack it resolved to). status: granted | pending | refund_flagged.
+    """CREATE TABLE IF NOT EXISTS purchases (
+        transaction_id TEXT PRIMARY KEY NOT NULL,
+        original_transaction_id TEXT,
+        user_id TEXT NOT NULL,
+        product_id TEXT NOT NULL,
+        grants TEXT NOT NULL DEFAULT '[]',
+        status TEXT NOT NULL DEFAULT 'granted',
+        environment TEXT,
+        purchased_at TEXT,
+        recorded_at TEXT NOT NULL,
+        revoked_at TEXT,
+        revoke_reason TEXT,
+        source TEXT
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_purchases_user ON purchases(user_id)",
+    # The free monthly Project Chat taste (Scott 2026-10-13): one
+    # CONVERSATION a month on SS AI, counted as distinct metadata.session_id
+    # per UTC calendar month. New builds only; see project_chat_policy.
+    """CREATE TABLE IF NOT EXISTS project_chat_taste (
+        user_id TEXT NOT NULL,
+        period TEXT NOT NULL,
+        session_id TEXT NOT NULL,
+        first_at TEXT NOT NULL,
+        PRIMARY KEY (user_id, period, session_id)
+    )""",
     """CREATE TABLE IF NOT EXISTS meeting_heartbeats (
         meeting_id TEXT PRIMARY KEY,
         device_id TEXT NOT NULL,

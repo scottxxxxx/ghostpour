@@ -814,5 +814,60 @@
         "requires": "Requires iPhone 15 Pro or later with Apple Intelligence enabled."
       }
     }
-  }
+  },
+  "unlocks": [
+    {
+      "id": "unlock_apple_cloud",
+      "product_id": "com.weirtech.shouldersurf.unlock.applecloud",
+      "name": "Apple Cloud Pack",
+      "icon": "cloud",
+      "bullets": [
+        "Project Chat on Apple Cloud, no Shoulder Surf AI needed",
+        "Apple's Private Cloud Compute keeps your data private",
+        "One-time purchase, yours to keep"
+      ]
+    },
+    {
+      "id": "unlock_byok",
+      "product_id": "com.weirtech.shouldersurf.unlock.byok",
+      "name": "Your Own Key Pack",
+      "icon": "key",
+      "bullets": [
+        "Project Chat on your own API key",
+        "Use the model and provider you already pay for",
+        "One-time purchase, yours to keep"
+      ]
+    },
+    {
+      "id": "bundle",
+      "product_id": "com.weirtech.shouldersurf.unlock.bundle",
+      "name": "Both Packs",
+      "icon": "square.stack",
+      "bullets": [
+        "Apple Cloud and your own key, both unlocked",
+        "Costs less than buying them separately",
+        "One-time purchase, yours to keep"
+      ]
+    },
+    {
+      "id": "unlock_apple_cloud_upgrade",
+      "product_id": "com.weirtech.shouldersurf.unlock.applecloud.upgrade",
+      "name": "Add Apple Cloud",
+      "icon": "cloud",
+      "bullets": [
+        "Adds the Apple Cloud Pack to your own key pack",
+        "One-time purchase, yours to keep"
+      ]
+    },
+    {
+      "id": "unlock_byok_upgrade",
+      "product_id": "com.weirtech.shouldersurf.unlock.byok.upgrade",
+      "name": "Add Your Own Key",
+      "icon": "key",
+      "bullets": [
+        "Adds the Your Own Key Pack to your Apple Cloud pack",
+        "One-time purchase, yours to keep"
+      ]
+    }
+  ]
 }

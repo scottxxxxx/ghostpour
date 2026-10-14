@@ -1,0 +1,26 @@
+# One-time In-App Purchase unlocks (non-consumable), Scott 2026-10-13.
+# Spec: SS docs/MODEL_UNLOCKS_IAP.md. Product ids are PROPOSALS until they
+# exist in App Store Connect; change them here, nowhere else.
+#
+# grants: the per-user features a purchase turns on (served in
+# /v1/usage/me features as "enabled"). requires: an upgrade ($4.99) is
+# granted only to an account that owns the other pack (Scott, 2026-10-13,
+# replacing the single "complete" product).
+products:
+  com.weirtech.shouldersurf.unlock.applecloud:
+    app: shouldersurf
+    grants: [unlock_apple_cloud]
+  com.weirtech.shouldersurf.unlock.byok:
+    app: shouldersurf
+    grants: [unlock_byok]
+  com.weirtech.shouldersurf.unlock.bundle:
+    app: shouldersurf
+    grants: [unlock_apple_cloud, unlock_byok]
+  com.weirtech.shouldersurf.unlock.applecloud.upgrade:
+    app: shouldersurf
+    grants: [unlock_apple_cloud]
+    requires: unlock_byok
+  com.weirtech.shouldersurf.unlock.byok.upgrade:
+    app: shouldersurf
+    grants: [unlock_byok]
+    requires: unlock_apple_cloud

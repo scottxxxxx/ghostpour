@@ -814,5 +814,60 @@
         "requires": "iPhone 15 Pro 以降で Apple Intelligence を有効にする必要があります。"
       }
     }
-  }
+  },
+  "unlocks": [
+    {
+      "id": "unlock_apple_cloud",
+      "product_id": "com.weirtech.shouldersurf.unlock.applecloud",
+      "name": "Apple Cloudパック",
+      "icon": "cloud",
+      "bullets": [
+        "Apple Cloudでプロジェクトチャット。Shoulder Surf AIは不要",
+        "AppleのPrivate Cloud Computeがデータをプライベートに保ちます",
+        "買い切り。ずっと使えます"
+      ]
+    },
+    {
+      "id": "unlock_byok",
+      "product_id": "com.weirtech.shouldersurf.unlock.byok",
+      "name": "自分のキーパック",
+      "icon": "key",
+      "bullets": [
+        "自分のAPIキーでプロジェクトチャット",
+        "すでに契約しているモデルとプロバイダーを使えます",
+        "買い切り。ずっと使えます"
+      ]
+    },
+    {
+      "id": "bundle",
+      "product_id": "com.weirtech.shouldersurf.unlock.bundle",
+      "name": "両方のパック",
+      "icon": "square.stack",
+      "bullets": [
+        "Apple Cloudと自分のキーを両方解放",
+        "別々に買うよりお得",
+        "買い切り。ずっと使えます"
+      ]
+    },
+    {
+      "id": "unlock_apple_cloud_upgrade",
+      "product_id": "com.weirtech.shouldersurf.unlock.applecloud.upgrade",
+      "name": "Apple Cloudを追加",
+      "icon": "cloud",
+      "bullets": [
+        "自分のキーパックにApple Cloudパックを追加",
+        "買い切り。ずっと使えます"
+      ]
+    },
+    {
+      "id": "unlock_byok_upgrade",
+      "product_id": "com.weirtech.shouldersurf.unlock.byok.upgrade",
+      "name": "自分のキーを追加",
+      "icon": "key",
+      "bullets": [
+        "Apple Cloudパックに自分のキーパックを追加",
+        "買い切り。ずっと使えます"
+      ]
+    }
+  ]
 }
