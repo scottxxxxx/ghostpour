@@ -717,6 +717,23 @@ VERSIONS = {
             'asked "anything before that?" at `p7.has_job3`',
         ],
     },
+    60: {
+        # Case bf7aed58, t_017, 2026-10-14. The response filed
+        # p4.has_prior_address1 = yes (she named a prior address) and its reply
+        # asked "did you live anywhere else before Tamarack Road?", the NEXT
+        # gate, but `asking` named q_p4_prior_gate1, the gate its own facts had
+        # just answered. GP drops an asking whose node this response filled.
+        # The rule widens the asking paragraph in MOVING THE INTERVIEW in place.
+        "block_anchor": "MOVING THE INTERVIEW\n",
+        "once": "`ASKING` NAMES THE NODE OF YOUR REPLY'S LAST QUESTION, NEVER ONE YOUR OWN FACTS JUST ANSWERED",
+        "phrases": [
+            "decide the last question your reply will ask and name the agenda node whose question that is",
+            '"Did you live anywhere else before Tamarack Road?", that is the NEXT gate, so `asking` is '
+            '{"node_id": "q_p4_prior_gate2", "field_ids": ["p4.has_prior_address2"]}, never q_p4_prior_gate1',
+            "The same holds for the next job, trip, child or marriage: the gate or row your reply asks about is the node `asking` names.",
+        ],
+        "absent": [],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -790,6 +807,9 @@ VERSIONS[58]["absent"] = VERSIONS[57]["absent"] + VERSIONS[58]["absent"]
 # v59 carries every v58 phrase, and v58's once line as a phrase.
 VERSIONS[59]["phrases"] = VERSIONS[58]["phrases"] + [VERSIONS[58]["once"]] + VERSIONS[59]["phrases"]
 VERSIONS[59]["absent"] = VERSIONS[58]["absent"] + VERSIONS[59]["absent"]
+# v60 carries every v59 phrase, and v59's once line as a phrase.
+VERSIONS[60]["phrases"] = VERSIONS[59]["phrases"] + [VERSIONS[59]["once"]] + VERSIONS[60]["phrases"]
+VERSIONS[60]["absent"] = VERSIONS[59]["absent"] + VERSIONS[60]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]
