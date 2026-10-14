@@ -327,3 +327,36 @@ def test_the_anthropic_note_names_the_current_models():
         note = next(p for p in d["providers"] if p["id"] == "anthropic")["notes"]
         assert "Fable 5.1" in note and "Opus 5.5" in note and "Haiku 4.5" in note, suf
         assert "Opus 4.7 and Sonnet 4.6" not in note and "—" not in note and "–" not in note
+
+
+def test_quota_exhausted_copy_is_served_filled(client, tmp_db_path):
+    """SS shows cta.text verbatim and never re-templates (SS, 2026-10-14):
+    prod served a literal {total} until this. Scott picked the copy."""
+    from app.services.project_chat_policy import record_taste
+    import asyncio
+    import aiosqlite
+    uid, h = _user(tmp_db_path)
+
+    async def count(session):
+        async with aiosqlite.connect(tmp_db_path) as db:
+            await record_taste(db, uid, session)
+    asyncio.run(count("S1"))
+    text = _check(client, h, "ssai", "S2", model="ssai")["cta"]["text"]
+    assert text == "You've used your free Project Chat for this month. Upgrade to Plus for unlimited."
+
+
+def test_counts_are_filled_wherever_the_copy_carries_them():
+    from app.routers.features import _fill_counts
+    assert _fill_counts("{remaining} of {total} left", {"taste_used": 0}) == "1 of 1 left"
+    assert _fill_counts("{remaining} of {total} left", {"taste_used": 3}) == "0 of 1 left"
+    assert _fill_counts("used your {total}", {}) == "used your 1"
+
+
+def test_no_served_project_chat_copy_keeps_an_unknown_placeholder():
+    import json, re
+    from pathlib import Path
+    for f in sorted(Path("config/remote").glob("tiers*.json")):
+        cta = json.loads(f.read_text())["feature_definitions"]["project_chat"]["cta_strings"]
+        for kind, text in cta.items():
+            left = set(re.findall(r"\{[^}]*\}", text)) - {"{total}", "{remaining}"}
+            assert not left, (f.name, kind, left)
