@@ -59,6 +59,20 @@ async def counts(db: aiosqlite.Connection) -> dict:
     return {"total": total, "new_today": new_today, "active_today": active_today}
 
 
+def is_test_build(distribution: str | None) -> bool:
+    """True when the app says it is not an App Store install (Scott,
+    2026-10-14: "I only want to get those alerts when we have a new human
+    user"). The value is the client's `X-App-Distribution` header, resolved
+    from Apple-signed AppTransaction.environment: "production" (App Store),
+    "sandbox" (TestFlight), "xcode" (debug builds and every simulator).
+
+    ABSENT means a real user, not a test: App Store 1.18 and 1.19 never send
+    it on auth, so reading absent as test would silence every real signup
+    until the next release. Any other present value is a test build."""
+    value = (distribution or "").strip().lower()
+    return bool(value) and value != "production"
+
+
 def message(kind: str, app_id: str | None, c: dict) -> str:
     who = "Signed in with Apple" if kind == "apple" else "No sign-in (purchase account)"
     app = _APP_NAMES.get(app_id or "", app_id or "an unknown app")
