@@ -1,5 +1,5 @@
 {
- "version": 26,
+ "version": 27,
  "defaultPromptReserveTokens": 8000,
  "providers": [
   {
@@ -94,7 +94,7 @@
      "reasoningLevels": null,
      "maxOutputTokens": 4096,
      "temperatureDefault": 0.7,
-     "maxImagesPerRequest": 5,
+     "maxImagesPerRequest": 1,
      "streamingSupported": false,
      "toolUseSupported": false,
      "cacheControlSupported": false,
