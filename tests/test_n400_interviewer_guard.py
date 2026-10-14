@@ -1408,3 +1408,57 @@ def test_a_bare_no_citation_is_kept_when_her_line_is_not_pushback(said):
     text = _two_facts("No")
     out, dropped = drop_no_that_pushed_back(text, said)
     assert dropped == [] and out == text, said
+
+
+# --- v59: a question about a row already filed (the auditor, 2026-10-14) -----
+#
+# Boundary-date run on v58: both addresses typed, street and city read back,
+# then the next turn asked "what is your current street address and city?"
+# with asking on q_p4_current_address, off the agenda because the row was
+# filed (client: asking_refused:not_in_agenda). The asking was already
+# dropped; the spoken question was not.
+
+_ROW_IDS = ["p4.current_address.street", "p4.current_address.city"]
+_ROW_KNOWN = ("p4.current_address.street: 123 Main Street\n"
+              "p4.current_address.city: Austin\n")
+_ROW_AGENDA = ("q_p4_prior_address1_dates | Part 4: Where you have lived | p4.prior_address1.from, p4.prior_address1.to"
+               " | When did you live at 45 Oak Avenue?\n"
+               "q_p5_marital | Part 5: Your marital history | p5.marital_status | What is your current marital status?\n")
+
+
+def _row_turn(ids=_ROW_IDS, reply="Thanks. What is your current street address and city?", **extra):
+    t = {"facts": [], "deferred": [], "clarification": None, "conflict": None,
+         "asking": {"node_id": "q_p4_current_address", "field_ids": list(ids)},
+         "reply": {"en": reply}}
+    t.update(extra)
+    return json.dumps(t)
+
+
+def test_a_question_about_a_filed_row_off_the_agenda_becomes_the_next_line():
+    out = json.loads(guard_response_text(_row_turn(), _ROW_AGENDA, "t", known_facts=_ROW_KNOWN))
+    assert out["reply"]["en"] == "Thanks. When did you live at 45 Oak Avenue?"
+    assert out["asking"] == {"node_id": "q_p4_prior_address1_dates",
+                             "field_ids": ["p4.prior_address1.from", "p4.prior_address1.to"]}
+    assert out["asking_dropped"]["question_replaced_with"] == "q_p4_prior_address1_dates"
+
+
+@pytest.mark.parametrize("why,text,known", [
+    # The sweep asks an open deferral off the agenda: a deferral is not filed.
+    ("deferred, not filed", _row_turn(),
+     "p4.current_address.street: 123 Main Street\np4.current_address.city: deferred, to verify\n"),
+    # A clarification is a question the prompt allows off the agenda.
+    ("clarification", _row_turn(clarification={"field_id": "p4.current_address.city", "question": {"en": "Austin?"}}),
+     _ROW_KNOWN),
+    # She is correcting the row in this response.
+    ("correction in progress", _row_turn(facts=[{"field_id": "p4.current_address.street", "value": "125 Main Street"}]),
+     _ROW_KNOWN),
+    # The model named no ids, so nothing says the row is the filed one.
+    ("no ids named", _row_turn(ids=[]), _ROW_KNOWN),
+    # The reply does not end on a question, so nothing is being re-asked.
+    ("no trailing question", _row_turn(reply="Thanks, 123 Main Street, Austin."), _ROW_KNOWN),
+])
+def test_a_filed_row_question_is_left_alone_outside_the_narrow_case(why, text, known):
+    out = json.loads(guard_response_text(text, _ROW_AGENDA, "t", known_facts=known))
+    assert out["reply"]["en"] == json.loads(text)["reply"]["en"], why
+    assert out["asking"] is None, why
+    assert "question_replaced_with" not in out["asking_dropped"], why

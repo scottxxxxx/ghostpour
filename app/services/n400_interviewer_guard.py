@@ -162,6 +162,12 @@ def drop_stale_asking(text: str, agenda: str | None) -> tuple[str, dict | None]:
         # falls back to its own cursor on a node off the agenda; making the
         # drop visible is what lets the audit count it.
         info = {"node_id": node_id, "field_ids": [], "reason": OFF_AGENDA_REASON}
+        # Kept for replace_question_about_filed_row: the ids the model said it
+        # was asking, and whether the reply still ends on that question.
+        asked = asking.get("field_ids")
+        if isinstance(asked, list):
+            info["asked_field_ids"] = [f for f in asked if isinstance(f, str) and f]
+        info["question_still_spoken"] = _reply_ends_on_question(turn.get("reply"))
         turn["asking"] = None
         turn["asking_dropped"] = info
         return json.dumps(turn, ensure_ascii=False), info
@@ -225,20 +231,80 @@ def replace_settled_question(text: str, agenda: str | None, locale: str | None) 
                 if n != info.get("node_id") and not ids <= filled and q), None)
     if nxt is None:
         return text, None
+    if not _swap_trailing_question(turn, nxt, locale):
+        return text, None
+    info["question_replaced_with"] = nxt[0]
+    return json.dumps(turn, ensure_ascii=False), {"node_id": nxt[0], "replaced_node": info.get("node_id")}
+
+
+def _swap_trailing_question(turn: dict, nxt: tuple[str, set[str], str], locale: str | None) -> bool:
+    """Replace the reply's trailing question (interview locale only) with the
+    agenda line `nxt`'s own question and point asking at it. False, and the
+    turn untouched, when there is no trailing question to replace."""
     reply = turn.get("reply")
     key = locale if isinstance(reply, dict) and locale in reply else (
         next(iter(reply), None) if isinstance(reply, dict) and len(reply) == 1 else None)
     spoken = reply.get(key) if isinstance(reply, dict) and key else (reply if isinstance(reply, str) else None)
     m = _TRAILING_QUESTION.match(spoken or "")
     if not m or not m.group("q").strip():
-        return text, None
+        return False
     new = (m.group("head") + nxt[2]).strip()
     if isinstance(reply, dict):
         reply[key] = new
     else:
         turn["reply"] = new
     turn["asking"] = {"node_id": nxt[0], "field_ids": sorted(nxt[1])}
+    return True
+
+
+# --- a question about a row already filed (v59, 2026-10-14) -----------------
+#
+# The auditor's boundary-date run on v58: she typed both addresses, the lane
+# read the street and city back, and the NEXT turn asked "what is your current
+# street address and city?" with `asking` on q_p4_current_address, a node the
+# agenda no longer listed because the row was filed (the client logged
+# asking_refused:not_in_agenda). drop_stale_asking already nulls that asking,
+# but the spoken question survived, so she heard the row asked again. This
+# swaps it for the next agenda line's question, the same move
+# replace_settled_question makes for a node settled in the same response.
+#
+# Narrow on purpose. It fires only when every field id the model said it was
+# asking is FILED in KNOWN FACTS (a deferral is not filed, so the sweep, which
+# asks open deferrals off the agenda, never trips it), the response neither
+# files nor defers any of those ids (a correction in progress), and it carries
+# no clarification or conflict (questions the prompt allows off the agenda).
+FILED_ROW_REASON = "asking named a row KNOWN FACTS holds filed, off the agenda"
+
+
+def replace_question_about_filed_row(text: str, agenda: str | None, locale: str | None,
+                                     known_facts: str | None) -> tuple[str, dict | None]:
+    """When asking was dropped as off the agenda, every id it named is filed,
+    and the reply still ends on that question, speak the next agenda line's
+    question instead."""
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, None
+    info = turn.get("asking_dropped") if isinstance(turn, dict) else None
+    if not isinstance(info, dict) or info.get("reason") != OFF_AGENDA_REASON:
+        return text, None
+    if not info.get("question_still_spoken"):
+        return text, None
+    asked = set(info.get("asked_field_ids") or [])
+    if not asked or not asked <= set(_filed_values(known_facts)):
+        return text, None
+    if turn.get("clarification") or turn.get("conflict"):
+        return text, None
+    touched = {e.get("field_id") for key in ("facts", "deferred")
+               for e in (turn.get(key) or []) if isinstance(e, dict)}
+    if asked & touched:
+        return text, None
+    nxt = next(((n, ids, q) for n, ids, q in _agenda_lines(agenda)
+                if not ids <= touched and q), None)
+    if nxt is None or not _swap_trailing_question(turn, nxt, locale):
+        return text, None
     info["question_replaced_with"] = nxt[0]
+    info["filed_row"] = FILED_ROW_REASON
     return json.dumps(turn, ensure_ascii=False), {"node_id": nxt[0], "replaced_node": info.get("node_id")}
 
 
@@ -931,6 +997,10 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
     if replaced is not None:
         logger.warning("n400_settled_question_replaced turn_id=%s replaced=%s with=%s",
                        turn_id, replaced["replaced_node"], replaced["node_id"])
+    new_text, refiled = replace_question_about_filed_row(new_text, agenda, locale, known_facts)
+    if refiled is not None:
+        logger.warning("n400_filed_row_question_replaced turn_id=%s replaced=%s with=%s",
+                       turn_id, refiled["replaced_node"], refiled["node_id"])
     # Ahead of the origin marker and the fact/deferral drop, so a stray
     # deferral of a filed value never reaches either.
     new_text, stray = drop_deferrals_of_filed_values(new_text, known_facts, agenda, user_content)
