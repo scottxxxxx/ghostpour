@@ -695,6 +695,28 @@ VERSIONS = {
             "say the window is covered and move on",
         ],
     },
+    59: {
+        # The auditor's boundary-date runs, 2026-10-14, on served v58. Three
+        # defects: the address row re-asked right after its read-back (the
+        # client logged asking_refused:not_in_agenda on q_p4_current_address),
+        # "Since she's single..." said TO the applicant (the instructions call
+        # her "she" ~300 times and never said that word is not for speaking),
+        # and the job gate asked as a bare "before that" (the prompt's own
+        # p7.has_job3 example taught it).
+        "block_anchor": "You are conducting a spoken intake interview",
+        "once": "YOU SPEAK TO THE APPLICANT, NEVER ABOUT THEM",
+        "phrases": [
+            'addresses the applicant in the second person only: "you" in English, "usted" in Spanish, "você" in Portuguese',
+            'never "she", "he" or "they" about them',
+            "A ROW YOU HAVE READ BACK OR FILED IS NEVER ASKED AGAIN",
+            "its node has left the AGENDA, so the next question is the next AGENDA line",
+            'for work that is the earliest employer by the name KNOWN FACTS holds ("What did you do before Alamo Builders?")',
+            "BY ITS EMPLOYER'S NAME as KNOWN FACTS holds it, never before one in the middle",
+        ],
+        "absent": [
+            'asked "anything before that?" at `p7.has_job3`',
+        ],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -765,6 +787,9 @@ VERSIONS[57]["absent"] = VERSIONS[56]["absent"] + VERSIONS[57]["absent"]
 VERSIONS[58]["phrases"] = [p for p in VERSIONS[57]["phrases"] if p not in VERSIONS[58]["absent"]] \
     + [VERSIONS[57]["once"]] + VERSIONS[58]["phrases"]
 VERSIONS[58]["absent"] = VERSIONS[57]["absent"] + VERSIONS[58]["absent"]
+# v59 carries every v58 phrase, and v58's once line as a phrase.
+VERSIONS[59]["phrases"] = VERSIONS[58]["phrases"] + [VERSIONS[58]["once"]] + VERSIONS[59]["phrases"]
+VERSIONS[59]["absent"] = VERSIONS[58]["absent"] + VERSIONS[59]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]

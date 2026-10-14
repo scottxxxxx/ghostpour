@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 58
+served_version: 59
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-10-13 (v58)
+reconciled: 2026-10-14 (v59)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1966,3 +1966,15 @@ PROMPT: coverage is the app's call; never say or imply a history covers the requ
 
 
 Tested with NO API tokens: two blind Claude subagents, one per prompt (v57, v58), on one rendered turn with today 2026-10-13, the current address from 2023-03-01 on file, and her line giving the prior address 2021-11-01 to 2023-03-01. Neither filed has_prior_address2 and both asked "Before 45 Oak Avenue, did you live anywhere else?". v57's reader did NOT reproduce the live defect: it did the window math itself and got it right (November 2021 is short of 2021-10-13). The live model got the same math wrong, which is the point of v58: v58's reader did no date math at all and cited the rule that only her words close the list. A simulation, not the served model.
+
+## v59: second person only, a read-back row is never asked again, the job gate names the employer
+
+The auditor's boundary-date runs, 2026-10-14, on served v58. Three defects, asked for by the auditor under the N-400 standing order.
+
+1. The address re-ask, RETRACTED as a lane bug the same day. The auditor reported that the lane read both addresses back and then asked for the street and city again, from a client log line `ASKING[asking_refused:not_in_agenda]` on q_p4_current_address. GP's usage_log raw_response for that turn (t_017, 2026-10-14 04:46:20 UTC, request 86fc69cb8893) shows no such re-ask: it filed both addresses and asked q_p4_prior_gate1. The auditor then re-read the client log: the client dropped that asking itself (every field filled in the same response), fell back to q_p4_current_address on its own, and refused it. A client defect, chased in the app. PROMPT: the widened sentence ships anyway because it costs nothing: A ROW YOU HAVE READ BACK OR FILED IS NEVER ASKED AGAIN, not even to confirm it; its node has left the AGENDA, so the next question is the next AGENDA line. Its example no longer claims the defect happened. CODE: a guard swapping the question when the asking named only filed fields was drafted and REMOVED before merge; no turn in the record does that, so it would have changed nothing.
+
+2. Third person. The lane said "Since she's single..." to the applicant. The source is ours: the system prompt calls the applicant "she" or "her" about 300 times (and "they" elsewhere) and never said those words are not for speaking. Nothing in GP's masking or assembly adds a pronoun (the phone masks; GP only counts leaks in n400_pii_leak.py), and form-knowledge.json is not assembled into this lane. Rewriting 300 pronouns would touch dozens of pinned phrases, so the opening paragraph now says the "she" is only how the instructions are written, and every word spoken addresses the applicant in the second person: "you", "usted", "você", never she, he or they about them. Portuguese had no address forms in the prompt before this line.
+
+3. The job gate. v58 named the earliest row for addresses ("Before 123 Main Street, where did you live?") only, and the prompt's own `p7.has_job3` example taught the bare "anything before that?". The v58 sentence now names the earliest employer by the name KNOWN FACTS holds ("What did you do before Alamo Builders?"), the EARLIEST-job sentence says BY ITS EMPLOYER'S NAME (an idle stretch is named by what it was), and the example now asks "What did you do before DoorDash?". A masked stand-in name is said as written; the client restores it.
+
+Not tested against any model: no probes, no blind readers. The phrase list is sabotage-proved in tests only.
