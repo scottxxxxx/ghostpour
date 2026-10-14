@@ -92,7 +92,8 @@ def test_anthropic_effort_path_models():
     """Opus 4.7, Opus 4.6, Sonnet 4.6, Mythos use `thinking: {type: adaptive}`
     + `output_config: {effort: <value>}`. Pass-through."""
     for model in ("claude-opus-4-7", "claude-opus-4-6", "claude-sonnet-4-6",
-                  "claude-mythos-preview", "claude-opus-4-8", "claude-opus-5"):
+                  "claude-mythos-preview", "claude-opus-4-8", "claude-opus-5",
+                  "claude-haiku-5-5"):
         assert anthropic_uses_effort_path(model)
         for v in ("low", "medium", "high", "xhigh", "max"):
             assert anthropic_thinking_block(v, model) == {"type": "adaptive"}
@@ -116,11 +117,12 @@ def test_every_routable_anthropic_model_can_be_steered():
         for e in cfg["providers"]["anthropic"]["models"]
     ]
     assert callable_models, "provider catalog is empty; the guard is inert"
-    # Fable and Haiku are the documented exceptions: Fable's thinking is
-    # always on and an explicit adaptive block is a 400 there, Haiku is
-    # legacy budget_tokens and its picker is hidden.
+    # Fable and Haiku 4.5 are the documented exceptions: Fable's thinking
+    # is always on and an explicit adaptive block is a 400 there, Haiku 4.5
+    # is legacy budget_tokens. The skip named every Haiku until 2026-10-14,
+    # which hid Haiku 5.5 (an effort model) from this very check.
     for m in callable_models:
-        if "fable" in m or "mythos" in m or "haiku" in m:
+        if "fable" in m or "mythos" in m or "claude-haiku-4" in m:
             continue
         assert anthropic_uses_effort_path(m), (
             f"{m} is routable but drops a picked reasoning level")

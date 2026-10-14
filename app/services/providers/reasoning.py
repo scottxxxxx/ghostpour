@@ -80,6 +80,10 @@ def anthropic_uses_effort_path(model: str) -> bool:
         # that default: 488s and $1.13 for one workbook.
         "claude-opus-4-8",
         "claude-opus-5",
+        # Haiku 5.5 takes effort low..max with adaptive thinking, every
+        # level proved live 2026-10-14 (#1107). Unlike Haiku 4.5, it is
+        # on this path.
+        "claude-haiku-5",
     )
     if any(prefix in m for prefix in explicit_effort_models):
         return True
@@ -131,6 +135,8 @@ def anthropic_accepts_temperature(model: str) -> bool:
         "claude-opus-5",
         "claude-sonnet-5",
         "claude-fable-5",
+        # 2026-10-14, live: `temperature` 0.3 is a 400 on Haiku 5.5 (#1107).
+        "claude-haiku-5",
     )
     return not any(prefix in m for prefix in deprecated)
 
