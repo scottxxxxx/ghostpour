@@ -67,6 +67,7 @@ def test_adaptive_thinking_still_suppresses_temperature():
 def test_disabled_only_where_omitting_would_leave_thinking_on():
     assert anthropic_accepts_disabled_thinking("claude-sonnet-5")
     assert anthropic_accepts_disabled_thinking("claude-opus-5")
+    assert anthropic_accepts_disabled_thinking("claude-haiku-5-5")
     # Omission already means no thinking on these, so we omit instead.
     assert not anthropic_accepts_disabled_thinking("claude-sonnet-4-6")
     assert not anthropic_accepts_disabled_thinking("claude-haiku-4-5-20251001")
@@ -132,3 +133,11 @@ def test_chat_request_carries_the_field():
                 system_prompt="S", user_content="U")
     assert ChatRequest(**base, thinking="disabled").thinking == "disabled"
     assert ChatRequest(**base).thinking is None
+
+
+def test_disabled_thinking_clamps_the_top_two_efforts_on_haiku_5_5():
+    """Haiku 5.5 takes `disabled` only at `high` or below, like Opus 5."""
+    from app.services.providers.reasoning import anthropic_output_config
+    for v in ("xhigh", "max"):
+        assert anthropic_output_config(v, "claude-haiku-5-5", thinking_disabled=True) == {"effort": "high"}
+        assert anthropic_output_config(v, "claude-haiku-5-5") == {"effort": v}

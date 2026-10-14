@@ -1,5 +1,5 @@
 {
- "version": 27,
+ "version": 28,
  "defaultPromptReserveTokens": 8000,
  "providers": [
   {
@@ -790,6 +790,46 @@
      "localizations": {
       "fr": {
        "description": "Le meilleur équilibre entre vitesse et intelligence ; réflexion étendue, contexte de 1M, très bon en usage d'ordinateur."
+      }
+     }
+    },
+    {
+     "id": "claude-haiku-5-5",
+     "displayName": "Claude Haiku 5.5",
+     "description": "Le tout dernier Haiku d'Anthropic ; rapide et très économique, avec réflexion adaptative. Contexte de 1M.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 0.1,
+     "outputCostPerMillion": 0.5,
+     "litellmKey": "claude-haiku-5-5",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "maxOutputTokens": 128000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": true,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "es": {
+       "description": "El Haiku más reciente de Anthropic; rápido y muy económico, con razonamiento adaptativo. Contexto de 1M."
+      },
+      "fr": {
+       "description": "Le tout dernier Haiku d'Anthropic ; rapide et très économique, avec réflexion adaptative. Contexte de 1M."
+      },
+      "ja": {
+       "description": "Anthropicの最新Haiku。高速で非常に経済的、適応型思考に対応。コンテキスト1M。"
       }
      }
     },

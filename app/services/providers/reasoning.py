@@ -80,6 +80,10 @@ def anthropic_uses_effort_path(model: str) -> bool:
         # that default: 488s and $1.13 for one workbook.
         "claude-opus-4-8",
         "claude-opus-5",
+        # Haiku 5.5 takes effort low..max with adaptive thinking, every
+        # level proved live 2026-10-14 (#1107). Unlike Haiku 4.5, it is
+        # on this path.
+        "claude-haiku-5",
     )
     if any(prefix in m for prefix in explicit_effort_models):
         return True
@@ -103,7 +107,9 @@ def anthropic_accepts_disabled_thinking(model: str) -> bool:
     m = model.lower()
     if "fable" in m or "mythos" in m:
         return False
-    return "claude-sonnet-5" in m or "claude-opus-5" in m
+    # Haiku 5.5 thinks by default too (Claude API reference, 2026-10-06
+    # cache), so a short-output lane has to say disabled there as well.
+    return "claude-sonnet-5" in m or "claude-opus-5" in m or "claude-haiku-5" in m
 
 
 def anthropic_accepts_temperature(model: str) -> bool:
@@ -131,6 +137,8 @@ def anthropic_accepts_temperature(model: str) -> bool:
         "claude-opus-5",
         "claude-sonnet-5",
         "claude-fable-5",
+        # 2026-10-14, live: `temperature` 0.3 is a 400 on Haiku 5.5 (#1107).
+        "claude-haiku-5",
     )
     return not any(prefix in m for prefix in deprecated)
 
@@ -168,7 +176,8 @@ def anthropic_thinking_block(
 # are reachable independently here (a lane declares itself thinking-free
 # in config; the level comes from the picker), so the combination has to
 # be resolved on our side rather than discovered as a failed turn.
-_DISABLED_THINKING_EFFORT_CAP = ("claude-opus-5",)
+# Haiku 5.5 has the same rule (disabled only at `high` or below).
+_DISABLED_THINKING_EFFORT_CAP = ("claude-opus-5", "claude-haiku-5")
 _CAPPED_EFFORTS = ("xhigh", "max")
 
 

@@ -62,6 +62,9 @@ ANTHROPIC_ADAPTIVE_THINKING_MODELS = {
     "claude-sonnet-4-6",
     "anthropic/claude-opus-4.7",
     "anthropic/claude-sonnet-4.6",
+    # Haiku 5.5 (2026-10-14): `temperature` is a live 400 ("deprecated for
+    # this model"), so a non-null default would be a broken slider.
+    "claude-haiku-5-5",
 }
 
 
@@ -381,6 +384,9 @@ _LEVELS_REJECTED_LIVE = {
     "gemini-3.8-flash": "minimal",  # 400: Thinking level MINIMAL is not supported
     "gemini-3.7-flash": "minimal",
     "grok-4.7": "none",           # 400: does not support reasoning_effort value none
+    # 2026-10-14: 400 "output_config.effort: Input should be 'low', 'medium',
+    # 'high', 'xhigh' or 'max'"; every one of those five answered live.
+    "claude-haiku-5-5": "minimal",
 }
 # Moonshot returns 404 for these; kimi-k2.5 was Kimi's DEFAULT.
 _MODELS_GONE_LIVE = {"kimi-k2.5", "kimi-k2-0905-preview"}
