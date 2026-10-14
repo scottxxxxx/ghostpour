@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 59
+served_version: 60
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-10-14 (v59)
+reconciled: 2026-10-14 (v60)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1976,5 +1976,13 @@ The auditor's boundary-date runs, 2026-10-14, on served v58. Three defects, aske
 2. Third person. The lane said "Since she's single..." to the applicant. The source is ours: the system prompt calls the applicant "she" or "her" about 300 times (and "they" elsewhere) and never said those words are not for speaking. Nothing in GP's masking or assembly adds a pronoun (the phone masks; GP only counts leaks in n400_pii_leak.py), and form-knowledge.json is not assembled into this lane. Rewriting 300 pronouns would touch dozens of pinned phrases, so the opening paragraph now says the "she" is only how the instructions are written, and every word spoken addresses the applicant in the second person: "you", "usted", "você", never she, he or they about them. Portuguese had no address forms in the prompt before this line.
 
 3. The job gate. v58 named the earliest row for addresses ("Before 123 Main Street, where did you live?") only, and the prompt's own `p7.has_job3` example taught the bare "anything before that?". The v58 sentence now names the earliest employer by the name KNOWN FACTS holds ("What did you do before Alamo Builders?"), the EARLIEST-job sentence says BY ITS EMPLOYER'S NAME (an idle stretch is named by what it was), and the example now asks "What did you do before DoorDash?". A masked stand-in name is said as written; the client restores it.
+
+Not tested against any model: no probes, no blind readers. The phrase list is sabotage-proved in tests only.
+
+## v60: `asking` names the reply's last question, never a gate this response just answered
+
+Case bf7aed58, t_017, 2026-10-14 (request 86fc69cb8893), asked for by the auditor under the N-400 standing order. The response filed both addresses and `p4.has_prior_address1` = yes (she named a prior address), and its reply ended on the mailing question and "did you live anywhere else before Tamarack Road?", which is the NEXT gate (q_p4_prior_gate2, `p4.has_prior_address2`). Its `asking` named q_p4_prior_gate1, the gate its own facts had just answered. GP's guard drops an asking whose node this response filled (`drop_stale_asking`), and `replace_settled_question` then swapped the spoken question for q_p4_current_address's ask, which is what she heard ("I already gave you both addresses"). That swap is #1111's fix (code, open as of this PR); this version is the prompt half, so the model names the right node and the guard has nothing to drop.
+
+PROMPT: the asking paragraph in MOVING THE INTERVIEW already said "never a node any fact in this response fills". It now continues, in place: `ASKING` NAMES THE NODE OF YOUR REPLY'S LAST QUESTION, NEVER ONE YOUR OWN FACTS JUST ANSWERED, decide the last question the reply will ask and name the agenda node whose question that is, with t_017 as the worked example (`asking` is {"node_id": "q_p4_prior_gate2", "field_ids": ["p4.has_prior_address2"]}, never q_p4_prior_gate1), and the same for the next job, trip, child or marriage. The example's spoken line is second person, per v59.
 
 Not tested against any model: no probes, no blind readers. The phrase list is sabotage-proved in tests only.
