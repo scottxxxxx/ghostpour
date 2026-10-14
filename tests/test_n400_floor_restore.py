@@ -155,6 +155,34 @@ def test_the_interview_locale_is_the_one_replaced():
     assert o["reply"]["en"] == "Noted, Mexico. What country were you born in?", "only the interview locale is spoken"
 
 
+# t_017, case bf7aed58 (2026-10-14): the response filed the current address
+# (all but in_care_of), the prior address and gate1; asking named gate1, so it
+# was dropped as settled, and the replacement picked current address as the
+# "next open" node and spoke its ask after the read-back.
+AG17 = ("q_p4_current_address | Part 4: Where you've lived | p4.current_address.street,p4.current_address.unit,"
+        "p4.current_address.city,p4.current_address.postal_code,p4.current_address.in_care_of,p4.current_address.from"
+        " | Part 4 is where you've lived. To start, what is your street address and city?\n"
+        "q_p4_mailing_same | Part 4: Where you've lived | p4.mailing_same"
+        " | Is your current physical address also your current mailing address? | options: yes, no\n"
+        "q_p4_prior_gate1 | Part 4: Where you've lived | p4.has_prior_address1"
+        " | Did you live anywhere else in the last 5 years? | options: yes, no\n")
+
+
+def test_a_node_this_response_just_filled_is_never_the_replacement():
+    from app.services.n400_interviewer_guard import drop_stale_asking, replace_settled_question
+    filed = ["p4.current_address.street", "p4.current_address.unit", "p4.current_address.city",
+             "p4.current_address.postal_code", "p4.current_address.from", "p4.has_prior_address1"]
+    t = json.dumps({"facts": [{"field_id": f, "value": "x"} for f in filed],
+                    "asking": {"node_id": "q_p4_prior_gate1", "field_ids": ["p4.has_prior_address2"]},
+                    "reply": {"en": "196 Wisteria Street, and before that 7240 Tamarack Road. Is your current "
+                                    "address also your mailing address, and did you live anywhere else before Tamarack Road?"}})
+    t, _ = drop_stale_asking(t, AG17)
+    o = json.loads(replace_settled_question(t, AG17, "en")[0])
+    assert "street address and city" not in o["reply"]["en"]
+    assert o["asking"]["node_id"] == "q_p4_mailing_same"
+    assert o["reply"]["en"].endswith("Is your current physical address also your current mailing address?")
+
+
 # --- v45: the floor's date equivalence and same-city state (round 7 C) -------
 
 @pytest.mark.parametrize("value,said,ok", [
