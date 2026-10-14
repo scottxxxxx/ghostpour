@@ -672,6 +672,29 @@ VERSIONS = {
             "never ask whether they are 18 or over. Work it out.",
         ],
     },
+    58: {
+        # Scott's live run on build 174 (case 49ea066d, t_016, 2026-10-13):
+        # two residences, never "that's all", and the lane said "that covers
+        # five years back to November 2021" (the window started in October)
+        # and minted p4.has_prior_address2 "no". The app owns the window math
+        # (DerivedFacts derives the gate from the row's start); v58 takes it
+        # away from the lane.
+        "block_anchor": "Whether the addresses or jobs on file cover the years the form asks",
+        "once": "A HISTORY GATE IS ANSWERED ONLY BY HER",
+        "phrases": [
+            "is the app's call, never yours: never say or imply that a history covers the required years",
+            'is "no" only when she says in her own words that there is nothing more',
+            "The same for addresses: when the app's own window math settles a has-prior-address gate",
+            "NEVER TELL HER HOW FAR BACK HER JOBS OR ADDRESSES REACH",
+        ],
+        "absent": [
+            "FIVE YEARS COVERED CLOSES THE LIST",
+            "The same for addresses: the address question asks for every address in the last five years",
+            "ONCE YOU HAVE SAID IT COVERS FIVE YEARS, OF JOBS OR OF ADDRESSES",
+            "A START ON FILE COUNTS WHETHER IT IS FILED OR A DEFERRED PARTIAL",
+            "say the window is covered and move on",
+        ],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -737,6 +760,11 @@ VERSIONS[56]["absent"] = VERSIONS[55]["absent"] + VERSIONS[56]["absent"]
 # v57 carries every v56 phrase, and v56's once line as a phrase.
 VERSIONS[57]["phrases"] = VERSIONS[56]["phrases"] + [VERSIONS[56]["once"]] + VERSIONS[57]["phrases"]
 VERSIONS[57]["absent"] = VERSIONS[56]["absent"] + VERSIONS[57]["absent"]
+# v58 carries every v57 phrase except the four coverage rules it retires
+# (they move to its absent list), and v57's once line as a phrase.
+VERSIONS[58]["phrases"] = [p for p in VERSIONS[57]["phrases"] if p not in VERSIONS[58]["absent"]] \
+    + [VERSIONS[57]["once"]] + VERSIONS[58]["phrases"]
+VERSIONS[58]["absent"] = VERSIONS[57]["absent"] + VERSIONS[58]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]

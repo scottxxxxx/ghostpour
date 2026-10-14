@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 57
+served_version: 58
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-10-13 (v57)
+reconciled: 2026-10-13 (v58)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1955,3 +1955,14 @@ The auditor's privacy scoping, 2026-10-13. The phone masks the date of birth bef
 PROMPT: "Never ask whether they are 18 or over, and never work out an age from a date of birth: the date of birth you see is not exact. Use the p1.age_over_18 fact the app sends." It replaces the v56 sentence in place, so the surrounding rule (a fact in KNOWN FACTS is authoritative whoever derived it) is unchanged. The same sentence replaces the same instruction in interview-turn.json (v4), which is still served.
 
 Tested with NO API tokens: two blind Claude subagents, one per prompt, each read the full prompt and one rendered turn with today 2026-10-13, a masked date of birth 2008-02-10, and p1.age_over_18: no. v56's reader answered "Yes", computed from the date, called the app's fact "wrong", and noted the instructions do not say which wins: the defect, reproduced. v57's reader answered "No" from the fact and quoted the v57 sentence. Neither would ask. A simulation, not the served model.
+
+## v58: the app owns the window math
+
+Scott's live run on build 174, 2026-10-13 (case 49ea066d, t_016, served v57). She gave two residences in one reply, current since 2023-03-01 and prior 2021-11-01 to 2023-03-01, and never said that was all. The lane said "123 Main Street, Austin, Texas, and that covers five years back to November 2021" and minted p4.has_prior_address2 = "no" as ai_extracted. Both wrong: on 2026-10-13 the window starts in October 2021, and the client judges coverage. DerivedFacts (DerivedFacts.swift:87-97, live since build ~60) derives the gate from a row's own start against the client's window, and derived facts ride KNOWN FACTS.
+
+The auditor first quoted a "standing ruling" that the lane never judges coverage. The served prompt said the opposite in five places, all earlier fixes for the "anything else in the last 5 years?" loop (v41, v51): FIVE YEARS COVERED CLOSES THE LIST, A START ON FILE COUNTS WHETHER IT IS FILED OR A DEFERRED PARTIAL, the address twin of the same rule, ONCE YOU HAVE SAID IT COVERS FIVE YEARS, and "say the window is covered and move on". The auditor confirmed the client derives the gates, so retiring them cannot bring the loop back. The one gap: a partial start derives nothing until build 175, so builds 174 and older ask one extra "before X?" behind a year-only start.
+
+PROMPT: coverage is the app's call; never say or imply a history covers the required years or how far back it reaches; A HISTORY GATE IS ANSWERED ONLY BY HER (a has_prior_addressN or has-job gate is "no" only in her own words); after her rows, ask for the one before the earliest, naming it ("Before 123 Main Street, where did you live?", the existing rule that a gate question names its row stays); the app takes the gate off the agenda when it has enough. NEVER TELL HER HOW FAR BACK HER JOBS OR ADDRESSES REACH replaces the "once you said it covers five years" line, with this case as its receipt. The section-checkpoint example that quoted the lane closing Part 7 by reasoning about coverage is reworded. Kept: a gate KNOWN FACTS holds is never asked; never open a record outside the window.
+
+
+Tested with NO API tokens: two blind Claude subagents, one per prompt (v57, v58), on one rendered turn with today 2026-10-13, the current address from 2023-03-01 on file, and her line giving the prior address 2021-11-01 to 2023-03-01. Neither filed has_prior_address2 and both asked "Before 45 Oak Avenue, did you live anywhere else?". v57's reader did NOT reproduce the live defect: it did the window math itself and got it right (November 2021 is short of 2021-10-13). The live model got the same math wrong, which is the point of v58: v58's reader did no date math at all and cited the rule that only her words close the list. A simulation, not the served model.
