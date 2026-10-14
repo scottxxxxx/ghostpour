@@ -156,7 +156,10 @@ def test_the_adapter_tells_output_config_whether_thinking_is_off():
     from pathlib import Path
     src = (Path(__file__).resolve().parents[1]
            / "app/services/providers/anthropic.py").read_text()
-    assert 'thinking_disabled=(thinking or {}).get("type") == "disabled"' in src
+    # Keyed on the lane since 2026-10-14: the 5.5 thinking-off shapes carry
+    # no "disabled" block. The outgoing body is pinned in
+    # test_thinking_disabled_lane.py::test_thinking_free_lane_body_on_the_5_5_models.
+    assert 'thinking_disabled=(request.thinking == "disabled")' in src
 
 
 def test_anthropic_non_effort_models_return_none():

@@ -141,3 +141,40 @@ def test_disabled_thinking_clamps_the_top_two_efforts_on_haiku_5_5():
     for v in ("xhigh", "max"):
         assert anthropic_output_config(v, "claude-haiku-5-5", thinking_disabled=True) == {"effort": "high"}
         assert anthropic_output_config(v, "claude-haiku-5-5") == {"effort": v}
+
+
+def test_thinking_off_on_the_5_5_models_never_sends_disabled():
+    """`disabled` is a 400 on Opus 5.5 and Sonnet 5.5 at any effort, proved
+    live 2026-10-14 (qa/thinking_off_5_5_probe.py). The Opus 5 / Sonnet 5
+    substrings match both, so this went out on every thinking-free lane."""
+    from app.services.providers.reasoning import anthropic_output_config, anthropic_thinking_block
+    assert not anthropic_accepts_disabled_thinking("claude-opus-5-5")
+    assert not anthropic_accepts_disabled_thinking("claude-sonnet-5-5")
+    # Sonnet 5.5 has its own off switch, capped at high like disabled on Opus 5.
+    assert anthropic_thinking_block("max", "claude-sonnet-5-5", disabled=True) == {"type": "between_tools"}
+    for v in ("xhigh", "max"):
+        assert anthropic_output_config(v, "claude-sonnet-5-5", thinking_disabled=True) == {"effort": "high"}
+    # Opus 5.5 cannot turn thinking off: omit the field, run at low.
+    assert anthropic_thinking_block("max", "claude-opus-5-5", disabled=True) is None
+    for v in (None, "default", "high", "max"):
+        assert anthropic_output_config(v, "claude-opus-5-5", thinking_disabled=True) == {"effort": "low"}
+    # The 5.0 models keep their rule.
+    assert anthropic_thinking_block("high", "claude-opus-5", disabled=True) == {"type": "disabled"}
+    assert anthropic_thinking_block("high", "claude-sonnet-5", disabled=True) == {"type": "disabled"}
+    # A user-picked level with thinking on is untouched on both.
+    assert anthropic_output_config("max", "claude-opus-5-5") == {"effort": "max"}
+    assert anthropic_output_config("max", "claude-sonnet-5-5") == {"effort": "max"}
+
+
+def test_thinking_free_lane_body_on_the_5_5_models():
+    """What actually goes out, not just the helpers: the effort rule keyed
+    on the block's type once, which neither 5.5 shape carries."""
+    s = _body(model="claude-sonnet-5-5", thinking="disabled", reasoning="max")
+    assert s["thinking"] == {"type": "between_tools"}
+    assert s["output_config"] == {"effort": "high"}
+    o = _body(model="claude-opus-5-5", thinking="disabled", reasoning="max")
+    assert "thinking" not in o
+    assert o["output_config"] == {"effort": "low"}
+    # Opus 5 is unchanged: disabled, clamped to high.
+    o5 = _body(model="claude-opus-5", thinking="disabled", reasoning="max")
+    assert o5["thinking"] == {"type": "disabled"} and o5["output_config"] == {"effort": "high"}
