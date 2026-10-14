@@ -820,7 +820,7 @@
      }
     }
    ],
-   "notes": "Modelos en la nube de Anthropic. Opus 4.7 y Sonnet 4.6 soportan contexto de 1M.",
+   "notes": "Modelos en la nube de Anthropic, encabezados por Fable 5.1, Opus 5.5 y Sonnet 5.5; todos los modelos de la lista tienen contexto de 1M salvo Haiku 4.5, con 200K.",
    "keyURL": "https://console.anthropic.com/settings/keys"
   },
   {

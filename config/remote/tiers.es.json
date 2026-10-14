@@ -856,7 +856,7 @@
       "name": "Añade Apple Cloud",
       "icon": "cloud",
       "bullets": [
-        "Añade el Paquete Apple Cloud a tu paquete de clave propia",
+        "Añade el paquete Apple Cloud a tu paquete de clave propia",
         "Hasta 5 fotos por pregunta en Apple Cloud",
         "Compra única, es tuya para siempre"
       ]
@@ -867,7 +867,7 @@
       "name": "Añade tu propia clave",
       "icon": "key",
       "bullets": [
-        "Añade el Paquete de clave propia a tu paquete Apple Cloud",
+        "Añade el paquete de clave propia a tu paquete Apple Cloud",
         "Compra única, es tuya para siempre"
       ]
     }

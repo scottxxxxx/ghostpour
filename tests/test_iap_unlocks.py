@@ -305,3 +305,25 @@ def test_chat_refuses_a_second_free_conversation(client, tmp_db_path):
     r = _pc_send(client, h, "ssai", "S2", model="ssai")
     assert r.status_code == 402, r.text
     assert r.json()["detail"] == {"code": "quota_exhausted"}
+
+
+def test_pack_names_are_sentence_case_like_the_store():
+    """Scott, 2026-10-13: the ASC names and the app use sentence case."""
+    import json
+    from pathlib import Path
+    d = json.loads((Path(__file__).resolve().parent.parent / "config/remote/tiers.json").read_text())
+    assert {u["id"]: u["name"] for u in d["unlocks"]} == {
+        "unlock_apple_cloud": "Apple Cloud pack", "unlock_byok": "Own key pack",
+        "bundle": "Both packs", "unlock_apple_cloud_upgrade": "Add Apple Cloud",
+        "unlock_byok_upgrade": "Add your own key"}
+
+
+def test_the_anthropic_note_names_the_current_models():
+    import json
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent / "config/remote"
+    for suf in ("", ".es", ".fr", ".ja"):
+        d = json.loads((root / f"llm-providers{suf}.json").read_text())
+        note = next(p for p in d["providers"] if p["id"] == "anthropic")["notes"]
+        assert "Fable 5.1" in note and "Opus 5.5" in note and "Haiku 4.5" in note, suf
+        assert "Opus 4.7 and Sonnet 4.6" not in note and "—" not in note and "–" not in note

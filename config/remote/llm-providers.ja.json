@@ -820,7 +820,7 @@
      }
     }
    ],
-   "notes": "Anthropic cloud models. Opus 4.7 and Sonnet 4.6 support 1M context.",
+   "notes": "最新のFable 5.1、Opus 5.5、Sonnet 5.5をはじめとするAnthropicのクラウドモデルで、Haiku 4.5（200K）を除き一覧のすべてのモデルが1Mのコンテキストに対応します。",
    "keyURL": "https://console.anthropic.com/settings/keys"
   },
   {

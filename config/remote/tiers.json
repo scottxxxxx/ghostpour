@@ -819,7 +819,7 @@
     {
       "id": "unlock_apple_cloud",
       "product_id": "com.weirtech.shouldersurf.unlock.applecloud",
-      "name": "Apple Cloud Pack",
+      "name": "Apple Cloud pack",
       "icon": "cloud",
       "bullets": [
         "Project Chat on Apple Cloud, no Shoulder Surf AI needed",
@@ -831,7 +831,7 @@
     {
       "id": "unlock_byok",
       "product_id": "com.weirtech.shouldersurf.unlock.byok",
-      "name": "Your Own Key Pack",
+      "name": "Own key pack",
       "icon": "key",
       "bullets": [
         "Project Chat on your own API key",
@@ -842,7 +842,7 @@
     {
       "id": "bundle",
       "product_id": "com.weirtech.shouldersurf.unlock.bundle",
-      "name": "Both Packs",
+      "name": "Both packs",
       "icon": "square.stack",
       "bullets": [
         "Apple Cloud and your own key, both unlocked",
@@ -856,7 +856,7 @@
       "name": "Add Apple Cloud",
       "icon": "cloud",
       "bullets": [
-        "Adds the Apple Cloud Pack to your own key pack",
+        "Adds the Apple Cloud pack to your own key pack",
         "Up to 5 photos per question on Apple Cloud",
         "One-time purchase, yours to keep"
       ]
@@ -864,10 +864,10 @@
     {
       "id": "unlock_byok_upgrade",
       "product_id": "com.weirtech.shouldersurf.unlock.byok.upgrade",
-      "name": "Add Your Own Key",
+      "name": "Add your own key",
       "icon": "key",
       "bullets": [
-        "Adds the Your Own Key Pack to your Apple Cloud pack",
+        "Adds the own key pack to your Apple Cloud pack",
         "One-time purchase, yours to keep"
       ]
     }
