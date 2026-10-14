@@ -823,6 +823,7 @@
       "icon": "cloud",
       "bullets": [
         "Le chat de projet sur Apple Cloud, sans Shoulder Surf AI",
+        "Jusqu'à 5 photos par question sur Apple Cloud",
         "Le Private Cloud Compute d'Apple garde vos données privées",
         "Achat unique, il vous appartient"
       ]
@@ -830,7 +831,7 @@
     {
       "id": "unlock_byok",
       "product_id": "com.weirtech.shouldersurf.unlock.byok",
-      "name": "Pack Clé personnelle",
+      "name": "Pack clé personnelle",
       "icon": "key",
       "bullets": [
         "Le chat de projet avec votre propre clé d'API",
@@ -855,7 +856,8 @@
       "name": "Ajouter Apple Cloud",
       "icon": "cloud",
       "bullets": [
-        "Ajoute le Pack Apple Cloud à votre pack Clé personnelle",
+        "Ajoute le pack Apple Cloud à votre pack clé personnelle",
+        "Jusqu'à 5 photos par question sur Apple Cloud",
         "Achat unique, il vous appartient"
       ]
     },
@@ -865,7 +867,7 @@
       "name": "Ajouter votre clé",
       "icon": "key",
       "bullets": [
-        "Ajoute le Pack Clé personnelle à votre pack Apple Cloud",
+        "Ajoute le pack clé personnelle à votre pack Apple Cloud",
         "Achat unique, il vous appartient"
       ]
     }

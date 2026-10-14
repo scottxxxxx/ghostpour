@@ -27,6 +27,9 @@ def test_apple_cloud_is_gated_to_build_2126_and_not_default(name):
     # ProjectChatSection effectiveMaxImages). Builds 2126 to 2150 were text
     # only and merely hide or show the photo strip on this flag, and were
     # never distributed. On-device stays text only: 2151 turned images off.
-    assert cloud["maxImagesPerRequest"] == 5 and cloud["supportsVision"] is True
+    # 1.19 (build 2196, SS 2026-10-13, read from LLMService.applePhotoLimit):
+    # free Apple Cloud takes 1 photo per question, an owner of
+    # unlock_apple_cloud 5. The served value describes what most users get.
+    assert cloud["maxImagesPerRequest"] == 1 and cloud["supportsVision"] is True
     on_dev = on_device["models"][0]
     assert on_dev["supportsVision"] is False and on_dev["maxImagesPerRequest"] == 0

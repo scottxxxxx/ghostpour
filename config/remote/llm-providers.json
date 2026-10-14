@@ -1,5 +1,5 @@
 {
- "version": 26,
+ "version": 27,
  "defaultPromptReserveTokens": 8000,
  "providers": [
   {
@@ -94,7 +94,7 @@
      "reasoningLevels": null,
      "maxOutputTokens": 4096,
      "temperatureDefault": 0.7,
-     "maxImagesPerRequest": 5,
+     "maxImagesPerRequest": 1,
      "streamingSupported": false,
      "toolUseSupported": false,
      "cacheControlSupported": false,
@@ -820,7 +820,7 @@
      }
     }
    ],
-   "notes": "Anthropic cloud models. Opus 4.7 and Sonnet 4.6 support 1M context.",
+   "notes": "Anthropic's cloud models, led by Fable 5.1, Opus 5.5 and Sonnet 5.5; every model listed has 1M context except Haiku 4.5, at 200K.",
    "keyURL": "https://console.anthropic.com/settings/keys"
   },
   {

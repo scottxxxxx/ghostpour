@@ -1,5 +1,5 @@
 {
- "version": 26,
+ "version": 27,
  "defaultPromptReserveTokens": 8000,
  "providers": [
   {
@@ -94,7 +94,7 @@
      "reasoningLevels": null,
      "maxOutputTokens": 4096,
      "temperatureDefault": 0.7,
-     "maxImagesPerRequest": 5,
+     "maxImagesPerRequest": 1,
      "streamingSupported": false,
      "toolUseSupported": false,
      "cacheControlSupported": false,
@@ -820,7 +820,7 @@
      }
     }
    ],
-   "notes": "Modèles cloud d'Anthropic. Opus 4.7 et Sonnet 4.6 prennent en charge un contexte de 1M.",
+   "notes": "Modèles cloud d'Anthropic, menés par Fable 5.1, Opus 5.5 et Sonnet 5.5 ; tous les modèles de la liste ont un contexte de 1M sauf Haiku 4.5, à 200K.",
    "keyURL": "https://console.anthropic.com/settings/keys"
   },
   {
