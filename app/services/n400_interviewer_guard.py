@@ -1311,6 +1311,61 @@ def _whole_date_in(year: str, month: int, day: int, line: str) -> bool:
                 or re.search(rf"\b(?:{m}) (?:the )?(?:{d}) (?:(?:de|del|of) )?{year}\b", t))
 
 
+# v62's offer rule (2026-10-14, Scott via the auditor): the lane may read a
+# likely date back as a question ("So May 1, 2025?", the year from TODAY) and
+# mint it only on her yes. Her yes holds no day, so without this the day guard
+# deferred the date she had just confirmed. A yes vouches for the date only when
+# the interviewer's line right before it read THAT date as one phrase and asked,
+# and the day and month were already hers: said with that month in one of her
+# last three lines ("May 1 last year"), or on file in KNOWN FACTS (the move-in
+# that joins two rows). The year may be the offered piece; the day never is.
+_CONFIRM = re.compile(
+    r"^(?:yes|yeah|yep|yup|correct|right|exactly|that'?s right|that'?s it|si|claro|correcto|exacto|"
+    r"eso es|asi es|sim|isso|certo|exatamente|e isso)\b")
+_SPEAKER_LINE = re.compile(r"^\s*(INTERVIEWER|ENTREVISTADOR|APPLICANT|SOLICITANTE)\s*:\s*(.*)$", re.M)
+
+
+def _day_and_month_in(month: int, day: int, line: str) -> bool:
+    t, d, m = _plain(line), _day_forms(day), _month_forms(month)
+    return bool(re.search(rf"\b(?:{d}) (?:(?:de|del|of|the) )?(?:{m})\b", t)
+                or re.search(rf"\b(?:{m}) (?:the )?(?:{d})\b", t))
+
+
+def _date_confirmed(year: str, month: int, day: int, said: str, conversation: str | None,
+                    known_facts: str | None) -> str | None:
+    """How a day-precision date she confirmed with a yes is hers, or None."""
+    yes = _plain(said)
+    if not _CONFIRM.match(yes) or re.search(r"\d", yes) \
+            or re.search(rf"\b(?:{_month_forms()})\b", yes):
+        return None
+    lines = [(m.group(1).upper(), m.group(2)) for m in _SPEAKER_LINE.finditer(conversation or "")]
+    if lines and lines[-1][0] in ("APPLICANT", "SOLICITANTE") and _norm(lines[-1][1]) == _norm(said):
+        lines = lines[:-1]
+    if not lines or lines[-1][0] not in ("INTERVIEWER", "ENTREVISTADOR"):
+        return None
+    asked = lines[-1][1]
+    if "?" not in asked or not (_whole_date_in(year, month, day, asked)
+                                or _whole_date_in(year, month, day, _years_as_digits(asked))):
+        return None
+    hers = [t for who, t in lines if who in ("APPLICANT", "SOLICITANTE")][-3:]
+    if any(_day_and_month_in(month, day, t) for t in hers):
+        return "her_day"
+    if f"{year}-{month:02d}-{day:02d}" in (known_facts or ""):
+        return "on_file"
+    return None
+
+
+def _years_as_digits(line: str) -> str:
+    """The line with each year said in words written IN PLACE as digits, so a
+    read-back in words ("el primero de mayo de dos mil veinticinco") is the
+    same one phrase as "primero de mayo de 2025"."""
+    def digits(m):
+        ys = _years_in_words(m.group(0))
+        return next(iter(ys)) if len(ys) == 1 else m.group(0)
+    words = " ".join(re.findall(r"[a-z0-9]+", _fold(line).replace("-", " ")))
+    return _YEAR_IN_WORDS.sub(digits, words)
+
+
 def _day_without_its_month(day: int, line: str) -> bool:
     """The day said with NO month attached to it ("al 28 de 2021"), even
     when other dates in the same line carry theirs ("desde el 3 de marzo de
@@ -1438,6 +1493,10 @@ def defer_dates_with_unspoken_day(text: str, user_content: str | None,
             continue
         fid = f.get("field_id")
         carried = _date_carried(m.group(1), int(m.group(2)), int(m.group(3)), said, conversation)
+        if carried is None:
+            how = _date_confirmed(m.group(1), int(m.group(2)), int(m.group(3)), said, conversation,
+                                  known_facts)
+            carried = (1, "confirmed_" + how) if how else None
         if carried is not None:
             logger.info("n400_date_day_carried field_id=%s how=%s lines_back=%d", fid, carried[1], carried[0])
             kept.append(f)

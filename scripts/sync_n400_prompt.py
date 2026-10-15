@@ -751,6 +751,27 @@ VERSIONS = {
         ],
         "absent": [],
     },
+    62: {
+        # Scott's draft via the auditor (2026-10-14): build 180 sends
+        # metadata.today on every turn, so "May 1 last year" can be resolved,
+        # and the lane may OFFER a likely value as a yes or no question from
+        # six named anchors, minting it only on her yes. The template gains
+        # TODAY, which this script does not sync: /userPromptTemplate and
+        # /optionalVariables go by a scoped sync, read back by string.
+        "block_anchor": "THE RULE THAT OVERRIDES CHARITY",
+        "once": "AN ANCHOR MAY BE OFFERED, NEVER FILED: when TODAY, KNOWN FACTS or APPLICANT CONTEXT makes one value likely",
+        "phrases": [
+            "TODAY IS HER OWN CALENDAR DAY, from the TODAY line of the request.",
+            "is still a VAGUE DATE and gets that rule's one follow-up",
+            "When TODAY is empty, never resolve a relative year: ask which year.",
+            "you mint it only on her yes, with her yes as its provenance.utterance",
+            "the YEAR of her date of birth, never its month or day",
+            "Offer one value at a time, and never a day she did not say unless KNOWN FACTS holds it.",
+            "an offer she has not confirmed is not a fact",
+            "Asking one as a yes or no question is not filling it (AN ANCHOR MAY BE OFFERED, NEVER FILED).",
+        ],
+        "absent": [],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -829,6 +850,8 @@ VERSIONS[60]["phrases"] = VERSIONS[59]["phrases"] + [VERSIONS[59]["once"]] + VER
 VERSIONS[60]["absent"] = VERSIONS[59]["absent"] + VERSIONS[60]["absent"]
 VERSIONS[61]["phrases"] = VERSIONS[60]["phrases"] + [VERSIONS[60]["once"]] + VERSIONS[61]["phrases"]
 VERSIONS[61]["absent"] = VERSIONS[60]["absent"] + VERSIONS[61]["absent"]
+VERSIONS[62]["phrases"] = VERSIONS[61]["phrases"] + [VERSIONS[61]["once"]] + VERSIONS[62]["phrases"]
+VERSIONS[62]["absent"] = VERSIONS[61]["absent"] + VERSIONS[62]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]

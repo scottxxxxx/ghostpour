@@ -31,12 +31,13 @@ _DECLARED = {
     "form_code", "jurisdiction", "locale", "turn_id",
     "conversation", "known_facts", "agenda", "section_boundary",
     "applicant_context", "volunteer_fields", "spoken_numerals",
-    "opening_questions", "user_input",
+    "opening_questions", "today", "user_input",
 }
 _REQUIRED = {"form_code", "jurisdiction", "locale", "turn_id",
              "conversation", "known_facts", "agenda"}
 _OPTIONAL = {"section_boundary", "applicant_context",
-             "volunteer_fields", "spoken_numerals", "opening_questions"}
+             "volunteer_fields", "spoken_numerals", "opening_questions",
+             "today"}
 
 # v27: the client's marker for "there are no before-we-begin questions".
 # A literal token, not an empty string, and the reason is mechanical rather
@@ -920,3 +921,17 @@ def test_a_complete_answer_fits_the_reply_budget(cfg):
         },
     )
     assert out["max_tokens"] >= 6144
+
+
+# --- v62: TODAY, from build 180 on every turn ----------------------------------
+
+def test_an_older_client_without_today_assembles_with_the_block_empty(cfg):
+    body = _assemble(cfg)
+    assert "{{" not in body, body
+    assert "TODAY (her calendar day; empty from an older client):\n\n" in body
+
+
+def test_today_reaches_the_prompt_under_its_header_before_known_facts(cfg):
+    body = _assemble(cfg, today="2026-10-14")
+    assert "TODAY (her calendar day; empty from an older client):\n2026-10-14\n" in body
+    assert body.index("TODAY (") < body.index("KNOWN FACTS (")

@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 61
+served_version: 62
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-10-14 (v61)
+reconciled: 2026-10-14 (v62)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1995,3 +1995,15 @@ PROMPT: directly after that sentence, A GATE OR COUNT THAT OPENS ROWS DOES NOT E
 
 Not tested against any model: no probes. The live test is Scott's next run on build 179. A GP backstop (refuse a checkpoint for part P when this response files pP.has_X = yes or pP.total_Y > 0 with none of its rows) is held unless a run shows the line does not hold.
 
+
+## v62: TODAY, and an anchor may be offered, never filed
+
+Scott's draft, relayed by the auditor (2026-10-14). Build 180 sends metadata.today (the phone's calendar day) on every turn, whatever the date-shift switch says, so "I moved in May 1 last year" can resolve. The date shift itself is shelved (Scott, 2026-10-14; the earlier v62 draft #1118 is on hold).
+
+TEMPLATE: a TODAY block before KNOWN FACTS; `today` is optional, so an older client assembles it empty, and the prompt then says never resolve a relative year.
+
+PROMPT: after the "is that in Texas?" rule. TODAY resolves an exact relative date, read back as a question in her words and then the date; a hedged one stays a VAGUE DATE (so "two years ago" from the draft's list is split: exact resolves, "like two years ago" keeps the vague rule). AN ANCHOR MAY BE OFFERED, NEVER FILED: six named sources (TODAY, the DOB year only, the date joining two rows, the APPLICANT CONTEXT state, the home city from p4.current_address.city, the country of birth for "going home"), one value at a time, minted only on her yes with the yes as provenance.utterance, and never a day she did not say unless KNOWN FACTS holds it. The plausible-value ban gains "asking one as a yes or no question is not filling it".
+
+GUARD: the day guard deferred a confirmed full date, because her yes holds no day. `_date_confirmed` keeps it only when her line is a bare yes, the interviewer's line right before read THAT date as one phrase and asked, and the day and month were hers in her last three lines, or the whole date is in KNOWN FACTS.
+
+Not tested against any model. The auditor runs free subagent probes first; any live check goes to Scott with an estimate.
