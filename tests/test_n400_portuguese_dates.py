@@ -28,9 +28,10 @@ def test_portuguese_date_of_birth_in_words_is_kept():
 
 
 def test_invented_day_keeps_the_month_and_a_year_said_in_words():
-    said = "Foi em abril de mil novecentos e oitenta e três."
-    _, moved = defer_dates_with_unspoken_day(_turn("p1.date_of_birth", "1983-04-12", said), said)
-    assert [m["partial_value"] for m in moved] == ["1983-04"]
+    # "outubro" on purpose: "abril" is also Spanish and cannot see the Portuguese list.
+    said = "Foi em outubro de mil novecentos e oitenta e três."
+    _, moved = defer_dates_with_unspoken_day(_turn("p1.date_of_birth", "1983-10-12", said), said)
+    assert [m["partial_value"] for m in moved] == ["1983-10"]
 
 
 def test_english_year_in_words_keeps_the_year_partial():
