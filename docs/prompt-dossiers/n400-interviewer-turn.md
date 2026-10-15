@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 61
+served_version: 62
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-10-14 (v61)
+reconciled: 2026-10-14 (v62)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1995,3 +1995,13 @@ PROMPT: directly after that sentence, A GATE OR COUNT THAT OPENS ROWS DOES NOT E
 
 Not tested against any model: no probes. The live test is Scott's next run on build 179. A GP backstop (refuse a checkpoint for part P when this response files pP.has_X = yes or pP.total_Y > 0 with none of its rows) is held unless a run shows the line does not hold.
 
+
+## v62: no date decides anything (the date-shift contract)
+
+The N-400 client's date-shift contract (N400 App contracts/date-shift-contract-2026-10-14.md, Scott's ask): every date that leaves the phone moves back by one secret whole number of years per case (4, 8 or 12), her month and day exactly as said, and the phone sends metadata.today and metadata.date_facts, the flags for everything a date decides (age, each child's under 18, window starts and row membership, coverage, LPR years, the marriage rule). The client switch ships OFF; v62 ships only when it flips.
+
+TEMPLATE: TODAY and DATE FACTS blocks after KNOWN FACTS; `today` and `date_facts` are optional, so a switch-off client assembles both blocks empty. sync_n400_prompt.py syncs only /systemPrompt, /version and /maxTokens, so /userPromptTemplate and /optionalVariables go by a scoped sync, read back by string.
+
+PROMPT: directly after "Use the p1.age_over_18 fact the app sends.", NO DATE YOU SEE IS HER REAL ONE, SO NO DATE DECIDES ANYTHING: TODAY is today and no year outside the request is spoken; DATE FACTS is read as given, never checked against dates; Part 6 is children under 18 by p6.childN.under_18; every window is DATE FACTS's window_start, and a row whose in_window is no is acknowledged and not recorded; she may compare a date with window_start but never compute a window, an age or a length of time; the coverage ban stays even on covered: yes, because DATE FACTS lags one turn (computed from facts on file before her answer); the lpr and marriage lines are never spoken and change nothing; dates are read back as carried, never with a weekday; with DATE FACTS empty, ask as before.
+
+Agreed with the auditor 2026-10-14 (draft A to E; lpr and marriage do nothing in the lane). Not tested against any model. The paid check is the auditor's 11 qa/date-shift bodies (about $1.10), on Scott's word.

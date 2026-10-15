@@ -31,12 +31,13 @@ _DECLARED = {
     "form_code", "jurisdiction", "locale", "turn_id",
     "conversation", "known_facts", "agenda", "section_boundary",
     "applicant_context", "volunteer_fields", "spoken_numerals",
-    "opening_questions", "user_input",
+    "opening_questions", "today", "date_facts", "user_input",
 }
 _REQUIRED = {"form_code", "jurisdiction", "locale", "turn_id",
              "conversation", "known_facts", "agenda"}
 _OPTIONAL = {"section_boundary", "applicant_context",
-             "volunteer_fields", "spoken_numerals", "opening_questions"}
+             "volunteer_fields", "spoken_numerals", "opening_questions",
+             "today", "date_facts"}
 
 # v27: the client's marker for "there are no before-we-begin questions".
 # A literal token, not an empty string, and the reason is mechanical rather
@@ -920,3 +921,32 @@ def test_a_complete_answer_fits_the_reply_budget(cfg):
         },
     )
     assert out["max_tokens"] >= 6144
+
+
+# --- v62: the date-shift contract's TODAY and DATE FACTS ------------------------
+#
+# N400 App contracts/date-shift-contract-2026-10-14.md. The client ships its
+# switch OFF, so an older or switch-off client sends neither and the prompt
+# must still assemble with both blocks empty.
+
+_DATE_FACTS = ("today: 2018-10-14\nhistory.residence.years: 5\n"
+               "history.residence.window_start: 2013-10-14\np6.child1.under_18: yes")
+
+
+def test_a_switch_off_client_assembles_with_both_date_blocks_empty(cfg):
+    body = _assemble(cfg)
+    assert "{{" not in body, body
+    assert "TODAY (her calendar; empty from an older client):\n\n" in body
+    assert "DATE FACTS (the app's answer to everything a date decides; empty from an older client):\n\n" in body
+
+
+def test_today_and_date_facts_reach_the_prompt_verbatim_under_their_headers(cfg):
+    body = _assemble(cfg, today="2018-10-14", date_facts=_DATE_FACTS)
+    assert "TODAY (her calendar; empty from an older client):\n2018-10-14\n" in body
+    assert "empty from an older client):\n" + _DATE_FACTS + "\n" in body
+
+
+def test_the_date_blocks_sit_after_known_facts_and_before_the_agenda(cfg):
+    body = _assemble(cfg, today="2018-10-14", date_facts=_DATE_FACTS)
+    k, t, d, a = (body.index(h) for h in ("KNOWN FACTS (", "TODAY (", "DATE FACTS (", "AGENDA ("))
+    assert k < t < d < a
