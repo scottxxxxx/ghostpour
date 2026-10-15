@@ -308,14 +308,39 @@ def test_chat_refuses_a_second_free_conversation(client, tmp_db_path):
 
 
 def test_pack_names_are_sentence_case_like_the_store():
-    """Scott, 2026-10-13: the ASC names and the app use sentence case."""
+    """Scott, 2026-10-13: the ASC names and the app use sentence case.
+    Renamed 2026-10-15 (Scott, via SS) to the App Store Connect names."""
     import json
     from pathlib import Path
     d = json.loads((Path(__file__).resolve().parent.parent / "config/remote/tiers.json").read_text())
     assert {u["id"]: u["name"] for u in d["unlocks"]} == {
-        "unlock_apple_cloud": "Apple Cloud pack", "unlock_byok": "Own key pack",
-        "bundle": "Both packs", "unlock_apple_cloud_upgrade": "Add Apple Cloud",
+        "unlock_apple_cloud": "Enhanced features for Apple Cloud",
+        "unlock_byok": "Enhanced features for your own key",
+        "bundle": "Enhanced features for both", "unlock_apple_cloud_upgrade": "Add Apple Cloud",
         "unlock_byok_upgrade": "Add your own key"}
+
+
+def test_apple_cloud_file_attachments_are_a_pack_bullet_in_every_language():
+    """Scott, 2026-10-15: file attachments on Apple Cloud belong to the Apple
+    Cloud pack (the client enforces it on unlock_apple_cloud). Both products
+    that grant it say so, in every served language; the own key pack does not."""
+    import json
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent / "config/remote"
+    words = {"": "Send text, Markdown, PDF, Word and RTF files on Apple Cloud",
+             ".es": "Envía archivos de texto, Markdown, PDF, Word y RTF en Apple Cloud",
+             ".fr": "Envoyez des fichiers texte, Markdown, PDF, Word et RTF sur Apple Cloud",
+             ".ja": "Apple Cloudでテキスト、Markdown、PDF、Word、RTFファイルを送信"}
+    for suf, bullet in words.items():
+        d = json.loads((root / f"tiers{suf}.json").read_text(encoding="utf-8"))
+        by = {u["id"]: u for u in d["unlocks"]}
+        for pid in ("unlock_apple_cloud", "unlock_apple_cloud_upgrade"):
+            assert by[pid]["bullets"].count(bullet) == 1, (suf, pid)
+        for pid in ("unlock_byok", "unlock_byok_upgrade"):
+            assert bullet not in by[pid]["bullets"], (suf, pid)
+        for u in d["unlocks"]:
+            for text in [u["name"]] + u["bullets"]:
+                assert "\u2014" not in text and "\u2013" not in text, (suf, text)
 
 
 def test_the_anthropic_note_names_the_current_models():
@@ -360,3 +385,22 @@ def test_no_served_project_chat_copy_keeps_an_unknown_placeholder():
         for kind, text in cta.items():
             left = set(re.findall(r"\{[^}]*\}", text)) - {"{total}", "{remaining}"}
             assert not left, (f.name, kind, left)
+
+
+def test_upgrade_bullets_drop_the_old_pack_naming():
+    """SS, 2026-10-15: with the packs renamed, "pack" in an upgrade bullet no
+    longer names anything the buyer owns."""
+    import json
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent / "config/remote"
+    d = json.loads((root / "tiers.json").read_text())
+    by = {u["id"]: u for u in d["unlocks"]}
+    assert by["unlock_apple_cloud_upgrade"]["bullets"][0] == \
+        "Adds the Apple Cloud enhanced features to the own key ones you already have"
+    assert by["unlock_byok_upgrade"]["bullets"][0] == \
+        "Adds the own key enhanced features to the Apple Cloud ones you already have"
+    for suf, word in (("", "pack"), (".es", "paquete"), (".fr", "pack"), (".ja", "パック")):
+        d = json.loads((root / f"tiers{suf}.json").read_text(encoding="utf-8"))
+        for u in d["unlocks"]:
+            for text in [u["name"]] + u["bullets"]:
+                assert word not in text.lower(), (suf, text)
