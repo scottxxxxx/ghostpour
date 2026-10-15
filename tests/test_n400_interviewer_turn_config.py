@@ -24,16 +24,18 @@ _DOSSIER = _ROOT / "docs" / "prompt-dossiers" / "n400-interviewer-turn.md"
 
 # Every placeholder the client is expected to fill, from the contract's
 # request table. `user_input` is the request payload; the rest are read by
-# name from request metadata.
+# name from request metadata. case_id is still SENT by the client and kept by
+# GP (usage_log, the per-application allowance), but since 2026-10-14 it is
+# not a prompt placeholder: it must never reach the provider (Scott).
 _DECLARED = {
-    "form_code", "jurisdiction", "locale", "turn_id", "case_id",
+    "form_code", "jurisdiction", "locale", "turn_id",
     "conversation", "known_facts", "agenda", "section_boundary",
     "applicant_context", "volunteer_fields", "spoken_numerals",
     "opening_questions", "user_input",
 }
 _REQUIRED = {"form_code", "jurisdiction", "locale", "turn_id",
              "conversation", "known_facts", "agenda"}
-_OPTIONAL = {"case_id", "section_boundary", "applicant_context",
+_OPTIONAL = {"section_boundary", "applicant_context",
              "volunteer_fields", "spoken_numerals", "opening_questions"}
 
 # v27: the client's marker for "there are no before-we-begin questions".

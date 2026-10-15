@@ -250,9 +250,12 @@ class AnthropicAdapter(ProviderAdapter):
         # alongside `thinking: {type: "adaptive"}`. Per Anthropic's docs the
         # effort parameter is what controls thinking depth on these models;
         # legacy budget_tokens returns 400 on Opus 4.7.
+        # The LANE's setting, not the block's type: on the 5.5 models a
+        # thinking-free lane sends `between_tools` (Sonnet) or no block at
+        # all (Opus), and each still needs its effort rule (2026-10-14).
         output_config = anthropic_output_config(
             request.reasoning, request.model,
-            thinking_disabled=(thinking or {}).get("type") == "disabled")
+            thinking_disabled=(request.thinking == "disabled"))
         if output_config:
             body["output_config"] = output_config
 
