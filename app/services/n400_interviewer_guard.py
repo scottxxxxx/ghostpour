@@ -194,7 +194,31 @@ def drop_stale_asking(text: str, agenda: str | None) -> tuple[str, dict | None]:
 # own question and points asking at it. Safe with streaming: the last
 # sentence is always HELD (n400_sentence_stream rule 4), so the settled
 # question is never spoken first.
-_TRAILING_QUESTION = re.compile(r"(?s)^(?P<head>.*?[.!…]\s+|)(?P<q>[^.!?…]*\?[\"'”’)»]*)\s*$")
+_SENTENCE_END = re.compile(r"[.!?…][\"'”’)»]*\s+")
+# A period after these is not the end of a sentence. "U.S." is the one that
+# cut her question in half: t_004 (Scott's run f0a763cc, 2026-10-14) spoke
+# "was either of your parents a U.S." and then the swapped-in question.
+_ABBREVIATIONS = {"u.s", "u.s.a", "ee", "mr", "mrs", "ms", "dr", "sr", "sra", "srta", "st", "jr"}
+
+
+def _split_trailing_question(spoken: str) -> tuple[str, str] | None:
+    """(everything before the last sentence, the last sentence) when the reply
+    ends on a question, else None. A boundary is end punctuation, whitespace,
+    and then a letter that is not lowercase, after a word that is not a
+    known abbreviation."""
+    s = spoken.rstrip()
+    if not s.rstrip("\"'”’)»").endswith("?"):
+        return None
+    start = 0
+    for m in _SENTENCE_END.finditer(s):
+        if m.end() >= len(s) or s[m.end()].islower():
+            continue
+        word = re.search(r"(\S+)$", s[:m.start()])
+        if word and word.group(1).lower().lstrip("¿¡(\"'“") in _ABBREVIATIONS:
+            continue
+        start = m.end()
+    q = s[start:]
+    return (s[:start], q) if q.strip() else None
 
 
 def _agenda_lines(agenda: str | None) -> list[tuple[str, set[str], str]]:
@@ -226,18 +250,22 @@ def replace_settled_question(text: str, agenda: str | None, locale: str | None) 
     # again: t_017, case bf7aed58 (2026-10-14), current address filed but for
     # in_care_of, and she heard "what is your street address and city?" right
     # after the read-back ("I already gave you both addresses").
+    # Nor a node this response made moot: a "no" gate's follow-up (t_004,
+    # Scott's run f0a763cc, she heard the account NUMBER asked after saying
+    # she had no account).
+    moot = moot_nodes_in_this_response(turn, agenda)
     nxt = next(((n, ids, q) for n, ids, q in _agenda_lines(agenda)
-                if n != info.get("node_id") and not ids & filled and q), None)
+                if n != info.get("node_id") and not ids & filled and n not in moot and q), None)
     if nxt is None:
         return text, None
     reply = turn.get("reply")
     key = locale if isinstance(reply, dict) and locale in reply else (
         next(iter(reply), None) if isinstance(reply, dict) and len(reply) == 1 else None)
     spoken = reply.get(key) if isinstance(reply, dict) and key else (reply if isinstance(reply, str) else None)
-    m = _TRAILING_QUESTION.match(spoken or "")
-    if not m or not m.group("q").strip():
+    split = _split_trailing_question(spoken or "")
+    if split is None:
         return text, None
-    new = (m.group("head") + nxt[2]).strip()
+    new = (split[0] + nxt[2]).strip()
     if isinstance(reply, dict):
         reply[key] = new
     else:
@@ -1618,6 +1646,56 @@ def _ids_settled_in_this_response(turn: dict) -> set[str]:
     return out
 
 
+_GATE_FACT = re.compile(r"^(p\d+)\.has_(\w+)$")
+_COUNT_FACT = re.compile(r"^(p\d+)\.total_\w+$")
+_ROW_ID = re.compile(r"^(p\d+)\.[a-z_]+?(\d+)\.")
+_GATE_CLOSED = {"no", "false", "none", "0"}
+
+
+def moot_nodes_in_this_response(turn: dict, agenda: str | None) -> set[str]:
+    """Agenda nodes this response made unaskable, not answered.
+
+    The agenda is one turn stale, so a gate answered "no" in this response
+    still has its follow-up on the line below it, and a child count of 0
+    still has its child rows. The client prunes them next turn; until then
+    they read as open. Scott's run f0a763cc (2026-10-14): t_011 filed
+    p6.total_children = 0, said "That's Part 6: no children", and the
+    checkpoint was refused on q_p6_child2..4, retried (~3 s), refused again
+    and dropped. t_004 filed p2.has_uscis_account = no and the settled-question
+    swap spoke q_p2_uscis_account's "What is your USCIS online account
+    number?" to her.
+
+    Two shapes only, both read off field ids, never off words:
+      pN.has_X = no    every field of the node starts with pN.X
+      pN.total_Y = K   every field of the node is a pN row numbered above K
+    """
+    gates: list[str] = []
+    counts: dict[str, int] = {}
+    for f in turn.get("facts") or []:
+        if not isinstance(f, dict):
+            continue
+        fid, value = str(f.get("field_id") or ""), str(f.get("value") or "").strip().lower()
+        g = _GATE_FACT.match(fid)
+        if g and value in _GATE_CLOSED:
+            gates.append(f"{g.group(1)}.{g.group(2)}")
+        c = _COUNT_FACT.match(fid)
+        if c and value.isdigit():
+            counts[c.group(1)] = int(value)
+    if not gates and not counts:
+        return set()
+    out: set[str] = set()
+    for node, ids in agenda_field_ids(agenda).items():
+        if not ids:
+            continue
+        if any(all(i.startswith(prefix) for i in ids) for prefix in gates):
+            out.add(node)
+            continue
+        rows = [_ROW_ID.match(i) for i in ids]
+        if all(rows) and all(r.group(1) in counts and int(r.group(2)) > counts[r.group(1)] for r in rows):
+            out.add(node)
+    return out
+
+
 def checkpoint_contradicts_agenda(text: str, agenda: str | None) -> dict | None:
     """Info when the response claims a part still open AFTER this response.
 
@@ -1657,9 +1735,10 @@ def checkpoint_contradicts_agenda(text: str, agenda: str | None) -> dict | None:
         return None
     settled = _ids_settled_in_this_response(turn)
     by_node = agenda_field_ids(agenda)
+    moot = moot_nodes_in_this_response(turn, agenda)
     open_nodes = sorted(
         node for node, node_part in agenda_parts(agenda).items()
-        if node_part == part and (by_node.get(node, set()) - settled)
+        if node_part == part and (by_node.get(node, set()) - settled) and node not in moot
     )
     if not open_nodes:
         return None

@@ -113,10 +113,14 @@ def test_dropping_removes_only_the_inverted_facts():
 # --- through the real route -----------------------------------------------------
 
 def _statuses(db_path):
+    return [s for s, _ in _rows(db_path)]
+
+
+def _rows(db_path):
     conn = sqlite3.connect(db_path)
     try:
-        return [r[0] for r in conn.execute(
-            "SELECT status FROM usage_log WHERE app_id='n400' ORDER BY rowid")]
+        return [tuple(r) for r in conn.execute(
+            "SELECT status, output_tokens FROM usage_log WHERE app_id='n400' ORDER BY rowid")]
     finally:
         conn.close()
 
@@ -130,8 +134,11 @@ def _send(client, free_user, replies):
     async def fake(provider_router, request, db, settings):
         sent.append(request.user_content)
         text = replies[min(len(sent), len(replies)) - 1]
-        return ChatResponse(text=text, input_tokens=100, output_tokens=50, model="claude-sonnet-5",
-                            provider="anthropic", usage={"input_tokens": 100, "output_tokens": 50})
+        # Each call carries its own output count (50, 51, ...) so a row can be
+        # traced to the call it logged.
+        out = 49 + len(sent)
+        return ChatResponse(text=text, input_tokens=100, output_tokens=out, model="claude-sonnet-5",
+                            provider="anthropic", usage={"input_tokens": 100, "output_tokens": out})
     client.app.state.rate_limiter._buckets.clear()
     body = chat_request(system_prompt="", user_content="March 3rd, 2019.",
                         metadata=_metadata(known_facts=RUN3_KNOWN, turn_id="t-inv"))
@@ -149,7 +156,11 @@ def test_the_route_retries_once_and_serves_the_corrected_turn(client, free_user,
     assert served["facts"] == []
     assert served["date_inversion_refused"]["resolved"] is True
     assert len(sent) == 2 and "Do not file either date" in sent[1]
-    assert "date_inversion_retry" in _statuses(tmp_db_path)
+    # One row per model call, each with its own tokens. The first call is the
+    # success row step 9 already wrote; the resolved retry used to be logged
+    # nowhere while the first call was logged a second time (Scott's run
+    # f0a763cc t_004, 2026-10-14).
+    assert _rows(tmp_db_path) == [("success", 50), ("date_inversion_retry", 51)]
 
 
 def test_a_retry_that_still_inverts_is_dropped_never_filed(client, free_user, tmp_db_path):
@@ -160,10 +171,11 @@ def test_a_retry_that_still_inverts_is_dropped_never_filed(client, free_user, tm
     assert all(f["field_id"] != "p4.prior_address1.from" for f in served["facts"])
     assert served["date_inversion_refused"]["resolved"] is False
     assert len(sent) == 2
-    assert {"date_inversion_retry", "date_inversion_retry_failed"} <= set(_statuses(tmp_db_path))
+    assert _rows(tmp_db_path) == [("success", 50), ("date_inversion_retry_failed", 51)]
 
 
-def test_an_ordered_turn_is_not_retried(client, free_user):
+def test_an_ordered_turn_is_not_retried(client, free_user, tmp_db_path):
     r, sent = _send(client, free_user, [_turn(("p4.prior_address1.from", "2016-08-01"))])
     assert r.status_code == 200 and len(sent) == 1
     assert "date_inversion_refused" not in json.loads(r.json()["text"])
+    assert _statuses(tmp_db_path) == ["success"]
