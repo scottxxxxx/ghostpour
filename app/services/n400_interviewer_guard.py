@@ -1313,8 +1313,9 @@ OFF_PARTIAL_REASON = "the month or year differs from the partial on file and is 
 def _known_partial(known_facts: str | None, field_id) -> str | None:
     """The partial date KNOWN FACTS holds for a field, or None.
 
-    Two shapes: the deferral line ("deferred, to verify from a document,
-    partial 2020-06") and the revisit line ("2021-11, day missing")."""
+    Three shapes: the deferral line ("deferred, to verify from a document,
+    partial 2020-06"), and build 182's two revisit lines, sent only while a
+    revisit is open ("2021-11, day missing", "2017, month and day missing")."""
     line = _known_line(known_facts, field_id)
     if not line:
         return None
@@ -1322,7 +1323,10 @@ def _known_partial(known_facts: str | None, field_id) -> str | None:
     m = re.search(r"\bpartial\s+(\d{4}(?:-\d{2})?)\b", rest)
     if m:
         return m.group(1)
-    m = re.match(r"\s*(\d{4}(?:-\d{2})?)\s*,\s*(?:day|month)[a-z ]*missing\b", rest)
+    # Build 182's revisit lines, exactly (client 4442012): a month partial
+    # says "day missing", a year partial "month and day missing", nothing else.
+    m = re.fullmatch(r"\s*(\d{4}-\d{2}), day missing\s*", rest) \
+        or re.fullmatch(r"\s*(\d{4}), month and day missing\s*", rest)
     return m.group(1) if m else None
 
 

@@ -68,3 +68,19 @@ def test_inert_without_a_partial():
     # a FILED full date on file is not a partial either
     assert _guard([(F, "2021-12-15")], "The 15th.", "p4.prior_address1.from: 2019-03-04")[0] == \
         {F: "2021-12-15"}
+
+
+def test_the_build_182_revisit_lines_are_read_exactly_and_nothing_looser():
+    """client 4442012: one line per reopened date field, sent only while the
+    revisit is open."""
+    from app.services.n400_interviewer_guard import _known_partial
+    kf = ("p4.prior_address1.from: 2021-11, day missing\n"
+          "p7.employer2.from: 2017, month and day missing\n"
+          "p4.current_address.from: deferred, to verify from a document, partial 2021-11")
+    assert _known_partial(kf, "p4.prior_address1.from") == "2021-11"
+    assert _known_partial(kf, "p7.employer2.from") == "2017"
+    assert _known_partial(kf, "p4.current_address.from") == "2021-11"
+    for loose in ("2021-11 day missing", "2021, day missing", "2021-11, month and day missing",
+                  "2021-11, day missing, to verify", "2021-11-03"):
+        assert _known_partial(f"p4.prior_address1.from: {loose}", "p4.prior_address1.from") is None, loose
+    assert _guard([("p7.employer2.from", "2018-04-02")], "April 2nd.", kf) == ({}, {"p7.employer2.from": "2017"})
