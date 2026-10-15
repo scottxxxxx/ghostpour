@@ -857,7 +857,7 @@
       "name": "Ajouter Apple Cloud",
       "icon": "cloud",
       "bullets": [
-        "Ajoute le pack Apple Cloud à votre pack clé personnelle",
+        "Ajoute les fonctions avancées Apple Cloud à celles de clé personnelle que vous avez déjà",
         "Jusqu'à 5 photos par question sur Apple Cloud",
         "Envoyez des fichiers texte, Markdown, PDF, Word et RTF sur Apple Cloud",
         "Achat unique, il vous appartient"
@@ -869,7 +869,7 @@
       "name": "Ajouter votre clé",
       "icon": "key",
       "bullets": [
-        "Ajoute le pack clé personnelle à votre pack Apple Cloud",
+        "Ajoute les fonctions avancées de clé personnelle à celles d'Apple Cloud que vous avez déjà",
         "Achat unique, il vous appartient"
       ]
     }

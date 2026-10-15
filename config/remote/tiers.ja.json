@@ -857,7 +857,7 @@
       "name": "Apple Cloudを追加",
       "icon": "cloud",
       "bullets": [
-        "自分のキーパックにApple Cloudパックを追加",
+        "お持ちの自分のキー向け拡張機能にApple Cloud向けの拡張機能を追加",
         "Apple Cloudで1回の質問につき写真を最大5枚",
         "Apple Cloudでテキスト、Markdown、PDF、Word、RTFファイルを送信",
         "買い切り。ずっと使えます"
@@ -869,7 +869,7 @@
       "name": "自分のキーを追加",
       "icon": "key",
       "bullets": [
-        "Apple Cloudパックに自分のキーパックを追加",
+        "お持ちのApple Cloud向け拡張機能に自分のキー向けの拡張機能を追加",
         "買い切り。ずっと使えます"
       ]
     }

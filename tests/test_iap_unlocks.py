@@ -385,3 +385,22 @@ def test_no_served_project_chat_copy_keeps_an_unknown_placeholder():
         for kind, text in cta.items():
             left = set(re.findall(r"\{[^}]*\}", text)) - {"{total}", "{remaining}"}
             assert not left, (f.name, kind, left)
+
+
+def test_upgrade_bullets_drop_the_old_pack_naming():
+    """SS, 2026-10-15: with the packs renamed, "pack" in an upgrade bullet no
+    longer names anything the buyer owns."""
+    import json
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent / "config/remote"
+    d = json.loads((root / "tiers.json").read_text())
+    by = {u["id"]: u for u in d["unlocks"]}
+    assert by["unlock_apple_cloud_upgrade"]["bullets"][0] == \
+        "Adds the Apple Cloud enhanced features to the own key ones you already have"
+    assert by["unlock_byok_upgrade"]["bullets"][0] == \
+        "Adds the own key enhanced features to the Apple Cloud ones you already have"
+    for suf, word in (("", "pack"), (".es", "paquete"), (".fr", "pack"), (".ja", "パック")):
+        d = json.loads((root / f"tiers{suf}.json").read_text(encoding="utf-8"))
+        for u in d["unlocks"]:
+            for text in [u["name"]] + u["bullets"]:
+                assert word not in text.lower(), (suf, text)

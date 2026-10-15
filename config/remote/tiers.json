@@ -857,7 +857,7 @@
       "name": "Add Apple Cloud",
       "icon": "cloud",
       "bullets": [
-        "Adds the Apple Cloud pack to your own key pack",
+        "Adds the Apple Cloud enhanced features to the own key ones you already have",
         "Up to 5 photos per question on Apple Cloud",
         "Send text, Markdown, PDF, Word and RTF files on Apple Cloud",
         "One-time purchase, yours to keep"
@@ -869,7 +869,7 @@
       "name": "Add your own key",
       "icon": "key",
       "bullets": [
-        "Adds the own key pack to your Apple Cloud pack",
+        "Adds the own key enhanced features to the Apple Cloud ones you already have",
         "One-time purchase, yours to keep"
       ]
     }
