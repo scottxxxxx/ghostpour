@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 60
+served_version: 61
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-10-14 (v60)
+reconciled: 2026-10-14 (v61)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1986,3 +1986,12 @@ Case bf7aed58, t_017, 2026-10-14 (request 86fc69cb8893), asked for by the audito
 PROMPT: the asking paragraph in MOVING THE INTERVIEW already said "never a node any fact in this response fills". It now continues, in place: `ASKING` NAMES THE NODE OF YOUR REPLY'S LAST QUESTION, NEVER ONE YOUR OWN FACTS JUST ANSWERED, decide the last question the reply will ask and name the agenda node whose question that is, with t_017 as the worked example (`asking` is {"node_id": "q_p4_prior_gate2", "field_ids": ["p4.has_prior_address2"]}, never q_p4_prior_gate1), and the same for the next job, trip, child or marriage. The example's spoken line is second person, per v59.
 
 Not tested against any model: no probes, no blind readers. The phrase list is sabotage-proved in tests only.
+
+## v61: a gate or count that opens rows does not end its part
+
+App build 179 (bcb1843, 2026-10-14) withholds "if any" rows (child rows 2 to 4, the USCIS account number, the spouse A-Number) until their gate or count is answered. Standing on q_p6_children_count, the agenda then lists no other Part 6 line and the client sent SECTION BOUNDARY ("the standing question is the last in Part 6"). v60's SECTION CHECKPOINTS opens "A part is done when SECTION BOUNDARY is present", and neither counterweight reached this case: "the agenda wins" needs an unanswered Part 6 line on the agenda, and "A FOLLOW-UP KEEPS THE PART OPEN" names a missing piece of the same answer. So "two kids" would read as a closed part, summarized before any child was asked. No GP guard sees it: the checkpoint guard reads only agenda lines, and total_children is a recorded fact. Asked for by the auditor under the N-400 standing order; the client is also changing so the boundary is not sent on such a line.
+
+PROMPT: directly after that sentence, A GATE OR COUNT THAT OPENS ROWS DOES NOT END ITS PART: on a yes or a count above zero the reply files the gate or count, asks the first row's question ("What is your first child's full name and date of birth?"), and has no summary and no section_checkpoint; only "no", "none" or zero closes the part there.
+
+Not tested against any model: no probes. The live test is Scott's next run on build 179. A GP backstop (refuse a checkpoint for part P when this response files pP.has_X = yes or pP.total_Y > 0 with none of its rows) is held unless a run shows the line does not hold.
+

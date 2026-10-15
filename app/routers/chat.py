@@ -108,6 +108,27 @@ def _with_recall_echo(content: dict, hook_results: dict) -> dict:
     return content
 
 
+async def _log_guard_retry(usage_tracker, db, user_id, retry_body, retry, start,
+                           kind: str, resolved: bool, app_id) -> None:
+    """One row for a guard's retry call, with the RETRY's own tokens.
+
+    The N-400 guards below run after step 9 has already logged the first
+    call as `success`, so the row they used to write before retrying was
+    that same first call a second time, and a retry that resolved was
+    never logged at all (Scott's run f0a763cc t_004 and t_006, 2026-10-14:
+    two identical rows each, and ~8 s of model time on no row). The wall
+    is measured from the request's start, so it is the time she waited.
+    """
+    if retry is None:
+        return
+    await usage_tracker.log_usage(
+        db, user_id, retry_body, retry,
+        int((time.monotonic() - start) * 1000),
+        status=f"{kind}_retry" if resolved else f"{kind}_retry_failed",
+        app_id=app_id,
+    )
+
+
 def _strip_json_code_fence(text: str) -> str:
     """Unwrap a response that is wholly a ```code fence``` wrapping valid JSON.
 
@@ -4618,18 +4639,17 @@ async def _chat_impl(
                 logger.warning(
                     "n400_checkpoint_refused turn_id=%s part=%s reason=%s",
                     _cp_turn, _bad_cp["part"], _bad_cp["reason"])
-                await usage_tracker.log_usage(
-                    db, user.id, body, response,
-                    int((time.monotonic() - start) * 1000),
-                    status="checkpoint_retry", app_id=app_id,
-                )
                 _cp_body = body.model_copy(update={
                     "user_content": (body.user_content or "") + CHECKPOINT_REMINDER})
                 _cp_retry = await route_with_fallback(
                     provider_router, _cp_body, db, request.app.state.settings,
                 )
                 _cp_text = _strip_json_code_fence(_cp_retry.text or "") if _cp_retry else ""
-                if _cp_text and checkpoint_is_refused(_cp_text, _agenda, _known) is None:
+                _cp_ok = bool(_cp_text and checkpoint_is_refused(_cp_text, _agenda, _known) is None)
+                await _log_guard_retry(
+                    usage_tracker, db, user.id, _cp_body, _cp_retry, start,
+                    "checkpoint", resolved=_cp_ok, app_id=app_id)
+                if _cp_ok:
                     logger.warning(
                         "n400_checkpoint_retried turn_id=%s code=%s",
                         _cp_turn, _bad_cp["code"])
@@ -4638,12 +4658,6 @@ async def _chat_impl(
                         _cp_text, _bad_cp, retried=True, resolved=True)
                 else:
                     logger.warning("n400_checkpoint_retry_failed turn_id=%s", _cp_turn)
-                    if _cp_retry:
-                        await usage_tracker.log_usage(
-                            db, user.id, _cp_body, _cp_retry,
-                            int((time.monotonic() - start) * 1000),
-                            status="checkpoint_retry_failed", app_id=app_id,
-                        )
                     response.text, _ = drop_contradicted_checkpoint(response.text, _agenda)
                     response.text = mark_checkpoint_refused(
                         response.text, _bad_cp, retried=True, resolved=False)
@@ -4663,18 +4677,17 @@ async def _chat_impl(
                 logger.warning(
                     "n400_impossible_oath_modification turn_id=%s locale=%s offer=%s",
                     _o_turn, _bad_oath["locale"], _bad_oath["offer"])
-                await usage_tracker.log_usage(
-                    db, user.id, body, response,
-                    int((time.monotonic() - start) * 1000),
-                    status="oath_modification_retry", app_id=app_id,
-                )
                 _o_body = body.model_copy(update={
                     "user_content": (body.user_content or "") + OATH_MODIFICATION_REMINDER})
                 _o_retry = await route_with_fallback(
                     provider_router, _o_body, db, request.app.state.settings,
                 )
                 _o_text = _strip_json_code_fence(_o_retry.text or "") if _o_retry else ""
-                if _o_text and offers_impossible_oath_modification(_o_text) is None:
+                _o_ok = bool(_o_text and offers_impossible_oath_modification(_o_text) is None)
+                await _log_guard_retry(
+                    usage_tracker, db, user.id, _o_body, _o_retry, start,
+                    "oath_modification", resolved=_o_ok, app_id=app_id)
+                if _o_ok:
                     logger.warning("n400_impossible_oath_modification_retried turn_id=%s", _o_turn)
                     response = _o_retry
                     response.text = mark_impossible_modification(
@@ -4704,18 +4717,17 @@ async def _chat_impl(
                     "n400_closed_in_words_while_open turn_id=%s locale=%s phrase=%s open=%d",
                     _c_turn, _closing["locale"], _closing["phrase"],
                     len(_closing["open_nodes"]))
-                await usage_tracker.log_usage(
-                    db, user.id, body, response,
-                    int((time.monotonic() - start) * 1000),
-                    status="closing_while_open_retry", app_id=app_id,
-                )
                 _c_body = body.model_copy(update={
                     "user_content": (body.user_content or "") + CLOSING_WHILE_OPEN_REMINDER})
                 _c_retry = await route_with_fallback(
                     provider_router, _c_body, db, request.app.state.settings,
                 )
                 _c_text = _strip_json_code_fence(_c_retry.text or "") if _c_retry else ""
-                if _c_text and closes_in_words_while_agenda_open(_c_text, _agenda) is None:
+                _c_ok = bool(_c_text and closes_in_words_while_agenda_open(_c_text, _agenda) is None)
+                await _log_guard_retry(
+                    usage_tracker, db, user.id, _c_body, _c_retry, start,
+                    "closing_while_open", resolved=_c_ok, app_id=app_id)
+                if _c_ok:
                     logger.warning("n400_closing_while_open_retried turn_id=%s", _c_turn)
                     response = _c_retry
                     response.text = mark_closing_while_open(
@@ -4742,18 +4754,17 @@ async def _chat_impl(
                 logger.warning(
                     "n400_date_inversion turn_id=%s fields=%s",
                     _d_turn, ",".join(i["field_id"] for i in _inverted))
-                await usage_tracker.log_usage(
-                    db, user.id, body, response,
-                    int((time.monotonic() - start) * 1000),
-                    status="date_inversion_retry", app_id=app_id,
-                )
                 _d_body = body.model_copy(update={
                     "user_content": (body.user_content or "") + date_inversion_reminder(_inverted)})
                 _d_retry = await route_with_fallback(
                     provider_router, _d_body, db, request.app.state.settings,
                 )
                 _d_text = _strip_json_code_fence(_d_retry.text or "") if _d_retry else ""
-                if _d_text and not date_inversions(_d_text, _known):
+                _d_ok = bool(_d_text and not date_inversions(_d_text, _known))
+                await _log_guard_retry(
+                    usage_tracker, db, user.id, _d_body, _d_retry, start,
+                    "date_inversion", resolved=_d_ok, app_id=app_id)
+                if _d_ok:
                     logger.warning("n400_date_inversion_retried turn_id=%s", _d_turn)
                     response = _d_retry
                     response.text = mark_date_inversion(
@@ -4762,12 +4773,6 @@ async def _chat_impl(
                     logger.error(
                         "n400_date_inversion_UNRESOLVED turn_id=%s fields=%s",
                         _d_turn, ",".join(i["field_id"] for i in _inverted))
-                    if _d_retry:
-                        await usage_tracker.log_usage(
-                            db, user.id, _d_body, _d_retry,
-                            int((time.monotonic() - start) * 1000),
-                            status="date_inversion_retry_failed", app_id=app_id,
-                        )
                     response.text = mark_date_inversion(
                         drop_inverted_dates(response.text, _inverted), _inverted,
                         retried=True, resolved=False)
