@@ -3,54 +3,34 @@
   "tiers": {
     "free": {
       "display_name": "Gratuit",
-      "description": "Une mémoire de chaque réunion, Personnes, résumés en direct et rapports, avec une allocation mensuelle d'IA pour essayer le reste.",
+      "description": "Chaque réunion enregistrée, résumée et transformée en un rapport que vous pouvez partager.",
       "feature_bullets": [
-        "L'IA dans le cloud pour environ cinq heures de réunions par mois",
-        "Une mémoire construite à partir de chaque réunion enregistrée",
-        "Personnes : qui vous rencontrez et ce qu'elles vous doivent",
-        "Résumés en direct et rapport complet après chaque réunion",
-        "Chat de projet : aperçu",
-        "Chat de réunion avec une allocation mensuelle",
-        "Recherche web : 5 par mois",
-        "Générer des fichiers depuis le chat : 5 par mois",
-        "1 image par message"
+        "Transcription et résumé en direct, avec qui a dit quoi",
+        "Un rapport complet après chaque réunion, à partager sous forme de lien web. Choisissez une langue au moment du partage, et le lecteur peut passer de l'original à la traduction.",
+        "Personnes : qui vous avez rencontré et ce qu'ils ont promis",
+        "Vos réunions synchronisées et sauvegardées dans votre propre iCloud",
+        "Environ cinq heures d'IA dans le cloud par mois pour essayer le reste"
       ],
       "feature_items": [
         {
-          "label": "L'IA dans le cloud pour environ cinq heures de réunions par mois",
-          "icon": "checkmark"
-        },
-        {
-          "label": "Une mémoire construite à partir de chaque réunion enregistrée",
-          "icon": "brain"
-        },
-        {
-          "label": "Personnes : qui vous rencontrez et ce qu'elles vous doivent",
-          "icon": "checkmark"
-        },
-        {
-          "label": "Résumés en direct et rapport complet après chaque réunion",
+          "label": "Transcription et résumé en direct, avec qui a dit quoi",
           "icon": "doc"
         },
         {
-          "label": "Chat de projet : aperçu",
-          "icon": "chat"
+          "label": "Un rapport complet après chaque réunion, à partager sous forme de lien web. Choisissez une langue au moment du partage, et le lecteur peut passer de l'original à la traduction.",
+          "icon": "share"
         },
         {
-          "label": "Chat de réunion avec une allocation mensuelle",
-          "icon": "chat"
+          "label": "Personnes : qui vous avez rencontré et ce qu'ils ont promis",
+          "icon": "checkmark"
         },
         {
-          "label": "Recherche web : 5 par mois",
-          "icon": "search"
+          "label": "Vos réunions synchronisées et sauvegardées dans votre propre iCloud",
+          "icon": "icloud"
         },
         {
-          "label": "Générer des fichiers depuis le chat : 5 par mois",
-          "icon": "filegen"
-        },
-        {
-          "label": "1 image par message",
-          "icon": "photo"
+          "label": "Environ cinq heures d'IA dans le cloud par mois pour essayer le reste",
+          "icon": "checkmark"
         }
       ],
       "status_items": [
@@ -65,7 +45,7 @@
           "icon": "doc"
         },
         {
-          "label": "Mémoire des réunions",
+          "label": "Context Quilt",
           "value": "aperçu",
           "icon": "brain",
           "state": "teaser"
@@ -75,6 +55,16 @@
           "value": "aperçu",
           "icon": "chat",
           "state": "teaser"
+        },
+        {
+          "label": "Rapports",
+          "value": "partageables, dans toutes les langues",
+          "icon": "share"
+        },
+        {
+          "label": "Synchronisation et sauvegarde iCloud",
+          "value": "activées",
+          "icon": "icloud"
         },
         {
           "label": "Recherche web",
@@ -94,7 +84,8 @@
       ],
       "feature_definitions": {
         "project_chat": {
-          "max_input_tokens": 50000
+          "max_input_tokens": 50000,
+          "meeting_window_days": 10
         },
         "budget": {
           "cta_exhausted": {
@@ -166,43 +157,43 @@
     },
     "plus": {
       "display_name": "Plus",
-      "description": "Vos {recall_window_days} derniers jours de réunions dans chaque conversation. Documents, recherche web, génération de fichiers, usage illimité.",
+      "description": "Des réponses qui se souviennent de ce que vous oublieriez.",
       "feature_bullets": [
-        "Vos {recall_window_days} derniers jours de réunions, dans chaque conversation",
-        "Chat de réunion et de projet illimités",
-        "Joignez des documents, la réponse les lit en entier",
-        "Recherche web : 75 par mois",
-        "Générez de vrais fichiers depuis le chat : Excel, Word, PowerPoint, PDF",
-        "Trois fois plus de contexte par message",
-        "3 images par message"
+        "Context Quilt, votre mémoire à long terme. Il suit discrètement les engagements, les préférences et les blocages de vos réunions, et les intègre à chaque réponse : en direct, après la réunion et dans le chat de projet. Y compris ce que personne n'a dit aujourd'hui et que vous n'auriez jamais pensé à ajouter.",
+        "Chat de projet : après la réunion, interrogez toutes les réunions des {recall_window_days} derniers jours",
+        "Questions illimitées, pendant la réunion et après",
+        "Joignez des documents, et la réponse lit chaque page",
+        "75 recherches web par mois pour des informations à jour",
+        "Transformez n'importe quel chat en vrai fichier Excel, Word, PowerPoint ou PDF",
+        "3 images par question"
       ],
       "feature_items": [
         {
-          "label": "Vos {recall_window_days} derniers jours de réunions, dans chaque conversation",
+          "label": "Context Quilt, votre mémoire à long terme. Il suit discrètement les engagements, les préférences et les blocages de vos réunions, et les intègre à chaque réponse : en direct, après la réunion et dans le chat de projet. Y compris ce que personne n'a dit aujourd'hui et que vous n'auriez jamais pensé à ajouter.",
           "icon": "brain"
         },
         {
-          "label": "Chat de réunion et de projet illimités",
+          "label": "Chat de projet : après la réunion, interrogez toutes les réunions des {recall_window_days} derniers jours",
           "icon": "chat"
         },
         {
-          "label": "Joignez des documents, la réponse les lit en entier",
+          "label": "Questions illimitées, pendant la réunion et après",
+          "icon": "chat"
+        },
+        {
+          "label": "Joignez des documents, et la réponse lit chaque page",
           "icon": "paperclip"
         },
         {
-          "label": "Recherche web : 75 par mois",
+          "label": "75 recherches web par mois pour des informations à jour",
           "icon": "search"
         },
         {
-          "label": "Générez de vrais fichiers depuis le chat : Excel, Word, PowerPoint, PDF",
+          "label": "Transformez n'importe quel chat en vrai fichier Excel, Word, PowerPoint ou PDF",
           "icon": "filegen"
         },
         {
-          "label": "Trois fois plus de contexte par message",
-          "icon": "cpu"
-        },
-        {
-          "label": "3 images par message",
+          "label": "3 images par question",
           "icon": "photo"
         }
       ],
@@ -223,16 +214,26 @@
           "icon": "cpu"
         },
         {
-          "label": "Mémoire des réunions",
-          "value": "{recall_window_days} derniers jours",
+          "label": "Context Quilt",
+          "value": "activé",
           "icon": "brain",
           "state": "enabled"
         },
         {
           "label": "Chat de projet",
-          "value": "oui",
+          "value": "réunions des {recall_window_days} derniers jours",
           "icon": "chat",
           "state": "enabled"
+        },
+        {
+          "label": "Rapports",
+          "value": "partageables, dans toutes les langues",
+          "icon": "share"
+        },
+        {
+          "label": "Synchronisation et sauvegarde iCloud",
+          "value": "activées",
+          "icon": "icloud"
         },
         {
           "label": "Recherche web",
@@ -257,7 +258,8 @@
       ],
       "feature_definitions": {
         "project_chat": {
-          "max_input_tokens": 150000
+          "max_input_tokens": 150000,
+          "meeting_window_days": 30
         },
         "search": {
           "searches_per_month": 75,
@@ -300,7 +302,7 @@
           }
         },
         "context_quilt": {
-          "recall_max_age_days": 30
+          "recall_max_age_days": null
         },
         "generation": {
           "generations_per_month": 50
@@ -309,43 +311,43 @@
     },
     "pro": {
       "display_name": "Pro",
-      "description": "Tout ce que vous avez enregistré, dans chaque conversation, avec le modèle le plus puissant pour l'analyse et les rapports.",
+      "description": "Chaque réunion que vous avez eue, mémorisée, avec l'IA la plus puissante pour celles qui comptent.",
       "feature_bullets": [
-        "Toutes les réunions que vous avez enregistrées, dans chaque conversation",
-        "Le modèle le plus puissant pour l'analyse et les rapports",
-        "Le plus grand contexte par message",
-        "Recherche web : 120 par mois",
-        "Générez de vrais fichiers depuis le chat : Excel, Word, PowerPoint, PDF",
-        "Joignez des documents, la réponse les lit en entier",
-        "5 images par message"
+        "Context Quilt, votre mémoire à long terme. Il suit discrètement les engagements, les préférences et les blocages de vos réunions, et les intègre à chaque réponse : en direct, après la réunion et dans le chat de projet. Y compris ce que personne n'a dit aujourd'hui et que vous n'auriez jamais pensé à ajouter.",
+        "Chat de projet sur toutes les réunions que vous avez enregistrées",
+        "Le modèle le plus puissant rédige vos rapports et l'analyse après la réunion",
+        "De la place pour les longues réunions et les gros documents dans une seule question",
+        "120 recherches web par mois",
+        "De vrais fichiers Excel, Word, PowerPoint et PDF depuis le chat",
+        "5 images par question"
       ],
       "feature_items": [
         {
-          "label": "Toutes les réunions que vous avez enregistrées, dans chaque conversation",
+          "label": "Context Quilt, votre mémoire à long terme. Il suit discrètement les engagements, les préférences et les blocages de vos réunions, et les intègre à chaque réponse : en direct, après la réunion et dans le chat de projet. Y compris ce que personne n'a dit aujourd'hui et que vous n'auriez jamais pensé à ajouter.",
           "icon": "brain"
         },
         {
-          "label": "Le modèle le plus puissant pour l'analyse et les rapports",
+          "label": "Chat de projet sur toutes les réunions que vous avez enregistrées",
+          "icon": "chat"
+        },
+        {
+          "label": "Le modèle le plus puissant rédige vos rapports et l'analyse après la réunion",
           "icon": "cpu"
         },
         {
-          "label": "Le plus grand contexte par message",
+          "label": "De la place pour les longues réunions et les gros documents dans une seule question",
           "icon": "cpu"
         },
         {
-          "label": "Recherche web : 120 par mois",
+          "label": "120 recherches web par mois",
           "icon": "search"
         },
         {
-          "label": "Générez de vrais fichiers depuis le chat : Excel, Word, PowerPoint, PDF",
+          "label": "De vrais fichiers Excel, Word, PowerPoint et PDF depuis le chat",
           "icon": "filegen"
         },
         {
-          "label": "Joignez des documents, la réponse les lit en entier",
-          "icon": "paperclip"
-        },
-        {
-          "label": "5 images par message",
+          "label": "5 images par question",
           "icon": "photo"
         }
       ],
@@ -366,16 +368,26 @@
           "icon": "cpu"
         },
         {
-          "label": "Mémoire des réunions",
-          "value": "tout, depuis toujours",
+          "label": "Context Quilt",
+          "value": "activé",
           "icon": "brain",
           "state": "enabled"
         },
         {
           "label": "Chat de projet",
-          "value": "oui",
+          "value": "toutes les réunions",
           "icon": "chat",
           "state": "enabled"
+        },
+        {
+          "label": "Rapports",
+          "value": "partageables, dans toutes les langues",
+          "icon": "share"
+        },
+        {
+          "label": "Synchronisation et sauvegarde iCloud",
+          "value": "activées",
+          "icon": "icloud"
         },
         {
           "label": "Recherche web",
@@ -400,7 +412,8 @@
       ],
       "feature_definitions": {
         "project_chat": {
-          "max_input_tokens": 360000
+          "max_input_tokens": 360000,
+          "meeting_window_days": null
         },
         "search": {
           "searches_per_month": 120,
@@ -594,11 +607,11 @@
       "display_name": "Mémoire des réunions",
       "description": "Votre IA se souvient des réunions passées et utilise ces connaissances automatiquement.",
       "teaser_description": "Votre IA a trouvé des liens avec vos réunions passées",
-      "upgrade_cta": "Passez à Plus pour intégrer vos {recall_window_days} derniers jours de réunions à chaque réponse",
+      "upgrade_cta": "Passez à Plus pour intégrer Context Quilt, votre mémoire à long terme, à chaque réponse",
       "cta_strings": {
-        "free_within_quota_footer": "✨ C'était votre Mémoire gratuite de {total} ce mois-ci. Plus intègre vos {recall_window_days} derniers jours de réunions à chaque réponse.",
-        "free_no_quota_only": "✨ Vous avez utilisé votre IA gratuite pour ce mois-ci. Plus la rend illimitée et intègre vos {recall_window_days} derniers jours de réunions à chaque réponse.",
-        "free_people_only": "✨ Votre IA construit votre liste de Personnes à partir de cette réunion. Plus intègre vos {recall_window_days} derniers jours de réunions à chaque réponse."
+        "free_within_quota_footer": "✨ C'était votre Mémoire gratuite de {total} ce mois-ci. Plus intègre Context Quilt, votre mémoire à long terme, à chaque réponse.",
+        "free_no_quota_only": "✨ Vous avez utilisé votre IA gratuite pour ce mois-ci. Plus la rend illimitée et intègre Context Quilt, votre mémoire à long terme, à chaque réponse.",
+        "free_people_only": "✨ Votre IA construit votre liste de Personnes à partir de cette réunion. Plus intègre Context Quilt, votre mémoire à long terme, à chaque réponse."
       }
     },
     "meeting_reports": {

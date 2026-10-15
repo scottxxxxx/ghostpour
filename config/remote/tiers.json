@@ -3,54 +3,34 @@
   "tiers": {
     "free": {
       "display_name": "Free",
-      "description": "Memory from every meeting, People, live summaries and reports, with a monthly allowance of AI to try the rest.",
+      "description": "Every meeting captured, summarized and turned into a report you can share.",
       "feature_bullets": [
-        "Cloud AI for about five hours of meetings a month",
-        "Memory built from every meeting you record",
-        "People: who you meet and what they owe you",
-        "Live summaries and a full report after every meeting",
-        "Project chat: preview",
-        "Meeting chat with a monthly allowance",
-        "Web search: 5 a month",
-        "Generate files from chat: 5 a month",
-        "1 image per message"
+        "A live transcript and summary, with who said what",
+        "A full report after every meeting, which you can share as a web link. Pick a language when you share, and the reader can switch between the original and the translation.",
+        "People: who you met and what they promised",
+        "Your meetings synced and backed up in your own iCloud",
+        "About five hours of cloud AI a month to try the rest"
       ],
       "feature_items": [
         {
-          "label": "Cloud AI for about five hours of meetings a month",
-          "icon": "checkmark"
-        },
-        {
-          "label": "Memory built from every meeting you record",
-          "icon": "brain"
-        },
-        {
-          "label": "People: who you meet and what they owe you",
-          "icon": "checkmark"
-        },
-        {
-          "label": "Live summaries and a full report after every meeting",
+          "label": "A live transcript and summary, with who said what",
           "icon": "doc"
         },
         {
-          "label": "Project chat: preview",
-          "icon": "chat"
+          "label": "A full report after every meeting, which you can share as a web link. Pick a language when you share, and the reader can switch between the original and the translation.",
+          "icon": "share"
         },
         {
-          "label": "Meeting chat with a monthly allowance",
-          "icon": "chat"
+          "label": "People: who you met and what they promised",
+          "icon": "checkmark"
         },
         {
-          "label": "Web search: 5 a month",
-          "icon": "search"
+          "label": "Your meetings synced and backed up in your own iCloud",
+          "icon": "icloud"
         },
         {
-          "label": "Generate files from chat: 5 a month",
-          "icon": "filegen"
-        },
-        {
-          "label": "1 image per message",
-          "icon": "photo"
+          "label": "About five hours of cloud AI a month to try the rest",
+          "icon": "checkmark"
         }
       ],
       "status_items": [
@@ -65,7 +45,7 @@
           "icon": "doc"
         },
         {
-          "label": "Meeting Memory",
+          "label": "Context Quilt",
           "value": "preview",
           "icon": "brain",
           "state": "teaser"
@@ -75,6 +55,16 @@
           "value": "preview",
           "icon": "chat",
           "state": "teaser"
+        },
+        {
+          "label": "Reports",
+          "value": "shareable, in any language",
+          "icon": "share"
+        },
+        {
+          "label": "iCloud sync and backup",
+          "value": "on",
+          "icon": "icloud"
         },
         {
           "label": "Web search",
@@ -94,7 +84,8 @@
       ],
       "feature_definitions": {
         "project_chat": {
-          "max_input_tokens": 50000
+          "max_input_tokens": 50000,
+          "meeting_window_days": 10
         },
         "budget": {
           "cta_exhausted": {
@@ -166,43 +157,43 @@
     },
     "plus": {
       "display_name": "Plus",
-      "description": "Your last {recall_window_days} days of meetings in every conversation. Documents, web search, file generation, unlimited use.",
+      "description": "Answers that remember what you'd forget.",
       "feature_bullets": [
-        "Your last {recall_window_days} days of meetings, in every conversation",
-        "Unlimited meeting chat and project chat",
-        "Attach documents and the answer reads the whole thing",
-        "Web search: 75 a month",
-        "Generate real files from chat: Excel, Word, PowerPoint, PDF",
-        "Three times the context per message",
-        "3 images per message"
+        "Context Quilt, your long-term memory. It quietly tracks commitments, preferences and blockers across your meetings, and brings them into every answer: live, after the meeting and in Project Chat. That includes things nobody said today and you'd never think to add.",
+        "Project Chat: after the meeting, ask across every meeting from the last {recall_window_days} days",
+        "Unlimited questions, during the meeting and after",
+        "Attach documents, and the answer reads every page",
+        "75 web searches a month for fresh facts",
+        "Turn any chat into a real Excel, Word, PowerPoint or PDF file",
+        "3 images per question"
       ],
       "feature_items": [
         {
-          "label": "Your last {recall_window_days} days of meetings, in every conversation",
+          "label": "Context Quilt, your long-term memory. It quietly tracks commitments, preferences and blockers across your meetings, and brings them into every answer: live, after the meeting and in Project Chat. That includes things nobody said today and you'd never think to add.",
           "icon": "brain"
         },
         {
-          "label": "Unlimited meeting chat and project chat",
+          "label": "Project Chat: after the meeting, ask across every meeting from the last {recall_window_days} days",
           "icon": "chat"
         },
         {
-          "label": "Attach documents and the answer reads the whole thing",
+          "label": "Unlimited questions, during the meeting and after",
+          "icon": "chat"
+        },
+        {
+          "label": "Attach documents, and the answer reads every page",
           "icon": "paperclip"
         },
         {
-          "label": "Web search: 75 a month",
+          "label": "75 web searches a month for fresh facts",
           "icon": "search"
         },
         {
-          "label": "Generate real files from chat: Excel, Word, PowerPoint, PDF",
+          "label": "Turn any chat into a real Excel, Word, PowerPoint or PDF file",
           "icon": "filegen"
         },
         {
-          "label": "Three times the context per message",
-          "icon": "cpu"
-        },
-        {
-          "label": "3 images per message",
+          "label": "3 images per question",
           "icon": "photo"
         }
       ],
@@ -223,16 +214,26 @@
           "icon": "cpu"
         },
         {
-          "label": "Meeting Memory",
-          "value": "last {recall_window_days} days",
+          "label": "Context Quilt",
+          "value": "on",
           "icon": "brain",
           "state": "enabled"
         },
         {
           "label": "Project chat",
-          "value": "yes",
+          "value": "last {recall_window_days} days of meetings",
           "icon": "chat",
           "state": "enabled"
+        },
+        {
+          "label": "Reports",
+          "value": "shareable, in any language",
+          "icon": "share"
+        },
+        {
+          "label": "iCloud sync and backup",
+          "value": "on",
+          "icon": "icloud"
         },
         {
           "label": "Web search",
@@ -257,7 +258,8 @@
       ],
       "feature_definitions": {
         "project_chat": {
-          "max_input_tokens": 150000
+          "max_input_tokens": 150000,
+          "meeting_window_days": 30
         },
         "search": {
           "searches_per_month": 75,
@@ -300,7 +302,7 @@
           }
         },
         "context_quilt": {
-          "recall_max_age_days": 30
+          "recall_max_age_days": null
         },
         "generation": {
           "generations_per_month": 50
@@ -309,43 +311,43 @@
     },
     "pro": {
       "display_name": "Pro",
-      "description": "Everything you've ever recorded, in every conversation, with the stronger model on analysis and reports.",
+      "description": "Every meeting you've ever had, remembered, with the strongest AI on the ones that matter.",
       "feature_bullets": [
-        "Every meeting you've ever recorded, in every conversation",
-        "The stronger model on post-meeting analysis and reports",
-        "The largest context per message",
-        "Web search: 120 a month",
-        "Generate real files from chat: Excel, Word, PowerPoint, PDF",
-        "Attach documents and the answer reads the whole thing",
-        "5 images per message"
+        "Context Quilt, your long-term memory. It quietly tracks commitments, preferences and blockers across your meetings, and brings them into every answer: live, after the meeting and in Project Chat. That includes things nobody said today and you'd never think to add.",
+        "Project Chat across every meeting you've ever recorded",
+        "The stronger model writes your reports and post-meeting analysis",
+        "Room for long meetings and big documents in a single question",
+        "120 web searches a month",
+        "Real Excel, Word, PowerPoint and PDF files from chat",
+        "5 images per question"
       ],
       "feature_items": [
         {
-          "label": "Every meeting you've ever recorded, in every conversation",
+          "label": "Context Quilt, your long-term memory. It quietly tracks commitments, preferences and blockers across your meetings, and brings them into every answer: live, after the meeting and in Project Chat. That includes things nobody said today and you'd never think to add.",
           "icon": "brain"
         },
         {
-          "label": "The stronger model on post-meeting analysis and reports",
+          "label": "Project Chat across every meeting you've ever recorded",
+          "icon": "chat"
+        },
+        {
+          "label": "The stronger model writes your reports and post-meeting analysis",
           "icon": "cpu"
         },
         {
-          "label": "The largest context per message",
+          "label": "Room for long meetings and big documents in a single question",
           "icon": "cpu"
         },
         {
-          "label": "Web search: 120 a month",
+          "label": "120 web searches a month",
           "icon": "search"
         },
         {
-          "label": "Generate real files from chat: Excel, Word, PowerPoint, PDF",
+          "label": "Real Excel, Word, PowerPoint and PDF files from chat",
           "icon": "filegen"
         },
         {
-          "label": "Attach documents and the answer reads the whole thing",
-          "icon": "paperclip"
-        },
-        {
-          "label": "5 images per message",
+          "label": "5 images per question",
           "icon": "photo"
         }
       ],
@@ -366,16 +368,26 @@
           "icon": "cpu"
         },
         {
-          "label": "Meeting Memory",
-          "value": "everything, ever",
+          "label": "Context Quilt",
+          "value": "on",
           "icon": "brain",
           "state": "enabled"
         },
         {
           "label": "Project chat",
-          "value": "yes",
+          "value": "every meeting",
           "icon": "chat",
           "state": "enabled"
+        },
+        {
+          "label": "Reports",
+          "value": "shareable, in any language",
+          "icon": "share"
+        },
+        {
+          "label": "iCloud sync and backup",
+          "value": "on",
+          "icon": "icloud"
         },
         {
           "label": "Web search",
@@ -400,7 +412,8 @@
       ],
       "feature_definitions": {
         "project_chat": {
-          "max_input_tokens": 360000
+          "max_input_tokens": 360000,
+          "meeting_window_days": null
         },
         "search": {
           "searches_per_month": 120,
@@ -594,11 +607,11 @@
       "display_name": "Meeting Memory",
       "description": "Your AI remembers past meetings and uses that knowledge automatically.",
       "teaser_description": "Your AI found connections to your past meetings",
-      "upgrade_cta": "Upgrade to Plus to bring your last {recall_window_days} days of meetings into every answer",
+      "upgrade_cta": "Upgrade to Plus to bring Context Quilt, your long-term memory, into every answer",
       "cta_strings": {
-        "free_within_quota_footer": "✨ This was your free Memory of {total} this month. Plus brings your last {recall_window_days} days of meetings into every answer.",
-        "free_no_quota_only": "✨ You've used your free AI for this month. Plus makes it unlimited and brings your last {recall_window_days} days of meetings into every answer.",
-        "free_people_only": "✨ Your AI is building your People list from this meeting. Plus brings your last {recall_window_days} days of meetings into every answer."
+        "free_within_quota_footer": "✨ This was your free Memory of {total} this month. Plus brings Context Quilt, your long-term memory, into every answer.",
+        "free_no_quota_only": "✨ You've used your free AI for this month. Plus makes it unlimited and brings Context Quilt, your long-term memory, into every answer.",
+        "free_people_only": "✨ Your AI is building your People list from this meeting. Plus brings Context Quilt, your long-term memory, into every answer."
       }
     },
     "meeting_reports": {

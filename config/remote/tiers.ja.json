@@ -3,54 +3,34 @@
   "tiers": {
     "free": {
       "display_name": "無料",
-      "description": "すべての会議からメモリーを構築。People、ライブ要約、レポート、そして残りの機能を試せる月間AI利用枠。",
+      "description": "すべての会議を記録・要約し、共有できるレポートにします。",
       "feature_bullets": [
-        "クラウドAIで毎月約5時間のミーティング",
-        "記録したすべての会議からメモリーを構築",
-        "People：誰と会い、何を約束されたか",
-        "会議中のライブ要約と終了後の完全なレポート",
-        "プロジェクトチャット：プレビュー",
-        "月間の利用枠で使える会議チャット",
-        "ウェブ検索：月5回",
-        "チャットからのファイル生成：月5回",
-        "1メッセージあたり画像1枚"
+        "誰が何を言ったかがわかる、ライブの文字起こしと要約",
+        "会議ごとの完全なレポートをWebリンクで共有できます。共有時に言語を選ぶと、読み手は原文と翻訳を切り替えられます。",
+        "People：会った相手と、その人が約束したこと",
+        "会議はあなた自身のiCloudに同期・バックアップ",
+        "月に約5時間のクラウドAIで、ほかの機能もお試しいただけます"
       ],
       "feature_items": [
         {
-          "label": "クラウドAIで毎月約5時間のミーティング",
-          "icon": "checkmark"
-        },
-        {
-          "label": "記録したすべての会議からメモリーを構築",
-          "icon": "brain"
-        },
-        {
-          "label": "People：誰と会い、何を約束されたか",
-          "icon": "checkmark"
-        },
-        {
-          "label": "会議中のライブ要約と終了後の完全なレポート",
+          "label": "誰が何を言ったかがわかる、ライブの文字起こしと要約",
           "icon": "doc"
         },
         {
-          "label": "プロジェクトチャット：プレビュー",
-          "icon": "chat"
+          "label": "会議ごとの完全なレポートをWebリンクで共有できます。共有時に言語を選ぶと、読み手は原文と翻訳を切り替えられます。",
+          "icon": "share"
         },
         {
-          "label": "月間の利用枠で使える会議チャット",
-          "icon": "chat"
+          "label": "People：会った相手と、その人が約束したこと",
+          "icon": "checkmark"
         },
         {
-          "label": "ウェブ検索：月5回",
-          "icon": "search"
+          "label": "会議はあなた自身のiCloudに同期・バックアップ",
+          "icon": "icloud"
         },
         {
-          "label": "チャットからのファイル生成：月5回",
-          "icon": "filegen"
-        },
-        {
-          "label": "1メッセージあたり画像1枚",
-          "icon": "photo"
+          "label": "月に約5時間のクラウドAIで、ほかの機能もお試しいただけます",
+          "icon": "checkmark"
         }
       ],
       "status_items": [
@@ -65,7 +45,7 @@
           "icon": "doc"
         },
         {
-          "label": "ミーティングメモリー",
+          "label": "Context Quilt",
           "value": "プレビュー",
           "icon": "brain",
           "state": "teaser"
@@ -75,6 +55,16 @@
           "value": "プレビュー",
           "icon": "chat",
           "state": "teaser"
+        },
+        {
+          "label": "レポート",
+          "value": "共有可能、どの言語でも",
+          "icon": "share"
+        },
+        {
+          "label": "iCloud同期とバックアップ",
+          "value": "オン",
+          "icon": "icloud"
         },
         {
           "label": "ウェブ検索",
@@ -94,7 +84,8 @@
       ],
       "feature_definitions": {
         "project_chat": {
-          "max_input_tokens": 50000
+          "max_input_tokens": 50000,
+          "meeting_window_days": 10
         },
         "budget": {
           "cta_exhausted": {
@@ -166,43 +157,43 @@
     },
     "plus": {
       "display_name": "Plus",
-      "description": "直近{recall_window_days}日間の会議をすべての会話に。ドキュメント、ウェブ検索、ファイル生成、無制限の利用。",
+      "description": "あなたが忘れてしまうことも覚えている回答。",
       "feature_bullets": [
-        "直近{recall_window_days}日間の会議を、すべての会話に",
-        "会議チャットとプロジェクトチャットが無制限",
-        "ドキュメントを添付すると、回答が全文を読み込みます",
-        "ウェブ検索：月75回",
-        "チャットから実ファイルを生成：Excel、Word、PowerPoint、PDF",
-        "1メッセージあたりのコンテキストが3倍",
-        "1メッセージあたり画像3枚"
+        "Context Quilt、あなたの長期記憶。会議をまたいで約束、好み、障害をさりげなく記録し、あらゆる回答に生かします：会議中も、会議後も、プロジェクトチャットでも。今日誰も口にしなかったことや、自分では追加しようと思わないことまで含まれます。",
+        "プロジェクトチャット：会議後に、過去{recall_window_days}日間のすべての会議について質問",
+        "会議中も会議後も、質問は無制限",
+        "ドキュメントを添付すると、回答がすべてのページを読み込みます",
+        "最新情報のためのWeb検索が月75回",
+        "どのチャットも本物のExcel、Word、PowerPoint、PDFファイルに",
+        "1回の質問につき画像3枚"
       ],
       "feature_items": [
         {
-          "label": "直近{recall_window_days}日間の会議を、すべての会話に",
+          "label": "Context Quilt、あなたの長期記憶。会議をまたいで約束、好み、障害をさりげなく記録し、あらゆる回答に生かします：会議中も、会議後も、プロジェクトチャットでも。今日誰も口にしなかったことや、自分では追加しようと思わないことまで含まれます。",
           "icon": "brain"
         },
         {
-          "label": "会議チャットとプロジェクトチャットが無制限",
+          "label": "プロジェクトチャット：会議後に、過去{recall_window_days}日間のすべての会議について質問",
           "icon": "chat"
         },
         {
-          "label": "ドキュメントを添付すると、回答が全文を読み込みます",
+          "label": "会議中も会議後も、質問は無制限",
+          "icon": "chat"
+        },
+        {
+          "label": "ドキュメントを添付すると、回答がすべてのページを読み込みます",
           "icon": "paperclip"
         },
         {
-          "label": "ウェブ検索：月75回",
+          "label": "最新情報のためのWeb検索が月75回",
           "icon": "search"
         },
         {
-          "label": "チャットから実ファイルを生成：Excel、Word、PowerPoint、PDF",
+          "label": "どのチャットも本物のExcel、Word、PowerPoint、PDFファイルに",
           "icon": "filegen"
         },
         {
-          "label": "1メッセージあたりのコンテキストが3倍",
-          "icon": "cpu"
-        },
-        {
-          "label": "1メッセージあたり画像3枚",
+          "label": "1回の質問につき画像3枚",
           "icon": "photo"
         }
       ],
@@ -223,16 +214,26 @@
           "icon": "cpu"
         },
         {
-          "label": "ミーティングメモリー",
-          "value": "直近{recall_window_days}日間",
+          "label": "Context Quilt",
+          "value": "オン",
           "icon": "brain",
           "state": "enabled"
         },
         {
           "label": "プロジェクトチャット",
-          "value": "あり",
+          "value": "過去{recall_window_days}日間の会議",
           "icon": "chat",
           "state": "enabled"
+        },
+        {
+          "label": "レポート",
+          "value": "共有可能、どの言語でも",
+          "icon": "share"
+        },
+        {
+          "label": "iCloud同期とバックアップ",
+          "value": "オン",
+          "icon": "icloud"
         },
         {
           "label": "ウェブ検索",
@@ -257,7 +258,8 @@
       ],
       "feature_definitions": {
         "project_chat": {
-          "max_input_tokens": 150000
+          "max_input_tokens": 150000,
+          "meeting_window_days": 30
         },
         "search": {
           "searches_per_month": 75,
@@ -300,7 +302,7 @@
           }
         },
         "context_quilt": {
-          "recall_max_age_days": 30
+          "recall_max_age_days": null
         },
         "generation": {
           "generations_per_month": 50
@@ -309,43 +311,43 @@
     },
     "pro": {
       "display_name": "Pro",
-      "description": "記録したすべてを、すべての会話に。分析とレポートにはより高性能なモデル。",
+      "description": "これまでのすべての会議を記憶し、重要な会議には最も強力なAIを。",
       "feature_bullets": [
-        "記録したすべての会議を、すべての会話に",
-        "会議後の分析とレポートにより高性能なモデル",
-        "1メッセージあたり最大のコンテキスト",
-        "ウェブ検索：月120回",
-        "チャットから実ファイルを生成：Excel、Word、PowerPoint、PDF",
-        "ドキュメントを添付すると、回答が全文を読み込みます",
-        "1メッセージあたり画像5枚"
+        "Context Quilt、あなたの長期記憶。会議をまたいで約束、好み、障害をさりげなく記録し、あらゆる回答に生かします：会議中も、会議後も、プロジェクトチャットでも。今日誰も口にしなかったことや、自分では追加しようと思わないことまで含まれます。",
+        "これまで録音したすべての会議にわたるプロジェクトチャット",
+        "より強力なモデルがレポートと会議後の分析を作成",
+        "長い会議や大きなドキュメントも1回の質問で扱える容量",
+        "Web検索が月120回",
+        "チャットから本物のExcel、Word、PowerPoint、PDFファイル",
+        "1回の質問につき画像5枚"
       ],
       "feature_items": [
         {
-          "label": "記録したすべての会議を、すべての会話に",
+          "label": "Context Quilt、あなたの長期記憶。会議をまたいで約束、好み、障害をさりげなく記録し、あらゆる回答に生かします：会議中も、会議後も、プロジェクトチャットでも。今日誰も口にしなかったことや、自分では追加しようと思わないことまで含まれます。",
           "icon": "brain"
         },
         {
-          "label": "会議後の分析とレポートにより高性能なモデル",
+          "label": "これまで録音したすべての会議にわたるプロジェクトチャット",
+          "icon": "chat"
+        },
+        {
+          "label": "より強力なモデルがレポートと会議後の分析を作成",
           "icon": "cpu"
         },
         {
-          "label": "1メッセージあたり最大のコンテキスト",
+          "label": "長い会議や大きなドキュメントも1回の質問で扱える容量",
           "icon": "cpu"
         },
         {
-          "label": "ウェブ検索：月120回",
+          "label": "Web検索が月120回",
           "icon": "search"
         },
         {
-          "label": "チャットから実ファイルを生成：Excel、Word、PowerPoint、PDF",
+          "label": "チャットから本物のExcel、Word、PowerPoint、PDFファイル",
           "icon": "filegen"
         },
         {
-          "label": "ドキュメントを添付すると、回答が全文を読み込みます",
-          "icon": "paperclip"
-        },
-        {
-          "label": "1メッセージあたり画像5枚",
+          "label": "1回の質問につき画像5枚",
           "icon": "photo"
         }
       ],
@@ -366,16 +368,26 @@
           "icon": "cpu"
         },
         {
-          "label": "ミーティングメモリー",
-          "value": "すべて",
+          "label": "Context Quilt",
+          "value": "オン",
           "icon": "brain",
           "state": "enabled"
         },
         {
           "label": "プロジェクトチャット",
-          "value": "あり",
+          "value": "すべての会議",
           "icon": "chat",
           "state": "enabled"
+        },
+        {
+          "label": "レポート",
+          "value": "共有可能、どの言語でも",
+          "icon": "share"
+        },
+        {
+          "label": "iCloud同期とバックアップ",
+          "value": "オン",
+          "icon": "icloud"
         },
         {
           "label": "ウェブ検索",
@@ -400,7 +412,8 @@
       ],
       "feature_definitions": {
         "project_chat": {
-          "max_input_tokens": 180000
+          "max_input_tokens": 180000,
+          "meeting_window_days": null
         },
         "search": {
           "searches_per_month": 120,
@@ -594,11 +607,11 @@
       "display_name": "ミーティングメモリー",
       "description": "AIが過去の会議を記憶し、その知識を自動的に活用します。",
       "teaser_description": "AIが過去の会議とのつながりを発見しました",
-      "upgrade_cta": "Plusにアップグレードして、直近{recall_window_days}日間の会議をすべての回答に反映",
+      "upgrade_cta": "Plusにアップグレードして、長期記憶のContext Quiltをすべての回答に",
       "cta_strings": {
-        "free_within_quota_footer": "✨ これは今月の無料メモリー（{total}回分）でした。Plusなら直近{recall_window_days}日間の会議がすべての回答に反映されます。",
-        "free_no_quota_only": "✨ 今月の無料AIを使い切りました。Plusなら無制限になり、直近{recall_window_days}日間の会議がすべての回答に反映されます。",
-        "free_people_only": "✨ AIがこの会議からPeopleリストを作成しています。Plusなら直近{recall_window_days}日間の会議がすべての回答に反映されます。"
+        "free_within_quota_footer": "✨ これは今月の無料メモリー（{total}回分）でした。Plusなら長期記憶のContext Quiltがすべての回答に生かされます。",
+        "free_no_quota_only": "✨ 今月の無料AIを使い切りました。Plusなら無制限になり、長期記憶のContext Quiltがすべての回答に生かされます。",
+        "free_people_only": "✨ AIがこの会議からPeopleリストを作成しています。Plusなら長期記憶のContext Quiltがすべての回答に生かされます。"
       }
     },
     "meeting_reports": {

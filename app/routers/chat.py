@@ -2159,7 +2159,10 @@ async def _chat_impl(
     # sent, so both halves cut at the same day. Pro's dial is null: nothing
     # happens. Project chat only: that is the surface the ruling names.
     if body.get_meta("prompt_mode") == "ProjectChat":
-        from app.services.recall_window import clamp_meeting_blocks, recall_max_age_days as _win
+        # The Project Chat dial, not the memory dial: split 2026-10-15, so a
+        # Plus project chat keeps its 30 days while its Context Quilt recall
+        # (metadata.max_age_days above) is unlimited.
+        from app.services.recall_window import clamp_meeting_blocks, project_chat_window_days as _win
         _n_days = _win(request.app.state.remote_configs, user.effective_tier)
         if _n_days is not None:
             _clamped, _dropped = clamp_meeting_blocks(body.system_prompt, _n_days)

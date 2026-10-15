@@ -2389,6 +2389,7 @@ async def get_tiers(
             tier_feature_block as _tier_feature_block,
         )
         from app.services.recall_window import recall_max_age_days as _recall_window
+        from app.services.recall_window import project_chat_window_days as _pc_window
         from app.services.meeting_shares import tier_share_caps as _share_caps
         tiers[name] = {
             "display_name": tier.display_name,
@@ -2417,6 +2418,9 @@ async def get_tiers(
             # Plus recall window (2026-08-21): days of Memory a tier's chat
             # recalls; None = unlimited. Served copy is templated from it.
             "recall_max_age_days": _recall_window(remote_configs, name),
+            # Project Chat meeting window (split from the memory window
+            # 2026-10-15); None = unlimited. Served copy is templated from it.
+            "project_chat_window_days": _pc_window(remote_configs, name),
             # Meeting share dials (2026-08-22): archive size cap in MB, None =
             # no cap (Scott's default); creations per day.
             "share_max_archive_mb": _share_caps(remote_configs, name)["max_archive_bytes"] and round(_share_caps(remote_configs, name)["max_archive_bytes"] / 1048576, 2),

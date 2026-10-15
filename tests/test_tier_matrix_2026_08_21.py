@@ -50,8 +50,12 @@ def test_dials_match_the_sheet_in_every_locale():
         # tighter and this mirror has to track it.
         pro = 180000 if loc.endswith("ja") else 360000
         assert [_fd(loc, t, "project_chat", "max_input_tokens") for t in ("free", "plus", "pro")] == [50000, 150000, pro], loc
-        assert _fd(loc, "plus", "context_quilt", "recall_max_age_days") == 30, loc
+        # Split 2026-10-15 (Scott: "context quilt is unlimited on plus and
+        # pro"): the memory window is null on both paid tiers, and Plus's 30
+        # days moved to the Project Chat window.
+        assert _fd(loc, "plus", "context_quilt", "recall_max_age_days") is None, loc
         assert _fd(loc, "pro", "context_quilt", "recall_max_age_days") is None, loc
+        assert [_fd(loc, t, "project_chat", "meeting_window_days") for t in ("free", "plus", "pro")] == [10, 30, None], loc
 
 
 def test_boot_time_limits_match_the_sheet():
