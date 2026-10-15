@@ -179,3 +179,14 @@ def test_people_upsell_names_no_tier():
                            "u": ppl.get("upgrade_cta")}, ensure_ascii=False)
         for tier in ("Plus", "Pro"):
             assert tier not in blob, f"{loc} People copy names {tier}"
+
+
+@pytest.mark.parametrize("locale", LOCALES)
+def test_signed_out_body_names_context_quilt_and_shoulder_surf_ai(locale):
+    """Scott, 2026-10-15: People is presented as part of Context Quilt,
+    available once signed in to Shoulder Surf AI. The client shows a fixed
+    eyebrow, but the body is what a running campaign does not replace."""
+    block = TIERS[locale]["feature_definitions"]["people"]["signed_out"]
+    for key in ("body", "body_with_count"):
+        assert "Context Quilt" in block[key], f"{locale}.{key}"
+        assert "Shoulder Surf AI" in block[key], f"{locale}.{key}"

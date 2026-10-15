@@ -1,5 +1,9 @@
 """The Plus window cuts the MEETING CONTENT too, server-side, on the same dial.
 
+SPLIT 2026-10-15: "the same dial" is now the Project Chat dial
+(project_chat.meeting_window_days). Context Quilt recall is unlimited on
+Plus and Pro, so the two halves cut at different days on purpose.
+
 Scott via CQ, 2026-08-26 (supersedes earlier): a Plus user's project chat
 gets the last N days of meetings, sliding from today, even when the
 project holds more; Pro has no window; N is the served dial, never a
@@ -13,7 +17,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
-from app.services.recall_window import clamp_meeting_blocks, recall_max_age_days
+from app.services.recall_window import clamp_meeting_blocks, project_chat_window_days
 
 TODAY = date(2026, 8, 26)
 
@@ -89,7 +93,7 @@ def _seen_system(mock_provider) -> str:
 
 def _dates_for(client):
     from app.main import app as _app
-    n = recall_max_age_days(_app.state.remote_configs, "plus")
+    n = project_chat_window_days(_app.state.remote_configs, "plus")
     assert n, "the Plus dial must be set for this test to mean anything"
     today = date.today()
     return n, [today - timedelta(days=n * 3), today - timedelta(days=n + 1), today - timedelta(days=1)]
@@ -127,10 +131,10 @@ def test_free_project_chat_is_clamped_to_ten_days_from_the_bundle():
     import json
     from datetime import date, timedelta
     from pathlib import Path
-    from app.services.recall_window import clamp_meeting_blocks, recall_max_age_days
+    from app.services.recall_window import clamp_meeting_blocks, project_chat_window_days
     root = Path(__file__).resolve().parent.parent
     rc = {"tiers": json.loads((root / "config/remote/tiers.json").read_text())}
-    assert recall_max_age_days(rc, "free") == 10
+    assert project_chat_window_days(rc, "free") == 10
     today = date(2026, 10, 13)
     old, edge = today - timedelta(days=11), today - timedelta(days=10)
     sp = (f"BASE\n\n## Meeting 1 of 2 - {old.isoformat()}\nold notes\n\n"

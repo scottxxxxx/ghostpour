@@ -61,14 +61,17 @@ def _load(name: str) -> dict:
     return json.loads((_REMOTE / name).read_text(encoding="utf-8"))
 
 
-def _search_bullet(doc: dict) -> str:
+def _search_bullet(doc: dict) -> str | None:
+    """The Free bullet that names web search, or None. The 2026-10-15 plan
+    copy (agreed with SS) lists no web search on Free at all, which tells
+    Free nothing false; a bullet that names it with the wrong number would."""
     free = doc["tiers"]["free"]
     for b in free["feature_bullets"]:
         low = b.lower()
         if "web search" in low or "búsqueda web" in low or "recherche web" in low \
                 or "検索" in b:
             return b
-    raise AssertionError("no web-search bullet on the Free tier")
+    return None
 
 
 @pytest.mark.parametrize("name", _TIERS)
@@ -81,7 +84,10 @@ def test_the_free_bullet_and_the_free_dial_agree_on_the_number(name):
     assert isinstance(dial, int) and dial > 0, (
         f"{name}: Free's search dial is {dial!r}; if Free genuinely has no "
         f"web search then the bullet is the thing to change, not this test")
-    claimed = re.search(r"\d+", _search_bullet(doc))
+    bullet = _search_bullet(doc)
+    if bullet is None:
+        return
+    claimed = re.search(r"\d+", bullet)
     assert claimed, f"{name}: the Free web-search bullet states no number"
     assert int(claimed.group()) == dial, (
         f"{name}: bullet says {claimed.group()}, dial gives {dial}")

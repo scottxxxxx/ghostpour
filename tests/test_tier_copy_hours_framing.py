@@ -40,10 +40,11 @@ def test_free_tier_copy_is_anchored_in_hours_not_credits():
         for banned in BANNED:
             assert banned not in raw, f"{name} still sells the free tier in {banned!r}"
         free = json.loads(blob.read_text())["tiers"]["free"]
-        # the first bullet is the allowance line, and it has to carry a number
-        bullet = free["feature_bullets"][0]
-        assert free["feature_items"][0]["label"] == bullet, (
-            f"{name}: bullet and feature_item must stay in sync"
+        # The allowance line has to carry a number. Since the 2026-10-15
+        # copy (Scott, via SS) it is the LAST bullet, not the first.
+        bullet = free["feature_bullets"][-1]
+        assert [i["label"] for i in free["feature_items"]] == free["feature_bullets"], (
+            f"{name}: bullets and feature_items must stay in sync"
         )
         assert any(t in bullet for t in NUMERALS), (
             f"{name}: allowance bullet must name the hours: {bullet!r}"

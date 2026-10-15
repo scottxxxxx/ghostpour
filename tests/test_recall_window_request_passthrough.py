@@ -5,9 +5,10 @@ see it from their socket. So these tests drive the REAL chat route and
 read the body at the httpx boundary to CQ, the last place it is ours.
 
 Contract (CQ, 2026-08-21): int >= 1 applies a window; absent means no
-window. So Plus (dial 30) must send 30, Pro (dial null) must send NOTHING
-rather than a sentinel, and the value must come from the tier dial, never
-from anything the client put in its own metadata.
+window. Since the 2026-10-15 split (Scott: "context quilt is unlimited on
+plus and pro") Plus and Pro both send NOTHING, Free sends its 10, and the
+value still comes from the tier dial, never from the client's metadata. The
+30 days Plus keeps is the Project Chat window, a dial of its own.
 """
 from __future__ import annotations
 
@@ -18,7 +19,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.services import context_quilt as cq
-from app.services.recall_window import recall_max_age_days
+from app.services.recall_window import project_chat_window_days, recall_max_age_days
 
 SEND = {
     "provider": "anthropic",
@@ -60,17 +61,23 @@ def _chat(client, user):
 
 def test_the_dial_resolves_per_tier_from_the_served_bundle(client):
     rc = client.app.state.remote_configs
-    assert recall_max_age_days(rc, "plus") == 30
+    assert recall_max_age_days(rc, "plus") is None  # split 2026-10-15
     assert recall_max_age_days(rc, "pro") is None
     assert recall_max_age_days(rc, "free") == 10  # Scott, 2026-10-13
     assert recall_max_age_days(rc, "no-such-tier") is None
+    assert project_chat_window_days(rc, "plus") == 30
+    assert project_chat_window_days(rc, "pro") is None
+    assert project_chat_window_days(rc, "free") == 10
+    assert project_chat_window_days(rc, "no-such-tier") is None
 
 
-def test_plus_sends_its_window_to_cq(client, plus_user, cq_wire):
+def test_plus_sends_no_window_to_cq(client, plus_user, cq_wire):
+    """Context Quilt is unlimited on Plus (Scott, 2026-10-15). Its Project
+    Chat window (30) must not leak onto the memory leg."""
     _chat(client, plus_user)
     body = _recall_body(cq_wire)
     md = body["metadata"]
-    assert md["max_age_days"] == 30
+    assert "max_age_days" not in md
     assert md["subscription_tier"] == "plus"
 
 
@@ -85,11 +92,11 @@ def test_pro_sends_no_window_key_at_all(client, pro_user, cq_wire):
 
 def test_the_client_cannot_set_its_own_window(client, plus_user, cq_wire):
     """SEND carries metadata.max_age_days=9999 from the client; the wire
-    must carry the tier's 30. Same property as recall_scope and
-    subscription_tier: entitlement-derived keys are set server-side after
-    composition, never copied."""
+    must carry the tier's value, which for Plus is NO key at all. Same
+    property as recall_scope and subscription_tier: entitlement-derived
+    keys are set server-side after composition, never copied."""
     _chat(client, plus_user)
-    assert _recall_body(cq_wire)["metadata"]["max_age_days"] == 30
+    assert "max_age_days" not in _recall_body(cq_wire)["metadata"]
 
 
 def test_the_window_rides_the_teaser_leg_too(client, free_user, cq_wire):
@@ -134,7 +141,7 @@ def test_served_tiers_carry_the_number_and_no_raw_placeholder(repo_bundles):
 
 def test_localized_tiers_bundles_are_templated_too(repo_bundles):
     client = repo_bundles
-    for lang, needle in (("es", "últimos 30 días"), ("fr", "30 derniers jours"), ("ja", "直近30日間")):
+    for lang, needle in (("es", "últimos 30 días"), ("fr", "30 derniers jours"), ("ja", "過去30日間")):
         resp = client.get("/v1/config/tiers", headers={"Accept-Language": lang})
         assert resp.status_code == 200
         assert PLACEHOLDER not in resp.text, lang
@@ -142,7 +149,7 @@ def test_localized_tiers_bundles_are_templated_too(repo_bundles):
 
 
 def test_render_is_pure_and_reads_the_dial_not_a_constant():
-    rc = {"tiers": {"tiers": {"plus": {"feature_definitions": {"context_quilt": {"recall_max_age_days": 45}}}},
+    rc = {"tiers": {"tiers": {"plus": {"feature_definitions": {"project_chat": {"meeting_window_days": 45}}}},
                     "copy": "your last {recall_window_days} days"}}
     out = render_recall_window_copy(rc["tiers"], rc)
     assert out["copy"] == "your last 45 days"
@@ -165,11 +172,14 @@ def test_every_locale_carries_the_same_placeholder_count_and_a_plus_dial():
     for loc in ("tiers", "tiers.es", "tiers.fr", "tiers.ja"):
         d = json.loads((root / f"{loc}.json").read_text())
         counts[loc] = json.dumps(d, ensure_ascii=False).count(PLACEHOLDER)
-        dial = d["tiers"]["plus"]["feature_definitions"]["context_quilt"]["recall_max_age_days"]
+        dial = d["tiers"]["plus"]["feature_definitions"]["project_chat"]["meeting_window_days"]
         assert isinstance(dial, int) and dial >= 1, loc
-        assert d["tiers"]["pro"]["feature_definitions"]["context_quilt"]["recall_max_age_days"] is None, loc
+        assert d["tiers"]["pro"]["feature_definitions"]["project_chat"]["meeting_window_days"] is None, loc
+        for t in ("plus", "pro"):
+            assert d["tiers"][t]["feature_definitions"]["context_quilt"]["recall_max_age_days"] is None, (loc, t)
     assert len(set(counts.values())) == 1, counts
-    assert counts["tiers"] >= 6, counts
+    # Plus's Project Chat bullet, its feature item, and its status value.
+    assert counts["tiers"] == 3, counts
 
 
 # --- The dossier leg (CQ #297, second commit) ------------------------------
@@ -216,9 +226,9 @@ async def test_dossier_fetch_sends_no_key_for_unlimited_and_never_zero(cq_get):
 def test_each_tiers_strings_read_that_tiers_dial_and_shared_strings_read_the_upgrade_target():
     rc = {"entitlements": {"matrix": {"context_quilt": {"free": "teaser", "plus": "enabled", "pro": "enabled"}}},
           "tiers": {"tiers": {
-              "free": {"feature_definitions": {"context_quilt": {"recall_max_age_days": 15}}, "card": "free: last {recall_window_days} days"},
-              "plus": {"feature_definitions": {"context_quilt": {"recall_max_age_days": 30}}, "card": "plus: last {recall_window_days} days"},
-              "pro": {"feature_definitions": {"context_quilt": {"recall_max_age_days": None}}, "card": "pro: last {recall_window_days} days"}},
+              "free": {"feature_definitions": {"project_chat": {"meeting_window_days": 15}}, "card": "free: last {recall_window_days} days"},
+              "plus": {"feature_definitions": {"project_chat": {"meeting_window_days": 30}}, "card": "plus: last {recall_window_days} days"},
+              "pro": {"feature_definitions": {"project_chat": {"meeting_window_days": None}}, "card": "pro: last {recall_window_days} days"}},
               "feature_definitions": {"context_quilt": {"upgrade_cta": "shared: last {recall_window_days} days"}}}}
     out = render_recall_window_copy(rc["tiers"], rc)
     assert out["tiers"]["free"]["card"] == "free: last 15 days"
@@ -229,7 +239,16 @@ def test_each_tiers_strings_read_that_tiers_dial_and_shared_strings_read_the_upg
 
 def test_shared_strings_follow_the_mode_dial_to_the_lowest_enabled_tier():
     rc = {"entitlements": {"matrix": {"context_quilt": {"free": "enabled", "plus": "enabled", "pro": "enabled"}}},
-          "tiers": {"tiers": {"free": {"feature_definitions": {"context_quilt": {"recall_max_age_days": 15}}},
-                              "plus": {"feature_definitions": {"context_quilt": {"recall_max_age_days": 30}}}},
+          "tiers": {"tiers": {"free": {"feature_definitions": {"project_chat": {"meeting_window_days": 15}}},
+                              "plus": {"feature_definitions": {"project_chat": {"meeting_window_days": 30}}}},
                     "cta": "last {recall_window_days} days"}}
     assert render_recall_window_copy(rc["tiers"], rc)["cta"] == "last 15 days"
+
+
+def test_copy_never_reads_the_memory_dial():
+    """The split's copy half: a memory dial of 7 with no Project Chat dial
+    must not put 7 in front of a reader, because no copy describes the
+    memory window any more."""
+    rc = {"tiers": {"tiers": {"plus": {"feature_definitions": {"context_quilt": {"recall_max_age_days": 7}}}},
+                    "copy": "your last {recall_window_days} days"}}
+    assert "7" not in render_recall_window_copy(rc["tiers"], rc)["copy"]
