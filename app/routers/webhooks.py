@@ -3774,7 +3774,9 @@ async def telemetry_summary(
     ]
 
     # Rolling 7-day active users (Scott, 2026-08-03). Distinct signed-in
-    # users seen in the trailing 7 days ending on each day.
+    # users seen in the trailing 7 days ending on each day. Accounts flagged
+    # exclude_from_stats are left out of this and regular_users_7d (Scott,
+    # 2026-10-15), like every other user count on the dashboard.
     #
     # This has to be computed here rather than summed from the daily
     # series on the client, because the daily rollup stores COUNTS, not
@@ -3791,7 +3793,8 @@ async def telemetry_summary(
                   (SELECT COUNT(DISTINCT e.user_id) FROM telemetry_events e
                     WHERE e.user_id IS NOT NULL
                       AND date(e.received_at) <= d.day
-                      AND date(e.received_at) > date(d.day, '-7 days')
+                      AND date(e.received_at) > date(d.day, '-7 days')"""
+        + _not_excluded("e.user_id") + """
                   ) AS c
            FROM days d ORDER BY d.day ASC""",
         (f"-{days} days",),
@@ -3816,7 +3819,8 @@ async def telemetry_summary(
                      JOIN users u ON u.id = e.user_id
                     WHERE date(e.received_at) <= d.day
                       AND date(e.received_at) > date(d.day, '-7 days')
-                      AND date(u.created_at) <= date(d.day, '-7 days')
+                      AND date(u.created_at) <= date(d.day, '-7 days')"""
+        + _not_excluded("e.user_id") + """
                   ) AS c
            FROM days d ORDER BY d.day ASC""",
         (f"-{days} days",),
