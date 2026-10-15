@@ -550,7 +550,8 @@
       ],
       "feature_definitions": {
         "project_chat": {
-          "max_input_tokens": 360000
+          "max_input_tokens": 360000,
+          "meeting_window_days": null
         },
         "search": {
           "searches_per_month": 120,
