@@ -150,8 +150,16 @@ def test_the_config_has_the_n400_wire_shape_and_an_i765_brief():
     i765 = json.load(open("config/remote/i765/interviewer-turn.json"))
     n400 = json.load(open("config/remote/n400/interviewer-turn.json"))
     assert i765["requiredVariables"] == n400["requiredVariables"]
-    assert i765["optionalVariables"] == n400["optionalVariables"]
-    assert i765["userPromptTemplate"] == n400["userPromptTemplate"], "the client fills one template"
+    # The date-shift contract (2026-10-14, N-400 v62) is the N-400 client's
+    # alone; I-765 gains today and date_facts only with a contract of its own.
+    assert i765["optionalVariables"] == [v for v in n400["optionalVariables"]
+                                         if v not in ("today", "date_facts")]
+    _date_blocks = ("TODAY (her calendar; empty from an older client):\n{{today}}\n\n"
+                    "DATE FACTS (the app's answer to everything a date decides; empty from an older client):\n"
+                    "{{date_facts}}\n\n")
+    assert _date_blocks in n400["userPromptTemplate"]
+    assert i765["userPromptTemplate"] == n400["userPromptTemplate"].replace(_date_blocks, ""), \
+        "the client fills one template"
     assert i765["maxTokens"] == n400["maxTokens"] and i765["thinking"] == n400["thinking"]
     assert i765["recommendedModel"] == n400["recommendedModel"]
     assert i765["server_only"] is True and i765["version"] == 3

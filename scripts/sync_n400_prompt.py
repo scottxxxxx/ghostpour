@@ -734,6 +734,45 @@ VERSIONS = {
         ],
         "absent": [],
     },
+    61: {
+        # App build 179 (bcb1843, 2026-10-14) withholds "if any" rows (child 2
+        # to 4, the USCIS account number, the spouse A-Number) until their
+        # gate or count is answered, so on q_p6_children_count the agenda has
+        # no open Part 6 line and the client sent SECTION BOUNDARY. v60 read
+        # "A part is done when SECTION BOUNDARY is present" literally, so "two
+        # kids" would close Part 6 before any child was asked. No guard can see
+        # it: the checkpoint guard reads only agenda lines.
+        "block_anchor": "SECTION CHECKPOINTS",
+        "once": "A GATE OR COUNT THAT OPENS ROWS DOES NOT END ITS PART",
+        "phrases": [
+            "the rows it opens are listed by the app on the next turn, even when SECTION BOUNDARY is present",
+            '("What is your first child\'s full name and date of birth?"), and has no summary and no section_checkpoint',
+            'Only "no", "none" or zero closes the part there.',
+        ],
+        "absent": [],
+    },
+    62: {
+        # The date-shift contract (N400 App contracts/date-shift-contract-
+        # 2026-10-14.md): the phone moves every date back by a secret whole
+        # number of years and sends metadata.today and metadata.date_facts,
+        # the flags that decide age, each child's under 18, window membership,
+        # LPR years and the marriage rule. The lane decides nothing from a
+        # date. The template gains TODAY and DATE FACTS, which this script does
+        # not sync: /userPromptTemplate and /optionalVariables go by a scoped
+        # sync, read back by string. Ships only when the client flips its
+        # switch; with the switch off both blocks are empty.
+        "block_anchor": "a fact in KNOWN FACTS is authoritative whoever derived it",
+        "once": "NO DATE YOU SEE IS HER REAL ONE, SO NO DATE DECIDES ANYTHING",
+        "phrases": [
+            "DATE FACTS is the app's answer to everything a date decides, read as given and never checked against the dates",
+            "because Part 6 asks only about children under 18",
+            "Every window in these instructions is the one DATE FACTS names for that history",
+            "Coverage stays the app's call even when DATE FACTS says covered: yes",
+            "The lpr and marriage lines are for the app alone: never spoken",
+            "When DATE FACTS is empty, ask exactly as before and still decide nothing from a date.",
+        ],
+        "absent": [],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -810,6 +849,10 @@ VERSIONS[59]["absent"] = VERSIONS[58]["absent"] + VERSIONS[59]["absent"]
 # v60 carries every v59 phrase, and v59's once line as a phrase.
 VERSIONS[60]["phrases"] = VERSIONS[59]["phrases"] + [VERSIONS[59]["once"]] + VERSIONS[60]["phrases"]
 VERSIONS[60]["absent"] = VERSIONS[59]["absent"] + VERSIONS[60]["absent"]
+VERSIONS[61]["phrases"] = VERSIONS[60]["phrases"] + [VERSIONS[60]["once"]] + VERSIONS[61]["phrases"]
+VERSIONS[61]["absent"] = VERSIONS[60]["absent"] + VERSIONS[61]["absent"]
+VERSIONS[62]["phrases"] = VERSIONS[61]["phrases"] + [VERSIONS[61]["once"]] + VERSIONS[62]["phrases"]
+VERSIONS[62]["absent"] = VERSIONS[61]["absent"] + VERSIONS[62]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]
