@@ -819,11 +819,12 @@
     {
       "id": "unlock_apple_cloud",
       "product_id": "com.weirtech.shouldersurf.unlock.applecloud",
-      "name": "Paquete Apple Cloud",
+      "name": "Funciones avanzadas para Apple Cloud",
       "icon": "cloud",
       "bullets": [
         "Chat de proyecto con Apple Cloud, sin necesidad de Shoulder Surf AI",
         "Hasta 5 fotos por pregunta en Apple Cloud",
+        "Envía archivos de texto, Markdown, PDF, Word y RTF en Apple Cloud",
         "Private Cloud Compute de Apple mantiene tus datos privados",
         "Compra única, es tuya para siempre"
       ]
@@ -831,7 +832,7 @@
     {
       "id": "unlock_byok",
       "product_id": "com.weirtech.shouldersurf.unlock.byok",
-      "name": "Paquete de clave propia",
+      "name": "Funciones avanzadas para tu propia clave",
       "icon": "key",
       "bullets": [
         "Chat de proyecto con tu propia clave de API",
@@ -842,7 +843,7 @@
     {
       "id": "bundle",
       "product_id": "com.weirtech.shouldersurf.unlock.bundle",
-      "name": "Ambos paquetes",
+      "name": "Funciones avanzadas para ambos",
       "icon": "square.stack",
       "bullets": [
         "Apple Cloud y tu propia clave, los dos desbloqueados",
@@ -858,6 +859,7 @@
       "bullets": [
         "Añade el paquete Apple Cloud a tu paquete de clave propia",
         "Hasta 5 fotos por pregunta en Apple Cloud",
+        "Envía archivos de texto, Markdown, PDF, Word y RTF en Apple Cloud",
         "Compra única, es tuya para siempre"
       ]
     },
