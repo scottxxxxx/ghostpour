@@ -629,8 +629,8 @@
       "upgrade_cta": "Connectez-vous pour créer votre liste de Personnes",
       "signed_out": {
         "headline": "Voyez qui participe à vos réunions",
-        "body": "Connectez-vous et Shoulder Surf créera une page pour chaque personne que vous rencontrez, avec les réunions auxquelles elle a participé, ses engagements et les projets qu'elle touche.",
-        "body_with_count": "Vous avez déjà rencontré {count} personnes. Connectez-vous et Shoulder Surf créera une page pour chacune, avec les réunions auxquelles elle a participé, ses engagements et les projets qu'elle touche.",
+        "body": "Context Quilt est la mémoire à long terme de Shoulder Surf AI. Connectez-vous et il créera une page pour chaque personne que vous rencontrez, avec les réunions auxquelles elle a participé, ses engagements et les projets qu'elle touche.",
+        "body_with_count": "Vous avez déjà rencontré {count} personnes. Context Quilt est la mémoire à long terme de Shoulder Surf AI. Connectez-vous et il créera une page pour chacune, avec les réunions auxquelles elle a participé, ses engagements et les projets qu'elle touche.",
         "cta_label": "Se connecter",
         "cta_action": "sign_in"
       }

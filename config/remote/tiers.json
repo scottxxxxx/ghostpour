@@ -629,8 +629,8 @@
       "upgrade_cta": "Sign in to build your People list",
       "signed_out": {
         "headline": "See who's in your meetings",
-        "body": "Sign in and Shoulder Surf builds a page for every person you meet with, showing the meetings they joined, what they committed to, and the projects they touch.",
-        "body_with_count": "You've met {count} people so far. Sign in and Shoulder Surf builds a page for each of them, showing the meetings they joined, what they committed to, and the projects they touch.",
+        "body": "Context Quilt is Shoulder Surf AI's long-term memory. Sign in and it builds a page for everyone you meet with, showing the meetings they joined, what they committed to and the projects they touch.",
+        "body_with_count": "You've met {count} people so far. Context Quilt is Shoulder Surf AI's long-term memory. Sign in and it builds a page for each of them, showing the meetings they joined, what they committed to and the projects they touch.",
         "cta_label": "Sign in",
         "cta_action": "sign_in"
       }
