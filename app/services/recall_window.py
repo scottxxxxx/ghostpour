@@ -1,6 +1,8 @@
 """Per-tier Memory recall window (2026-08-21, Scott's ruling via CQ).
 
 Plus gets "your last N days in every conversation"; Pro gets everything.
+Since 2026-10-15 that is the PROJECT CHAT window only (`project_chat_window_days`):
+Context Quilt recall is unlimited on Plus and Pro, its dial null on both.
 The number is a DIAL, not copy: it lives at
 `tiers.{tier}.feature_definitions.context_quilt.recall_max_age_days` in
 the served tiers bundle, is edited from the dashboard like the other
@@ -20,6 +22,14 @@ import re
 
 FEATURE = "context_quilt"
 FIELD = "recall_max_age_days"
+# The Project Chat meeting window, split from the memory window 2026-10-15
+# (Scott: "context quilt is unlimited on plus and pro"). One dial used to cut
+# both the CQ recall and the meeting blocks a project chat is hydrated with,
+# so Plus's memory stopped at 30 days with its Project Chat. Now Plus keeps a
+# 30-day Project Chat and an unlimited Context Quilt. Same semantics as above:
+# int >= 1 is days, null or absent is unlimited.
+PC_FEATURE = "project_chat"
+PC_FIELD = "meeting_window_days"
 
 
 def _tiers(remote_configs: dict, locale: str | None = None) -> dict | None:
@@ -40,6 +50,17 @@ def recall_max_age_days(remote_configs: dict, tier: str) -> int | None:
     cfg = _tiers(remote_configs)
     block = (((cfg or {}).get("tiers") or {}).get(tier) or {}).get("feature_definitions") or {}
     value = (block.get(FEATURE) or {}).get(FIELD)
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return value if value >= 1 else None
+
+
+def project_chat_window_days(remote_configs: dict, tier: str) -> int | None:
+    """The Project Chat meeting window for `tier`, or None for unlimited.
+    English bundle only, for the same lockstep reason as above."""
+    cfg = _tiers(remote_configs)
+    block = (((cfg or {}).get("tiers") or {}).get(tier) or {}).get("feature_definitions") or {}
+    value = (block.get(PC_FEATURE) or {}).get(PC_FIELD)
     if isinstance(value, bool) or not isinstance(value, int):
         return None
     return value if value >= 1 else None
@@ -84,7 +105,10 @@ def render_recall_window_copy(payload, remote_configs: dict):
     string: a visible wobble in grammar beats a shipped brace or an
     invented number.
     """
-    shared_days = recall_max_age_days(remote_configs, _shared_window_tier(remote_configs))
+    # Since the 2026-10-15 split the only window any copy states is Project
+    # Chat's ("the last 30 days of meetings"); Context Quilt has none on a
+    # paid tier, so the placeholder reads the Project Chat dial.
+    shared_days = project_chat_window_days(remote_configs, _shared_window_tier(remote_configs))
 
     def fill(node, days):
         if PLACEHOLDER in node:
@@ -104,7 +128,7 @@ def render_recall_window_copy(payload, remote_configs: dict):
             out = {}
             for k, v in node.items():
                 if at_top and k == "tiers" and isinstance(v, dict):
-                    out[k] = {name: walk(block, recall_max_age_days(remote_configs, name) if isinstance(name, str) else days)
+                    out[k] = {name: walk(block, project_chat_window_days(remote_configs, name) if isinstance(name, str) else days)
                               for name, block in v.items()}
                 else:
                     out[k] = walk(v, days)
@@ -123,6 +147,10 @@ def render_recall_window_copy(payload, remote_configs: dict):
 # client into system_prompt from its slider, and until now GP passed it
 # through whatever the slider said. The slider is UI, not a gate; this is
 # the gate, reading the SAME dial, so there is no hole between the halves.
+# SPLIT 2026-10-15 (Scott: "context quilt is unlimited on plus and pro"):
+# this gate now reads the Project Chat dial (`project_chat_window_days`),
+# and the memory dial is null on Plus and Pro, so the two halves cut on
+# purpose at different days.
 #
 # Anchor: the assembly contract (docs/wire-contracts/project-chat-prompt-
 # assembly.md) puts every meeting under a dated H2:
