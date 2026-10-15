@@ -769,6 +769,7 @@ VERSIONS = {
             "Offer one value at a time, and never a day she did not say unless KNOWN FACTS holds it.",
             "an offer she has not confirmed is not a fact",
             "Asking one as a yes or no question is not filling it (AN ANCHOR MAY BE OFFERED, NEVER FILED).",
+            "AT THE TRIP QUESTION, A TRIP HOME GETS THE COUNTRY OFFERED IN THE SAME REPLY",
         ],
         "absent": [],
     },

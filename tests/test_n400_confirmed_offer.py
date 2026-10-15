@@ -71,3 +71,42 @@ def test_a_yes_that_carries_its_own_date_is_not_a_bare_confirmation():
 def test_english_read_back_with_the_year_in_words():
     c = _conv("I moved in May 1 last year.", "May first, twenty twenty-five?", "Yeah.")
     assert _guard("2025-05-01", "Yeah.", c)[0] == {"p4.current_address.from": "2025-05-01"}
+
+
+# --- the trip home: the country offered, minted on her yes (2026-10-15) ---
+
+TRIP_AGENDA = "q_p8_trip1 | Part 8 | p8.trip1.countries,p8.trip1.date_left,p8.trip1.date_returned | Where did you go?"
+
+
+def _trip(said, conversation, cited=None):
+    turn = json.dumps({"schema_version": 1, "turn_id": "t_9", "intent": {"type": "answer"},
+                       "facts": [{"field_id": "p8.trip1.countries", "value": "Mexico", "value_type": "text",
+                                  "provenance": {"source": "ai_extracted", "turn_id": "t_9",
+                                                 "utterance": cited or said}}],
+                       "deferred": [], "asking": None, "reply": {"en": "Okay."}, "complete": False})
+    out = json.loads(guard_response_text(turn, TRIP_AGENDA, "t_9", user_content=said,
+                                         conversation=conversation, locale="en",
+                                         known_facts="p2.country_of_birth: Mexico"))
+    return {f["field_id"]: f["value"] for f in out.get("facts", [])}
+
+
+def test_a_trip_country_confirmed_with_a_bare_yes_is_kept():
+    c = ("APPLICANT: I went home for Christmas last year, about two weeks.\n"
+         "INTERVIEWER: Christmas last year, so December 2025. Was that home to Mexico, and what day did you leave?\n"
+         "APPLICANT: Yes.")
+    assert _trip("Yes.", c) == {"p8.trip1.countries": "Mexico"}
+
+
+def test_a_spanish_si_keeps_it_too():
+    c = ("APPLICANT: Volví a mi país en Navidad del año pasado.\n"
+         "INTERVIEWER: ¿Fue a México, y qué día salió?\n"
+         "APPLICANT: Sí.")
+    assert _trip("Sí.", c) == {"p8.trip1.countries": "Mexico"}
+
+
+def test_a_confirmed_country_citing_her_earlier_line_is_dropped():
+    """The yes is the evidence; her "went home" line never said Mexico."""
+    c = ("APPLICANT: I went home for Christmas last year, about two weeks.\n"
+         "INTERVIEWER: Was that home to Mexico?\n"
+         "APPLICANT: Yes.")
+    assert _trip("Yes.", c, cited="I went home for Christmas last year, about two weeks.") == {}

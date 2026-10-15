@@ -1023,7 +1023,7 @@ def test_the_v62_list_verifies_the_real_v62_bundle():
 
 def test_each_v62_phrase_is_load_bearing_on_the_real_bundle():
     sp = _bundle_prompt(62)
-    for phrase in [VERSIONS[62]["once"]] + VERSIONS[62]["phrases"][-8:]:
+    for phrase in [VERSIONS[62]["once"]] + VERSIONS[62]["phrases"][-9:]:
         assert phrase in sp, phrase
         assert verify(sp.replace(phrase, ""), 62) is False, phrase
 
