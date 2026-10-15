@@ -264,6 +264,8 @@ def test_admin_summary_returns_expected_shape(client, tmp_db_path):
         # so summing seven days on the client double-counts anyone active
         # on more than one of them.
         "active_users_7d",
+        # The active_users_7d people whose account predates the window.
+        "regular_users_7d",
     }
     assert isinstance(data["models"], list)
     assert any(m["model_id"] == "haiku" for m in data["models"])

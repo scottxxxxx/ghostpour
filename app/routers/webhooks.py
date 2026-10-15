@@ -3796,6 +3796,31 @@ async def telemetry_summary(
         {"day": r["day"], "value": r["c"]} for r in await cursor.fetchall()
     ]
 
+    # Regular users (Scott, 2026-10-15): the active_users_7d people who had
+    # already used the app before that window, so a burst of new sign-ups
+    # cannot pass for retention. "Used before" is the account existing on or
+    # before the window's opening day. users.created_at is durable, where a
+    # prior telemetry event would vanish with the 30-day purge, and every
+    # telemetry user_id on prod joins to users.id (75 of 75, read 10-15).
+    cursor = await db.execute(
+        """WITH days(day) AS (
+               SELECT DISTINCT date(received_at) FROM telemetry_events
+               WHERE date(received_at) >= date('now', ?)
+           )
+           SELECT d.day AS day,
+                  (SELECT COUNT(DISTINCT e.user_id) FROM telemetry_events e
+                     JOIN users u ON u.id = e.user_id
+                    WHERE date(e.received_at) <= d.day
+                      AND date(e.received_at) > date(d.day, '-7 days')
+                      AND date(u.created_at) <= date(d.day, '-7 days')
+                  ) AS c
+           FROM days d ORDER BY d.day ASC""",
+        (f"-{days} days",),
+    )
+    series["regular_users_7d"] = [
+        {"day": r["day"], "value": r["c"]} for r in await cursor.fetchall()
+    ]
+
     # Duration aggregate over the window. Weight the average by
     # meetings_stopped that day so the period mean reflects activity,
     # not unweighted day averages.
