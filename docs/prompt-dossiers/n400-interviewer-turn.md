@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 58
+served_version: 61
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-10-13 (v58)
+reconciled: 2026-10-14 (v61)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1966,3 +1966,32 @@ PROMPT: coverage is the app's call; never say or imply a history covers the requ
 
 
 Tested with NO API tokens: two blind Claude subagents, one per prompt (v57, v58), on one rendered turn with today 2026-10-13, the current address from 2023-03-01 on file, and her line giving the prior address 2021-11-01 to 2023-03-01. Neither filed has_prior_address2 and both asked "Before 45 Oak Avenue, did you live anywhere else?". v57's reader did NOT reproduce the live defect: it did the window math itself and got it right (November 2021 is short of 2021-10-13). The live model got the same math wrong, which is the point of v58: v58's reader did no date math at all and cited the rule that only her words close the list. A simulation, not the served model.
+
+## v59: second person only, a read-back row is never asked again, the job gate names the employer
+
+The auditor's boundary-date runs, 2026-10-14, on served v58. Three defects, asked for by the auditor under the N-400 standing order.
+
+1. The address re-ask: RETRACTED, then RESTORED the same day, and it was GP's guard. GP's usage_log raw_response for t_017 (case bf7aed58, request 86fc69cb8893, 2026-10-14 04:46:20 UTC) has no re-ask, so the auditor first read the client log as the source. The case's messages file (m_045) then showed she HEARD the read-back followed by q_p4_current_address's ask ("I already gave you both addresses"). The mechanism is in `n400_interviewer_guard.py`: `drop_stale_asking` dropped gate1 (filled in that response), then `replace_settled_question` took the first agenda line not ENTIRELY filled by the response, which was current address (all but the optional in_care_of), and appended its ask in place of the model's own trailing question. Fixed in code by #1111: a node with any field filed in the response is never the replacement. PROMPT (v59): the widened sentence ships: A ROW YOU HAVE READ BACK OR FILED IS NEVER ASKED AGAIN, not even to confirm it; its node has left the AGENDA, so the next question is the next AGENDA line. The model never broke it on t_017; GP's guard did. LESSON: a raw_response is the model's words, not what was spoken; GP's guards rewrite after it, and nothing stores the served text.
+
+2. Third person. The lane said "Since she's single..." to the applicant. The source is ours: the system prompt calls the applicant "she" or "her" about 300 times (and "they" elsewhere) and never said those words are not for speaking. Nothing in GP's masking or assembly adds a pronoun (the phone masks; GP only counts leaks in n400_pii_leak.py), and form-knowledge.json is not assembled into this lane. Rewriting 300 pronouns would touch dozens of pinned phrases, so the opening paragraph now says the "she" is only how the instructions are written, and every word spoken addresses the applicant in the second person: "you", "usted", "você", never she, he or they about them. Portuguese had no address forms in the prompt before this line.
+
+3. The job gate. v58 named the earliest row for addresses ("Before 123 Main Street, where did you live?") only, and the prompt's own `p7.has_job3` example taught the bare "anything before that?". The v58 sentence now names the earliest employer by the name KNOWN FACTS holds ("What did you do before Alamo Builders?"), the EARLIEST-job sentence says BY ITS EMPLOYER'S NAME (an idle stretch is named by what it was), and the example now asks "What did you do before DoorDash?". A masked stand-in name is said as written; the client restores it.
+
+Not tested against any model: no probes, no blind readers. The phrase list is sabotage-proved in tests only.
+
+## v60: `asking` names the reply's last question, never a gate this response just answered
+
+Case bf7aed58, t_017, 2026-10-14 (request 86fc69cb8893), asked for by the auditor under the N-400 standing order. The response filed both addresses and `p4.has_prior_address1` = yes (she named a prior address), and its reply ended on the mailing question and "did you live anywhere else before Tamarack Road?", which is the NEXT gate (q_p4_prior_gate2, `p4.has_prior_address2`). Its `asking` named q_p4_prior_gate1, the gate its own facts had just answered. GP's guard drops an asking whose node this response filled (`drop_stale_asking`), and `replace_settled_question` then swapped the spoken question for q_p4_current_address's ask, which is what she heard ("I already gave you both addresses"). That swap is fixed in code by #1111 (merged 51062aa); this version is the prompt half, so the model names the right node and the guard has nothing to drop.
+
+PROMPT: the asking paragraph in MOVING THE INTERVIEW already said "never a node any fact in this response fills". It now continues, in place: `ASKING` NAMES THE NODE OF YOUR REPLY'S LAST QUESTION, NEVER ONE YOUR OWN FACTS JUST ANSWERED, decide the last question the reply will ask and name the agenda node whose question that is, with t_017 as the worked example (`asking` is {"node_id": "q_p4_prior_gate2", "field_ids": ["p4.has_prior_address2"]}, never q_p4_prior_gate1), and the same for the next job, trip, child or marriage. The example's spoken line is second person, per v59.
+
+Not tested against any model: no probes, no blind readers. The phrase list is sabotage-proved in tests only.
+
+## v61: a gate or count that opens rows does not end its part
+
+App build 179 (bcb1843, 2026-10-14) withholds "if any" rows (child rows 2 to 4, the USCIS account number, the spouse A-Number) until their gate or count is answered. Standing on q_p6_children_count, the agenda then lists no other Part 6 line and the client sent SECTION BOUNDARY ("the standing question is the last in Part 6"). v60's SECTION CHECKPOINTS opens "A part is done when SECTION BOUNDARY is present", and neither counterweight reached this case: "the agenda wins" needs an unanswered Part 6 line on the agenda, and "A FOLLOW-UP KEEPS THE PART OPEN" names a missing piece of the same answer. So "two kids" would read as a closed part, summarized before any child was asked. No GP guard sees it: the checkpoint guard reads only agenda lines, and total_children is a recorded fact. Asked for by the auditor under the N-400 standing order; the client is also changing so the boundary is not sent on such a line.
+
+PROMPT: directly after that sentence, A GATE OR COUNT THAT OPENS ROWS DOES NOT END ITS PART: on a yes or a count above zero the reply files the gate or count, asks the first row's question ("What is your first child's full name and date of birth?"), and has no summary and no section_checkpoint; only "no", "none" or zero closes the part there.
+
+Not tested against any model: no probes. The live test is Scott's next run on build 179. A GP backstop (refuse a checkpoint for part P when this response files pP.has_X = yes or pP.total_Y > 0 with none of its rows) is held unless a run shows the line does not hold.
+

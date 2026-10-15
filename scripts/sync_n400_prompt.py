@@ -695,6 +695,62 @@ VERSIONS = {
             "say the window is covered and move on",
         ],
     },
+    59: {
+        # The auditor's boundary-date runs, 2026-10-14, on served v58. Three
+        # defects: the address row re-asked right after its read-back (the
+        # client logged asking_refused:not_in_agenda on q_p4_current_address),
+        # "Since she's single..." said TO the applicant (the instructions call
+        # her "she" ~300 times and never said that word is not for speaking),
+        # and the job gate asked as a bare "before that" (the prompt's own
+        # p7.has_job3 example taught it).
+        "block_anchor": "You are conducting a spoken intake interview",
+        "once": "YOU SPEAK TO THE APPLICANT, NEVER ABOUT THEM",
+        "phrases": [
+            'addresses the applicant in the second person only: "you" in English, "usted" in Spanish, "você" in Portuguese',
+            'never "she", "he" or "they" about them',
+            "A ROW YOU HAVE READ BACK OR FILED IS NEVER ASKED AGAIN",
+            "its node has left the AGENDA, so the next question is the next AGENDA line",
+            'for work that is the earliest employer by the name KNOWN FACTS holds ("What did you do before Alamo Builders?")',
+            "BY ITS EMPLOYER'S NAME as KNOWN FACTS holds it, never before one in the middle",
+        ],
+        "absent": [
+            'asked "anything before that?" at `p7.has_job3`',
+        ],
+    },
+    60: {
+        # Case bf7aed58, t_017, 2026-10-14. The response filed
+        # p4.has_prior_address1 = yes (she named a prior address) and its reply
+        # asked "did you live anywhere else before Tamarack Road?", the NEXT
+        # gate, but `asking` named q_p4_prior_gate1, the gate its own facts had
+        # just answered. GP drops an asking whose node this response filled.
+        # The rule widens the asking paragraph in MOVING THE INTERVIEW in place.
+        "block_anchor": "MOVING THE INTERVIEW\n",
+        "once": "`ASKING` NAMES THE NODE OF YOUR REPLY'S LAST QUESTION, NEVER ONE YOUR OWN FACTS JUST ANSWERED",
+        "phrases": [
+            "decide the last question your reply will ask and name the agenda node whose question that is",
+            '"Did you live anywhere else before Tamarack Road?", that is the NEXT gate, so `asking` is '
+            '{"node_id": "q_p4_prior_gate2", "field_ids": ["p4.has_prior_address2"]}, never q_p4_prior_gate1',
+            "The same holds for the next job, trip, child or marriage: the gate or row your reply asks about is the node `asking` names.",
+        ],
+        "absent": [],
+    },
+    61: {
+        # App build 179 (bcb1843, 2026-10-14) withholds "if any" rows (child 2
+        # to 4, the USCIS account number, the spouse A-Number) until their
+        # gate or count is answered, so on q_p6_children_count the agenda has
+        # no open Part 6 line and the client sent SECTION BOUNDARY. v60 read
+        # "A part is done when SECTION BOUNDARY is present" literally, so "two
+        # kids" would close Part 6 before any child was asked. No guard can see
+        # it: the checkpoint guard reads only agenda lines.
+        "block_anchor": "SECTION CHECKPOINTS",
+        "once": "A GATE OR COUNT THAT OPENS ROWS DOES NOT END ITS PART",
+        "phrases": [
+            "the rows it opens are listed by the app on the next turn, even when SECTION BOUNDARY is present",
+            '("What is your first child\'s full name and date of birth?"), and has no summary and no section_checkpoint',
+            'Only "no", "none" or zero closes the part there.',
+        ],
+        "absent": [],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -765,6 +821,14 @@ VERSIONS[57]["absent"] = VERSIONS[56]["absent"] + VERSIONS[57]["absent"]
 VERSIONS[58]["phrases"] = [p for p in VERSIONS[57]["phrases"] if p not in VERSIONS[58]["absent"]] \
     + [VERSIONS[57]["once"]] + VERSIONS[58]["phrases"]
 VERSIONS[58]["absent"] = VERSIONS[57]["absent"] + VERSIONS[58]["absent"]
+# v59 carries every v58 phrase, and v58's once line as a phrase.
+VERSIONS[59]["phrases"] = VERSIONS[58]["phrases"] + [VERSIONS[58]["once"]] + VERSIONS[59]["phrases"]
+VERSIONS[59]["absent"] = VERSIONS[58]["absent"] + VERSIONS[59]["absent"]
+# v60 carries every v59 phrase, and v59's once line as a phrase.
+VERSIONS[60]["phrases"] = VERSIONS[59]["phrases"] + [VERSIONS[59]["once"]] + VERSIONS[60]["phrases"]
+VERSIONS[60]["absent"] = VERSIONS[59]["absent"] + VERSIONS[60]["absent"]
+VERSIONS[61]["phrases"] = VERSIONS[60]["phrases"] + [VERSIONS[60]["once"]] + VERSIONS[61]["phrases"]
+VERSIONS[61]["absent"] = VERSIONS[60]["absent"] + VERSIONS[61]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]
