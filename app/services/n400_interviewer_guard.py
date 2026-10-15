@@ -447,6 +447,102 @@ _MONTHS = {1: ("january", "jan", "enero"), 2: ("february", "feb", "febrero"), 3:
            7: ("july", "jul", "julio"), 8: ("august", "aug", "agosto"),
            9: ("september", "sept", "sep", "septiembre", "setiembre"), 10: ("october", "oct", "octubre"),
            11: ("november", "nov", "noviembre"), 12: ("december", "dec", "diciembre")}
+# Portuguese, folded ("março" is "marco"). The 2026-10-14 date-shift check: "doze
+# de abril de mil novecentos e oitenta e três" lost the whole date, because no
+# reader here knew a Portuguese month, day or year.
+for _m, _pt in enumerate(["janeiro", "fevereiro", "marco", "abril", "maio", "junho", "julho",
+                          "agosto", "setembro", "outubro", "novembro", "dezembro"], start=1):
+    if _pt not in _MONTHS[_m]:
+        _MONTHS[_m] = _MONTHS[_m] + (_pt,)
+
+
+# A year said in words, in English, Spanish or Portuguese, read as its four
+# digits. The date-shift contract (N400 App contracts/date-shift-contract-
+# 2026-10-14.md) sends a year in the form she said it, so a reader that only
+# knows digits misses every year she spoke: the day guard's partial came out
+# empty and a carried date failed the floor. Two-digit years ("del setenta y
+# cuatro") have no century and are not read.
+_YW_UNITS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
+             "eight": 8, "nine": 9,
+             "uno": 1, "un": 1, "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5, "seis": 6,
+             "siete": 7, "ocho": 8, "nueve": 9,
+             "um": 1, "uma": 1, "dois": 2, "duas": 2, "quatro": 4, "sete": 7, "oito": 8, "nove": 9}
+_YW_TEENS = {"ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15,
+             "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19,
+             "diez": 10, "once": 11, "doce": 12, "trece": 13, "catorce": 14, "quince": 15,
+             "dieciseis": 16, "diecisiete": 17, "dieciocho": 18, "diecinueve": 19,
+             "veintiuno": 21, "veintiun": 21, "veintidos": 22, "veintitres": 23, "veinticuatro": 24,
+             "veinticinco": 25, "veintiseis": 26, "veintisiete": 27, "veintiocho": 28,
+             "veintinueve": 29,
+             "dez": 10, "onze": 11, "doze": 12, "treze": 13, "catorze": 14, "quatorze": 14,
+             "quinze": 15, "dezesseis": 16, "dezasseis": 16, "dezessete": 17, "dezassete": 17,
+             "dezoito": 18, "dezenove": 19, "dezanove": 19}
+_YW_TENS = {"twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70,
+            "eighty": 80, "ninety": 90,
+            "veinte": 20, "treinta": 30, "cuarenta": 40, "cincuenta": 50, "sesenta": 60,
+            "setenta": 70, "ochenta": 80, "noventa": 90,
+            "vinte": 20, "trinta": 30, "quarenta": 40, "cinquenta": 50, "sessenta": 60,
+            "oitenta": 80}
+_YW_JOIN = {"y", "e", "and"}
+
+
+def _yw_tokens(s: str) -> list[str]:
+    return re.findall(r"[a-z]+|\d+", _fold(s or "").replace("-", " ").replace("\u2011", " "))
+
+
+def _yw_small(toks: list[str], i: int) -> tuple[int, int] | None:
+    """(value 1..99, next index) for the number starting at toks[i]."""
+    if i < len(toks) and toks[i] in _YW_JOIN:
+        i += 1
+    if i >= len(toks):
+        return None
+    t = toks[i]
+    if t in _YW_TEENS:
+        return _YW_TEENS[t], i + 1
+    if t in _YW_TENS:
+        j = i + 1
+        if j < len(toks) and toks[j] in _YW_JOIN:
+            j += 1
+        if j < len(toks) and toks[j] in _YW_UNITS:
+            return _YW_TENS[t] + _YW_UNITS[toks[j]], j + 1
+        return _YW_TENS[t], i + 1
+    if t in _YW_UNITS:
+        return _YW_UNITS[t], i + 1
+    return None
+
+
+def _years_in_words(s: str) -> set[str]:
+    """Every four-digit year the words in `s` say, as digit strings."""
+    toks, years = _yw_tokens(s), set()
+    for i, t in enumerate(toks):
+        nxt = toks[i + 1] if i + 1 < len(toks) else ""
+        base = None
+        if t in ("two", "dos", "dois") and nxt in ("thousand", "mil"):
+            base, j = 2000, i + 2
+        elif t == "mil" and nxt in ("novecientos", "novecentos"):
+            base, j = 1900, i + 2
+        if base is not None:
+            small = _yw_small(toks, j)
+            years.add(str(base + (small[0] if small else 0)))
+            continue
+        # The paired English reading: "nineteen seventy seven", "twenty ten",
+        # "nineteen oh five", "nineteen hundred". The second half is 10..99 or
+        # "oh" and a unit, so "twenty two" alone stays a day.
+        if t in ("eighteen", "nineteen", "twenty"):
+            century = {"eighteen": 18, "nineteen": 19, "twenty": 20}[t] * 100
+            if nxt == "hundred":
+                years.add(str(century))
+            elif nxt in ("oh", "o") and i + 2 < len(toks) and toks[i + 2] in _YW_UNITS:
+                years.add(str(century + _YW_UNITS[toks[i + 2]]))
+            else:
+                small = _yw_small(toks, i + 1) if nxt not in _YW_JOIN else None
+                if small and small[0] >= 10:
+                    years.add(str(century + small[0]))
+    return years
+
+
+def _year_said(year: str, words: str) -> bool:
+    return bool(re.search(rf"\b{year}\b", words)) or year in _years_in_words(words)
 
 
 def _date_said(value: str, cited: str) -> bool:
@@ -455,14 +551,18 @@ def _date_said(value: str, cited: str) -> bool:
         return False
     words = _fold(cited)
     year, month, day = m.group(1), int(m.group(2)), m.group(3)
-    if not re.search(rf"\b{year}\b", words):
+    if not _year_said(year, words):
         return False
     names = _MONTHS.get(month, ())
     if not any(re.search(rf"\b{n}\b", words) for n in names) and not re.search(rf"\b0?{month}[/.-]", words):
         return False
     if day is None:
         return True
-    return bool(re.search(rf"\b0?{int(day)}(?:st|nd|rd|th)?\b", words))
+    if re.search(rf"\b0?{int(day)}(?:st|nd|rd|th)?\b", words):
+        return True
+    # A day in words, read with the year's own words taken out first, so the
+    # "seven" of "nineteen seventy seven" is not a day she said.
+    return _day_was_spoken(int(day), _YEAR_IN_WORDS.sub(" ", " ".join(_fold_tokens(cited))))
 
 
 # A state from a city is NOT completed from context (standing rule: San Antonio
@@ -1082,6 +1182,14 @@ for _i, _es in enumerate(
     _DAY_WORDS[_es] = _i
 _DAY_WORDS["uno"] = 1
 _DAY_WORDS["primer"] = 1
+# Portuguese, where it differs from Spanish. "um" alone is left out: in an
+# English line it is a hesitation, and it would read as the 1st.
+for _pt, _i in (("primeiro", 1), ("dois", 2), ("quatro", 4), ("sete", 7), ("oito", 8),
+                ("nove", 9), ("dez", 10), ("onze", 11), ("doze", 12), ("treze", 13),
+                ("catorze", 14), ("quatorze", 14), ("quinze", 15), ("dezesseis", 16),
+                ("dezasseis", 16), ("dezessete", 17), ("dezassete", 17), ("dezoito", 18),
+                ("dezenove", 19), ("dezanove", 19), ("vinte", 20), ("trinta", 30)):
+    _DAY_WORDS[_pt] = _i
 # Apocopated Spanish, which is how these are actually spoken before a noun.
 # "veintiun" is what "veintiún" folds to once the accent comes off, and
 # without it a day she really said would be deferred as invented.
@@ -1113,6 +1221,12 @@ for _ten_word, _ten in (("veinte", 20), ("treinta", 30)):
         if _ten + _u > 31:
             continue
         _DAY_PHRASES[f"{_ten_word} y {_es}"] = _ten + _u
+for _ten_word, _ten in (("vinte", 20), ("trinta", 30)):
+    for _u, _pt in enumerate(
+        ["um", "dois", "tres", "quatro", "cinco", "seis", "sete", "oito", "nove"], start=1):
+        if _ten + _u > 31:
+            continue
+        _DAY_PHRASES[f"{_ten_word} e {_pt}"] = _ten + _u
 _DAY_PHRASES["treinta y un"] = 31   # apocopated, and the one that was missed
 _DAY_PHRASES["veinte y un"] = 21
 
@@ -1168,7 +1282,7 @@ def _known_line(known_facts: str | None, field_id) -> str:
 def _spoken_partial(year: str, month: int, said: str, known_line: str) -> str | None:
     """The part of a date she actually gave: YYYY-MM, YYYY, or nothing."""
     words = _fold(said)
-    year_ok = bool(re.search(rf"\b{year}\b", words)) or year in known_line
+    year_ok = _year_said(year, words) or year in known_line
     if not year_ok:
         return None
     named = any(re.search(rf"\b{n}\b", words) for n in _MONTHS.get(month, ()))
@@ -1184,6 +1298,7 @@ def _spoken_partial(year: str, month: int, said: str, known_line: str) -> str | 
 _YEAR_IN_WORDS = re.compile(
     r"\b(?:dos mil(?:\s+(?:y\s+)?[a-z]+)?"
     r"|mil novecientos(?:\s+[a-z]+(?:\s+y\s+[a-z]+)?)?"
+    r"|(?:dois mil|mil novecentos)(?:\s+e)?(?:\s+[a-z]+(?:\s+e\s+[a-z]+)?)?"
     r"|two thousand(?:\s+(?:and\s+)?[a-z]+(?:\s+[a-z]+)?)?"
     r"|(?:nineteen|twenty)\s+(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|oh|o)(?:\s+[a-z]+)?)\b")
 
