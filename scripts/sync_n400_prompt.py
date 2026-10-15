@@ -770,6 +770,7 @@ VERSIONS = {
             "an offer she has not confirmed is not a fact",
             "Asking one as a yes or no question is not filling it (AN ANCHOR MAY BE OFFERED, NEVER FILED).",
             "AT THE TRIP QUESTION, A TRIP HOME GETS THE COUNTRY OFFERED IN THE SAME REPLY",
+            "A CAPTURE GAP WITH HER WORDS IS OFFERED BACK, NEVER ASKED COLD",
         ],
         "absent": [],
     },
