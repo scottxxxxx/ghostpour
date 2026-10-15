@@ -604,7 +604,7 @@
   "feature_definitions": {
     "context_quilt": {
       "category": "intelligence",
-      "display_name": "ミーティングメモリー",
+      "display_name": "Context Quilt",
       "description": "AIが過去の会議を記憶し、その知識を自動的に活用します。",
       "teaser_description": "AIが過去の会議とのつながりを発見しました",
       "upgrade_cta": "Plusにアップグレードして、長期記憶のContext Quiltをすべての回答に",

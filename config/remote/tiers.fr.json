@@ -604,7 +604,7 @@
   "feature_definitions": {
     "context_quilt": {
       "category": "intelligence",
-      "display_name": "Mémoire des réunions",
+      "display_name": "Context Quilt",
       "description": "Votre IA se souvient des réunions passées et utilise ces connaissances automatiquement.",
       "teaser_description": "Votre IA a trouvé des liens avec vos réunions passées",
       "upgrade_cta": "Passez à Plus pour intégrer Context Quilt, votre mémoire à long terme, à chaque réponse",

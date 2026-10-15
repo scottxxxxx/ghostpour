@@ -59,5 +59,6 @@ def test_items_mirror_bullets_and_no_dash_or_old_naming_survives():
             assert "—" not in text and "–" not in text, (suf, t)
             assert "Meeting Memory" not in text and "every conversation" not in text, (suf, t)
         cq = d["feature_definitions"]["context_quilt"]
+        assert cq["display_name"] == "Context Quilt", suf
         for s in [cq["upgrade_cta"]] + list(cq["cta_strings"].values()):
             assert "Context Quilt" in s and "{recall_window_days}" not in s, (suf, s)
