@@ -2122,13 +2122,16 @@ async def _chat_impl(
                                   "context_quilt",
                                   _app(request)) == "enabled"):
         _mem_line = (
-            "MEMORY CAPABILITY: this product has Meeting Memory (Context "
-            "Quilt): it recalls the user's previous meetings automatically "
-            "when it is included in a conversation's context. It is NOT "
-            "included in this conversation's context. If the user asks you "
-            "to use it, tell them Meeting Memory is not part of this "
-            "conversation's included context and that starting a new "
-            "conversation with Meeting Memory included will bring it in. "
+            # Named for the chip the user switches on: "Context Quilt" in
+            # both SS chats (2026-10-15); "Meeting Memory" named a switch
+            # that does not exist.
+            "MEMORY CAPABILITY: this product has Context Quilt, the user's "
+            "long-term memory: it recalls the user's previous meetings "
+            "automatically when it is included in a conversation's context. "
+            "It is NOT included in this conversation's context. If the user "
+            "asks you to use it, tell them Context Quilt is not part of this "
+            "conversation's included context, and that starting a new "
+            "conversation with Context Quilt included will bring it in. "
             "Never claim the product lacks memory or that you have no "
             "access to Context Quilt.")
         _sys_mem = (body.system_prompt or "").rstrip()
