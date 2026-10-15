@@ -1099,6 +1099,13 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
             logger.warning(
                 "n400_date_day_unspoken turn_id=%s field_id=%s claimed=%s deferred_as=%s",
                 turn_id, d["field_id"], d["value"], d["partial_value"])
+        # After the day guard, which has already deferred a date whose day
+        # she never said; this one checks the month and year it was filed with.
+        new_text, off = defer_dates_off_their_known_partial(new_text, known_facts, user_content)
+        for d in off:
+            logger.warning(
+                "n400_date_off_known_partial turn_id=%s field_id=%s claimed=%s partial=%s",
+                turn_id, d["field_id"], d["value"], d["partial_value"])
     # Before the battery marker, which reads reply.values().
     new_text, reply_shape = normalize_reply_shape(new_text)
     if reply_shape is not None:
@@ -1289,6 +1296,71 @@ def _spoken_partial(year: str, month: int, said: str, known_line: str) -> str | 
     if named or f"{year}-{month:02d}" in known_line:
         return f"{year}-{month:02d}"
     return year
+
+
+# --- a date filed off its own known partial (2026-10-15) --------------------
+#
+# Build 182's narrowed revisit: she gave "November 2021" earlier, taps Answer
+# by voice, hears "What day in November?" and says "The 15th." The day guard
+# checks only that the DAY is hers, so a 2021-12-15 or 2020-11-15 assembled
+# from that same "The 15th." was kept: the month and year she gave lived only
+# in the interviewer's line, which the floor never trusts. Agreed with the
+# auditor: the client keeps the field's partial in KNOWN FACTS until the day is
+# filed, and a full date (or a month) minted for that field must start with it.
+# A year or month she says in THIS line is a correction and is hers ("actually
+# it was March 2019" over a partial of 2018). Inert without a partial.
+OFF_PARTIAL_REASON = "the month or year differs from the partial on file and is not in what she just said"
+def _known_partial(known_facts: str | None, field_id) -> str | None:
+    """The partial date KNOWN FACTS holds for a field, or None.
+
+    Two shapes: the deferral line ("deferred, to verify from a document,
+    partial 2020-06") and the revisit line ("2021-11, day missing")."""
+    line = _known_line(known_facts, field_id)
+    if not line:
+        return None
+    rest = line.split(":", 1)[1] if ":" in line else ""
+    m = re.search(r"\bpartial\s+(\d{4}(?:-\d{2})?)\b", rest)
+    if m:
+        return m.group(1)
+    m = re.match(r"\s*(\d{4}(?:-\d{2})?)\s*,\s*(?:day|month)[a-z ]*missing\b", rest)
+    return m.group(1) if m else None
+
+
+def defer_dates_off_their_known_partial(text: str, known_facts: str | None,
+                                        user_content: str | None) -> tuple[str, list[dict]]:
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, []
+    if not isinstance(turn, dict) or not isinstance(turn.get("facts"), list) or not known_facts:
+        return text, []
+    said = _fold(user_content or "")
+    already = {d.get("field_id") for d in (turn.get("deferred") or []) if isinstance(d, dict)}
+    kept, moved = [], []
+    for f in turn["facts"]:
+        fid = f.get("field_id") if isinstance(f, dict) else None
+        value = str(f.get("value") or "") if isinstance(f, dict) else ""
+        partial = _known_partial(known_facts, fid) if re.fullmatch(r"\d{4}-\d{2}(?:-\d{2})?", value) else None
+        if not partial or value.startswith(partial):
+            kept.append(f)
+            continue
+        year, month = value[:4], int(value[5:7])
+        year_ok = year == partial[:4] or _year_said(year, said)
+        month_ok = len(partial) == 4 or value[5:7] == partial[5:7] or any(
+            re.search(rf"\b{n}\b", said) for n in _MONTHS.get(month, ()))
+        if year_ok and month_ok:
+            kept.append(f)
+            continue
+        moved.append({"field_id": fid, "value": value, "partial_value": partial,
+                      "reason": OFF_PARTIAL_REASON})
+        if fid not in already:
+            turn.setdefault("deferred", []).append(
+                {"field_id": fid, "partial_value": partial, "reason": OFF_PARTIAL_REASON})
+    if not moved:
+        return text, []
+    turn["facts"] = kept
+    turn["facts_dropped"] = (turn.get("facts_dropped") or []) + moved
+    return json.dumps(turn, ensure_ascii=False), moved
 
 
 # A year said in words ("dos mil veintidós", "twenty twenty-two", "nineteen
