@@ -168,3 +168,19 @@ def test_a_date_is_said_back_with_the_day_she_gave():
 def test_every_part_summary_carries_its_checkpoint():
     i = _PROMPT.index("EVERY PART SUMMARY CARRIES ITS `section_checkpoint`")
     assert "Parts 1, 2 and 5 were summed up in words only" in _PROMPT[i:i + 500]
+
+
+def test_a_part_is_finished_before_the_next_one_opens():
+    """Scott's standing rule (case c2ba1f75, build 193): Part 4 closed with a
+    ZIP owed, Part 2's middle name came after Part 4, and Tamarack's ZIP was
+    asked after Part 7."""
+    i = _PROMPT.index("FINISH A PART BEFORE MOVING ON (Scott, 2026-10-16")
+    assert i > _PROMPT.index("MOVING THE INTERVIEW")
+    rule = _PROMPT[i:i + 1400]
+    assert "the ZIP, the day of each date and every agenda line of that part" in rule
+    assert "only when she explicitly asks to move on or says she will come back to it later" in rule
+    assert "you may ask ONCE whether she would like to come back to it later, and move only on her yes" in rule
+    assert "Never go back to a part you already summarized to ask something it owed" in rule
+    # The agenda paragraph no longer licenses a jump to any node.
+    assert "You may ask any node on the agenda when the conversation makes that natural." not in _PROMPT
+    assert "You may ask any node of the part you are in" in _PROMPT
