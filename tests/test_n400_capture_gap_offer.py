@@ -192,6 +192,7 @@ def test_a_volunteered_none_files_its_gate_no_in_the_same_response():
     i = _PROMPT.index('A STATED NONE THAT ANSWERS A GATE IS THAT GATE\'S "no"')
     rule = _PROMPT[i:i + 1200]
     assert 'p2.has_middle_name "no", p2.has_other_names "no"' in rule
+    assert 'for "no kids" the count p6.total_children 0' in rule
     assert "even when the gate belongs to a later part" in rule
     assert "NEVER SAY BACK A VALUE, OR A NONE, THAT THIS RESPONSE'S facts OR KNOWN FACTS DO NOT CARRY." in rule
     # The empty-string rule no longer claims the gated nones.
