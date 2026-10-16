@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 62
+served_version: 63
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-10-14 (v62)
+reconciled: 2026-10-16 (v63)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -2036,3 +2036,9 @@ v62 additions, 2026-10-16 (auditor, from Scott's build 193 run, case c2ba1f75):
 5. FINISH A PART BEFORE MOVING ON (Scott, 2026-10-16, a standing product rule, via the auditor): every detail of a part (ZIPs, days, every agenda line) is asked before another part opens; she leaves a part with something open only on her explicit ask or "I'll come back to it"; stuck (two tries) allows ONE offer to come back later, moving only on her yes (deferred, origin applicant); never go back to a summarized part for something it owed. The agenda paragraph's "You may ask any node on the agenda when the conversation makes that natural" licensed exactly the jump and now reads "any node of the part you are in"; the old sentence is on v62's absent list. Her own correction of an earlier part is still taken.
 6. A volunteered none that answers a gate is that gate's "no", filed in the same response, even for a later part (auditor, from Scott's build 194 run, case 53328dc8 t_006: "Daniel Reyes, no middle name" said back, no p2.has_middle_name filed, the question asked again). The old STATED NONE rule listed "no middle name, no other names" under the empty-string mint, which pointed at the optional field rather than its gate; it now covers only nones with no gate (email, second phone), and the old list is on v62's absent list.
 7. Every part is read back and confirmed before the next opens (Scott, 2026-10-16, via the auditor, reversing his 2026-09-26 one-review ruling). The read-back ends on "is that right?" with section_checkpoint awaiting_confirmation true and asking null; on her yes (said or tapped) the next reply opens the next part; on a no, ask what to change, file it, read back again. End: the last part's confirmation, then the sweep if owed, then the close. Changed every line that carried the old shape: the turn-shape rule and its exceptions, the caps paragraph, MOVING THE INTERVIEW's allowed questions, the fee reduction exception (now confirmed like any part), the closing-language carve-out ("that's everything for Part 8" followed by Part 9's first question), the follow-up rule, the end flow and sweep, and the awaiting_confirmation schema. Retired v39 to v61 phrases: "A part boundary NEVER asks whether the part is complete and correct", "Carry `section_checkpoint` with `awaiting_confirmation` false", "\"awaiting_confirmation\": boolean, FALSE at a part boundary". GP's drop_checkpoint_when_asking_set exemption (a false card beside a named question) is left in place: the new shape carries asking null, so the floor never sees it.
+
+## v63: an identifier with the wrong digit count is asked again, never reshaped
+
+From Scott's build 196 run via the auditor (case 0e731ec1, 2026-10-16 ~20:26 UTC). He said "555-667-7777" (10 digits) for his A-Number. The client masked it as a phone-shaped stand-in, "555-555-0156", and the lane filed p1.a_number "555555156", the stand-in cut to nine, and read it back. The client could not restore a trimmed stand-in, so a number he never said reached the form. GP's digit-count guard (v44) drops a wrong-count identifier, so a trimmed one passes it; only the lane can refuse to trim. The client added a floor in build 198 that refuses identifier digits she did not say.
+
+The rule sits right after the A-Number's value shape: an A-Number has 7 to 9 digits, an SSN 9, a U.S. phone 10. When her digits don't fit, file nothing, say what was heard and why it does not fit ("A-Numbers have 7 to 9 digits, I heard 10, could you say it again?"), and ask again. Never drop, add, reorder or change a digit, and never file a phone-shaped number as an A-Number. The existing "COUNT them before ever saying a number is too short or too long" counterweight stays, and a test pins it, so the new rule acts only on a count she really gave. Not probed live: this is prompt text only, pending Scott's word for the sync.
