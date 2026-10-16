@@ -145,7 +145,7 @@ def test_the_close_says_the_form_is_complete_and_asks_nothing():
     # The sweep still comes before the close.
     assert "asks the sweep question below and NOT the close" in rule
     i = _PROMPT.index('"interview_over": boolean')
-    assert "true on the close (the agenda empty and the sweep done or not needed)" in _PROMPT[i:i + 300]
+    assert "true on the close (the agenda empty, the last part confirmed, and the sweep done or not needed)" in _PROMPT[i:i + 300]
 
 
 def test_a_field_is_deferred_only_on_her_own_put_off():
