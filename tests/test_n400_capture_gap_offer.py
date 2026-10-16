@@ -113,3 +113,13 @@ def test_a_date_capture_gap_with_a_partial_asks_the_day_and_never_offers_the_yea
     assert "both ends of one row in one question is fine" in rule
     assert 're-send the deferral with the same field id and the same partial, origin "applicant"' in rule
     assert "day not asked yet" not in _PROMPT
+
+
+def test_asking_field_ids_lists_only_what_the_question_asks():
+    """Build 191 counts a field as asked only when asking.field_ids lists it.
+    A ZIP question listing the whole job row would read as the dates asked."""
+    i = _PROMPT.index("`field_ids` LISTS ONLY THE FIELDS YOUR SPOKEN QUESTION ASKS")
+    assert i > _PROMPT.index('"asking": null, or an OBJECT {"node_id": string, "field_ids": [string]}')
+    rule = _PROMPT[i:i + 600]
+    assert "lists only that row's ZIP field" in rule
+    assert '["p7.employer2.from", "p7.employer2.to"]' in rule
