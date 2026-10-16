@@ -780,6 +780,7 @@ VERSIONS = {
             "A CAPTURE GAP ON A DATE WHOSE PARTIAL IS A YEAR OR A MONTH AND YEAR IS A DAY STILL OWED, NOT AN OFFER",
             "which is how the app learns the day was asked and turns the line into an ordinary deferral.",
             "`field_ids` LISTS ONLY THE FIELDS YOUR SPOKEN QUESTION ASKS, NEVER EVERY FIELD ON THE NODE",
+            "AND `node_id` IS THE NODE THAT OWNS THOSE FIELDS, never a gate she just answered",
         ],
         "absent": [
             "for the current part and the next.",

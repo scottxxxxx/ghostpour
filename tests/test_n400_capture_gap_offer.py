@@ -123,3 +123,12 @@ def test_asking_field_ids_lists_only_what_the_question_asks():
     rule = _PROMPT[i:i + 600]
     assert 'lists only ["p7.employer2.postal_code"]' in rule
     assert '["p7.employer2.from", "p7.employer2.to"]' in rule
+
+
+def test_asking_node_id_owns_its_fields_never_the_gate_just_answered():
+    """t_023's first call named the has_job2 gate with the job row's field;
+    an older client read node_id alone and discarded the reply unspoken."""
+    i = _PROMPT.index("AND `node_id` IS THE NODE THAT OWNS THOSE FIELDS")
+    rule = _PROMPT[i:i + 500]
+    assert '{"node_id": "q_p7_job2", "field_ids": ["p7.employer2.from"]}' in rule
+    assert "never q_p7_more_jobs1" in rule
