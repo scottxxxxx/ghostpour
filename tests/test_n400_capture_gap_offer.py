@@ -74,3 +74,16 @@ def test_a_gap_question_answer_is_a_row_never_a_gate_no():
     rule = _PROMPT[i:i + 700]
     assert '"I was out of work then" is an unemployed row, never has_job no' in rule
     assert '"I was staying with family" is an address row, never has_prior_address no' in rule
+
+
+def test_an_accepted_stretch_goes_down_the_month_and_year_path():
+    """The app does not fill a gap row's dates (historyGapAsk only words the
+    line). Her "yeah, between those" gives months and years, which the
+    standing rule never mints as a "2021-11" fact: ask the day, defer the
+    month only if she does not know."""
+    i = _PROMPT.index("THE STRETCH IN THE APP'S QUESTION IS AN ANCHOR OFFERED")
+    rule = _PROMPT[i:i + 700]
+    assert "the month and year rule applies: mint no date, ask the start day once" in rule
+    assert 'defer with the month as the partial ("2021-11") only if she does not know' in rule
+    # The rule it leans on is still there and still forbids a month-only fact.
+    assert 'never a fact with the value "2017-10" either' in _PROMPT

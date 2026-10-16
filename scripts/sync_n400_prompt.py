@@ -775,6 +775,7 @@ VERSIONS = {
             "A LATER PART'S VALUE SAID EARLY IS MINTED, NEVER HELD AS A CAPTURE GAP",
             "because no field id for it is in the agenda or in VOLUNTEER FIELDS, is a CAPTURE GAP",
             "A GAP QUESTION THE APP WROTE IS ASKED AS WRITTEN",
+            "THE STRETCH IN THE APP'S QUESTION IS AN ANCHOR OFFERED, NEVER FILED ON ITS OWN",
         ],
         "absent": [
             "for the current part and the next.",
