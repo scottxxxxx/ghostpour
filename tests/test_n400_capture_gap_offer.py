@@ -121,5 +121,5 @@ def test_asking_field_ids_lists_only_what_the_question_asks():
     i = _PROMPT.index("`field_ids` LISTS ONLY THE FIELDS YOUR SPOKEN QUESTION ASKS")
     assert i > _PROMPT.index('"asking": null, or an OBJECT {"node_id": string, "field_ids": [string]}')
     rule = _PROMPT[i:i + 600]
-    assert "lists only that row's ZIP field" in rule
+    assert 'lists only ["p7.employer2.postal_code"]' in rule
     assert '["p7.employer2.from", "p7.employer2.to"]' in rule
