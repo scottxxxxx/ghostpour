@@ -87,3 +87,22 @@ def test_an_accepted_stretch_goes_down_the_month_and_year_path():
     assert 'defer with the month as the partial ("2021-11") only if she does not know' in rule
     # The rule it leans on is still there and still forbids a month-only fact.
     assert 'never a fact with the value "2017-10" either' in _PROMPT
+
+
+def test_the_reply_never_credits_her_with_checking_she_did_not_say():
+    """Case 9e332c5d, build 190: the old checkpoint example itself read
+    "which you are checking", and the summary credited him with a plan he
+    never stated."""
+    assert "which you are checking" not in _PROMPT
+    i = _PROMPT.index("NEVER SAY OR IMPLY SHE IS CHECKING")
+    rule = _PROMPT[i:i + 500]
+    assert '"except the exact start and end days at Lone Star Homes"' in rule
+    assert "which we'll come back to" in rule
+
+
+def test_a_day_not_asked_yet_line_is_asked_and_a_dont_know_re_sends_the_deferral():
+    i = _PROMPT.index('"partial date, day not asked yet, ask for the exact day once"')
+    rule = _PROMPT[i:i + 700]
+    assert "Ask for that day now, as the next question" in rule
+    assert "both ends of one row in one question is fine" in rule
+    assert "re-send the deferral with the same field id and the same partial" in rule

@@ -776,10 +776,14 @@ VERSIONS = {
             "because no field id for it is in the agenda or in VOLUNTEER FIELDS, is a CAPTURE GAP",
             "A GAP QUESTION THE APP WROTE IS ASKED AS WRITTEN",
             "THE STRETCH IN THE APP'S QUESTION IS AN ANCHOR OFFERED, NEVER FILED ON ITS OWN",
+            "NEVER SAY OR IMPLY SHE IS CHECKING, LOOKING UP OR VERIFYING ANYTHING UNLESS HER OWN WORDS SAID SO",
+            'A KNOWN FACTS LINE READING "partial date, day not asked yet, ask for the exact day once" IS AN ASK YOU STILL OWE',
+            "re-sending is how the app learns the ask happened",
         ],
         "absent": [
             "for the current part and the next.",
             "because no field id for it is in front of you, is a CAPTURE GAP",
+            "except the exact move-in date, which you are checking",
         ],
     },
 }
